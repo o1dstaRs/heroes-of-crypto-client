@@ -1,3 +1,4 @@
+import { creatureName, timeAgo } from "./PlayerPortal/portalFormat";
 import { PremiumShield } from "./premium/PremiumAdvisor";
 import { type TeamType } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
@@ -17,7 +18,6 @@ import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTe
 import type { OpponentConnectionLabel } from "./opponentConnection";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
 import { useFullscreenActive } from "./useFullscreenActive";
-import { creatureName, timeAgo } from "./PlayerPortal/portalFormat";
 
 export type MatchupPlayer = Readonly<{
     playerId?: string;
@@ -38,6 +38,8 @@ export type MatchupPlayer = Readonly<{
 }>;
 
 type MatchupOverlayProps = Readonly<{
+    mirrored?: boolean;
+    action?: React.ReactNode;
     players: readonly MatchupPlayer[];
     placement: "pick" | "fight";
     /** Fight screens centre the strip only after the unit roster has cleared for live combat. */
@@ -47,13 +49,6 @@ type MatchupOverlayProps = Readonly<{
     windowSize?: { width: number; height: number };
     /** The locally-controlled seat. Undefined for observers/replays, which retain canonical team colours. */
     viewerTeam?: TeamType;
-    /**
-     * The viewer sees the board mirrored (settings/playerBoardSide): their army stands on the other side from
-     * the one the match seated them on, so the strip swaps its two sides to agree with the board under it.
-     */
-    mirrored?: boolean;
-    /** A control docked at the strip's right edge (pointer events enabled): the co-op sandbox's Leave. */
-    action?: React.ReactNode;
     /**
      * Drop the strip behind the draft board. The inspector readout shares the header band with it, and the
      * creature the player is reading beats a scoreboard they are not.
@@ -832,9 +827,9 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     status,
     windowSize,
     viewerTeam,
+    demoted = false,
     mirrored = false,
     action,
-    demoted = false,
 }) => {
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const [collapsed, setCollapsed] = useState(readMatchupCollapsed);
@@ -883,8 +878,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     const fightRightEdge = fightPosition?.right ?? 16;
     const scale = !isFullscreen && placement === "pick" ? MATCHUP_WINDOWED_SCALE : 1;
     const placementTransform = centred ? "translateX(-50%)" : "translateX(-100%)";
-    // A presence plaque needs more room beside the name than the record line it replaces.
-    const connectionAlert = players.find((player) => player.connection)?.connection;
+    const connectionAlert = players.find((p) => p.connection)?.connection;
     const toggleCollapsed = (): void => {
         setCollapsed((current) => {
             const next = !current;
@@ -911,11 +905,11 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                       ? "min(400px, calc(100vw - 24px))"
                       : connectionAlert
                         ? "min(440px, calc(100vw - 24px))"
-                        : "min(326px, calc(100vw - 24px))",
-                height: collapsed ? 30 : 58,
+                        : "min(298px, calc(100vw - 24px))",
+                height: collapsed ? 30 : 54,
                 maxWidth:
                     placement === "fight" && !collapsed
-                        ? `${(fightPosition?.maxWidth ?? 326) + (action ? 74 : 0)}px`
+                        ? `${(fightPosition?.maxWidth ?? 298) + (action ? 74 : 0)}px`
                         : undefined,
                 transition: "left 260ms ease, transform 260ms ease, width 180ms ease, height 180ms ease",
             }}
@@ -1106,8 +1100,6 @@ export const PickMatchupOverlay: React.FC<{
         };
     }, [fallbackPlayers, gameId]);
 
-    // No board exists yet, but this is the same strip the fight shows. Seat the player on the side they chose to
-    // see their army on, so the strip does not swap sides the moment the fight starts.
     const mirrored = shouldMirrorBoard({
         viewerTeam: normalizedUserTeam,
         preference: readBoardSidePreference(),

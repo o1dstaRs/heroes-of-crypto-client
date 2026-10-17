@@ -41,6 +41,37 @@ const resource = (page: ArbalesterIdlePage, unloaded: string[]): ArbalesterPageR
 });
 
 describe("native Arbalester idle pages", () => {
+    test("short loops retain all four pages across laps, share leases and release after removal", async () => {
+        const short = {
+            ...format,
+            frameCount: 256,
+            durations: format.durations.slice(0, 256),
+            pages: format.pages.slice(0, 4),
+        };
+        const loaded: string[] = [];
+        const unloaded: string[] = [];
+        const pool = new ArbalesterIdlePagePool(async (page) => {
+            loaded.push(page.imageKey);
+            return resource(page, unloaded);
+        });
+        const first = new ArbalesterIdlePager(short, pool, true);
+        const second = new ArbalesterIdlePager(short, pool, true);
+        await flush();
+        expect(loaded).toHaveLength(4);
+        for (let lap = 0; lap < 3; lap++)
+            for (let page = 0; page < 4; page++) {
+                expect(first.showFrame(lap * 5120 + page * 1280, () => {})).toBe(true);
+                await flush();
+                expect(loaded).toHaveLength(4);
+                expect(unloaded).toHaveLength(0);
+            }
+        first.dispose();
+        await flush();
+        expect(unloaded).toHaveLength(0);
+        second.dispose();
+        await flush();
+        expect(new Set(unloaded)).toEqual(new Set(loaded));
+    });
     test("validates complete native manifests, dimensions, ordering and durations", () => {
         const meta = { ...format, frameDurationsMs: format.durations };
         expect(arbalesterIdlePages(meta)).toEqual(format);

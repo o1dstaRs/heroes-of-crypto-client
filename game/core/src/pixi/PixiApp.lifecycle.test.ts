@@ -8,7 +8,9 @@ describe("PixiApp teardown", () => {
     test("releases idle filter targets first and empties the pool only once the renderer is gone", () => {
         const order: string[] = [];
         const heldByText = TexturePool.getOptimalTexture(64, 64, 1, false);
-        const clearPool = spyOn(TexturePool, "clear").mockImplementation(() => {
+        const pooledTexture = TexturePool.getOptimalTexture(37, 41, 1, false);
+        TexturePool.returnTexture(pooledTexture);
+        const clearPool = spyOn(pooledTexture.source, "destroy").mockImplementation(() => {
             order.push("pool");
         });
         const app = new PixiApp();
@@ -29,7 +31,7 @@ describe("PixiApp teardown", () => {
         app.destroy();
         app.destroy();
 
-        expect(order).toEqual(["ticker", "app", "pool"]);
+        expect(order).toEqual(["ticker", "pool", "app"]);
         expect(clearPool).toHaveBeenCalledTimes(1);
         clearPool.mockRestore();
         TexturePool.clear();
@@ -166,5 +168,23 @@ describe("PixiApp guarded render", () => {
             TexturePool.returnTexture(texture);
             TexturePool.clear();
         }
+    });
+
+    test("resizing releases idle targets while text can return a texture borrowed before cleanup", () => {
+        const borrowed = TexturePool.getOptimalTexture(77, 43, 1, false);
+        const idle = TexturePool.getOptimalTexture(77, 43, 1, false);
+        const retainedSource = idle.source;
+        const unload = spyOn(retainedSource, "unload");
+        TexturePool.returnTexture(idle);
+        releaseIdlePixiTextures();
+        expect(unload).toHaveBeenCalledTimes(1);
+        expect(idle.destroyed).toBe(true);
+        expect(borrowed.destroyed).toBe(false);
+        expect(() => TexturePool.returnTexture(borrowed)).not.toThrow();
+        const reused = TexturePool.getOptimalTexture(77, 43, 1, false);
+        expect(reused).toBe(borrowed);
+        TexturePool.returnTexture(reused);
+        releaseIdlePixiTextures();
+        unload.mockRestore();
     });
 });

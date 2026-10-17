@@ -11,22 +11,42 @@ import {
 } from "./productionImageAssetPolicy";
 
 describe("production creature animation policy", () => {
-    test("omits disabled creature sheets while keeping the approved live exceptions", () => {
+    test("ships the approved full-resolution Blacksmith walk", () => {
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("blacksmith_walk_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("blacksmith_idle_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("blacksmith_hit_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("blacksmith_death_atlas")).toBe(false);
+        for (const action of ["melee_attack", "melee_attack_up", "melee_attack_down", "cast"]) {
+            expect(isProductionOmittedDisabledUnitAnimationAssetKey(`blacksmith_${action}_atlas`)).toBe(false);
+        }
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("blacksmith_melee_attack_atlas_quarter")).toBe(true);
+    });
+    test("omits disabled creature sheets while keeping the two live exceptions", () => {
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("wolf_idle_atlas_quarter")).toBe(true);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("behemoth_default_atlas_half")).toBe(true);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_attack_atlas_quarter")).toBe(true);
 
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_walk_atlas_quarter")).toBe(false);
-        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_idle_red_atlas_quarter")).toBe(false);
-        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_left_screen_idle_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("ash_moth_walk_atlas_quarter")).toBe(false);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_idle_atlas_quarter")).toBe(false);
-        expect(isProductionOmittedDisabledUnitAnimationAssetKey("beholder_idle_atlas")).toBe(false);
-        expect(isProductionOmittedAssetKey("beholder_idle_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("beholder_idle_atlas")).toBe(true);
+        expect(isProductionOmittedAssetKey("beholder_idle_atlas")).toBe(true);
     });
 
     test("does not classify terrain and UI atlases as creature animation", () => {
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("lava_center_anim_atlas")).toBe(false);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("pick_ban_slash_variant2_atlas")).toBe(false);
+    });
+});
+
+describe("Unyielding Power runtime effects", () => {
+    test("keeps the one-second curl in production", () => {
+        for (const key of ["vfx_unyielding_power_curl_short_atlas", "vfx_unyielding_power_curl_short_atlas_quarter"]) {
+            expect(isProductionOmittedDisabledUnitAnimationAssetKey(key)).toBe(false);
+            expect(isProductionOmittedEnvironmentAssetKey(key)).toBe(false);
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(false);
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);
+        }
     });
 });
 

@@ -1,106 +1,76 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { expect, mock, test } from "bun:test";
+import type { GameEvent } from "@heroesofcrypto/common";
+import { Sandbox } from "./Sandbox";
+import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 
-import { FIGHT_EVENT_VFX } from "./fight_vfx_catalog";
-
-/**
- * Lightning Strike's card says the spell "calls lightning down on an enemy", but it used to render through
- * the same amber spawnFireBurn every other offensive spell shares — the wrong element for an AIR spell, and
- * visually indistinguishable from Fire Strike landing on the same cell.
- *
- * These assertions pin the WIRING from source rather than the prose, for the reason magic_mirror_vfx.test.ts
- * spells out: a VFX whose call site is dropped in a later conflict resolution leaves the helper, constants
- * and documentation in place and goes silently dead with every test still green. The effect firing is what
- * has to be pinned, so the checks below assert the call sits inside renderSpellDamageVfx — the shared helper
- * the live cast paths and the ranked replay path all go through, which is why this plays in ranked too.
- */
-const sceneSource = (name: string): string => readFileSync(join(import.meta.dir, name), "utf8");
-
-const renderSpellDamageVfxBody = (): string => {
-    const sandbox = sceneSource("Sandbox.ts");
-    const start = sandbox.indexOf("protected renderSpellDamageVfx(");
-    expect(start).toBeGreaterThan(-1);
-    // Bound at the next method, never a fixed character count: a window that has to be widened every time
-    // the method grows fails for reasons unrelated to what it is pinning.
-    const nextMethod = sandbox.slice(start + 1).search(/\n {4}(?:protected|private|public) /);
-    return sandbox.slice(start, nextMethod > -1 ? start + 1 + nextMethod : undefined);
-};
-
-describe("Lightning Strike VFX wiring", () => {
-    test("rides the spell_cast event, which ranked renders on its replay path", () => {
-        const spellCast = FIGHT_EVENT_VFX.spell_cast;
-
-        expect(spellCast.rendered).toBe(true);
-        expect(spellCast.ranked).toBe("replay");
-        expect(spellCast.note).toContain("spawnLightningStrike");
+function fixture(alive: boolean) {
+    const visuals = {
+        spawnLightningStrike: mock<(target: { x: number; y: number }, cellSize: number) => void>(() => undefined),
+        spawnFireBurn: mock(() => undefined),
+        spawnFireSweep: mock(() => undefined),
+        showFloatingDamage: mock(() => undefined),
+        spawnMagicMirrorRebound: mock(() => undefined),
+    };
+    const gs = { getCellSize: () => 64, getMinX: () => 0, getMaxX: () => 1024, getMinY: () => 0, getMaxY: () => 1024 };
+    const target = {
+        getVisualCenter: () => ({ x: 350, y: 440 }),
+        getDamagePredictionAnchor: () => undefined,
+        hasAbilityActive: () => false,
+    };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        unitsHolder: { getAllUnits: () => new Map(alive ? [["target", target]] : []) },
+        sc_sceneSettings: { getGridSettings: () => gs },
+        combatVisuals: visuals,
+        showFleshShieldAbsorbedDamage: () => undefined,
+        showWaterShieldAbsorbs: () => undefined,
+        reboundMirrorPosition: () => ({ x: 350, y: 440 }),
     });
+    return { scene, visuals, gs };
+}
 
-    test("CombatVisuals still provides the effect", () => {
-        expect(sceneSource("sandbox/CombatVisuals.ts")).toContain("public spawnLightningStrike(");
-    });
-
-    test("renderSpellDamageVfx calls it for the spell", () => {
-        const body = renderSpellDamageVfxBody();
-
-        expect(body).toContain("LIGHTNING_STRIKE_SPELL_NAME");
-        expect(body).toContain("this.combatVisuals.spawnLightningStrike(hitPosition, cellSize)");
-    });
-
-    test("the bolt replaces the fire burst rather than landing on top of it", () => {
-        const body = renderSpellDamageVfxBody();
-        const bolt = body.indexOf("spawnLightningStrike(hitPosition");
-        const burn = body.indexOf("spawnFireBurn(hitPosition");
-
-        expect(bolt).toBeGreaterThan(-1);
-        expect(burn).toBeGreaterThan(-1);
-        // The two must be the branches of ONE if/else: a Lightning Strike that also puffs amber is the exact
-        // thing this change set out to remove.
-        const between = body.slice(bolt, burn);
-        expect(between).toContain("} else {");
-    });
-
-    test("the spell name is a named constant, not an inline string in the render path", () => {
-        const sandbox = sceneSource("Sandbox.ts");
-
-        expect(sandbox).toContain('const LIGHTNING_STRIKE_SPELL_NAME = "Lightning Strike"');
-        // Exactly one definition and one use: a second literal spelling would drift apart from the config.
-        expect(sandbox.match(/"Lightning Strike"/g)).toHaveLength(1);
-    });
+const cast = (amount = 90): GameEvent => ({
+    type: "spell_cast",
+    casterId: "caster",
+    targetId: "target",
+    spellName: "Lightning Strike",
+    unitIdsDied: [],
+    animations: [],
+    damaged: [
+        { unitId: "target", position: { x: 300, y: 400 }, amount, unitsDied: 0 },
+        {
+            unitId: "caster",
+            position: { x: 100, y: 200 },
+            amount: 20,
+            unitsDied: 0,
+            rebounded: true,
+            reboundedFromUnitId: "target",
+        },
+    ],
 });
 
-describe("Lightning Strike bolt geometry", () => {
-    const combatVisuals = (): string => sceneSource("sandbox/CombatVisuals.ts");
+test("Lightning Strike hits one visual target; reflection keeps its separate beam and no fire", () => {
+    const { scene, visuals } = fixture(true);
+    scene.renderSpellDamageVfx([cast()], { x: 100, y: 200 });
+    expect(visuals.spawnLightningStrike.mock.calls).toEqual([[{ x: 350, y: 440 }, 64]]);
+    expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
+    expect(visuals.spawnFireSweep).not.toHaveBeenCalled();
+    expect(visuals.spawnMagicMirrorRebound).toHaveBeenCalledTimes(1);
+    expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(2);
+});
 
-    test("descends from above the victim, in a y-up world", () => {
-        const source = combatVisuals();
-        const start = source.indexOf("private drawLightningColumn(");
-        expect(start).toBeGreaterThan(-1);
-        const body = source.slice(start, source.indexOf("private stepLightningStrikes(", start));
+test("a removed victim still receives lightning at its authoritative recorded position", () => {
+    const { scene, visuals, gs } = fixture(false);
+    scene.renderSpellDamageVfx([cast()]);
+    expect(visuals.spawnLightningStrike.mock.calls).toEqual([
+        [projectBattlefieldPoint({ x: 300, y: 400 }, gs as never), 64],
+    ]);
+});
 
-        // The column is built from the sky DOWN to the target: y is target.y + height at t=0, target.y at
-        // t=1. If this ever flips, the bolt erupts out of the creature into the sky instead.
-        expect(body).toContain("y: target.y + height * (1 - t)");
-        expect(body).toContain("STRIKE_HEIGHT_CELLS");
-    });
-
-    test("terminates exactly on the creature, with the wander tapering to zero", () => {
-        const source = combatVisuals();
-        const start = source.indexOf("private drawLightningColumn(");
-        const body = source.slice(start, source.indexOf("private stepLightningStrikes(", start));
-
-        // (1 - t) is what keeps the last point at target.x: a constant wander would let the bolt land beside
-        // the unit the damage number floats over.
-        expect(body).toContain("spread * (1 - t)");
-    });
-
-    test("keeps its own palette so it never reads as Thunderbird's chain arc", () => {
-        const source = combatVisuals();
-
-        expect(source).toContain("const STRIKE_CORE = 0xffffff");
-        // The chain ability stays violet; the spell stays white-blue. Same colour would make "the bird
-        // chained me" and "a spell hit me" indistinguishable without reading the log.
-        expect(source).toContain("const CHAIN_GLOW = 0x7a2dff");
-        expect(source).not.toContain("const STRIKE_GLOW = 0x7a2dff");
-    });
+test("a zero-damage strike still flashes; another spell retains its existing fire effect", () => {
+    const { scene, visuals } = fixture(true);
+    scene.renderSpellDamageVfx([cast(0)]);
+    expect(visuals.spawnLightningStrike).toHaveBeenCalledTimes(1);
+    scene.renderSpellDamageVfx([{ ...cast(), spellName: "Meteor Shower" }]);
+    expect(visuals.spawnLightningStrike).toHaveBeenCalledTimes(1);
+    expect(visuals.spawnFireBurn).toHaveBeenCalledTimes(1);
 });

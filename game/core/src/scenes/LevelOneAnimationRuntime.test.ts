@@ -17,9 +17,10 @@ import {
     shouldPreloadUnitAnimationAtlas,
 } from "../pixi/creatureAnimationSettings";
 import { RenderableUnit } from "./RenderableUnit";
-import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 
 const roster = [
+    ["Nature", "Arachna Queen", "melee_attack"],
+    ["Nature", "Arachna Spider", "melee_attack"],
     ["Life", "Peasant", "attack"],
     ["Life", "Squire", "attack"],
     ["Life", "Blacksmith", "melee_attack"],
@@ -57,7 +58,6 @@ beforeAll(() => {
             cookie: "",
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
             querySelector: () => null,
-            querySelectorAll: () => [],
         };
     document.cookie ??= "";
 });
@@ -115,39 +115,6 @@ function samePose(a: RenderableUnit, b: RenderableUnit) {
         (right.filters ?? []).map((f) => f.constructor.name),
     );
 }
-test.each([
-    ["main", RenderableUnit],
-    ["level one", LevelOneRenderableUnit],
-] as const)("%s renderer uses Beholder's detailed approved idle", (_name, Renderer) => {
-    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    const effects = new EffectFactory();
-    const base = Unit.createUnit(
-        HoCConfig.getCreatureConfig(TeamVals.LEFT, "Chaos", "Beholder", "beholder_512", 1),
-        grid,
-        TeamVals.LEFT,
-        UnitVals.CREATURE,
-        new AbilityFactory(effects),
-        effects,
-        false,
-    );
-    const loadedKeys: string[] = [];
-    const unit = Renderer.fromBase(base, (key) => {
-        loadedKeys.push(key);
-        return texture;
-    });
-    const root = new Container();
-    try {
-        unit.setPosition(0, 1024);
-        unit.ensureVisual(root, grid);
-        const visual = unit as unknown as Visuals;
-        expect(loadedKeys.at(-1)).toBe("beholder_idle_atlas");
-        expect(visual.selectionAnimFrames).toHaveLength(16);
-        expect(visual.selectionAnimFrames?.[0].width).toBe(768);
-        expect(visual.selectionAnimFrames?.[0].height).toBe(768);
-    } finally {
-        root.destroy({ children: true });
-    }
-});
 test.each(roster)("%s / %s matches the lab at rest, in motion and in every authored action", (faction, name, melee) => {
     const runtime = create(faction, name, false),
         lab = create(faction, name, true);
@@ -202,8 +169,8 @@ test.each(roster)("%s / %s matches the lab at rest, in motion and in every autho
         lab.root.destroy({ children: true });
     }
 });
-test("other tiers stay outside the approved package and Dryad ranged textures preload", () => {
-    for (const name of ["Cyclops", "Beholder", "Black Dragon"]) expect(usesApprovedBaseAnimations(name)).toBe(false);
+test("all authored tiers share the approved package and Dryad ranged textures preload", () => {
+    for (const name of ["Cyclops", "Beholder", "Black Dragon"]) expect(usesApprovedBaseAnimations(name)).toBe(true);
     expect(CREATURE_SPRITE_ANIMATION_SETTINGS.enabled).toBe(false);
     for (const state of ["attack", "attack_up", "attack_down"])
         expect(shouldPreloadUnitAnimationAtlas(`dryad_lab_${state}_atlas`, false)).toBe(true);

@@ -1,0 +1,365 @@
+import { describe, expect, mock, test } from "bun:test";
+import { Container, Texture, TextureSource } from "pixi.js";
+import {
+    GridConstants,
+    GridMath,
+    GridSettings,
+    TeamVals,
+    type IVisibleDamage,
+    type TeamType,
+} from "@heroesofcrypto/common";
+import { Sandbox } from "./Sandbox";
+import { RankedPlayScene } from "./RankedPlayScene";
+import { CombatVisuals } from "./sandbox/CombatVisuals";
+import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import type { RenderableUnit } from "./RenderableUnit";
+
+const gs = new GridSettings(
+    GridConstants.GRID_SIZE,
+    GridConstants.MAX_Y,
+    GridConstants.MIN_Y,
+    GridConstants.MAX_X,
+    GridConstants.MIN_X,
+    GridConstants.MOVEMENT_DELTA,
+    GridConstants.UNIT_SIZE_DELTA,
+);
+const flush = async () => {
+    for (let i = 0; i < 24; i++) await Promise.resolve();
+};
+
+const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") => {
+    const texture = new Texture({ source: new TextureSource({ width: 512, height: 512 }) });
+    const world = new Container();
+    const actor = (id: string, name: string, x: number, team: TeamType) => {
+        const position = GridMath.getPositionForCell({ x, y: 4 }, gs.getMinX(), gs.getStep(), gs.getHalfStep())!;
+        let destroyed = false;
+        return {
+            getId: () => id,
+            getName: () => name,
+            getTeam: () => team,
+            getPosition: () => position,
+            getVisualCenter: () => position,
+            getProjectileImpactPoint: () => position,
+            getDamagePredictionAnchor: () => position,
+            getRangedProjectileOrigin: () => position,
+            getCells: () => [{ x, y: 4 }],
+            getBaseCell: () => ({ x, y: 4 }),
+            isSmallSize: () => true,
+            getAmountAlive: () => 5,
+            getAmountDied: () => 5,
+            setPosition: () => {},
+            setRemainingStats: () => {
+                destroyed = false;
+            },
+            syncVisual: () => {},
+            setVisualGhost: () => {},
+            getCurrentVisualScale: () => 1,
+            startSpawnAnimation: () => {},
+            getUnitProperties: () => ({ level: 3 }),
+            getAnimationTextureKey: (): string | undefined => undefined,
+            hasAbilityActive: (ability: string) => name === "Zena" && ability === "Chakram",
+            hasAnimationState: () => true,
+            isPlayingOneShotAnimation: () => false,
+            isDead: () => destroyed,
+            applyRecoil: () => {},
+            playOneShotAnimation: mock((_state: string, done?: () => void) => done?.()),
+            destroyVisuals: mock(() => {
+                destroyed = true;
+            }),
+            getStaticBattlefieldPreviewAt: () =>
+                destroyed
+                    ? undefined
+                    : {
+                          texture,
+                          x: position.x,
+                          y: position.y,
+                          anchorX: 0.5,
+                          anchorY: 0.97,
+                          scaleX: 0.5,
+                          scaleY: -0.5,
+                      },
+        };
+    };
+    const a = actor("A", sourceName, 2, TeamVals.LEFT);
+    const b = actor("B", victimName, 6, TeamVals.RIGHT);
+    const c = actor("C", "Wolf", 9, TeamVals.RIGHT);
+    const units = new Map([a, b, c].map((unit) => [unit.getId(), unit]));
+    const visuals = new CombatVisuals({
+        getGridSettings: () => gs,
+        attachToWorldRoot: (node) => {
+            world.addChild(node);
+        },
+        getUnitsHolder: () => undefined!,
+        getSelectedUnitProperties: () => undefined,
+        updateSelectedUnitProperties: () => {},
+        setUnitPropertiesUpdateNeeded: () => {},
+    });
+    visuals.showFloatingDamage = mock();
+    visuals.spawnBloodSpray = mock();
+    visuals.spawnSlash = mock();
+    visuals.showMissLabel = mock();
+    const flights: { impact: () => void; finish: () => void }[] = [];
+    const hops: (() => void)[] = [];
+    const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
+        sc_sceneSettings: { getGridSettings: () => gs },
+        unitsHolder: { getAllUnits: () => units },
+        combatVisuals: visuals,
+        dyingVisualUnits: new Set(),
+        isSceneDestroyed: () => false,
+        snapshotRenderableUnits: () => units,
+        drawer: { getUnitsContainer: () => world },
+        renderResurrectionVfx: () => {},
+        scheduleSceneTimeout: () => 0,
+        prepareDirectionalAttackState: () => "attack",
+        offsetReplayDamagePosition: (to: unknown) => to,
+        popRecordedDullingDefense: () => {},
+        playUnitCombatSound: () => {},
+        applyReplayLunge: () => {},
+        applyReplayHitKnockback: () => {},
+        playReplayOneShot: () => Promise.resolve(),
+        delayReplay: () => Promise.resolve(),
+        waitForProjectileHitReaction: () => Promise.resolve(),
+        playReplayProjectile: (_source: unknown, _victim: unknown, _position: unknown, impact: () => void) =>
+            new Promise<void>((finish) => flights.push({ impact, finish })),
+        rangedProjectiles: {
+            prepare: () => Promise.resolve(),
+            showChakramBounce: mock(() => Promise.resolve()),
+            fireAlongPath: () => new Promise<void>((resolve) => hops.push(resolve)),
+        },
+    });
+    const run = (plan: CombatExchangeStrike[], damage: Partial<IVisibleDamage> = {}, melee = false) =>
+        scene.playCombatExchange(
+            a,
+            b,
+            { attackType: melee ? "melee" : "range", damage },
+            plan,
+            (unit: RenderableUnit) => scene.playCustomDeathAnimation(unit),
+            units,
+            [],
+            false,
+            { amountsBefore: new Map([...units.keys()].map((id) => [id, 5])), deadIds: new Set(["A", "B", "C"]) },
+        ) as Promise<Set<string>>;
+    const roots = () => world.children.filter((child) => child.label === "zena-brutality");
+    const cleanup = () => {
+        visuals.clear();
+        world.destroy({ children: true });
+        texture.destroy(true);
+    };
+    return { scene, a, b, c, units, visuals, world, flights, hops, run, roots, cleanup };
+};
+const strike = (overrides: Partial<CombatExchangeStrike> = {}): CombatExchangeStrike => ({
+    attackerId: "A",
+    targetId: "B",
+    amount: 100,
+    unitsDied: 5,
+    lethal: true,
+    response: false,
+    hitIndex: 0,
+    ...overrides,
+});
+
+describe("Zena lethal impact routing", () => {
+    test.each([false, true])("only projectile contact starts brutality, ranked=%s", async (ranked) => {
+        const f = fixture(ranked);
+        try {
+            const pending = f.run([strike()]);
+            await flush();
+            expect(f.roots()).toHaveLength(0);
+            expect(f.b.destroyVisuals).not.toHaveBeenCalled();
+            f.flights[0].impact();
+            expect(f.roots()).toHaveLength(1);
+            expect(f.b.destroyVisuals).toHaveBeenCalledTimes(1);
+            expect(f.b.playOneShotAnimation).not.toHaveBeenCalled();
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
+            f.hops.splice(0).forEach((finish) => finish());
+            await pending;
+            f.scene.playCustomDeathAnimation(f.b);
+            expect(f.roots()).toHaveLength(1);
+            expect(f.b.playOneShotAnimation).not.toHaveBeenCalled();
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test.each([
+        { name: "ordinary hit", changes: { lethal: false, unitsDied: 1 } },
+        { name: "resurrected stack", changes: { lethal: false } },
+        { name: "miss", changes: { missed: true } },
+        { name: "absorbed hit", changes: { amount: 0, unitsDied: 0 } },
+        { name: "later artifact explosion finishes the stack", changes: { unitsDied: 1 } },
+    ])("$name does not receive a Zena finishing animation", async ({ changes }) => {
+        const f = fixture();
+        try {
+            const pending = f.run([strike(changes)]);
+            await flush();
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await pending;
+            expect(f.roots()).toHaveLength(0);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("a different killer and an unknown future creature keep their own authored death", async () => {
+        for (const [source, victim] of [
+            ["Elf", "Peasant"],
+            ["Zena", "Unknown Creature"],
+        ]) {
+            const f = fixture(false, source, victim);
+            try {
+                await f.run([strike()], {}, true);
+                expect(f.roots()).toHaveLength(0);
+                expect(f.b.playOneShotAnimation).toHaveBeenCalledTimes(1);
+            } finally {
+                f.cleanup();
+            }
+        }
+    });
+
+    test("Zena's cannon kill uses the matching mechanical finisher", async () => {
+        const f = fixture(false, "Zena", "Tsar Cannon");
+        try {
+            await f.run([strike()], {}, true);
+            expect(f.roots()).toHaveLength(1);
+            expect(f.b.playOneShotAnimation).not.toHaveBeenCalled();
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test.each([false, true])("a killing counter belongs to Zena, ranked=%s", async (ranked) => {
+        const f = fixture(ranked, "Peasant", "Zena");
+        try {
+            const pending = f.run(
+                orderCombatExchange(
+                    [strike({ lethal: false, unitsDied: 0 })],
+                    strike({ attackerId: "B", targetId: "A", response: true }),
+                ),
+            );
+            await flush();
+            f.flights[1].impact();
+            f.flights[1].finish();
+            await flush();
+            expect(f.roots()).toHaveLength(0);
+            // Preserve the initiating victim's recorded outgoing projectile before removing its body.
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
+            f.hops.splice(0).forEach((finish) => finish());
+            await pending;
+            expect(f.roots()).toHaveLength(1);
+            expect(f.a.destroyVisuals).toHaveBeenCalled();
+            expect(f.b.destroyVisuals).not.toHaveBeenCalled();
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test.each([
+        { ranked: false, legacy: false },
+        { ranked: true, legacy: false },
+        { ranked: false, legacy: true },
+        { ranked: true, legacy: true },
+    ])("each lethal ricochet starts at its own arrival, ranked=$ranked legacy=$legacy", async ({ ranked, legacy }) => {
+        const f = fixture(ranked);
+        try {
+            const splash = [f.b, f.c].map((unit) => ({
+                unitId: unit.getId(),
+                position: unit.getPosition(),
+                amount: 100,
+                unitsDied: 5,
+            }));
+            const arcs = [{ targetUnitId: "C", hitUnitIds: ["C"], cells: [...f.b.getCells(), ...f.c.getCells()] }];
+            const damage = {
+                unitId: "B",
+                splash,
+                chakramArcs: arcs,
+                chakramFlights: legacy
+                    ? undefined
+                    : [
+                          {
+                              attackerId: "A",
+                              primaryTargetId: "B",
+                              response: false,
+                              hitIndex: 0,
+                              missed: false,
+                              arcs,
+                              splash,
+                          },
+                      ],
+            };
+            const pending = f.run([strike()], damage);
+            await flush();
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
+            expect(f.roots()).toHaveLength(1);
+            expect(f.c.destroyVisuals).not.toHaveBeenCalled();
+            f.hops.shift()!();
+            await flush();
+            expect(f.roots()).toHaveLength(2);
+            expect(f.c.destroyVisuals).toHaveBeenCalledTimes(1);
+            f.hops.shift()!();
+            await pending;
+            expect(f.roots()).toHaveLength(2);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("an extra attack finishes a wounded stack once; hydrate preserves the detached finisher", async () => {
+        const f = fixture();
+        try {
+            const pending = f.run([strike({ lethal: false, unitsDied: 2 }), strike({ unitsDied: 3, hitIndex: 1 })]);
+            await flush();
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
+            expect(f.roots()).toHaveLength(0);
+            f.flights[1].impact();
+            f.flights[1].finish();
+            await flush();
+            f.hops.splice(0).forEach((finish) => finish());
+            await pending;
+            const root = f.roots()[0];
+            f.visuals.clear({ keepDetachedOverlays: true });
+            expect(root.destroyed).toBe(false);
+            f.visuals.update(0.3);
+            expect(root.getChildByLabel("severed-head")!.rotation).not.toBe(0);
+            f.visuals.clear();
+            expect(root.destroyed).toBe(true);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("Last Fuse still detonates after Zena's killing strike", async () => {
+        const f = fixture();
+        try {
+            const explosions = mock();
+            f.scene.pyreDeaths = { play: explosions };
+            await f.run([strike()], {}, true);
+            expect(f.roots()).toHaveLength(1);
+            expect(explosions).toHaveBeenCalledWith("B", f.b);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("a later resurrection permits a new finisher on the same renderable body", async () => {
+        const f = fixture();
+        try {
+            await f.run([strike()], {}, true);
+            expect(f.roots()).toHaveLength(1);
+            f.scene.syncResurrectedUnit({ unitId: "B", position: f.b.getPosition(), amount: 5, hp: 100 }, f.units);
+            await f.run([strike()], {}, true);
+            expect(f.roots()).toHaveLength(2);
+            expect(f.b.destroyVisuals).toHaveBeenCalledTimes(2);
+        } finally {
+            f.cleanup();
+        }
+    });
+});

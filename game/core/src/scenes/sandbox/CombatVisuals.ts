@@ -1,3 +1,8 @@
+import { playCombatSound } from "../../ui/audio/combatSounds";
+import { GravechainVfx } from "./GravechainVfx";
+import { LastFuseVfx } from "./LastFuseVfx";
+import { BorrowedGracePops } from "./BorrowedGracePops";
+import { SpellAtmosphere, type SpellAtmosphereSample } from "./SpellAtmosphere";
 import { Assets, Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 
 import {
@@ -15,9 +20,31 @@ import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
 import { boardVerticalStretch } from "../../pixi/boardFit";
 import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
-import { playCombatSound } from "../../ui/audio/combatSounds";
-import { GravechainVfx } from "./GravechainVfx";
-import { LastFuseVfx } from "./LastFuseVfx";
+import { ThunderbirdLightningProcedural } from "./ThunderbirdLightningProcedural";
+import { WhirlpoolSprites, type WhirlpoolFootprint } from "./WhirlpoolSprites";
+import { SpellFireSprites } from "./SpellFireSprites";
+import { SpellFireParticles } from "./SpellFireParticles";
+import {
+    readFireSpellRenderMode,
+    saveFireSpellRenderMode,
+    type FireSpellRenderMode,
+} from "../../settings/fireSpellTiming";
+import { BattleRoarPops, type BattleRoarDurationMs } from "./BattleRoarPops";
+import { AngelResurrectionPops } from "./AngelResurrectionPops";
+import { CrusadePops } from "./CrusadePops";
+import { UnyieldingPowerPops } from "./UnyieldingPowerPops";
+import { showsEnchantedSkinShield } from "../enchantedSkinVisual";
+import { CommonFlagPops, type FlagPopKind } from "./CommonFlagPops";
+import { MagicReflectionPops } from "./MagicReflectionPops";
+import { InfestHatchPops } from "./InfestHatchPops";
+import { PredatoryAssimilationPops } from "./PredatoryAssimilationPops";
+import { DeepWoundsPops } from "./DeepWoundsPops";
+import { ParalysisPops } from "./ParalysisPops";
+import { BoarSalivaPops } from "./BoarSalivaPops";
+import { DevourEssencePops } from "./DevourEssencePops";
+import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
+import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
+import { ZenaBrutalityVfx } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -279,21 +306,6 @@ interface IEnchant {
     resolved: boolean; // whether the resolve burst has fired
 }
 
-interface IChainBolt {
-    gfx: Graphics;
-    from: HoCMath.XY;
-    to: HoCMath.XY;
-    cellSize: number;
-    age: number; // seconds; negative means the chain hasn't reached this jump yet
-    life: number;
-    flicker: number; // accumulates dt; re-jags the bolt on CHAIN_FLICKER_S so it crackles
-}
-
-interface IChainLightning {
-    container: Container;
-    bolts: IChainBolt[];
-}
-
 /**
  * Lightning Strike: the spell text is "calls lightning DOWN on an enemy", so the bolt has to arrive from
  * the sky rather than travel from the caster. One record drives the whole strike — the telegraph glow, the
@@ -401,6 +413,9 @@ interface IDebuffPop {
     startX: number;
     startY: number;
     riseY: number;
+    startedAtMs: number;
+    follow?: () => HoCMath.XY | undefined;
+    offsetY: number;
 }
 
 interface IAbilitySteal {
@@ -430,6 +445,7 @@ interface IAbilitySteal {
 // Tuning for the floating damage numbers.
 const FT_LIFE = 0.8; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
+const FT_DAMAGE_RISE = FT_RISE * 0.7; // Received damage rises 30% less above the flag.
 const FT_DRIFT = 26; // world px horizontal drift in the hit direction
 const FT_POP_DUR = 0.16; // seconds of the spawn "pop"
 const FT_START_SCALE = 0.55; // scale the number pops in from
@@ -447,15 +463,13 @@ const FT_FLAG_GAP = 6;
 // Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
 // (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
 // damage number so the icon + name are readable, then drifts up and fades.
-const DP_LIFE = 0.95; // seconds on screen (kept short so the icon + name evaporate briskly)
+const DP_LIFE = 1.8; // seconds: keep the icon and name readable before dissolving
 const DP_RISE = 64; // world px the pop floats up over its life
-const DP_POP_DUR = 0.2; // seconds of the spawn "pop" (icon scales in with overshoot)
+const DP_POP_DUR = 0.3; // seconds of the spawn "pop" (icon scales in with overshoot)
 const DP_START_SCALE = 0.25; // scale the pop springs in from
-const DP_FADE_IN = 0.1; // seconds to fade in
-const DP_FADE_OUT_FROM = 0.48; // fraction of life after which it fades out (earlier = quicker evaporate)
-// Unit sprites sort near `4000 - worldY`, so a pop at 2100 drew underneath the creature and read as
-// "nothing happened". Sit above every figure; the spellbook is a separate UI layer and is unaffected.
-const DP_Z = 8000;
+const DP_FADE_IN = 0.16; // seconds to fade in
+const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
+const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
 
 // Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
 // of the victim and carry it into Arachna Queen. The palette deliberately matches the permanent
@@ -495,76 +509,9 @@ const BURN_SMOKE_LIFE = 0.92; // seconds a smoke puff drifts before it dissipate
 const BURN_FLASH_LIFE = 0.2; // the bright core pop at the moment of the burn
 const BURN_SMOKE_TINTS = [0x4a423c, 0x39322d, 0x5c5148]; // warm soot greys, tinted off the ember texture
 
-// Tuning for the Fireforged Sword's burn (spawnFireforgedSwordBurn): a burning CRESCENT cut through the
-// unit the enchanted blade hit, rather than the radial burst its Fire Shield / Fire Breath cousins get.
-// The flames are laid along an arc and lit in order, so the fire reads as travelling along an edge.
-const FF_SWORD_FLAME_COUNT = 16; // flames spaced along the cut
-const FF_SWORD_SWEEP_S = 0.13; // seconds for the ignition to travel the whole edge — fast, it is a swing
-const FF_SWORD_FLAME_LIFE = 0.42; // seconds each flame burns
-const FF_SWORD_FLASH_LIFE = 0.22; // the hot core bloom at the belly of the cut
-const FF_SWORD_SMOKE_COUNT = 5;
-const FF_SWORD_ARC_LENGTH = 1.25; // cells, tip to tip — a little wider than the body it cuts through
-const FF_SWORD_ARC_BOW = 0.3; // cells the middle of the cut bows out, so the edge curves like a swing
-
-// Tuning for Ring of Fire (spawnFireRing): a circle of flame that erupts AROUND a cell. The spell burns the
-// target's cell plus all eight touching it, so the ring sits at roughly one cell's radius — the edge of that
-// footprint — and lights progressively around the circumference so it reads as fire racing round a circle
-// rather than every flame appearing at once.
-const RING_FLAME_COUNT = 30; // flames spaced around the circumference
-const RING_SWEEP_S = 0.26; // seconds for the ignition to travel all the way round
-const RING_FLAME_LIFE = 0.62; // each flame burns a little longer than a plain ember — this is a standing ring
-const RING_RADIUS_CELLS = 0.95; // ring radius in cells; ~1 puts it on the footprint's outer cells
-const RING_SMOKE_COUNT = 10;
-
-// Tuning for a creature crossing a Fire Wall (spawnFireWallCrossing + igniteUnit). Two beats: the sheet of
-// flame a burning cell throws up as the body passes through it — wide and low for a walker wading in,
-// a tall column leaping up under a flyer — and then the flames that cling to the crosser and gutter out
-// as it walks (or flies) on, with soot behind them. Both are scheduled against the move animation, so
-// the fire is on the body when the body is in the fire, not when the engine filed the burn.
-const WALL_CROSS_FLAME_COUNT = 28;
-const WALL_CROSS_SPARK_COUNT = 20;
-const WALL_CROSS_SMOKE_COUNT = 7;
-const WALL_CROSS_RIPPLE_S = 0.28; // the sheet keeps erupting this long — about the time a body takes to cross a cell
-const WALL_CROSS_FLAME_LIFE = 0.78; // seconds a tongue of the sheet burns
-const WALL_CROSS_SPARK_LIFE = 0.9; // seconds a thrown spark flies
-const WALL_CROSS_SMOKE_LIFE = 1.3; // seconds the soot lingers over the crossed cell
-const WALL_CROSS_FLASH_LIFE = 0.3; // the bloom of the sheet catching on the body
-const ABLAZE_EMBERS_PER_SECOND = 44; // how fast embers peel off a burning body at first (they thin out)
-const ABLAZE_EMBER_LIFE = 0.55; // seconds each clinging ember burns
-const ABLAZE_SOOT_EVERY = 5; // one soot puff for this many embers
-const ABLAZE_GLOW_ALPHA = 0.5; // the fire-glow halo on the burning body, before it fades with the burn
 const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
 const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
 const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
-
-// Tuning for Thunderbird's Chain Lightning — a purple bolt that jumps from the attacker through the
-// target and on to each chained enemy. Like the fire sweep, it's timed to the strike (small lead so
-// it cracks as the lunge connects) and each jump fires a beat after the previous.
-const CHAIN_LEAD_MS = 45; // delay before the first bolt ≈ when the lunge connects
-const CHAIN_JUMP_MS = 64; // gap between successive jumps (target → next → next …)
-const CHAIN_BOLT_LIFE = 0.195; // seconds each bolt crackles before fading
-const CHAIN_FLICKER_S = 0.03; // re-jag the bolt this often so it crackles like live lightning
-const CHAIN_Z = 1950; // above the fire sweep (1900), below the damage numbers (2000)
-const CHAIN_GLOW = 0x7a2dff; // outer purple glow
-const CHAIN_MID = 0xb36bff; // mid violet
-const CHAIN_CORE = 0xedd6ff; // hot near-white core
-
-// Tuning for the Lightning Strike SPELL — distinct from Thunderbird's Chain Lightning above. That one is a
-// violet arc that travels between units; this one is called down out of the sky onto a single creature, so
-// it is vertical, white-blue, and much brighter at the point of impact. Keeping the palettes apart is what
-// lets a player tell "the bird chained me" from "a spell was cast on me" without reading the log.
-const STRIKE_TELEGRAPH_S = 0.09; // sky glow gathers this long before the bolt commits
-const STRIKE_BOLT_LIFE = 0.26; // seconds the descending column crackles before it fades
-const STRIKE_BURST_LIFE = 0.38; // impact flare + ring outlive the bolt slightly
-const STRIKE_TOTAL_LIFE = STRIKE_TELEGRAPH_S + STRIKE_BURST_LIFE;
-const STRIKE_FLICKER_S = 0.025; // re-jag faster than the chain bolt: a strike reads as more violent
-const STRIKE_HEIGHT_CELLS = 7.5; // how far above the creature the bolt enters frame
-const STRIKE_SPREAD_CELLS = 0.42; // lateral wander of the column over its full descent
-const STRIKE_FORKS = 2; // short branches peeling off the main column
-const STRIKE_Z = 1958; // above chain lightning (1950), below the damage numbers (2000)
-const STRIKE_GLOW = 0x2f6bff; // outer deep-blue corona
-const STRIKE_MID = 0x8fc4ff; // sky-blue body
-const STRIKE_CORE = 0xffffff; // white-hot core
 
 // Tuning for the Magic Dragon's Magic Mirror rebound. Cold silver-cyan on purpose: it has to read as a
 // REFLECTION rather than another spell, so it borrows nothing from the fire (amber) or lightning (violet)
@@ -751,48 +698,50 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private zenaBrutality = new ZenaBrutalityVfx((container) => this.attachEffect(container, 4550));
+    private zenaKills = new Map<string, HoCMath.XY>();
+    private zenaDeathBodies = new WeakSet<RenderableUnit>();
     private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
     private audioEpoch = 0;
     private context: ICombatVisualsContext;
-    /**
-     * Cached vertical stretch that makes a world-space square render square on screen.
-     *
-     * The board camera is deliberately flatter on Y than X, so a spell icon or a flame sprite sized from
-     * one `cellSize` on both axes comes out ~40% wider than tall. Cell POSITIONS and cell-area coverage
-     * keep inheriting that deformation on purpose — the board's own cells are drawn wider than tall — but
-     * the artwork must not, exactly as creature art already refuses it via
-     * `legacyBoardChildScaleCompensation`. Effects are short-lived, so this is resolved once per spawn off
-     * the live parent chain rather than tracked through resizes.
-     */
-    private boardStretchCache = 1;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
     private iceBreaks: IIceBreak[] = [];
     private cleaveDeaths: ICleaveDeath[] = [];
     private dissolveDeaths: IDissolveDeath[] = [];
-    // Kill attribution, keyed by the dying unit's id: noted from the lethal attack event (only units
-    // in unitIdsDied land here), consumed by spawnDeathVfx when the death visuals spawn.
     private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
     private fireBurns: IFireBurn[] = [];
-    private unitAblazes: IUnitAblaze[] = [];
-    private delayedFloatingDamage: IDelayedFloatingDamage[] = [];
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private areaImpacts: IAreaImpact[] = [];
-    private lastFuse = new LastFuseVfx(
-        (container) => this.attachEffect(container, 4555),
-        () => this.getFireTexture(),
-    );
     private resurrectBursts: IResurrectBurst[] = [];
-    private chainLightnings: IChainLightning[] = [];
-    private lightningStrikes: ILightningStrike[] = [];
+    private lightningProcedural?: ThunderbirdLightningProcedural;
+    private whirlpoolSprites?: WhirlpoolSprites;
+    private spellAtmosphere?: SpellAtmosphere;
+    private spellFireSprites?: SpellFireSprites;
+    private spellFireParticles?: SpellFireParticles;
+    private fireSpellRenderMode: FireSpellRenderMode = readFireSpellRenderMode();
     private mirrorRebounds: IMirrorRebound[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
     private bloodSprays: IBloodSpray[] = [];
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
+    private battleRoarPops?: BattleRoarPops;
+    private borrowedGracePops?: BorrowedGracePops;
+    private predatoryAssimilationPops?: PredatoryAssimilationPops;
+    private infestHatchPops?: InfestHatchPops;
+    private crusadePops?: CrusadePops;
+    private unyieldingPowerPops?: UnyieldingPowerPops;
+    private magicReflectionPops?: MagicReflectionPops;
+    private readonly commonFlagPops = new Map<FlagPopKind, CommonFlagPops>();
+    private angelResurrectionPops?: AngelResurrectionPops;
+    private deepWoundsPops?: DeepWoundsPops;
+    private paralysisPops?: ParalysisPops;
+    private boarSalivaPops?: BoarSalivaPops;
+    private devourEssencePops?: DevourEssencePops;
+    private aiTurnBrainLoop?: AiTurnBrainLoop;
     private craftForges: ICraftForge[] = [];
     private craftTextureLoad?: Promise<readonly [Texture, Texture] | undefined>;
     private craftTextureLeaseHeld = false;
@@ -805,45 +754,14 @@ export class CombatVisuals {
     private absorbedLabelStyle?: TextStyle;
     private stolenLabelStyle?: TextStyle;
     private stolenAbilityNameStyle?: TextStyle;
-    // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
     private poisonTexture?: Texture;
-    // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
     private lightTexture?: Texture;
-    // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
-    // wasteful, and (more importantly) the FIRST PixiText render of a style rasterizes the font and
-    // compiles PIXI's text shader, a ~30-40ms one-time stall. prewarm() pays that off-screen at load.
     private damageStyleCache = new Map<string, TextStyle>();
     private countStyle?: TextStyle;
     private prewarmed = false;
     public constructor(context: ICombatVisualsContext) {
         this.context = context;
-    }
-    /**
-     * Attach a freshly built effect to the board and resolve the camera's vertical stretch from it.
-     *
-     * Reading the stretch here rather than in every spawn function keeps it to one place and one moment:
-     * the container is already parented, so the whole chain up to the camera is walkable, and `scale` is a
-     * plain property that is current from the instant the board was fitted. The returned number is what a
-     * PICTURE's Y scale must be multiplied by to come out square; positions and cell-area coverage are
-     * deliberately left inheriting the board's own deformation.
-     */
-    private attachEffect(obj: Container, zIndex: number): number {
-        this.context.attachToWorldRoot(obj, zIndex);
-        return this.boardStretch();
-    }
-    /**
-     * Live vertical stretch for effect ARTWORK.
-     *
-     * Asked of the scene rather than measured off an attached object, because most spawn functions size
-     * their icons and sprites while the container is still detached — reading the parent chain would be a
-     * frame (and, for the first effect of a match, a whole camera fit) behind. A context without a board
-     * reports nothing and everything stays 1:1.
-     */
-    private boardStretch(): number {
-        const scale = this.context.getBoardScale?.();
-        this.boardStretchCache = scale ? boardVerticalStretch(scale.x, scale.y) : 1;
-        return this.boardStretchCache;
     }
     private getDamageStyle(fill: string, stroke: string): TextStyle {
         const key = `${fill}|${stroke}`;
@@ -920,8 +838,8 @@ export class CombatVisuals {
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 34,
                 fontWeight: "900",
-                fill: "#e8eef5", // neutral cool-white — reads as "no hit", distinct from red/violet/green
-                stroke: { color: "#1b2733", width: 5 },
+                fill: "#ff333b", // Approved red MISS label above the count flag.
+                stroke: { color: "#270507", width: 5 },
                 dropShadow: {
                     color: "#000000",
                     blur: 4,
@@ -986,13 +904,7 @@ export class CombatVisuals {
         }
         return this.stolenAbilityNameStyle;
     }
-    /** Put an upright container into the shared damage/MISS rise, drift, pop and fade animation. */
-    /**
-     * Green "+N" heal pop (e.g. Hydra's Devour Essence rejuvenation): the same float/pop mechanics as
-     * a damage number, but healing green with a plus sign, rising straight up (no fling direction —
-     * nothing "hit" the unit).
-     */
-    public showHealPop(pos: HoCMath.XY, amount: number): void {
+    public showHealPop(pos: HoCMath.XY, amount: number, unit?: RenderableUnit): void {
         if (amount <= 0) {
             return;
         }
@@ -1000,7 +912,13 @@ export class CombatVisuals {
         const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#4dff9e", "#0b4d26") });
         healText.anchor.set(0.5);
         container.addChild(healText);
-        this.enqueueFloatingContainer(container, pos);
+        this.enqueueFloatingContainer(
+            container,
+            pos,
+            undefined,
+            unit?.getFlagEffectAnchor(this.context.getGridSettings()),
+            this.context.getGridSettings().getCellSize() * 1.45 + 26,
+        );
     }
     private enqueueFloatingContainer(
         container: Container,
@@ -1052,29 +970,21 @@ export class CombatVisuals {
             life: FT_LIFE,
             startX,
             startY,
-            riseY: FT_RISE,
+            riseY: flagTopAnchor ? FT_DAMAGE_RISE : FT_RISE,
             driftX,
             driftY,
         });
     }
-    /**
-     * Pop a "MISS" label over a unit that dodged an attack (Dodge / Small Specie / Boar Saliva). Reuses
-     * the floating-text rise/fade so it reads like a damage number but in neutral white. Drifts along the
-     * attack line when a direction is given. Same path in sandbox and ranked.
-     */
-    public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+    public showMissLabel(pos: HoCMath.XY, _direction?: HoCMath.XY, unit?: RenderableUnit): void {
         const container = new Container();
         const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
         label.anchor.set(0.5);
         container.addChild(label);
-        this.enqueueFloatingContainer(container, pos, direction);
+        const flagTop = unit?.getFlagEffectAnchor(this.context.getGridSettings()) ?? pos;
+        this.enqueueFloatingContainer(container, pos, undefined, flagTop, 22);
     }
-    /**
-     * Magic armor shrugged a snare off (Vine Throw): an arcane-blue "RESISTED" over the saved unit —
-     * the MISS label's magical counterpart, same floating lifecycle. The vine still lands on the ground,
-     * so without this the throw looked identical whether or not the target's magic armor held.
-     */
-    public showResistLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+    public showResistLabel(pos: HoCMath.XY, direction?: HoCMath.XY, unit?: RenderableUnit): void {
+        if (unit) this.spawnCommonFlagPop(unit, "resist");
         const container = new Container();
         const label = new PixiText({
             text: "RESISTED",
@@ -1089,13 +999,16 @@ export class CombatVisuals {
         });
         label.anchor.set(0.5);
         container.addChild(label);
-        this.enqueueFloatingContainer(container, pos, direction);
+        this.enqueueFloatingContainer(
+            container,
+            pos,
+            direction,
+            unit?.getFlagEffectAnchor(this.context.getGridSettings()),
+            this.context.getGridSettings().getCellSize() * 1.45 + 22,
+        );
     }
-    /**
-     * Lucky Strike proc: a gold "LUCKY!" that rises over the STRIKER (the MISS label's counterpart —
-     * same floating lifecycle, luck-gold styling so it reads as a positive roll, not damage).
-     */
-    public showLuckyLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+    public showLuckyLabel(pos: HoCMath.XY, direction?: HoCMath.XY, unit?: RenderableUnit): void {
+        if (unit) this.spawnCommonFlagPop(unit, "lucky");
         const container = new Container();
         const label = new PixiText({
             text: "LUCKY!",
@@ -1110,13 +1023,14 @@ export class CombatVisuals {
         });
         label.anchor.set(0.5);
         container.addChild(label);
-        this.enqueueFloatingContainer(container, pos, direction);
+        this.enqueueFloatingContainer(
+            container,
+            pos,
+            direction,
+            unit?.getFlagEffectAnchor(this.context.getGridSettings()),
+            this.context.getGridSettings().getCellSize() * 1.45 + 22,
+        );
     }
-    /**
-     * Resurrection head-count: a "+N RAISED" that rides the golden burst so a raise shows its SIZE, not
-     * just that it happened. Resurrection palette rather than the damage yellow, so the number reads as
-     * units returned — never as points dealt.
-     */
     public showResurrectedCount(pos: HoCMath.XY, amount: number): void {
         const container = new Container();
         const caption = new PixiText({
@@ -1138,10 +1052,6 @@ export class CombatVisuals {
         container.addChild(caption, count);
         this.enqueueFloatingContainer(container, pos);
     }
-    /**
-     * Craft "failed" result: a plain dark-grey "No effect!" label with NO icon, reusing the floating-text
-     * rise/fade. Deliberately unlike the icon pops used for a successful craft so a dud reads as nothing.
-     */
     public showCraftFail(pos: HoCMath.XY): void {
         const container = new Container();
         const label = new PixiText({
@@ -1159,20 +1069,17 @@ export class CombatVisuals {
         container.addChild(label);
         this.enqueueFloatingContainer(container, pos);
     }
-    /**
-     * Show Flesh Shield damage on its owner as a positive, yellow two-line value. The label distinguishes
-     * redirected damage from an ordinary hit while the shared floating-text lifecycle keeps both paths in
-     * visual sync. `unitsDied` belongs only to this absorbed chunk, so its skull never duplicates a primary
-     * or response hit's losses.
-     */
     public showFloatingAbsorbed(
         pos: HoCMath.XY,
         amount: number,
         direction?: HoCMath.XY,
         unitsDied?: number,
-        unit?: Unit,
+        unit?: RenderableUnit,
     ): void {
-        if (unit instanceof RenderableUnit) unit.presentDamageCasualties(unitsDied ?? 0);
+        if (unit) {
+            unit.presentDamageCasualties(unitsDied ?? 0);
+            this.spawnCommonFlagPop(unit, "absorb");
+        }
         const container = new Container();
         const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
         label.anchor.set(0.5);
@@ -1191,7 +1098,7 @@ export class CombatVisuals {
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
-            skullSprite.height = 40 * this.boardStretch();
+            skullSprite.height = 40;
 
             const countText = new PixiText({ text: `${unitsDied}`, style: this.getCountStyle() });
             countText.anchor.set(0.5);
@@ -1200,20 +1107,161 @@ export class CombatVisuals {
             container.addChild(skullSprite, countText);
         }
 
-        this.enqueueFloatingContainer(container, pos, direction);
+        this.enqueueFloatingContainer(
+            container,
+            pos,
+            direction,
+            unit?.getFlagEffectAnchor(this.context.getGridSettings()),
+            this.context.getGridSettings().getCellSize() * 1.45 + (unitsDied ? 92 : 38),
+        );
     }
-    /**
-     * Pop a freshly-applied effect's spell icon + name over a unit. `kind` only changes the name's
-     * colour — violet for a debuff (e.g. Beholder's Spit Ball landing Sadness / Quagmire / Weakness),
-     * green for a buff. The icon springs in with a slight overshoot, the icon + name drift up together
-     * and evaporate. `stackIndex` lifts each extra effect from the same shot so they don't overlap.
-     */
+    public spawnParalysisPop(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.paralysisPops ??= new ParalysisPops((container, z) => this.context.attachToWorldRoot(container, z));
+        this.paralysisPops.spawn(id, gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnCommonFlagPop(unit: RenderableUnit, kind: FlagPopKind): void {
+        if (kind === "resist" && showsEnchantedSkinShield(unit)) kind = "enchanted_skin";
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        let layer = this.commonFlagPops.get(kind);
+        if (!layer) {
+            layer = new CommonFlagPops(kind, (container, zIndex) => this.context.attachToWorldRoot(container, zIndex));
+            this.commonFlagPops.set(kind, layer);
+        }
+        void layer.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnBattleRoarPop(unit: RenderableUnit, durationMs: BattleRoarDurationMs = 1000, stackIndex = 0): void {
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.battleRoarPops ??= new BattleRoarPops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.battleRoarPops.spawn(
+            unit.getFlagEffectAnchor(gs),
+            gs.getCellSize(),
+            durationMs,
+            () => {
+                const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+                return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+            },
+            stackIndex,
+        );
+    }
+    public spawnUnyieldingPowerPop(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.unyieldingPowerPops ??= new UnyieldingPowerPops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.unyieldingPowerPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnCrusadePop(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.crusadePops ??= new CrusadePops((container, zIndex) => this.context.attachToWorldRoot(container, zIndex));
+        void this.crusadePops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnMagicReflectionPop(unit: RenderableUnit): void {
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.magicReflectionPops ??= new MagicReflectionPops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.magicReflectionPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current?.getFlagEffectAnchor(gs);
+        });
+    }
+    public spawnAngelResurrectionPop(unit: RenderableUnit): void {
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.angelResurrectionPops ??= new AngelResurrectionPops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.angelResurrectionPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current?.getFlagEffectAnchor(gs);
+        });
+    }
+    public spawnDeepWoundsPop(unit: RenderableUnit, level: DeepWoundsVisualLevel): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.deepWoundsPops ??= new DeepWoundsPops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.deepWoundsPops.spawn(id, level, unit.getFlagCenterAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagCenterAnchor(gs) : undefined;
+        });
+    }
+    public syncAiTurnBrain(unit?: RenderableUnit): void {
+        if (!unit || unit.isDead()) {
+            void this.aiTurnBrainLoop?.setTarget();
+            return;
+        }
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.aiTurnBrainLoop ??= new AiTurnBrainLoop((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.aiTurnBrainLoop.setTarget({
+            unitId: id,
+            cellSize: gs.getCellSize(),
+            follow: () => {
+                const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+                return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+            },
+        });
+    }
+    public spawnDevourEssencePop(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.devourEssencePops ??= new DevourEssencePops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.devourEssencePops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnBoarSalivaPop(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.boarSalivaPops ??= new BoarSalivaPops((container, zIndex) =>
+            this.context.attachToWorldRoot(container, zIndex),
+        );
+        void this.boarSalivaPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
     public spawnDebuffPop(
         pos: HoCMath.XY,
         iconTexture: Texture,
         name: string,
         stackIndex = 0,
         kind: "debuff" | "buff" = "debuff",
+        unit?: RenderableUnit,
     ): void {
         const cell = this.context.getGridSettings().getCellSize();
         const container = new Container();
@@ -1222,7 +1270,7 @@ export class CombatVisuals {
         const icon = new Sprite(iconTexture);
         icon.anchor.set(0.5);
         icon.width = iconSize;
-        icon.height = iconSize * this.boardStretch();
+        icon.height = iconSize;
 
         const label = new PixiText({
             text: name,
@@ -1235,20 +1283,35 @@ export class CombatVisuals {
 
         container.addChild(icon, label);
 
-        const startX = pos.x;
-        const startY = pos.y + cell * 0.55 + stackIndex * cell * 0.5;
+        const gs = this.context.getGridSettings();
+        const id = unit?.getId();
+        const follow = id
+            ? () => {
+                  const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+                  return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+              }
+            : undefined;
+        const anchor = follow?.() ?? pos;
+        const offsetY = cell * (0.85 + stackIndex * 1.35);
+        const startX = anchor.x;
+        const startY = anchor.y + offsetY;
         container.position.set(startX, startY);
         // Counter the world root's Y-up flip so the icon + text render upright (same as floating text).
         container.scale.set(glyphScaleX(DP_START_SCALE), -DP_START_SCALE);
         this.attachEffect(container, DP_Z);
 
-        this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
+        this.debuffPops.push({
+            container,
+            age: 0,
+            life: DP_LIFE,
+            startX,
+            startY,
+            riseY: unit ? 0 : DP_RISE,
+            startedAtMs: performance.now(),
+            follow,
+            offsetY,
+        });
     }
-    /**
-     * Predatory Assimilation: pull the stolen ability out of the victim and into Arachna Queen. A
-     * three-strand web briefly connects the units while the ability card rides a lime glow along a
-     * curved path. `onArrival` lets the scene flash the Queen exactly when the card reaches her.
-     */
     public spawnAbilitySteal(
         from: HoCMath.XY,
         to: HoCMath.XY,
@@ -1274,7 +1337,60 @@ export class CombatVisuals {
             onArrival,
         );
     }
-    /** Wild Regeneration: visibly carry its ability card from the Troll into the ally receiving it. */
+    public spawnInfestHatch(unit: RenderableUnit, corpse?: RenderableUnit): void {
+        const id = unit.getId();
+        this.infestHatchPops ??= new InfestHatchPops((sprite, z) => this.context.attachToWorldRoot(sprite, z));
+        this.infestHatchPops.spawn(
+            id,
+            () => this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined,
+            () => !corpse?.isPlayingOneShotAnimation("death"),
+        );
+    }
+    public spawnBorrowedGrace(victim: RenderableUnit, thief: RenderableUnit, icon: Texture): void {
+        const gs = this.context.getGridSettings();
+        const victimId = victim.getId(),
+            thiefId = thief.getId();
+        const current = (id: string) =>
+            this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+        const flag = (id: string) => {
+            const unit = current(id);
+            return unit && !unit.isDead() ? unit.getFlagEffectAnchor(gs) : undefined;
+        };
+        this.borrowedGracePops ??= new BorrowedGracePops((container, z) =>
+            this.context.attachToWorldRoot(container, z),
+        );
+        void this.borrowedGracePops.spawn(
+            victim.getFlagEffectAnchor(gs),
+            gs.getCellSize(),
+            icon,
+            () => flag(victimId),
+            () => flag(thiefId),
+            () => current(thiefId)?.flashBuffApplied(),
+        );
+    }
+    public spawnPredatoryAssimilation(from: HoCMath.XY, thief: RenderableUnit, icon: Texture, stackIndex = 0): void {
+        const gs = this.context.getGridSettings();
+        const id = thief.getId();
+        const current = () => this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+        this.predatoryAssimilationPops ??= new PredatoryAssimilationPops((container, z) =>
+            this.context.attachToWorldRoot(container, z),
+        );
+        void this.predatoryAssimilationPops.spawn(
+            from,
+            thief.getFlagEffectAnchor(gs),
+            gs.getCellSize(),
+            icon,
+            () => {
+                const unit = current();
+                return unit && !unit.isDead() ? unit.getFlagEffectAnchor(gs) : undefined;
+            },
+            () => {
+                const unit = current();
+                if (unit && !unit.isDead()) unit.flashBuffApplied();
+            },
+            stackIndex,
+        );
+    }
     public spawnAbilityGift(
         from: HoCMath.XY,
         to: HoCMath.XY,
@@ -1352,7 +1468,7 @@ export class CombatVisuals {
         payloadGlow.blendMode = "add";
         payloadGlow.tint = presentation.tint;
         payloadGlow.width = cellSize * 1.05;
-        payloadGlow.height = cellSize * 1.05 * this.boardStretch();
+        payloadGlow.height = cellSize * 1.05;
         payload.addChild(payloadGlow);
 
         const iconSize = cellSize * 0.5;
@@ -1360,7 +1476,7 @@ export class CombatVisuals {
             const icon = new Sprite(iconTexture);
             icon.anchor.set(0.5);
             icon.width = iconSize;
-            icon.height = iconSize * this.boardStretch();
+            icon.height = iconSize;
             const frame = new Graphics();
             frame.roundRect(-iconSize * 0.54, -iconSize * 0.54, iconSize * 1.08, iconSize * 1.08, iconSize * 0.14);
             frame.stroke({ width: Math.max(2, cellSize * 0.035), color: presentation.core, alpha: 0.95 });
@@ -1583,10 +1699,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Render the damage/count text once, off-screen, so the one-time font rasterization + text-shader
-     * compilation happen during scene load instead of stalling the first move+attack landing frame.
-     */
     public prewarm(): void {
         if (this.prewarmed) {
             return;
@@ -1636,20 +1748,24 @@ export class CombatVisuals {
         // fetching URL-backed assets immediately, so warming a rare spell kept both images decoded for
         // every battle. spawnCraftForge resolves them only when the spell is actually cast.
     }
-    /**
-     * Destroy all combat VFX immediately (e.g. on fight end / restart / scene teardown).
-     *
-     * `keepDetachedOverlays` is for the board REBUILD (hydrateSceneState), which destroys and recreates
-     * every unit: it keeps the self-contained world overlays that merely describe something that already
-     * happened and expire on their own — the Craft forge, damage numbers, buff/debuff pops — while still
-     * dropping everything anchored to the units/board being torn down (death shatters, ability-steal arcs,
-     * area effects). Ranked full-hydrates on any snapshot whose unit mechanics drifted, which lands ~150ms
-     * into a Craft forge; without this the cast animation was wiped almost as soon as it started.
-     */
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
+        if (!keepDetachedOverlays) this.battleRoarPops?.clear();
+        if (!keepDetachedOverlays) this.predatoryAssimilationPops?.clear();
+        if (!keepDetachedOverlays) this.borrowedGracePops?.clear();
+        if (!keepDetachedOverlays) this.infestHatchPops?.clear();
+        if (!keepDetachedOverlays) this.crusadePops?.clear();
+        if (!keepDetachedOverlays) this.unyieldingPowerPops?.clear();
+        if (!keepDetachedOverlays) this.magicReflectionPops?.clear();
+        if (!keepDetachedOverlays) for (const layer of this.commonFlagPops.values()) layer.clear();
+        if (!keepDetachedOverlays) this.angelResurrectionPops?.clear();
+        if (!keepDetachedOverlays) this.deepWoundsPops?.clear();
+        if (!keepDetachedOverlays) this.paralysisPops?.clear();
+        if (!keepDetachedOverlays) this.boarSalivaPops?.clear();
+        if (!keepDetachedOverlays) this.devourEssencePops?.clear();
+        if (!keepDetachedOverlays) this.aiTurnBrainLoop?.clear();
         if (!keepDetachedOverlays) {
             for (const ft of this.floatingTexts) {
                 ft.container.destroy({ children: true });
@@ -1710,6 +1826,9 @@ export class CombatVisuals {
             }
             this.areaImpacts.length = 0;
             this.lastFuse.clear();
+            this.zenaBrutality.clear();
+            this.zenaKills.clear();
+            this.zenaDeathBodies = new WeakSet();
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1731,14 +1850,13 @@ export class CombatVisuals {
             }
             this.bloodSprays.length = 0;
         }
-        for (const chain of this.chainLightnings) {
-            chain.container.destroy({ children: true });
+        if (!keepDetachedOverlays) {
+            this.lightningProcedural?.clear();
+            this.whirlpoolSprites?.clear();
+            this.spellAtmosphere?.clear();
+            this.spellFireSprites?.clear();
+            this.spellFireParticles?.clear();
         }
-        this.chainLightnings.length = 0;
-        for (const strike of this.lightningStrikes) {
-            strike.container.destroy({ children: true });
-        }
-        this.lightningStrikes.length = 0;
         if (!keepDetachedOverlays) {
             for (const dp of this.debuffPops) {
                 dp.container.destroy({ children: true });
@@ -1772,7 +1890,6 @@ export class CombatVisuals {
             this.releaseOwnedTextures();
         }
     }
-    /** Release the small canvas-backed textures owned by this fight; they are recreated lazily if needed. */
     private releaseOwnedTextures(): void {
         for (const texture of [this.fireTexture, this.poisonTexture, this.lightTexture]) {
             if (texture && texture !== Texture.WHITE && !texture.destroyed) {
@@ -1784,6 +1901,21 @@ export class CombatVisuals {
         this.lightTexture = undefined;
     }
     public update(dt: number) {
+        this.gravechains.update(dt);
+        this.battleRoarPops?.update(dt);
+        this.predatoryAssimilationPops?.update(dt);
+        this.borrowedGracePops?.update(dt);
+        this.infestHatchPops?.update(dt);
+        this.crusadePops?.update(dt);
+        this.unyieldingPowerPops?.update(dt);
+        this.magicReflectionPops?.update(dt);
+        for (const layer of this.commonFlagPops.values()) layer.update(dt);
+        this.angelResurrectionPops?.update(dt);
+        this.deepWoundsPops?.update(dt);
+        this.paralysisPops?.update();
+        this.boarSalivaPops?.update(dt);
+        this.devourEssencePops?.update(dt);
+        this.aiTurnBrainLoop?.update();
         if (
             this.floatingTexts.length === 0 &&
             this.debuffPops.length === 0 &&
@@ -1799,10 +1931,12 @@ export class CombatVisuals {
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
             !this.lastFuse.active &&
+            !this.zenaBrutality.active &&
             this.resurrectBursts.length === 0 &&
-            this.chainLightnings.length === 0 &&
-            !this.gravechains.active &&
-            this.lightningStrikes.length === 0 &&
+            !this.lightningProcedural?.active &&
+            !this.whirlpoolSprites?.active &&
+            !this.spellFireSprites?.active &&
+            !this.spellFireParticles?.active &&
             this.mirrorRebounds.length === 0 &&
             this.windSpears.length === 0 &&
             this.abilitySteals.length === 0 &&
@@ -1824,8 +1958,7 @@ export class CombatVisuals {
                 continue;
             }
 
-            // Decelerating rise + drift along the hit trajectory (both axes) so the number follows the
-            // attack/response line instead of always floating straight up.
+            // Decelerating rise; flag-anchored damage has zero drift on both axes.
             const e = easeOutCubic(t);
             ft.container.x = ft.startX + ft.driftX * e;
             ft.container.y = ft.startY + (ft.riseY + ft.driftY) * e;
@@ -1849,15 +1982,17 @@ export class CombatVisuals {
 
         for (let i = this.debuffPops.length - 1; i >= 0; i--) {
             const dp = this.debuffPops[i];
-            dp.age += dt;
+            dp.age = Math.max(0, performance.now() - dp.startedAtMs) / 1000;
+            const anchor = dp.follow?.();
             const t = dp.age / dp.life;
-            if (t >= 1) {
+            if (t >= 1 || (dp.follow && !anchor)) {
                 dp.container.destroy({ children: true });
                 this.debuffPops.splice(i, 1);
                 continue;
             }
             const e = easeOutCubic(t);
-            dp.container.y = dp.startY + dp.riseY * e;
+            dp.container.x = anchor?.x ?? dp.startX;
+            dp.container.y = (anchor ? anchor.y + dp.offsetY : dp.startY) + dp.riseY * e;
 
             let scale = 1;
             if (dp.age < DP_POP_DUR) {
@@ -1866,7 +2001,11 @@ export class CombatVisuals {
                 // Evaporate: the icon + name swell slightly as they dissolve upward and fade out.
                 scale = 1 + 0.2 * ((t - DP_FADE_OUT_FROM) / (1 - DP_FADE_OUT_FROM));
             }
-            dp.container.scale.set(glyphScaleX(scale), -scale);
+            const transform = dp.container.parent?.getGlobalTransform();
+            const aspect = transform
+                ? Math.hypot(transform.a, transform.b) / Math.max(0.001, Math.hypot(transform.c, transform.d))
+                : 1;
+            dp.container.scale.set(scale, -scale * aspect);
 
             let alpha = 1;
             if (dp.age < DP_FADE_IN) {
@@ -1889,10 +2028,14 @@ export class CombatVisuals {
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
         this.lastFuse.update(dt);
+        this.zenaBrutality.update(dt);
         this.stepResurrectBursts(dt);
-        this.stepChainLightnings(dt);
-        this.gravechains.update(dt);
-        this.stepLightningStrikes(dt);
+        this.spellAtmosphere?.begin();
+        this.lightningProcedural?.update();
+        this.whirlpoolSprites?.update();
+        this.spellFireSprites?.update();
+        this.spellFireParticles?.update();
+        this.spellAtmosphere?.update();
         this.stepMirrorRebounds(dt);
         this.stepWindSpears(dt);
         this.stepAbilitySteals(dt);
@@ -1902,10 +2045,6 @@ export class CombatVisuals {
         this.stepCraftForges(dt);
         this.stepEnchants(dt);
     }
-    /**
-     * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
-     * start in place (composing the unit image), then burst outward, fall, spin, and fade.
-     */
     public spawnShatter(info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }): void {
         const tex = info.texture;
         const source = tex?.source;
@@ -2215,6 +2354,33 @@ export class CombatVisuals {
             }
         }
     }
+    public noteZenaKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: Pick<Unit, "getId" | "getTeam">,
+        direction: HoCMath.XY,
+    ): void {
+        if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return;
+        this.zenaKills.set(victim.getId(), { ...direction });
+    }
+    public playZenaBrutalityDeath(unit: RenderableUnit): boolean {
+        if (this.zenaDeathBodies.has(unit)) return true;
+        const direction = this.zenaKills.get(unit.getId());
+        if (!direction) return false;
+        this.zenaKills.delete(unit.getId());
+        const gs = this.context.getGridSettings();
+        const pose = unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
+        if (!pose) return false;
+        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), direction);
+        if (spawned) {
+            this.zenaDeathBodies.add(unit);
+            this.deathBlowByUnitId.delete(unit.getId());
+        }
+        return spawned;
+    }
+    public resetZenaDeath(unitId: string, unit?: RenderableUnit): void {
+        this.zenaKills.delete(unitId);
+        if (unit) this.zenaDeathBodies.delete(unit);
+    }
     /**
      * Record what killed a unit (and the blow's direction, attacker → victim) BEFORE its death
      * visuals spawn, so spawnDeathVfx can pick a kill-specific animation. Only note units that
@@ -2232,12 +2398,6 @@ export class CombatVisuals {
         }
         this.deathBlowByUnitId.set(unitId, { kind, dir });
     }
-    /**
-     * Death-visuals dispatcher: a melee kill has a 50% chance of the "cleave" (torn in two) and a
-     * ranged kill a 50% chance of the "dissolve" (shot through into drifting ash) — otherwise, and
-     * for any death with no recorded blow (spells, armageddon, narrowing…), the classic broken-mirror
-     * shatter. Consumes the recorded blow so a stale entry can never color a later death.
-     */
     public spawnDeathVfx(info: IDeathVfxInfo, unitId?: string, frozen = false): void {
         const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
         if (unitId) {
@@ -2265,12 +2425,6 @@ export class CombatVisuals {
             this.spawnShatter(info);
         }
     }
-    /**
-     * Melee death "cleave": a slash flash sweeps a jagged cut through the unit PERPENDICULAR to the
-     * strike line (`dir`, attacker → victim); the body holds intact for a beat, then the two masked
-     * halves let go — separating along the blow and shoved away from the attacker, toppling under
-     * gravity and shedding a few drops of blood from the rip.
-     */
     private spawnCleaveDeath(
         info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
         dir?: HoCMath.XY,
@@ -2475,12 +2629,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Ranged death "dissolve": the killing shot punches through — a tracer streak + impact flash,
-     * then the body erodes into a wave of shards released entry-side first, carried along the shot's
-     * direction (`dir`, attacker → victim), slowing under drag and fluttering down like ash while a
-     * few sparks fly out the exit side.
-     */
     private spawnDissolveDeath(
         info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
         dir?: HoCMath.XY,
@@ -2701,7 +2849,6 @@ export class CombatVisuals {
             }
         }
     }
-    /** Soft white→amber→transparent radial ember, drawn once and tinted per particle. */
     private getFireTexture(): Texture {
         if (this.fireTexture) {
             return this.fireTexture;
@@ -2756,12 +2903,6 @@ export class CombatVisuals {
         this.lightTexture = Texture.from(canvas);
         return this.lightTexture;
     }
-    /**
-     * Fire Breath sweep: a wave of additive embers emitted in order along the line from `from` to `to`
-     * (world coords), so the fire reads as rushing through every unit the Black Dragon's breath burns.
-     * Each cluster's emission is delayed by its distance along the line (the "wave head" travels in
-     * FIRE_SWEEP_MS), and each ember pops, floats up, wavers, and burns out.
-     */
     public spawnFireSweep(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
         const dx = to.x - from.x;
         const dy = to.y - from.y;
@@ -2809,12 +2950,6 @@ export class CombatVisuals {
         }
         this.fireSweeps.push({ container, particles });
     }
-    /**
-     * Fire-DAMAGE burst on a single unit: a bright core flash, a spray of embers that snap in and burn
-     * out, and slower soot puffs curling up behind them. Used wherever damage is fire — the Efreet's
-     * Fire Shield reflect, each unit a Black Dragon's breath burns through, and a Fireforged Sword
-     * strike. `scale` trims the whole thing for smaller burns (a reflect is less than a dragon breath).
-     */
     public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
@@ -2898,509 +3033,49 @@ export class CombatVisuals {
 
         this.fireBurns.push({ container, particles });
     }
-    /**
-     * Fireforged Sword: the burning EDGE, drawn as a crescent that sweeps through the unit the enchanted
-     * blade just hit.
-     *
-     * Deliberately its own animation rather than another spawnFireBurn. The Efreet's Fire Shield and a
-     * dragon's breath both erupt AROUND a victim — a radial burst is the right read for "it caught fire".
-     * The sword is a cut: the fire arrives along the blade's path, so the flames are laid out on an arc
-     * and lit in sequence from one end to the other, which reads as a burning slash passing through rather
-     * than a body igniting. Same fire palette and the same particle pool as its cousins (nothing new to
-     * tick — see spawnFireRing for the same reuse), so it belongs to the family while staying its own
-     * thing (owner call 2026-09-20).
-     *
-     * `dir` is the direction the blow was travelling; the arc is cut ACROSS it, the way a swing lands.
-     * Absent (a replay without an attacker position), a random angle keeps successive strikes from
-     * stamping the identical picture.
-     */
-    public spawnFireforgedSwordBurn(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
-        const container = new Container();
-        this.attachEffect(container, FIRE_Z);
-        const tex = this.getFireTexture();
-        const texW = tex.width || 64;
-        const size = Math.max(1, cellSize);
-        const particles: IFireBurnParticle[] = [];
-
-        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
-            sprite.anchor.set(0.5);
-            sprite.scale.set(0.001);
-            sprite.alpha = 0;
-            sprite.visible = false;
-            container.addChild(sprite);
-            particles.push({ sprite, ...particle });
-        };
-
-        // The cut runs perpendicular to the blow, so a strike coming from the left lands a vertical slash.
-        const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
-        const swing = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) + Math.PI / 2 : Math.random() * Math.PI * 2;
-        const ux = Math.cos(swing);
-        const uy = Math.sin(swing);
-        // Perpendicular to the cut: what the crescent bows along, so the arc curves like a swung edge.
-        const px = -uy;
-        const py = ux;
-        const length = size * FF_SWORD_ARC_LENGTH;
-        const bow = size * FF_SWORD_ARC_BOW * (Math.random() < 0.5 ? -1 : 1);
-
-        // Flames along the arc, ignited in order so the edge appears to travel through the unit.
-        for (let i = 0; i < FF_SWORD_FLAME_COUNT; i++) {
-            const t = i / (FF_SWORD_FLAME_COUNT - 1);
-            const along = (t - 0.5) * length;
-            // Fat in the middle, tapering to nothing at the tips — the shape of a swung edge.
-            const taper = Math.sin(Math.PI * t);
-            const curve = bow * taper;
-            const jitter = size * 0.05;
-            const rand = Math.random();
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-            push(sprite, {
-                // The whole sweep takes FF_SWORD_SWEEP_S; each flame waits its turn along the blade.
-                age: -t * FF_SWORD_SWEEP_S,
-                life: FF_SWORD_FLAME_LIFE * (0.75 + 0.5 * rand),
-                x: center.x + ux * along + px * curve + (Math.random() - 0.5) * jitter,
-                y: center.y + uy * along + py * curve + (Math.random() - 0.5) * jitter,
-                riseY: size * (0.22 + 0.3 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.22,
-                // Biggest at the belly of the cut, slim at the tips.
-                startScale: (size * (0.16 + 0.3 * taper) * (0.85 + 0.3 * rand)) / texW,
-                endScale: (size * (0.06 + 0.1 * rand)) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.07,
-                rot: swing + (Math.random() - 0.5) * 0.6,
-                spin: (Math.random() - 0.5) * 3.5,
-            });
-        }
-
-        // A hot core flash at the belly of the cut, timed to the middle of the sweep — the moment the
-        // edge bites rather than the moment it arrives.
-        const flash = new Sprite(tex);
-        flash.blendMode = "add";
-        flash.tint = 0xffe2a0;
-        push(flash, {
-            age: -FF_SWORD_SWEEP_S * 0.5,
-            life: FF_SWORD_FLASH_LIFE,
-            x: center.x,
-            y: center.y,
-            riseY: size * 0.06,
-            driftX: 0,
-            startScale: (size * 0.3) / texW,
-            endScale: (size * 0.95) / texW,
-            peakAlpha: 0.8,
-            fadeInFraction: 0.12,
-            rot: swing,
-            spin: 0,
-        });
-
-        // Soot rising off the cut once the edge has passed.
-        for (let i = 0; i < FF_SWORD_SMOKE_COUNT; i++) {
-            const rand = Math.random();
-            const t = 0.25 + Math.random() * 0.5;
-            const along = (t - 0.5) * length;
-            const sprite = new Sprite(tex);
-            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
-            push(sprite, {
-                age: -(FF_SWORD_SWEEP_S + 0.05 + Math.random() * 0.16),
-                life: BURN_SMOKE_LIFE * (0.7 + 0.4 * rand),
-                x: center.x + ux * along + (Math.random() - 0.5) * size * 0.3,
-                y: center.y + uy * along + (Math.random() - 0.5) * size * 0.2,
-                riseY: size * (0.7 + 0.45 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.45,
-                startScale: (size * (0.22 + 0.14 * rand)) / texW,
-                endScale: (size * (0.62 + 0.35 * rand)) / texW,
-                peakAlpha: 0.38,
-                fadeInFraction: 0.25,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 1.4,
-            });
-        }
-
-        this.fireBurns.push({ container, particles });
+    private emitSpellAtmosphere(sample: SpellAtmosphereSample): void {
+        this.spellAtmosphere ??= new SpellAtmosphere((container, z) => this.context.attachToWorldRoot(container, z));
+        this.spellAtmosphere.emit(sample);
     }
-    /**
-     * Ring of Fire: a circle of flame that erupts AROUND a cell, rather than a bolt thrown at it.
-     *
-     * The spell burns the aimed cell plus every cell touching it, and the ring is what the player should
-     * read — so the flames are laid around the circumference at roughly one cell's radius and lit in
-     * sequence, sweeping once around, with the ground inside catching afterwards. A rising shockwave marks
-     * the centre so the burst still has a focal point.
-     *
-     * Reuses the fire-burn particle pool: same fields, same stepper, so nothing new has to be ticked.
-     */
-    public spawnFireRing(center: HoCMath.XY, cellSize: number): void {
-        const container = new Container();
-        this.attachEffect(container, FIRE_Z);
-        const tex = this.getFireTexture();
-        const texW = tex.width || 64;
-        const size = Math.max(1, cellSize);
-        const radius = size * RING_RADIUS_CELLS;
-        const particles: IFireBurnParticle[] = [];
-
-        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
-            sprite.anchor.set(0.5);
-            sprite.scale.set(0.001);
-            sprite.alpha = 0;
-            sprite.visible = false;
-            container.addChild(sprite);
-            particles.push({ sprite, ...particle });
-        };
-
-        // Centre shockwave: one wide bloom that expands past the ring, tying the circle to its target.
-        const flash = new Sprite(tex);
-        flash.blendMode = "add";
-        flash.tint = 0xffd79a;
-        push(flash, {
-            age: 0,
-            life: BURN_FLASH_LIFE * 1.6,
-            x: center.x,
-            y: center.y,
-            riseY: 0,
-            driftX: 0,
-            startScale: (size * 0.4) / texW,
-            endScale: (radius * 2.3) / texW,
-            peakAlpha: 0.5,
-            fadeInFraction: 0.1,
-            rot: 0,
-            spin: 0,
-        });
-
-        for (let i = 0; i < RING_FLAME_COUNT; i++) {
-            const fraction = i / RING_FLAME_COUNT;
-            const angle = fraction * Math.PI * 2;
-            const rand = Math.random();
-            // Jitter the radius a little so the ring looks like fire, not a drawn circle.
-            const r = radius * (0.88 + 0.22 * Math.random());
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-            push(sprite, {
-                // Ignition sweeps once around the circumference — this is what makes it read as a RING.
-                age: -fraction * RING_SWEEP_S,
-                life: RING_FLAME_LIFE * (0.8 + 0.4 * rand),
-                x: center.x + Math.cos(angle) * r,
-                y: center.y + Math.sin(angle) * r,
-                riseY: size * (0.4 + 0.3 * rand),
-                // Flames lean outward from the centre, as if blown off the ring.
-                driftX: Math.cos(angle) * size * 0.16,
-                startScale: (size * (0.26 + 0.2 * rand)) / texW,
-                endScale: (size * (0.08 + 0.1 * rand)) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.1,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 5,
-            });
-        }
-
-        for (let i = 0; i < RING_SMOKE_COUNT; i++) {
-            const rand = Math.random();
-            const angle = Math.random() * Math.PI * 2;
-            const sprite = new Sprite(tex);
-            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
-            push(sprite, {
-                // Smoke lifts off the ring once it has burned for a moment.
-                age: -(RING_SWEEP_S + 0.1 + Math.random() * 0.2),
-                life: BURN_SMOKE_LIFE * (0.9 + 0.4 * rand),
-                x: center.x + Math.cos(angle) * radius * (0.7 + 0.4 * Math.random()),
-                y: center.y + Math.sin(angle) * radius * (0.7 + 0.4 * Math.random()),
-                riseY: size * (0.8 + 0.5 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.5,
-                startScale: (size * (0.24 + 0.14 * rand)) / texW,
-                endScale: (size * (0.66 + 0.36 * rand)) / texW,
-                peakAlpha: 0.38,
-                fadeInFraction: 0.25,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 1.6,
-            });
-        }
-
-        this.fireBurns.push({ container, particles });
+    public setFireSpellRenderMode(mode: FireSpellRenderMode): void {
+        this.fireSpellRenderMode = mode;
+        saveFireSpellRenderMode(mode);
     }
-    /**
-     * A body crossing a Fire Wall cell: the sheet of flame the cell throws up as the body passes through
-     * it. Scheduled, not immediate — the engine reports the burn before the walk is drawn, so `delaySec`
-     * is when the move animation actually reaches this cell (see fireWallCrossingSchedule) and every
-     * particle simply waits that long to be born. A walker wades in: a wide, low burst with the sparks
-     * kicked on along its heading. A flyer passes over: a taller, narrower column leaping up under it,
-     * with the sparks thrown high.
-     */
-    public spawnFireWallCrossing(
-        center: HoCMath.XY,
-        cellSize: number,
-        delaySec: number,
-        flying: boolean,
-        direction: HoCMath.XY,
-    ): void {
-        const container = new Container();
-        this.attachEffect(container, FIRE_Z);
-        const tex = this.getFireTexture();
-        const texW = tex.width || 64;
-        const size = Math.max(1, cellSize);
-        const wait = Math.max(0, delaySec);
-        const particles: IFireBurnParticle[] = [];
-
-        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
-            sprite.anchor.set(0.5);
-            sprite.scale.set(0.001);
-            sprite.alpha = 0;
-            sprite.visible = false;
-            container.addChild(sprite);
-            particles.push({ sprite, ...particle });
-        };
-        const spread = flying ? 0.34 : 0.7; // how wide the sheet is, in cells
-        const lift = flying ? 2.3 : 1.15; // how high the flames leap, in cells
-
-        // 1. The sheet catching on the body: one hot bloom, wide and low for a walker, tall for a flyer.
-        const flash = new Sprite(tex);
-        flash.blendMode = "add";
-        flash.tint = 0xfff0c0;
-        push(flash, {
-            age: -wait,
-            life: WALL_CROSS_FLASH_LIFE,
-            x: center.x,
-            y: center.y - size * (flying ? 0.45 : 0.05),
-            riseY: size * (flying ? 0.7 : 0.2),
-            driftX: 0,
-            startScale: (size * 0.9) / texW,
-            endScale: (size * (flying ? 2.0 : 2.6)) / texW,
-            peakAlpha: 0.9,
-            fadeInFraction: 0.1,
-            rot: 0,
-            spin: 0,
-        });
-
-        // 2. Flame tongues, erupting in a ripple from the middle of the cell outwards and kept coming for
-        //    about as long as the body takes to cross, so the sheet burns under it rather than puffing once.
-        for (let i = 0; i < WALL_CROSS_FLAME_COUNT; i++) {
-            const rand = Math.random();
-            const across = (Math.random() - 0.5) * 2; // -1..1 across the cell
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-            push(sprite, {
-                age: -wait - Math.abs(across) * 0.06 - Math.random() * WALL_CROSS_RIPPLE_S,
-                life: WALL_CROSS_FLAME_LIFE * (0.7 + 0.6 * rand),
-                x: center.x + across * size * spread,
-                y: center.y + size * 0.22 - Math.random() * size * 0.12,
-                riseY: size * lift * (0.55 + 0.6 * rand) * (1 - Math.abs(across) * 0.35),
-                driftX: (Math.random() - 0.5) * size * 0.22 + direction.x * size * (flying ? 0.05 : 0.28),
-                startScale: (size * (0.45 + 0.45 * rand)) / texW,
-                endScale: (size * (0.14 + 0.14 * rand)) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.07,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 5,
-            });
-        }
-
-        // 3. Sparks: small, bright and thrown far — on and out for a walker kicking through the embers,
-        //    straight up for a flyer.
-        for (let i = 0; i < WALL_CROSS_SPARK_COUNT; i++) {
-            const rand = Math.random();
-            const angle = Math.random() * Math.PI * 2;
-            const throwX = flying ? Math.cos(angle) * 0.4 : direction.x * (0.6 + rand * 0.7) + Math.cos(angle) * 0.35;
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = rand > 0.5 ? 0xfff2c4 : 0xffc861;
-            push(sprite, {
-                age: -wait - Math.random() * WALL_CROSS_RIPPLE_S,
-                life: WALL_CROSS_SPARK_LIFE * (0.6 + 0.7 * rand),
-                x: center.x + (Math.random() - 0.5) * size * 0.35,
-                y: center.y + size * 0.12,
-                riseY: size * (flying ? 1.6 + rand * 1.4 : 0.7 + rand),
-                driftX: throwX * size,
-                startScale: (size * (0.12 + 0.1 * rand)) / texW,
-                endScale: (size * 0.03) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.05,
-                rot: 0,
-                spin: 0,
-            });
-        }
-
-        // 4. Soot, born as the flames gutter, drifting up and lingering over the crossed cell.
-        for (let i = 0; i < WALL_CROSS_SMOKE_COUNT; i++) {
-            const rand = Math.random();
-            const sprite = new Sprite(tex);
-            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
-            push(sprite, {
-                age: -wait - (0.12 + Math.random() * 0.25),
-                life: WALL_CROSS_SMOKE_LIFE * (0.8 + 0.4 * rand),
-                x: center.x + (Math.random() - 0.5) * size * 0.5,
-                y: center.y + (Math.random() - 0.5) * size * 0.2,
-                riseY: size * (0.8 + 0.5 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.5 + direction.x * size * 0.2,
-                startScale: (size * (0.26 + 0.16 * rand)) / texW,
-                endScale: (size * (0.7 + 0.4 * rand)) / texW,
-                peakAlpha: 0.4,
-                fadeInFraction: 0.25,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 1.6,
-            });
-        }
-
-        this.fireBurns.push({ container, particles });
-    }
-    /**
-     * Flames clinging to a creature that went through fire. From `startDelaySec` (when the walk animation
-     * reaches the first burning cell) embers keep peeling off the body for `durationSec`, thinning out as
-     * they go, with soot behind them. The emitter follows the sprite every frame, so the fire walks (or
-     * flies) on with the unit, and the scorch wash lands the moment the body first touches the flames.
-     */
-    public igniteUnit(unit: Unit, startDelaySec: number, durationSec: number, cellSize: number): void {
-        const container = new Container();
-        this.attachEffect(container, FIRE_Z);
-        const glow = new Sprite(this.getFireTexture());
-        glow.anchor.set(0.5);
-        glow.blendMode = "add";
-        glow.tint = 0xff7a1a;
-        glow.alpha = 0;
-        glow.visible = false;
-        container.addChild(glow);
-        this.unitAblazes.push({
-            unit,
-            age: -Math.max(0, startDelaySec),
-            duration: Math.max(0.2, durationSec),
-            cellSize: Math.max(1, cellSize),
-            emitDebt: 0,
-            emitted: 0,
-            flashed: false,
-            container,
-            glow,
-            particles: [],
-        });
-    }
-    /** A damage number that pops `delaySec` from now — for a burn the walk animation has yet to reach. */
-    public showFloatingDamageDelayed(
-        pos: HoCMath.XY,
-        amount: number,
-        unitsDied: number,
-        delaySec: number,
-        fill: string,
-        stroke: string,
-        audioUnit?: Pick<Unit, "getName" | "getId">,
-        zIndex?: number,
-    ): void {
-        this.delayedFloatingDamage.push({
-            pos: { x: pos.x, y: pos.y },
-            amount,
-            unitsDied,
-            remainingSec: Math.max(0, delaySec),
-            fill,
-            stroke,
-            audioUnit,
-            zIndex,
-        });
-    }
-    private stepDelayedFloatingDamage(dt: number): void {
-        for (let i = this.delayedFloatingDamage.length - 1; i >= 0; i--) {
-            const pending = this.delayedFloatingDamage[i];
-            pending.remainingSec -= dt;
-            if (pending.remainingSec > 0) {
-                continue;
-            }
-            this.delayedFloatingDamage.splice(i, 1);
-            this.showFloatingDamage(
-                pending.pos,
-                pending.amount,
+    public spawnFireRing(target: WhirlpoolFootprint, area: WhirlpoolFootprint): void {
+        if (this.fireSpellRenderMode === "particles") {
+            this.spellFireParticles ??= new SpellFireParticles(
+                (container, z) => this.context.attachToWorldRoot(container, z),
                 undefined,
-                pending.unitsDied,
-                pending.fill,
-                pending.stroke,
                 undefined,
-                pending.audioUnit,
-                pending.zIndex,
+                (sample) => this.emitSpellAtmosphere(sample),
             );
+            this.spellFireParticles.ring(target, area);
+            return;
         }
+        this.spellFireSprites ??= new SpellFireSprites(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        );
+        void this.spellFireSprites.ring(target, area);
     }
-    private stepUnitAblazes(dt: number): void {
-        const gs = this.context.getGridSettings();
-        for (let i = this.unitAblazes.length - 1; i >= 0; i--) {
-            const ablaze = this.unitAblazes[i];
-            ablaze.age += dt;
-            const alive = !ablaze.unit.isDead();
-            const burning = alive && ablaze.age >= 0 && ablaze.age < ablaze.duration;
-            if (burning) {
-                if (!ablaze.flashed) {
-                    ablaze.flashed = true;
-                    // The holder can carry a plain engine Unit (a hydrated ranked snapshot before its sprite
-                    // exists); only a rendered unit has a body to wash.
-                    if (ablaze.unit instanceof RenderableUnit) {
-                        ablaze.unit.flashScorch();
-                    }
-                }
-                const center =
-                    ablaze.unit instanceof RenderableUnit
-                        ? ablaze.unit.getVisualCenter(gs)
-                        : projectBattlefieldPoint(ablaze.unit.getPosition(), gs);
-                const tex = this.getFireTexture();
-                const texW = tex.width || 64;
-                const size = ablaze.cellSize;
-                // The fire dies down over the burn: most embers early, a last few as it gutters out — and
-                // the halo on the body flickers and fades with it.
-                const progress = ablaze.age / ablaze.duration;
-                const flicker = 0.8 + 0.2 * Math.sin(ablaze.age * 23);
-                ablaze.glow.visible = true;
-                ablaze.glow.position.set(center.x, center.y + size * 0.15);
-                ablaze.glow.scale.set((size * 1.5) / texW, ((size * 1.5) / texW) * this.boardStretchCache);
-                ablaze.glow.alpha = ABLAZE_GLOW_ALPHA * (1 - progress) * flicker;
-                ablaze.emitDebt += dt * ABLAZE_EMBERS_PER_SECOND * (1 - progress * 0.7);
-                if (ablaze.emitDebt >= 1) {
-                    while (ablaze.emitDebt >= 1) {
-                        ablaze.emitDebt -= 1;
-                        ablaze.emitted += 1;
-                        const rand = Math.random();
-                        const soot = ablaze.emitted % ABLAZE_SOOT_EVERY === 0;
-                        const sprite = new Sprite(tex);
-                        sprite.anchor.set(0.5);
-                        sprite.scale.set(0.001);
-                        sprite.alpha = 0;
-                        sprite.visible = false;
-                        if (soot) {
-                            sprite.tint = BURN_SMOKE_TINTS[ablaze.emitted % BURN_SMOKE_TINTS.length];
-                        } else {
-                            sprite.blendMode = "add";
-                            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-                        }
-                        ablaze.container.addChild(sprite);
-                        ablaze.particles.push({
-                            sprite,
-                            age: 0,
-                            life: soot ? BURN_SMOKE_LIFE * 0.8 : ABLAZE_EMBER_LIFE * (0.7 + 0.6 * rand),
-                            // Born low on the body and a little behind it, so the trail reads as flames
-                            // licking off the back of something moving.
-                            x: center.x + (Math.random() - 0.5) * size * 0.65,
-                            y: center.y + (Math.random() - 0.15) * size * 0.6,
-                            riseY: size * (soot ? 0.8 : 0.4 + 0.5 * rand),
-                            driftX: (Math.random() - 0.5) * size * 0.3,
-                            startScale: (size * (soot ? 0.28 : 0.26 + 0.24 * rand)) / texW,
-                            endScale: (size * (soot ? 0.65 : 0.05)) / texW,
-                            peakAlpha: soot ? 0.32 : 0.95,
-                            fadeInFraction: soot ? 0.3 : 0.1,
-                            rot: Math.random() * Math.PI * 2,
-                            spin: (Math.random() - 0.5) * (soot ? 1.5 : 5),
-                        });
-                    }
-                }
-            }
-            const anyPending = this.stepBurnParticles(ablaze.particles, dt);
-            // Spent particles are dropped as we go: the emitter keeps adding, and a walk-long burn would
-            // otherwise tick a growing pile of invisible sprites.
-            for (let j = ablaze.particles.length - 1; j >= 0; j--) {
-                const particle = ablaze.particles[j];
-                if (particle.age >= particle.life) {
-                    particle.sprite.destroy();
-                    ablaze.particles.splice(j, 1);
-                }
-            }
-            if (!burning) {
-                ablaze.glow.visible = false;
-            }
-            const stillBurning = alive && ablaze.age < ablaze.duration;
-            if (!anyPending && !stillBurning) {
-                ablaze.container.destroy({ children: true });
-                this.unitAblazes.splice(i, 1);
-            }
+    public spawnMeteorShower(cells: readonly WhirlpoolFootprint[]): void {
+        if (this.fireSpellRenderMode === "particles") {
+            this.spellFireParticles ??= new SpellFireParticles(
+                (container, z) => this.context.attachToWorldRoot(container, z),
+                undefined,
+                undefined,
+                (sample) => this.emitSpellAtmosphere(sample),
+            );
+            this.spellFireParticles.meteors(cells);
+            return;
         }
+        this.spellFireSprites ??= new SpellFireSprites(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        );
+        void this.spellFireSprites.meteors(cells);
     }
     private stepFireBurns(dt: number): void {
         for (let i = this.fireBurns.length - 1; i >= 0; i--) {
@@ -3410,42 +3085,6 @@ export class CombatVisuals {
                 this.fireBurns.splice(i, 1);
             }
         }
-    }
-    /**
-     * Advance one fire burst's particles; true while any is still unborn or alive. Shared by every effect
-     * built on the ember/soot particle shape (fire bursts, the Fire Wall crossing sheet, clinging flames).
-     */
-    private stepBurnParticles(particles: IFireBurnParticle[], dt: number): boolean {
-        let anyPending = false;
-        for (const p of particles) {
-            p.age += dt;
-            if (p.age < 0) {
-                anyPending = true; // not born yet
-                continue;
-            }
-            if (p.age >= p.life) {
-                if (p.sprite.visible) {
-                    p.sprite.visible = false;
-                }
-                continue;
-            }
-            anyPending = true;
-            const t = p.age / p.life;
-            const e = easeOutCubic(t);
-            p.sprite.visible = true;
-            p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
-            const scale = p.startScale + (p.endScale - p.startScale) * e;
-            // Square on screen, not square in world units — see attachEffect.
-            p.sprite.scale.set(scale, scale * this.boardStretchCache);
-            p.rot += p.spin * dt;
-            p.sprite.rotation = p.rot;
-            const alpha =
-                t < p.fadeInFraction
-                    ? (t / p.fadeInFraction) * p.peakAlpha
-                    : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
-            p.sprite.alpha = Math.max(0, Math.min(1, alpha));
-        }
-        return anyPending;
     }
     private stepFireSweeps(dt: number): void {
         for (let i = this.fireSweeps.length - 1; i >= 0; i--) {
@@ -3485,7 +3124,6 @@ export class CombatVisuals {
             }
         }
     }
-    /** Soft green→transparent radial puff, drawn once and tinted per particle — one wisp of the toxic cloud. */
     private getPoisonTexture(): Texture {
         if (this.poisonTexture) {
             return this.poisonTexture;
@@ -3512,12 +3150,6 @@ export class CombatVisuals {
         this.poisonTexture = Texture.from(canvas);
         return this.poisonTexture;
     }
-    /**
-     * Poison tick VFX: a puff of toxic-green gas rises off the poisoned unit at the start of its turn
-     * (driven by the `poison_ticked` engine event). Particles pop in, float up, SWELL, and fade — the
-     * fire-ember lifecycle but green and expanding (billowing gas) instead of shrinking (burning ember).
-     * Shared by the live sandbox and the ranked replay (both route the event through applyTurnEngineEvents).
-     */
     public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
@@ -3621,7 +3253,6 @@ export class CombatVisuals {
             }
         });
     }
-    /** Blacksmith's Craft cast: an upright anvil and hammer centred over the selected 2x2 area. */
     public spawnCraftForge(center: HoCMath.XY, cellSize: number): number {
         void this.loadCraftTextures().then((textures) => {
             if (textures) this.createCraftForge(center, cellSize, textures);
@@ -3781,11 +3412,6 @@ export class CombatVisuals {
         }
         if (this.craftForges.length === 0) this.releaseCraftTextures();
     }
-    /**
-     * Blacksmith's Armor Rune / Weapon Rune result over the target: a short "trying" gather (a runic ring
-     * tightens while motes of the enchant colour spiral in), then a RESOLVE — on success a ring-burst + the scroll
-     * icon popping up with "+N armor/attack"; on the 50% miss a grey fizzle + "Failed". Returns its duration (ms).
-     */
     public spawnEnchantResult(
         center: HoCMath.XY,
         cellSize: number,
@@ -3967,267 +3593,30 @@ export class CombatVisuals {
             }
         }
     }
-    public spawnGravechain(links: IGravechainWave["links"], cellSize: number, onBind: (unitId: string) => void): void {
-        this.gravechains.spawn(links, cellSize, onBind);
+    public spawnChainLightning(targets: HoCMath.XY[], cellSize: number): void {
+        this.lightningProcedural ??= new ThunderbirdLightningProcedural(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        );
+        this.lightningProcedural.spawn(targets, cellSize);
     }
-    /**
-     * Chain Lightning arc: a purple bolt jumps from the attacker to the target and then on through
-     * each chained enemy, one jump after another (CHAIN_JUMP_MS apart), so it reads as electricity
-     * arcing through the units the chain hits. `points` is the ordered path of world centers
-     * [attacker, target, chained…]; each consecutive pair gets a crackling bolt.
-     */
-    public spawnChainLightning(points: HoCMath.XY[], cellSize: number): void {
-        if (points.length < 2) {
-            return;
-        }
-        const container = new Container();
-        this.attachEffect(container, CHAIN_Z);
-        const bolts: IChainBolt[] = [];
-        for (let i = 0; i < points.length - 1; i++) {
-            const gfx = new Graphics();
-            gfx.blendMode = "add";
-            gfx.visible = false;
-            container.addChild(gfx);
-            bolts.push({
-                gfx,
-                from: points[i],
-                to: points[i + 1],
-                cellSize,
-                age: -(CHAIN_LEAD_MS + i * CHAIN_JUMP_MS) / 1000,
-                life: CHAIN_BOLT_LIFE,
-                flicker: CHAIN_FLICKER_S, // force a draw on the first visible tick
-            });
-        }
-        this.chainLightnings.push({ container, bolts });
-    }
-    /** Redraw a jagged purple bolt between two points (stacked strokes: glow + mid + hot core). */
-    private drawChainBolt(gfx: Graphics, from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
-        gfx.clear();
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
-        const len = Math.hypot(dx, dy) || 1;
-        const nx = -dy / len; // unit perpendicular to the bolt
-        const ny = dx / len;
-        const segments = Math.max(4, Math.round(len / (cellSize * 0.5)));
-        const amp = Math.min(cellSize * 0.4, len * 0.2);
-        const pts: HoCMath.XY[] = [];
-        for (let i = 0; i <= segments; i++) {
-            const t = i / segments;
-            const taper = Math.sin(Math.PI * t); // 0 at both ends so the bolt connects cleanly
-            const off = (Math.random() - 0.5) * 2 * amp * taper;
-            pts.push({ x: from.x + dx * t + nx * off, y: from.y + dy * t + ny * off });
-        }
-        const trace = () => {
-            gfx.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) {
-                gfx.lineTo(pts[i].x, pts[i].y);
-            }
-        };
-        trace();
-        gfx.stroke({ width: cellSize * 0.17, color: CHAIN_GLOW, alpha: 0.3, cap: "round", join: "round" });
-        trace();
-        gfx.stroke({ width: cellSize * 0.08, color: CHAIN_MID, alpha: 0.7, cap: "round", join: "round" });
-        trace();
-        gfx.stroke({ width: cellSize * 0.03, color: CHAIN_CORE, alpha: 1, cap: "round", join: "round" });
-    }
-    /**
-     * Lightning Strike: a bolt called down out of the sky onto one creature.
-     *
-     * Three phases in one record: a glow gathers above the target, the column snaps down and crackles, and
-     * a flare with an expanding ring marks the ground. `target` is the already-projected world point of the
-     * creature that was hit, so the column lands on the sprite the damage number appears over.
-     */
     public spawnLightningStrike(target: HoCMath.XY, cellSize: number): void {
-        const container = new Container();
-        this.attachEffect(container, STRIKE_Z);
-        const flash = new Graphics();
-        const bolt = new Graphics();
-        const burst = new Graphics();
-        for (const gfx of [flash, bolt, burst]) {
-            gfx.blendMode = "add";
-            gfx.visible = false;
-            container.addChild(gfx);
-        }
-        this.lightningStrikes.push({
-            container,
-            flash,
-            bolt,
-            burst,
-            target: { x: target.x, y: target.y },
-            cellSize,
-            age: 0,
-            flicker: STRIKE_FLICKER_S, // force a draw on the first visible tick
-        });
+        this.lightningProcedural ??= new ThunderbirdLightningProcedural(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        );
+        this.lightningProcedural.spawn([target], cellSize, "natural");
     }
-    /**
-     * Redraw the descending column. worldRoot is y-up, so the bolt starts STRIKE_HEIGHT_CELLS ABOVE the
-     * creature and works downward. The lateral wander tapers to zero at the bottom so the strike always
-     * terminates exactly on the target rather than beside it.
-     */
-    private drawLightningColumn(gfx: Graphics, target: HoCMath.XY, cellSize: number): void {
-        gfx.clear();
-        const height = cellSize * STRIKE_HEIGHT_CELLS;
-        const spread = cellSize * STRIKE_SPREAD_CELLS;
-        const segments = 13;
-        const pts: HoCMath.XY[] = [];
-        for (let i = 0; i <= segments; i++) {
-            const t = i / segments; // 0 at the sky, 1 at the creature
-            // Wander widest up in the sky and none at all at the impact point.
-            const wander = (Math.random() - 0.5) * 2 * spread * (1 - t);
-            pts.push({ x: target.x + wander, y: target.y + height * (1 - t) });
-        }
-        const trace = (path: HoCMath.XY[]) => {
-            gfx.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) {
-                gfx.lineTo(path[i].x, path[i].y);
-            }
-        };
-        // Short forks peeling off the column, so it reads as lightning rather than a drawn line.
-        const forks: HoCMath.XY[][] = [];
-        for (let f = 0; f < STRIKE_FORKS; f++) {
-            const start = 2 + Math.floor(Math.random() * (segments - 5));
-            const root = pts[start];
-            const dir = Math.random() < 0.5 ? -1 : 1;
-            const fork: HoCMath.XY[] = [root];
-            let fx = root.x;
-            let fy = root.y;
-            const steps = 2 + Math.floor(Math.random() * 2);
-            for (let k = 0; k < steps; k++) {
-                fx += dir * cellSize * (0.18 + Math.random() * 0.22);
-                fy -= cellSize * (0.3 + Math.random() * 0.35);
-                fork.push({ x: fx, y: fy });
-            }
-            forks.push(fork);
-        }
-        // Stacked strokes, widest and dimmest first: corona, body, then the hot core on top.
-        for (const [width, color, alpha] of [
-            [0.2, STRIKE_GLOW, 0.28],
-            [0.09, STRIKE_MID, 0.72],
-            [0.032, STRIKE_CORE, 1],
-        ] as const) {
-            trace(pts);
-            gfx.stroke({ width: cellSize * width, color, alpha, cap: "round", join: "round" });
-        }
-        for (const fork of forks) {
-            trace(fork);
-            gfx.stroke({ width: cellSize * 0.05, color: STRIKE_MID, alpha: 0.55, cap: "round", join: "round" });
-            trace(fork);
-            gfx.stroke({ width: cellSize * 0.018, color: STRIKE_CORE, alpha: 0.85, cap: "round", join: "round" });
-        }
+    public spawnWhirlpool(footprint: WhirlpoolFootprint): void {
+        this.whirlpoolSprites ??= new WhirlpoolSprites(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        );
+        void this.whirlpoolSprites.spawn(footprint);
     }
-    private stepLightningStrikes(dt: number): void {
-        for (let i = this.lightningStrikes.length - 1; i >= 0; i--) {
-            const strike = this.lightningStrikes[i];
-            strike.age += dt;
-            const { cellSize, target } = strike;
-
-            // Phase 1 — the sky gathers. A soft blue glow high above the creature, fading as the bolt commits.
-            if (strike.age < STRIKE_TELEGRAPH_S) {
-                const t = strike.age / STRIKE_TELEGRAPH_S;
-                strike.flash.visible = true;
-                strike.flash.clear();
-                strike.flash
-                    .ellipse(
-                        target.x,
-                        target.y + cellSize * STRIKE_HEIGHT_CELLS * 0.8,
-                        cellSize * (0.7 + t * 0.9),
-                        cellSize * (0.25 + t * 0.3),
-                    )
-                    .fill({ color: STRIKE_MID, alpha: 0.06 + t * 0.16 });
-            } else if (strike.flash.visible) {
-                strike.flash.visible = false;
-                strike.flash.clear();
-            }
-
-            // Phase 2 — the column descends and crackles.
-            const boltAge = strike.age - STRIKE_TELEGRAPH_S;
-            if (boltAge >= 0 && boltAge < STRIKE_BOLT_LIFE) {
-                strike.bolt.visible = true;
-                strike.flicker += dt;
-                if (strike.flicker >= STRIKE_FLICKER_S) {
-                    strike.flicker = 0;
-                    this.drawLightningColumn(strike.bolt, target, cellSize);
-                }
-                // Full brightness on contact, then a fast decay with a little crackle in it.
-                const t = boltAge / STRIKE_BOLT_LIFE;
-                const envelope = t < 0.14 ? 1 : 1 - (t - 0.14) / 0.86;
-                strike.bolt.alpha = Math.max(0, envelope) * (0.72 + Math.random() * 0.28);
-            } else if (strike.bolt.visible) {
-                strike.bolt.visible = false;
-                strike.bolt.clear();
-            }
-
-            // Phase 3 — the ground answers: a flare on the creature and a ring thrown outward from it.
-            if (boltAge >= 0 && boltAge < STRIKE_BURST_LIFE) {
-                const t = boltAge / STRIKE_BURST_LIFE;
-                const fade = 1 - t;
-                strike.burst.visible = true;
-                strike.burst.clear();
-                strike.burst
-                    .circle(target.x, target.y, cellSize * (0.52 + t * 0.35))
-                    .fill({ color: STRIKE_CORE, alpha: 0.5 * fade * fade });
-                strike.burst
-                    .circle(target.x, target.y, cellSize * (0.34 + t * 0.9))
-                    .fill({ color: STRIKE_MID, alpha: 0.22 * fade });
-                strike.burst
-                    .ellipse(target.x, target.y, cellSize * (0.45 + t * 1.5), cellSize * (0.16 + t * 0.5))
-                    .stroke({ width: cellSize * 0.06 * fade, color: STRIKE_GLOW, alpha: 0.75 * fade });
-            } else if (strike.burst.visible) {
-                strike.burst.visible = false;
-                strike.burst.clear();
-            }
-
-            if (strike.age >= STRIKE_TOTAL_LIFE) {
-                strike.container.destroy({ children: true });
-                this.lightningStrikes.splice(i, 1);
-            }
-        }
-    }
-    private stepChainLightnings(dt: number): void {
-        for (let i = this.chainLightnings.length - 1; i >= 0; i--) {
-            const chain = this.chainLightnings[i];
-            let anyPending = false;
-            for (const bolt of chain.bolts) {
-                bolt.age += dt;
-                if (bolt.age < 0) {
-                    anyPending = true; // the chain hasn't reached this jump yet
-                    continue;
-                }
-                if (bolt.age >= bolt.life) {
-                    if (bolt.gfx.visible) {
-                        bolt.gfx.visible = false;
-                    }
-                    continue;
-                }
-                anyPending = true;
-                bolt.gfx.visible = true;
-                // Re-jag periodically so the bolt crackles instead of sitting as a static zig-zag.
-                bolt.flicker += dt;
-                if (bolt.flicker >= CHAIN_FLICKER_S) {
-                    bolt.flicker = 0;
-                    this.drawChainBolt(bolt.gfx, bolt.from, bolt.to, bolt.cellSize);
-                }
-                // Bright flash, then fade out, with a little random crackle in the brightness.
-                const t = bolt.age / bolt.life;
-                const envelope = t < 0.18 ? 1 : 1 - (t - 0.18) / 0.82;
-                bolt.gfx.alpha = Math.max(0, envelope) * (0.7 + Math.random() * 0.3);
-            }
-            if (!anyPending) {
-                chain.container.destroy({ children: true });
-                this.chainLightnings.splice(i, 1);
-            }
-        }
-    }
-    /**
-     * The Magic Dragon's Magic Mirror rebound.
-     *
-     * A pane of cold glass snaps up in front of the holder, catches the spell, and a shard of it travels back
-     * down the line into the caster — the visual answer to "the spell landed on me AND part of it is coming
-     * back at you". Sized and aimed off world centers, so it reads the same at any zoom.
-     *
-     * Called from BOTH scenes (sandbox live cast + ranked replay) off the same engine event, per the ability
-     * VFX contract: an effect wired into only one of them silently never plays in ranked.
-     */
     public spawnMagicMirrorRebound(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
         const container = new Container();
         this.attachEffect(container, MIRROR_Z);
@@ -4315,13 +3704,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Pikeman's Skewer Strike: a wind "spear" that thrusts from the attacker through the primary target
-     * and the unit(s) standing behind it. `points` is the ordered polyline of world centers
-     * [attacker, target, behind…]. The bright tip travels the whole line fast, leaving a fading wind
-     * trail, so a two-unit (or more) pierce reads instantly. Works the same in sandbox and ranked —
-     * both call this with the attacker + struck units once the strike lands.
-     */
     public spawnWindSpear(points: HoCMath.XY[], cellSize: number): void {
         if (points.length < 2) {
             return;
@@ -4367,7 +3749,6 @@ export class CombatVisuals {
             life: (WINDSPEAR_TRAVEL_MS + WINDSPEAR_FADE_MS) / 1000,
         });
     }
-    /** World point at distance `d` along the spear's polyline (clamped to [0, total]). */
     private pointAlong(spear: IWindSpear, d: number): HoCMath.XY {
         const clamped = Math.max(0, Math.min(spear.total, d));
         let acc = 0;
@@ -4442,12 +3823,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Shatter Armor: tear a single bloody GASH across the struck enemy at impact. `center` is the
-     * target's world center; the gash is at a RANDOM angle (the blow direction is ignored so repeated
-     * hits look different). Built as an irregular, tapered, slightly-bowed filled shape (not a straight
-     * line) so it reads as an open wound, plus a few droplets that drip down. Same in sandbox + ranked.
-     */
     public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
         const container = new Container();
         this.attachEffect(container, SLASH_Z);
@@ -4557,11 +3932,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Directional blood spray: droplets flung in a cone along `dir` — the direction the blow was
-     * travelling as it struck — with a brief red mist right at the wound. Fired per victim AS the
-     * chakram reaches each one, so every ricochet bleeds at its own moment. Same in sandbox + ranked.
-     */
     public spawnBloodSpray(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
         const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
         const baseAng = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) : Math.PI / 2;
@@ -4634,11 +4004,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Deep Wounds "claw rake": a fan of glowing orange claw marks that streak diagonally across the
-     * target as the effect lands (Ursa-style). `intensity` is the effect's power % (Deep Wounds L1≈6,
-     * L2≈13, L3≈21, and it stacks) — the deeper the wound, the more marks and the wider the rake.
-     */
     public spawnClawSlash(center: HoCMath.XY, cellSize: number, intensity: number): void {
         const level = intensity >= 18 ? 3 : intensity >= 10 ? 2 : 1;
         const markCount = 2 + level; // 3, 4, or 5 claws
@@ -4758,7 +4123,7 @@ export class CombatVisuals {
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
-            skullSprite.height = 40 * this.boardStretch();
+            skullSprite.height = 40;
 
             const countStyle = this.getCountStyle();
             const countText = new PixiText({ text: `${unitsDied}`, style: countStyle });
@@ -4779,40 +4144,23 @@ export class CombatVisuals {
             zIndex,
         );
     }
-    /**
-     * Floating "+N" over a healed unit, plus a soft restorative burst so a heal reads at a glance as the
-     * opposite of a hit. Deliberately green-on-dark-green and drifted with NO direction vector: a heal has
-     * no attacker to be pushed away from, and passing one would drag the number off the unit it belongs to.
-     * Driven off the engine's authoritative `healed[]`, so the number is what was ACTUALLY restored after
-     * magic resist, Holy Cross and the missing-HP cap — not the spell's nominal power.
-     */
-    public showFloatingHeal(pos: HoCMath.XY, amount: number): void {
+    public showFloatingHeal(pos: HoCMath.XY, amount: number, unit?: RenderableUnit): void {
         if (amount <= 0) {
             return;
         }
+        if (unit) this.spawnCommonFlagPop(unit, "heal");
         const container = new Container();
         const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#66ff99", "#0b3d1e") });
         healText.anchor.set(0.5);
         container.addChild(healText);
-        this.enqueueFloatingContainer(container, pos);
+        this.enqueueFloatingContainer(
+            container,
+            pos,
+            undefined,
+            unit?.getFlagEffectAnchor(this.context.getGridSettings()),
+            this.context.getGridSettings().getCellSize() * 1.45 + 26,
+        );
         this.spawnHealBurst(pos);
-    }
-    /**
-     * Expanding ring of rising motes under a healed unit — the restorative counterpart of the death
-     * shatter. Pure Graphics (no texture), so a mass heal covering six units costs nothing to spawn.
-     * Stepped from the scene's dt loop like every other effect here (NOT requestAnimationFrame), so it
-     * pauses with the scene instead of running on while the board is frozen.
-     */
-    public showCleanse(pos: HoCMath.XY): void {
-        const container = new Container();
-        const label = new PixiText({
-            text: "CLEANSED",
-            style: this.getDamageStyle("#fff3c4", "#625012"),
-        });
-        label.anchor.set(0.5);
-        container.addChild(label);
-        this.enqueueFloatingContainer(container, pos);
-        this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
     }
     private spawnHealBurst(pos: HoCMath.XY, ringColor = 0x66ff99, moteColor = 0xaaffcc): void {
         const graphics = new Graphics();
@@ -4831,14 +4179,6 @@ export class CombatVisuals {
             })),
         });
     }
-    /**
-     * Resurrection: a column of golden light with two ground rings pushing out of it and motes streaming
-     * upward — the heal burst's louder sibling, for the rarer event of a stack actually coming back.
-     *
-     * Same contract as every effect here: pure Graphics (nothing to load, so raising several stacks costs
-     * nothing to spawn) and stepped from the scene's dt loop, so it pauses with the board rather than
-     * running on through a frozen scene.
-     */
     public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
         const graphics = new Graphics();
         this.attachEffect(graphics, RESURRECT_BURST_Z);
@@ -4910,15 +4250,6 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Boulder impact for Gargantuan's Area Throw: a pale flash at the moment of landing, a shockwave ring
-     * racing outward across the ground, a dust cloud settling behind it, and rock chips thrown up on
-     * ballistic arcs that fall back and fade.
-     *
-     * `radius` is the blast's own reach in world units, so the ring stops where the damage did instead of a
-     * fixed size that would lie about the area on a large throw. Pure Graphics and stepped from the scene's
-     * dt loop like every other effect here, so it costs nothing to spawn and pauses with the board.
-     */
     public spawnAreaImpact(pos: HoCMath.XY, cellSize: number, radius = cellSize * 1.6): void {
         const graphics = new Graphics();
         this.attachEffect(graphics, AREA_IMPACT_Z);
@@ -4992,8 +4323,8 @@ export class CombatVisuals {
             }
         }
     }
-    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0): void {
-        this.lastFuse.spawn(pos, cellSize, delaySec);
+    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0, removeBody?: () => void): void {
+        this.lastFuse.spawn(pos, cellSize, delaySec, removeBody);
     }
     public spawnPyreHit(unitId: string, pos: HoCMath.XY, origin: HoCMath.XY, cellSize: number, delaySec = 0): void {
         this.lastFuse.hit(pos, origin, cellSize, delaySec, (direction) => {
@@ -5119,4 +4450,621 @@ export class CombatVisuals {
         }
         return m;
     }
+    private boardStretchCache = 1;
+    private unitAblazes: IUnitAblaze[] = [];
+    private delayedFloatingDamage: IDelayedFloatingDamage[] = [];
+    private lastFuse = new LastFuseVfx(
+        (container) => this.attachEffect(container, 4555),
+        () => this.getFireTexture(),
+    );
+    private lightningStrikes: ILightningStrike[] = [];
+    private attachEffect(obj: Container, zIndex: number): number {
+        this.context.attachToWorldRoot(obj, zIndex);
+        return this.boardStretch();
+    }
+    private boardStretch(): number {
+        const scale = this.context.getBoardScale?.();
+        this.boardStretchCache = scale ? boardVerticalStretch(scale.x, scale.y) : 1;
+        return this.boardStretchCache;
+    }
+    public spawnFireforgedSwordBurn(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
+        const container = new Container();
+        this.attachEffect(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize);
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+
+        // The cut runs perpendicular to the blow, so a strike coming from the left lands a vertical slash.
+        const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
+        const swing = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) + Math.PI / 2 : Math.random() * Math.PI * 2;
+        const ux = Math.cos(swing);
+        const uy = Math.sin(swing);
+        // Perpendicular to the cut: what the crescent bows along, so the arc curves like a swung edge.
+        const px = -uy;
+        const py = ux;
+        const length = size * FF_SWORD_ARC_LENGTH;
+        const bow = size * FF_SWORD_ARC_BOW * (Math.random() < 0.5 ? -1 : 1);
+
+        // Flames along the arc, ignited in order so the edge appears to travel through the unit.
+        for (let i = 0; i < FF_SWORD_FLAME_COUNT; i++) {
+            const t = i / (FF_SWORD_FLAME_COUNT - 1);
+            const along = (t - 0.5) * length;
+            // Fat in the middle, tapering to nothing at the tips — the shape of a swung edge.
+            const taper = Math.sin(Math.PI * t);
+            const curve = bow * taper;
+            const jitter = size * 0.05;
+            const rand = Math.random();
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                // The whole sweep takes FF_SWORD_SWEEP_S; each flame waits its turn along the blade.
+                age: -t * FF_SWORD_SWEEP_S,
+                life: FF_SWORD_FLAME_LIFE * (0.75 + 0.5 * rand),
+                x: center.x + ux * along + px * curve + (Math.random() - 0.5) * jitter,
+                y: center.y + uy * along + py * curve + (Math.random() - 0.5) * jitter,
+                riseY: size * (0.22 + 0.3 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.22,
+                // Biggest at the belly of the cut, slim at the tips.
+                startScale: (size * (0.16 + 0.3 * taper) * (0.85 + 0.3 * rand)) / texW,
+                endScale: (size * (0.06 + 0.1 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.07,
+                rot: swing + (Math.random() - 0.5) * 0.6,
+                spin: (Math.random() - 0.5) * 3.5,
+            });
+        }
+
+        // A hot core flash at the belly of the cut, timed to the middle of the sweep — the moment the
+        // edge bites rather than the moment it arrives.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xffe2a0;
+        push(flash, {
+            age: -FF_SWORD_SWEEP_S * 0.5,
+            life: FF_SWORD_FLASH_LIFE,
+            x: center.x,
+            y: center.y,
+            riseY: size * 0.06,
+            driftX: 0,
+            startScale: (size * 0.3) / texW,
+            endScale: (size * 0.95) / texW,
+            peakAlpha: 0.8,
+            fadeInFraction: 0.12,
+            rot: swing,
+            spin: 0,
+        });
+
+        // Soot rising off the cut once the edge has passed.
+        for (let i = 0; i < FF_SWORD_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const t = 0.25 + Math.random() * 0.5;
+            const along = (t - 0.5) * length;
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                age: -(FF_SWORD_SWEEP_S + 0.05 + Math.random() * 0.16),
+                life: BURN_SMOKE_LIFE * (0.7 + 0.4 * rand),
+                x: center.x + ux * along + (Math.random() - 0.5) * size * 0.3,
+                y: center.y + uy * along + (Math.random() - 0.5) * size * 0.2,
+                riseY: size * (0.7 + 0.45 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.45,
+                startScale: (size * (0.22 + 0.14 * rand)) / texW,
+                endScale: (size * (0.62 + 0.35 * rand)) / texW,
+                peakAlpha: 0.38,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.4,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    public spawnFireWallCrossing(
+        center: HoCMath.XY,
+        cellSize: number,
+        delaySec: number,
+        flying: boolean,
+        direction: HoCMath.XY,
+    ): void {
+        const container = new Container();
+        this.attachEffect(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize);
+        const wait = Math.max(0, delaySec);
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+        const spread = flying ? 0.34 : 0.7; // how wide the sheet is, in cells
+        const lift = flying ? 2.3 : 1.15; // how high the flames leap, in cells
+
+        // 1. The sheet catching on the body: one hot bloom, wide and low for a walker, tall for a flyer.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xfff0c0;
+        push(flash, {
+            age: -wait,
+            life: WALL_CROSS_FLASH_LIFE,
+            x: center.x,
+            y: center.y - size * (flying ? 0.45 : 0.05),
+            riseY: size * (flying ? 0.7 : 0.2),
+            driftX: 0,
+            startScale: (size * 0.9) / texW,
+            endScale: (size * (flying ? 2.0 : 2.6)) / texW,
+            peakAlpha: 0.9,
+            fadeInFraction: 0.1,
+            rot: 0,
+            spin: 0,
+        });
+
+        // 2. Flame tongues, erupting in a ripple from the middle of the cell outwards and kept coming for
+        //    about as long as the body takes to cross, so the sheet burns under it rather than puffing once.
+        for (let i = 0; i < WALL_CROSS_FLAME_COUNT; i++) {
+            const rand = Math.random();
+            const across = (Math.random() - 0.5) * 2; // -1..1 across the cell
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                age: -wait - Math.abs(across) * 0.06 - Math.random() * WALL_CROSS_RIPPLE_S,
+                life: WALL_CROSS_FLAME_LIFE * (0.7 + 0.6 * rand),
+                x: center.x + across * size * spread,
+                y: center.y + size * 0.22 - Math.random() * size * 0.12,
+                riseY: size * lift * (0.55 + 0.6 * rand) * (1 - Math.abs(across) * 0.35),
+                driftX: (Math.random() - 0.5) * size * 0.22 + direction.x * size * (flying ? 0.05 : 0.28),
+                startScale: (size * (0.45 + 0.45 * rand)) / texW,
+                endScale: (size * (0.14 + 0.14 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.07,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 5,
+            });
+        }
+
+        // 3. Sparks: small, bright and thrown far — on and out for a walker kicking through the embers,
+        //    straight up for a flyer.
+        for (let i = 0; i < WALL_CROSS_SPARK_COUNT; i++) {
+            const rand = Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const throwX = flying ? Math.cos(angle) * 0.4 : direction.x * (0.6 + rand * 0.7) + Math.cos(angle) * 0.35;
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = rand > 0.5 ? 0xfff2c4 : 0xffc861;
+            push(sprite, {
+                age: -wait - Math.random() * WALL_CROSS_RIPPLE_S,
+                life: WALL_CROSS_SPARK_LIFE * (0.6 + 0.7 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.35,
+                y: center.y + size * 0.12,
+                riseY: size * (flying ? 1.6 + rand * 1.4 : 0.7 + rand),
+                driftX: throwX * size,
+                startScale: (size * (0.12 + 0.1 * rand)) / texW,
+                endScale: (size * 0.03) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.05,
+                rot: 0,
+                spin: 0,
+            });
+        }
+
+        // 4. Soot, born as the flames gutter, drifting up and lingering over the crossed cell.
+        for (let i = 0; i < WALL_CROSS_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                age: -wait - (0.12 + Math.random() * 0.25),
+                life: WALL_CROSS_SMOKE_LIFE * (0.8 + 0.4 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.5,
+                y: center.y + (Math.random() - 0.5) * size * 0.2,
+                riseY: size * (0.8 + 0.5 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.5 + direction.x * size * 0.2,
+                startScale: (size * (0.26 + 0.16 * rand)) / texW,
+                endScale: (size * (0.7 + 0.4 * rand)) / texW,
+                peakAlpha: 0.4,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.6,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    public igniteUnit(unit: Unit, startDelaySec: number, durationSec: number, cellSize: number): void {
+        const container = new Container();
+        this.attachEffect(container, FIRE_Z);
+        const glow = new Sprite(this.getFireTexture());
+        glow.anchor.set(0.5);
+        glow.blendMode = "add";
+        glow.tint = 0xff7a1a;
+        glow.alpha = 0;
+        glow.visible = false;
+        container.addChild(glow);
+        this.unitAblazes.push({
+            unit,
+            age: -Math.max(0, startDelaySec),
+            duration: Math.max(0.2, durationSec),
+            cellSize: Math.max(1, cellSize),
+            emitDebt: 0,
+            emitted: 0,
+            flashed: false,
+            container,
+            glow,
+            particles: [],
+        });
+    }
+    public showFloatingDamageDelayed(
+        pos: HoCMath.XY,
+        amount: number,
+        unitsDied: number,
+        delaySec: number,
+        fill: string,
+        stroke: string,
+        audioUnit?: Pick<Unit, "getName" | "getId">,
+        zIndex?: number,
+    ): void {
+        this.delayedFloatingDamage.push({
+            pos: { x: pos.x, y: pos.y },
+            amount,
+            unitsDied,
+            remainingSec: Math.max(0, delaySec),
+            fill,
+            stroke,
+            audioUnit,
+            zIndex,
+        });
+    }
+    private stepDelayedFloatingDamage(dt: number): void {
+        for (let i = this.delayedFloatingDamage.length - 1; i >= 0; i--) {
+            const pending = this.delayedFloatingDamage[i];
+            pending.remainingSec -= dt;
+            if (pending.remainingSec > 0) {
+                continue;
+            }
+            this.delayedFloatingDamage.splice(i, 1);
+            this.showFloatingDamage(
+                pending.pos,
+                pending.amount,
+                undefined,
+                pending.unitsDied,
+                pending.fill,
+                pending.stroke,
+                undefined,
+                pending.audioUnit,
+                pending.zIndex,
+            );
+        }
+    }
+    private stepUnitAblazes(dt: number): void {
+        const gs = this.context.getGridSettings();
+        for (let i = this.unitAblazes.length - 1; i >= 0; i--) {
+            const ablaze = this.unitAblazes[i];
+            ablaze.age += dt;
+            const alive = !ablaze.unit.isDead();
+            const burning = alive && ablaze.age >= 0 && ablaze.age < ablaze.duration;
+            if (burning) {
+                if (!ablaze.flashed) {
+                    ablaze.flashed = true;
+                    // The holder can carry a plain engine Unit (a hydrated ranked snapshot before its sprite
+                    // exists); only a rendered unit has a body to wash.
+                    if (ablaze.unit instanceof RenderableUnit) {
+                        ablaze.unit.flashScorch();
+                    }
+                }
+                const center =
+                    ablaze.unit instanceof RenderableUnit
+                        ? ablaze.unit.getVisualCenter(gs)
+                        : projectBattlefieldPoint(ablaze.unit.getPosition(), gs);
+                const tex = this.getFireTexture();
+                const texW = tex.width || 64;
+                const size = ablaze.cellSize;
+                // The fire dies down over the burn: most embers early, a last few as it gutters out — and
+                // the halo on the body flickers and fades with it.
+                const progress = ablaze.age / ablaze.duration;
+                const flicker = 0.8 + 0.2 * Math.sin(ablaze.age * 23);
+                ablaze.glow.visible = true;
+                ablaze.glow.position.set(center.x, center.y + size * 0.15);
+                ablaze.glow.scale.set((size * 1.5) / texW, ((size * 1.5) / texW) * this.boardStretchCache);
+                ablaze.glow.alpha = ABLAZE_GLOW_ALPHA * (1 - progress) * flicker;
+                ablaze.emitDebt += dt * ABLAZE_EMBERS_PER_SECOND * (1 - progress * 0.7);
+                if (ablaze.emitDebt >= 1) {
+                    while (ablaze.emitDebt >= 1) {
+                        ablaze.emitDebt -= 1;
+                        ablaze.emitted += 1;
+                        const rand = Math.random();
+                        const soot = ablaze.emitted % ABLAZE_SOOT_EVERY === 0;
+                        const sprite = new Sprite(tex);
+                        sprite.anchor.set(0.5);
+                        sprite.scale.set(0.001);
+                        sprite.alpha = 0;
+                        sprite.visible = false;
+                        if (soot) {
+                            sprite.tint = BURN_SMOKE_TINTS[ablaze.emitted % BURN_SMOKE_TINTS.length];
+                        } else {
+                            sprite.blendMode = "add";
+                            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+                        }
+                        ablaze.container.addChild(sprite);
+                        ablaze.particles.push({
+                            sprite,
+                            age: 0,
+                            life: soot ? BURN_SMOKE_LIFE * 0.8 : ABLAZE_EMBER_LIFE * (0.7 + 0.6 * rand),
+                            // Born low on the body and a little behind it, so the trail reads as flames
+                            // licking off the back of something moving.
+                            x: center.x + (Math.random() - 0.5) * size * 0.65,
+                            y: center.y + (Math.random() - 0.15) * size * 0.6,
+                            riseY: size * (soot ? 0.8 : 0.4 + 0.5 * rand),
+                            driftX: (Math.random() - 0.5) * size * 0.3,
+                            startScale: (size * (soot ? 0.28 : 0.26 + 0.24 * rand)) / texW,
+                            endScale: (size * (soot ? 0.65 : 0.05)) / texW,
+                            peakAlpha: soot ? 0.32 : 0.95,
+                            fadeInFraction: soot ? 0.3 : 0.1,
+                            rot: Math.random() * Math.PI * 2,
+                            spin: (Math.random() - 0.5) * (soot ? 1.5 : 5),
+                        });
+                    }
+                }
+            }
+            const anyPending = this.stepBurnParticles(ablaze.particles, dt);
+            // Spent particles are dropped as we go: the emitter keeps adding, and a walk-long burn would
+            // otherwise tick a growing pile of invisible sprites.
+            for (let j = ablaze.particles.length - 1; j >= 0; j--) {
+                const particle = ablaze.particles[j];
+                if (particle.age >= particle.life) {
+                    particle.sprite.destroy();
+                    ablaze.particles.splice(j, 1);
+                }
+            }
+            if (!burning) {
+                ablaze.glow.visible = false;
+            }
+            const stillBurning = alive && ablaze.age < ablaze.duration;
+            if (!anyPending && !stillBurning) {
+                ablaze.container.destroy({ children: true });
+                this.unitAblazes.splice(i, 1);
+            }
+        }
+    }
+    private stepBurnParticles(particles: IFireBurnParticle[], dt: number): boolean {
+        let anyPending = false;
+        for (const p of particles) {
+            p.age += dt;
+            if (p.age < 0) {
+                anyPending = true; // not born yet
+                continue;
+            }
+            if (p.age >= p.life) {
+                if (p.sprite.visible) {
+                    p.sprite.visible = false;
+                }
+                continue;
+            }
+            anyPending = true;
+            const t = p.age / p.life;
+            const e = easeOutCubic(t);
+            p.sprite.visible = true;
+            p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+            const scale = p.startScale + (p.endScale - p.startScale) * e;
+            // Square on screen, not square in world units — see attachEffect.
+            p.sprite.scale.set(scale, scale * this.boardStretchCache);
+            p.rot += p.spin * dt;
+            p.sprite.rotation = p.rot;
+            const alpha =
+                t < p.fadeInFraction
+                    ? (t / p.fadeInFraction) * p.peakAlpha
+                    : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
+            p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+        }
+        return anyPending;
+    }
+    public spawnGravechain(links: IGravechainWave["links"], cellSize: number, onBind: (unitId: string) => void): void {
+        this.gravechains.spawn(links, cellSize, onBind);
+    }
+    private drawLightningColumn(gfx: Graphics, target: HoCMath.XY, cellSize: number): void {
+        gfx.clear();
+        const height = cellSize * STRIKE_HEIGHT_CELLS;
+        const spread = cellSize * STRIKE_SPREAD_CELLS;
+        const segments = 13;
+        const pts: HoCMath.XY[] = [];
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments; // 0 at the sky, 1 at the creature
+            // Wander widest up in the sky and none at all at the impact point.
+            const wander = (Math.random() - 0.5) * 2 * spread * (1 - t);
+            pts.push({ x: target.x + wander, y: target.y + height * (1 - t) });
+        }
+        const trace = (path: HoCMath.XY[]) => {
+            gfx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                gfx.lineTo(path[i].x, path[i].y);
+            }
+        };
+        // Short forks peeling off the column, so it reads as lightning rather than a drawn line.
+        const forks: HoCMath.XY[][] = [];
+        for (let f = 0; f < STRIKE_FORKS; f++) {
+            const start = 2 + Math.floor(Math.random() * (segments - 5));
+            const root = pts[start];
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            const fork: HoCMath.XY[] = [root];
+            let fx = root.x;
+            let fy = root.y;
+            const steps = 2 + Math.floor(Math.random() * 2);
+            for (let k = 0; k < steps; k++) {
+                fx += dir * cellSize * (0.18 + Math.random() * 0.22);
+                fy -= cellSize * (0.3 + Math.random() * 0.35);
+                fork.push({ x: fx, y: fy });
+            }
+            forks.push(fork);
+        }
+        // Stacked strokes, widest and dimmest first: corona, body, then the hot core on top.
+        for (const [width, color, alpha] of [
+            [0.2, STRIKE_GLOW, 0.28],
+            [0.09, STRIKE_MID, 0.72],
+            [0.032, STRIKE_CORE, 1],
+        ] as const) {
+            trace(pts);
+            gfx.stroke({ width: cellSize * width, color, alpha, cap: "round", join: "round" });
+        }
+        for (const fork of forks) {
+            trace(fork);
+            gfx.stroke({ width: cellSize * 0.05, color: STRIKE_MID, alpha: 0.55, cap: "round", join: "round" });
+            trace(fork);
+            gfx.stroke({ width: cellSize * 0.018, color: STRIKE_CORE, alpha: 0.85, cap: "round", join: "round" });
+        }
+    }
+    private stepLightningStrikes(dt: number): void {
+        for (let i = this.lightningStrikes.length - 1; i >= 0; i--) {
+            const strike = this.lightningStrikes[i];
+            strike.age += dt;
+            const { cellSize, target } = strike;
+
+            // Phase 1 — the sky gathers. A soft blue glow high above the creature, fading as the bolt commits.
+            if (strike.age < STRIKE_TELEGRAPH_S) {
+                const t = strike.age / STRIKE_TELEGRAPH_S;
+                strike.flash.visible = true;
+                strike.flash.clear();
+                strike.flash
+                    .ellipse(
+                        target.x,
+                        target.y + cellSize * STRIKE_HEIGHT_CELLS * 0.8,
+                        cellSize * (0.7 + t * 0.9),
+                        cellSize * (0.25 + t * 0.3),
+                    )
+                    .fill({ color: STRIKE_MID, alpha: 0.06 + t * 0.16 });
+            } else if (strike.flash.visible) {
+                strike.flash.visible = false;
+                strike.flash.clear();
+            }
+
+            // Phase 2 — the column descends and crackles.
+            const boltAge = strike.age - STRIKE_TELEGRAPH_S;
+            if (boltAge >= 0 && boltAge < STRIKE_BOLT_LIFE) {
+                strike.bolt.visible = true;
+                strike.flicker += dt;
+                if (strike.flicker >= STRIKE_FLICKER_S) {
+                    strike.flicker = 0;
+                    this.drawLightningColumn(strike.bolt, target, cellSize);
+                }
+                // Full brightness on contact, then a fast decay with a little crackle in it.
+                const t = boltAge / STRIKE_BOLT_LIFE;
+                const envelope = t < 0.14 ? 1 : 1 - (t - 0.14) / 0.86;
+                strike.bolt.alpha = Math.max(0, envelope) * (0.72 + Math.random() * 0.28);
+            } else if (strike.bolt.visible) {
+                strike.bolt.visible = false;
+                strike.bolt.clear();
+            }
+
+            // Phase 3 — the ground answers: a flare on the creature and a ring thrown outward from it.
+            if (boltAge >= 0 && boltAge < STRIKE_BURST_LIFE) {
+                const t = boltAge / STRIKE_BURST_LIFE;
+                const fade = 1 - t;
+                strike.burst.visible = true;
+                strike.burst.clear();
+                strike.burst
+                    .circle(target.x, target.y, cellSize * (0.52 + t * 0.35))
+                    .fill({ color: STRIKE_CORE, alpha: 0.5 * fade * fade });
+                strike.burst
+                    .circle(target.x, target.y, cellSize * (0.34 + t * 0.9))
+                    .fill({ color: STRIKE_MID, alpha: 0.22 * fade });
+                strike.burst
+                    .ellipse(target.x, target.y, cellSize * (0.45 + t * 1.5), cellSize * (0.16 + t * 0.5))
+                    .stroke({ width: cellSize * 0.06 * fade, color: STRIKE_GLOW, alpha: 0.75 * fade });
+            } else if (strike.burst.visible) {
+                strike.burst.visible = false;
+                strike.burst.clear();
+            }
+
+            if (strike.age >= STRIKE_TOTAL_LIFE) {
+                strike.container.destroy({ children: true });
+                this.lightningStrikes.splice(i, 1);
+            }
+        }
+    }
+    public showCleanse(pos: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "CLEANSED",
+            style: this.getDamageStyle("#fff3c4", "#625012"),
+        });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos);
+        this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
+    }
 }
+
+const FF_SWORD_FLAME_COUNT = 16;
+
+const FF_SWORD_SWEEP_S = 0.13;
+
+const FF_SWORD_FLAME_LIFE = 0.42;
+
+const FF_SWORD_FLASH_LIFE = 0.22;
+
+const FF_SWORD_SMOKE_COUNT = 5;
+
+const FF_SWORD_ARC_LENGTH = 1.25;
+
+const FF_SWORD_ARC_BOW = 0.3;
+
+const WALL_CROSS_FLAME_COUNT = 28;
+
+const WALL_CROSS_SPARK_COUNT = 20;
+
+const WALL_CROSS_SMOKE_COUNT = 7;
+
+const WALL_CROSS_RIPPLE_S = 0.28;
+
+const WALL_CROSS_FLAME_LIFE = 0.78;
+
+const WALL_CROSS_SPARK_LIFE = 0.9;
+
+const WALL_CROSS_SMOKE_LIFE = 1.3;
+
+const WALL_CROSS_FLASH_LIFE = 0.3;
+
+const ABLAZE_EMBERS_PER_SECOND = 44;
+
+const ABLAZE_EMBER_LIFE = 0.55;
+
+const ABLAZE_SOOT_EVERY = 5;
+
+const ABLAZE_GLOW_ALPHA = 0.5;
+
+const STRIKE_TELEGRAPH_S = 0.09;
+
+const STRIKE_BOLT_LIFE = 0.26;
+
+const STRIKE_BURST_LIFE = 0.38;
+
+const STRIKE_TOTAL_LIFE = STRIKE_TELEGRAPH_S + STRIKE_BURST_LIFE;
+
+const STRIKE_FLICKER_S = 0.025;
+
+const STRIKE_HEIGHT_CELLS = 7.5;
+
+const STRIKE_SPREAD_CELLS = 0.42;
+
+const STRIKE_FORKS = 2;
+
+const STRIKE_GLOW = 0x2f6bff;
+
+const STRIKE_MID = 0x8fc4ff;
+
+const STRIKE_CORE = 0xffffff;

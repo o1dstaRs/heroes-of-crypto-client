@@ -28,6 +28,8 @@ const fixture = () => {
     const scene = Object.assign(Object.create(RankedPlayScene.prototype) as Scene, {
         pyreVfxGameId: "",
         pyreVfxSequence: -1,
+        unitsHolder: { getAllUnits: () => new Map() },
+        dyingVisualUnits: new Set(),
         renderPyreExplosion: (event: Blast, delay: number) => calls.push({ event, delay }),
     });
     return { scene, calls };

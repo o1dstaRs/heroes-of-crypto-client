@@ -61,7 +61,7 @@ describe("replay presentation", () => {
         const present = sliceBetween(
             ranked,
             "protected override onReplayRecordPresented(",
-            "/** Mark FULL fight playback",
+            "protected override getPlacementOwnerTeam(",
         );
         for (const step of [
             "this.processDebuffPops(snapshot)",

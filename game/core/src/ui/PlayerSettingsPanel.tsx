@@ -22,6 +22,7 @@ import {
     Select,
     Slider,
     Stack,
+    Switch,
     Typography,
 } from "@mui/joy";
 import React, { useCallback, useState, useSyncExternalStore } from "react";
@@ -57,6 +58,12 @@ import {
     readBoardSidePreference,
     writeBoardSidePreference,
 } from "../settings/playerBoardSide";
+
+import {
+    getStaggerDuplicateIdle,
+    setStaggerDuplicateIdle,
+    subscribeStaggerDuplicateIdle,
+} from "../settings/idleTiming";
 
 const hex = (color: number): string => `#${color.toString(16).padStart(6, "0")}`;
 
@@ -169,6 +176,7 @@ const ColorTile: React.FC<{
 );
 
 const ArmyColorSetting: React.FC = () => {
+    const staggerIdle = useSyncExternalStore(subscribeStaggerDuplicateIdle, getStaggerDuplicateIdle, () => true);
     const [selected, setSelected] = useState<string>(() => readPlayerArmyColorId());
 
     const choose = useCallback((presetId: string) => {
@@ -220,6 +228,14 @@ const ArmyColorSetting: React.FC = () => {
             <Typography level="body-xs" sx={{ color: hocColors.parchment, mt: 1, fontWeight: 700 }}>
                 {selectedLabel}
             </Typography>
+            <Stack direction="row" sx={{ mt: 1.5, alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                <Typography level="body-sm">{t("Stagger idle animations of identical creatures")}</Typography>
+                <Switch
+                    checked={staggerIdle}
+                    onChange={(event) => setStaggerDuplicateIdle(event.target.checked)}
+                    slotProps={{ input: { "aria-label": t("Stagger idle animations of identical creatures") } }}
+                />
+            </Stack>
         </Box>
     );
 };

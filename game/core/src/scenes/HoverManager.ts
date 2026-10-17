@@ -1,14 +1,6 @@
-import {
-    Container,
-    Sprite,
-    Graphics,
-    Matrix,
-    Rectangle,
-    Texture,
-    Text,
-    TilingSprite,
-    ColorMatrixFilter,
-} from "pixi.js";
+import { Container } from "pixi.js";
+import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
+import { Sprite, Graphics, Matrix, Rectangle, Texture, Text, TilingSprite, ColorMatrixFilter } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -41,11 +33,11 @@ import { rangeTargetEdgeMarkerAngle } from "./rangeTargetEdges";
 import { getShotTrajectoryStyle } from "./shotTrajectoryStyle";
 import {
     getShotTrajectoryTuning,
+    type ShotTrajectoryTransformTuning,
     SHOT_ARROWHEAD_AUTHORING_WIDTH,
     SHOT_FLETCHING_AUTHORING_WIDTH,
     shotCasingVisibleSlice,
     shotTrajectoryAuthoringOffsetToWorld,
-    type ShotTrajectoryTransformTuning,
 } from "./shotTrajectoryTuning";
 import { tunedCellFillPolygon } from "./movementAreaVisual";
 import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
@@ -71,8 +63,6 @@ export interface RangeTargetEdgeVisual {
 }
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
-// Target tints must cover the live figure at its natural, head-priority, or attack-foreground depth.
-const TARGET_HIGHLIGHT_Z_INDEX = CREATURE_ATTACK_FOREGROUND_Z_INDEX + 1;
 /** Ranged aim paints the approved three-part arrow trajectory from shooter to selected target edge. */
 export const RANGED_ATTACK_TRAJECTORY_VISIBLE = true;
 /** The approved Orc trajectory treatment is now shared by every ranged creature. */
@@ -557,29 +547,25 @@ interface SpellBadgeSlot {
 
 export class HoverManager {
     private context: ISandboxHoverContext;
-    // State moved from Sandbox
     public hoverPlacementCell?: HoCMath.XY = undefined;
     public hoverPlacementCellTeam?: TeamType = undefined;
     public hoverSelectedCells?: HoCMath.XY[];
     public hoverSelectedCellsSwitchToRed = false;
     public hoverBattlefieldFootprintCells?: HoCMath.XY[];
-    // AI Support
     public hoverAttackUnits?: Unit[][];
     public hoverAttackFromCell?: HoCMath.XY = undefined;
     public hoverSpellCell?: HoCMath.XY = undefined;
     public hoverAbilityCell?: HoCMath.XY = undefined;
     private auraVisuals: Graphics[] = [];
-    public hoverAttackTargetUnit?: Unit; // New state for attack target
+    public hoverAttackTargetUnit?: Unit;
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
     private phantomGrayscaleFilter?: ColorMatrixFilter;
-    // Dedicated sprites for the opponent's relayed move aim. Kept separate from the local
-    // hover silhouette so the two never clobber each other's visibility/position.
     private opponentIntentSilhouette?: Sprite;
     private opponentIntentOutline?: Sprite;
     private opponentIntentKey?: string;
-    private hoverTargetSilhouette?: Sprite; // For enemy unit red highlight
+    private hoverTargetSilhouette?: Sprite;
     public hoveredUnitHighlight?: { x: number; y: number; w: number; h: number };
     public hoveredUnitId?: string;
     private hoverGlowPhase = 0;
@@ -605,11 +591,6 @@ export class HoverManager {
     private magicAimDualHelixFrames: Texture[] = [];
     private magicAimDualHelix?: TilingSprite;
     private magicAimDualHelixElapsedMs = 0;
-    /**
-     * Invisible child of the app-owned cursor overlay. PixiScene empties that persistent layer whenever a
-     * scene is replaced, so its destroyed event gives this helper a lifecycle signal without making the
-     * shared overlay itself scene-owned.
-     */
     private readonly lifecycleMarker: Sprite;
     private destroyed = false;
     public constructor(context: ISandboxHoverContext) {
@@ -691,7 +672,6 @@ export class HoverManager {
             source.unload();
         }
     }
-    /** Best-effort cursor art: never let a decoration failure break hover construction. */
     private loadCursorTexture(key: string, apply: (texture: Texture) => void): void {
         const immediate = this.context.texAny?.(key);
         if (immediate) {
@@ -750,9 +730,14 @@ export class HoverManager {
         props: UnitProperties,
         logicalPosition: HoCMath.XY,
         preferredUnit?: Unit,
+        staticPose = false,
     ): BattlefieldUnitPreview | undefined {
         const active = (preferredUnit ?? this.context.getCurrentActiveUnit()) as
             | (Unit & {
+                  getStaticBattlefieldPreviewAt?: (
+                      position: HoCMath.XY,
+                      gridSettings: ReturnType<SceneSettings["getGridSettings"]>,
+                  ) => BattlefieldUnitPreview | undefined;
                   getBattlefieldPreviewAt?: (
                       position: HoCMath.XY,
                       gridSettings: ReturnType<SceneSettings["getGridSettings"]>,
@@ -770,6 +755,9 @@ export class HoverManager {
             footprintHeightOf(activeProps) !== footprintHeightOf(props)
         ) {
             return undefined;
+        }
+        if (staticPose && active.getStaticBattlefieldPreviewAt) {
+            return active.getStaticBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
         }
         return active.getBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
     }
@@ -790,10 +778,9 @@ export class HoverManager {
         sprite.rotation = preview.rotation;
         outline.rotation = preview.rotation;
     }
-    /** Render a preview as the untouched source cutout with grayscale as its only visual change. */
     private applyPhantomAppearance(sprite: Sprite, legacyBacking: Sprite): void {
         if (!this.phantomGrayscaleFilter) {
-            this.phantomGrayscaleFilter = new ColorMatrixFilter();
+            this.phantomGrayscaleFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
             this.phantomGrayscaleFilter.desaturate();
         }
         sprite.filters = [this.phantomGrayscaleFilter];
@@ -806,7 +793,6 @@ export class HoverManager {
         legacyBacking.visible = false;
         legacyBacking.filters = null;
     }
-    /** Placement carries the real creature onto the board: full colour, full opacity, no phantom layers. */
     private applyPlacementAppearance(sprite: Sprite, legacyBacking: Sprite): void {
         sprite.filters = null;
         sprite.tint = 0xffffff;
@@ -820,7 +806,7 @@ export class HoverManager {
             return this.auraGraphics;
         }
         const graphics = new Graphics();
-        if (!this.safeAttachGraphics(graphics, 51)) {
+        if (!this.safeAttachGraphics(graphics, FLOOR_AURA_Z_INDEX)) {
             graphics.destroy();
             return undefined;
         }
@@ -844,7 +830,7 @@ export class HoverManager {
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
         const auraGraphics = this.ensureAuraGraphics();
         const aoeGraphics = this.ensureAOEGraphics();
-        if (auraGraphics) this.safeAttachGraphics(auraGraphics, 51); // Below units and movement path
+        if (auraGraphics) this.safeAttachGraphics(auraGraphics, FLOOR_AURA_Z_INDEX); // Floor only, behind map props
         if (aoeGraphics) this.safeAttachGraphics(aoeGraphics, 4500); // Above units: AOE splash area
         if (this.isGraphicsUsable(this.spellBeam)) this.safeAttachGraphics(this.spellBeam, 2199);
         if (this.magicAimDualHelix) this.context.attachToWorldRoot(this.magicAimDualHelix, 2199);
@@ -861,7 +847,6 @@ export class HoverManager {
     public clearAOEArea(): void {
         this.safeClearGraphics(this.aoeGraphics);
     }
-    /** Paint a single translucent square over the whole area-of-effect splash (its bounding box). */
     public drawAOEArea(cells: HoCMath.XY[]): void {
         const aoeGraphics = this.ensureAOEGraphics();
         if (!aoeGraphics) return;
@@ -907,6 +892,7 @@ export class HoverManager {
         footprintWidth: number,
         footprintHeight = footprintWidth,
         alphaMultiplier = 1.0,
+        auraOwnerName?: string,
     ): void {
         // Aesthetic Configuration
         const color = isBuff ? 0x00ff88 : 0xff4444; // Green vs Red
@@ -928,8 +914,27 @@ export class HoverManager {
             .poly(
                 projectedRectPoints(center.x - extentX, center.y - extentY, center.x + extentX, center.y + extentY, gs),
             )
-            .fill({ color: fillColor, alpha: fillAlpha })
-            .stroke({ width: strokeWidth, color: color, alpha: strokeAlpha });
+            .fill({ color: fillColor, alpha: fillAlpha });
+        if (auraOwnerName !== "Arachna Queen") {
+            const halfWidth = GridMath.normalizeFootprintSide(footprintWidth) * gs.getHalfStep();
+            const halfHeight = GridMath.normalizeFootprintSide(footprintHeight) * gs.getHalfStep();
+            auraGraphics
+                .poly(
+                    projectedRectPoints(
+                        center.x - halfWidth,
+                        center.y - halfHeight,
+                        center.x + halfWidth,
+                        center.y + halfHeight,
+                        gs,
+                    ),
+                )
+                .cut();
+        }
+        auraGraphics
+            .poly(
+                projectedRectPoints(center.x - extentX, center.y - extentY, center.x + extentX, center.y + extentY, gs),
+            )
+            .stroke({ width: strokeWidth, color, alpha: strokeAlpha });
     }
     public drawAttackRange(center: HoCMath.XY, radius: number): void {
         const color = 0xffff00; // Yellow (matches Active/Hovered Range)
@@ -1043,7 +1048,6 @@ export class HoverManager {
 
         return this.findLargeUnitMoveCandidate(cell) !== null;
     }
-    // Copied from Sandbox (assumed private there)
     public findLargeUnitMoveCandidate(cell: HoCMath.XY): HoCMath.XY[] | null {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
         const currentActivePathHashes = this.context.getCurrentActivePathHashes();
@@ -1520,11 +1524,9 @@ export class HoverManager {
         this.clearSpellPreview();
         this.hoverAttackTargetUnit = undefined;
     }
-    /** Paint the arrowhead selected for an ordinary target edge. */
     public drawRangeTargetEdge(edge: RangeTargetEdgeVisual, trajectoryFrom: HoCMath.XY): void {
         this.drawRangeTerminalArrowhead(edge.markerCenter, trajectoryFrom, edge.markerScale);
     }
-    /** Paint a full terminal arrowhead at an exact trajectory endpoint, including free cannon rays. */
     public drawRangeTerminalArrowhead(
         markerCenter: HoCMath.XY,
         trajectoryFrom: HoCMath.XY,
@@ -1781,13 +1783,6 @@ export class HoverManager {
     private aoeDamageLabelPool: Text[] = [];
     private aoeDamagePredictions: Array<{ damageText: Text; killText?: Text; killIcon?: Sprite }> = [];
     private aoeDamagePredictionPool: Array<{ damageText: Text; killText?: Text; killIcon?: Sprite }> = [];
-    /**
-     * Floating projected-damage number over ONE splashed unit, for the Gargantuan Area Throw (3x3) aim
-     * preview. Unlike drawDamagePrediction (which reuses a single shared Text and so can only show one
-     * number), this pools N labels — one per unit in the splash — recycled each hover frame in
-     * clearAttackVisuals(). Same style + Y-flip as drawDamagePrediction. Works in ranked unchanged, since
-     * the whole area-throw hover path is inherited by RankedPlayScene.
-     */
     public addAOEDamageLabel(position: HoCMath.XY, damageStr: string, isLargeTarget: boolean): void {
         const scale = isLargeTarget ? 2 : 1;
         let label: Text;
@@ -1818,7 +1813,6 @@ export class HoverManager {
         label.position.set(position.x, position.y);
         this.aoeDamageLabels.push(label);
     }
-    /** One ordinary damage/loss forecast per unit caught by a multi-target area preview. */
     public addAOEDamagePrediction(
         damageStr: string,
         killStr: string | undefined,
@@ -1905,6 +1899,7 @@ export class HoverManager {
             if (visual.killText) visual.killText.visible = false;
             if (visual.killIcon) visual.killIcon.visible = false;
         }
+
         keepGlyphRowUpright(
             [
                 visual.damageText,
@@ -1913,16 +1908,8 @@ export class HoverManager {
             ],
             position.x,
         );
-
         this.aoeDamagePredictions.push(visual);
     }
-    /**
-     * `smokeFrom` marks where the shot first enters SMOKE. From that point to the target the arrow is
-     * drawn thick and red, because the smoke rule is STICKY: once the ray crosses a smoked cell every
-     * target after it takes half damage (divisor doubles, capped at 1/8). Highlighting only the smoked
-     * CELLS would understate that — the penalty applies to the whole remainder of the flight, so that is
-     * what the emphasis covers. The cloud is neutral, so this shows for either side's shots.
-     */
     public drawAttackArrow(
         from: HoCMath.XY,
         to: HoCMath.XY,
@@ -2618,8 +2605,6 @@ export class HoverManager {
             }
         }
     }
-    // Soft red glow marking an obstacle (a BLOCK_CENTER mountain) as the thing a blocked ranged shot
-    // actually hits — used instead of the unit target-silhouette, since the unit behind it takes no damage.
     private hoverObstacleHighlight?: Graphics;
     public highlightObstacle(position: HoCMath.XY, cellSize: number, subtleInteractive = false): void {
         this.highlightObstacles([position], cellSize, subtleInteractive);
@@ -2685,13 +2670,7 @@ export class HoverManager {
             this.hoverObstacleHighlight.visible = false;
         }
     }
-    // Armed-spell preview: the aim follows the target while the nameplate stays at the caster's feet.
     private spellBeam?: Graphics;
-    /** Plate, icon and text share one upright transform, independent of the board's aspect ratio. */
-    private readonly localSpellBadge: SpellBadgeSlot = {};
-    /** The opponent's armed spell. Independent of the local preview, which hover clears on their turn. */
-    private readonly opponentSpellBadge: SpellBadgeSlot = {};
-    /** Draw a directed spell aim as one animated atlas tile repeated along the whole ray. */
     private drawMagicAimDualHelix(casterPos: HoCMath.XY, targetPos: HoCMath.XY): boolean {
         if (!this.magicAimDualHelixFrames.length) return false;
 
@@ -2726,7 +2705,6 @@ export class HoverManager {
         this.updateMagicAimDualHelixAnimation(0);
         return true;
     }
-    /** Advance the atlas from the scene ticker, independently of pointer-move hover recalculation. */
     private updateMagicAimDualHelixAnimation(dt: number): void {
         const effect = this.magicAimDualHelix;
         if (!effect?.visible || !this.magicAimDualHelixFrames.length) return;
@@ -2748,7 +2726,7 @@ export class HoverManager {
         color: number;
         beamStyle: "positive" | "negative";
     }): void {
-        // 1. Beam from caster to hovered target (only when a target is hovered).
+        // Beam from caster to hovered target (only when a target is hovered).
         if (opts.targetPos) {
             const dualHelixVisible = this.drawMagicAimDualHelix(opts.casterPos, opts.targetPos);
             if (dualHelixVisible) {
@@ -2831,133 +2809,7 @@ export class HoverManager {
         } else {
             this.hideMagicAimDualHelix();
         }
-
         this.paintSpellBadge(this.localSpellBadge, opts);
-    }
-    /** The other player's armed spell. No aim beam: their cursor is not on this screen. */
-    public drawOpponentSpellBadge(opts: {
-        casterPos: HoCMath.XY;
-        iconTex: Texture;
-        label: string;
-        color: number;
-    }): void {
-        this.paintSpellBadge(this.opponentSpellBadge, opts);
-    }
-    public clearOpponentSpellBadge(): void {
-        if (this.opponentSpellBadge.badge) this.opponentSpellBadge.badge.visible = false;
-    }
-    private paintSpellBadge(
-        slot: SpellBadgeSlot,
-        opts: { casterPos: HoCMath.XY; iconTex: Texture; label: string; color: number },
-    ): void {
-        // Keep the title clear of the figure and its overhead stack banner.
-        const cell = this.context.sceneSettings.getGridSettings().getCellSize();
-        const cx = opts.casterPos.x;
-        const cy = opts.casterPos.y - cell * 0.38;
-        const iconSize = 32;
-        if (!slot.badge || slot.badge.destroyed) {
-            const badge = new Container({ eventMode: "none" });
-            try {
-                this.context.attachToWorldRoot(badge, 5600);
-            } catch {
-                badge.destroy();
-                return;
-            }
-            slot.badge = badge;
-            slot.ring = new Graphics();
-            slot.icon = new Sprite(opts.iconTex);
-            slot.icon.anchor.set(0.5);
-            slot.text = new Text({
-                text: opts.label,
-                resolution: 2,
-                style: {
-                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                    fontSize: 22,
-                    lineHeight: 26,
-                    fill: 0xf5e5c5,
-                    align: "left",
-                    fontWeight: "bold",
-                    wordWrap: false,
-                },
-            });
-            slot.text.anchor.set(0, 0.5);
-            badge.addChild(slot.ring, slot.icon, slot.text);
-        }
-        const badge = slot.badge;
-        const ring = slot.ring;
-        const icon = slot.icon;
-        const text = slot.text;
-        if (!this.isGraphicsUsable(ring) || !icon || !text) return;
-
-        text.text = opts.label;
-        text.scale.set(1);
-        text.scale.set(Math.min(1, 240 / Math.max(1, text.width)));
-        const plateW = 12 + iconSize + 12 + text.width + 18;
-        const plateH = 48;
-        const left = -plateW / 2;
-        text.position.set(left + 12 + iconSize + 12, -1);
-
-        icon.texture = opts.iconTex;
-        const fit = iconSize / Math.max(opts.iconTex.width || iconSize, opts.iconTex.height || iconSize);
-        icon.scale.set(fit);
-        icon.position.set(left + 12 + iconSize / 2, 0);
-
-        ring.clear();
-        badge.visible = true;
-        slot.position = { x: cx, y: cy };
-        ring.roundRect(left - 3, -plateH / 2 + 3, plateW + 6, plateH + 3, 12).fill({
-            color: 0x000000,
-            alpha: 0.2,
-        });
-        ring.roundRect(left, -plateH / 2, plateW, plateH, 9)
-            .fill({ color: 0x191812, alpha: 0.95 })
-            .stroke({ width: 1.25, color: 0xb29351, alpha: 0.9 });
-        ring.roundRect(left + 3, -plateH / 2 + 3, plateW - 6, plateH - 6, 6).stroke({
-            width: 0.75,
-            color: 0xe3c98b,
-            alpha: 0.16,
-        });
-        ring.moveTo(left + 12, -plateH / 2 + 1)
-            .lineTo(-left - 12, -plateH / 2 + 1)
-            .stroke({ width: 1, color: 0xf8df9f, alpha: 0.42 });
-        ring.roundRect(left + 9, -iconSize / 2 - 3, iconSize + 6, iconSize + 6, 5)
-            .fill({ color: 0x080c0c, alpha: 0.9 })
-            .stroke({ width: 1, color: 0xc8a869, alpha: 0.6 });
-        ring.moveTo(left + 12 + iconSize + 6, -11)
-            .lineTo(left + 12 + iconSize + 6, 11)
-            .stroke({ width: 1, color: 0xc8a869, alpha: 0.25 });
-        ring.circle(-left - 8, 0, 2).fill({ color: opts.color, alpha: 0.85 });
-        this.layoutSpellBadge(slot);
-    }
-    private attachSpellBadge(slot: SpellBadgeSlot): void {
-        if (slot.badge && !slot.badge.destroyed) this.context.attachToWorldRoot(slot.badge, 5600);
-    }
-    private updateSpellCasterBadges(): void {
-        // Class fields do not run on a prototype-only manager, and a badge slot can be absent
-        // before either plate is built. A missing slot must not stop the scene update.
-        if (this.localSpellBadge) this.layoutSpellBadge(this.localSpellBadge);
-        if (this.opponentSpellBadge) this.layoutSpellBadge(this.opponentSpellBadge);
-    }
-    /** Correct the entire row together so the icon stays left of the text on either board side. */
-    private layoutSpellBadge(slot: SpellBadgeSlot): void {
-        const badge = slot.badge;
-        if (!badge || badge.destroyed || !badge.visible) return;
-        const inherited = inheritedAbsoluteScaleOf(badge.parent);
-        const compensation = legacyBoardChildScaleCompensation(inherited.x, inherited.y);
-        const readabilityScale = Math.max(1, 0.55 / (inherited.x * compensation.x || 1));
-        const scaleX = compensation.x * readabilityScale;
-        const scaleY = compensation.y * readabilityScale;
-        badge.scale.set(glyphScaleX(scaleX), -scaleY);
-        const anchor = slot.position;
-        if (!anchor) return;
-        const gs = this.context.sceneSettings.getGridSettings();
-        const bounds = badge.getLocalBounds();
-        const insetX = (bounds.width * scaleX) / 2 + 8;
-        const insetY = Math.max(Math.abs(bounds.minY), Math.abs(bounds.maxY)) * scaleY + 8;
-        badge.position.set(
-            Math.max(gs.getMinX() + insetX, Math.min(gs.getMaxX() - insetX, anchor.x)),
-            Math.max(gs.getMinY() + insetY, Math.min(gs.getMaxY() - insetY, anchor.y)),
-        );
     }
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
@@ -3011,16 +2863,6 @@ export class HoverManager {
 
         this.ensureHoverSilhouetteParams(selected, boundsCenter, false);
     }
-    /**
-     * Placement is a face-off: both armies look at the battlefield centre, so a preview's horizontal
-     * mirroring is a function of its TEAM and nothing else — the same rule Sandbox re-asserts on every
-     * placed unit every frame. Applied to whichever branch produced the sprite, because the two branches
-     * disagree by construction: the texture branch has no facing of its own, and the live branch inherits
-     * the source's, which before the fight can be any direction the source last happened to hold.
-     *
-     * During the fight this must NOT run: facing there follows the direction a unit walked or the target it
-     * is striking, and forcing the team direction would spin previews back to a deployment pose.
-     */
     private applyPlacementFacing(
         sprite: Sprite,
         outline: Sprite,
@@ -3044,7 +2886,7 @@ export class HoverManager {
         exactPlacementCopy = false,
     ): void {
         const outlineGrowth = exactPlacementCopy ? 1 : 1.06;
-        const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit);
+        const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit, true);
         const texName = unitToTextureName(
             selected.name,
             TextureType.SMALL,
@@ -3106,20 +2948,11 @@ export class HoverManager {
             this.applyPhantomAppearance(sprite, outline);
         }
     }
-    /**
-     * Show silhouette for a unit at a specific position - used for AI moves/attacks
-     * Uses the exact original cutout with only a black-and-white filter.
-     */
     public showSilhouetteForUnit(unitProps: UnitProperties, position: HoCMath.XY): void {
         this.ensureHoverSilhouetteParams(unitProps, position, false);
     }
-    /**
-     * Render a ghost of the opponent's active unit at the cell they are currently aiming
-     * at during their turn in ranked play. Uses its own sprite so the live "intent" preview
-     * does not disturb the local player's hover silhouette; both use the same exact B&W treatment.
-     */
     public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
-        const livePreview = this.getLiveUnitPreview(props, position);
+        const livePreview = this.getLiveUnitPreview(props, position, undefined, true);
         const texName = unitToTextureName(
             props.name,
             TextureType.SMALL,
@@ -3510,7 +3343,7 @@ export class HoverManager {
             const logicalCenter = GridMath.getPositionForCells(gs, candidateCells);
             if (logicalCenter) {
                 // Placement has no combat-active unit. Use the actual selected board/bench instance so
-                // the preview clones its refreshed idle frame and framing instead of the legacy portrait.
+                // the preview uses its fixed battlefield pose and framing instead of the legacy portrait.
                 this.ensureHoverSilhouetteParams(
                     selected,
                     logicalCenter,
@@ -3577,4 +3410,131 @@ export class HoverManager {
         this.hoveredUnitHighlight = this.getHighlightRectForUnit(unit);
         this.hoveredUnitId = unit.getId();
     }
+    private readonly localSpellBadge: SpellBadgeSlot = {};
+    private readonly opponentSpellBadge: SpellBadgeSlot = {};
+    public drawOpponentSpellBadge(opts: {
+        casterPos: HoCMath.XY;
+        iconTex: Texture;
+        label: string;
+        color: number;
+    }): void {
+        this.paintSpellBadge(this.opponentSpellBadge, opts);
+    }
+    public clearOpponentSpellBadge(): void {
+        if (this.opponentSpellBadge.badge) this.opponentSpellBadge.badge.visible = false;
+    }
+    private paintSpellBadge(
+        slot: SpellBadgeSlot,
+        opts: { casterPos: HoCMath.XY; iconTex: Texture; label: string; color: number },
+    ): void {
+        // Keep the title clear of the figure and its overhead stack banner.
+        const cell = this.context.sceneSettings.getGridSettings().getCellSize();
+        const cx = opts.casterPos.x;
+        const cy = opts.casterPos.y - cell * 0.38;
+        const iconSize = 32;
+        if (!slot.badge || slot.badge.destroyed) {
+            const badge = new Container({ eventMode: "none" });
+            try {
+                this.context.attachToWorldRoot(badge, 5600);
+            } catch {
+                badge.destroy();
+                return;
+            }
+            slot.badge = badge;
+            slot.ring = new Graphics();
+            slot.icon = new Sprite(opts.iconTex);
+            slot.icon.anchor.set(0.5);
+            slot.text = new Text({
+                text: opts.label,
+                resolution: 2,
+                style: {
+                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
+                    fontSize: 22,
+                    lineHeight: 26,
+                    fill: 0xf5e5c5,
+                    align: "left",
+                    fontWeight: "bold",
+                    wordWrap: false,
+                },
+            });
+            slot.text.anchor.set(0, 0.5);
+            badge.addChild(slot.ring, slot.icon, slot.text);
+        }
+        const badge = slot.badge;
+        const ring = slot.ring;
+        const icon = slot.icon;
+        const text = slot.text;
+        if (!this.isGraphicsUsable(ring) || !icon || !text) return;
+
+        text.text = opts.label;
+        text.scale.set(1);
+        text.scale.set(Math.min(1, 240 / Math.max(1, text.width)));
+        const plateW = 12 + iconSize + 12 + text.width + 18;
+        const plateH = 48;
+        const left = -plateW / 2;
+        text.position.set(left + 12 + iconSize + 12, -1);
+
+        icon.texture = opts.iconTex;
+        const fit = iconSize / Math.max(opts.iconTex.width || iconSize, opts.iconTex.height || iconSize);
+        icon.scale.set(fit);
+        icon.position.set(left + 12 + iconSize / 2, 0);
+
+        ring.clear();
+        badge.visible = true;
+        slot.position = { x: cx, y: cy };
+        ring.roundRect(left - 3, -plateH / 2 + 3, plateW + 6, plateH + 3, 12).fill({
+            color: 0x000000,
+            alpha: 0.2,
+        });
+        ring.roundRect(left, -plateH / 2, plateW, plateH, 9)
+            .fill({ color: 0x191812, alpha: 0.95 })
+            .stroke({ width: 1.25, color: 0xb29351, alpha: 0.9 });
+        ring.roundRect(left + 3, -plateH / 2 + 3, plateW - 6, plateH - 6, 6).stroke({
+            width: 0.75,
+            color: 0xe3c98b,
+            alpha: 0.16,
+        });
+        ring.moveTo(left + 12, -plateH / 2 + 1)
+            .lineTo(-left - 12, -plateH / 2 + 1)
+            .stroke({ width: 1, color: 0xf8df9f, alpha: 0.42 });
+        ring.roundRect(left + 9, -iconSize / 2 - 3, iconSize + 6, iconSize + 6, 5)
+            .fill({ color: 0x080c0c, alpha: 0.9 })
+            .stroke({ width: 1, color: 0xc8a869, alpha: 0.6 });
+        ring.moveTo(left + 12 + iconSize + 6, -11)
+            .lineTo(left + 12 + iconSize + 6, 11)
+            .stroke({ width: 1, color: 0xc8a869, alpha: 0.25 });
+        ring.circle(-left - 8, 0, 2).fill({ color: opts.color, alpha: 0.85 });
+        this.layoutSpellBadge(slot);
+    }
+    private attachSpellBadge(slot: SpellBadgeSlot): void {
+        if (slot.badge && !slot.badge.destroyed) this.context.attachToWorldRoot(slot.badge, 5600);
+    }
+    private updateSpellCasterBadges(): void {
+        // Class fields do not run on a prototype-only manager, and a badge slot can be absent
+        // before either plate is built. A missing slot must not stop the scene update.
+        if (this.localSpellBadge) this.layoutSpellBadge(this.localSpellBadge);
+        if (this.opponentSpellBadge) this.layoutSpellBadge(this.opponentSpellBadge);
+    }
+    private layoutSpellBadge(slot: SpellBadgeSlot): void {
+        const badge = slot.badge;
+        if (!badge || badge.destroyed || !badge.visible) return;
+        const inherited = inheritedAbsoluteScaleOf(badge.parent);
+        const compensation = legacyBoardChildScaleCompensation(inherited.x, inherited.y);
+        const readabilityScale = Math.max(1, 0.55 / (inherited.x * compensation.x || 1));
+        const scaleX = compensation.x * readabilityScale;
+        const scaleY = compensation.y * readabilityScale;
+        badge.scale.set(glyphScaleX(scaleX), -scaleY);
+        const anchor = slot.position;
+        if (!anchor) return;
+        const gs = this.context.sceneSettings.getGridSettings();
+        const bounds = badge.getLocalBounds();
+        const insetX = (bounds.width * scaleX) / 2 + 8;
+        const insetY = Math.max(Math.abs(bounds.minY), Math.abs(bounds.maxY)) * scaleY + 8;
+        badge.position.set(
+            Math.max(gs.getMinX() + insetX, Math.min(gs.getMaxX() - insetX, anchor.x)),
+            Math.max(gs.getMinY() + insetY, Math.min(gs.getMaxY() - insetY, anchor.y)),
+        );
+    }
 }
+
+const TARGET_HIGHLIGHT_Z_INDEX = CREATURE_ATTACK_FOREGROUND_Z_INDEX + 1;

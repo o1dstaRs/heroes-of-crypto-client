@@ -38,6 +38,7 @@ interface Burst {
     impact: boolean;
     started: boolean;
     onImpact?: () => void;
+    removeBody?: () => void;
 }
 
 const TAU = Math.PI * 2;
@@ -59,8 +60,8 @@ export class LastFuseVfx {
     public get active(): boolean {
         return this.bursts.length > 0;
     }
-    public spawn(position: HoCMath.XY, cellSize: number, delaySec = 0): void {
-        this.create(position, cellSize, delaySec);
+    public spawn(position: HoCMath.XY, cellSize: number, delaySec = 0, removeBody?: () => void): void {
+        this.create(position, cellSize, delaySec, undefined, undefined, removeBody);
     }
     public hit(
         position: HoCMath.XY,
@@ -82,6 +83,8 @@ export class LastFuseVfx {
             if (burst.age < 0) continue;
             if (!burst.started) {
                 burst.started = true;
+                burst.removeBody?.();
+                burst.removeBody = undefined;
                 if (burst.age < burst.life) burst.onImpact?.();
                 burst.onImpact = undefined;
             }
@@ -95,7 +98,10 @@ export class LastFuseVfx {
         }
     }
     public clear(): void {
-        for (const burst of this.bursts) burst.container.destroy({ children: true });
+        for (const burst of this.bursts) {
+            burst.removeBody?.();
+            burst.container.destroy({ children: true });
+        }
         this.bursts.length = 0;
     }
     private create(
@@ -104,6 +110,7 @@ export class LastFuseVfx {
         delaySec: number,
         direction?: HoCMath.XY,
         onImpact?: () => void,
+        removeBody?: () => void,
     ): void {
         const container = new Container();
         container.position.set(position.x, position.y);
@@ -221,6 +228,7 @@ export class LastFuseVfx {
             impact,
             started: false,
             onImpact,
+            removeBody,
         });
     }
     private point(fragment: Fragment, age: number, stretch: number): HoCMath.XY {

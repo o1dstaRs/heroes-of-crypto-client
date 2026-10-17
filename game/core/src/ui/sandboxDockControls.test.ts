@@ -21,8 +21,8 @@ import { describe, expect, test } from "bun:test";
  *
  * SocialDock renders one of two shapes: `systemMenuMode ? systemDockControls : dockControls`. The first
  * is the compact corner medallion, which folds bets/friends/notifications/sound behind a fan. Publishing
- * registerBattleSystemControls on mount is what selects it, so each in-game host must do so and
- * must release it on unmount — otherwise a menu reached from a fight keeps the folded shape.
+ * The shared GameSystemControls footer registers the mode for its lifetime and
+ * releases only its own registration on unmount — otherwise a menu reached from a fight keeps the folded shape.
  *
  * Source-contract, like the sibling pointer/placement specs: this repo has no DOM harness, and the
  * regression is a dropped (or unreleased) effect rather than anything observable from a unit test.
@@ -33,20 +33,15 @@ const withoutComments = (source: string): string =>
     source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 describe("every in-game screen wears the collapsed medallion", () => {
-    // Each host publishes the mode on mount and releases it on unmount. A host that only set it would
-    // leave the menu it navigates to wearing the fight's HUD.
-    for (const [screen, file] of [
-        ["sandbox", "index.tsx"],
-        ["ranked battle", "RankedGameViewRuntime.tsx"],
-        ["draft", "PickAndBan/runtime.tsx"],
-    ] as const) {
-        test(`the ${screen} collapses SocialDock and releases it again`, () => {
-            const code = withoutComments(read(file));
-            expect(code).toContain("useEffect(registerBattleSystemControls, [])");
-        });
-    }
+    test("the shared game footer owns and releases the compact dock", () => {
+        const code = withoutComments(read("GameSystemControls.tsx"));
+        expect(code).toContain("useLayoutEffect(() => registerBattleSystemControls(), [])");
+        for (const file of ["index.tsx", "RankedGameViewRuntime.tsx", "PickAndBan/runtime.tsx"]) {
+            expect(withoutComments(read(file))).not.toContain("setBattleSystemControlsActive");
+        }
+    });
 
-    test("the dock still carries all four controls, gated in production on being logged in", () => {
+    test("the dock still carries all four controls, gated only on being logged in", () => {
         const dock = read("social/SocialDockRuntime.tsx");
         for (const control of [
             'aria-label="Bets and predictions"',

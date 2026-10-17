@@ -317,12 +317,20 @@ describe("ranged target edge selection", () => {
         expect(source).toContain("const target = this.getUnitAtPosition(this.sc_mouseWorld)");
     });
 
+    test("attack clicks keep the engine-validated melee target and otherwise use occupied cells", () => {
+        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+        const start = source.indexOf("// Unit Attack Interaction (melee and ranged)");
+        expect(start).toBeGreaterThan(0);
+        const click = source.slice(start, source.indexOf("if (targetUnit)", start));
+        expect(click).toContain("pointerMeleeAttack?.target");
+        expect(click).toContain("this.unitsHolder.getAllUnits().get(occupantId)");
+        expect(click).not.toContain("this.getUnitSpriteAtPosition(");
+    });
+
     test("does not draw a second Fire Strike rail over the live spell beam", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const fireStrikeAim = source.slice(
-            source.indexOf("private drawInterceptedThrowAim("),
-            source.indexOf("private drawVineThrowAim("),
-        );
+        const start = source.indexOf("private drawInterceptedThrowAim(");
+        const fireStrikeAim = source.slice(start, source.indexOf("\n    }", start));
         expect(fireStrikeAim).toContain("if (refused)");
         expect(fireStrikeAim).not.toContain("victim !== target");
         expect(fireStrikeAim).not.toContain("aimedEnd");
@@ -331,7 +339,7 @@ describe("ranged target edge selection", () => {
     test("keeps valid Fire Strike targets free of cell fills and target frames", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const fireStrikeAim = source.slice(
-            source.indexOf("private drawInterceptedThrowAim("),
+            source.indexOf("private drawFireStrikeAim("),
             source.indexOf("private drawVineThrowAim("),
         );
         const refusedMarker = fireStrikeAim.indexOf("if (refused) {", fireStrikeAim.indexOf("const refused"));

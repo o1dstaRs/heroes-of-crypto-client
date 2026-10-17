@@ -199,8 +199,8 @@ const FITS: Record<string, Fit> = {
             : "For ranged armies: a chance for an extra volley. Particularly useful with Area Throw, Large Caliber, Through Shot and Chakram, and stacks with Double Shot and Double Throw. Keep ammunition available: an empty quiver cannot fire the echo. Melee units receive no bonus.",
     "Last Fuse": (language, n) =>
         language === "ru"
-            ? `Для армий, которые меняются стеками, особенно крупными: взрыв бьёт по касающимся врагам на ${n(A.LAST_FUSE_PERCENT)}% фактического урона добивания, минимум ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} за уровень силы стека. Сильно раненые стеки часто взрываются только на этот минимум. Воскресший стек не взрывается.`
-            : `Armies that expect to trade stacks, especially large ones: a destroyed stack hits touching enemies for ${n(A.LAST_FUSE_PERCENT)}% of its actual killing damage, at least ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} per stack power. Heavily injured stacks often explode only for that minimum. A resurrecting stack does not burst.`,
+            ? `Для армий, которые добивают врагов рядом с другими вражескими стеками. Сильные атакующие получают больший минимум взрыва: ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} за уровень силы атакующего, или ${n(A.LAST_FUSE_PERCENT)}% фактического урона добивания, если это больше. Раненая цель всё ещё может взорваться на этот минимум; её собственная сила на него не влияет. Воскрешение отменяет взрыв, Water Shield поглощает одно попадание. Ваши союзники в безопасности.`
+            : `For armies that can finish enemy stacks near other enemies. Powerful attackers have a larger blast floor: ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} per attacker stack power, or ${n(A.LAST_FUSE_PERCENT)}% of actual killing damage when higher. A wounded target can still explode for that minimum; its own power does not set the floor. Resurrection prevents a burst and Water Shield absorbs one blast. Your allies are safe.`,
     "Aegis of the Arcane": (language, n) => {
         const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
         const own = 15;

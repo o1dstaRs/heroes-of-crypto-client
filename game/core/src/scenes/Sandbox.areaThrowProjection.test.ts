@@ -236,7 +236,8 @@ describe("Sandbox Area Throw's actual landing projection", () => {
                     const ray = RayTraversal.traceGridRayCells(settings, f.attacker.getPosition(), point(aim));
                     const anchor = ray[Math.floor(ray.length * 0.6)][0];
                     const target = f.place(f.creature("Berserker", "Might", enemy, width, height), anchor);
-                    const event = assertAreaMatchesImpact(f, aim, target.getBaseCell());
+                    const contact = ray.find(([cell]) => f.grid.getOccupantUnitId(cell) === target.getId())![0];
+                    const event = assertAreaMatchesImpact(f, aim, contact);
                     expect(event.affectedUnitIds).toContain(target.getId());
                     const entries = event.damage.splash?.filter((entry) => entry.unitId === target.getId());
                     expect(entries).toHaveLength(2);
@@ -393,8 +394,8 @@ describe("Sandbox Area Throw's actual landing projection", () => {
         test(`team ${team}, Wingshield intercepts the throw and protects its neighbours`, () => {
             const f = fixture(team, GridVals.NORMAL, { x: 3, y: 7 });
             const shield = f.place(f.creature("Angel", "Life", enemy), { x: 8, y: 7 });
-            f.place(f.creature("Berserker", "Might", enemy, 1, 1), { x: 9, y: 7 });
-            const event = assertAreaMatchesImpact(f, { x: 12, y: 7 }, shield.getBaseCell());
+            f.place(f.creature("Berserker", "Might", enemy, 1, 1), { x: 6, y: 8 });
+            const event = assertAreaMatchesImpact(f, { x: 12, y: 7 }, { x: 7, y: 7 });
             expect(event.affectedUnitIds).toEqual([shield.getId()]);
         });
         test(`team ${team}, solid mountain cells use obstacle targeting`, () => {

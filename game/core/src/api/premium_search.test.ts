@@ -15,6 +15,18 @@ const stream = (text: string) =>
     );
 
 describe("Premium search requests", () => {
+    it("binds move questions to an inspected stack in a live match and drops them elsewhere", () => {
+        expect(
+            premiumSearchBody("Explain this move", `/game/${gameId}`, [], "actor", "0123456789abcdef"),
+        ).toMatchObject({ inspectedUnitId: "actor", inspectedOptionId: "0123456789abcdef" });
+        expect(
+            premiumSearchBody("Explain this move", `/game/${gameId}`, [], undefined, "0123456789abcdef"),
+        ).not.toHaveProperty("inspectedOptionId");
+        expect(
+            premiumSearchBody("Explain this move", `/game/${gameId}/replay`, [], "actor", "0123456789abcdef"),
+        ).not.toHaveProperty("inspectedOptionId");
+    });
+
     it("sends only the inspected stack ID and drops it outside a live match", () => {
         expect(premiumSearchBody("Explain this stack", `/game/${gameId}`, [], "split-squire-2")).toMatchObject({
             gameId,
@@ -71,6 +83,50 @@ describe("Premium search requests", () => {
 });
 
 describe("Premium answer stream", () => {
+    it.each([undefined, "2222222222222222"])(
+        "rejects an unconfirmed move before displaying any answer: %s",
+        async (confirmed) => {
+            const displayed: string[] = [];
+            await expect(
+                readPremiumSearch(
+                    stream(
+                        frame("meta", {
+                            mode: "premium",
+                            context: "match",
+                            inspectedUnitId: "actor",
+                            inspectedOptionId: confirmed,
+                        }) + frame("delta", { text: "Unbound move" }),
+                    ),
+                    (kind) => displayed.push(kind),
+                    "actor",
+                    "1111111111111111",
+                ),
+            ).rejects.toThrow("suggested move could not be confirmed");
+            expect(displayed).toEqual([]);
+        },
+    );
+
+    it("accepts only the confirmed move and explains an expired offer", async () => {
+        expect(
+            await readPremiumSearch(
+                stream(
+                    frame("meta", {
+                        mode: "premium",
+                        context: "match",
+                        inspectedUnitId: "actor",
+                        inspectedOptionId: "1111111111111111",
+                    }) + frame("done", { answer: "This angle uses ammunition." }),
+                ),
+                () => {},
+                "actor",
+                "1111111111111111",
+            ),
+        ).toBe("This angle uses ammunition.");
+        await expect(
+            readPremiumSearch(Response.json({ code: "premium_option_unavailable" }, { status: 409 }), () => {}),
+        ).rejects.toThrow("move is no longer offered");
+    });
+
     it.each([undefined, "different-squire"])(
         "does not display a stack answer without its matching confirmation: %s",
         async (confirmed) => {

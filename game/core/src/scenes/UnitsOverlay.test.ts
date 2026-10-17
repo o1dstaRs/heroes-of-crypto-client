@@ -595,15 +595,11 @@ describe("UnitsOverlay chip visibility", () => {
         expect(parts.sprite.visible).toBe(false);
         expect(parts.portraitBackground!.visible).toBe(false);
 
-        artReady = true;
-        overlay.refreshLazyTextures();
-        expect(parts.sprite.visible).toBe(false);
-        expect(parts.portraitBackground!.visible).toBe(false);
+        expect(requested).toContain("peasant_512");
+        expect(requested).not.toContain("black_dragon_512");
 
-        plateReady = true;
-        overlay.refreshLazyTextures();
-        expect(parts.sprite.visible).toBe(true);
-        expect(parts.portraitBackground!.visible).toBe(true);
+        (overlay as unknown as OverlayInternals).setSelectedLevel(4);
+        expect(requested).toContain("black_dragon_portrait_full");
 
         plateReady = false;
         requested.clear();
@@ -969,4 +965,23 @@ describe("UnitsOverlay chip visibility", () => {
 
         overlay.destroy();
     });
+});
+
+test("animation lab exposes the one-cell summon directly beside its queen", () => {
+    const app = {
+        renderer: { height: 900, width: 1600 },
+        stage: new Container(),
+        ticker: { add: () => undefined, remove: () => undefined },
+    } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+    const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+    overlay.build();
+    const state = overlay as unknown as OverlayInternals;
+    expect(state.allChips.map((chip) => chip.nameKey)).not.toContain("Arachna Spider");
+    overlay.setCreatureAnimationLabEnabled(true);
+    const names = state.allChips.map((chip) => chip.nameKey);
+    expect(names[names.indexOf("Arachna Queen") + 1]).toBe("Arachna Spider");
+    expect(overlay.getUnitProperties("Arachna Spider").size).toBe(1);
+    overlay.setCreatureAnimationLabEnabled(false);
+    expect(state.allChips.map((chip) => chip.nameKey)).not.toContain("Arachna Spider");
+    overlay.destroy();
 });

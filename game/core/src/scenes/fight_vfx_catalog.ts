@@ -52,7 +52,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_attacked: {
         rendered: true,
         ranked: "replay",
-        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary. Ranked runs NEITHER sandbox path: it renders damage.secondary itself in applyAuthoritativeSecondaryVfx, which colours each number by source (getSecondaryDamageStyle) and draws the Chain Lightning arc from the authoritative bounce entries",
+        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Zena's lethal strikes and chakram ricochets record noteZenaKill at their individual impact in shared playCombatExchange; playCustomDeathAnimation replaces the victim's authored death with a flying head, blood fountain and collapse (the headless cannon ejects its muzzle with oil and sparks). Counters use their actual source; misses, absorbed hits, resurrections and blast casualties do not decapitate. Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary. Ranked runs NEITHER sandbox path: it renders damage.secondary itself in applyAuthoritativeSecondaryVfx, which colours each number by source (getSecondaryDamageStyle) and draws the Chain Lightning arc from the authoritative bounce entries",
     },
     area_attacked: {
         rendered: true,
@@ -76,12 +76,10 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "craft forge / rune enchant / castling; playReplayCastSpellAction (replay) + " +
             "castAreaSpellAtCell/castSpellOnTarget (live). Heal '+N' + burst ride the SAME event via the " +
             "shared renderHealVfx, called from all three — driven by the authoritative healed[] (the " +
-            "replay reads record.events, never its local re-run). Offensive fire spells ride it the same " +
+            "replay reads record.events, never its local re-run). Whirlpool draws a one-cell sprite vortex " +
+            "on targetCell through spawnWhirlpool before the damage guard, including non-damaging casts. Offensive fire spells ride it the same " +
             "way via renderSpellDamageVfx off damaged[]: thrown ones sweep embers caster->victim, called-down " +
-            "ones just burst, and Ring of Fire instead lays ONE spawnFireRing on event.targetCell (no " +
-            "per-victim sweeps). Lightning Strike is the one called-down spell that does NOT burst in fire: " +
-            "it takes spawnLightningStrike, a white-blue bolt down out of the sky onto the victim, because " +
-            "it is an AIR spell and the amber puff read as Fire Strike (no " +
+            "ones just burst; Lightning Strike uses one white/blue overhead spawnLightningStrike, and Ring of Fire lays ONE spawnFireRing on event.targetCell (no " +
             "per-victim sweeps — those read as a volley of fire arrows and hid the ring). A Magic Mirror " +
             "rebound (damaged[].rebounded) takes the mirror treatment instead of the fire: " +
             "spawnMagicMirrorRebound draws the glass pane on the holder (damaged[].reboundedFromUnitId) and " +
@@ -215,8 +213,8 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     // damage number has to ride the event (the store only says which cells are alight, never who they hurt).
     pyre_exploded: {
         rendered: true,
-        ranked: "journal",
-        note: "a removed Last Fuse stack detonates into fire, smoke, tumbling flesh, blood and sparks. Each damaged enemy gets a directional blood/ember impact, scorch flash, hit reaction and orange damage number. Chain delays also time the hit reactions. Sandbox plays engine events; ranked and replays consume new journal entries once, without replaying reconnect history",
+        ranked: "replay",
+        note: "Last Fuse replaces the defeated stack's ordinary death animation at the killing impact. Its body disappears on the first explosion frame; chain victims remain until their own delayed bursts. Fire, smoke, flesh, blood, sparks and orange damage numbers share the blast clock. Ranked journal fallback deduplicates explosions already played by the attack and skips reconnect history",
     },
     fire_wall_burned: {
         rendered: true,

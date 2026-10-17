@@ -1,15 +1,33 @@
+import { dullingDefenseRecipientIds } from "./effect_pops";
 import { describe, expect, test } from "bun:test";
 
 import {
     animatableEffectNames,
     diffUnitEffects,
     dullingDefenseApplicationCount,
-    dullingDefenseRecipientIds,
+    battleRoarAppliedUnitIds,
     isAuraEffectName,
 } from "./effect_pops";
 import type { GameEvent } from "@heroesofcrypto/common";
 
 const set = (...names: string[]): Set<string> => new Set(names);
+
+test("Battle Roar animates actual successful recipients once per cast, including refreshes", () => {
+    const event: GameEvent = {
+        type: "effects_applied",
+        applications: [
+            { unitId: "ally-a", name: "Battle Roar", kind: "buff" },
+            { unitId: "ally-b", name: "Battle Roar", kind: "buff" },
+            { unitId: "ally-a", name: "Battle Roar", kind: "buff" },
+            { unitId: "resisted", name: "Battle Roar", kind: "buff", resisted: true },
+            { unitId: "other", name: "Courage", kind: "buff" },
+        ],
+    };
+    expect(battleRoarAppliedUnitIds([event])).toEqual(["ally-a", "ally-b"]);
+    expect(battleRoarAppliedUnitIds([event])).toEqual(["ally-a", "ally-b"]);
+    expect(battleRoarAppliedUnitIds(undefined)).toEqual([]);
+    expect(animatableEffectNames(["Battle Roar"]).size).toBe(0);
+});
 
 describe("isAuraEffectName / animatableEffectNames", () => {
     test("recognises aura effects by their real applied effect name (aura_effects.json) and the ' Aura' suffix", () => {

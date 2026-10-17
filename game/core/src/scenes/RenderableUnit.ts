@@ -1,4 +1,8 @@
+import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
+import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
+import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
 import { isAiSearchSimulating } from "./aiSearchGuard";
+import { initializeUnitPresentationFields } from "./unitPresentationFields";
 import { syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
 import { isTrollLabCastGuard, syncTrollLabCastGlow } from "./TrollLabCastVisuals";
 import { syncTrollLabCastMatch } from "./TrollLabCastMatch";
@@ -10,6 +14,84 @@ import {
 } from "./TrollLabAttackVisuals";
 import { syncWhiteTigerLabWalk } from "./WhiteTigerLabWalkVisuals";
 import { syncWhiteTigerIdleTail } from "./WhiteTigerIdleTailVisuals";
+import {
+    PEGASUS_FLIGHT_SCALE,
+    PEGASUS_FLIGHT_ANCHOR_X,
+    PEGASUS_FLIGHT_TRANSITION_SPEED,
+    pegasusFlightAnchorY,
+} from "./PegasusFlight";
+import { CANNON_BALL_SIZE_MULTIPLIER } from "./TsarCannonImpact";
+import { whirlpoolEdgeScale } from "./sandbox/WhirlpoolWaterEdge";
+import { HIT_REACTION_ADDITIONAL_SPEED } from "../settings/hitTiming";
+import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
+import {
+    MAGIC_DRAGON_LAB_DEATH_SPEED,
+    MAGIC_DRAGON_LAB_HIT_SPEED,
+    MAGIC_DRAGON_LAB_ACTION_CANVAS_SCALE,
+    isMagicDragonLabPaddedAction,
+} from "./MagicDragonLabReactions";
+import {
+    MAGIC_DRAGON_LAB_FLIGHT_CANVAS_SCALE,
+    MAGIC_DRAGON_LAB_FLIGHT_ANCHOR_X,
+    MAGIC_DRAGON_LAB_TRANSITION_SPEED,
+    MAGIC_DRAGON_LAB_IDLE_SPEED,
+    magicDragonLabFlightAnchorY,
+} from "./MagicDragonLabFlight";
+import { QUEEN_REACTION_DURATION_MS, type QueenReaction } from "./ArachnaQueenLabReactions";
+import { syncArachnaSpiderLabIdle } from "./ArachnaSpiderLabIdle";
+import { syncArachnaSpiderLabPalette } from "./ArachnaSpiderLabPalette";
+import { SPIDER_ATTACK_DURATIONS_MS, SPIDER_LAB_GROUND_OFFSET_CELLS } from "./ArachnaSpiderLabMotion";
+import { syncArachnaQueenLabIdle } from "./ArachnaQueenLabIdle";
+import { isQueenBite } from "./ArachnaQueenLabBile";
+import { duplicateIdleOrdinal, duplicateIdleOffsetMs } from "../settings/idleTiming";
+import { BOAR_LAB_WALK_SCALE_X, BOAR_LAB_WALK_SCALE_Y, syncBoarLabWalkPalette } from "./BoarLabWalkVisuals";
+import {
+    GRIFFIN_LAB_WALK_SCALE,
+    GRIFFIN_LAB_WALK_ANCHOR_X,
+    GRIFFIN_LAB_TRANSITION_SPEED,
+    GRIFFIN_LAB_LANDING_SPEED,
+    GRIFFIN_LAB_TAKEOFF_SPEED,
+    griffinLabFlightSettings,
+    griffinLabWalkAnchorY,
+    griffinLabHitAnchorX,
+} from "./GriffinLabFlight";
+import { griffinLabIdleFrame } from "./GriffinLabIdle";
+import { syncGriffinLabIdle } from "./GriffinLabIdleVisuals";
+import { NIGHTMARE_CAST_PLAYBACK_SPEED } from "./NightmareLabCastCalibration";
+import { MANTIS_LAB_WALK_SCALE, mantisLabFlightSettings, mantisLabWalkAnchorY } from "./MantisLabFlight";
+import { syncMantisLabEyeGlow } from "./MantisLabIdleVisuals";
+import { syncBlackDragonBreathSmoke } from "./BlackDragonBreathSmoke";
+import { blackDragonFireState, syncBlackDragonFireBreath } from "./BlackDragonFireBreath";
+import { MONK_RANGED_FRAMES, MONK_ORB_RELEASE_FRAME } from "./MonkRangedAnimationFrames";
+import { zenaLabIdleFrame } from "./ZenaLabIdle";
+import { TROLL_LAB_WALK_SCALE_X, TROLL_LAB_WALK_SCALE_Y } from "./TrollLabWalkVisuals";
+import { renderedCastlingGripPoint } from "./CastlingGripPoint";
+
+import { syncUnicornBlindnessLight, UNICORN_BLINDNESS_FLASH_MS } from "./UnicornBlindnessVisuals";
+import { syncUnicornLabWalk } from "./UnicornLabWalkVisuals";
+import { syncCannonWalkPalette, syncCannonWheelDust } from "./TsarCannonLabVisuals";
+import { syncCannonMaterial } from "./TsarCannonMaterial";
+import { syncCannonLabIdle } from "./TsarCannonLabIdle";
+import {
+    CANNON_REACTION_CANVAS_SCALE,
+    cannonReactionAnchorY,
+    cannonReactionAtlasKey,
+    cannonReactionMeta,
+    isCannonAuthoredAction,
+    isCannonAttack,
+    CANNON_SHOT_RELEASE_FRAME,
+    cannonShotOrigin,
+} from "./TsarCannonReactions";
+import { unicornIdleFrame } from "./UnicornLabIdleMotion";
+import { syncUnicornLabIdle } from "./UnicornLabIdleVisuals";
+
+import { syncHydraIdleTail } from "./HydraIdleTailVisuals";
+import { syncHydraCrestFire } from "./HydraCrestFireVisuals";
+import { championIdleFrame } from "./ChampionLabIdleMotion";
+import { syncChampionPlume } from "./ChampionLabPlume";
+import { syncNomadIdleVisuals } from "./NomadIdleVisuals";
+import { syncHyenaIdleVisuals } from "./HyenaIdleVisuals";
+import { syncMonkLabIdle } from "./MonkLabIdleVisuals";
 import {
     Container,
     Sprite,
@@ -40,6 +122,7 @@ import {
     AbilityHelper,
     AllAbilities,
     type Effect,
+    type ISceneLog,
     type TeamType,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
@@ -47,9 +130,73 @@ import { syncBlacksmithWalkColorFilter } from "./BlacksmithWalkColorFilter";
 import { syncManticoreLabIdle } from "./ManticoreLabIdleVisuals";
 import { manticoreLabAttackEye } from "./ManticoreLabAttackEyes";
 import { syncManticoreLabWalkPalette } from "./ManticoreLabWalkPalette";
+import { arachnaQueenLabWalkScale, arachnaQueenLabWalkAnchorY } from "./ArachnaQueenLabWalkCalibration";
+import {
+    HYDRA_LAB_WALK_WIDTH_SCALE,
+    HYDRA_LAB_WALK_HEIGHT_SCALE,
+    HYDRA_LAB_WALK_FOOT_ANCHOR_Y,
+    syncHydraLabPalette,
+} from "./HydraLabWalkPalette";
+import { HYDRA_LAB_REACTION_SPEED, hydraLabAtlasState } from "./HydraLabReactions";
+import { HYDRA_IDLE_FRAME_COUNT, hydraLabIdleFrame } from "./HydraLabIdle";
+import { WYVERN_REACTION_CANVAS_SCALE, isWyvernLabAction } from "./WyvernLabReactions";
+import { syncWyvernLabIdle } from "./WyvernLabIdleVisuals";
+import {
+    BLACK_DRAGON_LAB_FLIGHT_CANVAS_SCALE,
+    BLACK_DRAGON_LAB_FLIGHT_ANCHOR_X,
+    BLACK_DRAGON_LAB_TRANSITION_SPEED,
+    blackDragonLabFlightAnchorY,
+} from "./BlackDragonLabFlight";
+import {
+    BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE,
+    BLACK_DRAGON_LAB_IDLE_ANCHOR_Y,
+    blackDragonLabIdleFrame,
+} from "./BlackDragonLabIdle";
+import { ANGEL_LAB_FLIGHT_CANVAS_SCALE, ANGEL_LAB_FLIGHT_ANCHOR_X, angelLabFlightAnchorY } from "./AngelLabFlight";
+import { syncAngelSwordGlow } from "./AngelSwordGlow";
+import { calibratedAngelActionCanvas } from "./AngelActionRegistration";
+import { syncAngelActionPalette } from "./AngelActionPalette";
+import { syncWyvernLabWalkPalette } from "./WyvernLabWalkPalette";
+import {
+    THUNDERBIRD_LAB_FLIGHT_CANVAS_SCALE,
+    THUNDERBIRD_LAB_FLIGHT_ANCHOR_X,
+    THUNDERBIRD_LAB_TRANSITION_SPEED,
+    thunderbirdLabFlightAnchorY,
+} from "./ThunderbirdLabFlight";
+import {
+    THUNDERBIRD_REACTION_CANVAS_SCALE,
+    isThunderbirdLabAction,
+    thunderbirdReactionAnchorY,
+} from "./ThunderbirdLabReactions";
 import { syncManticoreLabPoseCalibration } from "./ManticoreLabPoseCalibration";
 import { syncHealerLabWalkPalette } from "./HealerLabWalkPalette";
+import { syncDryadIdlePalette } from "./DryadIdlePalette";
+import {
+    applyDryadRangedRegistration,
+    clearDryadRangedRegistration,
+    isDryadRangedState,
+} from "./DryadRangedRegistration";
+import {
+    GARGANTUAN_LAB_WALK_SCALE_X,
+    GARGANTUAN_LAB_WALK_SCALE_Y,
+    syncGargantuanLabWalkPalette,
+} from "./GargantuanLabWalkVisuals";
+import {
+    BEHEMOTH_LAB_WALK_BODY_FRAME_COUNT,
+    BEHEMOTH_LAB_WALK_SCALE_X,
+    BEHEMOTH_LAB_WALK_SCALE_Y,
+} from "./BehemothLabWalkCalibration";
+import { behemothIdleFrame } from "./BehemothLabIdle";
 import { centaurLabWalkScale, syncCentaurLabWalkColor } from "./CentaurLabWalkVisuals";
+import {
+    championLabWalkAnchorY,
+    championLabWalkHeightScale,
+    championLabWalkWidthScale,
+} from "./ChampionLabWalkCalibration";
+import { isNightmareLabAction, syncNightmareLabIdleWind } from "./NightmareLabIdleWindVisuals";
+import { syncEfreetLabIdleFire } from "./EfreetLabIdleFire";
+import { EFREET_LAB_IDLE_FRAME_DURATIONS_MS, efreetLabIdleFrame } from "./EfreetLabIdleTiming";
+import { syncCyclopsIdleCloth } from "./CyclopsIdleClothVisuals";
 import { syncCentaurLabIdleWind } from "./CentaurLabIdleWindVisuals";
 import { syncCentaurLabMeleePalette } from "./CentaurLabMeleeVisuals";
 import { SQUIRE_PLUME_PERIOD_MS, syncSquireIdlePlume } from "./SquireIdlePlume";
@@ -79,9 +226,16 @@ import {
     syncValkyrieLabWalk,
 } from "./ValkyrieLabWalk";
 import { syncWanderingMageIdleFire } from "./WanderingMageIdleFire";
-import { syncDryadLabIdle } from "./DryadLabIdleVisuals";
 import { syncBattleMageLabIdle } from "./BattleMageLabIdleVisuals";
+import { syncCrusaderLabReaction } from "./CrusaderLabReaction";
+import { syncCrusaderLabIdle } from "./CrusaderLabIdle";
+import { isCrusaderAttack } from "./CrusaderLabAttack";
 import { syncElfIdleCape } from "./ElfIdleCape";
+import {
+    CYCLOPS_IDLE_FULL_BODY_FRAME_COUNT,
+    CYCLOPS_IDLE_FULL_BODY_PERIOD_MS,
+    cyclopsIdleFullBodyFrame,
+} from "./CyclopsLabIdleVisuals";
 import {
     BATTLE_MAGE_REACTION_DURATION_MS,
     battleMageReactionPose,
@@ -107,22 +261,20 @@ import { wolfReactionFrameScale, wolfReactionFootAnchorY } from "./WolfReactionG
 import { syncWolfReactionVisuals } from "./WolfReactionVisuals";
 import { syncWolfAttackReachVisuals } from "./WolfAttackReachVisuals";
 import { syncScavengerHitColorFilter, syncScavengerIdleColorFilter } from "./ScavengerIdleColorFilter";
+import { syncAbominationBasePalette } from "./AbominationBasePalette";
 import { syncBerserkerIdleVisuals } from "./BerserkerIdleVisuals";
+import { syncGoblinKnightIdle } from "./GoblinKnightIdleVisuals";
+import { syncGoblinWalkPalette } from "./GoblinKnightPalette";
 import { applyScavengerHitRegistration, clearScavengerHitRegistration } from "./ScavengerHitRegistration";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
-import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
-import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
-import {
-    animationAtlasPrewarmKeys,
-    approvedAnimationAssetKeysForUnit,
-    CREATURE_SPRITE_ANIMATION_SETTINGS,
-    usesApprovedBaseAnimations,
-} from "@/pixi/creatureAnimationSettings";
+import { CREATURE_SPRITE_ANIMATION_SETTINGS, usesApprovedBaseAnimations } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
 import { ArbalesterIdlePager, arbalesterIdlePages } from "./ArbalesterIdlePager";
+import { abominationIdlePages } from "./AbominationIdlePages";
+import { abominationLabWalkScale, abominationLabWalkAnchorY } from "./AbominationLabRegistration";
 import { syncArbalesterAppearance } from "./ArbalesterAppearance";
 import { CAN_RENDER_FLAG_GRADIENT, personalArmyFlagGradient, personalArmyPresetFor } from "./personalArmyTint";
 import {
@@ -142,7 +294,6 @@ import {
 } from "./BattlefieldCreatureContourFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import {
-    BATTLEFIELD_CREATURE_FRAMING,
     BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
     isBattlefieldCreatureEditorActive,
     publishBattlefieldCreatureVisualBounds,
@@ -375,7 +526,7 @@ const THIEF_BOARD_TEXTURE = "thief_board_128";
 const THIEF_UNIT_NAME = "Thief";
 const SCAVENGER_UNIT_NAME = "Scavenger";
 /** The requested 5% lift is relative to the rendered figure, not the much shorter board cell. */
-export const SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION = 0.05;
+const SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION = 0.05;
 const PEASANT_UNIT_NAME = "Peasant";
 const BEHOLDER_UNIT_NAME = "Beholder";
 const SQUIRE_UNIT_NAME = "Squire";
@@ -394,11 +545,10 @@ const THIEF_WALK_VISIBLE_HEIGHT_RATIO = 185 / 192;
 // The approved original Scavenger loop keeps its 256px source canvas: the first figure is 247px
 // high. Match it to the current static figure's measured 757px height, including that figure's
 // existing legacy idle scale, instead of fitting the old narrower Thief walk canvas.
-export const SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO =
-    (247 / 256) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
+const SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO = (247 / 256) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
 const SCAVENGER_LAB_ACTIONS = ["hit", "death", "attack", "attack_up", "attack_down"];
 const scavengerLabCanvasScale = (state?: string): number => (state?.startsWith("attack") ? 1024 / 768 : 1);
-export const SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO = (700 / 768) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
+const SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO = (700 / 768) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
 const ORC_UNIT_NAME = "Orc";
 const MERMAID_UNIT_NAME = "Mermaid";
 const TROLL_UNIT_NAME = "Troll";
@@ -665,13 +815,60 @@ export const SQUIRE_IDLE_SPEED_MULTIPLIER = 1.2 * 1.08;
 // occupies 426x726 pixels. Apply one constant uniform scale for the whole walk so entering/leaving movement
 // does not make the Squire shrink or grow; the authored poses themselves are never scaled independently.
 export const SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER = 726 / 696;
-// Height match alone leaves the 408px walk envelope 0.1% narrower than the 426px idle body.
-// One extra horizontal factor closes that gap without disturbing the uniform height match.
-export const SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER = 426 / 408 / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER;
+// The approved Hyena walk retains the source poses, whose visible height averages 408.75px
+// against the 456px battlefield figure. Correct Y only around the authored foot line;
+// their visible widths already match and must not grow with the height correction.
+export const HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER = 456 / 408.75;
 // Alpha > 128: battlefield Berserker spans 765px on 768px; the HD opening walk
 // spans 979px on 1024px. One uniform correction preserves the authored gait.
 const BERSERKER_WALK_VISIBLE_SCALE_MULTIPLIER = 765 / 768 / (979 / 1024);
 const BERSERKER_WALK_SOLE_Y = 1004 / 1024;
+const isHarpyAuthoredAction = (unitName: string, stateName: string): boolean =>
+    unitName === "Harpy" &&
+    ["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName);
+const harpyActionCanvasScale = (unitName: string, stateName?: string): number =>
+    isHarpyAuthoredAction(unitName, stateName ?? "") ? (stateName === "cast" ? 1344 / 768 : 896 / 768) : 1;
+const isBeholderReaction = (unitName: string, stateName: string): boolean =>
+    unitName === BEHOLDER_UNIT_NAME && (stateName === "hit" || stateName === "death");
+const isBeholderMelee = (unitName: string, stateName: string): boolean =>
+    unitName === BEHOLDER_UNIT_NAME && ["melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName);
+const isBeholderRanged = (unitName: string, stateName: string): boolean =>
+    unitName === BEHOLDER_UNIT_NAME && ["attack", "attack_up", "attack_down"].includes(stateName);
+const isBeholderAuthoredAction = (unitName: string, stateName: string): boolean =>
+    isBeholderReaction(unitName, stateName) ||
+    isBeholderMelee(unitName, stateName) ||
+    isBeholderRanged(unitName, stateName);
+const isNomadAuthoredAction = (unitName: string, stateName: string): boolean =>
+    unitName === "Nomad" && /^(hit|death|(?:melee_)?attack(?:_up|_down)?)$/.test(stateName);
+const isTrentAuthoredAction = (unitName: string, stateName: string): boolean =>
+    unitName === "Trent" &&
+    [
+        "hit",
+        "death",
+        "cast",
+        "attack",
+        "attack_up",
+        "attack_down",
+        "melee_attack",
+        "melee_attack_up",
+        "melee_attack_down",
+    ].includes(stateName);
+export const trentActionCanvasScale = (unitName: string, stateName?: string): number =>
+    unitName !== "Trent"
+        ? 1
+        : stateName === "cast"
+          ? 1280 / 768
+          : /^(?:melee_)?attack(?:_up|_down)?$/.test(stateName ?? "")
+            ? 1024 / 768
+            : 1;
+const isSatyrAuthoredAction = (unitName: string, stateName: string): boolean =>
+    unitName === "Satyr" &&
+    ["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName);
+const satyrCastCanvasScale = (unitName: string, stateName?: string): number =>
+    unitName === "Satyr" && stateName === "cast" ? 1200 / 768 : 1;
+/** Sword arcs and death use 128px padding per side while retaining the idle pixel scale. */
+export const nomadReactionCanvasScale = (unitName: string, stateName?: string): number =>
+    unitName === "Nomad" && /^(death|(?:melee_)?attack(?:_up|_down)?)$/.test(stateName ?? "") ? 1024 / 768 : 1;
 // Overhead sword clearance: the unchanged 768px figure occupies 576px of a 1024px cell.
 const BERSERKER_SWORD_IDLE_SCALE = 1024 / 576;
 const isBerserkerAuthoredAction = (unitName: string, state?: string): boolean =>
@@ -692,6 +889,7 @@ export function authoredIdleFrameDurationMs(
         unitName === TROGLODYTE_UNIT_NAME ||
         unitName === BLACKSMITH_UNIT_NAME ||
         unitName === MERMAID_UNIT_NAME ||
+        unitName === "Pegasus" ||
         !refreshedFullBodyScale
     ) {
         return authoredFrameDurationMs;
@@ -713,6 +911,10 @@ export function wolfWalkFrameScaleMultiplier(frameIndex: number): number {
     const safeIndex = Math.max(0, Math.min(WOLF_WALK_VISIBLE_HEIGHT_RATIOS.length - 1, Math.floor(frameIndex)));
     return WOLF_STATIC_VISIBLE_HEIGHT_RATIO / WOLF_WALK_VISIBLE_HEIGHT_RATIOS[safeIndex];
 }
+// The Cyclops's torso keeps its size through the source gait; only his stride changes the
+// silhouette width. Calibrate the entry pose once, without stretching the whole body per frame.
+const CYCLOPS_LAB_WALK_SCALE_X = 1.1;
+const CYCLOPS_LAB_WALK_SCALE_Y = 1.02;
 /** Matches Scavenger's measured visible idle silhouette to Squire's measured visible idle height. */
 export const SCAVENGER_BOARD_MODEL_HEIGHT_CELLS = (1.5 * (180 / 192) * 186) / 190;
 type RefreshedBoardVisualProfile = Readonly<{
@@ -784,6 +986,13 @@ const ORC_ACTIVE_BATTLE_CRY_RENDER_HEIGHT = 192;
 const EFREET_FIRE_IDLE_FRAME_COUNT = 12;
 const EFREET_FIRE_IDLE_FRAME_DURATION_MS = 90;
 const EFREET_FIRE_IDLE_IMAGE_KEY = "efreet_idle_atlas_quarter" as const;
+// Match the neutral lab frame's opaque silhouette (386x416) to the canonical figure (529x703).
+// Both canvases are 768px high; transparent padding must not count as creature height.
+const EFREET_LAB_IDLE_SCALE_X = 529 / 386;
+const EFREET_LAB_IDLE_SCALE_Y = 703 / 416;
+const EFREET_FIGURE_SCALE = 0.9;
+const EFREET_LAB_LOWER_FIRE_BASE_Y = 642;
+const EFREET_LAB_DEATH_PLAYBACK_SPEED = 1.25 * 1.15;
 const THIEF_IDLE_BREATH_PERIOD_MS = 2800;
 // Scavenger shares the Orc's stronger full-body breath: a visible rise plus a small chest expansion.
 const THIEF_IDLE_BREATH_SCALE_AMPLITUDE = ORC_IDLE_BREATH_SCALE_AMPLITUDE;
@@ -970,6 +1179,9 @@ export { CREATURE_SPRITE_ANIMATION_SETTINGS } from "@/pixi/creatureAnimationSett
 
 function usesApprovedPermanentIdleAtlas(unitName: string): boolean {
     return (
+        unitName === "Pegasus" ||
+        unitName === "Harpy" ||
+        unitName === DRYAD_UNIT_NAME ||
         unitName === MERMAID_UNIT_NAME ||
         unitName === ORC_UNIT_NAME ||
         unitName === BLACKSMITH_UNIT_NAME ||
@@ -979,7 +1191,10 @@ function usesApprovedPermanentIdleAtlas(unitName: string): boolean {
         unitName === SQUIRE_UNIT_NAME ||
         unitName === TROGLODYTE_UNIT_NAME ||
         unitName === WOLF_RIDER_UNIT_NAME ||
-        unitName === WOLF_UNIT_NAME
+        unitName === WOLF_UNIT_NAME ||
+        unitName === "Trent" ||
+        unitName === "Satyr" ||
+        unitName === "Nomad"
     );
 }
 
@@ -1004,7 +1219,9 @@ export function authoredIdleFrameForElapsed(
     const pauseMs = Number.isFinite(cycleEndPauseMs) ? Math.max(0, cycleEndPauseMs) : 0;
     const repeatMs = cycleMs + pauseMs;
     let cursorMs = ((elapsedMs % repeatMs) + repeatMs) % repeatMs;
-    if (cursorMs >= cycleMs) return 0;
+    // Subtracting performance.now() timestamps can land a few ULPs before an exact loop seam.
+    const seamToleranceMs = 1e-7;
+    if (cursorMs < seamToleranceMs || repeatMs - cursorMs < seamToleranceMs || cursorMs >= cycleMs) return 0;
     for (let index = 0; index < durations.length; index += 1) {
         if (cursorMs < durations[index]) return index;
         cursorMs -= durations[index];
@@ -1015,10 +1232,45 @@ export function authoredIdleFrameForElapsed(
 // Source combat canvas is resized to 630px and placed at (83, 92) in the 768px lab frames.
 const MANTICORE_LAB_WALK_SCALE = 768 / 630;
 const MANTICORE_LAB_WALK_ANCHOR_X = (83 + 384 / MANTICORE_LAB_WALK_SCALE) / 768;
+// Harpy's 1344px flight cel contains the original 768px figure at native pixel size.
+// Compensate for the transparent wing clearance when the board sizes the atlas texture.
+const HARPY_FLIGHT_CANVAS_SCALE = 1344 / 768;
+const HARPY_FLIGHT_CADENCE_SPEED = 1.3;
+const HARPY_FLIGHT_TRANSITION_TIME_SCALE = 4 * 1.35 * 1.15;
 
 /** Keep individually approved walks active while the global creature-animation freeze remains in place. */
 export function creatureWalkAnimationEnabledForUnit(unitName: string, labPreview = false): boolean {
     return (
+        (labPreview && (unitName === ARACHNA_QUEEN_UNIT_NAME || unitName === "Arachna Spider")) ||
+        (labPreview && unitName === "Champion") ||
+        (labPreview && unitName === "Tsar Cannon") ||
+        unitName === "Harpy" ||
+        unitName === "Nomad" ||
+        unitName === "Trent" ||
+        unitName === "Hyena" ||
+        unitName === BEHOLDER_UNIT_NAME ||
+        unitName === "Satyr" ||
+        (labPreview && unitName === "Mantis") ||
+        (labPreview && unitName === "Griffin") ||
+        (labPreview && unitName === "Nightmare") ||
+        unitName === EFREET_UNIT_NAME ||
+        (labPreview && unitName === "Goblin Knight") ||
+        (labPreview && unitName === "Crusader") ||
+        (labPreview && unitName === "Monk") ||
+        (labPreview && unitName === "Cyclops") ||
+        (labPreview && unitName === GARGANTUAN_UNIT_NAME) ||
+        (labPreview && unitName === "Frenzied Boar") ||
+        (labPreview && unitName === "Behemoth") ||
+        (labPreview && unitName === "Hydra") ||
+        (labPreview && unitName === "Abomination") ||
+        (labPreview && unitName === "Ogre Mage") ||
+        (labPreview && unitName === "Zena") ||
+        (labPreview && unitName === "Unicorn") ||
+        (labPreview && unitName === "Wyvern") ||
+        (labPreview && unitName === "Thunderbird") ||
+        (labPreview && unitName === "Magic Dragon") ||
+        (labPreview && unitName === "Angel") ||
+        (labPreview && unitName === "Black Dragon") ||
         (labPreview && unitName === "Manticore") ||
         (labPreview && unitName === "White Tiger") ||
         (labPreview && unitName === "Valkyrie") ||
@@ -1145,9 +1397,36 @@ function troglodyteActionCanvasScale(stateName: string | undefined): number {
 export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateName: string): boolean {
     if (unitName === BLACKSMITH_UNIT_NAME && ["attack", "attack_up", "attack_down"].includes(stateName)) return false;
     return (
+        (unitName === "Cyclops" &&
+            [
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(stateName)) ||
+        (usesApprovedBaseAnimations(unitName) &&
+            unitName === "Pegasus" &&
+            /^(?:melee_)?attack(?:_up|_down)?$/.test(stateName)) ||
+        isHarpyAuthoredAction(unitName, stateName) ||
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled ||
+        (unitName === "Hyena" &&
+            ["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName)) ||
+        (unitName === "Ogre Mage" &&
+            ["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName)) ||
+        isSatyrAuthoredAction(unitName, stateName) ||
+        isNomadAuthoredAction(unitName, stateName) ||
+        isTrentAuthoredAction(unitName, stateName) ||
+        isBeholderAuthoredAction(unitName, stateName) ||
         (usesApprovedBaseAnimations(unitName) &&
             (["hit", "death"].includes(stateName) ||
+                (unitName === "Behemoth" &&
+                    (stateName === "cast" || isOrcMeleeAttack(stateName) || isOrcRangedAttack(stateName))) ||
+                (unitName === "Pikeman" && (isOrcMeleeAttack(stateName) || isOrcRangedAttack(stateName))) ||
+                (unitName === "Valkyrie" && (stateName === "cast" || isOrcMeleeAttack(stateName))) ||
                 (unitName === "Battle Mage" && (stateName === "cast" || isOrcMeleeAttack(stateName))) ||
                 (unitName === TROLL_UNIT_NAME && (stateName === "cast" || isTrollLabAttack(stateName))) ||
                 (unitName === "Healer" &&
@@ -1158,6 +1437,7 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
                 (isOrcMeleeAttack(stateName) &&
                     [
                         "Fairy",
+                        "Crusader",
                         "Leprechaun",
                         "Berserker",
                         "Orc",
@@ -1165,6 +1445,8 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
                         "Dryad",
                         "Centaur",
                         "Manticore",
+                        "Wyvern",
+                        "Griffin",
                         "Elf",
                         "Medusa",
                     ].includes(unitName)))) ||
@@ -1186,27 +1468,43 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
     );
 }
 
+/** All creatures use authored sprite motion without additional whole-sprite overlays. */
+export function creatureGenericWholeSpriteMotionEnabledForLevel(_unitLevel: number): boolean {
+    return false;
+}
+
+export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
+    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && unitName !== PEASANT_UNIT_NAME;
+}
+
+/** Keep individually approved idle loops active while other creature atlases remain frozen. */
+
+/** Resolve a looping authored idle frame whose poses have independent durations. */
+
+// Source combat canvas is resized to 630px and placed at (83, 92) in the 768px lab frames.
+
+/** Keep individually approved walks active while the global creature-animation freeze remains in place. */
+
+/** Attack canvases add 128 pixels on each side of the unchanged 768-pixel figure. */
+
+/** Retain authored pose timing while applying the approved death playback speed. */
+
+/** Keep individually approved one-shot animations active while the global art freeze remains in place. */
+
 /**
  * Levels 1 and 2 are authored sprite packages and never take the generic whole-sprite overlay.
  * Levels 3 and 4 keep it, so a creature with no package of its own still sways, recoils and dodges.
  * An approved package is excluded separately, even at those levels — see
  * {@link creatureGenericCombatMotionEnabledForUnit}.
  */
-export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
-    return unitLevel !== 1 && unitLevel !== 2;
-}
 
 /** Approved packages already contain the motion. Layering the generic overlay on top fights the art. */
-export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
-    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && !usesApprovedBaseAnimations(unitName);
-}
 
 /**
  * The generic landing grow changes a figure's size. Skip it for an approved package and for any
  * creature whose battlefield scale was fitted by hand (Efreet, Black Dragon, and the rest of that table).
  */
-const genericLandingGrowEnabled = (unitName: string, unitLevel: number): boolean =>
-    creatureGenericCombatMotionEnabledForUnit(unitName, unitLevel) && !(unitName in BATTLEFIELD_CREATURE_FRAMING);
+
 // Battlefield units expose their compact team/count ribbon. Stack power remains mechanical state and no
 // longer allocates a separate pip rail.
 const SHOW_BOARD_STACK_DECORATIONS = true;
@@ -1246,6 +1544,7 @@ export function squireActionCanvasScale(stateName: string | undefined): number {
 
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
     const isAttack = isAttackAnimationStateName(stateName);
+    if (unitName === ORC_UNIT_NAME && isOrcAuthoredAction(stateName)) return 1;
 
     // Troglodyte actions preserve the same authored timing in combat and the local preview.
     if (unitName === TROGLODYTE_UNIT_NAME && isTroglodyteAuthoredAction(stateName)) {
@@ -1290,9 +1589,6 @@ export function oneShotAnimationDurationMultiplier(unitName: string, stateName: 
 
     // Reactions carry their own authored timing; retain the existing cadence for other Mage actions.
     if (unitName === WANDERING_MAGE_UNIT_NAME) {
-        // Cast and the melee set keep authored timing. The ranged attack stays at half duration, and
-        // death keeps that half plus the approved extra 15%.
-        if (stateName === "death") return WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER / 1.15;
         return isWanderingMageAuthoredAction(stateName) ? 1 : WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER;
     }
 
@@ -1364,7 +1660,13 @@ export function peasantDeathAnchorY(authoredAnchorY: number, frameIndex: number)
     return authoredAnchorY - PEASANT_DEATH_SETTLE_OFFSET_Y[index] / 768;
 }
 
+export function ogreMageDeathAnchorY(authoredAnchorY: number, frameIndex: number): number {
+    return frameIndex >= 6 ? authoredAnchorY - 0.1 : authoredAnchorY;
+}
+
 export function resolveAnimationAtlasState(unitName: string, stateName: string): string {
+    if (unitName === "Trent" || unitName === "Pegasus") return stateName.replace(/^melee_attack/, "attack");
+    if (unitName === "Nomad" && /^attack(?:_up|_down)?$/.test(stateName)) return `melee_${stateName}`;
     // Mage's approved melee clips are swapped for upper/lower targets, including lab playback.
     if (unitName === WANDERING_MAGE_UNIT_NAME) {
         if (stateName === "melee_attack_up") return "melee_attack_down";
@@ -1691,6 +1993,20 @@ const STATIC_BATTLEFIELD_IDLE_META: AtlasMeta = {
     loopDurationMs: 1000,
     pauseMs: 0,
 };
+const CYCLOPS_LAB_FULL_BODY_IDLE_META: AtlasMeta = {
+    frameWidth: 768,
+    frameHeight: 768,
+    atlasWidth: 2304,
+    atlasHeight: 1536,
+    frameCount: CYCLOPS_IDLE_FULL_BODY_FRAME_COUNT,
+    fps: 1000 / 180,
+    frameDurationSec: 0.18,
+    totalDurationSec: CYCLOPS_IDLE_FULL_BODY_PERIOD_MS / 1000,
+    layout: { cols: 3, rows: 2 },
+    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+    loopDurationMs: CYCLOPS_IDLE_FULL_BODY_PERIOD_MS,
+    pauseMs: 0,
+};
 const ORC_IDLE_AXE_TWIRL_META: AtlasMeta = {
     frameWidth: 768,
     frameHeight: 768,
@@ -1776,15 +2092,64 @@ function atlasImageKeyFromUnitAndState(
 ): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLeft = state.toLowerCase();
-    // The approved idle has 768px frames. Its quarter export loses the eye and tentacle detail.
-    if (unitName === BEHOLDER_UNIT_NAME && stateLeft === "idle" && "beholder_idle_atlas" in images) {
-        return "beholder_idle_atlas" as ImageKey;
+    if (unitName === "Pegasus" && /^(idle|walk|hit|death|attack(?:_up|_down)?)$/.test(stateLeft)) {
+        const key = `pegasus_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
     }
-    if (unitName === PEASANT_UNIT_NAME && stateLeft === "idle" && "peasant_idle_red_atlas_quarter" in images) {
-        return "peasant_idle_red_atlas_quarter" as ImageKey;
+    if (isHarpyAuthoredAction(unitName, stateLeft)) {
+        const key = `harpy_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
+    }
+    if (unitName === "Harpy" && stateLeft === "idle" && "harpy_idle_atlas" in images) {
+        return "harpy_idle_atlas" as ImageKey;
+    }
+    if (unitName === "Trent" && stateLeft === "idle" && "trent_idle_atlas" in images) {
+        return "trent_idle_atlas" as ImageKey;
+    }
+    if (unitName === "Trent" && stateLeft === "walk" && "trent_walk_atlas" in images) {
+        return "trent_walk_atlas" as ImageKey;
+    }
+    if (unitName === "Nightmare" && stateLeft === "walk" && "nightmare_walk_atlas" in images) {
+        return "nightmare_walk_atlas" as ImageKey;
+    }
+    if (unitName === "Crusader" && (["walk", "hit", "death"].includes(stateLeft) || isCrusaderAttack(stateLeft))) {
+        const key = `crusader_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
+    }
+    if (
+        unitName === "Ogre Mage" &&
+        ["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateLeft)
+    ) {
+        const key = `ogre_mage_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
+    }
+    if (isTrentAuthoredAction(unitName, stateLeft)) {
+        const key = `trent_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
+    }
+    if (
+        unitName === "Hyena" &&
+        ["walk", "hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateLeft)
+    ) {
+        const key = `hyena_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
     }
     if (unitName === "Pikeman" && stateLeft === "walk" && "pikeman_walk_atlas" in images) {
         return "pikeman_walk_atlas" as ImageKey;
+    }
+    if (unitName === "Satyr" && stateLeft === "walk" && "satyr_walk_atlas" in images) {
+        return "satyr_walk_atlas" as ImageKey;
+    }
+    if (unitName === "Satyr" && stateLeft === "idle" && "satyr_idle_atlas" in images) {
+        return "satyr_idle_atlas" as ImageKey;
+    }
+    if (isSatyrAuthoredAction(unitName, stateLeft)) {
+        const key = `satyr_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
+    }
+    if (unitName === "Nomad" && (["idle", "walk"].includes(stateLeft) || isNomadAuthoredAction(unitName, stateLeft))) {
+        const key = `nomad_${stateLeft}_atlas` as ImageKey;
+        if (key in images) return key;
     }
     if (
         unitName === ARBALESTER_UNIT_NAME &&
@@ -1857,6 +2222,8 @@ function getDefaultAnimationConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
+    if (unitName === PEASANT_UNIT_NAME)
+        return getAnimationStateConfig(unitName, "idle", footprintWidth, footprintHeight);
     // Approved idle atlases authored from their matching static figures own the permanent board loop.
     // Other static-redraw creatures keep their single-frame battlefield override.
     const staticBattlefieldIdle = usesApprovedPermanentIdleAtlas(unitName)
@@ -1899,6 +2266,61 @@ function getAnimationStateConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
+    if (unitName === PEASANT_UNIT_NAME && state === "idle") {
+        return {
+            meta: {
+                frameWidth: 768,
+                frameHeight: 768,
+                atlasWidth: 3072,
+                atlasHeight: 2304,
+                frameCount: 12,
+                fps: 6 * 1.15,
+                frameDurationSec: 1 / (6 * 1.15),
+                totalDurationSec: 2 / 1.15,
+                layout: { cols: 4, rows: 3 },
+                footAnchorY: 0.9505208333333334,
+                loopDurationMs: 1800,
+                pauseMs: 700,
+            },
+            imageSrc: images.peasant_idle_red_atlas_quarter,
+            imageKey: "peasant_idle_red_atlas_quarter",
+            cacheKey: "Peasant::idle::shared::joined-fork-v3",
+            cacheAcrossScenes: true,
+        };
+    }
+    if (isBeholderRanged(unitName, state)) {
+        const action = state as "attack" | "attack_up" | "attack_down";
+        const imageKey = `beholder_ranged_${action}_atlas` as ImageKey;
+        return {
+            meta: animationAtlases["Beholder Ranged"][action],
+            imageSrc: images[imageKey],
+            imageKey,
+            cacheKey: `Beholder::imagegen-ranged-20260927-v1::${action}`,
+            cacheAcrossScenes: true,
+        };
+    }
+    if (isBeholderMelee(unitName, state)) {
+        const action = state as "melee_attack" | "melee_attack_up" | "melee_attack_down";
+        const imageKey = `beholder_combat_${action}_atlas` as ImageKey;
+        return {
+            meta: animationAtlases["Beholder Combat"][action],
+            imageSrc: images[imageKey],
+            imageKey,
+            cacheKey: `Beholder::imagegen-melee-20260927-v1::${action}`,
+            cacheAcrossScenes: true,
+        };
+    }
+    if (isBeholderReaction(unitName, state)) {
+        const reaction = state as "hit" | "death";
+        const imageKey = reaction === "hit" ? "beholder_reactions_hit_atlas" : "beholder_reactions_death_atlas";
+        return {
+            meta: animationAtlases["Beholder Reactions"][reaction],
+            imageSrc: images[imageKey],
+            imageKey,
+            cacheKey: `Beholder::imagegen-reactions-palette-20260926-v3::${reaction}`,
+            cacheAcrossScenes: true,
+        };
+    }
     if (unitName === BLACKSMITH_UNIT_NAME && ["attack", "attack_up", "attack_down"].includes(state)) return null;
     const staticBattlefieldIdle = usesApprovedPermanentIdleAtlas(unitName)
         ? null
@@ -1929,7 +2351,11 @@ function getAnimationStateConfig(
         meta,
         imageSrc,
         imageKey,
-        cacheKey: `${normalized}::${resolvedState}`,
+        cacheKey:
+            normalized === "Ogre Mage" &&
+            ["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(resolvedState)
+                ? `Ogre Mage::${resolvedState}-base-matched-20261002-v5`
+                : `${normalized}::${resolvedState}`,
         cacheAcrossScenes: true,
     };
 }
@@ -1999,6 +2425,36 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
     if (!parentTexture?.source) return [];
     const source = parentTexture.source; // v8-friendly
     if (
+        imageKey === "tsar_cannon_lab_walk_atlas" ||
+        /^arachna_spider_lab_(walk|melee_attack(?:_up|_down)?|death)_atlas$/.test(imageKey) ||
+        imageKey === "arachna_queen_lab_walk_atlas" ||
+        imageKey === "arachna_queen_lab_death_atlas" ||
+        imageKey === "arachna_queen_lab_melee_attack_atlas" ||
+        imageKey === "arachna_queen_lab_melee_attack_up_atlas" ||
+        imageKey === "arachna_queen_lab_melee_attack_down_atlas" ||
+        imageKey === "champion_lab_walk_atlas" ||
+        imageKey === "champion_lab_idle_atlas" ||
+        imageKey === "magic_dragon_lab_hit_atlas" ||
+        imageKey === "magic_dragon_lab_death_atlas" ||
+        /^magic_dragon_lab_(?:melee_attack(?:_up|_down)?|cast)_atlas$/.test(imageKey) ||
+        imageKey === "champion_lab_hit_atlas" ||
+        imageKey === "champion_lab_death_atlas" ||
+        /^champion_lab_melee_attack(?:_up|_down)?_atlas$/.test(imageKey) ||
+        imageKey === "harpy_idle_atlas" ||
+        imageKey === "harpy_hit_atlas" ||
+        imageKey === "harpy_death_atlas" ||
+        imageKey === "harpy_cast_atlas" ||
+        imageKey === "harpy_melee_attack_atlas" ||
+        imageKey === "harpy_melee_attack_up_atlas" ||
+        imageKey === "harpy_melee_attack_down_atlas" ||
+        imageKey === "trent_idle_atlas" ||
+        imageKey === "trent_walk_atlas" ||
+        imageKey === "trent_hit_atlas" ||
+        imageKey === "trent_death_atlas" ||
+        imageKey === "trent_cast_atlas" ||
+        imageKey === "trent_attack_atlas" ||
+        imageKey === "trent_attack_up_atlas" ||
+        imageKey === "trent_attack_down_atlas" ||
         imageKey === "pikeman_walk_atlas" ||
         imageKey === "arbalester_walk_atlas" ||
         imageKey === "arbalester_hit_atlas" ||
@@ -2011,6 +2467,39 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
         imageKey === "berserker_melee_attack_atlas" ||
         imageKey === "berserker_melee_attack_up_atlas" ||
         imageKey === "berserker_melee_attack_down_atlas" ||
+        imageKey === "hydra_lab_walk_atlas" ||
+        imageKey === "hydra_lab_idle_atlas" ||
+        imageKey === "hydra_lab_hit_atlas" ||
+        imageKey === "hydra_lab_death_atlas" ||
+        /^hydra_lab_melee_attack(?:_up|_down)?_atlas$/.test(imageKey) ||
+        imageKey === "monk_lab_walk_atlas" ||
+        imageKey === "monk_lab_idle_atlas" ||
+        imageKey === "monk_lab_hit_atlas" ||
+        imageKey === "monk_lab_death_atlas" ||
+        imageKey === "monk_lab_attack_atlas" ||
+        imageKey === "monk_lab_attack_up_atlas" ||
+        imageKey === "monk_lab_attack_down_atlas" ||
+        imageKey === "monk_lab_melee_attack_atlas" ||
+        imageKey === "monk_lab_melee_attack_up_atlas" ||
+        imageKey === "monk_lab_melee_attack_down_atlas" ||
+        imageKey === "zena_lab_attack_atlas" ||
+        imageKey === "zena_lab_attack_up_atlas" ||
+        imageKey === "zena_lab_attack_down_atlas" ||
+        imageKey === "zena_lab_walk_atlas" ||
+        imageKey === "zena_lab_idle_atlas" ||
+        imageKey === "zena_lab_hit_atlas" ||
+        imageKey === "zena_lab_death_atlas" ||
+        imageKey === "zena_lab_melee_attack_atlas" ||
+        imageKey === "zena_lab_melee_attack_up_atlas" ||
+        imageKey === "zena_lab_melee_attack_down_atlas" ||
+        imageKey === "ogre_mage_walk_atlas" ||
+        imageKey === "ogre_mage_idle_atlas" ||
+        imageKey === "ogre_mage_hit_atlas" ||
+        imageKey === "ogre_mage_death_atlas" ||
+        imageKey === "ogre_mage_melee_attack_atlas" ||
+        imageKey === "ogre_mage_melee_attack_up_atlas" ||
+        imageKey === "ogre_mage_melee_attack_down_atlas" ||
+        imageKey === "ogre_mage_cast_atlas" ||
         imageKey === "centaur_lab_walk_atlas" ||
         imageKey === "medusa_lab_walk_atlas" ||
         imageKey === "medusa_lab_idle_atlas" ||
@@ -2022,6 +2511,12 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
         imageKey === "medusa_lab_attack_atlas" ||
         imageKey === "medusa_lab_attack_up_atlas" ||
         imageKey === "medusa_lab_attack_down_atlas" ||
+        imageKey === "pegasus_flight_walk_atlas" ||
+        imageKey === "griffin_flight_walk_atlas" ||
+        imageKey === "griffin_lab_idle_atlas" ||
+        imageKey === "griffin_lab_hit_atlas" ||
+        imageKey === "griffin_lab_death_atlas" ||
+        /^griffin_lab_melee_attack(?:_up|_down)?_atlas$/.test(imageKey) ||
         imageKey === "manticore_lab_walk_atlas" ||
         imageKey === "manticore_lab_death_atlas" ||
         imageKey === "manticore_lab_hit_atlas" ||
@@ -2045,6 +2540,13 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
         imageKey === "battle_mage_lab_cast_atlas" ||
         imageKey === "healer_lab_walk_atlas" ||
         imageKey === "white_tiger_lab_walk_atlas" ||
+        imageKey === "unicorn_lab_walk_atlas" ||
+        imageKey === "unicorn_lab_idle_atlas" ||
+        imageKey === "unicorn_lab_melee_attack_atlas" ||
+        imageKey === "unicorn_lab_melee_attack_up_atlas" ||
+        imageKey === "unicorn_lab_melee_attack_down_atlas" ||
+        imageKey === "unicorn_lab_hit_atlas" ||
+        imageKey === "unicorn_lab_death_atlas" ||
         imageKey === "white_tiger_lab_idle_atlas" ||
         imageKey === "white_tiger_lab_hit_atlas" ||
         imageKey === "white_tiger_lab_death_atlas" ||
@@ -2093,6 +2595,7 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
         imageKey === "leprechaun_lab_melee_attack_atlas" ||
         imageKey === "leprechaun_lab_melee_attack_up_atlas" ||
         imageKey === "leprechaun_lab_melee_attack_down_atlas" ||
+        imageKey === "dryad_painted_idle_atlas" ||
         imageKey === "dryad_lab_walk_atlas" ||
         imageKey === "dryad_lab_hit_atlas" ||
         imageKey === "dryad_lab_death_atlas" ||
@@ -2137,7 +2640,18 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
         for (let col = 0; col < cols; col++) {
             if (index >= frameCount) break;
             const frameRect = new Rectangle(col * frameWidth, row * frameHeight, frameWidth, frameHeight);
-            const tex = new Texture({ source, frame: frameRect });
+            const tex = new Texture({
+                source,
+                frame: frameRect,
+                ...(/^angel_lab_(cast|hit|death|melee_attack(?:_up|_down)?)_atlas/.test(imageKey)
+                    ? calibratedAngelActionCanvas(
+                          frameWidth,
+                          frameHeight,
+                          imageKey.replace(/^angel_lab_/, "").replace(/_atlas.*$/, ""),
+                          index,
+                      )
+                    : {}),
+            });
             frames.push(tex);
             index++;
         }
@@ -2211,6 +2725,8 @@ interface SpawnAnimState {
 }
 
 interface OneShotAnimState {
+    externallyDriven?: boolean;
+    zenaCatching?: boolean;
     stateName: string;
     /** Keep Blacksmith's resting overlap geometry while its arms/tools move. */
     depthSortBounds?: Readonly<{ x: number; y: number; width: number; height: number }>;
@@ -2584,19 +3100,12 @@ const RESPOND_EMBLEM_CANVAS_SCALE = 2.25;
 const RESPOND_EMBLEM_HEIGHT_SCALE = 0.8;
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
-    // Server-authoritative "already used its hourglass (wait) this lap" flag, synced from the snapshot in
-    // ranked (the client's FightProperties hourglass state isn't authoritative there). Overwritten every
-    // snapshot, so it clears on its own when the lap flips. Drives the Wait button disable in ranked.
     private hasHourglassedThisLap = false;
-    // Server-authoritative "skipping this turn" (Stun/Blindness) flag, synced from the snapshot in ranked.
-    // The effect itself isn't on the wire, so isSkippingThisTurn() (which reads getEffects) can't see it
-    // there — this flag is the only source. Drives the stun icon; OR'd with the live check for sandbox.
     private skippingThisTurnSynced = false;
     private sprite?: Sprite;
     private motionBlurFilter?: BlurFilter;
     private shadow?: Graphics;
     private silhouetteShadow?: Sprite;
-    /** First stable placement/idle frame: the exact canvas against which the shadow editor was tuned. */
     private silhouetteShadowReferenceTexture?: Texture;
     private silhouetteShadowReferenceAnchorY?: number;
     private silhouetteShadowSegments: Sprite[] = [];
@@ -2608,33 +3117,25 @@ export class RenderableUnit extends Unit {
     private shadowDrawWidth = 0;
     private shadowDrawHeight = 0;
     private badgeContainer?: Container;
-    /** Freeze the overhead flag in world space while a one-shot pose changes the sprite bounds. */
     private oneShotBadgePosition?: Readonly<{ x: number; y: number }>;
-    /** Height above the projected ground point, captured before movement changes the pose. */
     private restingBadgeOffsetY?: number;
     private movementBadgeOffsetY?: number;
     private badgeHeader?: Graphics;
     private badgeFlagGlow?: Graphics;
     private badgeFlag?: Graphics;
-    /** Animated all-gold pointer shown above the count flag for the unit whose turn it is. */
     private activeTurnPointer?: Graphics;
-    /** Once the active unit starts moving or acting, keep its pointer hidden until a new turn begins. */
     private activeTurnPointerSuppressed = false;
     private badgeText?: Text;
     private badgeDrawState?: BadgeDrawState;
     private battlefieldFramingChangeListener?: EventListener;
     private battlefieldFramingWorldRoot?: Container;
     private battlefieldFramingGridSettings?: GridSettings;
-    /** Effective Wolf canvas registration, with gait compensation and action padding divided out. */
     private wolfRenderedCanvasHeight?: number;
-    /** Applied reaction calibration, tracked separately from source canvas registration. */
     private wolfRenderedReactionScale = 1;
     private wolfShadowReactionScale = 1;
-    /** Last resolved floor projection, reused by synchronous action/canvas swaps. */
     private wolfShadowProjectionScaleX?: number;
     private wolfShadowProjectionScaleY?: number;
     private wolfReactionRegistrationActive = false;
-    /** Cached per-unit wave phase for the banner (see badgeFlagPhase). */
     private badgeFlagPhaseValue?: number;
     private badgeFlagXs?: number[];
     private badgeFlagTopY?: number[];
@@ -2643,28 +3144,22 @@ export class RenderableUnit extends Unit {
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
     private stackPowerDrawState?: StackPowerDrawState;
-    // Placement split preview only. Keep the projected pips visual so hovering never changes spell gates,
-    // abilities, or any other gameplay logic that reads Unit.getStackPower().
     private projectedStackPower?: number;
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
-    /** Stun/skip badge occupies the hourglass slot immediately left of the amount flag. */
     private stunContainer?: Container;
     private stunSprite?: Sprite;
-    /** Crossed-swords emblem behind the flag once the unit has used its response attack this round. */
+    private immobilizedContainer?: Container;
+    private immobilizedSprite?: Sprite;
     private respondContainer?: Container;
     private respondSprite?: Sprite;
-    /**
-     * Keep a just-played retaliation visible through the damage animation even when that same engine
-     * transaction also flips the lap and immediately clears `responded`. Without this short visual latch
-     * a two-stack fight can set true -> false before Pixi renders a single frame, so the swords never appear.
-     */
     private respondFeedbackUntilMs = 0;
     private respondFeedbackTimer?: ReturnType<typeof setTimeout>;
     private spawnAnim?: SpawnAnimState;
     private boardSelected = false;
     private selectionAnimFrames?: Texture[];
     private arbalesterIdlePager?: ArbalesterIdlePager;
+    private abominationIdlePager?: ArbalesterIdlePager;
     private orcIdleAxeTwirlFrames?: Texture[];
     private orcActiveBattleCryFrames?: Texture[];
     private scavengerIdleBladeTwirlFrames?: Texture[];
@@ -2673,49 +3168,35 @@ export class RenderableUnit extends Unit {
     private selectionAnimFrameDurationMs = 0;
     private selectionAnimFrameDurationsMs?: readonly number[];
     private selectionAnimFootAnchorY = 1;
-    /** Wall-clock origin for this unit's current uninterrupted idle spell. */
     private selectionAnimationStartedAtMs = 0;
-    /** Resume a Peasant attack at the same upright pose used by its closing atlas frame. */
+    private zenaIdleRestStartedAtMs?: number;
+    private zenaRenderedSideWidth = 1;
     private peasantIdleResumeAtMs?: number;
     private troglodyteIdleResumeAtMs?: number;
-    /** Stable randomized starting point for refreshed idle loops, preventing synchronized breathing. */
     private refreshedIdlePhaseRatio = 0;
+    private duplicateIdleOrdinal = 0;
     private activeTurnAnimationStartedAtMs = 0;
     private isShowingOrcBattleCryFrame = false;
     private isShowingScavengerFlourishFrame = false;
-    // Last frame written to the sprite; -1 forces the next step to apply the in-phase frame.
     private selectionAnimFrameIndex = -1;
-    /** An authored walking cycle temporarily takes precedence over the permanent idle cycle. */
     private walkAnim?: LoopAnimState;
-    /** Keep the last horizontal facing after a move, Heroes III-style. */
     private facingDirection: -1 | 1 = 1;
     private stackForcedHidden = false;
     private isActiveTurn = false;
     private isDestroyed = false;
     private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
-    // Split preview: temporarily enlarge the count badge and (optionally) show a projected amount.
     private badgeEmphasisScale = 1;
     private badgeAmountOverride?: number;
-    /** Casualties advance with the damage pops while the engine may already hold the whole exchange. */
-    private combatAmountOverride?: number;
-    private combatAmountModel?: number;
-    // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
-    // Attached lazily from one immutable roster-wide instance.
     private desaturateFilter?: ColorMatrixFilter;
     private battlefieldAlphaHoleFillFilter?: ReturnType<typeof getBattlefieldAlphaHoleFillFilter>;
     private battlefieldContourFilter?: ReturnType<typeof getBattlefieldCreatureContourFilter>;
     private battlefieldStyleFilter?: ColorMatrixFilter;
     private battlefieldStyleSignature = "";
-    /** Reused each frame so depth sorting does not allocate four geometry objects per visible unit. */
     private depthSortBounds?: Bounds;
-    /** The badge already measures the live sprite before the scene's depth pass. */
     private depthSortBoundsAreCurrent = false;
-    /** Transform snapshot guarding reuse of the expensive world-space sprite bounds. */
     private depthSortBoundsCacheState?: CreatureBoundsCacheState;
     private depthSortCandidate?: CreatureDepthSortCandidate;
     private inheritedScaleScratch?: HoCMath.XY;
-    private loadingPlaceholder?: UnitLoadingPlaceholder;
-    private animationAssetsRequested = false;
     private projectedPositionScratch?: HoCMath.XY;
     private groundReferenceScratch?: HoCMath.XY;
     private previewCurrentGroundScratch?: HoCMath.XY;
@@ -2724,9 +3205,7 @@ export class RenderableUnit extends Unit {
     private idleBreathScaleScratch?: HoCMath.XY;
     private badgeScreenAnchor?: Point;
     private badgeLocalAnchor?: Point;
-    /** Immutable render identity resolved once in fromBase instead of reconstructed every frame. */
     private smallTextureName = "";
-    /** The stable fallback portrait/full-body texture; lazy assets are retained only after they resolve. */
     private baseTexture?: Texture;
     private idleAnimationStateAvailable = false;
     private creatureAnimationLabPreviewEnabled = false;
@@ -2734,95 +3213,61 @@ export class RenderableUnit extends Unit {
     private arbalesterLabIdleEnabled = false;
     private arbalesterRangedShot?: AbortController;
     private dryadRangedShot?: AbortController;
-    // "Revealed" roster marker: a translucent red cell beneath the B&W silhouette plus its name caption,
-    // so the opponent's known army reads as a roster line-up rather than units already standing on the board.
     private rosterCard?: Container;
     private rosterCardPlate?: Graphics;
     private rosterCardDrawState?: RosterCardDrawState;
-    // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
-    // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
-    // they read at "full size" while waiting to be deployed; placed/board units keep the default 1.
     private visualScaleMultiplier = 1;
-    // Board mechanics stay on the regular square grid, while the painted dungeon floor uses a traced
-    // perspective grid. Board units opt into that visual projection; roster/bench previews leave it off.
+    private transportVisual?: { elevation: number; gripTarget?: RenderableUnit; gripBlend: number };
     private useBattlefieldVisualProjection = false;
-    // Gold ground ring contained within the active creature's occupied footprint.
     private activeAura?: Container;
     private activeAuraGlow?: Graphics;
     private activeAuraMask?: Graphics;
     private activeAuraGlowBlurFilter?: BlurFilter | null;
-    // Placement hover reuses the restrained active-turn cell light instead of the old stack of opaque
-    // white circles drawn by HoverManager.
     private isHoverTurnAura = false;
     private activeAuraDrawState?: ContinuousEffectDrawState;
-    /** Transparent blue-fire atlas layered beneath the active unit and the existing light rings. */
     private activeTurnFireSprite?: Sprite;
     private activeTurnFireFrameIndex = -1;
-    // Color of the active-turn aura. White by default; the scene tints it (e.g. red) when the
-    // active unit is the viewer's enemy so it reads clearly that it is not the viewer's turn.
     private activeAuraColor = 0xffffff;
-    // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
-    // distract from the action (set each frame by the scene).
-    // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
-    // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
     private waterShieldAuraDrawState?: ContinuousEffectDrawState;
-    // Animated water vortex under a unit trapped by Whirlpool. It keys off the shared status predicate so
-    // the live Sandbox debuff object and Ranked's authoritative applied_debuffs snapshot render identically.
     private whirlpoolAura?: Graphics;
     private whirlpoolAuraDrawState?: ContinuousEffectDrawState;
-    // Ice "crust" encasing a unit under the "Freeze" status (drawn over the sprite, above the icy tint).
     private freezeCrust?: Graphics;
     private freezeCrustDrawState?: ContinuousEffectDrawState;
-    // Additive light layer over the ice crust: a sheen raking across + caustic sparks drifting inside the
-    // shell. Separate Graphics so the light blends additively (glows) while the frost stays normal-blend.
     private freezeLight?: Graphics;
-    // Water Shield dissolve burst: a one-shot ring-snap + droplet spray fired the instant the shield is
-    // consumed (the buff disappears while the unit is still alive).
     private waterShieldWasActive = false;
     private waterShieldBreakStartMs?: number;
     private waterShieldBreakGfx?: Graphics;
-    // Brief "jerk back" applied to the sprite/shadow (e.g. a petrifying-gaze hit yanking the
-    // target away from the attacker). Decays to zero over ~220ms.
     private recoilStartMs = 0;
     private recoilDx = 0;
     private recoilDy = 0;
-    // Only damage reactions add a restrained side-to-side vibration; attack lunges stay perfectly clean.
     private recoilShakeAmplitude = 0;
-    // When true the recoil uses a wind-up envelope (pull back, then thrust forward, then settle) over a
-    // longer duration — used for Pikeman's Skewer Strike spear thrust. Otherwise a simple out-and-back.
     private recoilWindup = false;
     private recoilDurationMs = 220;
     private currentRecoilX = 0;
     private currentRecoilY = 0;
-    // Brief colour wash over the sprite when an effect lands on this unit — dark violet for a debuff
-    // (e.g. Spit Ball), green for a buff. Decays over ~650ms; syncVisual reads it each frame via
-    // currentEffectTint().
     private effectFlashStartMs = 0;
     private effectFlashColor = 0x2a0a3a;
-    // "Bullet-time" dodge played when an attack fully misses this unit; stepped every frame from
-    // ensureVisual. Lives until the spring-back finishes AND its afterimage ghosts have faded.
     private dodgeAnim?: DodgeAnimState;
-    // undefined = not built yet; null = construction failed (headless — no GL), don't retry.
     private dodgeBlurFilter?: BlurFilter | null;
-    // Spells support
     private pixiSpells: PixiRenderableSpell[] = [];
     private spellBookLayer?: Container;
-    private digitTextures?: Map<number, Texture>; // 0-9 and -1
-    /**
-     * Attach rendering capabilities to an existing Unit instance.
-     * (We rely on JS prototype + TS casting; Unit stays the core owner.)
-     */
+    private digitTextures?: Map<number, Texture>;
     public static fromBase(base: Unit, texResolver: TexResolver): RenderableUnit {
+        initializeUnitPresentationFields(base);
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
         ru.lastFuseFatalHit = undefined;
         ru.texResolver = texResolver;
+        ru.immobilizedContainer = undefined;
+        ru.immobilizedSprite = undefined;
+        ru.unicornBlindnessFlash = undefined;
         ru.pixiSpells = [];
         ru.stackPowerPips = [];
         ru.boardSelected = false;
         ru.selectionAnimFrames = undefined;
         ru.arbalesterIdlePager = undefined;
+        ru.abominationIdlePager = undefined;
         ru.orcIdleAxeTwirlFrames = undefined;
         ru.orcActiveBattleCryFrames = undefined;
         ru.scavengerIdleBladeTwirlFrames = undefined;
@@ -2830,7 +3275,10 @@ export class RenderableUnit extends Unit {
         ru.selectionAnimTiming = undefined;
         ru.selectionAnimFrameDurationMs = 0;
         ru.selectionAnimFootAnchorY = 1;
+        ru.duplicateIdleOrdinal = 0;
         ru.selectionAnimationStartedAtMs = performance.now();
+        ru.zenaIdleRestStartedAtMs = undefined;
+        ru.zenaRenderedSideWidth = 1;
         ru.refreshedIdlePhaseRatio = refreshedIdlePhaseRatio(ru.getId(), ru.getUnitProperties().name);
         ru.activeTurnAnimationStartedAtMs = 0;
         ru.isShowingOrcBattleCryFrame = false;
@@ -2956,6 +3404,7 @@ export class RenderableUnit extends Unit {
         // -> sprite.scale = NaN -> the unit collapses to an invisible point (renders as a bare dot).
         ru.visualScaleMultiplier = 1;
         ru.useBattlefieldVisualProjection = false;
+        ru.transportVisual = undefined;
         return ru;
     }
     public setSpellBookLayer(layer: Container, digitTextures: Map<number, Texture>): void {
@@ -2963,7 +3412,6 @@ export class RenderableUnit extends Unit {
         this.digitTextures = digitTextures;
         this.parseSpells();
     }
-    /** Attach/rebuild Pixi spellbook cells after a runtime ability grants this unit its first spell. */
     public ensureSpellBookRendering(layer: Container, digitTextures: Map<number, Texture>): boolean {
         if (this.getSpellsCount() <= 0) return false;
         this.setSpellBookLayer(layer, digitTextures);
@@ -3016,23 +3464,22 @@ export class RenderableUnit extends Unit {
             const stackFillRedTex = this.texResolver("spell_stack_fill_red_variant2");
             const innerFrameTex = this.texResolver("spell_inner_frame_linework_v2");
 
-            if (iconTex && cellTex) {
-                const newSpell = new PixiRenderableSpell(
-                    { spellProperties: spellProperties, amount: v },
-                    this.spellBookLayer,
-                    {
-                        spell_cell_260: cellTex,
-                        scrollBadge: scrollBadgeTex,
-                        innerFrame: innerFrameTex,
-                        stackRail: stackRailTex,
-                        stackFillGreen: stackFillGreenTex,
-                        stackFillRed: stackFillRedTex,
-                    },
-                    iconTex,
-                    this.digitTextures,
-                );
-                this.pixiSpells.push(newSpell);
-            }
+            // Art can arrive after the book opens. A missing icon must never hide an available spell.
+            const newSpell = new PixiRenderableSpell(
+                { spellProperties: spellProperties, amount: v },
+                this.spellBookLayer,
+                {
+                    spell_cell_260: cellTex ?? Texture.EMPTY,
+                    scrollBadge: scrollBadgeTex,
+                    innerFrame: innerFrameTex,
+                    stackRail: stackRailTex,
+                    stackFillGreen: stackFillGreenTex,
+                    stackFillRed: stackFillRedTex,
+                },
+                iconTex ?? Texture.EMPTY,
+                this.digitTextures,
+            );
+            this.pixiSpells.push(newSpell);
         }
     }
     public renderSpells(pageNumber: number): void {
@@ -3063,7 +3510,6 @@ export class RenderableUnit extends Unit {
             s.cleanupPagePosition();
         }
     }
-    /** The unit's built spellbook card for a spell name, if the book has been constructed. */
     public getBookSpellByName(spellName: string): PixiRenderableSpell | undefined {
         return this.pixiSpells.find((spell) => spell.getName() === spellName);
     }
@@ -3095,15 +3541,6 @@ export class RenderableUnit extends Unit {
             spell.syncAmount(remainingByName.get(spell.getName()) ?? 0);
         }
     }
-    /**
-     * Whether a LOGICAL board point lands inside this unit's rendered sprite box — and at what draw
-     * depth. The silhouette rises well above (and, for the mounted class, hangs past) the cells the
-     * unit stands on, so a selection click on the visible body often misses every occupied cell; the
-     * scene falls back to this test and, among overlapping silhouettes, picks the highest depth (the
-     * frontmost-drawn body — the one the click visually touched). The projection into the sprite's
-     * own coordinate space happens here, so callers never need to know whether this unit renders on
-     * the trapezoid battlefield or the flat board.
-     */
     public spriteHitDepth(logicalPoint: HoCMath.XY, gs: GridSettings): number | undefined {
         const sprite = this.sprite;
         if (!sprite || this.isDestroyed || !sprite.visible || !sprite.parent || sprite.alpha <= 0) {
@@ -3121,9 +3558,14 @@ export class RenderableUnit extends Unit {
         if (texture) this.baseTexture = texture;
         return texture;
     }
-    /** Ensure sprite + badge exist and are laid out for the current unit state. */
     public ensureVisual(worldRoot: Container, gs: GridSettings, now = performance.now()): number | undefined {
         if (this.isDestroyed) return;
+        this.duplicateIdleOrdinal = duplicateIdleOrdinal(
+            worldRoot,
+            this.getName(),
+            this.getId(),
+            () => !this.isDestroyed && !this.sprite?.destroyed,
+        );
         const props = this.getUnitProperties();
         this.watchBattlefieldCreatureFramingChanges(worldRoot, gs, props.name);
         const logicalPos = this.getPosition();
@@ -3207,6 +3649,7 @@ export class RenderableUnit extends Unit {
             !this.walkAnim &&
             !this.oneShotAnim;
         clearScavengerHitRegistration(this.sprite);
+        clearDryadRangedRegistration(this.sprite);
         const wolfReactionScale =
             props.name === WOLF_UNIT_NAME && !this.walkAnim
                 ? wolfReactionFrameScale(this.oneShotAnim?.stateName, this.oneShotAnim?.frameIndex ?? -1)
@@ -3220,7 +3663,9 @@ export class RenderableUnit extends Unit {
                       : wolfReactionFootAnchorY(wolfReactionScale)
                   : props.name === PEASANT_UNIT_NAME && this.oneShotAnim?.stateName === "death"
                     ? peasantDeathAnchorY(this.oneShotAnim.footAnchorY, this.oneShotAnim.frameIndex)
-                    : this.oneShotAnim?.footAnchorY) ??
+                    : props.name === "Ogre Mage" && this.oneShotAnim?.stateName === "death"
+                      ? ogreMageDeathAnchorY(this.oneShotAnim.footAnchorY, this.oneShotAnim.frameIndex)
+                      : this.oneShotAnim?.footAnchorY) ??
               this.walkAnim?.footAnchorY ??
               (showingOrcBattleCry
                   ? ORC_ACTIVE_BATTLE_CRY_FOOT_ANCHOR_Y
@@ -3228,18 +3673,39 @@ export class RenderableUnit extends Unit {
                     ? SCAVENGER_FLOURISH_FOOT_ANCHOR_Y
                     : this.selectionAnimFootAnchorY))
             : 0.5;
-        const actionAnchorX =
-            props.name === "Manticore" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
-                ? MANTICORE_LAB_WALK_ANCHOR_X
-                : props.name === "Valkyrie" &&
-                    this.creatureAnimationLabPreviewEnabled &&
-                    (this.walkAnim || this.valkyrieLabCanvasScale() > 1)
-                  ? valkyrieLabActionAnchorX(this.oneShotAnim?.stateName)
-                  : props.name === PEASANT_UNIT_NAME &&
-                      this.oneShotAnim &&
-                      isAttackAnimationStateName(this.oneShotAnim.stateName)
-                    ? peasantAttackAnchorX(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
-                    : 0.5;
+        let actionAnchorX =
+            props.name === "Angel" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? ANGEL_LAB_FLIGHT_ANCHOR_X
+                : props.name === "Magic Dragon" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                  ? MAGIC_DRAGON_LAB_FLIGHT_ANCHOR_X
+                  : props.name === "Thunderbird" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                    ? THUNDERBIRD_LAB_FLIGHT_ANCHOR_X
+                    : props.name === "Black Dragon" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                      ? BLACK_DRAGON_LAB_FLIGHT_ANCHOR_X
+                      : props.name === "Griffin" &&
+                          this.creatureAnimationLabPreviewEnabled &&
+                          this.oneShotAnim?.stateName === "hit"
+                        ? griffinLabHitAnchorX(this.oneShotAnim.frameIndex)
+                        : props.name === "Griffin" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                          ? GRIFFIN_LAB_WALK_ANCHOR_X
+                          : props.name === "Manticore" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                            ? MANTICORE_LAB_WALK_ANCHOR_X
+                            : props.name === "Valkyrie" &&
+                                this.creatureAnimationLabPreviewEnabled &&
+                                (this.walkAnim || this.valkyrieLabCanvasScale() > 1)
+                              ? valkyrieLabActionAnchorX(this.oneShotAnim?.stateName)
+                              : props.name === PEASANT_UNIT_NAME &&
+                                  this.oneShotAnim &&
+                                  isAttackAnimationStateName(this.oneShotAnim.stateName)
+                                ? peasantAttackAnchorX(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
+                                : 0.5;
+        if (props.name === "Pegasus" && this.walkAnim) actionAnchorX = PEGASUS_FLIGHT_ANCHOR_X;
+        if (
+            this.championLabReactionConfig(this.oneShotAnim?.stateName ?? "") &&
+            this.oneShotAnim?.stateName.startsWith("melee_attack")
+        ) {
+            actionAnchorX = 512 / 1280;
+        }
         if (this.sprite.anchor.x !== actionAnchorX || this.sprite.anchor.y !== footAnchorY) {
             this.sprite.anchor.set(actionAnchorX, footAnchorY);
         }
@@ -3371,18 +3837,28 @@ export class RenderableUnit extends Unit {
         // stack gets a stable phase offset so a whole army never inhales in lockstep.
         const commonIdleBreathScales =
             COMMON_IDLE_BREATH_SETTINGS.enabled &&
+            props.name !== "Pegasus" &&
             props.name !== BLACKSMITH_UNIT_NAME &&
+            props.name !== "Monk" &&
+            props.name !== DRYAD_UNIT_NAME &&
             !(props.name === "Healer" && this.creatureAnimationLabPreviewEnabled) &&
             !(props.name === "Medusa" && this.creatureAnimationLabPreviewEnabled) &&
             !(props.name === "Elf" && this.creatureAnimationLabPreviewEnabled) &&
             !(props.name === "White Tiger" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Tsar Cannon" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Champion" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Griffin" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Black Dragon" && this.creatureAnimationLabPreviewEnabled) &&
             !(props.name === "Valkyrie" && this.creatureAnimationLabPreviewEnabled) &&
             !(props.name === "Manticore" && this.creatureAnimationLabPreviewEnabled) &&
-            creatureGenericCombatMotionEnabledForUnit(props.name, props.level) &&
+            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
             !this.walkAnim &&
             !this.oneShotAnim
                 ? commonIdleBreathScalesForElapsed(
-                      performance.now() + this.refreshedIdlePhaseRatio * COMMON_IDLE_BREATH_PERIOD_MS,
+                      performance.now() +
+                          duplicateIdleOffsetMs(this.duplicateIdleOrdinal) +
+                          this.refreshedIdlePhaseRatio * COMMON_IDLE_BREATH_PERIOD_MS,
                   )
                 : undefined;
         const orcIdleElapsedMs = this.isActiveTurn
@@ -3407,7 +3883,16 @@ export class RenderableUnit extends Unit {
         // The Mage's authored idle already contains local breathing; keep its canvas scale fixed.
         const idleBreathScales =
             COMMON_IDLE_BREATH_SETTINGS.enabled &&
-            creatureGenericCombatMotionEnabledForUnit(props.name, props.level) &&
+            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
+            !(
+                [ARACHNA_QUEEN_UNIT_NAME, "Arachna Spider"].includes(props.name) &&
+                this.creatureAnimationLabPreviewEnabled
+            ) &&
+            !(props.name === "Mantis" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Behemoth" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Frenzied Boar" && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === GARGANTUAN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled) &&
+            !(props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled) &&
             props.name !== WANDERING_MAGE_UNIT_NAME
                 ? usesThiefSilhouette
                     ? (idleThiefBreathScales ?? commonIdleBreathScales)
@@ -3433,18 +3918,46 @@ export class RenderableUnit extends Unit {
             props.name === ARBALESTER_UNIT_NAME && this.walkAnim
                 ? arbalesterWalkScaleMultiplier(this.walkAnim.frameIndex)
                 : 1;
+        const cyclopsLabWalk = props.name === "Cyclops" && this.creatureAnimationLabPreviewEnabled && !!this.walkAnim;
+        const efreetFigureScale = props.name === EFREET_UNIT_NAME ? EFREET_FIGURE_SCALE : 1;
         const actionScale =
+            (props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? abominationLabWalkScale(this.walkAnim.frameIndex)
+                : 1) *
+            (props.name === ARACHNA_QUEEN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? arachnaQueenLabWalkScale(this.walkAnim.frameIndex)
+                : 1) *
+            efreetFigureScale *
+            this.cannonLabCanvasScale() *
+            (props.name === "Champion" &&
+            this.creatureAnimationLabPreviewEnabled &&
+            !this.walkAnim &&
+            (!this.oneShotAnim || this.championLabReactionConfig(this.oneShotAnim.stateName))
+                ? (this.championLabReactionConfig(this.oneShotAnim?.stateName ?? "")?.meta.frameHeight ?? 1024) / 768
+                : 1) *
+            harpyActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
+            nomadReactionCanvasScale(props.name, this.oneShotAnim?.stateName) *
+            trentActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
+            satyrCastCanvasScale(props.name, this.oneShotAnim?.stateName) *
             ashMothActionScale *
             peasantActionScale *
             wolfWalkScale *
             wolfIdleScale *
             wolfReactionScale *
             wolfAttackCanvasScale *
+            this.behemothLabActionCanvasScale() *
+            this.mantisLabReactionCanvasScale() *
             this.trollLabCanvasScale() *
             this.centaurLabCanvasScale() *
             this.leprechaunLabCanvasScale() *
             this.elfLabCanvasScale() *
+            this.gargantuanLabCanvasScale() *
+            this.hydraLabCanvasScale() *
+            this.magicDragonLabCanvasScale() *
+            this.frenziedBoarLabCanvasScale() *
             this.medusaLabCanvasScale() *
+            this.crusaderLabCanvasScale() *
+            this.griffinLabActionCanvasScale() *
             squireWalkScale *
             (props.name === "Berserker" && this.walkAnim
                 ? BERSERKER_WALK_VISIBLE_SCALE_MULTIPLIER
@@ -3454,9 +3967,17 @@ export class RenderableUnit extends Unit {
                     ? this.berserkerLabIdleScale()
                     : 1) *
             arbalesterWalkScale *
+            (props.name === "Harpy" && this.walkAnim ? HARPY_FLIGHT_CANVAS_SCALE : 1) *
             (props.name === CENTAUR_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? centaurLabWalkScale(this.walkAnim.frameIndex)
                 : 1) *
+            (props.name === "Mantis" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? MANTIS_LAB_WALK_SCALE
+                : 1) *
+            (props.name === "Griffin" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? GRIFFIN_LAB_WALK_SCALE
+                : 1) *
+            (props.name === "Pegasus" && this.walkAnim ? PEGASUS_FLIGHT_SCALE : 1) *
             (props.name === "Fairy" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? FAIRY_LAB_WALK_SCALE
                 : 1) *
@@ -3466,18 +3987,55 @@ export class RenderableUnit extends Unit {
             (props.name === "Manticore" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? MANTICORE_LAB_WALK_SCALE
                 : this.manticoreLabCanvasScale()) *
+            (props.name === "Magic Dragon" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? MAGIC_DRAGON_LAB_FLIGHT_CANVAS_SCALE
+                : 1) *
+            (props.name === "Black Dragon" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? BLACK_DRAGON_LAB_FLIGHT_CANVAS_SCALE
+                : this.blackDragonLabCanvasScale()) *
+            (props.name === "Angel" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? ANGEL_LAB_FLIGHT_CANVAS_SCALE
+                : 1) *
+            this.thunderbirdLabReactionCanvasScale() *
+            this.wyvernLabCanvasScale() *
+            (props.name === "Thunderbird" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? THUNDERBIRD_LAB_FLIGHT_CANVAS_SCALE
+                : 1) *
+            this.unicornLabCanvasScale() *
+            this.goblinLabCanvasScale() *
             this.battleMageLabCanvasScale() *
             (this.walkAnim ? 1 : this.arbalesterLabScaleMultiplier(this.oneShotAnim?.stateName));
         const squireDeathHorizontalScale =
             props.name === SQUIRE_UNIT_NAME && this.oneShotAnim?.stateName === "death"
                 ? SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER
                 : 1;
+        const efreetFigure = props.name === EFREET_UNIT_NAME;
         const actionScaleX =
             actionScale *
+            (props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? HYDRA_LAB_WALK_WIDTH_SCALE
+                : 1) *
+            (props.name === "Champion" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? championLabWalkWidthScale(this.walkAnim.frameIndex)
+                : 1) *
+            this.zenaSideWidthScale() *
+            (efreetFigure ? EFREET_LAB_IDLE_SCALE_X : 1) *
+            (cyclopsLabWalk ? CYCLOPS_LAB_WALK_SCALE_X : 1) *
+            (props.name === "Frenzied Boar" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? BOAR_LAB_WALK_SCALE_X
+                : 1) *
+            (props.name === GARGANTUAN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? GARGANTUAN_LAB_WALK_SCALE_X
+                : 1) *
+            (props.name === "Behemoth" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? BEHEMOTH_LAB_WALK_SCALE_X
+                : 1) *
             (props.name === "Battle Mage" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? BATTLE_MAGE_LAB_WALK_WIDTH_SCALE
                 : 1) *
-            (props.name === SQUIRE_UNIT_NAME && this.walkAnim ? SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER : 1) *
+            (props.name === TROLL_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? TROLL_LAB_WALK_SCALE_X
+                : 1) *
             (props.name === "Fairy" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? FAIRY_LAB_WALK_WIDTH_SCALE
                 : 1) *
@@ -3494,6 +4052,27 @@ export class RenderableUnit extends Unit {
                 : 1);
         const renderedScaleY =
             scaleY *
+            (props.name === "Champion" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? championLabWalkHeightScale(this.walkAnim.frameIndex)
+                : 1) *
+            (props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? HYDRA_LAB_WALK_HEIGHT_SCALE
+                : 1) *
+            (efreetFigure ? EFREET_LAB_IDLE_SCALE_Y : 1) *
+            (cyclopsLabWalk ? CYCLOPS_LAB_WALK_SCALE_Y : 1) *
+            (props.name === "Frenzied Boar" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? BOAR_LAB_WALK_SCALE_Y
+                : 1) *
+            (props.name === GARGANTUAN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? GARGANTUAN_LAB_WALK_SCALE_Y
+                : 1) *
+            (props.name === "Behemoth" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? BEHEMOTH_LAB_WALK_SCALE_Y
+                : 1) *
+            (props.name === "Hyena" && this.walkAnim ? HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER : 1) *
+            (props.name === TROLL_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
+                ? TROLL_LAB_WALK_SCALE_Y
+                : 1) *
             (idleBreathScales?.y ?? 1) *
             actionScale *
             screenSizeCompensation.y *
@@ -3511,6 +4090,7 @@ export class RenderableUnit extends Unit {
         if (this.sprite.scale.x !== directedScaleX || this.sprite.scale.y !== -renderedScaleY) {
             this.sprite.scale.set(directedScaleX, -renderedScaleY);
         }
+        this.zenaRenderedSideWidth = this.zenaSideWidthScale();
         if (props.name === WOLF_UNIT_NAME) {
             this.wolfRenderedCanvasHeight = currentHeight / (wolfWalkScale * wolfIdleScale * wolfAttackCanvasScale);
             this.wolfRenderedReactionScale = wolfReactionScale;
@@ -3552,8 +4132,25 @@ export class RenderableUnit extends Unit {
             this.currentRecoilY -
             gs.getCellSize() * editorFraming.offsetYCells * battlefieldPerspectiveScale +
             figureVerticalLift;
-        if (this.sprite.x !== spriteX || this.sprite.y !== spriteY) {
-            this.sprite.position.set(spriteX, spriteY);
+        // Scale the lab figure around its authored lower flame line, including the transparent
+        // gap to the texture anchor. Shadows keep the existing cell-ground reference.
+        const efreetLowerFireOffsetY = efreetFigure
+            ? (this.sprite.anchor.y * this.sprite.texture.height - EFREET_LAB_LOWER_FIRE_BASE_Y) *
+              (renderedScaleY / efreetFigureScale - renderedScaleY)
+            : 0;
+        const figureY = spriteY + efreetLowerFireOffsetY;
+        if (this.sprite.x !== spriteX || this.sprite.y !== figureY) {
+            this.sprite.position.set(spriteX, figureY);
+        }
+        if (this.scavengerLabAnimationsEnabled && this.oneShotAnim?.stateName === "hit") {
+            applyScavengerHitRegistration(this.sprite, this.oneShotAnim.frameIndex);
+            shadowReferenceAnchorY = this.sprite.anchor.y;
+            shadowReferenceAnchorX = this.sprite.anchor.x;
+        }
+        if (props.name === DRYAD_UNIT_NAME) {
+            this.syncDryadRangedRegistration();
+            shadowReferenceAnchorX = this.sprite.anchor.x;
+            shadowReferenceAnchorY = this.sprite.anchor.y;
         }
         if (this.scavengerLabAnimationsEnabled && this.oneShotAnim?.stateName === "hit") {
             applyScavengerHitRegistration(this.sprite, this.oneShotAnim.frameIndex);
@@ -3630,6 +4227,16 @@ export class RenderableUnit extends Unit {
             this.sprite.filters = desiredFilters.length ? desiredFilters : null;
         }
         this.syncCreaturePalette(now, true);
+        if (props.name === "Black Dragon") {
+            syncBlackDragonFireBreath(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled ? this.oneShotAnim?.stateName : undefined,
+                this.oneShotAnim?.frameIndex ?? 0,
+                this.oneShotAnim?.elapsed ?? 0,
+                gs.getCellSize(),
+                this.texResolver("black_dragon_fire_breath_v1"),
+            );
+        }
 
         // The current pose casts the silhouette; the editor profile controls its projection on the floor.
         // Wolf's idle is rendered by a filter. Always project its opaque canonical figure,
@@ -3650,8 +4257,13 @@ export class RenderableUnit extends Unit {
         } else if (!this.silhouetteShadow.parent || this.silhouetteShadow.parent !== worldRoot) {
             worldRoot.addChild(this.silhouetteShadow);
         }
-        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, footprintHeight, gs, props.name);
         const shadowTuning = resolveBattlefieldShadowTuning(props.name);
+        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
+        const shadowProjection = (this.battlefieldShadowProjection = writeBattlefieldCreatureShadowProjection(
+            shadowTuning,
+            shadowRowProgress,
+            this.battlefieldShadowProjection,
+        ));
         if (this.silhouetteShadow.texture !== shadowSourceTexture) this.silhouetteShadow.texture = shadowSourceTexture;
         if (
             this.silhouetteShadow.anchor.x !== shadowReferenceAnchorX ||
@@ -3659,7 +4271,6 @@ export class RenderableUnit extends Unit {
         ) {
             this.silhouetteShadow.anchor.set(shadowReferenceAnchorX, shadowReferenceAnchorY);
         }
-        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
         const interpolateShadowValue = (bottom: number, top: number): number =>
             bottom + (top - bottom) * shadowRowProgress;
         // The editor authors the furthest upper-row shadow against the creature's minimum perspective size.
@@ -3677,12 +4288,15 @@ export class RenderableUnit extends Unit {
         ) {
             this.silhouetteShadow.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
         }
-        const segmentLengthMultipliers = Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) =>
-            interpolateShadowValue(
+        const segmentLengthMultipliers = (this.shadowSegmentLengthMultipliers ??= Array<number>(
+            BATTLEFIELD_SHADOW_SEGMENT_COUNT,
+        ));
+        for (let index = 0; index < BATTLEFIELD_SHADOW_SEGMENT_COUNT; index++) {
+            segmentLengthMultipliers[index] = interpolateShadowValue(
                 shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1,
                 shadowTuning.top.segmentLengthMultipliers[index] ?? 1,
-            ),
-        );
+            );
+        }
         this.silhouetteShadowSegmented = segmentLengthMultipliers.some(
             (multiplier) => Math.abs(multiplier - 1) > 0.001,
         );
@@ -3739,6 +4353,9 @@ export class RenderableUnit extends Unit {
         if (this.silhouetteShadow.rotation !== silhouetteRotation) {
             this.silhouetteShadow.rotation = silhouetteRotation;
         }
+        // Arachnids cast their current body's and legs' silhouette, never an oval substitute.
+        const arachnidLabShadow =
+            [ARACHNA_QUEEN_UNIT_NAME, "Arachna Spider"].includes(props.name) && this.creatureAnimationLabPreviewEnabled;
         const silhouetteVisible = spriteVisible && this.visualMode === "normal" && this.useBattlefieldVisualProjection;
         const wholeSilhouetteVisible = silhouetteVisible && !this.silhouetteShadowSegmented;
         if (this.silhouetteShadow.visible !== wholeSilhouetteVisible) {
@@ -3747,7 +4364,7 @@ export class RenderableUnit extends Unit {
         // Profile alpha is the final authored opacity for every creature. Flying units used to receive
         // another hidden 0.8 multiplier here, so an editor value of 0.45 rendered as 0.36 in battle and
         // could never match the editor one-for-one.
-        const battleMageDeathAlpha = this.battleMageLabDeathShadowAlpha();
+        const battleMageDeathAlpha = this.battleMageLabDeathShadowAlpha() * this.efreetLabDeathShadowAlpha();
         const silhouetteAlpha = shadowProjection.alpha * (isHidden ? 0.55 : 1) * battleMageDeathAlpha;
         if (this.silhouetteShadow.alpha !== silhouetteAlpha) this.silhouetteShadow.alpha = silhouetteAlpha;
 
@@ -3783,6 +4400,7 @@ export class RenderableUnit extends Unit {
 
         if (props.name === WOLF_UNIT_NAME) this.syncWolfAttackReach();
 
+        // These screen-space bounds are only consumed by the shadow editor.
         if (isBattlefieldShadowEditorActive()) {
             const silhouetteBounds = (
                 this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
@@ -3852,13 +4470,14 @@ export class RenderableUnit extends Unit {
             this.shadowDrawHeight = contactHeight;
         }
         const shadowX = spriteX;
-        const shadowY = spriteY - gs.getCellSize() * (this.canFly() ? 0.015 : 0.005);
+        const shadowY = spriteY + gs.getCellSize() * (this.canFly() ? -0.015 : -0.005);
         if (this.shadow.x !== shadowX || this.shadow.y !== shadowY) {
             this.shadow.position.set(shadowX, shadowY);
         }
         const shadowVisible =
             spriteVisible &&
             this.visualMode === "normal" &&
+            !arachnidLabShadow &&
             (!this.useBattlefieldVisualProjection || shadowTuning.contactShadowVisible);
         if (this.shadow.visible !== shadowVisible) this.shadow.visible = shadowVisible;
         const normalShadowAlpha = this.useBattlefieldVisualProjection
@@ -3888,7 +4507,41 @@ export class RenderableUnit extends Unit {
             if (this.badgeContainer) this.badgeContainer.visible = false;
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
         }
+        if (this.transportVisual) {
+            const transport = this.transportVisual;
+            this.sprite.y += transport.elevation;
+            if (transport.gripTarget && transport.gripBlend > 0) {
+                const grip = transport.gripTarget.getCastlingShoulderPoint(gs);
+                this.sprite.x += (grip.x - this.sprite.x) * transport.gripBlend;
+                this.sprite.y += (grip.y - this.sprite.y) * transport.gripBlend;
+            }
+            this.depthSortBoundsAreCurrent = false;
+        }
         return scaleY;
+    }
+    public setTransportVisual(elevation: number, gripTarget?: RenderableUnit, gripBlend = 1): void {
+        this.transportVisual = elevation > 0 || gripTarget ? { elevation, gripTarget, gripBlend } : undefined;
+    }
+    public getCastlingShoulderPoint(gs: GridSettings): HoCMath.XY {
+        const sprite = this.sprite;
+        if (!sprite) {
+            const center = this.getVisualCenter(gs);
+            return { x: center.x, y: center.y + gs.getCellSize() * 0.9 };
+        }
+        const opaqueGrip = renderedCastlingGripPoint(sprite);
+        if (opaqueGrip) return opaqueGrip;
+        // Fallback only while the source image cannot be sampled.
+        return { x: sprite.x, y: sprite.y + Math.abs(sprite.scale.y) * sprite.texture.height * 0.6 };
+    }
+    public setHarpyCastFrame(frame: number): boolean {
+        if (this.getName() !== "Harpy") return false;
+        if (this.oneShotAnim?.stateName !== "cast" && !this.playOneShotAnimation("cast")) return false;
+        const anim = this.oneShotAnim;
+        if (!anim || !this.sprite) return false;
+        anim.externallyDriven = true;
+        anim.frameIndex = Math.max(0, Math.min(anim.frames.length - 1, frame));
+        this.applyOneShotFrame(anim);
+        return true;
     }
     public setSpriteRotation(rotation: number) {
         if (this.sprite) {
@@ -3896,12 +4549,6 @@ export class RenderableUnit extends Unit {
             this.depthSortBoundsAreCurrent = false;
         }
     }
-    /**
-     * Drop a fading "afterimage" copy of the current sprite at its present transform — a frozen ghost
-     * the caller then fades out. Spawned repeatedly along a fast charge (Rapid Charge) it reads as a
-     * motion-blur streak trailing the unit. Returns the ghost so the caller can manage its lifetime,
-     * or undefined when there is no sprite/texture yet.
-     */
     public createAfterimageSprite(worldRoot: Container): Sprite | undefined {
         const src = this.sprite;
         if (!src || !src.texture) return undefined;
@@ -3924,9 +4571,15 @@ export class RenderableUnit extends Unit {
         return ghost;
     }
     /** A fixed battle pose for destination ghosts, independent of the live idle/action frame. */
-    public getStaticBattlefieldPreviewAt(position: HoCMath.XY, gs: GridSettings): BattlefieldUnitPreview | undefined {
+    public getStaticBattlefieldPreviewAt(
+        position: HoCMath.XY,
+        gs: GridSettings,
+        canonicalPose = false,
+    ): BattlefieldUnitPreview | undefined {
         const src = this.sprite;
-        const texture = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+        const texture = canonicalPose
+            ? this.resolveBaseTexture()
+            : (this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture());
         if (!src?.parent || !texture) return undefined;
         const props = this.getUnitProperties();
         const width = this.getFootprintWidth();
@@ -3974,6 +4627,9 @@ export class RenderableUnit extends Unit {
             (this.previewDestinationGroundScratch ??= { x: 0, y: 0 }),
         );
         const preview = (this.battlefieldPreviewScratch ??= {} as BattlefieldUnitPreview);
+        // The sword idle has a padded 1024px canvas around a 576px figure. Match the same
+        // normalization as ensureVisual so a placement ghost cannot shrink on drop.
+        const idleCanvasScale = !canonicalPose && props.name === "Berserker" ? this.berserkerLabIdleScale() : 1;
         preview.texture = texture;
         preview.anchorX = 0.5;
         preview.anchorY = tall ? this.selectionAnimFootAnchorY : 0.5;
@@ -3984,7 +4640,8 @@ export class RenderableUnit extends Unit {
             framing.scaleX *
             perspective *
             compensation.x;
-        preview.scaleY = -scaleY * framing.scaleY * perspective * compensation.y;
+        preview.scaleX *= idleCanvasScale;
+        preview.scaleY = -scaleY * idleCanvasScale * framing.scaleY * perspective * compensation.y;
         preview.x =
             ground.x +
             gs.getCellSize() *
@@ -4004,7 +4661,6 @@ export class RenderableUnit extends Unit {
         preview.rotation = 0;
         return preview;
     }
-    /** Snapshot the live pose for target highlights; destination ghosts use the static pose above. */
     public getBattlefieldPreviewAt(position: HoCMath.XY, gs: GridSettings): BattlefieldUnitPreview | undefined {
         const src = this.sprite;
         if (!src || !src.texture) return undefined;
@@ -4040,7 +4696,6 @@ export class RenderableUnit extends Unit {
         preview.rotation = src.rotation;
         return preview;
     }
-    /** Exact ground reference used by both the live sprite and every movement/attack preview. */
     private getBattlefieldGroundReference(logicalPosition: HoCMath.XY, gs: GridSettings, out?: HoCMath.XY): HoCMath.XY {
         const props = this.getUnitProperties();
         const footprintHeight = this.getFootprintHeight();
@@ -4066,7 +4721,12 @@ export class RenderableUnit extends Unit {
         const battlefieldYOffsetRatio = battlefieldFootLineOffsetCells(footprintHeight);
         // A one-cell-tall creature always uses the same projected foot line. Historical per-creature Y
         // nudges made feet float on several different baselines; keep those profiles only for taller art.
-        const authoredBattlefieldOffsetY = footprintHeight > 1 ? (visualProfile.offsetYCells ?? 0) : 0;
+        const authoredBattlefieldOffsetY =
+            props.name === "Arachna Spider" && this.creatureAnimationLabPreviewEnabled
+                ? SPIDER_LAB_GROUND_OFFSET_CELLS
+                : footprintHeight > 1
+                  ? (visualProfile.offsetYCells ?? 0)
+                  : 0;
         const ground = out ?? { x: 0, y: 0 };
         ground.x = logicalPosition.x;
         ground.y =
@@ -4075,11 +4735,6 @@ export class RenderableUnit extends Unit {
             gs.getCellSize() * authoredBattlefieldOffsetY;
         return projectBattlefieldPoint(ground, gs, ground);
     }
-    /**
-     * Apply (or clear, when strength <= 0) a light gaussian blur on the live sprite so a fast-charging
-     * unit looks like it's moving too fast to focus on. Reuses a single filter instance; clearing
-     * removes it so the unit renders crisp again the moment the charge ends.
-     */
     public setMotionBlur(strength: number): void {
         if (!this.sprite) return;
         if (strength <= 0) {
@@ -4101,11 +4756,6 @@ export class RenderableUnit extends Unit {
     public getCurrentVisualScale(): number {
         return this.sprite ? Math.abs(this.sprite.scale.x) : 1;
     }
-    /**
-     * Scale the whole unit visual (sprite + shadow + badge + indicators) uniformly around its
-     * position. Used by the placement bench to render unplaced units bigger than one board cell.
-     * Takes effect on the next ensureVisual/syncVisual pass.
-     */
     public setVisualScaleMultiplier(multiplier: number): void {
         this.visualScaleMultiplier = multiplier > 0 ? multiplier : 1;
     }
@@ -4144,6 +4794,8 @@ export class RenderableUnit extends Unit {
         if (this.stunContainer) {
             this.stunContainer.visible = visible && this.shouldShowStunIndicator();
         }
+        if (this.immobilizedContainer)
+            this.immobilizedContainer.visible = visible && this.shouldShowImmobilizedIndicator();
         if (this.respondContainer) {
             this.respondContainer.visible = visible && this.shouldShowRespondTag();
         }
@@ -4176,17 +4828,12 @@ export class RenderableUnit extends Unit {
         if (this.stunContainer) {
             this.stunContainer.visible = !active && visible && this.shouldShowStunIndicator();
         }
+        if (this.immobilizedContainer)
+            this.immobilizedContainer.visible = !active && visible && this.shouldShowImmobilizedIndicator();
         if (this.respondContainer) {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
         }
     }
-    /**
-     * "Revealed opponent" mode (ranked placement): the sprite is drawn in black & white and
-     * near-opaque — clearly present but clearly not the viewer's unit — and the team-colored flag
-     * badge stays visible with a "?" count (the roster is known, the stack size is not). The actual
-     * alpha/filter/badge application lives in ensureVisual/ensureBadge, which key off visualMode,
-     * so the look survives every subsequent sync pass.
-     */
     public setVisualRevealed(active: boolean): void {
         if (active) {
             this.visualMode = "revealed";
@@ -4200,9 +4847,9 @@ export class RenderableUnit extends Unit {
         this.depthSortBoundsAreCurrent = false;
         const walkAnim = this.walkAnim;
         const props = this.getUnitProperties();
-        // Level 1 and 2, and any approved package, already contain their own motion. Do not layer the
-        // legacy whole-cutout tilt/bounce over them. A higher tier with no package still sways.
-        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
+        // Level-one creatures now use only their individually authored sprite frames. Do not layer the
+        // legacy whole-cutout tilt/bounce over them, including units that do not yet have a refreshed atlas.
+        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
             sprite.rotation = 0;
             return;
         }
@@ -4246,13 +4893,13 @@ export class RenderableUnit extends Unit {
         const lift = 1.0 + bounce * (useAuthoredWalkEffect ? 0.085 : 0.05);
         sprite.scale.set(scaleX * lift, scaleY * lift);
     }
-    /** Current live cutout geometry used by the scene's head-first overlap resolver. */
     public getCreatureDepthSortCandidate(stableOrder: number): CreatureDepthSortCandidate | undefined {
         const sprite = this.sprite;
         if (
             !this.useBattlefieldVisualProjection ||
             this.visualMode !== "normal" ||
             !sprite?.visible ||
+            !!this.transportVisual ||
             this.isPlayingForegroundAttackAnimation()
         ) {
             return undefined;
@@ -4278,54 +4925,21 @@ export class RenderableUnit extends Unit {
         creatureHeadPriorityZone(candidate.bounds, screenFacing(this.facingDirection), candidate.headZone);
         return candidate;
     }
-    /** Natural depth is a ground-line value, never a temporary attack or head-priority layer. */
-    private getCreatureGroundDepth(): number {
-        const position = this.useBattlefieldVisualProjection
-            ? (this.projectedPositionScratch ?? this.getPosition())
-            : this.getPosition();
-        return 4000 - position.y;
-    }
-    private syncCreatureFigureDepth(): void {
-        this.applyCreatureHeadPriorityDepth(
-            this.isPlayingForegroundAttackAnimation()
-                ? CREATURE_ATTACK_FOREGROUND_Z_INDEX
-                : this.getCreatureGroundDepth(),
-        );
-    }
-    /** Set the figure and its foreground indicators without lifting its ground shadow/aura. */
     public applyCreatureHeadPriorityDepth(depth: number): void {
         if (!this.sprite) return;
-        if (this.sprite.zIndex !== depth) this.sprite.zIndex = depth;
-        if (this.badgeContainer && this.badgeContainer.zIndex !== depth + 1) {
-            this.badgeContainer.zIndex = depth + 1;
-        }
-        if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== depth + 1) {
-            this.stackPowerContainer.zIndex = depth + 1;
-        }
-        if (this.hourglassContainer && this.hourglassContainer.zIndex !== depth + 2) {
-            this.hourglassContainer.zIndex = depth + 2;
-        }
-        if (this.stunContainer && this.stunContainer.zIndex !== depth + 2) {
-            this.stunContainer.zIndex = depth + 2;
-        }
+        this.sprite.zIndex = depth;
+        if (this.badgeContainer) this.badgeContainer.zIndex = depth + 1;
+        if (this.stackPowerContainer) this.stackPowerContainer.zIndex = depth + 1;
+        if (this.hourglassContainer) this.hourglassContainer.zIndex = depth + 2;
+        if (this.stunContainer) this.stunContainer.zIndex = depth + 2;
         // Response swords are a local badge child; their layer is controlled by child order, not world depth.
-        if (this.respondContainer && this.respondContainer.zIndex !== 0) {
-            this.respondContainer.zIndex = 0;
-        }
-        if (this.freezeCrust && this.freezeCrust.zIndex !== depth + 0.5) {
-            this.freezeCrust.zIndex = depth + 0.5;
-        }
-        if (this.freezeLight && this.freezeLight.zIndex !== depth + 0.55) {
-            this.freezeLight.zIndex = depth + 0.55;
-        }
-        if (this.waterShieldBreakGfx && this.waterShieldBreakGfx.zIndex !== depth + 0.6) {
-            this.waterShieldBreakGfx.zIndex = depth + 0.6;
-        }
-        for (const ghost of this.dodgeAnim?.ghosts ?? []) {
-            if (ghost.sprite.zIndex !== depth - 1) ghost.sprite.zIndex = depth - 1;
-        }
+        if (this.respondContainer) this.respondContainer.zIndex = 0;
+        if (this.freezeCrust) this.freezeCrust.zIndex = depth + 0.5;
+        if (this.freezeLight) this.freezeLight.zIndex = depth + 0.55;
+        if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.zIndex = depth + 0.6;
+        for (const ghost of this.dodgeAnim?.ghosts ?? []) ghost.sprite.zIndex = depth - 1;
     }
-    public syncVisual(worldRoot: Container, gs: GridSettings, movementInProgress = false): void {
+    public syncVisual(worldRoot: Container, gs: GridSettings, _movementInProgress = false): void {
         if (this.isDestroyed) return;
         const logicalPos = this.getPosition();
         const inGrid = GridMath.isPositionWithinGrid(gs, logicalPos);
@@ -4338,6 +4952,7 @@ export class RenderableUnit extends Unit {
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
             if (this.hourglassContainer) this.hourglassContainer.visible = false;
             if (this.stunContainer) this.stunContainer.visible = false;
+            if (this.immobilizedContainer) this.immobilizedContainer.visible = false;
             if (this.respondContainer) this.respondContainer.visible = false;
             if (this.activeAura) this.activeAura.visible = false;
             if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
@@ -4355,7 +4970,12 @@ export class RenderableUnit extends Unit {
         // Update Z-Index for depth sorting
         if (this.sprite) {
             const baseZ = 4000 - pos.y;
-            this.syncCreatureFigureDepth();
+            const figureZ = this.transportVisual
+                ? CREATURE_ATTACK_FOREGROUND_Z_INDEX + (this.transportVisual.gripTarget ? 2 : 1)
+                : this.isPlayingForegroundAttackAnimation()
+                  ? CREATURE_ATTACK_FOREGROUND_Z_INDEX
+                  : baseZ;
+            if (this.sprite.zIndex !== figureZ) this.sprite.zIndex = figureZ;
             if (this.shadow && this.shadow.zIndex !== baseZ - 0.5) this.shadow.zIndex = baseZ - 0.5;
             if (this.silhouetteShadow && this.silhouetteShadow.zIndex !== baseZ - 0.75) {
                 this.silhouetteShadow.zIndex = baseZ - 0.75;
@@ -4366,17 +4986,25 @@ export class RenderableUnit extends Unit {
             if (this.groundCastShadow && this.groundCastShadow.zIndex !== baseZ - 0.85) {
                 this.groundCastShadow.zIndex = baseZ - 0.85;
             }
+            if (this.badgeContainer && this.badgeContainer.zIndex !== figureZ + 1) {
+                this.badgeContainer.zIndex = figureZ + 1;
+            }
+            if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== figureZ + 1) {
+                this.stackPowerContainer.zIndex = figureZ + 1;
+            }
+            if (this.hourglassContainer && this.hourglassContainer.zIndex !== figureZ + 2) {
+                this.hourglassContainer.zIndex = figureZ + 2;
+            }
+            if (this.stunContainer && this.stunContainer.zIndex !== figureZ + 2) {
+                this.stunContainer.zIndex = figureZ + 2;
+            }
+            if (this.respondContainer && this.respondContainer.zIndex !== 0) {
+                this.respondContainer.zIndex = 0;
+            }
         }
 
-        // The ground ring follows the creature whose turn it is, alongside the pointer above its flag.
-        const showActiveAura =
-            this.isActiveTurn && this.visualMode === "normal" && !movementInProgress && !this.walkAnim;
-        if (showActiveAura && !this.isDead()) {
-            this.updateActiveAura(worldRoot, gs, pos, now);
-        } else {
-            if (this.activeAura) this.activeAura.visible = false;
-            if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
-        }
+        if (this.activeAura) this.activeAura.visible = false;
+        if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
 
         // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It
         // disappears the frame the shield breaks, and is independent of whose turn it is.
@@ -4419,7 +5047,6 @@ export class RenderableUnit extends Unit {
             this.updateWaterShieldBreak(worldRoot, gs, pos, now);
         }
     }
-    /** Ground-plane turn marker, aligned with the occupied cell seams and beneath the figure. */
     private updateActiveAura(worldRoot: Container, gs: GridSettings, _pos: HoCMath.XY, nowMs: number): void {
         if (!this.activeAura) {
             this.activeAura = new Container();
@@ -4442,7 +5069,6 @@ export class RenderableUnit extends Unit {
         );
         if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
     }
-    /** Lightweight transparent sprite-sheet glow for the unit whose turn is currently active. */
     private updateActiveTurnFire(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         const frames = getActiveTurnFireFrames();
         if (!frames.length) return;
@@ -4468,15 +5094,9 @@ export class RenderableUnit extends Unit {
         this.activeTurnFireSprite.position.set(pos.x, pos.y);
         this.activeTurnFireSprite.width = cell * footprintEffectExtent(1.55, 2.8, this.getFootprintWidth());
         this.activeTurnFireSprite.height = cell * footprintEffectExtent(1.55, 2.8, this.getFootprintHeight());
-        this.activeTurnFireSprite.zIndex = 4000 - pos.y - 0.7;
+        this.activeTurnFireSprite.zIndex = FLOOR_AURA_Z_INDEX + 0.3;
         this.activeTurnFireSprite.visible = true;
     }
-    /**
-     * Water Shield aura: a light-blue ring with small dots circulating around the unit, emphasizing that its
-     * once-per-battle absorb shield is up. Pure vector draw (no texture), redrawn each frame from a time-based
-     * phase. Drawn beneath the sprite like the active-turn aura; shown while the "Water Shield" buff is active
-     * and hidden the moment it breaks.
-     */
     private updateWaterShieldAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (!this.waterShieldAura) {
             this.waterShieldAura = new Graphics();
@@ -4486,7 +5106,7 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.waterShieldAura);
         }
         // Sit just beneath the unit so the ring reads as circling around her feet.
-        this.waterShieldAura.zIndex = 4000 - pos.y - 0.55;
+        this.waterShieldAura.zIndex = FLOOR_AURA_Z_INDEX + 0.3;
         this.waterShieldAura.visible = true;
 
         const cell = gs.getCellSize();
@@ -4534,11 +5154,6 @@ export class RenderableUnit extends Unit {
             });
         }
     }
-    /**
-     * Whirlpool status VFX: a dark water funnel with bright spiral currents and orbiting foam beneath the
-     * trapped creature. Pure vector graphics keep it available in every client build without an atlas, and
-     * the time-based redraw makes the water continuously churn until the authoritative debuff disappears.
-     */
     private updateWhirlpoolAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (!this.whirlpoolAura) {
             this.whirlpoolAura = new Graphics();
@@ -4548,7 +5163,7 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.whirlpoolAura);
         }
         // Layer the pool beneath the shadow/unit while leaving its bright outer water visible around the feet.
-        this.whirlpoolAura.zIndex = 4000 - pos.y - 0.58;
+        this.whirlpoolAura.zIndex = FLOOR_AURA_Z_INDEX + 0.3;
         this.whirlpoolAura.visible = true;
 
         const cell = gs.getCellSize();
@@ -4566,13 +5181,19 @@ export class RenderableUnit extends Unit {
         const g = this.whirlpoolAura;
         g.clear();
 
-        // Deep centre + translucent water shelf: the dark eye makes the inward spiral read as a funnel.
-        g.ellipse(pos.x, pos.y, radiusX, radiusY * squash).fill({ color: 0x063b5c, alpha: 0.28 + pulse * 0.06 });
+        // The live status pool shares the cast's softly changing waterline (at most five percent).
+        const rim: number[] = [];
+        for (let i = 0; i < 64; i++) {
+            const angle = (i / 64) * Math.PI * 2;
+            const edge = whirlpoolEdgeScale(angle, nowMs, 1);
+            rim.push(pos.x + Math.cos(angle) * radiusX * edge, pos.y + Math.sin(angle) * radiusY * squash * edge);
+        }
+        g.poly(rim).fill({ color: 0x063b5c, alpha: 0.28 + pulse * 0.06 });
         g.ellipse(pos.x, pos.y, radiusX * 0.32, radiusY * squash * 0.34).fill({
             color: 0x021b35,
             alpha: 0.72,
         });
-        g.ellipse(pos.x, pos.y, radiusX * (0.95 + pulse * 0.03), radiusY * squash).stroke({
+        g.poly(rim).stroke({
             color: 0x42d7ff,
             alpha: 0.46,
             width: Math.max(1.5, cell * 0.025),
@@ -4614,7 +5235,6 @@ export class RenderableUnit extends Unit {
             });
         }
     }
-    /** An ice crust encasing a "Freeze"-status unit: a frosted pane with soft buildup and branching veins. */
     private updateFreezeCrust(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (!this.freezeCrust) {
             this.freezeCrust = new Graphics();
@@ -4779,11 +5399,6 @@ export class RenderableUnit extends Unit {
             .lineTo(sweepCx + sweepArm * 0.82, sweepCy + sweepArm * 0.82)
             .stroke({ color: 0xffffff, alpha: 0.26 * sweepFade, width: 1.4, cap: "round" });
     }
-    /**
-     * One-shot "dissolve" burst played when the Water Shield absorbs a hit and breaks: a brief inner splash,
-     * the ring snapping outward and thinning as it fades, and a spray of light-blue droplets flung away from
-     * it. Pure vector draw driven by a time-based progress; self-clears after ~0.55s.
-     */
     private updateWaterShieldBreak(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (this.waterShieldBreakStartMs === undefined) return;
         const DURATION_MS = 550;
@@ -4880,20 +5495,35 @@ export class RenderableUnit extends Unit {
             ? ARBALESTER_LAB_FOOT_ANCHOR_Y
             : tallBoardModelFootAnchorY(this.getName(), stateName, meta);
     }
-    /** The lab can preview other creatures; the approved base package remains active in combat. */
     public setCreatureAnimationLabPreviewEnabled(enabled: boolean): void {
         enabled = enabled || usesApprovedBaseAnimations(this.getName());
         if (!enabled) this.cancelArbalesterRangedShot();
         if (!enabled) this.cancelDryadRangedShot();
         const previousBerserkerIdleScale = this.berserkerLabIdleScale();
+        const previousBlackDragonIdleScale = this.creatureAnimationLabPreviewEnabled
+            ? BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE
+            : 1;
         if (this.getName() === "Berserker" && this.creatureAnimationLabPreviewEnabled !== enabled) {
             this.stopBoardWalkAnimation();
         }
         const labChanged = this.creatureAnimationLabPreviewEnabled !== enabled;
+        if (labChanged && this.getName() === "Black Dragon") {
+            this.stopBoardWalkAnimation();
+            this.returnToIdleAnimation();
+        }
+        if (labChanged && this.getName() === "Angel") this.stopBoardWalkAnimation();
+        if (labChanged && this.getName() === "Thunderbird") {
+            this.stopBoardWalkAnimation();
+            this.returnToIdleAnimation();
+        }
+        if (labChanged && [ARACHNA_QUEEN_UNIT_NAME, "Arachna Spider"].includes(this.getName()))
+            this.stopBoardWalkAnimation();
+        if (labChanged && this.getName() === "Zena") this.zenaIdleRestStartedAtMs = undefined;
         if (labChanged && this.getName() === "Pikeman") this.stopBoardWalkAnimation();
         if (labChanged && this.getName() === "Valkyrie") this.stopBoardWalkAnimation();
         if (labChanged && this.getName() === "Valkyrie") this.returnToIdleAnimation();
-        if (labChanged && this.getName() === "Manticore") this.stopBoardWalkAnimation();
+        if (labChanged && (this.getName() === "Manticore" || this.getName() === "Wyvern"))
+            this.stopBoardWalkAnimation();
         if (labChanged && this.getName() === "Manticore") this.returnToIdleAnimation();
         if (labChanged && this.getName() === "Battle Mage") this.stopBoardWalkAnimation();
         if (labChanged && this.getName() === "Battle Mage") this.returnToIdleAnimation();
@@ -4905,7 +5535,34 @@ export class RenderableUnit extends Unit {
         if (labChanged && this.getName() === TROLL_UNIT_NAME) this.returnToIdleAnimation();
         if (labChanged && this.getName() === "White Tiger") this.returnToIdleAnimation();
         if (labChanged && this.getName() === CENTAUR_UNIT_NAME) this.returnToIdleAnimation();
+        if (labChanged && this.getName() === "Mantis") this.stopBoardWalkAnimation();
+        if (labChanged && this.getName() === "Griffin") this.stopBoardWalkAnimation();
+        if (labChanged && this.getName() === "Griffin") this.returnToIdleAnimation();
+        if (labChanged && this.getName() === "Hydra") {
+            this.stopBoardWalkAnimation();
+            this.returnToIdleAnimation();
+        }
+        if (labChanged && this.getName() === "Mantis") {
+            this.stopBoardWalkAnimation();
+            this.returnToIdleAnimation();
+        }
         this.creatureAnimationLabPreviewEnabled = enabled;
+        if (enabled && this.getName() === "Goblin Knight") {
+            this.texResolver("goblin_knight_lab_hit_atlas");
+            this.texResolver("goblin_knight_lab_death_atlas");
+            for (const action of ["melee_attack", "melee_attack_up", "melee_attack_down"]) {
+                this.texResolver(`goblin_knight_lab_${action}_atlas`);
+            }
+        }
+        if (labChanged && [ARACHNA_QUEEN_UNIT_NAME, "Arachna Spider"].includes(this.getName())) {
+            this.selectionAnimationStartedAtMs = performance.now();
+            this.syncCreaturePalette();
+        }
+        if (labChanged && this.getName() === "Angel") {
+            this.selectionAnimationStartedAtMs = performance.now();
+            this.syncCreaturePalette();
+        }
+        if (labChanged && this.getName() === "Wyvern") this.syncCreaturePalette();
         if (
             labChanged &&
             (this.getName() === DRYAD_UNIT_NAME ||
@@ -4933,12 +5590,27 @@ export class RenderableUnit extends Unit {
             return;
         }
         if (
+            this.getName() === "Thunderbird" ||
+            this.getName() === "Abomination" ||
+            this.getName() === "Black Dragon" ||
             this.getName() === CENTAUR_UNIT_NAME ||
+            this.getName() === "Unicorn" ||
+            this.getName() === EFREET_UNIT_NAME ||
+            this.getName() === "Zena" ||
+            this.getName() === "Ogre Mage" ||
+            this.getName() === "Monk" ||
             this.getName() === "Fairy" ||
+            this.getName() === "Angel" ||
             this.getName() === "Healer" ||
             this.getName() === "Elf" ||
             this.getName() === "Medusa" ||
             this.getName() === "White Tiger" ||
+            this.getName() === "Frenzied Boar" ||
+            this.getName() === "Mantis" ||
+            this.getName() === GARGANTUAN_UNIT_NAME ||
+            this.getName() === "Behemoth" ||
+            this.getName() === "Griffin" ||
+            this.getName() === "Hydra" ||
             this.getName() === TROLL_UNIT_NAME
         ) {
             if (!labChanged) return;
@@ -4947,7 +5619,11 @@ export class RenderableUnit extends Unit {
             this.selectionAnimationStartedAtMs = performance.now();
             this.startSelectionAnimationInternal();
             if (previousHeight !== undefined && this.sprite) {
-                const scaleRatio = previousHeight / (this.sprite.texture.height * this.sprite.scale.y);
+                const scaleRatio =
+                    (previousHeight / (this.sprite.texture.height * this.sprite.scale.y)) *
+                    (this.getName() === "Black Dragon"
+                        ? (enabled ? BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE : 1) / previousBlackDragonIdleScale
+                        : 1);
                 this.sprite.scale.set(this.sprite.scale.x * scaleRatio, this.sprite.scale.y * scaleRatio);
                 this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
             }
@@ -4976,15 +5652,22 @@ export class RenderableUnit extends Unit {
         this.stopSelectionAnimationInternal();
         this.startSelectionAnimationInternal();
     }
-    private berserkerSwordIdleEnabled(): boolean {
-        return (
-            this.creatureAnimationLabPreviewEnabled &&
-            this.getName() === "Berserker" &&
-            "berserker_sword_idle_atlas" in images
-        );
-    }
     private berserkerLabIdleScale(): number {
-        return this.berserkerSwordIdleEnabled() && this.selectionAnimFrames?.length ? BERSERKER_SWORD_IDLE_SCALE : 1;
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Berserker" &&
+            !!this.selectionAnimFrames?.length &&
+            "berserker_sword_idle_atlas" in images
+            ? BERSERKER_SWORD_IDLE_SCALE
+            : 1;
+    }
+    private crusaderLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Crusader" && isCrusaderAttack(state))
+            return 1280 / 768;
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Crusader" &&
+            (state === "hit" || state === "death")
+            ? 896 / 768
+            : 1;
     }
     private medusaLabCanvasScale(state = this.oneShotAnim?.stateName): number {
         return this.creatureAnimationLabPreviewEnabled &&
@@ -5012,8 +5695,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Medusa Lab"]?.[authoredState];
         const imageKey = `medusa_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             meta,
             imageKey,
@@ -5038,8 +5721,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Troll Lab"]?.[state];
         const imageKey = `troll_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             meta,
             imageKey,
@@ -5055,6 +5738,137 @@ export class RenderableUnit extends Unit {
             cacheAcrossScenes: true,
         };
     }
+    private griffinLabActionCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Griffin" &&
+            state?.startsWith("melee_attack")
+            ? 1024 / 768
+            : 1;
+    }
+    private griffinLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Griffin" ||
+            !["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Griffin Lab"]?.[state];
+        const imageKey = `griffin_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
+        return {
+            meta: {
+                ...meta,
+                footAnchorY: state.startsWith("melee_attack")
+                    ? 858 / 1024
+                    : (STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1),
+            },
+            imageKey,
+            imageSrc,
+            cacheKey: state.startsWith("melee_attack")
+                ? `Griffin::lab-attacks-20261003-v3-consistent-limbs::${state}`
+                : `Griffin::lab-reactions-20261003-v4-faster15::${state}`,
+            cacheAcrossScenes: true,
+        };
+    }
+    private griffinLabIdleConfig(): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Griffin") return null;
+        return {
+            meta: {
+                ...animationAtlases["Griffin Lab"].idle,
+                footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+            },
+            imageKey: "griffin_lab_idle_atlas",
+            imageSrc: images.griffin_lab_idle_atlas,
+            cacheKey: "Griffin::lab-idle-authored-tail-20261003-v2",
+            cacheAcrossScenes: true,
+        };
+    }
+    private hydraLabIdleConfig(): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Hydra") return null;
+        return {
+            meta: { ...animationAtlases["Hydra Lab"].idle, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1 },
+            imageKey: "hydra_lab_idle_atlas",
+            imageSrc: images.hydra_lab_idle_atlas,
+            cacheKey: "Hydra::lab-idle-independent-heads-64-20261014-v1",
+            cacheAcrossScenes: true,
+        };
+    }
+    private thunderbirdLabIdleConfig(): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Thunderbird") return null;
+        return {
+            meta: {
+                ...animationAtlases["Thunderbird Lab"].idle,
+                footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+            },
+            imageKey: "thunderbird_lab_idle_atlas",
+            imageSrc: images.thunderbird_lab_idle_atlas,
+            cacheKey: "Thunderbird::lab-idle-eye-lightning-150-20261012-v4",
+            cacheAcrossScenes: true,
+        };
+    }
+    private magicDragonLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Magic Dragon" &&
+            isMagicDragonLabPaddedAction(state) &&
+            !!this.magicDragonLabReactionConfig(state ?? "")
+            ? MAGIC_DRAGON_LAB_ACTION_CANVAS_SCALE
+            : 1;
+    }
+    private magicDragonLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Magic Dragon" ||
+            (!["hit", "death"].includes(state) && !isMagicDragonLabPaddedAction(state))
+        )
+            return null;
+        const meta = animationAtlases["Magic Dragon Lab"]?.[state];
+        const speed =
+            state === "death" ? MAGIC_DRAGON_LAB_DEATH_SPEED : state === "hit" ? MAGIC_DRAGON_LAB_HIT_SPEED : 1;
+        const imageKey = `magic_dragon_lab_${state}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta: {
+                      ...meta,
+                      footAnchorY: isMagicDragonLabPaddedAction(state)
+                          ? (128 + 768 * (STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1)) / 1024
+                          : (STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1),
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      loopDurationMs: meta.loopDurationMs / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((ms) => ms / speed),
+                  },
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Magic Dragon::lab-actions-cast-20261014-v1::${state}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private magicDragonLabIdleConfig(): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Magic Dragon") return null;
+        return {
+            meta: {
+                ...animationAtlases["Magic Dragon Lab"].idle,
+                footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+            },
+            imageKey: "magic_dragon_lab_idle_atlas",
+            imageSrc: images.magic_dragon_lab_idle_atlas,
+            cacheKey: "Magic Dragon::lab-idle-tail-gems-embers-20261012-v3",
+            cacheAcrossScenes: true,
+        };
+    }
+    private blackDragonLabIdleConfig(): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Black Dragon") return null;
+        return {
+            meta: { ...animationAtlases["Black Dragon Lab"].idle, footAnchorY: BLACK_DRAGON_LAB_IDLE_ANCHOR_Y },
+            imageKey: "black_dragon_lab_idle_atlas",
+            imageSrc: images.black_dragon_lab_idle_atlas,
+            cacheKey: "Black Dragon::lab-idle-engine-smoke-20261014-v4",
+            cacheAcrossScenes: true,
+        };
+    }
     private whiteTigerLabAnimationConfig(state = "idle"): UnitAtlasConfig | null {
         const authoredState = /^attack(?:_up|_down)?$/.test(state) ? `melee_${state}` : state;
         if (
@@ -5065,8 +5879,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["White Tiger Lab"]?.[authoredState];
         const imageKey = `white_tiger_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             meta,
             imageKey,
@@ -5101,8 +5915,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Elf Lab"]?.[state];
         const imageKey = `elf_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             meta: {
                 ...meta,
@@ -5110,7 +5924,7 @@ export class RenderableUnit extends Unit {
                     ? 986 / 1152
                     : this.elfLabCanvasScale(state) > 1
                       ? 858 / 1024
-                      : STATIC_BATTLEFIELD_IDLE_META.footAnchorY,
+                      : (STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1),
             },
             imageKey,
             imageSrc,
@@ -5147,10 +5961,18 @@ export class RenderableUnit extends Unit {
                   : state;
         const meta = animationAtlases["Dryad Lab"]?.[authoredState];
         const imageKey = `dryad_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
+        const playbackSpeed = state === "death" ? 1.17 : isAttackAnimationStateName(state) ? 1.15 : 1;
         return {
-            meta,
+            meta:
+                playbackSpeed === 1
+                    ? meta
+                    : {
+                          ...meta,
+                          fps: meta.fps * playbackSpeed,
+                          frameDurationsMs: meta.frameDurationsMs?.map((duration) => duration / playbackSpeed),
+                      },
             imageKey,
             imageSrc,
             cacheKey: `Dryad::lab-actions-20260913-v7::${authoredState}`,
@@ -5168,19 +5990,30 @@ export class RenderableUnit extends Unit {
         if (
             !this.creatureAnimationLabPreviewEnabled ||
             this.getName() !== LEPRECHAUN_UNIT_NAME ||
-            !["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)
+            ![
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(state)
         )
             return null;
         const meta = animationAtlases["Leprechaun Lab"]?.[state];
         const imageKey = `leprechaun_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             // Attacks add 128px padding around the same-size standing figure.
             meta: {
                 ...meta,
                 footAnchorY:
-                    this.leprechaunLabCanvasScale(state) > 1 ? 858 / 1024 : STATIC_BATTLEFIELD_IDLE_META.footAnchorY,
+                    this.leprechaunLabCanvasScale(state) > 1
+                        ? 858 / 1024
+                        : (STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1),
             },
             imageKey,
             imageSrc,
@@ -5207,10 +6040,10 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Pikeman Lab"]?.[authoredState];
         const imageKey = `pikeman_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
-            meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY },
+            meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1 },
             imageKey,
             imageSrc,
             cacheKey: `Pikeman::lab-actions-20260920-v5::${authoredState}`,
@@ -5227,10 +6060,10 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Healer Lab"]?.[authoredState];
         const imageKey = `healer_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
-            meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY },
+            meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1 },
             imageKey,
             imageSrc,
             cacheKey: `Healer::lab-actions-20260920-v2::${authoredState}`,
@@ -5255,8 +6088,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Centaur Lab"]?.[state];
         const imageKey = `centaur_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             meta,
             imageKey,
@@ -5271,8 +6104,8 @@ export class RenderableUnit extends Unit {
         const imageKey = (
             state === "idle" ? "scavenger_homm_idle_atlas_quarter" : `scavenger_combat_${state}_atlas_quarter`
         ) as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             // Match the static figure's ground registration, including its existing 38px sole offset.
             meta: state === "idle" ? { ...meta, footAnchorY: (744 - (38 * 700) / 757) / 768 } : meta,
@@ -5295,13 +6128,89 @@ export class RenderableUnit extends Unit {
         if (!this.sprite) return;
         const props = this.getUnitProperties();
         let config =
+            this.griffinLabIdleConfig() ??
+            this.hydraLabIdleConfig() ??
+            this.thunderbirdLabIdleConfig() ??
+            this.magicDragonLabIdleConfig() ??
+            this.blackDragonLabIdleConfig() ??
+            this.mantisLabIdleConfig() ??
             this.medusaLabAnimationConfig() ??
             this.whiteTigerLabAnimationConfig() ??
             this.trollLabAnimationConfig() ??
             this.fairyLabAnimationConfig() ??
             this.scavengerLabAnimationConfig("idle") ??
             getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
-        if (this.berserkerSwordIdleEnabled()) {
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Angel") {
+            config = {
+                meta: {
+                    ...animationAtlases["Angel Lab"].idle,
+                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+                },
+                imageKey: "angel_lab_idle_atlas",
+                imageSrc: images.angel_lab_idle_atlas,
+                cacheKey: "Angel::lab-idle-breathing-only-20261014-v9",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Champion") {
+            config = {
+                meta: { ...animationAtlases["Champion Lab"].idle, footAnchorY: 858 / 1024 },
+                imageKey: "champion_lab_idle_atlas",
+                imageSrc: images.champion_lab_idle_atlas,
+                cacheKey: "Champion::lab-idle-clean-plume-20261008-v6",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (
+            this.creatureAnimationLabPreviewEnabled &&
+            props.name === "Abomination" &&
+            animationAtlases["Abomination Lab"]?.idle
+        ) {
+            config = {
+                meta: animationAtlases["Abomination Lab"].idle,
+                imageKey: "abomination_lab_idle_atlas",
+                imageSrc: images.abomination_lab_idle_atlas,
+                cacheKey: "Abomination::lab-idle-grounded-fast-20261004-v4",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Behemoth") {
+            config = {
+                meta: animationAtlases["Behemoth Lab"].idle,
+                imageKey: "behemoth_lab_idle_atlas",
+                imageSrc: images.behemoth_lab_idle_atlas,
+                cacheKey: "Behemoth::lab-idle-only-low-rise-20261006-v11",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === GARGANTUAN_UNIT_NAME) {
+            config = {
+                meta: animationAtlases["Gargantuan Lab"].idle,
+                imageKey: "gargantuan_lab_idle_atlas",
+                imageSrc: images.gargantuan_lab_idle_atlas,
+                cacheKey: "Gargantuan::lab-idle-registered-redraw-20261012-v13",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Frenzied Boar") {
+            config = {
+                meta: animationAtlases["Frenzied Boar Lab"].idle,
+                imageKey: "frenzied_boar_lab_idle_atlas",
+                imageSrc: images.frenzied_boar_lab_idle_atlas,
+                cacheKey: "Frenzied Boar::lab-idle-half-speed-20261006-v5",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (props.name === DRYAD_UNIT_NAME && animationAtlases["Dryad Painted"]?.idle) {
+            config = {
+                meta: animationAtlases["Dryad Painted"].idle,
+                imageKey: "dryad_painted_idle_atlas",
+                imageSrc: images.dryad_painted_idle_atlas,
+                cacheKey: "Dryad::painted-idle-registered-20261003-v4",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Berserker") {
             config = {
                 meta: animationAtlases["Berserker Sword"].idle,
                 imageKey: "berserker_sword_idle_atlas",
@@ -5319,11 +6228,62 @@ export class RenderableUnit extends Unit {
                 cacheAcrossScenes: true,
             };
         }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Zena") {
+            config = {
+                meta: {
+                    ...animationAtlases["Zena Lab"].idle,
+                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+                },
+                imageKey: "zena_lab_idle_atlas",
+                imageSrc: images.zena_lab_idle_atlas,
+                cacheKey: "Zena::lab-idle-restored-20261002-v10",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (props.name === EFREET_UNIT_NAME) {
+            config = {
+                meta: {
+                    ...animationAtlases["Efreet Lab"].idle,
+                    frameDurationsMs: [...EFREET_LAB_IDLE_FRAME_DURATIONS_MS],
+                },
+                imageKey: "efreet_lab_idle_atlas",
+                imageSrc: images.efreet_lab_idle_atlas,
+                cacheKey: "Efreet::lab-idle-clap-width-stable-20261002-v4",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Ogre Mage") {
+            config = {
+                meta: animationAtlases["Ogre Mage"].idle,
+                imageKey: "ogre_mage_idle_atlas",
+                imageSrc: images.ogre_mage_idle_atlas,
+                cacheKey: "Ogre Mage::lab-idle-speed85-orb-rim-20261001-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Unicorn") {
+            config = {
+                meta: animationAtlases["Unicorn Lab"].idle,
+                imageKey: "unicorn_lab_idle_atlas",
+                imageSrc: images.unicorn_lab_idle_atlas,
+                cacheKey: "Unicorn::lab-idle-redrawn-paw-20261002-v2",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Cyclops") {
+            config = {
+                meta: CYCLOPS_LAB_FULL_BODY_IDLE_META,
+                imageKey: "cyclops_lab_idle_fullbody_v4_atlas",
+                imageSrc: images.cyclops_lab_idle_fullbody_v4_atlas,
+                cacheKey: "Cyclops::lab-idle-fullbody-area-locked-20261002-v4",
+                cacheAcrossScenes: true,
+            };
+        }
         if (this.creatureAnimationLabPreviewEnabled && props.name === "Elf") {
             config = {
                 meta: {
                     ...animationAtlases["Elf Lab"].idle,
-                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY,
+                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
                 },
                 imageKey: "elf_lab_idle_atlas",
                 imageSrc: images.elf_lab_idle_atlas,
@@ -5331,17 +6291,60 @@ export class RenderableUnit extends Unit {
                 cacheAcrossScenes: true,
             };
         }
+        if (props.name === "Monk" && animationAtlases["Monk Lab"].idle) {
+            config = {
+                meta: {
+                    ...animationAtlases["Monk Lab"].idle,
+                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+                },
+                imageKey: "monk_lab_idle_atlas",
+                imageSrc: images.monk_lab_idle_atlas,
+                cacheKey: "Monk::lab-idle-orb-20260930-v3",
+                cacheAcrossScenes: true,
+            };
+        }
         if (this.creatureAnimationLabPreviewEnabled && props.name === "Healer") {
             config = {
                 meta: {
                     ...animationAtlases["Healer Lab"].idle,
-                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY,
+                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
                 },
                 imageKey: "healer_lab_idle_atlas",
                 imageSrc: images.healer_lab_idle_atlas,
                 cacheKey: "Healer::lab-idle-book-breath-20260913-v1",
                 cacheAcrossScenes: true,
             };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Abomination" && config) {
+            const pages = abominationIdlePages(config.meta);
+            if (pages) {
+                const neutral = framesForAtlasConfig(
+                    {
+                        ...config,
+                        meta: {
+                            ...config.meta,
+                            frameCount: 1,
+                            atlasWidth: 768,
+                            atlasHeight: 768,
+                            layout: { cols: 1, rows: 1 },
+                        },
+                    },
+                    this.texResolver,
+                )[0];
+                if (!neutral) return;
+                if (!this.abominationIdlePager) {
+                    this.abominationIdlePager = new ArbalesterIdlePager(pages, undefined, true);
+                    this.selectionAnimationStartedAtMs = performance.now();
+                }
+                this.selectionAnimFrames = [neutral];
+                this.selectionAnimTiming = buildAtlasPingPongTiming(config.meta);
+                this.selectionAnimFrameDurationsMs = config.meta.frameDurationsMs;
+                this.selectionAnimFootAnchorY =
+                    config.meta.footAnchorY ?? STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1;
+                this.selectionAnimFrameIndex = -1;
+                this.stepSelectionAnimation();
+                return;
+            }
         }
         if (this.arbalesterLabIdleEnabled && props.name === ARBALESTER_UNIT_NAME) {
             const pages = arbalesterIdlePages(animationAtlases.Arbalester.idle);
@@ -5370,28 +6373,6 @@ export class RenderableUnit extends Unit {
             // An incomplete native manifest falls back to the detailed static figure while the
             // local assets rebuild; never decode the giant authoring sheet or enlarge quarter art.
             config = getStaticBattlefieldIdleConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
-        }
-        if (config && props.name === PEASANT_UNIT_NAME) {
-            config = {
-                ...config,
-                meta: {
-                    frameWidth: 768,
-                    frameHeight: 768,
-                    atlasWidth: 3072,
-                    atlasHeight: 2304,
-                    frameCount: 12,
-                    fps: 6 * 1.15,
-                    frameDurationSec: 1 / (6 * 1.15),
-                    totalDurationSec: 2 / 1.15,
-                    layout: { cols: 4, rows: 3 },
-                    footAnchorY: 0.9505208333333334,
-                    loopDurationMs: 1800,
-                    pauseMs: 700,
-                },
-                imageSrc: images.peasant_idle_red_atlas_quarter,
-                imageKey: "peasant_idle_red_atlas_quarter",
-                cacheKey: "Peasant::idle::shared::joined-fork-v3",
-            };
         }
         if (!config) return;
         const { meta } = config;
@@ -5449,7 +6430,11 @@ export class RenderableUnit extends Unit {
             );
             this.orcActiveBattleCryFrames = battleCryFrames;
         }
-        if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === SCAVENGER_UNIT_NAME) {
+        if (
+            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
+            !this.scavengerLabAnimationsEnabled &&
+            props.name === SCAVENGER_UNIT_NAME
+        ) {
             const bladeTwirlCacheKey = `${SCAVENGER_UNIT_NAME}::idle_blade_twirl`;
             const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
             const bladeTwirlFrames = cachedAtlasFrames(
@@ -5478,10 +6463,32 @@ export class RenderableUnit extends Unit {
     }
     public stepSelectionAnimation(now = performance.now()): void {
         this.syncCreaturePalette(now);
+        // The redrawn cannon loop owns its complete sprite and must not be reset to static idle.
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Tsar Cannon") return;
+        const idleOffsetMs = duplicateIdleOffsetMs(this.duplicateIdleOrdinal);
+        now += idleOffsetMs;
         const hasAuthoredIdle = this.hasAnimationState("idle");
         if (!this.boardSelected && !hasAuthoredIdle) return;
         // A walking or one-shot action owns the sprite until it finishes; idle resumes immediately after.
-        if (this.walkAnim || this.oneShotAnim) return;
+        if (this.walkAnim || this.oneShotAnim) {
+            this.zenaIdleRestStartedAtMs = undefined;
+            return;
+        }
+        if (this.abominationIdlePager && this.creatureAnimationLabPreviewEnabled && this.sprite) {
+            const sprite = this.sprite;
+            sprite.anchor.y = this.selectionAnimFootAnchorY;
+            const shown = this.abominationIdlePager.showFrame(
+                now - this.selectionAnimationStartedAtMs,
+                (texture, frame) => {
+                    sprite.texture = texture;
+                    this.selectionAnimFrameIndex = frame;
+                },
+            );
+            if (!shown && this.selectionAnimFrameIndex < 0 && this.selectionAnimFrames?.[0]) {
+                sprite.texture = this.selectionAnimFrames[0];
+            }
+            return;
+        }
         if (this.arbalesterIdlePager && this.arbalesterLabIdleEnabled && this.sprite) {
             const sprite = this.sprite;
             // While a page decodes, the independently resident neutral pose also permits immediate
@@ -5502,7 +6509,140 @@ export class RenderableUnit extends Unit {
         const timing = this.selectionAnimTiming;
         if (!frames || !timing || !this.sprite) return;
         const unitName = this.getUnitProperties().name;
-        if (unitName === "Medusa" && this.creatureAnimationLabPreviewEnabled) {
+        if (unitName === "Angel" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = authoredIdleFrameForElapsed(
+                now - this.selectionAnimationStartedAtMs,
+                this.selectionAnimFrameDurationsMs ?? [],
+            );
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if ((unitName === "Magic Dragon" || unitName === "Thunderbird") && this.creatureAnimationLabPreviewEnabled) {
+            const frame = authoredIdleFrameForElapsed(
+                (now - this.selectionAnimationStartedAtMs) *
+                    (unitName === "Magic Dragon" ? MAGIC_DRAGON_LAB_IDLE_SPEED : 1),
+                this.selectionAnimFrameDurationsMs ?? [],
+            );
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Black Dragon" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = blackDragonLabIdleFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (
+            unitName === "Hydra" &&
+            this.creatureAnimationLabPreviewEnabled &&
+            frames.length === HYDRA_IDLE_FRAME_COUNT
+        ) {
+            const frame = hydraLabIdleFrame(now - idleOffsetMs - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Abomination" && this.creatureAnimationLabPreviewEnabled) {
+            const durations = this.selectionAnimFrameDurationsMs;
+            const frame = durations
+                ? authoredIdleFrameForElapsed(now - this.selectionAnimationStartedAtMs, durations)
+                : 0;
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Frenzied Boar" && this.creatureAnimationLabPreviewEnabled) {
+            const durations = this.selectionAnimFrameDurationsMs;
+            const frame = durations
+                ? authoredIdleFrameForElapsed(now - this.selectionAnimationStartedAtMs, durations)
+                : 0;
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === GARGANTUAN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled) {
+            const durations = this.selectionAnimFrameDurationsMs;
+            const frame = durations
+                ? authoredIdleFrameForElapsed(now - this.selectionAnimationStartedAtMs, durations)
+                : 0;
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Behemoth" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = behemothIdleFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Griffin" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = griffinLabIdleFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Mantis" && this.creatureAnimationLabPreviewEnabled && this.mantisLabIdleConfig()) {
+            // Play the complete authored claw and wing timeline once per loop.
+            const durations = this.selectionAnimFrameDurationsMs;
+            const frame = durations
+                ? authoredIdleFrameForElapsed(now - this.selectionAnimationStartedAtMs, durations)
+                : 0;
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === EFREET_UNIT_NAME && frames.length === 36) {
+            const frame = efreetLabIdleFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Unicorn" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = unicornIdleFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Cyclops" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = cyclopsIdleFullBodyFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (unitName === "Zena" && this.creatureAnimationLabPreviewEnabled) {
+            // Restore the authored ground anchor immediately when returning from an action.
+            this.sprite.anchor.y = this.selectionAnimFootAnchorY;
+            this.zenaIdleRestStartedAtMs ??= now - duplicateIdleOffsetMs(this.duplicateIdleOrdinal);
+            const frame = zenaLabIdleFrame(now, this.zenaIdleRestStartedAtMs, this.badgeFlagPhase(), FLAG_WAVE_SPEED);
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
+        if (
+            unitName === DRYAD_UNIT_NAME ||
+            unitName === "Monk" ||
+            (unitName === "Medusa" && this.creatureAnimationLabPreviewEnabled)
+        ) {
+            const durations = this.selectionAnimFrameDurationsMs;
+            const frame = durations
+                ? authoredIdleFrameForElapsed(now - this.selectionAnimationStartedAtMs, durations)
+                : 0;
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            if (unitName === "Monk") this.syncCreaturePalette(now - idleOffsetMs);
+            return;
+        }
+        if (unitName === "Ogre Mage" && this.creatureAnimationLabPreviewEnabled) {
             const durations = this.selectionAnimFrameDurationsMs;
             const frame = durations
                 ? authoredIdleFrameForElapsed(now - this.selectionAnimationStartedAtMs, durations)
@@ -5522,7 +6662,7 @@ export class RenderableUnit extends Unit {
                 : 0;
             this.selectionAnimFrameIndex = frame;
             if (frames[frame]) this.sprite.texture = frames[frame];
-            if (unitName === TROLL_UNIT_NAME) this.syncCreaturePalette(now);
+            if (unitName === TROLL_UNIT_NAME) this.syncCreaturePalette(now - idleOffsetMs);
             return;
         }
         if (unitName === "Elf" && this.creatureAnimationLabPreviewEnabled) {
@@ -5557,6 +6697,12 @@ export class RenderableUnit extends Unit {
             if (frames[frame]) this.sprite.texture = frames[frame];
             return;
         }
+        if (unitName === "Champion" && this.creatureAnimationLabPreviewEnabled) {
+            const frame = championIdleFrame(now - this.selectionAnimationStartedAtMs);
+            this.selectionAnimFrameIndex = frame;
+            if (frames[frame]) this.sprite.texture = frames[frame];
+            return;
+        }
         if (unitName === CENTAUR_UNIT_NAME && this.creatureAnimationLabPreviewEnabled) {
             const frame = centaurLabIdleFrame(now - this.selectionAnimationStartedAtMs);
             this.selectionAnimFrameIndex = frame;
@@ -5567,6 +6713,7 @@ export class RenderableUnit extends Unit {
             !this.scavengerLabAnimationsEnabled &&
             !this.arbalesterLabIdleEnabled &&
             this.berserkerLabIdleScale() === 1 &&
+            unitName !== EFREET_UNIT_NAME &&
             !creatureIdleAnimationEnabledForUnit(unitName)
         ) {
             const firstFrame = frames[0];
@@ -5601,8 +6748,8 @@ export class RenderableUnit extends Unit {
         const battleCryFrame =
             this.isActiveTurn && activeBattleCryFrames?.length
                 ? isOrc
-                    ? orcActiveBattleCryFrameForElapsed(now - this.activeTurnAnimationStartedAtMs)
-                    : scavengerActiveBattleCryFrameForElapsed(now - this.activeTurnAnimationStartedAtMs)
+                    ? orcActiveBattleCryFrameForElapsed(now - idleOffsetMs - this.activeTurnAnimationStartedAtMs)
+                    : scavengerActiveBattleCryFrameForElapsed(now - idleOffsetMs - this.activeTurnAnimationStartedAtMs)
                 : undefined;
         const twirlFrame =
             !this.isActiveTurn && idleTwirlFrames?.length
@@ -5613,7 +6760,12 @@ export class RenderableUnit extends Unit {
         const variableIdleDurations = this.selectionAnimFrameDurationsMs;
         const variableIdleCycleMs = variableIdleDurations?.reduce((total, duration) => total + duration, 0) ?? 0;
         const idleElapsedMs =
+            unitName === EFREET_UNIT_NAME ||
+            unitName === "Pegasus" ||
+            unitName === "Harpy" ||
             unitName === "Berserker" ||
+            unitName === "Nomad" ||
+            unitName === "Trent" ||
             unitName === MERMAID_UNIT_NAME ||
             unitName === ORC_UNIT_NAME ||
             unitName === WOLF_UNIT_NAME ||
@@ -5657,9 +6809,8 @@ export class RenderableUnit extends Unit {
                   ? frames[unitName === WOLF_UNIT_NAME ? wolfIdleTextureFrame(frame) : frame]
                   : idleTwirlFrames?.[frame];
         if (tex) this.sprite.texture = tex;
-        if (unitName === WOLF_UNIT_NAME || unitName === "Berserker") this.syncCreaturePalette(now);
+        if (unitName === WOLF_UNIT_NAME || unitName === "Berserker") this.syncCreaturePalette(now - idleOffsetMs);
     }
-    /** Start an authored Heroes-III-style walking loop when the creature provides one. */
     public startBoardWalkAnimation(
         horizontalDirection: number,
         travelDistanceCells?: number,
@@ -5673,6 +6824,14 @@ export class RenderableUnit extends Unit {
         this.movementBadgeOffsetY ??= this.restingBadgeOffsetY;
         this.setBoardFacingFromMovement(horizontalDirection);
         clearScavengerHitRegistration(this.sprite);
+        clearDryadRangedRegistration(this.sprite);
+        // Padded action canvases must release ownership before the walk takes over.
+        // Otherwise layout applies its 4/3 padding correction to the walk until the action ends.
+        if (
+            (props.name === BEHOLDER_UNIT_NAME || props.name === "Nomad" || this.magicDragonLabCanvasScale() !== 1) &&
+            this.oneShotAnim
+        )
+            this.returnToIdleAnimation();
         if (!creatureWalkAnimationEnabledForUnit(props.name, this.creatureAnimationLabPreviewEnabled)) {
             this.restoreScaleAfterSquireWalk();
             this.restoreWidthAfterBoardWalk();
@@ -5681,17 +6840,45 @@ export class RenderableUnit extends Unit {
             return;
         }
         const centaurLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === CENTAUR_UNIT_NAME;
+        const cyclopsLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Cyclops";
+        const wasCyclopsLabWalking = cyclopsLabWalk && !!this.walkAnim;
+        const gargantuanLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === GARGANTUAN_UNIT_NAME;
+        const wasGargantuanLabWalking = gargantuanLabWalk && !!this.walkAnim;
+        const wasBehemothLabWalking =
+            this.creatureAnimationLabPreviewEnabled && props.name === "Behemoth" && !!this.walkAnim;
         if (centaurLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
         const leprechaunLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === LEPRECHAUN_UNIT_NAME;
         const dryadLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === DRYAD_UNIT_NAME;
         const manticoreLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Manticore";
+        const wyvernLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Wyvern";
+        if (wyvernLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
+        const magicDragonLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Magic Dragon";
+        if (magicDragonLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
+        const wasMagicDragonLabWalking = magicDragonLabWalk && !!this.walkAnim;
+        const angelLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Angel";
+        if (angelLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
+        const wasAngelLabWalking = angelLabWalk && !!this.walkAnim;
+        const blackDragonLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Black Dragon";
+        if (blackDragonLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
+        const wasBlackDragonLabWalking = blackDragonLabWalk && !!this.walkAnim;
+        const thunderbirdLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Thunderbird";
+        if (thunderbirdLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
+        const wasThunderbirdLabWalking = thunderbirdLabWalk && !!this.walkAnim;
         const wasManticoreLabWalking = manticoreLabWalk && !!this.walkAnim;
+        const mantisLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Mantis";
+        const wasMantisLabWalking = mantisLabWalk && !!this.walkAnim;
+        const pegasusFlight = props.name === "Pegasus";
+        if (pegasusFlight && this.oneShotAnim) this.returnToIdleAnimation();
+        const wasPegasusFlying = pegasusFlight && !!this.walkAnim;
+        const griffinLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Griffin";
+        const wasGriffinLabWalking = griffinLabWalk && !!this.walkAnim;
         const fairyLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Fairy";
         const valkyrieLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Valkyrie";
         if (valkyrieLabWalk) syncValkyrieLabWalk(this.sprite, -1);
         const wasValkyrieLabWalking = valkyrieLabWalk && !!this.walkAnim;
         const medusaLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Medusa";
         const trollLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === TROLL_UNIT_NAME;
+        const wasTrollLabWalking = trollLabWalk && !!this.walkAnim;
         const battleMageLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Battle Mage";
         if (battleMageLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
         const wasBattleMageLabWalking = battleMageLabWalk && !!this.walkAnim;
@@ -5729,6 +6916,126 @@ export class RenderableUnit extends Unit {
                         cacheAcrossScenes: true,
                     }
                   : getAnimationStateConfig(props.name, "walk", this.getFootprintWidth(), this.getFootprintHeight());
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Arachna Spider") {
+            config = {
+                meta: {
+                    ...animationAtlases["Arachna Spider Lab"].walk,
+                    footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+                },
+                imageKey: "arachna_spider_lab_walk_atlas",
+                imageSrc: images.arachna_spider_lab_walk_atlas,
+                cacheKey: "Arachna Spider::lab-walk-articulated-20261009-v2",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === ARACHNA_QUEEN_UNIT_NAME) {
+            config = {
+                meta: animationAtlases["Arachna Queen Lab"].walk,
+                imageKey: "arachna_queen_lab_walk_atlas",
+                imageSrc: images.arachna_queen_lab_walk_atlas,
+                cacheKey: "Arachna Queen::lab-walk-source-exact-20261003-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Champion") {
+            config = {
+                meta: animationAtlases["Champion Lab"].walk,
+                imageKey: "champion_lab_walk_atlas",
+                imageSrc: images.champion_lab_walk_atlas,
+                cacheKey: "Champion::lab-walk-rooted-plume-20261006-v5",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Tsar Cannon") {
+            config = {
+                meta: { ...animationAtlases["Tsar Cannon Lab"].walk, footAnchorY: this.selectionAnimFootAnchorY },
+                imageKey: "tsar_cannon_lab_walk_atlas",
+                imageSrc: images.tsar_cannon_lab_walk_atlas,
+                cacheKey: "Tsar Cannon::lab-walk-source-exact-20261007-v1",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Hydra") {
+            config = {
+                meta: { ...animationAtlases["Hydra Lab"].walk, footAnchorY: HYDRA_LAB_WALK_FOOT_ANCHOR_Y },
+                imageKey: "hydra_lab_walk_atlas",
+                imageSrc: images.hydra_lab_walk_atlas,
+                cacheKey: "Hydra::lab-walk-reference-palette-20261014-v1",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Cyclops") {
+            config = {
+                meta: animationAtlases["Cyclops Lab"].walk,
+                imageKey: "cyclops_lab_walk_atlas",
+                imageSrc: images.cyclops_lab_walk_atlas,
+                cacheKey: "Cyclops::lab-walk-head-scale-20261001-v4",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Frenzied Boar") {
+            config = {
+                meta: animationAtlases["Frenzied Boar Lab"].walk,
+                imageKey: "frenzied_boar_lab_walk_atlas",
+                imageSrc: images.frenzied_boar_lab_walk_atlas,
+                cacheKey: "Frenzied Boar::lab-walk-face-fixed-20261003-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Behemoth") {
+            config = {
+                meta: animationAtlases["Behemoth Lab"].walk,
+                imageKey: "behemoth_lab_walk_atlas",
+                imageSrc: images.behemoth_lab_walk_atlas,
+                cacheKey: "Behemoth::lab-walk-idle-body-size-20261007-v19",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === GARGANTUAN_UNIT_NAME) {
+            config = {
+                meta: animationAtlases["Gargantuan Lab"].walk,
+                imageKey: "gargantuan_lab_walk_atlas",
+                imageSrc: images.gargantuan_lab_walk_atlas,
+                cacheKey: "Gargantuan::lab-walk-source-locked-20261003-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Abomination") {
+            config = {
+                meta: animationAtlases["Abomination Lab"].walk,
+                imageKey: "abomination_lab_walk_atlas",
+                imageSrc: images.abomination_lab_walk_atlas,
+                cacheKey: "Abomination::lab-walk-screenshot-palette-20261010-v6",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Ogre Mage") {
+            config = {
+                meta: animationAtlases["Ogre Mage"].walk,
+                imageKey: "ogre_mage_walk_atlas",
+                imageSrc: images.ogre_mage_walk_atlas,
+                cacheKey: "Ogre Mage::lab-walk-source-exact-20260929-v1",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Zena") {
+            config = {
+                meta: animationAtlases["Zena Lab"].walk,
+                imageKey: "zena_lab_walk_atlas",
+                imageSrc: images.zena_lab_walk_atlas,
+                cacheKey: "Zena::lab-walk-idle-match-20261002-v7",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Unicorn") {
+            config = {
+                meta: animationAtlases["Unicorn Lab"].walk,
+                imageKey: "unicorn_lab_walk_atlas",
+                imageSrc: images.unicorn_lab_walk_atlas,
+                cacheKey: "Unicorn::lab-walk-source-exact-20261001-v1",
+                cacheAcrossScenes: true,
+            };
+        }
         if (valkyrieLabWalk) {
             config = {
                 meta: animationAtlases["Valkyrie Lab Current"].walk,
@@ -5747,6 +7054,51 @@ export class RenderableUnit extends Unit {
                 cacheAcrossScenes: true,
             };
         }
+        if (wyvernLabWalk) {
+            config = {
+                meta: animationAtlases["Wyvern Lab"].walk,
+                imageKey: "wyvern_lab_walk_atlas",
+                imageSrc: images.wyvern_lab_walk_atlas,
+                cacheKey: "Wyvern::lab-flight-20260926-v2",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (thunderbirdLabWalk) {
+            config = {
+                meta: animationAtlases["Thunderbird Flight"].walk,
+                imageKey: "thunderbird_flight_walk_atlas",
+                imageSrc: images.thunderbird_flight_walk_atlas,
+                cacheKey: "Thunderbird::lab-flight-registered-20261012-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (magicDragonLabWalk) {
+            config = {
+                meta: animationAtlases["Magic Dragon Lab"].walk,
+                imageKey: "magic_dragon_lab_walk_atlas",
+                imageSrc: images.magic_dragon_lab_walk_atlas,
+                cacheKey: "Magic Dragon::lab-landing-anatomy-20261014-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (angelLabWalk) {
+            config = {
+                meta: animationAtlases["Angel Lab"].walk,
+                imageKey: "angel_lab_walk_atlas",
+                imageSrc: images.angel_lab_walk_atlas,
+                cacheKey: "Angel::lab-flight-20261010-v2",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (blackDragonLabWalk) {
+            config = {
+                meta: animationAtlases["Black Dragon Lab"].walk,
+                imageKey: "black_dragon_lab_walk_atlas",
+                imageSrc: images.black_dragon_lab_walk_atlas,
+                cacheKey: "Black Dragon::lab-flight-size-matched-20261007-v2",
+                cacheAcrossScenes: true,
+            };
+        }
         if (battleMageLabWalk) {
             config = {
                 meta: animationAtlases["Battle Mage Lab"].walk,
@@ -5756,12 +7108,30 @@ export class RenderableUnit extends Unit {
                 cacheAcrossScenes: true,
             };
         }
+        if (props.name === "Monk") {
+            config = {
+                meta: animationAtlases["Monk Lab"].walk,
+                imageKey: "monk_lab_walk_atlas",
+                imageSrc: images.monk_lab_walk_atlas,
+                cacheKey: "Monk::lab-walk-canonical-palette-20260930-v3",
+                cacheAcrossScenes: true,
+            };
+        }
         if (this.creatureAnimationLabPreviewEnabled && props.name === "White Tiger") {
             config = {
                 meta: animationAtlases["White Tiger Lab"].walk,
                 imageKey: "white_tiger_lab_walk_atlas",
                 imageSrc: images.white_tiger_lab_walk_atlas,
                 cacheKey: "White Tiger::lab-walk-source-exact-20260913-v1",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Goblin Knight") {
+            config = {
+                meta: animationAtlases["Goblin Knight"].walk,
+                imageKey: "goblin_knight_walk_atlas",
+                imageSrc: images.goblin_knight_walk_atlas,
+                cacheKey: "Goblin Knight::lab-walk-source-geometry-v2",
                 cacheAcrossScenes: true,
             };
         }
@@ -5798,6 +7168,70 @@ export class RenderableUnit extends Unit {
                 imageKey: "troll_lab_walk_atlas",
                 imageSrc: images.troll_lab_walk_atlas,
                 cacheKey: "Troll::lab-walk-source-exact-20260913-v1",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (props.name === EFREET_UNIT_NAME) {
+            // Reuse the registered, constant-width idle cels. Only their first twelve
+            // frames belong to flight; the hand clap remains an idle flourish.
+            config = {
+                meta: {
+                    ...animationAtlases["Efreet Lab"].idle,
+                    frameCount: 12,
+                    fps: 12.5,
+                    frameDurationSec: 0.08,
+                    totalDurationSec: 0.96,
+                    frameDurationsMs: undefined,
+                    loopDurationMs: 960,
+                },
+                imageKey: "efreet_lab_idle_atlas",
+                imageSrc: images.efreet_lab_idle_atlas,
+                cacheKey: "Efreet::lab-wind-flight-20261002-v1",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (props.name === BEHOLDER_UNIT_NAME) {
+            config = {
+                meta: animationAtlases["Beholder Flight"].walk,
+                imageKey: "beholder_flight_walk_atlas",
+                imageSrc: images.beholder_flight_walk_atlas,
+                cacheKey: "Beholder::imagegen-flight-palette-20260926-v3",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (props.name === "Harpy") {
+            config = {
+                meta: animationAtlases["Harpy Flight"].walk,
+                imageKey: "harpy_flight_walk_atlas",
+                imageSrc: images.harpy_flight_walk_atlas,
+                cacheKey: "Harpy::flight-20260927-v6-proportions",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (mantisLabWalk) {
+            config = {
+                meta: animationAtlases["Mantis Lab"].walk,
+                imageKey: "mantis_lab_walk_atlas",
+                imageSrc: images.mantis_lab_walk_atlas,
+                cacheKey: "Mantis::lab-flight-idle-consistency-20261003-v4",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (pegasusFlight) {
+            config = {
+                meta: animationAtlases["Pegasus Flight"].walk,
+                imageKey: "pegasus_flight_walk_atlas",
+                imageSrc: images.pegasus_flight_walk_atlas,
+                cacheKey: "Pegasus::flight-20261017-v2",
+                cacheAcrossScenes: true,
+            };
+        }
+        if (griffinLabWalk) {
+            config = {
+                meta: animationAtlases["Griffin Flight"].walk,
+                imageKey: "griffin_flight_walk_atlas",
+                imageSrc: images.griffin_flight_walk_atlas,
+                cacheKey: "Griffin::lab-flight-20261003-v4-palette-tail",
                 cacheAcrossScenes: true,
             };
         }
@@ -5847,12 +7281,28 @@ export class RenderableUnit extends Unit {
         const landingSpeedMultiplier = hasAuthoredFlightPhases
             ? Math.max(0.001, flightPhases.landing.speedMultiplier ?? 1)
             : 1;
+        const wasBoarLabWalking =
+            props.name === "Frenzied Boar" && this.creatureAnimationLabPreviewEnabled && !!this.walkAnim;
         const wasSquireWalking = props.name === SQUIRE_UNIT_NAME && !!this.walkAnim;
+        const wasHyenaWalking = props.name === "Hyena" && !!this.walkAnim;
         const wasArbalesterWalking = props.name === ARBALESTER_UNIT_NAME && !!this.walkAnim;
         const wasPikemanWalking = props.name === "Pikeman" && !!this.walkAnim;
         const wasBerserkerWalking = props.name === "Berserker" && !!this.walkAnim;
+        const wasHydraLabWalking = props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled && !!this.walkAnim;
         const previousCentaurLabScale =
             centaurLabWalk && this.walkAnim ? centaurLabWalkScale(this.walkAnim.frameIndex) : 1;
+        const queenLabWalk = props.name === ARACHNA_QUEEN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled;
+        const previousQueenLabScale =
+            queenLabWalk && this.walkAnim ? arachnaQueenLabWalkScale(this.walkAnim.frameIndex) : 1;
+        const championLabWalk = props.name === "Champion" && this.creatureAnimationLabPreviewEnabled;
+        const previousChampionLabHeightScale =
+            championLabWalk && this.walkAnim ? championLabWalkHeightScale(this.walkAnim.frameIndex) : 1;
+        const previousChampionLabWidthScale =
+            championLabWalk && this.walkAnim ? championLabWalkWidthScale(this.walkAnim.frameIndex) : 1;
+        const previousChampionIdleCanvasScale = championLabWalk && !this.walkAnim && !this.oneShotAnim ? 1024 / 768 : 1;
+        const abominationLabWalk = props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled;
+        const previousAbominationLabScale =
+            abominationLabWalk && this.walkAnim ? abominationLabWalkScale(this.walkAnim.frameIndex) : 1;
         const scavengerPreviousVisibleHeight =
             props.name === SCAVENGER_UNIT_NAME
                 ? this.sprite.texture.height *
@@ -5868,13 +7318,27 @@ export class RenderableUnit extends Unit {
                 : this.arbalesterLabScaleMultiplier(this.oneShotAnim?.stateName);
         this.walkAnim = {
             frames,
-            footAnchorY: valkyrieLabWalk
-                ? valkyrieLabWalkAnchorY(this.selectionAnimFootAnchorY)
-                : props.name === "Berserker"
-                  ? BERSERKER_WALK_SOLE_Y - 38 / 768 / BERSERKER_WALK_VISIBLE_SCALE_MULTIPLIER
-                  : props.name === ARBALESTER_UNIT_NAME
-                    ? arbalesterWalkFootAnchorY(0)
-                    : tallBoardModelFootAnchorY(props.name, "walk", config.meta),
+            footAnchorY: pegasusFlight
+                ? pegasusFlightAnchorY(this.selectionAnimFootAnchorY)
+                : angelLabWalk
+                  ? angelLabFlightAnchorY(this.selectionAnimFootAnchorY)
+                  : magicDragonLabWalk
+                    ? magicDragonLabFlightAnchorY(this.selectionAnimFootAnchorY)
+                    : thunderbirdLabWalk
+                      ? thunderbirdLabFlightAnchorY(this.selectionAnimFootAnchorY)
+                      : blackDragonLabWalk
+                        ? blackDragonLabFlightAnchorY((STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1)!)
+                        : mantisLabWalk
+                          ? mantisLabWalkAnchorY(this.selectionAnimFootAnchorY)
+                          : griffinLabWalk
+                            ? griffinLabWalkAnchorY(this.selectionAnimFootAnchorY)
+                            : valkyrieLabWalk
+                              ? valkyrieLabWalkAnchorY(this.selectionAnimFootAnchorY)
+                              : props.name === "Berserker"
+                                ? BERSERKER_WALK_SOLE_Y - 38 / 768 / BERSERKER_WALK_VISIBLE_SCALE_MULTIPLIER
+                                : props.name === ARBALESTER_UNIT_NAME
+                                  ? arbalesterWalkFootAnchorY(0)
+                                  : tallBoardModelFootAnchorY(props.name, "walk", config.meta),
             frameIndex: 0,
             // Thief frame 0 turns into movement, frames 1..6 are the complete two-leg gait,
             // and frame 7 turns back to the battlefield stance. Neither transition belongs in the loop.
@@ -5927,12 +7391,16 @@ export class RenderableUnit extends Unit {
         if (
             props.name === ORC_UNIT_NAME ||
             props.name === MERMAID_UNIT_NAME ||
+            props.name === BEHOLDER_UNIT_NAME ||
             centaurLabWalk ||
             leprechaunLabWalk ||
             dryadLabWalk ||
             medusaLabWalk ||
             (props.name === "Elf" && this.creatureAnimationLabPreviewEnabled) ||
-            battleMageLabWalk
+            battleMageLabWalk ||
+            (props.name === "Tsar Cannon" && this.creatureAnimationLabPreviewEnabled) ||
+            (props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled) ||
+            (props.name === ARACHNA_QUEEN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled)
         ) {
             const transitionScale =
                 (this.sprite.texture.height / frames[0].height) *
@@ -5942,6 +7410,31 @@ export class RenderableUnit extends Unit {
         }
         // Match the smaller walk silhouette to idle immediately, before the next ensureVisual pass. This
         // closes the one-render-tick transition gap that can otherwise expose the raw atlas envelope.
+        if (abominationLabWalk) {
+            const frameScale =
+                ((this.sprite.texture.height / frames[0].height) * abominationLabWalkScale(0)) /
+                previousAbominationLabScale;
+            this.sprite.scale.set(this.sprite.scale.x * frameScale, this.sprite.scale.y * frameScale);
+            this.walkAnim.footAnchorY = abominationLabWalkAnchorY(0, this.selectionAnimFootAnchorY);
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
+        if (queenLabWalk) {
+            const frameScale = arachnaQueenLabWalkScale(0) / previousQueenLabScale;
+            this.sprite.scale.set(this.sprite.scale.x * frameScale, this.sprite.scale.y * frameScale);
+            this.walkAnim.footAnchorY = arachnaQueenLabWalkAnchorY(0, this.selectionAnimFootAnchorY);
+            this.sprite.anchor.y = this.walkAnim.footAnchorY;
+        }
+        if (championLabWalk) {
+            const resolutionScale = this.sprite.texture.height / frames[0].height / previousChampionIdleCanvasScale;
+            this.sprite.scale.set(
+                this.sprite.scale.x * resolutionScale * (championLabWalkWidthScale(0) / previousChampionLabWidthScale),
+                this.sprite.scale.y *
+                    resolutionScale *
+                    (championLabWalkHeightScale(0) / previousChampionLabHeightScale),
+            );
+            this.walkAnim.footAnchorY = championLabWalkAnchorY(0, 730 / 768);
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
         if (props.name === "Berserker") {
             const transitionScale =
                 (this.sprite.texture.height / frames[0].height) *
@@ -5954,6 +7447,18 @@ export class RenderableUnit extends Unit {
                 this.sprite.scale.x * SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
                 this.sprite.scale.y * SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
             );
+        }
+        if (cyclopsLabWalk) {
+            const resolutionScale = this.sprite.texture.height / frames[0].height;
+            this.sprite.scale.set(
+                this.sprite.scale.x * resolutionScale * (wasCyclopsLabWalking ? 1 : CYCLOPS_LAB_WALK_SCALE_X),
+                this.sprite.scale.y * resolutionScale * (wasCyclopsLabWalking ? 1 : CYCLOPS_LAB_WALK_SCALE_Y),
+            );
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
+        if (props.name === "Hyena" && !wasHyenaWalking) {
+            this.sprite.scale.y *= HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER;
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
         }
         // The original walk uses 192px runtime cells and static idle uses 768px. Apply their size and
         // anchor conversion with the texture swap so no render can expose a quarter-size entry frame.
@@ -5987,6 +7492,54 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
             this.sprite.anchor.set(MANTICORE_LAB_WALK_ANCHOR_X, this.walkAnim.footAnchorY);
         }
+        if (magicDragonLabWalk) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) *
+                (wasMagicDragonLabWalking ? 1 : MAGIC_DRAGON_LAB_FLIGHT_CANVAS_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(MAGIC_DRAGON_LAB_FLIGHT_ANCHOR_X, this.walkAnim.footAnchorY);
+        }
+        if (angelLabWalk) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) *
+                (wasAngelLabWalking ? 1 : ANGEL_LAB_FLIGHT_CANVAS_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(ANGEL_LAB_FLIGHT_ANCHOR_X, this.walkAnim.footAnchorY);
+        }
+        if (blackDragonLabWalk) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) *
+                (wasBlackDragonLabWalking
+                    ? 1
+                    : BLACK_DRAGON_LAB_FLIGHT_CANVAS_SCALE / BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(BLACK_DRAGON_LAB_FLIGHT_ANCHOR_X, this.walkAnim.footAnchorY);
+        }
+        if (thunderbirdLabWalk) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) *
+                (wasThunderbirdLabWalking ? 1 : THUNDERBIRD_LAB_FLIGHT_CANVAS_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(THUNDERBIRD_LAB_FLIGHT_ANCHOR_X, this.walkAnim.footAnchorY);
+        }
+        if (mantisLabWalk) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) * (wasMantisLabWalking ? 1 : MANTIS_LAB_WALK_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
+        if (pegasusFlight) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) * (wasPegasusFlying ? 1 : PEGASUS_FLIGHT_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(PEGASUS_FLIGHT_ANCHOR_X, this.walkAnim.footAnchorY);
+        }
+        if (griffinLabWalk) {
+            const scale =
+                (this.sprite.texture.height / frames[0].height) * (wasGriffinLabWalking ? 1 : GRIFFIN_LAB_WALK_SCALE);
+            this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+            this.sprite.anchor.set(GRIFFIN_LAB_WALK_ANCHOR_X, this.walkAnim.footAnchorY);
+        }
         if (fairyLabWalk) {
             const scale =
                 (this.sprite.texture.height / frames[0].height) * (wasFairyLabWalking ? 1 : FAIRY_LAB_WALK_SCALE);
@@ -6000,15 +7553,47 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.x *= PIKEMAN_WALK_HORIZONTAL_SCALE;
         }
         if (trollLabWalk) {
-            // The lab walk shares the idle 768px cell. Keep that cell at one by one-and-a-half;
-            // a per-pose opaque-bounds correction would change the authored framing ratio.
             const resolutionScale = this.sprite.texture.height / frames[0].height;
-            this.sprite.scale.set(this.sprite.scale.x * resolutionScale, this.sprite.scale.y * resolutionScale);
+            this.sprite.scale.set(
+                this.sprite.scale.x * resolutionScale * (wasTrollLabWalking ? 1 : TROLL_LAB_WALK_SCALE_X),
+                this.sprite.scale.y * resolutionScale * (wasTrollLabWalking ? 1 : TROLL_LAB_WALK_SCALE_Y),
+            );
             this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
         }
         if (battleMageLabWalk && !wasBattleMageLabWalking) {
             this.sprite.scale.x *= BATTLE_MAGE_LAB_WALK_WIDTH_SCALE;
         }
+        if (props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled && !wasHydraLabWalking) {
+            this.sprite.scale.x *= HYDRA_LAB_WALK_WIDTH_SCALE;
+            this.sprite.scale.y *= HYDRA_LAB_WALK_HEIGHT_SCALE;
+        }
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Frenzied Boar") {
+            this.sprite.scale.set(
+                this.sprite.scale.x * (wasBoarLabWalking ? 1 : BOAR_LAB_WALK_SCALE_X),
+                this.sprite.scale.y * (wasBoarLabWalking ? 1 : BOAR_LAB_WALK_SCALE_Y),
+            );
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
+        if (gargantuanLabWalk) {
+            const resolutionScale = this.sprite.texture.height / frames[0].height;
+            this.sprite.scale.set(
+                this.sprite.scale.x * resolutionScale * (wasGargantuanLabWalking ? 1 : GARGANTUAN_LAB_WALK_SCALE_X),
+                this.sprite.scale.y * resolutionScale * (wasGargantuanLabWalking ? 1 : GARGANTUAN_LAB_WALK_SCALE_Y),
+            );
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
+        // Flight cels have transparent wing clearance around a 1:1 combat figure.
+        if (props.name === "Behemoth" && this.creatureAnimationLabPreviewEnabled) {
+            const resolutionScale = this.sprite.texture.height / frames[0].height;
+            this.sprite.scale.set(
+                this.sprite.scale.x * resolutionScale * (wasBehemothLabWalking ? 1 : BEHEMOTH_LAB_WALK_SCALE_X),
+                this.sprite.scale.y * resolutionScale * (wasBehemothLabWalking ? 1 : BEHEMOTH_LAB_WALK_SCALE_Y),
+            );
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
+        }
+        // Change the anchor with the texture while keeping the figure's pixel scale.
+        if (props.name === "Harpy" || props.name === EFREET_UNIT_NAME)
+            this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
         this.sprite.texture = frames[0];
         this.syncCreaturePalette();
         if (props.name === PEASANT_UNIT_NAME && this.battlefieldAlphaHoleFillFilter) {
@@ -6017,11 +7602,6 @@ export class RenderableUnit extends Unit {
             this.battlefieldAlphaHoleFillFilter = undefined;
         }
     }
-    /**
-     * Repeating locomotion defaults to one cycle per 1.3 travelled cells; the lab Fairy
-     * and Valkyrie have their explicitly requested faster cadences.
-     * Non-looping turn-in, take-off and landing poses retain their separate timing.
-     */
     public setBoardWalkDistanceCells(distanceCells: number): void {
         const anim = this.walkAnim;
         if (!anim || !this.sprite || this.oneShotAnim) return;
@@ -6050,16 +7630,26 @@ export class RenderableUnit extends Unit {
         const unitName = this.getUnitProperties().name;
         // Medusa's 0.9 multiplier is the user's explicit 10% cadence reduction;
         // board travel speed and the shared cadence for other creatures stay unchanged.
-        const cadenceSpeed = this.creatureAnimationLabPreviewEnabled
-            ? unitName === "Fairy"
-                ? FAIRY_LAB_WALK_SPEED
-                : unitName === "Valkyrie"
-                  ? VALKYRIE_LAB_FLIGHT_SPEED
-                  : unitName === "Medusa"
-                    ? 0.9
-                    : 1
-            : 1;
-        const frameDistance = CREATURE_WALK_CYCLE_DISTANCE_CELLS / cadenceSpeed / gaitFrameCount;
+        const cadenceSpeed =
+            unitName === "Harpy"
+                ? HARPY_FLIGHT_CADENCE_SPEED
+                : this.creatureAnimationLabPreviewEnabled
+                  ? unitName === "Fairy" || unitName === "Angel"
+                      ? FAIRY_LAB_WALK_SPEED
+                      : unitName === "Valkyrie"
+                        ? VALKYRIE_LAB_FLIGHT_SPEED
+                        : unitName === "Medusa"
+                          ? 0.9
+                          : unitName === "Frenzied Boar"
+                            ? 1.15
+                            : 1
+                  : 1;
+        // Behemoth's original 40 cels combine five gaits with three mouth cycles.
+        const cadenceFrameCount =
+            unitName === "Behemoth" && this.creatureAnimationLabPreviewEnabled
+                ? BEHEMOTH_LAB_WALK_BODY_FRAME_COUNT
+                : gaitFrameCount;
+        const frameDistance = CREATURE_WALK_CYCLE_DISTANCE_CELLS / cadenceSpeed / cadenceFrameCount;
         const gaitDistance = Math.max(0, safeDistance - anim.gaitStartDistanceCells);
         anim.gaitDistanceCells = gaitDistance;
         const absoluteGaitFrame = Math.floor(gaitDistance / frameDistance + 1e-9);
@@ -6067,9 +7657,34 @@ export class RenderableUnit extends Unit {
             unitName === ARBALESTER_UNIT_NAME ? arbalesterWalkScaleMultiplier(anim.frameIndex) : 1;
         const centaurLabWalk = unitName === CENTAUR_UNIT_NAME && this.creatureAnimationLabPreviewEnabled;
         const previousCentaurLabScale = centaurLabWalk ? centaurLabWalkScale(anim.frameIndex) : 1;
-        anim.completedCycles = Math.floor(absoluteGaitFrame / gaitFrameCount);
+        const queenLabWalk = unitName === ARACHNA_QUEEN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled;
+        const previousQueenLabScale = queenLabWalk ? arachnaQueenLabWalkScale(anim.frameIndex) : 1;
+        const championLabWalk = unitName === "Champion" && this.creatureAnimationLabPreviewEnabled;
+        const previousChampionLabHeightScale = championLabWalk ? championLabWalkHeightScale(anim.frameIndex) : 1;
+        const previousChampionLabWidthScale = championLabWalk ? championLabWalkWidthScale(anim.frameIndex) : 1;
+        const abominationLabWalk = unitName === "Abomination" && this.creatureAnimationLabPreviewEnabled;
+        const previousAbominationLabScale = abominationLabWalk ? abominationLabWalkScale(anim.frameIndex) : 1;
+        anim.completedCycles = Math.floor(absoluteGaitFrame / cadenceFrameCount);
         anim.frameIndex = anim.loopStartFrame + (absoluteGaitFrame % gaitFrameCount);
         anim.elapsedMs = 0;
+        if (abominationLabWalk) {
+            const frameScale = abominationLabWalkScale(anim.frameIndex) / previousAbominationLabScale;
+            this.sprite.scale.set(this.sprite.scale.x * frameScale, this.sprite.scale.y * frameScale);
+            anim.footAnchorY = abominationLabWalkAnchorY(anim.frameIndex, this.selectionAnimFootAnchorY);
+            this.sprite.anchor.y = anim.footAnchorY;
+        }
+        if (queenLabWalk) {
+            const frameScale = arachnaQueenLabWalkScale(anim.frameIndex) / previousQueenLabScale;
+            this.sprite.scale.set(this.sprite.scale.x * frameScale, this.sprite.scale.y * frameScale);
+            anim.footAnchorY = arachnaQueenLabWalkAnchorY(anim.frameIndex, this.selectionAnimFootAnchorY);
+            this.sprite.anchor.y = anim.footAnchorY;
+        }
+        if (championLabWalk) {
+            this.sprite.scale.y *= championLabWalkHeightScale(anim.frameIndex) / previousChampionLabHeightScale;
+            this.sprite.scale.x *= championLabWalkWidthScale(anim.frameIndex) / previousChampionLabWidthScale;
+            anim.footAnchorY = championLabWalkAnchorY(anim.frameIndex, 730 / 768);
+            this.sprite.anchor.y = anim.footAnchorY;
+        }
         if (centaurLabWalk) {
             const frameScale = centaurLabWalkScale(anim.frameIndex) / previousCentaurLabScale;
             this.sprite.scale.set(this.sprite.scale.x * frameScale, this.sprite.scale.y * frameScale);
@@ -6082,9 +7697,10 @@ export class RenderableUnit extends Unit {
         }
         const texture = anim.frames[anim.frameIndex];
         if (texture) this.sprite.texture = texture;
+        if (unitName === "Crusader" && this.creatureAnimationLabPreviewEnabled)
+            syncCrusaderLabIdle(this.sprite, true, performance.now(), anim.frameIndex);
         this.syncCreaturePalette();
     }
-    /** Keep an authored Wolf action, its ground registration and silhouette in the same render tick. */
     private syncWolfActionRegistration(state: string | undefined, frameIndex: number): void {
         if (!this.sprite) return;
         const factor = wolfReactionFrameScale(state, frameIndex);
@@ -6133,7 +7749,6 @@ export class RenderableUnit extends Unit {
         this.wolfShadowReactionScale = factor;
         this.wolfReactionRegistrationActive = !!state;
     }
-    /** Extend the authored bite through the whole body while keeping all paw contacts fixed. */
     private syncWolfAttackReach(): void {
         if (!this.sprite || this.getName() !== WOLF_UNIT_NAME) return;
         const anim = !this.walkAnim ? this.oneShotAnim : undefined;
@@ -6153,7 +7768,329 @@ export class RenderableUnit extends Unit {
             syncWolfAttackReachVisuals(segment, state, elapsedMs, texture, index, BATTLEFIELD_SHADOW_SEGMENT_COUNT);
         });
     }
+    private syncDryadRangedRegistration(): void {
+        if (!this.sprite || this.getName() !== DRYAD_UNIT_NAME) return;
+        const action = !this.walkAnim && this.creatureAnimationLabPreviewEnabled ? this.oneShotAnim : undefined;
+        if (action && (isDryadRangedState(action.stateName) || action.stateName === "hit")) {
+            applyDryadRangedRegistration(
+                this.sprite,
+                action.stateName,
+                action.frameIndex,
+                this.selectionAnimFrames?.[0],
+                action.elapsed,
+                action.frameDurationsMs,
+            );
+        } else {
+            clearDryadRangedRegistration(this.sprite);
+        }
+    }
     private syncCreaturePalette(now = performance.now(), valkyrieScaleWasReset = false): void {
+        if (this.sprite && this.getName() === "Angel") {
+            const action = this.oneShotAnim;
+            const frames = action?.frames ?? this.walkAnim?.frames ?? this.selectionAnimFrames;
+            const frame = frames?.indexOf(this.sprite.texture) ?? -1;
+            const state =
+                this.spawnAnim || this.visualMode === "revealed" || (this.isDead() && !action)
+                    ? "hidden"
+                    : (action?.stateName ?? (this.walkAnim ? "walk" : frame >= 0 ? "idle" : "base"));
+            syncAngelActionPalette(this.sprite, state, frame, this.creatureAnimationLabPreviewEnabled, frames);
+            syncAngelSwordGlow(
+                this.sprite,
+                state,
+                state === "base" ? 0 : frame,
+                this.creatureAnimationLabPreviewEnabled,
+                frames,
+                action?.stateName === "cast"
+                    ? (action.frameDurationsMs
+                          ?.slice(0, action.frameIndex)
+                          .reduce((sum, duration) => sum + duration, 0) ??
+                          action.frameIndex * action.durationPerFrame) + action.elapsed
+                    : 0,
+            );
+        }
+        if (this.sprite && this.getName() === "Tsar Cannon") {
+            const enabled =
+                this.creatureAnimationLabPreviewEnabled && (!this.isDead() || this.oneShotAnim?.stateName === "death");
+            if (enabled && this.oneShotAnim)
+                this.sprite.anchor.y = isCannonAuthoredAction(this.oneShotAnim.stateName)
+                    ? cannonReactionAnchorY(this.selectionAnimFootAnchorY)
+                    : this.selectionAnimFootAnchorY;
+            syncCannonWalkPalette(this.sprite, false);
+            syncCannonLabIdle(
+                this.sprite,
+                enabled &&
+                    !this.spawnAnim &&
+                    this.visualMode !== "revealed" &&
+                    !isCannonAuthoredAction(this.oneShotAnim?.stateName),
+                now,
+                enabled ? this.texResolver("tsar_cannon_lab_bronze_base_v14") : undefined,
+                enabled ? this.texResolver("tsar_cannon_lab_barrel_relief_v5") : undefined,
+                this.walkAnim
+                    ? ((this.walkAnim.gaitDistanceCells ?? 0) / CREATURE_WALK_CYCLE_DISTANCE_CELLS) * Math.PI * 2
+                    : undefined,
+                enabled ? this.texResolver("tsar_cannon_bronze_v14_walk_atlas") : undefined,
+                this.oneShotAnim
+                    ? {
+                          stateName: this.oneShotAnim.stateName,
+                          frameIndex: this.oneShotAnim.frameIndex,
+                          instance: this.oneShotAnim,
+                          progress: Math.min(
+                              1,
+                              (this.oneShotAnim.frameIndex +
+                                  this.oneShotAnim.elapsed / this.oneShotAnim.durationPerFrame) /
+                                  Math.max(1, this.oneShotAnim.frames.length - 1),
+                          ),
+                      }
+                    : undefined,
+            );
+            syncCannonMaterial(
+                this.sprite,
+                this.oneShotAnim?.stateName === "death"
+                    ? this.oneShotAnim.frameIndex / Math.max(1, this.oneShotAnim.frames.length - 1)
+                    : undefined,
+            );
+            syncCannonWheelDust(
+                this.sprite,
+                this.walkAnim,
+                enabled,
+                now,
+                enabled ? this.texResolver("unicorn_lab_dust_atlas") : undefined,
+                valkyrieScaleWasReset,
+            );
+        }
+
+        if (this.sprite && this.getName() === "Champion") {
+            syncChampionPlume(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled && !this.oneShotAnim && !this.spawnAnim && !this.isDead(),
+                this.creatureAnimationLabPreviewEnabled ? this.texResolver("champion_lab_plume") : undefined,
+                now,
+                this.walkAnim?.frameIndex ?? -1,
+            );
+        }
+        if (this.sprite && this.getName() === DRYAD_UNIT_NAME) {
+            this.syncDryadRangedRegistration();
+            syncDryadIdlePalette(
+                this.sprite,
+                (this.selectionAnimFrames?.length ?? 0) > 1 &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    !this.isDead(),
+            );
+        }
+        if (this.sprite && this.getName() === "Abomination") {
+            const paintedIdle =
+                this.creatureAnimationLabPreviewEnabled &&
+                (!!this.abominationIdlePager || (this.selectionAnimFrames?.length ?? 0) > 1);
+            syncAbominationBasePalette(
+                this.sprite,
+                !this.walkAnim && !this.oneShotAnim && !this.spawnAnim && !paintedIdle,
+            );
+        }
+        if (!this.walkAnim && !this.oneShotAnim && !this.spawnAnim) {
+            now += duplicateIdleOffsetMs(this.duplicateIdleOrdinal);
+        }
+        if (this.sprite && [ARACHNA_QUEEN_UNIT_NAME, "Arachna Spider"].includes(this.getName())) {
+            const anim = this.oneShotAnim;
+            const bite =
+                anim && isQueenBite(anim.stateName)
+                    ? {
+                          state: anim.stateName,
+                          frame: anim.frameIndex,
+                          elapsed:
+                              anim.elapsed +
+                              (anim.frameDurationsMs
+                                  ? anim.frameDurationsMs.slice(0, anim.frameIndex).reduce((sum, ms) => sum + ms, 0)
+                                  : anim.frameIndex * anim.durationPerFrame),
+                      }
+                    : undefined;
+            // Death is painted; bites retain only registered eyes and sprite bile, with no body warp.
+            const reaction = anim?.stateName === "hit" ? anim.stateName : undefined;
+            const reactionMs =
+                reaction && anim ? (anim.finished ? QUEEN_REACTION_DURATION_MS[reaction] : anim.elapsed) : 0;
+            const syncArachna =
+                this.getName() === "Arachna Spider" ? syncArachnaSpiderLabIdle : syncArachnaQueenLabIdle;
+            syncArachna(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    (!anim || !!reaction || !!bite) &&
+                    !this.spawnAnim &&
+                    !this.isDead() &&
+                    this.visualMode !== "revealed",
+                now - this.selectionAnimationStartedAtMs,
+                this.walkAnim?.frameIndex ?? -1,
+                reaction,
+                reactionMs,
+                this.creatureAnimationLabPreviewEnabled ? this.texResolver("arachna_queen_bile_sprites_v1") : undefined,
+                bite,
+            );
+        }
+        if (this.sprite && this.getName() === "Arachna Spider") {
+            syncArachnaSpiderLabPalette(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled && this.visualMode !== "revealed",
+                this.oneShotAnim?.stateName ?? (this.walkAnim ? "walk" : "idle"),
+                this.oneShotAnim?.frameIndex ?? this.walkAnim?.frameIndex ?? 0,
+            );
+        }
+        if (this.sprite && this.getName() === "Frenzied Boar") {
+            syncBoarLabWalkPalette(this.sprite, !!this.walkAnim, this.creatureAnimationLabPreviewEnabled);
+        }
+        if (this.sprite && this.getName() === GARGANTUAN_UNIT_NAME) {
+            syncGargantuanLabWalkPalette(this.sprite, this.creatureAnimationLabPreviewEnabled && !!this.walkAnim);
+        }
+        if (this.sprite && this.getName() === "Hydra") {
+            syncHydraLabPalette(
+                this.sprite,
+                // Run/attack atlases already carry the current idle palette. Grading again darkens them.
+                this.creatureAnimationLabPreviewEnabled && !this.oneShotAnim && !this.spawnAnim && !this.walkAnim
+                    ? this.selectionAnimFrames?.length === HYDRA_IDLE_FRAME_COUNT
+                        ? undefined
+                        : "idle"
+                    : undefined,
+            );
+        }
+        if (this.sprite && this.getName() === EFREET_UNIT_NAME) {
+            syncEfreetLabIdleFire(
+                this.sprite,
+                (!this.oneShotAnim ||
+                    this.oneShotAnim.stateName === "hit" ||
+                    this.oneShotAnim.stateName === "cast" ||
+                    this.oneShotAnim.stateName.startsWith("melee_attack")) &&
+                    !this.spawnAnim &&
+                    !this.isDead() &&
+                    this.visualMode !== "revealed",
+                now,
+                this.oneShotAnim?.frameIndex ?? this.walkAnim?.frameIndex ?? this.selectionAnimFrameIndex,
+                !!this.walkAnim,
+                ((this.walkAnim?.gaitDistanceCells ?? 0) / CREATURE_WALK_CYCLE_DISTANCE_CELLS) * Math.PI * 2,
+                this.oneShotAnim?.stateName === "hit" ||
+                    this.oneShotAnim?.stateName === "cast" ||
+                    this.oneShotAnim?.stateName.startsWith("melee_attack") === true,
+                this.oneShotAnim?.stateName,
+            );
+        }
+        if (this.sprite && this.getName() === "Nightmare") {
+            const reaction = this.oneShotAnim?.stateName;
+            const reacting = isNightmareLabAction(reaction);
+            syncNightmareLabIdleWind(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    (!this.oneShotAnim || reacting) &&
+                    !this.spawnAnim &&
+                    (!this.isDead() || reaction === "death") &&
+                    this.visualMode !== "revealed",
+                now,
+                this.badgeFlagPhase(),
+                !!this.walkAnim || reacting,
+                reacting,
+                reacting ? reaction : undefined,
+                this.oneShotAnim?.frameIndex ?? 0,
+                reaction === "cast" && this.creatureAnimationLabPreviewEnabled
+                    ? this.texResolver("nightmare_lab_smoke_cast_atlas")
+                    : undefined,
+                this.oneShotAnim?.elapsed ?? 0,
+            );
+        }
+        if (this.sprite && this.getName() === "Monk") {
+            const monkReaction = this.oneShotAnim?.stateName;
+            syncMonkLabIdle(
+                this.sprite,
+                (!this.oneShotAnim ||
+                    monkReaction === "hit" ||
+                    monkReaction === "death" ||
+                    monkReaction?.startsWith("melee_attack") === true ||
+                    monkReaction?.startsWith("attack") === true) &&
+                    !this.spawnAnim &&
+                    (!this.isDead() || monkReaction === "death"),
+                now - this.selectionAnimationStartedAtMs,
+                this.walkAnim?.frameIndex ?? this.oneShotAnim?.frameIndex ?? this.selectionAnimFrameIndex,
+                this.texResolver("monk_battlefield_side_right_distance_readable_v1"),
+                this.walkAnim ? "walk" : monkReaction,
+            );
+        }
+        if (this.sprite && this.getName() === "Black Dragon") {
+            const idle =
+                this.creatureAnimationLabPreviewEnabled &&
+                !this.walkAnim &&
+                !this.oneShotAnim &&
+                !this.spawnAnim &&
+                !this.isDead() &&
+                this.visualMode !== "revealed";
+            syncBlackDragonBreathSmoke(
+                this.sprite,
+                idle,
+                now - this.selectionAnimationStartedAtMs,
+                idle ? this.texResolver("black_dragon_breath_smoke_v4") : undefined,
+            );
+        }
+        if (this.sprite && this.getName() === "Mantis") {
+            syncMantisLabEyeGlow(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    !this.isDead() &&
+                    this.visualMode !== "revealed",
+                now,
+            );
+        }
+        if (this.sprite && this.getName() === "Goblin Knight") {
+            syncGoblinWalkPalette(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    (!!this.walkAnim || !!this.goblinLabReactionConfig(this.oneShotAnim?.stateName ?? "")),
+                !!this.oneShotAnim,
+                this.oneShotAnim?.stateName,
+                this.oneShotAnim?.frameIndex ?? this.walkAnim?.frameIndex,
+                this.oneShotAnim && this.oneShotAnim.stateName !== "death"
+                    ? this.texResolver("goblin_knight_etch_atlas")
+                    : undefined,
+            );
+            syncGoblinKnightIdle(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    !this.isDead() &&
+                    this.visualMode !== "revealed",
+                now - this.selectionAnimationStartedAtMs,
+                this.creatureAnimationLabPreviewEnabled ? this.texResolver("goblin_knight_etch_atlas") : undefined,
+                this.creatureAnimationLabPreviewEnabled ? this.texResolver("goblin_knight_ice_fissure_v2") : undefined,
+            );
+        }
+        if (this.sprite && this.getName() === "Hyena") {
+            syncHyenaIdleVisuals(
+                this.sprite,
+                !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    !this.isDead() &&
+                    this.visualMode !== "revealed",
+                now - this.selectionAnimationStartedAtMs,
+            );
+        }
+        if (this.sprite && this.getName() === "Wyvern") {
+            syncWyvernLabIdle(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead()),
+                now,
+            );
+            syncWyvernLabWalkPalette(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled
+                    ? (this.oneShotAnim?.frameIndex ?? this.walkAnim?.frameIndex ?? -1)
+                    : -1,
+                this.oneShotAnim?.stateName,
+            );
+        }
         if (this.sprite && this.getName() === "Manticore") {
             const deathOpening = this.oneShotAnim?.stateName === "death" && this.oneShotAnim.frameIndex === 0;
             const attackEye = manticoreLabAttackEye(this.oneShotAnim?.stateName, this.oneShotAnim?.frameIndex ?? -1);
@@ -6163,7 +8100,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     (!this.oneShotAnim || deathOpening || !!attackEye) &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 deathOpening ? this.oneShotAnim!.elapsed : now - this.selectionAnimationStartedAtMs,
                 1,
                 deathOpening,
@@ -6181,6 +8118,51 @@ export class RenderableUnit extends Unit {
                     : -1,
             );
         }
+        if (this.sprite && this.getName() === "Nomad") {
+            syncNomadIdleVisuals(
+                this.sprite,
+                !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead()),
+                now - this.selectionAnimationStartedAtMs,
+            );
+        }
+        if (this.sprite && this.getName() === "Griffin") {
+            syncGriffinLabIdle(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead()),
+                now,
+                now - this.selectionAnimationStartedAtMs,
+            );
+        }
+        if (this.sprite && this.getName() === "Hydra") {
+            const crestFireEnabled =
+                this.creatureAnimationLabPreviewEnabled &&
+                !this.oneShotAnim &&
+                !this.spawnAnim &&
+                (this.visualMode === "revealed" || !this.isDead());
+            syncHydraCrestFire(
+                this.sprite,
+                crestFireEnabled ? (this.walkAnim ? "walk" : "idle") : undefined,
+                this.walkAnim?.frameIndex ?? this.selectionAnimFrameIndex,
+                now,
+                crestFireEnabled ? this.texResolver("hydra_lab_crest_fire_atlas") : undefined,
+            );
+            syncHydraIdleTail(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead()),
+                now,
+            );
+        }
         if (this.sprite && this.getName() === "White Tiger") {
             syncWhiteTigerIdleTail(
                 this.sprite,
@@ -6188,10 +8170,44 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now,
             );
             syncWhiteTigerLabWalk(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled ? (this.walkAnim?.frameIndex ?? -1) : -1,
+                valkyrieScaleWasReset,
+            );
+        }
+        if (this.sprite && this.getName() === "Unicorn") {
+            const flash = this.unicornBlindnessFlash;
+            const resting = !this.walkAnim && !this.oneShotAnim && !this.spawnAnim && !this.isDead();
+            if (flash && resting && flash.startedAt === undefined) flash.startedAt = now;
+            const elapsed = flash?.startedAt === undefined ? -1 : now - flash.startedAt;
+            syncUnicornBlindnessLight(
+                this.sprite,
+                resting ? elapsed : -1,
+                this.texResolver("unicorn_mystic_horn_atlas"),
+                this.texResolver("unicorn_mystic_eye"),
+            );
+            if (flash && (this.isDead() || elapsed >= UNICORN_BLINDNESS_FLASH_MS)) {
+                this.unicornBlindnessFlash = undefined;
+                flash.onComplete?.();
+            }
+            syncUnicornLabIdle(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead()),
+                now,
+                now - this.selectionAnimationStartedAtMs,
+                this.badgeFlagPhase(),
+                FLAG_WAVE_SPEED,
+                this.creatureAnimationLabPreviewEnabled ? this.texResolver("unicorn_lab_dust_atlas") : undefined,
+            );
+            syncUnicornLabWalk(
                 this.sprite,
                 this.creatureAnimationLabPreviewEnabled ? (this.walkAnim?.frameIndex ?? -1) : -1,
                 valkyrieScaleWasReset,
@@ -6204,7 +8220,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now - this.selectionAnimationStartedAtMs,
             );
             syncValkyrieLabWalk(
@@ -6226,7 +8242,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now - this.selectionAnimationStartedAtMs,
                 this.creatureAnimationLabPreviewEnabled && "pikeman_lab_idle_atlas" in images
                     ? this.texResolver("pikeman_lab_idle_atlas" as ImageKey)
@@ -6241,7 +8257,7 @@ export class RenderableUnit extends Unit {
                     ((!this.walkAnim &&
                         !this.oneShotAnim &&
                         !this.spawnAnim &&
-                        !this.isDead() &&
+                        (this.visualMode === "revealed" || !this.isDead()) &&
                         this.selectionAnimFrames?.includes(this.sprite.texture) === true) ||
                         isTrollLabAttackGuard(this.oneShotAnim?.stateName, this.oneShotAnim?.frameIndex ?? -1) ||
                         isTrollLabCastGuard(this.oneShotAnim?.stateName, this.oneShotAnim?.frameIndex ?? -1)),
@@ -6265,6 +8281,32 @@ export class RenderableUnit extends Unit {
                 this.oneShotAnim?.frameIndex ?? -1,
             );
         }
+        if (this.sprite && this.getName() === "Crusader") {
+            syncCrusaderLabReaction(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled ? this.oneShotAnim?.stateName : undefined,
+                this.oneShotAnim?.frameIndex ?? -1,
+                this.oneShotAnim
+                    ? this.oneShotAnim.elapsed /
+                          (this.oneShotAnim.frameDurationsMs?.[this.oneShotAnim.frameIndex] ??
+                              this.oneShotAnim.durationPerFrame)
+                    : 0,
+            );
+            syncCrusaderLabIdle(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    (!this.oneShotAnim ||
+                        this.oneShotAnim.stateName === "hit" ||
+                        isCrusaderAttack(this.oneShotAnim.stateName)) &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead()),
+                now,
+                this.walkAnim?.frameIndex ?? -1,
+                this.oneShotAnim?.stateName === "hit" ? this.oneShotAnim.frameIndex : -1,
+                this.oneShotAnim?.stateName,
+                this.oneShotAnim?.frameIndex ?? -1,
+            );
+        }
         if (this.sprite && this.getName() === "Elf") {
             syncElfIdleCape(
                 this.sprite,
@@ -6272,7 +8314,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now,
             );
         }
@@ -6283,7 +8325,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now - this.selectionAnimationStartedAtMs,
             );
             const reaction = this.creatureAnimationLabPreviewEnabled ? this.oneShotAnim : undefined;
@@ -6304,7 +8346,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead()
+                    (this.visualMode === "revealed" || !this.isDead())
                     ? this.selectionAnimFrameIndex
                     : -1,
                 now + this.refreshedIdlePhaseRatio * 2000,
@@ -6319,19 +8361,8 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now + this.refreshedIdlePhaseRatio * SQUIRE_PLUME_PERIOD_MS,
-            );
-        }
-        if (this.sprite && this.getName() === DRYAD_UNIT_NAME) {
-            syncDryadLabIdle(
-                this.sprite,
-                this.creatureAnimationLabPreviewEnabled &&
-                    !this.walkAnim &&
-                    !this.oneShotAnim &&
-                    !this.spawnAnim &&
-                    !this.isDead(),
-                now - this.selectionAnimationStartedAtMs,
             );
         }
         if (this.sprite && this.getName() === LEPRECHAUN_UNIT_NAME) {
@@ -6347,7 +8378,10 @@ export class RenderableUnit extends Unit {
                 walk?.gaitDistanceCells ?? 0,
                 walk?.frames ?? [],
                 !this.walkAnim && (!this.oneShotAnim || reaction),
-                this.creatureAnimationLabPreviewEnabled && !this.oneShotAnim && !this.spawnAnim && !this.isDead()
+                this.creatureAnimationLabPreviewEnabled &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    (this.visualMode === "revealed" || !this.isDead())
                     ? now - this.selectionAnimationStartedAtMs
                     : -1,
                 this.creatureAnimationLabPreviewEnabled ? this.texResolver("leprechaun_lab_idle_atlas") : undefined,
@@ -6402,6 +8436,19 @@ export class RenderableUnit extends Unit {
                 this.texResolver("arbalester_walk_head_opacity_mask_v2") ?? Texture.EMPTY,
             );
         }
+        if (this.sprite && this.getName() === "Cyclops") {
+            syncCyclopsIdleCloth(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled &&
+                    !!this.selectionAnimFrames &&
+                    !this.walkAnim &&
+                    !this.oneShotAnim &&
+                    !this.spawnAnim &&
+                    !this.isDead(),
+                now,
+                this.selectionAnimFrameIndex,
+            );
+        }
         if (this.sprite && this.getUnitProperties().name === CENTAUR_UNIT_NAME) {
             syncCentaurLabIdleWind(
                 this.sprite,
@@ -6409,7 +8456,7 @@ export class RenderableUnit extends Unit {
                     !this.walkAnim &&
                     !this.oneShotAnim &&
                     !this.spawnAnim &&
-                    !this.isDead(),
+                    (this.visualMode === "revealed" || !this.isDead()),
                 now - this.selectionAnimationStartedAtMs,
             );
             syncCentaurLabWalkColor(this.sprite, this.creatureAnimationLabPreviewEnabled && !!this.walkAnim);
@@ -6450,21 +8497,20 @@ export class RenderableUnit extends Unit {
         const frameIndex = this.oneShotAnim ? -1 : (this.walkAnim?.frames.indexOf(this.sprite.texture) ?? -1);
         syncBlacksmithWalkColorFilter(this.sprite, frameIndex);
     }
-    /** Update facing at path corners without restarting the footstep cycle. */
     public setBoardFacingFromMovement(horizontalDirection: number): void {
         if (!this.hasAnimationState("walk") || Math.abs(horizontalDirection) < 0.001) return;
         this.setBoardFacing(horizontalDirection);
     }
-    /** Force a side-facing board model toward one horizontal side, including static/revealed models. */
+    public getBoardFacingDirection(): -1 | 1 {
+        return this.facingDirection ?? 1;
+    }
     public setBoardFacing(horizontalDirection: number): void {
         if (Math.abs(horizontalDirection) < 0.001) return;
         this.facingDirection = horizontalDirection < 0 ? -1 : 1;
     }
-    /** Turn the authored side-view model toward the unit/cell it is interacting with. */
     public faceBoardTarget(target: HoCMath.XY): void {
         this.setBoardFacingFromMovement(target.x - this.getPosition().x);
     }
-    /** Pick the matching ranged/melee authored strike from the attacker's row relative to the target footprint. */
     public getAttackAnimationStateForTarget(
         target: HoCMath.XY,
         attackKind: "range" | "melee" = "range",
@@ -6490,6 +8536,10 @@ export class RenderableUnit extends Unit {
         return prefix;
     }
     private restoreWidthAfterBoardWalk(): void {
+        if (this.getName() === "Hydra" && this.creatureAnimationLabPreviewEnabled && this.walkAnim && this.sprite) {
+            this.sprite.scale.x /= HYDRA_LAB_WALK_WIDTH_SCALE;
+            this.sprite.scale.y /= HYDRA_LAB_WALK_HEIGHT_SCALE;
+        }
         if (
             this.getName() === "Battle Mage" &&
             this.creatureAnimationLabPreviewEnabled &&
@@ -6497,6 +8547,17 @@ export class RenderableUnit extends Unit {
             this.sprite
         ) {
             this.sprite.scale.x /= BATTLE_MAGE_LAB_WALK_WIDTH_SCALE;
+        }
+        if (
+            this.getName() === TROLL_UNIT_NAME &&
+            this.creatureAnimationLabPreviewEnabled &&
+            this.walkAnim &&
+            this.sprite
+        ) {
+            this.sprite.scale.set(
+                this.sprite.scale.x / TROLL_LAB_WALK_SCALE_X,
+                this.sprite.scale.y / TROLL_LAB_WALK_SCALE_Y,
+            );
         }
         if (this.getName() === "Pikeman" && this.walkAnim && this.sprite) {
             this.sprite.scale.x /= PIKEMAN_WALK_HORIZONTAL_SCALE;
@@ -6508,15 +8569,17 @@ export class RenderableUnit extends Unit {
     private restoreScaleAfterSquireWalk(): void {
         if (this.getUnitProperties().name !== SQUIRE_UNIT_NAME || !this.walkAnim || !this.sprite) return;
         this.sprite.scale.set(
-            this.sprite.scale.x / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER / SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER,
+            this.sprite.scale.x / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
             this.sprite.scale.y / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
         );
     }
     public stopBoardWalkAnimation(): void {
+        this.zenaIdleRestStartedAtMs = undefined;
         this.movementBadgeOffsetY = undefined;
         if (!this.walkAnim) return;
         if (this.sprite && this.getName() === "Valkyrie") syncValkyrieLabWalk(this.sprite, -1);
         if (this.sprite && this.getName() === "Manticore") syncManticoreLabWalkPalette(this.sprite, -1);
+        if (this.sprite && this.getName() === "Wyvern") syncWyvernLabWalkPalette(this.sprite, -1);
         const manticoreLabWalkHeight =
             this.getName() === "Manticore" && this.creatureAnimationLabPreviewEnabled && this.sprite
                 ? this.sprite.texture.height / MANTICORE_LAB_WALK_SCALE
@@ -6525,12 +8588,43 @@ export class RenderableUnit extends Unit {
             this.getName() === "Valkyrie" && this.creatureAnimationLabPreviewEnabled && this.sprite
                 ? this.sprite.texture.height / VALKYRIE_LAB_WALK_SCALE
                 : undefined;
+        const magicDragonLabWalkHeight =
+            this.getName() === "Magic Dragon" && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? this.sprite.texture.height / MAGIC_DRAGON_LAB_FLIGHT_CANVAS_SCALE
+                : undefined;
+        const angelLabWalkHeight =
+            this.getName() === "Angel" && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? this.sprite.texture.height / ANGEL_LAB_FLIGHT_CANVAS_SCALE
+                : undefined;
+        const blackDragonLabWalkHeight =
+            this.getName() === "Black Dragon" && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? (this.sprite.texture.height * BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE) /
+                  BLACK_DRAGON_LAB_FLIGHT_CANVAS_SCALE
+                : undefined;
+        const thunderbirdLabWalkHeight =
+            this.getName() === "Thunderbird" && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? this.sprite.texture.height / THUNDERBIRD_LAB_FLIGHT_CANVAS_SCALE
+                : undefined;
+        const mantisLabWalkHeight =
+            this.getName() === "Mantis" && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? this.sprite.texture.height / MANTIS_LAB_WALK_SCALE
+                : undefined;
+        const pegasusFlightHeight =
+            this.getName() === "Pegasus" && this.sprite ? this.sprite.texture.height / PEGASUS_FLIGHT_SCALE : undefined;
+        const griffinLabWalkHeight =
+            this.getName() === "Griffin" && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? this.sprite.texture.height / GRIFFIN_LAB_WALK_SCALE
+                : undefined;
         const fairyLabWalkHeight =
             this.getName() === "Fairy" && this.creatureAnimationLabPreviewEnabled && this.sprite
                 ? this.sprite.texture.height / FAIRY_LAB_WALK_SCALE
                 : undefined;
         const berserkerWalkHeight =
             this.getUnitProperties().name === "Berserker" ? this.sprite?.texture.height : undefined;
+        const queenLabWalkHeight =
+            this.getName() === ARACHNA_QUEEN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.sprite
+                ? this.sprite.texture.height / arachnaQueenLabWalkScale(this.walkAnim.frameIndex)
+                : undefined;
         const onOutroComplete = this.walkAnim.onOutroComplete;
         const centaurLabWalkHeight =
             this.getUnitProperties().name === CENTAUR_UNIT_NAME &&
@@ -6538,17 +8632,30 @@ export class RenderableUnit extends Unit {
             this.sprite
                 ? this.sprite.texture.height / centaurLabWalkScale(this.walkAnim.frameIndex)
                 : undefined;
+        const cyclopsLabWalkHeight =
+            this.getName() === "Cyclops" && this.creatureAnimationLabPreviewEnabled
+                ? this.sprite?.texture.height
+                : undefined;
         const constantScaleLabWalkHeight =
-            (this.getUnitProperties().name === TROLL_UNIT_NAME ||
+            (this.getUnitProperties().name === "Tsar Cannon" ||
+                this.getUnitProperties().name === "Hydra" ||
+                this.getUnitProperties().name === "Champion" ||
+                this.getUnitProperties().name === TROLL_UNIT_NAME ||
+                this.getUnitProperties().name === GARGANTUAN_UNIT_NAME ||
+                this.getUnitProperties().name === "Behemoth" ||
                 this.getUnitProperties().name === LEPRECHAUN_UNIT_NAME ||
                 this.getUnitProperties().name === DRYAD_UNIT_NAME ||
                 this.getUnitProperties().name === "Elf" ||
                 this.getUnitProperties().name === "Battle Mage") &&
             this.creatureAnimationLabPreviewEnabled
-                ? this.sprite?.texture.height
+                ? this.sprite
+                    ? this.sprite.texture.height * (this.getName() === "Champion" ? 1024 / 768 : 1)
+                    : undefined
                 : undefined;
         const orcWalkHeight =
-            this.getUnitProperties().name === ORC_UNIT_NAME || this.getUnitProperties().name === MERMAID_UNIT_NAME
+            this.getUnitProperties().name === ORC_UNIT_NAME ||
+            this.getUnitProperties().name === MERMAID_UNIT_NAME ||
+            this.getUnitProperties().name === BEHOLDER_UNIT_NAME
                 ? this.sprite?.texture.height
                 : undefined;
         const arbalesterWalkHeight =
@@ -6561,21 +8668,90 @@ export class RenderableUnit extends Unit {
                 : undefined;
         this.restoreScaleAfterSquireWalk();
         this.restoreWidthAfterBoardWalk();
+        if (this.sprite && this.getName() === "Champion" && this.creatureAnimationLabPreviewEnabled) {
+            this.sprite.scale.y /= championLabWalkHeightScale(this.walkAnim.frameIndex);
+            this.sprite.scale.x /= championLabWalkWidthScale(this.walkAnim.frameIndex);
+        }
+        if (this.sprite && this.getName() === "Hyena") {
+            this.sprite.scale.y /= HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER;
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+            const idleTexture = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+            if (idleTexture) this.sprite.texture = idleTexture;
+        }
+        if (this.sprite && this.getName() === "Frenzied Boar" && this.creatureAnimationLabPreviewEnabled) {
+            this.sprite.scale.set(
+                this.sprite.scale.x / BOAR_LAB_WALK_SCALE_X,
+                this.sprite.scale.y / BOAR_LAB_WALK_SCALE_Y,
+            );
+            syncBoarLabWalkPalette(this.sprite, false);
+        }
+        if (this.sprite && this.getName() === GARGANTUAN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled) {
+            this.sprite.scale.set(
+                this.sprite.scale.x / GARGANTUAN_LAB_WALK_SCALE_X,
+                this.sprite.scale.y / GARGANTUAN_LAB_WALK_SCALE_Y,
+            );
+            syncGargantuanLabWalkPalette(this.sprite, false);
+        }
+        if (this.sprite && this.getName() === "Hydra") {
+            syncHydraLabPalette(
+                this.sprite,
+                this.creatureAnimationLabPreviewEnabled && this.selectionAnimFrames?.length !== HYDRA_IDLE_FRAME_COUNT
+                    ? "idle"
+                    : undefined,
+            );
+        }
+        if (this.sprite && this.getName() === "Behemoth" && this.creatureAnimationLabPreviewEnabled) {
+            this.sprite.scale.set(
+                this.sprite.scale.x / BEHEMOTH_LAB_WALK_SCALE_X,
+                this.sprite.scale.y / BEHEMOTH_LAB_WALK_SCALE_Y,
+            );
+        }
+        if (this.sprite && this.getName() === "Abomination" && this.creatureAnimationLabPreviewEnabled) {
+            const scale = abominationLabWalkScale(this.walkAnim.frameIndex);
+            this.sprite.scale.set(this.sprite.scale.x / scale, this.sprite.scale.y / scale);
+        }
         this.walkAnim = undefined;
         this.selectionAnimationStartedAtMs = performance.now() - this.medusaIdleResumeOffsetMs();
+        // Recovery blends to idle frame zero. A duplicate stack must not jump directly to the
+        // middle of its idle cycle; its independent action timing already keeps it out of phase.
+        if (this.getName() === DRYAD_UNIT_NAME) {
+            this.selectionAnimationStartedAtMs += duplicateIdleOffsetMs(this.duplicateIdleOrdinal);
+        }
         if (this.sprite && this.getName() === LEPRECHAUN_UNIT_NAME) {
             syncLeprechaunLabWalkVisuals(this.sprite, -1, 0, []);
         }
         this.selectionAnimFrameIndex = -1;
         // Restore the permanent breathing/fire cycle immediately at the landing position.
         this.stepSelectionAnimation();
-        const labWalkHeight = centaurLabWalkHeight ?? constantScaleLabWalkHeight;
+        if (this.sprite && this.getName() === "Harpy") {
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        const labWalkHeight =
+            angelLabWalkHeight ??
+            thunderbirdLabWalkHeight ??
+            magicDragonLabWalkHeight ??
+            blackDragonLabWalkHeight ??
+            queenLabWalkHeight ??
+            centaurLabWalkHeight ??
+            constantScaleLabWalkHeight;
         if (labWalkHeight !== undefined && this.sprite) {
             const idleTexture = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
             if (idleTexture) {
                 this.sprite.texture = idleTexture;
                 const transitionScale = labWalkHeight / idleTexture.height;
                 this.sprite.scale.set(this.sprite.scale.x * transitionScale, this.sprite.scale.y * transitionScale);
+                this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+            }
+        }
+        if (cyclopsLabWalkHeight !== undefined && this.sprite) {
+            const idleTexture = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+            if (idleTexture) {
+                this.sprite.texture = idleTexture;
+                const resolutionScale = cyclopsLabWalkHeight / idleTexture.height;
+                this.sprite.scale.set(
+                    (this.sprite.scale.x * resolutionScale) / CYCLOPS_LAB_WALK_SCALE_X,
+                    (this.sprite.scale.y * resolutionScale) / CYCLOPS_LAB_WALK_SCALE_Y,
+                );
                 this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
             }
         }
@@ -6633,6 +8809,33 @@ export class RenderableUnit extends Unit {
                 this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
             }
         }
+        if (mantisLabWalkHeight !== undefined && this.sprite) {
+            const idle = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+            if (idle) {
+                this.sprite.texture = idle;
+                const scale = mantisLabWalkHeight / idle.height;
+                this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+                this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+            }
+        }
+        if (pegasusFlightHeight !== undefined && this.sprite) {
+            const idle = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+            if (idle) {
+                this.sprite.texture = idle;
+                const scale = pegasusFlightHeight / idle.height;
+                this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+                this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+            }
+        }
+        if (griffinLabWalkHeight !== undefined && this.sprite) {
+            const idle = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+            if (idle) {
+                this.sprite.texture = idle;
+                const scale = griffinLabWalkHeight / idle.height;
+                this.sprite.scale.set(this.sprite.scale.x * scale, this.sprite.scale.y * scale);
+                this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+            }
+        }
         if (fairyLabWalkHeight !== undefined && this.sprite) {
             const idle = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
             if (idle) {
@@ -6650,10 +8853,6 @@ export class RenderableUnit extends Unit {
         if (this.getName() === LEPRECHAUN_UNIT_NAME) this.syncCreaturePalette();
         if (onOutroComplete) onOutroComplete();
     }
-    /**
-     * Let a short move finish all authored footstep poses without extending the unit's actual travel.
-     * The unit may complete the remaining frames at its destination; actions still interrupt this tail.
-     */
     public finishBoardWalkAnimationAfterFullCycle(onLandingComplete?: () => void): boolean {
         const anim = this.walkAnim;
         if (!anim) {
@@ -6669,7 +8868,10 @@ export class RenderableUnit extends Unit {
             if (texture && this.sprite) this.sprite.texture = texture;
             if (
                 this.creatureAnimationLabPreviewEnabled &&
-                (this.getName() === "Fairy" || this.getName() === "Valkyrie" || this.getName() === "Manticore")
+                (this.getName() === "Fairy" ||
+                    this.getName() === "Valkyrie" ||
+                    this.getName() === "Manticore" ||
+                    this.getName() === "Wyvern")
             )
                 this.syncCreaturePalette();
             return true;
@@ -6730,7 +8932,7 @@ export class RenderableUnit extends Unit {
             anim.frameIndex += 1;
             const texture = anim.frames[anim.frameIndex];
             if (texture) this.sprite.texture = texture;
-            if (this.getName() === "Manticore") this.syncCreaturePalette();
+            if (this.getName() === "Manticore" || this.getName() === "Wyvern") this.syncCreaturePalette();
             return;
         }
         const reachedCycleEnd = anim.frameIndex >= anim.loopEndFrame;
@@ -6747,7 +8949,7 @@ export class RenderableUnit extends Unit {
                 anim.elapsedMs = 0;
                 const texture = anim.frames[outroFrame];
                 if (texture) this.sprite.texture = texture;
-                if (this.getName() === "Manticore") this.syncCreaturePalette();
+                if (this.getName() === "Manticore" || this.getName() === "Wyvern") this.syncCreaturePalette();
                 return;
             }
         }
@@ -6755,7 +8957,7 @@ export class RenderableUnit extends Unit {
         if (nextFrame >= anim.loopStartFrame) anim.introComplete = true;
         const texture = anim.frames[nextFrame];
         if (texture) this.sprite.texture = texture;
-        if (this.getName() === "Manticore") this.syncCreaturePalette();
+        if (this.getName() === "Manticore" || this.getName() === "Wyvern") this.syncCreaturePalette();
     }
     public stepSpawnAnimation(dt: number): void {
         const mayChangeSpriteBounds = !!this.spawnAnim || !!this.walkAnim || !!this.oneShotAnim;
@@ -6786,21 +8988,47 @@ export class RenderableUnit extends Unit {
         // transient-animation pass in the scene loop. Repeating it here used to read the wall clock and
         // resolve the same texture a second time for every creature on every rendered frame.
         // --- Wandering Mage movement animation (takes precedence over idle while active) ---
-        // The lab Fairy's one-shot take-off/landing use authored real milliseconds.
-        // The scene supplies the legacy 1/240 step at 60 Hz; distance-driven flight
-        // ignores this clock. Take-off/landing have an additional user-requested 30%
-        // speed-up; the existing flight cadence remains unchanged.
-        // The lab simulates at 1/240s per displayed 60Hz frame; authored transitions use wall time.
-        const labTransitionTimeScale = this.creatureAnimationLabPreviewEnabled
-            ? this.getName() === "Fairy"
-                ? 4 * FAIRY_LAB_TRANSITION_SPEED
-                : this.getName() === "Valkyrie"
-                  ? 4 * VALKYRIE_LAB_TRANSITION_SPEED
-                  : this.getName() === "Manticore"
-                    ? 4 * 1.35 * 1.15
-                    : 1
-            : 1;
-        this.stepBoardWalkAnimation(dt * 1000 * labTransitionTimeScale);
+        // The scene supplies the legacy 1/240 step at 60 Hz. Authored take-off and landing
+        // use near-real-time timing; distance-driven flight ignores this clock. Harpy is
+        // approved for normal battles as well as the lab, so its correction applies in both.
+        const transitionTimeScale =
+            this.getName() === "Harpy" && this.walkAnim
+                ? HARPY_FLIGHT_TRANSITION_TIME_SCALE
+                : this.creatureAnimationLabPreviewEnabled
+                  ? this.getName() === "Fairy" || this.getName() === "Angel"
+                      ? 4 * FAIRY_LAB_TRANSITION_SPEED
+                      : this.getName() === "Valkyrie"
+                        ? 4 * VALKYRIE_LAB_TRANSITION_SPEED
+                        : this.getName() === "Magic Dragon"
+                          ? 4 * MAGIC_DRAGON_LAB_TRANSITION_SPEED
+                          : this.getName() === "Black Dragon"
+                            ? 4 * BLACK_DRAGON_LAB_TRANSITION_SPEED
+                            : this.getName() === "Thunderbird"
+                              ? 4 * THUNDERBIRD_LAB_TRANSITION_SPEED
+                              : this.getName() === "Manticore" || this.getName() === "Wyvern"
+                                ? 4 * 1.35 * 1.15
+                                : 1
+                  : 1;
+        const mantisTransitionSpeed =
+            this.creatureAnimationLabPreviewEnabled && this.getName() === "Mantis" && this.walkAnim
+                ? 4 *
+                  (this.walkAnim.frameIndex < this.walkAnim.loopStartFrame
+                      ? mantisLabFlightSettings.takeoffSpeed
+                      : mantisLabFlightSettings.landingSpeed)
+                : 1;
+        const griffinTransitionSpeed =
+            this.creatureAnimationLabPreviewEnabled && this.getName() === "Griffin" && this.walkAnim
+                ? 4 *
+                  GRIFFIN_LAB_TRANSITION_SPEED *
+                  (this.walkAnim.frameIndex < this.walkAnim.loopStartFrame
+                      ? griffinLabFlightSettings.takeoffSpeed * GRIFFIN_LAB_TAKEOFF_SPEED
+                      : griffinLabFlightSettings.landingSpeed * GRIFFIN_LAB_LANDING_SPEED)
+                : 1;
+        const pegasusTransitionSpeed =
+            this.getName() === "Pegasus" && this.walkAnim ? 4 * PEGASUS_FLIGHT_TRANSITION_SPEED : 1;
+        this.stepBoardWalkAnimation(
+            dt * 1000 * transitionTimeScale * mantisTransitionSpeed * griffinTransitionSpeed * pegasusTransitionSpeed,
+        );
         // --- One Shot animation ---
         // The fixed simulation loop advances at 60 Hz but deliberately passes the legacy 1/240 step,
         // so dt*1000 represents only one quarter of real elapsed milliseconds. Most older one-shots
@@ -6833,6 +9061,8 @@ export class RenderableUnit extends Unit {
     private stopSelectionAnimationInternal(): void {
         this.arbalesterIdlePager?.dispose();
         this.arbalesterIdlePager = undefined;
+        this.abominationIdlePager?.dispose();
+        this.abominationIdlePager = undefined;
         this.selectionAnimFrames = undefined;
         this.orcIdleAxeTwirlFrames = undefined;
         this.orcActiveBattleCryFrames = undefined;
@@ -6854,7 +9084,7 @@ export class RenderableUnit extends Unit {
         if (!this.sprite || !this.shadow) return;
         const props = this.getUnitProperties();
         const unitName = props.name;
-        if (!genericLandingGrowEnabled(unitName, props.level)) {
+        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
             this.spawnAnim = undefined;
             this.sprite.alpha = 1;
             this.shadow.scale.set(1);
@@ -6890,11 +9120,6 @@ export class RenderableUnit extends Unit {
             duration: 0.2,
         };
     }
-    /**
-     * Returns the geometric center of the unit's footprint in world coordinates.
-     * `position` is already that centre for any WxH body — one cell's centre for a 1x1, the shared corner
-     * of a 2x2, the middle of the long side for a 2x1 — so nothing here has to reason about the shape.
-     */
     public getVisualCenter(gs: GridSettings): HoCMath.XY {
         if (!this.useBattlefieldVisualProjection) return this.getPosition();
         // Combat labels, arrows, projectiles and target highlights must follow the rendered ground
@@ -6909,7 +9134,7 @@ export class RenderableUnit extends Unit {
     public prepareDryadRangedShot(): AbortController | undefined {
         if (
             !this.creatureAnimationLabPreviewEnabled ||
-            ![DRYAD_UNIT_NAME, "Elf", "Medusa"].includes(this.getName()) ||
+            ![DRYAD_UNIT_NAME, "Elf", "Medusa", "Zena"].includes(this.getName()) ||
             this.oneShotAnim ||
             this.dryadRangedShot
         )
@@ -6929,12 +9154,42 @@ export class RenderableUnit extends Unit {
             return false;
         }
         this.dryadRangedShot = shot;
-        const unitKey = this.getName() === "Medusa" ? "Medusa Lab" : this.getName() === "Elf" ? "Elf Lab" : "Dryad Lab";
+        const unitKey =
+            this.getName() === "Zena"
+                ? "Zena Lab"
+                : this.getName() === "Medusa"
+                  ? "Medusa Lab"
+                  : this.getName() === "Elf"
+                    ? "Elf Lab"
+                    : "Dryad Lab";
         const meta = animationAtlases[unitKey]?.[state];
         this.oneShotAnim.projectileReleaseFrame =
             typeof meta?.releaseFrameIndex === "number" ? meta.releaseFrameIndex : 3;
-        this.oneShotAnim.projectileRelease = onRelease;
+        const throwing = this.oneShotAnim;
+        this.oneShotAnim.projectileRelease = () => {
+            if (this.getName() === "Zena") {
+                // This released cel has an empty hand. Keep it until the returning disc arrives.
+                throwing.externallyDriven = true;
+                throwing.elapsed = 0;
+            }
+            onRelease();
+        };
         return true;
+    }
+    public catchZenaChakram(): void {
+        const anim = this.oneShotAnim;
+        if (this.getName() !== "Zena" || !anim?.externallyDriven || !anim.stateName.startsWith("attack")) return;
+        // Only put the held weapon back at contact, then reverse the wind-up into idle.
+        const release = anim.projectileReleaseFrame ?? 13;
+        anim.zenaCatching = true;
+        anim.frames = anim.frames.slice(0, release).reverse();
+        anim.frameDurationsMs = anim.frameDurationsMs?.slice(0, release).reverse();
+        anim.frameIndex = 0;
+        anim.elapsed = 0;
+        anim.externallyDriven = false;
+        anim.projectileReleaseFrame = undefined;
+        anim.projectileRelease = undefined;
+        this.applyOneShotFrame(anim);
     }
     public finishDryadRangedShot(shot: AbortController): void {
         if (this.dryadRangedShot === shot) this.dryadRangedShot = undefined;
@@ -6946,27 +9201,33 @@ export class RenderableUnit extends Unit {
         shot?.abort();
     }
     public getDryadArrowLength(): number | undefined {
-        if (!this.sprite || !this.oneShotAnim || ![DRYAD_UNIT_NAME, "Elf", "Medusa"].includes(this.getName()))
+        if (!this.sprite || !this.oneShotAnim || ![DRYAD_UNIT_NAME, "Elf", "Medusa", "Zena"].includes(this.getName()))
             return undefined;
-        const unitKey = this.getName() === "Medusa" ? "Medusa Lab" : this.getName() === "Elf" ? "Elf Lab" : "Dryad Lab";
+        const unitKey =
+            this.getName() === "Zena"
+                ? "Zena Lab"
+                : this.getName() === "Medusa"
+                  ? "Medusa Lab"
+                  : this.getName() === "Elf"
+                    ? "Elf Lab"
+                    : "Dryad Lab";
         const meta = animationAtlases[unitKey]?.[this.oneShotAnim.stateName];
         return typeof meta?.projectileLength === "number"
-            ? meta.projectileLength * Math.abs(this.sprite.scale.x)
+            ? (meta.projectileLength * Math.abs(this.sprite.scale.x)) / this.zenaSideWidthScale()
             : undefined;
     }
-    /** Continue the drawn hand/weapon's aim when the lab has no practice target. */
     public getElfLabFreeShotTarget(origin: HoCMath.XY, distance: number): HoCMath.XY | undefined {
         const sprite = this.sprite;
         if (
             !this.creatureAnimationLabPreviewEnabled ||
-            !["Elf", "Medusa"].includes(this.getName()) ||
+            !["Elf", "Medusa", "Zena"].includes(this.getName()) ||
             !this.oneShotAnim ||
             !sprite?.parent
         )
             return undefined;
-        const direction = animationAtlases[this.getName() === "Medusa" ? "Medusa Lab" : "Elf Lab"]?.[
-            this.oneShotAnim.stateName
-        ]?.projectileDirection as HoCMath.XY | undefined;
+        const direction = animationAtlases[
+            this.getName() === "Zena" ? "Zena Lab" : this.getName() === "Medusa" ? "Medusa Lab" : "Elf Lab"
+        ]?.[this.oneShotAnim.stateName]?.projectileDirection as HoCMath.XY | undefined;
         if (!direction || !Number.isFinite(direction.x) || !Number.isFinite(direction.y)) return undefined;
         const a = sprite.parent.toLocal(sprite.toGlobal({ x: 0, y: 0 }));
         const b = sprite.parent.toLocal(sprite.toGlobal(direction));
@@ -6977,7 +9238,6 @@ export class RenderableUnit extends Unit {
             ? { x: origin.x + (dx / length) * distance, y: origin.y + (dy / length) * distance }
             : undefined;
     }
-    /** Reserve the entire lab shot, including texture preparation, so later input can cancel it. */
     public hasPendingArbalesterRangedShot(): boolean {
         return !!this.arbalesterRangedShot && !this.arbalesterRangedShot.signal.aborted;
     }
@@ -7027,7 +9287,9 @@ export class RenderableUnit extends Unit {
         if (this.oneShotAnim) this.oneShotAnim.projectileRelease = undefined;
         shot?.abort();
     }
-    /** World-space torso anchor for incoming projectiles, independent of the logical aimed cell edge. */
+    public getProjectileGroundPoint(gs: GridSettings): HoCMath.XY {
+        return this.getBattlefieldGroundReference(this.getPosition(), gs);
+    }
     public getProjectileImpactPoint(gs: GridSettings): HoCMath.XY {
         const sprite = this.sprite;
         if (!sprite?.parent || !sprite.visible) return this.getVisualCenter(gs);
@@ -7040,7 +9302,24 @@ export class RenderableUnit extends Unit {
             }),
         );
     }
-    /** Release the lab spear on the first empty-hand pose; interruptions before release cancel it. */
+    public hasMonkLabRanged(): boolean {
+        return this.getName() === "Monk";
+    }
+    public getMonkOrbRadius(): number {
+        return Math.abs(this.sprite?.scale.x ?? 1) * 34;
+    }
+    public playMonkLabRangedThrow(state: string, release: () => void, cancel: () => void): boolean {
+        if (!this.hasMonkLabRanged() || !(state in MONK_RANGED_FRAMES)) return false;
+        if (!this.playOneShotAnimation(state, undefined, true) || !this.oneShotAnim) return false;
+        const action = this.oneShotAnim;
+        action.projectileReleaseFrame = MONK_ORB_RELEASE_FRAME;
+        action.orcCancel = cancel;
+        action.projectileRelease = () => {
+            action.orcCancel = undefined;
+            release();
+        };
+        return true;
+    }
     public playCentaurLabRangedThrow(stateName: string, onRelease: () => void, onCancel: () => void): boolean {
         if (
             !this.creatureAnimationLabPreviewEnabled ||
@@ -7058,7 +9337,53 @@ export class RenderableUnit extends Unit {
         };
         return true;
     }
-    /** A throw keeps its empty-hand recovery until its own projectile lands. */
+    public playGargantuanRangedThrow(state: string, release: () => void, cancel: () => void): boolean {
+        if (this.getName() !== "Gargantuan" || !["attack", "attack_up", "attack_down"].includes(state)) return false;
+        const config = this.gargantuanLabActionConfig(state);
+        if (!config || !this.playOneShotAnimation(state, undefined, true) || !this.oneShotAnim) return false;
+        const action = this.oneShotAnim;
+        action.projectileReleaseFrame = Number(config.meta.releaseFrameIndex);
+        action.orcCancel = cancel;
+        action.projectileRelease = () => {
+            action.orcCancel = undefined;
+            release();
+        };
+        return true;
+    }
+    public playCyclopsLabRangedThrow(stateName: string, onRelease: () => void, onCancel: () => void): boolean {
+        if (this.getName() !== "Cyclops" || !["attack", "attack_up", "attack_down"].includes(stateName)) return false;
+        if (!this.playOneShotAnimation(stateName, undefined, true) || !this.oneShotAnim) return false;
+        const action = this.oneShotAnim;
+        const meta = animationAtlases["Cyclops Lab"]?.[stateName];
+        action.projectileReleaseFrame = typeof meta?.releaseFrameIndex === "number" ? meta.releaseFrameIndex : 4;
+        action.projectileRelease = () => {
+            action.orcCancel = undefined;
+            onRelease();
+        };
+        action.orcCancel = onCancel;
+        action.holdLastFrame = true;
+        return true;
+    }
+    public finishCyclopsLabRangedThrow(): void {
+        if (
+            this.getName() === "Cyclops" &&
+            this.oneShotAnim?.holdLastFrame &&
+            ["attack", "attack_up", "attack_down"].includes(this.oneShotAnim.stateName)
+        )
+            this.returnToIdleAnimation();
+    }
+    public playBeholderRangedShot(stateName: string, onRelease: () => void, onCancel: () => void): boolean {
+        if (!isBeholderRanged(this.getName(), stateName)) return false;
+        if (!this.playOneShotAnimation(stateName, undefined, true) || !this.oneShotAnim) return false;
+        const action = this.oneShotAnim;
+        action.projectileReleaseFrame = 2;
+        action.orcCancel = onCancel;
+        action.projectileRelease = () => {
+            action.orcCancel = undefined;
+            onRelease();
+        };
+        return true;
+    }
     public playOrcRangedThrow(stateName: string, onRelease: () => void, onCancel: () => void): boolean {
         if (this.getName() !== ORC_UNIT_NAME || !isOrcRangedAttack(stateName)) return false;
         if (!this.playOneShotAnimation(stateName, undefined, true) || !this.oneShotAnim) return false;
@@ -7085,19 +9410,112 @@ export class RenderableUnit extends Unit {
             facing: this.facingDirection,
         };
     }
-    /** Current world-space weapon/hand attachment used to launch ranged projectiles. */
+    public playCannonLabRangedShot(state: string, release: () => void, cancel: () => void): boolean {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Tsar Cannon" || !isCannonAttack(state))
+            return false;
+        if (!this.playOneShotAnimation(state, undefined, true) || !this.oneShotAnim) return false;
+        const action = this.oneShotAnim;
+        action.projectileReleaseFrame = CANNON_SHOT_RELEASE_FRAME;
+        action.orcCancel = cancel;
+        action.projectileRelease = () => {
+            action.orcCancel = undefined;
+            release();
+        };
+        return true;
+    }
+    public getGargantuanRockDiameter(): number {
+        const meta = this.oneShotAnim ? this.gargantuanLabActionConfig(this.oneShotAnim.stateName)?.meta : undefined;
+        const diameter = typeof meta?.projectileDiameter === "number" ? meta.projectileDiameter : 112;
+        return Math.abs(this.sprite?.scale.x ?? 1) * diameter;
+    }
+    public getGargantuanRockHeight(): number {
+        const diameter = this.getGargantuanRockDiameter();
+        return diameter * Math.abs((this.sprite?.scale.y ?? 1) / (this.sprite?.scale.x || 1));
+    }
+    public getCannonballDiameter(gs: GridSettings): number {
+        // The inner muzzle spans 112 native pixels; padded action canvases keep the native pixel scale.
+        return (
+            (this.sprite ? Math.abs(this.sprite.scale.x) * 112 : gs.getCellSize() * 0.34) * CANNON_BALL_SIZE_MULTIPLIER
+        );
+    }
     public getRangedProjectileOrigin(target: HoCMath.XY, gs: GridSettings): HoCMath.XY {
         const sprite = this.sprite;
         const parent = sprite?.parent;
         if (!sprite || !parent || !sprite.visible) return this.getVisualCenter(gs);
+        if (
+            this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Tsar Cannon" &&
+            isCannonAttack(this.oneShotAnim?.stateName)
+        ) {
+            const muzzle = cannonShotOrigin(this.oneShotAnim.stateName);
+            return parent.toLocal(
+                sprite.toGlobal({
+                    x: muzzle.x - sprite.anchor.x * sprite.texture.width,
+                    y: muzzle.y - sprite.anchor.y * sprite.texture.height,
+                }),
+            );
+        }
+
+        if (this.getName() === "Gargantuan" && this.oneShotAnim) {
+            const origin = this.gargantuanLabActionConfig(this.oneShotAnim.stateName)?.meta.projectileOrigin as
+                HoCMath.XY | undefined;
+            if (origin)
+                return parent.toLocal(
+                    sprite.toGlobal({
+                        x: origin.x - sprite.anchor.x * sprite.texture.width,
+                        y: origin.y - sprite.anchor.y * sprite.texture.height,
+                    }),
+                );
+        }
+        if (
+            this.getName() === "Cyclops" &&
+            this.oneShotAnim &&
+            ["attack", "attack_up", "attack_down"].includes(this.oneShotAnim.stateName)
+        ) {
+            const hand = animationAtlases["Cyclops Lab"]?.[this.oneShotAnim.stateName]?.projectileOrigin as
+                HoCMath.XY | undefined;
+            if (hand)
+                return parent.toLocal(
+                    sprite.toGlobal({
+                        x: hand.x - sprite.anchor.x * sprite.texture.width,
+                        y: hand.y - sprite.anchor.y * sprite.texture.height,
+                    }),
+                );
+        }
+        if (this.hasMonkLabRanged() && (this.oneShotAnim?.stateName ?? "") in MONK_RANGED_FRAMES) {
+            const state = this.oneShotAnim!.stateName as keyof typeof MONK_RANGED_FRAMES;
+            const [x, y] = MONK_RANGED_FRAMES[state][MONK_ORB_RELEASE_FRAME - 1].orb;
+            return parent.toLocal(
+                sprite.toGlobal({
+                    x: x - sprite.anchor.x * sprite.texture.width,
+                    y: y - sprite.anchor.y * sprite.texture.height,
+                }),
+            );
+        }
+        if (isBeholderRanged(this.getName(), this.oneShotAnim?.stateName ?? "")) {
+            const state = this.oneShotAnim!.stateName as "attack" | "attack_up" | "attack_down";
+            const eye = animationAtlases["Beholder Ranged"][state].projectileOrigin as HoCMath.XY;
+            return parent.toLocal(
+                sprite.toGlobal({
+                    x: eye.x - sprite.anchor.x * sprite.texture.width,
+                    y: eye.y - sprite.anchor.y * sprite.texture.height,
+                }),
+            );
+        }
 
         if (
             this.creatureAnimationLabPreviewEnabled &&
-            [DRYAD_UNIT_NAME, "Elf", "Medusa"].includes(this.getName()) &&
+            [DRYAD_UNIT_NAME, "Elf", "Medusa", "Zena"].includes(this.getName()) &&
             this.oneShotAnim
         ) {
             const origin = animationAtlases[
-                this.getName() === "Medusa" ? "Medusa Lab" : this.getName() === "Elf" ? "Elf Lab" : "Dryad Lab"
+                this.getName() === "Zena"
+                    ? "Zena Lab"
+                    : this.getName() === "Medusa"
+                      ? "Medusa Lab"
+                      : this.getName() === "Elf"
+                        ? "Elf Lab"
+                        : "Dryad Lab"
             ]?.[this.oneShotAnim.stateName]?.projectileOrigin as HoCMath.XY | undefined;
             if (origin)
                 return parent.toLocal(
@@ -7180,7 +9598,18 @@ export class RenderableUnit extends Unit {
             this.facingDirection,
         );
     }
-    /** World-space anchor immediately above the creature's visible stack flag. */
+    public getFlagCenterAnchor(gs: GridSettings): HoCMath.XY {
+        const badge = this.badgeContainer;
+        return badge?.visible ? { x: badge.x, y: badge.y } : this.getFlagEffectAnchor(gs);
+    }
+    public getFlagEffectAnchor(gs: GridSettings): HoCMath.XY {
+        const badge = this.badgeContainer;
+        const geometry = this.badgeDrawState?.geometry;
+        if (badge?.visible && geometry) {
+            return { x: badge.x, y: badge.y + geometry.flagHeight * Math.abs(badge.scale.y) * 0.5 };
+        }
+        return this.getDamagePredictionAnchor(gs);
+    }
     public getDamagePredictionAnchor(gs: GridSettings): HoCMath.XY {
         const badge = this.badgeContainer;
         const worldRoot = badge?.parent;
@@ -7249,6 +9678,328 @@ export class RenderableUnit extends Unit {
                           this.oneShotAnim.frameIndex * this.oneShotAnim.durationPerFrame),
         ).shadowAlpha;
     }
+    private efreetLabDeathShadowAlpha(): number {
+        const anim = this.oneShotAnim;
+        if (this.getName() !== EFREET_UNIT_NAME || anim?.stateName !== "death") return 1;
+        const progress =
+            anim.frameIndex + anim.elapsed / (anim.frameDurationsMs?.[anim.frameIndex] ?? anim.durationPerFrame);
+        const t = Math.min(1, Math.max(0, (progress - 4) / 4));
+        return 1 - t * t * (3 - 2 * t);
+    }
+    private hydraLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Hydra" &&
+            /^(?:melee_)?attack(?:_up|_down)?$/.test(state ?? "")
+            ? 1024 / 768
+            : 1;
+    }
+    private gargantuanLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Gargantuan" || !state) return 1;
+        const meta = animationAtlases["Gargantuan Lab"]?.[state];
+        if (
+            !meta ||
+            ![
+                "hit",
+                "death",
+                "attack",
+                "attack_up",
+                "attack_down",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+            ].includes(state)
+        )
+            return 1;
+        const density = typeof meta.sourcePixelScale === "number" ? meta.sourcePixelScale : 1;
+        return meta.frameHeight / (768 * density);
+    }
+    private blackDragonLabCanvasScale(state: string | null = this.oneShotAnim?.stateName ?? null): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Black Dragon" &&
+            (state === null || state === "hit" || state === "death" || !!blackDragonFireState(state))
+            ? BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE
+            : 1;
+    }
+    private blackDragonLabReactionConfig(state: string): UnitAtlasConfig | null {
+        const atlasState = blackDragonFireState(state) ?? state;
+        const speed = state === "death" ? 1.3 : state === "hit" ? 1.6 * 1.3 : 1;
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Black Dragon" ||
+            (state !== "hit" && state !== "death" && !blackDragonFireState(state))
+        )
+            return null;
+        const meta = animationAtlases["Black Dragon Lab"]?.[atlasState];
+        const imageKey = `black_dragon_lab_${atlasState}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta: {
+                      ...meta,
+                      footAnchorY: BLACK_DRAGON_LAB_IDLE_ANCHOR_Y,
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      loopDurationMs: meta.loopDurationMs / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((duration) => duration / speed),
+                  },
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Black Dragon::lab-${atlasState}-${state === "hit" ? "idle-palette-20261017-v14" : blackDragonFireState(state) ? "attack-950ms-20261017-v4" : "source-material-20261014-v4"}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    public hasAuthoredBlackDragonFireBreath(): boolean {
+        return !!this.blackDragonLabReactionConfig("attack");
+    }
+    private gargantuanLabActionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Gargantuan" ||
+            ![
+                "hit",
+                "death",
+                "attack",
+                "attack_up",
+                "attack_down",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+            ].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Gargantuan Lab"]?.[state];
+        const speed = state === "hit" || state === "death" ? 1.495 : state.startsWith("melee_attack") ? 1.593 : 1.534;
+        const imageKey = `gargantuan_lab_${state}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta: {
+                      ...meta,
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      loopDurationMs: meta.loopDurationMs / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((duration) => duration / speed),
+                  },
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Gargantuan::lab-${state}-${meta.registrationVersion ?? "registered-20261014-v2"}-speed-${speed}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private hydraLabReactionConfig(state: string): UnitAtlasConfig | null {
+        const atlasState = hydraLabAtlasState(state);
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Hydra" ||
+            !["hit", "death", "melee_attack"].includes(atlasState)
+        )
+            return null;
+        const meta = animationAtlases["Hydra Lab"]?.[atlasState];
+        const speed =
+            atlasState === "hit" || atlasState === "death"
+                ? HYDRA_LAB_REACTION_SPEED[atlasState]
+                : HYDRA_LAB_REACTION_SPEED.melee_attack;
+        const imageKey = `hydra_lab_${atlasState}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta: {
+                      ...meta,
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      loopDurationMs: meta.loopDurationMs / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((ms) => ms / speed),
+                  },
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Hydra::lab-${atlasState}-${atlasState === "melee_attack" ? "radial-screen-reference-20261015-v2" : "combat-20261012-v2"}-speed-${speed}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private frenziedBoarLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Frenzied Boar" &&
+            /^(?:melee_)?attack(?:_up|_down)?$/.test(state ?? "")
+            ? 1152 / 768
+            : 1;
+    }
+    private frenziedBoarLabReactionConfig(state: string): UnitAtlasConfig | null {
+        const atlasState = state.replace(/^attack/, "melee_attack");
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Frenzied Boar" ||
+            !["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(atlasState)
+        )
+            return null;
+        const meta = animationAtlases["Frenzied Boar Lab"]?.[atlasState];
+        const imageKey = `frenzied_boar_lab_${atlasState}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta,
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Frenzied Boar::lab-${atlasState}-${atlasState === "melee_attack" ? "compact-saliva-20261012-v8" : atlasState.startsWith("melee_attack") ? "motion-rebuild-20261010-v7" : "contact-locked-20261008-v3"}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private angelLabReactionConfig(state: string): UnitAtlasConfig | null {
+        const atlasState = state.replace(/^attack/, "melee_attack");
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Angel" ||
+            !["cast", "hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(atlasState)
+        )
+            return null;
+        const meta = animationAtlases["Angel Lab"]?.[atlasState];
+        const imageKey = `angel_lab_${atlasState}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1 },
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Angel::lab-actions-idle-calibration-20261016-v15::${atlasState}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private behemothLabReactionConfig(state: string): UnitAtlasConfig | null {
+        const atlasState = state.replace(/^attack/, "melee_attack");
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Behemoth" ||
+            !["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(atlasState)
+        )
+            return null;
+        const meta = animationAtlases["Behemoth Lab"]?.[atlasState];
+        const imageKey = `behemoth_lab_${atlasState}_atlas` as ImageKey;
+        return meta && images[imageKey]
+            ? {
+                  meta,
+                  imageKey,
+                  imageSrc: images[imageKey],
+                  cacheKey: `Behemoth::lab-${atlasState}-support-registration-20261010-v21`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private behemothLabActionCanvasScale(state = this.oneShotAnim?.stateName): number {
+        const config = state ? this.behemothLabReactionConfig(state) : null;
+        return config ? config.meta.frameHeight / 768 : 1;
+    }
+    private abominationLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Abomination") return null;
+        const atlasState = state.replace(/^attack/, "melee_attack");
+        if (!["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(atlasState)) return null;
+        const meta = animationAtlases["Abomination Lab"]?.[atlasState];
+        if (!meta) return null;
+        const imageKey = `abomination_lab_${atlasState}_atlas` as ImageKey;
+        const version = atlasState.startsWith("melee_attack")
+            ? "idle-width-stable-20261012-v7"
+            : "screenshot-palette-grounded-20261010-v6";
+        return {
+            meta,
+            imageKey,
+            imageSrc: images[imageKey],
+            cacheKey: `Abomination::lab-${atlasState}-${version}`,
+            cacheAcrossScenes: true,
+        };
+    }
+    private arachnaLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            ![ARACHNA_QUEEN_UNIT_NAME, "Arachna Spider"].includes(this.getName()) ||
+            !["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)
+        )
+            return null;
+        if (this.getName() === "Arachna Spider" && state !== "hit") {
+            const meta = animationAtlases["Arachna Spider Lab"]?.[state];
+            const imageKey = `arachna_spider_lab_${state}_atlas` as ImageKey;
+            const durations = state === "death" ? meta?.frameDurationsMs : [...SPIDER_ATTACK_DURATIONS_MS];
+            const total = durations?.reduce((sum, ms) => sum + ms, 0) ?? QUEEN_REACTION_DURATION_MS.death;
+            return meta && images[imageKey]
+                ? {
+                      meta: {
+                          ...meta,
+                          footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1,
+                          fps: (meta.frameCount * 1000) / total,
+                          frameDurationSec: total / meta.frameCount / 1000,
+                          totalDurationSec: total / 1000,
+                          frameDurationsMs: durations,
+                          loopDurationMs: total,
+                      },
+                      imageKey,
+                      imageSrc: images[imageKey],
+                      cacheKey: `Arachna Spider::lab-${state}-full-body-20261009-v2`,
+                      cacheAcrossScenes: true,
+                  }
+                : null;
+        }
+        if (state !== "hit") {
+            const meta = animationAtlases["Arachna Queen Lab"]?.[state];
+            const imageKey = `arachna_queen_lab_${state}_atlas` as ImageKey;
+            return meta && images[imageKey]
+                ? {
+                      meta,
+                      imageKey,
+                      imageSrc: images[imageKey],
+                      cacheKey: `Arachna Queen::lab-${state}-sprites-20261006-palette-v4`,
+                      cacheAcrossScenes: true,
+                  }
+                : null;
+        }
+        const base = getStaticBattlefieldIdleConfig(
+            this.getName(),
+            this.getFootprintWidth(),
+            this.getFootprintHeight(),
+        );
+        if (!base) return null;
+        const duration = QUEEN_REACTION_DURATION_MS[state as QueenReaction];
+        return {
+            ...base,
+            meta: {
+                ...base.meta,
+                fps: 1000 / duration,
+                frameDurationSec: duration / 1000,
+                totalDurationSec: duration / 1000,
+                loopDurationMs: duration,
+                frameDurationsMs: [duration],
+            },
+            cacheKey: `${this.getName()}::lab-${state}-20261008-v1`,
+        };
+    }
+    private efreetLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            this.getName() !== EFREET_UNIT_NAME ||
+            !["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Efreet Lab"]?.[state];
+        const playbackSpeed = state === "death" ? EFREET_LAB_DEATH_PLAYBACK_SPEED : 1;
+        const imageKey = `efreet_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta: {
+                      ...meta,
+                      fps: meta.fps * playbackSpeed,
+                      frameDurationSec: meta.frameDurationSec / playbackSpeed,
+                      totalDurationSec: meta.totalDurationSec / playbackSpeed,
+                      loopDurationMs: (meta.loopDurationMs ?? meta.totalDurationSec * 1000) / playbackSpeed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((duration) => duration / playbackSpeed),
+                  },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: state.startsWith("melee_attack")
+                      ? `Efreet::lab-${state}-calibrated-20261003-v1`
+                      : `Efreet::lab-${state}-painted-20261002-v1`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
     private manticoreLabCanvasScale(state = this.oneShotAnim?.stateName): number {
         return this.creatureAnimationLabPreviewEnabled &&
             this.getName() === "Manticore" &&
@@ -7256,14 +10007,259 @@ export class RenderableUnit extends Unit {
             ? 896 / 768
             : 1;
     }
+    private championLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Champion") return null;
+        if (!["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)) return null;
+        const meta = animationAtlases["Champion Lab"]?.[state];
+        const imageKey = `champion_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta,
+                  imageKey,
+                  imageSrc,
+                  cacheKey:
+                      state === "melee_attack_down"
+                          ? "Champion::lab-melee_attack_down-registered-20261012-height-v5"
+                          : `Champion::lab-${state}-registered-${state.startsWith("melee_attack") ? "20261012-width-flow-v4" : "20261008-v2"}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
     private manticoreLabReactionConfig(state: string): UnitAtlasConfig | null {
         if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Manticore") return null;
-        if (!["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)) return null;
+        if (
+            ![
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(state)
+        )
+            return null;
         const meta = animationAtlases["Manticore Lab"]?.[state];
         const imageKey = `manticore_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
+        const imageSrc = images[imageKey];
         return meta && imageSrc
             ? { meta, imageKey, imageSrc, cacheKey: `Manticore::lab-${state}-20260920-v4`, cacheAcrossScenes: true }
+            : null;
+    }
+    private unicornLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Unicorn" &&
+            state?.startsWith("melee_attack")
+            ? 1024 / 768
+            : 1;
+    }
+    private unicornLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Unicorn" ||
+            ![
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Unicorn Lab"]?.[state];
+        const playbackSpeed = state === "hit" ? 1.2 : state === "death" ? 1.14 : 1;
+        const imageKey = `unicorn_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta: {
+                      ...meta,
+                      fps: meta.fps * playbackSpeed,
+                      frameDurationSec: meta.frameDurationSec / playbackSpeed,
+                      totalDurationSec: meta.totalDurationSec / playbackSpeed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((duration) => duration / playbackSpeed),
+                  },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Unicorn::lab-${state}-attack-size-matched-20261002-v3`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private cyclopsReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            this.getName() !== "Cyclops" ||
+            ![
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Cyclops Lab"]?.[state];
+        const imageKey = `cyclops_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta,
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Cyclops::lab-${state}-ranged-three-directions-20261002-v8`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private goblinLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Goblin Knight" &&
+            state?.startsWith("melee_attack")
+            ? 1280 / 768
+            : 1;
+    }
+    private zenaSideWidthScale(): number {
+        const anim = this.oneShotAnim;
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Zena" || anim?.stateName !== "attack")
+            return 1;
+        const sourceFrame = anim.zenaCatching ? anim.frames.length - 1 - anim.frameIndex : anim.frameIndex;
+        if (!anim.zenaCatching && sourceFrame === 22) return 1;
+        return 1 - 0.06 * Math.min(1, sourceFrame / 4);
+    }
+    private syncZenaSideWidth(): void {
+        if (!this.sprite) return;
+        const next = this.zenaSideWidthScale();
+        this.sprite.scale.x *= next / (this.zenaRenderedSideWidth ?? 1);
+        this.zenaRenderedSideWidth = next;
+    }
+    private zenaLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Zena" ||
+            ![
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Zena Lab"]?.[state];
+        const imageKey = `zena_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY ?? 1 },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: state.startsWith("attack")
+                      ? `Zena::lab-${state}-ranged-20261002-v14`
+                      : `Zena::lab-${state}-body-scale-20261002-v13`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private monkLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            this.getName() !== "Monk" ||
+            ![
+                "hit",
+                "death",
+                "melee_attack",
+                "melee_attack_up",
+                "melee_attack_down",
+                "attack",
+                "attack_up",
+                "attack_down",
+            ].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Monk Lab"]?.[state];
+        const imageKey = `monk_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        const speed = state === "death" ? 1.44 : 1;
+        return meta && imageSrc
+            ? {
+                  meta: {
+                      ...meta,
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((ms) => ms / speed),
+                  },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Monk::lab-${state}-20261001-v1`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private nightmareLabActionConfig(state: string): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Nightmare" || !isNightmareLabAction(state))
+            return null;
+        const meta = animationAtlases["Nightmare Lab"]?.[state];
+        const speed = state === "cast" ? NIGHTMARE_CAST_PLAYBACK_SPEED : 1;
+        const imageKey = `nightmare_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta: {
+                      ...meta,
+                      footAnchorY: this.selectionAnimFootAnchorY,
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((ms) => ms / speed),
+                  },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Nightmare::lab-${state}-20261002-v3`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private goblinLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Goblin Knight" ||
+            !["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)
+        )
+            return null;
+        const meta = animationAtlases["Goblin Knight Lab"]?.[state];
+        const imageKey = `goblin_knight_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        const speed = state === "hit" || state === "death" ? 1.15 : 1.2;
+        return meta && imageSrc
+            ? {
+                  meta: {
+                      ...meta,
+                      footAnchorY: state.startsWith("melee_attack")
+                          ? (256 + this.selectionAnimFootAnchorY * 768) / 1280
+                          : state === "hit"
+                            ? this.selectionAnimFootAnchorY
+                            : meta.footAnchorY,
+                      fps: meta.fps * speed,
+                      frameDurationSec: meta.frameDurationSec / speed,
+                      totalDurationSec: meta.totalDurationSec / speed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((ms) => ms / speed),
+                  },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Goblin Knight::lab-${state}-20261001-v2`,
+                  cacheAcrossScenes: true,
+              }
             : null;
     }
     private battleMageLabCanvasScale(state = this.oneShotAnim?.stateName): number {
@@ -7282,7 +10278,7 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Battle Mage Lab"]?.[state];
         const imageKey = `battle_mage_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
+        const imageSrc = images[imageKey];
         if (meta && imageSrc) {
             return {
                 meta,
@@ -7313,6 +10309,80 @@ export class RenderableUnit extends Unit {
             cacheKey: `Battle Mage::lab-${state}-continuous-20260913-v1`,
         };
     }
+    private cannonLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Tsar Cannon" &&
+            isCannonAuthoredAction(state)
+            ? CANNON_REACTION_CANVAS_SCALE
+            : 1;
+    }
+    private cannonLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Tsar Cannon" ||
+            !isCannonAuthoredAction(state)
+        )
+            return null;
+        const imageKey = cannonReactionAtlasKey(state) as ImageKey;
+        const imageSrc = images[imageKey];
+        return imageSrc
+            ? {
+                  meta: cannonReactionMeta(state, this.selectionAnimFootAnchorY),
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Tsar Cannon::${imageKey}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private thunderbirdLabReactionCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Thunderbird" &&
+            isThunderbirdLabAction(state)
+            ? THUNDERBIRD_REACTION_CANVAS_SCALE
+            : 1;
+    }
+    private thunderbirdLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (
+            !this.creatureAnimationLabPreviewEnabled ||
+            this.getName() !== "Thunderbird" ||
+            !isThunderbirdLabAction(state)
+        )
+            return null;
+        const meta = animationAtlases["Thunderbird Lab"]?.[state];
+        const imageKey = `thunderbird_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta: { ...meta, footAnchorY: thunderbirdReactionAnchorY(this.selectionAnimFootAnchorY) },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Thunderbird::lab-actions-20261013-v1::${state}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private wyvernLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        return this.creatureAnimationLabPreviewEnabled && this.getName() === "Wyvern" && isWyvernLabAction(state)
+            ? WYVERN_REACTION_CANVAS_SCALE
+            : 1;
+    }
+    private wyvernLabReactionConfig(state: string): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Wyvern" || !isWyvernLabAction(state))
+            return null;
+        const meta = animationAtlases["Wyvern Lab"]?.[state];
+        const imageKey = `wyvern_lab_${state}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta: { ...meta, footAnchorY: (128 + this.selectionAnimFootAnchorY * 768) / 1024 },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Wyvern::lab-${state}-sprites-20260927-v3`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
     private valkyrieLabCanvasScale(state = this.oneShotAnim?.stateName): number {
         return this.creatureAnimationLabPreviewEnabled && this.getName() === "Valkyrie" && isValkyrieLabAction(state)
             ? valkyrieLabActionCanvasScale(state)
@@ -7323,8 +10393,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Valkyrie Lab Current"]?.[state];
         const imageKey = `valkyrie_lab_current_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         const playbackSpeed = state === "death" ? VALKYRIE_DEATH_SPEED : state === "hit" ? VALKYRIE_HIT_SPEED : 1;
         return {
             meta: {
@@ -7348,8 +10418,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Fairy Lab"]?.[state];
         const imageKey = `fairy_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey] ?? "";
-        if (!meta) return null;
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
         return {
             meta,
             imageSrc,
@@ -7358,9 +10428,141 @@ export class RenderableUnit extends Unit {
             cacheAcrossScenes: true,
         };
     }
-    /** Exact atlas used by this creature, for preparing a complete combat pair before playback. */
+    private mantisLabActionState(state: string | undefined): string | undefined {
+        if (!state || !this.creatureAnimationLabPreviewEnabled || this.getName() !== "Mantis") return;
+        // The lab's generic attack buttons must not fall back to the older, differently framed figure.
+        const atlasState = state.replace(/^attack/, "melee_attack");
+        return ["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(atlasState)
+            ? atlasState
+            : undefined;
+    }
+    private mantisLabReactionCanvasScale(state = this.oneShotAnim?.stateName): number {
+        const atlasState = this.mantisLabActionState(state);
+        return atlasState ? (animationAtlases["Mantis Lab"][atlasState]?.frameHeight ?? 512) / 512 : 1;
+    }
+    private mantisLabReactionConfig(state: string): UnitAtlasConfig | null {
+        const atlasState = this.mantisLabActionState(state);
+        if (!atlasState) return null;
+        const meta = animationAtlases["Mantis Lab"]?.[atlasState];
+        const imageKey = `mantis_lab_${atlasState}_atlas` as ImageKey;
+        const imageSrc = images[imageKey];
+        const playbackSpeed = (state === "death" ? 1.1 : 1) * 1.17;
+        return meta && imageSrc
+            ? {
+                  meta: {
+                      ...meta,
+                      fps: meta.fps * playbackSpeed,
+                      frameDurationSec: meta.frameDurationSec / playbackSpeed,
+                      totalDurationSec: meta.totalDurationSec / playbackSpeed,
+                      loopDurationMs: meta.loopDurationMs / playbackSpeed,
+                      frameDurationsMs: meta.frameDurationsMs?.map((duration) => duration / playbackSpeed),
+                  },
+                  imageKey,
+                  imageSrc,
+                  cacheKey: `Mantis::lab-actions-idle-palette-20261004-v8::${atlasState}`,
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
+    private mantisLabIdleConfig(): UnitAtlasConfig | null {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Mantis") return null;
+        const meta = animationAtlases["Mantis Lab"]?.idle;
+        const imageKey = "mantis_lab_idle_atlas" as ImageKey;
+        const imageSrc = images[imageKey];
+        return meta && imageSrc
+            ? {
+                  meta,
+                  imageKey,
+                  imageSrc,
+                  cacheKey: "Mantis::lab-idle-rigid-eye-20261003-v4",
+                  cacheAcrossScenes: true,
+              }
+            : null;
+    }
     public getAnimationTextureKey(stateName: string): string | undefined {
+        const angel = this.angelLabReactionConfig(stateName);
+        if (angel) return angel.imageKey;
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Thunderbird" && stateName === "walk") {
+            return "thunderbird_flight_walk_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Tsar Cannon" && stateName === "walk") {
+            return "tsar_cannon_lab_walk_atlas";
+        }
+        const blackDragonReaction = this.blackDragonLabReactionConfig(stateName);
+        if (blackDragonReaction) return blackDragonReaction.imageKey;
+        const gargantuanReaction = this.gargantuanLabActionConfig(stateName);
+        if (gargantuanReaction) return gargantuanReaction.imageKey;
+        const hydraReaction = this.hydraLabReactionConfig(stateName);
+        if (hydraReaction) return hydraReaction.imageKey;
+        const boarReaction = this.frenziedBoarLabReactionConfig(stateName);
+        if (boarReaction) return boarReaction.imageKey;
+        const behemothReaction = this.behemothLabReactionConfig(stateName);
+        if (behemothReaction) return behemothReaction.imageKey;
+        const abominationReaction = this.abominationLabReactionConfig(stateName);
+        if (abominationReaction) return abominationReaction.imageKey;
+        if (this.getName() === "Pegasus" && stateName === "walk") return "pegasus_flight_walk_atlas";
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Griffin") {
+            if (stateName === "idle") return "griffin_lab_idle_atlas";
+            if (stateName === "walk") return "griffin_flight_walk_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Champion" && stateName === "idle") {
+            return "champion_lab_idle_atlas";
+        }
+        if (
+            this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === ARACHNA_QUEEN_UNIT_NAME &&
+            stateName === "walk"
+        ) {
+            return "arachna_queen_lab_walk_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Arachna Spider" && stateName === "walk")
+            return "arachna_spider_lab_walk_atlas";
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Champion" && stateName === "walk") {
+            return "champion_lab_walk_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Frenzied Boar" && stateName === "idle") {
+            return "frenzied_boar_lab_idle_atlas";
+        }
+        if (
+            this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === GARGANTUAN_UNIT_NAME &&
+            stateName === "idle"
+        ) {
+            return "gargantuan_lab_idle_atlas";
+        }
+        if (this.getName() === DRYAD_UNIT_NAME && stateName === "idle") return "dryad_painted_idle_atlas";
+        if (stateName === "idle" && this.mantisLabIdleConfig()) return "mantis_lab_idle_atlas";
+        if (stateName === "idle" && this.hydraLabIdleConfig()) return "hydra_lab_idle_atlas";
+        if (stateName === "idle" && this.blackDragonLabIdleConfig()) return "black_dragon_lab_idle_atlas";
+        if (stateName === "idle" && this.thunderbirdLabIdleConfig()) return "thunderbird_lab_idle_atlas";
+        if (stateName === "idle" && this.magicDragonLabIdleConfig()) return "magic_dragon_lab_idle_atlas";
+        if (this.getName() === EFREET_UNIT_NAME && (stateName === "idle" || stateName === "walk")) {
+            return "efreet_lab_idle_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Unicorn" && stateName === "idle") {
+            return "unicorn_lab_idle_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Unicorn" && stateName === "walk") {
+            return "unicorn_lab_walk_atlas";
+        }
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Zena" && stateName === "idle") {
+            return "zena_lab_idle_atlas";
+        }
         return (
+            this.cannonLabReactionConfig(stateName) ??
+            this.magicDragonLabReactionConfig(stateName) ??
+            this.championLabReactionConfig(stateName) ??
+            this.griffinLabReactionConfig(stateName) ??
+            this.arachnaLabReactionConfig(stateName) ??
+            this.efreetLabReactionConfig(stateName) ??
+            this.unicornLabReactionConfig(stateName) ??
+            this.cyclopsReactionConfig(stateName) ??
+            this.nightmareLabActionConfig(stateName) ??
+            this.zenaLabReactionConfig(stateName) ??
+            this.monkLabReactionConfig(stateName) ??
+            this.goblinLabReactionConfig(stateName) ??
+            this.thunderbirdLabReactionConfig(stateName) ??
+            this.wyvernLabReactionConfig(stateName) ??
             this.pikemanLabReactionConfig(stateName) ??
             this.manticoreLabReactionConfig(stateName) ??
             this.valkyrieLabReactionConfig(stateName) ??
@@ -7370,6 +10572,7 @@ export class RenderableUnit extends Unit {
             this.whiteTigerLabAnimationConfig(stateName) ??
             this.trollLabAnimationConfig(stateName) ??
             this.leprechaunLabReactionConfig(stateName) ??
+            this.mantisLabReactionConfig(stateName) ??
             this.fairyLabAnimationConfig(stateName) ??
             this.dryadLabActionConfig(stateName) ??
             this.elfLabReactionConfig(stateName) ??
@@ -7378,7 +10581,68 @@ export class RenderableUnit extends Unit {
             getAnimationStateConfig(this.getName(), stateName, this.getFootprintWidth(), this.getFootprintHeight())
         )?.imageKey;
     }
+    private unicornBlindnessFlash?: { startedAt?: number; onComplete?: () => void };
+    public flashUnicornBlindness(onComplete?: () => void): boolean {
+        if (this.getName() !== "Unicorn" || this.isDead()) return false;
+        this.unicornBlindnessFlash?.onComplete?.();
+        this.unicornBlindnessFlash = { onComplete };
+        return true;
+    }
     public hasAnimationState(stateName: string): boolean {
+        if (this.angelLabReactionConfig(stateName)) return true;
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Angel" && stateName === "idle")
+            return Boolean(animationAtlases["Angel Lab"]?.idle);
+        if (
+            this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Arachna Spider" &&
+            ["idle", "walk"].includes(stateName)
+        )
+            return true;
+        if (this.magicDragonLabReactionConfig(stateName)) return true;
+        if (this.championLabReactionConfig(stateName)) return true;
+        if (this.blackDragonLabReactionConfig(stateName)) return true;
+        if (this.gargantuanLabActionConfig(stateName)) return true;
+        if (this.hydraLabReactionConfig(stateName)) return true;
+        if (this.frenziedBoarLabReactionConfig(stateName)) return true;
+        if (this.behemothLabReactionConfig(stateName)) return true;
+        if (this.abominationLabReactionConfig(stateName)) return true;
+        if (
+            this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === ARACHNA_QUEEN_UNIT_NAME &&
+            stateName === "walk"
+        )
+            return Boolean(animationAtlases["Arachna Queen Lab"]?.walk);
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Champion" && stateName === "idle")
+            return true;
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Abomination" && stateName === "idle")
+            return Boolean(animationAtlases["Abomination Lab"]?.idle);
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Frenzied Boar" && stateName === "idle")
+            return true;
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Behemoth" && stateName === "idle")
+            return true;
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === GARGANTUAN_UNIT_NAME && stateName === "idle")
+            return true;
+        if (this.cannonLabReactionConfig(stateName)) return true;
+        if (this.griffinLabReactionConfig(stateName)) return true;
+        if (stateName === "idle" && this.griffinLabIdleConfig()) return true;
+        if (stateName === "idle" && this.hydraLabIdleConfig()) return true;
+        if (stateName === "idle" && this.blackDragonLabIdleConfig()) return true;
+        if (stateName === "idle" && this.thunderbirdLabIdleConfig()) return true;
+        if (stateName === "idle" && this.magicDragonLabIdleConfig()) return true;
+        if (this.arachnaLabReactionConfig(stateName)) return true;
+        if (this.efreetLabReactionConfig(stateName)) return true;
+        if (stateName === "idle" && this.mantisLabIdleConfig()) return true;
+        if (this.getName() === EFREET_UNIT_NAME && (stateName === "idle" || stateName === "walk")) return true;
+        if (this.getName() === "Unicorn" && stateName === "cast") return true;
+        if (this.unicornLabReactionConfig(stateName)) return true;
+        if (this.cyclopsReactionConfig(stateName)) return true;
+        if (this.nightmareLabActionConfig(stateName)) return true;
+        if (this.zenaLabReactionConfig(stateName)) return true;
+        if (this.monkLabReactionConfig(stateName)) return true;
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Zena" && stateName === "idle") return true;
+        if (this.goblinLabReactionConfig(stateName)) return true;
+        if (this.thunderbirdLabReactionConfig(stateName)) return true;
+        if (this.wyvernLabReactionConfig(stateName)) return true;
         if (this.medusaLabAnimationConfig(stateName)) return true;
         if (this.pikemanLabReactionConfig(stateName)) return true;
         if (this.manticoreLabReactionConfig(stateName)) return true;
@@ -7388,6 +10652,7 @@ export class RenderableUnit extends Unit {
         if (this.whiteTigerLabAnimationConfig(stateName)) return true;
         if (this.trollLabAnimationConfig(stateName)) return true;
         if (this.leprechaunLabReactionConfig(stateName)) return true;
+        if (this.mantisLabReactionConfig(stateName)) return true;
         if (this.fairyLabAnimationConfig(stateName)) return true;
         if (this.dryadLabActionConfig(stateName)) return true;
         if (this.elfLabReactionConfig(stateName)) return true;
@@ -7400,6 +10665,7 @@ export class RenderableUnit extends Unit {
         );
     }
     public isPlayingOneShotAnimation(stateName?: string): boolean {
+        if (this.unicornBlindnessFlash && (!stateName || stateName === "cast")) return true;
         return !!this.oneShotAnim && (!stateName || this.oneShotAnim.stateName === stateName);
     }
     public isPlayingForegroundAttackAnimation(): boolean {
@@ -7409,21 +10675,49 @@ export class RenderableUnit extends Unit {
             isAttackAnimationStateName(this.oneShotAnim.stateName)
         );
     }
-    /**
-     * Plays a one-shot animation sequence (like 'death', 'attack', 'hit')
-     * @param stateName The animation state name (e.g. "death", "attack")
-     * @param onComplete Callback when animation finishes
-     */
     public playOneShotAnimation(stateName: string, onComplete?: () => void, forcePreview = false): boolean {
+        if (this.getName() === "Unicorn" && stateName === "cast") return this.flashUnicornBlindness(onComplete);
         this.cancelArbalesterRangedShot();
         this.cancelDryadRangedShot();
         this.oneShotAnim?.orcCancel?.();
-        if (this.sprite) clearScavengerHitRegistration(this.sprite);
+        if (this.sprite) {
+            clearScavengerHitRegistration(this.sprite);
+            clearDryadRangedRegistration(this.sprite);
+        }
         // An action has begun even when this creature has no authored atlas for it. Hide immediately
         // instead of allowing the turn marker to linger until the callback or next turn snapshot.
         this.suppressActiveTurnPointer();
         const props = this.getUnitProperties();
-        if (!forcePreview && !creatureOneShotAnimationEnabledForUnit(props.name, stateName)) {
+        const hyenaAuthoredAction =
+            props.name === "Hyena" &&
+            ["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName);
+        const ogreMageReaction =
+            props.name === "Ogre Mage" &&
+            ["hit", "death", "cast", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(stateName);
+        if (
+            !forcePreview &&
+            !this.abominationLabReactionConfig(stateName) &&
+            !this.blackDragonLabReactionConfig(stateName) &&
+            !this.gargantuanLabActionConfig(stateName) &&
+            !this.hydraLabReactionConfig(stateName) &&
+            !this.frenziedBoarLabReactionConfig(stateName) &&
+            !this.angelLabReactionConfig(stateName) &&
+            !this.behemothLabReactionConfig(stateName) &&
+            !this.cannonLabReactionConfig(stateName) &&
+            !this.mantisLabReactionConfig(stateName) &&
+            !this.griffinLabReactionConfig(stateName) &&
+            !this.arachnaLabReactionConfig(stateName) &&
+            !this.efreetLabReactionConfig(stateName) &&
+            !this.nightmareLabActionConfig(stateName) &&
+            !this.magicDragonLabReactionConfig(stateName) &&
+            !this.championLabReactionConfig(stateName) &&
+            !this.unicornLabReactionConfig(stateName) &&
+            !this.zenaLabReactionConfig(stateName) &&
+            !this.monkLabReactionConfig(stateName) &&
+            !this.thunderbirdLabReactionConfig(stateName) &&
+            !this.goblinLabReactionConfig(stateName) &&
+            !creatureOneShotAnimationEnabledForUnit(props.name, stateName)
+        ) {
             // A generic Peasant hit/death/cast request is intentionally visual-only no-op. Do not let it
             // cancel an approved attack or gait that is already playing; death callbacks still run below
             // and own the actual teardown.
@@ -7434,23 +10728,53 @@ export class RenderableUnit extends Unit {
                 this.walkAnim = undefined;
                 this.movementBadgeOffsetY = undefined;
                 this.stepSelectionAnimation();
-                this.syncCreatureFigureDepth();
             }
             if (onComplete) onComplete();
             return false;
         }
+        // Reactions start from the registered idle canvas even when an impact interrupts flight.
+        if (props.name === "Pegasus" && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.magicDragonLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.abominationLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.blackDragonLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.gargantuanLabActionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.hydraLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.frenziedBoarLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.behemothLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.arachnaLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.mantisLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (this.griffinLabReactionConfig(stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (isBeholderAuthoredAction(props.name, stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (isHarpyAuthoredAction(props.name, stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (isTrentAuthoredAction(props.name, stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (isSatyrAuthoredAction(props.name, stateName) && this.walkAnim) this.stopBoardWalkAnimation();
+        if (props.name === "Cyclops" && this.cyclopsReactionConfig(stateName) && this.walkAnim)
+            this.stopBoardWalkAnimation();
+        if (hyenaAuthoredAction && this.walkAnim) this.stopBoardWalkAnimation();
+        if (ogreMageReaction && this.walkAnim) this.stopBoardWalkAnimation();
         // Authored actions share the sword idle's padded canvas. Restore gait registration before swapping.
         if (isBerserkerAuthoredAction(props.name, stateName) && this.walkAnim) this.stopBoardWalkAnimation();
         const previousBerserkerScale = isBerserkerAuthoredAction(props.name, this.oneShotAnim?.stateName)
             ? BERSERKER_SWORD_IDLE_SCALE
             : this.berserkerLabIdleScale();
+        const cannonLabConfig = this.cannonLabReactionConfig(stateName);
         const labConfig = this.scavengerLabAnimationConfig(stateName);
+        const abominationLabConfig = this.abominationLabReactionConfig(stateName);
+        const blackDragonLabConfig = this.blackDragonLabReactionConfig(stateName);
+        const gargantuanLabConfig = this.gargantuanLabActionConfig(stateName);
+        const hydraLabConfig = this.hydraLabReactionConfig(stateName);
+        const boarLabConfig = this.frenziedBoarLabReactionConfig(stateName);
+        const angelLabConfig = this.angelLabReactionConfig(stateName);
+        if (angelLabConfig && this.walkAnim) this.stopBoardWalkAnimation();
+        const behemothLabConfig = this.behemothLabReactionConfig(stateName);
+        const mantisLabConfig = this.mantisLabReactionConfig(stateName);
         const fairyLabConfig = this.fairyLabAnimationConfig(stateName);
         const centaurLabConfig = this.centaurLabReactionConfig(stateName);
         const dryadLabConfig = this.dryadLabActionConfig(stateName);
         const elfLabConfig = this.elfLabReactionConfig(stateName);
         const leprechaunLabConfig = this.leprechaunLabReactionConfig(stateName);
         const battleMageLabConfig = this.battleMageLabReactionConfig(stateName);
+        const griffinLabConfig = this.griffinLabReactionConfig(stateName);
         const healerLabConfig = this.healerLabReactionConfig(stateName);
         const pikemanLabConfig = this.pikemanLabReactionConfig(stateName);
         const trollLabConfig = this.trollLabAnimationConfig(stateName);
@@ -7458,7 +10782,43 @@ export class RenderableUnit extends Unit {
         const whiteTigerLabConfig = this.whiteTigerLabAnimationConfig(stateName);
         const valkyrieLabConfig = this.valkyrieLabReactionConfig(stateName);
         const manticoreLabConfig = this.manticoreLabReactionConfig(stateName);
+        const goblinLabConfig = this.goblinLabReactionConfig(stateName);
+        const queenLabConfig = this.arachnaLabReactionConfig(stateName);
+        const efreetLabConfig = this.efreetLabReactionConfig(stateName);
+        const nightmareLabConfig = this.nightmareLabActionConfig(stateName);
+        const magicDragonLabConfig = this.magicDragonLabReactionConfig(stateName);
+        const championLabConfig = this.championLabReactionConfig(stateName);
+        const unicornLabConfig = this.unicornLabReactionConfig(stateName);
+        const zenaLabConfig = this.zenaLabReactionConfig(stateName);
+        const monkLabConfig = this.monkLabReactionConfig(stateName);
+        const thunderbirdLabConfig = this.thunderbirdLabReactionConfig(stateName);
+        const wyvernLabConfig = this.wyvernLabReactionConfig(stateName);
+        const cyclopsReactionConfig = this.cyclopsReactionConfig(stateName);
+        const cyclopsAuthoredAttack =
+            !!cyclopsReactionConfig &&
+            (stateName.startsWith("melee_attack") || ["attack", "attack_up", "attack_down"].includes(stateName));
         const config =
+            cannonLabConfig ??
+            magicDragonLabConfig ??
+            championLabConfig ??
+            abominationLabConfig ??
+            blackDragonLabConfig ??
+            gargantuanLabConfig ??
+            hydraLabConfig ??
+            boarLabConfig ??
+            angelLabConfig ??
+            behemothLabConfig ??
+            queenLabConfig ??
+            griffinLabConfig ??
+            efreetLabConfig ??
+            cyclopsReactionConfig ??
+            nightmareLabConfig ??
+            unicornLabConfig ??
+            zenaLabConfig ??
+            monkLabConfig ??
+            goblinLabConfig ??
+            thunderbirdLabConfig ??
+            wyvernLabConfig ??
             medusaLabConfig ??
             pikemanLabConfig ??
             manticoreLabConfig ??
@@ -7467,6 +10827,7 @@ export class RenderableUnit extends Unit {
             trollLabConfig ??
             healerLabConfig ??
             battleMageLabConfig ??
+            mantisLabConfig ??
             fairyLabConfig ??
             leprechaunLabConfig ??
             dryadLabConfig ??
@@ -7486,16 +10847,50 @@ export class RenderableUnit extends Unit {
             (stateName === "hit" || stateName === "death" || isArbalesterAttack(stateName));
         const mermaidAction = props.name === MERMAID_UNIT_NAME && isMermaidAuthoredAction(stateName);
         const wolfAction = props.name === WOLF_UNIT_NAME && isWolfAuthoredAction(stateName);
-        const atlasFrames = framesForAtlasConfig(
-            arbalesterLabReaction ? { ...config, cacheKey: `Arbalester::lab-combat-v1::${stateName}` } : config,
-            this.texResolver,
-        );
+        // Original full-frame cannon sprites also remain in use during actions. Legacy metadata
+        // supplies timing without loading another model or replacing the restored wheel artwork.
+        const cannonRigBase =
+            this.creatureAnimationLabPreviewEnabled && props.name === "Tsar Cannon" && !cannonLabConfig
+                ? this.texResolver("tsar_cannon_lab_bronze_base_v14")
+                : undefined;
+        const atlasFrames = cannonRigBase
+            ? Array.from({ length: meta.frameCount }, () => cannonRigBase)
+            : framesForAtlasConfig(
+                  arbalesterLabReaction ? { ...config, cacheKey: `Arbalester::lab-combat-v1::${stateName}` } : config,
+                  this.texResolver,
+              );
         let frames =
             props.name === PEASANT_UNIT_NAME &&
             stateName === "attack_down" &&
             atlasFrames.length === PEASANT_ATTACK_DOWN_FRAME_ORDER.length
                 ? PEASANT_ATTACK_DOWN_FRAME_ORDER.map((index) => atlasFrames[index])
                 : atlasFrames;
+        if (goblinLabConfig && stateName === "hit") {
+            const idleKey = "goblin_knight_etch_atlas" as ImageKey;
+            const neutral = framesForAtlasConfig(
+                {
+                    meta: {
+                        ...meta,
+                        frameCount: 12,
+                        atlasWidth: 3072,
+                        atlasHeight: 2304,
+                        layout: { cols: 4, rows: 3 },
+                    },
+                    imageKey: idleKey,
+                    imageSrc: images[idleKey],
+                    cacheKey: "Goblin Knight::lab-hit-idle-neutral",
+                    cacheAcrossScenes: true,
+                },
+                this.texResolver,
+            )[0];
+            if (neutral) frames = frames.map((frame, index) => (index === 0 || index === 7 ? neutral : frame));
+        }
+        // Frame 8 is the first fully grounded corpse. Later authored poses drift left;
+        // keep this exact texture through the remaining timing slots and the death hold.
+        if (goblinLabConfig && stateName === "death" && frames.length === 12) {
+            const grounded = frames[7];
+            frames = frames.map((frame, index) => (index >= 7 ? grounded : frame));
+        }
         if (trollLabConfig && (isTrollLabAttack(stateName) || stateName === "cast")) {
             const idleConfig = this.trollLabAnimationConfig("idle");
             const idle = idleConfig && framesForAtlasConfig(idleConfig, this.texResolver)[0];
@@ -7507,19 +10902,30 @@ export class RenderableUnit extends Unit {
         }
 
         if (
-            (medusaLabConfig ||
+            (magicDragonLabConfig ||
+                championLabConfig ||
+                efreetLabConfig ||
+                nightmareLabConfig ||
+                unicornLabConfig ||
+                zenaLabConfig ||
+                goblinLabConfig ||
+                thunderbirdLabConfig ||
+                wyvernLabConfig ||
+                medusaLabConfig ||
                 manticoreLabConfig ||
                 pikemanLabConfig ||
                 valkyrieLabConfig ||
                 whiteTigerLabConfig ||
                 trollLabConfig ||
                 healerLabConfig ||
+                mantisLabConfig ||
                 fairyLabConfig ||
                 centaurLabConfig ||
                 dryadLabConfig ||
                 elfLabConfig ||
                 leprechaunLabConfig ||
-                battleMageLabConfig) &&
+                battleMageLabConfig ||
+                griffinLabConfig) &&
             this.walkAnim
         )
             this.stopBoardWalkAnimation();
@@ -7537,17 +10943,58 @@ export class RenderableUnit extends Unit {
             : undefined;
         this.movementBadgeOffsetY = undefined;
 
+        const previousCannonCanvasScale = this.cannonLabCanvasScale();
         const previousScavengerCanvasScale = scavengerLabCanvasScale(this.oneShotAnim?.stateName);
+        const previousHarpyCanvasScale = harpyActionCanvasScale(props.name, this.oneShotAnim?.stateName);
+        const previousNomadCanvasScale = nomadReactionCanvasScale(props.name, this.oneShotAnim?.stateName);
+        const previousTrentCanvasScale = trentActionCanvasScale(props.name, this.oneShotAnim?.stateName);
+        const previousSatyrCanvasScale = satyrCastCanvasScale(props.name, this.oneShotAnim?.stateName);
         const previousTrollCanvasScale = this.trollLabCanvasScale();
         const previousCentaurCanvasScale = this.centaurLabCanvasScale();
         const previousLeprechaunCanvasScale = this.leprechaunLabCanvasScale();
         const previousElfCanvasScale = this.elfLabCanvasScale();
+        const previousBlackDragonCanvasScale = this.blackDragonLabCanvasScale();
+        const previousGargantuanCanvasScale = this.gargantuanLabCanvasScale();
+        const previousHydraCanvasScale = this.hydraLabCanvasScale();
+        const previousMagicDragonCanvasScale = this.magicDragonLabCanvasScale();
+        const previousBoarCanvasScale = this.frenziedBoarLabCanvasScale();
         const previousMedusaCanvasScale = this.medusaLabCanvasScale();
+        const previousCrusaderCanvasScale = this.crusaderLabCanvasScale();
+        const previousGriffinCanvasScale = this.griffinLabActionCanvasScale();
         const previousScavengerRatio =
             this.scavengerLabAnimationsEnabled || this.oneShotAnim
                 ? SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO
                 : THIEF_IDLE_VISIBLE_HEIGHT_RATIO;
+        const crusaderLabReaction =
+            this.creatureAnimationLabPreviewEnabled &&
+            props.name === "Crusader" &&
+            (stateName === "hit" || stateName === "death" || isCrusaderAttack(stateName));
         const authoredDurationPerFrame =
+            cannonLabConfig ||
+            magicDragonLabConfig ||
+            championLabConfig ||
+            abominationLabConfig ||
+            blackDragonLabConfig ||
+            gargantuanLabConfig ||
+            hydraLabConfig ||
+            boarLabConfig ||
+            angelLabConfig ||
+            behemothLabConfig ||
+            queenLabConfig ||
+            efreetLabConfig ||
+            cyclopsAuthoredAttack ||
+            nightmareLabConfig ||
+            unicornLabConfig ||
+            zenaLabConfig ||
+            monkLabConfig ||
+            crusaderLabReaction ||
+            hyenaAuthoredAction ||
+            ogreMageReaction ||
+            isSatyrAuthoredAction(props.name, stateName) ||
+            isNomadAuthoredAction(props.name, stateName) ||
+            isHarpyAuthoredAction(props.name, stateName) ||
+            isTrentAuthoredAction(props.name, stateName) ||
+            isBeholderAuthoredAction(props.name, stateName) ||
             medusaLabConfig ||
             whiteTigerLabConfig ||
             pikemanLabConfig ||
@@ -7555,7 +11002,12 @@ export class RenderableUnit extends Unit {
             valkyrieLabConfig ||
             trollLabConfig ||
             healerLabConfig ||
+            goblinLabConfig ||
+            thunderbirdLabConfig ||
+            wyvernLabConfig ||
             battleMageLabConfig ||
+            griffinLabConfig ||
+            mantisLabConfig ||
             fairyLabConfig ||
             leprechaunLabConfig ||
             dryadLabConfig ||
@@ -7570,8 +11022,14 @@ export class RenderableUnit extends Unit {
                 : ((meta.loopDurationMs || 1000) / (meta.frameCount || frames.length)) *
                   oneShotAnimationDurationMultiplier(props.name, stateName);
 
+        const previousBehemothCanvasScale = this.behemothLabActionCanvasScale();
+        const previousMantisCanvasScale = this.mantisLabReactionCanvasScale();
         const previousValkyrieCanvasScale = this.valkyrieLabCanvasScale();
+        const previousThunderbirdCanvasScale = this.thunderbirdLabReactionCanvasScale();
+        const previousWyvernCanvasScale = this.wyvernLabCanvasScale();
         const previousManticoreCanvasScale = this.manticoreLabCanvasScale();
+        const previousUnicornCanvasScale = this.unicornLabCanvasScale();
+        const previousGoblinCanvasScale = this.goblinLabCanvasScale();
         const previousBattleMageCanvasScale = this.battleMageLabCanvasScale();
         const previousPeasantScale =
             props.name === PEASANT_UNIT_NAME && this.oneShotAnim
@@ -7606,7 +11064,35 @@ export class RenderableUnit extends Unit {
             frameIndex: 0,
             elapsed: 0,
             frameDurationsMs:
-                (medusaLabConfig ||
+                (cannonLabConfig ||
+                    magicDragonLabConfig ||
+                    championLabConfig ||
+                    abominationLabConfig ||
+                    blackDragonLabConfig ||
+                    gargantuanLabConfig ||
+                    hydraLabConfig ||
+                    boarLabConfig ||
+                    angelLabConfig ||
+                    behemothLabConfig ||
+                    queenLabConfig ||
+                    efreetLabConfig ||
+                    cyclopsAuthoredAttack ||
+                    nightmareLabConfig ||
+                    unicornLabConfig ||
+                    zenaLabConfig ||
+                    monkLabConfig ||
+                    crusaderLabReaction ||
+                    hyenaAuthoredAction ||
+                    ogreMageReaction ||
+                    isSatyrAuthoredAction(props.name, stateName) ||
+                    isNomadAuthoredAction(props.name, stateName) ||
+                    isHarpyAuthoredAction(props.name, stateName) ||
+                    isTrentAuthoredAction(props.name, stateName) ||
+                    isBeholderAuthoredAction(props.name, stateName) ||
+                    goblinLabConfig ||
+                    thunderbirdLabConfig ||
+                    wyvernLabConfig ||
+                    medusaLabConfig ||
                     whiteTigerLabConfig ||
                     manticoreLabConfig ||
                     pikemanLabConfig ||
@@ -7614,6 +11100,8 @@ export class RenderableUnit extends Unit {
                     trollLabConfig ||
                     healerLabConfig ||
                     battleMageLabConfig ||
+                    griffinLabConfig ||
+                    mantisLabConfig ||
                     fairyLabConfig ||
                     leprechaunLabConfig ||
                     dryadLabConfig ||
@@ -7636,6 +11124,33 @@ export class RenderableUnit extends Unit {
                         : meta.frameDurationsMs
                     : undefined,
             authoredRealTime:
+                !!magicDragonLabConfig ||
+                !!championLabConfig ||
+                !!queenLabConfig ||
+                !!abominationLabConfig ||
+                !!blackDragonLabConfig ||
+                !!gargantuanLabConfig ||
+                !!hydraLabConfig ||
+                !!boarLabConfig ||
+                !!angelLabConfig ||
+                !!behemothLabConfig ||
+                !!efreetLabConfig ||
+                cyclopsAuthoredAttack ||
+                !!nightmareLabConfig ||
+                !!unicornLabConfig ||
+                !!zenaLabConfig ||
+                !!monkLabConfig ||
+                crusaderLabReaction ||
+                isHarpyAuthoredAction(props.name, stateName) ||
+                isSatyrAuthoredAction(props.name, stateName) ||
+                isNomadAuthoredAction(props.name, stateName) ||
+                isTrentAuthoredAction(props.name, stateName) ||
+                hyenaAuthoredAction ||
+                ogreMageReaction ||
+                isBeholderAuthoredAction(props.name, stateName) ||
+                !!goblinLabConfig ||
+                !!thunderbirdLabConfig ||
+                !!wyvernLabConfig ||
                 !!medusaLabConfig ||
                 !!whiteTigerLabConfig ||
                 !!pikemanLabConfig ||
@@ -7644,6 +11159,8 @@ export class RenderableUnit extends Unit {
                 !!trollLabConfig ||
                 !!healerLabConfig ||
                 !!battleMageLabConfig ||
+                !!griffinLabConfig ||
+                !!mantisLabConfig ||
                 !!fairyLabConfig ||
                 !!leprechaunLabConfig ||
                 !!dryadLabConfig ||
@@ -7661,6 +11178,33 @@ export class RenderableUnit extends Unit {
             holdLastFrame:
                 stateName === "death" &&
                 (forcePreview ||
+                    !!thunderbirdLabConfig ||
+                    !!cannonLabConfig ||
+                    !!magicDragonLabConfig ||
+                    !!championLabConfig ||
+                    !!abominationLabConfig ||
+                    !!blackDragonLabConfig ||
+                    !!gargantuanLabConfig ||
+                    !!hydraLabConfig ||
+                    !!boarLabConfig ||
+                    !!angelLabConfig ||
+                    !!behemothLabConfig ||
+                    !!queenLabConfig ||
+                    !!mantisLabConfig ||
+                    !!griffinLabConfig ||
+                    !!efreetLabConfig ||
+                    !!nightmareLabConfig ||
+                    !!unicornLabConfig ||
+                    !!zenaLabConfig ||
+                    !!monkLabConfig ||
+                    !!goblinLabConfig ||
+                    isSatyrAuthoredAction(props.name, stateName) ||
+                    isNomadAuthoredAction(props.name, stateName) ||
+                    isHarpyAuthoredAction(props.name, stateName) ||
+                    isTrentAuthoredAction(props.name, stateName) ||
+                    hyenaAuthoredAction ||
+                    ogreMageReaction ||
+                    isBeholderAuthoredAction(props.name, stateName) ||
                     usesApprovedBaseAnimations(props.name) ||
                     props.name === ORC_UNIT_NAME ||
                     props.name === WANDERING_MAGE_UNIT_NAME ||
@@ -7668,25 +11212,53 @@ export class RenderableUnit extends Unit {
                     props.name === MERMAID_UNIT_NAME),
         };
 
+        if (stateName === "hit") {
+            // Apply after all creature-specific timing, including authored uneven frame durations.
+            this.oneShotAnim.durationPerFrame /= HIT_REACTION_ADDITIONAL_SPEED;
+            this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map(
+                (ms) => ms / HIT_REACTION_ADDITIONAL_SPEED,
+            );
+        }
+
         // Set the first frame immediately. A differently sized atlas would otherwise keep the old
         // texture's scale for one render tick and visibly flash larger/smaller before ensureVisual()
         // recalculates it. Preserve screen height across this synchronous swap.
         const openingFrame = frames[0];
         const scaleRatio =
+            // Champion cels use the same world scale per source pixel; wider attack canvases only add padding.
+            (championLabConfig ? openingFrame.height / this.sprite.texture.height : 1) *
+            (this.cannonLabCanvasScale(stateName) / previousCannonCanvasScale) *
+            (harpyActionCanvasScale(props.name, stateName) / previousHarpyCanvasScale) *
+            (nomadReactionCanvasScale(props.name, stateName) / previousNomadCanvasScale) *
+            (trentActionCanvasScale(props.name, stateName) / previousTrentCanvasScale) *
+            (satyrCastCanvasScale(props.name, stateName) / previousSatyrCanvasScale) *
             textureSwapHeightScaleRatio(
                 wolfAction ? (this.wolfRenderedCanvasHeight ?? this.sprite.texture.height) : this.sprite.texture.height,
                 openingFrame.height,
             ) *
             // The cached effective height already removes the previous action's padding.
             (wolfAction ? wolfActionCanvasScale(stateName) : 1) *
+            (this.behemothLabActionCanvasScale(stateName) / previousBehemothCanvasScale) *
+            (this.mantisLabReactionCanvasScale(stateName) / previousMantisCanvasScale) *
             (this.valkyrieLabCanvasScale(stateName) / previousValkyrieCanvasScale) *
             (this.manticoreLabCanvasScale(stateName) / previousManticoreCanvasScale) *
+            (this.thunderbirdLabReactionCanvasScale(stateName) / previousThunderbirdCanvasScale) *
+            (this.wyvernLabCanvasScale(stateName) / previousWyvernCanvasScale) *
+            (this.unicornLabCanvasScale(stateName) / previousUnicornCanvasScale) *
+            (this.goblinLabCanvasScale(stateName) / previousGoblinCanvasScale) *
             (this.battleMageLabCanvasScale(stateName) / previousBattleMageCanvasScale) *
             (this.trollLabCanvasScale(stateName) / previousTrollCanvasScale) *
             (this.centaurLabCanvasScale(stateName) / previousCentaurCanvasScale) *
             (this.leprechaunLabCanvasScale(stateName) / previousLeprechaunCanvasScale) *
             (this.elfLabCanvasScale(stateName) / previousElfCanvasScale) *
+            (this.blackDragonLabCanvasScale(stateName) / previousBlackDragonCanvasScale) *
+            (this.gargantuanLabCanvasScale(stateName) / previousGargantuanCanvasScale) *
+            (this.hydraLabCanvasScale(stateName) / previousHydraCanvasScale) *
+            (this.magicDragonLabCanvasScale(stateName) / previousMagicDragonCanvasScale) *
+            (this.frenziedBoarLabCanvasScale(stateName) / previousBoarCanvasScale) *
             (this.medusaLabCanvasScale(stateName) / previousMedusaCanvasScale) *
+            (this.crusaderLabCanvasScale(stateName) / previousCrusaderCanvasScale) *
+            (this.griffinLabActionCanvasScale(stateName) / previousGriffinCanvasScale) *
             (labConfig
                 ? ((previousScavengerRatio / SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO) * scavengerLabCanvasScale(stateName)) /
                   previousScavengerCanvasScale
@@ -7717,8 +11289,13 @@ export class RenderableUnit extends Unit {
             );
         }
         if (valkyrieLabConfig) this.sprite.anchor.x = valkyrieLabActionAnchorX(stateName);
+        if (griffinLabConfig) this.sprite.anchor.x = 0.5;
+        if (championLabConfig) this.sprite.anchor.x = stateName.startsWith("melee_attack") ? 512 / 1280 : 0.5;
         this.sprite.anchor.y = this.oneShotAnim.footAnchorY;
+        if (magicDragonLabConfig) this.sprite.anchor.x = 0.5;
         this.sprite.texture = openingFrame;
+        this.syncZenaSideWidth();
+        if (props.name === "Crusader") syncCrusaderLabReaction(this.sprite, undefined, -1);
         if (props.name === WOLF_UNIT_NAME) this.wolfRenderedReactionScale = 1;
         if (wolfAction) this.wolfRenderedCanvasHeight = openingFrame.height / wolfActionCanvasScale(stateName);
         if (labConfig && stateName === "hit") applyScavengerHitRegistration(this.sprite, 0);
@@ -7738,8 +11315,9 @@ export class RenderableUnit extends Unit {
             ? (this.selectionAnimFrameDurationsMs?.[0] ?? 0)
             : 0;
     }
-    /** Cancel any transient pose and restore this creature's authored permanent idle loop immediately. */
     public returnToIdleAnimation(preserveRangedProjectile = false): void {
+        this.zenaIdleRestStartedAtMs = undefined;
+        if (this.sprite && this.getName() === "Crusader") syncCrusaderLabReaction(this.sprite, undefined, -1);
         this.movementBadgeOffsetY = undefined;
         if (!preserveRangedProjectile) this.cancelArbalesterRangedShot();
         if (!preserveRangedProjectile) this.cancelDryadRangedShot();
@@ -7747,14 +11325,22 @@ export class RenderableUnit extends Unit {
         if (
             this.walkAnim &&
             (this.getName() === "Berserker" ||
+                (this.getName() === "Angel" && this.creatureAnimationLabPreviewEnabled) ||
+                (this.getName() === "Black Dragon" && this.creatureAnimationLabPreviewEnabled) ||
+                (this.getName() === "Abomination" && this.creatureAnimationLabPreviewEnabled) ||
+                (this.getName() === GARGANTUAN_UNIT_NAME && this.creatureAnimationLabPreviewEnabled) ||
                 (this.getName() === "Elf" && this.creatureAnimationLabPreviewEnabled) ||
                 (this.getName() === "Fairy" && this.creatureAnimationLabPreviewEnabled) ||
                 (this.getName() === "Valkyrie" && this.creatureAnimationLabPreviewEnabled) ||
                 (this.getName() === "Manticore" && this.creatureAnimationLabPreviewEnabled) ||
+                (this.getName() === "Thunderbird" && this.creatureAnimationLabPreviewEnabled) ||
                 (this.getName() === DRYAD_UNIT_NAME && this.creatureAnimationLabPreviewEnabled))
         )
             this.stopBoardWalkAnimation();
-        if (this.sprite) clearScavengerHitRegistration(this.sprite);
+        if (this.sprite) {
+            clearScavengerHitRegistration(this.sprite);
+            clearDryadRangedRegistration(this.sprite);
+        }
         const previousAction = this.oneShotAnim;
         previousAction?.orcCancel?.();
         const previousArbalesterHeight =
@@ -7765,11 +11351,20 @@ export class RenderableUnit extends Unit {
                       : this.arbalesterLabScaleMultiplier(previousAction?.stateName))
                 : undefined;
         this.oneShotAnim = undefined;
+        this.syncZenaSideWidth();
         this.oneShotBadgePosition = undefined;
         this.restoreScaleAfterSquireWalk();
         this.restoreWidthAfterBoardWalk();
         this.walkAnim = undefined;
         this.selectionAnimationStartedAtMs = performance.now() - this.medusaIdleResumeOffsetMs();
+        // Recovery blends to idle frame zero. A duplicate stack must not jump directly to the
+        // middle of its idle cycle; its independent action timing already keeps it out of phase.
+        if (
+            this.getName() === DRYAD_UNIT_NAME ||
+            (this.creatureAnimationLabPreviewEnabled && this.getName() === "Griffin")
+        ) {
+            this.selectionAnimationStartedAtMs += duplicateIdleOffsetMs(this.duplicateIdleOrdinal);
+        }
         this.selectionAnimFrameIndex = -1;
         if (this.getUnitProperties().name === PEASANT_UNIT_NAME) {
             this.peasantIdleResumeAtMs = this.selectionAnimationStartedAtMs;
@@ -7779,6 +11374,78 @@ export class RenderableUnit extends Unit {
         }
         const previousHeight = this.sprite?.texture.height ?? 0;
         this.stepSelectionAnimation();
+        // A cold approved idle may still be downloading when an action finishes.
+        // Restore the already decoded base instead of stranding its final combat pose.
+        if (!this.selectionAnimFrames?.length && this.sprite && this.baseTexture) {
+            this.sprite.texture = this.baseTexture;
+        }
+        if (previousAction && this.sprite && this.magicDragonLabReactionConfig(previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.magicDragonLabCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (
+            previousAction &&
+            this.sprite &&
+            this.getName() === "Black Dragon" &&
+            this.creatureAnimationLabPreviewEnabled
+        ) {
+            const ratio =
+                (textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) *
+                    BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE) /
+                this.blackDragonLabCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && this.cannonLabReactionConfig(previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.cannonLabCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && this.behemothLabReactionConfig(previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.behemothLabActionCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && this.mantisLabReactionConfig(previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.mantisLabReactionCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && isHarpyAuthoredAction(this.getName(), previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                harpyActionCanvasScale(this.getName(), previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && isNomadAuthoredAction(this.getName(), previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                nomadReactionCanvasScale(this.getName(), previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (
+            previousAction &&
+            this.sprite &&
+            (isBeholderAuthoredAction(this.getName(), previousAction.stateName) ||
+                isTrentAuthoredAction(this.getName(), previousAction.stateName))
+        ) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                trentActionCanvasScale(this.getName(), previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
         if (
             previousAction &&
             this.sprite &&
@@ -7788,6 +11455,32 @@ export class RenderableUnit extends Unit {
             const ratio =
                 textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
                 this.trollLabCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (
+            previousAction &&
+            this.sprite &&
+            this.getName() === "Thunderbird" &&
+            this.creatureAnimationLabPreviewEnabled
+        ) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.thunderbirdLabReactionCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && this.getName() === "Wyvern" && this.creatureAnimationLabPreviewEnabled) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.wyvernLabCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && this.getName() === "Griffin" && this.creatureAnimationLabPreviewEnabled) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.griffinLabActionCanvasScale(previousAction.stateName);
             this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
         }
@@ -7831,11 +11524,14 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
         }
+        if (previousAction && this.sprite && this.getName() === "Unicorn" && this.creatureAnimationLabPreviewEnabled) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                this.unicornLabCanvasScale(previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
         if (previousAction && this.sprite && isBerserkerAuthoredAction(this.getName(), previousAction.stateName)) {
-            if (!this.selectionAnimFrames?.length) {
-                const idleTexture = this.resolveBaseTexture();
-                if (idleTexture) this.sprite.texture = idleTexture;
-            }
             const ratio =
                 textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) *
                 (this.berserkerLabIdleScale() / BERSERKER_SWORD_IDLE_SCALE);
@@ -7846,19 +11542,31 @@ export class RenderableUnit extends Unit {
             previousAction &&
             this.sprite &&
             (this.getName() === DRYAD_UNIT_NAME ||
+                this.getName() === "Nightmare" ||
+                this.getName() === "Monk" ||
+                this.getName() === "Crusader" ||
                 this.getName() === "Medusa" ||
                 this.getName() === "Elf" ||
+                this.getName() === "Hydra" ||
+                this.getName() === "Gargantuan" ||
+                this.getName() === "Frenzied Boar" ||
                 this.getName() === "Battle Mage" ||
+                this.getName() === "Goblin Knight" ||
                 this.getName() === LEPRECHAUN_UNIT_NAME ||
                 this.getName() === "Fairy") &&
-            this.creatureAnimationLabPreviewEnabled
+            (this.creatureAnimationLabPreviewEnabled || this.getName() === "Monk")
         ) {
             const ratio =
                 textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
                 this.leprechaunLabCanvasScale(previousAction.stateName) /
                 this.elfLabCanvasScale(previousAction.stateName) /
+                this.gargantuanLabCanvasScale(previousAction.stateName) /
+                this.hydraLabCanvasScale(previousAction.stateName) /
+                this.frenziedBoarLabCanvasScale(previousAction.stateName) /
                 this.medusaLabCanvasScale(previousAction.stateName) /
-                this.battleMageLabCanvasScale(previousAction.stateName);
+                this.crusaderLabCanvasScale(previousAction.stateName) /
+                this.battleMageLabCanvasScale(previousAction.stateName) /
+                this.goblinLabCanvasScale(previousAction.stateName);
             this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
             if (this.getName() === LEPRECHAUN_UNIT_NAME) this.syncCreaturePalette();
@@ -7949,12 +11657,39 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
         }
+        // Champion attacks have asymmetric spear padding; restore the idle anchor with the texture.
+        if (previousAction && this.sprite && this.championLabReactionConfig(previousAction.stateName)) {
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (this.getName() === "Wyvern") this.syncCreaturePalette();
         this.syncCreatureFigureDepth();
     }
     private applyOneShotFrame(anim: OneShotAnimState): void {
         if (!this.sprite) return;
         clearScavengerHitRegistration(this.sprite);
+        clearDryadRangedRegistration(this.sprite);
         this.sprite.texture = anim.frames[anim.frameIndex];
+        this.syncZenaSideWidth();
+        if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Griffin" && anim.stateName === "hit") {
+            this.sprite.anchor.x = griffinLabHitAnchorX(anim.frameIndex);
+        }
+        if (this.getName() === "Crusader" && this.creatureAnimationLabPreviewEnabled) {
+            syncCrusaderLabReaction(
+                this.sprite,
+                anim.stateName,
+                anim.frameIndex,
+                anim.elapsed / (anim.frameDurationsMs?.[anim.frameIndex] ?? anim.durationPerFrame),
+            );
+            syncCrusaderLabIdle(
+                this.sprite,
+                anim.stateName === "hit" || isCrusaderAttack(anim.stateName),
+                performance.now(),
+                -1,
+                anim.stateName === "hit" ? anim.frameIndex : -1,
+                anim.stateName,
+                anim.frameIndex,
+            );
+        }
         if (this.scavengerLabAnimationsEnabled && anim.stateName === "hit") {
             applyScavengerHitRegistration(this.sprite, anim.frameIndex);
         }
@@ -7968,11 +11703,15 @@ export class RenderableUnit extends Unit {
                 this.sprite.anchor.y = peasantDeathAnchorY(anim.footAnchorY, anim.frameIndex);
             }
         }
+        if (this.getName() === "Ogre Mage" && anim.stateName === "death") {
+            this.sprite.anchor.y = ogreMageDeathAnchorY(anim.footAnchorY, anim.frameIndex);
+        }
     }
     public stepOneShotAnimation(dtMs: number): void {
         if (!this.oneShotAnim || !this.sprite) return;
 
         const anim = this.oneShotAnim;
+        if (anim.externallyDriven) return;
         anim.elapsed += dtMs;
 
         if (anim.elapsed >= (anim.frameDurationsMs?.[anim.frameIndex] ?? anim.durationPerFrame)) {
@@ -7987,7 +11726,7 @@ export class RenderableUnit extends Unit {
                     const release = anim.projectileRelease;
                     anim.projectileRelease = undefined;
                     release();
-                    if (this.oneShotAnim !== anim) return;
+                    if (this.oneShotAnim !== anim || anim.externallyDriven) return;
                 }
                 if (anim.frameIndex === 4 && anim.orcRelease) {
                     this.applyOneShotFrame(anim);
@@ -8013,6 +11752,24 @@ export class RenderableUnit extends Unit {
                 // Restore Peasant's idle texture, scale, anchor and phase in the same tick.
                 // Otherwise the last attack texture is briefly drawn with the following pose's bounds.
                 if (
+                    !!this.cannonLabReactionConfig(anim.stateName) ||
+                    !!this.thunderbirdLabReactionConfig(anim.stateName) ||
+                    !!this.magicDragonLabReactionConfig(anim.stateName) ||
+                    !!this.championLabReactionConfig(anim.stateName) ||
+                    !!this.blackDragonLabReactionConfig(anim.stateName) ||
+                    !!this.gargantuanLabActionConfig(anim.stateName) ||
+                    !!this.hydraLabReactionConfig(anim.stateName) ||
+                    !!this.frenziedBoarLabReactionConfig(anim.stateName) ||
+                    !!this.angelLabReactionConfig(anim.stateName) ||
+                    !!this.behemothLabReactionConfig(anim.stateName) ||
+                    !!this.arachnaLabReactionConfig(anim.stateName) ||
+                    !!this.efreetLabReactionConfig(anim.stateName) ||
+                    this.getName() === "Monk" ||
+                    isSatyrAuthoredAction(this.getName(), anim.stateName) ||
+                    isNomadAuthoredAction(this.getName(), anim.stateName) ||
+                    isHarpyAuthoredAction(this.getName(), anim.stateName) ||
+                    isTrentAuthoredAction(this.getName(), anim.stateName) ||
+                    isBeholderAuthoredAction(this.getName(), anim.stateName) ||
                     (this.getUnitProperties().name === ORC_UNIT_NAME && isOrcAuthoredAction(anim.stateName)) ||
                     isBerserkerAuthoredAction(this.getName(), anim.stateName) ||
                     (this.getUnitProperties().name === MERMAID_UNIT_NAME && isMermaidAuthoredAction(anim.stateName)) ||
@@ -8021,6 +11778,8 @@ export class RenderableUnit extends Unit {
                     this.getUnitProperties().name === SQUIRE_UNIT_NAME ||
                     this.getUnitProperties().name === TROGLODYTE_UNIT_NAME ||
                     this.getUnitProperties().name === WOLF_RIDER_UNIT_NAME ||
+                    (this.getUnitProperties().name === "Hyena" &&
+                        ["hit", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(anim.stateName)) ||
                     (this.getUnitProperties().name === BLACKSMITH_UNIT_NAME &&
                         (anim.stateName === "hit" ||
                             anim.stateName === "cast" ||
@@ -8031,12 +11790,22 @@ export class RenderableUnit extends Unit {
                             isWanderingMageMeleeAttack(anim.stateName))) ||
                     (this.creatureAnimationLabPreviewEnabled &&
                         (this.getName() === CENTAUR_UNIT_NAME ||
+                            this.getName() === "Nightmare" ||
+                            this.getName() === "Abomination" ||
+                            this.getName() === "Monk" ||
+                            this.getName() === "Unicorn" ||
+                            this.getName() === "Zena" ||
+                            this.getName() === "Goblin Knight" ||
+                            this.getName() === "Crusader" ||
                             this.getName() === "Medusa" ||
                             this.getName() === TROLL_UNIT_NAME ||
                             this.getName() === "White Tiger" ||
+                            this.getName() === "Griffin" ||
                             this.getName() === "Battle Mage" ||
+                            this.getName() === "Wyvern" ||
                             this.getName() === "Manticore" ||
                             this.getName() === "Elf" ||
+                            this.getName() === "Mantis" ||
                             this.getName() === "Fairy" ||
                             this.getName() === "Valkyrie" ||
                             this.getName() === DRYAD_UNIT_NAME ||
@@ -8058,16 +11827,26 @@ export class RenderableUnit extends Unit {
                 this.applyOneShotFrame(anim);
             }
         }
-        if (this.oneShotAnim === anim) this.syncWolfAttackReach();
-        if (this.getName() === "Battle Mage" || this.getName() === "Manticore" || this.getName() === TROLL_UNIT_NAME)
+        if (this.oneShotAnim === anim) {
+            this.syncWolfAttackReach();
+        }
+        if (
+            !!this.arachnaLabReactionConfig(anim.stateName) ||
+            this.getName() === "Wyvern" ||
+            this.getName() === "Battle Mage" ||
+            this.getName() === "Manticore" ||
+            this.getName() === TROLL_UNIT_NAME ||
+            this.getName() === DRYAD_UNIT_NAME
+        )
             this.syncCreaturePalette();
     }
-    /** Release non-display resources whether the unit or its parent container initiates teardown. */
     private releaseVisualLifecycleResources(): void {
         this.cancelArbalesterRangedShot();
         this.cancelDryadRangedShot();
         this.arbalesterIdlePager?.dispose();
         this.arbalesterIdlePager = undefined;
+        this.abominationIdlePager?.dispose();
+        this.abominationIdlePager = undefined;
         this.oneShotAnim?.orcCancel?.();
         if (this.battlefieldFramingChangeListener && typeof window !== "undefined") {
             window.removeEventListener(
@@ -8149,6 +11928,11 @@ export class RenderableUnit extends Unit {
             this.stunContainer.destroy({ children: true });
             this.stunContainer = undefined;
             this.stunSprite = undefined;
+        }
+        if (this.immobilizedContainer) {
+            this.immobilizedContainer.destroy({ children: true });
+            this.immobilizedContainer = undefined;
+            this.immobilizedSprite = undefined;
         }
         if (this.respondContainer) {
             this.respondContainer.destroy({ children: true });
@@ -8249,116 +12033,16 @@ export class RenderableUnit extends Unit {
         this.badgeEmphasisScale = 1;
         this.badgeAmountOverride = undefined;
     }
-    public getDisplayedAmount(): number {
-        if (this.combatAmountModel !== undefined && this.combatAmountModel !== this.getAmountAlive()) {
-            this.clearDamagePresentation();
-        }
-        return this.badgeAmountOverride ?? this.combatAmountOverride ?? this.getAmountAlive();
-    }
-    public beginDamagePresentation(amount = this.getAmountAlive()): void {
-        this.combatAmountOverride = Math.max(0, Math.floor(amount));
-        this.combatAmountModel = this.getAmountAlive();
-    }
-    public presentDamageCasualties(unitsDied: number): void {
-        this.getDisplayedAmount();
-        if (this.combatAmountOverride !== undefined && unitsDied > 0) {
-            this.combatAmountOverride = Math.max(0, this.combatAmountOverride - Math.floor(unitsDied));
-        }
-    }
-    public clearDamagePresentation(): void {
-        this.combatAmountOverride = undefined;
-        this.combatAmountModel = undefined;
-    }
     public setProjectedStackPower(power: number): void {
         this.projectedStackPower = Math.max(1, Math.min(HoCConstants.MAX_UNIT_STACK_POWER, Math.round(power)));
     }
     public clearProjectedStackPower(): void {
         this.projectedStackPower = undefined;
     }
-    /**
-     * The card behind a "revealed" unit — ranked placement shows the opponent's known army as a row of
-     * B&W silhouettes, and without a marker they read as enemies already deployed on the board. A soft red
-     * fill follows the painted footprint; the creature art itself identifies the draft while the stack size
-     * stays redacted as "?" on the badge.
-     * Non-revealed units keep the marker hidden, so nothing changes on the live board.
-     */
-    private ensureRosterCard(worldRoot: Container, gs: GridSettings, logicalPos: HoCMath.XY): void {
-        if (this.visualMode !== "revealed") {
-            if (this.rosterCard) {
-                this.rosterCard.visible = false;
-            }
-            return;
-        }
-
-        if (!this.rosterCard) {
-            this.rosterCard = new Container();
-            this.rosterCardPlate = new Graphics();
-            this.rosterCard.addChild(this.rosterCardPlate);
-            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            worldRoot.addChild(this.rosterCard);
-        } else if (this.rosterCard.parent !== worldRoot) {
-            worldRoot.addChild(this.rosterCard);
-        }
-
-        const cell = gs.getCellSize() * this.visualScaleMultiplier;
-        const footprintWidth = this.getFootprintWidth();
-        const footprintHeight = this.getFootprintHeight();
-        const previousDrawState = this.rosterCardDrawState;
-        const needsRedraw =
-            !previousDrawState ||
-            previousDrawState.x !== logicalPos.x ||
-            previousDrawState.y !== logicalPos.y ||
-            previousDrawState.cell !== cell ||
-            previousDrawState.footprintWidth !== footprintWidth ||
-            previousDrawState.footprintHeight !== footprintHeight ||
-            previousDrawState.projected !== this.useBattlefieldVisualProjection;
-
-        if (needsRedraw) {
-            const plate = this.rosterCardPlate!;
-            plate.clear();
-            // The marker must cover exactly the cells the unit stands on, so each half-extent comes from
-            // its own footprint side. They are equal for every square body, which is every shipped one.
-            const halfFootprintWidth = (gs.getStep() * footprintWidth) / 2;
-            const halfFootprintHeight = (gs.getStep() * footprintHeight) / 2;
-            const logicalBottom = logicalPos.y - halfFootprintHeight;
-            const footprintPoints = this.useBattlefieldVisualProjection
-                ? revealedOpponentFootprintPoints(logicalPos, footprintWidth, footprintHeight, gs)
-                : [
-                      logicalPos.x - halfFootprintWidth,
-                      logicalBottom,
-                      logicalPos.x + halfFootprintWidth,
-                      logicalBottom,
-                      logicalPos.x + halfFootprintWidth,
-                      logicalPos.y + halfFootprintHeight,
-                      logicalPos.x - halfFootprintWidth,
-                      logicalPos.y + halfFootprintHeight,
-                      logicalPos.x - halfFootprintWidth,
-                      logicalBottom,
-                  ];
-            // Highlight the cell itself instead of tracing it with a thin red outline. A fixed enemy red is
-            // intentional: this remains an opponent cue even when the viewer occupies the red team.
-            plate.poly(footprintPoints).fill({ color: 0xe02b35, alpha: 0.22 });
-
-            this.rosterCardDrawState = {
-                x: logicalPos.x,
-                y: logicalPos.y,
-                cell,
-                footprintWidth,
-                footprintHeight,
-                projected: this.useBattlefieldVisualProjection,
-            };
-        }
-
-        // Just under the sprite/shadow pair so the silhouette always sits on top of its own card.
-        const visualCenter = this.useBattlefieldVisualProjection ? projectBattlefieldPoint(logicalPos, gs) : logicalPos;
-        const zIndex = 4000 - visualCenter.y - 1;
-        if (this.rosterCard.zIndex !== zIndex) this.rosterCard.zIndex = zIndex;
-        if (!this.rosterCard.visible) this.rosterCard.visible = true;
+    private ensureRosterCard(_worldRoot: Container, _gs: GridSettings, _logicalPos: HoCMath.XY): void {
+        // Revealed opponents use their normal animated silhouette, without a painted cell underneath.
+        if (this.rosterCard) this.rosterCard.visible = false;
     }
-    /**
-     * A stable per-unit phase, so a board full of stacks doesn't wave as one synchronised wall of cloth.
-     * Hashed off the unit id rather than randomised, so a flag looks the same across a snapshot restore.
-     */
     private badgeFlagPhase(): number {
         if (this.badgeFlagPhaseValue === undefined) {
             const id = this.getId();
@@ -8370,14 +12054,6 @@ export class RenderableUnit extends Unit {
         }
         return this.badgeFlagPhaseValue;
     }
-    /**
-     * Redraw the compact Heroes-IV-style amount ribbon as cloth caught mid-wave.
-     *
-     * Runs every frame (the geometry it works from is cached — see BadgeDrawState.geometry), and the shape
-     * is rebuilt from sines of the clock, so the motion simply continues forever with no loop point to see.
-     *
-     * The number stays put while the small right-hand tail moves subtly, preserving readability.
-     */
     private drawBadgeFlag(
         flag: Graphics,
         glow: Graphics,
@@ -8399,8 +12075,12 @@ export class RenderableUnit extends Unit {
         this.badgeFlagXs = xs;
         for (let i = 0; i <= FLAG_WAVE_SEGMENTS; i++) {
             const u = i / FLAG_WAVE_SEGMENTS;
-            // The acting unit's flag is deliberately rigid: all active-turn motion belongs to the pointer.
-            const offset = this.isActiveTurn ? 0 : flagWaveOffset(u, t, phase, g.flagHeight);
+            // Cyclops keeps the count cloth moving during his active turn in the animation lab.
+            const cyclopsLabWave = this.creatureAnimationLabPreviewEnabled && this.getName() === "Cyclops";
+            const offset =
+                this.isActiveTurn && !cyclopsLabWave
+                    ? 0
+                    : flagWaveOffset(u, t, phase, g.flagHeight) * (cyclopsLabWave ? 1.45 : 1);
             xs[i] = g.bannerLeft + span * u;
             topY[i] = g.bannerTop + offset * FLAG_WAVE_TOP_FACTOR;
             bottomY[i] = g.bannerBottom + offset;
@@ -8462,12 +12142,6 @@ export class RenderableUnit extends Unit {
             pixelLine: true,
         });
     }
-    /**
-     * Draw the active-turn marker in badge-local coordinates.
-     *
-     * The battlefield root is y-up, so the arrow tip sits at local y=0 while the body extends toward
-     * positive y. On screen this becomes the requested downward arrow, positioned above the flag.
-     */
     private drawActiveTurnPointer(
         pointer: Graphics,
         glow: Graphics,
@@ -8539,7 +12213,6 @@ export class RenderableUnit extends Unit {
         pointer.scale.set(pointerScale);
         if (!pointer.visible) pointer.visible = true;
     }
-    /** Hide both parts synchronously so the marker is gone before the first movement/action frame. */
     private suppressActiveTurnPointer(): void {
         if (!this.isActiveTurn) return;
         this.activeTurnPointerSuppressed = true;
@@ -8733,13 +12406,15 @@ export class RenderableUnit extends Unit {
         if (flag.x !== 0 || flag.y !== 0) flag.position.set(0, 0);
         const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
         const waveFrame = Math.floor(now / BADGE_FLAG_WAVE_FRAME_MS);
-        const advanceFlagWave = visible && !this.isActiveTurn && waveFrame !== this.badgeFlagWaveFrame;
+        const cyclopsLabWave = this.creatureAnimationLabPreviewEnabled && this.getName() === "Cyclops";
+        const advanceFlagWave =
+            visible && (!this.isActiveTurn || cyclopsLabWave) && waveFrame !== this.badgeFlagWaveFrame;
         if (needsRedraw || advanceFlagWave) {
             this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower, now);
             this.badgeFlagWaveFrame = waveFrame;
         }
         this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry, needsRedraw, now);
-        // The flag stays static during the active turn; only authored preview emphasis may resize it.
+        // Other active-turn flags stay static; Cyclops's lab flag keeps its cloth wave.
         const renderedBadgeScale = this.badgeEmphasisScale;
         const margin = Math.max(2, Math.floor(iconSide * 0.04));
         let x: number;
@@ -8800,11 +12475,6 @@ export class RenderableUnit extends Unit {
         }
         if (container.visible !== visible) container.visible = visible;
     }
-    /**
-     * Pixi's world-space bounds walk the display tree. Most simulation steps leave both the creature and
-     * its units container unchanged, so retain that result until either local geometry or the parent camera
-     * transform changes. The badge and overlap sorter then share the same measurement across steady ticks.
-     */
     private getCreatureBounds(): Bounds | undefined {
         const sprite = this.sprite;
         const parent = sprite?.parent;
@@ -8878,7 +12548,7 @@ export class RenderableUnit extends Unit {
         return bounds;
     }
     private syncFlagStatusIcon(
-        kind: "hourglass" | "stun" | "respond",
+        kind: "hourglass" | "stun" | "immobilized" | "respond",
         texKey: string,
         shouldRender: boolean,
         badge: Container | undefined,
@@ -8888,9 +12558,17 @@ export class RenderableUnit extends Unit {
                 ? this.hourglassContainer
                 : kind === "stun"
                   ? this.stunContainer
-                  : this.respondContainer;
+                  : kind === "immobilized"
+                    ? this.immobilizedContainer
+                    : this.respondContainer;
         let sprite =
-            kind === "hourglass" ? this.hourglassSprite : kind === "stun" ? this.stunSprite : this.respondSprite;
+            kind === "hourglass"
+                ? this.hourglassSprite
+                : kind === "stun"
+                  ? this.stunSprite
+                  : kind === "immobilized"
+                    ? this.immobilizedSprite
+                    : this.respondSprite;
         if (!container && !shouldRender) return;
         if (!shouldRender || !badge) {
             if (container?.visible) container.visible = false;
@@ -8920,12 +12598,14 @@ export class RenderableUnit extends Unit {
         } else if (kind === "stun") {
             this.stunContainer = container;
             this.stunSprite = sprite;
+        } else if (kind === "immobilized") {
+            this.immobilizedContainer = container;
+            this.immobilizedSprite = sprite;
         } else {
             this.respondContainer = container;
             this.respondSprite = sprite;
         }
     }
-    /** Keep turn-state badges attached on the left and the spent-response crossed swords behind the count flag. */
     private ensureFlagStatusIndicators(now?: number): void {
         const badge = this.badgeContainer;
         const geometry = this.badgeDrawState?.geometry;
@@ -8936,6 +12616,12 @@ export class RenderableUnit extends Unit {
 
         this.syncFlagStatusIcon("hourglass", "hourglass", canRender && this.shouldShowHourglassIndicator(), badge);
         this.syncFlagStatusIcon("stun", "stun_hand_forged", canRender && this.shouldShowStunIndicator(), badge);
+        this.syncFlagStatusIcon(
+            "immobilized",
+            "immobilized_boot_forged",
+            canRender && this.shouldShowImmobilizedIndicator(),
+            badge,
+        );
         this.syncFlagStatusIcon("respond", "tag", canRender && this.shouldShowRespondTag(now), badge);
 
         const hourglassContainer = this.hourglassContainer;
@@ -8976,6 +12662,20 @@ export class RenderableUnit extends Unit {
                 stunContainer.position.set(layout.centerX, 0);
         }
 
+        if (this.immobilizedContainer?.visible && this.immobilizedSprite) {
+            const layout = stunBadgeLayout(iconSide, geometry.bannerLeft);
+            // Use the same forged-sign proportions; keep simultaneous status signs separate.
+            let centerX = layout.centerX;
+            if (stunContainer?.visible && stunSprite)
+                centerX = stunContainer.x - stunSprite.width * 0.5 - layout.width * 0.55;
+            else if (hourglassContainer?.visible && hourglassSprite)
+                centerX = hourglassContainer.x - hourglassSprite.width * 0.5 - layout.width * 0.55;
+            this.immobilizedSprite.width = layout.width;
+            this.immobilizedSprite.height = layout.height;
+            this.immobilizedSprite.scale.y = -Math.abs(this.immobilizedSprite.scale.y);
+            this.immobilizedContainer.position.set(centerX, 0);
+        }
+
         if (respondContainer?.visible && respondSprite?.visible) {
             const emblemSide = geometry.headerWidth * RESPOND_EMBLEM_CANVAS_SCALE;
             if (respondSprite.width !== emblemSide) respondSprite.width = emblemSide;
@@ -8993,20 +12693,6 @@ export class RenderableUnit extends Unit {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         return this.isOnHourglass() || fightProps.hourglassIncludes(this.getId());
     }
-    /**
-     * Whether to show the retaliation tag. The legacy `responded` flag isn't propagated in the new
-     * engine — the authoritative "already retaliated this round" state lives on FightProperties
-     * (set via addRepliedAttack, cleared each lap), so read it from there.
-     */
-    /**
-     * Capability indicator (NOT a "has already retaliated" mark): show the respond tag on a RANGE unit
-     * that can still RETURN FIRE — it has range shots left and isn't blocked from responding (stun,
-     * blindness, Through Shot). Melee retaliation is the default and isn't tagged; the tag flags the
-     * conditional case (a ranged unit will shoot back). Retaliation is once per lap (enforced server-side
-     * by processOneInTheFieldAbility), so once a unit has used its response this lap the tag clears —
-     * except Unicorn's "One in the Field", which responds infinitely and always shows. (In ranked the
-     * per-lap replied state isn't synced to the client, so there it reflects shots/eligibility only.)
-     */
     private shouldShowRespondTag(now?: number): boolean {
         // The tag is a "HAS already retaliated this lap" marker — NOT a "can still respond" capability
         // hint. It was inverted before (showing on any ranged unit that COULD return fire), which is why
@@ -9023,7 +12709,6 @@ export class RenderableUnit extends Unit {
             (now ?? performance.now()) < this.respondFeedbackUntilMs
         );
     }
-    /** Build/reveal the response layer in the same tick the combat engine records a retaliation. */
     public override setResponded(hasResponded: boolean): void {
         super.setResponded(hasResponded);
         // The response tag's timer and container are presentation. A rollout must not start one: the
@@ -9057,53 +12742,51 @@ export class RenderableUnit extends Unit {
             Boolean(this.badgeContainer?.visible);
         if (this.respondContainer.visible !== visible) this.respondContainer.visible = visible;
     }
-    /** Sync the authoritative "already hourglassed (waited) this lap" flag from a ranked snapshot. */
     public setHasHourglassed(value: boolean): void {
         this.hasHourglassedThisLap = value;
     }
-    /** Whether this unit already used its once-per-lap hourglass (wait) — per the last ranked snapshot. */
     public getHasHourglassed(): boolean {
         return this.hasHourglassedThisLap;
     }
-    /** Sync the authoritative "skipping this turn" (Stun/Blindness) flag from a ranked snapshot. */
     public setSkipping(value: boolean): void {
         this.skippingThisTurnSynced = value;
         // Snapshot metadata is applied after the board sprite has already been drawn. Refresh this local
         // badge immediately; otherwise the queue shows Stun while the board waits until the unit's turn.
         this.refreshTurnStatusIndicators();
     }
-    /** Keep live sandbox effects and snapshot-only ranked state on the same visual update path. */
     private refreshTurnStatusIndicators(): void {
+        if (isAiSearchSimulating()) return;
         if (this.badgeContainer && this.badgeDrawState) this.ensureFlagStatusIndicators();
+    }
+    public override setWebMovementLocked(locked: boolean): void {
+        super.setWebMovementLocked(locked);
+        this.refreshTurnStatusIndicators();
+    }
+    public override refreshPreTurnState(sceneLog: ISceneLog): void {
+        super.refreshPreTurnState(sceneLog);
+        // Sandbox latches Web at activation; ranked supplies the same lock through the setter above.
+        this.refreshTurnStatusIndicators();
     }
     public override applyEffect(effect: Effect): boolean {
         const applied = super.applyEffect(effect);
-        if (isAiSearchSimulating()) return applied;
-        if (applied && ["Stun", "Blindness", "Freeze"].includes(effect.getName())) {
+        if (applied && ["Stun", "Blindness", "Freeze", "Paralysis", "Whirlpool"].includes(effect.getName())) {
             this.refreshTurnStatusIndicators();
         }
         return applied;
     }
     public override deleteEffect(effectName: string): void {
         super.deleteEffect(effectName);
-        if (isAiSearchSimulating()) return;
-        if (["Stun", "Blindness", "Freeze"].includes(effectName)) {
+        if (["Stun", "Blindness", "Freeze", "Paralysis", "Whirlpool"].includes(effectName)) {
             this.refreshTurnStatusIndicators();
         }
     }
-    /**
-     * Whether to show the stun icon / treat the unit as skipping this turn FOR DISPLAY — the live effect
-     * check (sandbox) OR the flag synced from the ranked snapshot (where the effect isn't on the wire).
-     */
     private isSkippingForDisplay(): boolean {
         return this.skippingThisTurnSynced || this.isSkippingThisTurn();
     }
-    /**
-     * Whether to draw the stun badge beside the flag. A skipping unit normally shows it — EXCEPT under
-     * "Freeze", where the ice crust already reads as "this unit can't act", so the badge would just clutter
-     * the frozen shell. The hourglass stays suppressed regardless: that keys off isSkippingForDisplay, which
-     * Freeze keeps true. (Up-next/ALT views have no ice crust, so their stun icon is unaffected by this.)
-     */
+    private shouldShowImmobilizedIndicator(): boolean {
+        // Share the engine predicate: paralysis, whirlpool, and the authoritative Web movement lock.
+        return !this.canMove();
+    }
     private shouldShowStunIndicator(): boolean {
         return this.isSkippingForDisplay() && !this.hasStatusEffect("Freeze");
     }
@@ -9124,16 +12807,9 @@ export class RenderableUnit extends Unit {
         // The opening pose must appear on the same render pass that grants the creature its turn.
         this.stepSelectionAnimation();
     }
-    /** Reuse the combat turn indicator while inspecting a placed unit before combat starts. */
     public setHoverTurnAura(hovered: boolean): void {
         this.isHoverTurnAura = hovered;
     }
-    /**
-     * Reconcile this unit's remaining stack stats (alive count, top-unit hp, dead count) to an
-     * authoritative snapshot. Snapshot-driven clients (ranked) need this because a replayed action
-     * animates the hit but its EVENTS don't mutate the stack — so attack/retaliation damage would
-     * otherwise leave the on-board count frozen. Pure display reconciliation, hence a client concern.
-     */
     public setRemainingStats(amountAlive: number, hp: number, amountDied: number): void {
         this.clearDamagePresentation();
         const alive = Math.max(0, Math.floor(amountAlive));
@@ -9146,11 +12822,6 @@ export class RenderableUnit extends Unit {
         this.unitProperties.amount_died = died;
         this.initialUnitProperties.amount_died = died;
     }
-    /**
-     * Reconcile the one ranked snapshot effect that must be mechanical rather than display-only. Break mutes
-     * every ability lookup in common; keeping it as text alone lets local passive refreshes and movement
-     * previews re-enable abilities that the authoritative server has disabled.
-     */
     public syncAuthoritativeBreak(laps?: number): boolean {
         const authoritativeLaps = laps !== undefined && Number.isFinite(laps) && laps > 0 ? Math.floor(laps) : 0;
         const current = this.getEffect("Break");
@@ -9167,14 +12838,9 @@ export class RenderableUnit extends Unit {
         effect.getProperties().laps = authoritativeLaps;
         return this.applyEffect(effect);
     }
-    /** Tint the active-turn aura (e.g. red for the enemy's turn in ranked, white otherwise). */
     public setActiveAuraColor(color: number): void {
         this.activeAuraColor = color;
     }
-    /**
-     * Apply a brief positional "recoil": the sprite/shadow jerk by (dx, dy) and spring back over
-     * ~220ms. Used for attack lunges and authored special-ability motion.
-     */
     public applyRecoil(dx: number, dy: number): void {
         const props = this.getUnitProperties();
         if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
@@ -9188,15 +12854,17 @@ export class RenderableUnit extends Unit {
         this.recoilWindup = false;
         this.recoilDurationMs = 220;
     }
-    /**
-     * Softer damage reaction: half-length knockback, a slower return and a very small perpendicular
-     * shake. Kept separate from applyRecoil so attack lunges and authored ability motion are unchanged.
-     */
     public applyHitReaction(dx: number, dy: number): void {
         const props = this.getUnitProperties();
         const unitName = props.name;
         if (
             !creatureGenericCombatMotionEnabledForUnit(unitName, props.level) ||
+            !!this.magicDragonLabReactionConfig("hit") ||
+            !!this.blackDragonLabReactionConfig("hit") ||
+            !!this.gargantuanLabActionConfig("hit") ||
+            !!this.hydraLabReactionConfig("hit") ||
+            !!this.frenziedBoarLabReactionConfig("hit") ||
+            !!this.angelLabReactionConfig("hit") ||
             (unitName === TROLL_UNIT_NAME && this.creatureAnimationLabPreviewEnabled)
         ) {
             // Peasant's authored hit already contains the full recoil. Play it without adding the
@@ -9227,18 +12895,9 @@ export class RenderableUnit extends Unit {
         this.recoilWindup = false;
         this.recoilDurationMs = 330;
     }
-    /**
-     * "Bullet-time" dodge for a fully-missed attack: the unit dashes (dx, dy) out of the strike line
-     * with a lean and a green-washed afterimage trail, hangs at full extension for a beat, then springs
-     * back with a slight overshoot. (dx, dy) is the world-space displacement at full extension — the
-     * caller computes it from the attack direction (see Sandbox.showAttackMissedVfx). Safe to call in
-     * any mode; a dodge already in flight is restarted but keeps its fading ghosts.
-     */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
         const props = this.getUnitProperties();
-        // Levels 1 and 2, and any approved sprite package, already own their motion. A generic
-        // sidestep on top of those clips (or on an unfinished low-tier figure) invents a dodge.
         if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
             this.clearGenericDodgeAnimation();
             return;
@@ -9257,11 +12916,9 @@ export class RenderableUnit extends Unit {
             ghosts: this.dodgeAnim?.ghosts ?? [],
         };
     }
-    /** True while a dodge (including its fading ghost trail) is still animating. */
     public isDodging(): boolean {
         return !!this.dodgeAnim;
     }
-    /** Take the dodge blur off the sprite while leaving the shared grade and other filters alone. */
     private removeDodgeBlur(): void {
         if (this.sprite && this.dodgeBlurFilter) {
             const installed = this.sprite.filters;
@@ -9270,7 +12927,6 @@ export class RenderableUnit extends Unit {
             this.sprite.filters = remaining.length ? remaining : null;
         }
     }
-    /** Put dodge blur first exactly once; subsequent animation frames retain the installed array. */
     private installDodgeBlur(): void {
         const sprite = this.sprite;
         const blur = this.dodgeBlurFilter;
@@ -9368,11 +13024,6 @@ export class RenderableUnit extends Unit {
             }
         }
     }
-    /**
-     * A wind-up spear thrust ("замахивается копьём"): the sprite first pulls BACK away from the target,
-     * then thrusts FORWARD into it, then settles. (dx, dy) points toward the target (the thrust
-     * direction). Used for Pikeman's Skewer Strike so the two-unit pierce reads as a real lunge.
-     */
     public applyWindupRecoil(dx: number, dy: number): void {
         const props = this.getUnitProperties();
         if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
@@ -9432,12 +13083,6 @@ export class RenderableUnit extends Unit {
         this.currentRecoilX = x;
         this.currentRecoilY = y;
     }
-    /**
-     * Briefly wash the unit toward a colour then back to normal — a "something just landed on me" cue
-     * when an effect is applied. Debuffs (e.g. Beholder's Spit Ball applying Sadness / Quagmire /
-     * Weakness) wash dark violet; buffs wash green. Read each frame by syncVisual via
-     * currentEffectTint(); decays over ~650ms.
-     */
     public flashDebuffDarken(): void {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0x2a0a3a; // deep violet
@@ -9446,15 +13091,9 @@ export class RenderableUnit extends Unit {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0x4dff9e; // bright green (keeps a positive, "buffed" feel)
     }
-    /** Gold wash for a Lucky Strike proc — same envelope as the buff/debuff flash, luck-colored. */
     public flashLuckyStrike(): void {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0xffd94d;
-    }
-    /** Ember-orange wash for a body wading or flying through a Fire Wall — same envelope, fire-colored. */
-    public flashScorch(): void {
-        this.effectFlashStartMs = performance.now();
-        this.effectFlashColor = 0xff6a1a;
     }
     private currentEffectTint(now = performance.now()): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
@@ -9477,30 +13116,6 @@ export class RenderableUnit extends Unit {
         const b = lerp(0xff, this.effectFlashColor & 0xff);
         return (r << 16) | (g << 8) | b;
     }
-    /**
-     * The next already-decoded atlas whose pixels have not been uploaded yet.
-     * Skips sheets that are still downloading so this scan cannot start a synchronous decode.
-     * Combat sheets come before walk and idle: those are the ones first drawn on an action frame.
-     */
-    public prewarmCombatAtlasFrame(uploadedSources: WeakSet<object>): Texture | undefined {
-        const props = this.getUnitProperties();
-        const resting = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
-        for (const key of animationAtlasPrewarmKeys(props.name, resting?.imageKey)) {
-            const texture = this.texResolver(key);
-            const source = texture?.source;
-            if (!texture || texture.destroyed || !source || source.destroyed || source.width <= 0) continue;
-            if (uploadedSources.has(source)) continue;
-            return texture;
-        }
-        return undefined;
-    }
-    /**
-     * Build (and cache) this unit's "default" (active/selection) animation atlas frames so the WebP is
-     * decoded up front, and return the first frame whose GPU upload the scene can prewarm. The default
-     * atlas is distinct from the idle board sprite and is otherwise built + uploaded lazily the first
-     * time the unit becomes active — a ~100ms decode/upload hitch on the turn-handoff frame. Prewarming
-     * it during the load/placement phase moves that cost off the gameplay critical path.
-     */
     public prewarmDefaultAtlasFrame(): Texture | undefined {
         const props = this.getUnitProperties();
         const config = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
@@ -9510,57 +13125,15 @@ export class RenderableUnit extends Unit {
         const frames = framesForAtlasConfig(config, this.texResolver);
         return frames[0];
     }
-    /**
-     * True when the named EFFECT is active — from the live effect list (Sandbox drives it as a real
-     * this.effects entry) OR folded into the authoritative debuffs (ranked: the server ships
-     * applied_effects concatenated into the snapshot's `debuffs` — see play_session.ts — so a
-     * frozen/stunned unit never gets a client-side runtime effect). Frame-driven effect visuals — the
-     * Freeze ice crust, the icy death shatter — MUST key off this, not hasEffectActive, or they never fire
-     * in ranked. Safe in Sandbox: applied_debuffs never holds effect names there, so it reduces to
-     * hasEffectActive.
-     *
-     * Kept as the visual-side name, but delegating: the same question is asked by engine rules through
-     * Unit.hasStatusApplied, and two independent implementations of one predicate is how they drift.
-     */
     public hasStatusEffect(name: string): boolean {
         return this.hasStatusApplied(name);
     }
-    /**
-     * The buff-side twin of hasStatusEffect. Ranked fills only the DISPLAY array (applied_buffs) and
-     * leaves the buff OBJECT array empty on purpose — stats arrive authoritative — so hasBuffActive
-     * alone answers "no" in ranked for a buff the server really did apply. Anything that keys a visual
-     * off a buff (e.g. the Fireforged Sword burn) must ask this instead, or it only ever fires in sandbox.
-     */
     public hasStatusBuff(name: string): boolean {
         return this.hasStatusBuffApplied(name);
     }
-    /**
-     * Ranked-only: the client never runs applyDamage, so the engine's `waterShieldSpent` flag stays false
-     * and the client's OWN seeding pass (unitsHolder.trySeedWaterShield) re-grants a Water Shield the server
-     * already consumed — in the SAME synchronous snapshot-apply that just pruned it, so the ring never
-     * blinks off and the break dissolve never fires. Deriving "spent" from the authoritative snapshot (the
-     * unit has the innate Water Shield ability but the snapshot no longer lists the buff) and setting the
-     * flag here makes trySeedWaterShield short-circuit, so the buff stays pruned. `waterShieldSpent` is
-     * protected on the common Unit, accessible here since RenderableUnit extends it.
-     */
     public markWaterShieldSpent(): void {
         this.waterShieldSpent = true;
     }
-    /**
-     * Ranked-only repair: collapse repeated names in the DISPLAY arrays (applied_buffs/applied_debuffs plus
-     * their parallel laps/description/power arrays) so the sidebar lists each buff once.
-     *
-     * In ranked the snapshot seeds those display arrays (getUnitPropertiesFromAuthoritativeState) while the
-     * OBJECT arrays — this.buffs/this.debuffs — are deliberately left empty, because stats already arrive
-     * authoritative and rebuilding the objects would make adjustBaseStats double-apply them. Common's own
-     * recompute then guards on the OBJECT arrays ("if (!u.hasDebuffActive('Visible')) u.applyDebuff(…)" in
-     * refreshStackPowerForAllUnits, same shape for the Hidden buff and for Made of Fire/Water), sees nothing,
-     * and appends a SECOND display entry on top of the seeded one — which is how White Tiger's Visible/Hidden
-     * came to render twice. The engine treats buffs/debuffs as unique by name (getBuff/hasBuffActive match on
-     * name, deleteBuff removes every entry with that name), so collapsing to the first occurrence loses
-     * nothing — and the first occurrence is the snapshot's, i.e. authoritative laps + server-filled text.
-     * `unitProperties` is protected on the common Unit, accessible here since RenderableUnit extends it.
-     */
     public dropDuplicateAppliedDisplayEntries(): boolean {
         const properties = this.unitProperties;
         const buffsCollapsed = dropDuplicateAppliedEntries(
@@ -9577,11 +13150,6 @@ export class RenderableUnit extends Unit {
         );
         return buffsCollapsed || debuffsCollapsed;
     }
-    /**
-     * Capture what's needed to spawn a "broken mirror" death shatter: the current sprite texture,
-     * its world position, and the sprite scale (which includes the y-up flip). Call before
-     * destroyVisuals(), while the sprite still exists.
-     */
     public getShatterInfo(): {
         texture: Texture;
         x: number;
@@ -10506,7 +14074,75 @@ export class RenderableUnit extends Unit {
             if (visible) this.stackPowerContainer.alpha = 1;
         }
     }
+    private combatAmountOverride?: number;
+    private combatAmountModel?: number;
+    private loadingPlaceholder?: UnitLoadingPlaceholder;
+    private animationAssetsRequested = false;
+    private getCreatureGroundDepth(): number {
+        const position = this.useBattlefieldVisualProjection
+            ? (this.projectedPositionScratch ?? this.getPosition())
+            : this.getPosition();
+        return 4000 - position.y;
+    }
+    private syncCreatureFigureDepth(): void {
+        this.applyCreatureHeadPriorityDepth(
+            this.isPlayingForegroundAttackAnimation()
+                ? CREATURE_ATTACK_FOREGROUND_Z_INDEX
+                : this.getCreatureGroundDepth(),
+        );
+    }
+    private berserkerSwordIdleEnabled(): boolean {
+        return (
+            this.creatureAnimationLabPreviewEnabled &&
+            this.getName() === "Berserker" &&
+            "berserker_sword_idle_atlas" in images
+        );
+    }
+    public getDisplayedAmount(): number {
+        if (this.combatAmountModel !== undefined && this.combatAmountModel !== this.getAmountAlive()) {
+            this.clearDamagePresentation();
+        }
+        return this.badgeAmountOverride ?? this.combatAmountOverride ?? this.getAmountAlive();
+    }
+    public beginDamagePresentation(amount = this.getAmountAlive()): void {
+        this.combatAmountOverride = Math.max(0, Math.floor(amount));
+        this.combatAmountModel = this.getAmountAlive();
+    }
+    public presentDamageCasualties(unitsDied: number): void {
+        this.getDisplayedAmount();
+        if (this.combatAmountOverride !== undefined && unitsDied > 0) {
+            this.combatAmountOverride = Math.max(0, this.combatAmountOverride - Math.floor(unitsDied));
+        }
+    }
+    public clearDamagePresentation(): void {
+        this.combatAmountOverride = undefined;
+        this.combatAmountModel = undefined;
+    }
+    public flashScorch(): void {
+        this.effectFlashStartMs = performance.now();
+        this.effectFlashColor = 0xff6a1a;
+    }
+    public prewarmCombatAtlasFrame(uploadedSources: WeakSet<object>): Texture | undefined {
+        const props = this.getUnitProperties();
+        const resting = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
+        for (const key of animationAtlasPrewarmKeys(props.name, resting?.imageKey)) {
+            const texture = this.texResolver(key);
+            const source = texture?.source;
+            if (!texture || texture.destroyed || !source || source.destroyed || source.width <= 0) continue;
+            if (uploadedSources.has(source)) continue;
+            return texture;
+        }
+        return undefined;
+    }
     public isSkippingDisplayed(): boolean {
         return this.isSkippingForDisplay();
     }
 }
+
+export const SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER = 426 / 408 / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER;
+
+export {
+    SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
+    SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO,
+    SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO,
+};

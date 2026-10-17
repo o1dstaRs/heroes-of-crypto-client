@@ -220,7 +220,8 @@ export const MatchmakingRoute: React.FC = () => {
     const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode, me } = useAuthContext();
     // Development-only match-found preview. Pair with ?mockPortal=1 so no live queue or player is touched.
     const mockMatchMode = isMockPortalEnabled() ? searchParams.get("mockMatch") : null;
-    const mockMatchPreview = mockMatchMode === "found" || mockMatchMode === "accepted";
+    const mockMatchLoading = mockMatchMode === "loading";
+    const mockMatchPreview = mockMatchMode === "found" || mockMatchMode === "accepted" || mockMatchLoading;
     const mockMatchAccepted = mockMatchMode === "accepted";
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
@@ -280,9 +281,9 @@ export const MatchmakingRoute: React.FC = () => {
     const [pendingGameId, setPendingGameId] = useState(mockMatchPreview ? MOCK_MATCH_ID : "");
     const [opponentPlayerId, setOpponentPlayerId] = useState("");
     const [opponentStats, setOpponentStats] = useState<PublicPlayerStats | null>(
-        mockMatchPreview ? MOCK_OPPONENT_STATS : null,
+        mockMatchPreview && !mockMatchLoading ? MOCK_OPPONENT_STATS : null,
     );
-    const [opponentStatsLoading, setOpponentStatsLoading] = useState(false);
+    const [opponentStatsLoading, setOpponentStatsLoading] = useState(mockMatchLoading);
     const updatePendingGameId = useCallback((gameId: string) => {
         pendingGameIdRef.current = gameId;
         setPendingGameId(gameId);
@@ -522,8 +523,8 @@ export const MatchmakingRoute: React.FC = () => {
 
     useEffect(() => {
         if (mockMatchPreview) {
-            setOpponentStats(MOCK_OPPONENT_STATS);
-            setOpponentStatsLoading(false);
+            setOpponentStats(mockMatchLoading ? null : MOCK_OPPONENT_STATS);
+            setOpponentStatsLoading(mockMatchLoading);
             return undefined;
         }
         if (!opponentPlayerId) {
@@ -551,7 +552,7 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [mockMatchPreview, opponentPlayerId]);
+    }, [mockMatchLoading, mockMatchPreview, opponentPlayerId]);
 
     // A terminal accepted-stream failure may reconcile to the same still-unconfirmed game. Re-opening
     // here makes the restored Accept button useful: its successful retry still needs the authoritative

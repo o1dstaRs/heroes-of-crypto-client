@@ -1,3 +1,6 @@
+import type { SandboxSetupPick } from "./PixiScene";
+import type { CyclopsImpactMode } from "../scenes/sandbox/CyclopsFracturePhysics";
+import type { FireSpellRenderMode } from "../settings/fireSpellTiming";
 // game/core/src/pixi/PixiGameManager.ts
 import type { Application, Container } from "pixi.js";
 import {
@@ -43,12 +46,12 @@ import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./load
 
 import type {
     CreatureAnimationLabResult,
+    CreatureAnimationLabSpell,
     CreatureAnimationLabState,
     PixiScene,
     PixiSceneContext,
     SceneConstructor,
     SceneEntry,
-    SandboxSetupPick,
 } from "./PixiScene";
 import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
@@ -96,9 +99,6 @@ export class PixiGameManager {
     private testBoardNarrowingLevel = 1;
     private creatureAnimationLabEnabled = false;
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
-    // Scenes receive a scoped signal rather than the public, manager-lifetime signal. A Sandbox scene
-    // subscribes to its own start events, so handing it the public signal retained every replaced scene
-    // forever. Public listeners are forwarded through the non-public bridge and keep their normal lifetime.
     private readonly onSceneHasStarted = new Signal<(started: boolean) => void>();
     public readonly onHasButtonsGroupUpdate = new Signal<(buttons: IVisibleButton[]) => void>();
     public readonly onPlacementChanged = new Signal<(changed: boolean) => void>();
@@ -108,14 +108,12 @@ export class PixiGameManager {
     public readonly onTestBoardBackgroundChanged = new Signal<(enabled: boolean) => void>();
     public readonly onTestBoardNarrowingLevelChanged = new Signal<(level: number) => void>();
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
-    public readonly onPlayerNotice = new Signal<(message: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
+    public readonly onScreenBlood = new Signal<(impacts: number) => void>();
     // public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
     public readonly onPossibleSynergiesUpdated = new Signal<(possible: Map<TeamType, SynergyWithLevel[]>) => void>();
-    // public readonly onFactionSelected = new Signal<(factionType: FactionType) => void>();
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
-    // public readonly onVisibleOverallImpactUpdated = new Signal<(impact: IVisibleOverallImpact) => void>();
     public readonly onHoverInfoUpdated = new Signal<(hover: IHoverInfo) => void>();
     public readonly onUnitInspectionUpdated = new Signal<(inspection: IUnitInspection | null) => void>();
     private lastInspectedUnit: UnitProperties | undefined;
@@ -135,12 +133,10 @@ export class PixiGameManager {
     private lastSentEmptyHoverInfo = false;
     private amountOfSelectedObjects = 1;
     private pixiApp: PixiApp | null = null;
-    // private pixiSceneManager: PixiSceneManager | null = null; // Deprecated
     private textures: PreloadedPixiTextures | null = null;
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
-    private premiumSandboxGuidanceEnabled = false;
     private lastAuthoritativeViewportKey = "";
     private overlayMouseSuppression?: {
         clientX: number;
@@ -163,17 +159,10 @@ export class PixiGameManager {
         // disconnectAll removes public scene subscriptions while preserving the manager's private bridge.
         this.onSceneHasStarted.disconnectAll();
     }
-    /** Throwing getters to keep TypeScript happy without ‘never’ intersections */
     private get _pixiApp(): PixiApp {
         if (!this.pixiApp) throw new Error("PixiGameManager: pixiApp not initialized yet");
         return this.pixiApp;
     }
-    /*
-    private get _pixiSceneManager(): PixiSceneManager {
-        if (!this.pixiSceneManager) throw new Error("PixiGameManager: pixiSceneManager not initialized yet");
-        return this.pixiSceneManager;
-    }
-    */
     private get _textures(): PreloadedPixiTextures {
         if (!this.textures) throw new Error("PixiGameManager: textures not initialized yet");
         return this.textures;
@@ -590,7 +579,6 @@ export class PixiGameManager {
     public getApplication(): Application {
         return this._pixiApp.getApplication();
     }
-    /** Layer behind units for terrain/background drawing. */
     public getTerrainContainer(): Container {
         return this._pixiApp.getTerrainContainer();
     }
@@ -606,31 +594,11 @@ export class PixiGameManager {
         this.gameActionTransport = transport;
         this.m_scene?.setGameActionTransport(transport);
     }
-    /** Co-op sandbox: the channel setup picks that are not GameActions (artifact, map) are sent through. */
-    public SetSandboxSetupTransport(transport?: (pick: SandboxSetupPick) => void): void {
-        this.m_scene?.setSandboxSetupTransport(transport);
-    }
-    public GetGridType(): GridType {
-        return this.m_scene?.getGridType() ?? (GridVals.NORMAL as GridType);
-    }
     public SetMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.m_scene?.setMoveIntentSink(sink);
     }
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.m_scene?.setOpponentMoveIntent(intent);
-    }
-    public SetSpellIntentSink(sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {
-        this.m_scene?.setSpellIntentSink(sink);
-    }
-    public SetOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
-        this.m_scene?.setOpponentSpellIntent(intent);
-    }
-    public SetPremiumTurnPreview(turn?: PremiumTurnPreview): void {
-        this.m_scene?.setPremiumTurnPreview(turn);
-    }
-    public SetPremiumSandboxGuidance(enabled: boolean): void {
-        this.premiumSandboxGuidanceEnabled = enabled;
-        this.m_scene?.setPremiumSandboxGuidance(enabled);
     }
     public ApplyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
@@ -671,7 +639,6 @@ export class PixiGameManager {
         this.m_scene?.selectAuthoritativeUnit(unitId);
         this.UpdateHoverInfo();
     }
-    /** Fit board to window (no manual zoom controls). */
     private fitViewToWindow(): void {
         if (!this.m_scene) return;
 
@@ -800,34 +767,33 @@ export class PixiGameManager {
         if (index >= this.flatScenes.length) this.activateScene(this.flatScenes[0]);
         else this.activateScene(this.flatScenes[index]);
     }
-    /**
-     * What the offline sandbox would hand a co-op sandbox: its map and the green army as placed. Undefined
-     * once a fight has started (there is nothing to carry) or before a scene exists.
-     */
-    public GetSandboxCarryOver():
-        { gridType: number; army: { unitName: string; cells: { x: number; y: number }[] }[] } | undefined {
-        if (!this.m_scene || this.started) {
-            return undefined;
-        }
-        return { gridType: this.m_scene.getGridType(), army: this.m_scene.getPlacedArmyExport(TeamVals.LEFT) };
-    }
     public StartGame(): void {
         if (this.m_scene?.isMapLoading?.()) return;
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.emitHasStarted(this.started);
         this.fitViewToWindow(); // keep neutral after start too
     }
-    /** Sandbox: hand a whole team to the AI (green = LEFT, red = RIGHT). */
     public SetTeamAiControlled(team: TeamType, enabled: boolean): void {
         this.m_scene?.setTeamAiControlled(team, enabled);
     }
-    /** Sandbox: whether a team is currently fully AI-controlled. */
     public IsTeamAiControlled(team: TeamType): boolean {
         return this.m_scene?.isTeamAiControlled(team) ?? false;
     }
     public SetCreatureAnimationLabEnabled(enabled: boolean): void {
         this.creatureAnimationLabEnabled = enabled;
         this.m_scene?.setCreatureAnimationLabEnabled(enabled);
+    }
+    public SetCreatureAnimationLabCyclopsImpactMode(mode: CyclopsImpactMode): void {
+        this.m_scene?.setCreatureAnimationLabCyclopsImpactMode(mode);
+    }
+    public SetCreatureAnimationLabFireMode(mode: FireSpellRenderMode): void {
+        this.m_scene?.setCreatureAnimationLabFireMode(mode);
+    }
+    public SetCreatureAnimationLabSpell(spell?: CreatureAnimationLabSpell): void {
+        this.m_scene?.setCreatureAnimationLabSpell(spell);
+    }
+    public CastCreatureAnimationLabSpell(): CreatureAnimationLabResult {
+        return this.m_scene?.castCreatureAnimationLabSpell() ?? { ok: false, message: "Sandbox ещё загружается" };
     }
     public PlayCreatureAnimationLabState(state: CreatureAnimationLabState): CreatureAnimationLabResult {
         return (
@@ -845,14 +811,12 @@ export class PixiGameManager {
             }
         );
     }
-    /** TEMPORARY sandbox comparison toggle: paint the board with the previous floor texture. */
     public SetLegacyBoardBackground(enabled: boolean): void {
         this.m_scene?.setLegacyBoardBackground(enabled);
     }
     public IsLegacyBoardBackground(): boolean {
         return this.m_scene?.isLegacyBoardBackground() ?? false;
     }
-    /** Fourth sandbox map: generated abyss art over the unchanged normal 16x16 mechanics. */
     public SetTestBoardBackground(enabled: boolean): void {
         this.testBoardBackground = enabled;
         this.m_scene?.setTestBoardBackground(enabled);
@@ -870,7 +834,6 @@ export class PixiGameManager {
     public GetTestBoardNarrowingLevel(): number {
         return this.m_scene?.getTestBoardNarrowingLevel() ?? this.testBoardNarrowingLevel;
     }
-    /** Replay the previous fight with the exact same units, positions and map. */
     public Rematch(): void {
         console.log("[Rematch] manager.Rematch; m_scene =", !!this.m_scene);
         if (this.m_scene && this.m_scene.rematchLastFight()) this.started = true;
@@ -888,9 +851,6 @@ export class PixiGameManager {
             ? structuredClone(this.m_scene.sc_visibleState as IVisibleState)
             : ({} as IVisibleState);
     }
-    public GetCurrentDamageStatistics(): IDamageStatistic[] {
-        return structuredClone(this.m_scene?.getDamageStatisics() ?? []);
-    }
     public async PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence)) ?? false;
         if (applied) {
@@ -906,7 +866,6 @@ export class PixiGameManager {
         }
         return applied;
     }
-    /** Clear the board and return to unit placement for a brand-new fight. */
     public StartOver(): void {
         FightStateManager.getInstance().reset();
         this.LoadGame(true); // destroys the scene, rebuilds it fresh, sets started = false
@@ -1090,21 +1049,6 @@ export class PixiGameManager {
         }
         return augmented || false;
     }
-    public BeginBarrelPlacement(team: TeamType, index: number): boolean {
-        return this.m_scene?.beginBarrelPlacement(team, index) ?? false;
-    }
-    public GetBarrelPlacementIndex(team: TeamType): number | undefined {
-        return this.m_scene?.getBarrelPlacementIndex(team);
-    }
-    public CancelBarrelPlacement(): void {
-        this.m_scene?.cancelBarrelPlacement();
-    }
-    public RemovePlacedBarrel(team: TeamType, index: number): boolean {
-        return this.m_scene?.removePlacedBarrel(team, index) ?? false;
-    }
-    public GetBarrelPlacementState(team: TeamType): { index: number; cell: { x: number; y: number } }[] {
-        return this.m_scene?.getBarrelPlacementState(team) ?? [];
-    }
     public PropagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
         const applied = this.m_scene?.propagateArtifact(teamType, tier, artifactId);
         if (applied) {
@@ -1121,7 +1065,6 @@ export class PixiGameManager {
     ): boolean {
         return this.m_scene?.propagateSynergy(teamType, faction, synergyName, synergyLevel) ?? false;
     }
-    /** Sandbox manual synergy picking: choose which of a faction's two synergies this team fields. */
     public SelectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
         const scene = this.m_scene;
         if (scene && "selectSynergyVariant" in scene) {
@@ -1131,11 +1074,6 @@ export class PixiGameManager {
         }
         return false;
     }
-    /** The synergies each team could field right now (a copy), for a sidebar mounting after the last emit. */
-    public GetPossibleSynergies(): Map<TeamType, SynergyWithLevel[]> {
-        return new Map(this.m_scene?.sc_possibleSynergiesPerTeam ?? []);
-    }
-    /** Applied synergy entries ("Faction:variant:level") for a team, for the sidebar's chosen-state. */
     public GetAppliedSynergies(teamType: TeamType): string[] {
         return FightStateManager.getInstance().getFightProperties().getSynergiesPerTeam(teamType);
     }
@@ -1153,7 +1091,6 @@ export class PixiGameManager {
         // grid change might affect ideal zoom; refit
         this.fitViewToWindow();
     }
-    /** Sandbox-only refresh for the Cemetery map; ranked scenes reject it and keep server terrain. */
     public RerollScatteredMountains(): void {
         const scene = this.m_scene;
         if (scene && "rerollScatteredMountains" in scene) {
@@ -1162,10 +1099,6 @@ export class PixiGameManager {
     }
     private lastTime = 0;
     private simAccumulator = 0;
-    // Fixed-timestep simulation: advance the game a constant amount per REAL second so that
-    // speed/animations are identical on every machine and refresh rate. We tick at 60 Hz and hand
-    // Step() the legacy 1/240 value, which reproduces the old "60fps feel" for everyone — no
-    // animation-constant retune required. SIM_STEP/SIM_HZ are the knobs to retune overall speed.
     private static readonly SIM_HZ = 60;
     private static readonly SIM_DT = 1 / PixiGameManager.SIM_HZ;
     private static readonly SIM_STEP = 1 / 240;
@@ -1256,6 +1189,11 @@ export class PixiGameManager {
         }
 
         // Damage animation surface
+        if (scene && scene.sc_screenBloodImpacts > 0) {
+            const impacts = scene.sc_screenBloodImpacts;
+            scene.sc_screenBloodImpacts = 0;
+            this.onScreenBlood.emit(impacts);
+        }
         if (this.m_scene?.sc_damageForAnimation.render) {
             this.onDamageReceived.emit(this.m_scene.sc_damageForAnimation.amount);
             this.m_scene.sc_damageForAnimation.render = false;
@@ -1346,6 +1284,55 @@ export class PixiGameManager {
             this.onHoverInfoUpdated.emit({} as IHoverInfo);
             this.lastSentEmptyHoverInfo = true;
         }
+    }
+    public readonly onPlayerNotice = new Signal<(message: string) => void>();
+    private premiumSandboxGuidanceEnabled = false;
+    public SetSandboxSetupTransport(transport?: (pick: SandboxSetupPick) => void): void {
+        this.m_scene?.setSandboxSetupTransport(transport);
+    }
+    public GetGridType(): GridType {
+        return this.m_scene?.getGridType() ?? (GridVals.NORMAL as GridType);
+    }
+    public SetSpellIntentSink(sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {
+        this.m_scene?.setSpellIntentSink(sink);
+    }
+    public SetOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
+        this.m_scene?.setOpponentSpellIntent(intent);
+    }
+    public SetPremiumTurnPreview(turn?: PremiumTurnPreview): void {
+        this.m_scene?.setPremiumTurnPreview(turn);
+    }
+    public SetPremiumSandboxGuidance(enabled: boolean): void {
+        this.premiumSandboxGuidanceEnabled = enabled;
+        this.m_scene?.setPremiumSandboxGuidance(enabled);
+    }
+    public GetSandboxCarryOver():
+        { gridType: number; army: { unitName: string; cells: { x: number; y: number }[] }[] } | undefined {
+        if (!this.m_scene || this.started) {
+            return undefined;
+        }
+        return { gridType: this.m_scene.getGridType(), army: this.m_scene.getPlacedArmyExport(TeamVals.LEFT) };
+    }
+    public GetCurrentDamageStatistics(): IDamageStatistic[] {
+        return structuredClone(this.m_scene?.getDamageStatisics() ?? []);
+    }
+    public BeginBarrelPlacement(team: TeamType, index: number): boolean {
+        return this.m_scene?.beginBarrelPlacement(team, index) ?? false;
+    }
+    public GetBarrelPlacementIndex(team: TeamType): number | undefined {
+        return this.m_scene?.getBarrelPlacementIndex(team);
+    }
+    public CancelBarrelPlacement(): void {
+        this.m_scene?.cancelBarrelPlacement();
+    }
+    public RemovePlacedBarrel(team: TeamType, index: number): boolean {
+        return this.m_scene?.removePlacedBarrel(team, index) ?? false;
+    }
+    public GetBarrelPlacementState(team: TeamType): { index: number; cell: { x: number; y: number } }[] {
+        return this.m_scene?.getBarrelPlacementState(team) ?? [];
+    }
+    public GetPossibleSynergies(): Map<TeamType, SynergyWithLevel[]> {
+        return new Map(this.m_scene?.sc_possibleSynergiesPerTeam ?? []);
     }
 }
 

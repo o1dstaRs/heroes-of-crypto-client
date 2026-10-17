@@ -11,6 +11,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import { releaseBoardMirror, setBoardMirror } from "../pixi/boardMirror";
+import type { SandboxReplayActionRecord } from "../replay/sandbox_replay";
 import { Sandbox } from "./Sandbox";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import type { CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -44,6 +45,9 @@ const unit = (id: string, anchor: XY, width = 1, height = 1, team: TeamType = Te
     return {
         getId: () => id,
         getName: () => id,
+        getAmountAlive: () => 1,
+        setActiveTurn: () => undefined,
+        syncVisual: () => undefined,
         getTeam: () => team,
         getAbility: () => undefined,
         getAnimationTextureKey: () => undefined,
@@ -69,10 +73,22 @@ const sceneFor = (units: readonly UnitStub[]) => {
     const wounds: XY[] = [];
     const slashes: XY[] = [];
     const missPops: XY[] = [];
+    const impacts: { source: string; victimTeam?: TeamType; amount: number }[] = [];
+    const impactAttackTypes: ("melee" | "range")[] = [];
     const scene = {
+        onCombatImpact: (
+            source: UnitStub,
+            victimTeam: TeamType | undefined,
+            amount: number,
+            attackType: "melee" | "range",
+        ) => {
+            impacts.push({ source: source.getId(), victimTeam, amount });
+            impactAttackTypes.push(attackType);
+        },
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => byId },
         rangedProjectiles: {
+            showChakramBounce: () => Promise.resolve(),
             fireAlongPath: (points: XY[]): Promise<void> => {
                 paths.push(points.map((point) => ({ ...point })));
                 return Promise.resolve();
@@ -96,7 +112,7 @@ const sceneFor = (units: readonly UnitStub[]) => {
         chakramWorldDir: (Sandbox.prototype as unknown as { chakramWorldDir: (from: XY, to: XY) => XY })
             .chakramWorldDir,
     };
-    return { scene, byId, paths, damagePops, wounds, slashes, missPops };
+    return { scene, byId, paths, damagePops, wounds, slashes, missPops, impacts, impactAttackTypes };
 };
 
 const splash = (victim: UnitStub, amount = 10, unitsDied = 0): Splash => ({
@@ -261,6 +277,108 @@ const recordedExchange = (
 };
 
 describe("Each recorded Chakram throw owns its damage and path", () => {
+    test("the replay entry hands bounce casualties and captured figures to impact-time teardown", async () => {
+        const zena = unit("Zena", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
+        const primary = unit("Primary", { x: 6, y: 10 }, 1, 2, TeamVals.RIGHT, false);
+        const killed = unit("Killed", { x: 8, y: 10 }, 1, 2, TeamVals.RIGHT, false);
+        const next = unit("Next", { x: 9, y: 10 }, 1, 2, TeamVals.RIGHT, false);
+        const harness = exchangeFor([zena, primary, killed, next]);
+        const flights = [
+            recordedFlight(
+                zena,
+                primary,
+                0,
+                [arc(killed, [primary.getBaseCell(), killed.getBaseCell()])],
+                [splash(primary, 10), splash(killed, 9, 1)],
+            ),
+            recordedFlight(
+                zena,
+                primary,
+                1,
+                [arc(next, [primary.getBaseCell(), killed.getBaseCell(), next.getBaseCell()])],
+                [splash(primary, 5), splash(next, 3)],
+            ),
+        ];
+        let arrive!: () => void;
+        const firstArrival = new Promise<void>((resolve) => {
+            arrive = resolve;
+        });
+        harness.scene.rangedProjectiles.fireAlongPath = (points) => {
+            harness.paths.push(points);
+            return harness.paths.length === 1 ? firstArrival : Promise.resolve();
+        };
+        const deaths: { id: string; paths: number; captured?: UnitStub }[] = [];
+        const noop = () => undefined;
+        Object.assign(harness.scene, {
+            drawer: { getUnitsContainer: noop },
+            sc_sceneLog: { updateLog: noop },
+            getReplayRetaliationDamage: noop,
+            noteDeathBlowsFromAttackEvent: noop,
+            spawnChainLightningVfx: noop,
+            spawnFireDamageVfx: noop,
+            showReplayAttackDamage: noop,
+            spawnAbilityStealVfx: noop,
+            spawnShatterArmorSlashVfx: noop,
+            applyReplayAttackRecoil: noop,
+            spawnSkewerWindSpearVfx: noop,
+            applyReplayEvents: noop,
+            destroyReplayAttackUnitsAtImpact: (ids: string[], captured?: UnitStub[]) => {
+                for (const id of ids) {
+                    deaths.push({
+                        id,
+                        paths: harness.paths.length,
+                        captured: captured?.find((unit) => unit.getId() === id),
+                    });
+                    harness.byId.delete(id);
+                }
+            },
+        });
+        const attack = {
+            type: "unit_attacked",
+            attackerId: zena.getId(),
+            targetId: primary.getId(),
+            attackType: "range",
+            animations: flights.map(() => ({
+                fromPosition: zena.getPosition(),
+                toPosition: primary.getPosition(),
+                affectedUnitId: primary.getId(),
+            })),
+            unitIdsDied: [killed.getId()],
+            damage: {
+                amount: 15,
+                hits: [
+                    { amount: 10, unitsDied: 0 },
+                    { amount: 5, unitsDied: 0 },
+                ],
+                render: true,
+                unitId: primary.getId(),
+                unitPosition: primary.getPosition(),
+                unitIsSmall: false,
+                splash: flights.flatMap((flight) => flight.splash),
+                chakramFlights: flights,
+            },
+        };
+        const record = {
+            action: { type: "range_attack", attackerId: zena.getId(), targetId: primary.getId() },
+            events: [attack, { type: "unit_destroyed", unitId: killed.getId() }],
+            stateAfter: {
+                units: [zena, primary, next].map((unit) => ({ properties: { id: unit.getId(), amount_alive: 1 } })),
+            },
+        } as unknown as SandboxReplayActionRecord;
+        const scene = harness.scene as unknown as {
+            playReplayAttackRecord(record: SandboxReplayActionRecord): Promise<boolean>;
+        };
+        const playing = scene.playReplayAttackRecord(record);
+        await flush();
+        expect(deaths).toEqual([]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
+        arrive();
+        expect(await playing).toBe(true);
+        expect(deaths).toEqual([{ id: killed.getId(), paths: 1, captured: killed }]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 9, 5, 3]);
+        expect(harness.paths[2]).toContainEqual(projectedCell(killed.getBaseCell()));
+    });
+
     test("a killed first-bounce victim dies at arrival before the next disc crosses its cleared cell", async () => {
         const zena = unit("Zena", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
         const primary = unit("Primary", { x: 6, y: 10 }, 1, 2, TeamVals.RIGHT, false);
@@ -308,6 +426,7 @@ describe("Each recorded Chakram throw owns its damage and path", () => {
         await flush();
         expect(harness.paths).toHaveLength(1);
         expect(deaths).toEqual([]);
+        expect(harness.impacts).toEqual([{ source: "Zena", victimTeam: TeamVals.RIGHT, amount: 10 }]);
 
         landFirst();
         await playing;
@@ -316,6 +435,9 @@ describe("Each recorded Chakram throw owns its damage and path", () => {
         expect(harness.byId.has(killed.getId())).toBe(false);
         expect(harness.paths[2]).toContainEqual(projectedCell(killed.getBaseCell()));
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 9, 5, 3]);
+        expect(harness.impacts).toEqual(
+            [10, 9, 5, 3].map((amount) => ({ source: "Zena", victimTeam: TeamVals.RIGHT, amount })),
+        );
     });
 
     test("a final-dead stack's partial first-bounce loss waits until the second bounce exhausts it", async () => {
@@ -712,7 +834,7 @@ describe("Each recorded Chakram throw owns its damage and path", () => {
             [defender.getId(), true, 0],
             [attacker.getId(), false, 1],
         ]);
-        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 8, 12, 6, 5, 3]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 12, 8, 6, 5, 3]);
         expect(harness.paths).toHaveLength(6);
         expect(harness.paths[3].at(-1)).toEqual(defender.getRangedProjectileOrigin());
     });
@@ -879,9 +1001,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.shots).toEqual(["Shooter", "Zena"]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
-        expect(harness.missPops).toEqual([
-            { x: shooter.getVisualCenter().x, y: shooter.getVisualCenter().y - gs.getCellSize() * 1.25 },
-        ]);
+        expect(harness.missPops).toEqual([{ x: shooter.getVisualCenter().x, y: shooter.getVisualCenter().y }]);
     });
 
     test("the real replay response gate still retains a positive counter from an older payload without splash", () => {
@@ -988,7 +1108,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         expect(harness.paths).toEqual([[target.getProjectileImpactPoint(), zena.getRangedProjectileOrigin()]]);
     });
 
-    test("plays a defender Zena's counter flight after an ordinary shot", async () => {
+    test("plays a defender Zena's counter flight alongside an ordinary shot", async () => {
         const shooter = unit("Shooter", { x: 6, y: 5 }, 1, 2, TeamVals.LEFT, false);
         const zena = unit("Zena", { x: 6, y: 10 }, 1, 1, TeamVals.RIGHT);
         const bounce = unit("Shooter ally", { x: 8, y: 5 }, 1, 2, TeamVals.LEFT, false);
@@ -1009,6 +1129,12 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
             [bounce.getProjectileImpactPoint(), zena.getRangedProjectileOrigin()],
         ]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([20, 10, 7]);
+        expect(harness.impacts).toEqual([
+            { source: "Shooter", victimTeam: TeamVals.RIGHT, amount: 20 },
+            { source: "Zena", victimTeam: TeamVals.LEFT, amount: 10 },
+            { source: "Zena", victimTeam: TeamVals.LEFT, amount: 7 },
+        ]);
+        expect(harness.impactAttackTypes).toEqual(["range", "range", "range"]);
     });
 
     test("two Zenas replay their own arcs and damage once each", async () => {
@@ -1032,18 +1158,18 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.paths).toEqual([
             [defender.getProjectileImpactPoint(), projectedCell({ x: 7, y: 10 }), redBounce.getProjectileImpactPoint()],
-            [redBounce.getProjectileImpactPoint(), attacker.getRangedProjectileOrigin()],
             [
                 attacker.getProjectileImpactPoint(),
                 projectedCell({ x: 7, y: 5 }),
                 greenBounce.getProjectileImpactPoint(),
             ],
+            [redBounce.getProjectileImpactPoint(), attacker.getRangedProjectileOrigin()],
             [greenBounce.getProjectileImpactPoint(), defender.getRangedProjectileOrigin()],
         ]);
-        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 8, 12, 9]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 12, 8, 9]);
     });
 
-    test("the counter waits until the initiating disc has returned", async () => {
+    test("the counter starts with the initiating disc; the next throw waits for its return", async () => {
         const attacker = unit("Attacker", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
         const defender = unit("Defender", { x: 6, y: 10 }, 1, 1, TeamVals.RIGHT, false);
         const harness = exchangeFor([attacker, defender]);
@@ -1056,28 +1182,47 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
             harness.scene,
             attacker,
             defender,
-            [strike(attacker, defender, 10), strike(defender, attacker, 12, true)],
+            [
+                strike(attacker, defender, 10),
+                strike(defender, attacker, 12, true),
+                { ...strike(attacker, defender, 5), hitIndex: 1 },
+            ],
             [],
             [splash(defender, 10)],
         );
 
         await flush();
-        expect(harness.shots).toEqual(["Attacker"]);
+        expect(harness.shots).toEqual(["Attacker", "Defender"]);
+        caught();
+        await flush();
+        expect(harness.shots).toEqual(["Attacker", "Defender", "Attacker"]);
         caught();
         await pending;
-        expect(harness.shots).toEqual(["Attacker", "Defender"]);
     });
 
-    test("an adjacent melee poke plays no thrown disc or return disc", async () => {
+    test("adjacent melee hits and counters report melee impacts without a thrown disc", async () => {
         const attacker = unit("Attacker", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
         const defender = unit("Defender", { x: 6, y: 6 }, 1, 2, TeamVals.RIGHT);
         const harness = exchangeFor([attacker, defender]);
 
-        await exchange(harness.scene, attacker, defender, [strike(attacker, defender, 10)], [], [], { melee: true });
+        await exchange(
+            harness.scene,
+            attacker,
+            defender,
+            [strike(attacker, defender, 10), strike(defender, attacker, 12, true)],
+            [],
+            [],
+            { melee: true },
+        );
 
         expect(harness.paths).toEqual([]);
         expect(harness.shots).toEqual([]);
-        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 12]);
+        expect(harness.impacts).toEqual([
+            { source: "Attacker", victimTeam: TeamVals.RIGHT, amount: 10 },
+            { source: "Defender", victimTeam: TeamVals.LEFT, amount: 12 },
+        ]);
+        expect(harness.impactAttackTypes).toEqual(["melee", "melee"]);
     });
 
     test("an initiating miss does not mark a landed counter-throw as missed", async () => {
@@ -1097,6 +1242,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.paths).toEqual([[shooter.getProjectileImpactPoint(), zena.getRangedProjectileOrigin()]]);
         expect(harness.wounds).toEqual([shooter.getVisualCenter()]);
+        expect(harness.impacts).toEqual([{ source: "Zena", victimTeam: TeamVals.LEFT, amount: 10 }]);
     });
 
     test("a dodged counter uses its own miss verdict without wounding the shooter", async () => {
@@ -1119,6 +1265,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         ]);
         expect(harness.wounds).toEqual([defender.getVisualCenter()]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
+        expect(harness.impacts).toEqual([{ source: "Attacker", victimTeam: TeamVals.RIGHT, amount: 10 }]);
     });
 
     test("a removed shield still identifies its response hop in an older recording", async () => {
@@ -1167,6 +1314,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         );
 
         expect(harness.paths[0].at(-1)).toEqual(bounce.getProjectileImpactPoint());
+        expect(harness.impacts.at(-1)).toEqual({ source: "Zena", victimTeam: TeamVals.LEFT, amount: 7 });
         expect(harness.damagePops.at(-1)).toEqual({
             center: bounce.getVisualCenter(),
             amount: 7,
@@ -1340,6 +1488,7 @@ describe("Chakram follows the authoritative footprint bridge", () => {
             [projectedCell(shieldCell), zena.getRangedProjectileOrigin()],
         ]);
         expect(harness.damagePops).toEqual([]);
+        expect(harness.impacts).toEqual([]);
     });
 
     test("legacy target-only arcs exclude exactly the same victims from generic splash playback", () => {

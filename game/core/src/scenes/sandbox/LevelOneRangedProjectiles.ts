@@ -350,7 +350,7 @@ export class RangedProjectiles {
                 speed:
                     cell *
                     (opts.dryadArrow
-                        ? 32
+                        ? PROJECTILE_SPEED_FACTOR
                         : opts.orcAxe
                           ? 52.2
                           : opts.chakram

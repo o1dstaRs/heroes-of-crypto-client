@@ -239,7 +239,10 @@ describe("replay board terrain", () => {
         });
 
         test("scattered mode is read from the visuals, which still know it with every stone destroyed", () => {
-            const captureStones = sliceBetween("private captureScatteredMountains(", "/** Smoke, vines and fire walls");
+            const captureStones = sliceBetween(
+                "private captureScatteredMountains(",
+                "private static captureTerrainCells(",
+            );
             expect(captureStones).toContain("this.dungeonVisuals?.hasScatteredMountains()");
             // Only STANDING stones: a destroyed one's cell may well be occupied by a unit by now.
             expect(captureStones).toContain("this.grid.getScatteredMountainsStanding()");

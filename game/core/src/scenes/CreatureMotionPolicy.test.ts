@@ -4,7 +4,7 @@ import { RenderableUnit, creatureGenericWholeSpriteMotionEnabledForLevel } from 
 import { RenderableUnit as ApprovedUnit } from "./LevelOneRenderableUnit";
 import { Sandbox } from "./Sandbox";
 
-test.each([1, 2])(
+test.each([1, 2, 3, 4])(
     "level %s suppresses cutout sway, recoil, windup and dodge without inventing a sprite animation",
     (level) => {
         for (const prototype of [RenderableUnit.prototype, ApprovedUnit.prototype]) {
@@ -32,9 +32,9 @@ test.each([1, 2])(
     },
 );
 
-test("higher tiers retain their existing generic motion policy", () => {
-    expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(true);
-    expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(true);
+test("higher tiers also keep authored poses free of generic motion", () => {
+    expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(false);
+    expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(false);
 });
 
 test.each([1, 2])("unfinished level %s death removes the figure without a procedural shatter", (level) => {

@@ -6,6 +6,7 @@ import { useTranslation } from "../../i18n/i18n";
 import { hocFontFamily } from "../hocTheme";
 import { PremiumIcon } from "../PremiumIcon";
 import { PremiumSearchSlot } from "./PremiumSearch";
+import { PremiumFightMoves } from "./PremiumFightMoves";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 
 /** Fight footer: chat stays available whether or not the player wants board suggestions. */
@@ -54,6 +55,7 @@ export const PremiumFightControls: React.FC = () => {
                     "& .MuiSwitch-thumb": { bgcolor: suggestedMoves ? "#ffe0bf" : "#bca78e" },
                 }}
             />
+            <PremiumFightMoves />
         </Box>
     );
 };

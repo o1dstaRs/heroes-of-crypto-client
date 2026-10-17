@@ -14,6 +14,8 @@ const setup = () => {
     const unit = (id: string, x: number) => ({
         getId: () => id,
         getName: () => "Monk",
+        isDead: () => false,
+        isPlayingOneShotAnimation: () => false,
         getVisualCenter: () => ({ x, y: 0 }),
         getProjectileImpactPoint: () => ({ x, y: 0 }),
         getRangedProjectileOrigin: () => ({ x, y: 0 }),
@@ -28,7 +30,10 @@ const setup = () => {
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => units },
         isSceneDestroyed: () => false,
-        combatVisuals: { showCleanse: (position: { x: number }) => cleanses.push(position.x === 25 ? "near" : "far") },
+        combatVisuals: {
+            spawnCommonFlagPop: () => {},
+            showCleanse: (position: { x: number }) => cleanses.push(position.x === 25 ? "near" : "far"),
+        },
     });
     const lifted = (unitId: string, liftedNames = ["Stun"]) => ({
         sourceUnitId: source.getId(),

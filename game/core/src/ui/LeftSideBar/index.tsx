@@ -91,7 +91,7 @@ import {
     sidebarFrameSideInsetPx,
     sidebarFrameTopInsetPx,
 } from "./sidebarMetrics";
-import type { IVisibleImpact } from "../../scenes/VisibleState";
+import type { IUnitInspection, IVisibleImpact } from "../../scenes/VisibleState";
 import { useFitScale } from "./useFitScale";
 import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
 
@@ -128,11 +128,15 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
         dashboard: false,
     });
 
-    const [selection, setSelection] = useState<SidebarSelectionState>({
+    const [selected, setSelection] = useState<SidebarSelectionState>({
         unit: emptyUnit,
         overallImpact: emptyImpact,
         factionType: FactionVals.NO_FACTION as FactionType,
     });
+    const [inspection, setInspection] = useState<IUnitInspection | null>(null);
+    const selection = inspection
+        ? { unit: inspection.unit, overallImpact: inspection.impact, factionType: FactionVals.NO_FACTION }
+        : selected;
 
     const { setMode } = useColorScheme();
     const manager = usePixiManager();
@@ -175,8 +179,10 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
         };
 
         const conn = manager.onSelectionCombined.connect(handleCombined);
+        const inspectionConn = manager.onUnitInspectionUpdated.connect(setInspection);
         return () => {
             conn.disconnect();
+            inspectionConn.disconnect();
         };
     }, [manager]);
 
@@ -400,6 +406,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                 unitProperties={unitProperties}
                                 overallImpact={selection.overallImpact}
                                 factionType={selection.factionType}
+                                animatePortrait={!inspection}
                             />
                         </List>
                     </Box>
@@ -434,7 +441,11 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                             : { flexShrink: 0, position: "relative", zIndex: 1 }
                     }
                 >
-                    <MessageBox gameStarted={gameStarted} windowSize={windowSize} />
+                    <Box
+                        sx={gameStarted ? { mb: `${-(metrics.gapPx + Math.round(metrics.gapPx * 0.5))}px` } : undefined}
+                    >
+                        <MessageBox gameStarted={gameStarted} windowSize={windowSize} />
+                    </Box>
                     {gameStarted && (
                         <React.Suspense fallback={null}>
                             <UpNext />

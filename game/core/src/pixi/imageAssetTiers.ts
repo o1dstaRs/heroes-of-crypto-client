@@ -1,8 +1,8 @@
+import { shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
-import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
-const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset) => asset.key));
 import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
 import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 import { isLavaPitAssetKey } from "../scenes/sandbox/lavaPitAssets";
@@ -11,7 +11,26 @@ import { isLavaPitAssetKey } from "../scenes/sandbox/lavaPitAssets";
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
 
 export function isIdleAtlasKey(key: string): boolean {
-    if (key === "blacksmith_idle_atlas" || key === "orc_idle_atlas" || key === "beholder_idle_atlas") return true;
+    if (
+        key === "tsar_cannon_lab_idle_atlas" ||
+        key === "abomination_lab_idle_atlas" ||
+        key === "efreet_lab_idle_atlas" ||
+        key === "monk_lab_idle_atlas" ||
+        key === "griffin_lab_idle_atlas" ||
+        key === "dryad_painted_idle_atlas" ||
+        key === "mantis_lab_idle_atlas" ||
+        key === "gargantuan_lab_idle_atlas" ||
+        key === "hydra_lab_idle_atlas" ||
+        key === "frenzied_boar_lab_idle_atlas" ||
+        key === "harpy_idle_atlas" ||
+        key === "pegasus_idle_atlas" ||
+        key === "trent_idle_atlas" ||
+        key === "nomad_idle_atlas" ||
+        key === "blacksmith_idle_atlas" ||
+        key === "orc_idle_atlas" ||
+        key === "satyr_idle_atlas"
+    )
+        return true;
     return (
         isUnitAnimationAtlasKey(key) &&
         (key.includes("_idle") || key.includes("_default")) &&
@@ -20,11 +39,121 @@ export function isIdleAtlasKey(key: string): boolean {
 }
 
 export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
-    if (key === "beholder_idle_atlas") return false;
-    if (approvedEnvironmentKeys.has(key)) return false;
+    if (/^pegasus_(idle|walk|flight_walk|hit|death|attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (/^vfx_thunderbird_chain_(arc|impact)_atlas$/.test(key)) return false;
+    if (
+        key === "tsar_cannon_bronze_v14_walk_atlas" ||
+        /^tsar_cannon_lab_v(?:15|18|20|21|24|25|26)_(hit|death|(?:melee_)?attack(?:_up|_down)?)_atlas$/.test(key)
+    )
+        return false;
+    if (/^magic_dragon_lab_(walk|idle|hit|death|cast|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "tsar_cannon_lab_walk_atlas" || key === "tsar_cannon_lab_idle_atlas") return false;
+    if (/^arachna_spider_lab_(walk|melee_attack(?:_up|_down)?|death)_atlas$/.test(key)) return false;
+    if (/^arachna_queen_lab_(walk|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (/^black_dragon_lab_(walk|idle|hit|death|attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "angel_lab_walk_atlas" || key === "angel_lab_idle_atlas") return false;
+    if (
+        [
+            "thunderbird_flight_walk_atlas",
+            "thunderbird_lab_idle_atlas",
+            "thunderbird_lab_hit_atlas",
+            "thunderbird_lab_death_atlas",
+            "thunderbird_lab_melee_attack_atlas",
+            "thunderbird_lab_melee_attack_up_atlas",
+            "thunderbird_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "champion_lab_walk_atlas",
+            "champion_lab_idle_atlas",
+            "champion_lab_hit_atlas",
+            "champion_lab_death_atlas",
+            "champion_lab_melee_attack_atlas",
+            "champion_lab_melee_attack_up_atlas",
+            "champion_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (/^hydra_lab_(?:walk|idle|crest_fire|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "abomination_lab_walk_atlas" || key === "abomination_lab_idle_atlas") return false;
+    if (key === "abomination_lab_hit_atlas" || key === "abomination_lab_death_atlas") return false;
+    if (/^abomination_lab_melee_attack(?:_up|_down)?_atlas$/.test(key)) return false;
+    if (/^abomination_lab_idle_page_\d{2}_atlas$/.test(key)) return false;
+    if (/^gargantuan_lab_(idle|hit|death|(?:melee_)?attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (/^mantis_lab_(hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "frenzied_boar_lab_walk_atlas") return false;
+    if (key === "frenzied_boar_lab_idle_atlas") return false;
+    if (/^frenzied_boar_lab_(hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "behemoth_lab_idle_atlas") return false;
+    if (key === "behemoth_lab_hit_atlas" || key === "behemoth_lab_death_atlas") return false;
+    if (/^behemoth_lab_(cast|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "gargantuan_lab_walk_atlas" || key === "behemoth_lab_walk_atlas") return false;
+    if (/^efreet_lab_(idle|hit|death|cast|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (/^cyclops_lab_(walk|hit|death|melee_attack(?:_up|_down)?|attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (
+        key === "nightmare_walk_atlas" ||
+        /^nightmare_lab_(cast|smoke_cast|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)
+    )
+        return false;
+    if (
+        key === "unicorn_mystic_horn_atlas" ||
+        key === "unicorn_lab_walk_atlas" ||
+        key === "unicorn_lab_idle_atlas" ||
+        key === "unicorn_lab_melee_attack_atlas" ||
+        key === "unicorn_lab_melee_attack_up_atlas" ||
+        key === "unicorn_lab_melee_attack_down_atlas" ||
+        key === "unicorn_lab_hit_atlas" ||
+        key === "unicorn_lab_death_atlas"
+    )
+        return false;
+    if (/^zena_lab_(walk|idle|hit|death|(?:melee_)?attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (key === "ogre_mage_walk_atlas") return false;
+    if (key === "ogre_mage_idle_atlas") return false;
+    if (/^ogre_mage_(hit|death|cast|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (/^monk_lab_(walk|idle|hit|death|attack(?:_up|_down)?|melee_attack(?:_up|_down)?)_atlas$/.test(key))
+        return false;
+    if (
+        [
+            "crusader_walk_atlas",
+            "crusader_hit_atlas",
+            "crusader_death_atlas",
+            "crusader_melee_attack_up_atlas",
+            "crusader_melee_attack_atlas",
+            "crusader_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (/^harpy_(idle|flight_walk|hit|death|cast|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (/^nomad_(idle|walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (
+        /^beholder_(?:flight_walk|reactions_hit|reactions_death|combat_melee_attack(?:_up|_down)?|ranged_attack(?:_up|_down)?)_atlas$/.test(
+            key,
+        )
+    )
+        return false;
+    if (key === "trent_idle_atlas") return false;
+    if (key === "trent_walk_atlas" || key === "trent_cast_atlas") return false;
+    if (/^trent_attack(?:_up|_down)?_atlas$/.test(key)) return false;
+    if (key === "trent_hit_atlas" || key === "trent_death_atlas") return false;
+    if (/^hyena_(walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
     if (/^white_tiger_lab_(idle|walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
     if (
+        key === "griffin_flight_walk_atlas" ||
+        key === "griffin_lab_idle_atlas" ||
+        key === "griffin_lab_hit_atlas" ||
+        key === "griffin_lab_death_atlas" ||
+        /^griffin_lab_melee_attack(?:_up|_down)?_atlas$/.test(key) ||
+        key === "mantis_lab_walk_atlas" ||
+        key === "mantis_lab_idle_atlas" ||
         key === "manticore_lab_walk_atlas" ||
+        key === "wyvern_lab_walk_atlas" ||
+        key === "wyvern_lab_hit_atlas" ||
+        key === "wyvern_lab_death_atlas" ||
+        key === "wyvern_lab_melee_attack_atlas" ||
+        key === "wyvern_lab_melee_attack_up_atlas" ||
+        key === "wyvern_lab_melee_attack_down_atlas" ||
         key === "manticore_lab_death_atlas" ||
         key === "manticore_lab_hit_atlas" ||
         key === "manticore_lab_melee_attack_atlas" ||
@@ -87,7 +216,8 @@ export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
         ["elf_lab_melee_attack_atlas", "elf_lab_melee_attack_up_atlas", "elf_lab_melee_attack_down_atlas"].includes(key)
     )
         return false;
-    if (key === "pikeman_walk_atlas") return false;
+    if (key === "pikeman_walk_atlas" || /^satyr_(walk|idle|hit|death|cast|melee_attack(?:_up|_down)?)_atlas$/.test(key))
+        return false;
     if (key === "pikeman_lab_idle_atlas") return false;
     if (key === "pikeman_lab_hit_atlas" || key === "pikeman_lab_death_atlas") return false;
     if (["pikeman_lab_attack_atlas", "pikeman_lab_attack_up_atlas", "pikeman_lab_attack_down_atlas"].includes(key))
@@ -106,6 +236,7 @@ export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
         return false;
     if (
         [
+            "dryad_painted_idle_atlas",
             "dryad_lab_walk_atlas",
             "dryad_lab_hit_atlas",
             "dryad_lab_death_atlas",
@@ -236,7 +367,8 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
 ]);
 
 export function isDeferredReactUiAssetKey(key: string): boolean {
-    if (key === "peasant_left_screen_idle_atlas" || DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
+    if (key === "gargantuan_walk_source_comparison") return true;
+    if (DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
     return (
         key.startsWith("pick_ban_") ||
         key.startsWith("pick_phase_") ||
@@ -256,7 +388,8 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("doctrine_") ||
         key.endsWith("_augment_256") ||
         /_left_screen_x2(?:_[a-z0-9]+)*$/.test(key) ||
-        key.endsWith("_portrait_full")
+        /_left_screen_idle_atlas$/.test(key) ||
+        /_portrait_full(?:_v\d+)?$/.test(key)
     );
 }
 
@@ -273,6 +406,14 @@ export function isTransientLoadingScreenAssetKey(key: string): boolean {
     return TRANSIENT_LOADING_SCREEN_ASSETS.has(key);
 }
 
+// Later paintings warm up after the scene opens, in combat order.
+export const NARROWING_BACKGROUND_KEYS = [
+    "background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3",
+    "background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v7",
+    "background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v3",
+    "background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v7",
+    "background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v4",
+] as const;
 const LIVE_ENVIRONMENT_ASSETS = new Set(["background_stone_tiles_sinister_16x16_original_restored"]);
 const LAZY_MAP_TEXTURE_ASSETS = new Set([
     "ambient_fire_left_furnace_atlas",
@@ -353,7 +494,12 @@ const LAZY_PROJECTILE_ASSETS = new Set([
     "cyclops_heavy_boulder",
     "monk_solar_orb",
     "tsar_cannon_molten_ball",
+    "vfx_tsar_cannon_flight_v21_atlas",
+    "vfx_tsar_cannon_flight_v21_atlas_quarter",
+    "vfx_tsar_cannon_impact_v19_atlas",
     "gargantuan_root_boulder",
+    "gargantuan_held_stone_v4",
+    "vfx_gargantuan_stone_impact_v1_atlas",
 ]);
 
 export function isLazyProjectileAssetKey(key: string): boolean {
@@ -361,6 +507,47 @@ export function isLazyProjectileAssetKey(key: string): boolean {
 }
 
 const LAZY_COMBAT_EFFECT_ASSETS = new Set([
+    "vfx_common_absorb_pop_atlas",
+    "vfx_common_absorb_pop_atlas_quarter",
+    "vfx_common_heal_pop_atlas",
+    "vfx_common_heal_pop_atlas_quarter",
+    "vfx_common_lucky_pop_atlas",
+    "vfx_common_lucky_pop_atlas_quarter",
+    "vfx_common_miss_pop_atlas",
+    "vfx_common_miss_pop_atlas_quarter",
+    "vfx_common_resist_pop_atlas",
+    "vfx_common_resist_pop_atlas_quarter",
+    "vfx_ogre_magic_mirror_pop_atlas",
+    "vfx_ogre_magic_mirror_pop_atlas_quarter",
+    "vfx_ogre_riot_pop_atlas",
+    "vfx_ogre_riot_pop_atlas_quarter",
+    "vfx_paralysis_pop_atlas",
+    "vfx_paralysis_pop_atlas_quarter",
+    "vfx_unicorn_one_in_the_field_pop_atlas",
+    "vfx_unicorn_one_in_the_field_pop_atlas_quarter",
+    "vfx_unicorn_blindness_pop_atlas",
+    "vfx_unicorn_blindness_pop_atlas_quarter",
+    "vfx_borrowed_grace_pop_atlas",
+    "vfx_borrowed_grace_pop_atlas_quarter",
+    "vfx_absolving_arrow_pop_atlas",
+    "vfx_absolving_arrow_pop_atlas_quarter",
+    "vfx_dulling_defense_pop_atlas",
+    "vfx_dulling_defense_pop_atlas_quarter",
+    "vfx_empower_pop_atlas",
+    "vfx_empower_pop_atlas_quarter",
+    "vfx_made_of_fire_pop_atlas",
+    "vfx_made_of_fire_pop_atlas_quarter",
+    "vfx_whirlpool_swirl_atlas",
+    "vfx_ring_fire_burst_atlas",
+    "vfx_meteor_shower_impact_atlas",
+    "vfx_magic_reflection_pop_atlas",
+    "vfx_enchanted_skin_pop_atlas",
+    "vfx_enchanted_skin_pop_atlas_quarter",
+    // Reserved Thunderbird sprite alternative: never preload while the procedural renderer is active.
+    "vfx_thunderbird_chain_arc_atlas",
+    "vfx_thunderbird_chain_arc_atlas_quarter",
+    "vfx_thunderbird_chain_impact_atlas",
+    "vfx_thunderbird_chain_impact_atlas_quarter",
     "book_1024_clean_pages_v1",
     "craft_anvil",
     "craft_hammer",
@@ -371,6 +558,39 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
     "shot_range_corner_aaa_v4_red",
     ...shotTrajectoryAssets.map((asset) => asset.key),
     "vfx_dust_smoky_ash_atlas",
+    "vfx_arachna_web_aura_atlas",
+    "vfx_predatory_assimilation_grab_atlas",
+    "vfx_arachna_infest_hatch_atlas",
+    "vfx_arachna_infest_spider_hatch_atlas",
+    "vfx_arachna_infest_queen_hatch_atlas",
+    "vfx_abomination_sand_aura_atlas",
+    "vfx_champion_arrow_aura_atlas",
+    "vfx_champion_arrow_aura_atlas_quarter",
+    "vfx_zena_chakram_aura_v1",
+    "vfx_zena_chakram_aura_v2",
+    "vfx_pegasus_winged_sword_aura_v1",
+    "vfx_pegasus_four_swords_aura_v2",
+    "vfx_crusader_six_swords_aura_v1",
+    "vfx_griffin_question_bow_aura_v3",
+    "vfx_angel_wingshield_floor_v1",
+    "vfx_abomination_dust_aura_atlas",
+    "vfx_abomination_sand_gust_aura_atlas",
+    "vfx_champion_crusade_pop_atlas",
+    "vfx_unyielding_power_curl_short_atlas",
+    "vfx_devour_essence_short_atlas",
+    "vfx_devour_essence_short_atlas_quarter",
+    "vfx_boar_saliva_short_atlas",
+    "vfx_ai_turn_brain_loop_atlas",
+    "vfx_ai_turn_brain_loop_atlas_quarter",
+    "vfx_boar_saliva_short_atlas_quarter",
+    "vfx_deep_wounds_level_1_atlas",
+    "vfx_deep_wounds_level_1_atlas_quarter",
+    "vfx_deep_wounds_level_2_atlas",
+    "vfx_deep_wounds_level_2_atlas_quarter",
+    "vfx_deep_wounds_level_3_atlas",
+    "vfx_deep_wounds_level_3_atlas_quarter",
+
+    "vfx_unyielding_power_curl_short_atlas_quarter",
 ]);
 
 /** Large optional battle art loaded and released by its owning surface only when first needed. */
@@ -602,6 +822,7 @@ const LAZY_SPELL_ASSETS = new Set([
     "misfortune_256",
     "fire_wall_256",
     "fire_strike_256",
+    "fireball_256",
     "meteorite_256",
     "curse_256",
     "sadness_256",
@@ -643,11 +864,20 @@ export function isCoreTextureAssetKey(key: string): boolean {
 
 /** Authoring/superseded exports that no production path can request, even lazily. */
 export function isProductionOmittedAssetKey(key: string): boolean {
+    if (
+        shouldPreloadUnitAnimationAtlas(key, false) ||
+        /^(?:arbalester_idle|abomination_lab_idle)_page_\d{2}_atlas$/.test(key)
+    )
+        return false;
+    if (/^vfx_thunderbird_chain_(arc|impact)_atlas(?:_quarter)?$/.test(key)) return true;
+    if (key === "gargantuan_walk_source_comparison") return true;
+    if (/^mantis_lab_(?:walk|idle|hit|death|melee_attack(?:_up|_down)?)_atlas(?:_quarter)?$/.test(key)) return true;
     if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
-    if (approvedEnvironmentKeys.has(key)) return false;
     return (
         isRedundantFullResolutionUnitAtlasKey(key) ||
         (isDeferredPlacementAssetKey(key) && !isLivePlacementAssetKey(key)) ||
         isDeferredLegacyCreatureAssetKey(key)
     );
 }
+
+const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset) => asset.key));

@@ -1,3 +1,4 @@
+import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
 import { PremiumContext, PremiumDraftBanner, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
 import { usePremiumCapability } from "../premium/usePremiumPreference";
@@ -65,7 +66,6 @@ import {
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     GameSystemControls,
 } from "../GameSystemControls";
-import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
@@ -106,8 +106,7 @@ const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId]
 const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];
 
 // ---- Creature stats + abilities lookup (shared creatures.json / abilities.json) ------------------
-// The catalogue index itself lives in ../creatureCatalog, shared with the portal's hover cards so both
-// surfaces quote the same numbers for a creature.
+
 const creatureFullConfig = creatureCatalogEntry;
 
 // Ability description with the {} power placeholder filled in (mirrors how the game renders it).
@@ -1422,7 +1421,7 @@ export const PickCommitButton: React.FC<{
                         ? "hocCommitWaiting 1.35s ease-in-out infinite"
                         : effectiveArmed
                           ? `${tone === "gold" ? "hocCommitPlateGold" : "hocCommitPlate"} 1.5s ease-in-out infinite`
-                          : "none",
+                          : "hocCommitAvailable 1.5s ease-in-out infinite",
                     "&:hover":
                         effectiveArmed && tone !== "gold"
                             ? {
@@ -1444,6 +1443,13 @@ export const PickCommitButton: React.FC<{
                         "0%, 100%": { opacity: 1 },
                         "50%": { opacity: 0.3 },
                     },
+                    // The whole neutral plate breathes as soon as our choice opens, including its clock
+                    // and divider. Selecting a creature retains the same cadence with the green treatment.
+                    "@keyframes hocCommitAvailable": {
+                        "0%, 100%": { transform: "translateY(3vh) scale(1)", filter: "brightness(1)" },
+                        "50%": { transform: "translateY(3vh) scale(1.012)", filter: "brightness(1.039)" },
+                    },
+                    "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                     "@keyframes hocCommitPlate": {
                         "0%, 100%": {
                             transform: "translateY(3vh) scale(1)",

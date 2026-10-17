@@ -167,11 +167,12 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
 
 export const ArtifactToggler: React.FC<{
     teamType: TeamType;
-    // Artifacts open and close as ONE block: the header below reveals both tiers together. Sandbox owns this
-    // state independently from Augments; the optional props keep the component usable on its own.
+    // Collapsible pickers open both tiers together and can optionally be controlled by their parent.
     isOpen?: boolean;
     onToggle?: () => void;
-}> = ({ teamType, isOpen: isOpenProp, onToggle }) => {
+    /** Sandbox keeps both tiers visible inside the team's collapsible section. */
+    alwaysExpanded?: boolean;
+}> = ({ teamType, isOpen: isOpenProp, onToggle, alwaysExpanded = false }) => {
     const manager = usePixiManager();
     // Start from the fight's current picks: the co-op sandbox's server keeps them, so a reload (or a late
     // mount) still highlights what the team actually carries.
@@ -182,7 +183,7 @@ export const ArtifactToggler: React.FC<{
         FightStateManager.getInstance().getFightProperties().getArtifactTier2(teamType),
     );
     const [openLocal, setOpenLocal] = useState(false);
-    const isOpen = isOpenProp !== undefined ? isOpenProp : openLocal;
+    const isOpen = alwaysExpanded || (isOpenProp ?? openLocal);
     const toggle = () => (onToggle ? onToggle() : setOpenLocal((current) => !current));
 
     const selectTier1 = (artifactId: number) => {
@@ -216,14 +217,12 @@ export const ArtifactToggler: React.FC<{
             }}
         >
             <Divider sx={{ borderColor: "rgba(112, 75, 42, 0.55)" }} />
-            {/* One header for the whole block: clicking it reveals both tiers at once. Per-tier toggles meant
-                three things could be open at the same time and the bar grew past the fold; now it is two
-                states in the bar - augments or artifacts. */}
+            {/* Sandbox uses a plain heading; standalone pickers can still collapse both tiers together. */}
             <Box
-                component="button"
-                type="button"
-                onClick={toggle}
-                aria-expanded={isOpen}
+                component={alwaysExpanded ? "div" : "button"}
+                type={alwaysExpanded ? undefined : "button"}
+                onClick={alwaysExpanded ? undefined : toggle}
+                aria-expanded={alwaysExpanded ? undefined : isOpen}
                 sx={{
                     width: "100%",
                     display: "flex",
@@ -234,9 +233,9 @@ export const ArtifactToggler: React.FC<{
                     py: 0.25,
                     background: "transparent",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: alwaysExpanded ? "default" : "pointer",
                     color: isOpen ? "#FF8F00" : "inherit",
-                    "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
+                    "&:hover": { backgroundColor: alwaysExpanded ? "transparent" : "rgba(255,255,255,0.05)" },
                 }}
             >
                 <Typography
@@ -245,19 +244,21 @@ export const ArtifactToggler: React.FC<{
                 >
                     Artifacts
                 </Typography>
-                <Box
-                    component="img"
-                    src={images.tr_up}
-                    alt=""
-                    sx={{
-                        width: "12px",
-                        transform: isOpen ? "none" : "rotate(180deg)",
-                        transition: "transform 0.2s",
-                        filter: isOpen
-                            ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
-                            : "none",
-                    }}
-                />
+                {!alwaysExpanded && (
+                    <Box
+                        component="img"
+                        src={images.tr_up}
+                        alt=""
+                        sx={{
+                            width: "12px",
+                            transform: isOpen ? "none" : "rotate(180deg)",
+                            transition: "transform 0.2s",
+                            filter: isOpen
+                                ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                                : "none",
+                        }}
+                    />
+                )}
             </Box>
             <ArtifactRow
                 title="Tier 1"

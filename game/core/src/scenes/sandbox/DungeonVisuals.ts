@@ -1,5 +1,4 @@
 import {
-    Assets,
     BlurFilter,
     ColorMatrixFilter,
     Container,
@@ -25,8 +24,7 @@ import {
 import { boardFitHeight, boardFitWidth } from "../../pixi/boardFit";
 import type { TextureLoadOptions } from "../../pixi/boardFirstTextureLoads";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
-import { LAVA_PIT_ASSETS, lavaPitTextureKeys } from "./lavaPitAssets";
-import { images } from "../../generated/image_imports";
+import { lavaPitTextureKeys } from "./lavaPitAssets";
 import {
     BARREL_SHADOW_TUNING_CHANGE_EVENT,
     DEFAULT_BARREL_SHADOW_TUNING,
@@ -738,51 +736,28 @@ export class DungeonVisuals {
     private context: IDungeonVisualsContext;
     private barrelShadowTuningListener?: EventListener;
     private destroyed = false;
-    /** Large map-only atlases decoded by this scene and safe to evict between battles. */
-    private loadedMapAtlasUrls = new Set<string>();
-    // State
     private atmosphereAlpha = 0;
-    /** GLSL "wall-sconce" lighting applied over the board square; replaces the old circle fills. */
     private lightFilter?: Filter;
     private lightOverlay?: Graphics;
     private lightBuilt = false;
-    /** Sconce inset (board-square uv units) so the light tracks the board as holes eat the edges. */
     private lightInward = 0;
     private lightTimeSec = 0;
-    // The corner-brazier LightingLayer (world-space) now owns the dungeon firelight in BOTH placement
-    // and fight. This separate wall-sconce shader overlay used to fade in at fight start and clashed
-    // with the braziers (two different light patterns over the floor), which read as "ugly" the instant
-    // the fight began. Disabled so lighting stays consistent across phases; flip to true to bring back
-    // a second, floor-only lighting pass.
     private wallSconceOverlayEnabled: boolean = false;
     private dungeonOverlay?: Container;
     private holeContainer: Container;
     private bgSprite?: Sprite;
-    private mapLoadingCover?: Container;
-    private mapLoading = false;
-    private mapLoadingViewport?: { width: number; height: number };
-    private mapLoadingBackdrop?: Graphics;
-    private mapLoadingLabel?: Text;
     private backgroundTextureKey?: string;
-    /** Authored transparent fire atlases aligned to the background painting in source pixels. */
     private ambientFireLayer?: Container;
     private ambientFireSprites = new Map<string, Sprite>();
     private ambientFireGlowSprites = new Map<string, Sprite>();
     private ambientFireContactGlows = new Map<string, Graphics>();
     private ambientFireFrames = new Map<string, Texture[]>();
-    private ambientFireAtlases = new Map<string, Texture>();
-    private ambientFireAtlasLoads = new Set<string>();
     private ambientFireEditorOutline?: Graphics;
-    /** Transparent atlas sprites that animate only the orange chasms baked into each narrowing painting. */
     private chasmGlowLayer?: Container;
     private chasmGlowSprite?: Sprite;
     private chasmGlowFrames = new Map<string, Texture[]>();
-    private chasmGlowAtlases = new Map<string, Texture>();
-    private chasmGlowAtlasLoads = new Set<string>();
     private activeChasmGlowAtlasKey?: string;
-    /** Legacy overlay kept for lifecycle compatibility; the current artwork fills the former top band. */
     private topBlankMask?: Graphics;
-    /** Screen-space fire spill around the animated 4x4 lava pool; kept below the world and units. */
     private lavaFireLight?: Container;
     private lavaFireLightBase?: Graphics;
     private lavaFireLightGroups: Graphics[] = [];
@@ -792,7 +767,6 @@ export class DungeonVisuals {
     private lavaFire2ColorFilter?: ColorMatrixFilter;
     private lavaFire3ColorFilter?: ColorMatrixFilter;
     private lavaFire4ColorFilter?: ColorMatrixFilter;
-    /** Static screen-space fire layout is recalculated only after a resize, tuning edit, or decoded atlas. */
     private ambientFireLayoutDirty = true;
     private ambientFireLayoutTunings = new Map<string, AmbientFireTuning>();
     private ambientFireBaseScaleX = new Map<string, number>();
@@ -807,14 +781,12 @@ export class DungeonVisuals {
         width: number;
         height: number;
     };
-    /** Last material inputs written to stable lava meshes; avoids even signature allocation on steady frames. */
     private lastLavaColorTuning?: LavaAnimationTuning;
     private lastLavaColorCenter?: Sprite;
     private lastLavaColorTerrain?: PerspectiveMesh;
     private lastLavaColorGrate?: PerspectiveMesh;
     private lastLavaColorFire?: PerspectiveMesh;
     private lastLavaColorFire2?: PerspectiveMesh;
-    /** Editor-only warm spill clipped to the static pit, below fire and grate. */
     private lavaPitLight?: Graphics;
     private lavaPitLightGeometry?: {
         tuning: LavaAnimationTuning;
@@ -824,24 +796,15 @@ export class DungeonVisuals {
     };
     private lavaSplashGraphics?: Graphics;
     private lavaEditorOutline?: Graphics;
-    /** Perspective-warped live lava, pinned to the four exact outer seams of its 4x4 footprint. */
     private lavaTerrainMesh?: PerspectiveMesh;
-    /** Transparent editor-only fire, sharing the exact static pit corners without replacing its geometry. */
     private lavaFireOverlayMesh?: PerspectiveMesh;
-    /** Seven transparent fire patches drawn over the source atlas but below the grate. */
     private lavaFireOverMesh?: PerspectiveMesh;
-    /** The lower animated glow strip copied onto all four sides; contains no external flame tongues. */
     private lavaFireSpillMesh?: PerspectiveMesh;
-    /** A separate phase-locked fire-only atlas, confined to the central two-by-two cells for extra depth. */
     private lavaFireCenterMesh?: PerspectiveMesh;
-    /** A second independent bright crop fills transient holes left by the first central flame phase. */
     private lavaFireCenterMeshB?: PerspectiveMesh;
-    /** A separately tuned second editor fire, still below the same solid foreground grate. */
     private lavaFireOverlayMeshB?: PerspectiveMesh;
-    /** Two more independently tuned fire clusters, still below the same solid foreground grate. */
     private lavaFireOverlayMeshC?: PerspectiveMesh;
     private lavaFireOverlayMeshD?: PerspectiveMesh;
-    /** Shared editable clip shape for all fire layers. */
     private lavaFireMask?: Graphics;
     private lavaFireMaskGeometry?: {
         tuning: LavaAnimationTuning;
@@ -849,113 +812,59 @@ export class DungeonVisuals {
         y: number;
         cellSize: number;
     };
-    /** Guarantees local draw order: both fires first, immutable grate last. */
     private lavaPitForegroundContainer?: Container;
-    /** Dense animated extinguished-pit fog, clipped to the exact projected 4x4 footprint. */
     private lavaPitFogGraphics?: Graphics;
     private lavaPitFogFilter?: Filter;
-    /** Immutable editor-only grate, always drawn above the low fire ring. */
     private lavaGrateOverlayMesh?: PerspectiveMesh;
     private centerTerrainSprite?: Sprite;
-    // Second mountain sprite: BLOCK_CENTER draws two 2x2 mountains flanking a 2x2 corridor (this is the
-    // right-hand one; centerTerrainSprite is the left). Hidden for lava/water (single sprite).
     private centerTerrainSpriteB?: Sprite;
     private centerHitBar?: Graphics;
-    /** The bar only changes after an obstacle hit; retain the last state to avoid rebuilding it every frame. */
     private lastCenterHitBarKey?: string;
-    /** Once the lava/water center dries out it becomes walkable and shows a frozen/dry sprite. */
     private centerDried = false;
-    // Last observed per-mountain hit counts. undefined until first sight: a mid-game (re)join or board
-    // rebuild seeds silently, so ONLY a live ">0 -> 0" transition plays the collapse — the same
-    // silent-seeding pattern effect pops use. Works for sandbox and ranked alike because both funnel
-    // obstacle hits through FightProperties, which ensureCenterTerrainSprite reads every frame.
     private lastMountainHits?: { left: number; right: number };
     private activeCollapses: IMountainCollapse[] = [];
-    /** Cached 2x2 quarter textures of the mountain sprite, built once per source texture. */
     private mountainQuarterTextures?: { source: Texture; quarters: Texture[] };
-    /**
-     * The scattered-object art: nine approved Cemetery obstacles in a 3x3 atlas of 256x461 transparent
-     * tiles. A roll deals the full nine-variant deck first, then fills the remaining slots with repeats
-     * (12 stones over 9 variants: exactly three repeat); transparent padding carries the per-object width,
-     * height and base-centre tuning from the local obstacle editor.
-     */
     private static readonly MOUNTAIN_TILES_KEY = "cemetery_obstacles_9x_256";
-    /** Fight-only atlas with a separately fitted HP insert baked into each of the nine authored barrels. */
     private static readonly MOUNTAIN_TILES_HP_KEY = "cemetery_obstacles_9x_256_hp";
-    /** One cell wide; taller than it is wide, and the surplus is the part that overhangs (see below). */
     private static readonly MOUNTAIN_TILE_W = 256;
     private static readonly MOUNTAIN_TILE_H = 461;
     private static readonly MOUNTAIN_TILE_COLS = 3;
     private static readonly MOUNTAIN_TILE_COUNT = 9;
     private mountainTileTextures?: Texture[];
     private mountainHitPointTileTextures?: Texture[];
-    /**
-     * How tall the rock is drawn, in cells — and it must match the atlas tile's own aspect (256x461), which is
-     * where the overhang is baked. Width stays exactly one cell: this is a stretch upward, not a uniform
-     * blow-up, because growing both axes fattens the boulder into its neighbours sideways.
-     *
-     * The surplus is alpha-cut in the artwork so only the ROCK crosses the grid line. Drawn opaque, the
-     * tile's square backing went up with it and every mountain read as a tall block sitting in two cells
-     * instead of a peak leaning into the one above.
-     */
-    /** Lift every baked base 20% of its projected cell height above the lower seam. */
     private static readonly MOUNTAIN_VERTICAL_OFFSET_CELLS = 0.2;
-    /** One entry per standing mountain: which cell it occupies and which variant it wears. */
     private scatteredMountains: IScatteredMountain[] = [];
-    /** Stays true after the final tombstone dies, so the removed classic mountains never become a fallback. */
     private scatteredMountainMode = false;
     private scatteredMountainSprites: Sprite[] = [];
-    /** Crisp creature-style cast shadows extending downward from each barrel base. */
     private scatteredMountainShadows: Sprite[] = [];
-    /** Red alpha-silhouette rings per stone, exposed only while that stone is targeted. */
     private scatteredMountainOutlines: Container[] = [];
-    private barrelPlacementOutlines: (Container | undefined)[] = [];
-    private barrelPlacementWhiteFilter?: ColorMatrixFilter;
-    private barrelPlacementPreview?: Sprite;
-    /** Matching translucent red washes above the authored barrel art, like unit target silhouettes. */
     private scatteredMountainDangerOverlays: Sprite[] = [];
     private tombstoneRedFilter?: ColorMatrixFilter;
-    /** Approved dark bronze-brown material grade plus contour correction for the atlas' bright fringe. */
     private cemeteryEdgeDarkenFilter?: Filter;
     private cemeteryShadowBlurFilter?: BlurFilter;
-    /** One single-pip HP rail per tombstone: every scattered stone takes exactly one hit. */
     private scatteredMountainHitBars: Graphics[] = [];
-    /** Mountain art changes only when its atlas resolves or combat begins. */
     private lastScatteredMountainTextures?: Texture[];
     private scatteredMountainAppearanceDirty = true;
     private narrowingLayers = 0;
     private testNarrowingLevel = 1;
-    /**
-     * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 5s loop at 12fps.
-     *
-     * The artwork is one 4x4 block of cells. Its original, softly glowing grout stays inside one sprite,
-     * while the outer footprint reaches the visible seams of the four-by-four obstacle.
-     *
-     * The loop is closed with a cross-dissolve rather than a hard cut: measured, the wrap now differs by
-     * 0.83/255 against 1.63 for an ordinary frame step, so the repeat is less of a change than the
-     * animation's own motion and cannot be spotted.
-     */
     private static readonly LAVA_ANIM_KEY = "lava_center_anim_atlas";
     private static readonly LAVA_ANIM_FRAME_PX = 256;
     private static readonly LAVA_ANIM_COLS = 8;
     private static readonly LAVA_ANIM_FRAMES = 60;
-    /** Approved static four-by-four furnace: its forged bars are baked exactly onto the map-cell seams. */
-    private static readonly FIRE_PIT_KEY = LAVA_PIT_ASSETS.still;
-    /** The approved furnace already contains its fire and grate, so production no longer stacks animated layers. */
+    private static readonly FIRE_PIT_KEY = "fire_pit_grid_map_palette_v8_512";
     private static readonly USE_STATIC_LAVA_PIT_ART = false;
-    private static readonly FIRE_PIT_EXTINGUISHED_KEY = LAVA_PIT_ASSETS.extinguished;
-    private static readonly FIRE_PIT_EXTINGUISHED_GRATE_KEY = LAVA_PIT_ASSETS.extinguishedGrate;
-    private static readonly FIRE_PIT_EDITOR_BOWL_KEY = LAVA_PIT_ASSETS.bowl;
-    private static readonly FIRE_PIT_EDITOR_GRATE_KEY = LAVA_PIT_ASSETS.grate;
+    private static readonly FIRE_PIT_EXTINGUISHED_KEY = "fire_pit_extinguished_deep_background_v16_512";
+    private static readonly FIRE_PIT_EXTINGUISHED_GRATE_KEY = "fire_pit_grate_burning_charred_v18_512";
+    private static readonly FIRE_PIT_EDITOR_BOWL_KEY = "fire_pit_dark_bowl_v1_512";
+    private static readonly FIRE_PIT_EDITOR_GRATE_KEY = "fire_pit_grate_burning_exact_v17_512";
     private static readonly FIRE_PIT_VIDEO_LOOP = true;
-    private static readonly FIRE_PIT_ANIM_KEY = LAVA_PIT_ASSETS.under;
-    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = LAVA_PIT_ASSETS.under;
-    private static readonly FIRE_PIT_OVER_ANIM_KEY = LAVA_PIT_ASSETS.over;
-    private static readonly FIRE_PIT_SPILL_ANIM_KEY = LAVA_PIT_ASSETS.spill;
+    private static readonly FIRE_PIT_ANIM_KEY = "fire_pit_grok_video_fire_under_v2_64_atlas";
+    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = "fire_pit_grok_video_fire_under_v2_64_atlas";
+    private static readonly FIRE_PIT_OVER_ANIM_KEY = "fire_pit_grok_video_fire_over_v2_64_atlas";
+    private static readonly FIRE_PIT_SPILL_ANIM_KEY = "fire_pit_grok_video_fire_actual_extent_v4_64_atlas";
     private static readonly FIRE_PIT_ANIM_FRAME_PX = 512;
     private static readonly FIRE_PIT_ANIM_COLS = 8;
     private static readonly FIRE_PIT_ANIM_FRAMES = 64;
-    /** Central atlas crops cover half of the full pit width and height. */
     private static readonly FIRE_PIT_CENTER_REINFORCEMENT_HALF_SCALE = 0.5;
     private static readonly FIRE_PIT_CENTER_PRIMARY_ALPHA = 0.86;
     private static readonly FIRE_PIT_CENTER_SECONDARY_ALPHA = 0.55;
@@ -980,57 +889,6 @@ export class DungeonVisuals {
     }
     public getHoleContainer(): Container {
         return this.holeContainer;
-    }
-    public getMapTextureKeys(): readonly string[] {
-        const keys = [this.backgroundKey()];
-        if (this.context.isMapStateKnown?.() === false) return keys;
-        if (FightStateManager.getInstance().getFightProperties().getGridType() === GridVals.LAVA_CENTER) {
-            const mode = lavaPitVisualModeForScene(isLavaAnimationEditorActive(), resolveLavaPitVisualMode());
-            keys.push(...lavaPitTextureKeys(lavaPitVisualState(this.centerDried, mode).extinguishedPit));
-        }
-        return keys;
-    }
-    public isMapLoading(): boolean {
-        return this.mapLoading;
-    }
-    private updateMapLoadingCover(): void {
-        if (this.destroyed) return;
-        // Request every layer together in the visible lane, before optional creature animation sheets.
-        const ready =
-            this.getMapTextureKeys()
-                .map((key) => this.context.texAny(key, { priority: "visible" }))
-                .every(Boolean) && this.context.isMapStateKnown?.() !== false;
-        this.mapLoading = !ready;
-        if (ready) {
-            if (this.mapLoadingCover) this.mapLoadingCover.visible = false;
-            return;
-        }
-        const root = this.context.getLoadingRoot?.();
-        if (!root) return;
-        if (!this.mapLoadingCover) {
-            const cover = new Container();
-            cover.zIndex = 10000;
-            cover.eventMode = "static";
-            const backdrop = new Graphics();
-            const label = new Text({
-                text: "Loading battlefield…",
-                style: { fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY, fontSize: 20, fill: 0xd9c7aa },
-            });
-            label.anchor.set(0.5);
-            cover.addChild(backdrop, label);
-            root.sortableChildren = true;
-            root.addChild(cover);
-            this.mapLoadingCover = cover;
-            this.mapLoadingBackdrop = backdrop;
-            this.mapLoadingLabel = label;
-        }
-        const { width, height } = this.context.getViewportSize();
-        if (this.mapLoadingViewport?.width !== width || this.mapLoadingViewport.height !== height) {
-            this.mapLoadingBackdrop!.clear().rect(0, 0, width, height).fill(0x080706);
-            this.mapLoadingLabel!.position.set(width / 2, height / 2);
-            this.mapLoadingViewport = { width, height };
-        }
-        this.mapLoadingCover.visible = true;
     }
     public clearHoleLayers(): void {
         for (const child of this.holeContainer.removeChildren()) {
@@ -1098,14 +956,12 @@ export class DungeonVisuals {
     public hasAtmosphereLights(): boolean {
         return this.lightBuilt;
     }
-    /** Advance the per-sconce flicker by pushing absolute time into the lighting shader. */
     public updateAtmosphereFlicker(nowSec: number): void {
         this.lightTimeSec = nowSec;
         if (this.lightFilter) {
             updateDungeonLightUniforms(this.lightFilter, this.lightTimeSec, this.lightInward);
         }
     }
-    /** Pull the sconces toward the centre as the board shrinks (holes eat the perimeter). */
     public moveFiresInward(inwardOffset: number): void {
         // ~one grid cell per hole layer, expressed in board-square uv (16 cells across the square).
         this.lightInward = Math.min(0.42, Math.max(0, inwardOffset) / 16);
@@ -1181,20 +1037,11 @@ export class DungeonVisuals {
     public isCenterDried(): boolean {
         return this.centerDried;
     }
-    /** Toggle the dried-out state of the lava/water center and re-render its sprite. */
     public setCenterDried(dried: boolean): void {
         if (this.centerDried === dried) return;
         this.centerDried = dried;
         this.ensureCenterTerrainSprite();
     }
-    /**
-     * The frame of the molten-centre loop that is due right now, or undefined if the atlas is absent —
-     * in which case the caller falls back to the still lava, so a missing asset costs the motion and
-     * nothing else.
-     *
-     * Driven off wall-clock, not the simulation step: the sim advances at a quarter of real time (see
-     * PixiGameManager.SIM_STEP), which would run the lava at 3fps.
-     */
     private lavaAnimTexture(): Texture | undefined {
         if (!this.lavaAnimFrames) {
             const atlas = this.context.texAny(DungeonVisuals.LAVA_ANIM_KEY);
@@ -1220,7 +1067,6 @@ export class DungeonVisuals {
         const idx = lavaAnimationFrameAtTime(tuning, performance.now() / 1000);
         return frames[idx % frames.length];
     }
-    /** Current transparent fire-overlay frame; the editor can audition an isolated atlas safely. */
     private firePitOverlayTexture(layer: 1 | 2 | 3 | 4 = 1): Texture | undefined {
         const requestedAtlasKey = isLavaAnimationEditorActive()
             ? DungeonVisuals.FIRE_PIT_EDITOR_ANIM_KEY
@@ -1236,7 +1082,9 @@ export class DungeonVisuals {
             this.firePitOverlayAtlasKey = requestedAtlasKey;
         }
         if (!this.firePitOverlayFrames) {
-            const atlas = this.firePitOverlayAtlas ?? this.context.texAny(requestedAtlasKey, { priority: "visible" });
+            // texAny queues the download and owns its scene lease. Loading/unloading this URL again
+            // here can destroy an atlas already borrowed by the replacement scene on Start over.
+            const atlas = this.firePitOverlayAtlas ?? this.context.texAny(requestedAtlasKey);
             if (!atlas) return undefined;
             this.firePitOverlayAtlas = atlas;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
@@ -1270,7 +1118,6 @@ export class DungeonVisuals {
         const rawFrame = lavaAnimationFrameAtTime(tuning, (performance.now() / 1000) * speed);
         return this.firePitOverlayFrames[(rawFrame + frameOffset) % DungeonVisuals.FIRE_PIT_ANIM_FRAMES];
     }
-    /** Two phase-offset crops reproduce the test server's central flame density. */
     private firePitCenterTexture(layer: 1 | 2 = 1): Texture | undefined {
         if (!this.firePitOverlayAtlas || !this.firePitOverlayFrames) return undefined;
         if (!(layer === 1 ? this.firePitCenterFrames : this.firePitCenterFramesB)) {
@@ -1297,14 +1144,10 @@ export class DungeonVisuals {
             (frame + (layer === 1 ? 17 : 43)) % DungeonVisuals.FIRE_PIT_ANIM_FRAMES
         ];
     }
-    /** Flames crossing the grate, synchronized with the under-fire loop. */
     private firePitOverTexture(): Texture | undefined {
         if (!this.firePitOverFrames) {
-            const atlas =
-                this.firePitOverAtlas ??
-                this.context.texAny(DungeonVisuals.FIRE_PIT_OVER_ANIM_KEY, { priority: "visible" });
-            if (!atlas) return undefined;
-            this.firePitOverAtlas = atlas;
+            this.firePitOverAtlas ??= this.context.texAny(DungeonVisuals.FIRE_PIT_OVER_ANIM_KEY);
+            if (!this.firePitOverAtlas) return undefined;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             this.firePitOverFrames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
@@ -1325,14 +1168,10 @@ export class DungeonVisuals {
             lavaAnimationFrameAtTime(tuning, performance.now() / 1000) % DungeonVisuals.FIRE_PIT_ANIM_FRAMES
         ];
     }
-    /** Soft animated glow in the narrow seam beyond the fixed four-by-four pit. */
     private firePitSpillTexture(): Texture | undefined {
         if (!this.firePitSpillFrames) {
-            const atlas =
-                this.firePitSpillAtlas ??
-                this.context.texAny(DungeonVisuals.FIRE_PIT_SPILL_ANIM_KEY, { priority: "visible" });
-            if (!atlas) return undefined;
-            this.firePitSpillAtlas = atlas;
+            this.firePitSpillAtlas ??= this.context.texAny(DungeonVisuals.FIRE_PIT_SPILL_ANIM_KEY);
+            if (!this.firePitSpillAtlas) return undefined;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             this.firePitSpillFrames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
@@ -1489,7 +1328,6 @@ export class DungeonVisuals {
             fire4Target.filters = [this.lavaFire4ColorFilter];
         }
     }
-    /** Keep the extinguished-pit atmosphere as a true middle layer: background -> fog -> grate. */
     private updateExtinguishedPitFog(
         visible: boolean,
         tuning: LavaAnimationTuning,
@@ -1697,7 +1535,6 @@ export class DungeonVisuals {
             .poly(projected.flatMap((point) => [point.x, point.y]))
             .fill({ color: 0xffffff });
     }
-    /** Keep every real flame pixel under the exact four-by-four grate; only the separate glow may escape. */
     private updateVideoFireBoundsMask(points: readonly { x: number; y: number }[]): void {
         if (!this.lavaFireMask) {
             this.lavaFireMask = new Graphics();
@@ -1840,7 +1677,6 @@ export class DungeonVisuals {
                 .stroke({ color: 0x2b0d02, alpha: 0.95, width: 1 });
         }
     }
-    /** Slice the normal or fight atlas once; undefined until that texture has loaded. */
     private mountainTiles(withIntegratedHitPoints = false): Texture[] | undefined {
         const cached = withIntegratedHitPoints ? this.mountainHitPointTileTextures : this.mountainTileTextures;
         if (!cached) {
@@ -1876,13 +1712,6 @@ export class DungeonVisuals {
         }
         return withIntegratedHitPoints ? this.mountainHitPointTileTextures : this.mountainTileTextures;
     }
-    /**
-     * Install the scattered-mountain layout to draw. Pass an empty array to go back to the classic pair.
-     *
-     * Sprites are rebuilt from scratch rather than diffed: this runs when the board type is picked or a
-     * mountain is destroyed, never per frame, and a dozen sprites are far cheaper to recreate than to
-     * reconcile.
-     */
     public setScatteredMountains(mountains: IScatteredMountain[], scatteredMode?: boolean): void {
         // scatteredMode override: a ranked game whose EVERY stone is already destroyed reinstalls an empty
         // list on rehydrate, but the board is still a scattered one — without the override an empty install
@@ -1919,50 +1748,6 @@ export class DungeonVisuals {
         for (const outline of this.scatteredMountainOutlines) outline.visible = false;
         for (const overlay of this.scatteredMountainDangerOverlays) overlay.visible = false;
     }
-    public clearBarrelPlacementPreview(): void {
-        this.barrelPlacementPreview?.destroy();
-        this.barrelPlacementPreview = undefined;
-    }
-    public previewBarrelPlacement(sourceCell: HoCMath.XY | undefined, cell: HoCMath.XY, valid: boolean): void {
-        const gs = this.context.getGridSettings();
-        if (!GridMath.isCellWithinGrid(gs, cell)) {
-            this.clearBarrelPlacementPreview();
-            return;
-        }
-        const index = this.scatteredMountains.findIndex(
-            (mountain) => mountain.x === sourceCell?.x && mountain.y === sourceCell.y,
-        );
-        const texture = this.scatteredMountainSprites[index]?.texture ?? this.mountainTiles()?.[0];
-        if (!texture) return;
-        if (!this.barrelPlacementPreview) {
-            this.barrelPlacementPreview = new Sprite(texture);
-            this.barrelPlacementPreview.anchor.set(0.5);
-            this.barrelPlacementPreview.eventMode = "none";
-            this.barrelPlacementPreview.alpha = 0.6;
-            this.barrelPlacementPreview.roundPixels = false;
-            attachCemeteryObstacleToDepthRoot(this.context, this.barrelPlacementPreview, 4000);
-        }
-        const preview = this.barrelPlacementPreview;
-        preview.texture = texture;
-        const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        const metrics = projectedBattlefieldMetricsAtPoint(position, gs);
-        const geometry = cemeteryObstacleFrameGeometry(metrics.width, metrics.height, cell.y);
-        const scale = cemeteryObstacleSpriteScale(
-            metrics.width,
-            texture.width,
-            geometry.frameHeight,
-            texture.height,
-            geometry.scale,
-        );
-        preview.position.set(
-            metrics.center.x,
-            metrics.center.y + geometry.rise + metrics.height * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS,
-        );
-        preview.scale.set(scale.x, scale.y);
-        preview.tint = valid ? 0xffffff : 0xff5555;
-        preview.zIndex = cemeteryObstacleDepthFromBaseY(preview.y - geometry.frameHeight * 0.5) + 0.01;
-    }
-    /** Remove one destroyed stone while retaining every survivor's assigned art variant. */
     public removeScatteredMountainAt(x: number, y: number): void {
         const destroyed = this.scatteredMountains.find((mountain) => mountain.x === x && mountain.y === y);
         if (destroyed) {
@@ -1975,15 +1760,6 @@ export class DungeonVisuals {
         this.scatteredMountains = next;
         this.rebuildScatteredMountainSprites();
     }
-    /**
-     * (Re)create one sprite per scattered mountain from the current layout.
-     *
-     * Separate from setScatteredMountains because the atlas may not have loaded when the layout arrives —
-     * the scene rolls the rock in its constructor, well before the texture bundles are in. That used to
-     * leave the layout stored but zero sprites drawn, and since a non-empty layout also suppresses the
-     * classic mountain pair (see ensureCenterTerrainSprite), the board came up completely bare. So the
-     * per-frame terrain update retries this until the atlas answers.
-     */
     private rebuildScatteredMountainSprites(): void {
         this.clearBarrelPlacementPreview();
         for (const outline of this.barrelPlacementOutlines) outline?.destroy({ children: true });
@@ -2203,52 +1979,8 @@ export class DungeonVisuals {
             }
         });
     }
-    private createBarrelPlacementOutline(index: number): Container | undefined {
-        const sprite = this.scatteredMountainSprites[index];
-        if (!sprite) return undefined;
-        if (!this.barrelPlacementWhiteFilter) {
-            this.barrelPlacementWhiteFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
-            this.barrelPlacementWhiteFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0];
-        }
-        const outline = new Container();
-        outline.eventMode = "none";
-        outline.filters = [this.barrelPlacementWhiteFilter];
-        const width = Math.abs(sprite.width);
-        for (const { offset, alpha } of [
-            { offset: Math.max(2, width * 0.03), alpha: 0.08 },
-            { offset: Math.max(0.8, width * 0.012), alpha: 0.85 },
-        ]) {
-            for (const [dx, dy] of [
-                [-1, -1],
-                [0, -1],
-                [1, -1],
-                [-1, 0],
-                [1, 0],
-                [-1, 1],
-                [0, 1],
-                [1, 1],
-            ]) {
-                const edge = new Sprite(sprite.texture);
-                edge.anchor.copyFrom(sprite.anchor);
-                edge.position.set(sprite.x + dx * offset, sprite.y + dy * offset);
-                edge.scale.copyFrom(sprite.scale);
-                edge.roundPixels = false;
-                edge.alpha = alpha;
-                outline.addChild(edge);
-            }
-        }
-        attachCemeteryObstacleToDepthRoot(this.context, outline, sprite.zIndex - 0.0015);
-        return outline;
-    }
     public hasScatteredMountains(): boolean {
         return this.scatteredMountainMode;
-    }
-    /**
-     * The stones still standing, with the art variant each was drawn with. Copies, so a caller recording
-     * them (a replay's scene state) cannot mutate the layout being rendered.
-     */
-    public getScatteredMountains(): IScatteredMountain[] {
-        return this.scatteredMountains.map((mountain) => ({ ...mountain }));
     }
     public ensureCenterTerrainSprite(): void {
         this.updateMapLoadingCover();
@@ -3069,7 +2801,6 @@ export class DungeonVisuals {
             this.lastCenterHitBarKey = undefined;
         }
     }
-    /** One compact HP meter drawn inside the base of each mountain, HITS_PER_MOUNTAIN pips max. */
     private drawCenterHitBars(leftHits: number, rightHits: number): void {
         const key = `${leftHits}:${rightHits}`;
         if (this.lastCenterHitBarKey === key) {
@@ -3146,7 +2877,6 @@ export class DungeonVisuals {
             }
         }
     }
-    /** World-space centres of the two mountains (from their actual cells, so everything stays aligned). */
     private mountainCenters(gs: GridSettings): { left: { x: number; y: number }; right: { x: number; y: number } } {
         const mid = gs.getGridSize() >> 1;
         const columns = [mid - 1, mid];
@@ -3158,7 +2888,6 @@ export class DungeonVisuals {
             right: projectBattlefieldPoint(GridMath.getPositionForCells(gs, cellsFor([mid + 1, mid + 2]))!, gs),
         };
     }
-    /** Fire a collapse for any mountain whose hits just went from alive to 0 (see lastMountainHits). */
     private detectMountainCollapses(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const left = fightProps.getObstacleHitsLeftLeft();
@@ -3177,7 +2906,6 @@ export class DungeonVisuals {
         }
         this.lastMountainHits = { left, right };
     }
-    /** Slice the mountain texture into its 2x2 quarter-squares (cached per source texture). */
     private getMountainQuarterTextures(tex: Texture): Texture[] {
         if (this.mountainQuarterTextures?.source === tex) {
             return this.mountainQuarterTextures.quarters;
@@ -3203,11 +2931,6 @@ export class DungeonVisuals {
         this.mountainQuarterTextures = { source: tex, quarters };
         return quarters;
     }
-    /**
-     * The destroyed 2x2 mountain crashes apart into its four quarter-squares: the assembled block
-     * shudders for a beat, then each quarter flies toward its own corner, falls under gravity, crashes
-     * onto the mountain's base line with a bounce, and crumbles away in a burst of dust.
-     */
     public spawnMountainCollapse(side: "left" | "right"): void {
         const tex = this.context.texAny("mountain_432_412");
         if (!tex) {
@@ -3285,7 +3008,6 @@ export class DungeonVisuals {
 
         this.activeCollapses.push({ container, chunks, dust, startMs: now, lastStepMs: now });
     }
-    /** Break a one-cell tombstone into four tumbling pieces and a short dust burst. */
     private spawnScatteredMountainCollapse(mountain: IScatteredMountain): void {
         const tiles = this.mountainTiles();
         if (!tiles?.length) {
@@ -3374,7 +3096,6 @@ export class DungeonVisuals {
             gravityScale: profile.gravityScale,
         });
     }
-    /** Advance every active collapse; called each frame from ensureCenterTerrainSprite. */
     private stepMountainCollapses(): void {
         if (!this.activeCollapses.length) {
             return;
@@ -3444,14 +3165,6 @@ export class DungeonVisuals {
         }
         this.activeCollapses.length = writeIndex;
     }
-    /**
-     * The board's floor texture. Only the base painting is swappable — the dungeon lighting overlay, the
-     * atmosphere alpha and every other effect layered on top read nothing from this key and are unaffected.
-     *
-     * TEMPORARY: `background_new` is the previous floor, kept reachable so the sandbox toggle can put the
-     * two side by side (see Sandbox.setLegacyBoardBackground). Drop the pair and inline the winner once the
-     * comparison is settled.
-     */
     private static readonly BG_KEY_CURRENT = "background_stone_tiles_sinister_16x16_original_restored";
     private static readonly BG_KEY_NARROWING_LEVEL_1 =
         "background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3";
@@ -3466,18 +3179,11 @@ export class DungeonVisuals {
     private static readonly BAKED_NARROWING_LEVELS = 5;
     private static readonly BG_KEY_LEGACY = "background_new";
     private static readonly BG_KEY_TEST_UNDERLAY = "background_test_abyss_underlay_v4";
-    /** The animated pool is 4x4; its warm spill reaches one more cell on every side, making a 6x6 area. */
     private static readonly LAVA_LIGHT_AREA_CELLS = 6;
     private static readonly FLOOR_SOURCE_TILE_PX = 128;
-    /**
-     * Squares painted across the current floor texture — exactly the board's own GRID_SIZE, so the map
-     * shows 16x16 and nothing else. Keep this in step with the artwork: the sprite is sized from it, so one
-     * painted square stays exactly one cell.
-     */
     private static readonly FLOOR_TILES_ACROSS = GridConstants.GRID_SIZE;
     private useLegacyBackground = false;
     private useTestBackground = false;
-    /** Switch the floor painting. The next layoutBackgroundSquare re-reads the key and swaps the texture. */
     public setLegacyBackground(enabled: boolean): void {
         if (this.useLegacyBackground !== enabled) {
             this.useLegacyBackground = enabled;
@@ -3524,8 +3230,6 @@ export class DungeonVisuals {
         }
         return DungeonVisuals.BG_KEY_CURRENT;
     }
-    /** A missing optional painting must never leave the battle board transparent over the black stage. */
-    /** A missing optional painting must never leave the battle board transparent over the black stage. */
     private backgroundTexture(): Texture | undefined {
         return (
             this.context.texAny(this.backgroundKey()) ??
@@ -3598,18 +3302,8 @@ export class DungeonVisuals {
 
         let frames = this.chasmGlowFrames.get(atlasKey);
         if (!frames) {
-            const atlas = this.chasmGlowAtlases.get(atlasKey) ?? this.context.texAny(atlasKey);
+            const atlas = this.context.texAny(atlasKey);
             if (!atlas) {
-                const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[atlasKey];
-                if (atlasUrl && !this.chasmGlowAtlasLoads.has(atlasKey)) {
-                    this.chasmGlowAtlasLoads.add(atlasKey);
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.chasmGlowAtlases.set(atlasKey, loaded);
-                            this.ensureChasmGlowSprite();
-                        })
-                        .catch(() => this.chasmGlowAtlasLoads.delete(atlasKey));
-                }
                 if (this.chasmGlowSprite) this.chasmGlowSprite.visible = false;
                 return;
             }
@@ -3679,24 +3373,8 @@ export class DungeonVisuals {
         for (const definition of AMBIENT_FIRE_DEFINITIONS) {
             if (this.ambientFireSprites.has(definition.key)) continue;
             const textureKey = definition.textureKey ?? definition.key;
-            const atlas = this.ambientFireAtlases.get(textureKey) ?? this.context.texAny(textureKey);
-            if (!atlas) {
-                const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[textureKey];
-                if (atlasUrl && !this.ambientFireAtlasLoads.has(textureKey)) {
-                    this.ambientFireAtlasLoads.add(textureKey);
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            if (this.destroyed) {
-                                void Assets.unload(atlasUrl).catch(() => undefined);
-                                return;
-                            }
-                            this.loadedMapAtlasUrls.add(atlasUrl);
-                            this.ambientFireAtlases.set(textureKey, loaded);
-                        })
-                        .catch(() => this.ambientFireAtlasLoads.delete(textureKey));
-                }
-                continue;
-            }
+            const atlas = this.context.texAny(textureKey);
+            if (!atlas) continue;
             const rows = Math.ceil(definition.frameCount / definition.columns);
             if (
                 atlas.source.width < definition.columns * definition.frameWidth ||
@@ -3835,7 +3513,6 @@ export class DungeonVisuals {
             }
         }
     }
-    /** Keep the floor free of the retired full-screen filters that could turn it black on WebGL. */
     private clearExperimentalBackgroundFilters(): void {
         const bg = this.bgSprite;
         if (!bg) {
@@ -3847,9 +3524,6 @@ export class DungeonVisuals {
         // change and dirties render collection even though the normal steady state is already filter-free.
         if (bg.filters?.length) bg.filters = [];
     }
-    /**
-     * Live state of the localized lava-light pass, for the dev console (window.__hocFloorLight).
-     */
     public getFireLightDiagnostics(): Record<string, unknown> {
         const sprite = this.bgSprite;
         return {
@@ -3863,24 +3537,6 @@ export class DungeonVisuals {
             clockSeconds: 0,
         };
     }
-    /**
-     * Advances the ambient flame clock in REAL seconds, deliberately ignoring the simulation's step.
-     *
-     * The sim runs at 60 Hz but is handed a 1/240 step (see PixiGameManager.SIM_STEP), so game time passes
-     * at a QUARTER of wall-clock — a deliberate choice there, to keep the legacy animation constants. Fed
-     * that clock, this effect ran 4x slow: the fire's breath stretched from ~7s to nearly half a minute and
-     * the fine flicker crawled, which on screen is indistinguishable from a static board. That was the whole
-     * reason the floor looked frozen. The atmosphere flicker next door already sidesteps this the same way,
-     * off HoCLib.getTimeMillis().
-     *
-     * Called once per SIM step, so several times per rendered frame — taking real deltas (rather than one
-     * stamp per frame) keeps that from multiplying the speed by the number of substeps.
-     */
-    /**
-     * Build a smooth, shader-free fire spill. Many very translucent overlapping shapes produce a soft
-     * falloff without a BlurFilter, keeping this localized effect safe on the WebGL paths where full-floor
-     * filters previously rendered the board black.
-     */
     private ensureLavaFireLight(): void {
         if (this.lavaFireLight) return;
 
@@ -4128,15 +3784,6 @@ export class DungeonVisuals {
             this.lightBuilt = false;
         }
     }
-    /**
-     * Tear down every display object this helper attached outside PixiDrawer's scene containers.
-     *
-     * Sandbox "New Battle" reuses the Pixi application and replaces only the scene. Most dungeon
-     * objects are attached directly to the shared world root or stage, so PixiDrawer.destroy() cannot
-     * remove them. In particular, a finished fight's black narrowing holes would otherwise remain over
-     * the freshly-created board. Keep this ownership cleanup here so every dungeon visual follows the
-     * same scene lifetime.
-     */
     public destroy(): void {
         if (this.destroyed) return;
         this.destroyed = true;
@@ -4212,11 +3859,7 @@ export class DungeonVisuals {
         this.ambientFireGlowSprites.clear();
         this.ambientFireContactGlows.clear();
         this.ambientFireFrames.clear();
-        this.ambientFireAtlases.clear();
-        this.ambientFireAtlasLoads.clear();
         this.chasmGlowFrames.clear();
-        this.chasmGlowAtlases.clear();
-        this.chasmGlowAtlasLoads.clear();
         this.chasmGlowLayer = undefined;
         this.chasmGlowSprite = undefined;
         this.activeChasmGlowAtlasKey = undefined;
@@ -4269,10 +3912,6 @@ export class DungeonVisuals {
         this.mountainHitPointTileTextures = undefined;
         this.mountainQuarterTextures = undefined;
         this.narrowingLayers = 0;
-        for (const url of this.loadedMapAtlasUrls) {
-            void Assets.unload(url).catch(() => undefined);
-        }
-        this.loadedMapAtlasUrls.clear();
     }
     public attachCenterTerrainSprite(): void {
         if (this.lavaTerrainMesh) {
@@ -4295,5 +3934,147 @@ export class DungeonVisuals {
             this.lightTimeSec += dt;
             updateDungeonLightUniforms(this.lightFilter, this.lightTimeSec, this.lightInward);
         }
+    }
+    private mapLoadingCover?: Container;
+    private mapLoading = false;
+    private mapLoadingViewport?: { width: number; height: number };
+    private mapLoadingBackdrop?: Graphics;
+    private mapLoadingLabel?: Text;
+    private barrelPlacementOutlines: (Container | undefined)[] = [];
+    private barrelPlacementWhiteFilter?: ColorMatrixFilter;
+    private barrelPlacementPreview?: Sprite;
+    public getMapTextureKeys(): readonly string[] {
+        const keys = [this.backgroundKey()];
+        if (this.context.isMapStateKnown?.() === false) return keys;
+        if (FightStateManager.getInstance().getFightProperties().getGridType() === GridVals.LAVA_CENTER) {
+            const mode = lavaPitVisualModeForScene(isLavaAnimationEditorActive(), resolveLavaPitVisualMode());
+            keys.push(...lavaPitTextureKeys(lavaPitVisualState(this.centerDried, mode).extinguishedPit));
+        }
+        return keys;
+    }
+    public isMapLoading(): boolean {
+        return this.mapLoading;
+    }
+    private updateMapLoadingCover(): void {
+        if (this.destroyed) return;
+        // Request every layer together in the visible lane, before optional creature animation sheets.
+        const ready =
+            this.getMapTextureKeys()
+                .map((key) => this.context.texAny(key, { priority: "visible" }))
+                .every(Boolean) && this.context.isMapStateKnown?.() !== false;
+        this.mapLoading = !ready;
+        if (ready) {
+            if (this.mapLoadingCover) this.mapLoadingCover.visible = false;
+            return;
+        }
+        const root = this.context.getLoadingRoot?.();
+        if (!root) return;
+        if (!this.mapLoadingCover) {
+            const cover = new Container();
+            cover.zIndex = 10000;
+            cover.eventMode = "static";
+            const backdrop = new Graphics();
+            const label = new Text({
+                text: "Loading battlefield…",
+                style: { fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY, fontSize: 20, fill: 0xd9c7aa },
+            });
+            label.anchor.set(0.5);
+            cover.addChild(backdrop, label);
+            root.sortableChildren = true;
+            root.addChild(cover);
+            this.mapLoadingCover = cover;
+            this.mapLoadingBackdrop = backdrop;
+            this.mapLoadingLabel = label;
+        }
+        const { width, height } = this.context.getViewportSize();
+        if (this.mapLoadingViewport?.width !== width || this.mapLoadingViewport.height !== height) {
+            this.mapLoadingBackdrop!.clear().rect(0, 0, width, height).fill(0x080706);
+            this.mapLoadingLabel!.position.set(width / 2, height / 2);
+            this.mapLoadingViewport = { width, height };
+        }
+        this.mapLoadingCover.visible = true;
+    }
+    public clearBarrelPlacementPreview(): void {
+        this.barrelPlacementPreview?.destroy();
+        this.barrelPlacementPreview = undefined;
+    }
+    public previewBarrelPlacement(sourceCell: HoCMath.XY | undefined, cell: HoCMath.XY, valid: boolean): void {
+        const gs = this.context.getGridSettings();
+        if (!GridMath.isCellWithinGrid(gs, cell)) {
+            this.clearBarrelPlacementPreview();
+            return;
+        }
+        const index = this.scatteredMountains.findIndex(
+            (mountain) => mountain.x === sourceCell?.x && mountain.y === sourceCell.y,
+        );
+        const texture = this.scatteredMountainSprites[index]?.texture ?? this.mountainTiles()?.[0];
+        if (!texture) return;
+        if (!this.barrelPlacementPreview) {
+            this.barrelPlacementPreview = new Sprite(texture);
+            this.barrelPlacementPreview.anchor.set(0.5);
+            this.barrelPlacementPreview.eventMode = "none";
+            this.barrelPlacementPreview.alpha = 0.6;
+            this.barrelPlacementPreview.roundPixels = false;
+            attachCemeteryObstacleToDepthRoot(this.context, this.barrelPlacementPreview, 4000);
+        }
+        const preview = this.barrelPlacementPreview;
+        preview.texture = texture;
+        const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const metrics = projectedBattlefieldMetricsAtPoint(position, gs);
+        const geometry = cemeteryObstacleFrameGeometry(metrics.width, metrics.height, cell.y);
+        const scale = cemeteryObstacleSpriteScale(
+            metrics.width,
+            texture.width,
+            geometry.frameHeight,
+            texture.height,
+            geometry.scale,
+        );
+        preview.position.set(
+            metrics.center.x,
+            metrics.center.y + geometry.rise + metrics.height * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS,
+        );
+        preview.scale.set(scale.x, scale.y);
+        preview.tint = valid ? 0xffffff : 0xff5555;
+        preview.zIndex = cemeteryObstacleDepthFromBaseY(preview.y - geometry.frameHeight * 0.5) + 0.01;
+    }
+    private createBarrelPlacementOutline(index: number): Container | undefined {
+        const sprite = this.scatteredMountainSprites[index];
+        if (!sprite) return undefined;
+        if (!this.barrelPlacementWhiteFilter) {
+            this.barrelPlacementWhiteFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
+            this.barrelPlacementWhiteFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0];
+        }
+        const outline = new Container();
+        outline.eventMode = "none";
+        outline.filters = [this.barrelPlacementWhiteFilter];
+        const width = Math.abs(sprite.width);
+        for (const { offset, alpha } of [
+            { offset: Math.max(2, width * 0.03), alpha: 0.08 },
+            { offset: Math.max(0.8, width * 0.012), alpha: 0.85 },
+        ]) {
+            for (const [dx, dy] of [
+                [-1, -1],
+                [0, -1],
+                [1, -1],
+                [-1, 0],
+                [1, 0],
+                [-1, 1],
+                [0, 1],
+                [1, 1],
+            ]) {
+                const edge = new Sprite(sprite.texture);
+                edge.anchor.copyFrom(sprite.anchor);
+                edge.position.set(sprite.x + dx * offset, sprite.y + dy * offset);
+                edge.scale.copyFrom(sprite.scale);
+                edge.roundPixels = false;
+                edge.alpha = alpha;
+                outline.addChild(edge);
+            }
+        }
+        attachCemeteryObstacleToDepthRoot(this.context, outline, sprite.zIndex - 0.0015);
+        return outline;
+    }
+    public getScatteredMountains(): IScatteredMountain[] {
+        return this.scatteredMountains.map((mountain) => ({ ...mountain }));
     }
 }

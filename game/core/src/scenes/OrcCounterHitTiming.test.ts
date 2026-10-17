@@ -23,7 +23,7 @@ const gs = new GridSettings(
     GridConstants.UNIT_SIZE_DELTA,
 );
 
-test("a counter requested before damage processing shows all Orc hit frames before throwing", async () => {
+test("a shot waits for an existing Orc hit animation from a previous exchange", async () => {
     const texture = new Texture({
         source: new BufferImageSource({ resource: new Uint8Array(4), width: 8192, height: 8192 }),
     });
@@ -49,7 +49,7 @@ test("a counter requested before damage processing shows all Orc hit frames befo
     unit.playOrcRangedThrow = (state, release, cancel) => {
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(false);
         expect([...frames]).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-        expect(elapsed).toBeGreaterThanOrEqual(450);
+        expect(elapsed).toBeGreaterThanOrEqual(450 / 1.17);
         const started = playThrow(state, release, cancel);
         unit.stepOneShotAnimation(285);
         return started;
@@ -71,7 +71,7 @@ test("a counter requested before damage processing shows all Orc hit frames befo
             },
         },
     });
-    // Live combat requests the counter first, then applies its incoming hit in the same task.
+    // A previous exchange's reaction can start while projectile assets are being prepared.
     const counter = scene.fireUnitProjectile(unit, {
         from: { x: 0, y: 0 },
         to: { x: 1000, y: 1024 },

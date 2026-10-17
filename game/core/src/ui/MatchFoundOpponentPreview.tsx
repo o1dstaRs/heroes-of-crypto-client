@@ -90,8 +90,8 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                     <Box sx={{ minWidth: 0, flex: 1, textAlign: "left" }}>
                         {loading ? (
                             <>
-                                <Skeleton animation={false} width="38%" sx={dossierSkeletonSx} />
-                                <Skeleton animation={false} width="62%" sx={dossierSkeletonSx} />
+                                <Skeleton variant="text" animation={false} width="38%" sx={dossierSkeletonSx} />
+                                <Skeleton variant="text" animation={false} width="62%" sx={dossierSkeletonSx} />
                             </>
                         ) : (
                             <Typography level="body-sm" sx={{ color: hocColors.muted }}>

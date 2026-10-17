@@ -11,6 +11,7 @@ import {
     warmDecodedImage,
     type PortraitImagePrefetch,
 } from "./decodedImageCache";
+import { resolveIntegratedArbalesterPortrait } from "./integratedArbalesterPortrait";
 import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "./leftSidebarPortraitArt";
 
@@ -33,7 +34,7 @@ export const SIDEBAR_PORTRAIT_PREFETCH_LIMIT = 2;
 export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortraitSources => {
     const art = resolveLeftSidebarPortraitArt(creatureId);
     const visual = resolveCreaturePortraitVisual(creatureId);
-    const animation = resolveLeftSidebarPortraitAnimation(creatureId);
+    const animation = resolveIntegratedArbalesterPortrait(creatureId, resolveLeftSidebarPortraitAnimation(creatureId));
     return {
         creature: art.source ?? visual?.source,
         background: visual?.background,
@@ -52,7 +53,7 @@ export const isLeftSidebarPortraitReady = (creatureId: number): boolean => {
 };
 
 /** Decode the required pair now; optional layers must not delay or release the selection handoff. */
-export const warmLeftSidebarPortrait = (creatureId: number): Promise<boolean> => {
+export const warmLeftSidebarPortrait = (creatureId: number, animate = true): Promise<boolean> => {
     clearDecodedImagePrefetch(selectedOptionalPrefetchOwner);
     const sources = leftSidebarPortraitSources(creatureId);
     // Acquire first: duplicate overlay/React warming must not leave a trim gap for the same pair.
@@ -75,10 +76,11 @@ export const warmLeftSidebarPortrait = (creatureId: number): Promise<boolean> =>
         if (selectedRetention === selection) {
             clearDecodedImageForeground(selectedForegroundOwner);
             if (ready) {
-                replaceDecodedImagePrefetch(selectedOptionalPrefetchOwner, [
-                    { src: sources.glow, lock: true },
-                    { src: sources.atlas },
-                ]);
+                if (animate)
+                    replaceDecodedImagePrefetch(selectedOptionalPrefetchOwner, [
+                        { src: sources.glow, lock: true },
+                        { src: sources.atlas },
+                    ]);
             } else {
                 selectedRetention?.release();
                 selectedRetention = undefined;
@@ -118,9 +120,9 @@ export const clearLeftSidebarPortraitSelection = (creatureId: number, readiness:
 };
 
 /** The portrait on screen is not eligible for eviction. */
-export const pinLeftSidebarPortrait = (creatureId: number): void => {
+export const pinLeftSidebarPortrait = (creatureId: number, animate = true): void => {
     const sources = leftSidebarPortraitSources(creatureId);
-    pinDecodedImages([sources.creature, sources.background, sources.glow, sources.atlas]);
+    pinDecodedImages([sources.creature, sources.background, sources.glow, animate ? sources.atlas : undefined]);
     // The displayed pins are installed before handing back the selected pair's temporary hold.
     if (selectedRetention?.creatureId === creatureId) selectedRetention.release();
 };
