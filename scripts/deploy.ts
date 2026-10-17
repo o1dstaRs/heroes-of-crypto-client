@@ -8,6 +8,7 @@ import {
     deploymentPlan,
     KNOWLEDGE_URL,
     RELEASE_ROUTES,
+    remoteRebaseCommand,
     runDeploymentSteps,
     serverCommonPins,
     verifyBuildRoutes,
@@ -20,6 +21,10 @@ const root = resolve(import.meta.dir, "..");
 const common = resolve(root, "game/heroes-of-crypto-common");
 const server = resolve(process.env.HOC_SERVER_LOC || resolve(root, "../heroes-of-crypto-server"));
 const repositories = [root, common, server];
+const loadedCoordinatorFiles = ["deploy.ts", "deployment.ts", "build_environment.ts"].map((file) => {
+    const path = resolve(import.meta.dir, file);
+    return { path, source: readFileSync(path, "utf8") };
+});
 
 function git(directory: string, ...args: string[]): string {
     const result = Bun.spawnSync(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" });
@@ -63,17 +68,41 @@ function verifyPublished(directory: string): void {
     const head = git(directory, "rev-parse", "HEAD");
     const remoteHead = git(directory, "rev-parse", ref);
     if (directory === common) git(directory, "merge-base", "--is-ancestor", head, remoteHead);
-    else if (head !== remoteHead) throw new Error(`${directory} has unpublished commits. Push main before deployment.`);
+    else if (head !== remoteHead)
+        throw new Error(`${directory} does not match ${ref}. Sync, publish and rebuild before deployment.`);
 }
 
 async function syncRepositories(): Promise<void> {
     for (const directory of repositories) requireClean(directory);
     for (const directory of repositories) {
         const { remote, branch } = upstream(directory);
-        await run(["git", "fetch", remote], directory);
-        if (git(directory, "branch", "--show-current"))
-            await run(["git", "pull", "--rebase", remote, branch], directory);
+        await fetchBranch(directory, remote, branch);
+        if (git(directory, "branch", "--show-current")) await rebaseBranch(directory, remote, branch);
         requireClean(directory);
+        verifyPublished(directory);
+    }
+    verifyPins();
+}
+
+async function fetchBranch(directory: string, remote: string, branch: string): Promise<void> {
+    await run(
+        ["git", "fetch", "--no-tags", remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`],
+        directory,
+    );
+}
+
+async function rebaseBranch(directory: string, remote: string, branch: string): Promise<void> {
+    await run(remoteRebaseCommand(remote, branch), directory);
+}
+
+async function verifyReleaseRevisions(revisions: readonly string[]): Promise<void> {
+    for (const [index, directory] of repositories.entries()) {
+        requireClean(directory);
+        const { remote, branch } = upstream(directory);
+        await fetchBranch(directory, remote, branch);
+        if (git(directory, "rev-parse", "HEAD") !== revisions[index]) {
+            throw new Error("A repository changed after release validation. Sync and rebuild before deployment.");
+        }
         verifyPublished(directory);
     }
     verifyPins();
@@ -138,9 +167,8 @@ async function pinCommon(): Promise<void> {
     requireClean(server);
     for (const directory of [common, server]) {
         const { remote, branch } = upstream(directory);
-        await run(["git", "fetch", remote], directory);
-        if (git(directory, "branch", "--show-current"))
-            await run(["git", "pull", "--rebase", remote, branch], directory);
+        await fetchBranch(directory, remote, branch);
+        if (git(directory, "branch", "--show-current")) await rebaseBranch(directory, remote, branch);
         requireClean(directory);
         if (directory === common) verifyPublished(directory);
     }
@@ -200,20 +228,27 @@ async function main(): Promise<void> {
     }
     await localReadiness(false);
     await syncRepositories();
+    if (loadedCoordinatorFiles.some(({ path, source }) => readFileSync(path, "utf8") !== source)) {
+        throw new Error("Deployment scripts changed during sync. Rerun deployment to load the updated scripts.");
+    }
     const revisions = repositories.map((directory) => git(directory, "rev-parse", "HEAD"));
     await run(["bun", "install", "--frozen-lockfile", "--ignore-scripts"], root);
     await run(["bun", "install", "--frozen-lockfile", "--ignore-scripts"], server);
     await run(["bun", "run", "build:common"], root);
     await run(["bun", "run", "check"], root);
     await runDeploymentSteps(plan, async (step) => {
-        await syncRepositories();
-        if (repositories.some((directory, index) => git(directory, "rev-parse", "HEAD") !== revisions[index]))
-            throw new Error(
-                "A repository changed after release validation. Restart deployment so test and production receive the same validated revisions.",
-            );
+        await verifyReleaseRevisions(revisions);
         await localReadiness();
         console.log(`Deploying ${step.name}`);
-        await run(step.args, config.serverDirectory, deploymentEnvironment(process.env, step, config));
+        await run(
+            step.args,
+            config.serverDirectory,
+            deploymentEnvironment(process.env, step, config, {
+                client: revisions[0],
+                common: revisions[1],
+                server: revisions[2],
+            }),
+        );
         if (step.knowledge) await verifyKnowledgeRouting();
     });
     console.log("Release complete. All selected deployer health checks passed.");

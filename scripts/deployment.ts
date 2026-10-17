@@ -182,6 +182,7 @@ export function deploymentEnvironment(
     parent: DeploymentEnvironment,
     step: DeploymentStep,
     config: DeploymentConfig,
+    revisions?: { client: string; common: string; server: string },
 ): DeploymentEnvironment {
     const env = { ...parent };
     for (const key of Object.keys(env)) if (key.startsWith("DEPLOY_")) delete env[key];
@@ -189,6 +190,7 @@ export function deploymentEnvironment(
     const route = RELEASE_ROUTES[step.environment];
     return {
         ...env,
+        HOC_DEPLOY_REVISIONS: revisions ? JSON.stringify(revisions) : undefined,
         NODE_ENV: "production",
         DEPLOY_HOST: step.environment === "test" ? config.testHost : config.prodHost,
         DEPLOY_TEST_HOST: config.testHost,
@@ -203,6 +205,22 @@ export function deploymentEnvironment(
         DEPLOY_ECOSYSTEM: "/root/ecosystem.config.cjs",
         DEPLOY_TEST_ECOSYSTEM: "/root/ecosystem.test.config.cjs",
     };
+}
+
+export function remoteRebaseCommand(remote: string, branch: string): string[] {
+    return [
+        "git",
+        "-c",
+        "rebase.autoStash=false",
+        "-c",
+        "submodule.recurse=false",
+        "pull",
+        "--rebase",
+        "-X",
+        "ours",
+        remote,
+        branch,
+    ];
 }
 
 function commonRevision(specifier: unknown): string | undefined {

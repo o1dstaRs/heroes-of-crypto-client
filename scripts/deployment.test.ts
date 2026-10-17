@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { loadEnv } from "vite";
 import { prepareBuildEnvironment } from "./build_environment";
@@ -9,6 +11,7 @@ import {
     KNOWLEDGE_ORIGINS,
     KNOWLEDGE_URL,
     RELEASE_ROUTES,
+    remoteRebaseCommand,
     runDeploymentSteps,
     serverCommonPins,
     verifyBuildRoutes,
@@ -55,6 +58,16 @@ describe("deployment command selection", () => {
 });
 
 describe("coordinated release", () => {
+    it("passes the validated commits to every deploy phase without inheriting stale revision overrides", () => {
+        const revisions = { client: "a".repeat(40), common, server: "b".repeat(40) };
+        const parent = { HOC_DEPLOY_REVISIONS: "stale" };
+        for (const step of deploymentPlan("all", config)) {
+            const env = deploymentEnvironment(parent, step, config, revisions);
+            expect(JSON.parse(env.HOC_DEPLOY_REVISIONS!)).toEqual(revisions);
+            expect(deploymentEnvironment(parent, step, config).HOC_DEPLOY_REVISIONS).toBeUndefined();
+        }
+        expect(parent.HOC_DEPLOY_REVISIONS).toBe("stale");
+    });
     it("deploys the shared assistant once, then test server, test client/site, and production", () => {
         const steps = deploymentPlan("all", config);
         expect(steps.map((step) => [step.environment, step.knowledge === true])).toEqual([
@@ -143,6 +156,56 @@ describe("coordinated release", () => {
         expect(prod.DEPLOY_SITE_URL).toBe(RELEASE_ROUTES.prod.site);
         expect(parent.DEPLOY_HOST).toBe("wrong-box");
     });
+});
+
+it("the coordinator rebase preserves remote conflicts and unrelated local work on the selected branch", () => {
+    const root = mkdtempSync(resolve(tmpdir(), "hoc-coordinator-rebase-"));
+    const run = (cwd: string, args: string[]): string => {
+        const result = Bun.spawnSync(args, { cwd, stdout: "pipe", stderr: "pipe" });
+        if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+        return result.stdout.toString().trim();
+    };
+    const git = (cwd: string, ...args: string[]): string =>
+        run(cwd, ["git", "-c", "core.hooksPath=/dev/null", ...args]);
+    try {
+        const peer = resolve(root, "peer");
+        const local = resolve(root, "local");
+        const remote = resolve(root, "remote.git");
+        const branch = "review/test";
+        git(root, "init", "--bare", remote);
+        git(root, "init", "--initial-branch", branch, peer);
+        const configure = (directory: string): void => {
+            git(directory, "config", "user.name", "Release test");
+            git(directory, "config", "user.email", "release@example.invalid");
+            git(directory, "config", "commit.gpgSign", "false");
+        };
+        configure(peer);
+        writeFileSync(resolve(peer, "value.txt"), "base\n");
+        git(peer, "add", "value.txt");
+        git(peer, "commit", "-m", "base");
+        git(peer, "remote", "add", "release", remote);
+        git(peer, "push", "-u", "release", branch);
+        git(root, "clone", "--origin", "release", "--branch", branch, remote, local);
+        configure(local);
+        writeFileSync(resolve(local, "value.txt"), "old local\n");
+        writeFileSync(resolve(local, "keep.txt"), "local improvement\n");
+        git(local, "add", "value.txt", "keep.txt");
+        git(local, "commit", "-m", "local work");
+        writeFileSync(resolve(peer, "value.txt"), "latest remote\n");
+        git(peer, "commit", "-am", "remote work");
+        git(peer, "push", "release", branch);
+        run(local, remoteRebaseCommand("release", branch));
+        expect(readFileSync(resolve(local, "value.txt"), "utf8")).toBe("latest remote\n");
+        expect(readFileSync(resolve(local, "keep.txt"), "utf8")).toBe("local improvement\n");
+        expect(git(local, "branch", "--show-current")).toBe(branch);
+        git(local, "config", "rebase.autoStash", "true");
+        writeFileSync(resolve(local, "keep.txt"), "peer editing\n");
+        expect(() => run(local, remoteRebaseCommand("release", branch))).toThrow();
+        expect(readFileSync(resolve(local, "keep.txt"), "utf8")).toBe("peer editing\n");
+        expect(git(local, "stash", "list")).toBe("");
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
 });
 
 describe("common release pin", () => {
