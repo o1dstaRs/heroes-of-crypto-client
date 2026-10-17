@@ -5,7 +5,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 ## Next up
 
 - **Story arc:** pin (#1), queue tactics (#2), origin (#3), edge (#4), board-flash fix (#7) and Through Shot (#8, Sat 6:56 AM) done. Next story is STORY.md #5 why the board shrinks (waiting on Stepan to confirm narrowing's origin); #6, #9, #10 also need his facts — skip crypto chapter (#9) and then-and-now (#6) until Stepan answers open questions.
-- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Next calendar line is Tue 20 crowd, then Wed 21 Might, Thu 22 plan unit, etc. (Sun 18 question is folded into STORY #5's reply.)
+- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Next calendar line is Wed 21 Might, Thu 22 plan unit, etc. (Sun 18 question is folded into STORY #5's reply.)
 
 ## Today 2026-10-15 (Thu)
 
@@ -27,6 +27,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 2026-10-16 11:51 | midday | story-devdiary | https://x.com/Heroes0fcrypto/status/2111168270522822947 | STORY #7 board flash, text-only. Reply https://x.com/Heroes0fcrypto/status/2111168457140302204 |
 | 2026-10-16 16:58 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111245321292423194 | Life, text-only. Reply https://x.com/Heroes0fcrypto/status/2111245446819811489 |
 | 2026-10-17 06:56 | morning | story-tactics | https://x.com/Heroes0fcrypto/status/2111456161060815313 | STORY #8 Through Shot, Tsar Cannon poster. Reply https://x.com/Heroes0fcrypto/status/2111456352145154096 |
+| 2026-10-17 11:59 | midday | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111532527114506733 | Crowd, text-only. Reply https://x.com/Heroes0fcrypto/status/2111532605841588606 |
 
 ## Today 2026-10-16 (Fri)
 
@@ -41,5 +42,5 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | Slot (PT) | Plan | Status |
 |---|---|---|
 | 6:48 AM | Story/tactics: STORY #8 Through Shot with approved test_tsar_cannon_through_shot.png. Reply with play link. | done — https://x.com/Heroes0fcrypto/status/2111456161060815313 |
-| 11:48 AM | Tactics: crowd (CALENDAR Tue 20), text-only unless a fresh image fits. Reply with five-positioning link. | queued |
+| 11:48 AM | Tactics: crowd (CALENDAR Tue 20), text-only. Reply with five-positioning link. | done — https://x.com/Heroes0fcrypto/status/2111532527114506733 |
 | 4:48 PM | Tactics: Might (CALENDAR Wed 21) or a tactics question. Reply with faction guide link. | queued |

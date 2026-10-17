@@ -165,3 +165,20 @@ Slot check: Fri 16 Oct all three slots (6:48 / 11:48 / 4:48) posted with URLs �
 Audience timing: own sample now has six scored posts; midday story slots lead ER, morning/evening tactics match each other. Still zero external tactics replies, so no slot change recommended.
 
 Recommendation: keep current slots (6:48 / 11:48 / 4:48). First 7d window for the pin opens around Wed 21 Oct evening.
+
+## Sat 17 Oct 2026, 11:42 AM PT run (window: 11:42 PM Fri – 11:42 AM Sat PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~11:45 AM). Skipped: @TFT meme (0 replies), @AOE_Mobile anniversary and stat-share posts (already surfaced AOE_Mobile today), @Ubisoft_UK HoMM3 Remake playtest (publisher), @StellarisGame Ideologies video (one of its 3 replies is an anti-Paradox jab, the boycott pattern again).
+- @CompanyOfHeroes, Mignano map transforms in 3.0 Update, 10:00 AM Sat: 781 impressions, 27 likes, 0 replies, 3 reposts
+- @StudioDraconis, Zodiac Legion prisoner rescue gone wrong, 9:49 AM Sat: 32 impressions, 2 likes, 0 replies
+- @NextaleGames, Calame divided-army tactical RPG playtest, 9:00 AM Sat: 335 impressions, 19 likes, 1 reply, 3 reposts
+- @StellarisGame, Ideologies video, 8:15 AM Sat: 2,435 impressions, 40 likes, 3 replies, 3 reposts, 1 quote (held back)
+- @StellarisGame, peace conference episode teaser (re-read, already surfaced), 6:57 AM Sat: 2,083 impressions, 33 likes, 0 replies
+- @AOE_Mobile, 2nd anniversary video, 6:00 AM Sat: 879 impressions, 7 likes, 1 reply
+- @AOE_Mobile, Fireside Chat stat share, 5:00 AM Sat: 751 impressions, 1 like, 0 replies
+- @TFT, meme, 10:00 AM Sat: 12,767 impressions, 134 likes, 0 replies (skipped)
+- No new root posts from @PlayHearthstone, @MARVELSNAP, @totalwar, @FE_Heroes_EN, @OverhypeStudios, @MightMagicGame, @Unfrozen_Studio, @Lavapotion, @shirogames, @Wartales_Game, @mechabellum or @Midjiwan in this window.
+
+Thread open vs peak (this run only): Saturday is clearly quieter than the weekdays. The big card/autobattler accounts that drove weekday reply volume (Hearthstone, Snap) posted nothing by late morning, and the posts that did go up between 6 and 10 AM PT opened slowly (0–3 replies). Studio posts cluster on the hour (5, 6, 9, 10 AM PT). Pre-Next Fest (starts Mon 19 Oct) indie posts are plentiful but almost all from accounts under 1,000 followers.
+
+Recommendation: still not a firm window, but a weekday/weekend split is emerging. Weekdays, 10 AM–2:30 PM PT opens the busiest threads; Saturday late morning is thin, so weekend reply drafts are lower value. Keep logging through Sun and Mon (Next Fest start) before recommending.
