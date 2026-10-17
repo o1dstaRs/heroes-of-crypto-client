@@ -11,7 +11,7 @@ if (testAssets && fs.existsSync(outputFile) && fs.readFileSync(outputFile, "utf8
     console.log("Keeping CI image stubs for core tests.");
     process.exit(0);
 }
-require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets(undefined, { reuseVerifiedInstalled: testAssets });
 const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
 // Tests exercise authoring-only animation states too, even after a production build pruned their URLs.
 const productionBuild = !testAssets && process.env.NODE_ENV === "production";
