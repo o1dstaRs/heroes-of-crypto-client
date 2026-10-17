@@ -804,6 +804,7 @@ const LAZY_SPELL_ASSETS = new Set([
     "misfortune_256",
     "fire_wall_256",
     "fire_strike_256",
+    "fireball_256",
     "meteorite_256",
     "curse_256",
     "sadness_256",

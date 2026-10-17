@@ -1,3 +1,4 @@
+import { expectApprovedAtlasRevision } from "./approvedAtlasRevision.assert";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
     AbilityFactory,
@@ -31,7 +32,11 @@ test("Champion uses the detailed eight-frame walk in combat and the lab, at 1.3 
         expect(animationAtlases["Champion Lab"].walk.frameCount).toBe(8);
         expect(shouldPreloadUnitAnimationAtlas("champion_lab_walk_atlas", false)).toBe(true);
         expect(isRedundantFullResolutionUnitAtlasKey("champion_lab_walk_atlas")).toBe(false);
-        expect(images.champion_lab_walk_atlas).toContain("7988e22411ef51c8");
+        expectApprovedAtlasRevision(
+            images.champion_lab_walk_atlas,
+            "animations/output/champion_lab_walk/atlas/champion_lab_walk_atlas.webp",
+            "7988e22411ef51c8c8ad4105040f6345b783de417d430478d1e827c46de1d344",
+        );
         const grid = new GridSettings(
             GridConstants.GRID_SIZE,
             GridConstants.MAX_Y,

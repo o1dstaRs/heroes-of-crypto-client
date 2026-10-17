@@ -1,3 +1,4 @@
+import { expectApprovedAtlasRevision } from "./approvedAtlasRevision.assert";
 import { beforeAll, expect, test } from "bun:test";
 import {
     AbilityFactory,
@@ -42,7 +43,11 @@ test("Gargantuan lab loads native frames, advances by distance and restores idle
         expect(meta.footAnchorY).toBe(0.9251302083333334);
         expect(shouldPreloadUnitAnimationAtlas("gargantuan_lab_walk_atlas", false)).toBe(true);
         expect(isRedundantFullResolutionUnitAtlasKey("gargantuan_lab_walk_atlas")).toBe(false);
-        expect(images.gargantuan_lab_walk_atlas).toContain("626748017bd92150");
+        expectApprovedAtlasRevision(
+            images.gargantuan_lab_walk_atlas,
+            "animations/output/gargantuan_lab_walk/atlas/gargantuan_lab_walk_atlas.webp",
+            "626748017bd92150643d7b92c10d95228064bc9485a54e90b4f95d87df003dd4",
+        );
         expect(getSplitBundles({ animationsEnabled: false }).animations.gargantuan_lab_walk_atlas).toBeDefined();
         const grid = new GridSettings(
             GridConstants.GRID_SIZE,

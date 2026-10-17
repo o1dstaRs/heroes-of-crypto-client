@@ -40,6 +40,7 @@ const SEGMENT_NAME_TO_IMPORT_NAME = {
 // stop.webp is intentionally registered (key "stop") — the on-unit / Alt-view / UpNext "stopped" (skip)
 // badge shown for Stun / Blindness / Freeze, replacing the old stun_256 corner icon.
 const EXCLUDED_IMAGE_FILES = new Set([
+    "label_level_1 (1).webp",
     "dungeon_volumetric_fog_v1.webp",
     "dungeon_god_rays_v1.webp",
     "background_stone_tiles_sinister_16x16_brown.webp",
@@ -93,6 +94,9 @@ for (const file of files) {
 // Use the existing portrait WebP recipe for reachable production atlases too. Encode before hashing
 // the URLs, retain exact alpha/canvas geometry, and never recompress an already-lossy sheet.
 if (productionBuild && !testAssets) {
+    require("./verify_animation_release.ts").verifyProductionImageSources(
+        entries.filter((entry) => !entry.productionOmitted).map((entry) => entry.file),
+    );
     const { optimizeAnimationBuildCopies } = require("../src/build/portraitBuildCopyEncoding.ts");
     const { isUnitAnimationAtlasKey } = require("../src/pixi/unitAtlasKeys.ts");
     const pinnedBuildAssets = new Set(

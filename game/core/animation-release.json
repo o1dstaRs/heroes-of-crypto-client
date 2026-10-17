@@ -11790,6 +11790,10 @@
             "sha256": "441072f4a2baec03c971292e11c8557029bccc2a003270b8c1b2cd867bed5cdf",
             "bytes": 27538
         },
+        "images/arcane_ward_blessing_256.webp": {
+            "sha256": "441072f4a2baec03c971292e11c8557029bccc2a003270b8c1b2cd867bed5cdf",
+            "bytes": 27538
+        },
         "images/area_throw_256.webp": {
             "sha256": "448e3768ab67237776465f1478bf48d8b30e41992e4d0d0475c66f8487b8d8ce",
             "bytes": 17150
@@ -12337,6 +12341,30 @@
         "images/blacksmith_512.webp": {
             "sha256": "29245d372cbcdc5c25c6d81fcce4f96deb03908a30422a778cf87f19ec268a37",
             "bytes": 78446
+        },
+        "images/blacksmith_attack_atlas.webp": {
+            "sha256": "225018048ad738ce4feb01f7d3bd32763b0636fe4c8845725bf279fb96c4e11b",
+            "bytes": 731076
+        },
+        "images/blacksmith_attack_atlas_quarter.webp": {
+            "sha256": "8adb3b036b4135ac0c7e8840c61171f0b8da9dfd365be99e22fe3d0d7b0a39f6",
+            "bytes": 86442
+        },
+        "images/blacksmith_attack_down_atlas.webp": {
+            "sha256": "c8fd2ca97f2a691146d8a5810a23909c85ebc1fa77a2e8525a3a90bb54191b79",
+            "bytes": 726946
+        },
+        "images/blacksmith_attack_down_atlas_quarter.webp": {
+            "sha256": "f46547547b744436d2d70bed61ba49155bcec3ec742f0c26e54f1e44959f1803",
+            "bytes": 85552
+        },
+        "images/blacksmith_attack_up_atlas.webp": {
+            "sha256": "e0b176400e89a69c523a71973750090123112bbdfe9e5212c23ca2f500901d96",
+            "bytes": 730724
+        },
+        "images/blacksmith_attack_up_atlas_quarter.webp": {
+            "sha256": "afc632ff84fc2e7a2587b4910ba176cbb55695a39254e78096b7d4325747ea57",
+            "bytes": 86142
         },
         "images/blacksmith_battlefield_side_right_distance_readable_v1.webp": {
             "sha256": "e777c5ff701e245ae0019d9408476ab07cbab5bf0a36c581e0a6c8254f5de143",
@@ -13609,6 +13637,10 @@
         "images/fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas.webp": {
             "sha256": "df538936a52e834c7268023dfca04e1b02121f2bc69affc9ac22adf7e9cf6a9c",
             "bytes": 7017260
+        },
+        "images/fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half.webp": {
+            "sha256": "0a2ca9fea90f3a9d823b9c0048a5daa63ddca9f02eb3abf2f1c51c82396a157f",
+            "bytes": 710246
         },
         "images/fire_shield_256.webp": {
             "sha256": "88df1253a520cd3c14e22abdb6002ee452814b01650e7500517dc19a57d05c38",
@@ -18109,6 +18141,6 @@
     },
     "reviewPatch": {
         "file": "animation-review-fixes-20261017.zip",
-        "sha256": "ed980af7da72e034e0c3b6f86edafc4a3a481710212c98ecb4cb3439f7bce6c4"
+        "sha256": "4a89a15c7ca275935cae66d00e02b5aa24ced02ffff6b04828422573fb650b59"
     }
 }

@@ -11,7 +11,7 @@ import {
 } from "@heroesofcrypto/common";
 import { BufferImageSource, Container, Texture } from "pixi.js";
 
-import animationRelease from "../../animation-release.json";
+import { expectApprovedAtlasRevision } from "./approvedAtlasRevision.assert";
 import { animationAtlases } from "../generated/animation_atlases";
 import { images } from "../imageAssets";
 import { RenderableUnit, creatureWalkAnimationEnabledForUnit } from "../scenes/RenderableUnit";
@@ -36,15 +36,11 @@ test.each([false, true])("Behemoth preserves its full approved package in produc
         expect(animationAtlases["Behemoth Lab"].death.totalDurationSec).toBeCloseTo(1.76 / 1.2 ** 2, 8);
         expect(shouldPreloadUnitAnimationAtlas("behemoth_lab_walk_atlas", false)).toBe(true);
         expect(isRedundantFullResolutionUnitAtlasKey("behemoth_lab_walk_atlas")).toBe(false);
-        const approvedWalk =
-            animationRelease.files["animations/output/behemoth_lab_walk/atlas/behemoth_lab_walk_atlas.webp"];
-        expect(approvedWalk).toEqual({
-            sha256: "98892f83e6e82da3d2e103f29813fa0e6a7ae0d91a5acfa2632d91ffccb845d3",
-            bytes: 14923222,
-        });
-        const walkRevision = new URL(images.behemoth_lab_walk_atlas).searchParams.get("v");
-        if (!walkRevision) throw new Error("Behemoth's approved walk atlas is missing its asset revision.");
-        expect([approvedWalk.sha256.slice(0, 16), "366ee15d5ce7ca22"]).toContain(walkRevision);
+        expectApprovedAtlasRevision(
+            images.behemoth_lab_walk_atlas,
+            "animations/output/behemoth_lab_walk/atlas/behemoth_lab_walk_atlas.webp",
+            "98892f83e6e82da3d2e103f29813fa0e6a7ae0d91a5acfa2632d91ffccb845d3",
+        );
         expect(getSplitBundles({ animationsEnabled: false }).animations.behemoth_lab_walk_atlas).toBeDefined();
         const grid = new GridSettings(
             GridConstants.GRID_SIZE,

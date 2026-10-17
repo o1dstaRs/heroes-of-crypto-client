@@ -2,7 +2,7 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 4,525 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 4,533 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
@@ -15,7 +15,7 @@ Download from the [versioned release folder](https://drive.google.com/drive/fold
 | `assets-compact.zip`                   | `cb3a565c781e1540161d5bb2850addf23f6a46b41d72ae52c791c1c8d1a66130` |
 | `restore-tools.zip`                    | `4b248d7b2fdee2a733cb734f72c704b48499d64a4c81f22a2aed829ce5883c76` |
 | `animation-release-patch-20261017.zip` | `f3e5562aa279717b63426ab41369334ae9eedd89d502d91fbc5bb698d270b2b5` |
-| `animation-review-fixes-20261017.zip`  | `ed980af7da72e034e0c3b6f86edafc4a3a481710212c98ecb4cb3439f7bce6c4` |
+| `animation-review-fixes-20261017.zip`  | `4a89a15c7ca275935cae66d00e02b5aa24ced02ffff6b04828422573fb650b59` |
 
 Extract the compact archive into an empty local release directory, then extract `restore-tools.zip`
 there, replacing the older scripts. Download the base files listed in `drive-required-files.json`
@@ -32,8 +32,9 @@ use Git for source code; downloading the old `source.zip` is unnecessary. The as
 PR is the final verification authority. The portable kit's `verify_compact.py` also checks source
 files, so it is intended for installations that extracted `source.zip` as well.
 
-Finally extract `animation-review-fixes-20261017.zip` there. It restores the current Fireball icon;
-the earlier portable package omitted it even though Wandering Mage already had the spell.
+Finally extract `animation-review-fixes-20261017.zip` there. It supplies the current Fireball and
+Arcane Ward Blessing icons and seven registered atlas variants that the earlier portable package
+omitted. Wandering Mage already had Fireball in its configured spellbook.
 
 Do not substitute differently hashed source atlases for the approved rendered copies. In particular,
 the Nightmare quarter-resolution attacks and Troglodyte walk variants intentionally retain the
@@ -61,7 +62,8 @@ publish the client together through the normal release process. Opening these PR
 Production builds apply the existing portrait WebP recipe (quality 90, exact alpha, effort 6) to reachable
 lossless creature atlases as well. This changes only local build copies and only when the result is smaller;
 already lossy artwork and the 310 explicitly pinned render assets remain byte-identical. Every encoded
-copy must retain the source canvas dimensions and all alpha values. Full authored masters remain in Drive.
+copy must retain the source canvas dimensions and all alpha values. The reviewed 333 optimized copies
+reduce their combined size from 1,057,450,226 to 342,665,676 bytes (67.6%). Full authored masters remain in Drive.
 
 The shared Drive now contains every manifest resource. Previous differing revisions, available authoring
 materials, synchronization records, and processing recipes are preserved under

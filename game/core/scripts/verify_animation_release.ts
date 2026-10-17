@@ -1,12 +1,18 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import path from "node:path";
 
 import release from "../animation-release.json";
 import { resolveAnimationsOutputLocation, resolveImagesLocation } from "../src/assetLocations";
 
 type AssetManifest = Record<string, { sha256: string; bytes: number }>;
+
+/** Flattened production imports must be reproducible from the published restore package. */
+export function verifyProductionImageSources(filenames: readonly string[], files: AssetManifest = release.files): void {
+    const declared = new Set(Object.keys(files).map((filename) => path.basename(filename)));
+    const missing = filenames.filter((filename) => !declared.has(filename));
+    if (missing.length) throw new Error(`Production images missing from animation-release.json: ${missing.join(", ")}`);
+}
 
 export async function verifyAnimationRelease(
     env: Record<string, string | undefined> = process.env,
@@ -19,6 +25,7 @@ export async function verifyAnimationRelease(
     let next = 0;
     await Promise.all(
         Array.from({ length: Math.min(8, entries.length) }, async () => {
+            const buffer = Buffer.allocUnsafe(1024 * 1024);
             while (next < entries.length) {
                 const [name, expected] = entries[next++];
                 const prefix = name.startsWith("images/") ? "images/" : "animations/output/";
@@ -34,10 +41,32 @@ export async function verifyAnimationRelease(
                 }
                 const file = path.join(prefix === "images/" ? images : animations, relative);
                 try {
-                    if ((await stat(file)).size !== expected.bytes) throw new Error("size mismatch");
-                    const hash = createHash("sha256");
-                    for await (const chunk of createReadStream(file)) hash.update(chunk);
-                    if (hash.digest("hex") !== expected.sha256) throw new Error("SHA-256 mismatch");
+                    const handle = await open(file, "r");
+                    try {
+                        const before = await handle.stat();
+                        if (before.size !== expected.bytes) throw new Error("size mismatch");
+                        const hash = createHash("sha256");
+                        let position = 0;
+                        // Read the known size explicitly. Waiting for a stream's extra EOF read can
+                        // stall on mounted Drive files; bounded reads also reject truncated delivery.
+                        while (position < expected.bytes) {
+                            const { bytesRead } = await handle.read(
+                                buffer,
+                                0,
+                                Math.min(buffer.length, expected.bytes - position),
+                                position,
+                            );
+                            if (bytesRead === 0) throw new Error("incomplete read");
+                            hash.update(buffer.subarray(0, bytesRead));
+                            position += bytesRead;
+                        }
+                        const after = await handle.stat();
+                        // Cloud hydration can update timestamps without changing the pinned bytes.
+                        if (after.size !== before.size) throw new Error("asset changed during verification");
+                        if (hash.digest("hex") !== expected.sha256) throw new Error("SHA-256 mismatch");
+                    } finally {
+                        await handle.close();
+                    }
                 } catch (error) {
                     failures.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
                 }

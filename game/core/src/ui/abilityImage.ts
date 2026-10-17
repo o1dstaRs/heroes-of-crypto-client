@@ -13,7 +13,6 @@ export const abilityImageKey = (abilityName: string): string => `${abilityName.t
  * so renaming the file on the Drive retires its alias without another code change.
  */
 export const ABILITY_IMAGE_ALIASES: Readonly<Record<string, string>> = {
-    arcane_ward_blessing_256: "arcane_ward_aura_256",
     warding_mane_blessing_256: "warding_mane_aura_256",
     arrows_wingshield_blessing_256: "arrows_wingshield_aura_256",
     angelic_host_blessing_256: "angelic_host_256",

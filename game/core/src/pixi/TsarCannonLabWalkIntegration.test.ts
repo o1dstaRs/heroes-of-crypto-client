@@ -1,3 +1,4 @@
+import { expectApprovedAtlasRevision } from "./approvedAtlasRevision.assert";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
     AbilityFactory,
@@ -40,7 +41,11 @@ test("Tsar Cannon keeps the idle artwork and effects while rolling, preserving d
         const meta = animationAtlases["Tsar Cannon Lab"].walk;
         expect(meta.frameCount).toBe(8);
         expect(meta.frameWidth).toBe(768);
-        expect(images.tsar_cannon_lab_walk_atlas).toContain("449785cd4f4268a5");
+        expectApprovedAtlasRevision(
+            images.tsar_cannon_lab_walk_atlas,
+            "animations/output/tsar_cannon_lab_walk/atlas/tsar_cannon_lab_walk_atlas.webp",
+            "449785cd4f4268a59467be3cdb588f8d57e0859b7ae3eb1b74065f87b4b8c0c4",
+        );
         expect(shouldPreloadUnitAnimationAtlas("tsar_cannon_lab_walk_atlas", false)).toBe(true);
         expect(shouldPreloadUnitAnimationAtlas("tsar_cannon_bronze_v14_walk_atlas", false)).toBe(true);
         expect(isRedundantFullResolutionUnitAtlasKey("tsar_cannon_bronze_v14_walk_atlas")).toBe(false);

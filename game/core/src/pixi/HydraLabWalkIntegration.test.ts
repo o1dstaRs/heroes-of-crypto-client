@@ -1,3 +1,4 @@
+import { expectApprovedAtlasRevision } from "./approvedAtlasRevision.assert";
 import { beforeAll, expect, test } from "bun:test";
 import {
     AbilityFactory,
@@ -45,7 +46,11 @@ test("Hydra HD walk is shared by combat and the lab, retains eight native frames
         expect(meta.frameWidth).toBe(768);
         expect(shouldPreloadUnitAnimationAtlas("hydra_lab_walk_atlas", false)).toBe(true);
         expect(isRedundantFullResolutionUnitAtlasKey("hydra_lab_walk_atlas")).toBe(false);
-        expect(images.hydra_lab_walk_atlas).toContain("d2647ef98b72c4be");
+        expectApprovedAtlasRevision(
+            images.hydra_lab_walk_atlas,
+            "animations/output/hydra_lab_walk/atlas/hydra_lab_walk_atlas.webp",
+            "d2647ef98b72c4be02d2541062e1e1165adc53cdac1a4950dfca4f911a7be9b8",
+        );
         expect(getSplitBundles({ animationsEnabled: false }).animations.hydra_lab_walk_atlas).toBeDefined();
         expect(animationAtlases["Hydra Lab"].idle.frameCount).toBe(64);
         expect(animationAtlases["Hydra Lab"].idle.frameWidth).toBe(768);

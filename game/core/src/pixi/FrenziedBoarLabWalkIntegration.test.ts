@@ -1,3 +1,4 @@
+import { expectApprovedAtlasRevision } from "./approvedAtlasRevision.assert";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
     AbilityFactory,
@@ -42,7 +43,11 @@ test("Frenzied Boar lab loads native frames, advances by distance and restores i
         expect(animationAtlases["Frenzied Boar Lab"].idle.fps).toBe(7.5);
         expect(animationAtlases["Frenzied Boar Lab"].idle.frameDurationsMs).toHaveLength(48);
         expect(animationAtlases["Frenzied Boar Lab"].idle.frameDurationsMs?.[0]).toBeCloseTo(1000 / 7.5, 8);
-        expect(images.frenzied_boar_lab_walk_atlas).toContain("267d0061b7b9f23e");
+        expectApprovedAtlasRevision(
+            images.frenzied_boar_lab_walk_atlas,
+            "animations/output/frenzied_boar_lab_walk/atlas/frenzied_boar_lab_walk_atlas.webp",
+            "267d0061b7b9f23e5965d2a56d2c1336c0e215b624eb474183ccd0971f5c4b8b",
+        );
         expect(getSplitBundles({ animationsEnabled: false }).animations.frenzied_boar_lab_walk_atlas).toBeDefined();
         const grid = new GridSettings(
             GridConstants.GRID_SIZE,
