@@ -837,6 +837,9 @@ export class HoverManager {
         if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
             this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
         if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
+        this.attachSpellBadge(this.localSpellBadge);
+        this.attachSpellBadge(this.opponentSpellBadge);
+        this.updateSpellCasterBadges();
     }
     public clearAuraVisuals(): void {
         this.safeClearGraphics(this.auraGraphics);
@@ -960,6 +963,7 @@ export class HoverManager {
             !!this.hoverBattlefieldFootprintCells?.length;
         if (hasPulsingHover) this.hoverGlowPhase += dt * (5 / 3);
         this.updateMagicAimDualHelixAnimation(dt);
+        this.updateSpellCasterBadges();
         if (this.animatedRangeArrow) {
             const arrow = this.animatedRangeArrow;
             this.drawAttackArrow(arrow.from, arrow.to, arrow.continuationTo, arrow.smokeFrom, "arrow", false);
@@ -2717,6 +2721,9 @@ export class HoverManager {
     public drawSpellCastPreview(opts: {
         casterPos: HoCMath.XY;
         targetPos?: HoCMath.XY;
+        iconTex: Texture;
+        label: string;
+        color: number;
         beamStyle: "positive" | "negative";
     }): void {
         // Beam from caster to hovered target (only when a target is hovered).
@@ -2802,10 +2809,12 @@ export class HoverManager {
         } else {
             this.hideMagicAimDualHelix();
         }
+        this.paintSpellBadge(this.localSpellBadge, opts);
     }
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
         this.hideMagicAimDualHelix();
+        if (this.localSpellBadge.badge) this.localSpellBadge.badge.visible = false;
     }
     public updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
         // Size/shape the move-preview from the ACTIVE unit's LIVE properties — this silhouette is

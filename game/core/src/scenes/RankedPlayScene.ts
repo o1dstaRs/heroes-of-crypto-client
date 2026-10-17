@@ -2337,13 +2337,6 @@ export class RankedPlayScene extends Sandbox {
             this.refreshGridMatrices();
             return;
         }
-        if (isBarrelShadowEditorActive()) {
-            const layout = BARREL_SHADOW_EDITOR_LAYOUT.map((barrel) => ({ ...barrel }));
-            this.grid.setScatteredMountains(layout.map(({ x, y }) => ({ x, y })));
-            this.dungeonVisuals?.setScatteredMountains(layout, true);
-            this.refreshGridMatrices();
-            return;
-        }
         const plan = planScatteredMountainSync(
             snapshot.gameId,
             snapshot.scatteredStandingCells,

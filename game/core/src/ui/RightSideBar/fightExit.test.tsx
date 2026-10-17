@@ -53,6 +53,7 @@ test("sandbox fight keeps exactly one exit beside Premium controls for signed-in
                             <RightSideBar
                                 gameStarted
                                 showPremiumFightControls
+                                onStartOver={() => {}}
                                 windowSize={{ width: 1200, height: 800 }}
                             />
                         </React.Suspense>
@@ -63,6 +64,7 @@ test("sandbox fight keeps exactly one exit beside Premium controls for signed-in
             await stream.allReady;
             const html = await new Response(stream).text();
             expect(html.match(/aria-label="Exit fight"/g)).toHaveLength(1);
+            expect(html.match(/aria-label="Start over"/g)).toHaveLength(1);
             expect(html.includes("data-premium-controls")).toBe(enabled);
         }
     }

@@ -3,9 +3,13 @@ import Box from "@mui/joy/Box";
 import Typography from "@mui/joy/Typography";
 import { keyframes } from "@emotion/react";
 
-import { useTranslation } from "../../i18n/i18n";
+import { TeamVals } from "@heroesofcrypto/common";
+
+import { drawnSideOf } from "../../pixi/boardMirror";
+import { personalArmyCssColor } from "../../scenes/personalArmyTint";
+import { t, useTranslation } from "../../i18n/i18n";
 import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
-import { fightLogSegments } from "./fightLogTeamNames";
+import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
 
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { ImageScrollbar } from "./ImageScrollbar";
@@ -66,15 +70,25 @@ const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi,
  * and the clipboard export are untouched — see fightLogTeamNames.
  */
 const renderFightLogMarkers = (text: string): React.ReactNode =>
-    fightLogSegments(text).map((segment, index) =>
-        segment.color ? (
-            <span key={index} style={{ color: segment.color, fontWeight: 700 }}>
+    fightLogSegments(text).map((segment, index) => {
+        if (!segment.color) return segment.text;
+        const team = segment.mark ? fightLogMarkTeam(segment.mark) : undefined;
+        const personal = team === undefined ? undefined : personalArmyCssColor(team);
+        const drawnSide = team === undefined ? undefined : drawnSideOf(team);
+        return (
+            <span
+                key={index}
+                style={{ color: personal ?? segment.color, fontWeight: 700 }}
+                aria-label={
+                    drawnSide === undefined
+                        ? undefined
+                        : `${segment.text}, ${drawnSide === TeamVals.LEFT ? t("Left side") : t("Right side")}`
+                }
+            >
                 {segment.text}
             </span>
-        ) : (
-            segment.text
-        ),
-    );
+        );
+    });
 
 export const FightLog = ({ text }: { text: string }) => {
     const [entries, setEntries] = useState<ILogEntry[]>([]);

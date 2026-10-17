@@ -58,6 +58,36 @@ test("hover card uses the real abilities without mutating selected unit or facti
     }
 });
 
+for (const [raw, expected] of [
+    [
+        "Artifact. All army units may move over and stand in lava; on central lava they gain Made of Fire (+10% to all stats and abilities).;;",
+        "Artifact. All army units may move over and stand in lava; on central lava they gain Made of Fire (+10% to all stats and abilities).",
+    ],
+    ["Gain {} attack; gain {} armor;2;3", "Gain 2 attack; gain 3 armor"],
+    ["Cross lava; fly over it.", "Cross lava; fly over it."],
+]) {
+    test(`unit inspection preserves the complete effect text: ${raw}`, () => {
+        const { overlay } = createOverlay();
+        try {
+            const unit = overlay.getUnitProperties("Peasant");
+            unit.applied_buffs = ["Lava Striders"];
+            unit.applied_buffs_laps = [15];
+            unit.applied_buffs_descriptions = [raw];
+            unit.applied_buffs_powers = [0];
+            unit.applied_debuffs = ["Quagmire"];
+            unit.applied_debuffs_laps = [2];
+            unit.applied_debuffs_descriptions = [raw];
+            unit.applied_debuffs_powers = [0];
+            const scene = Object.create(PixiScene.prototype) as PixiScene;
+            const impact = scene.getUnitVisibleImpact(unit);
+            expect(impact.buffs.find((buff) => buff.name === "Lava Striders")?.description).toBe(expected);
+            expect(impact.debuffs.find((debuff) => debuff.name === "Quagmire")?.description).toBe(expected);
+        } finally {
+            overlay.destroy();
+        }
+    });
+}
+
 test("board inspection emits separately, refreshes live stats, and clears when the pointer leaves", () => {
     const manager = new PixiGameManager();
     const unit = { name: "Peasant" } as UnitProperties;

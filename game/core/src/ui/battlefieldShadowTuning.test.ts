@@ -12,6 +12,49 @@ import {
     writeStoredBattlefieldShadowTuning,
 } from "./battlefieldShadowTuning";
 
+describe("battlefield shadow tuning with an unusable cookie jar", () => {
+    const withDocument = (stub: unknown, run: () => void): void => {
+        const had = "document" in globalThis;
+        const previous = (globalThis as { document?: unknown }).document;
+        (globalThis as { document?: unknown }).document = stub;
+        try {
+            run();
+        } finally {
+            if (had) {
+                (globalThis as { document?: unknown }).document = previous;
+            } else {
+                delete (globalThis as { document?: unknown }).document;
+            }
+        }
+    };
+
+    // The name is deliberately outside the approved roster and never written by another test, so the
+    // lookup falls through the shared dev channel and genuinely reaches the cookie read.
+    const unitName = "Cookieless Jar Creature";
+
+    test("a document without a cookie property resolves the fallback instead of throwing", () => {
+        withDocument({ createElement: () => ({ getContext: () => null }) }, () => {
+            expect(() => resolveBattlefieldShadowTuningForBuild(unitName, false)).not.toThrow();
+            expect(resolveBattlefieldShadowTuningForBuild(unitName, false)).toEqual(
+                normalizeBattlefieldShadowTuning(DEFAULT_BATTLEFIELD_SHADOW_TUNING),
+            );
+        });
+    });
+
+    test("a cookie jar that throws on access (sandboxed iframe) is treated as absent", () => {
+        withDocument(
+            {
+                get cookie(): string {
+                    throw new Error("SecurityError: cookies are blocked in this context");
+                },
+            },
+            () => {
+                expect(() => resolveBattlefieldShadowTuningForBuild(unitName, false)).not.toThrow();
+            },
+        );
+    });
+});
+
 describe("battlefield shadow tuning", () => {
     test("uses the approved profile when no editor draft exists", () => {
         setBattlefieldShadowEditorActive(false);

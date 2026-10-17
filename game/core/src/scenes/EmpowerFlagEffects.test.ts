@@ -5,6 +5,7 @@ import { animationAtlases } from "../generated/animation_atlases";
 import { images } from "../imageAssets";
 import { isLazyCombatEffectAssetKey } from "../pixi/imageAssetTiers";
 import { isProductionOmittedDisabledUnitAnimationAssetKey } from "../pixi/productionImageAssetPolicy";
+import { STATUS_EFFECT_DURATION_MULTIPLIER } from "../settings/statusEffectTiming";
 import { animatableEffectNames } from "./effect_pops";
 import { empowerAppliedUnitIds } from "./empowerFlagEffects";
 import { Sandbox } from "./Sandbox";
@@ -63,7 +64,7 @@ describe("Empower flag effect", () => {
             expect(animatableEffectNames([name])).toEqual(new Set());
         });
 
-        test(`${name}: plays nine painted symbol cels above a rebuilt flag for one real second`, async () => {
+        test(`${name}: plays nine painted symbol cels above a rebuilt flag for the configured status lifetime`, async () => {
             const meta = animationAtlases["Vfx Empower"].pop;
             expect(meta.frameCount).toBe(9);
             expect(meta.frameDurationsMs!.reduce((sum, ms) => sum + ms, 0)).toBe(1000);
@@ -97,19 +98,26 @@ describe("Empower flag effect", () => {
                 expect(sprite.texture.frame).toMatchObject({ x: 0, y: 0, width: 384, height: 384 });
                 expect(sprite.alpha).toBe(1);
                 anchor = { x: 150, y: 250 };
-                now = 500;
+                now = 500 * STATUS_EFFECT_DURATION_MULTIPLIER;
                 layer.update(1 / 240);
                 expect(pop.x).toBe(150);
                 expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
                 expect(pop.scale.y).toBeCloseTo(-1.6);
                 expect(sprite.width).toBeCloseTo(64 * 1.45 * 0.9);
                 expect(sprite.alpha).toBe(1);
-                now = 900;
+                now = 900 * STATUS_EFFECT_DURATION_MULTIPLIER;
                 layer.update(0);
                 expect(sprite.texture.frame).toMatchObject({ x: 768, y: 768 });
-                now = 1000;
+                now = 999 * STATUS_EFFECT_DURATION_MULTIPLIER;
+                layer.update(0);
+                expect(sprite.texture.frame).toMatchObject({ x: 768, y: 768 });
+                expect(pop.destroyed).toBe(false);
+                expect(layer.active).toBe(true);
+                expect(sprite.alpha).toBe(1);
+                now = 1000 * STATUS_EFFECT_DURATION_MULTIPLIER;
                 layer.update(0);
                 expect(pop.destroyed).toBe(true);
+                expect(layer.active).toBe(false);
                 await layer.spawn("first", anchor, 64, () => anchor);
                 anchor = undefined;
                 layer.update(0);

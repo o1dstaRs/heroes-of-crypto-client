@@ -1,6 +1,7 @@
 import React, { Suspense } from "react";
 
 import { useAuthContext } from "../auth/context/auth_context";
+import { isMockPortalEnabled } from "../PlayerPortal/mockPortal";
 import {
     getBattleSystemControlsActive,
     getBattleSystemControlsServerSnapshot,
@@ -18,7 +19,7 @@ export const SocialDock: React.FC = () => {
         getBattleSystemControlsActive,
         getBattleSystemControlsServerSnapshot,
     );
-    if ((!authenticated || user?.is_active === false) && !systemMenuMode) {
+    if ((!authenticated || user?.is_active === false) && !systemMenuMode && !isMockPortalEnabled()) {
         return null;
     }
 

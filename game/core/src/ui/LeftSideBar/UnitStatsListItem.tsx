@@ -286,11 +286,13 @@ const SidebarPortraitAnimation = ({
     config,
     maxHeight,
     onLoaded,
+    playback,
 }: {
     art: React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>;
     config: Readonly<LeftSidebarPortraitAnimation>;
     maxHeight: number;
     onLoaded: () => void;
+    playback: "ping-pong" | "loop";
 }) => {
     const [ready, setReady] = useState(() => isAtlasReady(config.src));
     const markLoaded = useCallback(() => {
@@ -317,8 +319,9 @@ const SidebarPortraitAnimation = ({
                     src={config.src}
                     onLoaded={markLoaded}
                     maxHeight={maxHeight}
-                    playback="ping-pong"
+                    playback={playback}
                     fillHeight
+                    uniformScale={LEFT_SIDEBAR_ART_SCALE}
                 />
             </Box>
         </>
@@ -1368,14 +1371,6 @@ const UnitStatsLayout: React.FC<{
                   displayedCreatureId,
                   resolveLeftSidebarPortraitAnimation(displayedCreatureId),
               );
-    const [portraitAnimationReady, setPortraitAnimationReady] = useState(false);
-    useEffect(() => {
-        setPortraitAnimationReady(false);
-    }, [portraitAnimationConfig?.src]);
-    const handlePortraitAnimationLoaded = useCallback(() => {
-        setPortraitAnimationReady(true);
-        onImageLoaded();
-    }, [onImageLoaded]);
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
         displayedCreatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
@@ -1622,15 +1617,16 @@ const UnitStatsLayout: React.FC<{
     const portraitBaseScale = sidebarPortraitArt.baseScale;
     const portraitAtlasSource = portraitAnimationConfig?.src;
     const portraitAtlasMeta = portraitAnimationConfig?.meta;
+    const portraitPlayback = ["Arbalester", "Squire", "Blacksmith"].includes(portraitAlt) ? "loop" : "ping-pong";
     // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
     // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
-    React.useMemo(
+    const sidebarPortrait = React.useMemo(
         () =>
             displayedCreatureId === undefined ? null : (
                 <CreaturePortraitImage
                     creatureId={displayedCreatureId}
                     alt={portraitAlt}
-                    artScale={portraitArtScale}
+                    artScale={portraitArtScale * LEFT_SIDEBAR_ART_SCALE}
                     artScaleX={portraitArtScaleX}
                     backgroundFit="fill"
                     artOffsetX={portraitOffsetX}
@@ -1652,6 +1648,7 @@ const UnitStatsLayout: React.FC<{
                                       config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta }}
                                       onLoaded={onImageLoaded}
                                       maxHeight={portraitHeight}
+                                      playback={portraitPlayback}
                                   />
                               )
                             : undefined
@@ -1672,6 +1669,7 @@ const UnitStatsLayout: React.FC<{
             portraitAtlasSource,
             portraitAtlasMeta,
             portraitHeight,
+            portraitPlayback,
             onImageLoaded,
         ],
     );
@@ -1785,7 +1783,7 @@ const UnitStatsLayout: React.FC<{
                             justifyContent: "center",
                         }}
                     >
-                        {creatureId !== undefined ? (
+                        {displayedCreatureId !== undefined ? (
                             <Box
                                 sx={{
                                     position: "relative",
@@ -1794,61 +1792,10 @@ const UnitStatsLayout: React.FC<{
                                     clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
                             >
-                                <CreaturePortraitImage
-                                    creatureId={creatureId}
-                                    alt={unitProperties.name}
-                                    artScale={sidebarPortraitTuning.artScale * LEFT_SIDEBAR_ART_SCALE}
-                                    artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
-                                    backgroundFit="fill"
-                                    artOffsetX={sidebarPortraitTuning.artOffsetX}
-                                    artOffsetY={sidebarPortraitTuning.artOffsetY}
-                                    artSource={sidebarPortraitArt.source}
-                                    artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
-                                    artFit={sidebarPortraitArt.fit}
-                                    artBaseScale={sidebarPortraitArt.baseScale}
-                                    highQualityArt
-                                    sx={{
-                                        width: "100%",
-                                        height: "100%",
-                                        bgcolor: "transparent",
-                                    }}
-                                    imageStyle={{
-                                        opacity: portraitAnimationReady ? 0 : 1,
-                                        transition: "none",
-                                        imageRendering: "auto",
-                                    }}
-                                />
-                                {portraitAnimationConfig && (
-                                    <Box
-                                        aria-label={`${unitProperties.name} animated portrait`}
-                                        sx={{
-                                            position: "absolute",
-                                            inset: 0,
-                                            zIndex: 4,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            pointerEvents: "none",
-                                        }}
-                                    >
-                                        <AtlasAnimation
-                                            meta={portraitAnimationConfig.meta}
-                                            src={portraitAnimationConfig.src}
-                                            onLoaded={handlePortraitAnimationLoaded}
-                                            maxHeight={portraitHeight}
-                                            playback={
-                                                unitProperties.name === "Arbalester" ||
-                                                unitProperties.name === "Squire" ||
-                                                unitProperties.name === "Blacksmith"
-                                                    ? "loop"
-                                                    : "ping-pong"
-                                            }
-                                            fillHeight
-                                            uniformScale={LEFT_SIDEBAR_ART_SCALE}
-                                        />
-                                    </Box>
-                                )}
+                                {sidebarPortrait}
                             </Box>
+                        ) : creatureId !== undefined ? (
+                            <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />
                         ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}

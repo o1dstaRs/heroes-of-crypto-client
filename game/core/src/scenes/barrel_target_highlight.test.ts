@@ -44,9 +44,8 @@ describe("Cemetery barrel danger highlights", () => {
         // there) and breaks every barrel in the 3x3 it lands on, so its preview marks the blast, not the line.
         const start = source.indexOf("private updateAreaThrowHover()");
         const areaThrowHover = source.slice(start, source.indexOf("\n    }", start));
-        expect(areaThrowHover).toContain(
-            "this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos)",
-        );
+        expect(areaThrowHover).toContain("this.highlightScatteredObstaclesInCells(cells)");
+        expect(areaThrowHover).not.toContain("this.highlightScatteredObstaclesAlongTrajectory(");
         const blastHelper = sliceFrom(source, "private highlightScatteredObstaclesInCells(", 800);
         expect(blastHelper).toContain(".filter((cell) => this.isStandingAttackObstacleCell(cell))");
         expect(blastHelper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
@@ -110,6 +109,32 @@ describe("Cemetery barrel danger highlights", () => {
         expect(drawAim).toBeGreaterThan(drawTerminal);
         expect(hover.slice(drawTerminal, drawAim)).toContain("blockedVisual");
         expect(hover.slice(drawAim, drawAim + 300)).toContain("blockedCasingJoint");
+    });
+
+    test("stands aside for every aiming mode that owns its own ray", () => {
+        const resolver = sliceFrom(sceneSource(), "private resolveObstacleAttack(", 3_500);
+        const rangeBranch = resolver.slice(resolver.indexOf('if (kind === "range")'));
+        expect(rangeBranch).toContain("this.isAreaThrowAiming() && this.grid.hasScatteredMountains()");
+        expect(rangeBranch).toContain("this.isLargeCaliberBarrelAiming(worldPos)");
+        expect(rangeBranch).toContain("if (this.isFreeThroughShotAiming())");
+    });
+
+    test("prices every unit a barrel-aimed melee strike's riders hit with the unit hover's own rider projection", () => {
+        const source = sceneSource();
+        const hover = sliceFrom(source, "private updateObstacleHover(): boolean", 16_000);
+        expect(hover).toContain('riderHits.push({ unit: enemy, source: "Lightning Spin" })');
+        expect(hover).toContain('riderHits.push({ unit: skeweredBehind, source: "Skewer Strike" })');
+        expect(hover).toContain('riderHits.push({ unit: burnedBehind, source: "Fire Breath" })');
+        expect(hover).toContain("this.drawObstacleStrikeRiderPredictions(unit, attackFromCell, riderHits)");
+
+        const predictions = sliceFrom(source, "private drawObstacleStrikeRiderPredictions(", 4_500);
+        expect(predictions).toContain("this.projectMeleeRiderDamage(");
+        expect(predictions).toContain("projectKillBand(struck.unit, struck.min, struck.max)");
+        expect(predictions).toContain("this.hoverManager.addAOEDamagePrediction(");
+
+        // The unit-target hover prices the same riders through the same method, so the two numbers cannot drift.
+        const unitHoverRiders = sliceFrom(source, "for (const secondaryHit of secondaryHits) {", 1_200);
+        expect(unitHoverRiders).toContain("this.projectMeleeRiderDamage(");
     });
 
     test("renders a red alpha wash above the exact authored barrel silhouette", () => {

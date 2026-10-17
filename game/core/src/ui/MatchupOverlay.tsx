@@ -11,6 +11,7 @@ import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_cl
 import { images } from "../generated/image_imports";
 import { battleSidebarWidth } from "../pixi/boardFit";
 import { readPlayerArmyColorId } from "../settings/playerArmyColor";
+import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { hocDisplayFontFamily } from "./hocTheme";
 import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
@@ -898,9 +899,18 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                 transform: scale === 1 ? placementTransform : `${placementTransform} scale(${scale})`,
                 // Scale about the anchored edge so the strip shrinks in place instead of drifting off it.
                 transformOrigin: centred ? "top center" : "top right",
-                width: collapsed ? 36 : "min(298px, calc(100vw - 24px))",
+                width: collapsed
+                    ? 36
+                    : action
+                      ? "min(400px, calc(100vw - 24px))"
+                      : connectionAlert
+                        ? "min(440px, calc(100vw - 24px))"
+                        : "min(298px, calc(100vw - 24px))",
                 height: collapsed ? 30 : 54,
-                maxWidth: placement === "fight" && !collapsed ? `${fightPosition?.maxWidth ?? 298}px` : undefined,
+                maxWidth:
+                    placement === "fight" && !collapsed
+                        ? `${(fightPosition?.maxWidth ?? 298) + (action ? 74 : 0)}px`
+                        : undefined,
                 transition: "left 260ms ease, transform 260ms ease, width 180ms ease, height 180ms ease",
             }}
         >
@@ -1090,12 +1100,19 @@ export const PickMatchupOverlay: React.FC<{
         };
     }, [fallbackPlayers, gameId]);
 
+    const mirrored = shouldMirrorBoard({
+        viewerTeam: normalizedUserTeam,
+        preference: readBoardSidePreference(),
+        live: true,
+    });
+
     return (
         <MatchupOverlay
             players={players}
             placement="pick"
             status={status}
             viewerTeam={normalizedUserTeam}
+            mirrored={mirrored}
             demoted={demoted}
         />
     );

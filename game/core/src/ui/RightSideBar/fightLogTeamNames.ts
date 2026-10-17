@@ -43,14 +43,14 @@ export interface IFightLogSegment {
 export const fightLogSegments = (line: string): IFightLogSegment[] => {
     const parts = line.split(new RegExp(MARK_SPLIT_PATTERN, "u"));
     const segments: IFightLogSegment[] = [];
-    const push = (text: string, color?: string): void => {
+    const push = (text: string, color?: string, mark?: string): void => {
         if (!text) return;
         const last = segments[segments.length - 1];
-        if (last && last.color === color) {
+        if (last && last.color === color && last.mark === mark) {
             last.text += text;
             return;
         }
-        segments.push(color === undefined ? { text } : { text, color });
+        segments.push(color === undefined ? { text } : { text, color, mark });
     };
 
     for (let index = 0; index < parts.length; index += 1) {
@@ -66,7 +66,7 @@ export const fightLogSegments = (line: string): IFightLogSegment[] => {
         if (!named) {
             continue;
         }
-        push(named[1], color);
+        push(named[1], color, part);
         parts[index + 1] = rest.slice(named[0].length);
     }
 

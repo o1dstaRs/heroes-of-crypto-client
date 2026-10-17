@@ -119,6 +119,7 @@ import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { startVisibleInterval } from "./visibleInterval";
 import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
@@ -968,6 +969,8 @@ export const RankedGameView: React.FC<Props> = ({
             })) ?? [],
         [aiSeatPlayerId, connectionBySeat, snapshot, vsAiOpponentLabel],
     );
+
+    useEffect(registerBattleSystemControls, []);
 
     // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
     // once the board is up; from here it is simply "we have a board and the fight has not started", which is
@@ -3303,6 +3306,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     onStopWatching,
     exitStanding,
     vsAi = false,
+    allowPlacementExit = false,
 }) => {
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
@@ -3496,7 +3500,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         return (
             <>
                 <GameCornerSlot>
-                    <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
+                    <GameCornerExitButton
+                        disabled={busy}
+                        label={t("Exit fight")}
+                        onClick={() => setConfirmExitOpen(true)}
+                    />
                 </GameCornerSlot>
                 {confirmExitModal}
             </>
@@ -3938,11 +3946,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
-                {/* Setup carries the same corner exit as combat — the confirmation dialog below was
-                    already mounted here with nothing able to open it. */}
-                {!isObserver && (
+                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
                     <GameCornerSlot>
-                        <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
+                        <GameCornerExitButton
+                            disabled={busy}
+                            label={t("Leave match")}
+                            onClick={() => setConfirmExitOpen(true)}
+                        />
                     </GameCornerSlot>
                 )}
                 {confirmExitModal}

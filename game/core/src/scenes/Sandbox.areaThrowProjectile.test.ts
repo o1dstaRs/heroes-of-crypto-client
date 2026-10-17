@@ -30,6 +30,7 @@ import type { SandboxReplayActionRecord } from "../replay/sandbox_replay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { RenderableUnit } from "./RenderableUnit";
 import { Sandbox } from "./Sandbox";
+import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import type { IFireProjectileOptions } from "./sandbox/RangedProjectiles";
 
 type XY = HoCMath.XY;
@@ -153,6 +154,18 @@ function fixture(team: TeamType) {
             currentActiveUnit: attacker,
             sc_sceneSettings: { getGridSettings: () => settings },
             shouldDeferActionToAuthoritativeReplay: () => false,
+            snapshotRenderableUnits: () => new Map(),
+            createActionEngine: () => ({ apply: () => ({ completed: true, events: [] }) }),
+            noteDeathBlowsFromAttackEvent: () => {},
+            preparePyreDeaths: () => {},
+            waitForTexture: () => Promise.resolve(),
+            playReplayOneShot: () => Promise.resolve(),
+            waitForProjectileHitReaction: () => Promise.resolve(true),
+            isSceneDestroyed: () => false,
+            fireUnitProjectile: (_unit: RenderableUnit, options: IFireProjectileOptions) => {
+                launches.push(options);
+                return Promise.reject(stop);
+            },
             rangedProjectiles: {
                 fire: (options: IFireProjectileOptions) => {
                     launches.push(options);
@@ -177,9 +190,20 @@ function fixture(team: TeamType) {
             currentActiveUnit: attacker,
             sc_sceneSettings: { getGridSettings: () => settings },
             shouldDeferActionToAuthoritativeReplay: () => false,
+            preparePyreDeaths: () => {},
+            waitForTexture: () => Promise.resolve(),
+            playReplayOneShot: () => Promise.resolve(),
+            isSceneDestroyed: () => false,
+            waitForProjectileHitReaction: () => Promise.resolve(true),
+            fireUnitProjectile: (_unit: RenderableUnit, options: IFireProjectileOptions) => {
+                launches.push(options);
+                options.onImpact?.();
+                return Promise.resolve();
+            },
             rangedProjectiles: {
                 fire: (options: IFireProjectileOptions) => {
                     launches.push(options);
+                    options.onImpact?.();
                     return Promise.resolve();
                 },
             },
@@ -193,9 +217,9 @@ function fixture(team: TeamType) {
             noteDeathBlowsFromAttackEvent: () => {},
             showFleshShieldAbsorbedDamage: () => new Map<string, number>(),
             showWaterShieldAbsorbs: () => {},
-            showSplashDamage: (splash: AreaEvent["damage"]["splash"]) => {
+            playAreaThrowImpact: (_unit: RenderableUnit, splash: AreaEvent["damage"]["splash"]) => {
                 waveSizes.push(splash?.length ?? 0);
-                return !!splash?.length;
+                return Promise.resolve();
             },
             combatVisuals: { showDamageVisualsFromDiff: () => {} },
             hoverManager: {
@@ -256,8 +280,8 @@ describe("Sandbox Area Throw projectile landing", () => {
             const launch = await f.capture();
             const { event } = f.resolve();
             expect(event.targetCell).toEqual(f.aim);
-            expect(launch.to).toEqual(event.targetPosition);
-            expect(launch.to).toEqual(point(f.aim));
+            expect(launch.to).toEqual(projectBattlefieldPoint(event.targetPosition, settings));
+            expect(launch.to).toEqual(projectBattlefieldPoint(point(f.aim), settings));
         });
         for (const [width, height] of [
             [1, 1],
@@ -276,8 +300,8 @@ describe("Sandbox Area Throw projectile landing", () => {
                     )![0],
                 );
                 expect(event.targetCell).not.toEqual(f.aim);
-                expect(launch.to).toEqual(event.targetPosition);
-                expect(launch.to).toEqual(point(event.targetCell));
+                expect(launch.to).toEqual(projectBattlefieldPoint(event.targetPosition, settings));
+                expect(launch.to).toEqual(projectBattlefieldPoint(point(event.targetCell), settings));
             });
         }
         for (const change of ["removed", "moved", "replaced"] as const) {
@@ -297,9 +321,9 @@ describe("Sandbox Area Throw projectile landing", () => {
                     event.targetCell,
                 );
                 const launch = await f.capture(record);
-                expect(launch.to).toEqual(event.targetPosition);
-                expect(launch.to).toEqual(point(event.targetCell));
-                expect(launch.to).not.toEqual(point(f.aim));
+                expect(launch.to).toEqual(projectBattlefieldPoint(event.targetPosition, settings));
+                expect(launch.to).toEqual(projectBattlefieldPoint(point(event.targetCell), settings));
+                expect(launch.to).not.toEqual(projectBattlefieldPoint(point(f.aim), settings));
             });
         }
         test(`team ${team}, old recorded far-cell throws keep their original landing after the contact fix`, async () => {
@@ -312,8 +336,8 @@ describe("Sandbox Area Throw projectile landing", () => {
             event.targetPosition = point(oldImpact);
             event.animations = event.animations.map((animation) => ({ ...animation, toPosition: point(oldImpact) }));
             const launch = await f.capture(record);
-            expect(launch.to).toEqual(point(oldImpact));
-            expect(launch.to).not.toEqual(point({ x: 7, y: 3 }));
+            expect(launch.to).toEqual(projectBattlefieldPoint(point(oldImpact), settings));
+            expect(launch.to).not.toEqual(projectBattlefieldPoint(point({ x: 7, y: 3 }), settings));
         });
         test(`team ${team}, ranked submission retains the original empty aim and waits for replay before flight`, async () => {
             const f = fixture(team);
@@ -329,7 +353,7 @@ describe("Sandbox Area Throw projectile landing", () => {
             expect(launches).toHaveLength(0);
             const { record } = f.resolve();
             const replayLaunch = await f.capture(record);
-            expect(replayLaunch.to).toEqual(point(impact));
+            expect(replayLaunch.to).toEqual(projectBattlefieldPoint(point(impact), settings));
         });
         test(`team ${team}, Double Throw flies twice to the same empty landing even when neither wave deals splash`, async () => {
             const f = fixture(team);
@@ -341,8 +365,8 @@ describe("Sandbox Area Throw projectile landing", () => {
             expect(launches).toHaveLength(2);
             for (const launch of launches) {
                 expect(launch.gargantuanRock).toBe(true);
-                expect(launch.to).toEqual(event.targetPosition);
-                expect(launch.to).toEqual(point(f.aim));
+                expect(launch.to).toEqual(projectBattlefieldPoint(event.targetPosition, settings));
+                expect(launch.to).toEqual(projectBattlefieldPoint(point(f.aim), settings));
             }
         });
         test(`team ${team}, Double Throw retains its second flight after the interceptor dies in wave one`, async () => {
@@ -359,8 +383,8 @@ describe("Sandbox Area Throw projectile landing", () => {
             expect(launches).toHaveLength(2);
             for (const launch of launches) {
                 expect(launch.gargantuanRock).toBe(true);
-                expect(launch.to).toEqual(event.targetPosition);
-                expect(launch.to).toEqual(point(impactCell));
+                expect(launch.to).toEqual(projectBattlefieldPoint(event.targetPosition, settings));
+                expect(launch.to).toEqual(projectBattlefieldPoint(point(impactCell), settings));
             }
         });
     }

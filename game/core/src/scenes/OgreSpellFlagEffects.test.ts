@@ -3,6 +3,7 @@ import type { GameEvent } from "@heroesofcrypto/common";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { images } from "../imageAssets";
 import { animationAtlases } from "../generated/animation_atlases";
+import { STATUS_EFFECT_DURATION_MULTIPLIER } from "../settings/statusEffectTiming";
 import { animatableEffectNames } from "./effect_pops";
 import { OGRE_SPELL_FLAG_EFFECTS, ogreSpellFlagApplications } from "./ogreSpellFlagEffects";
 import { Sandbox } from "./Sandbox";
@@ -53,7 +54,7 @@ describe("Ogre Mage spell flag effects", () => {
             expect(animatableEffectNames([name])).toEqual(new Set());
         });
 
-        test(`${name}: plays moving symbol cels above a rebuilt flag for one real second`, async () => {
+        test(`${name}: plays moving symbol cels above a rebuilt flag for the configured status lifetime`, async () => {
             const meta = animationAtlases[kind === "ogre_riot" ? "Vfx Ogre Riot" : "Vfx Ogre Magic Mirror"].pop;
             expect(meta.frameCount).toBe(9);
             expect(meta.frameDurationsMs!.reduce((sum, ms) => sum + ms, 0)).toBe(1000);
@@ -89,7 +90,7 @@ describe("Ogre Mage spell flag effects", () => {
                 const firstCel = sprite.texture;
                 const width = sprite.width;
                 anchor = { x: 150, y: 250 };
-                now = 500;
+                now = 500 * STATUS_EFFECT_DURATION_MULTIPLIER;
                 layer.update(1 / 240);
                 expect(pop.x).toBe(150);
                 expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
@@ -97,9 +98,15 @@ describe("Ogre Mage spell flag effects", () => {
                 expect(sprite.width).toBe(width);
                 expect(sprite.texture).not.toBe(firstCel);
                 expect(sprite.alpha).toBe(1);
-                now = 1000;
+                now = 999 * STATUS_EFFECT_DURATION_MULTIPLIER;
+                layer.update(0);
+                expect(pop.destroyed).toBe(false);
+                expect(layer.active).toBe(true);
+                expect(sprite.alpha).toBe(1);
+                now = 1000 * STATUS_EFFECT_DURATION_MULTIPLIER;
                 layer.update(0);
                 expect(pop.destroyed).toBe(true);
+                expect(layer.active).toBe(false);
                 await layer.spawn("first", anchor, 64, () => anchor);
                 anchor = undefined;
                 layer.update(0);

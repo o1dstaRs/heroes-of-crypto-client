@@ -1,16 +1,12 @@
-import Modal from "@mui/joy/Modal";
-import ModalDialog from "@mui/joy/ModalDialog";
-import Stack from "@mui/joy/Stack";
-import Typography from "@mui/joy/Typography";
 import { useDraftConduct } from "./exitRules/useDraftConduct";
 import { useLeaveGuard } from "./exitRules/useLeaveGuard";
-import { useTranslation } from "../i18n/i18n";
-import Button from "@mui/joy/Button";
+import { t, useTranslation } from "../i18n/i18n";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 
 import { GameCornerExitButton } from "./GameCornerExit";
-import { hocColors, hocPanelSx, hocSoftButtonSx } from "./hocTheme";
+import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
+import { leaveOutcomeFor } from "./exitRules/exitRulesModel";
 import { useAuthContext } from "./auth/context/auth_context";
 
 /**
@@ -26,7 +22,7 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
     const [error, setError] = useState("");
     // Loaded with the draft and again when the dialog opens. Fetched only on opening, the dialog's first frame showed
     // the placed-player Abandon and "these rules start soon" until the answer arrived, and a quick confirm acted on it.
-    const { casual } = useDraftConduct(gameId, confirmOpen);
+    const { casual, vsAi, conduct } = useDraftConduct(gameId, confirmOpen);
     // Closing the tab mid-draft abandons a ranked match too; the browser asks first.
     useLeaveGuard(!casual);
 
@@ -39,49 +35,34 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
 
     return (
         <>
-            <GameCornerExitButton disabled={busy} onClick={() => setConfirmOpen(true)} />
-            <Modal open={confirmOpen} onClose={close}>
-                <ModalDialog sx={hocPanelSx}>
-                    <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                        Exit the fight?
-                    </Typography>
-                    <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
-                        <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                            Leaving during picks forfeits the match and counts as a loss. This cannot be undone.
-                        </Typography>
-                        {error && (
-                            <Typography level="body-sm" color="danger">
-                                {error}
-                            </Typography>
-                        )}
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button variant="plain" disabled={busy} onClick={close} sx={hocSoftButtonSx}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="solid"
-                                color="danger"
-                                loading={busy}
-                                onClick={async () => {
-                                    setBusy(true);
-                                    setError("");
-                                    try {
-                                        await abandonGame(gameId);
-                                        setConfirmOpen(false);
-                                        navigate("/play");
-                                    } catch {
-                                        setError("The fight could not be forfeited. Please try again.");
-                                    } finally {
-                                        setBusy(false);
-                                    }
-                                }}
-                            >
-                                Forfeit
-                            </Button>
-                        </Stack>
-                    </Stack>
-                </ModalDialog>
-            </Modal>
+            <GameCornerExitButton disabled={busy} label={t("Exit fight")} onClick={() => setConfirmOpen(true)} />
+            <ExitMatchDialog
+                open={confirmOpen}
+                phase="draft"
+                outcome={leaveOutcomeFor(!casual, "draft", false, conduct?.calibrating === true)}
+                rules={{
+                    ranked: !casual,
+                    enforced: conduct?.rules.enforced === true,
+                    enforceAtMs: conduct?.rules.enforceAtMs ?? 0,
+                }}
+                vsAi={vsAi}
+                busy={busy}
+                error={error}
+                onCancel={close}
+                onConfirm={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                        await abandonGame(gameId);
+                        setConfirmOpen(false);
+                        navigate("/play");
+                    } catch {
+                        setError(t("The match could not be left. Please try again."));
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+            />
         </>
     );
 };

@@ -4082,7 +4082,12 @@ assetTest("plays Centaur tail and hair idle only in the lab and resumes it after
     expect(internals.sprite.filters).not.toContain(wind);
     unit.stepSelectionAnimation(start + 4280);
     expect(internals.sprite.texture).toBe(walkingTexture);
-    unit.stopBoardWalkAnimation();
+    const clock = spyOn(performance, "now").mockReturnValue(10000);
+    try {
+        unit.stopBoardWalkAnimation();
+    } finally {
+        clock.mockRestore();
+    }
     expect(internals.sprite.texture).toBe(frames[0]);
     expect(internals.sprite.filters).toContain(wind);
     unit.stepSelectionAnimation(internals.selectionAnimationStartedAtMs + 4340);
@@ -7882,35 +7887,62 @@ describe("RenderableUnit runtime spell synchronization", () => {
         expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
     });
 
-    test("rebuilds a spellbook card after its on-demand icon and furniture arrive", () => {
+    test("keeps spellbook fallbacks usable and preserves spent charges when the real artwork arrives", () => {
         let spellbookArtReady = false;
         const requestedKeys: string[] = [];
-        const angel = createRenderableUnit(TeamVals.LEFT, "Life", "Angel", "angel_512", (key) => {
+        const satyr = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (key) => {
             requestedKeys.push(key);
             return spellbookArtReady ? Texture.WHITE : undefined;
         });
         const spellBookLayer = new Container();
         const digits = new Map([[1, Texture.WHITE]]);
+        satyr.setStackPower(5);
+        satyr.useSpell("Courage");
+        satyr.useSpell("Summon Wolves");
+        const remaining = { Courage: 2, "Helping Hand": 1, "Summon Wolves": 1 };
+        try {
+            satyr.setSpellBookLayer(spellBookLayer, digits);
+            satyr.renderSpells(1);
+            expect(requestedKeys).toEqual(
+                expect.arrayContaining([
+                    "courage_256",
+                    "spell_cell_260",
+                    "spell_cast_wax_seal_blank_v1",
+                    "spell_inner_frame_linework_v2",
+                    "spell_stack_fill_green_variant2",
+                    "spell_stack_fill_red_variant2",
+                    "spell_stack_rail_variant2",
+                ]),
+            );
+            expect(spellAmounts(satyr)).toEqual(remaining);
+            expect(spellBookLayer.children).toHaveLength(3);
+            const fallback = satyr.getBookSpellByName("Courage")!;
+            const fallbackSprite = fallback.getSprite();
+            expect(fallback.getAmount()).toBe(2);
+            expect(fallback.canUse(5)).toBe(true);
+            expect(fallbackSprite.texture).toBe(Texture.EMPTY);
+            const bounds = fallbackSprite.getBounds();
+            expect(
+                satyr.getHoveredSpell({ x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }),
+            ).toBe(fallback);
 
-        angel.setSpellBookLayer(spellBookLayer, digits);
-        expect(requestedKeys).toEqual(
-            expect.arrayContaining([
-                "resurrection_256",
-                "spell_cell_260",
-                "spell_cast_wax_seal_blank_v1",
-                "spell_inner_frame_linework_v2",
-                "spell_stack_fill_green_variant2",
-                "spell_stack_fill_red_variant2",
-                "spell_stack_rail_variant2",
-            ]),
-        );
-        expect(spellBookLayer.children).toHaveLength(0);
-
-        spellbookArtReady = true;
-        expect(angel.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
-        angel.renderSpells(1);
-        expect(spellBookLayer.children.length).toBeGreaterThan(0);
-        expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
+            spellbookArtReady = true;
+            expect(satyr.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
+            satyr.renderSpells(1);
+            expect(fallbackSprite.destroyed).toBe(true);
+            expect(spellBookLayer.children).toHaveLength(3);
+            expect(spellAmounts(satyr)).toEqual(remaining);
+            for (const [name, amount] of Object.entries(remaining)) {
+                const card = satyr.getBookSpellByName(name)!;
+                expect(card.getSprite().texture).toBe(testAtlasTexture);
+                expect(card.getSprite().visible).toBe(true);
+                expect(card.getAmount()).toBe(amount);
+                expect(card.canUse(5)).toBe(true);
+            }
+        } finally {
+            satyr.hideSpells();
+            spellBookLayer.destroy({ children: true });
+        }
     });
 });
 

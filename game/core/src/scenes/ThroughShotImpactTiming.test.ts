@@ -49,6 +49,7 @@ const fixture = (double = false) => {
             getAbility: () => undefined,
             hasAbilityActive: (name: string) => id === "cannon" && name === "Through Shot",
             beginDamagePresentation: (amount: number) => (unit.displayed = amount),
+            clearDamagePresentation: () => (unit.displayed = unit.amount),
             presentDamageCasualties: (amount: number) => (unit.displayed = Math.max(0, unit.displayed - amount)),
         };
         return unit;
@@ -241,6 +242,7 @@ test("a live stack revived by the resolved shot does not play a lethal impact", 
     await pending;
     expect(f.events).toContain("damage:22");
     expect(f.events).not.toContain("far:death");
+    expect(f.far.displayed).toBe(1);
 });
 
 test.each([

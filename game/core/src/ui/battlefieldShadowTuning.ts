@@ -478,10 +478,22 @@ const patchSharedDevTuning = (unitName: string, value: BattlefieldShadowTuning):
 const sharedCookieName = (unitName: string): string =>
     `${BATTLEFIELD_SHADOW_TUNING_COOKIE_PREFIX}${encodeURIComponent(unitName)}`;
 
+const readCookieJar = (): string => {
+    if (typeof document === "undefined") return "";
+    try {
+        const jar = (document as { cookie?: unknown }).cookie;
+        return typeof jar === "string" ? jar : "";
+    } catch {
+        return "";
+    }
+};
+
 const readSharedCookieTuning = (unitName?: string): BattlefieldShadowTuning | undefined => {
-    if (!unitName || typeof document === "undefined") return undefined;
+    if (!unitName) return undefined;
+    const jar = readCookieJar();
+    if (!jar) return undefined;
     const name = `${sharedCookieName(unitName)}=`;
-    const entry = document.cookie
+    const entry = jar
         .split(";")
         .map((part) => part.trim())
         .find((part) => part.startsWith(name));
@@ -496,7 +508,11 @@ const readSharedCookieTuning = (unitName?: string): BattlefieldShadowTuning | un
 const writeSharedCookieTuning = (unitName: string, value: BattlefieldShadowTuning): void => {
     if (typeof document === "undefined") return;
     const encoded = encodeURIComponent(JSON.stringify(normalizeBattlefieldShadowTuning(value)));
-    document.cookie = `${sharedCookieName(unitName)}=${encoded}; Path=/; Max-Age=${BATTLEFIELD_SHADOW_TUNING_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+    try {
+        document.cookie = `${sharedCookieName(unitName)}=${encoded}; Path=/; Max-Age=${BATTLEFIELD_SHADOW_TUNING_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+    } catch {
+        return;
+    }
 };
 
 const readStoredMap = (): Record<string, BattlefieldShadowTuning> => {
