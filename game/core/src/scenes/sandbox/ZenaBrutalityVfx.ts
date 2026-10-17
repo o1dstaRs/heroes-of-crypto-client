@@ -45,6 +45,7 @@ interface Brutality {
 
 const FLIGHT = 0.94;
 const LIFE = 2.65;
+const PLAYBACK_SPEED = 1.2;
 const BLOOD = 0xa10e24;
 const DARK_BLOOD = 0x4b0715;
 const ease = (t: number): number => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
@@ -186,7 +187,7 @@ export class ZenaBrutalityVfx {
     public update(dt: number): void {
         for (let i = this.deaths.length - 1; i >= 0; i--) {
             const death = this.deaths[i];
-            death.age += Math.max(0, dt);
+            death.age += Math.max(0, dt) * PLAYBACK_SPEED;
             if (death.age >= LIFE) {
                 death.container.destroy({ children: true });
                 this.deaths.splice(i, 1);
