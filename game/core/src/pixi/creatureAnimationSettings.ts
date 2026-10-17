@@ -529,10 +529,14 @@ export const shouldPreloadUnitAnimationAtlas = (key: string, animationsEnabled: 
     !/^abomination_lab_idle_page_\d{2}_atlas$/.test(key) &&
     (animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key));
 
-export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] => {
+const approvedAnimationAssetKeysCache = new Map<string, readonly string[]>();
+
+const cachedApprovedAnimationAssetKeys = (unitName: string): readonly string[] => {
     if (!usesApprovedBaseAnimations(unitName)) return [];
+    const cached = approvedAnimationAssetKeysCache.get(unitName);
+    if (cached) return cached;
     const prefix = unitName === "Wandering Mage" ? "ash_moth_" : unitName.toLowerCase().replaceAll(" ", "_") + "_";
-    return [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
+    const keys = [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
         .filter((key) => key !== "squire_default_atlas_quarter")
         .filter(
             (key) =>
@@ -543,9 +547,17 @@ export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] =>
             const priority = (key: string) => (/_(idle|default)_/.test(key) ? 0 : /_walk_/.test(key) ? 1 : 2);
             return priority(a) - priority(b);
         });
+    approvedAnimationAssetKeysCache.set(unitName, keys);
+    return keys;
 };
 
+// The manifest is fixed for this module's lifetime. Cache only approved roster entries, and return
+// independent arrays so a loader sorting or appending its own keys cannot change another caller's list.
+export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] =>
+    cachedApprovedAnimationAssetKeys(unitName).slice();
+
 const ARBALESTER_IDLE_PAGE_ATLAS = /^arbalester_idle_page_\d{2}_atlas$/;
+const animationAtlasPrewarmKeysCache = new Map<string, readonly string[]>();
 
 export function animationAtlasPrewarmRank(imageKey: string): number {
     if (ARBALESTER_IDLE_PAGE_ATLAS.test(imageKey)) return 3;
@@ -555,8 +567,20 @@ export function animationAtlasPrewarmRank(imageKey: string): number {
 }
 
 export function animationAtlasPrewarmKeys(unitName: string, extraImageKey?: string): string[] {
-    const keys = approvedAnimationAssetKeysForUnit(unitName).filter((key) => !ARBALESTER_IDLE_PAGE_ATLAS.test(key));
-    keys.sort((a, b) => animationAtlasPrewarmRank(a) - animationAtlasPrewarmRank(b));
+    let keys: string[] = [];
+    // Check the live switch before the cache: disabling approved animation must take effect immediately.
+    if (usesApprovedBaseAnimations(unitName)) {
+        let cached = animationAtlasPrewarmKeysCache.get(unitName);
+        if (!cached) {
+            const sorted = cachedApprovedAnimationAssetKeys(unitName).filter(
+                (key) => !ARBALESTER_IDLE_PAGE_ATLAS.test(key),
+            );
+            sorted.sort((a, b) => animationAtlasPrewarmRank(a) - animationAtlasPrewarmRank(b));
+            animationAtlasPrewarmKeysCache.set(unitName, sorted);
+            cached = sorted;
+        }
+        keys = cached.slice();
+    }
     if (extraImageKey && !keys.includes(extraImageKey) && !ARBALESTER_IDLE_PAGE_ATLAS.test(extraImageKey)) {
         keys.push(extraImageKey);
     }

@@ -30,9 +30,10 @@ import { unicornBlindnessLanded } from "./UnicornBlindnessVisuals";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { griffinLabFlightSettings } from "./GriffinLabFlight";
 import { mantisLabFlightSettings } from "./MantisLabFlight";
-import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
+import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { usesApprovedBaseAnimations, usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
+import { prewarmAtlasTexture } from "../pixi/prewarmAtlasTexture";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -19931,22 +19932,7 @@ export class Sandbox extends PixiScene {
         return undefined;
     }
     private uploadAtlasFrame(frame: Texture): boolean {
-        const renderer = this.pixiApp.getApplication()?.renderer;
-        if (!renderer) return false;
-        const container = new Container();
-        const sprite = new Sprite(frame);
-        sprite.alpha = 1;
-        container.addChild(sprite);
-        const rt = RenderTexture.create({ width: 8, height: 8 });
-        try {
-            renderer.render({ container, target: rt });
-        } catch {
-            // Best-effort. The source is still marked uploaded so a broken sheet cannot hitch every step.
-        } finally {
-            rt.destroy(true);
-            container.destroy({ children: true });
-        }
-        return true;
+        return prewarmAtlasTexture(this.pixiApp.getApplication()?.renderer, frame);
     }
     private isBarrelCellAllowed(team: TeamType, cell: HoCMath.XY): boolean {
         return [0, 1].some((index) =>
