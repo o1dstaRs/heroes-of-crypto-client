@@ -1,0 +1,57 @@
+<!--
+    Native lazy loading can fetch images several screens ahead, including the large faction portraits.
+    A template keeps them out of the preload scanner until their card approaches the viewport.
+    The parent reserves the card's dimensions; noscript keeps its original artwork accessible without JS.
+-->
+<deferred-media>
+    <template><slot /></template>
+    <noscript><slot /></noscript>
+</deferred-media>
+
+<style>
+    deferred-media {
+        display: contents;
+    }
+</style>
+
+<script>
+    import { afterHeroPaint } from "../lib/hero-media";
+
+    class DeferredMedia extends HTMLElement {
+        private dispose?: () => void;
+
+        connectedCallback() {
+            const template = this.querySelector("template");
+            const frame = this.parentElement;
+            if (!template || !frame || this.dispose) return;
+
+            let heroReady = false;
+            let visible = false;
+            const reveal = () => {
+                if (!heroReady || !visible || !template.isConnected) return;
+                template.replaceWith(template.content.cloneNode(true));
+                this.dispose?.();
+            };
+            const observer = new IntersectionObserver(([entry]) => {
+                visible = entry.isIntersecting;
+                reveal();
+            }, { rootMargin: "200px" });
+            observer.observe(frame);
+            const cancelReady = afterHeroPaint(this.ownerDocument.querySelector(".hero"), () => {
+                heroReady = true;
+                reveal();
+            });
+            this.dispose = () => {
+                observer.disconnect();
+                cancelReady();
+            };
+        }
+
+        disconnectedCallback() {
+            this.dispose?.();
+            this.dispose = undefined;
+        }
+    }
+
+    if (!customElements.get("deferred-media")) customElements.define("deferred-media", DeferredMedia);
+</script>
