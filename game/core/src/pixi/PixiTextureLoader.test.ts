@@ -25,7 +25,7 @@ import {
     unloadRosterAssets,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
-import { NARROWING_BACKGROUND_KEYS } from "./imageAssetTiers";
+import { NARROWING_BACKGROUND_KEYS, isCoreTextureAssetKey } from "./imageAssetTiers";
 
 test("background floors load serially, share in-flight work, and recover after an optional download fails", async () => {
     let rejectFirst!: (error: Error) => void;
@@ -375,6 +375,52 @@ describe("pixi texture bundle split", () => {
             expect(core[key]).toBeUndefined();
             expect(deferredReactUiAssets[key]?.src).toBe(images[key]);
             expect(isProductionOmittedAssetKey(key)).toBe(false);
+        }
+    });
+
+    test("leaves every sidebar animation and authoring variant available without globally preloading it", () => {
+        const sidebarKeys = Object.keys(images).filter(
+            (key) => key.includes("_left_screen_") && key.includes("_atlas"),
+        );
+        for (const key of [
+            "peasant_left_screen_idle_atlas",
+            "angel_left_screen_idle_atlas",
+            "arbalester_left_screen_idle_atlas",
+            "arbalester_left_screen_integrated_idle_atlas",
+            "arbalester_left_screen_source_exact_idle_atlas",
+            "arbalester_left_screen_restored_v5_atlas",
+            "arbalester_left_screen_redraw_v2_atlas",
+            "arbalester_left_screen_redraw_v2_final_atlas",
+            "arbalester_left_screen_redraw_v3_coherent_atlas",
+        ]) {
+            expect(sidebarKeys).toContain(key);
+        }
+        for (const animationsEnabled of [false, true]) {
+            const split = getSplitBundles({ animationsEnabled });
+            for (const key of sidebarKeys) {
+                expect(split.deferredReactUiAssets[key]?.src, key).toBe((images as Record<string, string>)[key]);
+                expect(split.core[key], key).toBeUndefined();
+                expect(split.idleAtlases[key], key).toBeUndefined();
+                expect(split.animations[key], key).toBeUndefined();
+                expect(isCoreTextureAssetKey(key), key).toBe(false);
+            }
+        }
+    });
+
+    test("recognises reduced sidebar sheets without deferring similarly named battlefield art", () => {
+        for (const suffix of ["", "_half", "_quarter"]) {
+            for (const base of ["wolf_left_screen_idle_atlas", "arbalester_left_screen_redraw_v2_final_atlas"]) {
+                expect(isDeferredReactUiAssetKey(`${base}${suffix}`)).toBe(true);
+                expect(isCoreTextureAssetKey(`${base}${suffix}`)).toBe(false);
+            }
+        }
+        for (const key of [
+            "wolf_idle_atlas_half",
+            "peasant_footstep_dust_low_sweep_atlas",
+            "wolf_left_screening_idle_atlas",
+            "wolf_left_screen_idle_atlas_mask",
+        ]) {
+            expect(isDeferredReactUiAssetKey(key), key).toBe(false);
         }
     });
 
