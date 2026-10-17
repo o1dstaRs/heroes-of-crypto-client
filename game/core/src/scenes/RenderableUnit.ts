@@ -302,6 +302,7 @@ import {
 import {
     BATTLEFIELD_SHADOW_SEGMENT_COUNT,
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
+    isBattlefieldShadowEditorActive,
     publishBattlefieldShadowVisualBounds,
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
@@ -1217,7 +1218,9 @@ export function authoredIdleFrameForElapsed(
     const pauseMs = Number.isFinite(cycleEndPauseMs) ? Math.max(0, cycleEndPauseMs) : 0;
     const repeatMs = cycleMs + pauseMs;
     let cursorMs = ((elapsedMs % repeatMs) + repeatMs) % repeatMs;
-    if (cursorMs >= cycleMs) return 0;
+    // Subtracting performance.now() timestamps can land a few ULPs before an exact loop seam.
+    const seamToleranceMs = 1e-7;
+    if (cursorMs < seamToleranceMs || repeatMs - cursorMs < seamToleranceMs || cursorMs >= cycleMs) return 0;
     for (let index = 0; index < durations.length; index += 1) {
         if (cursorMs < durations[index]) return index;
         cursorMs -= durations[index];
@@ -3273,6 +3276,7 @@ export class RenderableUnit extends Unit {
         ru.duplicateIdleOrdinal = 0;
         ru.selectionAnimationStartedAtMs = performance.now();
         ru.zenaIdleRestStartedAtMs = undefined;
+        ru.zenaRenderedSideWidth = 1;
         ru.refreshedIdlePhaseRatio = refreshedIdlePhaseRatio(ru.getId(), ru.getUnitProperties().name);
         ru.activeTurnAnimationStartedAtMs = 0;
         ru.isShowingOrcBattleCryFrame = false;
@@ -4252,8 +4256,13 @@ export class RenderableUnit extends Unit {
         } else if (!this.silhouetteShadow.parent || this.silhouetteShadow.parent !== worldRoot) {
             worldRoot.addChild(this.silhouetteShadow);
         }
-        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, footprintHeight, gs, props.name);
         const shadowTuning = resolveBattlefieldShadowTuning(props.name);
+        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
+        const shadowProjection = (this.battlefieldShadowProjection = writeBattlefieldCreatureShadowProjection(
+            shadowTuning,
+            shadowRowProgress,
+            this.battlefieldShadowProjection,
+        ));
         if (this.silhouetteShadow.texture !== shadowSourceTexture) this.silhouetteShadow.texture = shadowSourceTexture;
         if (
             this.silhouetteShadow.anchor.x !== shadowReferenceAnchorX ||
@@ -4261,7 +4270,6 @@ export class RenderableUnit extends Unit {
         ) {
             this.silhouetteShadow.anchor.set(shadowReferenceAnchorX, shadowReferenceAnchorY);
         }
-        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
         const interpolateShadowValue = (bottom: number, top: number): number =>
             bottom + (top - bottom) * shadowRowProgress;
         // The editor authors the furthest upper-row shadow against the creature's minimum perspective size.
@@ -4279,12 +4287,15 @@ export class RenderableUnit extends Unit {
         ) {
             this.silhouetteShadow.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
         }
-        const segmentLengthMultipliers = Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) =>
-            interpolateShadowValue(
+        const segmentLengthMultipliers = (this.shadowSegmentLengthMultipliers ??= Array<number>(
+            BATTLEFIELD_SHADOW_SEGMENT_COUNT,
+        ));
+        for (let index = 0; index < BATTLEFIELD_SHADOW_SEGMENT_COUNT; index++) {
+            segmentLengthMultipliers[index] = interpolateShadowValue(
                 shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1,
                 shadowTuning.top.segmentLengthMultipliers[index] ?? 1,
-            ),
-        );
+            );
+        }
         this.silhouetteShadowSegmented = segmentLengthMultipliers.some(
             (multiplier) => Math.abs(multiplier - 1) > 0.001,
         );
@@ -4388,30 +4399,33 @@ export class RenderableUnit extends Unit {
 
         if (props.name === WOLF_UNIT_NAME) this.syncWolfAttackReach();
 
-        const silhouetteBounds = (
-            this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
-        ).reduce(
-            (combined, displayObject) => {
-                const bounds = displayObject.getBounds();
-                return {
-                    left: Math.min(combined.left, bounds.x),
-                    top: Math.min(combined.top, bounds.y),
-                    right: Math.max(combined.right, bounds.x + bounds.width),
-                    bottom: Math.max(combined.bottom, bounds.y + bounds.height),
-                };
-            },
-            { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
-        );
-        publishBattlefieldShadowVisualBounds(props.name, {
-            bounds: {
-                x: silhouetteBounds.left,
-                y: silhouetteBounds.top,
-                width: silhouetteBounds.right - silhouetteBounds.left,
-                height: silhouetteBounds.bottom - silhouetteBounds.top,
-            },
-            cellWidth: gs.getCellSize() * inheritedScale.x,
-            cellHeight: gs.getCellSize() * inheritedScale.y,
-        });
+        // These screen-space bounds are only consumed by the shadow editor.
+        if (isBattlefieldShadowEditorActive()) {
+            const silhouetteBounds = (
+                this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
+            ).reduce(
+                (combined, displayObject) => {
+                    const bounds = displayObject.getBounds();
+                    return {
+                        left: Math.min(combined.left, bounds.x),
+                        top: Math.min(combined.top, bounds.y),
+                        right: Math.max(combined.right, bounds.x + bounds.width),
+                        bottom: Math.max(combined.bottom, bounds.y + bounds.height),
+                    };
+                },
+                { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
+            );
+            publishBattlefieldShadowVisualBounds(props.name, {
+                bounds: {
+                    x: silhouetteBounds.left,
+                    y: silhouetteBounds.top,
+                    width: silhouetteBounds.right - silhouetteBounds.left,
+                    height: silhouetteBounds.bottom - silhouetteBounds.top,
+                },
+                cellWidth: gs.getCellSize() * inheritedScale.x,
+                cellHeight: gs.getCellSize() * inheritedScale.y,
+            });
+        }
 
         // The second, independently blurred cast-shadow copy remains retired. One transparent flattened
         // silhouette plus the compact contact patch is cheaper and closer to Heroes IV's readable style.
@@ -12729,6 +12743,7 @@ export class RenderableUnit extends Unit {
         this.refreshTurnStatusIndicators();
     }
     private refreshTurnStatusIndicators(): void {
+        if (isAiSearchSimulating()) return;
         if (this.badgeContainer && this.badgeDrawState) this.ensureFlagStatusIndicators();
     }
     public override setWebMovementLocked(locked: boolean): void {

@@ -1,5 +1,5 @@
 // game/core/src/scenes/UnitChip.ts
-import { Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
+import { Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle, Point } from "pixi.js";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 import { CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA } from "../ui/creaturePortraitBackground";
@@ -261,6 +261,7 @@ export class UnitChip extends Container {
     private animationFrameIndex = 0;
     private animationStepFn?: () => void;
     private tweenStepFn?: () => void;
+    private readonly hitPoint = new Point();
     public constructor(opts: UnitChipOptions) {
         super();
         this.nameKey = opts.unitName;
@@ -268,6 +269,7 @@ export class UnitChip extends Container {
         this.banned = !!opts.banned;
 
         this.eventMode = "static";
+        this.interactiveChildren = false;
         this.cursor = "pointer";
 
         this.content = new Container();
@@ -419,6 +421,7 @@ export class UnitChip extends Container {
     public layout(cardWidth: number, cardHeight: number = cardWidth) {
         this.lastCardWidth = cardWidth;
         this.lastCardHeight = cardHeight;
+        this.hitArea = new Rectangle(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight);
 
         if (this.portraitFraming) {
             this.layoutPortrait(cardWidth, cardHeight, this.portraitFraming);
@@ -449,6 +452,12 @@ export class UnitChip extends Container {
         // Re-apply states with split hover/selection logic
         this.applyHoverVisuals(); // sets scale/offset + tween based on hover only
         this.updateHighlight(); // sets glows/badge based on hover OR selection
+    }
+    /** Decorative hover motion must not change which roster cell owns the pointer. */
+    public containsRosterPoint(globalX: number, globalY: number): boolean {
+        this.hitPoint.set(globalX, globalY);
+        this.toLocal(this.hitPoint, undefined, this.hitPoint);
+        return this.hitArea?.contains(this.hitPoint.x, this.hitPoint.y) ?? false;
     }
     public setHovered(v: boolean) {
         if (this.hovered === v) return;
@@ -594,7 +603,11 @@ export class UnitChip extends Container {
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
     }
     public setPortraitTexture(texture: Texture): void {
-        if (this.destroyed || this.sprite.destroyed || texture === Texture.EMPTY) return;
+        if (this.portraitFraming) {
+            this.setPortraitTextures(texture);
+            return;
+        }
+        if (this.destroyed || this.sprite.destroyed || texture === Texture.EMPTY || texture.destroyed) return;
         this.idleTexture = texture;
         this.sprite.texture = texture;
         if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {

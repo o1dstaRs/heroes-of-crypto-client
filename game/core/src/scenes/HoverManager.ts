@@ -1896,6 +1896,14 @@ export class HoverManager {
             if (visual.killIcon) visual.killIcon.visible = false;
         }
 
+        keepGlyphRowUpright(
+            [
+                visual.damageText,
+                hasKills ? visual.killText : undefined,
+                hasKills && killIconPath ? visual.killIcon : undefined,
+            ],
+            position.x,
+        );
         this.aoeDamagePredictions.push(visual);
     }
     public drawAttackArrow(

@@ -6,6 +6,7 @@ export type UnitStatsListItemProps = {
     unitProperties: UnitProperties;
     overallImpact: IVisibleOverallImpact;
     factionType: FactionType;
+    animatePortrait?: boolean;
 };
 
 type SidebarRangedStatsSource = Pick<
@@ -25,6 +26,7 @@ export const getSidebarRangedStats = (unit: SidebarRangedStatsSource) => {
 
 export const areUnitStatsPropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProps) => {
     if (prev.factionType !== next.factionType) return false;
+    if ((prev.animatePortrait ?? true) !== (next.animatePortrait ?? true)) return false;
     // setSelectedUnitProperties rebuilds this object when an existing ranked RenderableUnit is reconciled
     // in place. Check it before the unit identity shortcut: the unit reference can stay identical while
     // live primitives such as remaining shots have changed underneath the previous React props.

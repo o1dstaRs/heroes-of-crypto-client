@@ -125,6 +125,36 @@ export async function optimizePortraitBuildCopies(
     canonicalLocation = process.env.HOC_IMAGES_LOC,
     approvedRosterFiles: ReadonlySet<string> = new Set(),
 ): Promise<PortraitEncodingSummary> {
+    return optimizeWebPBuildCopies(
+        imageDirectory,
+        canonicalLocation,
+        (filename) =>
+            isPortraitBuildCopy(filename) || (/^[a-z0-9_]+\.webp$/.test(filename) && approvedRosterFiles.has(filename)),
+        4,
+    );
+}
+
+/** Encode only reachable, flattened atlas copies; authored Drive sheets and metadata stay pinned. */
+export async function optimizeAnimationBuildCopies(
+    imageDirectory: string,
+    canonicalLocation: string | undefined,
+    reachableFiles: ReadonlySet<string>,
+): Promise<PortraitEncodingSummary> {
+    return optimizeWebPBuildCopies(
+        imageDirectory,
+        canonicalLocation,
+        (filename) =>
+            /^[a-z0-9_]+(?:_atlas(?:_half|_quarter)?|_page_\d+)\.webp$/.test(filename) && reachableFiles.has(filename),
+        2,
+    );
+}
+
+async function optimizeWebPBuildCopies(
+    imageDirectory: string,
+    canonicalLocation: string | undefined,
+    acceptsFilename: (filename: string) => boolean,
+    concurrency: number,
+): Promise<PortraitEncodingSummary> {
     const summary: PortraitEncodingSummary = {
         optimized: 0,
         cached: 0,
@@ -149,13 +179,7 @@ export async function optimizePortraitBuildCopies(
         return summary;
     }
     const cache = await safeCacheDirectory(directory, canonicalDirectory);
-    const filenames = (await readdir(directory))
-        .filter(
-            (filename) =>
-                isPortraitBuildCopy(filename) ||
-                (/^[a-z0-9_]+\.webp$/.test(filename) && approvedRosterFiles.has(filename)),
-        )
-        .sort();
+    const filenames = (await readdir(directory)).filter(acceptsFilename).sort();
     let cursor = 0;
     const optimize = async (filename: string): Promise<void> => {
         const target = path.join(directory, filename);
@@ -210,7 +234,7 @@ export async function optimizePortraitBuildCopies(
         if (cachedFile && !cached) await atomicWrite(cachedFile, encoded);
     };
     await Promise.all(
-        Array.from({ length: Math.min(4, filenames.length) }, async () => {
+        Array.from({ length: Math.min(concurrency, filenames.length) }, async () => {
             while (cursor < filenames.length) await optimize(filenames[cursor++]);
         }),
     );

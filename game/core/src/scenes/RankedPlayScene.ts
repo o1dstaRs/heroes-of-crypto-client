@@ -1579,12 +1579,6 @@ export class RankedPlayScene extends Sandbox {
             )
         )
             this.showLegacyGraveboundVfx(events);
-        if (
-            events.some(
-                (event) => event.type === "effects_applied" && event.applications.some((a) => a.name === "Gravebound"),
-            )
-        )
-            this.showLegacyGraveboundVfx(events);
         for (const event of events) {
             if (
                 (event.type === "unit_attacked" ||

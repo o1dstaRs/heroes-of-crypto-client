@@ -4133,9 +4133,11 @@ export class Sandbox extends PixiScene {
             target,
             attackEvent,
             exchange,
-            (unit) => this.destroyReplayAttackUnitsAtImpact([unit.getId()]),
+            (unit) => this.destroyReplayAttackUnitsAtImpact([unit.getId()], [unit]),
             undefined,
             record.events,
+            undefined,
+            { amountsBefore, deadIds: destroyedUnitIds },
         );
 
         if (attackEvent.damage.missed) {
@@ -11146,6 +11148,7 @@ export class Sandbox extends PixiScene {
         replayAction?: Extract<GameAction, { type: "melee_attack" }> | Extract<GameAction, { type: "range_attack" }>,
     ): Promise<boolean> {
         this.sc_moveBlocked = true;
+        this.beginDullingDefensePresentation();
         // The engine can advance the round before presentation of the last action has finished.
         const attackLap = FightStateManager.getInstance().getFightProperties().getCurrentLap();
         const initialChakram = attacker.hasAbilityActive("Chakram");
@@ -11333,28 +11336,60 @@ export class Sandbox extends PixiScene {
             );
             if (!event || !(target instanceof RenderableUnit)) return;
             const responseAnimation = isRange ? findRangeResponseAnimation(event, attacker.getPosition()) : undefined;
-            const responseVictimId = responseAnimation?.affectedUnitId ?? attacker.getId();
+            const responseFlight = event.damage.chakramFlights?.find(
+                (flight) => flight.response && flight.hitIndex === 0,
+            );
+            const responseVictimId =
+                responseFlight?.primaryTargetId ?? responseAnimation?.affectedUnitId ?? attacker.getId();
+            const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseVictimId);
             const before = unitSnapshots.get(responseVictimId);
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
             const secondary = (event.damage.secondary ?? []).filter((hit) => hit.unitId === responseVictimId);
-            const amount = before
-                ? Math.max(
-                      0,
-                      (before.amount - 1) * before.maxHp +
-                          before.hp -
-                          (after?.getCumulativeHp() ?? 0) -
-                          secondary.reduce((sum, hit) => sum + hit.amount, 0),
-                  )
-                : 0;
-            const unitsDied = before
-                ? Math.max(
-                      0,
-                      before.amount -
-                          (after?.getAmountAlive() ?? 0) -
-                          secondary.reduce((sum, hit) => sum + hit.unitsDied, 0),
-                  )
-                : 0;
-            const response = amount > 0 && (!isRange || responseAnimation) ? { amount, unitsDied } : undefined;
+            const explosionDamage = lastFuseDamageTaken(attackActionEvents, responseVictimId);
+            const amount = responseFlight
+                ? (responsePrimary?.amount ?? 0)
+                : before
+                  ? Math.max(
+                        0,
+                        (before.amount - 1) * before.maxHp +
+                            before.hp -
+                            (after?.getCumulativeHp() ?? 0) -
+                            secondary.reduce((sum, hit) => sum + hit.amount, 0) -
+                            explosionDamage.amount,
+                    )
+                  : 0;
+            const unitsDied = responseFlight
+                ? (responsePrimary?.unitsDied ?? 0)
+                : before
+                  ? Math.max(
+                        0,
+                        before.amount -
+                            (after?.getAmountAlive() ?? 0) -
+                            secondary.reduce((sum, hit) => sum + hit.unitsDied, 0) -
+                            explosionDamage.unitsDied,
+                    )
+                  : 0;
+            // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
+            // proof: a Fire Wall on the approach, an aura or a reflect costs it hit points too. Refuse
+            // the counters the rules never allowed, exactly as the replay path does — see
+            // meleeRetaliationEverPossible. A dulling application is the other proof: his blow landed
+            // even when it moved no hit points.
+            const retaliationAllowed = isRange || meleeRetaliationEverPossible(attacker, target);
+            const answeredWithoutHpLoss =
+                amount <= 0 && dullingDefenseRecipientIds(attackActionEvents).includes(responseVictimId);
+            const recordedChakramResponse =
+                !!responseFlight ||
+                (event.damage.chakramFlights === undefined &&
+                    responseAnimation &&
+                    (target.hasAbilityActive?.("Chakram") ||
+                        hasRecordedChakramCounter(event.damage, responseVictimId)) &&
+                    event.damage.splash?.some((hit) => hit.unitId === responseVictimId));
+            const response =
+                (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse) &&
+                retaliationAllowed &&
+                (!isRange || responseAnimation || responseFlight)
+                    ? { amount, unitsDied }
+                    : undefined;
             const deadIds = new Set(
                 event.unitIdsDied.filter(
                     (id) => !this.unitsHolder.getAllUnits().get(id) || this.unitsHolder.getAllUnits().get(id)!.isDead(),

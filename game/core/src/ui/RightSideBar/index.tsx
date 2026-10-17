@@ -509,13 +509,17 @@ export default function RightSideBar({
             </Box>
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
             {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
-            {showSystemControls && <Box sx={{ height: `${footerHeight}px`, flexShrink: 0 }} />}
+            {showSystemControls && (
+                <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
+            )}
             {showSystemControls && (
                 <GameSystemControls
                     leading={footerLeading}
                     onHeightChange={setFooterHeight}
                     sidebarWidth={barSize}
                     rightStack
+                    centerInRow={Boolean(rankedFooter)}
+                    centerMinWidth={premiumFightVisible ? 132 : undefined}
                     center={
                         premiumFightVisible ? (
                             <>
@@ -526,25 +530,26 @@ export default function RightSideBar({
                             rankedFooter
                         ) : rankedPanel && gameStarted ? (
                             rankedPanel
-                        ) : !rankedPanel && gameStarted ? (
-                            // Sandbox exit: an anonymous player has nothing behind /play but the login
-                            // gate, so leaving the fight just resets the sandbox to a fresh placement
-                            // (start over). A signed-in player keeps the trip to the play hub. The control
-                            // itself paints in the shared top-right corner, not in this centre slot.
-                            <GameCornerSlot>
-                                <GameCornerExitButton
-                                    onClick={() => {
-                                        if (authenticated) {
-                                            navigate("/play");
-                                        } else {
-                                            handleStartOver();
-                                        }
-                                    }}
-                                />
-                            </GameCornerSlot>
                         ) : undefined
                     }
                 />
+            )}
+            {showSystemControls && !rankedPanel && gameStarted && (
+                // Sandbox exit: an anonymous player has nothing behind /play but the login
+                // gate, so leaving the fight just resets the sandbox to a fresh placement
+                // (start over). A signed-in player keeps the trip to the play hub. The control
+                // itself paints in the shared top-right corner, not in this centre slot.
+                <GameCornerSlot>
+                    <GameCornerExitButton
+                        onClick={() => {
+                            if (authenticated) {
+                                navigate("/play");
+                            } else {
+                                handleStartOver();
+                            }
+                        }}
+                    />
+                </GameCornerSlot>
             )}
         </Sheet>
     );

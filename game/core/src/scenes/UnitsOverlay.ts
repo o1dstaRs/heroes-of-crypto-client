@@ -524,10 +524,7 @@ export class UnitsOverlay {
             // overlap. Follow the complete branch through rowsContainer before asking Pixi for stale bounds.
             if (!isVisibleThroughAncestor(chip, this.rowsContainer)) continue;
 
-            const b = chip.getBounds();
-            if (!b) continue;
-
-            if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
+            if (chip.containsRosterPoint(globalX, globalY)) {
                 this.selectChip(chip);
                 return true;
             }
@@ -553,16 +550,11 @@ export class UnitsOverlay {
         const hoveredChip = insideRoster
             ? this.allChips.find((chip) => {
                   if (!isVisibleThroughAncestor(chip, this.rowsContainer)) return false;
-                  const bounds = chip.getBounds();
-                  return (
-                      globalX >= bounds.x &&
-                      globalX <= bounds.x + bounds.width &&
-                      globalY >= bounds.y &&
-                      globalY <= bounds.y + bounds.height
-                  );
+                  return chip.containsRosterPoint(globalX, globalY);
               })
             : undefined;
         if (hoveredChip !== this.hoveredChip) {
+            this.clearHoveredPortraitPrefetch();
             this.hoveredChip?.setHovered(false);
             hoveredChip?.setHovered(true);
             this.hoveredChip = hoveredChip;

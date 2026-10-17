@@ -1308,6 +1308,7 @@ const UnitStatsLayout: React.FC<{
     debuffs: IVisibleImpact[];
     hasBreakApplied: boolean;
     team: TeamType;
+    animatePortrait: boolean;
 }> = ({
     unitProperties,
     damageRange,
@@ -1327,6 +1328,7 @@ const UnitStatsLayout: React.FC<{
     debuffs,
     hasBreakApplied,
     team,
+    animatePortrait,
 }) => {
     const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
     // The cutout and the faction background are different files, and the cutout is large enough that a
@@ -1344,7 +1346,7 @@ const UnitStatsLayout: React.FC<{
         // A cached selection must become the held picture immediately too; otherwise the next cold
         // selection falls back to an older creature while an optional atlas is still loading.
         if (isLeftSidebarPortraitReady(creatureId)) setHeldPortraitId(creatureId);
-        const portraitWarm = warmLeftSidebarPortrait(creatureId);
+        const portraitWarm = warmLeftSidebarPortrait(creatureId, animatePortrait);
         void portraitWarm.then((ready) => {
             if (ready && !cancelled) setHeldPortraitId(creatureId);
         });
@@ -1352,15 +1354,15 @@ const UnitStatsLayout: React.FC<{
             cancelled = true;
             clearLeftSidebarPortraitSelection(creatureId, portraitWarm);
         };
-    }, [creatureId]);
+    }, [creatureId, animatePortrait]);
     const displayedCreatureId = displayedSidebarCreatureId(creatureId, heldPortraitId, portraitReady);
     useEffect(() => {
-        if (displayedCreatureId !== undefined) pinLeftSidebarPortrait(displayedCreatureId);
-    }, [displayedCreatureId]);
+        if (displayedCreatureId !== undefined) pinLeftSidebarPortrait(displayedCreatureId, animatePortrait);
+    }, [displayedCreatureId, animatePortrait]);
     const sidebarPortraitArt =
         displayedCreatureId === undefined ? {} : resolveLeftSidebarPortraitArt(displayedCreatureId);
     const portraitAnimationConfig =
-        displayedCreatureId === undefined
+        !animatePortrait || displayedCreatureId === undefined
             ? null
             : resolveIntegratedArbalesterPortrait(
                   displayedCreatureId,
@@ -2084,7 +2086,12 @@ const AbilityStatusOverlay: React.FC<{ isAura?: boolean; label: string; color: s
     </Box>
 );
 
-const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperties, overallImpact, factionType }) => {
+const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
+    unitProperties,
+    overallImpact,
+    factionType,
+    animatePortrait = true,
+}) => {
     const metrics = useSidebarMetrics();
     // The game renders dark-only; the light palette is gone, so this is a constant.
     const isDarkMode = true;
@@ -2359,6 +2366,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                             debuffs={debuffs}
                             hasBreakApplied={hasBreakApplied}
                             team={unitProperties.team}
+                            animatePortrait={animatePortrait}
                         />
                     </List>
                 </Box>
