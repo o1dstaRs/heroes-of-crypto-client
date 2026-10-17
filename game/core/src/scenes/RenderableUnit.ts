@@ -2697,8 +2697,7 @@ export class RenderableUnit extends Unit {
     private badgeEmphasisScale = 1;
     private badgeAmountOverride?: number;
     /** Casualties advance with the damage pops while the engine may already hold the whole exchange. */
-    private combatAmountOverride?: number;
-    private combatAmountModel?: number;
+    private combatAmountPresentation?: { initial: number; amount: number; model: number };
     // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
     // Attached lazily from one immutable roster-wide instance.
     private desaturateFilter?: ColorMatrixFilter;
@@ -2859,8 +2858,7 @@ export class RenderableUnit extends Unit {
         ru.restingBadgeOffsetY = undefined;
         ru.movementBadgeOffsetY = undefined;
         ru.badgeAmountOverride = undefined;
-        ru.combatAmountOverride = undefined;
-        ru.combatAmountModel = undefined;
+        ru.combatAmountPresentation = undefined;
         ru.badgeHeader = undefined;
         ru.badgeFlagGlow = undefined;
         ru.activeTurnPointer = undefined;
@@ -8256,24 +8254,47 @@ export class RenderableUnit extends Unit {
         this.badgeAmountOverride = undefined;
     }
     public getDisplayedAmount(): number {
-        if (this.combatAmountModel !== undefined && this.combatAmountModel !== this.getAmountAlive()) {
+        if (this.combatAmountPresentation && this.combatAmountPresentation.model !== this.getAmountAlive()) {
             this.clearDamagePresentation();
         }
-        return this.badgeAmountOverride ?? this.combatAmountOverride ?? this.getAmountAlive();
+        return this.badgeAmountOverride ?? this.combatAmountPresentation?.amount ?? this.getAmountAlive();
     }
     public beginDamagePresentation(amount = this.getAmountAlive()): void {
-        this.combatAmountOverride = Math.max(0, Math.floor(amount));
-        this.combatAmountModel = this.getAmountAlive();
+        const initial = Math.max(0, Math.floor(amount));
+        this.combatAmountPresentation = { initial, amount: initial, model: this.getAmountAlive() };
+    }
+    /** An exchange can follow an approach burn within the same action; keep losses already presented. */
+    public continueDamagePresentation(amount = this.getAmountAlive()): void {
+        this.getDisplayedAmount();
+        const presentation = this.combatAmountPresentation;
+        if (!presentation) {
+            this.beginDamagePresentation(amount);
+            return;
+        }
+        // A locally applied action can supply its pre-hit count only once its exchange is built.
+        // Rebase that starting count while retaining burns already shown during the approach.
+        const losses = presentation.initial - presentation.amount;
+        presentation.initial = Math.max(0, Math.floor(amount));
+        presentation.amount = Math.max(0, presentation.initial - losses);
+    }
+    /** Delayed numbers belong to this action, even if a snapshot or another action lands first. */
+    public captureDamageCasualties(unitsDied: number): () => void {
+        const presentation = this.combatAmountPresentation;
+        return () => {
+            if (presentation && presentation === this.combatAmountPresentation) this.presentDamageCasualties(unitsDied);
+        };
     }
     public presentDamageCasualties(unitsDied: number): void {
         this.getDisplayedAmount();
-        if (this.combatAmountOverride !== undefined && unitsDied > 0) {
-            this.combatAmountOverride = Math.max(0, this.combatAmountOverride - Math.floor(unitsDied));
+        if (this.combatAmountPresentation && unitsDied > 0) {
+            this.combatAmountPresentation.amount = Math.max(
+                0,
+                this.combatAmountPresentation.amount - Math.floor(unitsDied),
+            );
         }
     }
     public clearDamagePresentation(): void {
-        this.combatAmountOverride = undefined;
-        this.combatAmountModel = undefined;
+        this.combatAmountPresentation = undefined;
     }
     public setProjectedStackPower(power: number): void {
         this.projectedStackPower = Math.max(1, Math.min(HoCConstants.MAX_UNIT_STACK_POWER, Math.round(power)));

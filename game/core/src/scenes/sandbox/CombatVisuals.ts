@@ -224,6 +224,7 @@ interface IUnitAblaze {
 /** A damage number waiting for the moment it belongs to (a burn the walk animation has not reached yet). */
 interface IDelayedFloatingDamage {
     audioUnit?: Pick<Unit, "getName" | "getId">;
+    presentCasualties?: () => void;
     pos: HoCMath.XY;
     amount: number;
     unitsDied: number;
@@ -1175,8 +1176,10 @@ export class CombatVisuals {
         direction?: HoCMath.XY,
         unitsDied?: number,
         unit?: Unit,
+        presentCasualties?: () => void,
     ): void {
-        if (unit instanceof RenderableUnit) unit.presentDamageCasualties(unitsDied ?? 0);
+        if (presentCasualties) presentCasualties();
+        else if (unit instanceof RenderableUnit) unit.presentDamageCasualties(unitsDied ?? 0);
         const container = new Container();
         const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
         label.anchor.set(0.5);
@@ -3325,6 +3328,8 @@ export class CombatVisuals {
             stroke,
             audioUnit,
             zIndex,
+            presentCasualties:
+                audioUnit instanceof RenderableUnit ? audioUnit.captureDamageCasualties(unitsDied) : undefined,
         });
     }
     private stepDelayedFloatingDamage(dt: number): void {
@@ -3345,6 +3350,7 @@ export class CombatVisuals {
                 undefined,
                 pending.audioUnit,
                 pending.zIndex,
+                pending.presentCasualties,
             );
         }
     }
@@ -4771,8 +4777,10 @@ export class CombatVisuals {
         flagTopAnchor?: HoCMath.XY,
         audioUnit?: Pick<Unit, "getName" | "getId">,
         zIndex?: number,
+        presentCasualties?: () => void,
     ): void {
-        if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
+        if (presentCasualties) presentCasualties();
+        else if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);

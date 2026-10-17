@@ -2728,6 +2728,18 @@ export class RankedPlayScene extends Sandbox {
             ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: !this.sandboxCoop })
             : undefined;
         return super.playAuthoritativeActionRecord(action, events, replayStateAfter).then((played) => {
+            // Several queued records can play before React applies any snapshot. Settle this record's
+            // counts now, or the next animation starts from pre-hit model stats and restores casualties.
+            if (
+                played &&
+                replayStateAfter &&
+                authoritativeSequence !== undefined &&
+                authoritativeSequence >= this.lastAuthoritativeSequence &&
+                !this.isSceneDestroyed()
+            ) {
+                this.applyRankedUnitStats(replayStateAfter.units);
+                this.lastAuthoritativeSequence = authoritativeSequence;
+            }
             // The animation has finished but the turn-handoff snapshot is applied right after (await in
             // RankedGameView), with render frames in between. Suppress the finished unit's pulse aura
             // until that snapshot syncs the new active unit, so it doesn't flash back on for a frame.
