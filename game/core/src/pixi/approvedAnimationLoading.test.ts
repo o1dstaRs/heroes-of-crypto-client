@@ -6,7 +6,7 @@ import {
     CREATURE_SPRITE_ANIMATION_SETTINGS,
 } from "./creatureAnimationSettings";
 import { preloadIdleAtlasAssets, preloadAnimationAssets } from "./PixiTextureLoader";
-import assets from "../animations/levelOneAssets.json";
+import imageKeys from "../generated/image_keys.json";
 
 test("approved loading is limited to the visible creature, including its authored aliases", () => {
     const wolves = approvedAnimationAssetKeysForUnit("Wolf");
@@ -14,9 +14,13 @@ test("approved loading is limited to the visible creature, including its authore
     expect(wolves.some((key) => key.startsWith("wolf_rider_"))).toBe(false);
     expect(approvedAnimationAssetKeysForUnit("Scavenger")).toContain("thief_walk_atlas_quarter");
     expect(approvedAnimationAssetKeysForUnit("Wandering Mage")).toContain("ash_moth_cast_atlas_quarter");
-    expect(approvedAnimationAssetKeysForUnit("Black Dragon")).toEqual([]);
+    expect(approvedAnimationAssetKeysForUnit("Black Dragon")).toEqual(
+        ["idle", "walk", "hit", "death", "attack", "attack_up", "attack_down"].map(
+            (state) => `black_dragon_lab_${state}_atlas`,
+        ),
+    );
     expect(approvedAnimationAssetKeysForUnit("Arbalester").some((key) => key.includes("idle_page"))).toBe(false);
-    const manifest = new Set(assets.map((asset) => asset.key));
+    const manifest = new Set(imageKeys);
     for (const name of [
         "Peasant",
         "Squire",
@@ -57,7 +61,11 @@ test("combat sheets are prewarmed before walk and idle, and idle pager pages sta
     expect(walk).toBeLessThan(idle);
     expect(keys.filter((key) => key.includes("_idle_"))).toEqual(["elf_lab_idle_atlas"]);
     expect(keys.some((key) => /arbalester_idle_page_\d{2}_atlas/.test(key))).toBe(false);
-    expect(animationAtlasPrewarmKeys("Black Dragon")).toEqual([]);
+    expect(animationAtlasPrewarmKeys("Black Dragon")).toEqual(
+        ["hit", "death", "attack", "attack_up", "attack_down", "walk", "idle"].map(
+            (state) => `black_dragon_lab_${state}_atlas`,
+        ),
+    );
 });
 
 test("production startup leaves approved animations on demand instead of flooding the network", async () => {

@@ -333,8 +333,9 @@ function drawPlacementWash(
     const alpha = movementFillAlphaForPhase(phase) * opacityScale;
     const cellPolygons = geometry?.cellPolygons ?? cells.map((cell) => placementWashCellPolygon(cell, cells, gs));
     for (const polygon of cellPolygons) {
-        gfx.poly(polygon).fill({ color, alpha });
+        gfx.poly(polygon);
     }
+    if (cellPolygons.length) gfx.fill({ color, alpha });
     const topExtension = geometry?.topExtension ?? placementWashTopExtensionPolygon(cells, gs);
     if (topExtension.length) {
         gfx.poly(topExtension).fill({

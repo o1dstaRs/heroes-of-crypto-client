@@ -4,6 +4,7 @@ import { Container, Texture } from "pixi.js";
 
 import { PixiGameManager } from "./PixiGameManager";
 import { PixiScene } from "./PixiScene";
+import { RankedPlayScene } from "../scenes/RankedPlayScene";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { UnitChip } from "../scenes/UnitChip";
 import type { IUnitInspection } from "../scenes/VisibleState";
@@ -88,12 +89,12 @@ for (const [raw, expected] of [
     });
 }
 
-test("board inspection emits separately, refreshes live stats, and clears when the pointer leaves", () => {
+test("sandbox roster inspection emits separately, refreshes live stats, and clears when the pointer leaves", () => {
     const manager = new PixiGameManager();
     const unit = { name: "Peasant" } as UnitProperties;
     const impact = { abilities: [], buffs: [], debuffs: [] };
     const scene = {
-        sc_hoveredUnitProperties: unit,
+        getUnitsOverlay: () => ({ getHoveredUnitProperties: () => unit }),
         sc_unitPropertiesUpdateNeeded: false,
         getUnitVisibleImpact: mock(() => impact),
     };
@@ -119,4 +120,124 @@ test("board inspection emits separately, refreshes live stats, and clears when t
     internal.updateUnitInspection();
     expect(updates.at(-1)).toBeNull();
     expect(selection).not.toHaveBeenCalled();
+});
+
+test("fight hover preserves the selected sidebar and clears an existing sandbox roster preview", () => {
+    const manager = new PixiGameManager();
+    const selected = { name: "Wolf" } as UnitProperties;
+    const hovered = { name: "Peasant" } as UnitProperties;
+    let rosterHover = hovered;
+    const impact = { abilities: [], buffs: [], debuffs: [] };
+    const scene = {
+        sc_selectedUnitProperties: selected,
+        sc_hoveredUnitProperties: hovered,
+        getUnitsOverlay: () => ({ getHoveredUnitProperties: () => rosterHover }),
+        sc_unitPropertiesUpdateNeeded: false,
+        getUnitVisibleImpact: mock(() => impact),
+    };
+    const internal = manager as unknown as {
+        m_scene: unknown;
+        m_hoveringCanvas: boolean;
+        started: boolean;
+        updateUnitInspection(): void;
+    };
+    internal.m_scene = scene;
+    internal.m_hoveringCanvas = true;
+    const updates: (IUnitInspection | null)[] = [];
+    manager.onUnitInspectionUpdated.connect((value) => updates.push(value));
+    internal.updateUnitInspection();
+    expect(updates).toEqual([{ unit: hovered, impact }]);
+
+    internal.started = true;
+    internal.updateUnitInspection();
+    expect(updates.at(-1)).toBeNull();
+    scene.sc_hoveredUnitProperties = { name: "Elf" } as UnitProperties;
+    rosterHover = scene.sc_hoveredUnitProperties;
+    scene.sc_unitPropertiesUpdateNeeded = true;
+    internal.updateUnitInspection();
+    expect(updates).toHaveLength(2);
+    expect(scene.getUnitVisibleImpact).toHaveBeenCalledTimes(1);
+    expect(scene.sc_selectedUnitProperties).toBe(selected);
+
+    internal.started = false;
+    internal.updateUnitInspection();
+    expect(updates.at(-1)?.unit.name).toBe("Elf");
+});
+
+test.each([false, true])("board hover never replaces the selected sidebar, started=%s", (started) => {
+    const manager = new PixiGameManager();
+    const selected = { name: "Wolf" } as UnitProperties;
+    const scene = {
+        sc_selectedUnitProperties: selected,
+        sc_hoveredUnitProperties: { name: "Peasant" } as UnitProperties,
+        sc_unitPropertiesUpdateNeeded: true,
+        getUnitsOverlay: () => ({ getHoveredUnitProperties: () => undefined }),
+        getUnitVisibleImpact: mock(() => ({ abilities: [], buffs: [], debuffs: [] })),
+    };
+    const internal = manager as unknown as {
+        m_scene: unknown;
+        m_hoveringCanvas: boolean;
+        started: boolean;
+        updateUnitInspection(): void;
+    };
+    Object.assign(internal, { m_scene: scene, m_hoveringCanvas: true, started });
+    const inspect = mock(() => undefined);
+    manager.onUnitInspectionUpdated.connect(inspect);
+    internal.updateUnitInspection();
+    scene.sc_hoveredUnitProperties = { name: "Elf" } as UnitProperties;
+    internal.updateUnitInspection();
+    expect(inspect).not.toHaveBeenCalled();
+    expect(scene.getUnitVisibleImpact).not.toHaveBeenCalled();
+    expect(scene.sc_selectedUnitProperties).toBe(selected);
+});
+
+test("leaving the sandbox creature picker for a board unit clears its temporary preview", () => {
+    const manager = new PixiGameManager();
+    const selected = { name: "Wolf" } as UnitProperties;
+    let rosterHover: UnitProperties | undefined = { name: "Peasant" } as UnitProperties;
+    const scene = {
+        sc_selectedUnitProperties: selected,
+        sc_hoveredUnitProperties: { name: "Elf" } as UnitProperties,
+        getUnitsOverlay: () => ({ getHoveredUnitProperties: () => rosterHover }),
+        getUnitVisibleImpact: mock(() => ({ abilities: [], buffs: [], debuffs: [] })),
+    };
+    const internal = manager as unknown as {
+        m_scene: unknown;
+        m_hoveringCanvas: boolean;
+        updateUnitInspection(): void;
+    };
+    Object.assign(internal, { m_scene: scene, m_hoveringCanvas: true });
+    const updates: (IUnitInspection | null)[] = [];
+    manager.onUnitInspectionUpdated.connect((value) => updates.push(value));
+    internal.updateUnitInspection();
+    expect(updates.at(-1)?.unit).toBe(rosterHover);
+    rosterHover = undefined;
+    internal.updateUnitInspection();
+    expect(updates).toHaveLength(2);
+    expect(updates.at(-1)).toBeNull();
+    expect(scene.getUnitVisibleImpact).toHaveBeenCalledTimes(1);
+    expect(scene.sc_selectedUnitProperties).toBe(selected);
+});
+
+test("ranked placement cannot inspect its hidden creature picker or hovered board unit", () => {
+    const manager = new PixiGameManager();
+    const hovered = { name: "Peasant" } as UnitProperties;
+    const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+        sandboxCoop: false,
+        sc_hoveredUnitProperties: hovered,
+        unitsOverlay: { getHoveredUnitProperties: () => hovered },
+        getUnitVisibleImpact: mock(() => ({ abilities: [], buffs: [], debuffs: [] })),
+    });
+    expect(scene.getUnitsOverlay()).toBeUndefined();
+    const internal = manager as unknown as {
+        m_scene: unknown;
+        m_hoveringCanvas: boolean;
+        updateUnitInspection(): void;
+    };
+    Object.assign(internal, { m_scene: scene, m_hoveringCanvas: true });
+    const inspect = mock(() => undefined);
+    manager.onUnitInspectionUpdated.connect(inspect);
+    internal.updateUnitInspection();
+    expect(inspect).not.toHaveBeenCalled();
+    expect(scene.getUnitVisibleImpact).not.toHaveBeenCalled();
 });

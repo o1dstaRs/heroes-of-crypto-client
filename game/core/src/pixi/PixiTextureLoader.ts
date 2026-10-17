@@ -2,6 +2,7 @@ import { Assets, Texture, loadTextures } from "pixi.js";
 import { images as rawImages } from "../imageAssets";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import {
+    NARROWING_BACKGROUND_KEYS,
     isDeferredEnvironmentAssetKey,
     isDeferredLegacyCreatureAssetKey,
     isDeferredPlacementAssetKey,
@@ -157,10 +158,14 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
 
     for (const [k, v] of Object.entries(rawImages)) {
         const src = normalizeUrl(v, k);
-        // Only per-unit atlases are supplementary. Terrain and VFX atlases belong to core because the
-        // board uses them at first paint. Unit source-resolution sheets are authoring duplicates: the
-        // renderer exclusively asks for their quarter/half variants, so never decode those originals.
-        if (isRedundantFullResolutionUnitAtlasKey(k)) {
+        // Sidebar sheets also appear in the generated unit metadata. React owns their loading,
+        // including authoring variants, so route them before the battlefield animation tiers.
+        if (isDeferredReactUiAssetKey(k)) {
+            deferredReactUiAssets[k] = { src };
+        } else if (isRedundantFullResolutionUnitAtlasKey(k)) {
+            // Only per-unit atlases are supplementary. Terrain and VFX atlases belong to core because the
+            // board uses them at first paint. Unit source-resolution sheets are authoring duplicates: the
+            // renderer exclusively asks for their quarter/half variants, so never decode those originals.
             excludedFullResolutionUnitAtlases[k] = { src };
         } else if (isUnitAnimationAtlasKey(k) || isNamedUnitStateSheetKey(k)) {
             if (!shouldPreloadUnitAnimationAtlas(k, animationsEnabled)) {
@@ -170,8 +175,6 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
             } else {
                 animations[k] = { src };
             }
-        } else if (isDeferredReactUiAssetKey(k)) {
-            deferredReactUiAssets[k] = { src };
         } else if (isDeferredEnvironmentAssetKey(k)) {
             deferredEnvironmentAssets[k] = { src };
         } else if (isDeferredPlacementAssetKey(k)) {
@@ -272,12 +275,34 @@ export async function preloadCoreAssets(onProgress?: (p: number) => void): Promi
     return loadedTextures;
 }
 
+let narrowingBackgroundLoad: Promise<void> | undefined;
+
+/** Warm later floors one at a time after scene creation. texAny also resolves this shared URL cache. */
+export function preloadNarrowingBackgroundAssets(): Promise<void> {
+    if (narrowingBackgroundLoad) return narrowingBackgroundLoad;
+    narrowingBackgroundLoad = (async () => {
+        for (const key of NARROWING_BACKGROUND_KEYS) {
+            const src = rawImages[key];
+            if (!src) continue;
+            try {
+                await Assets.load<Texture>(normalizeUrl(src, key));
+            } catch (error) {
+                // Optional warmup must not block the scene or the remaining stages. texAny retries on use.
+                console.warn(`Could not preload narrowing background ${key}`, error);
+            }
+        }
+    })().finally(() => {
+        narrowingBackgroundLoad = undefined;
+    });
+    return narrowingBackgroundLoad;
+}
+
 /** Tier 2a: the idle/default board atlases only — small, and every visible creature needs one. */
 export async function preloadIdleAtlasAssets(
     onProgress?: (p: number) => void,
 ): Promise<Partial<PreloadedPixiTextures>> {
-    // Approved creatures request their own sheets after their base portrait is available.
-    // Loading the whole roster here starves placement textures on slower connections.
+    // PixiGameManager calls this only after LoadGame; never wait for future floors here.
+    void preloadNarrowingBackgroundAssets();
     if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled) {
         return loadedTextures;
     }

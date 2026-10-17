@@ -12,6 +12,7 @@ export interface PortraitImageStub {
     fetchPriority?: "high" | "low" | "auto";
     src: string;
     naturalWidth: number;
+    naturalHeight?: number;
     decode?: () => Promise<void>;
     onload: (() => void) | null;
     onerror: (() => void) | null;
@@ -20,6 +21,7 @@ export interface PortraitImageStub {
 /** One roster band, plus the unit on screen. A full cutout is about 7 MB decoded. */
 export const PORTRAIT_DECODE_CACHE_LIMIT = 18;
 export const PORTRAIT_DECODE_CONCURRENCY = 2;
+export const PORTRAIT_DECODE_CACHE_BYTES = 96 * 1024 * 1024;
 
 const retained = new Map<string, PortraitImageStub>();
 const pending = new Map<string, Promise<boolean>>();
@@ -71,11 +73,20 @@ export function isDecodedImageReady(src: string | undefined): boolean {
     return !src || retained.has(src);
 }
 
+/** Share the decoded bitmap with canvas playback instead of allocating and decoding another image. */
+export function getDecodedImage(src: string): PortraitImageStub | undefined {
+    return retained.get(src);
+}
+
+/** Optional animation pages yield to the selected still portrait's critical pair. */
+export const isPortraitForegroundDecodePending = (): boolean => foreground.size > 0;
+
 export function pinDecodedImages(srcs: Array<string | undefined>): void {
     pinned.clear();
     for (const src of srcs) {
         if (src) pinned.add(src);
     }
+    trim();
 }
 
 const creatureCount = (): number => {
@@ -96,8 +107,20 @@ const evictOldestCreature = (): boolean => {
 };
 
 const trim = (): void => {
-    while (creatureCount() > PORTRAIT_DECODE_CACHE_LIMIT && evictOldestCreature()) {
-        // Drop the oldest unpinned cutout until the band fits.
+    const unpinnedBytes = () => {
+        let bytes = 0;
+        for (const [src, image] of retained) {
+            if (!locked.has(src) && !pinned.has(src) && !held.has(src)) {
+                bytes += image.naturalWidth * (image.naturalHeight ?? image.naturalWidth) * 4;
+            }
+        }
+        return bytes;
+    };
+    while (
+        (creatureCount() > PORTRAIT_DECODE_CACHE_LIMIT || unpinnedBytes() > PORTRAIT_DECODE_CACHE_BYTES) &&
+        evictOldestCreature()
+    ) {
+        // Count alone lets one 100-frame sidebar sheet retain more than 180 MB after inspection ends.
     }
 };
 

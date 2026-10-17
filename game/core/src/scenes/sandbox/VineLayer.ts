@@ -1,4 +1,4 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Mesh, RopeGeometry, Texture } from "pixi.js";
 
 import type { HoCMath } from "@heroesofcrypto/common";
 
@@ -40,10 +40,10 @@ export interface IVineCell {
 export type ToWorld = (cell: HoCMath.XY) => (HoCMath.XY & { cellSize?: number; cellPoints?: number[] }) | undefined;
 
 /** Seconds a vine takes to creep in when thrown / wither out once the engine drops it. */
-const CREEP_SECONDS = 0.42;
-const WITHER_SECONDS = 0.5;
+const CREEP_SECONDS = 0.16;
+const WITHER_SECONDS = 0.5 / (3 * 1.3);
 /** Per-cell head start along the throw, so the vine creeps outward instead of swelling all at once. */
-const CREEP_STAGGER_SECONDS = 0.05;
+const CREEP_STAGGER_SECONDS = 0.025;
 
 /** Spline samples per cell-to-cell segment. Enough to read as a curve, cheap at these lengths. */
 const SAMPLES_PER_SEGMENT = 7;
@@ -134,7 +134,22 @@ export class VineLayer {
     private readonly sampleScratch: ISamplePoint[] = [];
     private readonly grownScratch: ISamplePoint[] = [];
     private readonly wovenScratch: [ISamplePoint[], ISamplePoint[], ISamplePoint[], ISamplePoint[]] = [[], [], [], []];
-    public constructor() {
+    private readonly ribbons = new Map<
+        number,
+        {
+            mesh: Mesh<RopeGeometry>;
+            revealMask: Graphics;
+            reveal: number;
+            samples: ISamplePoint[];
+            points: { x: number; y: number }[];
+            width: number;
+        }
+    >();
+    private readonly pendingGrowth = new Map<number, number>();
+    private readonly castOrigins = new Map<number, HoCMath.XY>();
+    private readonly projectedOrigins = new Map<number, HoCMath.XY>();
+    private readonly previews = new Map<number, { cell: IVineCell; expires: number }>();
+    public constructor(private readonly textureLookup?: (key: string) => Texture | undefined) {
         this.container.addChild(this.graphics);
     }
     public getContainer(): Container {
@@ -149,7 +164,32 @@ export class VineLayer {
      * `cells` is the engine's truth for THIS frame, in throw order. Anything it stops listing withers
      * rather than vanishing on the spot.
      */
+    /** Presentation only: never writes terrain into the authoritative fight store. */
+    public previewCast(cells: readonly HoCMath.XY[], impactDelayMs = 470, origin?: HoCMath.XY): void {
+        if (cells.length && origin) this.castOrigins.set(VineLayer.key(cells[0]), { ...origin });
+        const now = performance.now();
+        for (const cell of cells) {
+            const key = VineLayer.key(cell);
+            this.previews.set(key, { cell: { ...cell, l: 2 }, expires: now + impactDelayMs + 6500 });
+            this.pendingGrowth.set(key, now + impactDelayMs);
+            const existing = this.vines.get(key);
+            if (existing) {
+                existing.firstSeen = this.time;
+                existing.presence = 0;
+            }
+        }
+    }
+    public delayGrowth(cells: readonly HoCMath.XY[], impactDelayMs: number, origin?: HoCMath.XY): void {
+        if (cells.length && origin) this.castOrigins.set(VineLayer.key(cells[0]), { ...origin });
+        for (const cell of cells) this.pendingGrowth.set(VineLayer.key(cell), performance.now() + impactDelayMs);
+    }
     public update(dt: number, cells: readonly IVineCell[], cellSize: number, toWorld: ToWorld): void {
+        const now = performance.now();
+        const authoritative = new Set(cells.map(VineLayer.key));
+        for (const [key, preview] of this.previews) {
+            if (now >= preview.expires || authoritative.has(key)) this.previews.delete(key);
+        }
+        if (this.previews.size) cells = [...cells, ...Array.from(this.previews.values(), (entry) => entry.cell)];
         // Vines are uncommon. Leave the idle layer completely dormant until one exists or is withering.
         if (!cells.length && !this.vines.size) return;
         this.time += dt;
@@ -212,6 +252,12 @@ export class VineLayer {
 
         for (const [key, vine] of this.vines) {
             if (vine.alive) {
+                if ((this.pendingGrowth.get(key) ?? 0) > now) {
+                    vine.firstSeen = this.time;
+                    vine.presence = 0;
+                    continue;
+                }
+                this.pendingGrowth.delete(key);
                 const elapsed = this.time - vine.firstSeen - vine.delay;
                 vine.presence = Math.max(0, Math.min(1, elapsed / CREEP_SECONDS));
             } else {
@@ -228,6 +274,15 @@ export class VineLayer {
             this.topologyDirty = false;
         }
 
+        for (const [key, origin] of this.castOrigins) {
+            if (!this.vines.has(key)) {
+                this.castOrigins.delete(key);
+                this.projectedOrigins.delete(key);
+                continue;
+            }
+            const world = toWorld(origin);
+            if (world) this.projectedOrigins.set(key, world);
+        }
         this.draw(cellSize);
     }
     /**
@@ -406,7 +461,7 @@ export class VineLayer {
                 // Perpendicular wobble, so the vine meanders through the cells instead of running dead
                 // centre. Seeded per anchor pair, so it is fixed for the life of the vine.
                 const wobbleSeed = hash(from.seed + s, to.seed + k);
-                const wobble = Math.sin(u * Math.PI) * (wobbleSeed - 0.5) * cellSize * 0.3;
+                const wobble = Math.sin(u * Math.PI) * (wobbleSeed - 0.5) * cellSize * 0.06;
                 // Gentle sway on the shared breeze, strongest mid-segment and toward the tip.
                 const tGlobal = (s + u) / segments;
                 const sway =
@@ -428,8 +483,128 @@ export class VineLayer {
         samples.length = sampleCount;
         return samples;
     }
+    private drawAuthoredVines(): boolean {
+        const texture = this.textureLookup?.("trent_vine_continuous");
+        if (!texture) return false;
+        texture.source.style.addressModeU = "repeat";
+        const live = new Set<number>();
+        for (const chain of this.chains) {
+            const key = VineLayer.key(chain[0].cell);
+            live.add(key);
+            const cellSize = chain.reduce((sum, cell) => sum + cell.cellSize, 0) / chain.length;
+            const width = cellSize * 0.62;
+            const count = Math.max(1, (chain.length - 1) * SAMPLES_PER_SEGMENT + 1) + 2;
+            let ribbon = this.ribbons.get(key);
+            if (!ribbon || ribbon.points.length !== count || Math.abs(ribbon.width - width) > 0.01) {
+                if (ribbon) {
+                    ribbon.mesh.geometry.destroy();
+                    ribbon.mesh.destroy();
+                    ribbon.revealMask.destroy();
+                }
+                const points = Array.from({ length: count }, () => ({ x: 0, y: 0 }));
+                const mesh = new Mesh({ texture, geometry: new RopeGeometry({ points, width, textureScale: 0 }) });
+                // The world uses y-up, whereas the source image uses y-down.
+                const uv = mesh.geometry.getBuffer("aUV");
+                for (let i = 1; i < uv.data.length; i += 2) uv.data[i] = 1 - uv.data[i];
+                uv.update();
+                const revealMask = new Graphics();
+                this.container.addChild(mesh, revealMask);
+                mesh.mask = revealMask;
+                ribbon = { mesh, revealMask, reveal: 0, points, samples: [], width };
+                this.ribbons.set(key, ribbon);
+            }
+            const samples = this.sampleChain(chain, cellSize, ribbon.samples);
+            const points = ribbon.points;
+            for (let i = 0; i < samples.length; i++) {
+                points[i + 1].x = samples[i].x;
+                points[i + 1].y = samples[i].y;
+            }
+            // Terrain excludes the caster's cell; the visible plant still starts at its centre.
+            const first = samples[0],
+                last = samples[samples.length - 1];
+            const next = samples[1] ?? { x: first.x + 1, y: first.y };
+            const previous = samples[samples.length - 2] ?? { x: last.x - 1, y: last.y };
+            const startLength = Math.hypot(next.x - first.x, next.y - first.y) || 1;
+            const endLength = Math.hypot(last.x - previous.x, last.y - previous.y) || 1;
+            points[0].x = first.x - ((next.x - first.x) / startLength) * cellSize * 0.5;
+            points[0].y = first.y - ((next.y - first.y) / startLength) * cellSize * 0.5;
+            const origin = this.projectedOrigins.get(key);
+            if (origin) {
+                const dx = first.x - origin.x,
+                    dy = first.y - origin.y;
+                const distance = Math.hypot(dx, dy) || 1;
+                // Put the visible root mass inside the caster tile, not just its transparent/tapered tip.
+                points[0].x = origin.x - (dx / distance) * cellSize * 0.18;
+                points[0].y = origin.y - (dy / distance) * cellSize * 0.18;
+            }
+            points[count - 1].x = last.x + ((last.x - previous.x) / endLength) * cellSize * 0.5;
+            points[count - 1].y = last.y + ((last.y - previous.y) / endLength) * cellSize * 0.5;
+            ribbon.mesh.geometry.updateVertices();
+            const position = ribbon.mesh.geometry.getBuffer("aPosition");
+            // Reveal along the centreline, keeping the full-size artwork and fixed UVs intact.
+            // Expiration retracts the same front from the target back toward the caster.
+            const alive = chain.some((cell) => cell.alive);
+            const elapsed = this.time - chain[0].firstSeen;
+            const duration = (0.22 + chain.length * 0.065) / (1.4 * 1.5);
+            const reveal = alive
+                ? Math.max(0, Math.min(1, elapsed / duration))
+                : Math.min(ribbon.reveal, Math.max(...chain.map((cell) => cell.presence)));
+            ribbon.reveal = reveal;
+            const distances = [0];
+            for (let i = 1; i < count; i++)
+                distances.push(
+                    distances[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y),
+                );
+            const limit = distances[count - 1] * reveal;
+            // Keep the artwork's physical aspect ratio. Longer paths reveal more authored vine,
+            // rather than stretching the same handful of roots to fit the entire lane.
+            const uv = ribbon.mesh.geometry.getBuffer("aUV");
+            const naturalLength = width * (texture.width / texture.height);
+            for (let i = 0; i < count; i++) {
+                uv.data[i * 4] = distances[i] / naturalLength;
+                uv.data[i * 4 + 2] = distances[i] / naturalLength;
+            }
+            uv.update();
+            const left: number[] = [],
+                right: number[] = [];
+            for (let i = 0; i < count; i++) {
+                const previousIndex = Math.max(0, i - 1);
+                const fraction =
+                    distances[i] > limit
+                        ? (limit - distances[previousIndex]) / (distances[i] - distances[previousIndex] || 1)
+                        : 1;
+                for (let edge = 0; edge < 2; edge++) {
+                    const j = i * 4 + edge * 2,
+                        p = previousIndex * 4 + edge * 2;
+                    const x = position.data[p] + (position.data[j] - position.data[p]) * fraction;
+                    const y = position.data[p + 1] + (position.data[j + 1] - position.data[p + 1]) * fraction;
+                    if (edge === 0) left.push(x, y);
+                    else right.unshift(x, y);
+                }
+                if (distances[i] >= limit) break;
+            }
+            ribbon.revealMask.clear();
+            if (reveal > 0) ribbon.revealMask.poly([...left, ...right]).fill(0xffffff);
+            ribbon.mesh.visible = reveal > 0;
+            // Match Trent's charred bark; retain the authored ember cracks without a bright orange body.
+            ribbon.mesh.tint = chain.every((cell) => cell.lapsRemaining <= 1) ? 0x81715b : 0xb0aaa1;
+        }
+        for (const [key, ribbon] of this.ribbons)
+            if (!live.has(key)) {
+                ribbon.mesh.geometry.destroy();
+                ribbon.mesh.destroy();
+                ribbon.revealMask.destroy();
+                this.ribbons.delete(key);
+            }
+        return true;
+    }
     private draw(cellSize: number): void {
         const g = this.graphics;
+        if (this.drawAuthoredVines()) {
+            g.clear();
+            this.hasGeometry = false;
+            return;
+        }
         if (!this.vines.size) {
             if (this.hasGeometry) {
                 g.clear();
@@ -690,6 +865,12 @@ export class VineLayer {
     }
     public destroy(): void {
         this.vines.clear();
+        this.previews.clear();
+        this.pendingGrowth.clear();
+        this.castOrigins.clear();
+        this.projectedOrigins.clear();
+        for (const ribbon of this.ribbons.values()) ribbon.mesh.geometry.destroy();
+        this.ribbons.clear();
         this.container.destroy({ children: true });
     }
 }

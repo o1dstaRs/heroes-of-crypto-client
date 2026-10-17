@@ -1,26 +1,23 @@
+import { CREATURE_WALK_CYCLE_DISTANCE_CELLS } from "./RenderableUnit";
+import { ArachnaQueenIdleFilter } from "./ArachnaQueenLabIdle";
+import { GOBLIN_MOVING_BLADES } from "./GoblinKnightBladePoses";
 import { trollAttackBodyScale } from "./TrollLabAttackVisuals";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as leprechaunVisuals from "./LeprechaunLabWalkVisuals";
 import * as mageIdleFire from "./WanderingMageIdleFire";
 import { BattleMageIdleFilter } from "./BattleMageLabIdleVisuals";
 import { ElfIdleCapeFilter } from "./ElfIdleCape";
+import { GoblinKnightIdleFilter } from "./GoblinKnightIdleVisuals";
 import { BattleMageReactionFilter } from "./BattleMageLabReactions";
 import { PikemanIdleFilter } from "./PikemanLabIdleVisuals";
 import { PIKEMAN_IDLE_PERIOD_MS, PIKEMAN_IDLE_START_HOLD_MS, PIKEMAN_IDLE_MOTION_MS } from "./PikemanLabIdleMotion";
+import { readBattlefieldShadowVisualBounds, setBattlefieldShadowEditorActive } from "../ui/battlefieldShadowTuning";
 
-import {
-    Bounds,
-    BufferImageSource,
-    ColorMatrixFilter,
-    Container,
-    Graphics,
-    Rectangle,
-    Sprite,
-    Text,
-    Texture,
-} from "pixi.js";
+import { BufferImageSource, ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { blacksmithWalkColorFilter } from "./BlacksmithWalkColorFilter";
 import { healerLabWalkPalette } from "./HealerLabWalkPalette";
+import { dryadIdlePalette } from "./DryadIdlePalette";
+import { DRYAD_RANGED_SOLES } from "./DryadRangedRegistration";
 import { scavengerHitRegisteredSoles, SCAVENGER_IDLE_SOLES } from "./ScavengerHitRegistration";
 
 import {
@@ -76,11 +73,11 @@ import {
     COMMON_IDLE_BREATH_SETTINGS,
     dropDuplicateAppliedEntries,
     CREATURE_ATTACK_FOREGROUND_Z_INDEX,
-    CREATURE_WALK_CYCLE_DISTANCE_CELLS,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     creatureGenericCombatMotionEnabledForUnit,
     creatureGenericWholeSpriteMotionEnabledForLevel,
     creatureIdleAnimationEnabledForUnit,
+    HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER,
     creatureOneShotAnimationEnabledForUnit,
     creatureWalkAnimationEnabledForUnit,
     flagOffsetXForFacing,
@@ -98,15 +95,8 @@ import {
     SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER,
     SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
     textureSwapHeightScaleRatio,
-    SCAVENGER_ACTIVE_BATTLE_CRY_BREATH_CYCLES,
-    SCAVENGER_ACTIVE_BATTLE_CRY_DURATION_MS,
-    SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS,
-    SCAVENGER_ACTIVE_BATTLE_CRY_POINT_HOLD_MS,
-    SCAVENGER_FLOURISH_FRAME_DURATION_MS,
-    SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL,
     SCAVENGER_BOARD_MODEL_HEIGHT_CELLS,
     SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
-    SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO,
     SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO,
     orcActiveBattleCryBreathElapsed,
     orcActiveBattleCryFrameForElapsed,
@@ -131,9 +121,6 @@ import {
     revealedOpponentFootprintPoints,
     refreshedBoardVisualProfileForUnit,
     refreshedIdlePhaseRatio,
-    scavengerActiveBattleCryBreathElapsed,
-    scavengerActiveBattleCryFrameForElapsed,
-    scavengerIdleBladeTwirlFrameForElapsed,
     TALL_BOARD_MODEL_FOOT_INSET_RATIO,
     WOLF_BOARD_MODEL_HEIGHT_CELLS,
     wolfWalkFrameScaleMultiplier,
@@ -151,12 +138,7 @@ import {
 } from "./BattlefieldCreatureContourFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import { BATTLEFIELD_CREATURE_FRAMING } from "../ui/battlefieldCreatureFraming";
-import {
-    BATTLEFIELD_SHADOW_TUNING_BY_CREATURE,
-    readBattlefieldShadowVisualBounds,
-    setBattlefieldShadowEditorActive,
-} from "../ui/battlefieldShadowTuning";
-import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
+import { BATTLEFIELD_SHADOW_TUNING_BY_CREATURE } from "../ui/battlefieldShadowTuning";
 import { DEFAULT_STUN_BADGE_TUNING, stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { BATTLEFIELD_HEIGHT_RATIO } from "../pixi/boardFit";
 import { animationAtlases } from "../generated/animation_atlases";
@@ -281,18 +263,15 @@ describe("preview placement facing", () => {
     });
 });
 
-describe("generic whole-sprite motion gate", () => {
-    test("levels 1 and 2 never take the overlay; higher tiers do, unless the creature has its own package", () => {
+describe("all-level generic whole-sprite motion gate", () => {
+    test("disables shared movement/combat overlays for every creature level", () => {
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(true);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(true);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(false);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Squire", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(false);
-        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
-        expect(creatureGenericCombatMotionEnabledForUnit("Troll", 4)).toBe(false);
-        expect(creatureGenericCombatMotionEnabledForUnit("Efreet", 4)).toBe(true);
     });
 });
 
@@ -364,6 +343,49 @@ describe("battlefield movement preview", () => {
         expect(second?.stableOrder).toBe(3);
         expect(second?.bounds.left).not.toBe(firstLeft);
         expect(getBoundsCalls).toBe(1);
+    });
+
+    assetTest("normal battle skips editor bounds and reuses shadow calculations without freezing them", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        unit.setPosition(384, 640);
+        unit.setBattlefieldVisualProjection(true);
+        const root = new Container();
+        setBattlefieldShadowEditorActive(false);
+        unit.ensureVisual(root, gridSettings, 1000);
+        const state = unit as unknown as {
+            silhouetteShadow: Sprite;
+            silhouetteShadowSegments: Sprite[];
+            battlefieldShadowProjection: { lengthScale: number };
+            shadowSegmentLengthMultipliers: number[];
+        };
+        const projection = state.battlefieldShadowProjection;
+        const segments = state.shadowSegmentLengthMultipliers;
+        const length = projection.lengthScale;
+        const measurements = [state.silhouetteShadow, ...state.silhouetteShadowSegments].map((shadow) =>
+            spyOn(shadow, "getBounds"),
+        );
+        try {
+            unit.setPosition(384, 1024);
+            unit.ensureVisual(root, gridSettings, 1000);
+            expect(state.battlefieldShadowProjection).toBe(projection);
+            expect(state.shadowSegmentLengthMultipliers).toBe(segments);
+            expect(projection.lengthScale).not.toBe(length);
+            for (const measurement of measurements) expect(measurement).not.toHaveBeenCalled();
+            expect(readBattlefieldShadowVisualBounds("Wolf")).toBeUndefined();
+            setBattlefieldShadowEditorActive(true);
+            unit.ensureVisual(root, gridSettings, 1000);
+            expect(measurements.some((measurement) => measurement.mock.calls.length > 0)).toBe(true);
+            const original = readBattlefieldShadowVisualBounds("Wolf")!;
+            root.scale.x = -1;
+            root.position.x = 200;
+            unit.ensureVisual(root, gridSettings, 1000);
+            expect(readBattlefieldShadowVisualBounds("Wolf")!.bounds.x).not.toBe(original.bounds.x);
+        } finally {
+            setBattlefieldShadowEditorActive(false);
+            for (const measurement of measurements) measurement.mockRestore();
+            unit.destroyVisuals();
+            root.destroy({ children: true });
+        }
     });
 
     assetTest("keeps stationary creature bounds across simulation ticks", () => {
@@ -873,20 +895,20 @@ test("adds the requested non-Wandering-Mage attack, hit, and death speed boosts"
     expect(oneShotAnimationDurationMultiplier("Peasant", "attack_down")).toBeCloseTo(
         recoveredPeasantAttackDuration / (1.2 * 1.15 * 1.1),
     );
-    expect(oneShotAnimationDurationMultiplier("Orc", "attack")).toBeCloseTo(1 / (1.4 * 1.22));
-    expect(oneShotAnimationDurationMultiplier("Orc", "attack_up")).toBeCloseTo(1 / (1.4 * 1.22));
-    expect(oneShotAnimationDurationMultiplier("Orc", "melee_attack_down")).toBeCloseTo(1 / (1.4 * 1.22));
-    expect(oneShotAnimationDurationMultiplier("Orc", "death")).toBeCloseTo(1 / (2 * 1.2));
+    expect(oneShotAnimationDurationMultiplier("Orc", "attack")).toBe(1);
+    expect(oneShotAnimationDurationMultiplier("Orc", "attack_up")).toBe(1);
+    expect(oneShotAnimationDurationMultiplier("Orc", "melee_attack_down")).toBe(1);
+    expect(oneShotAnimationDurationMultiplier("Orc", "death")).toBe(1);
     expect(oneShotAnimationDurationMultiplier("Peasant", "death")).toBeCloseTo(
         1 / (2 * 1.2 * 1.35 * 1.1 * 1.16 * 1.15),
     );
-    expect(oneShotAnimationDurationMultiplier("Orc", "hit")).toBeCloseTo(1 / 1.22);
+    expect(oneShotAnimationDurationMultiplier("Orc", "hit")).toBe(1);
     expect(oneShotAnimationDurationMultiplier("Scavenger", "death")).toBeCloseTo(1 / (2 * 1.2 * 1.12));
 
     // Wandering Mage keeps its existing 2x action cadence, with death accelerated by another 15%.
     expect(oneShotAnimationDurationMultiplier("Wandering Mage", "cast")).toBe(1);
     expect(oneShotAnimationDurationMultiplier("Wandering Mage", "attack")).toBe(0.5);
-    expect(oneShotAnimationDurationMultiplier("Wandering Mage", "death")).toBeCloseTo(0.5 / 1.15);
+    expect(oneShotAnimationDurationMultiplier("Wandering Mage", "death")).toBe(1);
 });
 
 test("keeps Wandering Mage cast and attack poses at its idle visual height", () => {
@@ -971,126 +993,6 @@ describe("battlefield row perspective scale", () => {
 });
 
 describe("furnace-cast battlefield shadow", () => {
-    test.each([
-        ["main left", RenderableUnit, TeamVals.LEFT],
-        ["main right", RenderableUnit, TeamVals.RIGHT],
-        ["level one left", LevelOneRenderableUnit, TeamVals.LEFT],
-        ["level one right", LevelOneRenderableUnit, TeamVals.RIGHT],
-    ] as const)(
-        "%s only measures editor bounds while open, with fresh bounds after reopening",
-        (_name, Renderer, team) => {
-            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-            CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
-            setBattlefieldShadowEditorActive(false);
-            const effects = new EffectFactory();
-            const base = Unit.createUnit(
-                HoCConfig.getCreatureConfig(team, "Life", "Squire", "squire_512", 1),
-                gridSettings,
-                team,
-                UnitVals.CREATURE,
-                new AbilityFactory(effects),
-                effects,
-                false,
-            );
-            const unit = Renderer.fromBase(base, () => testAtlasTexture);
-            const world = new Container();
-            world.position.set(30, -15);
-            world.scale.set(1.2, -0.9);
-            world.rotation = 0.13;
-            unit.setPosition(384, 640);
-            unit.setBattlefieldVisualProjection(true);
-            unit.syncVisual(world, gridSettings);
-            expect(Object.getPrototypeOf(unit)).toBe(Renderer.prototype);
-
-            const visuals = unit as unknown as {
-                silhouetteShadow: Sprite;
-                silhouetteShadowSegments: Sprite[];
-                silhouetteShadowSegmented: boolean;
-            };
-            const shadows = visuals.silhouetteShadowSegmented
-                ? visuals.silhouetteShadowSegments
-                : [visuals.silhouetteShadow];
-            const measurements = shadows.map((shadow) => shadow.getBounds.bind(shadow));
-            const spies = shadows.map((shadow) => spyOn(shadow, "getBounds"));
-            const expectFreshPublishedBounds = () => {
-                const expected = new Bounds();
-                for (const measure of measurements) expected.addBounds(measure());
-                const published = readBattlefieldShadowVisualBounds("Squire");
-                expect(published?.bounds).toEqual({
-                    x: expected.x,
-                    y: expected.y,
-                    width: expected.width,
-                    height: expected.height,
-                });
-                expect(published?.cellWidth).toBeCloseTo(gridSettings.getCellSize() * Math.abs(world.scale.x));
-                expect(published?.cellHeight).toBeCloseTo(gridSettings.getCellSize() * Math.abs(world.scale.y));
-            };
-
-            try {
-                for (let frame = 0; frame < 120; frame += 1) unit.syncVisual(world, gridSettings);
-                for (const spy of spies) expect(spy).not.toHaveBeenCalled();
-                expect(readBattlefieldShadowVisualBounds("Squire")).toBeUndefined();
-
-                const restingShadowX = visuals.silhouetteShadow.x;
-                unit.setPosition(896, 1024);
-                unit.setBoardFacing(-1);
-                unit.syncVisual(world, gridSettings);
-                expect(visuals.silhouetteShadow.x).not.toBe(restingShadowX);
-                for (const spy of spies) expect(spy).not.toHaveBeenCalled();
-
-                const drawState = () =>
-                    world.children.map((child) => ({
-                        object: child,
-                        x: child.x,
-                        y: child.y,
-                        scaleX: child.scale.x,
-                        scaleY: child.scale.y,
-                        rotation: child.rotation,
-                        alpha: child.alpha,
-                        visible: child.visible,
-                        depth: child.zIndex,
-                        texture: child instanceof Sprite ? child.texture : undefined,
-                    }));
-                // Hold authored animation time fixed while comparing the original measurement path with
-                // the closed-editor path: measuring must not affect any rendered object's draw state.
-                unit.ensureVisual(world, gridSettings, 1_000);
-                const closedDrawState = drawState();
-                setBattlefieldShadowEditorActive(true);
-                unit.ensureVisual(world, gridSettings, 1_000);
-                expect(drawState()).toEqual(closedDrawState);
-                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
-                expectFreshPublishedBounds();
-                const firstBounds = readBattlefieldShadowVisualBounds("Squire")?.bounds;
-
-                world.scale.x = -1.2;
-                unit.setBoardFacing(1);
-                unit.setPosition(640, 768);
-                unit.syncVisual(world, gridSettings);
-                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
-                expectFreshPublishedBounds();
-                expect(readBattlefieldShadowVisualBounds("Squire")?.bounds).not.toEqual(firstBounds);
-
-                setBattlefieldShadowEditorActive(false);
-                expect(readBattlefieldShadowVisualBounds("Squire")).toBeUndefined();
-                unit.setPosition(256, 1280);
-                unit.setBoardFacing(-1);
-                world.scale.x = 0.8;
-                unit.syncVisual(world, gridSettings);
-                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
-
-                setBattlefieldShadowEditorActive(true);
-                unit.syncVisual(world, gridSettings);
-                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(3);
-                expectFreshPublishedBounds();
-            } finally {
-                for (const spy of spies) spy.mockRestore();
-                setBattlefieldShadowEditorActive(false);
-                unit.destroyVisuals();
-                world.destroy({ children: true });
-            }
-        },
-    );
-
     test("uses the first authored idle frame regardless of texture load timing", () => {
         const staticCutout = { id: "static-cutout" };
         const firstIdle = { id: "idle-0" };
@@ -1602,7 +1504,9 @@ assetTest("plays Wolf Rider hit and death with authored timing and a stable canv
             expect(unit.playOneShotAnimation(action, () => completed++, preview)).toBe(true);
             expect(keys).toContain(`wolf_rider_${action}_atlas_quarter`);
             const durations =
-                action === "hit" ? [12.5, 17.5, 22.5, 27.5, 20, 17.5, 15, 17.5] : [17.5, 25, 30, 37.5, 30, 25, 35, 65];
+                action === "hit"
+                    ? [12.5, 17.5, 22.5, 27.5, 20, 17.5, 15, 17.5].map((ms) => ms / 1.17)
+                    : [17.5, 25, 30, 37.5, 30, 25, 35, 65];
             expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
             expect(state.sprite.height).toBeCloseTo(height);
             expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
@@ -1657,7 +1561,9 @@ assetTest("plays Troglodyte hit and death at authored timing and resumes the clo
                 // Both reactions run another 15% faster while retaining their earlier speed adjustments.
                 const durations = (
                     action === "hit" ? [15, 20, 25, 40, 30, 35, 25] : [20, 30, 40, 45, 45, 40, 50, 100]
-                ).map((duration) => duration / 1.3 / (action === "hit" ? 1.4 : 1) / 1.15);
+                ).map(
+                    (duration) => duration / 1.3 / (action === "hit" ? 1.4 : 1) / 1.15 / (action === "hit" ? 1.17 : 1),
+                );
                 expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
                 expect(state.oneShotAnim?.frames).toHaveLength(durations.length);
                 for (let frame = 0; frame < durations.length; frame++) {
@@ -1852,15 +1758,12 @@ assetTest("plays Wolf howl idle with the static figure canvas and foot anchor wh
     const durations = internals.selectionAnimFrameDurationsMs;
     const cycleMs = durations.reduce((sum, duration) => sum + duration, 0);
     expect(cycleMs).toBeCloseTo(6330 / 1.3);
-    // A large performance.now() start makes (start + boundary) - start fall a fraction short of
-    // the boundary, and the frame stepper stays on the previous pose until the boundary is crossed.
-    internals.selectionAnimationStartedAtMs = 0;
-    unit.stepSelectionAnimation(0);
+    const startedAt = internals.selectionAnimationStartedAtMs;
+    unit.stepSelectionAnimation(startedAt);
     expect(internals.selectionAnimFrameIndex).toBe(0);
-    const sixthFrameAt = durations.slice(0, 6).reduce((sum, duration) => sum + duration, 0);
-    unit.stepSelectionAnimation(sixthFrameAt + 1);
+    unit.stepSelectionAnimation(startedAt + durations.slice(0, 6).reduce((sum, duration) => sum + duration, 0) + 0.001);
     expect(internals.selectionAnimFrameIndex).toBe(6);
-    unit.stepSelectionAnimation(cycleMs - 1);
+    unit.stepSelectionAnimation(startedAt + cycleMs - 1);
     expect(internals.selectionAnimFrameIndex).toBe(30);
 });
 
@@ -1953,7 +1856,7 @@ assetTest("matches Wolf reaction anatomy to idle while keeping the feet and shad
     expect(creatureOneShotAnimationEnabledForUnit("Wolf", "cast")).toBe(false);
     for (const action of ["hit", "death"] as const) {
         const meta = animationAtlases.Wolf[action];
-        const durations = meta.frameDurationsMs!.map((duration) => duration / (action === "death" ? 1.12 : 1));
+        const durations = meta.frameDurationsMs!.map((duration) => duration / (action === "death" ? 1.12 : 1.17));
         expect(durations).toHaveLength(meta.frameCount);
         expect(meta.frameWidth / 2).toBe(768);
         expect(meta.frameHeight / 2).toBe(768);
@@ -2063,8 +1966,8 @@ assetTest("uses the Wolf reaction's real duration through the legacy simulation 
             (sum, duration) => sum + duration,
             0,
         );
-        const totalMs = sourceDuration / (action === "death" ? 1.12 : 1);
-        expect(totalMs).toBeCloseTo(action === "death" ? 848.2142857142857 : 420, 8);
+        const totalMs = sourceDuration / (action === "death" ? 1.12 : 1.17);
+        expect(totalMs).toBeCloseTo(action === "death" ? 848.2142857142857 : 420 / 1.17, 8);
         let completed = 0;
         unit.playOneShotAnimation(action, () => completed++);
         const realFrameMs = 1000 / 60;
@@ -2080,7 +1983,7 @@ assetTest("uses the Wolf reaction's real duration through the legacy simulation 
 
 assetTest("restores Wolf reaction registration on interruption and on a jump to the held corpse", () => {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    const hitDurations = animationAtlases.Wolf.hit.frameDurationsMs!;
+    const hitDurations = animationAtlases.Wolf.hit.frameDurationsMs!.map((ms) => ms / 1.17);
     const deathDurations = animationAtlases.Wolf.death.frameDurationsMs!.map((duration) => duration / 1.12);
     for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
         const unit = createRenderableUnit(team, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
@@ -2472,7 +2375,7 @@ assetTest("plays Mermaid hit and death on the real clock, restores idle and hold
     for (const action of ["hit", "death"] as const) {
         const durations =
             action === "hit"
-                ? [22, 26, 49, 70, 70, 59, 53, 49, 43, 43, 38, 37, 32, 27]
+                ? [22, 26, 49, 70, 70, 59, 53, 49, 43, 43, 38, 37, 32, 27].map((ms) => ms / 1.17)
                 : [65, 85, 85, 90, 95, 100, 150, 300];
         const total = durations.reduce((sum, value) => sum + value, 0);
         expect(creatureOneShotAnimationEnabledForUnit("Mermaid", action)).toBe(true);
@@ -2554,7 +2457,7 @@ assetTest("plays Blacksmith hit and death on the real clock with stable scale an
         expect(creatureOneShotAnimationEnabledForUnit("Blacksmith", action)).toBe(true);
         const durations =
             action === "hit"
-                ? [35, 45, 55, 75, 75, 85, 110]
+                ? [35, 45, 55, 75, 75, 85, 110].map((ms) => ms / 1.17)
                 : [60, 80, 95, 110, 100, 100, 130, 225].map((duration) => duration / 1.1);
         const total = durations.reduce((sum, ms) => sum + ms, 0);
         const atlasWidth = action === "hit" ? 3072 : 3584;
@@ -2872,7 +2775,7 @@ assetTest("Berserker damage returns to idle and death holds its last pose with s
             expect(unit.playOneShotAnimation("hit", () => calls++, true)).toBe(true);
             expect(state.oneShotAnim?.frames).toHaveLength(7);
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-            expect(state.oneShotAnim?.frameDurationsMs).toEqual([30, 45, 55, 75, 75, 90, 110]);
+            expect(state.oneShotAnim?.frameDurationsMs).toEqual([30, 45, 55, 75, 75, 90, 110].map((ms) => ms / 1.17));
             const durations = state.oneShotAnim!.frameDurationsMs;
             check();
             for (const duration of durations) {
@@ -2906,7 +2809,192 @@ assetTest("Berserker damage returns to idle and death holds its last pose with s
     }
 });
 
-assetTest("plays nine native Pikeman walk frames only in the lab over 1.3 cells", () => {
+assetTest("advances the Satyr's native walk frames during board movement", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    expect(creatureWalkAnimationEnabledForUnit("Satyr")).toBe(true);
+    const keys: string[] = [];
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (key) => {
+        keys.push(key);
+        return Texture.WHITE;
+    });
+    const state = unit as unknown as {
+        sprite: Sprite;
+        walkAnim?: { frames: Texture[]; frameIndex: number };
+    };
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(new Container(), gridSettings);
+    unit.startBoardWalkAnimation(1, 3);
+    expect(keys).toContain("satyr_walk_atlas");
+    expect(keys).not.toContain("satyr_walk_atlas_quarter");
+    expect(state.walkAnim?.frames).toHaveLength(8);
+    expect(state.walkAnim?.frames[0].width).toBe(768);
+    const firstFrame = state.sprite.texture;
+    unit.setBoardWalkDistanceCells(1.3 / 8 + 1e-8);
+    expect(state.walkAnim?.frameIndex).toBe(1);
+    expect(state.sprite.texture).not.toBe(firstFrame);
+    unit.setBoardWalkDistanceCells(1.3 + 1e-8);
+    expect(state.walkAnim?.frameIndex).toBe(0);
+    unit.stopBoardWalkAnimation();
+    expect(state.walkAnim).toBeUndefined();
+});
+
+assetTest("plays the eight source poses of the Hyena walk over 1.3 travelled cells", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    expect(creatureWalkAnimationEnabledForUnit("Hyena")).toBe(true);
+    expect(creatureIdleAnimationEnabledForUnit("Hyena")).toBe(false);
+    const keys: string[] = [];
+    const idleTexture = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+    });
+    const walkAtlas = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: 1536 }),
+    });
+    const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Hyena", "hyena_512", (key) => {
+        keys.push(key);
+        return key === "hyena_walk_atlas" ? walkAtlas : idleTexture;
+    });
+    const state = unit as unknown as { sprite: Sprite; walkAnim?: { frames: Texture[]; frameIndex: number } };
+    unit.setPosition(0, 1024);
+    const world = new Container();
+    unit.ensureVisual(world, gridSettings);
+    const idleScaleX = Math.abs(state.sprite.scale.x);
+    const idleScaleY = Math.abs(state.sprite.scale.y);
+    const idleAnchorY = state.sprite.anchor.y;
+    const idleFilter = state.sprite.filters?.at(-1);
+    expect(idleFilter).toBeDefined();
+    unit.startBoardWalkAnimation(1, 3);
+    expect(state.sprite.filters ?? []).not.toContain(idleFilter);
+    expect(keys).toContain("hyena_walk_atlas");
+    expect(keys).not.toContain("hyena_walk_atlas_quarter");
+    expect(state.walkAnim?.frames).toHaveLength(8);
+    expect(state.walkAnim?.frames[0].width).toBe(768);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY * HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER, 8);
+    expect(state.sprite.anchor.y).toBeCloseTo(693 / 768, 8);
+    expect((703.875 - 693) * HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER).toBeCloseTo(742 - idleAnchorY * 768, 0);
+    unit.ensureVisual(world, gridSettings);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY * HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER, 8);
+    expect((408.75 * Math.abs(state.sprite.scale.y)) / (456 * idleScaleY)).toBeCloseTo(1, 8);
+    for (let frame = 1; frame <= 16; frame += 1) {
+        unit.setBoardWalkDistanceCells((frame * 1.3) / 8);
+        expect(state.walkAnim?.frameIndex).toBe(frame % 8);
+    }
+    unit.startBoardWalkAnimation(1, 3);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY * HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER, 8);
+    unit.stopBoardWalkAnimation();
+    expect(state.walkAnim).toBeUndefined();
+    expect(state.sprite.filters ?? []).toContain(idleFilter!);
+    expect(state.sprite.texture).toBe(idleTexture);
+    expect(state.sprite.anchor.y).toBeCloseTo(idleAnchorY, 8);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+});
+
+assetTest("plays full-resolution drawn Hyena hit, death and three melee attacks on the approved canvas", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    expect(creatureOneShotAnimationEnabledForUnit("Hyena", "hit")).toBe(true);
+    expect(creatureOneShotAnimationEnabledForUnit("Hyena", "death")).toBe(true);
+    for (const state of ["melee_attack", "melee_attack_up", "melee_attack_down"]) {
+        expect(creatureOneShotAnimationEnabledForUnit("Hyena", state)).toBe(true);
+    }
+    const keys: string[] = [];
+    const figure = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+    });
+    const walkAtlas = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: 1536 }),
+    });
+    const hitAtlas = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: 1536 }),
+    });
+    const deathAtlas = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: 1536 }),
+    });
+    const attackAtlases = Object.fromEntries(
+        ["melee_attack", "melee_attack_up", "melee_attack_down"].map((state) => [
+            `hyena_${state}_atlas`,
+            new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: 1536 }) }),
+        ]),
+    );
+    const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Hyena", "hyena_512", (key) => {
+        keys.push(key);
+        if (key === "hyena_walk_atlas") return walkAtlas;
+        if (key === "hyena_hit_atlas") return hitAtlas;
+        if (key === "hyena_death_atlas") return deathAtlas;
+        if (key in attackAtlases) return attackAtlases[key];
+        return figure;
+    });
+    const state = unit as unknown as {
+        sprite: Sprite;
+        oneShotAnim?: {
+            frames: Texture[];
+            durationPerFrame: number;
+            frameDurationsMs?: number[];
+            frameIndex: number;
+            finished?: boolean;
+        };
+    };
+    unit.setPosition(0, 1024);
+    const world = new Container();
+    unit.ensureVisual(world, gridSettings);
+    const idleFilter = state.sprite.filters?.at(-1);
+    const idleScaleX = Math.abs(state.sprite.scale.x);
+    const idleScaleY = Math.abs(state.sprite.scale.y);
+    const idleFootAnchorY = state.sprite.anchor.y;
+    unit.startBoardWalkAnimation(1, 3);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY * HYENA_WALK_VISIBLE_HEIGHT_MULTIPLIER, 8);
+    expect(unit.playOneShotAnimation("hit")).toBe(true);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+    expect(state.sprite.anchor.y).toBeCloseTo(idleFootAnchorY, 8);
+    expect(state.oneShotAnim?.frames).toHaveLength(8);
+    expect(state.oneShotAnim?.frames.every((frame) => frame.width === 768 && frame.height === 768)).toBe(true);
+    expect(state.oneShotAnim?.frames.some((frame) => frame !== figure)).toBe(true);
+    expect(state.oneShotAnim?.frameDurationsMs).toEqual([35, 45, 55, 70, 55, 65, 80, 75].map((ms) => ms / 1.17));
+    expect(state.oneShotAnim?.durationPerFrame).toBeCloseTo(60 / 1.17, 8);
+    expect(state.sprite.texture).toBe(state.oneShotAnim!.frames[0]);
+    expect(state.sprite.filters ?? []).not.toContain(idleFilter);
+    unit.stepOneShotAnimation(480);
+    expect(state.oneShotAnim).toBeUndefined();
+    expect(state.sprite.filters ?? []).toContain(idleFilter!);
+
+    for (const attack of ["melee_attack", "melee_attack_up", "melee_attack_down"]) {
+        unit.startBoardWalkAnimation(1, 3);
+        expect(unit.playOneShotAnimation(attack)).toBe(true);
+        expect(state.oneShotAnim?.frames).toHaveLength(8);
+        expect(state.oneShotAnim?.frames.every((frame) => frame.width === 768 && frame.height === 768)).toBe(true);
+        expect(state.oneShotAnim?.frameDurationsMs).toEqual([45, 55, 65, 75, 75, 70, 70, 65]);
+        expect(state.oneShotAnim?.durationPerFrame).toBeCloseTo(65, 8);
+        expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+        expect(state.sprite.anchor.y).toBeCloseTo(idleFootAnchorY, 8);
+        unit.stepOneShotAnimation(520);
+        expect(state.oneShotAnim).toBeUndefined();
+        expect(state.sprite.filters ?? []).toContain(idleFilter!);
+        expect(keys).toContain(`hyena_${attack}_atlas`);
+    }
+
+    expect(unit.playOneShotAnimation("death")).toBe(true);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+    expect(state.sprite.anchor.y).toBeCloseTo(idleFootAnchorY, 8);
+    expect(state.oneShotAnim?.frames).toHaveLength(8);
+    expect(state.oneShotAnim?.frames.every((frame) => frame.width === 768 && frame.height === 768)).toBe(true);
+    expect(state.oneShotAnim?.frameDurationsMs).toEqual([25, 37, 58, 58, 85, 85, 95, 112]);
+    expect(state.oneShotAnim?.durationPerFrame).toBeCloseTo(555 / 8, 8);
+    unit.stepOneShotAnimation(555);
+    expect(state.oneShotAnim?.finished).toBe(true);
+    expect(state.oneShotAnim?.frameIndex).toBe(7);
+    expect(state.sprite.texture).toBe(state.oneShotAnim!.frames[7]);
+    expect(keys).toContain("hyena_hit_atlas");
+    expect(keys).toContain("hyena_death_atlas");
+    expect(keys).not.toContain("hyena_hit_atlas_quarter");
+    expect(keys).not.toContain("hyena_death_atlas_quarter");
+});
+
+assetTest("plays eight native Pikeman walk frames only in the lab over 1.3 cells", () => {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     const keys: string[] = [];
     const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Pikeman", "pikeman_512", (key) => {
@@ -2924,23 +3012,21 @@ assetTest("plays nine native Pikeman walk frames only in the lab over 1.3 cells"
     unit.startBoardWalkAnimation(1, 3);
     expect(keys).toContain("pikeman_walk_atlas");
     expect(keys).not.toContain("pikeman_walk_atlas_quarter");
-    // The authored sheet is a full 3x3 of named frames, so the gait is nine poses, not eight.
-    const pikemanWalkFrames = 9;
-    expect(state.walkAnim?.frames).toHaveLength(pikemanWalkFrames);
+    expect(state.walkAnim?.frames).toHaveLength(8);
     expect(state.walkAnim?.frames[0].width).toBe(768);
     expect(state.walkAnim?.loopStartFrame).toBe(0);
-    expect(state.walkAnim?.loopEndFrame).toBe(pikemanWalkFrames - 1);
-    for (let step = 0; step <= pikemanWalkFrames * 2; step++) {
-        unit.setBoardWalkDistanceCells((step * 1.3) / pikemanWalkFrames + 1e-8);
-        expect(state.walkAnim?.frameIndex).toBe(step % pikemanWalkFrames);
+    expect(state.walkAnim?.loopEndFrame).toBe(7);
+    for (let step = 0; step <= 16; step++) {
+        unit.setBoardWalkDistanceCells((step * 1.3) / 8 + 1e-8);
+        expect(state.walkAnim?.frameIndex).toBe(step % 8);
         unit.stepSelectionAnimation(performance.now() + 1000);
-        expect(state.walkAnim?.frameIndex).toBe(step % pikemanWalkFrames);
+        expect(state.walkAnim?.frameIndex).toBe(step % 8);
     }
     unit.setBoardWalkDistanceCells(2.6 + Math.SQRT2);
-    expect(state.walkAnim?.frameIndex).toBe(Math.floor((Math.SQRT2 % 1.3) / (1.3 / pikemanWalkFrames)));
+    expect(state.walkAnim?.frameIndex).toBe(Math.floor((Math.SQRT2 % 1.3) / (1.3 / 8)));
     unit.setBoardFacingFromMovement(-1);
     unit.setBoardWalkDistanceCells(2.6 + Math.SQRT2 + 0.4);
-    expect(state.walkAnim?.frameIndex).toBe(Math.floor(((Math.SQRT2 + 0.4) % 1.3) / (1.3 / pikemanWalkFrames)));
+    expect(state.walkAnim?.frameIndex).toBe(Math.floor(((Math.SQRT2 + 0.4) % 1.3) / (1.3 / 8)));
     unit.stopBoardWalkAnimation();
     expect(state.walkAnim).toBeUndefined();
     unit.setCreatureAnimationLabPreviewEnabled(false);
@@ -3175,7 +3261,7 @@ assetTest("White Tiger reactions keep idle scale, recover after a hit and hold t
             expect(animation.authoredRealTime).toBe(true);
             expect(animation.frames).toHaveLength(state === "hit" ? 6 : 7);
             expect(animation.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
-                state === "hit" ? 410 / 0.75 : 810 / 1.15,
+                state === "hit" ? 410 / 0.75 / 1.17 : 810 / 1.15,
                 8,
             );
             for (let i = 0; i < animation.frames.length; i++) {
@@ -3189,10 +3275,10 @@ assetTest("White Tiger reactions keep idle scale, recover after a hit and hold t
                 unit.stepOneShotAnimation(animation.frameDurationsMs[i]);
             }
             expect(completed).toBe(1);
-            expect(sprite.texture).toBe(state === "hit" ? resting : animation.frames.at(-1)!);
+            expect<unknown>(sprite.texture).toBe(state === "hit" ? resting : animation.frames.at(-1));
             if (state === "death") {
                 unit.stepOneShotAnimation(10_000);
-                expect(sprite.texture).toBe(animation.frames.at(-1)!);
+                expect<unknown>(sprite.texture).toBe(animation.frames.at(-1));
                 expect(sprite.filters ?? []).not.toContain(tail!);
                 expect(completed).toBe(1);
                 unit.returnToIdleAnimation();
@@ -3289,6 +3375,171 @@ assetTest("White Tiger's rendered walk stays at canonical visible height through
     unit.startBoardWalkAnimation(-1, 1);
     unit.returnToIdleAnimation();
     expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY);
+});
+
+assetTest("keeps Cyclops's torso width stable without stretching each walk frame", () => {
+    const idle = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+    });
+    const unit = createRenderableUnit(
+        TeamVals.LEFT,
+        "Might",
+        "Cyclops",
+        "cyclops_battlefield_side_right_distance_readable_v1",
+        (key) => (key === "cyclops_idle_atlas" || key === "cyclops_lab_walk_atlas" ? testAtlasTexture : idle),
+    );
+    const state = unit as unknown as { sprite: Sprite; walkAnim?: { frameIndex: number } };
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.ensureVisual(world, gridSettings);
+    const idleScaleX = Math.abs(state.sprite.scale.x);
+    const idleScaleY = Math.abs(state.sprite.scale.y);
+    // Median alpha width through the head, shoulders and boulder (rows 200–320).
+    // The legs changing stance account for most of the variation in each full-frame bounding box.
+    const torsoWidths = [258, 258, 258, 267, 270, 264, 267, 261];
+
+    unit.startBoardWalkAnimation(1, 3);
+    const walkScaleX = Math.abs(state.sprite.scale.x);
+    const walkScaleY = Math.abs(state.sprite.scale.y);
+    expect((walkScaleX * 381) / (idleScaleX * 410)).toBeLessThan(1.03);
+    for (let step = 0; step < 16; step++) {
+        unit.setBoardWalkDistanceCells((step * 1.3) / 8 + 1e-8);
+        const frame = state.walkAnim?.frameIndex ?? -1;
+        expect(frame).toBe(step % 8);
+        expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(walkScaleX, 8);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(walkScaleY, 8);
+        unit.ensureVisual(world, gridSettings);
+        expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(walkScaleX, 8);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(walkScaleY, 8);
+        const renderedTorsoWidth = Math.abs(state.sprite.scale.x) * torsoWidths[frame];
+        expect(renderedTorsoWidth).toBeGreaterThan(idleScaleX * 292 * 0.97);
+        expect(renderedTorsoWidth).toBeLessThan(idleScaleX * 292 * 1.03);
+    }
+    unit.startBoardWalkAnimation(-1, 1);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(walkScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(walkScaleY, 8);
+    unit.stopBoardWalkAnimation();
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+});
+
+assetTest("keeps Cyclops death frame scale equal to idle on the wider canvas", () => {
+    const base = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+    });
+    const unit = createRenderableUnit(
+        TeamVals.LEFT,
+        "Might",
+        "Cyclops",
+        "cyclops_battlefield_side_right_distance_readable_v1",
+        (key) => (key.endsWith("_atlas") ? testAtlasTexture : base),
+    );
+    const state = unit as unknown as { sprite: Sprite; oneShotAnim?: { frameIndex: number } };
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.ensureVisual(world, gridSettings);
+    const idleScaleX = Math.abs(state.sprite.scale.x);
+    const idleScaleY = Math.abs(state.sprite.scale.y);
+
+    expect(unit.playOneShotAnimation("death", undefined, true)).toBe(true);
+    expect(state.sprite.texture.width).toBe(1024);
+    unit.ensureVisual(world, gridSettings);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+    unit.stepOneShotAnimation(10_000);
+    unit.ensureVisual(world, gridSettings);
+    expect(state.oneShotAnim?.frameIndex).toBe(9);
+    expect(state.sprite.texture.width).toBe(1024);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+});
+
+assetTest("plays all three Cyclops melee sprite directions at idle scale", () => {
+    const base = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+    });
+    const unit = createRenderableUnit(
+        TeamVals.LEFT,
+        "Might",
+        "Cyclops",
+        "cyclops_battlefield_side_right_distance_readable_v1",
+        (key) => (key.endsWith("_atlas") ? testAtlasTexture : base),
+    );
+    const state = unit as unknown as { sprite: Sprite; oneShotAnim?: { frames: Texture[]; frameIndex: number } };
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.ensureVisual(world, gridSettings);
+    const idleScaleX = Math.abs(state.sprite.scale.x);
+    const idleScaleY = Math.abs(state.sprite.scale.y);
+
+    for (const direction of ["melee_attack_up", "melee_attack", "melee_attack_down"]) {
+        expect(creatureOneShotAnimationEnabledForUnit("Cyclops", direction)).toBe(true);
+        expect(unit.getAnimationTextureKey(direction)).toBe(`cyclops_lab_${direction}_atlas`);
+        expect(unit.playOneShotAnimation(direction, undefined, true)).toBe(true);
+        expect(state.oneShotAnim?.frames).toHaveLength(8);
+        expect(state.sprite.texture.width).toBe(768);
+        unit.ensureVisual(world, gridSettings);
+        expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+        unit.returnToIdleAnimation();
+    }
+});
+
+assetTest("releases the Cyclops stone on the first empty-hand frame in all ranged directions", () => {
+    const base = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+    });
+    const unit = createRenderableUnit(
+        TeamVals.LEFT,
+        "Might",
+        "Cyclops",
+        "cyclops_battlefield_side_right_distance_readable_v1",
+        (key) => (key.endsWith("_atlas") ? testAtlasTexture : base),
+    );
+    const state = unit as unknown as {
+        sprite: Sprite;
+        oneShotAnim?: { frames: Texture[]; frameIndex: number; durationPerFrame: number; holdLastFrame?: boolean };
+    };
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.ensureVisual(world, gridSettings);
+    const idleScaleX = Math.abs(state.sprite.scale.x);
+    const idleScaleY = Math.abs(state.sprite.scale.y);
+
+    for (const direction of ["attack_up", "attack", "attack_down"]) {
+        let releases = 0;
+        let cancellations = 0;
+        expect(unit.getAnimationTextureKey(direction)).toBe(`cyclops_lab_${direction}_atlas`);
+        expect(
+            unit.playCyclopsLabRangedThrow(
+                direction,
+                () => releases++,
+                () => cancellations++,
+            ),
+        ).toBe(true);
+        expect(state.oneShotAnim?.frames).toHaveLength(8);
+        expect(state.oneShotAnim?.holdLastFrame).toBe(true);
+        const frameMs = 1000 / 18.4;
+        expect(state.oneShotAnim?.durationPerFrame).toBeCloseTo(frameMs, 6);
+        unit.ensureVisual(world, gridSettings);
+        expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
+        unit.stepOneShotAnimation(frameMs * 4 - 1);
+        expect(releases).toBe(0);
+        unit.stepOneShotAnimation(2 / 1.17);
+        expect(state.oneShotAnim?.frameIndex).toBe(4);
+        expect(releases).toBe(1);
+        unit.stepOneShotAnimation(500);
+        expect(state.oneShotAnim?.frameIndex).toBe(7);
+        expect(releases).toBe(1);
+        expect(cancellations).toBe(0);
+        unit.finishCyclopsLabRangedThrow();
+        expect(state.oneShotAnim).toBeUndefined();
+    }
 });
 
 assetTest("plays White Tiger's eight HD walk frames in combat over 1.3 cells", () => {
@@ -3473,7 +3724,7 @@ assetTest("plays Elf lab hit and death at authored timing, restores idle and hol
     expect(state.oneShotAnim?.authoredRealTime).toBe(true);
     expect(state.oneShotAnim?.frames).toHaveLength(28);
     expect(state.oneShotAnim?.frames[0].height).toBe(768);
-    expect(state.oneShotAnim!.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(560 / 1.35, 8);
+    expect(state.oneShotAnim!.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(560 / 1.35 / 1.17, 8);
     for (const duration of state.oneShotAnim!.frameDurationsMs) {
         unit.ensureVisual(world, gridSettings);
         expect(height()).toBeCloseTo(idleHeight, 8);
@@ -3831,7 +4082,12 @@ assetTest("plays Centaur tail and hair idle only in the lab and resumes it after
     expect(internals.sprite.filters).not.toContain(wind);
     unit.stepSelectionAnimation(start + 4280);
     expect(internals.sprite.texture).toBe(walkingTexture);
-    unit.stopBoardWalkAnimation();
+    const clock = spyOn(performance, "now").mockReturnValue(10000);
+    try {
+        unit.stopBoardWalkAnimation();
+    } finally {
+        clock.mockRestore();
+    }
     expect(internals.sprite.texture).toBe(frames[0]);
     expect(internals.sprite.filters).toContain(wind);
     unit.stepSelectionAnimation(internals.selectionAnimationStartedAtMs + 4340);
@@ -3899,10 +4155,10 @@ assetTest("Centaur lab reactions preserve registration, recover from hits and ho
         expect(sprite.anchor.y).toBeCloseTo(anchor, 8);
         unit.stepOneShotAnimation(duration);
     }
-    expect(sprite.texture).toBe(death.frames.at(-1)!);
+    expect<unknown>(sprite.texture).toBe(death.frames.at(-1));
     expect(deathsFinished).toBe(1);
     unit.stepOneShotAnimation(10_000);
-    expect(sprite.texture).toBe(death.frames.at(-1)!);
+    expect<unknown>(sprite.texture).toBe(death.frames.at(-1));
     expect(deathsFinished).toBe(1);
     unit.returnToIdleAnimation();
     expect(sprite.texture).toBe(idle);
@@ -4134,7 +4390,9 @@ assetTest("Medusa lab actions keep padded anatomy registered and complete back i
             "attack_down",
         ]) {
             const authored = action;
-            const durations = animationAtlases["Medusa Lab"][authored].frameDurationsMs!;
+            const durations = animationAtlases["Medusa Lab"][authored].frameDurationsMs!.map(
+                (ms) => ms / (action === "hit" ? 1.17 : 1),
+            );
             let complete = 0;
             expect(unit.hasAnimationState(action)).toBe(true);
             expect(unit.getAnimationTextureKey(action)).toBe(`medusa_lab_${authored}_atlas`);
@@ -4252,7 +4510,7 @@ assetTest("Medusa lab stone death keeps its scale and holds the final rubble cel
         unit.stepOneShotAnimation(5000);
         unit.ensureVisual(world, gridSettings);
         expect(complete).toBe(1);
-        expect(state.sprite.texture === anim.frames.at(-1)!).toBe(true);
+        expect(state.sprite.texture === anim.frames.at(-1)).toBe(true);
         expect(state.sprite.scale.y).toBeCloseTo(scale, 8);
         unit.returnToIdleAnimation(true);
         unit.ensureVisual(world, gridSettings);
@@ -4523,7 +4781,7 @@ assetTest("cycles Mermaid through all eight slither poses and restores idle whil
     for (let step = 0; step <= 16; step++) {
         unit.setBoardWalkDistanceCells((step * 1.3) / 8);
         expect(internals.walkAnim?.frameIndex).toBe(step % 8);
-        expect(internals.sprite.texture).toBe(internals.walkAnim!.frames[step % 8]!);
+        expect<unknown>(internals.sprite.texture).toBe(internals.walkAnim?.frames[step % 8]);
     }
     unit.stopBoardWalkAnimation();
     expect(internals.walkAnim).toBeUndefined();
@@ -4954,13 +5212,13 @@ describe("Wandering Mage board animation states", () => {
         let completions = 0;
         expect(unit.playOneShotAnimation("hit", () => completions++)).toBe(true);
         expect(internals.oneShotAnim?.frames).toHaveLength(24);
-        expect(internals.oneShotAnim?.frameDurationsMs).toEqual(Array(24).fill(25));
+        expect(internals.oneShotAnim?.frameDurationsMs).toEqual(Array(24).fill(25 / 1.17));
         for (let index = 0; index < 24; index++) {
             expect(internals.oneShotAnim?.frameIndex).toBe(index);
             unit.ensureVisual(new Container(), gridSettings);
             expect(sprite.scale.x).toBe(scale.x);
             expect(sprite.scale.y).toBe(scale.y);
-            unit.stepOneShotAnimation(25);
+            unit.stepOneShotAnimation(25 / 1.17);
         }
         expect(completions).toBe(1);
         expect(internals.oneShotAnim).toBeUndefined();
@@ -5031,7 +5289,7 @@ describe("Wandering Mage board animation states", () => {
     assetTest("matches Mage reaction previews to the game's 60Hz loop with its legacy 1/240 step", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         for (const [state, steps] of [
-            ["hit", 36],
+            ["hit", Math.ceil(36 / 1.17)],
             ["death", 72],
         ] as const) {
             const unit = createWanderingMage();
@@ -5138,7 +5396,7 @@ describe("Orc authored animation states", () => {
                 const scale = { x: state.sprite.scale.x, y: state.sprite.scale.y };
                 const durations =
                     action === "hit"
-                        ? [40, 45, 75, 55, 55, 65, 70, 45]
+                        ? [40, 45, 75, 55, 55, 65, 70, 45].map((ms) => ms / 1.17)
                         : [60, 90, 120, 140, 130, 100, 120, 240].map((duration) => duration / 1.15);
                 let calls = 0;
                 expect(creatureOneShotAnimationEnabledForUnit("Orc", action)).toBe(true);
@@ -5494,13 +5752,11 @@ assetTest("keeps Troll lab walk size matched to the base figure through re-route
     const idleY = Math.abs(state.sprite.scale.y);
     const idleFilters = [...(state.sprite.filters ?? [])];
     unit.startBoardWalkAnimation(1, 4);
-    // The lab walk shares the idle sheet's 768px cell at ONE uniform scale; the old per-pose
-    // opaque-bounds correction (432/514 width, 688/698 height) changed the authored framing ratio.
-    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleX);
-    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleY);
+    expect(Math.abs(state.sprite.scale.x) * 432).toBeCloseTo(idleX * 514);
+    expect(Math.abs(state.sprite.scale.y) * 688).toBeCloseTo(idleY * 698);
     unit.ensureVisual(root, gridSettings);
-    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleX);
-    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleY);
+    expect(Math.abs(state.sprite.scale.x) * 432).toBeCloseTo(idleX * 514);
+    expect(Math.abs(state.sprite.scale.y) * 688).toBeCloseTo(idleY * 698);
     const walkX = Math.abs(state.sprite.scale.x);
     const walkY = Math.abs(state.sprite.scale.y);
     for (let i = 0; i < 8; i++) {
@@ -5680,10 +5936,11 @@ describe("Troll full-body battlefield figure", () => {
         expect(internals.facingDirection).toBe(-1);
         expect(internals.sprite?.scale.x).toBeLessThan(0);
         expect(Math.abs(internals.sprite?.scale.x ?? 0) / Math.abs(internals.sprite?.scale.y ?? 1)).toBeCloseTo(
-            BATTLEFIELD_CREATURE_FRAMING.Troll.scaleX / BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY,
+            ((BATTLEFIELD_CREATURE_FRAMING.Troll.scaleX / BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY) * (514 / 432)) /
+                (698 / 688),
         );
         expect(Math.abs(internals.sprite?.scale.y ?? 0) * 768).toBeCloseTo(
-            cellSize * 1.5 * BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY,
+            cellSize * 1.5 * BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY * (698 / 688),
         );
 
         unit.setBoardWalkDistanceCells(0);
@@ -5726,14 +5983,20 @@ describe("refreshed full-body placement scale", () => {
             const initialScaleY = internals.sprite?.scale.y ?? 0;
 
             expect(Math.abs(initialScaleX) / Math.abs(initialScaleY)).toBeCloseTo(
-                BATTLEFIELD_CREATURE_FRAMING[creature].scaleX / BATTLEFIELD_CREATURE_FRAMING[creature].scaleY,
+                (BATTLEFIELD_CREATURE_FRAMING[creature].scaleX / BATTLEFIELD_CREATURE_FRAMING[creature].scaleY) *
+                    (creature === "Efreet" ? 529 / 386 / (703 / 416) : 1),
             );
             unit.startSpawnAnimation(0.125);
-            // A fitted battlefield figure does not grow into its landing: the scale-up would change the
-            // proportions the art was authored at. An unfitted higher tier still may.
-            expect(internals.spawnAnim).toBeUndefined();
-            expect(internals.sprite?.scale.x).toBe(initialScaleX);
-            expect(internals.sprite?.scale.y).toBe(initialScaleY);
+            if (["Troglodyte", "Black Dragon", "Efreet"].includes(creature)) {
+                expect(internals.spawnAnim).toBeUndefined();
+                expect(internals.sprite?.scale.x).toBe(initialScaleX);
+                expect(internals.sprite?.scale.y).toBe(initialScaleY);
+                return;
+            }
+            expect(internals.spawnAnim?.endScaleX).toBe(initialScaleX);
+            expect(internals.spawnAnim?.endScaleY).toBe(initialScaleY);
+            expect(internals.spawnAnim?.startScaleX).toBe(initialScaleX);
+            expect(internals.spawnAnim?.startScaleY).toBe(initialScaleY);
         });
     }
 });
@@ -5814,6 +6077,7 @@ describe("refreshed authored action playback", () => {
 describe("refreshed idle cadence and quadruped scale", () => {
     type IdleInternals = {
         sprite?: { scale: { x: number; y: number }; texture: Texture };
+        selectionAnimationStartedAtMs: number;
         selectionAnimFrameDurationMs: number;
         selectionAnimFrameDurationsMs?: readonly number[];
         selectionAnimFrames?: Texture[];
@@ -5995,7 +6259,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "attack")).toBe(true);
     });
 
-    assetTest("plays Orc's approved combat action alongside its breathing idle and corrected walk", () => {
+    assetTest("keeps the approved Orc attack active alongside breathing idle and corrected walk", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
@@ -6014,23 +6278,19 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect((unit as unknown as { walkAnim?: unknown }).walkAnim).toBeDefined();
         unit.stopBoardWalkAnimation();
         let actionCompleted = false;
-        // Orc now belongs to the approved packages, so its attack plays in ordinary combat instead of
-        // being skipped with an immediate completion. The global freeze no longer silences it.
         expect(unit.playOneShotAnimation("attack", () => (actionCompleted = true))).toBe(true);
-        expect(unit.isPlayingOneShotAnimation("attack")).toBe(true);
-        unit.returnToIdleAnimation();
-        expect(unit.isPlayingOneShotAnimation()).toBe(false);
+        expect(actionCompleted).toBe(false);
+        unit.stepOneShotAnimation(5000);
+        expect(actionCompleted).toBe(true);
         expect(internals.selectionAnimFrames).toContain(internals.sprite?.texture);
 
-        // The local Animation Lab plays the same authored atlas on demand, and leaving the preview must
-        // restore the permanent idle immediately.
+        // The local Animation Lab can inspect an authored atlas even while production combat motion is
+        // globally frozen; leaving the preview must restore the permanent idle immediately.
         expect(unit.playOneShotAnimation("attack", undefined, true)).toBe(true);
         expect(unit.isPlayingOneShotAnimation("attack")).toBe(true);
         unit.returnToIdleAnimation();
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
         expect(internals.selectionAnimFrames).toContain(internals.sprite?.texture);
-        // Returning to idle interrupts the action, so its completion callback never fires.
-        expect(actionCompleted).toBe(false);
     });
 
     assetTest("keeps Arbalester on its static figure with the matching shadow", () => {
@@ -6174,7 +6434,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
             expect(creatureOneShotAnimationEnabledForUnit("Arbalester", action)).toBe(false);
             expect(unit.playOneShotAnimation(action, undefined, true)).toBe(true);
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-            expect(state.oneShotAnim?.frameDurationsMs).toEqual(animationAtlases.Arbalester[action].frameDurationsMs);
+            expect(state.oneShotAnim?.frameDurationsMs).toEqual(
+                animationAtlases.Arbalester[action].frameDurationsMs!.map((ms) => ms / (action === "hit" ? 1.17 : 1)),
+            );
             expectLabRegistration();
             unit.ensureVisual(world, gridSettings);
             expectLabRegistration();
@@ -6183,7 +6445,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
                 (sum, duration) => sum + duration,
                 0,
             );
-            const fullTicks = Math.floor(durationMs / (1000 / 60));
+            const fullTicks = Math.floor(durationMs / (action === "hit" ? 1.17 : 1) / (1000 / 60));
             for (let tick = 0; tick < fullTicks; tick++) unit.stepSpawnAnimation(1 / 240);
             expect(completed).toBe(0);
             unit.stepSpawnAnimation(1 / 240);
@@ -6592,12 +6854,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(greenResolvedKeys).toContain("peasant_idle_red_atlas_quarter");
         expect(idle.selectionAnimFrames).toHaveLength(12);
         expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
-        unit.stepSelectionAnimation(10_000);
+        idle.refreshedIdlePhaseRatio = 0;
+        unit.stepSelectionAnimation(0);
         const currentIdleTexture = idle.sprite?.texture;
-        // The authored idle plays ping-pong with a 700 ms turnaround pause; step past any hold so the
-        // assertion stays about "the idle advances during the freeze", not about where in the cycle
-        // t=10_000 happens to land.
-        unit.stepSelectionAnimation(11_000);
+        unit.stepSelectionAnimation(idle.selectionAnimFrameDurationMs + 1);
         expect(idle.sprite?.texture).not.toBe(currentIdleTexture);
 
         const beholderResolvedKeys: string[] = [];
@@ -6608,10 +6868,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         beholder.setPosition(0, 1024);
         beholder.ensureVisual(new Container(), gridSettings);
         const beholderIdle = beholder as unknown as IdleInternals;
-        expect(beholderResolvedKeys).toContain("beholder_idle_atlas");
-        expect(beholderResolvedKeys.at(-1)).toBe("beholder_idle_atlas");
-        expect(beholderIdle.selectionAnimFrames?.[0].width).toBe(768);
-        expect(beholderIdle.selectionAnimFrames?.[0].height).toBe(768);
+        expect(beholderResolvedKeys).toContain("beholder_idle_atlas_quarter");
+        expect(beholderResolvedKeys.at(-1)).toBe("beholder_idle_atlas_quarter");
         expect(beholderIdle.selectionAnimFrames).toHaveLength(16);
         expect(beholderIdle.selectionAnimFrameDurationMs).toBeCloseTo(187 / 1.3);
         expect(beholderIdle.selectionAnimFrameDurationsMs).toHaveLength(16);
@@ -6701,7 +6959,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const walkScaleX = squireInternals.sprite?.scale.x ?? 0;
         const walkScaleY = squireInternals.sprite?.scale.y ?? 0;
         expect(Math.abs(walkScaleY) * (696 / 4)).toBeCloseTo(Math.abs(idleScaleY) * (726 / 4), 8);
-        expect(Math.abs(walkScaleX) * (408 / 4)).toBeCloseTo(Math.abs(idleScaleX) * (426 / 4), 1);
+        expect(Math.abs(walkScaleX / walkScaleY)).toBeCloseTo(Math.abs(idleScaleX / idleScaleY), 8);
         squire.applyMoveEffect(0.37);
         expect(squireInternals.sprite?.rotation).toBe(0);
         expect(squireInternals.sprite?.scale.x).toBe(walkScaleX);
@@ -6867,7 +7125,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(state.oneShotAnim?.frameIndex).toBeGreaterThanOrEqual(2);
         unit.applyHitReaction(40, -20);
         expect(state.oneShotAnim).toBe(hit);
-        for (let tick = 6; tick < 29; tick++) unit.stepSpawnAnimation(1 / 240);
+        for (let tick = 6; tick < Math.ceil(30 / 1.17) - 1; tick++) unit.stepSpawnAnimation(1 / 240);
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
         unit.stepSpawnAnimation(1 / 240);
         unit.stepSpawnAnimation(1 / 240); // floating-point boundary: at most one extra 60 Hz tick
@@ -6887,20 +7145,22 @@ describe("refreshed idle cadence and quadruped scale", () => {
                 oneShotAnim?: { frameIndex: number; frameDurationsMs?: readonly number[] };
                 selectionAnimFrames: Texture[];
             };
-            expect(state.oneShotAnim?.frameDurationsMs).toEqual([40, 45, 55, 90, 80, 75, 65, 50]);
+            expect(state.oneShotAnim?.frameDurationsMs).toEqual(
+                [40, 45, 55, 90, 80, 75, 65, 50].map((ms) => ms / 1.17),
+            );
             expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
-            unit.stepOneShotAnimation(39);
+            unit.stepOneShotAnimation(39 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(0);
-            unit.stepOneShotAnimation(1);
+            unit.stepOneShotAnimation(1 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(1);
-            unit.stepOneShotAnimation(99);
+            unit.stepOneShotAnimation(99 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(2);
-            unit.stepOneShotAnimation(1);
+            unit.stepOneShotAnimation(1 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(3);
-            unit.stepOneShotAnimation(359);
+            unit.stepOneShotAnimation(359 / 1.17);
             expect(completed).toBe(0);
             expect(state.oneShotAnim?.frameIndex).toBe(7);
-            unit.stepOneShotAnimation(1);
+            unit.stepOneShotAnimation(1 / 1.17);
             expect(completed).toBe(1);
             expect(unit.isPlayingOneShotAnimation()).toBe(false);
             expect(state.selectionAnimFrames).toContain(state.sprite.texture);
@@ -7096,8 +7356,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(true);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(true);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(false);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Peasant", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(false);
@@ -7149,8 +7409,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
         expect(
             (unit as unknown as { oneShotAnim?: { durationPerFrame: number } }).oneShotAnim?.durationPerFrame,
-        ).toBeCloseTo(51.98);
-        unit.stepOneShotAnimation(414);
+        ).toBeCloseTo(51.98 / 1.17);
+        unit.stepOneShotAnimation(414 / 1.17);
         expect(hitCallbackCompleted).toBe(false);
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
         unit.stepOneShotAnimation(2);
@@ -7158,7 +7418,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
 
         let realTimeHitCompleted = false;
         expect(unit.playOneShotAnimation("hit", () => (realTimeHitCompleted = true))).toBe(true);
-        for (let tick = 0; tick < 24; tick++) unit.stepSpawnAnimation(1 / 240);
+        for (let tick = 0; tick < Math.ceil(415.84 / 1.17 / (1000 / 60)) - 1; tick++) unit.stepSpawnAnimation(1 / 240);
         expect(realTimeHitCompleted).toBe(false);
         unit.stepSpawnAnimation(1 / 240);
         expect(realTimeHitCompleted).toBe(true);
@@ -7257,7 +7517,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(unit.playOneShotAnimation("hit", undefined, true)).toBe(true);
         expect(requested).toContain("scavenger_combat_hit_atlas_quarter");
         expect(internals.sprite.filters ?? []).not.toContain(idleGrade);
-        expect(internals.oneShotAnim?.durationPerFrame).toBe(80);
+        expect(internals.oneShotAnim?.durationPerFrame).toBe(80 / 1.17);
         expect(internals.oneShotAnim?.frames).toHaveLength(8);
         expect(Math.abs(internals.sprite.scale.y) * 175).toBeCloseTo(initialHeight, 5);
         for (let frame = 0; frame < 8; frame++) {
@@ -7270,7 +7530,7 @@ describe("Scavenger thief visual replacement", () => {
                 expect(actual.x).toBeCloseTo(idleSoles[index].x, 5);
                 expect(actual.y).toBeCloseTo(idleSoles[index].y, 5);
             });
-            unit.stepOneShotAnimation(80);
+            unit.stepOneShotAnimation(80 / 1.17);
         }
         expect(Math.abs(internals.sprite.scale.y) * 175).toBeCloseTo(initialHeight, 5);
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
@@ -7396,10 +7656,10 @@ describe("Scavenger thief visual replacement", () => {
         spawnAnim?: { startScaleX: number; startScaleY: number; endScaleX: number; endScaleY: number };
     };
 
-    const createScavenger = (): RenderableUnit => {
+    const createScavenger = (approved = true): RenderableUnit => {
         // The restyled set is the approved base package, which this file's beforeEach turns off for the
         // legacy/freeze coverage around it. These two tests are about that package, so they ask for it.
-        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = approved;
         const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Scavenger", "scavenger_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
@@ -7407,15 +7667,20 @@ describe("Scavenger thief visual replacement", () => {
     };
 
     assetTest("keeps the restyled static figure undistorted on the existing foot line", () => {
-        const unit = createScavenger();
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;
+        const figure = new Texture({
+            source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+        });
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Scavenger", "scavenger_512", (key) =>
+            key.includes("atlas") ? undefined : figure,
+        );
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
         const internals = unit as unknown as AnimationInternals;
 
-        // One cell of the approved idle sheet, which ships at quarter resolution: 768 / 4.
-        expect(internals.sprite?.texture.width).toBe(192);
-        expect(internals.sprite?.texture.height).toBe(192);
+        expect(internals.sprite?.texture.width).toBe(768);
+        expect(internals.sprite?.texture.height).toBe(768);
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(Math.abs(internals.sprite?.scale.y ?? 0));
-        // The refreshed battlefield framing lifts the whole figure by five percent of its rendered
-        // height above the shared foot line (see the ground-line coverage above).
         expect(internals.sprite?.y).toBeCloseTo(
             tallBoardModelFootLineY(1024, gridSettings.getCellSize()) +
                 gridSettings.getCellSize() *
@@ -7434,22 +7699,17 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.selectionAnimFrames).toHaveLength(12);
         expect(internals.sprite?.texture.width).toBe(192);
         expect(internals.sprite?.texture.height).toBe(192);
-        // The approved sheet's figure fills less of its cell than the old thief cutout did, so the scale
-        // comes off the same measured ratio the renderer uses rather than the thief's 186px literal.
         const expectedUniformScale =
-            ((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) /
-                (192 * SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO)) *
+            ((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) / (175 * (744 / 757))) *
             BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY;
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(expectedUniformScale);
         expect(Math.abs(internals.sprite?.scale.y ?? 0)).toBeCloseTo(expectedUniformScale);
-        // Same lifted foot line as the static figure: five percent of the rendered height above the
-        // shared tall-model line.
         expect(internals.sprite?.y).toBeCloseTo(
             tallBoardModelFootLineY(1024, gridSettings.getCellSize()) +
                 gridSettings.getCellSize() *
                     SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
                     BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
-                    SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
+                    0.05,
         );
         expect(thiefIdleBreathScaleForElapsed(0)).toBeCloseTo(1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 4)).toBeCloseTo(1 + 0.01035 * 1.1);
@@ -7464,7 +7724,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(unit.playOneShotAnimation("hit")).toBe(true);
         // The refreshed Scavenger Combat hit sheet is authored at 12.5 fps (80 ms per frame); the old
         // thief cadence applied a 1.22x speedup to 40.125 ms frames that no longer exist.
-        expect(internals.oneShotAnim?.durationPerFrame).toBeCloseTo(80);
+        expect(internals.oneShotAnim?.durationPerFrame).toBeCloseTo(80 / 1.17);
         unit.stepOneShotAnimation(1000);
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
 
@@ -7513,48 +7773,25 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.scale.y).toBe(expectedScaleY);
     });
 
-    assetTest("twirls both blades after four inactive breaths and battle-cries immediately on its active turn", () => {
-        const unit = createScavenger();
-        const internals = unit as unknown as AnimationInternals;
-        const idleWindow = 2800 * SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL;
-        const cryWindow = SCAVENGER_ACTIVE_BATTLE_CRY_DURATION_MS;
-        const activeBreathingWindow = 2800 * SCAVENGER_ACTIVE_BATTLE_CRY_BREATH_CYCLES;
-
-        expect(internals.scavengerIdleBladeTwirlFrames).toHaveLength(6);
-        expect(internals.scavengerActiveBattleCryFrames).toHaveLength(6);
-        expect(scavengerIdleBladeTwirlFrameForElapsed(idleWindow - 1)).toBeUndefined();
-        for (let frame = 0; frame < 6; frame += 1) {
-            expect(
-                scavengerIdleBladeTwirlFrameForElapsed(idleWindow + frame * SCAVENGER_FLOURISH_FRAME_DURATION_MS),
-            ).toBe(frame);
-            unit.stepSelectionAnimation(
-                internals.selectionAnimationStartedAtMs + idleWindow + frame * SCAVENGER_FLOURISH_FRAME_DURATION_MS,
-            );
-            expect(internals.sprite?.texture).toBe(internals.scavengerIdleBladeTwirlFrames?.[frame]);
-        }
-        expect(scavengerIdleBladeTwirlFrameForElapsed(idleWindow + cryWindow)).toBeUndefined();
-
-        unit.setActiveTurn(true);
-        const activeStartedAt = internals.activeTurnAnimationStartedAtMs;
-        let frameStartMs = 0;
-        for (let frame = 0; frame < 6; frame += 1) {
-            expect(scavengerActiveBattleCryFrameForElapsed(frameStartMs)).toBe(frame);
-            unit.stepSelectionAnimation(activeStartedAt + frameStartMs);
-            expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[frame]);
-            frameStartMs +=
-                frame === 4 ? SCAVENGER_ACTIVE_BATTLE_CRY_POINT_HOLD_MS : SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS;
-        }
-        const pointingFrameStart = SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS * 4;
-        expect(scavengerActiveBattleCryFrameForElapsed(pointingFrameStart)).toBe(4);
-        expect(scavengerActiveBattleCryFrameForElapsed(pointingFrameStart + 999)).toBe(4);
-        expect(scavengerActiveBattleCryFrameForElapsed(pointingFrameStart + 1000)).toBe(5);
-        expect(scavengerActiveBattleCryFrameForElapsed(cryWindow)).toBeUndefined();
-        expect(scavengerActiveBattleCryBreathElapsed(cryWindow)).toBe(0);
-        expect(scavengerActiveBattleCryBreathElapsed(cryWindow + 2800)).toBe(2800);
-        expect(scavengerActiveBattleCryFrameForElapsed(cryWindow + activeBreathingWindow)).toBe(0);
-        unit.stepSelectionAnimation(activeStartedAt + cryWindow + activeBreathingWindow);
-        expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[0]);
-    });
+    assetTest(
+        "approved Scavenger idle keeps authored frames on active and inactive turns without legacy flourishes",
+        () => {
+            const unit = createScavenger();
+            const internals = unit as unknown as AnimationInternals;
+            expect(internals.selectionAnimFrames).toHaveLength(12);
+            expect(internals.scavengerIdleBladeTwirlFrames).toBeUndefined();
+            expect(internals.scavengerActiveBattleCryFrames).toBeUndefined();
+            const width = internals.sprite!.texture.width * Math.abs(internals.sprite!.scale.x);
+            for (const active of [false, true]) {
+                unit.setActiveTurn(active);
+                for (let elapsed = 0; elapsed <= 20000; elapsed += 250) {
+                    unit.stepSelectionAnimation(internals.selectionAnimationStartedAtMs + elapsed);
+                    expect(internals.selectionAnimFrames).toContain(internals.sprite!.texture);
+                    expect(internals.sprite!.texture.width * Math.abs(internals.sprite!.scale.x)).toBeCloseTo(width);
+                }
+            }
+        },
+    );
 
     assetTest("repeats all eight original Scavenger walking poses every 1.3 cells", () => {
         const unit = createScavenger();
@@ -7650,35 +7887,62 @@ describe("RenderableUnit runtime spell synchronization", () => {
         expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
     });
 
-    test("rebuilds a spellbook card after its on-demand icon and furniture arrive", () => {
+    test("keeps spellbook fallbacks usable and preserves spent charges when the real artwork arrives", () => {
         let spellbookArtReady = false;
         const requestedKeys: string[] = [];
-        const angel = createRenderableUnit(TeamVals.LEFT, "Life", "Angel", "angel_512", (key) => {
+        const satyr = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (key) => {
             requestedKeys.push(key);
             return spellbookArtReady ? Texture.WHITE : undefined;
         });
         const spellBookLayer = new Container();
         const digits = new Map([[1, Texture.WHITE]]);
+        satyr.setStackPower(5);
+        satyr.useSpell("Courage");
+        satyr.useSpell("Summon Wolves");
+        const remaining = { Courage: 2, "Helping Hand": 1, "Summon Wolves": 1 };
+        try {
+            satyr.setSpellBookLayer(spellBookLayer, digits);
+            satyr.renderSpells(1);
+            expect(requestedKeys).toEqual(
+                expect.arrayContaining([
+                    "courage_256",
+                    "spell_cell_260",
+                    "spell_cast_wax_seal_blank_v1",
+                    "spell_inner_frame_linework_v2",
+                    "spell_stack_fill_green_variant2",
+                    "spell_stack_fill_red_variant2",
+                    "spell_stack_rail_variant2",
+                ]),
+            );
+            expect(spellAmounts(satyr)).toEqual(remaining);
+            expect(spellBookLayer.children).toHaveLength(3);
+            const fallback = satyr.getBookSpellByName("Courage")!;
+            const fallbackSprite = fallback.getSprite();
+            expect(fallback.getAmount()).toBe(2);
+            expect(fallback.canUse(5)).toBe(true);
+            expect(fallbackSprite.texture).toBe(Texture.EMPTY);
+            const bounds = fallbackSprite.getBounds();
+            expect(
+                satyr.getHoveredSpell({ x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }),
+            ).toBe(fallback);
 
-        angel.setSpellBookLayer(spellBookLayer, digits);
-        expect(requestedKeys).toEqual(
-            expect.arrayContaining([
-                "resurrection_256",
-                "spell_cell_260",
-                "spell_cast_wax_seal_blank_v1",
-                "spell_inner_frame_linework_v2",
-                "spell_stack_fill_green_variant2",
-                "spell_stack_fill_red_variant2",
-                "spell_stack_rail_variant2",
-            ]),
-        );
-        expect(spellBookLayer.children).toHaveLength(0);
-
-        spellbookArtReady = true;
-        expect(angel.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
-        angel.renderSpells(1);
-        expect(spellBookLayer.children.length).toBeGreaterThan(0);
-        expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
+            spellbookArtReady = true;
+            expect(satyr.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
+            satyr.renderSpells(1);
+            expect(fallbackSprite.destroyed).toBe(true);
+            expect(spellBookLayer.children).toHaveLength(3);
+            expect(spellAmounts(satyr)).toEqual(remaining);
+            for (const [name, amount] of Object.entries(remaining)) {
+                const card = satyr.getBookSpellByName(name)!;
+                expect(card.getSprite().texture).toBe(testAtlasTexture);
+                expect(card.getSprite().visible).toBe(true);
+                expect(card.getAmount()).toBe(amount);
+                expect(card.canUse(5)).toBe(true);
+            }
+        } finally {
+            satyr.hideSpells();
+            spellBookLayer.destroy({ children: true });
+        }
     });
 });
 
@@ -7809,37 +8073,20 @@ describe("RenderableUnit revealed roster card", () => {
         );
     });
 
-    test("draws only its plate beneath the silhouette at full filter resolution", () => {
+    test("revealed opponents retain grayscale but never paint their occupied cells", () => {
         const { unit, worldRoot } = revealedUnit();
-        const card = cardOf(unit);
-
-        expect(card).toBeDefined();
-        expect(card!.visible).toBe(true);
-        expect(card!.children.some((child) => child instanceof Graphics)).toBe(true);
-        expect(card!.children.some((child) => child instanceof Text)).toBe(false);
-        // Behind the sprite (higher zIndex draws later/on top).
+        expect(cardOf(unit)).toBeUndefined();
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y) as Sprite;
         expect(sprite).toBeDefined();
-        expect(card!.zIndex).toBeLessThan(sprite!.zIndex);
         const grayscale = sprite.filters?.find((filter) => filter instanceof ColorMatrixFilter);
         expect(grayscale).toBeDefined();
         expect(grayscale!.resolution).toBe("inherit");
-        expect(grayscale!.antialias).toBe("inherit");
-    });
-
-    test("follows the unit and disappears once it is no longer a revealed silhouette", () => {
-        const { unit, worldRoot } = revealedUnit();
-        const card = cardOf(unit)!;
-        const zIndexBefore = card.zIndex;
-
         unit.setPosition(pos.x + 300, pos.y);
         unit.ensureVisual(worldRoot, gridSettings);
-        expect(card.visible).toBe(true);
-        expect(card.zIndex).toBe(zIndexBefore);
-
+        expect(cardOf(unit)).toBeUndefined();
         unit.setVisualRevealed(false);
         unit.ensureVisual(worldRoot, gridSettings);
-        expect(card.visible).toBe(false);
+        expect(cardOf(unit)).toBeUndefined();
     });
 
     test("a normal board unit never builds one", () => {
@@ -8096,7 +8343,7 @@ describe("RenderableUnit steady-state overlays", () => {
             .activeTurnPointer!.context.instructions.filter((instruction) => instruction.action === "stroke")
             .map((instruction) => (instruction.data.style as { color: number }).color);
 
-        expect(internals.activeAura?.visible).toBe(true);
+        expect(internals.activeAura?.visible ?? false).toBe(false);
         expect(internals.activeTurnFireSprite).toBeUndefined();
         expect(internals.badgeFlagGlow?.visible).toBe(true);
         expect(flagStrokeColors.at(-1)).toBe(0xb08a45);
@@ -8105,12 +8352,11 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(flagGlowStyles.every(({ color }) => color === 0xffd05a)).toBe(true);
         expect(flagGlowStyles.every(({ alpha }) => alpha > 0)).toBe(true);
 
-        // Board motion also includes creatures without an authored walk atlas. The entire ring,
-        // including its glow, disappears while travelling and returns when the active unit stops.
+        // The turn pointer remains above the flag; no ground ring appears when movement ends.
         unit.syncVisual(worldRoot, gridSettings, true);
-        expect(internals.activeAura?.visible).toBe(false);
+        expect(internals.activeAura?.visible ?? false).toBe(false);
         unit.syncVisual(worldRoot, gridSettings, false);
-        expect(internals.activeAura?.visible).toBe(true);
+        expect(internals.activeAura?.visible ?? false).toBe(false);
 
         // Placement hover no longer adds a separate effect beneath the creature.
         unit.setActiveTurn(false);
@@ -8277,6 +8523,118 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(internals.hourglassContainer?.visible).toBe(true);
     });
 
+    test.each([false, true])("immobilized badge follows status lifetime, coexists with stun, ranked=%s", (ranked) => {
+        const textures: string[] = [];
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", (key) => {
+            textures.push(key);
+            return Texture.WHITE;
+        });
+        unit.setPosition(0, 1024);
+        const root = new Container();
+        unit.ensureVisual(root, gridSettings);
+        const internals = unit as unknown as OverlayInternals & {
+            immobilizedContainer?: Container;
+            immobilizedSprite?: Sprite;
+        };
+        expect(internals.immobilizedContainer).toBeUndefined();
+        if (ranked) {
+            unit.getUnitProperties().applied_debuffs.push("Paralysis");
+            unit.ensureVisual(root, gridSettings);
+        } else {
+            expect(unit.applyEffect(new EffectFactory().makeEffect("Paralysis")!)).toBe(true);
+        }
+        expect(textures).toContain("immobilized_boot_forged");
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        expect(internals.immobilizedContainer?.parent).toBe(internals.badgeContainer);
+        expect(internals.immobilizedSprite!.scale.y).toBeLessThan(0);
+        unit.setSkipping(true);
+        expect(internals.stunContainer?.visible).toBe(true);
+        expect(internals.immobilizedContainer!.x + internals.immobilizedSprite!.width / 2).toBeLessThan(
+            internals.stunContainer!.x - internals.stunSprite!.width / 2,
+        );
+        unit.setVisualGhost(true);
+        expect(internals.immobilizedContainer?.visible).toBe(false);
+        unit.setVisualGhost(false);
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        if (ranked) {
+            unit.getUnitProperties().applied_debuffs.length = 0;
+            unit.ensureVisual(root, gridSettings);
+        } else unit.deleteEffect("Paralysis");
+        expect(internals.immobilizedContainer?.visible).toBe(false);
+        expect(internals.stunContainer?.visible).toBe(true);
+    });
+
+    test("immobilized badge follows Whirlpool and Web movement locks independently", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const root = new Container();
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(root, gridSettings);
+        const internals = unit as unknown as { immobilizedContainer?: Container };
+        // Merely standing in Web Aura is not enough: the engine latches the actual movement lock.
+        unit.getUnitProperties().applied_debuffs.push("Web Aura");
+        unit.ensureVisual(root, gridSettings);
+        expect(internals.immobilizedContainer).toBeUndefined();
+        unit.setWebMovementLocked(true);
+        // Ranked snapshot updates must refresh the existing badge immediately, like setSkipping.
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        unit.getUnitProperties().applied_debuffs.push("Whirlpool");
+        unit.setWebMovementLocked(false);
+        unit.ensureVisual(root, gridSettings);
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        unit.getUnitProperties().applied_debuffs.length = 0;
+        unit.ensureVisual(root, gridSettings);
+        expect(internals.immobilizedContainer?.visible).toBe(false);
+        unit.setSkipping(true);
+        expect(internals.immobilizedContainer?.visible).toBe(false);
+        unit.destroyVisuals();
+    });
+
+    test("immobilized badge latches for a flyer in spider aura at activation and clears next unlocked turn", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Mantis", "mantis_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
+        const internals = unit as unknown as { immobilizedContainer?: Container };
+        expect(unit.canFly()).toBe(true);
+        unit.applyAuraEffect("Web Aura", "Cannot move", false, 0, "4;4");
+        expect(unit.canMove()).toBe(true);
+        expect(internals.immobilizedContainer).toBeUndefined();
+        unit.refreshPreTurnState(sceneLog);
+        expect(unit.canMove()).toBe(false);
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        unit.deleteDebuff("Web Aura");
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        unit.refreshPreTurnState(sceneLog);
+        expect(unit.canMove()).toBe(true);
+        expect(internals.immobilizedContainer?.visible).toBe(false);
+        unit.setWebMovementLocked(true);
+        expect(internals.immobilizedContainer?.visible).toBe(true);
+        unit.setWebMovementLocked(false);
+        expect(internals.immobilizedContainer?.visible).toBe(false);
+        unit.destroyVisuals();
+    });
+
+    test("paralysis badge outlives the pop and disappears only when the effect is removed", () => {
+        let now = 100;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const root = new Container();
+        try {
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(root, gridSettings);
+            unit.applyEffect(new EffectFactory().makeEffect("Paralysis")!);
+            const internals = unit as unknown as { immobilizedContainer?: Container };
+            expect(internals.immobilizedContainer?.visible).toBe(true);
+            expect(unit.hasStatusEffect("Paralysis")).toBe(true);
+            now = 30100;
+            unit.ensureVisual(root, gridSettings);
+            expect(internals.immobilizedContainer?.visible).toBe(true);
+            unit.deleteEffect("Paralysis");
+            expect(internals.immobilizedContainer?.visible).toBe(false);
+        } finally {
+            clock.mockRestore();
+        }
+    });
+
     test("shows the board stun badge immediately when ranked snapshot metadata arrives", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
@@ -8389,173 +8747,6 @@ describe("RenderableUnit steady-state overlays", () => {
         unit.ensureVisual(worldRoot, gridSettings, 151);
         expect(clearCount).toBe(1);
     });
-
-    test.each([
-        ["main", RenderableUnit],
-        ["level one", LevelOneRenderableUnit],
-    ] as const)("%s keeps the empty inactive glow unchanged while its cloth waves", (_name, Renderer) => {
-        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
-        const effects = new EffectFactory();
-        const base = Unit.createUnit(
-            HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "squire_512", 1),
-            gridSettings,
-            TeamVals.LEFT,
-            UnitVals.CREATURE,
-            new AbilityFactory(effects),
-            effects,
-            false,
-        );
-        const unit = Renderer.fromBase(base, () => testAtlasTexture);
-        const world = new Container();
-        unit.setPosition(0, 1024);
-        unit.ensureVisual(world, gridSettings, 1_000);
-        const visuals = unit as unknown as OverlayInternals;
-        const flag = visuals.badgeFlag!;
-        const glow = visuals.badgeFlagGlow!;
-        const flagClear = spyOn(flag, "clear");
-        const glowClear = spyOn(glow, "clear");
-        let glowUpdates = 0;
-        const recordUpdate = () => glowUpdates++;
-        glow.context.on("update", recordUpdate);
-        try {
-            expect(glow.bounds.width).toBe(0);
-            expect(glow.bounds.height).toBe(0);
-            for (let frame = 1; frame <= 600; frame += 1) {
-                unit.ensureVisual(world, gridSettings, 1_000 + (frame * 1_000) / 60);
-            }
-            expect(flagClear).toHaveBeenCalledTimes(200);
-            expect(glowClear).not.toHaveBeenCalled();
-            expect(glowUpdates).toBe(0);
-            expect(glow.visible).toBe(false);
-
-            unit.setActiveTurn(true);
-            unit.ensureVisual(world, gridSettings, 11_050);
-            expect(glow.visible).toBe(true);
-            expect(glow.bounds.width).toBeGreaterThan(0);
-            expect(glow.bounds.height).toBeGreaterThan(0);
-            const clearsBeforeInactive = glowClear.mock.calls.length;
-            unit.setActiveTurn(false);
-            unit.ensureVisual(world, gridSettings, 11_100);
-            expect(glowClear.mock.calls.length).toBe(clearsBeforeInactive + 1);
-            expect(glow.visible).toBe(false);
-            expect(glow.bounds.width).toBe(0);
-            expect(glow.bounds.height).toBe(0);
-            unit.ensureVisual(world, gridSettings, 11_150);
-            expect(glowClear.mock.calls.length).toBe(clearsBeforeInactive + 1);
-
-            unit.setActiveTurn(true);
-            unit.ensureVisual(world, gridSettings, 11_200);
-            expect(visuals.activeTurnPointer?.visible).toBe(true);
-            expect(glow.visible).toBe(true);
-            expect(glow.bounds.width).toBeGreaterThan(0);
-        } finally {
-            glow.context.off("update", recordUpdate);
-            flagClear.mockRestore();
-            glowClear.mockRestore();
-            unit.destroyVisuals();
-            world.destroy({ children: true });
-        }
-    });
-
-    test.each([
-        ["main", RenderableUnit],
-        ["level one", LevelOneRenderableUnit],
-    ] as const)(
-        "%s preserves original badge drawing across glow transitions and geometry changes",
-        (_name, Renderer) => {
-            CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
-            type BadgeVisuals = OverlayInternals & {
-                badgeFlagPhaseValue: number;
-                drawBadgeFlag: (...args: unknown[]) => void;
-            };
-            const create = () => {
-                const effects = new EffectFactory();
-                const base = Unit.createUnit(
-                    HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "squire_512", 1),
-                    gridSettings,
-                    TeamVals.LEFT,
-                    UnitVals.CREATURE,
-                    new AbilityFactory(effects),
-                    effects,
-                    false,
-                );
-                const unit = Renderer.fromBase(base, () => testAtlasTexture);
-                const visuals = unit as unknown as BadgeVisuals;
-                visuals.badgeFlagPhaseValue = 0.5;
-                unit.setPosition(0, 1024);
-                const world = new Container();
-                world.scale.y = -1;
-                return { unit, visuals, world };
-            };
-            const optimized = create();
-            const original = create();
-            const originalDraw = original.visuals.drawBadgeFlag.bind(original.unit);
-            original.visuals.drawBadgeFlag = (...args) => {
-                // Restore the old unconditional clear around the actual drawing method; the reference
-                // still uses the production cloth and arrow paths rather than duplicating their geometry.
-                (args[1] as Graphics).clear();
-                originalDraw(...args);
-            };
-            const snapshot = (graphics: Graphics) => ({
-                instructions: graphics.context.instructions.map((instruction) => ({
-                    action: instruction.action,
-                    path: "path" in instruction.data ? instruction.data.path.instructions : undefined,
-                    style: instruction.data.style,
-                })),
-                x: graphics.x,
-                y: graphics.y,
-                scaleX: graphics.scale.x,
-                scaleY: graphics.scale.y,
-                rotation: graphics.rotation,
-                alpha: graphics.alpha,
-                visible: graphics.visible,
-            });
-            const compare = (time: number) => {
-                optimized.unit.ensureVisual(optimized.world, gridSettings, time);
-                original.unit.ensureVisual(original.world, gridSettings, time);
-                expect(snapshot(optimized.visuals.badgeFlag!)).toEqual(snapshot(original.visuals.badgeFlag!));
-                expect(snapshot(optimized.visuals.badgeFlagGlow!)).toEqual(snapshot(original.visuals.badgeFlagGlow!));
-                expect(snapshot(optimized.visuals.activeTurnPointer!)).toEqual(
-                    snapshot(original.visuals.activeTurnPointer!),
-                );
-            };
-            try {
-                compare(1_000);
-                compare(1_050);
-                for (const { unit } of [optimized, original]) unit.setActiveTurn(true);
-                compare(1_100);
-                compare(1_150);
-                for (const { unit } of [optimized, original]) unit.startBoardWalkAnimation(1);
-                compare(1_200);
-                expect(optimized.visuals.activeTurnPointer?.visible).toBe(false);
-                expect(optimized.visuals.badgeFlagGlow?.visible).toBe(false);
-                for (const { unit } of [optimized, original]) unit.setActiveTurn(false);
-                compare(1_250);
-                compare(1_300);
-                for (const { unit } of [optimized, original]) unit.setActiveTurn(true);
-                compare(1_350);
-                for (const { unit } of [optimized, original]) unit.setAmountAlive(12);
-                compare(1_400);
-                for (const { unit } of [optimized, original]) {
-                    (unit.getUnitProperties() as { team: TeamType }).team = TeamVals.RIGHT;
-                }
-                compare(1_450);
-                for (const { unit, world } of [optimized, original]) {
-                    unit.setBoardFacing(-1);
-                    unit.setBadgeEmphasis(1.2);
-                    world.scale.set(-1.25, -0.75);
-                }
-                compare(1_500);
-                for (const { unit } of [optimized, original]) unit.setActiveTurn(false);
-                compare(1_550);
-            } finally {
-                for (const { unit, world } of [optimized, original]) {
-                    unit.destroyVisuals();
-                    world.destroy({ children: true });
-                }
-            }
-        },
-    );
 
     test("coalesces stationary status-effect redraws but follows movement immediately", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
@@ -8703,7 +8894,7 @@ describe("RenderableUnit dodge animation", () => {
         expect(unit.isDodging()).toBe(false);
     });
 
-    test("offsets sprite by the full displacement during the hold phase and leaves a ghost trail", async () => {
+    test("keeps an authored figure stationary without procedural dodge ghosts", async () => {
         const { unit, worldRoot } = createVisualUnit();
         const childrenBefore = worldRoot.children.length;
         const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
@@ -8711,7 +8902,7 @@ describe("RenderableUnit dodge animation", () => {
         const restY = spriteBefore!.y;
 
         unit.playDodgeAnimation(40, -20);
-        expect(unit.isDodging()).toBe(true);
+        expect(unit.isDodging()).toBe(false);
         unit.ensureVisual(worldRoot, gridSettings);
 
         // 250ms sits inside the hold phase (22%..55% of the 640ms dodge) where the envelope is exactly 1.
@@ -8719,11 +8910,11 @@ describe("RenderableUnit dodge animation", () => {
         unit.ensureVisual(worldRoot, gridSettings);
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
         expect(sprite).toBeDefined();
-        expect(sprite!.x).toBeCloseTo(restX + 40, 5);
-        expect(sprite!.y).toBeCloseTo(restY - 20, 5);
-        expect(sprite!.rotation).not.toBe(0);
+        expect(sprite!.x).toBeCloseTo(restX, 5);
+        expect(sprite!.y).toBeCloseTo(restY, 5);
+        expect(sprite!.rotation).toBe(0);
         // Afterimage ghosts joined the world root behind the sprite.
-        expect(worldRoot.children.length).toBeGreaterThan(childrenBefore);
+        expect(worldRoot.children.length).toBe(childrenBefore);
     });
 
     test("springs back to rest and cleans up its ghosts after the dodge completes", async () => {
@@ -8760,13 +8951,17 @@ describe("RenderableUnit filter lifecycle", () => {
         const first = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => firstTexture);
         first.setPosition(0, 1024);
         first.ensureVisual(new Container(), gridSettings);
-        expect((first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0]).toBe(firstTexture);
+        expect((first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].source).toBe(
+            firstTexture.source,
+        );
         first.destroyVisuals();
 
         const second = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => secondTexture);
         second.setPosition(0, 1024);
         second.ensureVisual(new Container(), gridSettings);
-        expect((second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0]).toBe(secondTexture);
+        expect((second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].source).toBe(
+            secondTexture.source,
+        );
         second.destroyVisuals();
 
         firstTexture.destroy(true);
@@ -9109,34 +9304,137 @@ assetTest("plays all eight HD Dryad lab frames over 1.3 cells without legacy tur
     expect(state.walkAnim).toBeUndefined();
 });
 
-assetTest("Dryad lab idle pauses for walking and reactions, restores size, and leaves gameplay static", () => {
+assetTest("Dryad repainted idle ignores a resident legacy atlas and slices every complete new frame", () => {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
-    const state = unit as unknown as { sprite: Sprite; selectionAnimationStartedAtMs: number };
-    const idleFilter = () =>
-        (state.sprite.filters ?? []).find((filter) => filter.constructor.name === "DryadIdleFilter");
+    const meta = animationAtlases["Dryad Painted"].idle;
+    const stale = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 1792, height: 896 }),
+    });
+    const current = new Texture({
+        source: new BufferImageSource({
+            resource: new Uint8Array(4),
+            width: meta.atlasWidth,
+            height: meta.atlasHeight,
+        }),
+    });
+    const requested: string[] = [];
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", (key) => {
+        requested.push(key);
+        if (key === "dryad_lab_idle_atlas") return stale;
+        if (key === "dryad_painted_idle_atlas") return current;
+        return testAtlasTexture;
+    });
     unit.setPosition(0, 1024);
     unit.ensureVisual(new Container(), gridSettings);
-    expect(idleFilter()).toBeUndefined();
-    unit.setCreatureAnimationLabPreviewEnabled(true);
-    unit.stepSelectionAnimation(state.selectionAnimationStartedAtMs + 2200);
-    expect(idleFilter()).toBeDefined();
-    expect(idleFilter()?.resources.idle.uniforms.uMotion[2]).toBe(18);
-    const height = Math.abs(state.sprite.scale.y) * state.sprite.texture.height;
-    unit.startBoardWalkAnimation(1, 3);
-    expect(idleFilter()).toBeUndefined();
-    unit.returnToIdleAnimation();
-    expect(idleFilter()).toBeDefined();
-    expect(Math.abs(state.sprite.scale.y) * state.sprite.texture.height).toBeCloseTo(height, 8);
-    expect(idleFilter()?.resources.idle.uniforms.uMotion[2]).toBe(0);
-    expect(unit.playOneShotAnimation("hit", undefined, true)).toBe(true);
-    expect(idleFilter()).toBeUndefined();
-    unit.returnToIdleAnimation();
-    expect(idleFilter()).toBeDefined();
-    unit.startBoardWalkAnimation(-1, 3);
-    unit.setCreatureAnimationLabPreviewEnabled(false);
-    expect(idleFilter()).toBeUndefined();
-    expect(Math.abs(state.sprite.scale.y) * state.sprite.texture.height).toBeCloseTo(height, 8);
+    const state = unit as unknown as { selectionAnimFrames: Texture[] };
+    expect(requested).toContain("dryad_painted_idle_atlas");
+    expect(requested).not.toContain("dryad_lab_idle_atlas");
+    expect(state.selectionAnimFrames).toHaveLength(46);
+    for (const [index, frame] of state.selectionAnimFrames.entries()) {
+        expect(frame.source).toBe(current.source);
+        expect(frame.source).not.toBe(stale.source);
+        expect(frame.frame.width).toBe(384);
+        expect(frame.frame.height).toBe(384);
+        expect(frame.frame.x).toBe((index % meta.layout.cols) * 384);
+        expect(frame.frame.y).toBe(Math.floor(index / meta.layout.cols) * 384);
+        expect(frame.frame.right).toBeLessThanOrEqual(meta.atlasWidth);
+        expect(frame.frame.bottom).toBeLessThanOrEqual(meta.atlasHeight);
+    }
+});
+
+assetTest(
+    "Dryad painted idle uses authored poses in combat and lab without deformation and resumes after actions",
+    () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
+        const state = unit as unknown as {
+            sprite: Sprite;
+            selectionAnimationStartedAtMs: number;
+            selectionAnimFrames: Texture[];
+            selectionAnimFrameDurationsMs: number[];
+            selectionAnimFrameIndex: number;
+        };
+        const idleFilter = () =>
+            (state.sprite.filters ?? []).find((filter) => filter.constructor.name === "DryadIdleFilter");
+        unit.setPosition(0, 1024);
+        const world = new Container();
+        unit.ensureVisual(world, gridSettings);
+        expect(unit.getAnimationTextureKey("idle")).toBe("dryad_painted_idle_atlas");
+        expect(state.selectionAnimFrames).toHaveLength(46);
+        expect(state.sprite.filters).toContain(dryadIdlePalette());
+        const durations = [...Array(23).fill(80), ...Array(23).fill(50)];
+        durations[34] = 300;
+        expect(state.selectionAnimFrameDurationsMs).toEqual(durations);
+        unit.stepSelectionAnimation(state.selectionAnimationStartedAtMs + 2500);
+        expect(state.selectionAnimFrameIndex).toBe(34);
+        expect(state.sprite.texture).toBe(state.selectionAnimFrames[34]);
+        expect(idleFilter()).toBeUndefined();
+        const canvasHeight = Math.abs(state.sprite.scale.y) * state.sprite.texture.height;
+        const canvasWidth = Math.abs(state.sprite.scale.x) * state.sprite.texture.width;
+        const anchorY = state.sprite.anchor.y;
+        let elapsed = 0;
+        for (const [index, duration] of state.selectionAnimFrameDurationsMs.entries()) {
+            unit.stepSelectionAnimation(state.selectionAnimationStartedAtMs + elapsed + 1);
+            expect(state.selectionAnimFrameIndex).toBe(index);
+            expect(state.sprite.texture.width).toBe(384);
+            expect(state.sprite.texture.height).toBe(384);
+            expect(Math.abs(state.sprite.scale.y) * state.sprite.texture.height).toBeCloseTo(canvasHeight, 8);
+            expect(Math.abs(state.sprite.scale.x) * state.sprite.texture.width).toBeCloseTo(canvasWidth, 8);
+            expect(state.sprite.anchor.y).toBe(anchorY);
+            expect(idleFilter()).toBeUndefined();
+            expect(state.sprite.filters).toContain(dryadIdlePalette());
+            elapsed += duration;
+        }
+        expect(elapsed).toBe(3240);
+        unit.setCreatureAnimationLabPreviewEnabled(true);
+        const height = Math.abs(state.sprite.scale.y) * state.sprite.texture.height;
+        unit.startBoardWalkAnimation(1, 3);
+        expect(state.sprite.filters ?? []).not.toContain(dryadIdlePalette());
+        expect(idleFilter()).toBeUndefined();
+        unit.returnToIdleAnimation();
+        expect(Math.abs(state.sprite.scale.y) * state.sprite.texture.height).toBeCloseTo(height, 8);
+        expect(state.sprite.filters).toContain(dryadIdlePalette());
+        expect(unit.playOneShotAnimation("hit", undefined, true)).toBe(true);
+        expect(state.sprite.filters ?? []).not.toContain(dryadIdlePalette());
+        expect(idleFilter()).toBeUndefined();
+        unit.returnToIdleAnimation();
+        expect(state.sprite.texture).toBe(state.selectionAnimFrames[0]);
+        expect(state.sprite.filters).toContain(dryadIdlePalette());
+        unit.startBoardWalkAnimation(-1, 3);
+        unit.setCreatureAnimationLabPreviewEnabled(false);
+        expect(idleFilter()).toBeUndefined();
+        expect(Math.abs(state.sprite.scale.y) * state.sprite.texture.height).toBeCloseTo(height, 8);
+    },
+);
+
+assetTest("Dryad approved settings are active in ordinary combat without opening the lab", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(world, gridSettings);
+    const runtime = unit as unknown as {
+        sprite: Sprite;
+        oneShotAnim?: { frameDurationsMs: number[] };
+    };
+    expect(unit.getAnimationTextureKey("idle")).toBe("dryad_painted_idle_atlas");
+    expect(runtime.sprite.filters).toContain(dryadIdlePalette());
+    for (const [action, duration] of [
+        ["attack", 1010 / 1.15],
+        ["attack_up", 1010 / 1.15],
+        ["attack_down", 1010 / 1.15],
+        ["melee_attack", 540 / 1.15],
+        ["melee_attack_up", 570 / 1.15],
+        ["melee_attack_down", 590 / 1.15],
+        ["hit", 560 / 1.17],
+        ["death", 1140 / 1.07 / 1.17],
+    ] as const) {
+        expect(unit.playOneShotAnimation(action)).toBe(true);
+        expect(runtime.oneShotAnim!.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(duration, 7);
+        unit.returnToIdleAnimation();
+    }
+    world.destroy({ children: true });
 });
 
 assetTest("Dryad lab uses the new hit and death clips with authored timing and a held corpse", () => {
@@ -9170,7 +9468,7 @@ assetTest("Dryad lab uses the new hit and death clips with authored timing and a
     expect(state.oneShotAnim?.frames).toHaveLength(9);
     expect(state.oneShotAnim?.frames[0].height).toBe(768);
     expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBe(560);
+    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(560 / 1.17, 8);
     expect(state.sprite.texture.height * Math.abs(state.sprite.scale.y)).toBeCloseTo(height, 8);
     const hitCanvasWidth = state.sprite.texture.width * Math.abs(state.sprite.scale.x);
     const hitCanvasHeight = state.sprite.texture.height * Math.abs(state.sprite.scale.y);
@@ -9188,17 +9486,23 @@ assetTest("Dryad lab uses the new hit and death clips with authored timing and a
     expect(unit.isPlayingOneShotAnimation()).toBe(false);
     expect(state.sprite.texture).toBe(idle);
     expect(state.sprite.texture.height * Math.abs(state.sprite.scale.y)).toBeCloseTo(height, 8);
+    // Death can interrupt the hit-to-idle blend; it must never retain an idle ghost.
+    expect(unit.playOneShotAnimation("hit", undefined, true)).toBe(true);
+    unit.stepOneShotAnimation(450);
+    const recovery = state.sprite.filters!.find((filter) => "registration" in filter.resources)!;
+    expect(recovery.resources.registration.uniforms.uIdleBlend).toBeGreaterThan(0);
     let done = 0;
     expect(unit.playOneShotAnimation("death", () => done++, true)).toBe(true);
     expect(unit.getAnimationTextureKey("death")).toBe("dryad_lab_death_atlas");
     expect(state.oneShotAnim?.frames).toHaveLength(8);
     expect(state.oneShotAnim?.holdLastFrame).toBe(true);
+    expect((state.sprite.filters ?? []).some((filter) => "registration" in filter.resources)).toBe(false);
     expect(state.oneShotAnim!.frameDurationsMs.reduce((sum, duration) => sum + duration, 0)).toBeCloseTo(
-        1140 / 1.07,
+        1140 / 1.07 / 1.17,
         8,
     );
     for (const [frame, previousDuration] of [65, 115, 135, 145, 135, 135, 150, 260].entries()) {
-        expect(state.oneShotAnim!.frameDurationsMs[frame]).toBeCloseTo(previousDuration / 1.07, 8);
+        expect(state.oneShotAnim!.frameDurationsMs[frame]).toBeCloseTo(previousDuration / 1.07 / 1.17, 8);
     }
     const deathCanvasWidth = state.sprite.texture.width * Math.abs(state.sprite.scale.x);
     const deathCanvasHeight = state.sprite.texture.height * Math.abs(state.sprite.scale.y);
@@ -9221,6 +9525,154 @@ assetTest("Dryad lab uses the new hit and death clips with authored timing and a
     unit.setCreatureAnimationLabPreviewEnabled(false);
     expect(unit.getAnimationTextureKey("hit")).not.toBe("dryad_lab_hit_atlas");
 });
+
+assetTest("Dryad ranged soles stay on the idle ground points across frames, facings and interruptions", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        const unit = createRenderableUnit(team, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
+        const state = unit as unknown as {
+            sprite: Sprite;
+            oneShotAnim?: { frameIndex: number; frameDurationsMs: number[] };
+        };
+        const world = new Container();
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(world, gridSettings);
+        unit.setCreatureAnimationLabPreviewEnabled(true);
+        unit.ensureVisual(world, gridSettings);
+        const sprite = state.sprite;
+        const target = [
+            [112.5, 365],
+            [224, 358],
+        ].map(([x, y]) => ({
+            x: sprite.x + (x - sprite.anchor.x * 384) * sprite.scale.x,
+            y: sprite.y + (y - sprite.anchor.y * 384) * sprite.scale.y,
+        }));
+        const idleAnchor = { x: sprite.anchor.x, y: sprite.anchor.y };
+        const logicalPosition = { ...unit.getPosition() };
+        const unrelated = new ColorMatrixFilter();
+        sprite.filters = [...(sprite.filters ?? []), unrelated];
+        for (const action of ["attack", "attack_up", "attack_down"] as const) {
+            expect(unit.playOneShotAnimation(action, undefined, true)).toBe(true);
+            const durations = [...state.oneShotAnim!.frameDurationsMs];
+            const assertPlanted = (frame: number) => {
+                const owned = sprite.filters?.find((filter) => "registration" in filter.resources);
+                expect(owned).toBeDefined();
+                const uniforms = owned!.resources.registration.uniforms;
+                expect(uniforms.uMirror).toBe(sprite.scale.x < 0 ? -1 : 1);
+                for (const [index, [x, y]] of DRYAD_RANGED_SOLES[action][frame].entries()) {
+                    const shift = index === 0 ? uniforms.uLeftShift : uniforms.uRightShift;
+                    expect(sprite.x + (x + shift[0] * 768 - sprite.anchor.x * 768) * sprite.scale.x).toBeCloseTo(
+                        target[index].x,
+                        6,
+                    );
+                    expect(sprite.y + (y + shift[1] * 768 - sprite.anchor.y * 768) * sprite.scale.y).toBeCloseTo(
+                        target[index].y,
+                        6,
+                    );
+                }
+                expect(unit.getPosition()).toEqual(logicalPosition);
+                expect(sprite.filters).toContain(unrelated);
+            };
+            for (const [frame, duration] of durations.entries()) {
+                expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                assertPlanted(frame); // also before the next layout tick
+                unit.ensureVisual(world, gridSettings);
+                assertPlanted(frame);
+                unit.ensureVisual(world, gridSettings);
+                assertPlanted(frame); // repeated layout must not accumulate anchor offsets
+                unit.stepOneShotAnimation(duration);
+            }
+            expect(state.oneShotAnim).toBeUndefined();
+            expect(sprite.anchor.x).toBe(idleAnchor.x);
+            expect(sprite.anchor.y).toBe(idleAnchor.y);
+            expect(sprite.filters).toContain(unrelated);
+            expect(sprite.filters?.some((filter) => "registration" in filter.resources)).toBe(false);
+        }
+        for (const cancel of [
+            () => unit.returnToIdleAnimation(),
+            () => unit.startBoardWalkAnimation(1, 2),
+            () => unit.playOneShotAnimation("hit", undefined, true),
+            () => unit.setCreatureAnimationLabPreviewEnabled(false),
+        ]) {
+            unit.setCreatureAnimationLabPreviewEnabled(true);
+            unit.returnToIdleAnimation();
+            unit.playOneShotAnimation("attack_up", undefined, true);
+            unit.stepOneShotAnimation(600);
+            cancel();
+            if (unit.isPlayingOneShotAnimation("hit")) {
+                const hitFilter = sprite.filters!.find((filter) => "registration" in filter.resources)!;
+                expect(hitFilter.resources.registration.uniforms.uLeftShift).toEqual([0, 0]);
+                expect(hitFilter.resources.registration.uniforms.uRightShift).toEqual([0, 0]);
+                expect(hitFilter.resources.registration.uniforms.uIdleBlend).toBe(0);
+            } else {
+                expect(sprite.filters?.some((filter) => "registration" in filter.resources)).toBe(false);
+            }
+            expect(sprite.filters).toContain(unrelated);
+        }
+        world.destroy({ children: true });
+    }
+});
+
+assetTest(
+    "Dryad ranged and hit recovery reaches the painted idle without a size or phase jump, including duplicate stacks",
+    () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const world = new Container();
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            for (let duplicate = 0; duplicate < 3; duplicate++) {
+                const unit = createRenderableUnit(team, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
+                const state = unit as unknown as {
+                    sprite: Sprite;
+                    selectionAnimFrames: Texture[];
+                    selectionAnimFrameIndex: number;
+                    oneShotAnim?: { frameIndex: number; elapsed: number; frameDurationsMs: number[] };
+                };
+                unit.setPosition(0, 1024);
+                unit.ensureVisual(world, gridSettings);
+                unit.setCreatureAnimationLabPreviewEnabled(true);
+                unit.ensureVisual(world, gridSettings);
+                const sprite = state.sprite;
+                const dimensions = [sprite.width, sprite.height, sprite.x, sprite.y];
+                const assertSize = () => {
+                    [sprite.width, sprite.height, sprite.x, sprite.y].forEach((value, i) =>
+                        expect(value).toBeCloseTo(dimensions[i], 7),
+                    );
+                };
+                for (const action of ["attack", "attack_up", "attack_down", "hit"] as const) {
+                    unit.playOneShotAnimation(action, undefined, true);
+                    const durations = state.oneShotAnim!.frameDurationsMs;
+                    expect(durations.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                        action === "hit" ? 560 / 1.17 : 1010 / 1.15,
+                        8,
+                    );
+                    const blends: number[] = [];
+                    for (const duration of durations) {
+                        for (let step = 0; step < 4; step++) {
+                            const filter = sprite.filters!.find((f) => "registration" in f.resources)!;
+                            blends.push(filter.resources.registration.uniforms.uIdleBlend);
+                            expect(filter.resources.uIdleTexture).toBe(state.selectionAnimFrames[0].source);
+                            assertSize();
+                            unit.ensureVisual(world, gridSettings);
+                            assertSize();
+                            unit.stepOneShotAnimation(duration / 4);
+                        }
+                    }
+                    expect(blends[0]).toBe(0);
+                    expect(blends.at(-1)).toBe(1);
+                    for (let i = 1; i < blends.length; i++) expect(blends[i]).toBeGreaterThanOrEqual(blends[i - 1]);
+                    expect(state.oneShotAnim).toBeUndefined();
+                    expect(state.selectionAnimFrameIndex).toBe(0);
+                    expect(sprite.texture).toBe(state.selectionAnimFrames[0]);
+                    assertSize();
+                    unit.ensureVisual(world, gridSettings);
+                    assertSize();
+                    expect(state.selectionAnimFrameIndex).toBe(0);
+                    expect(sprite.filters).toContain(dryadIdlePalette());
+                }
+            }
+        }
+    },
+);
 
 assetTest("Dryad ranged arrows release exactly on the empty-bow frame and cancel cleanly", () => {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
@@ -9323,7 +9775,10 @@ assetTest("Dryad lab has three bow melee clips with stable scale and clean retur
         expect(state.oneShotAnim?.frames).toHaveLength(8);
         expect(state.oneShotAnim?.authoredRealTime).toBe(true);
         expect(state.oneShotAnim?.holdLastFrame).toBe(false);
-        expect(state.oneShotAnim!.frameDurationsMs.reduce((sum, duration) => sum + duration, 0)).toBe(totalMs);
+        expect(state.oneShotAnim!.frameDurationsMs.reduce((sum, duration) => sum + duration, 0)).toBeCloseTo(
+            totalMs / 1.15,
+            8,
+        );
         const durations = [...state.oneShotAnim!.frameDurationsMs];
         for (const duration of durations) {
             unit.ensureVisual(world, gridSettings);
@@ -9447,7 +9902,10 @@ assetTest("Leprechaun lab reactions preserve size, return from hit and hold the 
     expect(unit.getAnimationTextureKey("hit")).toBe("leprechaun_lab_hit_atlas");
     expect(state.oneShotAnim?.frames).toHaveLength(8);
     expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(650 / 1.08 / 1.08 / 1.1, 8);
+    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+        650 / 1.08 / 1.08 / 1.1 / 1.17,
+        8,
+    );
     expect(state.sprite.texture.height * Math.abs(state.sprite.scale.y)).toBeCloseTo(height, 8);
     checkRegistration();
     const hitDurations = state.oneShotAnim!.frameDurationsMs.slice();
@@ -9657,7 +10115,7 @@ assetTest("Battle Mage lab redrawn reactions preserve scale, settle hits and hol
         expect(unit.playOneShotAnimation("hit", () => hits++, true)).toBe(true);
         expect(unit.getAnimationTextureKey("hit")).toBe("battle_mage_lab_hit_atlas");
         expect(state.oneShotAnim?.frames).toHaveLength(7);
-        const hitDuration = 520 / 1.15 / 1.07;
+        const hitDuration = 520 / 1.15 / 1.07 / 1.17;
         expect(state.oneShotAnim?.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(hitDuration, 10);
         expect(state.oneShotAnim?.authoredRealTime).toBe(true);
         expect(state.sprite.width).toBeCloseTo(width, 8);
@@ -9830,7 +10288,10 @@ assetTest("Healer combat reactions return from hit and hold the final death pose
             expect(keys).not.toContain(`healer_lab_${action}_atlas_quarter`);
             expect(state.oneShotAnim?.frames).toHaveLength(count);
             expect(state.oneShotAnim?.frames[0].width).toBe(768);
-            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 8);
+            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                action === "hit" ? total / 1.17 : total,
+                8,
+            );
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
             expect(state.sprite.filters ?? []).not.toContain(healerLabWalkPalette());
             const durations = state.oneShotAnim!.frameDurationsMs.slice();
@@ -9984,7 +10445,10 @@ assetTest("Troll lab attacks and reactions preserve scale, return to idle and ho
             expect(state.oneShotAnim?.frames[0].width).toBe(canvas);
             expect(state.sprite.width).toBeCloseTo((width * canvas) / 768, 8);
             expect(state.sprite.height).toBeCloseTo((height * canvas) / 768, 8);
-            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 8);
+            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                action === "hit" ? total / 1.17 : total,
+                8,
+            );
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
             if (canvas === 1152) {
                 expect(state.sprite.filters).toHaveLength(baseFilters.length + 1);
@@ -10081,7 +10545,10 @@ assetTest("Pikeman lab reactions return from hit and hold the final death pose o
             expect(keys).not.toContain(`pikeman_lab_${action}_atlas_quarter`);
             expect(state.oneShotAnim?.frames).toHaveLength(count);
             expect(state.oneShotAnim?.frames[0].width).toBe(action === "death" ? 1024 : 768);
-            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 8);
+            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                action === "hit" ? total / 1.17 : total,
+                8,
+            );
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
             const durations = state.oneShotAnim!.frameDurationsMs.slice();
             for (let frame = 0; frame < count; frame++) {
@@ -10417,4 +10884,643 @@ assetTest("Elf approved combat package plays every action with the lab disabled"
             unit.returnToIdleAnimation();
         }
     }
+});
+
+test("revealed placement keeps authored idle moving when the server redacts the opponent amount", () => {
+    const unit = createRenderableUnit(TeamVals.RIGHT, "Life", "Battle Mage", "battle_mage_512", () => Texture.WHITE);
+    const world = new Container();
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.setRemainingStats(0, 0, 0);
+    unit.setVisualRevealed(true);
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(world, gridSettings);
+    const state = unit as unknown as { sprite: Sprite; rosterCard?: Container };
+    const idle = () =>
+        state.sprite.filters?.find((filter) => filter instanceof BattleMageIdleFilter) as
+            BattleMageIdleFilter | undefined;
+    expect(unit.isDead()).toBe(true);
+    expect(state.rosterCard).toBeUndefined();
+    expect(idle()).toBeDefined();
+    const before = idle()!.resources.mageIdle.uniforms.uTime;
+    unit.stepSelectionAnimation(performance.now() + 1500);
+    expect(idle()!.resources.mageIdle.uniforms.uTime).toBeGreaterThan(before);
+    unit.setVisualRevealed(false);
+    unit.stepSelectionAnimation();
+    expect(idle()).toBeUndefined();
+    unit.destroyVisuals();
+    world.destroy({ children: true });
+});
+
+assetTest("Goblin Knight lab uses HD source frames and distance-driven movement", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const keys: string[] = [];
+    const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Goblin Knight", "goblin_knight_512", (key) => {
+        keys.push(key);
+        return Texture.WHITE;
+    });
+    const state = unit as unknown as { sprite: Sprite; walkAnim?: { frames: Texture[]; frameIndex: number } };
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(new Container(), gridSettings);
+    unit.startBoardWalkAnimation(1);
+    expect(state.walkAnim).toBeUndefined();
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.startBoardWalkAnimation(1, 4);
+    expect(state.sprite.filters?.some((filter) => filter instanceof GoblinKnightIdleFilter) ?? false).toBe(false);
+    expect(keys).toContain("goblin_knight_walk_atlas");
+    expect(state.walkAnim?.frames).toHaveLength(8);
+    expect(state.walkAnim?.frames[0].width).toBe(768);
+    for (let step = 0; step <= 16; step++) {
+        unit.setBoardWalkDistanceCells((step * 1.3) / 8 + 1e-8);
+        expect(state.walkAnim?.frameIndex).toBe(step % 8);
+        unit.ensureVisual(new Container(), gridSettings);
+        const glow = state.sprite.filters?.find((filter) => filter.resources.paletteSource)?.resources.paletteSource
+            .uniforms;
+        expect(glow?.uGlow).toBe(1);
+        expect(Array.from(glow?.uBlade as Float32Array).map((v) => Math.round(v * 10))).toEqual(
+            GOBLIN_MOVING_BLADES.walk[step % 8].map((v) => Math.round(v * 10)),
+        );
+        unit.stepSpawnAnimation(0.5);
+        expect(state.walkAnim?.frameIndex).toBe(step % 8);
+    }
+    unit.setBoardWalkDistanceCells(2.6 + Math.SQRT2);
+    expect(state.walkAnim?.frameIndex).toBe(Math.floor((2.6 + Math.SQRT2) / (1.3 / 8)) % 8);
+    unit.stopBoardWalkAnimation();
+    expect(state.walkAnim).toBeUndefined();
+    unit.stepSelectionAnimation();
+    expect(state.sprite.filters?.some((filter) => filter instanceof GoblinKnightIdleFilter)).toBe(true);
+    unit.setCreatureAnimationLabPreviewEnabled(false);
+    unit.stepSelectionAnimation();
+    expect(state.sprite.filters?.some((filter) => filter instanceof GoblinKnightIdleFilter) ?? false).toBe(false);
+    state.sprite.destroy();
+});
+
+assetTest("Goblin Knight lab hit recovers and death holds its corpse on both teams", () => {
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        const unit = createRenderableUnit(team, "Chaos", "Goblin Knight", "goblin_knight_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        const world = new Container();
+        unit.ensureVisual(world, gridSettings);
+        unit.setCreatureAnimationLabPreviewEnabled(true);
+        const state = unit as unknown as {
+            sprite: Sprite;
+            walkAnim?: unknown;
+            selectionAnimFootAnchorY: number;
+            oneShotAnim?: {
+                frames: Texture[];
+                frameIndex: number;
+                holdLastFrame: boolean;
+                frameDurationsMs: number[];
+                footAnchorY: number;
+            };
+        };
+        unit.startBoardWalkAnimation(1, 3);
+        expect(unit.getAnimationTextureKey("hit")).toBe("goblin_knight_lab_hit_atlas");
+        expect(unit.playOneShotAnimation("hit")).toBe(true);
+        expect(state.walkAnim).toBeUndefined();
+        expect(state.oneShotAnim?.frames).toHaveLength(8);
+        expect(state.oneShotAnim?.footAnchorY).toBe(state.selectionAnimFootAnchorY);
+        expect(state.oneShotAnim?.frames[0]).toBe(state.oneShotAnim?.frames[7]);
+        for (let i = 0; i < 7; i++) {
+            unit.ensureVisual(world, gridSettings);
+            expect(state.sprite.anchor.y).toBe(state.selectionAnimFootAnchorY);
+            unit.stepOneShotAnimation(state.oneShotAnim!.frameDurationsMs[i]);
+        }
+
+        expect(state.oneShotAnim?.frameDurationsMs).toHaveLength(8);
+        expect(state.oneShotAnim?.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(680 / 1.15 / 1.17, 6);
+        expect(state.sprite.filters?.some((f) => f instanceof GoblinKnightIdleFilter) ?? false).toBe(false);
+        unit.stepOneShotAnimation(5000);
+        expect(state.oneShotAnim).toBeUndefined();
+        unit.stepSelectionAnimation();
+        expect(state.sprite.filters?.some((f) => f instanceof GoblinKnightIdleFilter)).toBe(true);
+        expect(unit.getAnimationTextureKey("death")).toBe("goblin_knight_lab_death_atlas");
+        expect(unit.playOneShotAnimation("death")).toBe(true);
+        expect(state.oneShotAnim?.frames).toHaveLength(12);
+        expect(state.oneShotAnim?.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(1560 / 1.15, 6);
+        expect(state.oneShotAnim?.holdLastFrame).toBe(true);
+        const durations = state.oneShotAnim!.frameDurationsMs;
+        unit.stepOneShotAnimation(durations.slice(0, 7).reduce((sum, ms) => sum + ms, 0) + 0.01);
+        expect(state.oneShotAnim?.frameIndex).toBe(7);
+        const grounded = state.sprite.texture;
+        const position = [
+            state.sprite.x,
+            state.sprite.y,
+            state.sprite.anchor.x,
+            state.sprite.anchor.y,
+            state.sprite.scale.x,
+            state.sprite.scale.y,
+        ];
+        for (let index = 7; index < 11; index++) {
+            unit.stepOneShotAnimation(durations[index]);
+            expect(state.oneShotAnim?.frameIndex).toBe(index + 1);
+            expect(state.sprite.texture).toBe(grounded);
+            expect([
+                state.sprite.x,
+                state.sprite.y,
+                state.sprite.anchor.x,
+                state.sprite.anchor.y,
+                state.sprite.scale.x,
+                state.sprite.scale.y,
+            ]).toEqual(position);
+        }
+        unit.stepOneShotAnimation(5000);
+        expect(state.oneShotAnim?.frameIndex).toBe(11);
+        const corpse = state.sprite.texture;
+        unit.stepOneShotAnimation(5000);
+        expect(state.sprite.texture).toBe(corpse);
+        expect(state.sprite.filters?.some((f) => f instanceof GoblinKnightIdleFilter) ?? false).toBe(false);
+        unit.returnToIdleAnimation();
+        unit.stepSelectionAnimation();
+        expect(state.oneShotAnim).toBeUndefined();
+        expect(state.sprite.filters?.some((f) => f instanceof GoblinKnightIdleFilter)).toBe(true);
+        unit.destroyVisuals();
+        world.destroy({ children: true });
+    }
+});
+
+assetTest("Goblin Knight lab has three grounded directional sword attacks that return to idle", () => {
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        const unit = createRenderableUnit(team, "Chaos", "Goblin Knight", "goblin_knight_512", () => Texture.WHITE);
+        const world = new Container();
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(world, gridSettings);
+        unit.setCreatureAnimationLabPreviewEnabled(true);
+        const view = unit as unknown as {
+            sprite: Sprite;
+            selectionAnimFootAnchorY: number;
+            oneShotAnim?: { frames: Texture[]; frameDurationsMs: number[]; footAnchorY: number; frameIndex: number };
+        };
+        for (const action of ["melee_attack", "melee_attack_up", "melee_attack_down"]) {
+            expect(unit.getAnimationTextureKey(action)).toBe(`goblin_knight_lab_${action}_atlas`);
+            expect(unit.playOneShotAnimation(action)).toBe(true);
+            expect(view.oneShotAnim?.frames).toHaveLength(8);
+            expect(view.oneShotAnim?.frames[0].width).toBe(1280);
+            expect(view.oneShotAnim?.footAnchorY).toBe((256 + view.selectionAnimFootAnchorY * 768) / 1280);
+            const times = view.oneShotAnim!.frameDurationsMs;
+            expect(times).toHaveLength(8);
+            for (let frame = 0; frame < 7; frame++) {
+                unit.ensureVisual(world, gridSettings);
+                expect(view.sprite.anchor.y).toBe((256 + view.selectionAnimFootAnchorY * 768) / 1280);
+                unit.stepOneShotAnimation(times[frame] + 0.001);
+            }
+            unit.stepOneShotAnimation(2000);
+            expect(view.oneShotAnim).toBeUndefined();
+            unit.stepSelectionAnimation();
+            expect(view.sprite.filters?.some((f) => f instanceof GoblinKnightIdleFilter)).toBe(true);
+        }
+        unit.destroyVisuals();
+        world.destroy({ children: true });
+    }
+});
+
+assetTest("Nightmare lab hit returns to idle and death holds an unscaled corpse without fire", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const base = new Texture({ source: Texture.WHITE.source, frame: new Rectangle(0, 0, 768, 768) });
+    const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Nightmare", "nightmare_512", (key) =>
+        key.includes("atlas") ? Texture.WHITE : base,
+    );
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(world, gridSettings);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    const state = unit as unknown as { sprite: Sprite; oneShotAnim?: { frameIndex: number; finished?: boolean } };
+    const fire = () =>
+        state.sprite.filters?.find((filter) => filter.resources?.idle?.uniforms?.uReaction !== undefined);
+    expect(unit.getAnimationTextureKey("hit")).toBe("nightmare_lab_hit_atlas");
+    expect(unit.getAnimationTextureKey("death")).toBe("nightmare_lab_death_atlas");
+    unit.startBoardWalkAnimation(1, 3);
+    expect(unit.playOneShotAnimation("hit", undefined, true)).toBe(true);
+    unit.stepSelectionAnimation(2000);
+    expect(fire()?.resources.idle.uniforms.uReaction).toBe(1);
+    unit.stepOneShotAnimation(5000);
+    expect(unit.isPlayingOneShotAnimation()).toBe(false);
+    unit.stepSelectionAnimation(3000);
+    expect(fire()?.resources.idle.uniforms.uReaction).toBe(0);
+    const idleScale = { x: state.sprite.scale.x, y: state.sprite.scale.y };
+    for (const attack of ["melee_attack", "melee_attack_up", "melee_attack_down"]) {
+        expect(unit.getAnimationTextureKey(attack)).toBe(`nightmare_lab_${attack}_atlas`);
+        expect(unit.playOneShotAnimation(attack, undefined, true)).toBe(true);
+        unit.stepOneShotAnimation(220);
+        unit.stepSelectionAnimation(3200);
+        expect(fire()?.resources.idle.uniforms.uFireEnabled).toBe(1);
+        expect(fire()?.resources.idle.uniforms.uWalking).toBe(1);
+        expect(fire()?.resources.idle.uniforms.uPoseScale).toBe(1);
+        unit.stepOneShotAnimation(3000);
+        expect(unit.isPlayingOneShotAnimation()).toBe(false);
+        expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
+        expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
+    }
+    expect(unit.getAnimationTextureKey("cast")).toBe("nightmare_lab_cast_atlas");
+    expect(unit.playOneShotAnimation("cast", undefined, true)).toBe(true);
+    unit.stepOneShotAnimation(950 / 1.5);
+    unit.stepSelectionAnimation(4200);
+    expect(fire()?.resources.idle.uniforms.uSmokeAlpha).toBe(1);
+    expect(fire()?.resources.idle.uniforms.uFireEnabled).toBe(1);
+    expect(fire()?.resources.idle.uniforms.uPoseScale).toBe(1);
+    expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
+    expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
+    unit.stepOneShotAnimation(3000);
+    unit.stepSelectionAnimation(5000);
+    expect(unit.isPlayingOneShotAnimation()).toBe(false);
+    expect(fire()?.resources.idle.uniforms.uSmokeAlpha).toBe(0);
+    expect(unit.playOneShotAnimation("death", undefined, true)).toBe(true);
+    unit.stepOneShotAnimation(5000);
+    const corpse = state.sprite.texture;
+    expect(state.oneShotAnim?.finished).toBe(true);
+    unit.stepSelectionAnimation(6000);
+    expect(fire()?.resources.idle.uniforms.uReaction).toBe(1);
+    expect(fire()?.resources.idle.uniforms.uTime).toBe(6);
+    expect(fire()?.resources.idle.uniforms.uFireEnabled).toBe(0);
+    expect(fire()?.resources.idle.uniforms.uPoseScale).toBe(1);
+    unit.stepOneShotAnimation(5000);
+    unit.stepSelectionAnimation(7000);
+    expect(state.sprite.texture).toBe(corpse);
+    expect(fire()?.resources.idle.uniforms.uTime).toBe(7);
+    unit.returnToIdleAnimation();
+    unit.stepSelectionAnimation(8000);
+    expect(fire()?.resources.idle.uniforms.uReaction).toBe(0);
+});
+
+assetTest("Arachna Queen lab keeps visible size, grounded feet and facing through walking", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const texture = (width: number, height: number) =>
+        new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
+    // Real runtime dimensions, rather than Texture.WHITE: blank canvas size is not figure size.
+    const idle = texture(768, 768);
+    const walk = texture(3072, 1536);
+    const heights = [447, 447, 465, 462, 462, 456, 462, 468];
+    const bottoms = [681, 684, 693, 687, 696, 690, 690, 702];
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        const keys: string[] = [];
+        const unit = createRenderableUnit(
+            team,
+            "Nature",
+            "Arachna Queen",
+            "arachna_queen_battlefield_side_right_distance_readable_v2",
+            (key) => {
+                keys.push(key);
+                return key === "arachna_queen_lab_walk_atlas" ? walk : idle;
+            },
+        );
+        const state = unit as unknown as {
+            sprite: Sprite;
+            shadow: Graphics;
+            silhouetteShadow: Sprite;
+            walkAnim?: { frames: Texture[]; frameIndex: number; loopStartFrame: number; loopEndFrame: number };
+        };
+        const world = new Container();
+        unit.setPosition(0, 1024);
+        unit.setBattlefieldVisualProjection(true);
+        unit.ensureVisual(world, gridSettings);
+        expect(unit.hasAnimationState("walk")).toBe(false);
+        unit.setCreatureAnimationLabPreviewEnabled(true);
+        expect(unit.hasAnimationState("walk")).toBe(true);
+        unit.ensureVisual(world, gridSettings);
+        expect(state.sprite.filters?.some((filter) => filter instanceof ArachnaQueenIdleFilter)).toBe(true);
+        const idleTexture = state.sprite.texture;
+        const idleScale = Math.abs(state.sprite.scale.y);
+        const idleAspect = Math.abs(state.sprite.scale.x / state.sprite.scale.y);
+        const visibleHeight = idleScale * 469;
+        const footGap = (state.sprite.anchor.y * 768 - 702) * idleScale;
+        const assertWalkGeometry = () => {
+            const frame = state.walkAnim!.frameIndex;
+            expect(Math.abs(state.sprite.scale.y) * heights[frame]).toBeCloseTo(visibleHeight, 8);
+            expect((state.sprite.anchor.y * 768 - bottoms[frame]) * Math.abs(state.sprite.scale.y)).toBeCloseTo(
+                footGap,
+                8,
+            );
+            expect(Math.abs(state.sprite.scale.x / state.sprite.scale.y)).toBeCloseTo(idleAspect, 8);
+            expect(state.silhouetteShadow.visible).toBe(true);
+            expect(state.shadow.visible).toBe(false);
+        };
+        unit.startBoardWalkAnimation(1, 4);
+        expect(state.sprite.filters?.some((filter) => filter instanceof ArachnaQueenIdleFilter) ?? false).toBe(true);
+        expect(keys).toContain("arachna_queen_lab_walk_atlas");
+        expect(keys).not.toContain("arachna_queen_lab_walk_atlas_quarter");
+        expect(state.walkAnim?.frames).toHaveLength(8);
+        expect(state.walkAnim?.frames[0].width).toBe(768);
+        expect(state.walkAnim?.loopStartFrame).toBe(0);
+        expect(state.walkAnim?.loopEndFrame).toBe(7);
+        assertWalkGeometry();
+        for (let step = 0; step <= 16; step++) {
+            unit.setBoardWalkDistanceCells((step * 1.3) / 8 + 1e-8);
+            expect(state.walkAnim?.frameIndex).toBe(step % 8);
+            assertWalkGeometry();
+            unit.ensureVisual(world, gridSettings);
+            assertWalkGeometry();
+            expect(state.sprite.scale.x).toBeGreaterThan(0);
+        }
+        unit.setBoardWalkDistanceCells(2.6 + Math.SQRT2);
+        const frame = state.walkAnim!.frameIndex;
+        unit.setBoardFacingFromMovement(-1);
+        unit.ensureVisual(world, gridSettings);
+        expect(state.sprite.scale.x).toBeLessThan(0);
+        expect(state.walkAnim?.frameIndex).toBe(frame);
+        assertWalkGeometry();
+        unit.setBoardFacingFromMovement(0);
+        unit.ensureVisual(world, gridSettings);
+        expect(state.sprite.scale.x).toBeLessThan(0);
+        unit.stepSpawnAnimation(0.5);
+        expect(state.walkAnim?.frameIndex).toBe(frame);
+        unit.startBoardWalkAnimation(1, 0.25);
+        assertWalkGeometry();
+        unit.ensureVisual(world, gridSettings);
+        expect(state.sprite.scale.x).toBeGreaterThan(0);
+        unit.stopBoardWalkAnimation();
+        expect(state.sprite.texture).toBe(idleTexture);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScale, 8);
+        unit.ensureVisual(world, gridSettings);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScale, 8);
+        expect(state.sprite.filters?.some((filter) => filter instanceof ArachnaQueenIdleFilter)).toBe(true);
+        unit.setCreatureAnimationLabPreviewEnabled(false);
+        unit.ensureVisual(world, gridSettings);
+        expect(state.silhouetteShadow.visible).toBe(true);
+        expect(state.sprite.filters?.some((filter) => filter instanceof ArachnaQueenIdleFilter) ?? false).toBe(false);
+        expect(unit.hasAnimationState("walk")).toBe(false);
+        unit.startBoardWalkAnimation(1);
+        expect(state.walkAnim).toBeUndefined();
+    }
+});
+
+assetTest("Arachna Queen walking VFX follow every cel and reactions return or hold the corpse", () => {
+    const unit = createRenderableUnit(
+        TeamVals.LEFT,
+        "Nature",
+        "Arachna Queen",
+        "arachna_queen_battlefield_side_right_distance_readable_v2",
+        () => testAtlasTexture,
+    );
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(world, gridSettings);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    const view = unit as unknown as {
+        sprite: Sprite;
+        oneShotAnim?: { finished?: boolean; elapsed: number };
+        walkAnim?: unknown;
+    };
+    const fx = () => view.sprite.filters?.find((f) => f instanceof ArachnaQueenIdleFilter) as ArachnaQueenIdleFilter;
+    unit.startBoardWalkAnimation(1, 4);
+    const eyes = [
+        [518, 430],
+        [518, 435],
+        [516, 430],
+        [516, 435],
+        [516, 438],
+        [516, 444],
+        [517, 438],
+        [518, 431],
+    ];
+    for (let i = 0; i < 8; i++) {
+        unit.setBoardWalkDistanceCells((i * 1.3) / 8 + 1e-8);
+        unit.ensureVisual(world, gridSettings);
+        expect(fx().resources.queen.uniforms.uWalking).toBe(1);
+        expect(Array.from(fx().resources.queen.uniforms.uEye)).toEqual(eyes[i]);
+        expect(fx().resources.queen.uniforms.uLife).toBe(1);
+    }
+    let hitDone = 0;
+    expect(unit.hasAnimationState("hit")).toBe(true);
+    expect(unit.hasAnimationState("death")).toBe(true);
+    expect(unit.playOneShotAnimation("hit", () => hitDone++)).toBe(true);
+    expect(view.walkAnim).toBeUndefined();
+    unit.stepOneShotAnimation(100);
+    expect(fx().resources.queen.uniforms.uRecoil).toBeLessThan(0);
+    unit.stepOneShotAnimation(460);
+    expect(hitDone).toBe(1);
+    expect(view.oneShotAnim).toBeUndefined();
+    let deathDone = 0;
+    expect(unit.playOneShotAnimation("death", () => deathDone++)).toBe(true);
+    const openingDeathTexture = view.sprite.texture;
+    expect(fx()).toBeUndefined();
+    unit.stepOneShotAnimation(900);
+    expect(view.sprite.texture).not.toBe(openingDeathTexture);
+    expect(fx()).toBeUndefined();
+    unit.stepOneShotAnimation(900);
+    expect(deathDone).toBe(1);
+    expect(view.oneShotAnim?.finished).toBe(true);
+    const corpseTexture = view.sprite.texture;
+    expect(fx()).toBeUndefined();
+    unit.stepOneShotAnimation(5000);
+    unit.ensureVisual(world, gridSettings);
+    expect(deathDone).toBe(1);
+    expect(fx()).toBeUndefined();
+    expect(view.sprite.texture).toBe(corpseTexture);
+    unit.returnToIdleAnimation();
+    unit.ensureVisual(world, gridSettings);
+    expect(fx().resources.queen.uniforms.uLife).toBe(1);
+    expect(fx().resources.queen.uniforms.uCollapse).toBe(0);
+});
+
+assetTest("Arachna Queen lab reactions advance on simulation ticks at their authored duration", () => {
+    const unit = createRenderableUnit(
+        TeamVals.LEFT,
+        "Nature",
+        "Arachna Queen",
+        "arachna_queen_battlefield_side_right_distance_readable_v2",
+        () => testAtlasTexture,
+    );
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(world, gridSettings);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    const view = unit as unknown as {
+        sprite: Sprite;
+        oneShotAnim?: { finished?: boolean; frames: Texture[]; frameIndex: number };
+    };
+    const uniforms = () =>
+        (view.sprite.filters?.find((f) => f instanceof ArachnaQueenIdleFilter) as ArachnaQueenIdleFilter).resources
+            .queen.uniforms;
+    // The scene supplies 1/240 at 60 Hz. Do not refresh visuals manually between ticks:
+    // one-shot effects must update even while their source texture stays on one frame.
+    const tick = (count: number) => {
+        for (let i = 0; i < count; i++) unit.stepSpawnAnimation(1 / 240);
+    };
+    let hitDone = 0;
+    expect(unit.playOneShotAnimation("hit", () => hitDone++)).toBe(true);
+    tick(6);
+    expect(uniforms().uRecoil).toBeCloseTo(-19);
+    expect(uniforms().uFlash).toBeUndefined();
+    expect(hitDone).toBe(0);
+    tick(28);
+    expect(hitDone).toBe(1);
+    expect(view.oneShotAnim).toBeUndefined();
+
+    let deathDone = 0;
+    expect(unit.playOneShotAnimation("death", () => deathDone++)).toBe(true);
+    expect(view.oneShotAnim?.frames.length).toBe(9);
+    const deathScale = view.sprite.scale.clone();
+    const deathAnchor = view.sprite.anchor.clone();
+    const openingTexture = view.sprite.texture;
+    tick(27);
+    expect(view.oneShotAnim?.frameIndex).toBe(6);
+    expect(view.sprite.texture).not.toBe(openingTexture);
+    expect(view.sprite.filters?.some((f) => f instanceof ArachnaQueenIdleFilter) ?? false).toBe(false);
+    expect(view.sprite.scale.x).toBe(deathScale.x);
+    expect(view.sprite.scale.y).toBe(deathScale.y);
+    expect(view.sprite.anchor.y).toBe(deathAnchor.y);
+    expect(deathDone).toBe(0);
+    tick(26);
+    expect(deathDone).toBe(0);
+    tick(1);
+    expect(deathDone).toBe(1);
+    expect(view.oneShotAnim?.finished).toBe(true);
+    expect(view.oneShotAnim?.frameIndex).toBe(8);
+    const corpseTexture = view.sprite.texture;
+    tick(180);
+    expect(deathDone).toBe(1);
+    expect(view.sprite.texture).toBe(corpseTexture);
+    expect(view.oneShotAnim?.frameIndex).toBe(8);
+    unit.returnToIdleAnimation();
+    expect(uniforms().uLife).toBe(1);
+    expect(uniforms().uCollapse).toBe(0);
+});
+
+assetTest("Arachna Queen lab plays three distinct painted bites at fixed scale and returns to idle", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const texture = (width: number, height: number) =>
+        new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
+    const idle = texture(768, 768);
+    const atlas = texture(3072, 1536);
+    const bile = texture(512, 512);
+    for (const facing of [-1, 1]) {
+        const keys: string[] = [];
+        const unit = createRenderableUnit(
+            TeamVals.LEFT,
+            "Nature",
+            "Arachna Queen",
+            "arachna_queen_battlefield_side_right_distance_readable_v2",
+            (key) => {
+                keys.push(key);
+                return key === "arachna_queen_bile_sprites_v1" ? bile : key.includes("melee_attack") ? atlas : idle;
+            },
+        );
+        const world = new Container();
+        unit.setPosition(0, 1024);
+        unit.setBattlefieldVisualProjection(true);
+        unit.setCreatureAnimationLabPreviewEnabled(true);
+        unit.setBoardFacingFromMovement(facing);
+        unit.ensureVisual(world, gridSettings);
+        const view = unit as unknown as {
+            sprite: Sprite;
+            shadow: Graphics;
+            silhouetteShadow: Sprite;
+            oneShotAnim?: { frameIndex: number; frames: Texture[] };
+        };
+        expect(view.shadow.visible).toBe(false);
+        expect(view.silhouetteShadow.visible).toBe(true);
+        expect(view.silhouetteShadow.texture).toBe(view.sprite.texture);
+        const idleScale = view.sprite.scale.clone();
+        const sources = new Set<string>();
+        for (const state of ["melee_attack_up", "melee_attack", "melee_attack_down"]) {
+            let done = 0;
+            expect(unit.hasAnimationState(state)).toBe(true);
+            expect(unit.playOneShotAnimation(state, () => done++, true)).toBe(true);
+            expect(keys).toContain(`arachna_queen_lab_${state}_atlas`);
+            sources.add(unit.getAnimationTextureKey(state)!);
+            expect(view.oneShotAnim?.frames).toHaveLength(6);
+            expect(view.oneShotAnim?.frames[0].width).toBe(768);
+            const scale = view.sprite.scale.clone();
+            const anchor = view.sprite.anchor.clone();
+            expect(scale.x).toBeCloseTo(idleScale.x);
+            expect(scale.y).toBeCloseTo(idleScale.y);
+            const opening = view.sprite.texture;
+            for (let i = 0; i < 18; i++) unit.stepSpawnAnimation(1 / 240);
+            expect(view.oneShotAnim?.frameIndex).toBe(3);
+            expect(view.sprite.texture).not.toBe(opening);
+            expect(view.sprite.scale.x).toBe(scale.x);
+            expect(view.sprite.scale.y).toBe(scale.y);
+            expect(view.sprite.anchor.y).toBe(anchor.y);
+            const biteFx = view.sprite.filters?.find(
+                (f) => f instanceof ArachnaQueenIdleFilter,
+            ) as ArachnaQueenIdleFilter;
+            expect(biteFx).toBeInstanceOf(ArachnaQueenIdleFilter);
+            expect(biteFx.resources.queen.uniforms.uWalking).toBe(1);
+            expect(biteFx.resources.queen.uniforms.uBileReady).toBe(1);
+            expect(biteFx.resources.queen.uniforms.uCrouch).toBe(0);
+            expect(biteFx.resources.queen.uniforms.uBurstSeconds).toBeCloseTo(0.05);
+            expect(done).toBe(0);
+            for (let i = 0; i < 19; i++) unit.stepSpawnAnimation(1 / 240);
+            expect(done).toBe(1);
+            expect(view.oneShotAnim).toBeUndefined();
+            expect(biteFx.resources.queen.uniforms.uBurstSeconds).toBe(-1);
+            expect(view.sprite.filters?.some((f) => f instanceof ArachnaQueenIdleFilter)).toBe(true);
+        }
+        expect(sources.size).toBe(3);
+    }
+});
+
+assetTest("Arachna Spider lab uses its own full-size cels, distance gait and three attacks", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const texture = (width: number, height: number) =>
+        new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
+    const idle = texture(768, 768),
+        walk = texture(3072, 1536),
+        action = texture(3072, 1536),
+        bile = texture(512, 512);
+    const keys: string[] = [];
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Arachna Spider", "arachna_spider_512", (key) => {
+        keys.push(key);
+        return key.includes("bile_sprites")
+            ? bile
+            : key === "arachna_spider_lab_walk_atlas"
+              ? walk
+              : key.includes("_atlas")
+                ? action
+                : idle;
+    });
+    const state = unit as unknown as {
+        sprite: Sprite;
+        shadow: Graphics;
+        silhouetteShadow: Sprite;
+        walkAnim?: { frameIndex: number; frames: Texture[]; loopEndFrame: number };
+        oneShotAnim?: { frames: Texture[]; finished: boolean; frameIndex: number };
+    };
+    const world = new Container();
+    unit.setPosition(0, 1024);
+    unit.setBattlefieldVisualProjection(true);
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    unit.ensureVisual(world, gridSettings);
+    const scale = Math.abs(state.sprite.scale.y);
+    const lowerGround = projectBattlefieldPoint(
+        { x: 0, y: 1024 - gridSettings.getCellSize() * (battlefieldFootLineOffsetCells(1) + 0.1) },
+        gridSettings,
+    );
+    expect(state.sprite.y).toBeCloseTo(lowerGround.y, 8);
+    expect(state.shadow.visible).toBe(false);
+    expect(state.silhouetteShadow.visible).toBe(true);
+    expect(state.silhouetteShadow.texture).toBe(state.sprite.texture);
+    expect(state.shadow.alpha).toBeCloseTo(0.15, 8);
+    expect(state.shadow.y).toBeCloseTo(state.sprite.y - gridSettings.getCellSize() * 0.005, 8);
+    unit.startBoardWalkAnimation(1, 4);
+    expect(state.walkAnim?.frames).toHaveLength(8);
+    expect(state.walkAnim?.frames[0].width).toBe(768);
+    expect(state.walkAnim?.loopEndFrame).toBe(7);
+    for (let i = 0; i <= 16; i++) {
+        unit.setBoardWalkDistanceCells((i * 1.3) / 8 + 1e-8);
+        expect(state.walkAnim?.frameIndex).toBe(i % 8);
+        unit.ensureVisual(world, gridSettings);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(scale, 8);
+        expect(state.silhouetteShadow.visible).toBe(true);
+        expect(state.silhouetteShadow.texture).toBe(state.sprite.texture);
+    }
+    const stillFrame = state.walkAnim!.frameIndex;
+    unit.stepSpawnAnimation(1 / 60);
+    expect(state.walkAnim!.frameIndex).toBe(stillFrame);
+    unit.setBoardFacingFromMovement(-1);
+    unit.ensureVisual(world, gridSettings);
+    expect(state.sprite.scale.x).toBeLessThan(0);
+    unit.stopBoardWalkAnimation();
+    for (const name of ["melee_attack", "melee_attack_up", "melee_attack_down", "hit", "death"]) {
+        expect(unit.hasAnimationState(name)).toBe(true);
+        expect(unit.playOneShotAnimation(name)).toBe(true);
+        expect(state.oneShotAnim?.frames).toHaveLength(name === "hit" ? 1 : 6);
+        unit.ensureVisual(world, gridSettings);
+        expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(scale, 8);
+        for (let i = 0; i < 65; i++) unit.stepSpawnAnimation(1 / 240);
+        if (name === "death") expect(state.oneShotAnim?.finished).toBe(true);
+        else expect(state.oneShotAnim).toBeUndefined();
+        unit.returnToIdleAnimation();
+    }
+    expect(keys.some((key) => key.startsWith("arachna_queen_lab"))).toBe(false);
+    expect(keys).toContain("arachna_spider_lab_death_atlas");
 });

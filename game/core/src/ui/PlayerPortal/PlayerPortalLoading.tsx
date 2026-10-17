@@ -5,8 +5,6 @@ import React from "react";
 import { t } from "../../i18n/i18n";
 import { hocColors, hocJoyTheme, hocPanelSx } from "../hocTheme";
 
-const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
-
 export const portalScrollSx = {
     scrollbarWidth: "thin",
     scrollbarColor: "rgba(220,177,88,0.68) rgba(7,5,4,0.72)",
@@ -70,7 +68,8 @@ export const PlayerPortalFrame: React.FC<{ busy?: boolean; children: React.React
                 ...portalScrollSx,
                 px: { xs: 2, md: 5 },
                 py: { xs: 2, md: 4 },
-                backgroundImage: `radial-gradient(ellipse at 20% 0%, rgba(173,130,64,0.09), transparent 55%), linear-gradient(rgba(15,14,13,0.98), rgba(15,14,13,0.98)), url(${profileBackgroundUrl})`,
+                backgroundImage:
+                    "radial-gradient(ellipse at 20% 0%, rgba(173,130,64,0.09), transparent 55%), linear-gradient(rgba(15,14,13,0.98), rgba(15,14,13,0.98))",
                 backgroundPosition: "center top",
                 backgroundSize: "cover",
                 backgroundAttachment: "fixed",

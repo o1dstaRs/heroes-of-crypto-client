@@ -1,12 +1,13 @@
-import Box from "@mui/joy/Box";
 import Button from "@mui/joy/Button";
+import { PICK_EXIT_CLOSE_BUTTON_SIZE_PX } from "./exitFightButtonSx";
+import { hocSidebarImageButtonSx } from "./hocTheme";
+import Box from "@mui/joy/Box";
 import IconButton from "@mui/joy/IconButton";
 import Tooltip from "@mui/joy/Tooltip";
 import React from "react";
 import { createPortal } from "react-dom";
 
-import { PICK_EXIT_CLOSE_BUTTON_SIZE_PX, pickExitCloseButtonSx } from "./exitFightButtonSx";
-import { hocSidebarImageButtonSx } from "./hocTheme";
+import { pickExitCloseButtonSx } from "./exitFightButtonSx";
 
 export const GAME_CORNER_SLOT_INSET = "1rem";
 /** Above the sidebars and the system-control row, below Joy's modal layer (1300+ is the confirm dialog). */
@@ -25,13 +26,12 @@ export const GameCornerSlot: React.FC<{ children: React.ReactNode }> = ({ childr
             data-game-corner-slot
             sx={{
                 position: "fixed",
-                top: GAME_CORNER_SLOT_INSET,
+                top: "calc(max(0px, calc(1rem - 2vh)) + 1vh)",
                 right: GAME_CORNER_SLOT_INSET,
                 zIndex: GAME_CORNER_SLOT_Z_INDEX,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "flex-end",
-                gap: "0.5rem",
             }}
         >
             {children}
@@ -41,18 +41,18 @@ export const GameCornerSlot: React.FC<{ children: React.ReactNode }> = ({ childr
     return typeof document === "undefined" ? slot : createPortal(slot, document.body);
 };
 
-/** The compact red close button itself. Callers own the confirmation step. */
+/** Image-only close button. Callers own the confirmation step. */
 export const GameCornerExitButton: React.FC<{
     onClick: () => void;
     disabled?: boolean;
     label?: string;
 }> = ({ onClick, disabled = false, label = "Exit fight" }) => (
     <Tooltip title={label} variant="soft" size="sm" placement="left">
-        <IconButton aria-label={label} disabled={disabled} onClick={onClick} sx={pickExitCloseButtonSx}>
-            ✕
-        </IconButton>
+        <IconButton aria-label={label} disabled={disabled} onClick={onClick} sx={pickExitCloseButtonSx} />
     </Tooltip>
 );
+
+export default GameCornerSlot;
 
 export const GameCornerStartOverButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <Tooltip title="Clear the board and start a new sandbox" describeChild variant="soft" size="sm" placement="bottom">
@@ -74,5 +74,3 @@ export const GameCornerStartOverButton: React.FC<{ onClick: () => void }> = ({ o
         </Button>
     </Tooltip>
 );
-
-export default GameCornerSlot;

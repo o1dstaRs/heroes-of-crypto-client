@@ -11,11 +11,6 @@
 
 import { TeamType, MovementType, AttackType, SpellElement, type UnitProperties } from "@heroesofcrypto/common";
 
-export interface IUnitInspection {
-    unit: UnitProperties;
-    impact: IVisibleOverallImpact;
-}
-
 export interface IVisibleUnit {
     id: string;
     amount: number;
@@ -60,6 +55,11 @@ export interface IVisibleOverallImpact {
     abilities: IVisibleImpact[];
     buffs: IVisibleImpact[];
     debuffs: IVisibleImpact[];
+}
+
+export interface IUnitInspection {
+    unit: UnitProperties;
+    impact: IVisibleOverallImpact;
 }
 
 /** One data point in the "casualties over time" series. */

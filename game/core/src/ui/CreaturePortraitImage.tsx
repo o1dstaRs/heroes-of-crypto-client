@@ -1,7 +1,7 @@
+import { DecodedPortraitLayers } from "./DecodedPortraitLayers";
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
 
-import { DecodedPortraitLayers } from "./DecodedPortraitLayers";
 import {
     CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES,
     resolveCreaturePortraitBackgroundMotion,
@@ -87,6 +87,7 @@ const CreaturePortraitImageBase = ({
     const mirrorSign = visual.mirrored ? -1 : 1;
     const creatureDirectionX = (artScaleX < 0 ? -1 : 1) * mirrorSign;
     const creatureOffsetX = artPlacement.offsetX * mirrorSign;
+
     const portraitKey = JSON.stringify([
         creatureId,
         creatureSource,
@@ -97,10 +98,10 @@ const CreaturePortraitImageBase = ({
     ]);
     const art = (
         <img
+            data-portrait-critical
             src={creatureSource}
             alt={alt ?? UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`}
-            decoding="async"
-            data-portrait-critical
+            decoding={highQualityArt ? "sync" : undefined}
             fetchPriority={highQualityArt ? "high" : undefined}
             style={{
                 position: "absolute",
@@ -129,7 +130,6 @@ const CreaturePortraitImageBase = ({
             }}
         />
     );
-
     return (
         <Box
             ref={forwardedRef}
@@ -147,11 +147,11 @@ const CreaturePortraitImageBase = ({
                 {portraitBackground && (
                     <Box
                         component="img"
+                        data-portrait-critical
+                        decoding="async"
                         src={portraitBackground}
                         alt=""
                         aria-hidden
-                        decoding="async"
-                        data-portrait-critical
                         data-creature-portrait-background={creatureId}
                         sx={{
                             position: "absolute",
@@ -168,10 +168,11 @@ const CreaturePortraitImageBase = ({
                     <>
                         <Box
                             component="img"
+                            data-portrait-critical
+                            decoding="async"
                             src={backgroundMotion.glowSrc}
                             alt=""
                             aria-hidden
-                            decoding="async"
                             data-creature-portrait-background-motion={`${backgroundMotion.kind}-primary`}
                             sx={{
                                 position: "absolute",
@@ -191,10 +192,11 @@ const CreaturePortraitImageBase = ({
                         />
                         <Box
                             component="img"
+                            data-portrait-critical
+                            decoding="async"
                             src={backgroundMotion.glowSrc}
                             alt=""
                             aria-hidden
-                            decoding="async"
                             data-creature-portrait-background-motion={`${backgroundMotion.kind}-secondary`}
                             sx={{
                                 position: "absolute",
@@ -230,11 +232,11 @@ const CreaturePortraitImageBase = ({
                 {framing.background === "soft" && (
                     <Box
                         component="img"
+                        data-portrait-critical
+                        decoding="async"
                         src={source}
                         alt=""
                         aria-hidden
-                        decoding="async"
-                        data-portrait-critical
                         sx={{
                             position: "absolute",
                             inset: 0,

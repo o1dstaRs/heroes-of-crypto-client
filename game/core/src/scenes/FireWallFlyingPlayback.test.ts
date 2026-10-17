@@ -48,6 +48,7 @@ function setup(flying: boolean, direction: HoCMath.XY, hasBurn = true) {
         getFootprintWidth: () => 1,
         getFootprintHeight: () => 1,
         getId: () => "mover",
+        getName: () => "Fairy",
         getPosition: () => move.from,
         setPosition: () => {},
         syncVisual: () => {},

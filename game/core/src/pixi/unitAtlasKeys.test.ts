@@ -55,7 +55,25 @@ describe("unit animation atlas key split", () => {
         expect(isUnitAnimationAtlasKey("pick_ban_slash_variant2_atlas")).toBe(false);
     });
 
+    test("Battle Roar effect atlases are not creature animations", () => {
+        for (const variant of ["short", "long"]) {
+            for (const suffix of ["", "_half", "_quarter"]) {
+                expect(isUnitAnimationAtlasKey(`vfx_battle_roar_${variant}_atlas${suffix}`)).toBe(false);
+            }
+        }
+    });
+
+    test("Unyielding Power effects stay available independently of creature animation", () => {
+        for (const variant of ["short", "long"]) {
+            for (const suffix of ["", "_half", "_quarter"]) {
+                expect(isUnitAnimationAtlasKey(`vfx_unyielding_power_curl_${variant}_atlas${suffix}`)).toBe(false);
+            }
+        }
+    });
+
     test("hand-authored creature strips stay with generated unit atlases", () => {
+        expect(isUnitAnimationAtlasKey("arbalester_idle_page_00_atlas")).toBe(true);
+        expect(isUnitAnimationAtlasKey("arbalester_idle_page_21_atlas")).toBe(true);
         expect(isUnitAnimationAtlasKey("orc_idle_axe_twirl_atlas_quarter")).toBe(true);
         expect(isUnitAnimationAtlasKey("thief_idle_battle_cry_atlas_quarter")).toBe(true);
         expect(isUnitAnimationAtlasKey("ash_moth_walk_left_atlas")).toBe(true);

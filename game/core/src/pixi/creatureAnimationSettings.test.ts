@@ -1,7 +1,69 @@
 import { expect, test } from "bun:test";
 
-import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
-import { isRedundantFullResolutionUnitAtlasKey } from "./imageAssetTiers";
+import {
+    CREATURE_SPRITE_ANIMATION_SETTINGS,
+    shouldPreloadUnitAnimationAtlas,
+    usesAuthoredRangedRelease,
+} from "./creatureAnimationSettings";
+import { isIdleAtlasKey, isRedundantFullResolutionUnitAtlasKey } from "./imageAssetTiers";
+
+test("preloads Arachna Queen lab walk, death and three painted bites before their first playback", () => {
+    for (const state of ["walk", "death", "melee_attack", "melee_attack_up", "melee_attack_down"]) {
+        const key = `arachna_queen_lab_${state}_atlas`;
+        expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
+        expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
+        expect(shouldPreloadUnitAnimationAtlas(`${key}_quarter`, false)).toBe(false);
+    }
+});
+
+test("preloads full-resolution Cyclops walk, reactions and three melee and ranged directions before playback", () => {
+    for (const state of [
+        "walk",
+        "hit",
+        "death",
+        "melee_attack",
+        "melee_attack_up",
+        "melee_attack_down",
+        "attack",
+        "attack_up",
+        "attack_down",
+    ]) {
+        const key = `cyclops_lab_${state}_atlas`;
+        expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
+        expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
+        expect(shouldPreloadUnitAnimationAtlas(`${key}_quarter`, false)).toBe(false);
+    }
+    expect(usesAuthoredRangedRelease("Cyclops")).toBe(true);
+});
+
+test("preloads detailed Hyena walk, reactions and three authored attacks", () => {
+    for (const state of ["walk", "hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"]) {
+        const key = `hyena_${state}_atlas`;
+        expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
+        expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
+        expect(shouldPreloadUnitAnimationAtlas(`${key}_quarter`, false)).toBe(false);
+    }
+    expect(shouldPreloadUnitAnimationAtlas("hyena_attack_atlas", false)).toBe(false);
+});
+
+test("preloads full-resolution Satyr walk, idle, reactions, melee and cast", () => {
+    for (const state of [
+        "walk",
+        "idle",
+        "hit",
+        "death",
+        "cast",
+        "melee_attack",
+        "melee_attack_up",
+        "melee_attack_down",
+    ]) {
+        const key = `satyr_${state}_atlas`;
+        expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
+        expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
+        expect(shouldPreloadUnitAnimationAtlas(`${key}_quarter`, false)).toBe(false);
+    }
+    expect(shouldPreloadUnitAnimationAtlas("satyr_attack_atlas", false)).toBe(false);
+});
 
 test("preloads Battle Mage lab melee attacks and cast at full quality before first playback", () => {
     for (const state of ["melee_attack", "melee_attack_up", "melee_attack_down", "cast"]) {
@@ -229,4 +291,18 @@ test("preloads all three Troll lab attacks at native resolution", () => {
         expect(shouldPreloadUnitAnimationAtlas(`troll_lab_${state}_atlas`, false)).toBe(true);
         expect(shouldPreloadUnitAnimationAtlas(`troll_lab_${state}_atlas_quarter`, false)).toBe(false);
     }
+});
+
+test("keeps Beholder's permanent idle available while unapproved action animations stay disabled", () => {
+    expect(shouldPreloadUnitAnimationAtlas("beholder_idle_atlas_quarter", false)).toBe(true);
+    expect(shouldPreloadUnitAnimationAtlas("beholder_attack_atlas_quarter", false)).toBe(false);
+});
+
+test("preloads the separately keyed complete Dryad idle in the idle bundle", () => {
+    const key = "dryad_painted_idle_atlas";
+    expect(isIdleAtlasKey(key)).toBe(true);
+    expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
+    expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
+    expect(shouldPreloadUnitAnimationAtlas(`${key}_quarter`, false)).toBe(false);
+    expect(shouldPreloadUnitAnimationAtlas("dryad_lab_idle_atlas", false)).toBe(false);
 });

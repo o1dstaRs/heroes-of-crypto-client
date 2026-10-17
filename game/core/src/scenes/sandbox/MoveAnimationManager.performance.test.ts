@@ -165,7 +165,7 @@ describe("movement effect allocation", () => {
         const { context, isBlocked } = makeContext();
         const manager = new MoveAnimationManager(context);
         const positions: Array<[number, number]> = [];
-        const unit = { setPosition: (x: number, y: number) => positions.push([x, y]) };
+        const unit = { getName: () => "Knight", setPosition: (x: number, y: number) => positions.push([x, y]) };
         let completed = 0;
         let cancelled = 0;
 

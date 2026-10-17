@@ -1,5 +1,6 @@
-import { Assets, Rectangle, Texture } from "pixi.js";
+import { Rectangle, Texture } from "pixi.js";
 import { images } from "../imageAssets";
+import { pagedAtlasTextureLoader } from "../pixi/pagedAtlasTexture";
 
 export interface ArbalesterIdlePage {
     imageKey: string;
@@ -138,11 +139,8 @@ export class ArbalesterIdlePagePool {
 const sharedPagePool = new ArbalesterIdlePagePool(async (page, format) => {
     const url = (images as Record<string, string>)[page.imageKey];
     if (!url) throw new Error(`Missing native animation page: ${page.imageKey}`);
-    const parent = await Assets.load<Texture>(url);
-    if (parent.width !== page.width || parent.height !== page.height) {
-        await Assets.unload(url);
-        throw new Error(`Native animation page dimensions differ: ${page.imageKey}`);
-    }
+    const resource = await pagedAtlasTextureLoader.load(url, page.width, page.height);
+    const parent = resource.texture;
     parent.source.scaleMode = "linear";
     const frames = Array.from(
         { length: page.frameCount },
@@ -161,7 +159,7 @@ const sharedPagePool = new ArbalesterIdlePagePool(async (page, format) => {
         frames,
         async unload() {
             for (const frame of frames) frame.destroy(false);
-            await Assets.unload(url);
+            await resource.unload();
         },
     };
 });
@@ -177,12 +175,18 @@ export class ArbalesterIdlePager {
     public constructor(
         public readonly format: ArbalesterIdlePages,
         private readonly pool = sharedPagePool,
+        private readonly retainShortLoop = false,
     ) {
         let total = 0;
         this.ends = format.durations.map((duration) => (total += duration));
         this.duration = total;
         this.retain(0);
         this.retain(1 % format.pages.length);
+        // Small native loops (Abomination: four pages) must not decode/upload the
+        // same large textures every lap and stall unrelated floor animations.
+        if (this.retainShortLoop && format.pages.length <= 4) {
+            for (let index = 2; index < format.pages.length; index++) this.retain(index);
+        }
     }
     public frameIndex(elapsedMs: number): number {
         const elapsed = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0) % this.duration;
@@ -209,6 +213,7 @@ export class ArbalesterIdlePager {
             this.displayedPage = pageIndex;
         }
         for (const retained of this.retained) {
+            if (this.retainShortLoop && this.format.pages.length <= 4) continue;
             if (retained === pageIndex || retained === nextIndex || retained === this.displayedPage) continue;
             this.pool.release(this.format.pages[retained], this.owner);
             this.retained.delete(retained);

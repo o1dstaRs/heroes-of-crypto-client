@@ -1,10 +1,4 @@
-/**
- * Whether the compact top-right system-controls medallion belongs on the current screen.
- *
- * SocialDock is mounted above the router, while the sandbox and ranked battle are the components that
- * actually know whether a board is a live fight. They publish that fact here instead of making the dock
- * infer it from a URL or from the unrelated pre-fight music state.
- */
+/** Shared bottom-right HUD mode, owned by the mounted game footers across route transitions. */
 
 type Listener = () => void;
 
@@ -51,27 +45,23 @@ export const SYSTEM_MENU_ITEM_OFFSETS = Object.freeze({
 });
 
 let active = false;
-const registrations = new Set<symbol>();
+const owners = new Set<symbol>();
 const listeners = new Set<Listener>();
 
-const refreshActive = (): void => {
-    const next = registrations.size > 0;
-    if (next === active) {
-        return;
-    }
-    active = next;
-    for (const listener of listeners) {
-        listener();
-    }
-};
-
+/** Each mounted footer owns its registration; a retiring screen cannot clear the next screen's HUD. */
 export const registerBattleSystemControls = (): (() => void) => {
-    const registration = Symbol();
-    registrations.add(registration);
-    refreshActive();
+    const owner = Symbol("game controls");
+    const publish = () => {
+        const next = owners.size > 0;
+        if (active === next) return;
+        active = next;
+        for (const listener of listeners) listener();
+    };
+    owners.add(owner);
+    publish();
     return () => {
-        registrations.delete(registration);
-        refreshActive();
+        owners.delete(owner);
+        publish();
     };
 };
 
@@ -87,3 +77,5 @@ export const subscribeBattleSystemControls = (listener: Listener): (() => void) 
 /** The master hint must disappear as soon as its fan opens, while child-button hints remain visible. */
 export const shouldShowSystemMenuLabel = (menuOpen: boolean, label: string | undefined): boolean =>
     !!label && (!menuOpen || label !== "System controls");
+
+new Set<symbol>();

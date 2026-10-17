@@ -1,0 +1,14 @@
+{
+    "hoc.fire-spell-render-mode.v1": "particles",
+    "hoc:soundMuted": "0",
+    "hoc:soundVolume": "1",
+    "hoc:themeMuted": "1",
+    "hoc:themeVolume": "0.5",
+    "hoc:effectsMuted": "1",
+    "hoc:effectsVolume": "0.5",
+    "joy-mode": "dark",
+    "joy-color-scheme-dark": "dark",
+    "joy-color-scheme-light": "light",
+    "hoc:battlefield-creature-editor:panel-side": "right",
+    "hoc:shadow-editor:creature-slots-v2": "[44,57,40,29,42,43]"
+}

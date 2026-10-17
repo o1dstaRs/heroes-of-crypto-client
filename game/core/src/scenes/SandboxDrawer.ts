@@ -1,12 +1,22 @@
+import { GridMath, type IWeightedRoute } from "@heroesofcrypto/common";
+import { drawCrusaderSixSwordsAura, resetCrusaderSixSwordsAuras } from "./CrusaderSixSwordsAura";
+import { drawGriffinQuestionBowAura, resetGriffinQuestionBowAuras } from "./GriffinQuestionBowAura";
+import { drawPegasusWingedSwordAura, resetPegasusWingedSwordAuras } from "./PegasusWingedSwordAura";
+import { drawChampionArrowAura, resetChampionArrowAuras } from "./ChampionArrowAura";
+import { drawArachnaQueenWebAura, resetArachnaQueenWebAuras } from "./ArachnaQueenWebAura";
+import {
+    type AbominationSandForeground,
+    drawAbominationSandAura,
+    resetAbominationSandAuras,
+} from "./AbominationSandAura";
+import { drawZenaChakramAura, resetZenaChakramAuras, ZENA_AURA_PALETTE } from "./ZenaChakramAura";
 import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
 import {
     FightProperties,
     FightStateManager,
-    GridMath,
     GridSettings,
     HoCConstants,
     HoCMath,
-    type IWeightedRoute,
     TeamType,
 } from "@heroesofcrypto/common";
 
@@ -122,6 +132,14 @@ export interface ShotRangeOverlay {
 }
 
 export const SHOT_RANGE_LINE_WIDTH_CELLS = 0.011;
+const PEGASUS_RANGE_GLOW_LAYERS = [
+    [0.24, 0.025, 0x24ff5e],
+    [0.18, 0.04, 0x24ff5e],
+    [0.13, 0.07, 0x32ff67],
+    [0.09, 0.12, 0x43ff75],
+    [0.045, 0.8, 0x66ff8b],
+    [0.018, 0.95, 0xe0ffe9],
+] as const;
 /** The authored bitmap occupies almost the full square; keep the visible ornament compact at the frame corners. */
 export const SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS = 0.37536 * 1.15;
 /** Centre lines of the authored vertical/horizontal rails (normalised texture coordinates). */
@@ -298,11 +316,13 @@ export interface IGameplayDrawContext {
         attackRange: number; // World distance radius
         auraRanges: { range: number; isBuff: boolean }[]; // Range in cells
         footprint: IFootprintExtent;
+        auraOwner?: { name: string; id: string };
     };
     hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
         footprint: IFootprintExtent;
+        auraOwner?: { name: string; id: string };
     };
     lingeringTracks: ILingeringTrack[];
     hoveredMoveRange?: HoCMath.XY[];
@@ -323,6 +343,18 @@ export interface IGameplayDrawContext {
      */
     movementGraphics?: Graphics;
     /** Bitmap ornaments live beside Graphics because Pixi v8 deprecates DisplayObject children on Graphics. */
+    auraFloorGraphics?: Graphics;
+    arachnaWebAuraContainer?: Container;
+    getArachnaWebAuraTexture?: () => Texture | undefined;
+    getChampionArrowAuraTexture?: () => Texture | undefined;
+    getZenaChakramAuraTexture?: () => Texture | undefined;
+    getGriffinQuestionBowAuraTexture?: () => Texture | undefined;
+    getPegasusWingedSwordAuraTexture?: () => Texture | undefined;
+    getCrusaderSixSwordsAuraTexture?: () => Texture | undefined;
+    getAuraOwnerFacing?: (ownerId: string) => -1 | 1;
+    getAbominationSandForeground?: (ownerId: string) => AbominationSandForeground | undefined;
+    abominationDustContainer?: Container;
+    abominationGustContainer?: Container;
     shotRangeCornerContainer?: Container;
     shotRangeCornerPool?: ShotRangeCornerSpritePool;
     /** Legacy neutral-steel corner used only for neutral/shift-selected frames. */
@@ -442,6 +474,15 @@ export class SandboxDrawer {
             shotRangeCornerFriendlyTexture,
             shotRangeCornerEnemyTexture,
         } = ctx;
+        resetArachnaQueenWebAuras(ctx.arachnaWebAuraContainer);
+        resetChampionArrowAuras(ctx.arachnaWebAuraContainer);
+        resetZenaChakramAuras(ctx.arachnaWebAuraContainer);
+        resetPegasusWingedSwordAuras(ctx.arachnaWebAuraContainer);
+        resetCrusaderSixSwordsAuras(ctx.arachnaWebAuraContainer);
+        resetGriffinQuestionBowAuras(ctx.arachnaWebAuraContainer);
+        resetAbominationSandAuras(ctx.arachnaWebAuraContainer);
+        resetAbominationSandAuras(ctx.abominationDustContainer);
+        resetAbominationSandAuras(ctx.abominationGustContainer);
         const fightStarted = fightProps.hasFightStarted();
         const narrowingLayers = fightStarted
             ? Math.min(Math.max(0, fightProps.getLapsNarrowed()), HoCConstants.MAX_HOLE_LAYERS)
@@ -466,18 +507,42 @@ export class SandboxDrawer {
 
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
-            const { xy, attackRange, auraRanges, footprint } = sidebarUnitRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, footprint, gs, hoverGlowPhase, 0.7);
+            const { xy, attackRange, auraRanges, footprint, auraOwner } = sidebarUnitRanges;
+            SandboxDrawer.drawAuraAndAttackRanges(
+                g,
+                xy,
+                attackRange,
+                auraRanges,
+                footprint,
+                gs,
+                hoverGlowPhase,
+                0.7,
+                auraOwner,
+                narrowingLayers,
+                ctx,
+            );
         }
 
         // 0.51 Hovered Aura Ranges
         if (hoveredAuraRanges) {
-            const { xy, auraRanges, footprint } = hoveredAuraRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, footprint, gs, hoverGlowPhase, 0.7);
+            const { xy, auraRanges, footprint, auraOwner } = hoveredAuraRanges;
+            SandboxDrawer.drawAuraAndAttackRanges(
+                g,
+                xy,
+                0,
+                auraRanges,
+                footprint,
+                gs,
+                hoverGlowPhase,
+                0.7,
+                auraOwner,
+                narrowingLayers,
+                ctx,
+            );
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
-        if (currentActiveUnit && !isActiveUnitMoving) {
+        if (currentActiveUnit && (!isActiveUnitMoving || currentActiveUnit.getName() === "Abomination")) {
             const auraRanges = visibleAuraRanges(
                 currentActiveUnit.getAuraRanges(),
                 currentActiveUnit.getAuraIsBuff(),
@@ -495,7 +560,19 @@ export class SandboxDrawer {
                     height: currentActiveUnit.getFootprintHeight(),
                 };
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
-                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, footprint, gs, hoverGlowPhase, 0.5);
+                SandboxDrawer.drawAuraAndAttackRanges(
+                    g,
+                    xy,
+                    0,
+                    auraRanges,
+                    footprint,
+                    gs,
+                    hoverGlowPhase,
+                    0.5,
+                    { name: currentActiveUnit.getName(), id: currentActiveUnit.getId() },
+                    narrowingLayers,
+                    ctx,
+                );
             }
         }
 
@@ -676,59 +753,6 @@ export class SandboxDrawer {
             hoverManager.drawHoverPlacementCell(g);
         }
     }
-    /**
-     * ALT during a fight: the ground each unit holds, painted in its own army's colour, with its stack
-     * power spelled out along the bottom edge.
-     *
-     * Same question placement answers — a tall silhouette covers far more board than the cells beneath it,
-     * so "where does this body actually stand" is guesswork from the artwork alone — except that mid-fight
-     * the answer belongs to a side, which is why this wash is coloured where placement's is white.
-     */
-    public static drawAltInspect(
-        g: Graphics,
-        footprints: readonly IAltInspectFootprint[] | undefined,
-        gs: GridSettings | undefined,
-    ): void {
-        if (!footprints?.length || !gs) return;
-        const size = gs.getCellSize();
-        for (const { cells, color, stackPower } of footprints) {
-            if (!cells.length) continue;
-            g.poly(placementZonePolygon(cells, gs))
-                .fill({ color, alpha: 0.18 })
-                .stroke({ width: Math.max(1, size * 0.025), color, alpha: 0.55 });
-            SandboxDrawer.drawStackPowerPips(g, cells, gs, color, stackPower);
-        }
-    }
-    /**
-     * Five pips along the bottom of a footprint, filled up to the stack's power.
-     *
-     * The banner beside a unit already carries its power in five sections, but that answers for one stack
-     * at a time and only for whoever is looking closely. On the ground, in the army's colour, the whole
-     * board can be compared at a glance — which is what ALT is for. Drawn as projected rectangles like
-     * every other ground mark, so the pips lie ON the board instead of floating over it.
-     */
-    private static drawStackPowerPips(
-        g: Graphics,
-        cells: readonly HoCMath.XY[],
-        gs: GridSettings,
-        color: number,
-        stackPower: number,
-    ): void {
-        for (const pip of stackPowerPipRects(cells, gs, stackPower)) {
-            const points = projectedRectPoints(pip.x1, pip.y1, pip.x2, pip.y2, gs);
-            if (pip.filled) {
-                g.poly(points).fill({ color, alpha: 0.95 });
-            } else {
-                g.poly(points).fill({ color: 0x000000, alpha: 0.38 }).stroke({ width: 1, color, alpha: 0.38 });
-            }
-        }
-    }
-    /**
-     * Pale white ground under every unit already standing on the board, one rounded shape per FOOTPRINT
-     * (so a 2x1 reads as one body, not two tiles — the same treatment the hover preview uses). Purely
-     * informational: it answers "which cells are still free" during deployment, which the drawn
-     * silhouettes actively obscure by covering more board than they occupy.
-     */
     private static drawOccupiedFootprints(
         g: Graphics,
         footprints: readonly (readonly HoCMath.XY[])[] | undefined,
@@ -752,6 +776,23 @@ export class SandboxDrawer {
         gs: GridSettings,
         pulsePhase: number,
         alphaMultiplier = 1.0,
+        auraOwner?: { name: string; id: string },
+        narrowingLayers = 0,
+        webContext?: Pick<
+            IGameplayDrawContext,
+            | "auraFloorGraphics"
+            | "arachnaWebAuraContainer"
+            | "getArachnaWebAuraTexture"
+            | "getChampionArrowAuraTexture"
+            | "getZenaChakramAuraTexture"
+            | "getPegasusWingedSwordAuraTexture"
+            | "getCrusaderSixSwordsAuraTexture"
+            | "getGriffinQuestionBowAuraTexture"
+            | "getAuraOwnerFacing"
+            | "getAbominationSandForeground"
+            | "abominationDustContainer"
+            | "abominationGustContainer"
+        >,
     ): void {
         // Shot reach of a unit selected in the sidebar.
         //
@@ -775,17 +816,147 @@ export class SandboxDrawer {
         // Aura ranges are soft energy fields. The edge stays slightly inside the outer grid separators,
         // while broad, fading square waves travel from the owner toward the aura's full reach.
         if (auraRanges && auraRanges.length > 0) {
+            const auraGraphics = webContext?.auraFloorGraphics ?? g;
             for (const aura of auraRanges) {
                 const { range, isBuff } = aura;
-                const color = isBuff ? 0x00ff00 : 0xff0000; // Green for Buff, Red for Debuff
+                if (auraOwner?.name === "Crusader" && isBuff) {
+                    drawCrusaderSixSwordsAura(
+                        webContext?.arachnaWebAuraContainer,
+                        webContext?.getCrusaderSixSwordsAuraTexture?.(),
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Griffin" && !isBuff) {
+                    drawGriffinQuestionBowAura(
+                        webContext?.arachnaWebAuraContainer,
+                        webContext?.getGriffinQuestionBowAuraTexture?.(),
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Pegasus" && isBuff) {
+                    // Keep the actual cell reach stationary while the larger sword ornament rotates.
+                    const cellSize = gs.getCellSize();
+                    const bounds =
+                        range > 0
+                            ? SandboxDrawer.clampSquareToBoard(
+                                  xy,
+                                  (range + footprint.width / 2) * cellSize,
+                                  (range + footprint.height / 2) * cellSize,
+                                  gs,
+                                  narrowingLayers,
+                              )
+                            : undefined;
+                    if (bounds) {
+                        const { left, bottom, width, height } = bounds;
+                        const outline = projectedRectPoints(left, bottom, left + width, bottom + height, gs);
+                        const glow = (0.94 + 0.06 * Math.sin(pulsePhase * 1.7)) * alphaMultiplier;
+                        // Nested engine strokes form a soft green halo around a hot, narrow core.
+                        // Every layer follows the same true range; the ornament rotates independently.
+                        for (const [thickness, alpha, color] of PEGASUS_RANGE_GLOW_LAYERS) {
+                            g.poly(outline).stroke({
+                                width: Math.max(1, cellSize * thickness),
+                                color,
+                                alpha: alpha * glow,
+                                join: "round",
+                                cap: "round",
+                            });
+                        }
+                    }
+                    drawPegasusWingedSwordAura(
+                        webContext?.arachnaWebAuraContainer,
+                        webContext?.getPegasusWingedSwordAuraTexture?.(),
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Champion" && isBuff) {
+                    drawChampionArrowAura(
+                        webContext?.arachnaWebAuraContainer,
+                        webContext?.getChampionArrowAuraTexture?.(),
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                        performance.now(),
+                        webContext?.getAuraOwnerFacing?.(auraOwner.id) ?? 1,
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Abomination") {
+                    drawAbominationSandAura(
+                        webContext?.arachnaWebAuraContainer,
+                        undefined,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                        performance.now(),
+                        webContext?.getAbominationSandForeground?.(auraOwner.id),
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Arachna Queen" && !isBuff) {
+                    drawArachnaQueenWebAura(
+                        webContext?.arachnaWebAuraContainer,
+                        webContext?.getArachnaWebAuraTexture?.(),
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                    );
+                    continue;
+                }
+                const isZenaAura = auraOwner?.name === "Zena" && isBuff;
+                const color = isZenaAura ? ZENA_AURA_PALETTE.field : isBuff ? 0x00ff00 : 0xff0000;
 
                 // Half-extent per axis: the aura reaches `range` cells out from the BODY, so each side of
                 // the square starts half that axis' footprint away from the centre. The old single
                 // `isSmall ? 0.5 : 1.0` is this formula for a square body; a 2x1 owner would otherwise
                 // advertise a whole extra cell of reach above and below itself.
                 const cellSize = gs.getCellSize();
-                const extentX = (range + footprint.width / 2) * cellSize - cellSize * 0.055;
-                const extentY = (range + footprint.height / 2) * cellSize - cellSize * 0.055;
+                // Zena's outer blade ends on the traced seam centre, not inside the last tile.
+                const edgeInset = isZenaAura ? 0 : cellSize * 0.055;
+                const extentX = (range + footprint.width / 2) * cellSize - edgeInset;
+                const extentY = (range + footprint.height / 2) * cellSize - edgeInset;
+                const hideOwner = auraOwner?.name !== "Arachna Queen";
+                const ownerExtentX = (footprint.width * cellSize) / 2;
+                const ownerExtentY = (footprint.height * cellSize) / 2;
+                const ownerPolygon = projectedRectPoints(
+                    xy.x - ownerExtentX,
+                    xy.y - ownerExtentY,
+                    xy.x + ownerExtentX,
+                    xy.y + ownerExtentY,
+                    gs,
+                );
                 const feather = Math.min(cellSize * 0.28, Math.min(extentX, extentY) * 0.12);
 
                 // Nested, very transparent sheets feather the edge instead of producing a hard rectangle.
@@ -794,19 +965,39 @@ export class SandboxDrawer {
                     const inset = (feather * layer) / (featherLayers - 1);
                     const layerExtentX = extentX - inset;
                     const layerExtentY = extentY - inset;
-                    const layerAlpha = (0.022 + layer * 0.006) * alphaMultiplier;
-                    g.poly(
-                        projectedRectPoints(
-                            xy.x - layerExtentX,
-                            xy.y - layerExtentY,
-                            xy.x + layerExtentX,
-                            xy.y + layerExtentY,
-                            gs,
-                        ),
-                    ).fill({
-                        color,
-                        alpha: layerAlpha,
-                    });
+                    const layerAlpha = (0.022 + layer * 0.006) * alphaMultiplier * (isZenaAura ? 0.45 : 1);
+                    auraGraphics
+                        .poly(
+                            projectedRectPoints(
+                                xy.x - layerExtentX,
+                                xy.y - layerExtentY,
+                                xy.x + layerExtentX,
+                                xy.y + layerExtentY,
+                                gs,
+                            ),
+                        )
+                        .fill({
+                            color,
+                            alpha: layerAlpha,
+                        });
+                    if (hideOwner) auraGraphics.poly(ownerPolygon).cut();
+                }
+
+                if (isZenaAura) {
+                    drawZenaChakramAura(
+                        webContext?.arachnaWebAuraContainer,
+                        webContext?.getZenaChakramAuraTexture?.(),
+                        xy,
+                        extentX,
+                        extentY,
+                        footprint,
+                        gs,
+                        performance.now(),
+                        alphaMultiplier,
+                        narrowingLayers,
+                        auraOwner.id,
+                    );
+                    continue;
                 }
 
                 // Three wave fronts continuously leave the unit. They broaden and fade as they approach
@@ -816,20 +1007,28 @@ export class SandboxDrawer {
                     const progress = (cycle + waveIndex / 3) % 1;
                     const waveExtentX = Math.max(cellSize * 0.42, extentX * progress);
                     const waveExtentY = Math.max(cellSize * 0.42, extentY * progress);
+                    // A wave becomes visible only after its entire stroke has left the owner's cells.
+                    if (
+                        hideOwner &&
+                        (waveExtentX < ownerExtentX + cellSize * 0.04 || waveExtentY < ownerExtentY + cellSize * 0.04)
+                    )
+                        continue;
                     const fade = Math.sin(progress * Math.PI);
-                    g.poly(
-                        projectedRectPoints(
-                            xy.x - waveExtentX,
-                            xy.y - waveExtentY,
-                            xy.x + waveExtentX,
-                            xy.y + waveExtentY,
-                            gs,
-                        ),
-                    ).stroke({
-                        width: Math.max(2, cellSize * (0.035 - progress * 0.012)),
-                        color,
-                        alpha: fade * 0.3 * alphaMultiplier,
-                    });
+                    auraGraphics
+                        .poly(
+                            projectedRectPoints(
+                                xy.x - waveExtentX,
+                                xy.y - waveExtentY,
+                                xy.x + waveExtentX,
+                                xy.y + waveExtentY,
+                                gs,
+                            ),
+                        )
+                        .stroke({
+                            width: Math.max(2, cellSize * (0.035 - progress * 0.012)),
+                            color,
+                            alpha: fade * 0.3 * alphaMultiplier,
+                        });
                 }
             }
         }
@@ -966,6 +1165,37 @@ export class SandboxDrawer {
                 const glow = corner.glow;
                 glow.texture = cornerTexture;
                 glow.alpha = 0.55 + 0.45 * cornerPulse;
+            }
+        }
+    }
+    public static drawAltInspect(
+        g: Graphics,
+        footprints: readonly IAltInspectFootprint[] | undefined,
+        gs: GridSettings | undefined,
+    ): void {
+        if (!footprints?.length || !gs) return;
+        const size = gs.getCellSize();
+        for (const { cells, color, stackPower } of footprints) {
+            if (!cells.length) continue;
+            g.poly(placementZonePolygon(cells, gs))
+                .fill({ color, alpha: 0.18 })
+                .stroke({ width: Math.max(1, size * 0.025), color, alpha: 0.55 });
+            SandboxDrawer.drawStackPowerPips(g, cells, gs, color, stackPower);
+        }
+    }
+    private static drawStackPowerPips(
+        g: Graphics,
+        cells: readonly HoCMath.XY[],
+        gs: GridSettings,
+        color: number,
+        stackPower: number,
+    ): void {
+        for (const pip of stackPowerPipRects(cells, gs, stackPower)) {
+            const points = projectedRectPoints(pip.x1, pip.y1, pip.x2, pip.y2, gs);
+            if (pip.filled) {
+                g.poly(points).fill({ color, alpha: 0.95 });
+            } else {
+                g.poly(points).fill({ color: 0x000000, alpha: 0.38 }).stroke({ width: 1, color, alpha: 0.38 });
             }
         }
     }

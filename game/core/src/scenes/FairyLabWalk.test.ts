@@ -49,7 +49,6 @@ beforeAll(() => {
             cookie: "",
             createElement: () => ({ getContext: () => null, setAttribute: () => undefined }),
             querySelector: () => null,
-            querySelectorAll: () => [],
         };
     }
 });

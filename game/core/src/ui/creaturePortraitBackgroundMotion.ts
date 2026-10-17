@@ -96,7 +96,6 @@ export const resolveCreaturePortraitBackgroundMotion = (
     creatureId: number,
 ): Readonly<CreaturePortraitBackgroundMotion> | null => MOTION_BY_FACTION[CreatureFactionsMap[creatureId]] ?? null;
 
-/** One emissive mask per faction. Warmed with the plates so the tint is not a second, later load. */
 export const factionPortraitGlowSources = (): string[] =>
     [FactionVals.CHAOS, FactionVals.LIFE, FactionVals.MIGHT, FactionVals.NATURE].flatMap((faction) => {
         const glow = MOTION_BY_FACTION[faction]?.glowSrc;

@@ -1,5 +1,5 @@
 // game/core/src/scenes/UnitChip.ts
-import { Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
+import { Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle, Point } from "pixi.js";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 import { CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA } from "../ui/creaturePortraitBackground";
@@ -249,7 +249,6 @@ export class UnitChip extends Container {
     private lastCardWidth = 0;
     private lastCardHeight = 0;
     private idleTexture: Texture;
-    // Tween targets and state
     private targetScale = 1.0;
     private targetY = 0;
     private currentScale = 1.0;
@@ -262,6 +261,7 @@ export class UnitChip extends Container {
     private animationFrameIndex = 0;
     private animationStepFn?: () => void;
     private tweenStepFn?: () => void;
+    private readonly hitPoint = new Point();
     public constructor(opts: UnitChipOptions) {
         super();
         this.nameKey = opts.unitName;
@@ -269,6 +269,7 @@ export class UnitChip extends Container {
         this.banned = !!opts.banned;
 
         this.eventMode = "static";
+        this.interactiveChildren = false;
         this.cursor = "pointer";
 
         this.content = new Container();
@@ -361,7 +362,6 @@ export class UnitChip extends Container {
     public setTicker(ticker: Ticker): void {
         this.ticker = ticker;
     }
-    /** Restore hover details when the shared pictograms finish their deferred texture load. */
     public setTypeIcons(attack: Texture, movement: Texture, movementScale = 1): void {
         if (this.destroyed || attack.destroyed || movement.destroyed) return;
         if (attack === Texture.EMPTY || movement === Texture.EMPTY) return;
@@ -388,18 +388,6 @@ export class UnitChip extends Container {
         }
         this.updateHighlight();
     }
-    /** Keep the card's neutral base visible until its approved art and faction plate can paint together. */
-    private updatePortraitReadiness(): void {
-        if (!this.portraitFraming) return;
-        const ready = (texture: Texture): boolean =>
-            texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
-        const portraitReady =
-            ready(this.idleTexture) && (!this.portraitBackground || ready(this.portraitBackground.texture));
-        this.sprite.visible = portraitReady;
-        if (this.portraitBackground) this.portraitBackground.visible = portraitReady;
-        if (this.portraitBackgroundShade) this.portraitBackgroundShade.visible = portraitReady;
-    }
-    /** Stage deferred layers without revealing a creature or faction plate on its own. */
     public setPortraitTextures(texture: Texture, backgroundTexture?: Texture): void {
         if (this.destroyed || this.sprite.destroyed || !this.portraitFraming) return;
         let changed = false;
@@ -430,10 +418,10 @@ export class UnitChip extends Container {
             this.layout(this.lastCardWidth, this.lastCardHeight);
         }
     }
-    /** Call whenever the grid lays out to size the chip nicely. */
     public layout(cardWidth: number, cardHeight: number = cardWidth) {
         this.lastCardWidth = cardWidth;
         this.lastCardHeight = cardHeight;
+        this.hitArea = new Rectangle(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight);
 
         if (this.portraitFraming) {
             this.layoutPortrait(cardWidth, cardHeight, this.portraitFraming);
@@ -465,7 +453,12 @@ export class UnitChip extends Container {
         this.applyHoverVisuals(); // sets scale/offset + tween based on hover only
         this.updateHighlight(); // sets glows/badge based on hover OR selection
     }
-    /** Hover drives animation */
+    /** Decorative hover motion must not change which roster cell owns the pointer. */
+    public containsRosterPoint(globalX: number, globalY: number): boolean {
+        this.hitPoint.set(globalX, globalY);
+        this.toLocal(this.hitPoint, undefined, this.hitPoint);
+        return this.hitArea?.contains(this.hitPoint.x, this.hitPoint.y) ?? false;
+    }
     public setHovered(v: boolean) {
         if (this.hovered === v) return;
         this.hovered = v;
@@ -473,7 +466,6 @@ export class UnitChip extends Container {
         this.applyHoverVisuals(); // only hover changes scale/float
         this.updateHighlight(); // highlight may also change (hover is part of "active")
     }
-    /** Selection only changes highlight; no scale/tween */
     public setSelected(v: boolean) {
         if (this.selected === v) return;
         this.selected = v;
@@ -610,7 +602,6 @@ export class UnitChip extends Container {
         this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
     }
-    /** Replace a deferred portrait once Pixi finishes loading it, then restore its approved crop. */
     public setPortraitTexture(texture: Texture): void {
         if (this.portraitFraming) {
             this.setPortraitTextures(texture);
@@ -701,12 +692,6 @@ export class UnitChip extends Container {
 
         this.startTween();
     }
-    /**
-     * The roster banner: the placed-stack flag, drawn in the neutral roster grey.
-     *
-     * Geometry is copied from RenderableUnit.updateBadge deliberately — same notch, same proportions, same
-     * anchor — so a creature does not change shape when it lands on the board; it only gains its team colour.
-     */
     private drawBadgeFlag(iconSide: number, fontSize: number) {
         const label = this.badgeText.text || "0";
         const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
@@ -835,7 +820,6 @@ export class UnitChip extends Container {
     private easeInOutCubic(t: number): number {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
-    /** Restrained rounded-rectangle bloom following the pick-card frame on hover or selection. */
     private drawGlows(cardWidth: number, cardHeight: number) {
         this.aroundGlow.clear();
         this.aroundGlow.position.set(0, 0);
@@ -864,5 +848,15 @@ export class UnitChip extends Container {
             this.sprite.tint = 0xffffff;
             this.alpha = 1.0;
         }
+    }
+    private updatePortraitReadiness(): void {
+        if (!this.portraitFraming) return;
+        const ready = (texture: Texture): boolean =>
+            texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
+        const portraitReady =
+            ready(this.idleTexture) && (!this.portraitBackground || ready(this.portraitBackground.texture));
+        this.sprite.visible = portraitReady;
+        if (this.portraitBackground) this.portraitBackground.visible = portraitReady;
+        if (this.portraitBackgroundShade) this.portraitBackgroundShade.visible = portraitReady;
     }
 }

@@ -12,6 +12,18 @@ const sliceFrom = (anchor: string, length: number): string => {
 };
 
 describe("free siege targeting", () => {
+    test("Gargantuan reserves cell aiming for empty terrain and uses the authoritative impact cell", () => {
+        const cells = sliceFrom("private getAreaThrowCells(", 1_100).split("\n    }")[0];
+        expect(cells).toContain("getOccupantUnitId(mouseCell)");
+        expect(cells).toContain("GridMath.getCellsAroundCell(gs, targetCell)");
+
+        const impact = sliceFrom("private getAreaThrowImpactCell(", 300);
+        expect(impact).toContain(
+            "this.attackHandler.projectAreaThrowTargetCell(this.unitsHolder.getAllUnits(), unit, mouseCell)",
+        );
+        expect(impact).not.toContain("return { ...mouseCell }");
+    });
+
     test("Tsar Cannon uses a free world ray with per-stack forecasts and no central plaque", () => {
         const hover = sliceFrom("private updateFreeThroughShotHover()", 8_000);
         expect(hover).toContain("evaluateRangeAttack(");

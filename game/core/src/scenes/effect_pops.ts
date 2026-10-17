@@ -9,6 +9,7 @@
  */
 
 import { HoCConfig, type GameEvent } from "@heroesofcrypto/common";
+import { ogreSpellFlagKind } from "./ogreSpellFlagEffects";
 
 /**
  * Aura effects (continuous, radius-based) are applied to and removed from a unit as it / its neighbours
@@ -32,7 +33,27 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
  * EFFECT-type ability), hence this explicit list.
  */
 const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set(["Pegasus Light"]);
-const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set(["Dulling Defense", "Gravebound"]);
+const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([
+    "Gravebound",
+    "Dulling Defense",
+    "Battle Roar",
+    "Empower",
+    "Blindness",
+]);
+
+/** Successful recipients, including refreshed buffs; snapshots alone cannot describe a recast. */
+export function battleRoarAppliedUnitIds(events: readonly GameEvent[] | undefined): string[] {
+    const ids = new Set<string>();
+    for (const event of events ?? []) {
+        if (event.type !== "effects_applied") continue;
+        for (const application of event.applications) {
+            if (application.name === "Battle Roar" && application.kind === "buff" && !application.resisted) {
+                ids.add(application.unitId);
+            }
+        }
+    }
+    return [...ids];
+}
 
 /**
  * Morale / Dismorale are lap-scoped SYSTEM effects applied to many units at once at the start of a lap
@@ -56,6 +77,7 @@ export function animatableEffectNames(names: Iterable<string>): Set<string> {
             !isAuraEffectName(name) &&
             !isMoraleEffectName(name) &&
             !NON_ANIMATABLE_PASSIVE_EFFECT_NAMES.has(name) &&
+            !ogreSpellFlagKind(name) &&
             !EVENT_DRIVEN_EFFECT_NAMES.has(name)
         ) {
             result.add(name);

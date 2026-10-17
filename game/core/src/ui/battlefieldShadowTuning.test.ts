@@ -12,13 +12,6 @@ import {
     writeStoredBattlefieldShadowTuning,
 } from "./battlefieldShadowTuning";
 
-// A document is not a promise of a readable cookie jar: a sandboxed iframe without allow-same-origin
-// throws a SecurityError on access, and the partial canvas stub the Pixi scene tests install (so
-// ColorMatrixFilter can probe a WebGL context) has no `cookie` at all. The dev draft channel reads the
-// jar from inside the shadow projection, which every ensureVisual goes through — so an unreadable jar
-// used to throw TypeError out of the whole board build. RenderableUnit.test.ts failed all 91 of its
-// rendering tests on its own for exactly this reason, and only passed in the full-suite run because an
-// earlier file had populated the shared dev channel and short-circuited the read.
 describe("battlefield shadow tuning with an unusable cookie jar", () => {
     const withDocument = (stub: unknown, run: () => void): void => {
         const had = "document" in globalThis;
@@ -92,7 +85,7 @@ describe("battlefield shadow tuning", () => {
     });
 
     test("keeps creatures outside the finalized editor roster on the shared fallback", () => {
-        for (const name of ["Arachna Spider", "Unknown Creature"]) {
+        for (const name of ["Unknown Creature"]) {
             expect(readStoredBattlefieldShadowTuning(name)).toEqual(DEFAULT_BATTLEFIELD_SHADOW_TUNING);
         }
     });

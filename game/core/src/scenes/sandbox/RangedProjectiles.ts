@@ -1,7 +1,28 @@
-import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { CyclopsStoneFracture } from "./CyclopsStoneFracture";
+import { readCyclopsImpactMode, type CyclopsImpactMode } from "./CyclopsFracturePhysics";
+import { Assets, Container, Graphics, Matrix, Rectangle, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 import { images } from "../../generated/image_imports";
 import { animationAtlases } from "../../generated/animation_atlases";
+import { CYCLOPS_IMPACT_AREA_CELLS, cyclopsImpactFrame } from "../CyclopsStoneImpact";
+import { attachCannonEngineWake, updateCannonEngineWake } from "../TsarCannonMaterial";
+import {
+    cannonContactCenter,
+    cannonExplosionFrame,
+    cannonFlightFrame,
+    CANNON_FLIGHT_FRAME_SIZE,
+    CANNON_FLIGHT_BALL_DIAMETER,
+    CANNON_FLIGHT_BALL_ANCHOR,
+    CANNON_FLIGHT_SPEED_MULTIPLIER,
+    CANNON_EXPLOSION_SPEED_MULTIPLIER,
+    CANNON_EXPLOSION_RADIUS_SCALE,
+} from "../TsarCannonImpact";
+import {
+    GARGANTUAN_IMPACT_ANCHOR_Y,
+    GARGANTUAN_IMPACT_DURATIONS,
+    GARGANTUAN_IMPACT_FRAME_SIZE,
+    GARGANTUAN_IMPACT_PAINTED_EXTENT,
+} from "../GargantuanStoneImpact";
 
 /**
  * Renders flying projectiles for ranged attacks. Each projectile is a single
@@ -40,10 +61,18 @@ export interface IFireProjectileOptions {
     signal?: AbortSignal;
     /** Invoked only on arrival; cancellation and scene teardown never count as a hit. */
     onImpact?: () => void;
-    /** Flight fraction, used for effects on allies the projectile has actually crossed. */
-    onProgress?: (progress: number) => void;
+    /** Remaining destinations after `to`, traversed by the same projectile at constant speed. */
+    path?: HoCMath.XY[];
+    /** Append the actual release position after all destinations, including ricochets. */
+    returnToOrigin?: boolean;
+    /** Synchronous arrival callback: index 0 is `to`, followed by entries in `path`. */
+    onWaypoint?: (index: number) => void;
     /** Zena's Chakram: a spinning bladed disc rather than a bolt or a cannonball. */
     chakram?: boolean;
+    /** The caller owns the ricochet chain and the return to the hand. */
+    chakramDeferReturn?: boolean;
+    /** Authored held diameter × 1.15, in world pixels. */
+    chakramDiameter?: number;
     /** Trent's Vine Throw: a braided, thorn-clawed length of living wood. */
     vine?: boolean;
     /** Orc's physical throwing axe: a broad double crescent that spins through the whole flight. */
@@ -69,12 +98,29 @@ export interface IFireProjectileOptions {
     serpentLength?: number;
     /** Cyclops's selected heavy chipped boulder. */
     cyclopsRock?: boolean;
+    /** Floor contact, independent of a target’s torso aim point. */
+    cyclopsImpactPosition?: HoCMath.XY;
     /** Monk's selected golden solar energy orb. */
     monkOrb?: boolean;
+    /** The lab orb uses the held lime-gold ball size and idle halo. */
+    monkLabOrbRadius?: number;
     /** Tsar Cannon's selected molten siege ball. */
     tsarCannonball?: boolean;
-    /** Gargantuan's selected root-wrapped boulder. */
+    labIronCannonball?: boolean;
+    cannonExplodeOnImpact?: boolean;
+    cannonImpactPosition?: HoCMath.XY;
+    /** Piercing volleys travel through recorded victims to their endpoint. */
+    cannonPiercing?: boolean;
+    cannonTraceTarget?: HoCMath.XY;
+    /** Painted ball diameter in world pixels, measured from the firing unit's inner muzzle. */
+    cannonballDiameter?: number;
+    /** Gargantuan's original held stone. */
     gargantuanRock?: boolean;
+    gargantuanRockDiameter?: number;
+    gargantuanRockHeight?: number;
+    gargantuanImpactPosition?: HoCMath.XY;
+
+    onProgress?: (progress: number) => void;
 }
 
 interface IProjectile {
@@ -89,6 +135,7 @@ interface IProjectile {
     arc: number; // peak lob height in world px (0 = straight line)
     cell: number; // grid cell size captured at spawn (drives drawing scale)
     chakram: boolean;
+    chakramDiameter?: number;
     vine: boolean;
     orcAxe: boolean;
     orcAppearance?: { length: number; rotation: number; facing: number };
@@ -101,16 +148,29 @@ interface IProjectile {
     medusaSerpent: boolean;
     medusaArmSerpent: boolean;
     cyclopsRock: boolean;
+    cyclopsImpactMode: CyclopsImpactMode;
+    cyclopsImpactPosition?: HoCMath.XY;
     monkOrb: boolean;
+    monkLabOrbRadius?: number;
     tsarCannonball: boolean;
+    labIronCannonball: boolean;
+    cannonballDiameter?: number;
+    flightElapsedMs: number;
+    cannonExplodeOnImpact: boolean;
+    cannonImpactPosition?: HoCMath.XY;
     gargantuanRock: boolean;
+    gargantuanImpactPosition?: HoCMath.XY;
     /** Set when the vine dart is drawn from art rather than from strokes. */
     sprite?: Sprite;
     spin: number; // radians of blade rotation accumulated in flight
     resolve: () => void;
     onImpact?: () => void;
-    onProgress?: (progress: number) => void;
     removeAbortListener?: () => void;
+    path: HoCMath.XY[];
+    waypoint: number;
+    onWaypoint?: (index: number) => void;
+
+    onProgress?: (progress: number) => void;
 }
 
 interface IRockImpact {
@@ -125,12 +185,8 @@ interface IRockImpact {
 }
 
 interface ICannonExplosion {
-    g: Graphics;
-    position: HoCMath.XY;
-    cell: number;
-    ageSeconds: number;
-    durationSeconds: number;
-    phase: number;
+    sprite: Sprite;
+    elapsedMs: number;
 }
 
 // --- Tuning ---
@@ -168,16 +224,23 @@ const VINE_CAP = 0x5e2038;
 
 export class RangedProjectiles {
     private context: IRangedProjectilesContext;
-    /**
-     * Empty scene-owned attachment used as a cancellation signal. The world root survives New Battle, but
-     * Sandbox destroys every attachment it registered for the outgoing scene. Optional projectile textures
-     * can still be decoding at that moment, so this marker lets their continuations notice the teardown.
-     */
     private readonly lifecycleMarker: Container;
     private destroyed = false;
     private projectiles: IProjectile[] = [];
     private rockImpacts: IRockImpact[] = [];
     private cannonExplosions: ICannonExplosion[] = [];
+    private cannonExplosionFrames?: Texture[];
+    private gargantuanImpactFrames?: Texture[];
+    private cyclopsImpacts: ICannonExplosion[] = [];
+    private cyclopsImpactMode: CyclopsImpactMode = readCyclopsImpactMode();
+    private cyclopsFracture?: CyclopsStoneFracture;
+    public setCyclopsImpactMode(mode: CyclopsImpactMode): void {
+        this.cyclopsImpactMode = mode;
+    }
+    private zenaChakramTexture?: Texture;
+    private zenaChakramSparkFrames?: Texture[];
+    private zenaBounceFrames?: Texture[];
+    private zenaBursts: { sparks: Sprite; elapsed: number; diameter: number; resolve: () => void }[] = [];
     private armorPiercingBoltTexture?: Texture;
     private orcThrowingAxeTexture?: Texture;
     private arbalesterCyanBoltTexture?: Texture;
@@ -191,8 +254,9 @@ export class RangedProjectiles {
     private cyclopsHeavyBoulderTexture?: Texture;
     private monkSolarOrbTexture?: Texture;
     private tsarCannonMoltenBallTexture?: Texture;
-    private gargantuanRootBoulderTexture?: Texture;
-    /** Optional projectile art decoded by this scene; release it at the scene boundary. */
+    private tsarCannonIronBallTexture?: Texture;
+    private cannonFlightFrames?: Texture[];
+    private gargantuanHeldStoneTexture?: Texture;
     private readonly loadedProjectileUrls = new Set<string>();
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
@@ -203,6 +267,30 @@ export class RangedProjectiles {
         this.context.attachToWorldRoot(this.lifecycleMarker, PROJECTILE_Z);
     }
     private async ensureProjectileTexture(opts: IFireProjectileOptions): Promise<void> {
+        if (opts.chakram && !this.zenaChakramSparkFrames && !this.zenaChakramTexture) {
+            const url = images.zena_chakram_sparks_v16;
+            try {
+                const atlas = await Assets.load<Texture>(url);
+                if (this.destroyed) {
+                    void Assets.unload(url).catch(() => undefined);
+                    return;
+                }
+                this.loadedProjectileUrls.add(url);
+                atlas.source.scaleMode = "linear";
+                atlas.source.autoGenerateMipmaps = true;
+                this.zenaChakramSparkFrames ??= Array.from(
+                    { length: 8 },
+                    (_, i) =>
+                        new Texture({
+                            source: atlas.source,
+                            frame: new Rectangle((i % 4) * 512, Math.floor(i / 4) * 512, 512, 512),
+                        }),
+                );
+                this.zenaChakramTexture = this.zenaChakramSparkFrames[0];
+            } catch {
+                // Keep the original weapon available if the effect atlas cannot be decoded.
+            }
+        }
         if (opts.medusaArmSerpent) {
             if (this.medusaArmSerpentFrames) return;
             const url = images.medusa_lab_projectile_atlas;
@@ -235,85 +323,98 @@ export class RangedProjectiles {
             }
             return;
         }
-        const request = opts.dryadArrow
+        const request = opts.chakram
             ? {
-                  current: this.dryadArrowTexture,
-                  url: images.dryad_lab_arrow,
-                  assign: (texture: Texture) => (this.dryadArrowTexture = texture),
+                  current: this.zenaChakramTexture,
+                  url: images.zena_chakram_v14,
+                  assign: (texture: Texture) => (this.zenaChakramTexture = texture),
               }
-            : opts.orcAxe
+            : opts.dryadArrow
               ? {
-                    current: this.orcThrowingAxeTexture,
-                    url: images.orc_throwing_axe,
-                    assign: (texture: Texture) => (this.orcThrowingAxeTexture = texture),
+                    current: this.dryadArrowTexture,
+                    url: images.dryad_lab_arrow,
+                    assign: (texture: Texture) => (this.dryadArrowTexture = texture),
                 }
-              : opts.arbalesterBolt
+              : opts.orcAxe
                 ? {
-                      current: this.arbalesterCyanBoltTexture,
-                      url: images.arbalester_cyan_bolt,
-                      assign: (texture: Texture) => (this.arbalesterCyanBoltTexture = texture),
+                      current: this.orcThrowingAxeTexture,
+                      url: images.orc_throwing_axe,
+                      assign: (texture: Texture) => (this.orcThrowingAxeTexture = texture),
                   }
-                : opts.centaurSpear
+                : opts.arbalesterBolt
                   ? {
-                        current: this.centaurSpearTexture,
-                        url: images.centaur_spear_variant_4,
-                        assign: (texture: Texture) => (this.centaurSpearTexture = texture),
+                        current: this.arbalesterCyanBoltTexture,
+                        url: images.arbalester_cyan_bolt,
+                        assign: (texture: Texture) => (this.arbalesterCyanBoltTexture = texture),
                     }
-                  : opts.dryadDart
+                  : opts.centaurSpear
                     ? {
-                          current: this.dryadThornDartTexture,
-                          url: images.dryad_thorn_dart,
-                          assign: (texture: Texture) => (this.dryadThornDartTexture = texture),
+                          current: this.centaurSpearTexture,
+                          url: images.centaur_spear_variant_4,
+                          assign: (texture: Texture) => (this.centaurSpearTexture = texture),
                       }
-                    : opts.beholderEye
+                    : opts.dryadDart
                       ? {
-                            current: this.beholderPurpleEyeTexture,
-                            url: images.beholder_purple_eye_orb,
-                            assign: (texture: Texture) => (this.beholderPurpleEyeTexture = texture),
+                            current: this.dryadThornDartTexture,
+                            url: images.dryad_thorn_dart,
+                            assign: (texture: Texture) => (this.dryadThornDartTexture = texture),
                         }
-                      : opts.elfArrow
+                      : opts.beholderEye
                         ? {
-                              current: this.elfEmeraldArrowTexture,
-                              url: images.elf_emerald_arrow,
-                              assign: (texture: Texture) => (this.elfEmeraldArrowTexture = texture),
+                              current: this.beholderPurpleEyeTexture,
+                              url: images.beholder_purple_eye_orb,
+                              assign: (texture: Texture) => (this.beholderPurpleEyeTexture = texture),
                           }
-                        : opts.medusaSerpent
+                        : opts.elfArrow
                           ? {
-                                current: this.medusaSpectralSerpentTexture,
-                                url: images.medusa_spectral_serpent,
-                                assign: (texture: Texture) => (this.medusaSpectralSerpentTexture = texture),
+                                current: this.elfEmeraldArrowTexture,
+                                url: images.elf_emerald_arrow,
+                                assign: (texture: Texture) => (this.elfEmeraldArrowTexture = texture),
                             }
-                          : opts.cyclopsRock
+                          : opts.medusaSerpent
                             ? {
-                                  current: this.cyclopsHeavyBoulderTexture,
-                                  url: images.cyclops_heavy_boulder,
-                                  assign: (texture: Texture) => (this.cyclopsHeavyBoulderTexture = texture),
+                                  current: this.medusaSpectralSerpentTexture,
+                                  url: images.medusa_spectral_serpent,
+                                  assign: (texture: Texture) => (this.medusaSpectralSerpentTexture = texture),
                               }
-                            : opts.monkOrb
+                            : opts.cyclopsRock
                               ? {
-                                    current: this.monkSolarOrbTexture,
-                                    url: images.monk_solar_orb,
-                                    assign: (texture: Texture) => (this.monkSolarOrbTexture = texture),
+                                    current: this.cyclopsHeavyBoulderTexture,
+                                    url: images.cyclops_lab_boulder,
+                                    assign: (texture: Texture) => (this.cyclopsHeavyBoulderTexture = texture),
                                 }
-                              : opts.tsarCannonball
+                              : opts.monkOrb
                                 ? {
-                                      current: this.tsarCannonMoltenBallTexture,
-                                      url: images.tsar_cannon_molten_ball,
-                                      assign: (texture: Texture) => (this.tsarCannonMoltenBallTexture = texture),
+                                      current: this.monkSolarOrbTexture,
+                                      url: images.monk_solar_orb,
+                                      assign: (texture: Texture) => (this.monkSolarOrbTexture = texture),
                                   }
-                                : opts.gargantuanRock
+                                : opts.tsarCannonball
                                   ? {
-                                        current: this.gargantuanRootBoulderTexture,
-                                        url: images.gargantuan_root_boulder,
-                                        assign: (texture: Texture) => (this.gargantuanRootBoulderTexture = texture),
+                                        current: opts.labIronCannonball
+                                            ? this.tsarCannonIronBallTexture
+                                            : this.tsarCannonMoltenBallTexture,
+                                        url: opts.labIronCannonball
+                                            ? images.vfx_tsar_cannon_flight_v21_atlas
+                                            : images.tsar_cannon_molten_ball,
+                                        assign: (texture: Texture) => {
+                                            if (opts.labIronCannonball) this.tsarCannonIronBallTexture = texture;
+                                            else this.tsarCannonMoltenBallTexture = texture;
+                                        },
                                     }
-                                  : !opts.big && !opts.chakram && !opts.vine
+                                  : opts.gargantuanRock
                                     ? {
-                                          current: this.armorPiercingBoltTexture,
-                                          url: images.armor_piercing_bolt,
-                                          assign: (texture: Texture) => (this.armorPiercingBoltTexture = texture),
+                                          current: this.gargantuanHeldStoneTexture,
+                                          url: images.gargantuan_held_stone_v4,
+                                          assign: (texture: Texture) => (this.gargantuanHeldStoneTexture = texture),
                                       }
-                                    : undefined;
+                                    : !opts.big && !opts.chakram && !opts.vine
+                                      ? {
+                                            current: this.armorPiercingBoltTexture,
+                                            url: images.armor_piercing_bolt,
+                                            assign: (texture: Texture) => (this.armorPiercingBoltTexture = texture),
+                                        }
+                                      : undefined;
         if (!request || request.current) return;
 
         try {
@@ -331,33 +432,76 @@ export class RangedProjectiles {
         }
     }
     public async prepare(opts: IFireProjectileOptions): Promise<void> {
-        if (!this.destroyed) await this.ensureProjectileTexture(opts);
+        if (!this.destroyed)
+            await Promise.all([
+                this.ensureProjectileTexture(opts),
+                opts.tsarCannonball ? this.ensureCannonExplosionTexture() : Promise.resolve(),
+                opts.cyclopsRock && this.cyclopsImpactMode === "sprites"
+                    ? this.ensureGargantuanImpactTexture()
+                    : Promise.resolve(),
+                opts.chakram ? this.ensureChakramBounceTexture() : Promise.resolve(),
+            ]);
     }
     public hasActive(): boolean {
-        return this.projectiles.length > 0;
+        return this.projectiles.length > 0 || this.zenaBursts.length > 0;
     }
-    /** Spawn a projectile flying from -> to. Resolves when it lands. */
-    /**
-     * Fly a projectile along a POLYLINE instead of a straight shot — Zena's chakram ricocheting through its
-     * half circle. Each leg is flown in turn, so the disc visibly curves from one victim to the next rather
-     * than teleporting; it keeps spinning throughout because spin is accumulated per projectile, not per leg.
-     */
-    public async fireAlongPath(points: HoCMath.XY[], opts: Omit<IFireProjectileOptions, "from" | "to">): Promise<void> {
-        for (let leg = 1; leg < points.length; leg += 1) {
-            if (this.destroyed) return;
-            await this.fire({ ...opts, from: points[leg - 1], to: points[leg] });
+    private async ensureChakramBounceTexture(): Promise<void> {
+        if (!this.zenaBounceFrames) {
+            const url = images.zena_chakram_burst_v17;
+            try {
+                const atlas = await Assets.load<Texture>(url);
+                if (this.destroyed) {
+                    void Assets.unload(url).catch(() => undefined);
+                    return;
+                }
+                this.loadedProjectileUrls.add(url);
+                this.zenaBounceFrames ??= Array.from(
+                    { length: 8 },
+                    (_, i) =>
+                        new Texture({
+                            source: atlas.source,
+                            frame: new Rectangle((i % 4) * 512, Math.floor(i / 4) * 512, 512, 512),
+                        }),
+                );
+            } catch {
+                return;
+            }
         }
+    }
+    public async showChakramBounce(point: HoCMath.XY, diameter?: number): Promise<void> {
+        if (this.destroyed) return;
+        if (!this.zenaBounceFrames) await this.ensureChakramBounceTexture();
+        if (this.destroyed || !this.zenaBounceFrames) return;
+        const size = diameter ?? this.context.getGridSettings().getCellSize() * CHAKRAM_RADIUS_FACTOR * 2;
+        const sparks = this.makeDirectionalSprite(this.zenaBounceFrames[0], size * 3.2);
+        sparks.position.set(point.x, point.y);
+        sparks.blendMode = "add";
+        this.context.attachToWorldRoot(sparks, PROJECTILE_Z + 1);
+        await new Promise<void>((resolve) => this.zenaBursts.push({ sparks, elapsed: 0, diameter: size, resolve }));
+    }
+    public async fireAlongPath(points: HoCMath.XY[], opts: Omit<IFireProjectileOptions, "from" | "to">): Promise<void> {
+        if (points.length < 2) return;
+        await this.fire({ ...opts, from: points[0], to: points[1], path: points.slice(2) });
     }
     public async fire(opts: IFireProjectileOptions): Promise<void> {
         if (this.destroyed || opts.signal?.aborted) return;
+        const cyclopsImpactMode = this.cyclopsImpactMode;
         await this.ensureProjectileTexture(opts);
+        if (opts.tsarCannonball && !this.cannonExplosionFrames) await this.ensureCannonExplosionTexture();
+        if (opts.cyclopsRock && cyclopsImpactMode === "sprites" && !this.gargantuanImpactFrames)
+            await this.ensureGargantuanImpactTexture();
         // New Battle may have destroyed the lifecycle marker while the optional art above was decoding.
         // Never attach an orphaned projectile to the app-owned world root after that boundary.
         if (this.destroyed || opts.signal?.aborted) return;
         this.context.onProjectileFired?.();
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
-        const to = { x: opts.to.x, y: opts.to.y };
+        const to =
+            opts.tsarCannonball && opts.cannonImpactPosition && !opts.cannonPiercing
+                ? cannonContactCenter(from, opts.cannonImpactPosition, opts.cannonballDiameter ?? cell)
+                : opts.cyclopsRock && opts.cyclopsImpactPosition
+                  ? { x: opts.cyclopsImpactPosition.x, y: opts.cyclopsImpactPosition.y + cell * 0.3 }
+                  : { x: opts.to.x, y: opts.to.y };
         if (opts.orcAxe && opts.orcAppearance && this.orcThrowingAxeTexture) {
             const appearance = opts.orcAppearance;
             const scale = appearance.length / this.orcThrowingAxeTexture.width;
@@ -384,19 +528,22 @@ export class RangedProjectiles {
                 traveled: 0,
                 speed:
                     cell *
-                    (opts.medusaArmSerpent
-                        ? PROJECTILE_SPEED_FACTOR
-                        : opts.dryadArrow
+                    (opts.labIronCannonball
+                        ? 16 * CANNON_FLIGHT_SPEED_MULTIPLIER
+                        : opts.medusaArmSerpent
                           ? PROJECTILE_SPEED_FACTOR
-                          : opts.orcAxe
-                            ? 52.2
-                            : opts.chakram
-                              ? CHAKRAM_SPEED_FACTOR
-                              : PROJECTILE_SPEED_FACTOR),
+                          : opts.dryadArrow
+                            ? PROJECTILE_SPEED_FACTOR
+                            : opts.orcAxe
+                              ? 52.2
+                              : opts.chakram
+                                ? CHAKRAM_SPEED_FACTOR
+                                : PROJECTILE_SPEED_FACTOR),
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,
                 chakram: !!opts.chakram,
+                chakramDiameter: opts.chakramDiameter,
                 vine: !!opts.vine,
                 orcAxe: !!opts.orcAxe,
                 orcAppearance: opts.orcAppearance,
@@ -409,44 +556,73 @@ export class RangedProjectiles {
                 medusaSerpent: !!opts.medusaSerpent,
                 medusaArmSerpent: !!opts.medusaArmSerpent,
                 cyclopsRock: !!opts.cyclopsRock,
+                cyclopsImpactMode,
+                cyclopsImpactPosition: opts.cyclopsImpactPosition,
                 monkOrb: !!opts.monkOrb,
+                monkLabOrbRadius: opts.monkLabOrbRadius,
                 tsarCannonball: !!opts.tsarCannonball,
+                labIronCannonball: !!opts.labIronCannonball,
+                cannonballDiameter: opts.cannonballDiameter,
+                flightElapsedMs: 0,
+                cannonExplodeOnImpact: opts.cannonExplodeOnImpact !== false,
+                cannonImpactPosition: opts.cannonImpactPosition,
                 gargantuanRock: !!opts.gargantuanRock,
+                gargantuanImpactPosition: opts.gargantuanImpactPosition,
                 sprite:
-                    opts.dryadArrow && this.dryadArrowTexture
-                        ? this.makeDirectionalSprite(this.dryadArrowTexture, opts.arrowLength ?? cell * 0.75)
-                        : opts.orcAxe
-                          ? this.makeOrcThrowingAxeSprite(cell, opts.orcAppearance)
-                          : opts.vine
-                            ? this.makeVineSprite(cell)
-                            : opts.arbalesterBolt
-                              ? this.makeArbalesterCyanBoltSprite(cell)
-                              : opts.centaurSpear
-                                ? this.makeCentaurSpearSprite(cell)
-                                : opts.dryadDart
-                                  ? this.makeDryadThornDartSprite(cell)
-                                  : opts.beholderEye
-                                    ? this.makeBeholderPurpleEyeSprite(cell)
-                                    : opts.elfArrow
-                                      ? this.makeElfEmeraldArrowSprite(cell)
-                                      : opts.medusaSerpent
-                                        ? this.makeMedusaSpectralSerpentSprite(cell)
-                                        : opts.cyclopsRock
-                                          ? this.makeCyclopsHeavyBoulderSprite(cell)
-                                          : opts.monkOrb
-                                            ? this.makeMonkSolarOrbSprite(cell)
-                                            : opts.tsarCannonball
-                                              ? this.makeTsarCannonMoltenBallSprite(cell)
-                                              : opts.gargantuanRock
-                                                ? this.makeGargantuanRootBoulderSprite(cell)
-                                                : !opts.big && !opts.chakram
-                                                  ? this.makeArmorPiercingBoltSprite(cell)
-                                                  : undefined,
+                    opts.monkLabOrbRadius !== undefined
+                        ? undefined
+                        : opts.dryadArrow && this.dryadArrowTexture
+                          ? this.makeDirectionalSprite(this.dryadArrowTexture, opts.arrowLength ?? cell * 0.75)
+                          : opts.orcAxe
+                            ? this.makeOrcThrowingAxeSprite(cell, opts.orcAppearance)
+                            : opts.vine
+                              ? this.makeVineSprite(cell)
+                              : opts.arbalesterBolt
+                                ? this.makeArbalesterCyanBoltSprite(cell)
+                                : opts.centaurSpear
+                                  ? this.makeCentaurSpearSprite(cell)
+                                  : opts.dryadDart
+                                    ? this.makeDryadThornDartSprite(cell)
+                                    : opts.beholderEye
+                                      ? this.makeBeholderPurpleEyeSprite(cell)
+                                      : opts.elfArrow
+                                        ? this.makeElfEmeraldArrowSprite(cell)
+                                        : opts.medusaSerpent
+                                          ? this.makeMedusaSpectralSerpentSprite(cell)
+                                          : opts.cyclopsRock
+                                            ? this.makeCyclopsHeavyBoulderSprite(cell)
+                                            : opts.monkOrb
+                                              ? this.makeMonkSolarOrbSprite(cell)
+                                              : opts.tsarCannonball
+                                                ? this.makeTsarCannonMoltenBallSprite(
+                                                      cell,
+                                                      opts.cannonballDiameter,
+                                                      opts.labIronCannonball,
+                                                  )
+                                                : opts.gargantuanRock
+                                                  ? this.makeGargantuanHeldStoneSprite(
+                                                        cell,
+                                                        opts.gargantuanRockDiameter,
+                                                        opts.gargantuanRockHeight,
+                                                    )
+                                                  : !opts.big && !opts.chakram
+                                                    ? this.makeArmorPiercingBoltSprite(cell)
+                                                    : undefined,
                 spin: 0,
                 resolve,
                 onImpact: opts.onImpact,
                 onProgress: opts.onProgress,
+                path: [...(opts.path ?? []), ...(opts.returnToOrigin ? [from] : [])].map((point) => ({ ...point })),
+                waypoint: 0,
+                onWaypoint: opts.onWaypoint,
             };
+            if (opts.chakram && this.zenaChakramTexture) {
+                projectile.sprite = this.makeDirectionalSprite(
+                    this.zenaChakramTexture,
+                    (opts.chakramDiameter ?? cell * CHAKRAM_RADIUS_FACTOR * 2) *
+                        (this.zenaChakramSparkFrames ? 512 / 280 : 1),
+                );
+            }
             if (opts.medusaArmSerpent && this.medusaArmSerpentFrames?.length) {
                 projectile.sprite?.destroy();
                 projectile.sprite = this.makeDirectionalSprite(
@@ -477,12 +653,32 @@ export class RangedProjectiles {
         });
     }
     public update(dt: number): void {
+        // Advance existing blasts before spawning contacts so the ignition cel is rendered once.
+        this.updateCannonExplosions(dt);
+        this.updateCyclopsImpacts(dt);
+        this.cyclopsFracture?.update(dt);
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
+            p.flightElapsedMs += dt * 4000;
             p.traveled += p.speed * dt;
             // A thrown chakram spins hard the whole way — this is what sells it as a disc rather than a
             // coin flipping edge-on, and it keeps spinning through the ricochet arcs.
             p.spin += (p.orcAxe ? ORC_AXE_SPIN_PER_DT : CHAKRAM_SPIN_PER_DT) * dt;
+            // Carry the unused distance through every corner in this frame. Re-spawning at each
+            // corner discarded it, reset the spin and left a frame with no visible weapon.
+            while (p.traveled >= p.dist) {
+                this.draw(p, p.to.x, p.to.y);
+                p.onWaypoint?.(p.waypoint);
+                if (p.g.destroyed) break; // A contact callback may cancel the shot or clear the scene.
+                const next = p.path[p.waypoint++];
+                if (!next) break;
+                p.traveled -= p.dist;
+                p.from = p.to;
+                p.to = next;
+                p.dist = Math.hypot(next.x - p.from.x, next.y - p.from.y);
+                p.angle = Math.atan2(next.y - p.from.y, next.x - p.from.x);
+            }
+            if (p.g.destroyed) continue;
             const t = p.dist > 1e-3 ? Math.min(1, p.traveled / p.dist) : 1;
 
             const x = p.from.x + (p.to.x - p.from.x) * t;
@@ -495,8 +691,9 @@ export class RangedProjectiles {
             p.onProgress?.(t);
 
             if (t >= 1) {
-                if (p.cyclopsRock || p.gargantuanRock) this.spawnRockImpact(p, p.gargantuanRock);
-                if (p.tsarCannonball) this.spawnCannonExplosion(p);
+                if (p.cyclopsRock) this.spawnCyclopsImpact(p);
+                if (p.gargantuanRock) this.spawnGargantuanImpact(p);
+                if (p.tsarCannonball && p.cannonExplodeOnImpact) this.spawnCannonExplosion(p);
                 p.sprite?.destroy();
                 p.g.destroy();
                 this.projectiles.splice(i, 1);
@@ -508,18 +705,22 @@ export class RangedProjectiles {
                 }
             }
         }
+        for (let i = this.zenaBursts.length - 1; i >= 0; i--) {
+            const burst = this.zenaBursts[i];
+            burst.elapsed += dt * 4000;
+            const t = Math.min(1, burst.elapsed / 100);
+            burst.sparks.rotation -= dt * 25;
+            burst.sparks.texture = this.zenaBounceFrames![Math.min(7, Math.floor(t * 8))];
+            burst.sparks.width = burst.sparks.height = burst.diameter * (3.2 + t * 1.2);
+            burst.sparks.alpha = (1 - t) ** 0.55;
+            if (t >= 1) {
+                burst.sparks.destroy();
+                this.zenaBursts.splice(i, 1);
+                burst.resolve();
+            }
+        }
         this.updateRockImpacts(dt);
-        this.updateCannonExplosions(dt);
     }
-    /**
-     * Destroy all in-flight projectiles (e.g. fight reset). Resolves awaiters so callers don't hang.
-     *
-     * `keepInFlight` is for the RANKED BOARD REBUILD, which fires on the snapshot landing right after
-     * a replayed action — i.e. routinely WHILE the shot that caused it is still flying. A projectile
-     * (like a rock impact or cannon blast) describes an event that already resolved and is anchored to
-     * the world root, not to any unit the rebuild replaces — cutting it off mid-air was the live
-     * "projectile sometimes disappears" report. Kept flights land and resolve normally a beat later.
-     */
     public clear(options: { keepInFlight?: boolean } = {}): void {
         if (options.keepInFlight) {
             return;
@@ -531,10 +732,18 @@ export class RangedProjectiles {
             p.resolve();
         }
         this.projectiles.length = 0;
+        for (const burst of this.zenaBursts) {
+            burst.sparks.destroy();
+            burst.resolve();
+        }
+        this.zenaBursts.length = 0;
         for (const impact of this.rockImpacts) impact.g.destroy();
         this.rockImpacts.length = 0;
-        for (const explosion of this.cannonExplosions) explosion.g.destroy();
+        for (const explosion of this.cannonExplosions) explosion.sprite.destroy();
         this.cannonExplosions.length = 0;
+        for (const impact of this.cyclopsImpacts) impact.sprite.destroy();
+        this.cyclopsImpacts.length = 0;
+        this.cyclopsFracture?.clear();
     }
     public destroy(): void {
         this.releaseOwnedResources();
@@ -545,6 +754,11 @@ export class RangedProjectiles {
         this.destroyed = true;
         this.clear();
         // These Texture objects belong to Pixi's global Assets cache; drop only this scene's references.
+        this.zenaChakramTexture = undefined;
+        for (const frame of this.zenaChakramSparkFrames ?? []) frame.destroy(false);
+        this.zenaChakramSparkFrames = undefined;
+        for (const frame of this.zenaBounceFrames ?? []) frame.destroy(false);
+        this.zenaBounceFrames = undefined;
         this.armorPiercingBoltTexture = undefined;
         this.orcThrowingAxeTexture = undefined;
         this.arbalesterCyanBoltTexture = undefined;
@@ -559,13 +773,19 @@ export class RangedProjectiles {
         this.cyclopsHeavyBoulderTexture = undefined;
         this.monkSolarOrbTexture = undefined;
         this.tsarCannonMoltenBallTexture = undefined;
-        this.gargantuanRootBoulderTexture = undefined;
+        this.tsarCannonIronBallTexture = undefined;
+        for (const frame of this.cannonFlightFrames ?? []) frame.destroy(false);
+        this.cannonFlightFrames = undefined;
+        for (const frame of this.cannonExplosionFrames ?? []) frame.destroy(false);
+        this.cannonExplosionFrames = undefined;
+        this.gargantuanHeldStoneTexture = undefined;
+        for (const frame of this.gargantuanImpactFrames ?? []) frame.destroy(false);
+        this.gargantuanImpactFrames = undefined;
         for (const url of this.loadedProjectileUrls) {
             void Assets.unload(url).catch(() => undefined);
         }
         this.loadedProjectileUrls.clear();
     }
-    /** Redraw the projectile at world position (x, y) using absolute coordinates. */
     private draw(p: IProjectile, x: number, y: number): void {
         const g = p.g;
         g.clear();
@@ -593,6 +813,10 @@ export class RangedProjectiles {
             this.drawCyclopsHeavyBoulder(p, x, y);
             return;
         }
+        if (p.monkLabOrbRadius !== undefined) {
+            this.drawMonkLabOrb(p, x, y);
+            return;
+        }
         if (p.monkOrb && p.sprite) {
             this.drawMonkSolarOrb(p, x, y);
             return;
@@ -602,7 +826,7 @@ export class RangedProjectiles {
             return;
         }
         if (p.gargantuanRock && p.sprite) {
-            this.drawGargantuanRootBoulder(p, x, y);
+            this.drawGargantuanHeldStone(p, x, y);
             return;
         }
         if (
@@ -724,13 +948,40 @@ export class RangedProjectiles {
         // Exactly 20% below the originally selected 0.62-cell size.
         return this.makeDirectionalSprite(this.monkSolarOrbTexture, cell * 0.496);
     }
-    private makeTsarCannonMoltenBallSprite(cell: number): Sprite | undefined {
-        if (!this.tsarCannonMoltenBallTexture) return undefined;
-        return this.makeDirectionalSprite(this.tsarCannonMoltenBallTexture, cell * 0.68);
+    private makeTsarCannonMoltenBallSprite(cell: number, diameter?: number, iron = false): Sprite | undefined {
+        const texture = iron ? this.tsarCannonIronBallTexture : this.tsarCannonMoltenBallTexture;
+        if (!texture) return undefined;
+        if (iron) {
+            this.cannonFlightFrames ??= Array.from(
+                { length: 16 },
+                (_, i) =>
+                    new Texture({
+                        source: texture.source,
+                        frame: new Rectangle(
+                            (i % 4) * CANNON_FLIGHT_FRAME_SIZE,
+                            Math.floor(i / 4) * CANNON_FLIGHT_FRAME_SIZE,
+                            CANNON_FLIGHT_FRAME_SIZE,
+                            CANNON_FLIGHT_FRAME_SIZE,
+                        ),
+                    }),
+            );
+            const sprite = new Sprite(this.cannonFlightFrames[0]);
+            sprite.anchor.set(CANNON_FLIGHT_BALL_ANCHOR.x, CANNON_FLIGHT_BALL_ANCHOR.y);
+            sprite.scale.set((diameter ?? cell * 0.34) / CANNON_FLIGHT_BALL_DIAMETER);
+            attachCannonEngineWake(sprite);
+            return sprite;
+        }
+        return this.makeDirectionalSprite(texture, diameter ?? cell);
     }
-    private makeGargantuanRootBoulderSprite(cell: number): Sprite | undefined {
-        if (!this.gargantuanRootBoulderTexture) return undefined;
-        return this.makeDirectionalSprite(this.gargantuanRootBoulderTexture, cell * 0.78);
+    private makeGargantuanHeldStoneSprite(cell: number, diameter?: number, height?: number): Sprite | undefined {
+        if (!this.gargantuanHeldStoneTexture) return undefined;
+        const sprite = this.makeDirectionalSprite(
+            this.gargantuanHeldStoneTexture,
+            (diameter ?? cell * 0.78) * (512 / 496),
+        );
+        // Match the unit's board projection and upward world Y at release.
+        sprite.scale.y = -(height ?? diameter ?? cell * 0.78) / 496;
+        return sprite;
     }
     private makeDirectionalSprite(texture: Texture, targetLength: number): Sprite {
         const sprite = new Sprite(texture);
@@ -749,11 +1000,6 @@ export class RangedProjectiles {
 
         if (p.beholderEye) this.drawBeholderRocketFlame(p, x, y);
     }
-    /**
-     * A layered psychic flame behind the Beholder eye. It is rebuilt in world coordinates every frame,
-     * therefore it always burns opposite the shot direction while the eye and its vertical pupil stay
-     * upright. The small sine offsets keep the tips alive without moving the projectile off its path.
-     */
     private drawBeholderRocketFlame(p: IProjectile, x: number, y: number): void {
         const ca = Math.cos(p.angle);
         const sa = Math.sin(p.angle);
@@ -852,36 +1098,12 @@ export class RangedProjectiles {
             p.g.circle(px, py, p.cell * (0.032 - i * 0.006)).fill({ color: 0x77736f, alpha: 0.78 });
         }
     }
-    private drawGargantuanRootBoulder(p: IProjectile, x: number, y: number): void {
+    private drawGargantuanHeldStone(p: IProjectile, x: number, y: number): void {
         const sprite = p.sprite!;
         if (!sprite.parent) this.context.attachToWorldRoot(sprite, PROJECTILE_Z);
         sprite.position.set(x, y);
         sprite.rotation = p.spin * 0.055;
         sprite.visible = true;
-
-        const ca = Math.cos(p.angle);
-        const sa = Math.sin(p.angle);
-        const nx = -sa;
-        const ny = ca;
-        // Loose soil and leaves make the living root bundle distinct from the Cyclops's bare stone.
-        for (let i = 0; i < 5; i += 1) {
-            const distance = p.cell * (0.32 + i * 0.13);
-            const offset = Math.sin(p.spin * 0.52 + i * 1.4) * p.cell * 0.1;
-            const px = x - ca * distance + nx * offset;
-            const py = y - sa * distance + ny * offset;
-            if (i % 2 === 0) {
-                p.g.circle(px, py, p.cell * (0.035 + i * 0.003)).fill({ color: 0x6b5137, alpha: 0.52 - i * 0.055 });
-            } else {
-                const leafAngle = p.angle + p.spin * 0.14 + i;
-                const lx = Math.cos(leafAngle) * p.cell * 0.065;
-                const ly = Math.sin(leafAngle) * p.cell * 0.065;
-                p.g
-                    .moveTo(px + lx, py + ly)
-                    .quadraticCurveTo(px + ny * p.cell * 0.04, py - nx * p.cell * 0.04, px - lx, py - ly)
-                    .quadraticCurveTo(px - ny * p.cell * 0.04, py + nx * p.cell * 0.04, px + lx, py + ly)
-                    .fill({ color: 0x5e7f32, alpha: 0.72 - i * 0.07 });
-            }
-        }
     }
     private drawTsarCannonMoltenBall(p: IProjectile, x: number, y: number): void {
         const sprite = p.sprite!;
@@ -889,6 +1111,24 @@ export class RangedProjectiles {
         sprite.position.set(x, y);
         sprite.rotation = p.spin * 0.065;
         sprite.visible = true;
+        if (p.labIronCannonball && this.cannonFlightFrames) {
+            sprite.texture = this.cannonFlightFrames[cannonFlightFrame(p.flightElapsedMs)];
+            updateCannonEngineWake(sprite, p.flightElapsedMs);
+            let sx = 1,
+                sy = 1;
+            for (let parent = sprite.parent; parent; parent = parent.parent) {
+                sx *= Math.abs(parent.scale.x);
+                sy *= Math.abs(parent.scale.y);
+            }
+            const ratio = sy > 0 ? sx / sy : 1;
+            const angle = Math.atan2(-Math.sin(p.angle) * sy, Math.cos(p.angle) * sx);
+            const c = Math.cos(angle),
+                s = Math.sin(angle);
+            const scale = (p.cannonballDiameter ?? p.cell * 0.34) / CANNON_FLIGHT_BALL_DIAMETER;
+            // Billboard in screen space: round iron sphere and wake aligned to the projected flight path.
+            sprite.setFromMatrix(new Matrix(c * scale, -s * scale * ratio, -s * scale, -c * scale * ratio, x, y));
+            return;
+        }
 
         const ca = Math.cos(p.angle);
         const sa = Math.sin(p.angle);
@@ -1060,79 +1300,145 @@ export class RangedProjectiles {
             }
         }
     }
-    private spawnCannonExplosion(p: IProjectile): void {
-        const g = new Graphics();
-        this.context.attachToWorldRoot(g, PROJECTILE_Z + 3);
-        this.cannonExplosions.push({
-            g,
-            position: { x: p.to.x, y: p.to.y },
-            cell: p.cell,
-            ageSeconds: 0,
-            durationSeconds: 0.72,
-            phase: p.spin,
-        });
+    private async ensureGargantuanImpactTexture(): Promise<void> {
+        if (this.gargantuanImpactFrames) return;
+        const url = images.vfx_gargantuan_stone_impact_v1_atlas;
+        try {
+            const atlas = await Assets.load<Texture>(url);
+            if (this.destroyed) {
+                void Assets.unload(url).catch(() => undefined);
+                return;
+            }
+            this.loadedProjectileUrls.add(url);
+            atlas.source.scaleMode = "linear";
+            const size = GARGANTUAN_IMPACT_FRAME_SIZE;
+            this.gargantuanImpactFrames ??= GARGANTUAN_IMPACT_DURATIONS.map(
+                (_, i) =>
+                    new Texture({
+                        source: atlas.source,
+                        frame: new Rectangle((i % 4) * size, Math.floor(i / 4) * size, size, size),
+                    }),
+            );
+        } catch {
+            // A missing optional effect must not delay the hit or replace painted debris with particles.
+        }
     }
-    private updateCannonExplosions(dt: number): void {
-        const elapsedSeconds = dt * 4;
-        for (let index = this.cannonExplosions.length - 1; index >= 0; index -= 1) {
-            const explosion = this.cannonExplosions[index];
-            explosion.ageSeconds += elapsedSeconds;
-            const t = Math.min(1, explosion.ageSeconds / explosion.durationSeconds);
-            this.drawCannonExplosion(explosion, t);
-            if (t >= 1) {
-                explosion.g.destroy();
-                this.cannonExplosions.splice(index, 1);
+    private spawnCyclopsImpact(p: IProjectile): void {
+        if (p.cyclopsImpactMode === "engine") {
+            this.cyclopsFracture ??= new CyclopsStoneFracture((object, z) => this.context.attachToWorldRoot(object, z));
+            this.cyclopsFracture.spawn(p.cyclopsImpactPosition ?? { x: p.to.x, y: p.to.y - p.cell * 0.3 }, p.cell);
+            return;
+        }
+        if (!this.gargantuanImpactFrames) {
+            this.spawnRockImpact(p, false);
+            return;
+        }
+        const sprite = new Sprite(this.gargantuanImpactFrames[0]);
+        sprite.anchor.set(0.5, GARGANTUAN_IMPACT_ANCHOR_Y);
+        const scale = (p.cell * CYCLOPS_IMPACT_AREA_CELLS) / GARGANTUAN_IMPACT_PAINTED_EXTENT;
+        sprite.scale.set(scale, -scale);
+        const contact = p.cyclopsImpactPosition ?? { x: p.to.x, y: p.to.y - p.cell * 0.3 };
+        sprite.position.set(contact.x, contact.y);
+        this.context.attachToWorldRoot(sprite, PROJECTILE_Z + 2);
+        this.cyclopsImpacts.push({ sprite, elapsedMs: 0 });
+    }
+    private updateCyclopsImpacts(dt: number): void {
+        for (let i = this.cyclopsImpacts.length - 1; i >= 0; i--) {
+            const impact = this.cyclopsImpacts[i];
+            impact.elapsedMs += dt * 4000;
+            const frame = cyclopsImpactFrame(impact.elapsedMs);
+            if (frame < 0) {
+                impact.sprite.destroy();
+                this.cyclopsImpacts.splice(i, 1);
+            } else if (this.gargantuanImpactFrames) {
+                impact.sprite.texture = this.gargantuanImpactFrames[frame];
             }
         }
     }
-    private drawCannonExplosion(explosion: ICannonExplosion, t: number): void {
-        const { g, position, cell } = explosion;
-        const fade = 1 - t;
-        g.clear();
-
-        // White-hot contact flash, then orange fire expands into a soot-dark smoke shell.
-        const flashT = Math.min(1, t * 4.2);
-        g.circle(position.x, position.y, cell * (0.12 + flashT * 0.27)).fill({
-            color: 0xfff2bd,
-            alpha: 0.92 * (1 - flashT),
-        });
-        const fireRadius = cell * (0.18 + Math.sin(Math.PI * Math.min(1, t * 1.35)) * 0.56);
-        g.circle(position.x, position.y, fireRadius).fill({ color: 0xff4a08, alpha: 0.42 * fade });
-        g.circle(position.x, position.y, fireRadius * 0.68).fill({ color: 0xffa21c, alpha: 0.72 * fade });
-        g.circle(position.x, position.y, fireRadius * 0.36).fill({ color: 0xffef91, alpha: 0.86 * fade });
-
-        // Uneven flame lobes keep the explosion from reading as three perfect UI circles.
-        for (let i = 0; i < 9; i += 1) {
-            const theta = (Math.PI * 2 * i) / 9 + explosion.phase * 0.03;
-            const lobeTravel = cell * t * (0.34 + (i % 3) * 0.1);
-            const px = position.x + Math.cos(theta) * lobeTravel;
-            const py = position.y + Math.sin(theta) * lobeTravel;
-            const radius = cell * (0.12 + (i % 2) * 0.045) * (0.72 + fade * 0.45);
-            g.circle(px, py, radius).fill({
-                color: i % 3 === 0 ? 0xffd24a : i % 2 === 0 ? 0xff6514 : 0x9d2f12,
-                alpha: 0.72 * fade,
-            });
+    private spawnGargantuanImpact(p: IProjectile): void {
+        this.cyclopsFracture ??= new CyclopsStoneFracture((object, z) => this.context.attachToWorldRoot(object, z));
+        this.cyclopsFracture.spawn(p.gargantuanImpactPosition ?? p.to, p.cell);
+    }
+    private async ensureCannonExplosionTexture(): Promise<void> {
+        if (this.cannonExplosionFrames) return;
+        const url = images.vfx_tsar_cannon_impact_v19_atlas;
+        try {
+            const atlas = await Assets.load<Texture>(url);
+            if (this.destroyed) {
+                void Assets.unload(url).catch(() => undefined);
+                return;
+            }
+            this.loadedProjectileUrls.add(url);
+            this.cannonExplosionFrames ??= Array.from(
+                { length: 16 },
+                (_, i) =>
+                    new Texture({
+                        source: atlas.source,
+                        frame: new Rectangle((i % 4) * 320, Math.floor(i / 4) * 320, 320, 320),
+                    }),
+            );
+        } catch {
+            // Missing optional VFX must never interrupt combat or manufacture a delayed impact.
         }
-
-        const shockT = Math.min(1, t * 1.45);
-        g.circle(position.x, position.y, cell * (0.2 + shockT * 0.78)).stroke({
-            width: Math.max(1, cell * 0.09 * (1 - shockT)),
-            color: 0xffb340,
-            alpha: 0.76 * (1 - shockT),
-        });
-
-        // Smoke takes over late, rises slightly, and fades after the flame has collapsed.
-        const smokeT = Math.max(0, (t - 0.22) / 0.78);
-        for (let i = 0; i < 7; i += 1) {
-            const theta = i * 2.31 + explosion.phase * 0.015;
-            const travel = cell * smokeT * (0.16 + (i % 3) * 0.08);
-            const px = position.x + Math.cos(theta) * travel;
-            const py = position.y + Math.sin(theta) * travel - cell * smokeT * (0.12 + (i % 2) * 0.06);
-            g.circle(px, py, cell * (0.1 + smokeT * 0.09 + (i % 2) * 0.025)).fill({
-                color: i % 2 === 0 ? 0x2c2928 : 0x514741,
-                alpha: 0.4 * smokeT * fade,
-            });
+    }
+    private spawnCannonExplosion(p: IProjectile): void {
+        if (!this.cannonExplosionFrames) return;
+        const sprite = this.makeDirectionalSprite(
+            this.cannonExplosionFrames[0],
+            p.cell * 2.8 * CANNON_EXPLOSION_RADIUS_SCALE,
+        );
+        sprite.scale.y *= -1;
+        const contact = p.cannonImpactPosition ?? p.to;
+        sprite.position.set(contact.x, contact.y);
+        this.context.attachToWorldRoot(sprite, PROJECTILE_Z + 3);
+        this.fitCannonExplosionArtwork(sprite);
+        this.cannonExplosions.push({ sprite, elapsedMs: 0 });
+    }
+    private fitCannonExplosionArtwork(sprite: Sprite): void {
+        // The board camera fits X and Y separately. Fire/smoke is upright artwork, not a floor decal.
+        let x = 1;
+        let y = 1;
+        for (let parent = sprite.parent; parent; parent = parent.parent) {
+            x *= Math.abs(parent.scale.x);
+            y *= Math.abs(parent.scale.y);
         }
+        sprite.scale.y = -Math.abs(sprite.scale.x) * (y > 0 ? x / y : 1);
+    }
+    private updateCannonExplosions(dt: number): void {
+        for (let index = this.cannonExplosions.length - 1; index >= 0; index--) {
+            const explosion = this.cannonExplosions[index];
+            explosion.elapsedMs += dt * 4000 * CANNON_EXPLOSION_SPEED_MULTIPLIER;
+            const frame = cannonExplosionFrame(explosion.elapsedMs);
+            if (frame < 0) {
+                explosion.sprite.destroy();
+                this.cannonExplosions.splice(index, 1);
+            } else if (this.cannonExplosionFrames) {
+                explosion.sprite.texture = this.cannonExplosionFrames[frame];
+                this.fitCannonExplosionArtwork(explosion.sprite);
+            }
+        }
+    }
+    private drawMonkLabOrb(p: IProjectile, x: number, y: number): void {
+        const r = p.monkLabOrbRadius!;
+        const pulse = 0.9 + 0.1 * Math.cos(p.spin * 0.2);
+        // Same lime/gold halo falloff as the held ball; concentric thin bands avoid stacked opacity.
+        for (let i = 30; i >= 1; i--) {
+            const radius = (r * 3.88 * i) / 30;
+            const d = ((radius / r) * 34) / 0.8;
+            const taper = Math.max(0, Math.min(1, (165 - d) / 40));
+            const alpha =
+                Math.min(0.98, 0.9 * Math.exp(-((d / 84) ** 2)) + 0.65 * Math.exp(-((d / 43) ** 2))) * taper * pulse;
+            p.g.circle(x, y, radius).stroke({ width: (r * 3.88) / 30 + 0.05, color: 0xc3ef42, alpha });
+        }
+        p.g.circle(x, y, r).fill({ color: 0x8ebf20, alpha: 1 });
+        p.g.circle(x - r * 0.15, y + r * 0.12, r * 0.78).fill({ color: 0xd9f777, alpha: 0.95 });
+        for (let i = 0; i < 4; i++) {
+            const a = p.spin * 0.35 + i * 1.7;
+            p.g
+                .ellipse(x + Math.cos(a) * r * 0.16, y + Math.sin(a) * r * 0.16, r * 0.77, r * (0.26 + 0.08 * i))
+                .stroke({ width: Math.max(0.3, r * 0.12), color: i % 2 ? 0xfaffca : 0x77b51e, alpha: 0.8 });
+        }
+        p.g.circle(x - r * 0.28, y + r * 0.3, r * 0.23).fill({ color: 0xffffdf, alpha: 0.96 });
     }
     private drawMonkSolarOrb(p: IProjectile, x: number, y: number): void {
         const sprite = p.sprite!;
@@ -1240,7 +1546,6 @@ export class RangedProjectiles {
         }
         this.drawVineVector(p, x, y);
     }
-    /** Art-backed dart: the sprite carries the shape, this only aims it and lays the speed streaks. */
     private drawVineSprite(p: IProjectile, x: number, y: number): void {
         const sprite = p.sprite!;
         if (!sprite.parent) {
@@ -1352,7 +1657,18 @@ export class RangedProjectiles {
     }
     private drawChakram(p: IProjectile, x: number, y: number): void {
         const g = p.g;
-        const r = p.cell * CHAKRAM_RADIUS_FACTOR;
+        const r = (p.chakramDiameter ?? p.cell * CHAKRAM_RADIUS_FACTOR * 2) / 2;
+        if (p.sprite) {
+            if (!p.sprite.parent) this.context.attachToWorldRoot(p.sprite, PROJECTILE_Z);
+            p.sprite.position.set(x, y);
+            p.sprite.rotation = p.spin;
+            if (this.zenaChakramSparkFrames?.length) {
+                // spin advances 22.5 rad per real second; painted sparks animate at 20 fps.
+                const frame = Math.floor((p.spin / 22.5) * 20) % this.zenaChakramSparkFrames.length;
+                p.sprite.texture = this.zenaChakramSparkFrames[frame];
+            }
+            return;
+        }
 
         // Motion blur: two trailing ghosts behind the disc along its flight line.
         const ca = Math.cos(p.angle);
@@ -1383,5 +1699,33 @@ export class RangedProjectiles {
 
         // Hub.
         g.circle(x, y, r * 0.2).fill({ color: 0x6b4423, alpha: 1 });
+        this.drawChakramRimSparks(p, x, y, r);
+    }
+    private drawChakramRimSparks(p: IProjectile, x: number, y: number, r: number): void {
+        const g = p.g;
+        // A complete luminous rim, with hot spark segments travelling around the circle.
+        g.zIndex = PROJECTILE_Z + 1;
+        g.circle(x, y, r).stroke({ width: Math.max(3, r * 0.26), color: 0xffa020, alpha: 0.25 });
+        g.circle(x, y, r).stroke({ width: Math.max(1.2, r * 0.075), color: 0xffd65a, alpha: 0.9 });
+        for (let i = 0; i < 36; i++) {
+            const angle = p.spin + (i * Math.PI * 2) / 36;
+            const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(p.spin * 0.7 + i * 1.7));
+            const radius = r * (1 + 0.025 * Math.sin(i * 2.4 + p.spin));
+            const sx = x + Math.cos(angle) * radius;
+            const sy = y + Math.sin(angle) * radius;
+            const endAngle = angle + 0.1 + pulse * 0.15;
+            g.moveTo(sx, sy)
+                .arc(x, y, radius, angle, endAngle)
+                .stroke({ width: Math.max(1, r * 0.07), color: 0xfff5c0, alpha: pulse });
+            if (i % 2 === 0) {
+                const outer = r * (1.1 + pulse * 0.16);
+                const ex = x + Math.cos(endAngle) * outer;
+                const ey = y + Math.sin(endAngle) * outer;
+                g.moveTo(sx, sy)
+                    .lineTo(ex, ey)
+                    .stroke({ width: Math.max(0.8, r * 0.045), color: 0xffd65a, alpha: pulse });
+                g.circle(sx, sy, Math.max(0.8, r * 0.04)).fill({ color: 0xfffbe5, alpha: pulse });
+            }
+        }
     }
 }

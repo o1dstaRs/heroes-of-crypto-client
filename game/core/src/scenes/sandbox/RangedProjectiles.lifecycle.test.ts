@@ -1,10 +1,15 @@
-import { expect, test } from "bun:test";
-import { Assets, BufferImageSource, Container, Sprite, Texture } from "pixi.js";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { Assets, BufferImageSource, Container, DOMAdapter, Sprite, Texture } from "pixi.js";
 
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 
 import { images } from "../../generated/image_imports";
 import { RangedProjectiles, type IRangedProjectilesContext } from "./RangedProjectiles";
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -305,4 +310,152 @@ test("Orc axe starts with its grip in the hand, spins about its centre, and reso
         Assets.load = originalLoad;
         texture.destroy(true);
     }
+});
+
+test("Cannon fires a muzzle-sized iron sphere with continuous engine wake and cancels cleanly", async () => {
+    const { projectiles } = setup();
+    const texture = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 1280, height: 1280 }),
+    });
+    const state = projectiles as unknown as {
+        tsarCannonIronBallTexture: Texture;
+        cannonExplosionFrames: Texture[];
+        projectiles: { sprite: Sprite; speed: number; traveled: number; g: { context: { instructions: unknown[] } } }[];
+    };
+    state.tsarCannonIronBallTexture = texture;
+    state.cannonExplosionFrames = Array.from({ length: 16 }, () => new Texture({ source: texture.source }));
+    const controller = new AbortController();
+    let impacts = 0;
+    const flight = projectiles.fire({
+        from: { x: 100, y: 100 },
+        to: { x: 900, y: 200 },
+        big: false,
+        tsarCannonball: true,
+        labIronCannonball: true,
+        cannonballDiameter: 28,
+        signal: controller.signal,
+        onImpact: () => impacts++,
+    });
+    await Promise.resolve();
+    expect(state.projectiles.length).toBe(1);
+    const shot = state.projectiles[0];
+    expect(shot.speed).toBeCloseTo(gridSettings.getCellSize() * 16 * 1.25 * 1.6 * 1.15, 6);
+    expect(shot.sprite.filters?.[0].resources.wake.uniforms.uWakeScale).toBeCloseTo((0.7 * 0.5) / 1.1, 6);
+    expect(shot.sprite.texture.source).toBe(texture.source);
+    expect(Math.abs(shot.sprite.scale.x) * 88).toBeCloseTo(28, 6);
+    expect(shot.sprite.anchor.x).toBe(257 / 320);
+    const initialFrame = shot.sprite.texture;
+    projectiles.update(0.01);
+    expect(shot.sprite.filters?.[0].resources.wake.uniforms.uTime).toBeCloseTo(0.04, 6);
+    expect(shot.sprite.texture).not.toBe(initialFrame);
+    expect(shot.traveled).toBeGreaterThan(0);
+    expect(shot.g.context.instructions.length).toBe(0);
+    expect(impacts).toBe(0);
+    controller.abort();
+    await flight;
+    expect(projectiles.hasActive()).toBe(false);
+    expect(impacts).toBe(0);
+    projectiles.destroy();
+    texture.destroy(true);
+});
+
+test("Cannon empty lab shot explodes exactly at its flight endpoint", async () => {
+    const { projectiles } = setup();
+    const texture = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 1280, height: 1280 }),
+    });
+    const state = projectiles as unknown as {
+        tsarCannonIronBallTexture: Texture;
+        cannonExplosionFrames: Texture[];
+        cannonExplosions: { sprite: Sprite }[];
+        projectiles: { speed: number; dist: number }[];
+    };
+    state.tsarCannonIronBallTexture = texture;
+    state.cannonExplosionFrames = Array.from({ length: 16 }, () => new Texture({ source: texture.source }));
+    const endpoint = { x: 400, y: 180 };
+    const flight = projectiles.fire({
+        from: { x: 0, y: 100 },
+        to: endpoint,
+        big: false,
+        tsarCannonball: true,
+        labIronCannonball: true,
+        cannonballDiameter: 28,
+        cannonExplodeOnImpact: true,
+    });
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    const shot = state.projectiles[0];
+    expect(shot.dist).toBeCloseTo(Math.hypot(400, 80), 6);
+    projectiles.update((shot.dist - 1) / shot.speed);
+    expect(state.cannonExplosions).toHaveLength(0);
+    projectiles.update(1.01 / shot.speed);
+    await flight;
+    expect(state.cannonExplosions).toHaveLength(1);
+    expect(state.cannonExplosions[0].sprite.position.x).toBe(endpoint.x);
+    expect(state.cannonExplosions[0].sprite.position.y).toBe(endpoint.y);
+    projectiles.destroy();
+    texture.destroy(true);
+});
+
+test("Cannon impact uses painted frames only at final contact and cleans up after playback", async () => {
+    const camera = new Container();
+    camera.scale.set(1.2, -0.7);
+    const projectiles = new RangedProjectiles({
+        getGridSettings: () => gridSettings,
+        attachToWorldRoot: (object) => camera.addChild(object),
+    } as IRangedProjectilesContext);
+    const texture = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 1280, height: 1280 }),
+    });
+    const frames = Array.from({ length: 16 }, () => new Texture({ source: texture.source }));
+    const state = projectiles as unknown as {
+        tsarCannonIronBallTexture: Texture;
+        cannonExplosionFrames: Texture[];
+        cannonExplosions: { sprite: Sprite; elapsedMs: number }[];
+        projectiles: { speed: number; dist: number }[];
+    };
+    state.tsarCannonIronBallTexture = texture;
+    state.cannonExplosionFrames = frames;
+    let impacts = 0;
+    const contact = { x: 300, y: 100 };
+    const flight = projectiles.fire({
+        from: { x: 0, y: 100 },
+        to: contact,
+        big: false,
+        tsarCannonball: true,
+        labIronCannonball: true,
+        cannonImpactPosition: contact,
+        cannonballDiameter: 100,
+        onImpact: () => impacts++,
+    });
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    const shot = state.projectiles[0];
+    expect(shot.dist).toBe(250);
+    projectiles.update((shot.dist - 1) / shot.speed);
+    expect(state.cannonExplosions.length).toBe(0);
+    expect(impacts).toBe(0);
+    projectiles.update(1.01 / shot.speed);
+    await flight;
+    expect(impacts).toBe(1);
+    expect(state.cannonExplosions.length).toBe(1);
+    const blast = state.cannonExplosions[0].sprite;
+    expect(blast.texture).toBe(frames[0]);
+    expect(blast.width).toBeCloseTo(gridSettings.getCellSize() * 2.8 * 0.75, 6);
+    expect(Math.abs(blast.scale.x * camera.scale.x)).toBeCloseTo(Math.abs(blast.scale.y * camera.scale.y), 6);
+    expect(blast.position.x).toBe(contact.x);
+    expect(blast.position.y).toBe(contact.y);
+    const scale = blast.scale.clone();
+    projectiles.update(0.02);
+    expect(state.cannonExplosions[0].elapsedMs).toBeCloseTo(80 * 1.38 * 1.6 * 1.22, 6);
+    expect((frames as Texture[]).indexOf(blast.texture)).toBeGreaterThan(0);
+    expect(blast.scale.x).toBe(scale.x);
+    expect(blast.scale.y).toBe(scale.y);
+    camera.scale.set(0.9, -0.8);
+    projectiles.update(0.01);
+    expect(Math.abs(blast.scale.x * camera.scale.x)).toBeCloseTo(Math.abs(blast.scale.y * camera.scale.y), 6);
+    projectiles.update(0.3);
+    expect(blast.destroyed).toBe(true);
+    expect(state.cannonExplosions.length).toBe(0);
+    projectiles.destroy();
+    texture.destroy(true);
+    camera.destroy({ children: true });
 });

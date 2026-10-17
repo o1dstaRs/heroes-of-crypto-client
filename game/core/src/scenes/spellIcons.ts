@@ -4,10 +4,8 @@ import { SpellHelper } from "@heroesofcrypto/common";
  * The texture key for a spell's book icon.
  *
  * By default a spell's icon is named after the spell (`spellToTextureName`), and that is all the art a new
- * spell needs — the name beside it is drawn as text, not as a pre-baked strip. But a MISSING icon is not a
- * missing picture: the spell card cannot be built without its texture, so the spell vanishes from the book
- * without a word. That is how the Wandering Mage once shipped with an empty spellbook, which is why this
- * mapping is one documented place rather than a conditional repeated at each call site.
+ * spell needs — the name beside it is drawn as text, not as a pre-baked strip. Cards remain selectable
+ * while icons load. Keep the published asset catalog complete so every card receives its intended art.
  *
  * Two kinds of entry live here:
  *   • a spell whose shipped art is a GENERATED key rather than the plain name (Fire Strike, Meteorite);

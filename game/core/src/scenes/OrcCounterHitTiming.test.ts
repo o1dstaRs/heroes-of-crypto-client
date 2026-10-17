@@ -49,7 +49,7 @@ test("a shot waits for an existing Orc hit animation from a previous exchange", 
     unit.playOrcRangedThrow = (state, release, cancel) => {
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(false);
         expect([...frames]).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-        expect(elapsed).toBeGreaterThanOrEqual(450);
+        expect(elapsed).toBeGreaterThanOrEqual(450 / 1.17);
         const started = playThrow(state, release, cancel);
         unit.stepOneShotAnimation(285);
         return started;

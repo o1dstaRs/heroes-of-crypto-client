@@ -119,7 +119,32 @@ describe("floating received damage", () => {
         const startY = floating.y;
         visuals.update(0.4);
         expect(floating.x).toBe(flagTop.x);
-        expect(floating.y).toBeGreaterThan(startY);
+        // Halfway through easeOutCubic, 87.5% of the reduced 50.4px rise is complete.
+        expect(floating.y - startY).toBeCloseTo(72 * 0.7 * 0.875);
+    });
+
+    test("keeps consecutive hits above the same flag throughout their rise", () => {
+        const { visuals } = makeVisuals();
+        const flagTop = { x: 120, y: 200 };
+        for (const direction of [
+            { x: -1, y: 0 },
+            { x: 1, y: 1 },
+            { x: 0, y: -1 },
+        ]) {
+            visuals.showFloatingDamage({ x: 900, y: 10 }, 52, direction, 0, undefined, undefined, flagTop);
+        }
+        const labels = internals(visuals).floatingTexts.map(({ container }) => container);
+        let previousY = labels.map((label) => label.y);
+        expect(new Set(previousY).size).toBe(3);
+        for (let frame = 0; frame < 7; frame++) {
+            visuals.update(0.1);
+            labels.forEach((label, index) => {
+                expect(label.x).toBe(flagTop.x);
+                expect(label.y).toBeGreaterThan(previousY[index]);
+                expect(label.y).toBeGreaterThan(flagTop.y);
+            });
+            previousY = labels.map((label) => label.y);
+        }
     });
 
     test("destroys text and icon children when a floating result expires", () => {

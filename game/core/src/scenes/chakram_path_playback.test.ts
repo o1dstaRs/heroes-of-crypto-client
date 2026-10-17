@@ -11,6 +11,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import { releaseBoardMirror, setBoardMirror } from "../pixi/boardMirror";
+import type { SandboxReplayActionRecord } from "../replay/sandbox_replay";
 import { Sandbox } from "./Sandbox";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import type { CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -44,6 +45,9 @@ const unit = (id: string, anchor: XY, width = 1, height = 1, team: TeamType = Te
     return {
         getId: () => id,
         getName: () => id,
+        getAmountAlive: () => 1,
+        setActiveTurn: () => undefined,
+        syncVisual: () => undefined,
         getTeam: () => team,
         getAbility: () => undefined,
         getAnimationTextureKey: () => undefined,
@@ -84,6 +88,7 @@ const sceneFor = (units: readonly UnitStub[]) => {
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => byId },
         rangedProjectiles: {
+            showChakramBounce: () => Promise.resolve(),
             fireAlongPath: (points: XY[]): Promise<void> => {
                 paths.push(points.map((point) => ({ ...point })));
                 return Promise.resolve();
@@ -272,6 +277,108 @@ const recordedExchange = (
 };
 
 describe("Each recorded Chakram throw owns its damage and path", () => {
+    test("the replay entry hands bounce casualties and captured figures to impact-time teardown", async () => {
+        const zena = unit("Zena", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
+        const primary = unit("Primary", { x: 6, y: 10 }, 1, 2, TeamVals.RIGHT, false);
+        const killed = unit("Killed", { x: 8, y: 10 }, 1, 2, TeamVals.RIGHT, false);
+        const next = unit("Next", { x: 9, y: 10 }, 1, 2, TeamVals.RIGHT, false);
+        const harness = exchangeFor([zena, primary, killed, next]);
+        const flights = [
+            recordedFlight(
+                zena,
+                primary,
+                0,
+                [arc(killed, [primary.getBaseCell(), killed.getBaseCell()])],
+                [splash(primary, 10), splash(killed, 9, 1)],
+            ),
+            recordedFlight(
+                zena,
+                primary,
+                1,
+                [arc(next, [primary.getBaseCell(), killed.getBaseCell(), next.getBaseCell()])],
+                [splash(primary, 5), splash(next, 3)],
+            ),
+        ];
+        let arrive!: () => void;
+        const firstArrival = new Promise<void>((resolve) => {
+            arrive = resolve;
+        });
+        harness.scene.rangedProjectiles.fireAlongPath = (points) => {
+            harness.paths.push(points);
+            return harness.paths.length === 1 ? firstArrival : Promise.resolve();
+        };
+        const deaths: { id: string; paths: number; captured?: UnitStub }[] = [];
+        const noop = () => undefined;
+        Object.assign(harness.scene, {
+            drawer: { getUnitsContainer: noop },
+            sc_sceneLog: { updateLog: noop },
+            getReplayRetaliationDamage: noop,
+            noteDeathBlowsFromAttackEvent: noop,
+            spawnChainLightningVfx: noop,
+            spawnFireDamageVfx: noop,
+            showReplayAttackDamage: noop,
+            spawnAbilityStealVfx: noop,
+            spawnShatterArmorSlashVfx: noop,
+            applyReplayAttackRecoil: noop,
+            spawnSkewerWindSpearVfx: noop,
+            applyReplayEvents: noop,
+            destroyReplayAttackUnitsAtImpact: (ids: string[], captured?: UnitStub[]) => {
+                for (const id of ids) {
+                    deaths.push({
+                        id,
+                        paths: harness.paths.length,
+                        captured: captured?.find((unit) => unit.getId() === id),
+                    });
+                    harness.byId.delete(id);
+                }
+            },
+        });
+        const attack = {
+            type: "unit_attacked",
+            attackerId: zena.getId(),
+            targetId: primary.getId(),
+            attackType: "range",
+            animations: flights.map(() => ({
+                fromPosition: zena.getPosition(),
+                toPosition: primary.getPosition(),
+                affectedUnitId: primary.getId(),
+            })),
+            unitIdsDied: [killed.getId()],
+            damage: {
+                amount: 15,
+                hits: [
+                    { amount: 10, unitsDied: 0 },
+                    { amount: 5, unitsDied: 0 },
+                ],
+                render: true,
+                unitId: primary.getId(),
+                unitPosition: primary.getPosition(),
+                unitIsSmall: false,
+                splash: flights.flatMap((flight) => flight.splash),
+                chakramFlights: flights,
+            },
+        };
+        const record = {
+            action: { type: "range_attack", attackerId: zena.getId(), targetId: primary.getId() },
+            events: [attack, { type: "unit_destroyed", unitId: killed.getId() }],
+            stateAfter: {
+                units: [zena, primary, next].map((unit) => ({ properties: { id: unit.getId(), amount_alive: 1 } })),
+            },
+        } as unknown as SandboxReplayActionRecord;
+        const scene = harness.scene as unknown as {
+            playReplayAttackRecord(record: SandboxReplayActionRecord): Promise<boolean>;
+        };
+        const playing = scene.playReplayAttackRecord(record);
+        await flush();
+        expect(deaths).toEqual([]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
+        arrive();
+        expect(await playing).toBe(true);
+        expect(deaths).toEqual([{ id: killed.getId(), paths: 1, captured: killed }]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 9, 5, 3]);
+        expect(harness.paths[2]).toContainEqual(projectedCell(killed.getBaseCell()));
+    });
+
     test("a killed first-bounce victim dies at arrival before the next disc crosses its cleared cell", async () => {
         const zena = unit("Zena", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
         const primary = unit("Primary", { x: 6, y: 10 }, 1, 2, TeamVals.RIGHT, false);
@@ -894,9 +1001,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.shots).toEqual(["Shooter", "Zena"]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
-        expect(harness.missPops).toEqual([
-            { x: shooter.getVisualCenter().x, y: shooter.getVisualCenter().y - gs.getCellSize() * 1.25 },
-        ]);
+        expect(harness.missPops).toEqual([{ x: shooter.getVisualCenter().x, y: shooter.getVisualCenter().y }]);
     });
 
     test("the real replay response gate still retains a positive counter from an older payload without splash", () => {

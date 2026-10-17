@@ -9,15 +9,16 @@
     "scripts": {
         "build": "rimraf .parcel-cache && cross-env NODE_ENV=production bun run build:images && rimraf dist && tsc && bun scripts/vite_build.js production",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
-        "build:images": "bun scripts/require_asset_location.ts images && bun scripts/require_asset_location.ts animations && bun run check:image-assets && rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
+        "build:images": "bun scripts/require_asset_location.ts images && bun scripts/require_asset_location.ts animations && bun run check:animation-release && bun run check:image-assets && rimraf images && bun run copy:images && npm run generate:animations -- --copy-only && npm run generate:images",
         "build:skip": "rimraf .parcel-cache && rimraf dist && tsc && bun scripts/vite_build.js production",
         "build:test": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && bun scripts/vite_build.js test",
+        "check:animation-release": "bun scripts/verify_animation_release.ts",
         "check:image-assets": "bun scripts/check_image_asset_policy.ts",
-        "copy:images": "cpy \"$HOC_IMAGES_LOC\" ./",
+        "copy:images": "cpy \"$HOC_IMAGES_LOC\" images --base=pattern",
         "generate:animations": "bun scripts/generate_animation_atlases.js",
         "generate:images": "bun scripts/generate_image_imports.js",
         "generate:test-images": "bun scripts/generate_image_imports.js --test",
-        "start": "bun run generate:images && cross-env NODE_ENV=development vite"
+        "start": "bun run generate:images && cross-env NODE_ENV=development bun --max-http-header-size=262144 ./node_modules/vite/bin/vite.js"
     },
     "browserslist": [
         "> 5%"

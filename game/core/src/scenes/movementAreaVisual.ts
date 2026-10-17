@@ -154,8 +154,11 @@ export function drawMovementArea(
     const tuning = resolveMovementAreaTuning();
 
     for (const cell of cells) {
-        g.poly(cachedTunedCellFillPolygon(cell, gs, MOVEMENT_TILE_INSET_CELLS, tuning)).fill({ color, alpha });
+        g.poly(cachedTunedCellFillPolygon(cell, gs, MOVEMENT_TILE_INSET_CELLS, tuning));
     }
+    // Separate polygons keep the grout and overlap order; one shared fill avoids a new graphics
+    // instruction, style conversion and path clone for every tile on every pulse frame.
+    g.fill({ color, alpha });
 }
 
 /** Exact two-row calibration overlay used only by /dev/movement-area-editor. */

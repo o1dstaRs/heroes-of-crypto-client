@@ -4,6 +4,8 @@
  * here — v1 localizes the pick-phase and in-game interface chrome.
  */
 export const RU_TRANSLATIONS: Record<string, string> = {
+    Normal: "Обычная",
+    Barrels: "Бочки",
     "Temporary: {duration} total, {time} remaining. Automatically ends {date}.":
         "Временно: общий срок — {duration}, осталось {time}. Автоматически закончится {date}.",
     "Temporary: {time} remaining. Automatically ends {date}.":
@@ -591,9 +593,9 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Points you can spend on upgrades before placement": "Очки, которые можно потратить на усиления перед расстановкой",
     Reveal: "Открыть",
     Rules: "Правила",
-    Normal: "Обычная",
+    Standard: "Обычная",
     "FIRE PIT": "FIRE PIT",
-    Barrels: "Бочки",
+    Cemetery: "Кладбище",
     Water: "Вода",
     "Open stone field — no central hazard.": "Открытое каменное поле без опасности в центре.",
     "A lava pool scars the center of the board.": "В центре поля разлилась лава.",
@@ -953,6 +955,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Suggested moves": "Рекомендуемые ходы",
     "Draw recommended actions on the battlefield during combat.": "Показывать рекомендуемые действия на поле боя.",
     Appearance: "Внешний вид",
+    "Stagger idle animations of identical creatures": "Разные фазы ожидания у одинаковых существ",
     Audio: "Звук",
     // Master sound plus independent music/effects balances.
     Sound: "Звук",

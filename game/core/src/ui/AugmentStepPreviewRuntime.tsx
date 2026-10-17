@@ -1,3 +1,4 @@
+import { hocJoyTheme } from "./hocTheme";
 /*
  * BACKEND-FREE AUGMENT STEP.
  *
@@ -20,8 +21,6 @@ import { GridVals, HoCConstants, Doctrine, TeamType, TeamVals } from "@heroesofc
 import { Box, Stack } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
-
-import { hocJoyTheme } from "./hocTheme";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PixiGameManager, PixiManagerContext } from "../pixi/PixiGameManager";

@@ -88,7 +88,7 @@ test("the selected cutout and background finish without waiting for optional atl
     expect(isLeftSidebarPortraitReady(CreatureVals.PEASANT)).toBe(true);
     expect(isAtlasReady(sources.atlas!)).toBe(false);
     expect(isDecodedImageReady(sources.glow)).toBe(false);
-    expect(controlled.jobs.find((job) => job.image.src === sources.atlas)?.settled).toBe(false);
+    expect(controlled.jobs.find((job) => job.image.src === sources.atlas)).toBeUndefined();
 });
 
 for (const failedLayer of ["creature", "background"] as const) {
@@ -117,7 +117,6 @@ test("optional image failures do not block an otherwise ready portrait", async (
     controlled.settle(sources.background);
 
     expect(await pair).toBe(true);
-    controlled.settle(sources.atlas, false);
     controlled.settle(sources.glow, false);
     await Promise.resolve();
     expect(isAtlasReady(sources.atlas!)).toBe(false);

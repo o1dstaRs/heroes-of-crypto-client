@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
+import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 
 const strike = (response = false, hitIndex = 0, lethal = false): CombatExchangeStrike => ({
@@ -15,6 +16,9 @@ const setup = () => {
     const unit = (id: string) => ({
         getId: () => id,
         getName: () => "Orc",
+        hasAbilityActive: () => false,
+        isDead: () => false,
+        isPlayingOneShotAnimation: () => false,
         getAnimationTextureKey: (_state: string): string | undefined => undefined,
         getVisualCenter: () => ({ x: id === "A" ? 0 : 100, y: 0 }),
         getDamagePredictionAnchor: () => ({ x: 0, y: 100 }),
@@ -24,6 +28,7 @@ const setup = () => {
     const events: string[] = [],
         finish: (() => void)[] = [];
     const scene = Object.assign(Object.create(Sandbox.prototype), {
+        oneInTheFieldTriggers: new OneInTheFieldTriggers(),
         sc_sceneSettings: { getGridSettings: () => ({}) },
         unitsHolder: {
             getAllUnits: () =>

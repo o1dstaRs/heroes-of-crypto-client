@@ -38,6 +38,9 @@ import type { ISandboxAiSearchHost } from "./sandboxAiSearch";
 
 import { premiumMoveDrawing } from "./PremiumTurnOverlay";
 import { premiumHumanActions, sandboxPremiumAdvice } from "./sandboxPremiumAdvice";
+import { RenderableUnit } from "./RenderableUnit";
+import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
+import { searchSandboxAiDecision } from "./sandboxAiSearch";
 
 const testGridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -117,30 +120,42 @@ test("human advice merges move-and-melee and rejects follow-ups a move would end
     expect(premiumHumanActions([move, { type: "end_turn", unitId: "actor" }])).toEqual([move]);
 });
 
-for (const creatureId of [
-    CreatureVals.PEASANT,
-    CreatureVals.ELF,
-    CreatureVals.HEALER,
-    CreatureVals.ANGEL,
-    CreatureVals.BATTLE_MAGE,
-    CreatureVals.GARGANTUAN,
-    CreatureVals.SATYR,
-]) {
+const renderers = [
+    ["engine", (unit: Unit) => unit],
+    ["battlefield", (unit: Unit) => RenderableUnit.fromBase(unit, () => undefined)],
+    ["level one", (unit: Unit) => LevelOneRenderableUnit.fromBase(unit, () => undefined)],
+] as const;
+
+const scenarios = renderers.flatMap(([renderer, render]) =>
+    [
+        CreatureVals.PEASANT,
+        CreatureVals.ELF,
+        CreatureVals.HEALER,
+        CreatureVals.ANGEL,
+        CreatureVals.BATTLE_MAGE,
+        CreatureVals.GARGANTUAN,
+        CreatureVals.SATYR,
+    ].map((creatureId) => ({ renderer, render, creatureId })),
+);
+
+for (const { renderer, render, creatureId } of scenarios) {
     for (const distance of ["adjacent", "far"] as const) {
-        test(`sandbox recommendations are drawable, legal and read-only: ${creatureInfo(creatureId)!.name}, ${distance}`, () => {
+        test(`${renderer} sandbox recommendations are drawable, legal and read-only: ${creatureInfo(creatureId)!.name}, ${distance}`, () => {
             const context = createCombatTestContext();
             const fight = FightStateManager.getInstance().getFightProperties();
             const makeUnit = (id: number, team: TeamType) => {
                 const info = creatureInfo(id)!;
                 const effects = new EffectFactory();
-                return Unit.createUnit(
-                    HoCConfig.getCreatureConfig(team, ToFactionName[info.faction], info.name, "", 12),
-                    testGridSettings,
-                    team,
-                    UnitVals.CREATURE,
-                    new AbilityFactory(effects),
-                    effects,
-                    false,
+                return render(
+                    Unit.createUnit(
+                        HoCConfig.getCreatureConfig(team, ToFactionName[info.faction], info.name, "", 12),
+                        testGridSettings,
+                        team,
+                        UnitVals.CREATURE,
+                        new AbilityFactory(effects),
+                        effects,
+                        false,
+                    ),
                 );
             };
             const actor = makeUnit(creatureId, TeamVals.LEFT);
@@ -271,4 +286,70 @@ for (const creatureId of [
             }
         });
     }
+}
+
+for (const [renderer, render] of renderers) {
+    test(`${renderer} A19 searches real engine actions without a policy fallback or live-state changes`, () => {
+        const context = createCombatTestContext();
+        const fight = context.fightProperties();
+        const makeUnit = (team: TeamType) => {
+            const effects = new EffectFactory();
+            return render(
+                Unit.createUnit(
+                    HoCConfig.getCreatureConfig(team, "Life", "Peasant", "", 12),
+                    testGridSettings,
+                    team,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effects),
+                    effects,
+                    false,
+                ),
+            );
+        };
+        const actor = makeUnit(TeamVals.LEFT);
+        const enemy = makeUnit(TeamVals.RIGHT);
+        placeUnit(context.grid, context.unitsHolder, actor, { x: 3, y: 3 });
+        placeUnit(context.grid, context.unitsHolder, enemy, { x: 4, y: 3 });
+        actor.refreshPossibleAttackTypes(false);
+        fight.setTeamUnitsAlive(TeamVals.LEFT, 1);
+        fight.setTeamUnitsAlive(TeamVals.RIGHT, 1);
+        fight.startFight();
+        fight.startTurn(TeamVals.LEFT, 1000);
+        const decision: IDecisionContext = {
+            ...context,
+            matrix: context.grid.getMatrix(),
+            fightProperties: fight,
+            decisionOrigin: "root",
+        };
+        const before = snapshotBattle(context.unitsHolder, context.grid, fight);
+        const randomBefore = HoCLib.captureDeterministicRandomState();
+        const memoryBefore = captureAITargetMemory(context.unitsHolder);
+        const errors = spyOn(console, "error").mockImplementation(() => undefined);
+        const apply = spyOn(GameActionEngine.prototype, "apply");
+        try {
+            // Exercise both a newly constructed search slot and the slot reused for the next decision.
+            for (let repeat = 0; repeat < 2; repeat++) {
+                const actions = searchSandboxAiDecision(
+                    context.host,
+                    actor,
+                    "v0.8",
+                    [{ type: "defend_turn", unitId: actor.getId() }],
+                    decision,
+                );
+                expect(actions.length).toBeGreaterThan(0);
+                expect(apply).toHaveBeenCalled();
+                expect(errors).not.toHaveBeenCalled();
+                expect(snapshotBattle(context.unitsHolder, context.grid, fight)).toEqual(before);
+                expect(HoCLib.captureDeterministicRandomState()).toEqual(randomBefore);
+                expect(captureAITargetMemory(context.unitsHolder)).toEqual(memoryBefore);
+                expect(context.damageStatisticHolder.get()).toEqual([]);
+                expect(context.sceneLog.getLog()).toBe("");
+                expect(context.sceneLog.isSuppressed()).toBe(false);
+                apply.mockClear();
+            }
+        } finally {
+            apply.mockRestore();
+            errors.mockRestore();
+        }
+    });
 }

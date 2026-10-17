@@ -1,90 +1,74 @@
 import { describe, expect, test } from "bun:test";
 import { Sprite, Texture, TextureSource } from "pixi.js";
-
 import { FireWallLayer } from "./FireWallLayer";
 
 const cells = [{ x: 3, y: 4, l: 3 }];
 const toWorld = () => ({ x: 192, y: 256, cellSize: 60 });
-const makeAtlas = () => new Texture({ source: new TextureSource({ width: 2048, height: 2048 }) });
+const makeMaterials = () => {
+    const texture = () => [new Texture({ source: new TextureSource({ width: 64, height: 64 }) })];
+    return { flame: texture(), smoke: texture(), glow: texture(), rock: texture() };
+};
 
 describe("fire wall rendering lifecycle", () => {
-    test("loads only for a burning cell and keeps its sprites until the authoritative cell expires", () => {
-        const atlas = makeAtlas();
-        let lookups = 0;
-        const layer = new FireWallLayer(() => {
-            lookups++;
-            return atlas;
+    test("allocates on first fire and retains pooled sprites until the authoritative cell expires", () => {
+        let allocations = 0;
+        const layer = new FireWallLayer(undefined, () => {
+            allocations++;
+            return makeMaterials();
         });
-        const fire = layer.getContainer().children[2];
-
+        const fire = layer.getContainer();
         layer.update(1, [], 64, toWorld);
-        expect(lookups).toBe(0);
+        expect(allocations).toBe(0);
         layer.update(0.4, cells, 64, toWorld);
         const root = fire.children[0];
-        const flame = root.children.find((child): child is Sprite => child instanceof Sprite)!;
-        const initialHeight = Math.abs(flame.scale.y);
-        expect(flame.scale.y).toBeLessThan(0); // Artwork rises in the y-up world.
-
-        // A lap's duration belongs to the engine: elapsed wall-clock time never removes the hazard.
+        const sprites = [...root.children];
+        expect(sprites.every((sprite) => sprite instanceof Sprite)).toBe(true);
+        expect(root.scale.y).toBeLessThan(0);
         layer.update(60, cells, 64, toWorld);
         expect(fire.children[0]).toBe(root);
-        expect(lookups).toBe(1);
+        expect(root.children).toEqual(sprites);
         layer.update(1, [{ ...cells[0], l: 1 }], 64, toWorld);
-        expect(Math.abs(flame.scale.y)).toBeLessThan(initialHeight);
-
+        expect(root.children).toEqual(sprites);
         layer.update(0.2, [], 64, toWorld);
         expect(root.destroyed).toBe(false);
-        // A recast during extinction reuses the cell rather than stacking a second flame group.
         layer.update(0.4, cells, 64, toWorld);
         expect(fire.children).toEqual([root]);
         layer.update(0.7, [], 64, toWorld);
         expect(root.destroyed).toBe(true);
         expect(fire.children).toHaveLength(0);
-        layer.update(1, [], 64, toWorld);
-        expect(lookups).toBe(1);
-
+        expect(allocations).toBe(1);
         layer.destroy();
-        atlas.destroy(true);
     });
 
-    test("keeps a visible fallback while the atlas loads, then replaces it in the same cell", () => {
-        const atlas = makeAtlas();
-        let ready = false;
-        const layer = new FireWallLayer(() => (ready ? atlas : undefined));
-        layer.update(0.4, cells, 64, toWorld);
-        const root = layer.getContainer().children[2].children[0];
-        const fallback = root.children[0];
-        expect(fallback.visible).toBe(true);
-        expect(root.children.some((child) => child instanceof Sprite)).toBe(false);
-
-        ready = true;
-        layer.update(0.1, cells, 64, toWorld);
-        expect(fallback.visible).toBe(true);
-        expect(root.children.some((child) => child instanceof Sprite && child.alpha > 0)).toBe(true);
-        layer.update(0.2, cells, 64, toWorld);
-        expect(fallback.visible).toBe(false);
-        expect(layer.getContainer().children[2].children[0]).toBe(root);
-
+    test("neighboring cells share materials without sharing particle containers", () => {
+        let allocations = 0;
+        const layer = new FireWallLayer(undefined, () => {
+            allocations++;
+            return makeMaterials();
+        });
+        layer.update(0.4, [...cells, { x: 4, y: 4, l: 3 }], 64, toWorld);
+        const [first, second] = layer.getContainer().children;
+        expect(first).not.toBe(second);
+        expect((first.children[0] as Sprite).texture).toBe((second.children[0] as Sprite).texture);
+        layer.update(0.6, cells, 64, toWorld);
+        expect(second.destroyed).toBe(true);
+        expect(first.destroyed).toBe(false);
+        expect((first.children[0] as Sprite).texture.destroyed).toBe(false);
+        expect(allocations).toBe(1);
         layer.destroy();
-        atlas.destroy(true);
     });
 
-    test("scene teardown releases frame views without destroying the atlas shared with the braziers", () => {
-        const atlas = makeAtlas();
-        const layer = new FireWallLayer(() => atlas);
+    test("scene teardown releases owned particle textures and tolerates repeated cleanup", () => {
+        const materials = makeMaterials();
+        const layer = new FireWallLayer(undefined, () => materials);
         layer.update(0.4, cells, 64, toWorld);
-        const root = layer.getContainer().children[2].children[0];
-        const flame = root.children.find((child): child is Sprite => child instanceof Sprite)!;
-        const frame = flame.texture;
-        expect(frame).not.toBe(atlas);
-        expect(frame.source).toBe(atlas.source);
-
+        const root = layer.getContainer().children[0];
         layer.getContainer().destroy({ children: true });
-        expect(frame.destroyed).toBe(true);
-        expect(atlas.destroyed).toBe(false);
-        expect(atlas.source.destroyed).toBe(false);
+        expect(() => layer.destroy()).not.toThrow();
+        expect(root.destroyed).toBe(true);
+        for (const texture of Object.values(materials).flat()) expect(texture.destroyed).toBe(true);
         expect(() => layer.destroy()).not.toThrow();
         expect(() => layer.update(1, cells, 64, toWorld)).not.toThrow();
-        atlas.destroy(true);
+        expect(layer.getContainer().children).toHaveLength(0);
     });
 });
