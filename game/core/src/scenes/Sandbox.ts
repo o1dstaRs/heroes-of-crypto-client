@@ -1,4 +1,6 @@
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
+import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
+import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
@@ -232,7 +234,7 @@ import {
     resolveRangeProjectileImpactPlan,
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
-import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import { throughShotImpactProgress } from "./sandbox/throughShotImpact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
 import { isMovementAreaEditorActive } from "./movementAreaTuning";
 import { drawMovementArea, ENEMY_MOVEMENT_HIGHLIGHT_COLOR, tunedCellFillPolygon } from "./movementAreaVisual";
@@ -987,6 +989,8 @@ export class Sandbox extends PixiScene {
     private replayPlaybackActive = false;
     private readonly notedDeathBlowEvents = new WeakSet<object>();
     private readonly dyingVisualUnits = new Set<RenderableUnit>();
+    private pyreDeaths?: LastFuseDeaths<RenderableUnit>;
+    /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
     private readonly depthSortableUnitsScratch: RenderableUnit[] = [];
     private readonly depthSortCandidatesScratch: CreatureDepthSortCandidate[] = [];
     private readonly sidebarAuraRangesScratch: { range: number; isBuff: boolean }[] = [];
@@ -1797,6 +1801,11 @@ export class Sandbox extends PixiScene {
     protected shouldRenderArmageddonInline(): boolean {
         return true;
     }
+    /**
+     * Whether the lap-start Morale/Dismorale pop is rendered inline from engine events. True in the
+     * sandbox; RankedPlayScene overrides it to false and renders it from the authoritative journal
+     * instead (the inline replay path doesn't carry lap-flip events reliably there — same as Armageddon).
+     */
     protected shouldRenderMoraleInline(): boolean {
         return true;
     }
@@ -2724,6 +2733,9 @@ export class Sandbox extends PixiScene {
         return renderableUnit;
     }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
+        for (const { properties } of snapshot.units) {
+            if (properties.amount_alive > 0) this.pyreDeaths?.forget(properties.id);
+        }
         this.sc_mapStateHydrated = true;
         // Carry the INSPECTED unit across the rebuild. A hydrate tears the board down and recreates every
         // RenderableUnit, so a shift-selected stack loses its card and its ring even though the player never
@@ -3354,6 +3366,7 @@ export class Sandbox extends PixiScene {
         );
     }
     private async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        this.preparePyreDeaths?.(record.events);
         const action = cloneReplayData(record.action);
         const replayActorId = this.getReplayTurnActorId(action);
         if (replayActorId && !this.ensureReplayActiveUnit(replayActorId)) {
@@ -3681,6 +3694,43 @@ export class Sandbox extends PixiScene {
         if (!source.isDead() && source.hasAbilityActive("One in the Field"))
             this.combatVisuals?.spawnCommonFlagPop(source, "unicorn_retaliation");
     }
+    /*
+     * ───────────────────────────────────────────────────────────────────────────────────────────────
+     * ABILITY VFX CONTRACT — read before adding a new creature-ability visual effect.
+     *
+     * Ranked is server-authoritative, so the LIVE sandbox path (executeAttackSequence) and the RANKED
+     * REPLAY path (playReplayAttackRecord) are SEPARATE code paths. A VFX added to only one renders in
+     * one mode but not the other — the recurring "works in sandbox, missing in ranked" bug. To keep them
+     * in lockstep, every ability VFX MUST follow this pattern:
+     *
+     *   1. SHARED HELPER. Put it in a `spawn<Ability>Vfx(attacker, target, damage?)` method (like the
+     *      ones below) that gates INTERNALLY on `attacker.hasAbilityActive("<Ability>")` + the damage
+     *      landing. Gate on the ABILITY, never on team/viewer — that keeps it team-agnostic, so it shows
+     *      for BOTH teams (both ranked clients replay the same records).
+     *   2. CALL IT FROM BOTH PATHS — once in executeAttackSequence (live) and once in
+     *      playReplayAttackRecord (ranked replay) — AT IMPACT, next to showReplayAttackDamage, so the
+     *      effect and its damage numbers land in sync. (A VFX fired before the attack one-shot flashes
+     *      ~360ms early; the sole exception is a deliberate WIND-UP effect like Fire Breath.)
+     *   3. SNAPSHOT-DRIVEN effects (debuff/buff icon pops, death shatter, board-wide waves) are NOT part
+     *      of the attack replay — wire them into RankedPlayScene's snapshot path (processDebuffPops /
+     *      shatterNewlyDeadUnits / renderNewlyAppliedArmageddon), diffed BEFORE the board-rebuild guards
+     *      so a mid-animation snapshot can't drop them. DIFF EARLY, ANIMATE AT IMPACT: the snapshot lands
+     *      when the SERVER resolves the action, which is well before the replayed projectile arrives or
+     *      the attacker finishes walking in, so animating on the diff pops the icon ahead of the blow.
+     *      Route the animation through queueOrPlayEffectPops — it holds the pop while a strike is in
+     *      flight and flushEffectPops releases it here at impact (with a per-frame drain as the
+     *      backstop, so holding can never swallow one).
+     *
+     * Retaliation note: playCombatExchange starts the initiating strike and its recorded response together
+     * in every mode. Per-strike effects belong in its impact callback, keyed by source and response.
+     * ───────────────────────────────────────────────────────────────────────────────────────────────
+     */
+    /**
+     * Render every authoritative Predatory Assimilation transfer performed by `thiefId`. The event is
+     * the outcome gate (so a failed chance never flashes), while callers choose the correct impact:
+     * initiating strike or response strike. Both local combat and replayed/ranked combat call this same
+     * helper. `unitSnapshot` keeps a lethal victim's last visual position available until cleanup.
+     */
     protected spawnAbilityStealVfx(
         events: readonly GameEvent[] | undefined,
         thiefId: string,
@@ -4060,13 +4110,18 @@ export class Sandbox extends PixiScene {
                 action.targetPosition.x,
                 action.targetPosition.y,
             );
-            const muzzle = attacker.getRangedProjectileOrigin(lineEnd, gs);
-            await this.fireUnitProjectile(attacker, {
-                from: muzzle,
-                to: lineEnd,
-                big: true,
-                tsarCannonball: true,
-            });
+            await this.playThroughShotExchange(
+                attacker,
+                attacker,
+                attackEvent,
+                [],
+                (unit) => this.destroyReplayAttackUnitsAtImpact([unit.getId()], [unit]),
+                undefined,
+                record.events,
+                undefined,
+                lineEnd,
+            );
+            if (this.isSceneDestroyed()) return false;
             this.applyReplayEvents(record.events, record.stateAfter);
             this.preDeferredActionUnitHp = undefined;
             this.sc_moveBlocked = false;
@@ -4125,6 +4180,9 @@ export class Sandbox extends PixiScene {
             replayRetaliationDamage,
         );
         const presentedUnitIds = new Set(exchange.map((strike) => strike.targetId));
+        if (attackEvent.attackType === "range" && attacker.hasAbilityActive("Through Shot")) {
+            for (const hit of attackEvent.damage.splash ?? []) presentedUnitIds.add(hit.unitId);
+        }
         if (attackEvent.attackType === "melee") this.spawnFireBreathVfx(attacker, target, attackEvent.damage);
         if (destroyedUnitIds.size)
             this.noteDeathBlowsFromAttackEvent({ ...attackEvent, unitIdsDied: [...destroyedUnitIds] });
@@ -4437,6 +4495,16 @@ export class Sandbox extends PixiScene {
             if (!centaurLabThrow && !beholderShot && !monkLabThrow && !gargantuanThrow) unit.finishOrcRangedThrow();
         }
     }
+    private authoredProjectileOptions(opts: IFireProjectileOptions): IFireProjectileOptions {
+        // Combat still names an Elf shot elfArrow and a Medusa shot medusaSerpent. The authored
+        // release plays them as the dryad arrow and the arm serpent. Preloading must use the same art.
+        return {
+            ...opts,
+            elfArrow: false,
+            dryadArrow: !!opts.dryadArrow || !!opts.elfArrow,
+            medusaArmSerpent: !!opts.medusaArmSerpent || !!opts.medusaSerpent,
+        };
+    }
     private async fireDryadLabProjectile(
         unit: RenderableUnit,
         opts: IFireProjectileOptions,
@@ -4627,6 +4695,15 @@ export class Sandbox extends PixiScene {
                 : undefined;
         return orderCombatExchange(primary, response);
     }
+    protected playUnitCombatSound(unit: Pick<Unit, "getName" | "getId">, role: CombatSoundRole, melee = false): void {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playCombatSound(unit.getName(), role, unit.getId(), melee, () => !this.isSceneDestroyed());
+    }
+    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean): void {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true));
+    }
+    /** Play the first blow and response together, then any extra blows; impacts never apply engine damage. */
     private async playCombatExchange(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -4639,6 +4716,18 @@ export class Sandbox extends PixiScene {
         deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
         attackLap = FightStateManager.getInstance().getFightProperties().getCurrentLap(),
     ): Promise<Set<string>> {
+        if (event.attackType === "range" && attacker.hasAbilityActive?.("Through Shot")) {
+            return this.playThroughShotExchange(
+                attacker,
+                target,
+                event,
+                plan,
+                onDeath,
+                capturedUnits,
+                dullingEvents,
+                deathState,
+            );
+        }
         const gs = this.sc_sceneSettings.getGridSettings();
         const repeatedAttack = (this.oneInTheFieldTriggers ??= new OneInTheFieldTriggers()).recordAttack(
             target.getId(),
@@ -4649,9 +4738,12 @@ export class Sandbox extends PixiScene {
         const blindnessShown = new Set<string>();
         const shownDeaths = new Set<string>();
         const pendingDeaths = new Map<string, RenderableUnit>();
+        const activeAttacks = new Map<string, Promise<void>>();
+        let futureAttackers = new Set<string>();
         const units = new Map(capturedUnits ?? this.unitsHolder.getAllUnits());
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
+        this.preparePyreDeaths?.(dullingEvents ?? [], capturedUnits ?? this.snapshotRenderableUnits());
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
         const remainingAmounts = new Map(deathState?.amountsBefore);
         for (const [id, unit] of units) {
@@ -4666,240 +4758,451 @@ export class Sandbox extends PixiScene {
             remainingAmounts.set(unitId, remaining);
             return remaining;
         };
-        const presentDeath = (unitId: string, strikeIndex: number): void => {
+        const presentDeath = (unitId: string): void => {
             if (shownDeaths.has(unitId)) return;
             shownDeaths.add(unitId);
             const unit = units.get(unitId) as RenderableUnit | undefined;
             if (!unit) return;
             // A dying participant can still own an already-recorded simultaneous strike.
-            if (plan.slice(strikeIndex + 1).some((next) => next.attackerId === unitId)) {
+            if (activeAttacks.has(unitId) || futureAttackers.has(unitId)) {
                 if (!this.unitsHolder.getAllUnits().has(unitId)) this.dyingVisualUnits.add(unit);
                 pendingDeaths.set(unitId, unit);
             } else onDeath(unit);
         };
         const initialChakramActive = initialChakram ?? attacker.hasAbilityActive?.("Chakram");
-        for (const [strikeIndex, strike] of plan.entries()) {
+        const groups = groupCombatExchange(plan);
+        for (const [groupIndex, group] of groups.entries()) {
             if (this.isSceneDestroyed()) break;
-            const source = units.get(strike.attackerId) as RenderableUnit | undefined;
-            const renderedVictim = units.get(strike.targetId) as RenderableUnit | undefined;
-            const victim = renderedVictim ?? target;
-            if (!source) continue;
-            const fallbackPosition =
-                this.preDeferredActionUnitHp?.get(strike.targetId)?.visualCenter ?? strike.position;
-            // A locally resolved lethal exchange can already have removed a participant logically.
-            // Keep that figure ticking until its scheduled final blow/death has been presented.
-            for (const participant of [source, victim]) {
-                if (!this.unitsHolder.getAllUnits().has(participant.getId())) this.dyingVisualUnits.add(participant);
-            }
+            futureAttackers = new Set(
+                groups
+                    .slice(groupIndex + 1)
+                    .flat()
+                    .map((strike) => strike.attackerId),
+            );
             const melee = event.attackType === "melee";
-            const victimTeam = victim.getTeam?.();
-            const flight = recordedChakramFlight(event.damage, strike.attackerId, strike.response, strike.hitIndex);
-            const hasFlightMetadata = event.damage?.chakramFlights !== undefined;
-            // Initiating and counter-throw victims belong to opposite teams. A shield-only arc names
-            // no victim, so its footprint cells identify the flight through captured figures too.
-            const arcs =
-                flight?.arcs ??
-                (hasFlightMetadata
-                    ? []
-                    : (event.damage?.chakramArcs ?? []).filter((arc) => {
-                          const hit = units.get(arc.hitUnitIds?.[0] ?? arc.targetUnitId);
-                          if (hit) return hit.getTeam() === victimTeam;
-                          for (const cell of [arc.cells.at(-1), arc.cells[0]]) {
-                              if (!cell) continue;
-                              for (const unit of units.values()) {
-                                  if (
-                                      unit.getCells().some((occupied) => occupied.x === cell.x && occupied.y === cell.y)
-                                  )
-                                      return unit.getTeam() === victimTeam;
-                              }
-                          }
-                          // Only the initiating flight can be identified in an older recording whose terminal
-                          // figure and source cell are both missing.
-                          return !strike.response && !!initialChakramActive;
-                      }));
-            // A counter can apply Break after the first disc already flew. Preserve that initial
-            // ability state; recorded arcs also prove later flights despite final-state Break.
-            const isChakramFlight =
-                !melee &&
-                (hasFlightMetadata
-                    ? !!flight
-                    : (!strike.response && strike.hitIndex === 0
-                          ? initialChakramActive
-                          : source.hasAbilityActive?.("Chakram")) ||
-                      arcs.length > 0 ||
-                      (strike.response && hasRecordedChakramCounter(event.damage, strike.targetId)));
-            const attackState = this.prepareDirectionalAttackState(source, victim, melee);
-            const textureKeys = [
-                source.getAnimationTextureKey(attackState),
-                victim.getAnimationTextureKey(strike.lethal ? "death" : "hit"),
-            ];
-            await Promise.all(textureKeys.filter((key): key is string => !!key).map((key) => this.waitForTexture(key)));
+            const prepared = group.flatMap((strike) => {
+                const source = units.get(strike.attackerId) as RenderableUnit | undefined;
+                if (!source) return [];
+                const renderedVictim = units.get(strike.targetId) as RenderableUnit | undefined;
+                const victim = renderedVictim ?? target;
+                const attackState = this.prepareDirectionalAttackState(source, victim, melee);
+                return [{ strike, source, renderedVictim, victim, attackState }];
+            });
+            // Cold atlases or projectile art must not make one side start after the other has struck.
+            await Promise.all([
+                ...prepared
+                    .flatMap(({ source, victim, strike, attackState }) => [
+                        source.getAnimationTextureKey(attackState),
+                        victim.getAnimationTextureKey(strike.lethal ? "death" : "hit"),
+                    ])
+                    .filter((key): key is string => !!key)
+                    .map((key) => this.waitForTexture(key)),
+                ...(!melee && this.rangedProjectiles?.prepare
+                    ? prepared.map(({ source, victim, renderedVictim, strike }) => {
+                          const fallback =
+                              this.preDeferredActionUnitHp?.get(strike.targetId)?.visualCenter ?? strike.position;
+                          const opts = this.getReplayProjectileOptions(
+                              source,
+                              victim,
+                              renderedVictim ? undefined : fallback,
+                          );
+                          return this.rangedProjectiles.prepare(
+                              usesAuthoredRangedRelease(source.getName()) ? this.authoredProjectileOptions(opts) : opts,
+                          );
+                      })
+                    : []),
+            ]);
             if (this.isSceneDestroyed()) break;
-            const absolvingProgress = event.damage?.absolutions?.length
-                ? this.createAbsolvingArrowProgress(
-                      source,
-                      victim,
-                      event.damage,
-                      strike,
-                      units,
-                      renderedVictim ? undefined : fallbackPosition,
-                  )
-                : undefined;
-            let reaction = Promise.resolve();
-            let chakramFlight = Promise.resolve();
-            let impacted = false;
-            const impact = (): void => {
-                if (impacted || this.isSceneDestroyed()) return;
-                impacted = true;
-                absolvingProgress?.(1);
-                if (!strike.response && victim === target && repeatedAttack && !oneInTheFieldShown) {
-                    oneInTheFieldShown = true;
-                    this.spawnOneInTheFieldVfx(target);
-                }
-                if (unicornBlindnessLanded(dullingEvents, victim.getId()) && !blindnessShown.has(victim.getId())) {
-                    blindnessShown.add(victim.getId());
-                    this.spawnUnicornBlindnessVfx(dullingEvents, source, victim);
-                }
-                if (!theftsShown.has(source.getId())) {
-                    theftsShown.add(source.getId());
-                    this.spawnBorrowedGraceVfx(event.damage, source, units);
-                }
-                if (event.damage?.gravechains?.length) {
-                    const deferredRoots = isChakramFlight
-                        ? new Set(arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])))
-                        : undefined;
-                    this.showGravechainVfx(event.damage, strike, units, undefined, deferredRoots);
-                }
-                // The unit this blow struck. The incoming hit lists both fighters too, and popping there
-                // showed Dulling Defense before the knight had answered.
-                this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
-                consumeLoss(strike.targetId, strike.unitsDied);
-                renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
-                const from = source.getVisualCenter(gs);
-                const to = renderedVictim
-                    ? victim.getVisualCenter(gs)
-                    : (fallbackPosition ?? victim.getVisualCenter(gs));
-                const direction = { x: to.x - from.x, y: to.y - from.y };
-                const receivedDamage = !strike.missed && strike.amount > 0;
-                if (receivedDamage) {
-                    this.onCombatImpact?.(source, victimTeam, strike.amount);
-                    if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
-                    this.combatVisuals.showFloatingDamage(
-                        this.offsetReplayDamagePosition(to, victim, direction),
-                        strike.amount,
-                        direction,
-                        strike.unitsDied,
-                        undefined,
-                        undefined,
-                        renderedVictim?.getDamagePredictionAnchor(gs),
-                    );
-                }
-                if (strike.missed) {
-                    this.showAttackMissedVfx(source, victim, {
-                        ...event.damage,
-                        unitId: strike.targetId,
-                        missed: true,
-                    });
-                }
-                if (isChakramFlight) {
-                    const bounceIds = new Set(
-                        arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
-                    );
-                    const splash =
-                        flight?.splash ??
-                        event.damage.splash?.filter(
-                            (hit) =>
-                                hit.unitId === strike.targetId ||
-                                bounceIds.has(hit.unitId) ||
-                                units.get(hit.unitId)?.getTeam() === victimTeam,
-                        );
-                    const primaryMissed =
-                        flight?.missed ??
-                        splash?.find((hit) => hit.unitId === strike.targetId)?.missed ??
-                        (strike.response ? undefined : event.damage.missed);
-                    // Other AOE losses occur at primary contact. Count them before a later disc can
-                    // bounce into that stack, while the bridge victims are counted at their own impact.
-                    for (const hit of flight?.splash ?? []) {
-                        if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
-                            consumeLoss(hit.unitId, hit.unitsDied);
-                    }
-                    // Begin at contact and finish the return before the next blow. The primary number
-                    // is owned by this exchange; the flight owns only its bounce numbers.
-                    chakramFlight = this.playChakramArcs(
-                        source,
-                        {
-                            ...event.damage,
-                            unitId: strike.targetId,
-                            missed: primaryMissed,
-                            splash,
-                            chakramArcs: arcs,
-                            gravechains: event.damage.gravechains?.filter(
-                                (wave) =>
-                                    wave.sourceUnitId === strike.attackerId &&
-                                    wave.response === strike.response &&
-                                    wave.hitIndex === strike.hitIndex,
-                            ),
-                        },
-                        renderedVictim,
-                        units,
-                        true,
-                        flight
-                            ? (unitId, hit) => {
-                                  const remaining = consumeLoss(unitId, hit.unitsDied);
-                                  if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(unitId))
-                                      presentDeath(unitId, strikeIndex);
-                              }
-                            : undefined,
-                    );
-                }
-                if (strike.lethal) {
-                    presentDeath(strike.targetId, strikeIndex);
-                } else if (receivedDamage && renderedVictim) {
-                    // Final engine HP can already be zero after a later blow. This hit still precedes it.
-                    reaction = this.playReplayOneShot(victim, "hit", 3000, true);
-                    if (
-                        (victim.getUnitProperties?.().level ?? 0) > 2 &&
-                        !usesApprovedBaseAnimations(victim.getName())
-                    ) {
-                        this.applyReplayHitKnockback(victim, source, strike.amount);
-                        reaction = Promise.all([reaction, this.delayReplay(330)]).then(() => {});
-                    }
-                }
-            };
-            if (melee) {
-                this.playUnitCombatSound(source, "attack", true);
-                const attack = this.playReplayOneShot(source, attackState, 5000, true);
-                if ((source.getUnitProperties?.().level ?? 0) > 2 && !usesApprovedBaseAnimations(source.getName()))
-                    this.applyReplayLunge(source, victim);
-                impact();
-                await Promise.all([
-                    attack,
-                    reaction,
-                    (source.getUnitProperties?.().level ?? 0) > 2 ? this.delayReplay(220) : Promise.resolve(),
-                ]);
-            } else {
-                const attack = usesAuthoredRangedRelease(source.getName())
-                    ? Promise.resolve()
-                    : this.playReplayOneShot(source, attackState, 5000, true);
-                await this.playReplayProjectile(
-                    source,
-                    victim,
-                    renderedVictim ? undefined : fallbackPosition,
-                    impact,
-                    isChakramFlight,
-                    absolvingProgress,
-                    event.damage,
+            const finishAttacks = new Map<string, () => void>();
+            for (const { source } of prepared) {
+                activeAttacks.set(
+                    source.getId(),
+                    new Promise<void>((resolve) => finishAttacks.set(source.getId(), resolve)),
                 );
-                await Promise.all([attack, reaction, chakramFlight]);
-                // Projectile arrival can precede the authored shooter's recovery frames.
-                if (usesAuthoredRangedRelease(source.getName())) await this.waitForProjectileHitReaction(source);
             }
-            for (const [id, unit] of pendingDeaths) {
-                if (!plan.slice(strikeIndex + 1).some((next) => next.attackerId === id)) {
-                    onDeath(unit);
-                    pendingDeaths.delete(id);
-                }
-            }
+            await Promise.all(
+                prepared.map(async ({ strike, source, renderedVictim, victim, attackState }) => {
+                    const fallbackPosition =
+                        this.preDeferredActionUnitHp?.get(strike.targetId)?.visualCenter ?? strike.position;
+                    // A locally resolved lethal exchange can already have removed a participant logically.
+                    // Keep that figure ticking until its scheduled final blow/death has been presented.
+                    for (const participant of [source, victim]) {
+                        if (!this.unitsHolder.getAllUnits().has(participant.getId()))
+                            this.dyingVisualUnits.add(participant);
+                    }
+                    const victimTeam = victim.getTeam?.();
+                    const flight = recordedChakramFlight(
+                        event.damage,
+                        strike.attackerId,
+                        strike.response,
+                        strike.hitIndex,
+                    );
+                    const hasFlightMetadata = event.damage?.chakramFlights !== undefined;
+                    // Initiating and counter-throw victims belong to opposite teams. A shield-only arc names
+                    // no victim, so its footprint cells identify the flight through captured figures too.
+                    const arcs =
+                        flight?.arcs ??
+                        (hasFlightMetadata
+                            ? []
+                            : (event.damage?.chakramArcs ?? []).filter((arc) => {
+                                  const hit = units.get(arc.hitUnitIds?.[0] ?? arc.targetUnitId);
+                                  if (hit) return hit.getTeam() === victimTeam;
+                                  for (const cell of [arc.cells.at(-1), arc.cells[0]]) {
+                                      if (!cell) continue;
+                                      for (const unit of units.values()) {
+                                          if (
+                                              unit
+                                                  .getCells()
+                                                  .some((occupied) => occupied.x === cell.x && occupied.y === cell.y)
+                                          )
+                                              return unit.getTeam() === victimTeam;
+                                      }
+                                  }
+                                  // Only the initiating flight can be identified in an older recording whose terminal
+                                  // figure and source cell are both missing.
+                                  return !strike.response && !!initialChakramActive;
+                              }));
+                    // A counter can apply Break after the first disc already flew. Preserve that initial
+                    // ability state; recorded arcs also prove later flights despite final-state Break.
+                    const isChakramFlight =
+                        !melee &&
+                        (hasFlightMetadata
+                            ? !!flight
+                            : (!strike.response && strike.hitIndex === 0
+                                  ? initialChakramActive
+                                  : source.hasAbilityActive?.("Chakram")) ||
+                              arcs.length > 0 ||
+                              (strike.response && hasRecordedChakramCounter(event.damage, strike.targetId)));
+                    const absolvingProgress = event.damage?.absolutions?.length
+                        ? this.createAbsolvingArrowProgress(
+                              source,
+                              victim,
+                              event.damage,
+                              strike,
+                              units,
+                              renderedVictim ? undefined : fallbackPosition,
+                          )
+                        : undefined;
+                    let reaction = Promise.resolve();
+                    let chakramFlight = Promise.resolve();
+                    let impacted = false;
+                    const impact = (): void => {
+                        if (impacted || this.isSceneDestroyed()) return;
+                        impacted = true;
+                        absolvingProgress?.(1);
+                        if (!strike.response && victim === target && repeatedAttack && !oneInTheFieldShown) {
+                            oneInTheFieldShown = true;
+                            this.spawnOneInTheFieldVfx(target);
+                        }
+                        if (unicornBlindnessLanded(dullingEvents, victim.getId()) && !blindnessShown.has(victim.getId())) {
+                            blindnessShown.add(victim.getId());
+                            this.spawnUnicornBlindnessVfx(dullingEvents, source, victim);
+                        }
+                        if (!theftsShown.has(source.getId())) {
+                            theftsShown.add(source.getId());
+                            this.spawnBorrowedGraceVfx(event.damage, source, units);
+                        }
+                        if (event.damage?.gravechains?.length) {
+                            const deferredRoots = isChakramFlight
+                                ? new Set(
+                                      arcs.flatMap(
+                                          (arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []),
+                                      ),
+                                  )
+                                : undefined;
+                            this.showGravechainVfx(event.damage, strike, units, undefined, deferredRoots);
+                        }
+                        // The unit this blow struck. The incoming hit lists both fighters too, and popping there
+                        // showed Dulling Defense before the knight had answered.
+                        this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
+                        const remaining = consumeLoss(strike.targetId, strike.unitsDied);
+                        renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
+                        const from = source.getVisualCenter(gs);
+                        const to = renderedVictim
+                            ? victim.getVisualCenter(gs)
+                            : (fallbackPosition ?? victim.getVisualCenter(gs));
+                        const direction = { x: to.x - from.x, y: to.y - from.y };
+                        const receivedDamage = !strike.missed && strike.amount > 0;
+                        if (receivedDamage) {
+                            this.onCombatImpact?.(source, victimTeam, strike.amount);
+                            if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
+                            this.combatVisuals.showFloatingDamage(
+                                this.offsetReplayDamagePosition(to, victim, direction),
+                                strike.amount,
+                                direction,
+                                strike.unitsDied,
+                                undefined,
+                                undefined,
+                                renderedVictim?.getDamagePredictionAnchor(gs),
+                            );
+                        }
+                        if (strike.missed) {
+                            this.showAttackMissedVfx(source, victim, {
+                                ...event.damage,
+                                unitId: strike.targetId,
+                                missed: true,
+                            });
+                        }
+                        if (isChakramFlight) {
+                            const bounceIds = new Set(
+                                arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
+                            );
+                            const splash =
+                                flight?.splash ??
+                                event.damage.splash?.filter(
+                                    (hit) =>
+                                        hit.unitId === strike.targetId ||
+                                        bounceIds.has(hit.unitId) ||
+                                        units.get(hit.unitId)?.getTeam() === victimTeam,
+                                );
+                            const primaryMissed =
+                                flight?.missed ??
+                                splash?.find((hit) => hit.unitId === strike.targetId)?.missed ??
+                                (strike.response ? undefined : event.damage.missed);
+                            // Other AOE losses occur at primary contact. Count them before a later disc can
+                            // bounce into that stack, while the bridge victims are counted at their own impact.
+                            for (const hit of flight?.splash ?? []) {
+                                if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
+                                    consumeLoss(hit.unitId, hit.unitsDied);
+                            }
+                            // Begin at contact and finish the return before the next blow. The primary number
+                            // is owned by this exchange; the flight owns only its bounce numbers.
+                            chakramFlight = this.playChakramArcs(
+                                source,
+                                {
+                                    ...event.damage,
+                                    unitId: strike.targetId,
+                                    missed: primaryMissed,
+                                    splash,
+                                    chakramArcs: arcs,
+                                    gravechains: event.damage.gravechains?.filter(
+                                        (wave) =>
+                                            wave.sourceUnitId === strike.attackerId &&
+                                            wave.response === strike.response &&
+                                            wave.hitIndex === strike.hitIndex,
+                                    ),
+                                },
+                                renderedVictim,
+                                units,
+                                true,
+                                (unitId, hit, direction) => {
+                                    const remaining = flight ? consumeLoss(unitId, hit.unitsDied) : undefined;
+                                    const legacyLoss = !flight
+                                        ? (splash
+                                              ?.filter((entry) => entry.unitId === unitId)
+                                              .reduce((sum, entry) => sum + entry.unitsDied, 0) ?? 0)
+                                        : 0;
+                                    const before = deathState?.amountsBefore.get(unitId);
+                                    const lastLegacyFlight =
+                                        !flight &&
+                                        !plan.some(
+                                            (next) =>
+                                                next.attackerId === strike.attackerId &&
+                                                next.response === strike.response &&
+                                                next.hitIndex > strike.hitIndex,
+                                        );
+                                    if (
+                                        hit.unitsDied > 0 &&
+                                        deathState?.deadIds.has(unitId) &&
+                                        (remaining === 0 ||
+                                            (lastLegacyFlight && before !== undefined && legacyLoss >= before))
+                                    ) {
+                                        const killed = units.get(unitId);
+                                        if (killed && !shownDeaths.has(unitId))
+                                            this.combatVisuals.noteZenaKill?.(source, killed, direction);
+                                        presentDeath(unitId);
+                                    }
+                                },
+                            );
+                        }
+                        if (strike.lethal) {
+                            if (
+                                receivedDamage &&
+                                remaining === 0 &&
+                                renderedVictim &&
+                                !shownDeaths.has(strike.targetId)
+                            )
+                                this.combatVisuals.noteZenaKill?.(source, renderedVictim, direction);
+                            presentDeath(strike.targetId);
+                        } else if (receivedDamage && renderedVictim) {
+                            const showReaction = (): Promise<void> => {
+                                if (this.isSceneDestroyed() || shownDeaths.has(strike.targetId))
+                                    return Promise.resolve();
+                                // Final engine HP can already be zero after a later blow. This hit still precedes it.
+                                const hit = this.playReplayOneShot(victim, "hit", 3000, true);
+                                if ((victim.getUnitProperties?.().level ?? 0) <= 2 || usesApprovedBaseAnimations(victim.getName())) return hit;
+                                this.applyReplayHitKnockback(victim, source, strike.amount);
+                                return Promise.all([hit, this.delayReplay(330)]).then(() => {});
+                            };
+                            // A hit animation cancels an authored shot. Preserve the simultaneous outgoing action
+                            // before reacting; damage, casualties and sounds still occur at projectile contact.
+                            const outgoing = activeAttacks.get(strike.targetId);
+                            reaction = outgoing ? outgoing.then(showReaction) : showReaction();
+                        }
+                    };
+                    try {
+                        if (melee) {
+                            this.playUnitCombatSound(source, "attack", true);
+                            const attack = this.playReplayOneShot(source, attackState, 5000, true);
+                            if ((source.getUnitProperties?.().level ?? 0) > 2 && !usesApprovedBaseAnimations(source.getName())) this.applyReplayLunge(source, victim);
+                            impact();
+                            await Promise.all([
+                                attack,
+                                (source.getUnitProperties?.().level ?? 0) > 2
+                                    ? this.delayReplay(220)
+                                    : Promise.resolve(),
+                            ]);
+                        } else {
+                            const attack = usesAuthoredRangedRelease(source.getName())
+                                ? Promise.resolve()
+                                : this.playReplayOneShot(source, attackState, 5000, true);
+                            await this.playReplayProjectile(
+                                source,
+                                victim,
+                                renderedVictim ? undefined : fallbackPosition,
+                                impact,
+                                isChakramFlight,
+                                absolvingProgress,
+                            );
+                            await Promise.all([attack, chakramFlight]);
+                            // Projectile arrival can precede the authored shooter's recovery frames.
+                            if (usesAuthoredRangedRelease(source.getName()))
+                                await this.waitForProjectileHitReaction(source);
+                        }
+                    } finally {
+                        activeAttacks.delete(source.getId());
+                        finishAttacks.get(source.getId())?.();
+                        const dying = pendingDeaths.get(source.getId());
+                        if (dying && !futureAttackers.has(source.getId())) {
+                            if (!this.isSceneDestroyed()) onDeath(dying);
+                            pendingDeaths.delete(source.getId());
+                        }
+                    }
+                    await reaction;
+                }),
+            );
+        }
+        return shownDeaths;
+    }
+    private async playThroughShotExchange(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        event: Extract<GameEvent, { type: "unit_attacked" }>,
+        plan: readonly CombatExchangeStrike[],
+        onDeath: (unit: RenderableUnit) => void,
+        capturedUnits?: ReadonlyMap<string, RenderableUnit>,
+        events?: readonly GameEvent[],
+        deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
+        endpoint?: HoCMath.XY,
+    ): Promise<Set<string>> {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const units = new Map(capturedUnits ?? this.snapshotRenderableUnits());
+        units.set(attacker.getId(), attacker);
+        const remaining = new Map(deathState?.amountsBefore);
+        const deadIds = deathState?.deadIds ?? new Set(event.unitIdsDied);
+        const shownDeaths = new Set<string>();
+        this.preparePyreDeaths?.(events ?? [], units);
+        preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
+        for (const [id, unit] of units) {
+            const amount = remaining.get(id) ?? unit.getAmountAlive();
+            remaining.set(id, amount);
+            unit.beginDamagePresentation(amount);
+            if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
+        }
+        const waves = splitAreaThrowWaves(event.damage.splash);
+        const outgoing = plan.filter((strike) => !strike.response);
+        const volleyCount = Math.max(1, outgoing.length, waves.length, event.damage.rangedVolleyCount ?? 0);
+        const attackState = this.prepareDirectionalAttackState(attacker, target, false);
+        const textureKeys = [
+            attacker.getAnimationTextureKey(attackState),
+            ...(event.damage.splash ?? []).flatMap((hit) => {
+                const unit = units.get(hit.unitId);
+                return [
+                    unit?.getAnimationTextureKey("hit"),
+                    deadIds.has(hit.unitId) ? unit?.getAnimationTextureKey("death") : undefined,
+                ];
+            }),
+        ].filter((key): key is string => !!key);
+        await Promise.all([...new Set(textureKeys)].map((key) => this.waitForTexture(key)));
+        for (let hitIndex = 0; hitIndex < volleyCount; hitIndex++) {
+            if (this.isSceneDestroyed()) break;
+            const aim = outgoing[hitIndex]?.position ?? event.animations[hitIndex]?.toPosition ?? target.getPosition();
+            const lineEnd =
+                endpoint ??
+                this.attackHandler.evaluateRangeAttack(units, attacker, attacker.getPosition(), aim, true, false, false)
+                    .attackObstacle?.position ??
+                GridMath.projectLineToFieldEdge(gs, attacker.getPosition().x, attacker.getPosition().y, aim.x, aim.y);
+            const to = projectBattlefieldPoint(lineEnd, gs);
+            const opts = this.getReplayProjectileOptions(attacker, target, to, undefined, false);
+            const from = opts.from;
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const distance = Math.hypot(dx, dy);
+            const reactions: Promise<void>[] = [];
+            const progress = throughShotImpactProgress(
+                from,
+                to,
+                (waves[hitIndex] ?? []).map((hit) => {
+                    const unit = units.get(hit.unitId);
+                    const position = unit?.getProjectileImpactPoint(gs) ?? projectBattlefieldPoint(hit.position, gs);
+                    const metrics = projectedBattlefieldMetricsAtPoint(hit.position, gs);
+                    const radius =
+                        (distance > 0
+                            ? (0.3 *
+                                  (Math.abs(dx) * metrics.width * (unit?.getFootprintWidth() ?? 1) +
+                                      Math.abs(dy) * metrics.height * (unit?.getFootprintHeight() ?? 1))) /
+                              distance
+                            : 0) + (opts.big ? gs.getCellSize() * 0.32 : 0);
+                    return { value: hit, position, radius };
+                }),
+                (hit) => {
+                    if (this.isSceneDestroyed()) return;
+                    const unit = units.get(hit.unitId);
+                    const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
+                    remaining.set(hit.unitId, amount);
+                    unit?.presentDamageCasualties(hit.unitsDied);
+                    this.popRecordedDullingDefense(events, new Set([hit.unitId]));
+                    this.showGravechainVfx(
+                        event.damage,
+                        { attackerId: attacker.getId(), response: false, hitIndex },
+                        units,
+                        new Set([hit.unitId]),
+                    );
+                    if (hit.amount > 0) {
+                        const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
+                        const direction = { x: center.x - from.x, y: center.y - from.y };
+                        if (unit) {
+                            this.playUnitCombatSound(unit, "hurt");
+                            this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount);
+                        }
+                        this.combatVisuals.showFloatingDamage(
+                            unit ? this.offsetReplayDamagePosition(center, unit, direction) : center,
+                            hit.amount,
+                            direction,
+                            hit.unitsDied,
+                            undefined,
+                            undefined,
+                            unit?.getDamagePredictionAnchor(gs),
+                        );
+                    }
+                    if (unit && hit.unitsDied > 0 && amount === 0 && deadIds.has(hit.unitId)) {
+                        if (!shownDeaths.has(hit.unitId)) {
+                            shownDeaths.add(hit.unitId);
+                            onDeath(unit);
+                        }
+                    } else if (unit && hit.amount > 0 && !shownDeaths.has(hit.unitId)) {
+                        reactions.push(this.playReplayOneShot(unit, "hit", 3000, true));
+                        if (unit.getUnitProperties().level > 2)
+                            this.applyReplayHitKnockback(unit, attacker, hit.amount);
+                    }
+                },
+            );
+            const attack = usesAuthoredRangedRelease(attacker.getName())
+                ? Promise.resolve()
+                : this.playReplayOneShot(attacker, attackState, 5000, true);
+            await this.fireUnitProjectile(attacker, { ...opts, onProgress: progress, onImpact: () => progress(1) });
+            await Promise.all([attack, ...reactions]);
+            if (usesAuthoredRangedRelease(attacker.getName())) await this.waitForProjectileHitReaction(attacker);
         }
         await this.playFireShieldPassives(attacker.getId(), target.getId(), event.damage);
         return shownDeaths;
@@ -4936,6 +5239,20 @@ export class Sandbox extends PixiScene {
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): Promise<void> {
+        await this.fireUnitProjectile(
+            attacker,
+            this.getReplayProjectileOptions(attacker, target, toPosition, onImpact, chakram, onProgress, damage),
+        );
+    }
+    private getReplayProjectileOptions(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        toPosition?: HoCMath.XY,
+        onImpact?: () => void,
+        chakram?: boolean,
+        onProgress?: (progress: number) => void,
+        damage?: IVisibleDamage,
+    ): IFireProjectileOptions {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Playback resolution supplies the actual victim's torso (or its captured pre-removal anchor).
         const cannon = attacker.getName() === "Tsar Cannon";
@@ -4951,7 +5268,7 @@ export class Sandbox extends PixiScene {
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
         // Ranked replays the shot from the authoritative record, so the chakram must be thrown here too —
         // otherwise Zena's disc only spins for the acting player and everyone else sees a plain bolt.
-        await this.fireUnitProjectile(attacker, {
+        return {
             from: muzzle,
             to: targetPosition,
             onImpact,
@@ -4974,7 +5291,7 @@ export class Sandbox extends PixiScene {
             gargantuanRock: attacker.getName().trim().toLowerCase() === "gargantuan",
             gargantuanImpactPosition:
                 attacker.getName() === "Gargantuan" ? target.getProjectileGroundPoint(gs) : undefined,
-        });
+        };
     }
     private async replayMeleeApproach(
         attacker: RenderableUnit,
@@ -5497,6 +5814,13 @@ export class Sandbox extends PixiScene {
         unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
     }
     protected playCustomDeathAnimation(unit: RenderableUnit): boolean {
+        if (this.combatVisuals?.playZenaBrutalityDeath?.(unit)) {
+            unit.destroyVisuals();
+            this.dyingVisualUnits.delete(unit);
+            this.pyreDeaths?.play(unit.getId(), unit);
+            return true;
+        }
+        if (this.pyreDeaths?.play(unit.getId(), unit)) return true;
         if (!unit.hasAnimationState("death")) {
             // Unfinished level-one/two art has no procedural shatter fallback.
             if (unit.getUnitProperties().level <= 2) {
@@ -8554,6 +8878,7 @@ export class Sandbox extends PixiScene {
         commonEvents?: GameEvent[],
         unitSnapshot: ReadonlyMap<string, RenderableUnit> = this.snapshotRenderableUnits(),
     ): void {
+        this.preparePyreDeaths?.(commonEvents ?? [], unitSnapshot);
         const unitsDied: RenderableUnit[] = [];
         for (const u of this.unitsHolder.getAllUnits().values()) {
             if (u.isDead()) {
@@ -8942,7 +9267,7 @@ export class Sandbox extends PixiScene {
         primaryTarget?: Unit,
         capturedUnits?: ReadonlyMap<string, Unit>,
         forceChakram = false,
-        onBounceImpact?: (unitId: string, hit: NonNullable<IVisibleDamage["splash"]>[number]) => void,
+        onBounceImpact?: (unitId: string, hit: NonNullable<IVisibleDamage["splash"]>[number], direction: HoCMath.XY) => void,
         initialThrow?: { from: HoCMath.XY; to: HoCMath.XY; onImpact?: () => void },
     ): Promise<void> {
         if (
@@ -9130,7 +9455,7 @@ export class Sandbox extends PixiScene {
                     this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir);
                     this.combatVisuals?.spawnSlash(center, cellSize, lastDir);
                     unit?.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
-                    if (dmg) onBounceImpact?.(unitId, dmg);
+                    if (dmg) onBounceImpact?.(unitId, dmg, lastDir);
                 }
             }
 
@@ -9303,7 +9628,7 @@ export class Sandbox extends PixiScene {
                     this.combatVisuals?.spawnBloodSpray(center, cellSize, direction);
                     this.combatVisuals?.spawnSlash(center, cellSize, direction);
                     unit?.applyRecoil(direction.x * cellSize * 0.16, direction.y * cellSize * 0.16);
-                    if (dmg) onBounceImpact?.(unitId, dmg);
+                    if (dmg) onBounceImpact?.(unitId, dmg, direction);
                 }
             });
             flashBeforeNextVictim = hitIds.some((id) => !splashByUnit.get(id)?.missed);
@@ -10384,31 +10709,48 @@ export class Sandbox extends PixiScene {
         const lineEnd =
             evaluation.attackObstacle?.position ??
             GridMath.projectLineToFieldEdge(gs, unit.getPosition().x, unit.getPosition().y, aim.x, aim.y);
-        const muzzle = unit.getRangedProjectileOrigin(lineEnd, gs);
         this.sc_moveBlocked = true;
         this.hoverManager.clearAttackVisuals();
         this.hoverManager.clearHoverSilhouette();
-        await this.fireUnitProjectile(unit, {
-            from: muzzle,
-            to: lineEnd,
-            big: true,
-            tsarCannonball: true,
-        });
         const unitSnapshot = this.snapshotRenderableUnits();
-        const result = this.createActionEngine().apply(action);
-        if (result.completed) {
+        const amountsBefore = new Map([...unitSnapshot].map(([id, captured]) => [id, captured.getAmountAlive()]));
+        try {
+            const result = this.createActionEngine().apply(action);
+            if (!result.completed) return;
             const attackEvent = result.events.find(
                 (event): event is Extract<GameEvent, { type: "unit_attacked" }> => event.type === "unit_attacked",
             );
             if (attackEvent) {
+                const target = unitSnapshot.get(attackEvent.targetId) ?? unit;
+                const deadIds = new Set(
+                    attackEvent.unitIdsDied.filter((id) => {
+                        const victim = this.unitsHolder.getAllUnits().get(id);
+                        return !victim || victim.isDead();
+                    }),
+                );
                 this.noteDeathBlowsFromAttackEvent(attackEvent);
-                this.showSplashDamage(attackEvent.damage.splash, muzzle);
+                await this.playThroughShotExchange(
+                    unit,
+                    target,
+                    attackEvent,
+                    this.buildCombatExchange(unit, target, attackEvent, amountsBefore, deadIds),
+                    (victim) => this.destroyReplayAttackUnitsAtImpact([victim.getId()], [victim]),
+                    unitSnapshot,
+                    result.events,
+                    { amountsBefore, deadIds },
+                    lineEnd,
+                );
+            } else {
+                const to = projectBattlefieldPoint(lineEnd, gs);
+                await this.fireUnitProjectile(unit, this.getReplayProjectileOptions(unit, unit, to));
             }
+            if (this.isSceneDestroyed()) return;
             this.applyTurnEngineEvents(result.events, unitSnapshot);
             this.cleanupDeadUnits();
             this.refreshUnits();
+        } finally {
+            this.sc_moveBlocked = false;
         }
-        this.sc_moveBlocked = false;
     }
     private updateAreaThrowHover(): boolean {
         this.hoverManager.clearAOEArea();
@@ -11403,11 +11745,20 @@ export class Sandbox extends PixiScene {
                 deadIds,
                 response,
             );
-            for (const strike of plan) {
-                const shown = exchangeDamage.get(strike.targetId) ?? { amount: 0, unitsDied: 0 };
-                shown.amount += strike.amount;
-                shown.unitsDied += strike.unitsDied;
-                exchangeDamage.set(strike.targetId, shown);
+            if (isRange && attacker.hasAbilityActive("Through Shot")) {
+                for (const hit of event.damage.splash ?? []) {
+                    const shown = exchangeDamage.get(hit.unitId) ?? { amount: 0, unitsDied: 0 };
+                    shown.amount += hit.amount;
+                    shown.unitsDied += hit.unitsDied;
+                    exchangeDamage.set(hit.unitId, shown);
+                }
+            } else {
+                for (const strike of plan) {
+                    const shown = exchangeDamage.get(strike.targetId) ?? { amount: 0, unitsDied: 0 };
+                    shown.amount += strike.amount;
+                    shown.unitsDied += strike.unitsDied;
+                    exchangeDamage.set(strike.targetId, shown);
+                }
             }
             // The authored exchange owns completion; a fixed 3.5s watchdog would cut off double blows.
             clearAttackCleanupWatchdog();
@@ -11867,9 +12218,6 @@ export class Sandbox extends PixiScene {
                 const lossesNotAbsorbed = Math.max(0, stackLost - (attackerFleshShield?.unitsDied ?? 0));
                 const pureDamage = Math.max(0, damageTaken - attackerFireShield - (attackerFleshShield?.amount ?? 0));
                 if (pureDamage > 0 && !exchangeAnimated) {
-                    if (!isRange && target instanceof RenderableUnit) {
-                        target.playOneShotAnimation(this.prepareDirectionalAttackState(target, attacker, true));
-                    }
                     this.combatVisuals.showFloatingDamage(
                         spawnPos,
                         pureDamage,
@@ -17067,7 +17415,60 @@ export class Sandbox extends PixiScene {
             );
         }
     }
+    protected preparePyreDeaths(events: readonly GameEvent[], units?: ReadonlyMap<string, RenderableUnit>): void {
+        if (!events.some((event) => event.type === "pyre_exploded")) return;
+        this.pyreDeaths ??= new LastFuseDeaths(
+            (event, delay, removeBody) => this.renderPyreExplosion(event, delay, removeBody),
+            (unit) => this.dyingVisualUnits.add(unit),
+            (unit) => {
+                this.dyingVisualUnits.delete(unit);
+                unit.destroyVisuals();
+            },
+        );
+        this.pyreDeaths.prepare(events, units ?? this.snapshotRenderableUnits());
+    }
+    protected playPyreDeath(unitId: string, delaySec = 0): void {
+        this.pyreDeaths?.play(unitId, undefined, delaySec);
+    }
+    protected hasPyreDeath(unitId: string): boolean {
+        return this.pyreDeaths?.has(unitId) ?? false;
+    }
+    protected renderPyreExplosion(
+        event: Extract<GameEvent, { type: "pyre_exploded" }>,
+        delaySec = 0,
+        removeBody?: () => void,
+    ): void {
+        const visuals = this.combatVisuals;
+        if (!visuals) {
+            removeBody?.();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const origin = projectBattlefieldPoint(event.position, gs);
+        visuals.spawnPyreExplosion(origin, cell, delaySec, removeBody);
+        for (const hit of event.hits) {
+            if (hit.amount <= 0) continue;
+            const unit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
+            visuals.spawnPyreHit(hit.unitId, pos, origin, cell, delaySec);
+            visuals.showFloatingDamageDelayed(
+                pos,
+                hit.amount,
+                hit.unitsDied,
+                delaySec,
+                "#ff9a48",
+                "#4a1208",
+                unit,
+                4560,
+            );
+        }
+        if (delaySec === 0) {
+            this.triggerScreenShake(11, 0.4);
+        }
+    }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
+        this.preparePyreDeaths?.(events, unitSnapshot);
         if (
             events.some(
                 (event) => event.type === "effects_applied" && event.applications.some((a) => a.name === "Gravebound"),
@@ -17088,7 +17489,6 @@ export class Sandbox extends PixiScene {
         // the grid (the engine's order is move-then-hole). Defer the hole render until after the loop so
         // syncSystemMovedUnit's grid cleanup can't wipe a freshly-placed hole.
         let pendingNarrowingLayers = 0;
-        let pyreIndex = 0;
         const activeUnitIdAtStart = this.currentActiveUnit?.getId();
 
         for (const event of events) {
@@ -17135,10 +17535,7 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "pyre_exploded":
-                    if (this.shouldRenderPyreInline()) {
-                        this.renderPyreExplosion(event, pyreIndex * 0.18);
-                        pyreIndex += 1;
-                    }
+                    this.playPyreDeath(event.unitId);
                     shouldRefreshVisibleState = true;
                     break;
                 case "poison_ticked": {
@@ -17633,9 +18030,11 @@ export class Sandbox extends PixiScene {
         event: Extract<GameEvent, { type: "unit_resurrected" }>,
         unitSnapshot: ReadonlyMap<string, RenderableUnit>,
     ): void {
+        this.pyreDeaths?.forget(event.unitId);
         const unit =
             (this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined) ??
             unitSnapshot.get(event.unitId);
+        this.combatVisuals?.resetZenaDeath?.(event.unitId, unit);
         if (!unit) {
             return;
         }
@@ -19017,14 +19416,6 @@ export class Sandbox extends PixiScene {
         );
         return { burn, rest: burn ? events.filter((event) => event !== burn) : events };
     }
-    protected playUnitCombatSound(unit: Pick<Unit, "getName" | "getId">, role: CombatSoundRole, melee = false): void {
-        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
-        playCombatSound(unit.getName(), role, unit.getId(), melee, () => !this.isSceneDestroyed());
-    }
-    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean): void {
-        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
-        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true));
-    }
     private createAbsolvingArrowProgress(
         source: RenderableUnit,
         victim: RenderableUnit,
@@ -19957,35 +20348,6 @@ export class Sandbox extends PixiScene {
             unit.beginDamagePresentation(amount);
         }
         return amounts;
-    }
-    protected renderPyreExplosion(event: Extract<GameEvent, { type: "pyre_exploded" }>, delaySec = 0): void {
-        const visuals = this.combatVisuals;
-        if (!visuals) {
-            return;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const cell = gs.getCellSize();
-        const origin = projectBattlefieldPoint(event.position, gs);
-        visuals.spawnPyreExplosion(origin, cell, delaySec);
-        for (const hit of event.hits) {
-            if (hit.amount <= 0) continue;
-            const unit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
-            visuals.spawnPyreHit(hit.unitId, pos, origin, cell, delaySec);
-            visuals.showFloatingDamageDelayed(
-                pos,
-                hit.amount,
-                hit.unitsDied,
-                delaySec,
-                "#ff9a48",
-                "#4a1208",
-                unit,
-                4560,
-            );
-        }
-        if (delaySec === 0) {
-            this.triggerScreenShake(11, 0.4);
-        }
     }
     private drawAltInspectOverlay(): void {
         const g = this.altInspectGraphics;

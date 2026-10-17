@@ -44,6 +44,7 @@ import { BoarSalivaPops } from "./BoarSalivaPops";
 import { DevourEssencePops } from "./DevourEssencePops";
 import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
 import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
+import { ZenaBrutalityVfx } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -462,12 +463,12 @@ const FT_FLAG_GAP = 6;
 // Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
 // (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
 // damage number so the icon + name are readable, then drifts up and fades.
-const DP_LIFE = 0.95; // seconds on screen (kept short so the icon + name evaporate briskly)
+const DP_LIFE = 1.8; // seconds: keep the icon and name readable before dissolving
 const DP_RISE = 64; // world px the pop floats up over its life
-const DP_POP_DUR = 0.2; // seconds of the spawn "pop" (icon scales in with overshoot)
+const DP_POP_DUR = 0.3; // seconds of the spawn "pop" (icon scales in with overshoot)
 const DP_START_SCALE = 0.25; // scale the pop springs in from
-const DP_FADE_IN = 0.1; // seconds to fade in
-const DP_FADE_OUT_FROM = 0.48; // fraction of life after which it fades out (earlier = quicker evaporate)
+const DP_FADE_IN = 0.16; // seconds to fade in
+const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
 const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
 
 // Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
@@ -697,6 +698,11 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private zenaBrutality = new ZenaBrutalityVfx((container) => this.attachEffect(container, 4550));
+    private zenaKills = new Map<string, HoCMath.XY>();
+    private zenaDeathBodies = new WeakSet<RenderableUnit>();
+    private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
+    private audioEpoch = 0;
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
@@ -1820,6 +1826,9 @@ export class CombatVisuals {
             }
             this.areaImpacts.length = 0;
             this.lastFuse.clear();
+            this.zenaBrutality.clear();
+            this.zenaKills.clear();
+            this.zenaDeathBodies = new WeakSet();
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1922,6 +1931,7 @@ export class CombatVisuals {
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
             !this.lastFuse.active &&
+            !this.zenaBrutality.active &&
             this.resurrectBursts.length === 0 &&
             !this.lightningProcedural?.active &&
             !this.whirlpoolSprites?.active &&
@@ -2018,6 +2028,7 @@ export class CombatVisuals {
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
         this.lastFuse.update(dt);
+        this.zenaBrutality.update(dt);
         this.stepResurrectBursts(dt);
         this.spellAtmosphere?.begin();
         this.lightningProcedural?.update();
@@ -2343,6 +2354,39 @@ export class CombatVisuals {
             }
         }
     }
+    public noteZenaKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: Pick<Unit, "getId" | "getTeam">,
+        direction: HoCMath.XY,
+    ): void {
+        if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return;
+        this.zenaKills.set(victim.getId(), { ...direction });
+    }
+    public playZenaBrutalityDeath(unit: RenderableUnit): boolean {
+        if (this.zenaDeathBodies.has(unit)) return true;
+        const direction = this.zenaKills.get(unit.getId());
+        if (!direction) return false;
+        this.zenaKills.delete(unit.getId());
+        const gs = this.context.getGridSettings();
+        const pose = unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
+        if (!pose) return false;
+        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), direction);
+        if (spawned) {
+            this.zenaDeathBodies.add(unit);
+            this.deathBlowByUnitId.delete(unit.getId());
+        }
+        return spawned;
+    }
+    public resetZenaDeath(unitId: string, unit?: RenderableUnit): void {
+        this.zenaKills.delete(unitId);
+        if (unit) this.zenaDeathBodies.delete(unit);
+    }
+    /**
+     * Record what killed a unit (and the blow's direction, attacker → victim) BEFORE its death
+     * visuals spawn, so spawnDeathVfx can pick a kill-specific animation. Only note units that
+     * actually died from the blow (the engine's unitIdsDied) — noting mere hits would misattribute
+     * a later death by spell to the earlier attack.
+     */
     public noteDeathBlow(unitId: string, kind: DeathBlowKind, dir?: HoCMath.XY): void {
         // Never let a re-note DOWNGRADE the record: the live path can attribute the same kill twice
         // (once at impact, once in the turn-event sweep after teardown), and the later pass — computed
@@ -4279,6 +4323,17 @@ export class CombatVisuals {
             }
         }
     }
+    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0, removeBody?: () => void): void {
+        this.lastFuse.spawn(pos, cellSize, delaySec, removeBody);
+    }
+    public spawnPyreHit(unitId: string, pos: HoCMath.XY, origin: HoCMath.XY, cellSize: number, delaySec = 0): void {
+        this.lastFuse.hit(pos, origin, cellSize, delaySec, (direction) => {
+            const unit = this.context.getUnitsHolder()?.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) return;
+            unit.flashScorch();
+            unit.applyHitReaction(direction.x * cellSize * 0.3, direction.y * cellSize * 0.3);
+        });
+    }
     private stepHealBursts(dt: number): void {
         for (let i = this.healBursts.length - 1; i >= 0; i--) {
             const burst = this.healBursts[i];
@@ -4395,8 +4450,6 @@ export class CombatVisuals {
         }
         return m;
     }
-    private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
-    private audioEpoch = 0;
     private boardStretchCache = 1;
     private unitAblazes: IUnitAblaze[] = [];
     private delayedFloatingDamage: IDelayedFloatingDamage[] = [];
@@ -4953,17 +5006,6 @@ export class CombatVisuals {
         container.addChild(label);
         this.enqueueFloatingContainer(container, pos);
         this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
-    }
-    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0): void {
-        this.lastFuse.spawn(pos, cellSize, delaySec);
-    }
-    public spawnPyreHit(unitId: string, pos: HoCMath.XY, origin: HoCMath.XY, cellSize: number, delaySec = 0): void {
-        this.lastFuse.hit(pos, origin, cellSize, delaySec, (direction) => {
-            const unit = this.context.getUnitsHolder()?.getAllUnits().get(unitId) as RenderableUnit | undefined;
-            if (!unit || unit.isDead()) return;
-            unit.flashScorch();
-            unit.applyHitReaction(direction.x * cellSize * 0.3, direction.y * cellSize * 0.3);
-        });
     }
 }
 

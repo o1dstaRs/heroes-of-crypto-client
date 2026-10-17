@@ -3437,6 +3437,12 @@ export class RankedPlayScene extends Sandbox {
     protected override shouldRenderPoisonInline(): boolean {
         return false;
     }
+    /**
+     * Render the lap-start Morale (green) / Dismorale (violet) pops from the authoritative journal. The
+     * `morale_applied` events ride on the lap-flipping action's journal entry (the scene log reads them
+     * from journalTail already), so we drive the pops off the same source. Deduped by a per-game
+     * high-water sequence so each is popped once and historical ones on (re)join aren't replayed.
+     */
     private renderNewlyAppliedMorale(snapshot: AuthoritativeGameSnapshot): void {
         const journalTail = snapshot.journalTail;
         if (!journalTail?.length) {
@@ -3543,6 +3549,42 @@ export class RankedPlayScene extends Sandbox {
         }
         this.armageddonVfxSequence = maxSequence;
     }
+    private renderNewlyAppliedPyre(snapshot: AuthoritativeGameSnapshot, replaying = false): void {
+        const journalTail = snapshot.journalTail ?? [];
+        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        const maxSequence = Math.max(snapshot.latestSequence, sorted.at(-1)?.sequence ?? -1);
+        if (this.pyreVfxGameId !== snapshot.gameId) {
+            this.pyreVfxGameId = snapshot.gameId;
+            this.pyreVfxSequence = replaying ? snapshot.latestSequence - 1 : maxSequence;
+            if (!replaying) return;
+        }
+        if (maxSequence <= this.pyreVfxSequence) {
+            return;
+        }
+        let pyreIndex = 0;
+        for (const entry of sorted) {
+            if (entry.sequence <= this.pyreVfxSequence) {
+                continue;
+            }
+            const events = this.parseJournalEvents(entry);
+            this.preparePyreDeaths(events);
+            for (const event of events) {
+                if (event.type !== "pyre_exploded") {
+                    continue;
+                }
+                this.playPyreDeath(event.unitId, pyreIndex * 0.18);
+                pyreIndex += 1;
+            }
+        }
+        this.pyreVfxSequence = maxSequence;
+    }
+    /**
+     * Spawn the "broken mirror" death shatter for any unit that just died, then tear its sprite down.
+     * Detect alive→dead transitions by comparing the local board (units with live sprites) against the
+     * authoritative snapshot: a unit we are still rendering that the snapshot reports dead/absent has just
+     * died. getShatterInfo() returns null once visuals are gone, so a unit the action replay already
+     * shattered + destroyed is skipped here — no double shatter. Only runs once the fight is underway.
+     */
     private shatterNewlyDeadUnits(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted) {
             return;
@@ -3558,6 +3600,8 @@ export class RankedPlayScene extends Sandbox {
             if (newAlive !== undefined && newAlive > 0) {
                 continue;
             }
+            // The active attack owns these deaths, including bodies waiting on a chained burst.
+            if (this.hasPyreDeath(renderable.getId())) continue;
             // No live sprite (never shown, or the replay already shattered + tore it down) → nothing to do.
             const shatterInfo = renderable.getShatterInfo();
             if (!shatterInfo) {
@@ -4514,33 +4558,6 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override shouldRenderPyreInline(): boolean {
         return false;
-    }
-    private renderNewlyAppliedPyre(snapshot: AuthoritativeGameSnapshot, replaying = false): void {
-        const journalTail = snapshot.journalTail ?? [];
-        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
-        const maxSequence = Math.max(snapshot.latestSequence, sorted.at(-1)?.sequence ?? -1);
-        if (this.pyreVfxGameId !== snapshot.gameId) {
-            this.pyreVfxGameId = snapshot.gameId;
-            this.pyreVfxSequence = replaying ? snapshot.latestSequence - 1 : maxSequence;
-            if (!replaying) return;
-        }
-        if (maxSequence <= this.pyreVfxSequence) {
-            return;
-        }
-        let pyreIndex = 0;
-        for (const entry of sorted) {
-            if (entry.sequence <= this.pyreVfxSequence) {
-                continue;
-            }
-            for (const event of this.parseJournalEvents(entry)) {
-                if (event.type !== "pyre_exploded") {
-                    continue;
-                }
-                this.renderPyreExplosion(event, pyreIndex * 0.18);
-                pyreIndex += 1;
-            }
-        }
-        this.pyreVfxSequence = maxSequence;
     }
     public override getDamageStatisics(): IDamageStatistic[] {
         return this.rankedDamageStatistics;

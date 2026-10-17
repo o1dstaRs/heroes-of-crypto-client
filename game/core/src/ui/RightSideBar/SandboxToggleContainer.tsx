@@ -8,7 +8,7 @@
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
@@ -16,13 +16,6 @@ import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme"
 import { ArtifactToggler } from "./ArtifactToggler";
 import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 import { armorAugmentLabel } from "./augmentLabels";
-import {
-    DEFAULT_SANDBOX_PANEL_EXPANSION,
-    fitSandboxPanelExpansion,
-    SandboxPanel,
-    SandboxPanelExpansion,
-    toggleSandboxPanel,
-} from "./sandboxPanelExpansion";
 
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
@@ -569,64 +562,8 @@ const SandboxToggleContainer = ({
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
 
-    // Both setup tools are useful side by side. Start with both open, then inspect the actual drawer once it
-    // has settled and fold Artifacts only if that content cannot fit vertically. A manual header choice always
-    // wins over this first-open default.
-    const [panelExpansion, setPanelExpansion] = useState<SandboxPanelExpansion>(() => ({
-        ...DEFAULT_SANDBOX_PANEL_EXPANSION,
-    }));
-    const panelContainerRef = useRef<HTMLDivElement>(null);
-    const userSetPanelExpansion = useRef(false);
-    const autoFitResolved = useRef(false);
-    const { artifactsOpen, augmentsOpen } = panelExpansion;
-
-    useLayoutEffect(() => {
-        if (!showArtifactPicker || autoFitResolved.current) return;
-
-        const container = panelContainerRef.current;
-        const togglerBody = container?.closest<HTMLElement>('[data-hoc-toggler-body="true"]');
-        const scrollRegion = container?.closest<HTMLElement>('[data-sandbox-scroll-region="true"]');
-        if (!container || !togglerBody || !scrollRegion) return;
-
-        // A team drawer opens over 200 ms. Measure its finished layout so closing the previously open sidebar
-        // section does not make a brief, smaller viewport collapse Artifacts unnecessarily.
-        let settleTimer: number | undefined;
-        const measureSettledLayout = () => {
-            settleTimer = undefined;
-            if (autoFitResolved.current || userSetPanelExpansion.current || togglerBody.dataset.open !== "true") {
-                return;
-            }
-
-            autoFitResolved.current = true;
-            setPanelExpansion((current) => fitSandboxPanelExpansion(current, scrollRegion));
-        };
-        const scheduleMeasurement = () => {
-            if (autoFitResolved.current || userSetPanelExpansion.current) return;
-            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
-            settleTimer = window.setTimeout(measureSettledLayout, 240);
-        };
-
-        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasurement);
-        observer?.observe(togglerBody);
-        observer?.observe(container);
-        observer?.observe(scrollRegion);
-        togglerBody.addEventListener("transitionend", scheduleMeasurement);
-        window.addEventListener("resize", scheduleMeasurement);
-        scheduleMeasurement();
-
-        return () => {
-            observer?.disconnect();
-            togglerBody.removeEventListener("transitionend", scheduleMeasurement);
-            window.removeEventListener("resize", scheduleMeasurement);
-            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
-        };
-    }, [showArtifactPicker]);
-
-    const handlePanelToggle = (panel: SandboxPanel) => {
-        userSetPanelExpansion.current = true;
-        autoFitResolved.current = true;
-        setPanelExpansion((current) => toggleSandboxPanel(current, panel));
-    };
+    // Artifacts stay visible while this team is open. Augments remain independently collapsible.
+    const [augmentsOpen, setAugmentsOpen] = useState(true);
     // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
     // change handler carries its category explicitly instead of reading a single-open togglerType.
     const handleLevelChangeFor =
@@ -649,7 +586,6 @@ const SandboxToggleContainer = ({
 
     return (
         <Box
-            ref={panelContainerRef}
             sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -670,7 +606,7 @@ const SandboxToggleContainer = ({
             <Box
                 component="button"
                 type="button"
-                onClick={() => handlePanelToggle("augments")}
+                onClick={() => setAugmentsOpen((open) => !open)}
                 aria-expanded={augmentsOpen}
                 sx={{
                     width: "100%",
@@ -870,13 +806,7 @@ const SandboxToggleContainer = ({
                     )}
                 </>
             )}
-            {showArtifactPicker && (
-                <ArtifactToggler
-                    teamType={teamType}
-                    isOpen={artifactsOpen}
-                    onToggle={() => handlePanelToggle("artifacts")}
-                />
-            )}
+            {showArtifactPicker && <ArtifactToggler teamType={teamType} alwaysExpanded />}
         </Box>
     );
 };

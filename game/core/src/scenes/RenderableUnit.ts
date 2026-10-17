@@ -3462,23 +3462,22 @@ export class RenderableUnit extends Unit {
             const stackFillRedTex = this.texResolver("spell_stack_fill_red_variant2");
             const innerFrameTex = this.texResolver("spell_inner_frame_linework_v2");
 
-            if (iconTex && cellTex) {
-                const newSpell = new PixiRenderableSpell(
+            // Art can arrive after the book opens. A missing icon must never hide an available spell.
+            const newSpell = new PixiRenderableSpell(
                     { spellProperties: spellProperties, amount: v },
                     this.spellBookLayer,
                     {
-                        spell_cell_260: cellTex,
+                        spell_cell_260: cellTex ?? Texture.EMPTY,
                         scrollBadge: scrollBadgeTex,
                         innerFrame: innerFrameTex,
                         stackRail: stackRailTex,
                         stackFillGreen: stackFillGreenTex,
                         stackFillRed: stackFillRedTex,
                     },
-                    iconTex,
+                    iconTex ?? Texture.EMPTY,
                     this.digitTextures,
                 );
-                this.pixiSpells.push(newSpell);
-            }
+            this.pixiSpells.push(newSpell);
         }
     }
     public renderSpells(pageNumber: number): void {
@@ -4569,9 +4568,16 @@ export class RenderableUnit extends Unit {
         parent.addChild(ghost);
         return ghost;
     }
-    public getStaticBattlefieldPreviewAt(position: HoCMath.XY, gs: GridSettings): BattlefieldUnitPreview | undefined {
+    /** A fixed battle pose for destination ghosts, independent of the live idle/action frame. */
+    public getStaticBattlefieldPreviewAt(
+        position: HoCMath.XY,
+        gs: GridSettings,
+        canonicalPose = false,
+    ): BattlefieldUnitPreview | undefined {
         const src = this.sprite;
-        const texture = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+        const texture = canonicalPose
+            ? this.resolveBaseTexture()
+            : (this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture());
         if (!src?.parent || !texture) return undefined;
         const props = this.getUnitProperties();
         const width = this.getFootprintWidth();
@@ -4619,6 +4625,9 @@ export class RenderableUnit extends Unit {
             (this.previewDestinationGroundScratch ??= { x: 0, y: 0 }),
         );
         const preview = (this.battlefieldPreviewScratch ??= {} as BattlefieldUnitPreview);
+        // The sword idle has a padded 1024px canvas around a 576px figure. Match the same
+        // normalization as ensureVisual so a placement ghost cannot shrink on drop.
+        const idleCanvasScale = !canonicalPose && props.name === "Berserker" ? this.berserkerLabIdleScale() : 1;
         preview.texture = texture;
         preview.anchorX = 0.5;
         preview.anchorY = tall ? this.selectionAnimFootAnchorY : 0.5;
@@ -4629,7 +4638,8 @@ export class RenderableUnit extends Unit {
             framing.scaleX *
             perspective *
             compensation.x;
-        preview.scaleY = -scaleY * framing.scaleY * perspective * compensation.y;
+        preview.scaleX *= idleCanvasScale;
+        preview.scaleY = -scaleY * idleCanvasScale * framing.scaleY * perspective * compensation.y;
         preview.x =
             ground.x +
             gs.getCellSize() *
