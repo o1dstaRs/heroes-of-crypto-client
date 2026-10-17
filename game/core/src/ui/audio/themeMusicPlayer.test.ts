@@ -8,7 +8,7 @@ import {
     setMusicMuted,
     setMusicVolume,
 } from "../../settings/audioLevels";
-import { createThemeMusicPlayer } from "./themeMusicPlayer";
+import { createThemeMusicPlayer, type ThemeTrack } from "./themeMusicPlayer";
 
 class FakeAudio extends EventTarget {
     public volume = 1;
@@ -16,6 +16,8 @@ class FakeAudio extends EventTarget {
     public loadCalls = 0;
     public pauseCalls = 0;
     public playCalls = 0;
+    public currentTime = 0;
+    public duration = Number.NaN;
     public readonly volumesAtPlay: number[] = [];
     public readonly playResults: Array<boolean | Promise<void>> = [];
     public play(): Promise<void> {
@@ -43,10 +45,10 @@ class FakeAudio extends EventTarget {
     }
 }
 
-const playlist = [
+const playlist: readonly ThemeTrack[] = [
     { webm: "/first.webm", mp3: "/first.mp3" },
     { webm: "/second.webm", mp3: "/second.mp3" },
-] as const;
+];
 
 const settle = async (): Promise<void> => {
     await Promise.resolve();
@@ -221,5 +223,218 @@ describe("client theme music player", () => {
         expect(audio.loadCalls).toBe(2);
         expect(audio.playCalls).toBe(2);
         expect(audio.paused).toBe(false);
+    });
+
+    test("keeps a saved menu position off the match track and seeks it when the playlist returns", async () => {
+        const audio = new FakeAudio();
+        audio.duration = 90;
+        const webmSource: { src: string } = { src: playlist[0].webm };
+        const mp3Source: { src: string } = { src: playlist[0].mp3 };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            initialIndex: 1,
+            initialTime: 12,
+        });
+
+        expect(webmSource.src).toBe("/second.webm");
+        expect(await player.playSingle({ webm: "/ranked.webm", mp3: "/ranked.mp3" }, true)).toBe(true);
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(audio.currentTime).toBe(0);
+        expect(player.currentIndex()).toBe(1);
+
+        expect(await player.resumePlaylist(true)).toBe(true);
+        audio.duration = 90;
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(audio.currentTime).toBe(12);
+        expect(webmSource.src).toBe("/second.webm");
+        player.destroy();
+    });
+
+    test("overlaps the next menu song and does not skip it when the old one ends", async () => {
+        const audio = new FakeAudio();
+        const incoming = new FakeAudio();
+        audio.duration = 100;
+        audio.currentTime = 98;
+        const webmSource = { src: playlist[0].webm };
+        const mp3Source = { src: playlist[0].mp3 };
+        const nextWebm = { src: "" };
+        const nextMp3 = { src: "" };
+        const animation: { frame?: FrameRequestCallback } = {};
+        const previousFrame = globalThis.requestAnimationFrame;
+        globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+            animation.frame = callback;
+            return 1;
+        };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            crossfade: { ms: 2200, audio: incoming, webmSource: nextWebm, mp3Source: nextMp3 },
+        });
+
+        try {
+            expect(await player.start()).toBe(true);
+            audio.duration = 100;
+            audio.currentTime = 98;
+            audio.dispatchEvent(new Event("timeupdate"));
+            expect(nextWebm.src).toBe("/second.webm");
+            expect(incoming.playCalls).toBe(1);
+            expect(player.currentIndex()).toBe(0);
+
+            audio.dispatchEvent(new Event("ended"));
+            expect(player.currentIndex()).toBe(0);
+            expect(webmSource.src).toBe("/first.webm");
+
+            await Promise.resolve();
+            await Promise.resolve();
+            animation.frame?.(performance.now() + 10_000);
+            expect(player.currentIndex()).toBe(1);
+            expect(player.isPlaylist()).toBe(true);
+            expect(audio.pauseCalls).toBe(1);
+            expect(incoming.volume).toBeCloseTo(0.5);
+            expect(incoming.paused).toBe(false);
+        } finally {
+            globalThis.requestAnimationFrame = previousFrame;
+            player.destroy();
+        }
+    });
+
+    test("fades into the match track and keeps the menu position underneath it", async () => {
+        const audio = new FakeAudio();
+        const incoming = new FakeAudio();
+        const webmSource = { src: playlist[0].webm };
+        const mp3Source = { src: playlist[0].mp3 };
+        const nextWebm = { src: "" };
+        const nextMp3 = { src: "" };
+        const animation: { frame?: FrameRequestCallback } = {};
+        const previousFrame = globalThis.requestAnimationFrame;
+        globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+            animation.frame = callback;
+            return 1;
+        };
+        const ranked = { webm: "/ranked.webm", mp3: "/ranked.mp3" };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            initialIndex: 1,
+            initialTime: 12,
+            crossfade: { ms: 2200, audio: incoming, webmSource: nextWebm, mp3Source: nextMp3 },
+        });
+
+        try {
+            expect(await player.start()).toBe(true);
+            audio.currentTime = 22;
+            expect(await player.playSingle(ranked, true)).toBe(true);
+            expect(nextWebm.src).toBe("/ranked.webm");
+            expect(incoming.playCalls).toBe(1);
+            expect(player.isPlaylist()).toBe(true);
+
+            audio.dispatchEvent(new Event("ended"));
+            expect(webmSource.src).toBe("/second.webm");
+
+            await Promise.resolve();
+            await Promise.resolve();
+            animation.frame?.(performance.now() + 10_000);
+            expect(player.isPlaylist()).toBe(false);
+            expect(player.playbackMemory()).toEqual({ index: 1, time: 22, matchTime: 0 });
+            expect(incoming.volume).toBeCloseTo(0.5);
+        } finally {
+            globalThis.requestAnimationFrame = previousFrame;
+            player.destroy();
+        }
+    });
+
+    test("reopens the match track at the saved bar and does not load it again", async () => {
+        const audio = new FakeAudio();
+        audio.duration = 200;
+        const webmSource = { src: playlist[0].webm };
+        const mp3Source = { src: playlist[0].mp3 };
+        const ranked = { webm: "/ranked.webm", mp3: "/ranked.mp3" };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            initialIndex: 1,
+            initialTime: 12,
+            initialMatch: { track: ranked, time: 48 },
+        });
+
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(audio.currentTime).toBe(48);
+        expect(webmSource.src).toBe("/ranked.webm");
+        expect(player.playbackMemory()).toEqual({ index: 1, time: 12, matchTime: 48 });
+
+        const loads = audio.loadCalls;
+        expect(await player.playSingle(ranked, true)).toBe(true);
+        expect(audio.loadCalls).toBe(loads);
+        expect(audio.currentTime).toBe(48);
+
+        expect(await player.resumePlaylist(true)).toBe(true);
+        audio.duration = 90;
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(audio.currentTime).toBe(12);
+        expect(webmSource.src).toBe("/second.webm");
+        expect(player.playbackMemory()).toEqual({ index: 1, time: 12 });
+        player.destroy();
+    });
+
+    test("overlaps the match track with itself instead of cutting the loop", async () => {
+        const audio = new FakeAudio();
+        const incoming = new FakeAudio();
+        audio.duration = 100;
+        const webmSource = { src: "" };
+        const mp3Source = { src: "" };
+        const nextWebm = { src: "" };
+        const nextMp3 = { src: "" };
+        const ranked = { webm: "/ranked.webm", mp3: "/ranked.mp3" };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            initialMatch: { track: ranked, time: 10 },
+            crossfade: { ms: 2200, audio: incoming, webmSource: nextWebm, mp3Source: nextMp3 },
+        });
+
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(await player.start()).toBe(true);
+        const loads = audio.loadCalls;
+        audio.duration = 100;
+        audio.currentTime = 98;
+        audio.dispatchEvent(new Event("timeupdate"));
+        expect(nextWebm.src).toBe("/ranked.webm");
+        expect(incoming.playCalls).toBe(1);
+
+        audio.dispatchEvent(new Event("ended"));
+        expect(audio.loadCalls).toBe(loads);
+        expect(player.isPlaylist()).toBe(false);
+        player.destroy();
     });
 });

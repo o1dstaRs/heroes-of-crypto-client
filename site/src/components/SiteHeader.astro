@@ -19,10 +19,10 @@ const searchLabel = lang === "ru" ? "Поиск" : "Search";
 const languageMenuLabel = lang === "ru" ? "Выбрать язык" : "Choose language";
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
-    { label: copy.nav.knowledgeBase, href: knowledgeBaseHref },
+    { label: copy.nav.seasons, href: `${localPath(lang, "home")}seasons/` },
     { label: "Premium", href: `${localPath(lang, "home")}premium/` },
     { label: copy.nav.news, href: `${localPath(lang, "home")}news/` },
-    { label: copy.nav.seasons, href: `${localPath(lang, "home")}seasons/` },
+    { label: copy.nav.knowledgeBase, href: knowledgeBaseHref },
     // Patches intentionally omitted from the main nav to keep it uncluttered — the version badge
     // (below, in .brand-lockup) links to the patches page instead.
 ];

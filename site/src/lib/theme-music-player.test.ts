@@ -7,6 +7,9 @@ class FakeAudio extends EventTarget {
     public paused = true;
     public loadCalls = 0;
     public playCalls = 0;
+    public pauseCalls = 0;
+    public currentTime = 0;
+    public duration = Number.NaN;
     public playResults: Array<boolean | "pending"> = [];
 
     public play(): Promise<void> {
@@ -27,6 +30,11 @@ class FakeAudio extends EventTarget {
 
     public load(): void {
         this.loadCalls += 1;
+        this.paused = true;
+    }
+
+    public pause(): void {
+        this.pauseCalls += 1;
         this.paused = true;
     }
 }
@@ -130,6 +138,82 @@ describe("theme music player", () => {
         expect(audio.paused).toBe(false);
         expect(audio.volume).toBe(0.5);
         expect(fades).toEqual([0.5]);
+    });
+
+    test("reopens the saved song and seeks when its metadata arrives", () => {
+        const audio = new FakeAudio();
+        audio.duration = 100;
+        const webmSource = { src: playlist[0].webm };
+        const mp3Source = { src: playlist[0].mp3 };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            initialIndex: 1,
+            initialTime: 40,
+        });
+
+        expect(webmSource.src).toBe("/second.webm");
+        expect(mp3Source.src).toBe("/second.mp3");
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(audio.currentTime).toBe(40);
+        expect(player.snapshot()).toEqual({ index: 1, time: 40 });
+        player.destroy();
+    });
+
+    test("overlaps the next song and does not skip it when the old one ends", async () => {
+        const audio = new FakeAudio();
+        const incoming = new FakeAudio();
+        audio.duration = 100;
+        audio.currentTime = 98;
+        const webmSource = { src: playlist[0].webm };
+        const mp3Source = { src: playlist[0].mp3 };
+        const nextWebm = { src: "" };
+        const nextMp3 = { src: "" };
+        let frame: ((now: number) => void) | null = null;
+        const previousFrame = globalThis.requestAnimationFrame;
+        globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+            frame = callback;
+            return 1;
+        };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+            crossfade: { ms: 2200, audio: incoming, webmSource: nextWebm, mp3Source: nextMp3 },
+        });
+
+        try {
+            audio.dispatchEvent(new Event("timeupdate"));
+            expect(nextWebm.src).toBe("/second.webm");
+            expect(incoming.playCalls).toBe(1);
+            expect(player.snapshot().index).toBe(0);
+
+            audio.dispatchEvent(new Event("ended"));
+            expect(player.snapshot().index).toBe(0);
+            expect(webmSource.src).toBe("/first.webm");
+
+            await Promise.resolve();
+            await Promise.resolve();
+            frame?.(performance.now() + 10_000);
+            expect(player.snapshot()).toEqual({ index: 1, time: 0 });
+            expect(audio.pauseCalls).toBe(1);
+            expect(incoming.volume).toBeCloseTo(0.5);
+            expect(incoming.paused).toBe(false);
+        } finally {
+            globalThis.requestAnimationFrame = previousFrame;
+            player.destroy();
+        }
     });
 
     test("restores an audible default with one speaker click from volume zero", () => {

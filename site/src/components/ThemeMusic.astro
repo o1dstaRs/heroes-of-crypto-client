@@ -1,10 +1,10 @@
 ---
 /**
- * The menu theme ("The Last Stand") plus the volume control that governs it.
+ * Ranked-arena theme ("The Besieged Town") plus the volume control that governs it.
  *
- * Included only on the screens that should sing — mode select and profile here, with the client mounting its
- * own copy for matchmaking and lobbies. Deliberately NOT in BaseLayout: the blog, the codex and the docs
- * pages have no business playing music.
+ * Included only on the screens that should sing — the home page, where the ranked arena lives. Deliberately
+ * NOT in BaseLayout: the blog, the codex and the docs pages have no business playing music. The same playlist
+ * continues in the game client; a reload of this page resumes the song that was already playing.
  *
  * Two sources: Opus/WebM (~1.7 MB) is picked by Chrome, Firefox, Edge and Safari 17+; the MP3 (~3.1 MB) is
  * the fallback everywhere else. The browser downloads only the one it chooses, so most visitors pay the
@@ -18,10 +18,15 @@
 
 <div class="theme-music" data-theme-music>
     <!-- No `loop`: the playlist below hands one track to the next, and loop would pin us to the first.
-         Sources are set by the script so the track can be swapped without rebuilding the element. -->
+         Sources are set by the script so the track can be swapped without rebuilding the element.
+         The second element is silent until a song is about to end, then the two overlap. -->
     <audio data-theme-audio preload="none">
-        <source data-theme-src-webm src="/assets/audio/the_last_stand.webm" type="audio/webm; codecs=opus" />
-        <source data-theme-src-mp3 src="/assets/audio/the_last_stand.mp3" type="audio/mpeg" />
+        <source data-theme-src-webm src="/assets/audio/the_besieged_town.webm" type="audio/webm; codecs=opus" />
+        <source data-theme-src-mp3 src="/assets/audio/the_besieged_town.mp3" type="audio/mpeg" />
+    </audio>
+    <audio data-theme-audio-next preload="none">
+        <source data-theme-next-webm type="audio/webm; codecs=opus" />
+        <source data-theme-next-mp3 type="audio/mpeg" />
     </audio>
 
     <button
@@ -70,21 +75,50 @@
 </div>
 
 <script>
-    import { createThemeMusicPlayer, toggleThemeMusicSettings } from "../lib/theme-music-player";
+    import {
+        createThemeMusicPlayer,
+        toggleThemeMusicSettings,
+        type ThemePlaybackSnapshot,
+    } from "../lib/theme-music-player";
 
     // Kept in step with the client's own copy (game/core/src/ui/audio/themeMusic.ts) and with the redirect
     // pages under /play, which hand these across the origin boundary in the query string.
     const VOLUME_KEY = "hoc:themeVolume";
     const MUTED_KEY = "hoc:themeMuted";
+    const PLAYBACK_KEY = "hoc:arenaTheme";
     const DEFAULT_VOLUME = 0.2; // owner call 2026-10-02: the theme opens quieter
     const FADE_MS = 900;
+    const CROSSFADE_MS = 2200;
 
-    // The menu playlist, in order; wraps back to the first when the last ends. Kept in step with the
-    // client's copy in game/core/src/ui/audio/ThemeMusic.tsx, which serves the same files from /audio.
+    // Opens on the arena theme, then the older menu songs, then back. Kept in step with the client's copy
+    // in game/core/src/ui/audio/ThemeMusic.tsx, which serves the same files from /audio.
     const PLAYLIST = [
+        { webm: "/assets/audio/the_besieged_town.webm", mp3: "/assets/audio/the_besieged_town.mp3" },
         { webm: "/assets/audio/the_last_stand.webm", mp3: "/assets/audio/the_last_stand.mp3" },
         { webm: "/assets/audio/the_stone_lullaby.webm", mp3: "/assets/audio/the_stone_lullaby.mp3" },
     ];
+
+    const readPlayback = (): ThemePlaybackSnapshot | null => {
+        try {
+            const raw = window.sessionStorage.getItem(PLAYBACK_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw) as Partial<ThemePlaybackSnapshot>;
+            if (!Number.isInteger(parsed.index) || parsed.index === undefined) return null;
+            if (parsed.index < 0 || parsed.index >= PLAYLIST.length) return null;
+            if (typeof parsed.time !== "number" || !Number.isFinite(parsed.time) || parsed.time < 0) return null;
+            return { index: parsed.index, time: parsed.time };
+        } catch {
+            return null;
+        }
+    };
+
+    const writePlayback = (snapshot: ThemePlaybackSnapshot): void => {
+        try {
+            window.sessionStorage.setItem(PLAYBACK_KEY, JSON.stringify(snapshot));
+        } catch {
+            // Private mode still plays; the next reload just starts the theme again.
+        }
+    };
 
     const root = document.querySelector<HTMLElement>("[data-theme-music]");
     const audio = document.querySelector<HTMLAudioElement>("[data-theme-audio]");
@@ -94,8 +128,11 @@
     const iconOff = document.querySelector<SVGElement>("[data-theme-icon-off]");
     const srcWebm = document.querySelector<HTMLSourceElement>("[data-theme-src-webm]");
     const srcMp3 = document.querySelector<HTMLSourceElement>("[data-theme-src-mp3]");
+    const nextAudio = document.querySelector<HTMLAudioElement>("[data-theme-audio-next]");
+    const nextWebm = document.querySelector<HTMLSourceElement>("[data-theme-next-webm]");
+    const nextMp3 = document.querySelector<HTMLSourceElement>("[data-theme-next-mp3]");
 
-    if (root && audio && toggle && slider && iconOn && iconOff && srcWebm && srcMp3) {
+    if (root && audio && toggle && slider && iconOn && iconOff && srcWebm && srcMp3 && nextAudio && nextWebm && nextMp3) {
         const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
         const readStored = (): { volume: number; muted: boolean } => {
@@ -154,25 +191,38 @@
 
         // Fade rather than snap: the theme arriving at full volume the instant someone clicks a menu button
         // is startling, and that click is usually aimed at something else entirely.
+        // The crossfade hands the audible element from one <audio> to the other. The slider has to follow
+        // whichever one is actually playing, or a later volume change would turn the silent element up.
+        let output: HTMLAudioElement = audio;
+        const playback = readPlayback();
+        let lastWrite = 0;
+        const remember = (snapshot: ThemePlaybackSnapshot, force = false) => {
+            const now = Date.now();
+            if (!force && now - lastWrite < 1000) return;
+            lastWrite = now;
+            writePlayback(snapshot);
+        };
+
         const fadeTo = (target: number) => {
+            const media = output;
             const clampedTarget = clamp01(target);
             stopFade();
-            if (audio.paused && clampedTarget === 0) {
-                audio.volume = 0;
+            if (media.paused && clampedTarget === 0) {
+                media.volume = 0;
                 return;
             }
-            const from = audio.volume;
+            const from = media.volume;
             const startedAt = performance.now();
             const step = (now: number) => {
                 const t = Math.min(1, (now - startedAt) / FADE_MS);
-                audio.volume = clamp01(from + (clampedTarget - from) * t);
+                media.volume = clamp01(from + (clampedTarget - from) * t);
                 if (t < 1) {
                     fadeFrame = requestAnimationFrame(step);
                     return;
                 }
                 fadeFrame = null;
                 if (clampedTarget === 0) {
-                    audio.pause();
+                    media.pause();
                 }
             };
             fadeFrame = requestAnimationFrame(step);
@@ -212,7 +262,15 @@
             fadeTo,
             onPlaybackStarted: disarmGestureUnlock,
             onPlaybackBlocked: armGestureUnlock,
+            initialIndex: playback?.index ?? 0,
+            initialTime: playback?.time ?? 0,
+            onProgress: (snapshot) => remember(snapshot),
+            onOutputChange: (element) => {
+                output = element as HTMLAudioElement;
+            },
+            crossfade: { ms: CROSSFADE_MS, audio: nextAudio, webmSource: nextWebm, mp3Source: nextMp3 },
         });
+        window.addEventListener("pagehide", () => remember(player.snapshot(), true));
 
         armGestureUnlock();
 
@@ -239,12 +297,13 @@
             player.setTargetVolume(target);
             stopFade();
             if (target === 0) {
-                audio.volume = 0;
-                audio.pause();
-            } else if (audio.paused) {
+                output.volume = 0;
+                output.pause();
+                nextAudio.pause();
+            } else if (output.paused) {
                 void player.start(target, true);
             } else {
-                audio.volume = target;
+                output.volume = target;
             }
         });
 

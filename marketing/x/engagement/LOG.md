@@ -18,3 +18,5 @@ Started 2026-10-14. Baseline week: 15-21 Oct.
 - 2026-10-16 11:51 PT: Dev-diary story (STORY #7 board-flash fix, commit a2d9b16a) posted: https://x.com/Heroes0fcrypto/status/2111168270522822947 (276 chars). Reply on the seat-reclaim fix (commit 5fddef59), no link: https://x.com/Heroes0fcrypto/status/2111168457140302204. Text-only.
 
 - 2026-10-16 16:58 PT: Life tactics post (calendar Mon 19, early) posted: https://x.com/Heroes0fcrypto/status/2111245321292423194 (121 chars). Reply with faction guide link: https://x.com/Heroes0fcrypto/status/2111245446819811489. Text-only.
+
+- 2026-10-17 06:56 PT: Through Shot story-tactics post (STORY #8 / calendar Sat 24, early) posted with the approved Tsar Cannon poster: https://x.com/Heroes0fcrypto/status/2111456161060815313 (102 chars). Reply with play link: https://x.com/Heroes0fcrypto/status/2111456352145154096.
