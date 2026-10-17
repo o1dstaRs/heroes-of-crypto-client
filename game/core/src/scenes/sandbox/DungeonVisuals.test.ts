@@ -1,4 +1,3 @@
-import { images } from "../../generated/image_imports";
 import { TextureSource } from "pixi.js";
 import { describe, expect, test } from "bun:test";
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
@@ -604,43 +603,67 @@ describe("DungeonVisuals lifecycle", () => {
             fightState.setFightProperties(previousFight);
         }
     });
-    test("evicts a large deferred fire atlas that finishes decoding after teardown", async () => {
+    test("borrows scene-owned fire atlases without unloading the replacement scene's sources", () => {
         const stage = new Container();
         const worldRoot = new Container();
         const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
-        const visuals = new DungeonVisuals({
+        const atlas = new Texture({ source: new TextureSource({ width: 16384, height: 16384 }) });
+        let available = false;
+        const requested: string[] = [];
+        const context = {
             getStage: () => stage,
             getWorldRoot: () => worldRoot,
             getViewportSize: () => ({ width: 1024, height: 1024 }),
             getGridSettings: () => gridSettings,
-            texAny: () => undefined,
+            texAny: (key: string) => {
+                requested.push(key);
+                return available ? atlas : undefined;
+            },
             attachToWorldRoot: () => undefined,
-        });
-        const internals = visuals as unknown as { firePitOverlayTexture(): Texture | undefined };
-        const mutableAssets = Assets as unknown as {
-            load: typeof Assets.load;
-            unload: typeof Assets.unload;
         };
-        const originalLoad = mutableAssets.load;
-        const originalUnload = mutableAssets.unload;
-        let finishLoad!: (texture: Texture) => void;
-        const unloaded: string[] = [];
-        mutableAssets.load = (() => new Promise<Texture>((resolve) => (finishLoad = resolve))) as typeof Assets.load;
-        mutableAssets.unload = (async (url: string) => {
-            unloaded.push(url);
+        const first = new DungeonVisuals(context);
+        const second = new DungeonVisuals(context);
+        type Internals = {
+            firePitOverlayTexture(): Texture | undefined;
+            ensureAmbientFireSprites(): void;
+            ambientFireFrames: Map<string, Texture[]>;
+        };
+        const before = first as unknown as Internals;
+        const after = second as unknown as Internals;
+        const originalLoad = Assets.load;
+        const originalUnload = Assets.unload;
+        const unexpected: string[] = [];
+        Assets.load = (() => {
+            unexpected.push("load");
+            return Promise.resolve(atlas);
+        }) as typeof Assets.load;
+        Assets.unload = (() => {
+            unexpected.push("unload");
+            return Promise.resolve();
         }) as typeof Assets.unload;
-
         try {
-            expect(internals.firePitOverlayTexture()).toBeUndefined();
-            visuals.destroy();
-            finishLoad(Texture.WHITE);
-            await Promise.resolve();
-            await Promise.resolve();
-
-            expect(unloaded).toEqual([images.fire_pit_grok_video_fire_under_v2_64_atlas]);
+            expect(before.firePitOverlayTexture()).toBeUndefined();
+            before.ensureAmbientFireSprites();
+            expect(requested).toContain("fire_pit_grok_video_fire_under_v2_64_atlas");
+            available = true;
+            expect(before.firePitOverlayTexture()?.source).toBe(atlas.source);
+            before.ensureAmbientFireSprites();
+            after.ensureAmbientFireSprites();
+            first.destroy();
+            expect(atlas.destroyed).toBe(false);
+            expect(after.ambientFireFrames.size).toBeGreaterThan(0);
+            for (const frames of after.ambientFireFrames.values()) {
+                expect(frames.every((frame) => !frame.destroyed && !frame.source.destroyed)).toBe(true);
+            }
+            expect(unexpected).toEqual([]);
         } finally {
-            mutableAssets.load = originalLoad;
-            mutableAssets.unload = originalUnload;
+            first.destroy();
+            second.destroy();
+            atlas.destroy(true);
+            stage.destroy({ children: true });
+            worldRoot.destroy({ children: true });
+            Assets.load = originalLoad;
+            Assets.unload = originalUnload;
         }
     });
 });

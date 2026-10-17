@@ -59,6 +59,7 @@ import {
     isLazyAbilityAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyMapTextureAssetKey,
+    isDeferredEnvironmentAssetKey,
     isLazySpellAssetKey,
 } from "./imageAssetTiers";
 import {
@@ -452,6 +453,7 @@ export abstract class PixiScene {
             isLazyBattlefieldCreatureAssetKey(key) ||
             isLazyCombatEffectAssetKey(key) ||
             isLazyMapTextureAssetKey(key) ||
+            isDeferredEnvironmentAssetKey(key) ||
             isLazyAbilityAssetKey(key) ||
             isLazySpellAssetKey(key);
         const preloaded = (this.textures as unknown as Record<string, Texture>)[key];

@@ -1,5 +1,4 @@
 import {
-    Assets,
     BlurFilter,
     ColorMatrixFilter,
     Container,
@@ -26,7 +25,6 @@ import { boardFitHeight, boardFitWidth } from "../../pixi/boardFit";
 import type { TextureLoadOptions } from "../../pixi/boardFirstTextureLoads";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
 import { lavaPitTextureKeys } from "./lavaPitAssets";
-import { images } from "../../generated/image_imports";
 import {
     BARREL_SHADOW_TUNING_CHANGE_EVENT,
     DEFAULT_BARREL_SHADOW_TUNING,
@@ -738,7 +736,6 @@ export class DungeonVisuals {
     private context: IDungeonVisualsContext;
     private barrelShadowTuningListener?: EventListener;
     private destroyed = false;
-    private loadedMapAtlasUrls = new Set<string>();
     private atmosphereAlpha = 0;
     private lightFilter?: Filter;
     private lightOverlay?: Graphics;
@@ -755,14 +752,10 @@ export class DungeonVisuals {
     private ambientFireGlowSprites = new Map<string, Sprite>();
     private ambientFireContactGlows = new Map<string, Graphics>();
     private ambientFireFrames = new Map<string, Texture[]>();
-    private ambientFireAtlases = new Map<string, Texture>();
-    private ambientFireAtlasLoads = new Set<string>();
     private ambientFireEditorOutline?: Graphics;
     private chasmGlowLayer?: Container;
     private chasmGlowSprite?: Sprite;
     private chasmGlowFrames = new Map<string, Texture[]>();
-    private chasmGlowAtlases = new Map<string, Texture>();
-    private chasmGlowAtlasLoads = new Set<string>();
     private activeChasmGlowAtlasKey?: string;
     private topBlankMask?: Graphics;
     private lavaFireLight?: Container;
@@ -881,11 +874,8 @@ export class DungeonVisuals {
     private firePitOverlayAtlasKey?: string;
     private firePitOverFrames?: Texture[];
     private firePitOverAtlas?: Texture;
-    private firePitOverLoadStarted = false;
-    private firePitOverlayLoadStarted = false;
     private firePitSpillFrames?: Texture[];
     private firePitSpillAtlas?: Texture;
-    private firePitSpillLoadStarted = false;
     private firePitCenterFrames?: Texture[];
     private firePitCenterFramesB?: Texture[];
     public constructor(context: IDungeonVisualsContext) {
@@ -1092,36 +1082,11 @@ export class DungeonVisuals {
             this.firePitOverlayAtlasKey = requestedAtlasKey;
         }
         if (!this.firePitOverlayFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[requestedAtlasKey];
+            // texAny queues the download and owns its scene lease. Loading/unloading this URL again
+            // here can destroy an atlas already borrowed by the replacement scene on Start over.
             const atlas = this.firePitOverlayAtlas ?? this.context.texAny(requestedAtlasKey);
-            if (!atlas) {
-                // Keep the large atlas out of the blocking core bundle. Load it in the background when a live
-                // lava board asks for it; until then the complete still pit remains visible as a safe fallback.
-                if (!this.firePitOverlayLoadStarted && atlasUrl) {
-                    this.firePitOverlayLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            if (this.destroyed) {
-                                void Assets.unload(atlasUrl).catch(() => undefined);
-                                return;
-                            }
-                            if (this.firePitOverlayAtlasKey === requestedAtlasKey) {
-                                this.loadedMapAtlasUrls.add(atlasUrl);
-                                this.firePitOverlayAtlas = loaded;
-                                // The base bowl and grate are available synchronously, while the 4096px fire
-                                // atlas is intentionally lazy. Rebuild immediately when it arrives so the fire
-                                // layer appears without waiting for a tuning interaction or scene transition.
-                                this.ensureCenterTerrainSprite();
-                            } else {
-                                void Assets.unload(atlasUrl).catch(() => undefined);
-                            }
-                        })
-                        .catch(() => {
-                            this.firePitOverlayLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
+            if (!atlas) return undefined;
+            this.firePitOverlayAtlas = atlas;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             const frames: Texture[] = [];
             for (let index = 0; index < DungeonVisuals.FIRE_PIT_ANIM_FRAMES; index++) {
@@ -1181,23 +1146,8 @@ export class DungeonVisuals {
     }
     private firePitOverTexture(): Texture | undefined {
         if (!this.firePitOverFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[
-                DungeonVisuals.FIRE_PIT_OVER_ANIM_KEY
-            ];
-            if (!this.firePitOverAtlas) {
-                if (!this.firePitOverLoadStarted && atlasUrl) {
-                    this.firePitOverLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.firePitOverAtlas = loaded;
-                            this.ensureCenterTerrainSprite();
-                        })
-                        .catch(() => {
-                            this.firePitOverLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
+            this.firePitOverAtlas ??= this.context.texAny(DungeonVisuals.FIRE_PIT_OVER_ANIM_KEY);
+            if (!this.firePitOverAtlas) return undefined;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             this.firePitOverFrames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
@@ -1220,23 +1170,8 @@ export class DungeonVisuals {
     }
     private firePitSpillTexture(): Texture | undefined {
         if (!this.firePitSpillFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[
-                DungeonVisuals.FIRE_PIT_SPILL_ANIM_KEY
-            ];
-            if (!this.firePitSpillAtlas) {
-                if (!this.firePitSpillLoadStarted && atlasUrl) {
-                    this.firePitSpillLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.firePitSpillAtlas = loaded;
-                            this.ensureCenterTerrainSprite();
-                        })
-                        .catch(() => {
-                            this.firePitSpillLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
+            this.firePitSpillAtlas ??= this.context.texAny(DungeonVisuals.FIRE_PIT_SPILL_ANIM_KEY);
+            if (!this.firePitSpillAtlas) return undefined;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             this.firePitSpillFrames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
@@ -3367,18 +3302,8 @@ export class DungeonVisuals {
 
         let frames = this.chasmGlowFrames.get(atlasKey);
         if (!frames) {
-            const atlas = this.chasmGlowAtlases.get(atlasKey) ?? this.context.texAny(atlasKey);
+            const atlas = this.context.texAny(atlasKey);
             if (!atlas) {
-                const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[atlasKey];
-                if (atlasUrl && !this.chasmGlowAtlasLoads.has(atlasKey)) {
-                    this.chasmGlowAtlasLoads.add(atlasKey);
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.chasmGlowAtlases.set(atlasKey, loaded);
-                            this.ensureChasmGlowSprite();
-                        })
-                        .catch(() => this.chasmGlowAtlasLoads.delete(atlasKey));
-                }
                 if (this.chasmGlowSprite) this.chasmGlowSprite.visible = false;
                 return;
             }
@@ -3448,24 +3373,8 @@ export class DungeonVisuals {
         for (const definition of AMBIENT_FIRE_DEFINITIONS) {
             if (this.ambientFireSprites.has(definition.key)) continue;
             const textureKey = definition.textureKey ?? definition.key;
-            const atlas = this.ambientFireAtlases.get(textureKey) ?? this.context.texAny(textureKey);
-            if (!atlas) {
-                const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[textureKey];
-                if (atlasUrl && !this.ambientFireAtlasLoads.has(textureKey)) {
-                    this.ambientFireAtlasLoads.add(textureKey);
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            if (this.destroyed) {
-                                void Assets.unload(atlasUrl).catch(() => undefined);
-                                return;
-                            }
-                            this.loadedMapAtlasUrls.add(atlasUrl);
-                            this.ambientFireAtlases.set(textureKey, loaded);
-                        })
-                        .catch(() => this.ambientFireAtlasLoads.delete(textureKey));
-                }
-                continue;
-            }
+            const atlas = this.context.texAny(textureKey);
+            if (!atlas) continue;
             const rows = Math.ceil(definition.frameCount / definition.columns);
             if (
                 atlas.source.width < definition.columns * definition.frameWidth ||
@@ -3950,11 +3859,7 @@ export class DungeonVisuals {
         this.ambientFireGlowSprites.clear();
         this.ambientFireContactGlows.clear();
         this.ambientFireFrames.clear();
-        this.ambientFireAtlases.clear();
-        this.ambientFireAtlasLoads.clear();
         this.chasmGlowFrames.clear();
-        this.chasmGlowAtlases.clear();
-        this.chasmGlowAtlasLoads.clear();
         this.chasmGlowLayer = undefined;
         this.chasmGlowSprite = undefined;
         this.activeChasmGlowAtlasKey = undefined;
@@ -3967,15 +3872,12 @@ export class DungeonVisuals {
         this.firePitOverlayFrames = undefined;
         this.firePitOverlayAtlas = undefined;
         this.firePitOverlayAtlasKey = undefined;
-        this.firePitOverlayLoadStarted = false;
         this.firePitCenterFrames = undefined;
         this.firePitCenterFramesB = undefined;
         this.firePitOverFrames = undefined;
         this.firePitOverAtlas = undefined;
-        this.firePitOverLoadStarted = false;
         this.firePitSpillFrames = undefined;
         this.firePitSpillAtlas = undefined;
-        this.firePitSpillLoadStarted = false;
         this.lavaTerrainMesh = undefined;
         this.lavaPitLight = undefined;
         this.lavaFireOverlayMesh = undefined;
@@ -4010,10 +3912,6 @@ export class DungeonVisuals {
         this.mountainHitPointTileTextures = undefined;
         this.mountainQuarterTextures = undefined;
         this.narrowingLayers = 0;
-        for (const url of this.loadedMapAtlasUrls) {
-            void Assets.unload(url).catch(() => undefined);
-        }
-        this.loadedMapAtlasUrls.clear();
     }
     public attachCenterTerrainSprite(): void {
         if (this.lavaTerrainMesh) {
