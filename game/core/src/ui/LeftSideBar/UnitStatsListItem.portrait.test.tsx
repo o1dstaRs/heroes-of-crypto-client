@@ -53,6 +53,7 @@ const renderPortrait = async (animatePortrait = true) => {
     );
     const ids: string[] = [];
     const animatedLabels: string[] = [];
+    const atlasElements: Array<{ tag: string; source: string | null }> = [];
     await new HTMLRewriter()
         .on("[data-creature-portrait]", {
             element(element) {
@@ -64,9 +65,14 @@ const renderPortrait = async (animatePortrait = true) => {
                 animatedLabels.push(element.getAttribute("aria-label")!);
             },
         })
+        .on("[data-sidebar-atlas]", {
+            element(element) {
+                atlasElements.push({ tag: element.tagName, source: element.getAttribute("data-sidebar-atlas") });
+            },
+        })
         .transform(new Response(html))
         .text();
-    return { html, ids, animatedLabels };
+    return { html, ids, animatedLabels, atlasElements };
 };
 
 test("a first cold selection waits for its complete portrait pair instead of painting a partial creature", async () => {
@@ -87,7 +93,11 @@ test("a ready portrait preserves the integrated animation and inspection can dis
     expect(animated.ids).toEqual([String(CreatureVals.ARBALESTER)]);
     expect(animated.animatedLabels).toEqual(["Arbalester animated portrait"]);
     expect(animated.html).toContain(resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src);
+    expect(animated.atlasElements).toEqual([
+        { tag: "canvas", source: resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src },
+    ]);
     const inspected = await renderPortrait(false);
     expect(inspected.ids).toEqual([String(CreatureVals.ARBALESTER)]);
     expect(inspected.animatedLabels).toEqual([]);
+    expect(inspected.atlasElements).toEqual([]);
 });

@@ -12,8 +12,12 @@ export function playSidebarAtlas(
     if (!context || !image.naturalWidth || !image.naturalHeight) return;
     const frameWidth = image.naturalWidth / timing.cols;
     const frameHeight = image.naturalHeight / timing.rows;
+    if (![frameWidth, frameHeight].every((size) => Number.isInteger(size) && size > 0)) return;
     let lastFrame = -1;
     let frame: number | undefined;
+    let stopped = false;
+    let hasSize = false;
+    const canPlay = () => !stopped && hasSize && !document.hidden;
     const paint = (time: number) => {
         const next = timing.frameForElapsed(time);
         if (next === lastFrame) return;
@@ -31,40 +35,53 @@ export function playSidebarAtlas(
             canvas.height,
         );
     };
-    const resize = () => {
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
-        if (width <= 0 || height <= 0) return;
-        // Retina stays sharp, but upscaling the backing store beyond the source cel adds only memory.
-        const density = Math.min(window.devicePixelRatio || 1, frameWidth / width, frameHeight / height);
-        const targetWidth = Math.max(1, Math.round(width * density));
-        const targetHeight = Math.max(1, Math.round(height * density));
-        if (canvas.width === targetWidth && canvas.height === targetHeight) return;
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = "high";
-        lastFrame = -1;
-        if (!document.hidden) paint(performance.now());
-    };
     const animate = (time: number) => {
+        if (!canPlay()) return;
         paint(time);
         frame = window.requestAnimationFrame(animate);
     };
     const syncVisibility = () => {
+        if (stopped) return;
         if (frame !== undefined) window.cancelAnimationFrame(frame);
         frame = undefined;
-        if (!document.hidden) {
+        if (canPlay()) {
             paint(performance.now());
             frame = window.requestAnimationFrame(animate);
+        }
+    };
+    const resize = () => {
+        if (stopped) return;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        if (width <= 0 || height <= 0) {
+            hasSize = false;
+            syncVisibility();
+            return;
+        }
+        // Retina stays sharp, but upscaling the backing store beyond the source cel adds only memory.
+        const density = Math.min(window.devicePixelRatio || 1, frameWidth / width, frameHeight / height);
+        const targetWidth = Math.max(1, Math.round(width * density));
+        const targetHeight = Math.max(1, Math.round(height * density));
+        const wasSized = hasSize;
+        hasSize = true;
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = "high";
+            lastFrame = -1;
+            syncVisibility();
+        } else if (!wasSized) {
+            syncVisibility();
         }
     };
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     document.addEventListener("visibilitychange", syncVisibility);
     resize();
-    syncVisibility();
     return () => {
+        if (stopped) return;
+        stopped = true;
         observer.disconnect();
         document.removeEventListener("visibilitychange", syncVisibility);
         if (frame !== undefined) window.cancelAnimationFrame(frame);

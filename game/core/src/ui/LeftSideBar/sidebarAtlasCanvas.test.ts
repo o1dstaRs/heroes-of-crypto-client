@@ -75,6 +75,7 @@ const fixture = (density = 2) => {
         disconnect,
         visibilityListeners,
         start,
+        rawResize: () => resize,
         tick(next: number) {
             time = next;
             const callbacks = [...frames.values()];
@@ -161,4 +162,55 @@ test("unmount stops playback, observers, and visibility listeners", () => {
     f.visibility(false, 500);
     expect(f.frames.size).toBe(0);
     expect(f.context.drawImage).toHaveBeenCalledTimes(1);
+});
+
+test("zero-sized portraits do no drawing or scheduling until they have a visible size", () => {
+    const f = fixture();
+    f.canvas.clientWidth = 0;
+    const stop = f.start();
+    expect(f.frames.size).toBe(0);
+    expect(f.context.drawImage).not.toHaveBeenCalled();
+    f.canvas.clientWidth = 286;
+    f.resize();
+    expect(f.frames.size).toBe(1);
+    expect(f.context.drawImage).toHaveBeenCalledTimes(1);
+    f.canvas.clientHeight = 0;
+    f.resize();
+    f.tick(2000);
+    expect(f.frames.size).toBe(0);
+    expect(f.context.drawImage).toHaveBeenCalledTimes(1);
+    f.canvas.clientHeight = 404;
+    f.resize();
+    expect(f.frames.size).toBe(1);
+    expect(f.context.drawImage).toHaveBeenLastCalledWith(f.image, 0, 1616, 572, 808, 0, 0, 572, 808);
+    stop();
+});
+
+test("queued animation and resize callbacks cannot revive playback after unmount", () => {
+    const f = fixture();
+    const stop = f.start();
+    const lateFrame = [...f.frames.values()][0];
+    const lateResize = f.rawResize()!;
+    stop();
+    stop();
+    lateFrame(500);
+    f.canvas.clientWidth = 100;
+    lateResize();
+    expect(f.frames.size).toBe(0);
+    expect(f.context.drawImage).toHaveBeenCalledTimes(1);
+    expect(f.disconnect).toHaveBeenCalledTimes(1);
+});
+
+test("a minute of playback keeps one cel-sized backing store and the authored draw budget", () => {
+    const f = fixture(3);
+    const stop = f.start();
+    for (let tick = 0; tick < 3600; tick++) {
+        f.tick((tick * 1000) / 60);
+        f.resize();
+        expect(f.frames.size).toBe(1);
+        expect(f.canvas.width * f.canvas.height * 4).toBeLessThanOrEqual(572 * 808 * 4);
+    }
+    expect(f.context.drawImage).toHaveBeenCalledTimes(600);
+    expect(f.context.clearRect).toHaveBeenCalledTimes(600);
+    stop();
 });
