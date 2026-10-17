@@ -48,7 +48,7 @@ const fixture = (double = false) => {
             isDead: () => unit.amount <= 0,
             getAbility: () => undefined,
             hasAbilityActive: (name: string) => id === "cannon" && name === "Through Shot",
-            beginDamagePresentation: (amount: number) => (unit.displayed = amount),
+            continueDamagePresentation: (amount: number) => (unit.displayed = amount),
             clearDamagePresentation: () => (unit.displayed = unit.amount),
             presentDamageCasualties: (amount: number) => (unit.displayed = Math.max(0, unit.displayed - amount)),
         };

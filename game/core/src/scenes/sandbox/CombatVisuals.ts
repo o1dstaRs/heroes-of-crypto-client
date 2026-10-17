@@ -250,6 +250,7 @@ interface IUnitAblaze {
 /** A damage number waiting for the moment it belongs to (a burn the walk animation has not reached yet). */
 interface IDelayedFloatingDamage {
     audioUnit?: Pick<Unit, "getName" | "getId">;
+    presentCasualties?: () => void;
     pos: HoCMath.XY;
     amount: number;
     unitsDied: number;
@@ -1075,9 +1076,11 @@ export class CombatVisuals {
         direction?: HoCMath.XY,
         unitsDied?: number,
         unit?: RenderableUnit,
+        presentCasualties?: () => void,
     ): void {
+        if (presentCasualties) presentCasualties();
+        else unit?.presentDamageCasualties(unitsDied ?? 0);
         if (unit) {
-            unit.presentDamageCasualties(unitsDied ?? 0);
             this.spawnCommonFlagPop(unit, "absorb");
         }
         const container = new Container();
@@ -4100,8 +4103,10 @@ export class CombatVisuals {
         flagTopAnchor?: HoCMath.XY,
         audioUnit?: Pick<Unit, "getName" | "getId">,
         zIndex?: number,
+        presentCasualties?: () => void,
     ): void {
-        if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
+        if (presentCasualties) presentCasualties();
+        else if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
@@ -4729,6 +4734,8 @@ export class CombatVisuals {
             stroke,
             audioUnit,
             zIndex,
+            presentCasualties:
+                audioUnit instanceof RenderableUnit ? audioUnit.captureDamageCasualties(unitsDied) : undefined,
         });
     }
     private stepDelayedFloatingDamage(dt: number): void {
@@ -4749,6 +4756,7 @@ export class CombatVisuals {
                 undefined,
                 pending.audioUnit,
                 pending.zIndex,
+                pending.presentCasualties,
             );
         }
     }

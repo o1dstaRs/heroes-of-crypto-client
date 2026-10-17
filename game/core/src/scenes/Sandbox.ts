@@ -4768,7 +4768,7 @@ export class Sandbox extends PixiScene {
                 : undefined;
         for (const [id, unit] of units) {
             if (unit instanceof RenderableUnit) {
-                unit.beginDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
+                unit.continueDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
                 if (areaThrowWaves && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
             }
             if (areaThrowWaves && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
@@ -5299,7 +5299,7 @@ export class Sandbox extends PixiScene {
         for (const [id, unit] of units) {
             const amount = remaining.get(id) ?? unit.getAmountAlive();
             remaining.set(id, amount);
-            unit.beginDamagePresentation(amount);
+            unit.continueDamagePresentation(amount);
             if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
         }
         const waves = splitAreaThrowWaves(event.damage.splash);
@@ -5651,8 +5651,16 @@ export class Sandbox extends PixiScene {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
+            const presentCasualties = unit?.captureDamageCasualties(entry.unitsDied);
             const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied, unit);
+                this.combatVisuals.showFloatingAbsorbed(
+                    pos,
+                    entry.amount,
+                    direction,
+                    entry.unitsDied,
+                    unit,
+                    presentCasualties,
+                );
             };
             if (delayMs > 0) {
                 this.scheduleSceneTimeout(show, delayMs);
@@ -5738,6 +5746,7 @@ export class Sandbox extends PixiScene {
                     splashUnit,
                 );
             } else {
+                const presentCasualties = splashUnit?.captureDamageCasualties(entry.unitsDied);
                 this.scheduleSceneTimeout(
                     () =>
                         this.combatVisuals.showFloatingDamage(
@@ -5749,6 +5758,8 @@ export class Sandbox extends PixiScene {
                             undefined,
                             flagAnchor,
                             splashUnit,
+                            undefined,
+                            presentCasualties,
                         ),
                     shotIndex * 220,
                 );
@@ -5870,6 +5881,7 @@ export class Sandbox extends PixiScene {
                     return;
                 }
                 const pos = { ...spawnPos };
+                const presentCasualties = victim.captureDamageCasualties(hit.unitsDied);
                 this.scheduleSceneTimeout(() => {
                     this.combatVisuals.showFloatingDamage(
                         pos,
@@ -5880,6 +5892,8 @@ export class Sandbox extends PixiScene {
                         undefined,
                         flagAnchor,
                         victim,
+                        undefined,
+                        presentCasualties,
                     );
                 }, index * ATTACK_HIT_STAGGER_MS);
             });
@@ -6120,11 +6134,22 @@ export class Sandbox extends PixiScene {
                 { amount: 0, unitsDied: 0 },
             );
         const explosionDamage = lastFuseDamageTaken(record.events, responseVictimId);
+        // The approach already showed these losses; including them in the counter subtracts them twice.
+        const approachBurn = this.takeFireWallBurn(record.events ?? [], responseVictimId).burn;
         const responseDamage = {
-            amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount - explosionDamage.amount),
+            amount: Math.max(
+                0,
+                totalResponseDamage.amount -
+                    secondaryOnAttacker.amount -
+                    explosionDamage.amount -
+                    (approachBurn?.amount ?? 0),
+            ),
             unitsDied: Math.max(
                 0,
-                totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied - explosionDamage.unitsDied,
+                totalResponseDamage.unitsDied -
+                    secondaryOnAttacker.unitsDied -
+                    explosionDamage.unitsDied -
+                    (approachBurn?.unitsDied ?? 0),
             ),
         };
         // His blow can move no hit points — Flesh Shield took all of it, or the swing was reduced to
@@ -11378,7 +11403,7 @@ export class Sandbox extends PixiScene {
             }
             this.preparePyreDeaths(events, unitSnapshot);
             for (const [id, captured] of unitSnapshot) {
-                captured.beginDamagePresentation(remainingAmounts.get(id));
+                captured.continueDamagePresentation(remainingAmounts.get(id));
                 if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(captured);
             }
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
@@ -11944,6 +11969,7 @@ export class Sandbox extends PixiScene {
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
             const secondary = (event.damage.secondary ?? []).filter((hit) => hit.unitId === responseVictimId);
             const explosionDamage = lastFuseDamageTaken(attackActionEvents, responseVictimId);
+            const approachBurn = this.takeFireWallBurn(attackActionEvents ?? [], responseVictimId).burn;
             const amount = responseFlight
                 ? (responsePrimary?.amount ?? 0)
                 : before
@@ -11953,7 +11979,8 @@ export class Sandbox extends PixiScene {
                             before.hp -
                             (after?.getCumulativeHp() ?? 0) -
                             secondary.reduce((sum, hit) => sum + hit.amount, 0) -
-                            explosionDamage.amount,
+                            explosionDamage.amount -
+                            (approachBurn?.amount ?? 0),
                     )
                   : 0;
             const unitsDied = responseFlight
@@ -11964,7 +11991,8 @@ export class Sandbox extends PixiScene {
                         before.amount -
                             (after?.getAmountAlive() ?? 0) -
                             secondary.reduce((sum, hit) => sum + hit.unitsDied, 0) -
-                            explosionDamage.unitsDied,
+                            explosionDamage.unitsDied -
+                            (approachBurn?.unitsDied ?? 0),
                     )
                   : 0;
             // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
@@ -12346,6 +12374,10 @@ export class Sandbox extends PixiScene {
                             rTarget,
                         );
                     } else {
+                        const presentCasualties =
+                            rTarget instanceof RenderableUnit
+                                ? rTarget.captureDamageCasualties(dmg.unitsDied)
+                                : undefined;
                         this.scheduleSceneTimeout(() => {
                             this.combatVisuals.showFloatingDamage(
                                 pos,
@@ -12356,6 +12388,8 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 damageFlagAnchor,
                                 rTarget,
+                                undefined,
+                                presentCasualties,
                             );
                         }, index * ATTACK_HIT_STAGGER_MS);
                     }
@@ -12492,16 +12526,20 @@ export class Sandbox extends PixiScene {
                 if (attackerFireShield > 0) {
                     const fsPos = { ...spawnPos };
                     const fireStyle = this.getSecondaryDamageStyle("fire_shield");
+                    const burnCasualties = pureDamage > 0 ? 0 : lossesNotAbsorbed;
+                    const presentCasualties = attacker.captureDamageCasualties(burnCasualties);
                     this.scheduleSceneTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             fsPos,
                             attackerFireShield,
                             dir,
-                            pureDamage > 0 ? 0 : lossesNotAbsorbed,
+                            burnCasualties,
                             fireStyle.fill,
                             fireStyle.stroke,
                             attacker.getDamagePredictionAnchor(gs),
                             attacker,
+                            undefined,
+                            presentCasualties,
                         );
                     }, 280);
                 }
@@ -12678,6 +12716,8 @@ export class Sandbox extends PixiScene {
                 const flagAnchor = u instanceof RenderableUnit ? u.getDamagePredictionAnchor(gs) : undefined;
 
                 if (uId === primaryVictimId) {
+                    const presentCasualties =
+                        u instanceof RenderableUnit ? u.captureDamageCasualties(extraDiedCount) : undefined;
                     this.scheduleSceneTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             spawnPos,
@@ -12688,6 +12728,8 @@ export class Sandbox extends PixiScene {
                             fsStroke,
                             flagAnchor,
                             u,
+                            undefined,
+                            presentCasualties,
                         );
                     }, 300);
                 } else {
@@ -19853,6 +19895,7 @@ export class Sandbox extends PixiScene {
                 const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : sCenter;
                 const flagAnchor = sUnit?.getDamagePredictionAnchor(gs);
                 const style = this.getSecondaryDamageStyle(entry.source);
+                const presentCasualties = sUnit?.captureDamageCasualties(entry.unitsDied);
                 this.scheduleSceneTimeout(
                     () => {
                         if (entry.source === "petrifying_gaze" && sUnit) {
@@ -19873,6 +19916,8 @@ export class Sandbox extends PixiScene {
                             style.stroke,
                             flagAnchor,
                             sUnit,
+                            undefined,
+                            presentCasualties,
                         );
                     },
                     220 + index * 180,
