@@ -616,6 +616,15 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
 
     unit.clearDamagePresentation();
     let changed = false;
+    const liveProperties = unit.getUnitProperties() as UnitProperties;
+    if (
+        properties.max_hp_authoritative &&
+        (!liveProperties.max_hp_authoritative || liveProperties.max_hp !== properties.max_hp)
+    ) {
+        liveProperties.max_hp = properties.max_hp;
+        liveProperties.max_hp_authoritative = true;
+        changed = true;
+    }
     const hp = Math.max(0, Math.floor(properties.hp));
     if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {
         unit.setRemainingStats(alive, hp, properties.amount_died);
@@ -630,7 +639,6 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
 
     // Deliberate in-place write into the live properties: this is an authoritative-reconciliation site,
     // so the Readonly guard on getUnitProperties is intentionally bypassed here and nowhere casually.
-    const liveProperties = unit.getUnitProperties() as UnitProperties;
     const rankedProperties = properties as UnitProperties & { range_shots_authoritative?: boolean };
     // Remaining ammo is snapshot-owned too. Ranged attacks are replayed locally when their journal record
     // arrives, but a fallback poll can apply the snapshot without that replay, and same-board snapshots
@@ -724,6 +732,10 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
             changed = true;
         }
     }
+    if (unit.getDebuff("Helping Hand") && !properties.applied_debuffs.includes("Helping Hand")) {
+        unit.deleteDebuff("Helping Hand");
+        changed = true;
+    }
 
     // Same-board and replayed-action snapshots deliberately keep the existing RenderableUnit alive. That
     // preserves animation continuity, but it also means a newly-applied server debuff never reaches the
@@ -778,6 +790,24 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
             properties.applied_buffs_descriptions,
             properties.applied_buffs_powers,
         ) || changed;
+
+    const helpingHandCasterId = properties.helping_hand_caster_id;
+    const helpingHandPenaltyId = properties.helping_hand_penalty_id;
+    if (helpingHandCasterId && helpingHandPenaltyId) {
+        if (
+            liveProperties.helping_hand_caster_id !== helpingHandCasterId ||
+            liveProperties.helping_hand_penalty_id !== helpingHandPenaltyId
+        ) {
+            unit.setHelpingHandLink(helpingHandCasterId, helpingHandPenaltyId);
+            changed = true;
+        }
+    } else if (
+        liveProperties.helping_hand_caster_id !== undefined ||
+        liveProperties.helping_hand_penalty_id !== undefined
+    ) {
+        unit.clearHelpingHandLink();
+        changed = true;
+    }
 
     return changed;
 };
@@ -1092,6 +1122,8 @@ const getUnitPropertiesFromAuthoritativeState = (
                 applied_buffs_laps: unitState.buffLaps ?? (unitState.buffs ?? []).map(() => 1),
                 applied_buffs_descriptions: unitState.buffDescriptions ?? (unitState.buffs ?? []).map(() => ""),
                 applied_buffs_powers: (unitState.buffs ?? []).map(() => 0),
+                ...(unitState.helpingHandCasterId ? { helping_hand_caster_id: unitState.helpingHandCasterId } : {}),
+                ...(unitState.helpingHandPenaltyId ? { helping_hand_penalty_id: unitState.helpingHandPenaltyId } : {}),
             } as UnitProperties;
         } catch {
             // Legacy snapshots may not carry a usable creature id, so fall through factions.
@@ -1484,6 +1516,7 @@ export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
     private fullReplayPlaybackActive = false;
+    private currentReplayImpactRecord?: SandboxReplayActionRecord;
     private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
@@ -2009,6 +2042,7 @@ export class RankedPlayScene extends Sandbox {
         return this.awaitingTurnHandoff;
     }
     protected override onReplayHangRecovery(): void {
+        this.currentReplayImpactRecord = undefined;
         // The hung replay may have left the board half-applied. Clear the cached signature so the next
         // authoritative snapshot does a full hydrate instead of short-circuiting on an unchanged
         // signature, reconciling the scene to server truth.
@@ -4426,6 +4460,97 @@ export class RankedPlayScene extends Sandbox {
     }
     private static replayRecordSnapshot(record: SandboxReplayActionRecord): AuthoritativeGameSnapshot | undefined {
         return record.authoritativeSnapshot;
+    }
+    protected override async playSandboxReplayRecord(record: SandboxReplayActionRecord): Promise<boolean> {
+        this.currentReplayImpactRecord = record;
+        try {
+            return await super.playSandboxReplayRecord(record);
+        } finally {
+            if (this.currentReplayImpactRecord === record) this.currentReplayImpactRecord = undefined;
+        }
+    }
+    protected override endHelpingHandLinksAtImpact(unitId: string): void {
+        const record = this.currentReplayImpactRecord;
+        if (!record) {
+            super.endHelpingHandLinksAtImpact(unitId);
+            return;
+        }
+        const affected = new Map<string, { buff: boolean; debuff: boolean }>();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const properties = unit.getUnitProperties();
+            const casterId = properties.helping_hand_caster_id;
+            const penaltyId = properties.helping_hand_penalty_id;
+            if (!casterId || !penaltyId || ![properties.id, casterId, penaltyId].includes(unitId)) continue;
+            affected.set(properties.id, { buff: true, debuff: affected.get(properties.id)?.debuff ?? false });
+            affected.set(penaltyId, { buff: affected.get(penaltyId)?.buff ?? false, debuff: true });
+        }
+        super.endHelpingHandLinksAtImpact(unitId);
+        let changed = false;
+        for (const { properties } of record.stateAfter.units) {
+            const ended = affected.get(properties.id);
+            const unit = this.unitsHolder.getAllUnits().get(properties.id) as RenderableUnit | undefined;
+            if (!ended || properties.id === unitId || properties.amount_alive <= 0 || !unit || unit.isDead()) continue;
+            const live = unit.getUnitProperties() as UnitProperties;
+            const hasBuff = live.applied_buffs.includes("Helping Hand");
+            const hasDebuff = live.applied_debuffs.includes("Helping Hand");
+            if ((!ended.buff || hasBuff) && (!ended.debuff || hasDebuff)) continue;
+            if (
+                hasBuff !== properties.applied_buffs.includes("Helping Hand") ||
+                hasDebuff !== properties.applied_debuffs.includes("Helping Hand")
+            ) {
+                continue;
+            }
+            if (properties.max_hp_authoritative) {
+                live.hp = live.hp >= live.max_hp ? properties.max_hp : Math.min(live.hp, properties.max_hp);
+                live.max_hp = properties.max_hp;
+                live.max_hp_authoritative = true;
+            }
+            if (properties.base_armor_authoritative) {
+                live.base_armor = properties.base_armor;
+                live.base_armor_authoritative = true;
+            }
+            const fight = FightStateManager.getInstance().getFightProperties();
+            const team = unit.getTeam();
+            unit.adjustBaseStats(
+                fight.hasFightStarted(),
+                fight.getCurrentLap(),
+                fight.getAdditionalAbilityPowerPerTeam(team),
+                fight.getAdditionalMovementStepsPerTeam(team),
+                fight.getAdditionalFlyArmorPerTeam(team),
+                fight.getAdditionalMoralePerTeam(team),
+                fight.getAdditionalLuckPerTeam(team),
+                fight.getStepsMoraleMultiplier(),
+            );
+            if (this.sc_selectedUnitProperties?.id === properties.id) {
+                this.setSelectedUnitProperties(live);
+                this.sc_unitPropertiesUpdateNeeded = true;
+            }
+            changed = true;
+        }
+        if (changed) this.sc_visibleStateUpdateNeeded = true;
+    }
+    protected override onReplaySpellImpact(record: SandboxReplayActionRecord): void {
+        if (record.action.type !== "cast_spell" || record.action.spellName !== "Helping Hand") {
+            return;
+        }
+        const affectedIds = new Set([record.action.casterId]);
+        if (record.action.targetId) affectedIds.add(record.action.targetId);
+        for (const event of record.events) {
+            if (event.type !== "effects_applied") continue;
+            for (const application of event.applications) {
+                if (application.name === "Helping Hand") affectedIds.add(application.unitId);
+            }
+        }
+        for (const { properties } of record.stateAfter.units) {
+            if (
+                affectedIds.has(properties.id) &&
+                properties.helping_hand_caster_id === record.action.casterId &&
+                properties.helping_hand_penalty_id
+            ) {
+                affectedIds.add(properties.helping_hand_penalty_id);
+            }
+        }
+        this.applyRankedUnitStats(record.stateAfter.units.filter((unit) => affectedIds.has(unit.properties.id)));
     }
     protected override onReplayRecordSettling(record: SandboxReplayActionRecord): void {
         const snapshot = RankedPlayScene.replayRecordSnapshot(record);
