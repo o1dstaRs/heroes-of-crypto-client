@@ -10,6 +10,12 @@ const cases = [
     { name: "Mass Riot", kind: "ogre_riot" },
     { name: "Mass Magic Mirror", kind: "ogre_magic_mirror" },
 ] as const;
+const buffCases = [
+    ...cases,
+    { name: "Empower", kind: "empower" },
+    { name: "Riot", kind: "ogre_riot" },
+    { name: "Magic Mirror", kind: "ogre_magic_mirror" },
+] as const;
 
 const fixture = (name: string, completed = true, authoritative = false) => {
     const ally = { isDead: () => false, flashBuffApplied: mock(() => undefined) };
@@ -45,10 +51,12 @@ const fixture = (name: string, completed = true, authoritative = false) => {
         submitActionForAuthoritativeReplay: submit,
         createActionEngine: () => ({ apply }),
         playUnitCombatSound: mock(() => undefined),
+        applyTurnEngineEvents: mock(() => undefined),
         cleanupAfterSpell: cleanup,
         combatVisuals: { spawnBattleRoarPop, spawnCommonFlagPop },
     }) as unknown as {
         castMassOrSummonSpell: (spell: PixiRenderableSpell, caster: RenderableUnit) => void;
+        applyGameAction: (action: GameAction) => boolean;
     };
     const spell = {
         getName: () => name,
@@ -116,6 +124,32 @@ test("an authoritative mass cast waits for its replay before presenting flag eff
     expect(f.submit).toHaveBeenCalledWith({ type: "cast_spell", casterId: "caster", spellName: "Battle Roar" });
     expect(f.apply).not.toHaveBeenCalled();
     expect(f.cleanup).not.toHaveBeenCalled();
+    expect(f.spawnBattleRoarPop).not.toHaveBeenCalled();
+    expect(f.spawnCommonFlagPop).not.toHaveBeenCalled();
+    expect(f.ally.flashBuffApplied).not.toHaveBeenCalled();
+});
+
+test.each(buffCases)("local AI and Premium $name casts present their confirmed recipients", ({ name, kind }) => {
+    const f = fixture(name);
+    expect(f.scene.applyGameAction({ type: "cast_spell", casterId: "caster", spellName: name })).toBe(true);
+    if (kind) expect(f.spawnCommonFlagPop).toHaveBeenCalledWith(f.ally, kind);
+    else expect(f.spawnBattleRoarPop).toHaveBeenCalledWith(f.ally);
+    expect(f.ally.flashBuffApplied).toHaveBeenCalledTimes(1);
+    expect(f.dead.flashBuffApplied).not.toHaveBeenCalled();
+    expect(f.resisted.flashBuffApplied).not.toHaveBeenCalled();
+});
+
+test.each(buffCases)("rejected AI and Premium $name casts stay silent", ({ name }) => {
+    const f = fixture(name, false);
+    expect(f.scene.applyGameAction({ type: "cast_spell", casterId: "caster", spellName: name })).toBe(false);
+    expect(f.spawnBattleRoarPop).not.toHaveBeenCalled();
+    expect(f.spawnCommonFlagPop).not.toHaveBeenCalled();
+    expect(f.ally.flashBuffApplied).not.toHaveBeenCalled();
+});
+
+test.each(buffCases)("ranked AI and Premium $name submissions wait for authoritative playback", ({ name }) => {
+    const f = fixture(name, true, true);
+    expect(f.scene.applyGameAction({ type: "cast_spell", casterId: "caster", spellName: name })).toBe(true);
     expect(f.spawnBattleRoarPop).not.toHaveBeenCalled();
     expect(f.spawnCommonFlagPop).not.toHaveBeenCalled();
     expect(f.ally.flashBuffApplied).not.toHaveBeenCalled();

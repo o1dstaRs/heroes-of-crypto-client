@@ -6535,6 +6535,7 @@ export class Sandbox extends PixiScene {
             // Rune success/failure and any other stated roll; no forge to wait on.
             this.renderCastOutcomes(record.events);
         }
+        this.renderReplayBuffApplications(record.events);
         // The magic-armor save on a Vine Throw is exactly such a stated roll.
         this.renderSnareResistVfx(record.events);
         if (result.completed) {
@@ -8950,6 +8951,27 @@ export class Sandbox extends PixiScene {
         // Craft and the Runes report their roll on the event; renderCastOutcomes turns it into the pop.
         this.renderCastOutcomes(result.events);
         return true;
+    }
+    protected renderReplayBuffApplications(events: readonly GameEvent[]): void {
+        // Live sandbox casts use the state diff, which is suspended during playback. Render the
+        // recorded applications at the cast instead, even if the best-effort engine reapply rejects.
+        const buffsByUnit = new Map<string, Set<string>>();
+        for (const event of events) {
+            if (event.type !== "effects_applied") continue;
+            for (const application of event.applications) {
+                if (application.kind !== "buff" || application.resisted || application.sourceUnitId) continue;
+                if (application.name === "Armor Rune" || application.name === "Weapon Rune") continue;
+                const names = animatableEffectNames([application.name]);
+                if (!names.size) continue;
+                const buffs = buffsByUnit.get(application.unitId) ?? new Set<string>();
+                buffs.add(application.name);
+                buffsByUnit.set(application.unitId, buffs);
+            }
+        }
+        for (const [unitId, buffs] of buffsByUnit) {
+            const unit = this.renderableForEffectPop(unitId);
+            if (unit) this.playEffectPops({ unit, flash: "buff", debuffs: [], buffs: [...buffs] });
+        }
     }
     protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
         const resistedUnits = new Set<string>();
@@ -17679,6 +17701,9 @@ export class Sandbox extends PixiScene {
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        if (result.completed && action.type === "cast_spell" && !this.shouldDeferActionToAuthoritativeReplay(action)) {
+            this.renderCastOutcomes(result.events);
+        }
         return result.completed;
     }
     protected renderPoisonTickVfx(unit: RenderableUnit, damage: number, unitsDied: number): void {

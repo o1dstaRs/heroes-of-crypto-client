@@ -1811,6 +1811,10 @@ export class RankedPlayScene extends Sandbox {
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
     }
+    protected override renderReplayBuffApplications(_events: readonly GameEvent[]): void {
+        // Ranked snapshots own generic buff pops, including when spectating without a transport.
+        // Named cast flourishes still render from the recorded outcomes through renderCastOutcomes.
+    }
     private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
             return;
