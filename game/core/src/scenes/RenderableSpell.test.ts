@@ -381,7 +381,7 @@ describe("PixiRenderableSpell effect summary", () => {
             "for 27%",
         );
         const helpingHand = detailsOf("Life", "Helping Hand", 4, 2, 1, 0, 0, tome).information.join("\n");
-        expect(helpingHand).toContain("Gives 40.5%");
+        expect(helpingHand).toContain("Transfers 40.5%");
         expect(helpingHand).toContain("The caster still loses 30%.");
         expect(detailsOf("System", "Wind Flow", 5, 1, 1, 0, 0, tome).information.join("\n")).toContain(
             "gain 5.4 of base armor points while losing 4 movement",
