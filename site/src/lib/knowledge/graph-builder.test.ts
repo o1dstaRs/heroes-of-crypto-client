@@ -130,9 +130,11 @@ describe("knowledge graph builder", () => {
         expect(fuse?.props).toMatchObject({ tier: 2, cursed: false });
         expect(fuse?.text).toContain("Water Shield");
         expect(fuse?.text).toContain("actual killing damage");
-        expect(fuse?.text).toContain("20/40/60/80/100");
+        expect(fuse?.text).toContain("25/50/75/100/125");
+        expect(fuse?.text).toContain("power of the attacker");
+        expect(fuse?.text).toContain("The killed enemy\'s own power does not change the minimum");
         expect(fuse?.text).toContain("overkill and health lost in earlier attacks do not increase");
-        expect(fuse?.text).toContain("recalculated blast damage");
+        expect(fuse?.text).toContain("recalculated minimum damage");
         expect(fuse?.text).toContain("resurrects does not explode");
         expect(fuse?.text).toContain("Armor, magic resistance and hit rolls do not reduce");
         expect(fuse?.textRu).toContain("Water Shield");
