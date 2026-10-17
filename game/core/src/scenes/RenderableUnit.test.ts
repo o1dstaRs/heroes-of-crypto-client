@@ -6806,9 +6806,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(idle.selectionAnimFrames).toHaveLength(12);
         expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
         idle.refreshedIdlePhaseRatio = 0;
-        unit.stepSelectionAnimation(idle.selectionAnimationStartedAtMs);
+        unit.stepSelectionAnimation(0);
         const currentIdleTexture = idle.sprite?.texture;
-        unit.stepSelectionAnimation(idle.selectionAnimationStartedAtMs + idle.selectionAnimFrameDurationMs + 1);
+        unit.stepSelectionAnimation(idle.selectionAnimFrameDurationMs + 1);
         expect(idle.sprite?.texture).not.toBe(currentIdleTexture);
 
         const beholderResolvedKeys: string[] = [];
