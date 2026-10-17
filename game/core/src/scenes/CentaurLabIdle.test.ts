@@ -15,3 +15,11 @@ test("sways the tail between occasional hair gestures and loops without a termin
     expect(centaurLabIdleFrame(5100)).toBe(0);
     expect(centaurLabIdleFrame(5100 + 4340)).toBe(5);
 });
+
+test("keeps authored boundaries stable after subtracting a fractional browser clock", () => {
+    for (const boundary of [300, 600, 3600, 4080, 4340, 5100]) {
+        expect(centaurLabIdleFrame(boundary - Number.EPSILON * boundary)).toBe(centaurLabIdleFrame(boundary));
+    }
+    expect(centaurLabIdleFrame(4080 - 0.001)).toBe(3);
+    expect(centaurLabIdleFrame(5100 - 0.001)).toBe(7);
+});
