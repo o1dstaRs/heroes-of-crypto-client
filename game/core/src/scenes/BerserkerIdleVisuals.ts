@@ -128,7 +128,7 @@ void main(void) {
 `;
 
 class BerserkerIdleFilter extends Filter {
-    constructor(private readonly sprite: Sprite) {
+    public constructor(private readonly sprite: Sprite) {
         super({
             glProgram: GlProgram.from({ vertex, fragment }),
             resolution: "inherit",
@@ -145,12 +145,12 @@ class BerserkerIdleFilter extends Filter {
             },
         });
     }
-    update(frame: number, elapsedMs: number, durations: readonly number[]): void {
+    public update(frame: number, elapsedMs: number, durations: readonly number[]): void {
         const motion = frame === 0 ? berserkerWaitingMotion(elapsedMs, durations) : { x: 0, y: 0 };
         this.resources.appearance.uniforms.uPose = BERSERKER_IDLE_POSE_ORDER[frame] ?? 0;
         this.resources.appearance.uniforms.uSway.set([motion.x, motion.y]);
     }
-    override apply(...args: Parameters<Filter["apply"]>): void {
+    public override apply(...args: Parameters<Filter["apply"]>): void {
         const uniforms = this.resources.appearance.uniforms;
         args[0].calculateSpriteMatrix(uniforms.uBodyMatrix, this.sprite);
         uniforms.uInputMatrix.copyFrom(uniforms.uBodyMatrix).invert();
