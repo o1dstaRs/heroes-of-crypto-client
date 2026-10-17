@@ -4,6 +4,7 @@ import {
     isAmbiguousConfirmFailure,
     isCurrentAcceptAttempt,
     matchmakingOpponentId,
+    matchmakingStateAfterStreamError,
     resolveConfirmFailure,
     resolveTerminalHandoff,
     shouldSurfaceMatchmakingStreamError,
@@ -22,6 +23,13 @@ describe("matchmaking opponent identity", () => {
 });
 
 describe("ranked match accept handoff", () => {
+    test("keeps a ready match visible while its stream reconnects", () => {
+        expect(matchmakingStateAfterStreamError("confirming", "Network Error")).toBe("confirming");
+        expect(matchmakingStateAfterStreamError("accepted", "Network Error")).toBe("accepted");
+        expect(matchmakingStateAfterStreamError("searching", "Network Error")).toBe("error");
+        expect(matchmakingStateAfterStreamError("confirming", TERMINAL_MATCHMAKING_STREAM_ERROR)).toBe("error");
+    });
+
     test("treats a lost confirm acknowledgement as accepted when current game confirms the write", () => {
         expect(resolveConfirmFailure("game-1", { id: "game-1", confirmed: true, abandoned: false }, true, true)).toBe(
             "accepted",

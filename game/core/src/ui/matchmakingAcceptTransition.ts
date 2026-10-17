@@ -1,5 +1,8 @@
 export const TERMINAL_MATCHMAKING_STREAM_ERROR = "Max reconnection attempts reached";
 
+export const matchmakingStateAfterStreamError = <T extends string>(state: T, message: string): T | "error" =>
+    (state === "confirming" || state === "accepted") && message !== TERMINAL_MATCHMAKING_STREAM_ERROR ? state : "error";
+
 export interface MatchmakingCurrentGame {
     id?: string;
     confirmed?: boolean;

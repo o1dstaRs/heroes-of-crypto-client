@@ -61,6 +61,7 @@ import {
     isAmbiguousConfirmFailure,
     isCurrentAcceptAttempt,
     matchmakingOpponentId,
+    matchmakingStateAfterStreamError,
     type MatchmakingCurrentGame,
     resolveConfirmFailure,
     resolveTerminalHandoff,
@@ -382,6 +383,7 @@ export const MatchmakingRoute: React.FC = () => {
         });
 
         source.onmessage = (event: MatchmakingEvent) => {
+            if (streamRef.current !== source) return;
             setError("");
             setQueueSize(!event.ps && typeof event.po === "number" ? event.po : null);
             setSecondsRemaining(typeof event.r === "number" ? event.r : null);
@@ -512,7 +514,7 @@ export const MatchmakingRoute: React.FC = () => {
             }
 
             setError(err.message);
-            setState((current) => (current === "accepted" ? current : "error"));
+            setState((current) => matchmakingStateAfterStreamError(current, err.message));
             // A dropped stream right after a found match is usually the accept window expiring. Pull the
             // fresh /me so a no-accept penalty renders as a countdown instead of just "connection aborted".
             void me().catch(() => undefined);
