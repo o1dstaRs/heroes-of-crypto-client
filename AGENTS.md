@@ -31,7 +31,7 @@ heroes-of-crypto-client/
 - **Runtime:** Bun
 - **Game render:** PixiJS v8 (y-up world, sprite atlases, container depth-sorting)
 - **UI:** React + MUI Joy (sidebars, toolbar, overlays)
-- **Site:** Astro 6 (static, sitemap, content collections)
+- **Site:** Astro 7 (static, sitemap, content collections)
 - **Shared logic:** `@heroesofcrypto/common` (git submodule from `github:o1dstaRs/heroes-of-crypto-common#main`)
 
 ## Commands
