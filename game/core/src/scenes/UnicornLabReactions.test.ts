@@ -79,7 +79,7 @@ test("Unicorn combat reactions preserve authored timing, idle return and corpse 
     unit.stepSelectionAnimation(1000);
     expect(state.unicornBlindnessFlash?.startedAt).toBe(1000);
     expect(unit.isPlayingOneShotAnimation("cast")).toBe(true);
-    unit.stepSelectionAnimation(1000 + UNICORN_BLINDNESS_FLASH_MS);
+    unit.stepSelectionAnimation(1000 + UNICORN_BLINDNESS_FLASH_MS + 0.001);
     expect(castCallbacks).toBe(1);
     expect(unit.isPlayingOneShotAnimation("cast")).toBe(false);
     for (const action of ["hit", "melee_attack", "melee_attack_up", "melee_attack_down", "death"]) {
@@ -115,7 +115,7 @@ test("Unicorn combat reactions preserve authored timing, idle return and corpse 
         if (action === "melee_attack") {
             unit.stepSelectionAnimation();
             expect(state.unicornBlindnessFlash?.startedAt).toBeDefined();
-            unit.stepSelectionAnimation(state.unicornBlindnessFlash!.startedAt! + UNICORN_BLINDNESS_FLASH_MS);
+            unit.stepSelectionAnimation(state.unicornBlindnessFlash!.startedAt! + UNICORN_BLINDNESS_FLASH_MS + 0.001);
             expect(state.unicornBlindnessFlash).toBeUndefined();
         }
         if (action !== "death") {

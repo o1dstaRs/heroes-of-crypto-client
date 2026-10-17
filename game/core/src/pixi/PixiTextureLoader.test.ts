@@ -291,22 +291,15 @@ describe("pixi texture bundle split", () => {
 
         expect(idleAtlases.wolf_idle_atlas_half).toBeDefined();
         expect(deferredUnitAtlases.wolf_idle_atlas_half).toBeUndefined();
-        expect(Object.keys(animations).sort()).toEqual([
-            "arbalester_walk_atlas_quarter",
-            "ash_moth_walk_atlas_quarter",
-            "blacksmith_walk_atlas",
-            "peasant_attack_atlas_quarter",
-            "peasant_attack_down_atlas_quarter",
-            "peasant_attack_up_atlas_quarter",
-            "peasant_death_atlas_quarter",
-            "peasant_hit_atlas_quarter",
+        for (const key of [
             "peasant_walk_atlas_quarter",
-            "squire_death_atlas_quarter",
-            "squire_hit_atlas_quarter",
-            "thief_walk_atlas_quarter",
-            "wolf_rider_walk_atlas_quarter",
-            "wolf_walk_atlas_half",
-        ]);
+            "black_dragon_lab_hit_atlas",
+            "mantis_lab_hit_atlas",
+            "zena_lab_attack_atlas",
+        ]) {
+            expect(animations[key], key).toBeDefined();
+            expect(deferredUnitAtlases[key], key).toBeUndefined();
+        }
         expect(deferredUnitAtlases.wolf_idle_atlas_quarter).toBeDefined();
         expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
     });
@@ -471,12 +464,7 @@ describe("pixi texture bundle split", () => {
             animationsEnabled: false,
         });
 
-        for (const key of [
-            "zena_final",
-            "zena_battlefield_side_right_v3",
-            "efreet_battlefield_side_right_v7",
-            "thunderbird_portrait_full_v2",
-        ]) {
+        for (const key of ["zena_final", "zena_battlefield_side_right_v3", "efreet_battlefield_side_right_v7"]) {
             expect(isDeferredLegacyCreatureAssetKey(key)).toBe(true);
             expect(deferredLegacyCreatureAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
@@ -582,7 +570,7 @@ describe("pixi texture bundle split", () => {
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(59);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(63);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

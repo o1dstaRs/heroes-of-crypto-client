@@ -42,9 +42,11 @@ describe("Cemetery barrel danger highlights", () => {
 
         // Area Throw is the exception: its rock flies OVER the barrels on its line (the engine ignores structures
         // there) and breaks every barrel in the 3x3 it lands on, so its preview marks the blast, not the line.
-        const areaThrowHover = sliceFrom(source, "private updateAreaThrowHover()", 5_500);
-        expect(areaThrowHover).toContain("this.highlightScatteredObstaclesInCells(cells)");
-        expect(areaThrowHover).not.toContain("this.highlightScatteredObstaclesAlongTrajectory(");
+        const start = source.indexOf("private updateAreaThrowHover()");
+        const areaThrowHover = source.slice(start, source.indexOf("\n    }", start));
+        expect(areaThrowHover).toContain(
+            "this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos)",
+        );
         const blastHelper = sliceFrom(source, "private highlightScatteredObstaclesInCells(", 800);
         expect(blastHelper).toContain(".filter((cell) => this.isStandingAttackObstacleCell(cell))");
         expect(blastHelper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
@@ -68,7 +70,8 @@ describe("Cemetery barrel danger highlights", () => {
 
     test("clicks the same canonical barrel centre used by the hover preview", () => {
         const source = sceneSource();
-        const resolver = sliceFrom(source, "private resolveObstacleAttack(", 2_500);
+        const start = source.indexOf("private resolveObstacleAttack(");
+        const resolver = source.slice(start, source.indexOf("\n    }", start));
         expect(resolver).toContain("const hoveredCell = GridMath.getCellForPosition(gs, worldPos)");
         expect(resolver).toContain("const targetPosition = GridMath.getPositionForCell(");
         expect(resolver).toContain("return { unit, attackType: AttackVals.RANGE, targetPosition }");

@@ -130,11 +130,11 @@ test.each([false, true])("Harpy reactions in lab=%s restore flight scale, recove
     expect(view.oneShotAnim?.authoredRealTime).toBe(true);
     expect(view.sprite.scale.y).toBeCloseTo(scale, 5);
     expect(view.sprite.anchor.y).toBeCloseTo(794 / 896, 5);
-    unit.stepOneShotAnimation(39);
+    unit.stepOneShotAnimation(39 / 1.17);
     expect(view.oneShotAnim?.frameIndex).toBe(0);
-    unit.stepOneShotAnimation(2);
+    unit.stepOneShotAnimation(2 / 1.17);
     expect(view.oneShotAnim?.frameIndex).toBe(1);
-    unit.stepOneShotAnimation(1000);
+    unit.stepOneShotAnimation(1000 / 1.17);
     expect(hits).toBe(1);
     expect(view.oneShotAnim).toBeUndefined();
     unit.ensureVisual(root, grid);
@@ -164,7 +164,7 @@ test.each([false, true])("Harpy reactions in lab=%s restore flight scale, recove
     unit.ensureVisual(root, grid);
     expect(view.sprite.scale.y).toBeCloseTo(scale, 5);
     expect(view.sprite.anchor.y).toBeCloseTo(1018 / 1344, 5);
-    unit.stepOneShotAnimation(10000);
+    unit.stepOneShotAnimation(10000 / 1.17);
     expect(view.oneShotAnim?.frameIndex).toBe(2);
     const groundY = view.sprite.y;
     unit.setTransportVisual(75);

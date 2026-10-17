@@ -4,6 +4,8 @@
  * here — v1 localizes the pick-phase and in-game interface chrome.
  */
 export const RU_TRANSLATIONS: Record<string, string> = {
+    Normal: "Обычная",
+    Barrels: "Бочки",
     "Temporary: {duration} total, {time} remaining. Automatically ends {date}.":
         "Временно: общий срок — {duration}, осталось {time}. Автоматически закончится {date}.",
     "Temporary: {time} remaining. Automatically ends {date}.":

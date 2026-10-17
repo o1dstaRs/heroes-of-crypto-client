@@ -163,7 +163,7 @@ test("contact flashes only before connecting ricochets, never on the final retur
         ],
         [...bounceArc, ...bounceArc],
     );
-    expect(scene.flightEvents).toEqual(["burst", "flight", "burst"]);
+    expect(scene.flightEvents).toEqual(["burst", "flight", "burst", "flight", "flight"]);
 });
 test("no ricochet means no contact flare", async () => {
     const scene = makeScene();
@@ -200,6 +200,9 @@ test("the initial shot, adjacent bounce and return share one flight with contact
             chakramArcs: [{ ...bounceArc[0], cells: [{ x: 6, y: 5 }] }],
         },
         unitStub("Primary"),
+        undefined,
+        false,
+        undefined,
         {
             from: { x: 25, y: 80 },
             to: { x: 100, y: 0 },

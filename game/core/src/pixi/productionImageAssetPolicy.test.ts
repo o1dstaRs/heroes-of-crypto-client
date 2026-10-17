@@ -29,8 +29,8 @@ describe("production creature animation policy", () => {
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_walk_atlas_quarter")).toBe(false);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("ash_moth_walk_atlas_quarter")).toBe(false);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_idle_atlas_quarter")).toBe(false);
-        expect(isProductionOmittedDisabledUnitAnimationAssetKey("beholder_idle_atlas")).toBe(false);
-        expect(isProductionOmittedAssetKey("beholder_idle_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("beholder_idle_atlas")).toBe(true);
+        expect(isProductionOmittedAssetKey("beholder_idle_atlas")).toBe(true);
     });
 
     test("does not classify terrain and UI atlases as creature animation", () => {

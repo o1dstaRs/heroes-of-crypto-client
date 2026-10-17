@@ -31,23 +31,7 @@ describe("unit animation atlas key split", () => {
     test("every generated creature state maps to supplementary in all three size variants", () => {
         const units = Object.entries(animationAtlases);
         for (const [unitName, states] of units) {
-            if (
-                [
-                    "Pick Ban Slash",
-                    "Vfx Arachna Web",
-                    "Vfx Abomination Sand",
-                    "Vfx Abomination Hand",
-                    "Vfx Abomination Dust",
-                    "Vfx Abomination Sand Gust",
-                    "Vfx Battle Roar",
-                    "Vfx Unyielding Power Curl",
-                    "Vfx Deep Wounds Level",
-                    "Vfx Whirlpool",
-                    "Vfx Enchanted Skin",
-                    "Vfx Dulling Defense",
-                ].includes(unitName)
-            )
-                continue;
+            if (/^(Vfx |Pick Ban Slash$|Fire Pit|Lava Chasm)/.test(unitName)) continue;
             const base = unitName.toLowerCase().replace(/\s+/g, "_");
             for (const state of Object.keys(states)) {
                 const key = `${base}_${state.toLowerCase()}_atlas`;

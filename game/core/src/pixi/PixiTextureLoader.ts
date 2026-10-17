@@ -301,6 +301,9 @@ export async function preloadIdleAtlasAssets(
 ): Promise<Partial<PreloadedPixiTextures>> {
     // PixiGameManager calls this only after LoadGame; never wait for future floors here.
     void preloadNarrowingBackgroundAssets();
+    if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled) {
+        return loadedTextures;
+    }
     const { idleAtlases } = getSplitBundles();
     if (Object.keys(idleAtlases).length === 0) return loadedTextures;
 

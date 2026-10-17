@@ -152,7 +152,7 @@ test.each([false, true])("Behemoth preserves its full approved package in produc
             unit.ensureVisual(root, grid);
             expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleScaleX, 8);
             expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScale, 8);
-            unit.stepOneShotAnimation(duration + 0.00001);
+            unit.stepOneShotAnimation(duration / 1.17 + 0.00001);
         }
         expect(hitCompleted).toBe(1);
         expect(state.oneShotAnim).toBeUndefined();

@@ -129,7 +129,7 @@ test("boar lab actions keep idle registration, interrupt gait, restore idle and 
                 expect(state.oneShotAnim!.frameIndex).toBe(frame);
                 expect(state.sprite.texture.source).toBe(atlases[key].source);
                 transform().forEach((value, index) => expect(value).toBeCloseTo(attackTransform[index], 12));
-                unit.stepOneShotAnimation(meta.frameDurationsMs![frame]);
+                unit.stepOneShotAnimation(meta.frameDurationsMs![frame] / (reaction === "hit" ? 1.17 : 1));
             }
             expect(callbacks).toBe(1);
             if (reaction !== "death") {
@@ -172,10 +172,10 @@ test("boar lab actions keep idle registration, interrupt gait, restore idle and 
         expect(state.recoilStartMs).toBe(0);
         unit.returnToIdleAnimation(true);
         unit.setCreatureAnimationLabPreviewEnabled(false);
-        expect(unit.getAnimationTextureKey("hit")).not.toBe("frenzied_boar_lab_hit_atlas");
-        expect(unit.getAnimationTextureKey("death")).not.toBe("frenzied_boar_lab_death_atlas");
+        expect(unit.getAnimationTextureKey("hit")).toBe("frenzied_boar_lab_hit_atlas");
+        expect(unit.getAnimationTextureKey("death")).toBe("frenzied_boar_lab_death_atlas");
         for (const action of actions.slice(2)) {
-            expect(unit.getAnimationTextureKey(action)).not.toBe(`frenzied_boar_lab_${action}_atlas`);
+            expect(unit.getAnimationTextureKey(action)).toBe(`frenzied_boar_lab_${action}_atlas`);
         }
     } finally {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = previous;

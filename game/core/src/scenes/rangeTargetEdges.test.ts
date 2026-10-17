@@ -317,25 +317,20 @@ describe("ranged target edge selection", () => {
         expect(source).toContain("const target = this.getUnitAtPosition(this.sc_mouseWorld)");
     });
 
-    test("lets a ranged attack click target the visible creature body before falling back to its cells", () => {
+    test("attack clicks keep the engine-validated melee target and otherwise use occupied cells", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const attackClick = source.slice(
-            source.indexOf("// Melee Attack Interaction"),
-            source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
-        );
-        const spriteTarget = attackClick.indexOf("this.getUnitSpriteAtPosition(p)");
-        const occupiedCellFallback = attackClick.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
-
-        expect(spriteTarget).toBeGreaterThanOrEqual(0);
-        expect(occupiedCellFallback).toBeGreaterThan(spriteTarget);
+        const start = source.indexOf("// Unit Attack Interaction (melee and ranged)");
+        expect(start).toBeGreaterThan(0);
+        const click = source.slice(start, source.indexOf("if (targetUnit)", start));
+        expect(click).toContain("pointerMeleeAttack?.target");
+        expect(click).toContain("this.unitsHolder.getAllUnits().get(occupantId)");
+        expect(click).not.toContain("this.getUnitSpriteAtPosition(");
     });
 
     test("does not draw a second Fire Strike rail over the live spell beam", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const fireStrikeAim = source.slice(
-            source.indexOf("private drawInterceptedThrowAim("),
-            source.indexOf("private drawVineThrowAim("),
-        );
+        const start = source.indexOf("private drawInterceptedThrowAim(");
+        const fireStrikeAim = source.slice(start, source.indexOf("\n    }", start));
         expect(fireStrikeAim).toContain("if (refused)");
         expect(fireStrikeAim).not.toContain("victim !== target");
         expect(fireStrikeAim).not.toContain("aimedEnd");

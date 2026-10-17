@@ -22,6 +22,7 @@ test("Whirlpool renders its aimed floor cell without needing damaged entries or 
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         sc_sceneSettings: { getGridSettings: () => gs },
         combatVisuals: { spawnWhirlpool: spawn },
+        unitsHolder: { getAllUnits: () => new Map() },
     });
     const event: GameEvent = {
         type: "spell_cast",

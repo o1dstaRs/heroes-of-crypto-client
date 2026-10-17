@@ -350,7 +350,7 @@ test("Griffin hit interrupts flight on the idle canvas and completes once in aut
     expect(view.sprite.scale.x).toBeCloseTo(scale.x);
     expect(view.sprite.scale.y).toBeCloseTo(scale.y);
     expect(view.oneShotAnim?.authoredRealTime).toBe(true);
-    const times = animationAtlases["Griffin Lab"].hit.frameDurationsMs!;
+    const times = animationAtlases["Griffin Lab"].hit.frameDurationsMs!.map((ms) => ms / 1.17);
     const supportToeXs = [706, 719, 732, 740, 749, 740, 732, 729, 726, 716, 706];
     for (let i = 0; i < times.length; i++) {
         unit.ensureVisual(root, grid);

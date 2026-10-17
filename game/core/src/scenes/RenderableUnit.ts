@@ -2218,6 +2218,8 @@ function getDefaultAnimationConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
+    if (unitName === PEASANT_UNIT_NAME)
+        return getAnimationStateConfig(unitName, "idle", footprintWidth, footprintHeight);
     // Approved idle atlases authored from their matching static figures own the permanent board loop.
     // Other static-redraw creatures keep their single-frame battlefield override.
     const staticBattlefieldIdle = usesApprovedPermanentIdleAtlas(unitName)
@@ -2260,6 +2262,28 @@ function getAnimationStateConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
+    if (unitName === PEASANT_UNIT_NAME && state === "idle") {
+        return {
+            meta: {
+                frameWidth: 768,
+                frameHeight: 768,
+                atlasWidth: 3072,
+                atlasHeight: 2304,
+                frameCount: 12,
+                fps: 6 * 1.15,
+                frameDurationSec: 1 / (6 * 1.15),
+                totalDurationSec: 2 / 1.15,
+                layout: { cols: 4, rows: 3 },
+                footAnchorY: 0.9505208333333334,
+                loopDurationMs: 1800,
+                pauseMs: 700,
+            },
+            imageSrc: images.peasant_idle_red_atlas_quarter,
+            imageKey: "peasant_idle_red_atlas_quarter",
+            cacheKey: "Peasant::idle::shared::joined-fork-v3",
+            cacheAcrossScenes: true,
+        };
+    }
     if (isBeholderRanged(unitName, state)) {
         const action = state as "attack" | "attack_up" | "attack_down";
         const imageKey = `beholder_ranged_${action}_atlas` as ImageKey;
@@ -5605,6 +5629,7 @@ export class RenderableUnit extends Unit {
     private berserkerLabIdleScale(): number {
         return this.creatureAnimationLabPreviewEnabled &&
             this.getName() === "Berserker" &&
+            !!this.selectionAnimFrames?.length &&
             "berserker_sword_idle_atlas" in images
             ? BERSERKER_SWORD_IDLE_SCALE
             : 1;
@@ -6159,7 +6184,7 @@ export class RenderableUnit extends Unit {
                 cacheAcrossScenes: true,
             };
         }
-        if (this.berserkerLabIdleScale() !== 1) {
+        if (this.creatureAnimationLabPreviewEnabled && props.name === "Berserker") {
             config = {
                 meta: animationAtlases["Berserker Sword"].idle,
                 imageKey: "berserker_sword_idle_atlas",
@@ -6322,28 +6347,6 @@ export class RenderableUnit extends Unit {
             // An incomplete native manifest falls back to the detailed static figure while the
             // local assets rebuild; never decode the giant authoring sheet or enlarge quarter art.
             config = getStaticBattlefieldIdleConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
-        }
-        if (config && props.name === PEASANT_UNIT_NAME) {
-            config = {
-                ...config,
-                meta: {
-                    frameWidth: 768,
-                    frameHeight: 768,
-                    atlasWidth: 3072,
-                    atlasHeight: 2304,
-                    frameCount: 12,
-                    fps: 6 * 1.15,
-                    frameDurationSec: 1 / (6 * 1.15),
-                    totalDurationSec: 2 / 1.15,
-                    layout: { cols: 4, rows: 3 },
-                    footAnchorY: 0.9505208333333334,
-                    loopDurationMs: 1800,
-                    pauseMs: 700,
-                },
-                imageSrc: images.peasant_idle_red_atlas_quarter,
-                imageKey: "peasant_idle_red_atlas_quarter",
-                cacheKey: "Peasant::idle::shared::joined-fork-v3",
-            };
         }
         if (!config) return;
         const { meta } = config;
@@ -10674,6 +10677,7 @@ export class RenderableUnit extends Unit {
             !this.frenziedBoarLabReactionConfig(stateName) &&
             !this.angelLabReactionConfig(stateName) &&
             !this.behemothLabReactionConfig(stateName) &&
+            !this.cannonLabReactionConfig(stateName) &&
             !this.mantisLabReactionConfig(stateName) &&
             !this.griffinLabReactionConfig(stateName) &&
             !this.arachnaLabReactionConfig(stateName) &&
@@ -11344,6 +11348,11 @@ export class RenderableUnit extends Unit {
         }
         const previousHeight = this.sprite?.texture.height ?? 0;
         this.stepSelectionAnimation();
+        // A cold approved idle may still be downloading when an action finishes.
+        // Restore the already decoded base instead of stranding its final combat pose.
+        if (!this.selectionAnimFrames?.length && this.sprite && this.baseTexture) {
+            this.sprite.texture = this.baseTexture;
+        }
         if (previousAction && this.sprite && this.magicDragonLabReactionConfig(previousAction.stateName)) {
             const ratio =
                 textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /

@@ -49,7 +49,7 @@ test("a counter requested before damage processing shows all Orc hit frames befo
     unit.playOrcRangedThrow = (state, release, cancel) => {
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(false);
         expect([...frames]).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-        expect(elapsed).toBeGreaterThanOrEqual(450);
+        expect(elapsed).toBeGreaterThanOrEqual(450 / 1.17);
         const started = playThrow(state, release, cancel);
         unit.stepOneShotAnimation(285);
         return started;

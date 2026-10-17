@@ -444,7 +444,7 @@ test("death gets another 10% speed and hit stays 12% faster without compounding 
                     height * VALKYRIE_LAB_WALK_SCALE * VALKYRIE_REACTION_POSE_SCALES[state][frame],
                 );
             }
-            const ms = durations[frame] / speed;
+            const ms = durations[frame] / speed / (state === "hit" ? 1.17 : 1);
             unit.stepSpawnAnimation((ms - 0.1) / 4000);
             expect(internal.oneShotAnim!.frameIndex).toBe(frame);
             expect(complete).toBe(0);
@@ -452,7 +452,7 @@ test("death gets another 10% speed and hit stays 12% faster without compounding 
             elapsedMs += ms;
         }
         expect(complete).toBe(1);
-        expect(elapsedMs).toBeCloseTo(state === "death" ? 1000 / (1.15 * 1.1) : 480 / 1.12);
+        expect(elapsedMs).toBeCloseTo(state === "death" ? 1000 / (1.15 * 1.1) : 480 / 1.12 / 1.17);
         unit.returnToIdleAnimation();
         unit.ensureVisual(root, grid);
         expect(internal.sprite.height).toBeCloseTo(height);

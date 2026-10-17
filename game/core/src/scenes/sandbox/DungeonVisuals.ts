@@ -1093,7 +1093,7 @@ export class DungeonVisuals {
         }
         if (!this.firePitOverlayFrames) {
             const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[requestedAtlasKey];
-            const atlas = this.firePitOverlayAtlas;
+            const atlas = this.firePitOverlayAtlas ?? this.context.texAny(requestedAtlasKey);
             if (!atlas) {
                 // Keep the large atlas out of the blocking core bundle. Load it in the background when a live
                 // lava board asks for it; until then the complete still pit remains visible as a safe fallback.

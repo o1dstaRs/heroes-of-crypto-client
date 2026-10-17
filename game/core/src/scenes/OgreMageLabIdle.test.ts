@@ -93,7 +93,7 @@ test("Ogre Mage lab idle runs at 85% speed using native sprite frames", () => {
     expect(at(11764)).toBe(0);
 
     unit.setCreatureAnimationLabPreviewEnabled(false);
-    expect(state.selectionAnimFrames).toHaveLength(1);
+    expect(state.selectionAnimFrames).toHaveLength(15);
     unit.destroyVisuals();
     world.destroy({ children: true });
 });

@@ -61,7 +61,7 @@ test("left sidebar art keeps the cutout and the faction plate as two files", () 
     expect(champion.background).toBeTruthy();
     expect(champion.background).not.toContain("champion_left_screen_x2");
     expect(leftSidebarPortraitSources(CreatureVals.PEASANT).atlas).toContain("peasant_left_screen_idle_atlas.webp");
-    expect(leftSidebarPortraitSources(CreatureVals.CHAMPION).atlas).toBeUndefined();
+    expect(leftSidebarPortraitSources(CreatureVals.CHAMPION).atlas).toContain("champion_left_screen_idle_atlas.webp");
 });
 
 test("decoded portraits stay ready, and the cache drops the oldest cutout past the cap", async () => {

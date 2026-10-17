@@ -388,7 +388,8 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("doctrine_") ||
         key.endsWith("_augment_256") ||
         /_left_screen_x2(?:_[a-z0-9]+)*$/.test(key) ||
-        key.endsWith("_portrait_full")
+        /_left_screen_idle_atlas$/.test(key) ||
+        /_portrait_full(?:_v\d+)?$/.test(key)
     );
 }
 

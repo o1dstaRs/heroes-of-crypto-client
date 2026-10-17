@@ -250,14 +250,14 @@ test("Mantis hit interrupts flight, preserves pixel scale and returns to idle on
         const key = `mantis_lab_${state}_atlas`;
         expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
         expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
-        expect(isProductionOmittedAssetKey(key)).toBe(true);
+        expect(isProductionOmittedAssetKey(key)).toBe(false);
         expect(isIdleAtlasKey(key)).toBe(false);
     }
     const action = unit as unknown as {
         oneShotAnim?: { frameIndex: number; authoredRealTime: boolean; frameDurationsMs: readonly number[] };
     };
     expect(action.oneShotAnim?.authoredRealTime).toBe(true);
-    expect(action.oneShotAnim?.frameDurationsMs).toEqual([35, 65, 85, 95, 90, 45].map((ms) => ms / 1.17));
+    expect(action.oneShotAnim?.frameDurationsMs).toEqual([35, 65, 85, 95, 90, 45].map((ms) => ms / 1.17 / 1.17));
     expect(view.sprite.filters?.some((f) => f instanceof MantisEyeGlowFilter) ?? false).toBe(false);
     const meta = animationAtlases["Mantis Lab"].hit;
     const padding = (meta.frameHeight - 512) / 2;
@@ -273,7 +273,7 @@ test("Mantis hit interrupts flight, preserves pixel scale and returns to idle on
                 view.sprite.y + view.sprite.scale.y * (141.8 + padding - view.sprite.anchor.y * meta.frameHeight),
             ).toBeCloseTo(eyeY);
         expect(completed).toBe(0);
-        unit.stepOneShotAnimation(meta.frameDurationsMs![frame] / 1.17);
+        unit.stepOneShotAnimation(meta.frameDurationsMs![frame] / 1.17 / 1.17);
     }
     expect(completed).toBe(1);
     expect(unit.isPlayingOneShotAnimation()).toBe(false);
@@ -320,7 +320,7 @@ test("Mantis has three distinct lab attacks with fixed registration and synchron
             expect(unit.getAnimationTextureKey(state)).toBe(key);
             expect(shouldPreloadUnitAnimationAtlas(key, false)).toBe(true);
             expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
-            expect(isProductionOmittedAssetKey(key)).toBe(true);
+            expect(isProductionOmittedAssetKey(key)).toBe(false);
             expect(isIdleAtlasKey(key)).toBe(false);
             const meta = animationAtlases["Mantis Lab"][atlasState];
             const padding = (meta.frameHeight - 512) / 2;

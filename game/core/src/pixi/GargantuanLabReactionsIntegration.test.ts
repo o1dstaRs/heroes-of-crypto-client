@@ -132,10 +132,10 @@ for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
                     unit.ensureVisual(world, grid);
                     checkSupport();
                     expect(internals.oneShotAnim!.frameDurationsMs[frame]).toBeCloseTo(
-                        meta.frameDurationsMs![frame] / 1.495,
+                        meta.frameDurationsMs![frame] / 1.495 / (reaction === "hit" ? 1.17 : 1),
                         8,
                     );
-                    unit.stepOneShotAnimation(meta.frameDurationsMs![frame] / 1.495);
+                    unit.stepOneShotAnimation(meta.frameDurationsMs![frame] / 1.495 / (reaction === "hit" ? 1.17 : 1));
                 }
                 expect(callbacks).toBe(1);
                 if (reaction === "death") {

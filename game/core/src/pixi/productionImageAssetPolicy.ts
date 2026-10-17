@@ -1,3 +1,4 @@
+import { isRetiredCreatureThumbnail } from "./retiredCreatureThumbnails";
 import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
 import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
 import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
@@ -201,7 +202,7 @@ export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
 
 export function isProductionOmittedUnreferencedAssetKey(key: string): boolean {
     if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
-    return UNUSED_PRODUCTION_ASSETS.has(key);
+    return isRetiredCreatureThumbnail(key) || UNUSED_PRODUCTION_ASSETS.has(key);
 }
 
 /** Retired UI exports with no runtime consumer; their current replacements use distinct keys. */

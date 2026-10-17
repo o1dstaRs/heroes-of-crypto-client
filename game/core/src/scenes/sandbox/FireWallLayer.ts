@@ -229,7 +229,7 @@ export class FireWallLayer {
         });
     }
     public update(dt: number, cells: readonly IFireWallCell[], cellSize: number, toWorld: ToWorld): void {
-        if (!cells.length && !this.visuals.size) return;
+        if (this.container.destroyed || (!cells.length && !this.visuals.size)) return;
         dt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
         this.time += dt;
         for (const visual of this.visuals.values()) visual.alive = false;

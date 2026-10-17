@@ -62,7 +62,7 @@ export const gameSystemControlsSx = {
     bottom: GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     display: "grid",
     gridTemplateColumns: `${GAME_SYSTEM_CONTROL_SIZE_PX}px minmax(0, 1fr) ${GAME_SYSTEM_CONTROL_SIZE_PX}px`,
-    alignItems: "center",
+    alignItems: "end",
     pointerEvents: "none",
 } as const;
 

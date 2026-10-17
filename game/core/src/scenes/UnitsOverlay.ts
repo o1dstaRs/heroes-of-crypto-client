@@ -1,7 +1,6 @@
 // game/core/src/overlays/UnitsOverlay.ts
 import {
     Application,
-    Assets,
     Container,
     Rectangle,
     Text,
@@ -567,6 +566,7 @@ export class UnitsOverlay {
             this.hoveredChip?.setHovered(false);
             hoveredChip?.setHovered(true);
             this.hoveredChip = hoveredChip;
+            if (hoveredChip) this.warmCreatureForSelection(hoveredChip);
             this.hoveredUnitProperties = hoveredChip ? this.getUnitProperties(hoveredChip.nameKey) : undefined;
         }
         if (!this.scrollbarDragging || this.maxScrollX <= 0) return false;
@@ -797,25 +797,6 @@ export class UnitsOverlay {
                                   }
                                 : undefined,
                     });
-                    if (portraitVisual && !portraitTexture) {
-                        void Assets.load<Texture>(portraitVisual.source)
-                            .then((texture) => chip.setPortraitTexture(texture))
-                            .catch((error: unknown) => {
-                                if (process.env.NODE_ENV === "development") {
-                                    console.warn(
-                                        `[portrait] Failed to load deferred roster portrait for ${unitName}`,
-                                        error,
-                                    );
-                                }
-                            });
-                    }
-                    if (unitName === "Arachna Spider" && (!fallbackTexture || fallbackTexture === Texture.EMPTY)) {
-                        void Assets.load<Texture>(images.arachna_spider_battlefield_side_right_final_v1)
-                            .then((texture) => {
-                                if (!chip.destroyed) chip.setPortraitTexture(texture);
-                            })
-                            .catch(() => undefined);
-                    }
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);

@@ -76,6 +76,7 @@ const sceneFor = (units: readonly UnitStub[]) => {
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => byId },
         rangedProjectiles: {
+            showChakramBounce: () => Promise.resolve(),
             fireAlongPath: (points: XY[]): Promise<void> => {
                 paths.push(points.map((point) => ({ ...point })));
                 return Promise.resolve();
@@ -886,9 +887,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.shots).toEqual(["Shooter", "Zena"]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
-        expect(harness.missPops).toEqual([
-            { x: shooter.getVisualCenter().x, y: shooter.getVisualCenter().y - gs.getCellSize() * 1.25 },
-        ]);
+        expect(harness.missPops).toEqual([{ x: shooter.getVisualCenter().x, y: shooter.getVisualCenter().y }]);
     });
 
     test("the real replay response gate still retains a positive counter from an older payload without splash", () => {

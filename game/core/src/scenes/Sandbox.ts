@@ -4153,7 +4153,6 @@ export class Sandbox extends PixiScene {
         // Fire damage burns AT IMPACT too (Fire Shield reflect / dragon-breath burn / Fireforged Sword).
         this.spawnFireDamageVfx(attacker, target, attackEvent.damage);
         this.showReplayAttackDamage(attacker, target, attackEvent, record, presentedUnitIds);
-        this.popDullingDefenseApplications(record.events, attacker.getId());
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
@@ -4167,7 +4166,6 @@ export class Sandbox extends PixiScene {
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
         this.destroyReplayAttackUnitsAtImpact([...destroyedUnitIds].filter((id) => !shownDeaths.has(id)));
-        this.popDullingDefenseApplications(record.events, target.getId());
         this.spawnAbilityStealVfx(record.events, target.getId());
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
         // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
@@ -8989,6 +8987,7 @@ export class Sandbox extends PixiScene {
                     cells: HoCMath.XY[];
                     isSmall: boolean;
                     flagAnchor?: HoCMath.XY;
+                    team?: TeamType;
                 }
             >();
             // Ranked cleanup can remove lethal victims while an earlier hop is flying. Capture every
@@ -9018,6 +9017,7 @@ export class Sandbox extends PixiScene {
                     cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                     isSmall: unit?.isSmallSize() ?? true,
                     flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
+                    team: unit?.getTeam?.(),
                 });
             }
             const popChakramMiss = (center: HoCMath.XY, dir: HoCMath.XY, isSmall: boolean): void => {
@@ -9049,6 +9049,7 @@ export class Sandbox extends PixiScene {
             let previousVictim = primaryId ? capturedByUnit.get(primaryId) : undefined;
             let discEnd = previousVictim?.impact;
             let lastDir: HoCMath.XY = { x: 0, y: 1 };
+            let flashBeforeNextVictim = !damage?.missed && !primaryDamage?.missed && primaryWasHit;
             for (const arc of arcs) {
                 const points = arc.cells
                     .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
@@ -9077,6 +9078,13 @@ export class Sandbox extends PixiScene {
                 if (discEnd) points.unshift(discEnd);
                 if (!points.length) continue;
                 const arrival = points[points.length - 1];
+                if (flashBeforeNextVictim && hitIds.length && discEnd) {
+                    void this.rangedProjectiles.showChakramBounce(discEnd);
+                }
+                flashBeforeNextVictim = hitIds.some((id) => {
+                    const hit = splashByUnit.get(id);
+                    return hit ? !hit.missed && hit.amount > 0 : !authoritativeFlight;
+                });
                 if (points.length >= 2) {
                     await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
                     lastDir = this.chakramWorldDir(points[points.length - 2], arrival);
@@ -9102,6 +9110,7 @@ export class Sandbox extends PixiScene {
                         continue;
                     }
                     if (dmg && dmg.amount > 0) {
+                        this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount);
                         this.combatVisuals?.showFloatingDamage(
                             center,
                             dmg.amount,
@@ -9657,10 +9666,8 @@ export class Sandbox extends PixiScene {
         }
         for (let index = 0; index < count; index++) {
             const pop = (): void => {
-                if (!unit.isDead()) {
-                    unit.flashDebuffDarken();
-                    this.combatVisuals?.spawnCommonFlagPop(unit, "dulling_defense");
-                }
+                unit.flashDebuffDarken();
+                this.combatVisuals?.spawnCommonFlagPop(unit, "dulling_defense");
             };
             if (index === 0) {
                 pop();
@@ -12506,10 +12513,10 @@ export class Sandbox extends PixiScene {
                 : FireWallHelper.FireWallOrientation.HORIZONTAL;
             const cells = FireWallHelper.fireWallCells(cell, orientation);
             if (!cells.every((target) => GridMath.isCellWithinGrid(gs, target)))
-                return { ok: false, message: "Выберите клетку подальше от края: стене нужны три клетки" };
+                return { ok: false, message: "Выберите клетку подальше от края: стене нужны четыре клетки" };
             this.creatureAnimationLabFireCells = cells.map((target) => ({ ...target, l: 3 }));
             this.creatureAnimationLabFireUntil = performance.now() + 6000;
-            return { ok: true, message: "Fire Wall · три клетки · 6 с · повторите клик для нового теста" };
+            return { ok: true, message: "Fire Wall · четыре клетки · 6 с · повторите клик для нового теста" };
         }
 
         const cells =

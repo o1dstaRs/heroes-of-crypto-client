@@ -143,6 +143,7 @@ describe("Arbalester lab projectile timing", () => {
                 getPosition: () => ({ x: 0, y }),
                 getVisualCenter: () => ({ x: 0, y }),
                 getProjectileImpactPoint: () => ({ x: 0, y: y + 80 }),
+                getProjectileGroundPoint: () => ({ x: 0, y }),
                 getCells: () => [{ x: placed ? 1 : 0, y }],
                 hasAnimationState: () => true,
                 isPlayingOneShotAnimation: () => false,
@@ -276,6 +277,7 @@ describe("Cannon final contact", () => {
         let fired: IFireProjectileOptions | undefined;
         const unit = {
             getName: () => "Tsar Cannon",
+            getCannonballDiameter: () => 100,
             getPosition: () => from,
             hasAnimationState: () => false,
         } as unknown as RenderableUnit;

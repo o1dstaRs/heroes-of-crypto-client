@@ -111,7 +111,7 @@ test.each([false, true])("Beholder reaction lifecycle and flight interruption, l
     const hit = view.oneShotAnim!;
     expect(hit.frames.length).toBe(6);
     expect(hit.authoredRealTime).toBe(true);
-    expect(hit.frameDurationsMs).toEqual([50, 65, 90, 70, 85, 100].map((ms) => ms / 1.1));
+    expect(hit.frameDurationsMs).toEqual([50, 65, 90, 70, 85, 100].map((ms) => ms / 1.1 / 1.17));
     for (let i = 0; i < 6; i++) {
         expect(hit.frameIndex).toBe(i);
         expect(view.sprite.texture).toBe(hit.frames[i]);

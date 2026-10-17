@@ -1105,8 +1105,8 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
  * An approved package is excluded separately, even at those levels — see
  * {@link creatureGenericCombatMotionEnabledForUnit}.
  */
-export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
-    return unitLevel !== 1 && unitLevel !== 2;
+export function creatureGenericWholeSpriteMotionEnabledForLevel(_unitLevel: number): boolean {
+    return false;
 }
 
 /** Approved packages already contain the motion. Layering the generic overlay on top fights the art. */

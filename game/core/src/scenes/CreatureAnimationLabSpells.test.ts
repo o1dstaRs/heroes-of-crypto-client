@@ -83,12 +83,13 @@ test("render mode reaches combat visuals only inside the animation lab", () => {
     expect(scene.combatVisuals.setFireSpellRenderMode).toHaveBeenLastCalledWith("sprites");
 });
 
-test("fire wall lab previews three cells, rotates with Shift and clears on leaving magic", () => {
+test("fire wall lab previews four cells, rotates with Shift and clears on leaving magic", () => {
     const { scene, render } = fixture();
     scene.setCreatureAnimationLabSpell("Fire Wall");
     const before = performance.now();
     expect(scene.castCreatureAnimationLabSpell().ok).toBe(true);
     expect(scene.creatureAnimationLabFireCells).toEqual([
+        { x: 6, y: 8, l: 3 },
         { x: 7, y: 8, l: 3 },
         { x: 8, y: 8, l: 3 },
         { x: 9, y: 8, l: 3 },
@@ -99,6 +100,7 @@ test("fire wall lab previews three cells, rotates with Shift and clears on leavi
     scene.getLogicalBattlefieldPoint = (point: { x: number; y: number }) => point;
     scene.ShiftMouseDown({ x: 32, y: 544 });
     expect(scene.creatureAnimationLabFireCells).toEqual([
+        { x: 8, y: 6, l: 3 },
         { x: 8, y: 7, l: 3 },
         { x: 8, y: 8, l: 3 },
         { x: 8, y: 9, l: 3 },

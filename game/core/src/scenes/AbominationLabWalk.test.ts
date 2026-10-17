@@ -204,7 +204,9 @@ test("Abomination lab walk uses eight full-resolution poses at the board's 1.3-c
         expect(state.walkAnim).toBeUndefined();
         expect(state.oneShotAnim?.frames).toHaveLength(attack ? 13 : action === "hit" ? 6 : 15);
         expect(state.oneShotAnim?.frames[0].width).toBe(attack ? 1024 : 768);
-        expect(state.oneShotAnim?.frameDurationsMs).toEqual(meta.frameDurationsMs);
+        expect(state.oneShotAnim?.frameDurationsMs).toEqual(
+            meta.frameDurationsMs!.map((ms) => ms / (action === "hit" ? 1.17 : 1)),
+        );
         expect(state.oneShotAnim?.authoredRealTime).toBe(true);
         expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
         expect(state.sprite.position.equals(idlePosition)).toBe(true);

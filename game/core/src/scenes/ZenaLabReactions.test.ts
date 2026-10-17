@@ -98,7 +98,13 @@ test("Zena lab reactions preserve authored timing, idle return and corpse hold",
         expect(anim.frames.every((f) => f.width === 768 && f.height === 768)).toBe(true);
         expect(anim.authoredRealTime).toBe(true);
         expect(anim.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(
-            action === "hit" ? 576 / 1.26 : action === "death" ? 1016 / 1.2 : action.startsWith("attack") ? 760 : 620,
+            action === "hit"
+                ? 576 / 1.26 / 1.17
+                : action === "death"
+                  ? 1016 / 1.2
+                  : action.startsWith("attack")
+                    ? 760
+                    : 620,
             6,
         );
         expect(state.selectionAnimFootAnchorY).toBeCloseTo(730 / 768, 8);
@@ -149,7 +155,7 @@ test("Zena lab reactions preserve authored timing, idle return and corpse hold",
         }
     }
     unit.setCreatureAnimationLabPreviewEnabled(false);
-    expect(unit.getAnimationTextureKey("hit")).not.toBe("zena_lab_hit_atlas");
+    expect(unit.getAnimationTextureKey("hit")).toBe("zena_lab_hit_atlas");
     unit.destroyVisuals();
     world.destroy({ children: true });
 });

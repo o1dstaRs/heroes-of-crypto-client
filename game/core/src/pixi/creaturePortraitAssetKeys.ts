@@ -1,5 +1,7 @@
 /** Live portrait selector inputs: card sources, full-body crops, left-screen art and backgrounds. */
 export const CREATURE_PORTRAIT_ASSET_KEYS: ReadonlySet<string> = new Set([
+    "mantis_portrait_full_v2",
+    "efreet_portrait_full_v5",
     "abomination_512",
     "abomination_left_screen_x2",
     "abomination_portrait_full",

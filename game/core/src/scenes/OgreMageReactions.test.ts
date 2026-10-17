@@ -109,7 +109,9 @@ test("Ogre Mage reactions, melee strikes and cast use full-resolution authored p
         expect(unit.getAnimationTextureKey(reaction)).toBe(`ogre_mage_${reaction}_atlas`);
         expect(unit.playOneShotAnimation(reaction)).toBe(true);
         expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-        expect(state.oneShotAnim?.frameDurationsMs).toEqual(atlas[reaction].frameDurationsMs);
+        expect(state.oneShotAnim?.frameDurationsMs).toEqual(
+            atlas[reaction].frameDurationsMs!.map((ms) => ms / (reaction === "hit" ? 1.17 : 1)),
+        );
         expect(state.oneShotAnim?.frames).toHaveLength(8);
         expect(state.sprite.texture.width).toBe(768);
         unit.stepOneShotAnimation(atlas[reaction].frameDurationsMs![0] + 1);

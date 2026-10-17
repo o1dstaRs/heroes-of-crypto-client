@@ -94,12 +94,6 @@ import {
     SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER,
     SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
     textureSwapHeightScaleRatio,
-    SCAVENGER_ACTIVE_BATTLE_CRY_BREATH_CYCLES,
-    SCAVENGER_ACTIVE_BATTLE_CRY_DURATION_MS,
-    SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS,
-    SCAVENGER_ACTIVE_BATTLE_CRY_POINT_HOLD_MS,
-    SCAVENGER_FLOURISH_FRAME_DURATION_MS,
-    SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL,
     SCAVENGER_BOARD_MODEL_HEIGHT_CELLS,
     SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
     SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO,
@@ -126,9 +120,6 @@ import {
     revealedOpponentFootprintPoints,
     refreshedBoardVisualProfileForUnit,
     refreshedIdlePhaseRatio,
-    scavengerActiveBattleCryBreathElapsed,
-    scavengerActiveBattleCryFrameForElapsed,
-    scavengerIdleBladeTwirlFrameForElapsed,
     TALL_BOARD_MODEL_FOOT_INSET_RATIO,
     WOLF_BOARD_MODEL_HEIGHT_CELLS,
     wolfWalkFrameScaleMultiplier,
@@ -860,20 +851,20 @@ test("adds the requested non-Wandering-Mage attack, hit, and death speed boosts"
     expect(oneShotAnimationDurationMultiplier("Peasant", "attack_down")).toBeCloseTo(
         recoveredPeasantAttackDuration / (1.2 * 1.15 * 1.1),
     );
-    expect(oneShotAnimationDurationMultiplier("Orc", "attack")).toBeCloseTo(1 / (1.4 * 1.22));
-    expect(oneShotAnimationDurationMultiplier("Orc", "attack_up")).toBeCloseTo(1 / (1.4 * 1.22));
-    expect(oneShotAnimationDurationMultiplier("Orc", "melee_attack_down")).toBeCloseTo(1 / (1.4 * 1.22));
-    expect(oneShotAnimationDurationMultiplier("Orc", "death")).toBeCloseTo(1 / (2 * 1.2));
+    expect(oneShotAnimationDurationMultiplier("Orc", "attack")).toBe(1);
+    expect(oneShotAnimationDurationMultiplier("Orc", "attack_up")).toBe(1);
+    expect(oneShotAnimationDurationMultiplier("Orc", "melee_attack_down")).toBe(1);
+    expect(oneShotAnimationDurationMultiplier("Orc", "death")).toBe(1);
     expect(oneShotAnimationDurationMultiplier("Peasant", "death")).toBeCloseTo(
         1 / (2 * 1.2 * 1.35 * 1.1 * 1.16 * 1.15),
     );
-    expect(oneShotAnimationDurationMultiplier("Orc", "hit")).toBeCloseTo(1 / 1.22);
+    expect(oneShotAnimationDurationMultiplier("Orc", "hit")).toBe(1);
     expect(oneShotAnimationDurationMultiplier("Scavenger", "death")).toBeCloseTo(1 / (2 * 1.2 * 1.12));
 
     // Wandering Mage keeps its existing 2x action cadence, with death accelerated by another 15%.
     expect(oneShotAnimationDurationMultiplier("Wandering Mage", "cast")).toBe(1);
     expect(oneShotAnimationDurationMultiplier("Wandering Mage", "attack")).toBe(0.5);
-    expect(oneShotAnimationDurationMultiplier("Wandering Mage", "death")).toBeCloseTo(0.5 / 1.15);
+    expect(oneShotAnimationDurationMultiplier("Wandering Mage", "death")).toBe(1);
 });
 
 test("keeps Wandering Mage cast and attack poses at its idle visual height", () => {
@@ -1469,7 +1460,9 @@ assetTest("plays Wolf Rider hit and death with authored timing and a stable canv
             expect(unit.playOneShotAnimation(action, () => completed++, preview)).toBe(true);
             expect(keys).toContain(`wolf_rider_${action}_atlas_quarter`);
             const durations =
-                action === "hit" ? [12.5, 17.5, 22.5, 27.5, 20, 17.5, 15, 17.5] : [17.5, 25, 30, 37.5, 30, 25, 35, 65];
+                action === "hit"
+                    ? [12.5, 17.5, 22.5, 27.5, 20, 17.5, 15, 17.5].map((ms) => ms / 1.17)
+                    : [17.5, 25, 30, 37.5, 30, 25, 35, 65];
             expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
             expect(state.sprite.height).toBeCloseTo(height);
             expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
@@ -1524,7 +1517,9 @@ assetTest("plays Troglodyte hit and death at authored timing and resumes the clo
                 // Both reactions run another 15% faster while retaining their earlier speed adjustments.
                 const durations = (
                     action === "hit" ? [15, 20, 25, 40, 30, 35, 25] : [20, 30, 40, 45, 45, 40, 50, 100]
-                ).map((duration) => duration / 1.3 / (action === "hit" ? 1.4 : 1) / 1.15);
+                ).map(
+                    (duration) => duration / 1.3 / (action === "hit" ? 1.4 : 1) / 1.15 / (action === "hit" ? 1.17 : 1),
+                );
                 expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
                 expect(state.oneShotAnim?.frames).toHaveLength(durations.length);
                 for (let frame = 0; frame < durations.length; frame++) {
@@ -1817,7 +1812,7 @@ assetTest("matches Wolf reaction anatomy to idle while keeping the feet and shad
     expect(creatureOneShotAnimationEnabledForUnit("Wolf", "cast")).toBe(false);
     for (const action of ["hit", "death"] as const) {
         const meta = animationAtlases.Wolf[action];
-        const durations = meta.frameDurationsMs!.map((duration) => duration / (action === "death" ? 1.12 : 1));
+        const durations = meta.frameDurationsMs!.map((duration) => duration / (action === "death" ? 1.12 : 1.17));
         expect(durations).toHaveLength(meta.frameCount);
         expect(meta.frameWidth / 2).toBe(768);
         expect(meta.frameHeight / 2).toBe(768);
@@ -1927,8 +1922,8 @@ assetTest("uses the Wolf reaction's real duration through the legacy simulation 
             (sum, duration) => sum + duration,
             0,
         );
-        const totalMs = sourceDuration / (action === "death" ? 1.12 : 1);
-        expect(totalMs).toBeCloseTo(action === "death" ? 848.2142857142857 : 420, 8);
+        const totalMs = sourceDuration / (action === "death" ? 1.12 : 1.17);
+        expect(totalMs).toBeCloseTo(action === "death" ? 848.2142857142857 : 420 / 1.17, 8);
         let completed = 0;
         unit.playOneShotAnimation(action, () => completed++);
         const realFrameMs = 1000 / 60;
@@ -1944,7 +1939,7 @@ assetTest("uses the Wolf reaction's real duration through the legacy simulation 
 
 assetTest("restores Wolf reaction registration on interruption and on a jump to the held corpse", () => {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    const hitDurations = animationAtlases.Wolf.hit.frameDurationsMs!;
+    const hitDurations = animationAtlases.Wolf.hit.frameDurationsMs!.map((ms) => ms / 1.17);
     const deathDurations = animationAtlases.Wolf.death.frameDurationsMs!.map((duration) => duration / 1.12);
     for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
         const unit = createRenderableUnit(team, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
@@ -2336,7 +2331,7 @@ assetTest("plays Mermaid hit and death on the real clock, restores idle and hold
     for (const action of ["hit", "death"] as const) {
         const durations =
             action === "hit"
-                ? [22, 26, 49, 70, 70, 59, 53, 49, 43, 43, 38, 37, 32, 27]
+                ? [22, 26, 49, 70, 70, 59, 53, 49, 43, 43, 38, 37, 32, 27].map((ms) => ms / 1.17)
                 : [65, 85, 85, 90, 95, 100, 150, 300];
         const total = durations.reduce((sum, value) => sum + value, 0);
         expect(creatureOneShotAnimationEnabledForUnit("Mermaid", action)).toBe(true);
@@ -2418,7 +2413,7 @@ assetTest("plays Blacksmith hit and death on the real clock with stable scale an
         expect(creatureOneShotAnimationEnabledForUnit("Blacksmith", action)).toBe(true);
         const durations =
             action === "hit"
-                ? [35, 45, 55, 75, 75, 85, 110]
+                ? [35, 45, 55, 75, 75, 85, 110].map((ms) => ms / 1.17)
                 : [60, 80, 95, 110, 100, 100, 130, 225].map((duration) => duration / 1.1);
         const total = durations.reduce((sum, ms) => sum + ms, 0);
         const atlasWidth = action === "hit" ? 3072 : 3584;
@@ -2736,7 +2731,7 @@ assetTest("Berserker damage returns to idle and death holds its last pose with s
             expect(unit.playOneShotAnimation("hit", () => calls++, true)).toBe(true);
             expect(state.oneShotAnim?.frames).toHaveLength(7);
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-            expect(state.oneShotAnim?.frameDurationsMs).toEqual([30, 45, 55, 75, 75, 90, 110]);
+            expect(state.oneShotAnim?.frameDurationsMs).toEqual([30, 45, 55, 75, 75, 90, 110].map((ms) => ms / 1.17));
             const durations = state.oneShotAnim!.frameDurationsMs;
             check();
             for (const duration of durations) {
@@ -2913,8 +2908,8 @@ assetTest("plays full-resolution drawn Hyena hit, death and three melee attacks 
     expect(state.oneShotAnim?.frames).toHaveLength(8);
     expect(state.oneShotAnim?.frames.every((frame) => frame.width === 768 && frame.height === 768)).toBe(true);
     expect(state.oneShotAnim?.frames.some((frame) => frame !== figure)).toBe(true);
-    expect(state.oneShotAnim?.frameDurationsMs).toEqual([35, 45, 55, 70, 55, 65, 80, 75]);
-    expect(state.oneShotAnim?.durationPerFrame).toBeCloseTo(60, 8);
+    expect(state.oneShotAnim?.frameDurationsMs).toEqual([35, 45, 55, 70, 55, 65, 80, 75].map((ms) => ms / 1.17));
+    expect(state.oneShotAnim?.durationPerFrame).toBeCloseTo(60 / 1.17, 8);
     expect(state.sprite.texture).toBe(state.oneShotAnim!.frames[0]);
     expect(state.sprite.filters ?? []).not.toContain(idleFilter);
     unit.stepOneShotAnimation(480);
@@ -3222,7 +3217,7 @@ assetTest("White Tiger reactions keep idle scale, recover after a hit and hold t
             expect(animation.authoredRealTime).toBe(true);
             expect(animation.frames).toHaveLength(state === "hit" ? 6 : 7);
             expect(animation.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
-                state === "hit" ? 410 / 0.75 : 810 / 1.15,
+                state === "hit" ? 410 / 0.75 / 1.17 : 810 / 1.15,
                 8,
             );
             for (let i = 0; i < animation.frames.length; i++) {
@@ -3491,7 +3486,7 @@ assetTest("releases the Cyclops stone on the first empty-hand frame in all range
         expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScaleY, 8);
         unit.stepOneShotAnimation(frameMs * 4 - 1);
         expect(releases).toBe(0);
-        unit.stepOneShotAnimation(2);
+        unit.stepOneShotAnimation(2 / 1.17);
         expect(state.oneShotAnim?.frameIndex).toBe(4);
         expect(releases).toBe(1);
         unit.stepOneShotAnimation(500);
@@ -3685,7 +3680,7 @@ assetTest("plays Elf lab hit and death at authored timing, restores idle and hol
     expect(state.oneShotAnim?.authoredRealTime).toBe(true);
     expect(state.oneShotAnim?.frames).toHaveLength(28);
     expect(state.oneShotAnim?.frames[0].height).toBe(768);
-    expect(state.oneShotAnim!.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(560 / 1.35, 8);
+    expect(state.oneShotAnim!.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(560 / 1.35 / 1.17, 8);
     for (const duration of state.oneShotAnim!.frameDurationsMs) {
         unit.ensureVisual(world, gridSettings);
         expect(height()).toBeCloseTo(idleHeight, 8);
@@ -4346,7 +4341,9 @@ assetTest("Medusa lab actions keep padded anatomy registered and complete back i
             "attack_down",
         ]) {
             const authored = action;
-            const durations = animationAtlases["Medusa Lab"][authored].frameDurationsMs!;
+            const durations = animationAtlases["Medusa Lab"][authored].frameDurationsMs!.map(
+                (ms) => ms / (action === "hit" ? 1.17 : 1),
+            );
             let complete = 0;
             expect(unit.hasAnimationState(action)).toBe(true);
             expect(unit.getAnimationTextureKey(action)).toBe(`medusa_lab_${authored}_atlas`);
@@ -5166,13 +5163,13 @@ describe("Wandering Mage board animation states", () => {
         let completions = 0;
         expect(unit.playOneShotAnimation("hit", () => completions++)).toBe(true);
         expect(internals.oneShotAnim?.frames).toHaveLength(24);
-        expect(internals.oneShotAnim?.frameDurationsMs).toEqual(Array(24).fill(25));
+        expect(internals.oneShotAnim?.frameDurationsMs).toEqual(Array(24).fill(25 / 1.17));
         for (let index = 0; index < 24; index++) {
             expect(internals.oneShotAnim?.frameIndex).toBe(index);
             unit.ensureVisual(new Container(), gridSettings);
             expect(sprite.scale.x).toBe(scale.x);
             expect(sprite.scale.y).toBe(scale.y);
-            unit.stepOneShotAnimation(25);
+            unit.stepOneShotAnimation(25 / 1.17);
         }
         expect(completions).toBe(1);
         expect(internals.oneShotAnim).toBeUndefined();
@@ -5243,7 +5240,7 @@ describe("Wandering Mage board animation states", () => {
     assetTest("matches Mage reaction previews to the game's 60Hz loop with its legacy 1/240 step", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         for (const [state, steps] of [
-            ["hit", 36],
+            ["hit", Math.ceil(36 / 1.17)],
             ["death", 72],
         ] as const) {
             const unit = createWanderingMage();
@@ -5350,7 +5347,7 @@ describe("Orc authored animation states", () => {
                 const scale = { x: state.sprite.scale.x, y: state.sprite.scale.y };
                 const durations =
                     action === "hit"
-                        ? [40, 45, 75, 55, 55, 65, 70, 45]
+                        ? [40, 45, 75, 55, 55, 65, 70, 45].map((ms) => ms / 1.17)
                         : [60, 90, 120, 140, 130, 100, 120, 240].map((duration) => duration / 1.15);
                 let calls = 0;
                 expect(creatureOneShotAnimationEnabledForUnit("Orc", action)).toBe(true);
@@ -5890,10 +5887,11 @@ describe("Troll full-body battlefield figure", () => {
         expect(internals.facingDirection).toBe(-1);
         expect(internals.sprite?.scale.x).toBeLessThan(0);
         expect(Math.abs(internals.sprite?.scale.x ?? 0) / Math.abs(internals.sprite?.scale.y ?? 1)).toBeCloseTo(
-            BATTLEFIELD_CREATURE_FRAMING.Troll.scaleX / BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY,
+            ((BATTLEFIELD_CREATURE_FRAMING.Troll.scaleX / BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY) * (514 / 432)) /
+                (698 / 688),
         );
         expect(Math.abs(internals.sprite?.scale.y ?? 0) * 768).toBeCloseTo(
-            cellSize * 1.5 * BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY,
+            cellSize * 1.5 * BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY * (698 / 688),
         );
 
         unit.setBoardWalkDistanceCells(0);
@@ -5936,10 +5934,11 @@ describe("refreshed full-body placement scale", () => {
             const initialScaleY = internals.sprite?.scale.y ?? 0;
 
             expect(Math.abs(initialScaleX) / Math.abs(initialScaleY)).toBeCloseTo(
-                BATTLEFIELD_CREATURE_FRAMING[creature].scaleX / BATTLEFIELD_CREATURE_FRAMING[creature].scaleY,
+                (BATTLEFIELD_CREATURE_FRAMING[creature].scaleX / BATTLEFIELD_CREATURE_FRAMING[creature].scaleY) *
+                    (creature === "Efreet" ? 529 / 386 / (703 / 416) : 1),
             );
             unit.startSpawnAnimation(0.125);
-            if (creature === "Troglodyte") {
+            if (["Troglodyte", "Black Dragon", "Efreet"].includes(creature)) {
                 expect(internals.spawnAnim).toBeUndefined();
                 expect(internals.sprite?.scale.x).toBe(initialScaleX);
                 expect(internals.sprite?.scale.y).toBe(initialScaleY);
@@ -6029,6 +6028,7 @@ describe("refreshed authored action playback", () => {
 describe("refreshed idle cadence and quadruped scale", () => {
     type IdleInternals = {
         sprite?: { scale: { x: number; y: number }; texture: Texture };
+        selectionAnimationStartedAtMs: number;
         selectionAnimFrameDurationMs: number;
         selectionAnimFrameDurationsMs?: readonly number[];
         selectionAnimFrames?: Texture[];
@@ -6210,7 +6210,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "attack")).toBe(true);
     });
 
-    assetTest("keeps Orc combat frozen while allowing its breathing idle and corrected walk", () => {
+    assetTest("keeps the approved Orc attack active alongside breathing idle and corrected walk", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
@@ -6229,7 +6229,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect((unit as unknown as { walkAnim?: unknown }).walkAnim).toBeDefined();
         unit.stopBoardWalkAnimation();
         let actionCompleted = false;
-        expect(unit.playOneShotAnimation("attack", () => (actionCompleted = true))).toBe(false);
+        expect(unit.playOneShotAnimation("attack", () => (actionCompleted = true))).toBe(true);
+        expect(actionCompleted).toBe(false);
+        unit.stepOneShotAnimation(5000);
         expect(actionCompleted).toBe(true);
         expect(internals.selectionAnimFrames).toContain(internals.sprite?.texture);
 
@@ -6383,7 +6385,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
             expect(creatureOneShotAnimationEnabledForUnit("Arbalester", action)).toBe(false);
             expect(unit.playOneShotAnimation(action, undefined, true)).toBe(true);
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-            expect(state.oneShotAnim?.frameDurationsMs).toEqual(animationAtlases.Arbalester[action].frameDurationsMs);
+            expect(state.oneShotAnim?.frameDurationsMs).toEqual(
+                animationAtlases.Arbalester[action].frameDurationsMs!.map((ms) => ms / (action === "hit" ? 1.17 : 1)),
+            );
             expectLabRegistration();
             unit.ensureVisual(world, gridSettings);
             expectLabRegistration();
@@ -6392,7 +6396,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
                 (sum, duration) => sum + duration,
                 0,
             );
-            const fullTicks = Math.floor(durationMs / (1000 / 60));
+            const fullTicks = Math.floor(durationMs / (action === "hit" ? 1.17 : 1) / (1000 / 60));
             for (let tick = 0; tick < fullTicks; tick++) unit.stepSpawnAnimation(1 / 240);
             expect(completed).toBe(0);
             unit.stepSpawnAnimation(1 / 240);
@@ -6801,9 +6805,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(greenResolvedKeys).toContain("peasant_idle_red_atlas_quarter");
         expect(idle.selectionAnimFrames).toHaveLength(12);
         expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
-        unit.stepSelectionAnimation(10_000);
+        idle.refreshedIdlePhaseRatio = 0;
+        unit.stepSelectionAnimation(idle.selectionAnimationStartedAtMs);
         const currentIdleTexture = idle.sprite?.texture;
-        unit.stepSelectionAnimation(10_000 + idle.selectionAnimFrameDurationMs + 1);
+        unit.stepSelectionAnimation(idle.selectionAnimationStartedAtMs + idle.selectionAnimFrameDurationMs + 1);
         expect(idle.sprite?.texture).not.toBe(currentIdleTexture);
 
         const beholderResolvedKeys: string[] = [];
@@ -6905,7 +6910,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const walkScaleX = squireInternals.sprite?.scale.x ?? 0;
         const walkScaleY = squireInternals.sprite?.scale.y ?? 0;
         expect(Math.abs(walkScaleY) * (696 / 4)).toBeCloseTo(Math.abs(idleScaleY) * (726 / 4), 8);
-        expect(Math.abs(walkScaleX) * (408 / 4)).toBeCloseTo(Math.abs(idleScaleX) * (426 / 4), 1);
+        expect(Math.abs(walkScaleX / walkScaleY)).toBeCloseTo(Math.abs(idleScaleX / idleScaleY), 8);
         squire.applyMoveEffect(0.37);
         expect(squireInternals.sprite?.rotation).toBe(0);
         expect(squireInternals.sprite?.scale.x).toBe(walkScaleX);
@@ -7071,7 +7076,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(state.oneShotAnim?.frameIndex).toBeGreaterThanOrEqual(2);
         unit.applyHitReaction(40, -20);
         expect(state.oneShotAnim).toBe(hit);
-        for (let tick = 6; tick < 29; tick++) unit.stepSpawnAnimation(1 / 240);
+        for (let tick = 6; tick < Math.ceil(30 / 1.17) - 1; tick++) unit.stepSpawnAnimation(1 / 240);
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
         unit.stepSpawnAnimation(1 / 240);
         unit.stepSpawnAnimation(1 / 240); // floating-point boundary: at most one extra 60 Hz tick
@@ -7091,20 +7096,22 @@ describe("refreshed idle cadence and quadruped scale", () => {
                 oneShotAnim?: { frameIndex: number; frameDurationsMs?: readonly number[] };
                 selectionAnimFrames: Texture[];
             };
-            expect(state.oneShotAnim?.frameDurationsMs).toEqual([40, 45, 55, 90, 80, 75, 65, 50]);
+            expect(state.oneShotAnim?.frameDurationsMs).toEqual(
+                [40, 45, 55, 90, 80, 75, 65, 50].map((ms) => ms / 1.17),
+            );
             expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
-            unit.stepOneShotAnimation(39);
+            unit.stepOneShotAnimation(39 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(0);
-            unit.stepOneShotAnimation(1);
+            unit.stepOneShotAnimation(1 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(1);
-            unit.stepOneShotAnimation(99);
+            unit.stepOneShotAnimation(99 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(2);
-            unit.stepOneShotAnimation(1);
+            unit.stepOneShotAnimation(1 / 1.17);
             expect(state.oneShotAnim?.frameIndex).toBe(3);
-            unit.stepOneShotAnimation(359);
+            unit.stepOneShotAnimation(359 / 1.17);
             expect(completed).toBe(0);
             expect(state.oneShotAnim?.frameIndex).toBe(7);
-            unit.stepOneShotAnimation(1);
+            unit.stepOneShotAnimation(1 / 1.17);
             expect(completed).toBe(1);
             expect(unit.isPlayingOneShotAnimation()).toBe(false);
             expect(state.selectionAnimFrames).toContain(state.sprite.texture);
@@ -7353,8 +7360,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
         expect(
             (unit as unknown as { oneShotAnim?: { durationPerFrame: number } }).oneShotAnim?.durationPerFrame,
-        ).toBeCloseTo(51.98);
-        unit.stepOneShotAnimation(414);
+        ).toBeCloseTo(51.98 / 1.17);
+        unit.stepOneShotAnimation(414 / 1.17);
         expect(hitCallbackCompleted).toBe(false);
         expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
         unit.stepOneShotAnimation(2);
@@ -7362,7 +7369,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
 
         let realTimeHitCompleted = false;
         expect(unit.playOneShotAnimation("hit", () => (realTimeHitCompleted = true))).toBe(true);
-        for (let tick = 0; tick < 24; tick++) unit.stepSpawnAnimation(1 / 240);
+        for (let tick = 0; tick < Math.ceil(415.84 / 1.17 / (1000 / 60)) - 1; tick++) unit.stepSpawnAnimation(1 / 240);
         expect(realTimeHitCompleted).toBe(false);
         unit.stepSpawnAnimation(1 / 240);
         expect(realTimeHitCompleted).toBe(true);
@@ -7461,7 +7468,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(unit.playOneShotAnimation("hit", undefined, true)).toBe(true);
         expect(requested).toContain("scavenger_combat_hit_atlas_quarter");
         expect(internals.sprite.filters ?? []).not.toContain(idleGrade);
-        expect(internals.oneShotAnim?.durationPerFrame).toBe(80);
+        expect(internals.oneShotAnim?.durationPerFrame).toBe(80 / 1.17);
         expect(internals.oneShotAnim?.frames).toHaveLength(8);
         expect(Math.abs(internals.sprite.scale.y) * 175).toBeCloseTo(initialHeight, 5);
         for (let frame = 0; frame < 8; frame++) {
@@ -7474,7 +7481,7 @@ describe("Scavenger thief visual replacement", () => {
                 expect(actual.x).toBeCloseTo(idleSoles[index].x, 5);
                 expect(actual.y).toBeCloseTo(idleSoles[index].y, 5);
             });
-            unit.stepOneShotAnimation(80);
+            unit.stepOneShotAnimation(80 / 1.17);
         }
         expect(Math.abs(internals.sprite.scale.y) * 175).toBeCloseTo(initialHeight, 5);
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
@@ -7600,10 +7607,10 @@ describe("Scavenger thief visual replacement", () => {
         spawnAnim?: { startScaleX: number; startScaleY: number; endScaleX: number; endScaleY: number };
     };
 
-    const createScavenger = (): RenderableUnit => {
+    const createScavenger = (approved = true): RenderableUnit => {
         // The restyled set is the approved base package, which this file's beforeEach turns off for the
         // legacy/freeze coverage around it. These two tests are about that package, so they ask for it.
-        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = approved;
         const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Scavenger", "scavenger_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
@@ -7611,14 +7618,26 @@ describe("Scavenger thief visual replacement", () => {
     };
 
     assetTest("keeps the restyled static figure undistorted on the existing foot line", () => {
-        const unit = createScavenger();
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;
+        const figure = new Texture({
+            source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+        });
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Scavenger", "scavenger_512", (key) =>
+            key.includes("atlas") ? undefined : figure,
+        );
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
         const internals = unit as unknown as AnimationInternals;
 
         expect(internals.sprite?.texture.width).toBe(768);
         expect(internals.sprite?.texture.height).toBe(768);
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(Math.abs(internals.sprite?.scale.y ?? 0));
         expect(internals.sprite?.y).toBeCloseTo(
-            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) - gridSettings.getCellSize() * 0.03,
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) +
+                gridSettings.getCellSize() *
+                    SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
+                    BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
+                    SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
         );
     });
 
@@ -7632,11 +7651,17 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.texture.width).toBe(192);
         expect(internals.sprite?.texture.height).toBe(192);
         const expectedUniformScale =
-            ((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) / 186) *
+            ((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) / (175 * (744 / 757))) *
             BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY;
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(expectedUniformScale);
         expect(Math.abs(internals.sprite?.scale.y ?? 0)).toBeCloseTo(expectedUniformScale);
-        expect(internals.sprite?.y).toBeCloseTo(tallBoardModelFootLineY(1024, gridSettings.getCellSize()));
+        expect(internals.sprite?.y).toBeCloseTo(
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) +
+                gridSettings.getCellSize() *
+                    SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
+                    BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
+                    0.05,
+        );
         expect(thiefIdleBreathScaleForElapsed(0)).toBeCloseTo(1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 4)).toBeCloseTo(1 + 0.01035 * 1.1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 2)).toBeCloseTo(1);
@@ -7650,7 +7675,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(unit.playOneShotAnimation("hit")).toBe(true);
         // The refreshed Scavenger Combat hit sheet is authored at 12.5 fps (80 ms per frame); the old
         // thief cadence applied a 1.22x speedup to 40.125 ms frames that no longer exist.
-        expect(internals.oneShotAnim?.durationPerFrame).toBeCloseTo(80);
+        expect(internals.oneShotAnim?.durationPerFrame).toBeCloseTo(80 / 1.17);
         unit.stepOneShotAnimation(1000);
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
 
@@ -7699,48 +7724,25 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.scale.y).toBe(expectedScaleY);
     });
 
-    assetTest("twirls both blades after four inactive breaths and battle-cries immediately on its active turn", () => {
-        const unit = createScavenger();
-        const internals = unit as unknown as AnimationInternals;
-        const idleWindow = 2800 * SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL;
-        const cryWindow = SCAVENGER_ACTIVE_BATTLE_CRY_DURATION_MS;
-        const activeBreathingWindow = 2800 * SCAVENGER_ACTIVE_BATTLE_CRY_BREATH_CYCLES;
-
-        expect(internals.scavengerIdleBladeTwirlFrames).toHaveLength(6);
-        expect(internals.scavengerActiveBattleCryFrames).toHaveLength(6);
-        expect(scavengerIdleBladeTwirlFrameForElapsed(idleWindow - 1)).toBeUndefined();
-        for (let frame = 0; frame < 6; frame += 1) {
-            expect(
-                scavengerIdleBladeTwirlFrameForElapsed(idleWindow + frame * SCAVENGER_FLOURISH_FRAME_DURATION_MS),
-            ).toBe(frame);
-            unit.stepSelectionAnimation(
-                internals.selectionAnimationStartedAtMs + idleWindow + frame * SCAVENGER_FLOURISH_FRAME_DURATION_MS,
-            );
-            expect(internals.sprite?.texture).toBe(internals.scavengerIdleBladeTwirlFrames?.[frame]);
-        }
-        expect(scavengerIdleBladeTwirlFrameForElapsed(idleWindow + cryWindow)).toBeUndefined();
-
-        unit.setActiveTurn(true);
-        const activeStartedAt = internals.activeTurnAnimationStartedAtMs;
-        let frameStartMs = 0;
-        for (let frame = 0; frame < 6; frame += 1) {
-            expect(scavengerActiveBattleCryFrameForElapsed(frameStartMs)).toBe(frame);
-            unit.stepSelectionAnimation(activeStartedAt + frameStartMs);
-            expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[frame]);
-            frameStartMs +=
-                frame === 4 ? SCAVENGER_ACTIVE_BATTLE_CRY_POINT_HOLD_MS : SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS;
-        }
-        const pointingFrameStart = SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS * 4;
-        expect(scavengerActiveBattleCryFrameForElapsed(pointingFrameStart)).toBe(4);
-        expect(scavengerActiveBattleCryFrameForElapsed(pointingFrameStart + 999)).toBe(4);
-        expect(scavengerActiveBattleCryFrameForElapsed(pointingFrameStart + 1000)).toBe(5);
-        expect(scavengerActiveBattleCryFrameForElapsed(cryWindow)).toBeUndefined();
-        expect(scavengerActiveBattleCryBreathElapsed(cryWindow)).toBe(0);
-        expect(scavengerActiveBattleCryBreathElapsed(cryWindow + 2800)).toBe(2800);
-        expect(scavengerActiveBattleCryFrameForElapsed(cryWindow + activeBreathingWindow)).toBe(0);
-        unit.stepSelectionAnimation(activeStartedAt + cryWindow + activeBreathingWindow);
-        expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[0]);
-    });
+    assetTest(
+        "approved Scavenger idle keeps authored frames on active and inactive turns without legacy flourishes",
+        () => {
+            const unit = createScavenger();
+            const internals = unit as unknown as AnimationInternals;
+            expect(internals.selectionAnimFrames).toHaveLength(12);
+            expect(internals.scavengerIdleBladeTwirlFrames).toBeUndefined();
+            expect(internals.scavengerActiveBattleCryFrames).toBeUndefined();
+            const width = internals.sprite!.texture.width * Math.abs(internals.sprite!.scale.x);
+            for (const active of [false, true]) {
+                unit.setActiveTurn(active);
+                for (let elapsed = 0; elapsed <= 20000; elapsed += 250) {
+                    unit.stepSelectionAnimation(internals.selectionAnimationStartedAtMs + elapsed);
+                    expect(internals.selectionAnimFrames).toContain(internals.sprite!.texture);
+                    expect(internals.sprite!.texture.width * Math.abs(internals.sprite!.scale.x)).toBeCloseTo(width);
+                }
+            }
+        },
+    );
 
     assetTest("repeats all eight original Scavenger walking poses every 1.3 cells", () => {
         const unit = createScavenger();
@@ -8816,7 +8818,7 @@ describe("RenderableUnit dodge animation", () => {
         expect(unit.isDodging()).toBe(false);
     });
 
-    test("offsets sprite by the full displacement during the hold phase and leaves a ghost trail", async () => {
+    test("keeps an authored figure stationary without procedural dodge ghosts", async () => {
         const { unit, worldRoot } = createVisualUnit();
         const childrenBefore = worldRoot.children.length;
         const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
@@ -8824,7 +8826,7 @@ describe("RenderableUnit dodge animation", () => {
         const restY = spriteBefore!.y;
 
         unit.playDodgeAnimation(40, -20);
-        expect(unit.isDodging()).toBe(true);
+        expect(unit.isDodging()).toBe(false);
         unit.ensureVisual(worldRoot, gridSettings);
 
         // 250ms sits inside the hold phase (22%..55% of the 640ms dodge) where the envelope is exactly 1.
@@ -8832,11 +8834,11 @@ describe("RenderableUnit dodge animation", () => {
         unit.ensureVisual(worldRoot, gridSettings);
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
         expect(sprite).toBeDefined();
-        expect(sprite!.x).toBeCloseTo(restX + 40, 5);
-        expect(sprite!.y).toBeCloseTo(restY - 20, 5);
-        expect(sprite!.rotation).not.toBe(0);
+        expect(sprite!.x).toBeCloseTo(restX, 5);
+        expect(sprite!.y).toBeCloseTo(restY, 5);
+        expect(sprite!.rotation).toBe(0);
         // Afterimage ghosts joined the world root behind the sprite.
-        expect(worldRoot.children.length).toBeGreaterThan(childrenBefore);
+        expect(worldRoot.children.length).toBe(childrenBefore);
     });
 
     test("springs back to rest and cleans up its ghosts after the dodge completes", async () => {
@@ -8873,13 +8875,17 @@ describe("RenderableUnit filter lifecycle", () => {
         const first = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => firstTexture);
         first.setPosition(0, 1024);
         first.ensureVisual(new Container(), gridSettings);
-        expect((first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0]).toBe(firstTexture);
+        expect((first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].source).toBe(
+            firstTexture.source,
+        );
         first.destroyVisuals();
 
         const second = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => secondTexture);
         second.setPosition(0, 1024);
         second.ensureVisual(new Container(), gridSettings);
-        expect((second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0]).toBe(secondTexture);
+        expect((second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].source).toBe(
+            secondTexture.source,
+        );
         second.destroyVisuals();
 
         firstTexture.destroy(true);
@@ -9345,7 +9351,7 @@ assetTest("Dryad approved settings are active in ordinary combat without opening
         ["melee_attack", 540 / 1.15],
         ["melee_attack_up", 570 / 1.15],
         ["melee_attack_down", 590 / 1.15],
-        ["hit", 560],
+        ["hit", 560 / 1.17],
         ["death", 1140 / 1.07 / 1.17],
     ] as const) {
         expect(unit.playOneShotAnimation(action)).toBe(true);
@@ -9386,7 +9392,7 @@ assetTest("Dryad lab uses the new hit and death clips with authored timing and a
     expect(state.oneShotAnim?.frames).toHaveLength(9);
     expect(state.oneShotAnim?.frames[0].height).toBe(768);
     expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBe(560);
+    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(560 / 1.17, 8);
     expect(state.sprite.texture.height * Math.abs(state.sprite.scale.y)).toBeCloseTo(height, 8);
     const hitCanvasWidth = state.sprite.texture.width * Math.abs(state.sprite.scale.x);
     const hitCanvasHeight = state.sprite.texture.height * Math.abs(state.sprite.scale.y);
@@ -9559,7 +9565,10 @@ assetTest(
                 for (const action of ["attack", "attack_up", "attack_down", "hit"] as const) {
                     unit.playOneShotAnimation(action, undefined, true);
                     const durations = state.oneShotAnim!.frameDurationsMs;
-                    expect(durations.reduce((a, b) => a + b, 0)).toBeCloseTo(action === "hit" ? 560 : 1010 / 1.15, 8);
+                    expect(durations.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                        action === "hit" ? 560 / 1.17 : 1010 / 1.15,
+                        8,
+                    );
                     const blends: number[] = [];
                     for (const duration of durations) {
                         for (let step = 0; step < 4; step++) {
@@ -9817,7 +9826,10 @@ assetTest("Leprechaun lab reactions preserve size, return from hit and hold the 
     expect(unit.getAnimationTextureKey("hit")).toBe("leprechaun_lab_hit_atlas");
     expect(state.oneShotAnim?.frames).toHaveLength(8);
     expect(state.oneShotAnim?.authoredRealTime).toBe(true);
-    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(650 / 1.08 / 1.08 / 1.1, 8);
+    expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+        650 / 1.08 / 1.08 / 1.1 / 1.17,
+        8,
+    );
     expect(state.sprite.texture.height * Math.abs(state.sprite.scale.y)).toBeCloseTo(height, 8);
     checkRegistration();
     const hitDurations = state.oneShotAnim!.frameDurationsMs.slice();
@@ -10027,7 +10039,7 @@ assetTest("Battle Mage lab redrawn reactions preserve scale, settle hits and hol
         expect(unit.playOneShotAnimation("hit", () => hits++, true)).toBe(true);
         expect(unit.getAnimationTextureKey("hit")).toBe("battle_mage_lab_hit_atlas");
         expect(state.oneShotAnim?.frames).toHaveLength(7);
-        const hitDuration = 520 / 1.15 / 1.07;
+        const hitDuration = 520 / 1.15 / 1.07 / 1.17;
         expect(state.oneShotAnim?.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(hitDuration, 10);
         expect(state.oneShotAnim?.authoredRealTime).toBe(true);
         expect(state.sprite.width).toBeCloseTo(width, 8);
@@ -10200,7 +10212,10 @@ assetTest("Healer combat reactions return from hit and hold the final death pose
             expect(keys).not.toContain(`healer_lab_${action}_atlas_quarter`);
             expect(state.oneShotAnim?.frames).toHaveLength(count);
             expect(state.oneShotAnim?.frames[0].width).toBe(768);
-            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 8);
+            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                action === "hit" ? total / 1.17 : total,
+                8,
+            );
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
             expect(state.sprite.filters ?? []).not.toContain(healerLabWalkPalette());
             const durations = state.oneShotAnim!.frameDurationsMs.slice();
@@ -10354,7 +10369,10 @@ assetTest("Troll lab attacks and reactions preserve scale, return to idle and ho
             expect(state.oneShotAnim?.frames[0].width).toBe(canvas);
             expect(state.sprite.width).toBeCloseTo((width * canvas) / 768, 8);
             expect(state.sprite.height).toBeCloseTo((height * canvas) / 768, 8);
-            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 8);
+            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                action === "hit" ? total / 1.17 : total,
+                8,
+            );
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
             if (canvas === 1152) {
                 expect(state.sprite.filters).toHaveLength(baseFilters.length + 1);
@@ -10451,7 +10469,10 @@ assetTest("Pikeman lab reactions return from hit and hold the final death pose o
             expect(keys).not.toContain(`pikeman_lab_${action}_atlas_quarter`);
             expect(state.oneShotAnim?.frames).toHaveLength(count);
             expect(state.oneShotAnim?.frames[0].width).toBe(action === "death" ? 1024 : 768);
-            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(total, 8);
+            expect(state.oneShotAnim?.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                action === "hit" ? total / 1.17 : total,
+                8,
+            );
             expect(state.oneShotAnim?.authoredRealTime).toBe(true);
             const durations = state.oneShotAnim!.frameDurationsMs.slice();
             for (let frame = 0; frame < count; frame++) {
@@ -10890,7 +10911,7 @@ assetTest("Goblin Knight lab hit recovers and death holds its corpse on both tea
         }
 
         expect(state.oneShotAnim?.frameDurationsMs).toHaveLength(8);
-        expect(state.oneShotAnim?.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(680 / 1.15, 6);
+        expect(state.oneShotAnim?.frameDurationsMs.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(680 / 1.15 / 1.17, 6);
         expect(state.sprite.filters?.some((f) => f instanceof GoblinKnightIdleFilter) ?? false).toBe(false);
         unit.stepOneShotAnimation(5000);
         expect(state.oneShotAnim).toBeUndefined();
@@ -11093,8 +11114,8 @@ assetTest("Arachna Queen lab keeps visible size, grounded feet and facing throug
                 8,
             );
             expect(Math.abs(state.sprite.scale.x / state.sprite.scale.y)).toBeCloseTo(idleAspect, 8);
-            expect(state.silhouetteShadow.visible).toBe(false);
-            expect(state.shadow.visible).toBe(true);
+            expect(state.silhouetteShadow.visible).toBe(true);
+            expect(state.shadow.visible).toBe(false);
         };
         unit.startBoardWalkAnimation(1, 4);
         expect(state.sprite.filters?.some((filter) => filter instanceof ArachnaQueenIdleFilter) ?? false).toBe(true);

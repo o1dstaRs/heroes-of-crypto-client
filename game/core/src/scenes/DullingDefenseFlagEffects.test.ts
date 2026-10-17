@@ -25,7 +25,7 @@ test("Dulling Defense paints every fracture cel in one second and remains availa
     }
 });
 
-test("confirmed attack loss and the lab use the same flag effect; resisted and dead recipients stay silent", () => {
+test("confirmed attack loss and the lab use the same flag effect; resisted recipients stay silent and fatal hits retain their confirmed effect", () => {
     let dead = false;
     const unit = { isDead: () => dead, flashDebuffDarken: mock(() => undefined), getName: () => "Pikeman" };
     const spawnCommonFlagPop = mock(() => undefined);
@@ -34,6 +34,7 @@ test("confirmed attack loss and the lab use the same flag effect; resisted and d
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         unitsHolder: { getAllUnits: () => new Map([["attacker", unit]]) },
         combatVisuals: { spawnCommonFlagPop },
+        dyingVisualUnits: new Set(),
         popEffectOnUnit,
         scheduleSceneTimeout: (callback: () => void) => scheduled.push(callback),
         creatureAnimationLabPlacedUnit: () => ({ ok: true, unit }),
@@ -62,5 +63,5 @@ test("confirmed attack loss and the lab use the same flag effect; resisted and d
     dead = true;
     scheduled[0]();
     scene.popDullingDefenseApplications(events, "attacker");
-    expect(spawnCommonFlagPop).toHaveBeenCalledTimes(3);
+    expect(spawnCommonFlagPop).toHaveBeenCalledTimes(5);
 });

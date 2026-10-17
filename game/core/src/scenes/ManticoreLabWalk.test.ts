@@ -229,7 +229,7 @@ test("redrawn hit advances actual sprite poses without deformation and returns t
         expect(internal.sprite.height).toBeCloseTo(height);
         expect(internal.sprite.anchor.x).toBe(0.5);
         expect(internal.oneShotAnim!.frames).toHaveLength(9);
-        const durations = animationAtlases["Manticore Lab"].hit.frameDurationsMs!;
+        const durations = animationAtlases["Manticore Lab"].hit.frameDurationsMs!.map((ms) => ms / 1.17);
         for (let i = 0; i < durations.length; i++) {
             expect(internal.oneShotAnim!.frameIndex).toBe(i);
             expect(internal.sprite.texture).toBe(internal.oneShotAnim!.frames[i]);

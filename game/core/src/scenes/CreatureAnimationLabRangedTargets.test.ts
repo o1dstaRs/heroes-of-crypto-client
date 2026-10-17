@@ -40,7 +40,16 @@ function createPreview(unitName = "Arbalester") {
                     ?.getId(),
         },
         sc_sceneSettings: {
-            getGridSettings: () => ({ getCellSize: () => 100, getMinX: () => -1000, getMaxX: () => 1000 }),
+            getGridSettings: () => ({
+                getCellSize: () => 100,
+                getMinX: () => -1000,
+                getMaxX: () => 1000,
+                getMinY: () => 0,
+                getMaxY: () => 2000,
+                getStep: () => 100,
+                getHalfStep: () => 50,
+                getGridSize: () => 20,
+            }),
         },
         isSceneDestroyed: () => false,
         fireUnitProjectile: async (_unit: RenderableUnit, options: IFireProjectileOptions, state: string) => {

@@ -65,7 +65,7 @@ test("Crusader hit tracks the flame on every authored blade without idle deforma
 test("Crusader three attacks load authored full-body sprites and registered fire and visor", () => {
     for (const state of ["melee_attack_up", "melee_attack", "melee_attack_down"] as const) {
         const meta = animationAtlases.Crusader[state];
-        expect(meta.frameCount).toBe(6);
+        expect(meta.frameCount).toBe(state === "melee_attack" ? 9 : 6);
         expect(meta.frameWidth).toBe(1280);
         expect(meta.footAnchorY).toBeCloseTo(1114 / 1280);
         expect(meta.frameDurationsMs?.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(700);

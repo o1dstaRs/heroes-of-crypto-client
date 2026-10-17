@@ -96,7 +96,7 @@ test("Champion reactions and three spear attacks preserve idle scale, stop gait 
         const durations = [...state.oneShotAnim!.frameDurationsMs];
         const isAttack = action.startsWith("melee_attack");
         expect(durations.reduce((a, b) => a + b, 0)).toBeCloseTo(
-            isAttack ? 550 : (action === "hit" ? 400 : 1080) / 1.23,
+            isAttack ? 550 : (action === "hit" ? 400 / 1.17 : 1080) / 1.23,
             6,
         );
         if (isAttack) {

@@ -148,7 +148,7 @@ test("Hydra combat preserves world-space supports through actions, refreshes and
                 unit.ensureVisual(world, grid);
                 expectTransform();
                 expect(state.oneShotAnim!.frameDurationsMs[frame]).toBeCloseTo(
-                    meta.frameDurationsMs![frame] / speed,
+                    meta.frameDurationsMs![frame] / speed / (reaction === "hit" ? 1.17 : 1),
                     9,
                 );
                 unit.stepOneShotAnimation(state.oneShotAnim!.frameDurationsMs[frame]);
