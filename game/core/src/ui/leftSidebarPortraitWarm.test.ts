@@ -17,6 +17,7 @@ import {
     leftSidebarPortraitSources,
     resetLeftSidebarPortraitWarmForTests,
 } from "./leftSidebarPortraitWarm";
+import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 
 const deferred = (): { images: PortraitImageStub[]; release: Array<() => void> } => {
     const images: PortraitImageStub[] = [];
@@ -60,8 +61,10 @@ test("left sidebar art keeps the cutout and the faction plate as two files", () 
     expect(champion.creature).toContain("champion_left_screen_x2.webp");
     expect(champion.background).toBeTruthy();
     expect(champion.background).not.toContain("champion_left_screen_x2");
-    expect(leftSidebarPortraitSources(CreatureVals.PEASANT).atlas).toContain("peasant_left_screen_idle_atlas.webp");
-    expect(leftSidebarPortraitSources(CreatureVals.CHAMPION).atlas).toBeUndefined();
+    for (const id of [CreatureVals.PEASANT, CreatureVals.CHAMPION]) {
+        const animation = resolveLeftSidebarPortraitAnimation(id)!;
+        expect(leftSidebarPortraitSources(id).atlas).toBe(animation.pages?.[0]?.src ?? animation.src);
+    }
 });
 
 test("decoded portraits stay ready, and the cache drops the oldest cutout past the cap", async () => {

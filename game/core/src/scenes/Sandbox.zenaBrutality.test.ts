@@ -123,6 +123,7 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
             new Promise<void>((finish) => flights.push({ impact, finish })),
         rangedProjectiles: {
             prepare: () => Promise.resolve(),
+            showChakramBounce: mock(() => Promise.resolve()),
             fireAlongPath: () => new Promise<void>((resolve) => hops.push(resolve)),
         },
     });

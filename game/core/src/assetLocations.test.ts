@@ -10,6 +10,8 @@
  */
 
 import { readFileSync } from "node:fs";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -94,6 +96,33 @@ describe("no consumer keeps a fallback art path", () => {
         expect(copyImages).toContain("$HOC_IMAGES_LOC");
         // `${HOC_IMAGES_LOC:-...}` is the exact shape that deleted the art set and copied nothing back.
         expect(copyImages).not.toContain(":-");
+    });
+
+    test("copy:images accepts a restored package inside the working directory without copying it to itself", async () => {
+        const fixture = await mkdtemp(join(tmpdir(), "hoc-image-copy-"));
+        const source = join(fixture, "tmp", "restored package", "images");
+        try {
+            await mkdir(source, { recursive: true });
+            await writeFile(join(source, "fixture.webp"), "approved bytes");
+            const copyImages = JSON.parse(read("package.json")).scripts["copy:images"] as string;
+            const child = Bun.spawn(["/bin/sh", "-c", copyImages], {
+                cwd: fixture,
+                env: {
+                    ...process.env,
+                    HOC_IMAGES_LOC: source,
+                    PATH: `${join(import.meta.dir, "../../../node_modules/.bin")}:${process.env.PATH}`,
+                },
+                stdout: "pipe",
+                stderr: "pipe",
+            });
+            const [exit, errors] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+            expect(errors).toBe("");
+            expect(exit).toBe(0);
+            expect(await readFile(join(fixture, "images", "fixture.webp"), "utf8")).toBe("approved bytes");
+            expect(await readFile(join(source, "fixture.webp"), "utf8")).toBe("approved bytes");
+        } finally {
+            await rm(fixture, { recursive: true, force: true });
+        }
     });
 
     test("the guard runs BEFORE build:images deletes the art set", () => {

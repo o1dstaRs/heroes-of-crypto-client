@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { GridConstants, GridMath, GridSettings, type HoCMath } from "@heroesofcrypto/common";
+import { GridConstants, GridMath, GridSettings, type GameEvent, type HoCMath } from "@heroesofcrypto/common";
 import { Container } from "pixi.js";
 
 import { RenderableUnit } from "./RenderableUnit";
@@ -38,6 +38,7 @@ const fixture = (redirect = false) => {
             getTeam: () => (id === "giant" ? 1 : 2),
             getVisualCenter: () => center,
             getProjectileImpactPoint: () => center,
+            getProjectileGroundPoint: () => center,
             getDamagePredictionAnchor: () => center,
             getRangedProjectileOrigin: () => center,
             getAnimationTextureKey: () => undefined,
@@ -61,7 +62,10 @@ const fixture = (redirect = false) => {
         getGridSettings: () => gs,
         attachToWorldRoot: (object) => attachments.push(object),
     });
-    Object.assign(projectiles, { ensureProjectileTexture: () => Promise.resolve() });
+    Object.assign(projectiles, {
+        ensureProjectileTexture: () => Promise.resolve(),
+        spawnGargantuanImpact: () => {},
+    });
     cleanup.push(() => {
         projectiles.destroy();
         attachments.forEach((object) => {
@@ -111,6 +115,8 @@ const fixture = (redirect = false) => {
         shouldDeferActionToAuthoritativeReplay: () => false,
         getAreaThrowImpactCell: () => areaEvent.targetCell,
         preparePyreDeaths: () => {},
+        spawnBorrowedGraceVfx: () => {},
+        waitForProjectileHitReaction: () => Promise.resolve(true),
         prepareDirectionalAttackState: () => "attack",
         popRecordedDullingDefense: () => {},
         showGravechainVfx: () => {},
@@ -155,7 +161,7 @@ const fixture = (redirect = false) => {
         hitIndex,
         lethal: false,
     }));
-    const playTargeted = () =>
+    const playTargeted = (deadIds = new Set(areaEvent.unitIdsDied)) =>
         scene.playCombatExchange(
             giant,
             near,
@@ -167,7 +173,7 @@ const fixture = (redirect = false) => {
             false,
             {
                 amountsBefore: new Map([...units].map(([id, unit]) => [id, unit.amount])),
-                deadIds: new Set(areaEvent.unitIdsDied),
+                deadIds,
             },
         );
     const playFree = (replay = false) =>
@@ -184,6 +190,7 @@ const fixture = (redirect = false) => {
         far,
         units,
         damage,
+        areaEvent,
         record,
         events,
         shots,
@@ -290,17 +297,103 @@ test("a first-wave death keeps the second empty rock without repeating its casua
     expect(f.events.filter((entry) => entry === "far:death")).toHaveLength(1);
 });
 
-test("a revived victim reacts without playing a final death", async () => {
+test.each(["targeted", "free"])(
+    "a revived %s victim reacts without a final death and restores its living stack count",
+    async (mode) => {
+        const f = fixture();
+        f.scene.createActionEngine = () => ({ apply: () => ({ completed: true, events: f.record.events }) });
+        const pending = mode === "targeted" ? f.playTargeted(new Set()) : f.playFree();
+        await flush();
+        f.advance(1);
+        expect(f.events).toContain("far:hit");
+        expect(f.events).not.toContain("far:death");
+        await flush();
+        f.advance(1);
+        await pending;
+        expect(f.far.getAmountAlive()).toBe(3);
+        expect(f.far.getDisplayedAmount()).toBe(3);
+    },
+);
+
+test.each(["local", "replay"])("a %s free throw consumes death attribution once across turn events", async (mode) => {
     const f = fixture();
-    f.scene.createActionEngine = () => ({ apply: () => ({ completed: true, events: f.record.events }) });
-    const pending = f.playFree();
+    const attributed: string[] = [];
+    const outstanding = new Set<string>();
+    const prototype = Sandbox.prototype as unknown as {
+        noteDeathBlowsFromAttackEvent: (event: GameEvent) => void;
+    };
+    Object.assign(f.scene, {
+        notedDeathBlowEvents: new WeakSet(),
+        noteDeathBlowsFromAttackEvent: prototype.noteDeathBlowsFromAttackEvent,
+        destroyReplayAttackUnitsAtImpact: (ids: string[]) => ids.forEach((id) => outstanding.delete(id)),
+        applyTurnEngineEvents: (events: GameEvent[]) => {
+            for (const event of events) {
+                if (event.type === "area_attacked") f.scene.noteDeathBlowsFromAttackEvent(event);
+            }
+        },
+    });
+    Object.assign(f.scene.combatVisuals, {
+        noteDeathBlow: (id: string) => {
+            attributed.push(id);
+            outstanding.add(id);
+        },
+    });
+    if (mode === "replay") {
+        const apply = f.scene.createActionEngine().apply;
+        const localAreaEvent = { ...f.areaEvent, unitIdsDied: ["far", "rerolled-victim"] };
+        f.scene.createActionEngine = () => ({
+            apply: () => ({
+                ...apply(),
+                events: [localAreaEvent, { type: "unit_destroyed", unitId: "far" }],
+            }),
+        });
+    }
+    const pending = f.playFree(mode === "replay");
     await flush();
+    expect(attributed).toEqual(["far"]);
+    expect([...outstanding]).toEqual(["far"]);
     f.advance(1);
-    expect(f.events).toContain("far:hit");
-    expect(f.events).not.toContain("far:death");
+    expect(outstanding.size).toBe(0);
     await flush();
     f.advance(1);
     await pending;
+    expect(attributed).toEqual(["far"]);
+    expect(outstanding.size).toBe(0);
+});
+
+test.each(["local", "replay"])("a %s free throw projects its landing and keeps logical facing", async (mode) => {
+    const f = fixture();
+    const originTargets: HoCMath.XY[] = [];
+    const facingTargets: HoCMath.XY[] = [];
+    const animationTargets: HoCMath.XY[] = [];
+    const origin = f.giant.getVisualCenter();
+    Object.assign(f.giant, {
+        getRangedProjectileOrigin: (position: HoCMath.XY) => {
+            originTargets.push(position);
+            return origin;
+        },
+        faceBoardTarget: (position: HoCMath.XY) => facingTargets.push(position),
+        getAttackAnimationStateForTarget: (position: HoCMath.XY) => {
+            animationTargets.push(position);
+            return "attack";
+        },
+    });
+    const logicalTarget =
+        mode === "replay"
+            ? f.areaEvent.targetPosition
+            : GridMath.getPositionForCell(f.areaEvent.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+    const projectedTarget = projectBattlefieldPoint(logicalTarget, gs);
+    const pending = f.playFree(mode === "replay");
+    await flush();
+    const shot = f.shots[0];
+    f.scene.sceneDestroyed = true;
+    f.projectiles.destroy();
+    await pending;
+    expect(shot.to).toEqual(projectedTarget);
+    expect(shot.gargantuanImpactPosition).toEqual(projectedTarget);
+    expect(originTargets).toEqual([projectedTarget]);
+    expect(facingTargets).toEqual([logicalTarget]);
+    expect(animationTargets).toEqual([logicalTarget]);
 });
 
 test.each(["targeted", "free"])("cancelling a %s throw suppresses damage and the next rock", async (mode) => {

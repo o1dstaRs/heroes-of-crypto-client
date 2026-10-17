@@ -1,0 +1,71 @@
+.creature-animation-lab-dock {
+    position: fixed;
+    z-index: 1200;
+    right: 32px;
+    bottom: 6px;
+    left: 32px;
+    display: grid;
+    grid-template-columns: minmax(140px, 0.75fr) minmax(260px, 1.15fr) minmax(260px, 1.15fr);
+    gap: 14px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid rgb(230 196 112 / 70%);
+    border-radius: 12px;
+    color: #f5e7bd;
+    background: linear-gradient(180deg, rgb(32 27 24 / 97%), rgb(14 13 15 / 97%));
+    box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+    font-family: "Open Sans", sans-serif;
+    user-select: none;
+
+    > section {
+        min-width: 0;
+        max-height: 25vh;
+        overflow: auto;
+        scrollbar-width: thin;
+    }
+
+    section button {
+        min-height: 30px !important;
+        padding: 4px 6px !important;
+        font-size: 10px !important;
+        letter-spacing: 0 !important;
+    }
+
+    .creature-animation-lab-effects {
+        padding-left: 12px;
+        border-left: 1px solid rgb(230 196 112 / 22%);
+    }
+}
+
+@media (width <= 760px) {
+    .creature-animation-lab-dock {
+        right: 24px;
+        left: 24px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 6px 10px;
+        padding: 8px;
+
+        > .creature-animation-lab-info {
+            display: flex;
+            grid-column: 1 / -1;
+            align-items: center;
+            gap: 10px;
+            max-height: 48px;
+        }
+
+        .creature-animation-lab-title,
+        .creature-animation-lab-description {
+            display: none !important;
+        }
+
+        section button {
+            min-height: 26px !important;
+            padding: 3px 4px !important;
+            font-size: 9px !important;
+        }
+
+        .creature-animation-lab-effects {
+            padding-left: 8px;
+        }
+    }
+}

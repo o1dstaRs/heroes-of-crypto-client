@@ -132,7 +132,7 @@ describe("Arbalester lab projectile timing", () => {
         }
     });
 
-    test.each(["Orc", "Arbalester"])(
+    test.each(["Orc", "Arbalester", "Cyclops"])(
         "%s reacts only on impact and targets placed enemies in all directions",
         (unitName) => {
             const hits: string[] = [];
@@ -143,6 +143,7 @@ describe("Arbalester lab projectile timing", () => {
                 getPosition: () => ({ x: 0, y }),
                 getVisualCenter: () => ({ x: 0, y }),
                 getProjectileImpactPoint: () => ({ x: 0, y: y + 80 }),
+                getProjectileGroundPoint: () => ({ x: 0, y }),
                 getCells: () => [{ x: placed ? 1 : 0, y }],
                 hasAnimationState: () => true,
                 isPlayingOneShotAnimation: () => false,
@@ -189,6 +190,7 @@ describe("Arbalester lab projectile timing", () => {
                 expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
                 expect(fired?.arbalesterBolt).toBe(unitName === "Arbalester");
                 expect(fired?.orcAxe).toBe(unitName === "Orc");
+                expect(fired?.cyclopsRock).toBe(unitName === "Cyclops");
                 expect(fired?.to).toEqual({ x: 0, y });
                 expect(hits).not.toContain(target);
                 fired?.onImpact?.();
@@ -204,4 +206,100 @@ describe("Arbalester lab projectile timing", () => {
             expect(hits).toEqual(["shooter"]);
         },
     );
+
+    test("Cyclops waits for the empty-hand sprite frame before launching its own rock", async () => {
+        let release!: () => void;
+        let resolveFlight!: () => void;
+        let fired: IFireProjectileOptions | undefined;
+        let finished = 0;
+        const unit = {
+            getName: () => "Cyclops",
+            hasAnimationState: () => true,
+            getProjectileImpactPoint: () => ({ x: 0, y: 0 }),
+            getAnimationTextureKey: () => "cyclops_lab_attack_atlas",
+            setBoardFacing: () => {},
+            getRangedProjectileOrigin: () => ({ x: 42, y: 84 }),
+            playCyclopsLabRangedThrow: (_state: string, onRelease: () => void) => {
+                release = onRelease;
+                return true;
+            },
+            finishCyclopsLabRangedThrow: () => finished++,
+            finishOrcRangedThrow: () => {},
+        } as unknown as RenderableUnit;
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            sc_sceneSettings: { getGridSettings: () => ({ getCellSize: () => 100 }) },
+            isSceneDestroyed: () => false,
+            waitForTexture: async () => true,
+            waitForProjectileHitReaction: async () => true,
+            scheduleSceneTimeout: () => 1,
+            clearSceneTimeout: () => {},
+            rangedProjectiles: {
+                prepare: async () => {},
+                fire: (opts: IFireProjectileOptions) => {
+                    fired = opts;
+                    return new Promise<void>((resolve) => {
+                        resolveFlight = resolve;
+                    });
+                },
+            },
+        }) as { fireUnitProjectile(unit: RenderableUnit, opts: IFireProjectileOptions): Promise<void> };
+        const pending = scene.fireUnitProjectile(unit, {
+            from: { x: 0, y: 0 },
+            to: { x: 300, y: 0 },
+            big: false,
+            cyclopsRock: true,
+        });
+        for (let tick = 0; tick < 8 && !release; tick++) await Promise.resolve();
+        expect(fired).toBeUndefined();
+        expect(release).toBeFunction();
+        release();
+        await Promise.resolve();
+        expect(fired?.cyclopsRock).toBe(true);
+        expect(fired?.from).toEqual({ x: 42, y: 84 });
+        expect(finished).toBe(0);
+        resolveFlight();
+        await pending;
+        expect(finished).toBe(1);
+    });
+});
+
+describe("Cannon final contact", () => {
+    test("skips the field edge and nearer victims, and does not explode on an empty ray", async () => {
+        const from = { x: 0, y: 0 },
+            edge = { x: 1000, y: 0 };
+        const victim = (x: number) => ({
+            getPosition: () => ({ x, y: 0 }),
+            getProjectileImpactPoint: () => ({ x, y: 20 }),
+        });
+        const near = victim(100),
+            far = victim(300);
+        let affected = [[far], [near]];
+        let fired: IFireProjectileOptions | undefined;
+        const unit = {
+            getName: () => "Tsar Cannon",
+            getCannonballDiameter: () => 100,
+            getPosition: () => from,
+            hasAnimationState: () => false,
+        } as unknown as RenderableUnit;
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            creatureAnimationLabEnabled: false,
+            sc_sceneSettings: { getGridSettings: () => ({ getCellSize: () => 100 }) },
+            unitsHolder: { getAllUnits: () => new Map() },
+            attackHandler: { evaluateRangeAttack: () => ({ affectedUnits: affected }) },
+            rangedProjectiles: {
+                fire: async (opts: IFireProjectileOptions) => {
+                    fired = opts;
+                },
+            },
+        }) as { fireUnitProjectile(unit: RenderableUnit, opts: IFireProjectileOptions): Promise<void> };
+        await scene.fireUnitProjectile(unit, { from, to: edge, big: true, tsarCannonball: true });
+        expect(fired?.to).toEqual({ x: 300, y: 20 });
+        expect(fired?.cannonImpactPosition).toEqual({ x: 300, y: 20 });
+        expect(fired?.cannonballDiameter).toBe(100);
+        expect(fired?.cannonExplodeOnImpact).toBe(true);
+        affected = [];
+        await scene.fireUnitProjectile(unit, { from, to: edge, big: true, tsarCannonball: true });
+        expect(fired?.to).toEqual(edge);
+        expect(fired?.cannonExplodeOnImpact).toBe(false);
+    });
 });

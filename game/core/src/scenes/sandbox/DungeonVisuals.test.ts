@@ -1,5 +1,6 @@
+import { TextureSource } from "pixi.js";
 import { describe, expect, test } from "bun:test";
-import { Container, Graphics, Sprite, Texture, TextureSource } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 
 import { FightStateManager, GridSettings, GridVals } from "@heroesofcrypto/common";
 
@@ -19,6 +20,144 @@ import {
     narrowingRingCells,
 } from "./DungeonVisuals";
 import { LAVA_PIT_ASSETS, lavaPitTextureKeys } from "./lavaPitAssets";
+
+describe("Map narrowing rings", () => {
+    test("switches approved baked narrowing backgrounds in TEST and real narrowing", () => {
+        const stage = new Container();
+        const worldRoot = new Container();
+        const currentBackground = Texture.WHITE;
+        const firstRingBackground = Texture.EMPTY;
+        const secondRingBackground = new Texture({ source: Texture.WHITE.source });
+        const thirdRingBackground = new Texture({ source: Texture.WHITE.source });
+        const fourthRingBackground = new Texture({ source: Texture.WHITE.source });
+        const fifthRingBackground = new Texture({ source: Texture.WHITE.source });
+        const visuals = new DungeonVisuals({
+            getStage: () => stage,
+            getWorldRoot: () => worldRoot,
+            getViewportSize: () => ({ width: 1024, height: 1024 }),
+            getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32),
+            texAny: (key) => {
+                if (key === "background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3") {
+                    return firstRingBackground;
+                }
+                if (key === "background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v7") {
+                    return secondRingBackground;
+                }
+                if (key === "background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v3") {
+                    return thirdRingBackground;
+                }
+                if (key === "background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v7") {
+                    return fourthRingBackground;
+                }
+                if (key === "background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v4") {
+                    return fifthRingBackground;
+                }
+                if (key === "background_stone_tiles_sinister_16x16_original_restored") {
+                    return currentBackground;
+                }
+                return undefined;
+            },
+            attachToWorldRoot: (object, zIndex = 0) => {
+                object.zIndex = zIndex;
+                worldRoot.addChild(object);
+            },
+        });
+
+        visuals.setTestBackground(true);
+        visuals.ensureBackgroundSprite();
+        visuals.layoutBackgroundSquare(1);
+
+        const background = stage.children.find(
+            (child): child is Sprite => child instanceof Sprite && child.texture === firstRingBackground,
+        );
+        expect(background?.texture).toBe(firstRingBackground);
+        expect(visuals.isTestBackground()).toBe(true);
+
+        visuals.setTestNarrowingLevel(2);
+        expect(background?.texture).toBe(secondRingBackground);
+        visuals.setTestNarrowingLevel(3);
+        expect(background?.texture).toBe(thirdRingBackground);
+        visuals.setTestNarrowingLevel(4);
+        expect(background?.texture).toBe(fourthRingBackground);
+        visuals.setTestNarrowingLevel(5);
+        expect(background?.texture).toBe(fifthRingBackground);
+        visuals.setTestNarrowingLevel(0);
+        expect(background?.texture).toBe(currentBackground);
+
+        visuals.setTestBackground(false);
+        visuals.setNarrowingLayers(1);
+        expect(background?.texture).toBe(firstRingBackground);
+        visuals.spawnHoleLayer(1);
+        expect((visuals.getHoleContainer().children[0] as Container).children).toHaveLength(0);
+        visuals.setNarrowingLayers(2);
+        expect(background?.texture).toBe(secondRingBackground);
+        visuals.setNarrowingLayers(3);
+        expect(background?.texture).toBe(thirdRingBackground);
+        visuals.setNarrowingLayers(4);
+        expect(background?.texture).toBe(fourthRingBackground);
+        visuals.setNarrowingLayers(5);
+        expect(background?.texture).toBe(fifthRingBackground);
+
+        visuals.destroy();
+    });
+
+    test("removes exactly one non-overlapping perimeter of the 16x16 board per step", () => {
+        const first = narrowingRingCells(16, 16, 1);
+        const second = narrowingRingCells(16, 16, 2);
+        const third = narrowingRingCells(16, 16, 3);
+        const fourth = narrowingRingCells(16, 16, 4);
+        const fifth = narrowingRingCells(16, 16, 5);
+
+        expect(first).toHaveLength(60);
+        expect(second).toHaveLength(52);
+        expect(third).toHaveLength(44);
+        expect(fourth).toHaveLength(36);
+        expect(fifth).toHaveLength(28);
+        expect(first.every(({ x, y }) => x === 0 || x === 15 || y === 0 || y === 15)).toBe(true);
+        expect(second.every(({ x, y }) => x === 1 || x === 14 || y === 1 || y === 14)).toBe(true);
+        expect(third.every(({ x, y }) => x === 2 || x === 13 || y === 2 || y === 13)).toBe(true);
+        expect(fourth.every(({ x, y }) => x === 3 || x === 12 || y === 3 || y === 12)).toBe(true);
+        expect(fifth.every(({ x, y }) => x === 4 || x === 11 || y === 4 || y === 11)).toBe(true);
+
+        const firstHashes = new Set(first.map(({ x, y }) => `${x}:${y}`));
+        expect(second.some(({ x, y }) => firstHashes.has(`${x}:${y}`))).toBe(false);
+        const secondHashes = new Set(second.map(({ x, y }) => `${x}:${y}`));
+        expect(third.some(({ x, y }) => secondHashes.has(`${x}:${y}`))).toBe(false);
+        const thirdHashes = new Set(third.map(({ x, y }) => `${x}:${y}`));
+        expect(fourth.some(({ x, y }) => thirdHashes.has(`${x}:${y}`))).toBe(false);
+        const fourthHashes = new Set(fourth.map(({ x, y }) => `${x}:${y}`));
+        expect(fifth.some(({ x, y }) => fourthHashes.has(`${x}:${y}`))).toBe(false);
+        expect(narrowingRingCells(16, 16, 8)).toHaveLength(4);
+        expect(narrowingRingCells(16, 16, 9)).toEqual([]);
+    });
+
+    test("retains the generic masked abyss fallback after the baked narrowing levels", () => {
+        const stage = new Container();
+        const worldRoot = new Container();
+        const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+        const visuals = new DungeonVisuals({
+            getStage: () => stage,
+            getWorldRoot: () => worldRoot,
+            getViewportSize: () => ({ width: 1024, height: 1024 }),
+            getGridSettings: () => gridSettings,
+            texAny: (key) => (key === "background_test_abyss_underlay_v4" ? Texture.WHITE : undefined),
+            attachToWorldRoot: (object, zIndex = 0) => {
+                object.zIndex = zIndex;
+                worldRoot.addChild(object);
+            },
+        });
+
+        visuals.setTestBackground(true);
+        visuals.spawnHoleLayer(6);
+
+        const layer = visuals.getHoleContainer().children[0] as Container;
+        expect(layer).toBeInstanceOf(Container);
+        expect(layer.children).toHaveLength(2);
+        expect(layer.children[0].mask).toBe(layer.children[1]);
+
+        visuals.destroy();
+    });
+});
 
 describe("Map narrowing rings", () => {
     test("switches approved baked narrowing backgrounds in TEST and real narrowing", () => {
@@ -462,6 +601,69 @@ describe("DungeonVisuals lifecycle", () => {
             worldRoot.destroy({ children: true });
             loadingRoot.destroy({ children: true });
             fightState.setFightProperties(previousFight);
+        }
+    });
+    test("borrows scene-owned fire atlases without unloading the replacement scene's sources", () => {
+        const stage = new Container();
+        const worldRoot = new Container();
+        const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+        const atlas = new Texture({ source: new TextureSource({ width: 16384, height: 16384 }) });
+        let available = false;
+        const requested: string[] = [];
+        const context = {
+            getStage: () => stage,
+            getWorldRoot: () => worldRoot,
+            getViewportSize: () => ({ width: 1024, height: 1024 }),
+            getGridSettings: () => gridSettings,
+            texAny: (key: string) => {
+                requested.push(key);
+                return available ? atlas : undefined;
+            },
+            attachToWorldRoot: () => undefined,
+        };
+        const first = new DungeonVisuals(context);
+        const second = new DungeonVisuals(context);
+        type Internals = {
+            firePitOverlayTexture(): Texture | undefined;
+            ensureAmbientFireSprites(): void;
+            ambientFireFrames: Map<string, Texture[]>;
+        };
+        const before = first as unknown as Internals;
+        const after = second as unknown as Internals;
+        const originalLoad = Assets.load;
+        const originalUnload = Assets.unload;
+        const unexpected: string[] = [];
+        Assets.load = (() => {
+            unexpected.push("load");
+            return Promise.resolve(atlas);
+        }) as typeof Assets.load;
+        Assets.unload = (() => {
+            unexpected.push("unload");
+            return Promise.resolve();
+        }) as typeof Assets.unload;
+        try {
+            expect(before.firePitOverlayTexture()).toBeUndefined();
+            before.ensureAmbientFireSprites();
+            expect(requested).toContain("fire_pit_grok_video_fire_under_v2_64_atlas");
+            available = true;
+            expect(before.firePitOverlayTexture()?.source).toBe(atlas.source);
+            before.ensureAmbientFireSprites();
+            after.ensureAmbientFireSprites();
+            first.destroy();
+            expect(atlas.destroyed).toBe(false);
+            expect(after.ambientFireFrames.size).toBeGreaterThan(0);
+            for (const frames of after.ambientFireFrames.values()) {
+                expect(frames.every((frame) => !frame.destroyed && !frame.source.destroyed)).toBe(true);
+            }
+            expect(unexpected).toEqual([]);
+        } finally {
+            first.destroy();
+            second.destroy();
+            atlas.destroy(true);
+            stage.destroy({ children: true });
+            worldRoot.destroy({ children: true });
+            Assets.load = originalLoad;
+            Assets.unload = originalUnload;
         }
     });
 });

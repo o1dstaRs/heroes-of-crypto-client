@@ -60,7 +60,7 @@ const controlledDecodes = () => {
     return { jobs, settle, sources: () => jobs.map((job) => job.image.src) };
 };
 
-test("cold selection starts exactly its two high-priority critical files, then low-priority optional layers", async () => {
+test("cold selection starts its high-priority still pair before optional glow; animation owns its own page budget", async () => {
     const controlled = controlledDecodes();
     const sources = leftSidebarPortraitSources(CreatureVals.PEASANT);
     const pair = warmLeftSidebarPortrait(CreatureVals.PEASANT);
@@ -70,7 +70,7 @@ test("cold selection starts exactly its two high-priority critical files, then l
     expect(controlled.sources()).toHaveLength(2);
     await controlled.settle(sources.background!);
     expect(await pair).toBe(true);
-    expect(controlled.sources()).toEqual([sources.creature!, sources.background!, sources.glow!, sources.atlas!]);
+    expect(controlled.sources()).toEqual([sources.creature!, sources.background!, sources.glow!]);
     expect(controlled.jobs.slice(2).every((job) => job.image.fetchPriority === "low")).toBe(true);
 });
 

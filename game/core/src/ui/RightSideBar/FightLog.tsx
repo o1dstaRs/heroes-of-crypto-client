@@ -10,6 +10,7 @@ import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { t, useTranslation } from "../../i18n/i18n";
 import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
 import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
+
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { ImageScrollbar } from "./ImageScrollbar";
 import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";
@@ -67,16 +68,10 @@ const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi,
 /**
  * Paint the actor's name in its army's colour and drop the bead that used to carry it. The emitted line
  * and the clipboard export are untouched — see fightLogTeamNames.
- *
- * The name still announces the side the army is drawn on. On a mirrored board that is the other seat
- * from the one the mark names, which is the same rule the old bead used.
  */
 const renderFightLogMarkers = (text: string): React.ReactNode =>
     fightLogSegments(text).map((segment, index) => {
         if (!segment.color) return segment.text;
-        // A player who chose a personal army colour sees the name in THAT colour, exactly as the board,
-        // the stack flags and the stat pips paint the same army. Without a choice this returns undefined
-        // and the identity colour stands.
         const team = segment.mark ? fightLogMarkTeam(segment.mark) : undefined;
         const personal = team === undefined ? undefined : personalArmyCssColor(team);
         const drawnSide = team === undefined ? undefined : drawnSideOf(team);

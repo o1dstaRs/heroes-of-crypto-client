@@ -9,7 +9,6 @@ beforeAll(() => {
             cookie: "",
             querySelector: () => null,
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
-            querySelectorAll: () => [],
         };
 });
 

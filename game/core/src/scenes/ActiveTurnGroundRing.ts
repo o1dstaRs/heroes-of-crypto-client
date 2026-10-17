@@ -1,3 +1,4 @@
+import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
 import { Container, Matrix, Mesh, MeshGeometry, Texture } from "pixi.js";
 import type { GridSettings, HoCMath } from "@heroesofcrypto/common";
 
@@ -200,6 +201,6 @@ export function updateActiveTurnGroundRing(
     // The larger band retains more fully covered pixels after sampling and reads brighter.
     // Neutral RGB compensation matches the small ring without changing hue or transparency.
     ring.tint = footprintWidth > 1 && footprintHeight > 1 ? 0xe0e0e0 : 0xffffff;
-    ring.zIndex = 4000 - position.y - 0.4;
+    ring.zIndex = FLOOR_AURA_Z_INDEX + 0.3;
     ring.visible = true;
 }

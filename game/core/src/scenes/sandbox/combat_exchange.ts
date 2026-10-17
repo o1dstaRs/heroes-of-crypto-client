@@ -7,8 +7,9 @@ export interface CombatExchangeStrike {
     lethal: boolean;
     response: boolean;
     hitIndex: number;
-    missed?: boolean;
     position?: { x: number; y: number };
+
+    missed?: boolean;
 }
 
 /** The first blow and its recorded response are simultaneous; later blows follow that exchange. */

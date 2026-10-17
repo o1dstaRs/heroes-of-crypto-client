@@ -155,12 +155,24 @@ const knownImageKeys = fs.existsSync(path.join(generatedDir, "image_keys.json"))
       ].sort()
     : [...imageKeys].sort();
 
+// Keep the real revision contract even when CI substitutes the private pixel data.
+const releaseRevisions = Object.fromEntries(
+    Object.entries(require("../animation-release.json").files)
+        .filter(([file]) => file.endsWith(".webp"))
+        .map(([file, meta]) => [path.basename(file, ".webp"), meta.sha256.slice(0, 16)]),
+);
+
 const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_image_imports.js */
 // Asset-policy and portrait tests exercise the generated lookup contract without downloading the
 // private art bundle. Mirror the production generator's URL-shaped values so tests exercise the same
 // contract instead of receiving bare asset keys that no browser or texture loader can resolve.
-const stubImageUrl = (key: string): string =>
-    \`\${new URL(\`../../images/\${key}.webp\`, import.meta.url).toString()}#ci-stub\`;
+const releaseRevisions: Record<string, string> = ${JSON.stringify(releaseRevisions)};
+const stubImageUrl = (key: string): string => {
+    const revision = /_atlas(?:_half|_quarter)?$/.test(key) ||
+        /^(fire|earth|water|wind)_element_256$/.test(key) || key === "champion_lab_plume"
+        ? "?v=" + (releaseRevisions[key] ?? "ci-stub") : "";
+    return \`\${new URL(\`../../images/\${key}.webp\${revision}\`, import.meta.url).toString()}#ci-stub\`;
+};
 const knownImages = Object.fromEntries(
     ${JSON.stringify(knownImageKeys)}.map((key) => [key, stubImageUrl(key)]),
 ) as Record<string, string>;

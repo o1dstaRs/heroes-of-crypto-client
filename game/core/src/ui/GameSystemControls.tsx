@@ -3,6 +3,7 @@ import React, { useCallback, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "./audio/volumeSlot";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { FullscreenToggle } from "./RightSideBar/FullscreenToggle";
 
 export const GAME_SYSTEM_CONTROLS_SIDE_INSET = "1rem";
@@ -178,6 +179,8 @@ export const GameSystemControls: React.FC<{
         },
         [priority],
     );
+
+    useLayoutEffect(() => registerBattleSystemControls(), []);
 
     const anchorSx = {
         ...(sidebarWidth !== undefined

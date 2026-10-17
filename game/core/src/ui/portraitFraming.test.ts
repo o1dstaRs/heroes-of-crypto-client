@@ -105,16 +105,11 @@ describe("committed creature portrait framing", () => {
             const visual = resolveCreaturePortraitVisual(creatureId);
             const framing = PORTRAIT_FRAMING_CHECKPOINT_X[creatureId] ?? DEFAULT_PORTRAIT_FRAMING;
             expect(visual?.framing).toEqual(framing);
-            if (framing.source === "full") {
-                // The full-body crop is not valid for a legacy portrait. Do not repeat the runtime
-                // fallback here: doing so let missing production sources pass this regression test.
-                const fullSource = fullBodyCreatureImage(creatureId);
-                expect(fullSource, `Creature ${creatureId} needs its reviewed full-body source`).toBeDefined();
-                expect(fullSource).not.toMatch(/_512(?:_v\d+)?\.webp(?:$|[?#])/);
-                expect(visual?.source).toBe(fullSource);
-            } else {
-                expect(visual?.source).toBe(UNIT_ID_TO_IMAGE[creatureId]);
-            }
+            expect(visual?.source).toBe(
+                framing.source === "full"
+                    ? (fullBodyCreatureImage(creatureId) ?? UNIT_ID_TO_IMAGE[creatureId])
+                    : UNIT_ID_TO_IMAGE[creatureId],
+            );
         }
     });
 

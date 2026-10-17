@@ -1,7 +1,7 @@
 import { isRetiredCreatureThumbnail } from "./retiredCreatureThumbnails";
 import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
-import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import { isDeferredEnvironmentAssetKey } from "./imageAssetTiers";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
@@ -121,6 +121,12 @@ const UNUSED_PRODUCTION_ASSETS = new Set([
     "poison_cloud_aura_256",
     "serene_mind_256",
     "taxpayer_256",
+    "vfx_unyielding_power_long_atlas",
+    "vfx_unyielding_power_long_atlas_half",
+    "vfx_unyielding_power_long_atlas_quarter",
+    "vfx_unyielding_power_short_atlas",
+    "vfx_unyielding_power_short_atlas_half",
+    "vfx_unyielding_power_short_atlas_quarter",
     "spider_512",
     "stun_status_gold",
     "tombstone_tiles_256_atlas",
@@ -189,7 +195,8 @@ const LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED = new Set(["orc_idle_atlas_q
 
 /** Animation sheets that no compiled production path can request under the current art-direction switch. */
 export function isProductionOmittedDisabledUnitAnimationAssetKey(key: string): boolean {
-    if (/^arbalester_idle_page_\d{2}_atlas$/.test(key)) return false;
+    if (/^(?:arbalester_idle|abomination_lab_idle)_page_\d{2}_atlas$/.test(key)) return false;
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
     if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || !isUnitAnimationAtlasKey(key)) return false;
     return !shouldPreloadUnitAnimationAtlas(key, false) && !LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED.has(key);
 }

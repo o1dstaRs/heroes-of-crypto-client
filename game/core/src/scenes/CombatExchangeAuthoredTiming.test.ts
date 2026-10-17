@@ -129,6 +129,7 @@ test.each([
                         fire: async (opts: IFireProjectileOptions) => {
                             projectiles.push(opts);
                             // Immediate contact stresses an incoming hit while the opponent is still winding up.
+                            if (opts.returnToOrigin) opts.onWaypoint?.(0);
                             opts.onImpact?.();
                         },
                         fireAlongPath: async () => {},
@@ -190,8 +191,8 @@ test.each([
                     expect(projectiles.some((shot) => shot.signal?.aborted)).toBe(false);
                     expect(starts.filter((entry) => entry.state.includes("attack"))).toHaveLength(2);
                     expect(
-                        new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.actor)),
-                    ).toEqual(new Set(lethal ? [] : actors));
+                        new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.actor.getName())),
+                    ).toEqual(new Set(lethal ? [] : actors.map((actor) => actor.getName())));
                     expect(new Set(deaths)).toEqual(new Set(lethal ? actors : []));
                     expect(damage).toEqual([10, 10]);
                 } finally {

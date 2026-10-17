@@ -83,7 +83,6 @@ beforeEach(() => {
         (globalThis as { document?: unknown }).document = {
             createElement: () => ({ getContext: () => null, setAttribute: () => undefined }),
             querySelector: () => null,
-            querySelectorAll: () => [],
         };
     }
     FightStateManager.getInstance().reset();
@@ -120,6 +119,9 @@ describe("placement silhouette facing", () => {
             expect(sprite!.tint).toBe(0xffffff);
             expect(sprite!.filters).toHaveLength(1);
             expect(sprite!.filters![0]).toBeInstanceOf(ColorMatrixFilter);
+            const grayscale = sprite!.filters![0] as ColorMatrixFilter;
+            expect(grayscale.resolution).toBe("inherit");
+            expect(grayscale.antialias).toBe("inherit");
             const backing = (hover as unknown as { hoverSilhouetteOutline?: Sprite }).hoverSilhouetteOutline;
             expect(backing?.visible).toBe(false);
         });

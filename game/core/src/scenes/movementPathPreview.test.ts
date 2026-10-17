@@ -34,6 +34,7 @@ function setup(width = 1, height = 1, route = detour) {
     const origin = route[0];
     const destination = route[route.length - 1];
     const unit = {
+        getName: () => "Peasant",
         canMove: () => true,
         canFly: () => false,
         getBaseCell: () => origin,

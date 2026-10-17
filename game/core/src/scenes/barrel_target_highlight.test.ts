@@ -42,7 +42,8 @@ describe("Cemetery barrel danger highlights", () => {
 
         // Area Throw is the exception: its rock flies OVER the barrels on its line (the engine ignores structures
         // there) and breaks every barrel in the 3x3 it lands on, so its preview marks the blast, not the line.
-        const areaThrowHover = sliceFrom(source, "private updateAreaThrowHover()", 5_500);
+        const start = source.indexOf("private updateAreaThrowHover()");
+        const areaThrowHover = source.slice(start, source.indexOf("\n    }", start));
         expect(areaThrowHover).toContain("this.highlightScatteredObstaclesInCells(cells)");
         expect(areaThrowHover).not.toContain("this.highlightScatteredObstaclesAlongTrajectory(");
         const blastHelper = sliceFrom(source, "private highlightScatteredObstaclesInCells(", 800);
@@ -68,9 +69,8 @@ describe("Cemetery barrel danger highlights", () => {
 
     test("clicks the same canonical barrel centre used by the hover preview", () => {
         const source = sceneSource();
-        // Wide enough to reach the RANGE return past the aiming-mode guards that stand in front of it
-        // (Area Throw, Large Caliber, free Through Shot) and the reasons they are each there.
-        const resolver = sliceFrom(source, "private resolveObstacleAttack(", 3_500);
+        const start = source.indexOf("private resolveObstacleAttack(");
+        const resolver = source.slice(start, source.indexOf("\n    }", start));
         expect(resolver).toContain("const hoveredCell = GridMath.getCellForPosition(gs, worldPos)");
         expect(resolver).toContain("const targetPosition = GridMath.getPositionForCell(");
         expect(resolver).toContain("return { unit, attackType: AttackVals.RANGE, targetPosition }");
@@ -80,19 +80,6 @@ describe("Cemetery barrel danger highlights", () => {
             "this.executeObstacleAttackSequence(resolved.unit, resolved.targetPosition, resolved.attackFrom)",
         );
         expect(click).not.toContain("this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom)");
-    });
-
-    // The hover tries the free ray FIRST (updateFreeThroughShotHover, then updateObstacleHover) while the
-    // click tries the obstacle first — so the obstacle path has to stand aside for an aiming mode that owns
-    // its whole ray, as it already does for Area Throw and Large Caliber. Without this, a Tsar Cannon
-    // free-aiming at a barrel with an enemy stack in between broke the barrel while the stack the cursor had
-    // outlined and priced took nothing (audit 2026-09-19).
-    test("stands aside for every aiming mode that owns its own ray", () => {
-        const resolver = sliceFrom(sceneSource(), "private resolveObstacleAttack(", 3_500);
-        const rangeBranch = resolver.slice(resolver.indexOf('if (kind === "range")'));
-        expect(rangeBranch).toContain("this.isAreaThrowAiming() && this.grid.hasScatteredMountains()");
-        expect(rangeBranch).toContain("this.isLargeCaliberBarrelAiming(worldPos)");
-        expect(rangeBranch).toContain("if (this.isFreeThroughShotAiming())");
     });
 
     test("clears the movement ghost when ranged aiming starts on a barrel", () => {
@@ -122,6 +109,14 @@ describe("Cemetery barrel danger highlights", () => {
         expect(drawAim).toBeGreaterThan(drawTerminal);
         expect(hover.slice(drawTerminal, drawAim)).toContain("blockedVisual");
         expect(hover.slice(drawAim, drawAim + 300)).toContain("blockedCasingJoint");
+    });
+
+    test("stands aside for every aiming mode that owns its own ray", () => {
+        const resolver = sliceFrom(sceneSource(), "private resolveObstacleAttack(", 3_500);
+        const rangeBranch = resolver.slice(resolver.indexOf('if (kind === "range")'));
+        expect(rangeBranch).toContain("this.isAreaThrowAiming() && this.grid.hasScatteredMountains()");
+        expect(rangeBranch).toContain("this.isLargeCaliberBarrelAiming(worldPos)");
+        expect(rangeBranch).toContain("if (this.isFreeThroughShotAiming())");
     });
 
     test("prices every unit a barrel-aimed melee strike's riders hit with the unit hover's own rider projection", () => {

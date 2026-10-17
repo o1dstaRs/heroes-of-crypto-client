@@ -1,7 +1,5 @@
 import { Filter, type Sprite } from "pixi.js";
 
-import { isFlippedOnScreen } from "../pixi/boardMirror";
-
 // Sole centers measured in the 768px source frames, left boot then right boot.
 // Register both points to the idle stance, not to the changing whole-frame bounds.
 export const SCAVENGER_IDLE_SOLES = [
@@ -162,8 +160,7 @@ export function applyScavengerHitRegistration(sprite: Sprite, frameIndex: number
         uCenterY: c.centerY / 768,
         uWidth: c.widthScale,
         uShear: c.shear,
-        // The shader works in screen space, so it needs the flip the viewer sees, board mirror included.
-        uMirror: isFlippedOnScreen(sprite.scale.x) ? -1 : 1,
+        uMirror: sprite.scale.x < 0 ? -1 : 1,
     });
     sprite.filters = [filter, ...(sprite.filters ?? [])];
 }
