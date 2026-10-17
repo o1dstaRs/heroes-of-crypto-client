@@ -93,6 +93,7 @@ import { syncNomadIdleVisuals } from "./NomadIdleVisuals";
 import { syncHyenaIdleVisuals } from "./HyenaIdleVisuals";
 import { syncMonkLabIdle } from "./MonkLabIdleVisuals";
 import {
+    Cache,
     Container,
     Sprite,
     Graphics,
@@ -2410,19 +2411,16 @@ function getActiveTurnFireFrames(): Texture[] {
     return activeTurnFireFramesCache ?? [];
 }
 
+function loadedAtlasTexture(imageSrc: string, resolvedTexture?: Texture): Texture | undefined {
+    // Texture.from(string) probes Cache.get even during an ordinary pending load, logging on every
+    // retry. Only inspect a present entry, and never reuse wrappers backed by a retired source.
+    const texture = resolvedTexture ?? (Cache.has(imageSrc) ? Cache.get<Texture>(imageSrc) : undefined);
+    return texture && !texture.destroyed && texture.source && !texture.source.destroyed ? texture : undefined;
+}
+
 function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, resolvedTexture?: Texture): Texture[] {
-    let parentTexture = resolvedTexture;
-    if (!parentTexture) {
-        try {
-            parentTexture = Texture.from(imageSrc);
-        } catch {
-            return [];
-        }
-    }
-    // Texture.from can return no texture while a background atlas is still being loaded. Falling back
-    // to the unit's already-visible static board texture keeps one missing atlas from aborting the whole
-    // scene hydrate (the L1 framing editor intentionally creates sixteen creatures at once).
-    if (!parentTexture?.source) return [];
+    const parentTexture = loadedAtlasTexture(imageSrc, resolvedTexture);
+    if (!parentTexture) return [];
     const source = parentTexture.source; // v8-friendly
     if (
         imageKey === "tsar_cannon_lab_walk_atlas" ||
@@ -2666,15 +2664,8 @@ function cachedAtlasFrames(
     imageKey: string,
     resolvedTexture?: Texture,
 ): Texture[] {
-    let parentTexture = resolvedTexture;
-    if (!parentTexture) {
-        try {
-            parentTexture = Texture.from(imageSrc);
-        } catch {
-            return [];
-        }
-    }
-    if (!parentTexture?.source) return [];
+    const parentTexture = loadedAtlasTexture(imageSrc, resolvedTexture);
+    if (!parentTexture) return [];
 
     let framesByKey = atlasFramesCache.get(parentTexture);
     const layoutKey = JSON.stringify([
@@ -2705,7 +2696,7 @@ function cachedAtlasFrames(
  * in the module cache. PixiScene lease-counts these textures and unloads them with the last owning scene.
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
-    const resolvedTexture = texResolver(config.imageKey);
+    const resolvedTexture = loadedAtlasTexture(config.imageSrc, texResolver(config.imageKey));
     // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
     // than creating a wrapper that can outlive the lease and keep the decoded source resident. A multi-frame
     // sheet still has to be cut, even when the whole atlas texture is already in hand.
