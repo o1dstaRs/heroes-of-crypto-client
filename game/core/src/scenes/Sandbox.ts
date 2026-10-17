@@ -1935,7 +1935,12 @@ export class Sandbox extends PixiScene {
         return undefined;
     }
     /** Personal screen effects belong to seated live players; sandbox and replay views have no victim screen. */
-    protected onCombatImpact(_attacker: Unit, _victimTeam: TeamType | undefined, _amount: number): void {}
+    protected onCombatImpact(
+        _attacker: Unit,
+        _victimTeam: TeamType | undefined,
+        _amount: number,
+        _attackType: "melee" | "range",
+    ): void {}
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
     }
@@ -5582,7 +5587,7 @@ export class Sandbox extends PixiScene {
                         const direction = { x: to.x - from.x, y: to.y - from.y };
                         const receivedDamage = !strike.missed && strike.amount > 0;
                         if (receivedDamage) {
-                            this.onCombatImpact?.(source, victimTeam, strike.amount);
+                            this.onCombatImpact?.(source, victimTeam, strike.amount, event.attackType);
                             if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
                             this.combatVisuals.showFloatingDamage(
                                 this.offsetReplayDamagePosition(to, victim, direction),
@@ -5843,7 +5848,7 @@ export class Sandbox extends PixiScene {
                 const direction = { x: center.x - from.x, y: center.y - from.y };
                 if (unit) {
                     this.playUnitCombatSound(unit, "hurt");
-                    this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount);
+                    this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount, "range");
                 }
                 this.combatVisuals.showFloatingDamage(
                     unit ? this.offsetReplayDamagePosition(center, unit, direction) : center,
@@ -5959,7 +5964,7 @@ export class Sandbox extends PixiScene {
                         const direction = { x: center.x - from.x, y: center.y - from.y };
                         if (unit) {
                             this.playUnitCombatSound(unit, "hurt");
-                            this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount);
+                            this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount, "range");
                         }
                         this.combatVisuals.showFloatingDamage(
                             unit ? this.offsetReplayDamagePosition(center, unit, direction) : center,
@@ -10846,7 +10851,7 @@ export class Sandbox extends PixiScene {
                     continue;
                 }
                 if (dmg && dmg.amount > 0) {
-                    this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount);
+                    this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                     this.combatVisuals?.showFloatingDamage(
                         center,
                         dmg.amount,

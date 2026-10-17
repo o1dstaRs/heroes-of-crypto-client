@@ -1559,11 +1559,17 @@ export class RankedPlayScene extends Sandbox {
     protected override getViewerTeam(): TeamType | undefined {
         return this.viewerTeam;
     }
-    protected override onCombatImpact(attacker: Unit, victimTeam: TeamType | undefined, amount: number): void {
+    protected override onCombatImpact(
+        attacker: Unit,
+        victimTeam: TeamType | undefined,
+        amount: number,
+        attackType: "melee" | "range",
+    ): void {
         if (
             this.fullReplayPlaybackActive ||
             this.replayViewingActive ||
             (this.viewerTeam !== TeamVals.LEFT && this.viewerTeam !== TeamVals.RIGHT) ||
+            attackType !== "range" ||
             attacker.getName() !== "Zena" ||
             attacker.getTeam() === this.viewerTeam ||
             victimTeam !== this.viewerTeam ||

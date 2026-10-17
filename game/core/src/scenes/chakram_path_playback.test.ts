@@ -70,9 +70,17 @@ const sceneFor = (units: readonly UnitStub[]) => {
     const slashes: XY[] = [];
     const missPops: XY[] = [];
     const impacts: { source: string; victimTeam?: TeamType; amount: number }[] = [];
+    const impactAttackTypes: ("melee" | "range")[] = [];
     const scene = {
-        onCombatImpact: (source: UnitStub, victimTeam: TeamType | undefined, amount: number) =>
-            impacts.push({ source: source.getId(), victimTeam, amount }),
+        onCombatImpact: (
+            source: UnitStub,
+            victimTeam: TeamType | undefined,
+            amount: number,
+            attackType: "melee" | "range",
+        ) => {
+            impacts.push({ source: source.getId(), victimTeam, amount });
+            impactAttackTypes.push(attackType);
+        },
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => byId },
         rangedProjectiles: {
@@ -99,7 +107,7 @@ const sceneFor = (units: readonly UnitStub[]) => {
         chakramWorldDir: (Sandbox.prototype as unknown as { chakramWorldDir: (from: XY, to: XY) => XY })
             .chakramWorldDir,
     };
-    return { scene, byId, paths, damagePops, wounds, slashes, missPops, impacts };
+    return { scene, byId, paths, damagePops, wounds, slashes, missPops, impacts, impactAttackTypes };
 };
 
 const splash = (victim: UnitStub, amount = 10, unitsDied = 0): Splash => ({
@@ -1021,6 +1029,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
             { source: "Zena", victimTeam: TeamVals.LEFT, amount: 10 },
             { source: "Zena", victimTeam: TeamVals.LEFT, amount: 7 },
         ]);
+        expect(harness.impactAttackTypes).toEqual(["range", "range", "range"]);
     });
 
     test("two Zenas replay their own arcs and damage once each", async () => {
@@ -1086,17 +1095,29 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         await pending;
     });
 
-    test("an adjacent melee poke plays no thrown disc or return disc", async () => {
+    test("adjacent melee hits and counters report melee impacts without a thrown disc", async () => {
         const attacker = unit("Attacker", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
         const defender = unit("Defender", { x: 6, y: 6 }, 1, 2, TeamVals.RIGHT);
         const harness = exchangeFor([attacker, defender]);
 
-        await exchange(harness.scene, attacker, defender, [strike(attacker, defender, 10)], [], [], { melee: true });
+        await exchange(
+            harness.scene,
+            attacker,
+            defender,
+            [strike(attacker, defender, 10), strike(defender, attacker, 12, true)],
+            [],
+            [],
+            { melee: true },
+        );
 
         expect(harness.paths).toEqual([]);
         expect(harness.shots).toEqual([]);
-        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
-        expect(harness.impacts).toEqual([{ source: "Attacker", victimTeam: TeamVals.RIGHT, amount: 10 }]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 12]);
+        expect(harness.impacts).toEqual([
+            { source: "Attacker", victimTeam: TeamVals.RIGHT, amount: 10 },
+            { source: "Defender", victimTeam: TeamVals.LEFT, amount: 12 },
+        ]);
+        expect(harness.impactAttackTypes).toEqual(["melee", "melee"]);
     });
 
     test("an initiating miss does not mark a landed counter-throw as missed", async () => {
