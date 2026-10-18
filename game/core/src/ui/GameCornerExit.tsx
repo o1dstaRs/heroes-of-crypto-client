@@ -1,6 +1,4 @@
-import Button from "@mui/joy/Button";
-import { PICK_EXIT_CLOSE_BUTTON_SIZE_PX } from "./exitFightButtonSx";
-import { hocSidebarImageButtonSx } from "./hocTheme";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 import Box from "@mui/joy/Box";
 import IconButton from "@mui/joy/IconButton";
 import Tooltip from "@mui/joy/Tooltip";
@@ -11,8 +9,6 @@ import { pickExitCloseButtonSx } from "./exitFightButtonSx";
 
 export const GAME_CORNER_SLOT_INSET = "1rem";
 export const GAME_CORNER_SLOT_TOP = "calc(max(0px, calc(1rem - 2vh)) + 1vh)";
-/** Content below the corner actions needs a full button height and a small gap. */
-export const GAME_CORNER_CONTENT_TOP = `calc(${GAME_CORNER_SLOT_TOP} + ${PICK_EXIT_CLOSE_BUTTON_SIZE_PX + 8}px)`;
 /** Above the sidebars and the system-control row, below Joy's modal layer (1300+ is the confirm dialog). */
 export const GAME_CORNER_SLOT_Z_INDEX = 1450;
 
@@ -60,21 +56,18 @@ export default GameCornerSlot;
 
 export const GameCornerStartOverButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <Tooltip title="Clear the board and start a new sandbox" describeChild variant="soft" size="sm" placement="bottom">
-        <Button
+        <IconButton
             aria-label="Start over"
             onClick={onClick}
             sx={{
-                ...hocSidebarImageButtonSx("neutral"),
-                width: "auto",
-                minWidth: 0,
-                height: `${PICK_EXIT_CLOSE_BUTTON_SIZE_PX}px`,
-                minHeight: `${PICK_EXIT_CLOSE_BUTTON_SIZE_PX}px`,
-                px: 1.25,
-                fontSize: "0.7rem",
-                whiteSpace: "nowrap",
+                ...pickExitCloseButtonSx,
+                border: "2px solid #765737",
+                backgroundImage: "linear-gradient(135deg, #2b1711, #100b08)",
+                color: "#cfab70",
+                boxShadow: "inset 0 0 0 1px #130c07, inset 0 0 5px #000, 0 1px 3px #000",
             }}
         >
-            Start over
-        </Button>
+            <RestartAltRoundedIcon sx={{ fontSize: 23, color: "inherit" }} />
+        </IconButton>
     </Tooltip>
 );

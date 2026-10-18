@@ -29,12 +29,7 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import {
-    GAME_CORNER_CONTENT_TOP,
-    GameCornerExitButton,
-    GameCornerSlot,
-    GameCornerStartOverButton,
-} from "../GameCornerExit";
+import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
@@ -304,12 +299,10 @@ export default function RightSideBar({
                         : gameStarted
                           ? 0
                           : `${sidebarPlainFrameSideInsetPx(barSize)}px`,
-                // Corner actions are portalled outside this layout. Reserve their row so Start over and
-                // the exit never cover Damage (or the sandbox setup tools).
-                pt:
-                    gameStarted || onClose
-                        ? `max(${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px, ${GAME_CORNER_CONTENT_TOP})`
-                        : `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
+                // Joy's small List adds another 4px above its first item. Include that fixed inset in the
+                // calculation so the complete visible gap above Damage is exactly halved in combat.
+                // The released space is absorbed by the flexible log; setup keeps its original framing.
+                pt: `${gameStarted ? Math.max(0, Math.round((sidebarPlainFrameVerticalInsetPx(windowSize.height) - 4) / 2)) : sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 pb: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 // flexShrink: 0,
                 display: "flex",
@@ -437,6 +430,8 @@ export default function RightSideBar({
                                     <Typography
                                         sx={{
                                             flex: 1,
+                                            alignSelf: "flex-end",
+                                            mb: "2px",
                                             textAlign: "center",
                                             fontFamily: hocDisplayFontFamily,
                                             fontSize: "1.139rem",
