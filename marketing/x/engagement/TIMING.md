@@ -182,3 +182,62 @@ Official game/studio posts in window (posted time PT, public metrics at read tim
 Thread open vs peak (this run only): Saturday is clearly quieter than the weekdays. The big card/autobattler accounts that drove weekday reply volume (Hearthstone, Snap) posted nothing by late morning, and the posts that did go up between 6 and 10 AM PT opened slowly (0–3 replies). Studio posts cluster on the hour (5, 6, 9, 10 AM PT). Pre-Next Fest (starts Mon 19 Oct) indie posts are plentiful but almost all from accounts under 1,000 followers.
 
 Recommendation: still not a firm window, but a weekday/weekend split is emerging. Weekdays, 10 AM–2:30 PM PT opens the busiest threads; Saturday late morning is thin, so weekend reply drafts are lower value. Keep logging through Sun and Mon (Next Fest start) before recommending.
+
+## Sat 17 Oct 2026, 3:41 PM PT run (window: 3:41 AM – 3:41 PM Sat PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~3:45 PM). Nothing qualified as a fresh, unsurfaced reply target, so no drafts this run.
+- @StellarisGame, Ideologies video, 8:15 AM Sat: 3,220 impressions, 51 likes, 3 replies, 4 reposts, 2 quotes (held back again: replies are an anti-Paradox jab, a spam hashtag and a one-liner)
+- @AOE_Mobile, 2nd anniversary video, 6:00 AM Sat: 1,087 impressions, 7 likes, 1 reply (skipped: AOE_Mobile already surfaced today, weak tactics angle)
+- @AOE_Mobile, Fireside Chat stat share, 5:00 AM Sat: 934 impressions, 2 likes, 0 replies (skipped)
+- @TFT, meme, 10:00 AM Sat: 26,195 impressions, 277 likes, 4 replies (skipped, no angle)
+- Re-reads, already surfaced: @CompanyOfHeroes Mignano 3.0, 10:00 AM: 1,178 impressions, 35 likes, 0 replies (was 781 / 27 at 11:45 AM); @NextaleGames Calame, 9:00 AM: 410 impressions, 22 likes, 1 reply; @StudioDraconis, 9:49 AM: 59 impressions, 4 likes, 0 replies; @StellarisGame peace conference, 6:57 AM: 2,476 impressions, 35 likes, 2 replies; @MeltedGames, 6:55 AM: 221 impressions, 5 likes, 1 reply
+- No root posts at all after 10:00 AM PT from any of the 32 tracked accounts (Hearthstone, Snap, Total War, FE Heroes, Overhype, MightMagic, Unfrozen, Lavapotion, Shiro, Wartales, mechabellum, Midjiwan included). @blightstonegame and @UnfinishedPixel (new to the list) posted nothing 16–17 Oct.
+- Pre-Next Fest chatter (starts Mon 19 Oct) is heavy this afternoon but comes from small indies, curators and non-tactics genres.
+
+Thread open vs peak (this run only): Saturday afternoon was dead for official strategy accounts; the last root post was 10:00 AM PT. Morning Saturday posts kept collecting impressions slowly through the afternoon but almost no replies (CoH 0 replies after 5+ hours; Stellaris 3 replies, mostly hostile).
+
+Recommendation: still not a firm window, but the weekend pattern is now clear across two runs: official accounts post 5–10 AM PT on Saturday and go quiet by noon, and Saturday threads barely open. Weekday 10 AM–2:30 PM PT remains the best window for reply drafts; on weekends only the 7:37 and 11:37 AM runs are likely to find anything. Next check: Sunday, then Monday's Next Fest opening.
+
+
+## Sat 17 Oct 2026, 7:40 PM PT run (window: 7:40 AM – 7:40 PM Sat PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~7:42 PM). Nothing qualified as a fresh, unsurfaced reply target, so no drafts this run.
+- @Rainbow6Game, Mid-Season Briefing, 12:00 PM Sat: 38,924 impressions, 142 likes, 15 replies, 7 reposts (skipped: Siege, an FPS, not Rainbow Six Tactics)
+- @StellarisGame, Ideologies video, 8:15 AM Sat: 3,594 impressions, 60 likes, 3 replies, 5 reposts, 2 quotes (still held back: same hostile/spam replies, no new ones)
+- @TFT, meme, 10:00 AM Sat: 32,859 impressions, 341 likes, 4 replies (skipped, no angle)
+- Re-reads, already surfaced: @CompanyOfHeroes Mignano 3.0, 10:00 AM: 1,384 impressions, 39 likes, 0 replies (still zero replies after ~9.7h); @NextaleGames Calame, 9:00 AM: 471 impressions, 26 likes, 1 reply; @StudioDraconis, 9:49 AM: 65 impressions, 4 likes, 0 replies
+- No root posts after 12:00 PM PT from any tracked account (40 handles checked across two queries, including the dormant ones). Broad turn-based/strategy search for 12–7:40 PM PT found only sub-1,000-follower solo devs (@sebastiandokia 5, @metalcodestudio 114), a curator (@SoftpaleGames 661) and off-topic posts.
+
+Thread open vs peak (this run only): Saturday evening was empty for official strategy accounts; the last root post anywhere on the list was Rainbow 6 at noon PT, which kept growing replies (15) because it is a patch briefing. Saturday morning studio posts gathered impressions all day but almost no replies.
+
+Recommendation: the weekend pattern now holds across three Saturday runs. Official accounts post roughly 5 AM–noon PT on Saturday and go silent afterwards, so the 3:37 PM and 7:37 PM weekend runs are very unlikely to find anything. Weekday 10 AM–2:30 PM PT remains the best window. Re-check Sunday and Monday (Next Fest opening) before proposing a schedule change to Stepan.
+
+## Sun 18 Oct 2026, 7:45 AM PT run (window: 7:45 PM Sat – 7:45 AM Sun PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~7:48 AM). Surfaced three; skipped the rest.
+- @StudioDraconis, Zodiac Legion room breaching clip, 7:00 AM Sun: 62 impressions, 4 likes, 1 reply, 1 repost (surfaced)
+- @MeltedGames, mimic/chest roll post, 6:48 AM Sun: 16 impressions, 0 likes, 0 replies (skipped: fourth MeltedGames post this week, no thread)
+- @mechabellum, Crucible Cup Group A VOD, 6:13 AM Sun: 118 impressions, 2 likes, 0 replies (surfaced: PvP tournament angle)
+- @AOE_Mobile, Fireside Chat Day 6 "go-to hero or lineup", 6:00 AM Sun: 610 impressions, 4 likes, 2 replies, 1 repost (surfaced; replies are one player's lineup plus a Grok answer, and one Spanish-language reply)
+- @FE_Heroes_EN, Pawns of Loki Lite event, 12:02 AM Sun: 6,795 impressions, 45 likes, 0 replies (skipped, gacha event notice)
+- @FE_Heroes_EN, Divine Games, 12:00 AM Sun: 5,970 impressions, 39 likes, 0 replies, 2 quotes (skipped)
+- No root posts in window from @PlayHearthstone, @TFT, @MARVELSNAP, @totalwar, @CivGame, @Lavapotion, @shirogames, @Midjiwan, @OverhypeStudios, @Wartales_Game, @MightMagicGame, @Unfrozen_Studio, @CompanyOfHeroes, @StellarisGame, @HOI_Game, @AgeOfEmpires or any small/dormant tracked account other than those above. Nothing posted between 12:02 AM and 6:00 AM PT.
+- Broad turn-based/tactics search: only press/aggregators (@nexindie on Myths from the Maw, @GamesRadar, @AmigamagazineGA on HoMM3 for Amiga), a token project, and personal accounts.
+
+Thread open vs peak (this run only): Sunday morning matches Saturday. FE Heroes drops at midnight PT; everything else lands on the hour from 6 to 7 AM PT and opens slowly (0–2 replies within the first hour to 1.75 hours). AOE_Mobile's community question is the only thread with player replies so far.
+
+Recommendation: still no firm window. Weekend pattern now holds across four runs: official accounts post 6 AM–noon PT and threads open slowly; weekday 10 AM–2:30 PM PT stays the strongest window. Monday (Next Fest opens) is the next real test.
+
+## Sun 18 Oct 2026, 9:38 AM PT (daily engagement review)
+
+Own-account 24h snapshots filled today:
+- Life https://x.com/Heroes0fcrypto/status/2111245321292423194 posted Fri 4:58 PM PT (~40.7h): 13 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.0769
+- Through Shot https://x.com/Heroes0fcrypto/status/2111456161060815313 posted Sat 6:56 AM PT with the Tsar Cannon poster (~26.7h): 10 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.10
+- Crowd https://x.com/Heroes0fcrypto/status/2111532527114506733 posted Sat 11:59 AM PT (~21.6h): 9 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.1111
+- Might (~16.7h) and Sun question (~2.7h) still below the 20h floor; no 7d yet (pin ~85.6h, now 66 impressions)
+
+Slot check: Sat 17 Oct all three slots (6:56 / 11:59 / 4:52) posted with URLs, no failures. Sun 6:58 question already posted; 11:48 and 4:48 still queued (normal at 9:38 AM).
+
+Audience timing: nine scored posts. Eight of nine have zero external engagement, so 24h ER is just 1 / views (our own link-reply) and the "midday ER lead" is midday posts getting fewer views, not more engagement. By views, morning and evening slots (13–16 for tactics) beat midday (9–11) except the origin story (20). Weekend posts (Sat) drew the lowest views so far (9–13).
+
+Recommendation: keep current slots (6:48 / 11:48 / 4:48). Compare slots on views and external replies, not ER, until outside engagement shows up.

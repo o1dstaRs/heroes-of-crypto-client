@@ -22,8 +22,8 @@ Secondary (the real goal per STRATEGY.md): **plays started from X**. Not visible
 | Indicator | Definition | Source |
 |---|---|---|
 | Views | `impression_count` | API |
-| Engagement rate (ER) | (likes + replies + reposts + quotes) / views | API, computed |
-| Reply rate | replies / views | API, computed |
+| Engagement rate (ER) | (likes + **outside** replies + reposts + quotes) / views | API, computed (self-replies excluded) |
+| Reply rate | outside replies / views | API, computed |
 | Follower delta | followers now minus followers 7 days ago | `followers.csv` |
 | Tactics vs token replies | `tactics_replies` vs `token_replies` | human tag |
 | Outreach reach | views + likes on our replies in others' threads | API on `our_reply_url` |
@@ -35,7 +35,8 @@ Bookmarks are returned by the API and can go in `notes`, but they do not count t
 - **24h snapshot**: first pull 20 to 48h after posting fills `*_24h`. This is the comparison number for formats and slots.
 - **7d snapshot**: pull 6 to 10 days after fills `*_7d`. Shows long tail, Turn Based Thursday pickups.
 - `age_h_*` records the actual age at the pull, so the snapshot is honest about timing.
-- Our own self-replies (the link reply under each post) are excluded from posts.csv.
+- Our own self-replies (the link / follow-up reply under each post) are excluded from posts.csv as rows.
+- **`replies_24h` / `replies_7d` are outside-only.** `score.py ingest` subtracts our own self-replies from X's `reply_count` before writing those columns and before computing `er_*`. Self-replies are detected from the pull JSON (`in_reply_to_user_id` == our id + `referenced_tweets` type `replied_to`), with a fallback to an `Own-reply https://...` note on the parent row when the pull no longer includes that reply. Changed 2026-10-18 so ER is not inflated as ~1/views by our link follow-ups.
 - Human fills at posting time: `format_tag`, `hypothesis`. `slot` is auto-set from posted time PT (morning 5-11, midday 11-15, afternoon 15-19, evening 19-24, night 0-5).
 - Human or xcom fills after reading replies: `tactics_replies`, `token_replies`.
 
