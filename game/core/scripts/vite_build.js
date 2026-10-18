@@ -31,6 +31,11 @@ if (!readFileSync(generatedImageMap, "utf8").includes("/* CI stub")) {
 const { verifyLevelOneBuildAssets } = await import("./verify_level_one_build_assets.ts");
 verifyLevelOneBuildAssets();
 
+// Check every creature against this mode's actual asset manifest before producing a bundle.
+// Keeping the gate here also covers build:skip and direct invocations of this build entry point.
+const { checkPlacementRendering } = await import("./check_placement_rendering.ts");
+checkPlacementRendering();
+
 const { build } = await import("vite");
 
 await build({ mode });
