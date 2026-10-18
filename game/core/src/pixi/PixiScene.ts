@@ -350,6 +350,8 @@ export abstract class PixiScene {
     public selectAuthoritativeUnit(_unitId: string): void {}
     public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
+    public setAimIntentSink(_sink?: (aim: import("../api/play_protocol").PlayAim | undefined) => void): void {}
+    public setOpponentAim(_intent?: import("../api/play_protocol").OpponentAim): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],

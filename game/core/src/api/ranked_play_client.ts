@@ -17,9 +17,39 @@ import {
     PlayActionType,
     PlayPhase,
 } from "./play_protocol";
-import type { PlayAction, PlayActionResponse, PlayCell, PlayEvent, PlaySnapshot } from "./play_protocol";
+import type { PlayAction, PlayActionResponse, PlayAim, PlayCell, PlayEvent, PlaySnapshot } from "./play_protocol";
 
 const STORAGE_KEY = "accessToken";
+let intentSequence = Date.now() * 1024;
+
+export const sendRankedPlayAim = async (
+    gameId: string,
+    args: { playerId: string; team: TeamType; sequence: number; aim: PlayAim },
+): Promise<void> => {
+    if (isPreviewPlayGame(gameId)) return;
+    const aim = args.aim;
+    await axiosGameInstance.post(
+        playActionUrl(gameId),
+        encodePlayAction({
+            actionId: uuidv4(),
+            gameId,
+            playerId: args.playerId,
+            expectedSequence: args.sequence,
+            type: PlayActionType.MOVE_INTENT,
+            team: args.team,
+            unitId: aim.unitId,
+            aimKind: aim.kind,
+            intentSequence: ++intentSequence,
+            targetCell: aim.cell,
+            targetUnitId: aim.targetUnitId,
+            attackFrom: aim.attackFrom,
+            targetSide: aim.targetSide,
+            targetOrientation: aim.targetOrientation,
+            spellName: aim.spellName,
+        }),
+        { responseType: "arraybuffer", headers: authHeaders(), timeout: 2500 },
+    );
+};
 
 const authHeaders = (authorization?: string): Record<string, string> => {
     const token = authorization ?? localStorage.getItem(STORAGE_KEY);

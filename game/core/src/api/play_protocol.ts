@@ -70,6 +70,29 @@ export const PlaySpellIntentState = {
     CLEARED: 2,
 } as const;
 
+export const PlayAimKind = {
+    CLEAR: 1,
+    MOVE: 2,
+    MELEE: 3,
+    RANGED: 4,
+    SPELL: 5,
+} as const;
+
+export interface PlayAim {
+    kind: (typeof PlayAimKind)[keyof typeof PlayAimKind];
+    unitId: string;
+    cell?: PlayCell;
+    targetUnitId?: string;
+    attackFrom?: PlayCell;
+    targetSide?: number;
+    targetOrientation?: number;
+    spellName?: string;
+}
+
+export interface OpponentAim extends PlayAim {
+    expiresAt: number;
+}
+
 export const PlayEventKind = {
     UNKNOWN: 0,
     SNAPSHOT: 1,
@@ -416,6 +439,8 @@ export interface PlayAction {
     inputSource?: number;
     pointerEvents?: number;
     tabHidden?: boolean;
+    aimKind?: number;
+    intentSequence?: number;
 }
 
 export interface PlayIntent {
@@ -425,6 +450,14 @@ export interface PlayIntent {
     /** See PlaySpellIntentState. Absent or 0 means this hint is a move aim. */
     spellState?: number;
     spellName?: string;
+    aimKind?: number;
+    intentSequence?: number;
+    targetUnitId?: string;
+    aimCell?: PlayCell;
+    attackFrom?: PlayCell;
+    targetSide?: number;
+    targetOrientation?: number;
+    leaseMs?: number;
 }
 
 /** What an ephemeral opponent hint should change. Spell and move channels do not clear each other. */
@@ -728,6 +761,8 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.int32(23, action.inputSource);
     writer.int32(24, action.pointerEvents);
     writer.bool(25, action.tabHidden);
+    writer.int32(26, action.aimKind);
+    writer.uint64(27, action.intentSequence);
     return writer.finish();
 };
 
@@ -832,6 +867,22 @@ const decodePlayIntent = (bytes: Uint8Array): PlayIntent => {
             intent.spellState = reader.varintNumber();
         } else if (field === 5) {
             intent.spellName = reader.string();
+        } else if (field === 6) {
+            intent.aimKind = reader.varintNumber();
+        } else if (field === 7) {
+            intent.intentSequence = reader.varintNumber();
+        } else if (field === 8) {
+            intent.targetUnitId = reader.string();
+        } else if (field === 9) {
+            intent.aimCell = decodeCell(reader.bytesValue());
+        } else if (field === 10) {
+            intent.attackFrom = decodeCell(reader.bytesValue());
+        } else if (field === 11) {
+            intent.targetSide = reader.varintNumber();
+        } else if (field === 12) {
+            intent.targetOrientation = reader.varintNumber();
+        } else if (field === 13) {
+            intent.leaseMs = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }

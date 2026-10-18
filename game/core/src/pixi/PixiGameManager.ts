@@ -137,6 +137,7 @@ export class PixiGameManager {
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
+    private aimIntentSink?: (aim: import("../api/play_protocol").PlayAim | undefined) => void;
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private spellIntentSink?: (unitId: string | undefined, spellName: string | undefined) => void;
     private lastAuthoritativeViewportKey = "";
@@ -603,6 +604,13 @@ export class PixiGameManager {
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.m_scene?.setOpponentMoveIntent(intent);
     }
+    public SetAimIntentSink(sink?: (aim: import("../api/play_protocol").PlayAim | undefined) => void): void {
+        this.aimIntentSink = sink;
+        this.m_scene?.setAimIntentSink(sink);
+    }
+    public SetOpponentAim(intent?: import("../api/play_protocol").OpponentAim): void {
+        this.m_scene?.setOpponentAim(intent);
+    }
     public ApplyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
@@ -974,6 +982,7 @@ export class PixiGameManager {
         }
         this.m_scene = new SceneClass(context);
         this.m_scene.setMoveIntentSink(this.moveIntentSink);
+        this.m_scene.setAimIntentSink(this.aimIntentSink);
         this.m_scene.setSpellIntentSink(this.spellIntentSink);
         this.m_scene.setPremiumSandboxGuidance?.(this.premiumSandboxGuidanceEnabled);
         this.m_scene.setCreatureAnimationLabEnabled?.(this.creatureAnimationLabEnabled);
