@@ -8,6 +8,7 @@ import {
     encodeDevCreatePlayGameRequest,
     encodePlayAction,
     PlayActionType,
+    PlayAimKind,
     PlayEventKind,
     PlaySpellIntentState,
     readOpponentIntent,
@@ -69,6 +70,70 @@ const doubleField = (field: number, value: number): number[] => {
 };
 
 describe("play protobuf decoder", () => {
+    test("encodes semantic aim ordering, board sequence, and piercing direction without losing zero cells", () => {
+        const bytes = [
+            ...encodePlayAction({
+                actionId: "aim",
+                gameId: "game",
+                playerId: "player",
+                type: PlayActionType.MOVE_INTENT,
+                expectedSequence: 37,
+                unitId: "actor",
+                aimKind: PlayAimKind.RANGED,
+                intentSequence: 1_800_000_000_000_123,
+                targetCell: { x: 0, y: 0 },
+                targetSide: 1,
+                aimDirection: 4096,
+            }),
+        ];
+        for (const field of [
+            intField(4, 37),
+            intField(26, PlayAimKind.RANGED),
+            intField(27, 1_800_000_000_000_123),
+            intField(28, 4096),
+        ]) {
+            expect(containsSubsequence(bytes, field)).toBe(true);
+        }
+        expect(containsSubsequence(bytes, messageField(14, []))).toBe(true);
+    });
+
+    test("decodes every live aim field and skips future extensions", () => {
+        const cell = [...intField(1, 5), ...intField(2, 7)];
+        const event = decodePlayEvent(
+            new Uint8Array([
+                ...intField(1, 37),
+                ...intField(2, PlayEventKind.MOVE_INTENT),
+                ...messageField(10, [
+                    ...stringField(1, "actor"),
+                    ...intField(6, PlayAimKind.SPELL),
+                    ...intField(7, 1_800_000_000_000_123),
+                    ...stringField(5, "Fire Wall"),
+                    ...stringField(8, "target"),
+                    ...messageField(9, cell),
+                    ...messageField(10, cell),
+                    ...intField(11, 4),
+                    ...intField(12, 3),
+                    ...intField(13, 1800),
+                    ...stringField(99, "future"),
+                    ...intField(14, 4096),
+                ]),
+            ]),
+        );
+        expect(event.intent).toMatchObject({
+            unitId: "actor",
+            aimKind: PlayAimKind.SPELL,
+            intentSequence: 1_800_000_000_000_123,
+            spellName: "Fire Wall",
+            targetUnitId: "target",
+            aimCell: { x: 5, y: 7 },
+            attackFrom: { x: 5, y: 7 },
+            targetSide: 4,
+            targetOrientation: 3,
+            leaseMs: 1800,
+            aimDirection: 4096,
+        });
+    });
+
     test("decodes Helping Hand caster and penalty bearer independently (proto fields 47 and 48)", () => {
         const snapshot = decodePlaySnapshot(
             new Uint8Array([
