@@ -19,6 +19,20 @@ import sys
 import urllib.request
 
 CORE = Path(__file__).resolve().parents[1]
+SPELLS_JSON = CORE.parent / "heroes-of-crypto-common" / "src" / "configuration" / "spells.json"
+CREATURES_JSON = CORE.parent / "heroes-of-crypto-common" / "src" / "configuration" / "creatures.json"
+CASTABLE_SCHOOLS = ("Life", "Nature", "Chaos", "Death", "Order")
+SPELL_TARGET_LABELS = {
+    "ANY_ALLY": "any ally",
+    "ALL_ALLIES": "all allies",
+    "ANY_ENEMY": "any enemy",
+    "ALL_ENEMIES": "all enemies",
+    "FREE_CELL": "a free cell",
+    "RANDOM_CLOSE_TO_CASTER": "near the caster",
+    "ALLIES_AREA": "an area of allies",
+    "ENEMY_WITHIN_MOVEMENT_RANGE": "an enemy in reach",
+    "ALL_FLYING": "all flying",
+}
 RATE = 48000
 TARGET_LUFS = -20.0
 PEAK_CEILING = -3.0
@@ -285,6 +299,66 @@ def master(key, records, work, output, max_duration_ms=1600):
     return result
 
 
+def booked_system_spell_names(creatures):
+    # Only a spell sitting in a creature's book is cast. The rest of System is artifacts, auras, and status effects.
+    found = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            spells = node.get("spells")
+            if isinstance(spells, list) and isinstance(node.get("name"), str):
+                for entry in spells:
+                    if isinstance(entry, str) and entry.startswith("System:"):
+                        found.append(entry.split(":", 1)[1])
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(creatures)
+    return list(dict.fromkeys(found))
+
+
+def spell_placeholders():
+    spells = json.loads(SPELLS_JSON.read_text())
+    creatures = json.loads(CREATURES_JSON.read_text())
+    chosen = [(school, name, spec) for school in CASTABLE_SCHOOLS for name, spec in spells[school].items()]
+    for name in booked_system_spell_names(creatures):
+        spec = spells["System"].get(name)
+        if spec is None:
+            raise ValueError("Creature spellbook references unknown spell System:" + name)
+        chosen.append(("System", name, spec))
+    chosen.sort(key=lambda item: (
+        CASTABLE_SCHOOLS.index(item[0]) if item[0] in CASTABLE_SCHOOLS else len(CASTABLE_SCHOOLS),
+        item[2].get("level", 0),
+        item[1],
+    ))
+    rows = []
+    for school, name, spec in chosen:
+        rows.append({
+            "unit": name,
+            "slug": "spell-" + re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-"),
+            "role": "cast",
+            "school": school,
+            "level": spec.get("level", 0),
+            "target_label": SPELL_TARGET_LABELS.get(spec.get("target"), spec.get("target", "")),
+            "summary": spec["desc"][0].replace("{}", "…"),
+            "placeholder": True,
+            "alternates": [],
+        })
+    return rows
+
+
+def spell_rows_for_review(work):
+    rows = spell_placeholders()
+    report = work / "spell-sound-report.json"
+    if not report.exists():
+        return rows
+    applied = {clip["slug"]: clip for clip in json.loads(report.read_text()).get("clips", []) if clip.get("slug")}
+    return [applied.get(row["slug"], row) for row in rows]
+
+
 def write_review(work, results):
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     art_references = {u["slug"]: u.get("art_reference") for u in design["units"]}
@@ -299,7 +373,8 @@ def write_review(work, results):
         if base.with_suffix(".webm").exists() and base.with_suffix(".mp3").exists():
             clip["revision"] = hashlib.sha256(base.with_suffix(".webm").read_bytes()
                                                + base.with_suffix(".mp3").read_bytes()).hexdigest()[:10]
-    data = json.dumps(results).replace("</", "<\\/")
+    clips = [clip for clip in results if clip.get("role") != "cast"]
+    data = json.dumps(clips + spell_rows_for_review(work)).replace("</", "<\\/")
     template = (CORE / "audio" / "combat-sound-review.html").read_text()
     (work / "review.html").write_text(template.replace("__COMBAT_AUDIO_DATA__", data))
 

@@ -1625,7 +1625,7 @@ const UnitStatsLayout: React.FC<{
         </>
     );
     // The Buffs well is the ONLY place synergies appear — the sidebar's old strip and ranked's top-left
-    // panel are both gone — so every synergy the army carries shows here, leading the row. Two are asked
+    // panel are both gone — so every synergy the army carries shows here, after the status icons. Two are asked
     // about per creature rather than per army, because for most creatures they are simply untrue: Might's
     // aura range only pays off for a stack that emits an aura itself, and Nature's armour bonus is handed
     // to flyers only.
@@ -1637,9 +1637,7 @@ const UnitStatsLayout: React.FC<{
             (emitsAura || !isAuraRangeSynergy(synergyKey)) && (isFlyingUnit || !isFlyArmorSynergy(synergyKey)),
     );
 
-    // MOST RECENT FIRST, for both wells — see effectOrder.ts. The grouping still decides the blocks; the
-    // finished list is reversed, so the per-turn traffic leads (newest leftmost) and the permanent
-    // army-wide augments settle at the far end.
+    // Temporary effects lead both wells, newest application first. Permanent bonuses follow.
     const orderedBuffs = orderSidebarBuffs(buffs);
     const orderedDebuffs = orderSidebarDebuffs(debuffs);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
@@ -1911,9 +1909,11 @@ const UnitStatsLayout: React.FC<{
                                 pb: `${metrics.gapPx * 0.6}px`,
                             }}
                         >
-                            {/* Synergies lead. They hold for the whole fight, so they are the stable part of
-                                the row: put them after the buffs and every buff that lands or expires shifts
-                                them along, and the eye has to find them again each turn. */}
+                            {orderedBuffs.length > 0 && (
+                                <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                            )}
+                            {/* Whole-fight synergy badges follow the status icons so newly applied
+                                temporary buffs stay visible at the start of the well. */}
                             {shownSynergies.length > 0 && (
                                 <SynergiesRow
                                     synergies={shownSynergies}
@@ -1923,9 +1923,6 @@ const UnitStatsLayout: React.FC<{
                                     size={effectTileSize(metrics)}
                                     inline
                                 />
-                            )}
-                            {orderedBuffs.length > 0 && (
-                                <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
                             )}
                         </Box>
                     </IconScrollWell>

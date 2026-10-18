@@ -21,7 +21,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from prepare_combat_audio import CORE, master, write_review
+from prepare_combat_audio import CORE, master, spell_placeholders, spell_rows_for_review, write_review
 
 WORK = CORE / "tmp/audio"
 JOBS = WORK / "revisions"
@@ -44,6 +44,133 @@ def design_entry(slug, role):
     return unit, unit[role]
 
 
+FREESOUND_CREDENTIALS = Path.home() / ".config/freesound/credentials.json"
+FREESOUND_SEARCH = {"query": "spell cast", "filter": 'license:"Creative Commons 0"'}
+SPELL_MAX_DURATION_MS = 2500
+
+
+def freesound_api_key():
+    if not FREESOUND_CREDENTIALS.is_file():
+        return ""
+    return json.loads(FREESOUND_CREDENTIALS.read_text()).get("api_key") or ""
+
+
+def freesound_record(sound):
+    previews = sound.get("previews") or {}
+    preview_url = sound.get("preview_url") or previews.get("preview-hq-ogg") or previews.get("preview-hq-mp3") or ""
+    username = sound.get("username") or ""
+    sound_id = int(sound["id"])
+    page = sound.get("page") or (
+        "https://freesound.org/people/" + urllib.parse.quote(username, safe="") + "/sounds/" + str(sound_id) + "/"
+        if username else "")
+    preview = sound.get("preview") or ""
+    if preview and Path(preview).name != preview:
+        preview = ""
+    return {"id": sound_id, "name": sound.get("name") or str(sound_id), "username": username,
+            "license": sound.get("license") or "", "duration": sound.get("duration"),
+            "preview_url": preview_url, "preview": preview, "page": page}
+
+
+def saved_freesound_spell_casts():
+    folder = WORK / "freesound" / "cc0-spell-cast"
+    for name in ("search.json", "index.json"):
+        path = folder / name
+        if not path.is_file():
+            continue
+        sounds = []
+        for sound in json.loads(path.read_text()).get("sounds", []):
+            if "creativecommons.org/publicdomain/zero" not in (sound.get("license") or ""):
+                continue
+            sounds.append(freesound_record(sound))
+        if sounds:
+            return sounds
+    return []
+
+
+def freesound_spell_casts(api_key):
+    # A live refresh is cached beside the downloaded catalog. It must not replace index.json:
+    # that file keeps the page, author, hash, and local preview name for clips already saved.
+    sounds = []
+    page = 1
+    try:
+        while True:
+            url = "https://freesound.org/apiv2/search/?" + urllib.parse.urlencode({
+                "query": FREESOUND_SEARCH["query"], "filter": FREESOUND_SEARCH["filter"],
+                "page": str(page), "page_size": "150", "sort": "score",
+                "fields": "id,name,username,license,duration,previews",
+            })
+            request = urllib.request.Request(url, headers={"Authorization": "Token " + api_key})
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = json.loads(response.read())
+            for sound in payload.get("results", []):
+                record = freesound_record(sound)
+                if record["preview_url"] and "creativecommons.org/publicdomain/zero" in record["license"]:
+                    sounds.append(record)
+            if not payload.get("next"):
+                break
+            page += 1
+        if sounds:
+            save_json(WORK / "freesound" / "cc0-spell-cast" / "search.json", {"sounds": sounds})
+            return sounds
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, KeyError, ValueError):
+        pass
+    saved = saved_freesound_spell_casts()
+    if saved:
+        return saved
+    raise ValueError("Freesound search failed and there is no saved CC0 spell-cast page")
+
+
+def download_freesound_preview(sound):
+    folder = WORK / "freesound" / "cc0-spell-cast"
+    folder.mkdir(parents=True, exist_ok=True)
+    names = []
+    if sound.get("preview"):
+        names.append(sound["preview"])
+    url = str(sound.get("preview_url") or "")
+    names.append(str(sound["id"]) + (".ogg" if url.endswith(".ogg") or not url else ".mp3"))
+    if not url.endswith(".ogg"):
+        names.append(str(sound["id"]) + ".ogg")
+    safe_names = [name for name in dict.fromkeys(names) if name and Path(name).name == name]
+    if not safe_names:
+        raise ValueError("Freesound preview name must stay inside the local cache")
+    for name in safe_names:
+        local = (folder / name).resolve()
+        if not local.is_relative_to(folder.resolve()) or not local.is_file() or local.stat().st_size <= 500:
+            continue
+        return local
+    if not url:
+        raise ValueError("Missing Freesound preview for " + str(sound.get("id")))
+    destination = folder / (str(sound["id"]) + (".ogg" if url.endswith(".ogg") else ".mp3"))
+    with urllib.request.urlopen(url, timeout=60) as response:
+        payload = response.read(2_000_001)
+    if not 500 < len(payload) <= 2_000_000:
+        raise ValueError("Unexpected Freesound preview size")
+    temporary = destination.with_suffix(".download")
+    temporary.write_bytes(payload)
+    temporary.replace(destination)
+    return destination
+
+
+def claim_next_freesound(api_key):
+    # Mark the clip used before mastering. A file that fails the loudness or duration check
+    # is not offered again on the next click.
+    cursor_path = WORK / "freesound-spell-cursor.json"
+    cursor = json.loads(cursor_path.read_text()) if cursor_path.exists() else {"used": []}
+    used = set()
+    for item in cursor.get("used", []):
+        try:
+            used.add(int(item))
+        except (TypeError, ValueError):
+            continue
+    for sound in freesound_spell_casts(api_key):
+        if sound["id"] in used:
+            continue
+        used.add(sound["id"])
+        save_json(cursor_path, {"used": sorted(used)})
+        return sound
+    raise ValueError("Every CC0 spell-cast result has already been tried")
+
+
 def prepare_candidate(job, index, path, source):
     unit, _ = design_entry(job["slug"], job["role"])
     key = job["slug"] + "/" + job["role"]
@@ -57,7 +184,60 @@ def prepare_candidate(job, index, path, source):
             "asset_base": str((folder / "assets" / key.replace("/", "_")).relative_to(CORE)), "result": result}
 
 
+def prepare_spell_candidate(job, index, path, source):
+    spell = next((row for row in spell_placeholders() if row["slug"] == job["slug"]), None)
+    if spell is None:
+        raise ValueError("Unknown spell")
+    key = job["slug"] + "/cast"
+    folder = JOBS / job["id"] / str(index)
+    source_id = source.get("source_id") or "freesound-" + str(source.get("freesound_id"))
+    record = {"path": path, "unit": spell["unit"], "slug": spell["slug"], "role": "cast",
+              "source_id": source_id, "source": source}
+    result = master(key, [record], folder, folder / "assets", SPELL_MAX_DURATION_MS)
+    result["school"] = spell["school"]
+    result["level"] = spell["level"]
+    result["target_label"] = spell["target_label"]
+    result["summary"] = spell["summary"]
+    return {"index": index, "label": source.get("label", "Freesound " + str(source.get("freesound_id"))),
+            "source_id": source_id, "source": source, "path": str(path.relative_to(CORE)),
+            "asset_base": str((folder / "assets" / key.replace("/", "_")).relative_to(CORE)), "result": result}
+
+
+def apply_spell_candidate(job, index):
+    candidate = next((c for c in job["candidates"] if c["index"] == index), None)
+    if not candidate:
+        raise ValueError("Take not found or not mastered successfully")
+    slug = job["slug"]
+    base = CORE / "public/audio/spells" / slug
+    base.parent.mkdir(parents=True, exist_ok=True)
+    staged_files = {codec: CORE / (candidate["asset_base"] + "." + codec) for codec in ("webm", "mp3")}
+    if not all(path.is_file() for path in staged_files.values()):
+        raise ValueError("Restore both mastered candidate files before applying")
+    for codec in ("webm", "mp3"):
+        shutil.copyfile(staged_files[codec], base.with_suffix("." + codec))
+    revision = hashlib.sha256(base.with_suffix(".webm").read_bytes() + base.with_suffix(".mp3").read_bytes()).hexdigest()[:10]
+    result = dict(candidate["result"])
+    result["asset_base"] = str(base.relative_to(CORE))
+    result["revision"] = revision
+    result["source_id"] = candidate["source_id"]
+    result["source"] = candidate["source"]
+    report_path = WORK / "spell-sound-report.json"
+    report = json.loads(report_path.read_text()) if report_path.exists() else {"clips": []}
+    report["clips"] = [result if clip.get("slug") == slug else clip for clip in report["clips"]]
+    if not any(clip.get("slug") == slug for clip in report["clips"]):
+        report["clips"].append(result)
+    save_json(report_path, report)
+    combat_path = WORK / "mastering-report.json"
+    combat = json.loads(combat_path.read_text())["clips"] if combat_path.exists() else []
+    write_review(WORK, combat)
+    job["applied_index"] = index
+    save_json(JOBS / job["id"] / "job.json", job)
+    return {"revision": revision, "slug": slug, "role": "cast"}
+
+
 def apply_candidate(job, index):
+    if job.get("role") == "cast":
+        return apply_spell_candidate(job, index)
     candidate = next((c for c in job["candidates"] if c["index"] == index), None)
     if not candidate:
         raise ValueError("Take not found or not mastered successfully")
@@ -117,6 +297,8 @@ class ReviewService:
             self.jobs[job["id"]] = job
 
     def regenerate(self, slug, role, prompt, request_id):
+        if role == "cast":
+            return self.regenerate_spell(slug, request_id)
         unit, defaults = design_entry(slug, role)
         if not isinstance(prompt, str) or not 5 <= len(prompt.strip()) <= 1000:
             raise ValueError("Use a sound description between 5 and 1000 characters")
@@ -141,6 +323,62 @@ class ReviewService:
             save_json(JOBS / request_id / "job.json", job)
             threading.Thread(target=self.generate, args=(job,), daemon=True).start()
             return job
+
+    def regenerate_spell(self, slug, request_id):
+        spell = next((row for row in spell_placeholders() if row["slug"] == slug), None)
+        if spell is None:
+            raise ValueError("Unknown spell")
+        if not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9-]{16,64}", request_id):
+            raise ValueError("Invalid generation request ID")
+        with self.lock:
+            if request_id in self.jobs:
+                return self.jobs[request_id]
+            if not freesound_api_key():
+                raise ValueError("Save the Freesound API key before requesting the next sound")
+            if self.active:
+                raise ValueError("A sound is already being prepared; wait for it to finish")
+            job = {"id": request_id, "slug": slug, "role": "cast", "unit": spell["unit"],
+                   "prompt": spell["unit"] + " · next CC0 Freesound spell cast",
+                   "status": "generating", "candidates": [], "errors": [],
+                   "created_at": datetime.now(timezone.utc).isoformat()}
+            self.jobs[request_id] = job
+            self.active = request_id
+            save_json(JOBS / request_id / "job.json", job)
+            threading.Thread(target=self.generate_spell, args=(job,), daemon=True).start()
+            return job
+
+    def generate_spell(self, job):
+        try:
+            api_key = freesound_api_key()
+            for attempt in range(8):
+                try:
+                    sound = claim_next_freesound(api_key)
+                except ValueError as error:
+                    with self.lock:
+                        job["errors"].append({"index": attempt, "message": str(error)[:500]})
+                    break
+                try:
+                    path = download_freesound_preview(sound)
+                    source = {"kind": "freesound", "license": sound["license"], "author": sound["username"],
+                              "filename": sound["name"], "freesound_id": sound["id"], "page": sound["page"],
+                              "page_url": sound["page"], "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                              "label": sound["name"]}
+                    candidate = prepare_spell_candidate(job, len(job["candidates"]), path, source)
+                except (ValueError, urllib.error.URLError, TimeoutError, OSError) as error:
+                    with self.lock:
+                        job["errors"].append({"index": attempt, "message": sound["name"] + ": " + str(error)[:500]})
+                        save_json(JOBS / job["id"] / "job.json", job)
+                    continue
+                with self.lock:
+                    job["candidates"].append(candidate)
+                    job["prompt"] = sound["name"]
+                    save_json(JOBS / job["id"] / "job.json", job)
+                break
+        finally:
+            with self.lock:
+                job["status"] = "ready" if job["candidates"] else "failed"
+                self.active = None
+                save_json(JOBS / job["id"] / "job.json", job)
 
     def take(self, job, index):
         payload = {"text": job["prompt"], "duration_seconds": job["duration_seconds"],
@@ -202,7 +440,10 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             report = json.loads((WORK / "mastering-report.json").read_text())
             nodes_file = WORK / "nodes.json"
             flow_id = json.loads(nodes_file.read_text()).get("flow_id") if nodes_file.exists() else None
-            return self.json_response(200, {"sounds": report["clips"], "can_generate": bool(service.api_key),
+            combat = [clip for clip in report["clips"] if clip.get("role") != "cast"]
+            return self.json_response(200, {"sounds": combat + spell_rows_for_review(WORK),
+                                      "can_generate": bool(service.api_key),
+                                      "freesound": bool(freesound_api_key()),
                                       "provider_url": "https://elevenlabs.io/app/flows/" + flow_id if flow_id else None})
         if parsed.path == "/api/audio/jobs":
             query = urllib.parse.parse_qs(parsed.query)
@@ -265,6 +506,7 @@ def main():
     server.service = ReviewService()
     print(f"Audio review: http://127.0.0.1:{args.port}/tmp/audio/review.html", flush=True)
     print("Automatic regeneration available: " + str(bool(server.service.api_key)), flush=True)
+    print("Freesound spell search available: " + str(bool(freesound_api_key())), flush=True)
     server.serve_forever()
 
 

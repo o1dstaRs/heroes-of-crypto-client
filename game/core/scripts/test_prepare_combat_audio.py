@@ -1,15 +1,44 @@
 import array
+import json
 import math
 from pathlib import Path
 import tempfile
 import unittest
 
-from prepare_combat_audio import RATE, decode, fade_edges, loudness, master, trim_bounds, write_wave
+from prepare_combat_audio import (
+    CASTABLE_SCHOOLS,
+    CREATURES_JSON,
+    RATE,
+    SPELLS_JSON,
+    decode,
+    fade_edges,
+    loudness,
+    master,
+    spell_placeholders,
+    trim_bounds,
+    write_wave,
+)
 
 
 class CombatMasteringTests(unittest.TestCase):
     def tone(self, seconds):
         return [0.1 * math.sin(2 * math.pi * 440 * i / RATE) for i in range(int(seconds * RATE))]
+
+    def test_spell_placeholders_are_the_castable_spells_only(self):
+        spells = json.loads(SPELLS_JSON.read_text())
+        rows = spell_placeholders()
+        names = [row["unit"] for row in rows]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertTrue(all(row["role"] == "cast" and row["placeholder"] and "encoded" not in row for row in rows))
+        for school in CASTABLE_SCHOOLS:
+            for name in spells[school]:
+                self.assertIn(name, names)
+        for name in ("Craft", "Armor Rune", "Weapon Rune"):
+            self.assertIn(name, names)
+        for name in ("Morale", "Titan Plate", "Resurrection", "Gravechain"):
+            self.assertNotIn(name, names)
+        self.assertEqual(len(names), sum(len(spells[school]) for school in CASTABLE_SCHOOLS) + 3)
+        self.assertTrue(CREATURES_JSON.is_file())
 
     def test_trims_only_edges_preserving_internal_pause(self):
         samples = array.array("f", [0] * 4800 + self.tone(0.15) + [0] * 4800 + self.tone(0.15) + [0] * 9600)

@@ -2063,6 +2063,7 @@ export class RankedPlayScene extends Sandbox {
         if (this.fullReplayPlaybackActive) {
             return;
         }
+        this.rememberStatusSnapshot(snapshot);
         this.premiumSnapshot = snapshot;
         if (
             this.premiumTurnPreview &&
@@ -4435,6 +4436,7 @@ export class RankedPlayScene extends Sandbox {
         );
     }
     private resetRankedReplayPresentation(): void {
+        this.resetStatusApplicationOrder();
         this.resetRankedFightStats();
         this.rankedSceneLogGameId = "";
         this.rankedSceneLogSequence = -1;
@@ -4567,6 +4569,8 @@ export class RankedPlayScene extends Sandbox {
         if (!snapshot) {
             return;
         }
+        this.rememberStatusSnapshot(snapshot);
+        this.rememberStatusApplications(record.events);
         // Everything the live snapshot path does around a hydrate that is NOT the board itself. Each of
         // these is already gated on its own game id + sequence, so replaying them in order behaves exactly
         // as it did live: seed on the first record, then emit only what is new.
