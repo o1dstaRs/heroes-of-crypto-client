@@ -46,6 +46,8 @@ import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
 import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
 import { ZenaBrutalityVfx, prepareBrutalityTarget, type BrutalityTarget } from "./ZenaBrutalityVfx";
 import { HelpingHandLinks } from "./HelpingHandLinks";
+import { CyclopsGoreVfx } from "./CyclopsGoreVfx";
+import type { BrutalityPose } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -700,6 +702,9 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private cyclopsGore = new CyclopsGoreVfx((container) => this.attachEffect(container, 4550));
+    private cyclopsKills = new Map<string, { pose?: BrutalityPose; direction: HoCMath.XY }>();
+    private cyclopsDeathBodies = new WeakSet<RenderableUnit>();
     private zenaBrutality = new ZenaBrutalityVfx((container) => this.attachEffect(container, 4550));
     private zenaKills = new Map<string, { direction: HoCMath.XY; target?: BrutalityTarget }>();
     private zenaDeathBodies = new WeakSet<RenderableUnit>();
@@ -1845,6 +1850,9 @@ export class CombatVisuals {
             this.zenaBrutality.clear();
             this.zenaKills.clear();
             this.zenaDeathBodies = new WeakSet();
+            this.cyclopsGore.clear();
+            this.cyclopsKills.clear();
+            this.cyclopsDeathBodies = new WeakSet();
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1949,6 +1957,7 @@ export class CombatVisuals {
             this.areaImpacts.length === 0 &&
             !this.lastFuse.active &&
             !this.zenaBrutality.active &&
+            !this.cyclopsGore.active &&
             this.resurrectBursts.length === 0 &&
             !this.lightningProcedural?.active &&
             !this.whirlpoolSprites?.active &&
@@ -2046,6 +2055,7 @@ export class CombatVisuals {
         this.stepAreaImpacts(dt);
         this.lastFuse.update(dt);
         this.zenaBrutality.update(dt);
+        this.cyclopsGore.update(dt);
         this.stepResurrectBursts(dt);
         this.spellAtmosphere?.begin();
         this.lightningProcedural?.update();
@@ -2370,6 +2380,36 @@ export class CombatVisuals {
                 this.iceBreaks.splice(i, 1);
             }
         }
+    }
+    public noteCyclopsKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: RenderableUnit,
+        direction: HoCMath.XY,
+    ): void {
+        if (attacker.getName() !== "Cyclops" || attacker.getTeam() === victim.getTeam()) return;
+        const pose = victim.getStaticBattlefieldPreviewAt?.(victim.getPosition(), this.context.getGridSettings(), true);
+        this.cyclopsKills.set(victim.getId(), { pose: pose ? { ...pose } : undefined, direction: { ...direction } });
+    }
+    public playCyclopsGoreDeath(unit: RenderableUnit): boolean {
+        if (this.cyclopsDeathBodies.has(unit)) return true;
+        const kill = this.cyclopsKills.get(unit.getId());
+        if (!kill) return false;
+        this.cyclopsKills.delete(unit.getId());
+        const gs = this.context.getGridSettings();
+        const pose = kill.pose ?? unit.getStaticBattlefieldPreviewAt?.(unit.getPosition(), gs, true);
+        if (!pose) return false;
+        let seed = 0;
+        for (const char of unit.getId()) seed = (Math.imul(seed, 31) + char.charCodeAt(0)) >>> 0;
+        const spawned = this.cyclopsGore.spawn(pose, gs.getCellSize(), kill.direction, seed % 65521);
+        if (spawned) {
+            this.cyclopsDeathBodies.add(unit);
+            this.deathBlowByUnitId.delete(unit.getId());
+        }
+        return spawned;
+    }
+    public resetCyclopsDeath(unitId: string, unit?: RenderableUnit): void {
+        this.cyclopsKills.delete(unitId);
+        if (unit) this.cyclopsDeathBodies.delete(unit);
     }
     public prepareZenaKill(
         attacker: Pick<Unit, "getName" | "getTeam">,

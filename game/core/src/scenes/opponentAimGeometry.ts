@@ -34,6 +34,7 @@ export interface AimGeometryContext {
     spellImpact?: Unit;
     spellEndpoint?: HoCMath.XY;
     spellSplash?: Unit[];
+    spellSparesTarget?: boolean;
 }
 
 /** Read-only board geometry. The opponent's intent never becomes our selection or armed spell. */
@@ -172,7 +173,9 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
     }
     const victim = context.spellImpact ?? target;
     if (victim) {
-        geometry.cells = [victim, ...(context.spellSplash ?? [])].flatMap((unit) => unit.getCells());
+        geometry.cells = [...(context.spellSparesTarget ? [] : [victim]), ...(context.spellSplash ?? [])].flatMap(
+            (unit) => unit.getCells(),
+        );
         const direct =
             !SpellHelper.targetedSpellRequiresLineOfSight(spell.getName()) &&
             !isOffensiveSpellMultiplier(spell.getMultiplierType()) &&

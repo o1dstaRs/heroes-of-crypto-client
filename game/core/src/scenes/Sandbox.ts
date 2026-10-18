@@ -2,6 +2,7 @@ import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
+import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
 import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
@@ -1929,11 +1930,16 @@ export class Sandbox extends PixiScene {
             return;
         }
         const spell = this.currentActiveSpell;
+        if (this.localAim?.unitId !== unit.getId()) this.localAim = undefined;
+        if (this.localAim?.kind === PlayAimKind.RANGED && unit.getAttackTypeSelection() !== AttackVals.RANGE)
+            this.localAim = undefined;
         if (spell && (this.localAim?.kind !== PlayAimKind.SPELL || this.localAim.spellName !== spell.getName())) {
             this.localAim = { kind: PlayAimKind.SPELL, unitId: unit.getId(), spellName: spell.getName() };
         } else if (!spell && this.localAim?.kind === PlayAimKind.SPELL) {
             this.localAim = undefined;
         }
+        if (spell?.getName() === "Fire Wall" && this.localAim)
+            this.localAim.targetOrientation = this.fireWallAimOrientation + 1;
         this.aimIntentSink(this.localAim?.unitId === unit.getId() ? this.localAim : undefined);
     }
     private renderOpponentAim(): void {
@@ -1970,6 +1976,7 @@ export class Sandbox extends PixiScene {
                 spellEndpoint:
                     spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined,
                 spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact) : undefined,
+                spellSparesTarget: spell ? this.spellSparesItsTarget(spell) : undefined,
             });
             if (!geometry) {
                 this.setOpponentAim(undefined);
@@ -4912,6 +4919,20 @@ export class Sandbox extends PixiScene {
             }
             if (areaThrowWaves && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
         }
+        const cyclopsKills =
+            event.attackType === "range" && attacker.getName() === "Cyclops"
+                ? cyclopsMultiKillTargets(
+                      attacker,
+                      areaThrowWaves ?? [
+                          plan
+                              .filter((strike) => !strike.response)
+                              .map((strike) => ({ ...strike, unitId: strike.targetId })),
+                      ],
+                      remainingAmounts,
+                      deathState?.deadIds ?? new Set(event.unitIdsDied),
+                      units,
+                  )
+                : new Set<string>();
         const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
             const before = remainingAmounts.get(unitId);
             if (before === undefined) return undefined;
@@ -5157,6 +5178,7 @@ export class Sandbox extends PixiScene {
                                 remainingAmounts,
                                 deadIds: deathState?.deadIds ?? new Set(event.unitIdsDied),
                                 onDeath: presentDeath,
+                                cyclopsKills,
                                 events: dullingEvents,
                                 activeAttacks,
                             });
@@ -5305,6 +5327,15 @@ export class Sandbox extends PixiScene {
                             );
                         }
                         if (strike.lethal) {
+                            if (
+                                receivedDamage &&
+                                remaining === 0 &&
+                                renderedVictim &&
+                                cyclopsKills.has(strike.targetId) &&
+                                !shownDeaths.has(strike.targetId)
+                            ) {
+                                this.combatVisuals.noteCyclopsKill?.(source, renderedVictim, direction);
+                            }
                             if (
                                 receivedDamage &&
                                 remaining === 0 &&
@@ -5482,6 +5513,7 @@ export class Sandbox extends PixiScene {
             onDeath: (unitId: string) => void;
             events?: readonly GameEvent[];
             activeAttacks?: ReadonlyMap<string, Promise<void>>;
+            cyclopsKills?: ReadonlySet<string>;
         },
     ): Promise<void> {
         if (this.isSceneDestroyed()) return Promise.resolve();
@@ -5523,6 +5555,13 @@ export class Sandbox extends PixiScene {
                 );
             }
             if (unit && hit.unitsDied > 0 && remaining === 0 && context.deadIds.has(hit.unitId)) {
+                if (!hit.missed && hit.amount > 0 && context.cyclopsKills?.has(hit.unitId)) {
+                    const center = unit.getVisualCenter(gs);
+                    this.combatVisuals.noteCyclopsKill?.(attacker, unit, {
+                        x: center.x - from.x,
+                        y: center.y - from.y,
+                    });
+                }
                 context.onDeath(hit.unitId);
             } else if (unit && hit.amount > 0) {
                 const react = (): Promise<void> => {
@@ -6328,7 +6367,7 @@ export class Sandbox extends PixiScene {
     }
     protected playCustomDeathAnimation(unit: RenderableUnit): boolean {
         this.endHelpingHandLinksAtImpact(unit.getId());
-        if (this.combatVisuals?.playZenaBrutalityDeath?.(unit)) {
+        if (this.combatVisuals?.playCyclopsGoreDeath?.(unit) || this.combatVisuals?.playZenaBrutalityDeath?.(unit)) {
             unit.destroyVisuals();
             this.dyingVisualUnits.delete(unit);
             this.pyreDeaths?.play(unit.getId(), unit);
@@ -11793,6 +11832,7 @@ export class Sandbox extends PixiScene {
                 if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(captured);
             }
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
+            const cyclopsKills = cyclopsMultiKillTargets(unit, waves, remainingAmounts, deadIds, unitSnapshot);
             const throwCount = areaEvent?.damage.rangedVolleyCount ?? Math.max(waves.length, isDoubleShot ? 2 : 1);
             const shownDeaths = new Set<string>();
             let shownAnyWave = false;
@@ -11846,6 +11886,7 @@ export class Sandbox extends PixiScene {
                                 units: unitSnapshot,
                                 remainingAmounts,
                                 deadIds,
+                                cyclopsKills,
                                 onDeath: (unitId) => {
                                     if (shownDeaths.has(unitId)) return;
                                     shownDeaths.add(unitId);
@@ -18764,6 +18805,7 @@ export class Sandbox extends PixiScene {
             (this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined) ??
             unitSnapshot.get(event.unitId);
         this.combatVisuals?.resetZenaDeath?.(event.unitId, unit);
+        this.combatVisuals?.resetCyclopsDeath?.(event.unitId, unit);
         if (!unit) {
             return;
         }

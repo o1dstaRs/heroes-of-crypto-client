@@ -9,6 +9,7 @@ import type { PixiRenderableSpell } from "./RenderableSpell";
 interface AimScene {
     currentActiveUnit?: RenderableUnit;
     currentActiveSpell?: PixiRenderableSpell;
+    fireWallAimOrientation: number;
     localAim?: PlayAim;
     opponentMoveIntent?: { unitId: string; cell: { x: number; y: number } };
     opponentAim?: OpponentAim;
@@ -71,6 +72,21 @@ describe("ranked scene live aim lifecycle", () => {
         scene.currentActiveSpell = undefined;
         scene.syncLocalAim();
         expect(send).toHaveBeenLastCalledWith(undefined);
+    });
+
+    test("a keyboard-only Fire Wall rotation updates the held target without mouse movement", () => {
+        const { scene, send } = fixture();
+        scene.currentActiveSpell = { getName: () => "Fire Wall" } as PixiRenderableSpell;
+        scene.localAim = {
+            kind: PlayAimKind.SPELL,
+            unitId: "actor",
+            spellName: "Fire Wall",
+            cell: { x: 7, y: 8 },
+            targetOrientation: 1,
+        };
+        scene.fireWallAimOrientation = 2;
+        scene.syncLocalAim();
+        expect(send).toHaveBeenLastCalledWith(expect.objectContaining({ cell: { x: 7, y: 8 }, targetOrientation: 3 }));
     });
 
     for (const gate of ["enemy turn", "animation", "handoff", "next actor"] as const)

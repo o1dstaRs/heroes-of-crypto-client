@@ -300,6 +300,53 @@ describe("opponent aim geometry", () => {
         expect(spell.getAmount()).toBe(amount);
     });
 
+    test("a spell that spares its central target marks only the surrounding victims", () => {
+        const f = fixture();
+        const spell = f.actor.getSpells().find((entry) => entry.getName() === "Fire Strike")!;
+        const target = createTestUnit({ team: TeamVals.RIGHT });
+        const splash = createTestUnit({ team: TeamVals.RIGHT });
+        placeUnit(f.grid, f.unitsHolder, target, { x: 12, y: 7 });
+        placeUnit(f.grid, f.unitsHolder, splash, { x: 12, y: 8 });
+        const geometry = resolveOpponentAimGeometry(
+            f.aim({ kind: PlayAimKind.SPELL, spellName: "Fire Strike", targetUnitId: target.getId() }),
+            {
+                ...f.context,
+                spell,
+                spellSparesTarget: true,
+                spellSplash: [splash],
+            },
+        )!;
+        expect(geometry.cells).toEqual(splash.getCells());
+        expect(geometry.cells).not.toContainEqual(target.getBaseCell());
+    });
+
+    test("Meteorite never promises a partial or empty legal footprint", () => {
+        const f = fixture();
+        const spell = f.actor.getSpells().find((entry) => entry.getName() === "Meteorite")!;
+        for (const cell of [
+            { x: 12, y: 7 },
+            { x: 15, y: 15 },
+        ]) {
+            expect(
+                resolveOpponentAimGeometry(f.aim({ kind: PlayAimKind.SPELL, spellName: "Meteorite", cell }), {
+                    ...f.context,
+                    spell,
+                })?.cells,
+            ).toEqual([]);
+        }
+    });
+
+    test("Large Caliber uses the engine's first-impact splash cells", () => {
+        const f = fixture(TeamVals.LEFT, 1, 1, ["Large Caliber"]);
+        const target = createTestUnit({ team: TeamVals.RIGHT });
+        const splash = createTestUnit({ team: TeamVals.RIGHT });
+        placeUnit(f.grid, f.unitsHolder, target, { x: 12, y: 7 });
+        placeUnit(f.grid, f.unitsHolder, splash, { x: 12, y: 8 });
+        const geometry = resolveOpponentAimGeometry(f.aim({ targetUnitId: target.getId() }), f.context)!;
+        expect(geometry.cells).toContainEqual(target.getBaseCell());
+        expect(geometry.cells).toContainEqual(splash.getBaseCell());
+    });
+
     test("missing actors/targets, malformed hints, and occupied landing footprints draw nothing", () => {
         const f = fixture(TeamVals.LEFT, 2, 2);
         expect(resolveOpponentAimGeometry(f.aim({ unitId: "previous" }), f.context)).toBeUndefined();

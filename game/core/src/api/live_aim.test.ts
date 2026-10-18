@@ -10,7 +10,7 @@ import {
     type PlaySnapshot,
 } from "./play_protocol";
 
-function fixture(blocked = false) {
+function fixture(blocked = false, failFirst = false) {
     let now = 0;
     let nextId = 0;
     const timers = new Map<number, { at: number; callback: () => void }>();
@@ -21,6 +21,7 @@ function fixture(blocked = false) {
         () => context,
         (aim, ctx) => {
             sent.push({ aim, context: ctx, at: now });
+            if (failFirst && sent.length === 1) return Promise.reject(new Error("offline"));
             return blocked ? new Promise<void>((resolve) => completions.push(resolve)) : Promise.resolve();
         },
         {
@@ -66,6 +67,17 @@ function fixture(blocked = false) {
 const move = (x: number): PlayAim => ({ kind: PlayAimKind.MOVE, unitId: "actor", cell: { x, y: 4 } });
 
 describe("live aim traffic", () => {
+    test("transport failure never retries an obsolete aim ahead of a newer target", async () => {
+        const f = fixture(false, true);
+        f.sender.update(move(2));
+        await f.advance(500);
+        expect(f.sent).toHaveLength(1);
+        f.sender.update(move(9));
+        await f.advance(100);
+        expect(f.sent).toHaveLength(2);
+        expect(f.sent[1].aim).toEqual(move(9));
+        f.sender.dispose();
+    });
     test("idle scenes send nothing; a stable aim renews once per second", async () => {
         const f = fixture();
         f.sender.update(undefined);
