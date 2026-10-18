@@ -18,6 +18,7 @@ interface AimScene {
     isAwaitingAuthoritativeTurnHandoff(): boolean;
     setAimIntentSink(sink?: (aim?: PlayAim) => void): void;
     syncLocalAim(): void;
+    clearLocalAimTarget(): void;
     emitLocalMoveIntent(cell?: { x: number; y: number }): void;
     setOpponentAim(aim?: OpponentAim): void;
     renderOpponentAim(): void;
@@ -51,6 +52,16 @@ const fixture = () => {
 };
 
 describe("ranked scene live aim lifecycle", () => {
+    test("leaving the board clears the target while retaining an armed spell badge", () => {
+        const { scene, send } = fixture();
+        scene.localAim = { kind: PlayAimKind.RANGED, unitId: "actor", cell: { x: 12, y: 7 } };
+        scene.clearLocalAimTarget();
+        expect(send).toHaveBeenLastCalledWith(undefined);
+        scene.currentActiveSpell = { getName: () => "Heal" } as PixiRenderableSpell;
+        scene.localAim = { kind: PlayAimKind.SPELL, unitId: "actor", spellName: "Heal", targetUnitId: "target" };
+        scene.clearLocalAimTarget();
+        expect(send).toHaveBeenLastCalledWith({ kind: PlayAimKind.SPELL, unitId: "actor", spellName: "Heal" });
+    });
     test("movement emits the resolved rectangular anchor even without a legacy sink", () => {
         const { scene, send } = fixture();
         scene.emitLocalMoveIntent({ x: 4, y: 6 });

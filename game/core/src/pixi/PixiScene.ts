@@ -353,6 +353,7 @@ export abstract class PixiScene {
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
     public setAimIntentSink(_sink?: (aim: PlayAim | undefined) => void): void {}
     public setOpponentAim(_intent?: OpponentAim): void {}
+    public clearLocalAimTarget(): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],

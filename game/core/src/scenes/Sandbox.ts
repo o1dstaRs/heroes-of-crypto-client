@@ -1899,6 +1899,10 @@ export class Sandbox extends PixiScene {
     public override setAimIntentSink(sink?: (aim: PlayAim | undefined) => void): void {
         this.aimIntentSink = sink;
     }
+    public override clearLocalAimTarget(): void {
+        this.localAim = undefined;
+        this.syncLocalAim();
+    }
     public override setOpponentAim(intent?: OpponentAim): void {
         this.opponentAim = intent;
         if (!intent || intent.kind === PlayAimKind.CLEAR) {

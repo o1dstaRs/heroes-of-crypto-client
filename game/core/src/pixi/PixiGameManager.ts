@@ -237,7 +237,10 @@ export class PixiGameManager {
             if (e.key === "Shift") this.m_scene?.ShiftKey(false);
         });
         this.addInitEventListener(debugCanvas, "mouseenter", () => (this.m_hoveringCanvas = true));
-        this.addInitEventListener(debugCanvas, "mouseleave", () => (this.m_hoveringCanvas = false));
+        this.addInitEventListener(debugCanvas, "mouseleave", () => {
+            this.m_hoveringCanvas = false;
+            this.m_scene?.clearLocalAimTarget();
+        });
 
         // Pull in Pixi's renderer only when a battlefield actually mounts. PixiGameManager is also
         // imported by menu, login, lobby, and profile UI for its shared context; keeping PixiApp out of
