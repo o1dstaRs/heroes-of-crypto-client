@@ -51,6 +51,8 @@ export const PICK_EXIT_CLOSE_BUTTON_SIZE_PX = GAME_SYSTEM_CONTROL_SIZE_PX;
  * The artwork supplies the oxblood inset, bronze frame and X together.
  */
 export const pickExitCloseButtonSx = {
+    boxSizing: "border-box",
+    flexShrink: 0,
     width: `${PICK_EXIT_CLOSE_BUTTON_SIZE_PX}px`,
     height: `${PICK_EXIT_CLOSE_BUTTON_SIZE_PX}px`,
     minWidth: `${PICK_EXIT_CLOSE_BUTTON_SIZE_PX}px`,

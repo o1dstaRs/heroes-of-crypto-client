@@ -61,13 +61,16 @@ export const GameCornerStartOverButton: React.FC<{ onClick: () => void }> = ({ o
             onClick={onClick}
             sx={{
                 ...pickExitCloseButtonSx,
-                border: "2px solid #765737",
-                backgroundImage: "linear-gradient(135deg, #2b1711, #100b08)",
+                // Reuse the close artwork's outer 32px at its native 256px proportions.
+                // Both controls then have the same visible frame as well as the same hit area.
+                border: "4px solid transparent",
+                borderImageSource: pickExitCloseButtonSx.backgroundImage,
+                borderImageSlice: 32,
+                backgroundImage: "linear-gradient(135deg, #381410, #1d0b08)",
                 color: "#cfab70",
-                boxShadow: "inset 0 0 0 1px #130c07, inset 0 0 5px #000, 0 1px 3px #000",
             }}
         >
-            <RestartAltRoundedIcon sx={{ fontSize: 23, color: "inherit" }} />
+            <RestartAltRoundedIcon sx={{ fontSize: 18, color: "inherit" }} />
         </IconButton>
     </Tooltip>
 );
