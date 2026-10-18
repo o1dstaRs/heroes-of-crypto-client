@@ -2,7 +2,11 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 const coreDirectory = path.resolve(import.meta.dir, "..");
-const suites = ["./src/scenes/placementPreviewScale.test.ts", "./src/scenes/placementTextureReadiness.test.ts"];
+const suites = [
+    "./src/scenes/placementPreviewScale.test.ts",
+    "./src/scenes/placementTextureReadiness.test.ts",
+    "./src/scenes/DryadPlacement.test.ts",
+];
 
 export function checkPlacementRendering(): void {
     for (const suite of suites) {
