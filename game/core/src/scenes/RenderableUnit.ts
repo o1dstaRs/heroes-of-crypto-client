@@ -4601,7 +4601,12 @@ export class RenderableUnit extends Unit {
                   : 1.5) * creatureScale;
         const scaleY = tall
             ? (gs.getCellSize() * heightCells) /
-              (Math.max(1, texture.height) * (thief ? THIEF_IDLE_VISIBLE_HEIGHT_RATIO : 1))
+              (Math.max(1, texture.height) *
+                  (thief
+                      ? !canonicalPose && props.name === SCAVENGER_UNIT_NAME && this.scavengerLabAnimationsEnabled
+                          ? SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO
+                          : THIEF_IDLE_VISIBLE_HEIGHT_RATIO
+                      : 1))
             : chipSide / Math.max(1, texture.height);
         const widthCells =
             props.name === SCAVENGER_UNIT_NAME
@@ -4623,9 +4628,16 @@ export class RenderableUnit extends Unit {
             (this.previewDestinationGroundScratch ??= { x: 0, y: 0 }),
         );
         const preview = (this.battlefieldPreviewScratch ??= {} as BattlefieldUnitPreview);
-        // The sword idle has a padded 1024px canvas around a 576px figure. Match the same
-        // normalization as ensureVisual so a placement ghost cannot shrink on drop.
-        const idleCanvasScale = !canonicalPose && props.name === "Berserker" ? this.berserkerLabIdleScale() : 1;
+        // Match the authored idle canvas corrections in ensureVisual. Canonical death cutouts use
+        // the separate base artwork, so they must not inherit atlas-specific canvas padding.
+        const efreetFigure = !canonicalPose && props.name === EFREET_UNIT_NAME;
+        const idleCanvasScale = canonicalPose
+            ? 1
+            : this.berserkerLabIdleScale() *
+              this.arbalesterLabScaleMultiplier("idle") *
+              this.blackDragonLabCanvasScale(null) *
+              (props.name === "Champion" && this.creatureAnimationLabPreviewEnabled ? 1024 / 768 : 1) *
+              (efreetFigure ? EFREET_FIGURE_SCALE : 1);
         preview.texture = texture;
         preview.anchorX = 0.5;
         preview.anchorY = tall ? this.selectionAnimFootAnchorY : 0.5;
@@ -4636,8 +4648,14 @@ export class RenderableUnit extends Unit {
             framing.scaleX *
             perspective *
             compensation.x;
-        preview.scaleX *= idleCanvasScale;
-        preview.scaleY = -scaleY * idleCanvasScale * framing.scaleY * perspective * compensation.y;
+        preview.scaleX *= idleCanvasScale * (efreetFigure ? EFREET_LAB_IDLE_SCALE_X : 1);
+        preview.scaleY =
+            -scaleY *
+            idleCanvasScale *
+            (efreetFigure ? EFREET_LAB_IDLE_SCALE_Y : 1) *
+            framing.scaleY *
+            perspective *
+            compensation.y;
         preview.x =
             ground.x +
             gs.getCellSize() *
@@ -4654,6 +4672,12 @@ export class RenderableUnit extends Unit {
                   SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION *
                   perspective
                 : 0);
+        if (efreetFigure) {
+            const renderedScaleY = -preview.scaleY;
+            preview.y +=
+                (preview.anchorY * texture.height - EFREET_LAB_LOWER_FIRE_BASE_Y) *
+                (renderedScaleY / EFREET_FIGURE_SCALE - renderedScaleY);
+        }
         preview.rotation = 0;
         return preview;
     }
