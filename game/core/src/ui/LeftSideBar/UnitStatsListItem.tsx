@@ -211,13 +211,13 @@ const AtlasAnimation: React.FC<{
         <Box
             sx={{
                 position: "relative",
-                width: fillHeight ? "auto" : "100%",
+                width: "100%",
                 height: fillHeight ? "100%" : "auto",
                 // Height, not width, is the scarce resource in the sidebar: cap the portrait and let the
                 // frame's own aspect ratio decide how wide it may be inside that cap.
                 maxWidth: fillHeight ? "100%" : `${Math.round(maxHeight * (frameWidth / frameHeight))}px`,
                 mx: "auto",
-                aspectRatio: `${frameWidth} / ${frameHeight}`,
+                aspectRatio: fillHeight ? undefined : `${frameWidth} / ${frameHeight}`,
                 overflow: "visible",
                 transform: uniformScale === 1 ? undefined : `scale(${uniformScale})`,
                 transformOrigin: "center center",
@@ -236,6 +236,7 @@ const AtlasAnimation: React.FC<{
                     width: "100%",
                     height: "100%",
                     imageRendering: "auto",
+                    objectFit: "contain",
                     zIndex: 5,
                     opacity: isImageLoaded ? 1 : 0,
                     transform: "translateZ(0)",
@@ -271,14 +272,16 @@ const SidebarPortraitAnimation = ({
             {React.cloneElement(art, { style: { ...art.props.style, opacity: ready ? 0 : 1 } })}
             <Box
                 aria-label={`${art.props.alt} animated portrait`}
-                sx={{
-                    position: "absolute",
-                    inset: 0,
+                // Both sources were authored on the same portrait canvas. Reuse the still's complete
+                // placement so the first animated frame cannot change facing, crop, size or offsets.
+                style={{
+                    ...art.props.style,
                     zIndex: 4,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     pointerEvents: "none",
+                    opacity: ready ? 1 : 0,
                 }}
             >
                 {config.pages ? (
@@ -291,7 +294,6 @@ const SidebarPortraitAnimation = ({
                         maxHeight={maxHeight}
                         playback={playback}
                         fillHeight
-                        uniformScale={LEFT_SIDEBAR_ART_SCALE}
                     />
                 )}
             </Box>
@@ -329,24 +331,20 @@ const PagedPortraitCanvas = ({
     }, [config, playback]);
     return (
         <Box
+            component="canvas"
+            ref={canvas}
+            aria-hidden
+            data-sidebar-atlas={config.src}
+            data-sidebar-pages={config.pages?.length}
             sx={{
-                position: "relative",
+                position: "absolute",
+                inset: 0,
+                width: "100%",
                 height: "100%",
-                maxWidth: "100%",
-                aspectRatio: `${config.meta.frameWidth} / ${config.meta.frameHeight}`,
-                transform: `scale(${LEFT_SIDEBAR_ART_SCALE})`,
-                transformOrigin: "center",
+                objectFit: "contain",
+                zIndex: 5,
             }}
-        >
-            <Box
-                component="canvas"
-                ref={canvas}
-                aria-hidden
-                data-sidebar-atlas={config.src}
-                data-sidebar-pages={config.pages?.length}
-                sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 5 }}
-            />
-        </Box>
+        />
     );
 };
 

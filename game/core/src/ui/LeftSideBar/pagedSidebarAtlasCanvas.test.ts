@@ -27,7 +27,7 @@ const format: PagedSidebarAtlas = {
 };
 const loop = { frameForElapsed: (elapsed: number) => Math.floor(elapsed / 100) % 20 };
 
-const fixture = () => {
+const fixture = (density = 3) => {
     let now = 0;
     let id = 0;
     let hidden = false;
@@ -53,7 +53,7 @@ const fixture = () => {
         window: {
             configurable: true,
             value: {
-                devicePixelRatio: 3,
+                devicePixelRatio: density,
                 requestAnimationFrame: (fn: FrameRequestCallback) => {
                     const handle = ++id;
                     frames.set(handle, fn);
@@ -213,6 +213,24 @@ test("resizing retains source resolution, redraws the held cel once, and preserv
     expect(f.context.drawImage).toHaveBeenCalledTimes(2);
     f.resize();
     expect(f.context.drawImage).toHaveBeenCalledTimes(2);
+    expect(f.first).toHaveBeenCalledTimes(1);
+    stop();
+});
+
+test.each([
+    { width: 143, height: 808 },
+    { width: 572, height: 202 },
+])("a $width × $height paged portrait slot retains the authored proportions", ({ width, height }) => {
+    const f = fixture(2);
+    f.canvas.clientWidth = width;
+    f.canvas.clientHeight = height;
+    f.load(0);
+    const stop = f.start();
+    f.timer();
+    expect([f.canvas.width, f.canvas.height]).toEqual([286, 404]);
+    expect(f.context.drawImage.mock.calls[0].slice(1)).toEqual([0, 0, 572, 808, 0, 0, 286, 404]);
+    f.resize();
+    expect(f.context.drawImage).toHaveBeenCalledTimes(1);
     expect(f.first).toHaveBeenCalledTimes(1);
     stop();
 });

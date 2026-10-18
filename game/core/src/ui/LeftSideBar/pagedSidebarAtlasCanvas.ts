@@ -104,9 +104,13 @@ export function playPagedSidebarAtlas(
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
         if (width <= 0 || height <= 0) return;
-        const density = Math.min(window.devicePixelRatio || 1, format.frameWidth / width, format.frameHeight / height);
-        const targetWidth = Math.max(1, Math.round(width * density));
-        const targetHeight = Math.max(1, Math.round(height * density));
+        // Keep the canvas content in the same contain fit as the still, with a source-sized ceiling.
+        const scale = Math.min(
+            1,
+            (window.devicePixelRatio || 1) * Math.min(width / format.frameWidth, height / format.frameHeight),
+        );
+        const targetWidth = Math.max(1, Math.round(format.frameWidth * scale));
+        const targetHeight = Math.max(1, Math.round(format.frameHeight * scale));
         if (canvas.width === targetWidth && canvas.height === targetHeight) return;
         canvas.width = targetWidth;
         canvas.height = targetHeight;

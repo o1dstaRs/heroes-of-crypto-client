@@ -123,6 +123,21 @@ test("Retina backing stores stop at the source cel resolution", () => {
     stop();
 });
 
+test.each([
+    { width: 143, height: 808 },
+    { width: 572, height: 202 },
+])("a $width × $height portrait slot retains the authored proportions", ({ width, height }) => {
+    const f = fixture();
+    f.canvas.clientWidth = width;
+    f.canvas.clientHeight = height;
+    const stop = f.start();
+    expect([f.canvas.width, f.canvas.height]).toEqual([286, 404]);
+    expect(f.context.drawImage).toHaveBeenLastCalledWith(f.image, 0, 0, 572, 808, 0, 0, 286, 404);
+    f.resize();
+    expect(f.context.drawImage).toHaveBeenCalledTimes(1);
+    stop();
+});
+
 test("resizing redraws the same cel once and unchanged resize notifications do no work", () => {
     const f = fixture();
     const stop = f.start();

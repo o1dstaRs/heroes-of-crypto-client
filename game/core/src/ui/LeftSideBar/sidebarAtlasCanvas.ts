@@ -58,10 +58,11 @@ export function playSidebarAtlas(
             syncVisibility();
             return;
         }
-        // Retina stays sharp, but upscaling the backing store beyond the source cel adds only memory.
-        const density = Math.min(window.devicePixelRatio || 1, frameWidth / width, frameHeight / height);
-        const targetWidth = Math.max(1, Math.round(width * density));
-        const targetHeight = Math.max(1, Math.round(height * density));
+        // Match the still's object-fit: contain, retaining the source aspect on any sidebar size.
+        // Retina stays sharp without allocating beyond one source cel.
+        const scale = Math.min(1, (window.devicePixelRatio || 1) * Math.min(width / frameWidth, height / frameHeight));
+        const targetWidth = Math.max(1, Math.round(frameWidth * scale));
+        const targetHeight = Math.max(1, Math.round(frameHeight * scale));
         const wasSized = hasSize;
         hasSize = true;
         if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
