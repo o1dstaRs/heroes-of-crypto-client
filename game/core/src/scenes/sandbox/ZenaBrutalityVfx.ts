@@ -1,6 +1,6 @@
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { HoCMath } from "@heroesofcrypto/common";
-import { BRUTALITY_ANATOMY } from "./brutality_anatomy";
+import { BRUTALITY_ANATOMY, type BrutalityAnatomy } from "./brutality_anatomy";
 
 export interface BrutalityPose {
     texture: Texture;
@@ -10,6 +10,65 @@ export interface BrutalityPose {
     anchorY: number;
     scaleX: number;
     scaleY: number;
+}
+
+export interface BrutalityTarget {
+    pose: BrutalityPose;
+    point: HoCMath.XY;
+}
+
+function brutalityGeometry(anatomy: BrutalityAnatomy): {
+    outline: HoCMath.XY[];
+    cut: HoCMath.XY;
+    axis: HoCMath.XY;
+} {
+    const [left, top, right, bottom] = anatomy.head;
+    const bevelX = (right - left) * 0.12;
+    const bevelY = (bottom - top) * 0.07;
+    const outline = [
+        { x: left + bevelX, y: top },
+        { x: right - bevelX, y: top },
+        { x: right, y: top + bevelY },
+        { x: right, y: bottom - bevelY },
+        { x: right - bevelX, y: bottom },
+        { x: left + bevelX, y: bottom },
+        { x: left, y: bottom - bevelY },
+        { x: left, y: top + bevelY },
+    ];
+    const [x, y] = anatomy.neck ?? [(left + right) / 2, bottom];
+    let cut = outline[0];
+    let axis = { x: 1, y: 0 };
+    let nearest = Infinity;
+    for (let i = 0; i < outline.length; i++) {
+        const a = outline[i];
+        const b = outline[(i + 1) % outline.length];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy)));
+        const point = { x: a.x + dx * t, y: a.y + dy * t };
+        const distance = (point.x - x) ** 2 + (point.y - y) ** 2;
+        if (distance < nearest) {
+            nearest = distance;
+            cut = point;
+            axis = { x: dx, y: dy };
+        }
+    }
+    return { outline, cut, axis };
+}
+
+/** Freeze the same canonical pose and mask seam used by the detached death effect. */
+export function prepareBrutalityTarget(pose: BrutalityPose, name: string): BrutalityTarget | undefined {
+    const anatomy = BRUTALITY_ANATOMY[name];
+    if (!anatomy || pose.texture.destroyed || pose.texture.width <= 1 || pose.texture.height <= 1) return undefined;
+    // Custom neck markers describe anatomy; the visible seam is the boundary of the head mask.
+    const { cut } = brutalityGeometry(anatomy);
+    return {
+        pose: { ...pose },
+        point: {
+            x: pose.x + (cut.x - pose.anchorX) * pose.texture.width * pose.scaleX,
+            y: pose.y + (cut.y - pose.anchorY) * pose.texture.height * pose.scaleY,
+        },
+    };
 }
 
 interface Drop {
@@ -32,6 +91,7 @@ interface Brutality {
     age: number;
     size: number;
     neck: HoCMath.XY;
+    cutAxis: HoCMath.XY;
     headStart: HoCMath.XY;
     floor: number;
     vx: number;
@@ -82,8 +142,9 @@ export class ZenaBrutalityVfx {
         return this.deaths.length > 0;
     }
     public spawn(pose: BrutalityPose, name: string, cellSize: number, direction: HoCMath.XY): boolean {
+        const target = prepareBrutalityTarget(pose, name);
+        if (!target) return false;
         const anatomy = BRUTALITY_ANATOMY[name];
-        if (!anatomy || pose.texture.destroyed || pose.texture.width <= 1 || pose.texture.height <= 1) return false;
         const container = new Container({ eventMode: "none", label: "zena-brutality" });
         container.position.set(pose.x, pose.y);
         const stretch = this.attach(container);
@@ -95,20 +156,17 @@ export class ZenaBrutalityVfx {
             y: (y - pose.anchorY) * height,
         });
         const [left, top, right, bottom] = anatomy.head;
-        const bevelX = (right - left) * 0.12;
-        const bevelY = (bottom - top) * 0.07;
-        const outline = [
-            point(left + bevelX, top),
-            point(right - bevelX, top),
-            point(right, top + bevelY),
-            point(right, bottom - bevelY),
-            point(right - bevelX, bottom),
-            point(left + bevelX, bottom),
-            point(left, bottom - bevelY),
-            point(left, top + bevelY),
-        ].flatMap(({ x, y }) => [x, y]);
+        const geometry = brutalityGeometry(anatomy);
+        const outline = geometry.outline.flatMap(({ x, y }) => {
+            const p = point(x, y);
+            return [p.x, p.y];
+        });
         const headStart = point((left + right) / 2, (top + bottom) / 2);
-        const neck = point(...(anatomy.neck ?? [(left + right) / 2, bottom]));
+        const neck = { x: target.point.x - pose.x, y: (target.point.y - pose.y) / stretch };
+        const axisX = geometry.axis.x * width;
+        const axisY = geometry.axis.y * height;
+        const axisLength = Math.hypot(axisX, axisY) || 1;
+        const cutAxis = { x: axisX / axisLength, y: axisY / axisLength };
         const createFigure = (): Sprite => {
             const sprite = new Sprite(pose.texture);
             sprite.anchor.set(pose.anchorX, pose.anchorY);
@@ -153,6 +211,7 @@ export class ZenaBrutalityVfx {
             age: 0,
             size,
             neck,
+            cutAxis,
             headStart,
             floor,
             vx,
@@ -311,9 +370,10 @@ export class ZenaBrutalityVfx {
         if (age < 0.17) {
             const t = age / 0.17;
             const neck = death.neck;
+            const axis = death.cutAxis;
             slash
-                .moveTo(neck.x - side * size * 0.43, neck.y - size * 0.1)
-                .quadraticCurveTo(neck.x, neck.y + size * 0.12, neck.x + side * size * 0.38, neck.y + size * 0.04)
+                .moveTo(neck.x - axis.x * size * 0.43, neck.y - axis.y * size * 0.43)
+                .lineTo(neck.x + axis.x * size * 0.38, neck.y + axis.y * size * 0.38)
                 .stroke({ color: 0xffc9b4, width: size * 0.032 * (1 - t), alpha: (1 - t) * 0.9 });
         }
     }

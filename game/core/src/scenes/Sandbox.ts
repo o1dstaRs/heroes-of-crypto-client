@@ -1,6 +1,7 @@
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
@@ -4936,6 +4937,72 @@ export class Sandbox extends PixiScene {
                                   : source.hasAbilityActive?.("Chakram")) ||
                               arcs.length > 0 ||
                               (strike.response && hasRecordedChakramCounter(event.damage, strike.targetId)));
+                    const bounceIds = new Set(
+                        arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
+                    );
+                    const splash =
+                        flight?.splash ??
+                        event.damage?.splash?.filter(
+                            (hit) =>
+                                hit.unitId === strike.targetId ||
+                                bounceIds.has(hit.unitId) ||
+                                units.get(hit.unitId)?.getTeam() === victimTeam,
+                        );
+                    // The engine has already resolved the kills. Plan their visual contacts before the
+                    // throw, without marking a death until the projectile actually reaches that victim.
+                    const zenaCutTargets = new Map<string, BrutalityTarget>();
+                    if (!melee && source.getName() === "Zena") {
+                        const prepareCut = (unitId: string): void => {
+                            const unit = units.get(unitId) as RenderableUnit | undefined;
+                            if (!unit || shownDeaths.has(unitId)) return;
+                            const cut = this.combatVisuals.prepareZenaKill?.(source, unit);
+                            if (cut) zenaCutTargets.set(unitId, cut);
+                        };
+                        const amounts = new Map(remainingAmounts);
+                        const lose = (unitId: string, count: number): number | undefined => {
+                            const before = amounts.get(unitId);
+                            if (before === undefined) return undefined;
+                            const remaining = Math.max(0, before - count);
+                            amounts.set(unitId, remaining);
+                            return remaining;
+                        };
+                        const remaining = lose(strike.targetId, strike.unitsDied);
+                        if (strike.lethal && !strike.missed && strike.amount > 0 && remaining === 0)
+                            prepareCut(strike.targetId);
+                        if (isChakramFlight) {
+                            for (const hit of flight?.splash ?? []) {
+                                if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
+                                    lose(hit.unitId, hit.unitsDied);
+                            }
+                            const lastLegacyFlight =
+                                !flight &&
+                                !plan.some(
+                                    (next) =>
+                                        next.attackerId === strike.attackerId &&
+                                        next.response === strike.response &&
+                                        next.hitIndex > strike.hitIndex,
+                                );
+                            const hits = new Map(splash?.map((hit) => [hit.unitId, hit]));
+                            for (const arc of arcs) {
+                                for (const unitId of arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])) {
+                                    const hit = hits.get(unitId);
+                                    if (!hit || hit.missed || hit.amount <= 0 || hit.unitsDied <= 0) continue;
+                                    const remaining = flight ? lose(unitId, hit.unitsDied) : undefined;
+                                    const before = deathState?.amountsBefore.get(unitId);
+                                    const legacyLoss =
+                                        splash
+                                            ?.filter((entry) => entry.unitId === unitId)
+                                            .reduce((sum, entry) => sum + entry.unitsDied, 0) ?? 0;
+                                    if (
+                                        deathState?.deadIds.has(unitId) &&
+                                        (remaining === 0 ||
+                                            (lastLegacyFlight && before !== undefined && legacyLoss >= before))
+                                    )
+                                        prepareCut(unitId);
+                                }
+                            }
+                        }
+                    }
                     const absolvingProgress = event.damage?.absolutions?.length
                         ? this.createAbsolvingArrowProgress(
                               source,
@@ -5058,17 +5125,6 @@ export class Sandbox extends PixiScene {
                             });
                         }
                         if (isChakramFlight) {
-                            const bounceIds = new Set(
-                                arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
-                            );
-                            const splash =
-                                flight?.splash ??
-                                event.damage.splash?.filter(
-                                    (hit) =>
-                                        hit.unitId === strike.targetId ||
-                                        bounceIds.has(hit.unitId) ||
-                                        units.get(hit.unitId)?.getTeam() === victimTeam,
-                                );
                             const primaryMissed =
                                 flight?.missed ??
                                 splash?.find((hit) => hit.unitId === strike.targetId)?.missed ??
@@ -5123,10 +5179,17 @@ export class Sandbox extends PixiScene {
                                     ) {
                                         const killed = units.get(unitId);
                                         if (killed && !shownDeaths.has(unitId))
-                                            this.combatVisuals.noteZenaKill?.(source, killed, direction);
+                                            this.combatVisuals.noteZenaKill?.(
+                                                source,
+                                                killed,
+                                                direction,
+                                                zenaCutTargets.get(unitId),
+                                            );
                                         presentDeath(unitId);
                                     }
                                 },
+                                undefined,
+                                zenaCutTargets,
                             );
                         }
                         if (strike.lethal) {
@@ -5136,7 +5199,12 @@ export class Sandbox extends PixiScene {
                                 renderedVictim &&
                                 !shownDeaths.has(strike.targetId)
                             )
-                                this.combatVisuals.noteZenaKill?.(source, renderedVictim, direction);
+                                this.combatVisuals.noteZenaKill?.(
+                                    source,
+                                    renderedVictim,
+                                    direction,
+                                    zenaCutTargets.get(strike.targetId),
+                                );
                             presentDeath(strike.targetId);
                         } else if (receivedDamage && renderedVictim) {
                             const showReaction = (): Promise<void> => {
@@ -5190,7 +5258,8 @@ export class Sandbox extends PixiScene {
                             await this.playReplayProjectile(
                                 source,
                                 victim,
-                                renderedVictim ? undefined : fallbackPosition,
+                                zenaCutTargets.get(strike.targetId)?.point ??
+                                    (renderedVictim ? undefined : fallbackPosition),
                                 impact,
                                 isChakramFlight,
                                 absolvingProgress,
@@ -9679,6 +9748,7 @@ export class Sandbox extends PixiScene {
             direction: HoCMath.XY,
         ) => void,
         initialThrow?: { from: HoCMath.XY; to: HoCMath.XY; onImpact?: () => void },
+        cutTargets?: ReadonlyMap<string, BrutalityTarget>,
     ): Promise<void> {
         if (
             !this.rangedProjectiles ||
@@ -9747,9 +9817,10 @@ export class Sandbox extends PixiScene {
                 capturedByUnit.set(unitId, {
                     center: { ...center },
                     impact: {
-                        ...(typeof unit?.getProjectileImpactPoint === "function"
-                            ? unit.getProjectileImpactPoint(gs)
-                            : center),
+                        ...(cutTargets?.get(unitId)?.point ??
+                            (typeof unit?.getProjectileImpactPoint === "function"
+                                ? unit.getProjectileImpactPoint(gs)
+                                : center)),
                     },
                     cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                     isSmall: unit?.isSmallSize() ?? true,
@@ -9935,9 +10006,10 @@ export class Sandbox extends PixiScene {
             capturedByUnit.set(unitId, {
                 center: { ...center },
                 impact: {
-                    ...(typeof unit?.getProjectileImpactPoint === "function"
-                        ? unit.getProjectileImpactPoint(gs)
-                        : center),
+                    ...(cutTargets?.get(unitId)?.point ??
+                        (typeof unit?.getProjectileImpactPoint === "function"
+                            ? unit.getProjectileImpactPoint(gs)
+                            : center)),
                 },
                 cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                 isSmall: unit?.isSmallSize() ?? true,

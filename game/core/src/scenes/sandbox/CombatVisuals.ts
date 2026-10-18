@@ -44,7 +44,7 @@ import { BoarSalivaPops } from "./BoarSalivaPops";
 import { DevourEssencePops } from "./DevourEssencePops";
 import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
 import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
-import { ZenaBrutalityVfx } from "./ZenaBrutalityVfx";
+import { ZenaBrutalityVfx, prepareBrutalityTarget, type BrutalityTarget } from "./ZenaBrutalityVfx";
 import { HelpingHandLinks } from "./HelpingHandLinks";
 
 export interface ICombatVisualsContext {
@@ -701,7 +701,7 @@ const easeOutBack = (t: number): number => {
 
 export class CombatVisuals {
     private zenaBrutality = new ZenaBrutalityVfx((container) => this.attachEffect(container, 4550));
-    private zenaKills = new Map<string, HoCMath.XY>();
+    private zenaKills = new Map<string, { direction: HoCMath.XY; target?: BrutalityTarget }>();
     private zenaDeathBodies = new WeakSet<RenderableUnit>();
     private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
     private helpingHandLinks = new HelpingHandLinks({
@@ -2371,23 +2371,32 @@ export class CombatVisuals {
             }
         }
     }
+    public prepareZenaKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: RenderableUnit,
+    ): BrutalityTarget | undefined {
+        if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return undefined;
+        const pose = victim.getStaticBattlefieldPreviewAt?.(victim.getPosition(), this.context.getGridSettings(), true);
+        return pose ? prepareBrutalityTarget(pose, victim.getName()) : undefined;
+    }
     public noteZenaKill(
         attacker: Pick<Unit, "getName" | "getTeam">,
         victim: Pick<Unit, "getId" | "getTeam">,
         direction: HoCMath.XY,
+        target?: BrutalityTarget,
     ): void {
         if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return;
-        this.zenaKills.set(victim.getId(), { ...direction });
+        this.zenaKills.set(victim.getId(), { direction: { ...direction }, target });
     }
     public playZenaBrutalityDeath(unit: RenderableUnit): boolean {
         if (this.zenaDeathBodies.has(unit)) return true;
-        const direction = this.zenaKills.get(unit.getId());
-        if (!direction) return false;
+        const kill = this.zenaKills.get(unit.getId());
+        if (!kill) return false;
         this.zenaKills.delete(unit.getId());
         const gs = this.context.getGridSettings();
-        const pose = unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
+        const pose = kill.target?.pose ?? unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
         if (!pose) return false;
-        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), direction);
+        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), kill.direction);
         if (spawned) {
             this.zenaDeathBodies.add(unit);
             this.deathBlowByUnitId.delete(unit.getId());
