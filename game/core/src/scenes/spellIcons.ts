@@ -21,5 +21,18 @@ const SPELL_ICON_KEYS: Readonly<Record<string, string>> = {
 export const spellIconTextureKey = (spellName: string): string =>
     SPELL_ICON_KEYS[spellName] ?? SpellHelper.spellToTextureName(spellName);
 
+export const SPELL_BOOK_FURNITURE = {
+    cell: "spell_cell_260",
+    scrollBadge: "spell_cast_wax_seal_blank_v1",
+    innerFrame: "spell_inner_frame_linework_v2",
+    stackRail: "spell_stack_rail_variant2",
+    stackFillGreen: "spell_stack_fill_green_variant2",
+    stackFillRed: "spell_stack_fill_red_variant2",
+} as const;
+
+export const spellBookTextureKeys = (spellNames: readonly string[]): string[] => [
+    ...new Set([...Object.values(SPELL_BOOK_FURNITURE), ...spellNames.map(spellIconTextureKey)]),
+];
+
 /** Spells drawn with a stand-in icon, so a missing-art audit can find them. Empty is the healthy state. */
 export const SPELLS_AWAITING_OWN_ICON: readonly string[] = [];

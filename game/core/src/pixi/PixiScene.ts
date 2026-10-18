@@ -535,8 +535,8 @@ export abstract class PixiScene {
         }
         return undefined;
     };
-    protected async waitForTexture(key: string): Promise<Texture | undefined> {
-        const immediate = this.texAny(key);
+    protected async waitForTexture(key: string, options?: TextureLoadOptions): Promise<Texture | undefined> {
+        const immediate = this.texAny(key, options);
         if (immediate || this.sc_destroyed) return immediate;
 
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
@@ -547,7 +547,7 @@ export abstract class PixiScene {
         } catch {
             return undefined;
         }
-        return this.sc_destroyed ? undefined : this.texAny(key);
+        return this.sc_destroyed ? undefined : this.texAny(key, options);
     }
     public getBaseHotkeys(): HotKey[] {
         return [];

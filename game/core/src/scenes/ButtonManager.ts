@@ -7,11 +7,11 @@ import {
     AttackVals,
     Unit,
     GridSettings,
-    SpellHelper,
 } from "@heroesofcrypto/common";
 import type { GameAction } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { VisibleButtonState, IVisibleButton, IVisibleState } from "./VisibleState";
+import { spellIconTextureKey } from "./spellIcons";
 
 const TIME_DENIAL_BUTTON_TEXT = "Time Denial — an active holder prevents either side from using Hourglass.";
 
@@ -30,8 +30,8 @@ export interface ISandboxButtonContext {
     setCurrentEnemiesCellsWithinMovementRange(cells: HoCMath.XY[] | undefined): void;
     setSelectedAttackType(type: AttackType): void;
     setCurrentActiveSpell(spell: PixiRenderableSpell | undefined): void;
-    /** The currently armed spell (single-target spells wait for a target click). */
-    getCurrentActiveSpell(): PixiRenderableSpell | undefined;
+    /** The local selection or the opponent's relayed selection, for display only. */
+    getSelectedSpellName(): string | undefined;
 
     // 👇 NEW: Push UI state back to Sandbox
     setVisibleButtons(buttons: IVisibleButton[], updated: boolean): void;
@@ -331,9 +331,10 @@ export class ButtonManager {
         // Show the armed spell's icon on the spellbook button (parity with legacy adjustSpellBookSprite).
         // Only clear the armed spell on an EXPLICIT attack-type change (see "AttackType" case), not on
         // every recompute — otherwise arming a spell while the unit is still on MELEE disarms it instantly.
-        const armedSpell = this.context.getCurrentActiveSpell();
-        if (armedSpell) {
-            spellBookButton.customSpriteName = SpellHelper.spellToTextureName(armedSpell.getName());
+        const selectedSpellName = this.context.getSelectedSpellName();
+        if (selectedSpellName) {
+            spellBookButton.customSpriteName = spellIconTextureKey(selectedSpellName);
+            spellBookButton.text = `Selected spell: ${selectedSpellName}`;
         }
 
         pushAll(hourglassButton, shieldButton, nextButton, aiButton, attackTypeButton, spellBookButton);

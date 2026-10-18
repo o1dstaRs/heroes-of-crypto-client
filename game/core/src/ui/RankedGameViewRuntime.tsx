@@ -68,6 +68,7 @@ import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
     collectRankedReplaySnapshots,
+    getRankedReplayInitialSnapshot,
     createSandboxReplayFromRankedReplay,
     parseRankedReplayAction,
     withReplayJournalTails,
@@ -1440,14 +1441,15 @@ export const RankedGameView: React.FC<Props> = ({
             setError("");
 
             try {
-                const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
-                const initialSnapshot = replaySnapshots[0] ?? replay.currentSnapshot;
+                const opening = getRankedReplayInitialSnapshot(replay);
+                const initialSnapshot = opening ? withReplayJournalTails([opening], replay.journal)[0] : undefined;
                 if (initialSnapshot) {
                     applySnapshot(initialSnapshot, { forceBoardRebuild: true, replayRewind: true });
                     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
                 }
 
                 const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
+                    shareSnapshots: true,
                     snapshotToState: (playSnapshot) =>
                         authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
                     // The whole snapshot rides along too: the board comes from the scene state above, but
@@ -1465,6 +1467,7 @@ export const RankedGameView: React.FC<Props> = ({
                     }
                 }
 
+                const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
                 if (!replaySnapshots.length) {
                     throw new Error("Replay has no snapshots to play");
                 }
@@ -1528,7 +1531,8 @@ export const RankedGameView: React.FC<Props> = ({
                     return;
                 }
                 storedReplayRef.current = replay;
-                const initialSnapshot = collectRankedReplaySnapshots(replay)[0] ?? replay.currentSnapshot;
+                const initialSnapshot = getRankedReplayInitialSnapshot(replay);
+                if (!initialSnapshot) throw new Error("Replay has no snapshots to play");
                 applySnapshot(initialSnapshot, { forceBoardRebuild: true });
             })
             .catch((err: unknown) => {

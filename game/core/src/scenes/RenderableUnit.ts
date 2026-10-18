@@ -133,6 +133,7 @@ import {
     type TeamType,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
+import { SPELL_BOOK_FURNITURE, spellIconTextureKey } from "./spellIcons";
 import { syncBlacksmithWalkColorFilter } from "./BlacksmithWalkColorFilter";
 import { syncManticoreLabIdle } from "./ManticoreLabIdleVisuals";
 import { manticoreLabAttackEye } from "./ManticoreLabAttackEyes";
@@ -3429,6 +3430,14 @@ export class RenderableUnit extends Unit {
         this.pixiSpells = [];
 
         const spellsData = this.parseSpellData(this.unitProperties.spells);
+        const bookTextures = {
+            spell_cell_260: this.texResolver(SPELL_BOOK_FURNITURE.cell) ?? Texture.EMPTY,
+            scrollBadge: this.texResolver(SPELL_BOOK_FURNITURE.scrollBadge),
+            innerFrame: this.texResolver(SPELL_BOOK_FURNITURE.innerFrame),
+            stackRail: this.texResolver(SPELL_BOOK_FURNITURE.stackRail),
+            stackFillGreen: this.texResolver(SPELL_BOOK_FURNITURE.stackFillGreen),
+            stackFillRed: this.texResolver(SPELL_BOOK_FURNITURE.stackFillRed),
+        };
 
         for (const [k, v] of spellsData.entries()) {
             const spArr = k.split(":");
@@ -3446,32 +3455,13 @@ export class RenderableUnit extends Unit {
             // This used to also require a hand-authored "<spell>_font" strip, and a missing one dropped the
             // spell from the book entirely and silently: that is how Wandering Mage shipped with an empty
             // spellbook. A new spell now needs one icon and nothing else.
-            const generatedIconKey =
-                spellName === "Fire Strike"
-                    ? "fire_strike_chaos_256_v1"
-                    : spellName === "Meteorite"
-                      ? "meteorite_chaos_256_v1"
-                      : undefined;
-            const iconTex = this.texResolver(generatedIconKey ?? SpellHelper.spellToTextureName(spellName));
-            const cellTex = this.texResolver("spell_cell_260");
-            const scrollBadgeTex = this.texResolver("spell_cast_wax_seal_blank_v1");
-            const stackRailTex = this.texResolver("spell_stack_rail_variant2");
-            const stackFillGreenTex = this.texResolver("spell_stack_fill_green_variant2");
-            const stackFillRedTex = this.texResolver("spell_stack_fill_red_variant2");
-            const innerFrameTex = this.texResolver("spell_inner_frame_linework_v2");
+            const iconTex = this.texResolver(spellIconTextureKey(spellName));
 
             // Art can arrive after the book opens. A missing icon must never hide an available spell.
             const newSpell = new PixiRenderableSpell(
                 { spellProperties: spellProperties, amount: v },
                 this.spellBookLayer,
-                {
-                    spell_cell_260: cellTex ?? Texture.EMPTY,
-                    scrollBadge: scrollBadgeTex,
-                    innerFrame: innerFrameTex,
-                    stackRail: stackRailTex,
-                    stackFillGreen: stackFillGreenTex,
-                    stackFillRed: stackFillRedTex,
-                },
+                bookTextures,
                 iconTex ?? Texture.EMPTY,
                 this.digitTextures,
             );

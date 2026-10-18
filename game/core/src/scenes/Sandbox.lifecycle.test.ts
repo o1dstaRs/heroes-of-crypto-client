@@ -61,6 +61,7 @@ describe("Sandbox lifecycle", () => {
         expect(blurLifecycle.match(/new BlurFilter/g)).toHaveLength(1);
         expect(blurLifecycle).toContain("filter.destroy()");
         expect(destroy).toContain("this.aiController.destroy()");
+        expect(destroy).toContain("this.replayRecorder?.dispose()");
         expect(destroy).toContain("this.moveAnimManager.cancel()");
         expect(destroy).toContain("this.placementManager.releaseVisuals()");
         expect(destroy).toContain("this.releaseSpellBookBlurFilter()");
@@ -82,8 +83,10 @@ describe("Sandbox lifecycle", () => {
         );
 
         expect(constructor).not.toContain('this.texAny("book_1024_clean_pages_v1")');
-        expect(backgroundLifecycle).toContain("Assets.load<Texture>(url)");
-        expect(backgroundLifecycle).toContain("Assets.unload(images.book_1024_clean_pages_v1)");
+        expect(backgroundLifecycle).toContain(
+            'this.waitForTexture("book_1024_clean_pages_v1", { priority: "visible" })',
+        );
+        expect(backgroundLifecycle).not.toContain("Assets.unload(");
         expect(destroy).toContain("this.releaseSpellBookBackground()");
     });
 });

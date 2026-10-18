@@ -30,10 +30,10 @@ import { unicornBlindnessLanded } from "./UnicornBlindnessVisuals";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { griffinLabFlightSettings } from "./GriffinLabFlight";
 import { mantisLabFlightSettings } from "./MantisLabFlight";
-import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
+import { Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { usesApprovedBaseAnimations, usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
-import { AtlasTexturePrewarmer } from "../pixi/prewarmAtlasTexture";
+import { AtlasTexturePrewarmer, prewarmAtlasTexture } from "../pixi/prewarmAtlasTexture";
 import { AtlasPrewarmSources } from "../pixi/atlasPrewarmSources";
 import {
     SandboxDrawer,
@@ -187,6 +187,7 @@ import { resolveCreatureHeadPriorityDepths, type CreatureDepthSortCandidate } fr
 import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { shouldCommitPlacementBeforeUnitSelection } from "./placementClickPriority";
 import { PixiRenderableSpell } from "./RenderableSpell";
+import { spellBookTextureKeys, spellIconTextureKey } from "./spellIcons";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
 import {
     combatFootprintCellsForBase,
@@ -1092,7 +1093,8 @@ export class Sandbox extends PixiScene {
     private spellBookBackdrop: Graphics;
     private spellBookOverlay?: SpellBookOverlay;
     private spellBookBackground?: Sprite;
-    private spellBookBackgroundLoad?: Promise<Texture>;
+    private spellBookBackgroundLoad?: Promise<void>;
+    private spellBookFallback?: Graphics;
     private spellBookBlurFilter?: BlurFilter;
     private digitTextures?: Map<number, Texture>;
     private nextVisibleTurnTimerUpdateMs = 0;
@@ -1424,7 +1426,7 @@ export class Sandbox extends PixiScene {
                 setCurrentActiveSpell: (s) => {
                     this.currentActiveSpell = s;
                 },
-                getCurrentActiveSpell: () => this.currentActiveSpell,
+                getSelectedSpellName: () => this.getSelectedSpellName(),
                 getVisibleState: () => this.sc_visibleState,
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
                 isAiToggleAllowed: () => this.isAiToggleAllowed(),
@@ -1499,6 +1501,14 @@ export class Sandbox extends PixiScene {
             context.pixiApp.getUIContainer(),
             context.pixiApp.getApplication().screen.width,
             context.pixiApp.getApplication().screen.height,
+            {
+                content: this.spellBookContainer,
+                prepare: (unit) => this.prepareSpellBookPresentation(unit),
+                onError: () => {
+                    this.setSpellBookOverlayState(false);
+                    this.tellPlayer("Unable to open the spellbook. Please try again.");
+                },
+            },
         );
         // --- Init Sub-Managers Moved UP ---
 
@@ -3196,7 +3206,7 @@ export class Sandbox extends PixiScene {
         return this.replayRecorder.getCurrentReplay();
     }
     public override canPlayCurrentSandboxReplay(): boolean {
-        return !!this.getCurrentSandboxReplay()?.actions.length;
+        return this.replayRecorder.hasActions();
     }
     public override async playSandboxReplay(
         replay: SandboxReplay,
@@ -8662,40 +8672,74 @@ export class Sandbox extends PixiScene {
         filter.destroy();
         this.spellBookBlurFilter = undefined;
     }
-    private ensureSpellBookBackground(): void {
-        if (this.spellBookBackground || this.spellBookBackgroundLoad) return;
-        const url = images.book_1024_clean_pages_v1;
-        const load = Assets.load<Texture>(url);
+    private ensureSpellBookBackground(): Promise<void> {
+        if (this.spellBookBackground) return Promise.resolve();
+        if (this.spellBookBackgroundLoad) return this.spellBookBackgroundLoad;
+        const load = this.waitForTexture("book_1024_clean_pages_v1", { priority: "visible" }).then((texture) => {
+            if (this.spellBookBackgroundLoad !== load || this.isSceneDestroyed() || this.spellBookContainer.destroyed)
+                return;
+            this.spellBookBackgroundLoad = undefined;
+            if (!texture) {
+                if (!this.spellBookFallback) {
+                    this.spellBookFallback = new Graphics()
+                        .roundRect(-510, -435, 1020, 870, 24)
+                        .fill(0x35251b)
+                        .stroke({ width: 5, color: 0x9c783c })
+                        .roundRect(-475, -402, 455, 795, 8)
+                        .fill(0xcbb483)
+                        .roundRect(20, -402, 455, 795, 8)
+                        .fill(0xd7c193);
+                    this.spellBookContainer.addChildAt(
+                        this.spellBookFallback,
+                        Math.min(1, this.spellBookContainer.children.length),
+                    );
+                }
+                return;
+            }
+            if (this.sc_renderSpellBookOverlay && this.currentActiveUnit) {
+                prewarmAtlasTexture(this.pixiApp.getApplication().renderer, texture);
+            }
+            this.spellBookFallback?.destroy();
+            this.spellBookFallback = undefined;
+            const bookSprite = new Sprite(texture);
+            bookSprite.anchor.set(0.5);
+            bookSprite.position.set(0, 0);
+            bookSprite.zIndex = 0;
+            this.spellBookBackground = bookSprite;
+            this.spellBookContainer.addChildAt(bookSprite, Math.min(1, this.spellBookContainer.children.length));
+        });
         this.spellBookBackgroundLoad = load;
-        void load.then(
-            (texture) => {
-                if (this.spellBookBackgroundLoad !== load) {
-                    void Assets.unload(url).catch(() => undefined);
-                    return;
-                }
-                this.spellBookBackgroundLoad = undefined;
-                if (this.spellBookContainer.destroyed) {
-                    void Assets.unload(url).catch(() => undefined);
-                    return;
-                }
-                const bookSprite = new Sprite(texture);
-                bookSprite.anchor.set(0.5);
-                bookSprite.position.set(0, 0);
-                bookSprite.zIndex = 0;
-                this.spellBookBackground = bookSprite;
-                this.spellBookContainer.addChildAt(bookSprite, Math.min(1, this.spellBookContainer.children.length));
-            },
-            () => {
-                if (this.spellBookBackgroundLoad === load) this.spellBookBackgroundLoad = undefined;
-            },
-        );
+        return load;
     }
     private releaseSpellBookBackground(): void {
-        const hadRequest = !!this.spellBookBackground || !!this.spellBookBackgroundLoad;
         this.spellBookBackground?.destroy();
         this.spellBookBackground = undefined;
         this.spellBookBackgroundLoad = undefined;
-        if (hadRequest) void Assets.unload(images.book_1024_clean_pages_v1).catch(() => undefined);
+        this.spellBookFallback?.destroy();
+        this.spellBookFallback = undefined;
+    }
+    private async prepareSpellBookPresentation(unit: RenderableUnit): Promise<void> {
+        this.setHoveredSpell(undefined);
+        for (const entry of this.unitsHolder.getAllUnits().values()) (entry as RenderableUnit).hideSpells();
+        const keys = spellBookTextureKeys(unit.getSpells().map((spell) => spell.getName()));
+        await Promise.all([
+            this.ensureSpellBookBackground(),
+            ...keys.map(async (key) => {
+                const texture = await this.waitForTexture(key, { priority: "visible" });
+                if (
+                    texture &&
+                    !this.isSceneDestroyed() &&
+                    this.sc_renderSpellBookOverlay &&
+                    this.currentActiveUnit === unit
+                )
+                    prewarmAtlasTexture(this.pixiApp.getApplication().renderer, texture);
+            }),
+        ]);
+        if (this.isSceneDestroyed() || !this.sc_renderSpellBookOverlay || this.currentActiveUnit !== unit) return;
+        const screen = this.pixiApp.getApplication().screen;
+        this.layoutSpellBook(screen.width, screen.height);
+        this.ensureDigitTextures();
+        if (this.digitTextures) unit.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
     }
     private setHoveredSpell(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
         if (this.hoveredSpell !== spell) {
@@ -8743,6 +8787,10 @@ export class Sandbox extends PixiScene {
     }
     private handleSpellbookClick(worldPos: HoCMath.XY): void {
         const caster = this.currentActiveUnit;
+        if (this.spellBookOverlay && !this.spellBookOverlay.isReadyFor(caster)) {
+            this.closeSpellBook();
+            return;
+        }
         const hovered =
             caster instanceof RenderableUnit
                 ? caster.getHoveredSpell(this.spellbookGlobalFromWorld(worldPos), true)
@@ -14119,6 +14167,11 @@ export class Sandbox extends PixiScene {
 
         // 0. Spellbook Interaction — the active unit's own book, so only when we can drive it.
         if (canDriveActiveUnit && this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
+            if (this.spellBookOverlay && !this.spellBookOverlay.isReadyFor(this.currentActiveUnit)) {
+                this.setHoveredSpell(undefined);
+                this.hoverManager.clear();
+                return;
+            }
             if (this.currentActiveUnit instanceof RenderableUnit) {
                 const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
                     this.spellbookGlobalFromWorld(this.pointerVisualWorld),
@@ -14470,7 +14523,7 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
                     targetPos: hideDirectStatusArrow ? undefined : targetCenter,
-                    iconTex: this.texAny(SpellHelper.spellToTextureName(spell.getName())) ?? Texture.EMPTY,
+                    iconTex: this.texAny(spellIconTextureKey(spell.getName())) ?? Texture.EMPTY,
                     label: spell.getName(),
                     color: spellColor,
                     beamStyle: isPositiveSpell ? "positive" : "negative",
@@ -16507,6 +16560,7 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        this.replayRecorder?.dispose();
         this.atlasTexturePrewarmer.destroy();
         this.sandboxPremiumEnabled = false;
         this.clearSandboxPremiumGuidance();
@@ -16522,6 +16576,7 @@ export class Sandbox extends PixiScene {
         this.placementManager.releaseVisuals();
         this.aiController.destroy();
         this.dungeonVisuals?.destroy();
+        this.spellBookOverlay?.destroy();
         this.releaseSpellBookBackground();
         this.releaseSpellBookBlurFilter();
         this.fireWallLayer?.destroy();
@@ -16921,28 +16976,8 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // Update SpellBook
-        if (this.spellBookContainer) {
-            const showSpellBook = !!this.sc_renderSpellBookOverlay;
-            // Re-fit on the closed -> open transition: the canvas can still be settling into its final
-            // size when the scene is constructed, and no resize necessarily fires before the first open.
-            if (showSpellBook && !this.spellBookContainer.visible) {
-                this.ensureSpellBookBackground();
-                if (this.currentActiveUnit && this.digitTextures) {
-                    this.currentActiveUnit.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
-                }
-                const screen = this.pixiApp.getApplication().screen;
-                this.layoutSpellBook(screen.width, screen.height);
-            }
-            this.spellBookContainer.visible = showSpellBook;
-        }
-        if (this.sc_renderSpellBookOverlay && this.spellBookOverlay && this.currentActiveUnit) {
-            for (const unit of this.unitsHolder.getAllUnits().values()) {
-                const rUnit = unit as RenderableUnit;
-                if (rUnit !== this.currentActiveUnit) {
-                    rUnit.hideSpells();
-                }
-            }
+        this.spellBookOverlay?.setOpen(this.sc_renderSpellBookOverlay);
+        if (this.sc_renderSpellBookOverlay && this.spellBookOverlay) {
             this.spellBookOverlay.render(this.currentActiveUnit);
         }
     }
@@ -19037,7 +19072,12 @@ export class Sandbox extends PixiScene {
                 unit.ensureVisual(unitsContainer, gs);
             }
         }
-        if (this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.digitTextures) {
+        if (
+            this.sc_renderSpellBookOverlay &&
+            this.currentActiveUnit &&
+            this.digitTextures &&
+            this.spellBookOverlay?.isReadyFor(this.currentActiveUnit)
+        ) {
             // parseSpells may have skipped cards whose lazy icon was not decoded yet. Rebuild only the
             // open, active book as supplementary icons arrive; closed/enemy books do no extra work.
             this.setHoveredSpell(undefined);
@@ -19483,10 +19523,23 @@ export class Sandbox extends PixiScene {
         }
     }
     public override setOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
+        if (
+            this.opponentSpellIntent?.unitId === intent?.unitId &&
+            this.opponentSpellIntent?.spellName === intent?.spellName
+        ) {
+            return;
+        }
         this.opponentSpellIntent = intent;
         if (!intent) {
             this.hoverManager.clearOpponentSpellBadge();
         }
+        this.buttonManager?.refreshButtons();
+    }
+    private getSelectedSpellName(): string | undefined {
+        const unit = this.currentActiveUnit;
+        if (!unit || unit.isDead() || this.sc_visibleState?.hasFinished) return undefined;
+        if (this.canControlCurrentActiveUnit()) return this.currentActiveSpell?.getName();
+        return this.opponentSpellIntent?.unitId === unit.getId() ? this.opponentSpellIntent.spellName : undefined;
     }
     private syncLocalSpellIntent(): void {
         if (!this.spellIntentSink) {
@@ -19509,14 +19562,13 @@ export class Sandbox extends PixiScene {
         if (!intent) {
             return;
         }
-        if (this.currentActiveUnit?.getId() !== intent.unitId) {
-            this.opponentSpellIntent = undefined;
-            this.hoverManager.clearOpponentSpellBadge();
+        if (this.canControlCurrentActiveUnit() || this.getSelectedSpellName() !== intent.spellName) {
+            this.setOpponentSpellIntent(undefined);
             return;
         }
         const unit = this.unitsHolder.getAllUnits().get(intent.unitId);
-        if (!unit) {
-            this.hoverManager.clearOpponentSpellBadge();
+        if (!unit || unit.isDead()) {
+            this.setOpponentSpellIntent(undefined);
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -19527,7 +19579,7 @@ export class Sandbox extends PixiScene {
         const casterPos = unit instanceof RenderableUnit ? unit.getVisualCenter(gs) : unit.getPosition();
         this.hoverManager.drawOpponentSpellBadge({
             casterPos,
-            iconTex: this.texAny(SpellHelper.spellToTextureName(intent.spellName)) ?? Texture.EMPTY,
+            iconTex: this.texAny(spellIconTextureKey(intent.spellName)) ?? Texture.EMPTY,
             label: intent.spellName,
             color: isPositive ? 0x18c868 : 0xe02b16,
         });
@@ -20263,7 +20315,7 @@ export class Sandbox extends PixiScene {
         this.sc_renderSpellBookOverlay = active;
         this.buttonManager.sc_renderSpellBookOverlay = active;
         this.spellBookOverlay?.setOpen(active);
-        if (active) this.ensureSpellBookBackground();
+        if (active) this.spellBookOverlay?.render(this.currentActiveUnit);
         this.setSpellBookWorldBlur(active);
         if (changed)
             this.playSceneGameSound(

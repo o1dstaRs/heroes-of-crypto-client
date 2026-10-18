@@ -12,6 +12,14 @@ import { PixiGameManager } from "./PixiGameManager";
 import type { SceneConstructor } from "./PixiScene";
 
 class SceneDouble {
+    public moveIntentSink: Parameters<PixiGameManager["SetMoveIntentSink"]>[0];
+    public spellIntentSink: Parameters<PixiGameManager["SetSpellIntentSink"]>[0];
+    public setMoveIntentSink(sink: typeof this.moveIntentSink): void {
+        this.moveIntentSink = sink;
+    }
+    public setSpellIntentSink(sink: typeof this.spellIntentSink): void {
+        this.spellIntentSink = sink;
+    }
     public premiumEnabled = false;
     public setPremiumSandboxGuidance(enabled: boolean): void {
         this.premiumEnabled = enabled;
@@ -28,6 +36,58 @@ class SceneDouble {
 }
 
 describe("PixiGameManager scene reload", () => {
+    it("retains ranked intent relays registered before the first scene exists and after a reload", () => {
+        const manager = new PixiGameManager();
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+        });
+        const spell = mock();
+        const move = mock();
+        manager.SetSpellIntentSink(spell);
+        manager.SetMoveIntentSink(move);
+        manager.LoadGame();
+        const first = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        first.spellIntentSink?.("caster", "Heal");
+        first.moveIntentSink?.("caster", { x: 4, y: 5 });
+        expect(spell).toHaveBeenCalledWith("caster", "Heal");
+        expect(move).toHaveBeenCalledWith("caster", { x: 4, y: 5 });
+
+        manager.LoadGame(true);
+        const next = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(next).not.toBe(first);
+        next.spellIntentSink?.("next", "Spiritual Armor");
+        next.moveIntentSink?.("next", undefined);
+        expect(spell).toHaveBeenLastCalledWith("next", "Spiritual Armor");
+        expect(move).toHaveBeenLastCalledWith("next", undefined);
+
+        manager.SetSpellIntentSink(undefined);
+        manager.SetMoveIntentSink(undefined);
+        expect(next.spellIntentSink).toBeUndefined();
+        expect(next.moveIntentSink).toBeUndefined();
+        manager.LoadGame(true);
+        const offline = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(offline.spellIntentSink).toBeUndefined();
+        expect(offline.moveIntentSink).toBeUndefined();
+    });
+
+    it("does not revive a relay removed while the scene was still loading", () => {
+        const manager = new PixiGameManager();
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+        });
+        manager.SetSpellIntentSink(mock());
+        manager.SetMoveIntentSink(mock());
+        manager.SetSpellIntentSink(undefined);
+        manager.SetMoveIntentSink(undefined);
+        manager.LoadGame();
+        const scene = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(scene.spellIntentSink).toBeUndefined();
+        expect(scene.moveIntentSink).toBeUndefined();
+    });
     it("blocks board clicks and fight start while the selected map is still loading", () => {
         const manager = new PixiGameManager();
         let loading = true;

@@ -137,6 +137,8 @@ export class PixiGameManager {
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
+    private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
+    private spellIntentSink?: (unitId: string | undefined, spellName: string | undefined) => void;
     private lastAuthoritativeViewportKey = "";
     private overlayMouseSuppression?: {
         clientX: number;
@@ -595,6 +597,7 @@ export class PixiGameManager {
         this.m_scene?.setGameActionTransport(transport);
     }
     public SetMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
+        this.moveIntentSink = sink;
         this.m_scene?.setMoveIntentSink(sink);
     }
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
@@ -970,6 +973,8 @@ export class PixiGameManager {
             FightStateManager.getInstance().reset();
         }
         this.m_scene = new SceneClass(context);
+        this.m_scene.setMoveIntentSink(this.moveIntentSink);
+        this.m_scene.setSpellIntentSink(this.spellIntentSink);
         this.m_scene.setPremiumSandboxGuidance?.(this.premiumSandboxGuidanceEnabled);
         this.m_scene.setCreatureAnimationLabEnabled?.(this.creatureAnimationLabEnabled);
         this.m_scene.setTestBoardBackground?.(this.testBoardBackground);
@@ -1295,6 +1300,7 @@ export class PixiGameManager {
         return this.m_scene?.getGridType() ?? (GridVals.NORMAL as GridType);
     }
     public SetSpellIntentSink(sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {
+        this.spellIntentSink = sink;
         this.m_scene?.setSpellIntentSink(sink);
     }
     public SetOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
