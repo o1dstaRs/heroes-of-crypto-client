@@ -22,7 +22,7 @@ const flush = async () => {
     for (let index = 0; index < 30; index++) await Promise.resolve();
 };
 
-const fixture = (redirect = false) => {
+const fixture = (redirect = false, shooter = "Gargantuan") => {
     const events: string[] = [];
     const width = gs.getMaxX() - gs.getMinX();
     const logical = (fraction: number) => ({ x: gs.getMinX() + width * fraction, y: gs.getMaxY() * 0.5 });
@@ -32,7 +32,7 @@ const fixture = (redirect = false) => {
         const unit = Object.assign(Object.create(RenderableUnit.prototype) as RenderableUnit, {
             amount: 3,
             getId: () => id,
-            getName: () => (id === "giant" ? "Gargantuan" : "Squire"),
+            getName: () => (id === "giant" ? shooter : "Squire"),
             getPosition: () => position,
             getCells: () => [GridMath.getCellForPosition(gs, position)],
             getTeam: () => (id === "giant" ? 1 : 2),
@@ -50,6 +50,8 @@ const fixture = (redirect = false) => {
             isDead: () => unit.amount <= 0,
             getAbility: (name: string) => (id === "giant" && name === "Double Throw" ? {} : undefined),
             hasAbilityActive: (name: string) => id === "giant" && name === "Area Throw",
+            hasAnimationState: () => false,
+            playCyclopsLabRangedThrow: () => false,
         });
         return unit;
     };
@@ -65,6 +67,8 @@ const fixture = (redirect = false) => {
     Object.assign(projectiles, {
         ensureProjectileTexture: () => Promise.resolve(),
         spawnGargantuanImpact: () => {},
+        spawnCyclopsImpact: () => {},
+        ensureGargantuanImpactTexture: () => Promise.resolve(),
     });
     cleanup.push(() => {
         projectiles.destroy();
@@ -131,6 +135,8 @@ const fixture = (redirect = false) => {
             return Promise.resolve();
         },
         combatVisuals: {
+            noteCyclopsKill: (_attacker: RenderableUnit, victim: RenderableUnit) =>
+                events.push(`${victim.getId()}:gore`),
             showFloatingDamage: (_position: HoCMath.XY, amount: number) => events.push(`damage:${amount}`),
             showDamageVisualsFromDiff: () => {},
         },
@@ -409,3 +415,53 @@ test.each(["targeted", "free"])("cancelling a %s throw suppresses damage and the
     expect([f.near.getDisplayedAmount(), f.far.getDisplayedAmount()]).toEqual([3, 3]);
     expect(f.events).not.toContain("turn");
 });
+
+test.each(["targeted", "live free", "replay free"])(
+    "Cyclops %s multi-stack deaths are marked only at each killing boulder's contact",
+    async (mode) => {
+        const f = fixture(false, "Cyclops");
+        f.damage.splash[2].unitsDied = 2;
+        f.areaEvent.unitIdsDied = ["near", "far"];
+        f.record.events.push({ type: "unit_destroyed", unitId: "near" });
+        if (mode !== "targeted") {
+            f.scene.createActionEngine = () => ({
+                apply: () => {
+                    f.near.amount = 0;
+                    f.far.amount = 0;
+                    f.units.clear();
+                    return { completed: true, events: f.record.events };
+                },
+            });
+        }
+        const pending = mode === "targeted" ? f.playTargeted() : f.playFree(mode === "replay free");
+        await flush();
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+        f.advance(0.99);
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+        f.advance(0.02);
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["far:gore"]);
+        expect(f.events.indexOf("far:gore")).toBeLessThan(f.events.indexOf("far:death"));
+        expect(f.events).toContain("near:hit");
+        await flush();
+        expect(f.shots).toHaveLength(2);
+        f.advance(1.01);
+        await pending;
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["far:gore", "near:gore"]);
+        expect(f.events.indexOf("near:gore")).toBeLessThan(f.events.indexOf("near:death"));
+    },
+);
+
+test.each(["Cyclops", "Gargantuan"])(
+    "%s keeps ordinary deaths without two directly destroyed stacks",
+    async (shooter) => {
+        const f = fixture(false, shooter);
+        const pending = f.playTargeted();
+        await flush();
+        f.advance(1.01);
+        await flush();
+        f.advance(1.01);
+        await pending;
+        expect(f.events).toContain("far:death");
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+    },
+);
