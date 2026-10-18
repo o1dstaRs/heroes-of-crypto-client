@@ -5,7 +5,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 ## Next up
 
 - **Story arc:** pin (#1), queue tactics (#2), origin (#3), edge (#4), board-flash fix (#7) and Through Shot (#8, Sat 6:56 AM) done. Next story is STORY.md #5 why the board shrinks (waiting on Stepan to confirm narrowing's origin); #6, #9, #10 also need his facts — skip crypto chapter (#9) and then-and-now (#6) until Stepan answers open questions.
-- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Next calendar line is Thu 22 plan unit, Fri 23 Nature, etc. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
+- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Next calendar line is Fri 23 Nature, then Sun 25 question (Sat 24 Through Shot already ran as STORY #8), Mon 26 first turn, etc. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
 
 ## Today 2026-10-15 (Thu)
 
@@ -30,6 +30,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 2026-10-17 11:59 | midday | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111532527114506733 | Crowd, text-only. Reply https://x.com/Heroes0fcrypto/status/2111532605841588606 |
 | 2026-10-17 16:52 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111606394281500728 | Might, text-only. Reply https://x.com/Heroes0fcrypto/status/2111606435058684023 |
 | 2026-10-18 06:58 | morning | tactics-question | https://x.com/Heroes0fcrypto/status/2111819309269835920 | Sun 18 HoMM flanking question, text-only. Reply https://x.com/Heroes0fcrypto/status/2111819523087081888 |
+| 2026-10-18 11:51 | midday | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111892951626350973 | Thu 22 plan unit, text-only. Reply https://x.com/Heroes0fcrypto/status/2111893175274983766 |
 
 ## Today 2026-10-16 (Fri)
 
@@ -52,5 +53,5 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | Slot (PT) | Plan | Status |
 |---|---|---|
 | 6:48 AM | Question: CALENDAR Sun 18 HoMM flanking/edge, text-only. Calendar reply, no link. | done — https://x.com/Heroes0fcrypto/status/2111819309269835920 |
-| 11:48 AM | Next calendar line Thu 22 plan unit (or a code/git dev-diary detail if a story slot is wanted). | queued |
+| 11:48 AM | Calendar Thu 22 plan unit, text-only. Reply with five-positioning link. | done — https://x.com/Heroes0fcrypto/status/2111892951626350973 |
 | 4:48 PM | Calendar Fri 23 Nature, text-only. | queued |
