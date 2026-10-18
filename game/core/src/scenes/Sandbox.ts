@@ -212,6 +212,9 @@ import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
 import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
 import { FireWallLayer, type IFireWallCell } from "./sandbox/FireWallLayer";
+import { PlayAimKind, type PlayAim, type OpponentAim } from "../api/play_protocol";
+import { OpponentAimOverlay } from "./OpponentAimOverlay";
+import { resolveOpponentAimGeometry } from "./opponentAimGeometry";
 import { fireWallCrossingSchedule } from "./sandbox/fireWallCrossing";
 import { WindLayer } from "./sandbox/WindLayer";
 import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
@@ -1052,6 +1055,11 @@ export class Sandbox extends PixiScene {
     private readonly unyieldingPowerTriggers = new UnyieldingPowerTriggers();
     private oneInTheFieldTriggers = new OneInTheFieldTriggers();
     private readonly madeOfFireBuffStates = new Map<string, boolean>();
+    private aimIntentSink?: (aim: PlayAim | undefined) => void;
+    private localAim?: PlayAim;
+    private opponentAim?: OpponentAim;
+    private opponentAimOverlay?: OpponentAimOverlay;
+    private opponentAimPaintKey?: string;
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private lastEmittedMoveIntentKey?: string;
     private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
@@ -1886,6 +1894,98 @@ export class Sandbox extends PixiScene {
     protected getToggleAiControlledTeam(): TeamType | undefined {
         return undefined;
     }
+    public override setAimIntentSink(sink?: (aim: PlayAim | undefined) => void): void {
+        this.aimIntentSink = sink;
+    }
+    public override setOpponentAim(intent?: OpponentAim): void {
+        this.opponentAim = intent;
+        if (!intent || intent.kind === PlayAimKind.CLEAR) {
+            this.opponentAim = undefined;
+            this.opponentAimPaintKey = undefined;
+            this.opponentAimOverlay?.clear();
+            if (!this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
+        }
+        this.setOpponentSpellIntent(
+            intent?.kind === PlayAimKind.SPELL && intent.spellName
+                ? { unitId: intent.unitId, spellName: intent.spellName }
+                : undefined,
+        );
+    }
+    private syncLocalAim(): void {
+        if (!this.aimIntentSink) return;
+        const unit = this.currentActiveUnit;
+        if (
+            !unit ||
+            unit.isDead() ||
+            !this.canShowHoverForActiveUnit() ||
+            this.isPlayingActionAnimation() ||
+            this.isAwaitingAuthoritativeTurnHandoff() ||
+            this.sc_visibleState?.hasFinished
+        ) {
+            this.localAim = undefined;
+            this.aimIntentSink(undefined);
+            return;
+        }
+        const spell = this.currentActiveSpell;
+        if (spell && (this.localAim?.kind !== PlayAimKind.SPELL || this.localAim.spellName !== spell.getName())) {
+            this.localAim = { kind: PlayAimKind.SPELL, unitId: unit.getId(), spellName: spell.getName() };
+        } else if (!spell && this.localAim?.kind === PlayAimKind.SPELL) {
+            this.localAim = undefined;
+        }
+        this.aimIntentSink(this.localAim?.unitId === unit.getId() ? this.localAim : undefined);
+    }
+    private renderOpponentAim(): void {
+        const aim = this.opponentAim;
+        if (!aim) return;
+        const actor = this.currentActiveUnit;
+        if (
+            performance.now() >= aim.expiresAt ||
+            !actor ||
+            actor.getId() !== aim.unitId ||
+            actor.isDead() ||
+            this.canControlCurrentActiveUnit() ||
+            this.isPlayingActionAnimation() ||
+            this.sc_visibleState?.hasFinished
+        ) {
+            this.setOpponentAim(undefined);
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const key = JSON.stringify({ ...aim, expiresAt: 0, layout: this.layoutVersion });
+        if (key !== this.opponentAimPaintKey) {
+            const spell =
+                aim.kind === PlayAimKind.SPELL && aim.spellName ? actor.getBookSpellByName(aim.spellName) : undefined;
+            const target = aim.targetUnitId ? this.unitsHolder.getAllUnits().get(aim.targetUnitId) : undefined;
+            const impact = spell && target ? this.thrownSpellVictim(spell, actor, target) : target;
+            const geometry = resolveOpponentAimGeometry(aim, {
+                actor,
+                units: this.unitsHolder.getAllUnits(),
+                grid: this.grid,
+                settings: gs,
+                evaluateRange: this.attackHandler.evaluateRangeAttack.bind(this.attackHandler),
+                spell,
+                spellImpact: impact,
+                spellEndpoint:
+                    spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined,
+                spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact) : undefined,
+            });
+            if (!geometry) {
+                this.setOpponentAim(undefined);
+                return;
+            }
+            if (!this.opponentAimOverlay) {
+                this.opponentAimOverlay = new OpponentAimOverlay();
+                this.attachToWorldRoot(this.opponentAimOverlay.graphics, 5501);
+            }
+            this.opponentAimOverlay.paint(geometry, gs);
+            if (geometry.ghost)
+                this.hoverManager.showOpponentIntentSilhouette(actor.getUnitProperties(), geometry.ghost);
+            else if (!this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
+            this.opponentAimPaintKey = key;
+        }
+        if (this.opponentAimOverlay)
+            this.opponentAimOverlay.graphics.alpha = 0.85 + Math.sin(performance.now() / 240) * 0.12;
+    }
     public override setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.moveIntentSink = sink;
         if (!sink) {
@@ -1899,6 +1999,15 @@ export class Sandbox extends PixiScene {
         }
     }
     private emitLocalMoveIntent(cell: HoCMath.XY | undefined): void {
+        if (cell && this.currentActiveUnit) {
+            const footprint = this.currentActiveUnit.isSmallSize()
+                ? [cell]
+                : this.hoverManager.findLargeUnitMoveCandidate(cell);
+            const anchor = footprint ? GridMath.getFootprintAnchorForCells(footprint) : undefined;
+            this.localAim = anchor
+                ? { kind: PlayAimKind.MOVE, unitId: this.currentActiveUnit.getId(), cell: anchor }
+                : undefined;
+        }
         if (!this.moveIntentSink) {
             return;
         }
@@ -10841,6 +10950,7 @@ export class Sandbox extends PixiScene {
             // without this explicit reset the previous creature ghost and its footprint remain under the
             // aiming line. Force the visual clear in case a just-finished move left the silhouette locked.
             this.hoverManager.clearHoverSilhouette(true);
+            this.localAim = { kind: PlayAimKind.RANGED, unitId: unit.getId(), cell: hoveredCell };
             const cellCenter = hoveredObstacleCenter;
             const intersections = this.grid.hasScatteredMountains()
                 ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
@@ -10900,6 +11010,12 @@ export class Sandbox extends PixiScene {
             return this.grid.hasScatteredMountains() || notHovering();
         }
         this.hoverManager.hoverAttackFromCell = attackFromCell;
+        this.localAim = {
+            kind: PlayAimKind.MELEE,
+            unitId: unit.getId(),
+            attackFrom: attackFromCell,
+            cell: GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), hoveredObstacleCenter),
+        };
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
         const cellCenter = hoveredObstacleCenter;
         this.hoverManager.updateHoverSilhouette(attackFromPos);
@@ -11035,6 +11151,18 @@ export class Sandbox extends PixiScene {
         const lineEnd =
             evaluation.attackObstacle?.position ??
             GridMath.projectLineToFieldEdge(gs, unit.getPosition().x, unit.getPosition().y, aim.x, aim.y);
+        this.localAim = {
+            kind: PlayAimKind.RANGED,
+            unitId: unit.getId(),
+            cell: GridMath.getCellForPosition(gs, aim),
+            aimDirection:
+                ((Math.round(
+                    (Math.atan2(aim.y - unit.getPosition().y, aim.x - unit.getPosition().x) * 4096) / (Math.PI * 2),
+                ) +
+                    4096) %
+                    4096) +
+                1,
+        };
         const shotStart = rangeAttackFootprintEdgePoint(
             unit.getPosition(),
             lineEnd,
@@ -11261,6 +11389,12 @@ export class Sandbox extends PixiScene {
         }
         this.clearAggrBlockedActionHint();
 
+        if (this.currentActiveUnit)
+            this.localAim = {
+                kind: PlayAimKind.RANGED,
+                unitId: this.currentActiveUnit.getId(),
+                cell: cells.at(-1),
+            };
         this.hoverManager.drawAOEArea(cells);
         // Trajectory line to the selected center — the same arrow a single-target ranged hover draws.
         // The 3x3 outline shows where the splash lands, while the line preserves the throw-direction cue.
@@ -14325,6 +14459,7 @@ export class Sandbox extends PixiScene {
         return this.isActiveUnitMoving || this.sc_isAnimating || this.moveAnimManager.isMoving();
     }
     protected override hover(): void {
+        this.localAim = undefined;
         if (this.pendingBarrelPlacement) {
             this.updateBarrelPlacementPreview();
             return;
@@ -14704,6 +14839,15 @@ export class Sandbox extends PixiScene {
                 if (!hideDirectStatusArrow && trajectoryEnd) {
                     this.highlightScatteredObstaclesAlongTrajectory(caster.getPosition(), trajectoryEnd);
                 }
+                const aimCell = GridMath.getCellForPosition(gs2, this.sc_mouseWorld);
+                this.localAim = {
+                    kind: PlayAimKind.SPELL,
+                    unitId: caster.getId(),
+                    spellName: spell.getName(),
+                    targetUnitId: targetCenter ? hoveredUnit?.getId() : undefined,
+                    cell: aimCell && GridMath.isCellWithinGrid(gs2, aimCell) ? aimCell : undefined,
+                    targetOrientation: spell.getName() === "Fire Wall" ? this.fireWallAimOrientation + 1 : undefined,
+                };
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
                     targetPos: hideDirectStatusArrow ? undefined : targetCenter,
@@ -14961,6 +15105,7 @@ export class Sandbox extends PixiScene {
                         let arrowEndPos: HoCMath.XY | undefined;
                         let arrowEndVisual: HoCMath.XY | undefined;
                         let optimalRangeEdge: RangeTargetEdgeVisual | undefined;
+                        let relayedRangeAim: GridMath.IClosestSideCenter | undefined;
 
                         if (!isRangeAttackContext && attackFromPos) {
                             // Pick one of eight stable anchors around the target footprint (four edge
@@ -15009,6 +15154,7 @@ export class Sandbox extends PixiScene {
                                       this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
                                           this.currentActiveUnit.hasAbilityActive("Area Throw"),
                                   );
+                            relayedRangeAim = rangeAim;
                             arrowEndPos = rangeAim?.position;
                             arrowEndVisual = rangeAim
                                 ? projectedRangeAttackCellSideCenter(rangeAim.cell, rangeAim.side, gs)
@@ -15039,6 +15185,11 @@ export class Sandbox extends PixiScene {
                                     : dy >= 0
                                       ? GridMath.RangeAttackCellSide.DOWN
                                       : GridMath.RangeAttackCellSide.UP;
+                            relayedRangeAim = {
+                                cell: targetCell,
+                                side: fallbackSide,
+                                position: rangeAttackCellSideCenter(targetCell, fallbackSide, gs),
+                            };
                             arrowEndPos = rangeAttackCellSideCenter(targetCell, fallbackSide, gs);
                             arrowEndVisual = projectedRangeAttackCellSideCenter(targetCell, fallbackSide, gs);
                         }
@@ -15128,6 +15279,14 @@ export class Sandbox extends PixiScene {
                             const primary = shotEvaluation?.affectedUnits[0]?.[0];
                             if (primary) this.hoverManager.addTargetHighlight(primary);
                         }
+                        this.localAim = {
+                            kind: isRangeAttackContext ? PlayAimKind.RANGED : PlayAimKind.MELEE,
+                            unitId: this.currentActiveUnit.getId(),
+                            targetUnitId: targetUnit.getId(),
+                            cell: isRangeAttackContext ? relayedRangeAim?.cell : targetUnit.getBaseCell(),
+                            targetSide: isRangeAttackContext && relayedRangeAim ? relayedRangeAim.side + 1 : undefined,
+                            attackFrom: attackFromCell,
+                        };
                         const damageUnit = !this.currentActiveUnit.hasAbilityActive("Through Shot")
                             ? (shotEvaluation?.affectedUnits[0]?.[0] ?? targetUnit)
                             : targetUnit;
@@ -16744,6 +16903,9 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        this.aimIntentSink = undefined;
+        this.opponentAimOverlay?.destroy();
+        this.opponentAimOverlay = undefined;
         this.replayRecorder?.dispose();
         this.atlasTexturePrewarmer.destroy();
         this.sandboxPremiumEnabled = false;
@@ -16959,6 +17121,8 @@ export class Sandbox extends PixiScene {
         // Re-assert the opponent's relayed move silhouette every frame so it stays put and
         // tracks the unit, independent of the viewer's own (mouse-driven) hover updates.
         this.renderOpponentMoveIntent();
+        this.renderOpponentAim();
+        this.syncLocalAim();
         this.syncLocalSpellIntent();
         this.renderOpponentSpellIntent();
 

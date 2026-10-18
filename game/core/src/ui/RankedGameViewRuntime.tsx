@@ -35,6 +35,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
+import { LiveAimSender, OpponentAimReceiver } from "../api/live_aim";
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
 import { isPreviewPlayGame } from "../api/previewPlaySession";
 import { createVsAiGame } from "../api/vs_ai_client";
@@ -45,8 +46,7 @@ import {
     playEventsUrl,
     rankedEventHeaders,
     sendRankedPlayAction,
-    sendRankedPlayMoveIntent,
-    sendRankedPlaySpellIntent,
+    sendRankedPlayAim,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
 import {
@@ -352,6 +352,7 @@ export const RankedGameView: React.FC<Props> = ({
     const abortRef = useRef<AbortController | null>(null);
     const latestSequenceRef = useRef(0);
     const snapshotRef = useRef<PlaySnapshot | null>(null);
+    const aimSenderRef = useRef<LiveAimSender | undefined>(undefined);
     const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
@@ -733,6 +734,9 @@ export const RankedGameView: React.FC<Props> = ({
         }
         let closed = false;
         let retryTimer: number | undefined;
+        let playbackQueue = Promise.resolve();
+        const aimReceiver = new OpponentAimReceiver();
+        let serverClockOffset = Infinity;
 
         const connect = async () => {
             abortRef.current?.abort();
@@ -768,7 +772,7 @@ export const RankedGameView: React.FC<Props> = ({
 
                 while (!closed) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) throw new Error("Event stream disconnected");
 
                     buffer += decoder.decode(value, { stream: true });
                     const frames = buffer.split("\n\n");
@@ -776,46 +780,58 @@ export const RankedGameView: React.FC<Props> = ({
                     for (const frame of frames) {
                         const event = parseRankedPlaySseFrame(frame);
                         if (!event) continue;
+                        if (event.serverTimeMs > 0)
+                            serverClockOffset = Math.min(serverClockOffset, Date.now() - event.serverTimeMs);
 
-                        // Ephemeral opponent hint: a move aim or an armed spell. Neither is authoritative
-                        // (no snapshot, journal, or sequence). Arming a spell drops the move ghost; a move
-                        // aim does not hide a spell that is still armed.
                         if (event.kind === PlayEventKind.MOVE_INTENT) {
-                            const view = readOpponentIntent(event.intent);
-                            if (view.kind === "spell") {
-                                manager.SetOpponentSpellIntent({ unitId: view.unitId, spellName: view.spellName });
-                                manager.SetOpponentMoveIntent(undefined);
-                            } else if (view.kind === "clear-spell") {
-                                manager.SetOpponentSpellIntent(undefined);
-                            } else if (view.kind === "move") {
-                                manager.SetOpponentMoveIntent({
-                                    unitId: view.unitId,
-                                    cell: { x: view.cell.x, y: view.cell.y },
-                                });
+                            if (document.hidden || event.sequence !== latestSequenceRef.current) continue;
+                            if (event.intent?.aimKind) {
+                                const snap = snapshotRef.current;
+                                const age = Number.isFinite(serverClockOffset)
+                                    ? Math.max(0, Date.now() - event.serverTimeMs - serverClockOffset)
+                                    : 0;
+                                const aim = aimReceiver.read(event, snap ?? undefined, performance.now(), age);
+                                if (aim) manager.SetOpponentAim(aim);
                             } else {
-                                manager.SetOpponentMoveIntent(undefined);
+                                const view = readOpponentIntent(event.intent);
+                                if (view.kind === "spell") {
+                                    manager.SetOpponentSpellIntent({ unitId: view.unitId, spellName: view.spellName });
+                                    manager.SetOpponentMoveIntent(undefined);
+                                } else if (view.kind === "clear-spell") manager.SetOpponentSpellIntent(undefined);
+                                else if (view.kind === "move")
+                                    manager.SetOpponentMoveIntent({ unitId: view.unitId, cell: view.cell });
+                                else manager.SetOpponentMoveIntent(undefined);
                             }
                             continue;
                         }
 
                         latestSequenceRef.current = Math.max(latestSequenceRef.current, event.sequence);
-                        const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
-                        if (!played) {
-                            rememberAuthoritativeRecord(event.journalEntry, {
-                                stateAfterSnapshot: event.snapshot,
+                        manager.SetOpponentAim(undefined);
+                        aimSenderRef.current?.reset();
+                        playbackQueue = playbackQueue
+                            .then(async () => {
+                                if (closed) return;
+                                const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
+                                if (!played)
+                                    rememberAuthoritativeRecord(event.journalEntry, {
+                                        stateAfterSnapshot: event.snapshot,
+                                    });
+                                if (event.snapshot) {
+                                    await waitForAuthoritativePlayback();
+                                    if (!closed) applySnapshot(event.snapshot, { skipBoardRebuild: played });
+                                }
+                                const sseError = rejectionErrorFromPlayEvent(event);
+                                if (sseError && !closed) setError(sseError);
+                            })
+                            .catch((err: unknown) => {
+                                if (!closed) setError(err instanceof Error ? err.message : "Playback failed");
                             });
-                        }
-                        if (event.snapshot) {
-                            await waitForAuthoritativePlayback();
-                            applySnapshot(event.snapshot, { skipBoardRebuild: played });
-                        }
-                        const sseError = rejectionErrorFromPlayEvent(event);
-                        if (sseError) {
-                            setError(sseError);
-                        }
                     }
                 }
             } catch (err: unknown) {
+                manager.SetOpponentAim(undefined);
+                aimReceiver.reset();
+                aimSenderRef.current?.reset();
                 if (!closed && (err as Error).name !== "AbortError") {
                     setStatus("Reconnecting");
                     setError((err as Error).message || "Event stream disconnected");
@@ -1589,90 +1605,46 @@ export const RankedGameView: React.FC<Props> = ({
         return () => manager.SetSandboxSetupTransport(undefined);
     }, [isObserver, manager, pixiReady, replayOnly, sandboxCoop, submitProtocolAction, userTeam]);
 
-    // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
-    // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
     useEffect(() => {
-        if (isObserver) {
-            manager.SetMoveIntentSink(undefined);
-            manager.SetSpellIntentSink(undefined);
+        if (isObserver || replayOnly) {
+            manager.SetAimIntentSink(undefined);
             return undefined;
         }
-        const MIN_INTERVAL_MS = 80;
-        let lastSentMs = 0;
-        let pendingTimer: number | undefined;
-        let pending: { unitId: string; cell?: { x: number; y: number } } | null = null;
-
-        const flush = () => {
-            pendingTimer = undefined;
-            if (!pending) {
-                return;
-            }
-            const aim = pending;
-            pending = null;
-            const snap = snapshotRef.current;
-            const me = snap?.players.find((player) => player.team === userTeam);
-            if (!snap || !me) {
-                return;
-            }
-            // Active aims are only meaningful on our own turn; clears always go through.
-            if (aim.cell && snap.currentTurnTeam !== userTeam) {
-                return;
-            }
-            lastSentMs = performance.now();
-            sendRankedPlayMoveIntent(gameId, {
-                playerId: me.playerId,
-                team: userTeam,
-                unitId: aim.unitId,
-                targetCell: aim.cell,
-            });
-        };
-
-        const sink = (unitId: string | undefined, cell: { x: number; y: number } | undefined) => {
-            pending = { unitId: unitId ?? "", cell: cell ? { x: cell.x, y: cell.y } : undefined };
-            if (!cell) {
-                if (pendingTimer !== undefined) {
-                    window.clearTimeout(pendingTimer);
-                }
-                flush();
-                return;
-            }
-            const now = performance.now();
-            const dueAt = lastSentMs + MIN_INTERVAL_MS;
-            if (now >= dueAt) {
-                flush();
-            } else if (pendingTimer === undefined) {
-                pendingTimer = window.setTimeout(flush, dueAt - now);
+        const sender = new LiveAimSender(
+            () => {
+                const snap = snapshotRef.current;
+                const me = snap?.players.find((player) => player.team === userTeam);
+                if (
+                    document.hidden ||
+                    !snap ||
+                    !me ||
+                    snap.phase !== PlayPhase.PLAY ||
+                    snap.fightFinished ||
+                    snap.currentTurnTeam !== userTeam ||
+                    snap.latestSequence !== latestSequenceRef.current
+                )
+                    return undefined;
+                return { playerId: me.playerId, unitId: snap.currentUnitId, sequence: snap.latestSequence };
+            },
+            (aim, context) => sendRankedPlayAim(gameId, { ...context, team: userTeam, aim }),
+        );
+        aimSenderRef.current = sender;
+        manager.SetAimIntentSink((aim) => sender.update(aim));
+        const onVisibility = () => {
+            if (document.hidden) {
+                sender.reset();
+                manager.SetOpponentAim(undefined);
             }
         };
-
-        const spellSink = (unitId: string | undefined, spellName: string | undefined) => {
-            const snap = snapshotRef.current;
-            const me = snap?.players.find((player) => player.team === userTeam);
-            if (!snap || !me) {
-                return;
-            }
-            // An armed spell is only meaningful on our own turn; a clear always goes through.
-            if (spellName && snap.currentTurnTeam !== userTeam) {
-                return;
-            }
-            sendRankedPlaySpellIntent(gameId, {
-                playerId: me.playerId,
-                team: userTeam,
-                unitId: unitId ?? "",
-                spellName,
-            });
-        };
-
-        manager.SetMoveIntentSink(sink);
-        manager.SetSpellIntentSink(spellSink);
+        document.addEventListener("visibilitychange", onVisibility);
         return () => {
-            if (pendingTimer !== undefined) {
-                window.clearTimeout(pendingTimer);
-            }
-            manager.SetMoveIntentSink(undefined);
-            manager.SetSpellIntentSink(undefined);
+            sender.dispose();
+            aimSenderRef.current = undefined;
+            manager.SetAimIntentSink(undefined);
+            manager.SetOpponentAim(undefined);
+            document.removeEventListener("visibilitychange", onVisibility);
         };
-    }, [manager, gameId, isObserver, userTeam]);
+    }, [manager, gameId, isObserver, replayOnly, userTeam]);
 
     const modelPlacementRunKeyRef = useRef("");
     const playerInitialPlacementRunKeyRef = useRef("");

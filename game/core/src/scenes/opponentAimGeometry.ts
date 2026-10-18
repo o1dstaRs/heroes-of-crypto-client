@@ -25,7 +25,7 @@ export interface AimGeometry {
 
 export interface AimGeometryContext {
     actor: Unit;
-    units: Map<string, Unit>;
+    units: ReadonlyMap<string, Unit>;
     grid: Grid;
     settings: GridSettings;
     evaluateRange: AttackHandler["evaluateRangeAttack"];
@@ -60,6 +60,7 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         )
             return undefined;
         geometry.ghost = GridMath.getPositionForCells(gs, footprint);
+        if (!geometry.ghost) return undefined;
         if (aim.kind === PlayAimKind.MOVE) {
             geometry.color = 0x8cd5ef;
             geometry.cells = footprint;
@@ -75,9 +76,24 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         if (!aim.cell || target?.isDead()) return undefined;
         if (aim.targetSide && (!Number.isInteger(aim.targetSide) || aim.targetSide < 1 || aim.targetSide > 4))
             return undefined;
-        const end = aim.targetSide
-            ? rangeTargetEdgeEvaluationAim(gs, aim.cell, aim.targetSide - 1, actor.getPosition())
-            : cellPosition(aim.cell);
+        const origin = aim.attackFrom
+            ? GridMath.getPositionForFootprintAnchor(
+                  gs,
+                  aim.attackFrom,
+                  actor.getFootprintWidth(),
+                  actor.getFootprintHeight(),
+              )
+            : actor.getPosition();
+        const direction = aim.aimDirection ? ((aim.aimDirection - 1) * Math.PI * 2) / 4096 : undefined;
+        const end =
+            direction !== undefined
+                ? {
+                      x: origin.x + Math.cos(direction) * gs.getStep() * 32,
+                      y: origin.y + Math.sin(direction) * gs.getStep() * 32,
+                  }
+                : aim.targetSide
+                  ? rangeTargetEdgeEvaluationAim(gs, aim.cell, aim.targetSide - 1, actor.getPosition())
+                  : cellPosition(aim.cell);
         const through = actor.hasAbilityActive("Through Shot");
         const area = actor.hasAbilityActive("Area Throw");
         const evaluation = context.evaluateRange(
@@ -92,7 +108,7 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         const victim = evaluation.affectedUnits[0]?.[0];
         let impact = evaluation.attackObstacle?.position ?? end;
         if (through && !evaluation.attackObstacle) {
-            impact = GridMath.projectLineToFieldEdge(gs, actor.getPosition().x, actor.getPosition().y, end.x, end.y);
+            impact = GridMath.projectLineToFieldEdge(gs, origin.x, origin.y, end.x, end.y);
         } else if (victim && target && victim.getId() !== target.getId()) {
             impact = victim.getPosition();
         }
@@ -103,6 +119,8 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         } else {
             geometry.cells = evaluation.affectedCells[0] ?? victim?.getCells() ?? [];
         }
+        if (aim.attackFrom && (origin.x !== actor.getPosition().x || origin.y !== actor.getPosition().y))
+            geometry.ghost = origin;
         geometry.ray = {
             from: rangeAttackFootprintEdgePoint(
                 actor.getPosition(),

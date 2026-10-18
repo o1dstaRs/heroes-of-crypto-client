@@ -33,6 +33,7 @@ const clock: AimClock = {
 export class LiveAimSender {
     private aim?: PlayAim;
     private changedAt = 0;
+    private queuedAt = Infinity;
     private lastSentAt = -Infinity;
     private lastKey = "";
     private inFlight = false;
@@ -48,11 +49,13 @@ export class LiveAimSender {
         if (JSON.stringify(aim) === JSON.stringify(this.aim)) return;
         this.aim = aim ? structuredClone(aim) : undefined;
         this.changedAt = this.time.now();
+        if (!Number.isFinite(this.queuedAt)) this.queuedAt = this.changedAt;
         this.schedule();
     }
     public reset(): void {
         this.aim = undefined;
         this.lastKey = "";
+        this.queuedAt = Infinity;
         if (this.timer !== undefined) this.time.clearTimeout(this.timer);
         this.timer = undefined;
     }
@@ -74,7 +77,9 @@ export class LiveAimSender {
         if (key === this.lastKey && aim.kind === PlayAimKind.CLEAR) return;
         const due = Math.max(
             this.lastSentAt + AIM_INTERVAL_MS,
-            key === this.lastKey ? this.lastSentAt + AIM_REFRESH_MS : this.changedAt + AIM_SETTLE_MS,
+            key === this.lastKey
+                ? this.lastSentAt + AIM_REFRESH_MS
+                : Math.min(this.changedAt + AIM_SETTLE_MS, this.queuedAt + AIM_INTERVAL_MS),
         );
         this.timer = this.time.setTimeout(() => void this.flush(), Math.max(0, due - this.time.now()));
     }
@@ -88,6 +93,7 @@ export class LiveAimSender {
         const aim = this.aim ?? { kind: PlayAimKind.CLEAR, unitId: context.unitId };
         this.lastKey = JSON.stringify([context.sequence, aim]);
         this.lastSentAt = this.time.now();
+        this.queuedAt = Infinity;
         this.inFlight = true;
         try {
             await this.send(aim, context);
@@ -137,6 +143,7 @@ export class OpponentAimReceiver {
             attackFrom: intent.attackFrom,
             targetSide: intent.targetSide || undefined,
             targetOrientation: intent.targetOrientation || undefined,
+            aimDirection: intent.aimDirection || undefined,
             spellName: intent.spellName || undefined,
             expiresAt: now + remaining,
         };

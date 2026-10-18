@@ -24,17 +24,16 @@ export class OpponentAimOverlay {
             const dx = points[i] - x,
                 dy = points[i + 1] - y;
             const length = Math.hypot(dx, dy);
-            for (let at = 0; at < length;) {
-                const phase = distance % 20;
-                const run = Math.min(length - at, (phase < 12 ? 12 : 20) - phase);
-                if (phase < 12 && length > 0) {
-                    g.moveTo(x + (dx * at) / length, y + (dy * at) / length)
-                        .lineTo(x + (dx * (at + run)) / length, y + (dy * (at + run)) / length)
+            for (let dash = Math.floor(distance / 20) * 20; dash < distance + length; dash += 20) {
+                const start = Math.max(0, dash - distance);
+                const finish = Math.min(length, dash + 12 - distance);
+                if (finish > start) {
+                    g.moveTo(x + (dx * start) / length, y + (dy * start) / length)
+                        .lineTo(x + (dx * finish) / length, y + (dy * finish) / length)
                         .stroke({ color, width: 2.5, alpha: 0.8, cap: "round" });
                 }
-                at += run;
-                distance += run;
             }
+            distance += length;
         }
         const end = projectBattlefieldPoint(ray.to, settings);
         const radius = settings.getStep() * 0.105;

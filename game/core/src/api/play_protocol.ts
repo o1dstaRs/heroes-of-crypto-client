@@ -86,6 +86,7 @@ export interface PlayAim {
     attackFrom?: PlayCell;
     targetSide?: number;
     targetOrientation?: number;
+    aimDirection?: number;
     spellName?: string;
 }
 
@@ -429,6 +430,7 @@ export interface PlayAction {
     // Fire Wall's rotated aim: 1-based FireWallOrientation (1=HORIZONTAL,2=DIAGONAL_DOWN,3=VERTICAL,
     // 4=DIAGONAL_UP; 0/undefined = legacy horizontal). 1-based so HORIZONTAL (0) survives the zero-skip.
     targetOrientation?: number;
+    aimDirection?: number;
     attackType?: number;
     spellName?: string;
     hasLavaCell?: boolean;
@@ -457,6 +459,7 @@ export interface PlayIntent {
     attackFrom?: PlayCell;
     targetSide?: number;
     targetOrientation?: number;
+    aimDirection?: number;
     leaseMs?: number;
 }
 
@@ -763,6 +766,7 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.bool(25, action.tabHidden);
     writer.int32(26, action.aimKind);
     writer.uint64(27, action.intentSequence);
+    writer.int32(28, action.aimDirection);
     return writer.finish();
 };
 
@@ -883,6 +887,8 @@ const decodePlayIntent = (bytes: Uint8Array): PlayIntent => {
             intent.targetOrientation = reader.varintNumber();
         } else if (field === 13) {
             intent.leaseMs = reader.varintNumber();
+        } else if (field === 14) {
+            intent.aimDirection = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }

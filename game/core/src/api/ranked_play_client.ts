@@ -45,6 +45,7 @@ export const sendRankedPlayAim = async (
             attackFrom: aim.attackFrom,
             targetSide: aim.targetSide,
             targetOrientation: aim.targetOrientation,
+            aimDirection: aim.aimDirection,
             spellName: aim.spellName,
         }),
         { responseType: "arraybuffer", headers: authHeaders(), timeout: 2500 },
