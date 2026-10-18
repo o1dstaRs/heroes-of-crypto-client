@@ -1,19 +1,108 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Container } from "pixi.js";
-import { AttackVals, FireWallHelper, GridMath, SpellHelper, TeamVals, type TeamType } from "@heroesofcrypto/common";
-
 import {
-    createCombatTestContext,
-    createTestUnit,
-    placeUnit,
-    testGridSettings as gs,
-} from "../../../heroes-of-crypto-common/test/helpers/combat";
+    AbilityFactory,
+    AttackHandler,
+    AttackVals,
+    EffectFactory,
+    FightStateManager,
+    FireWallHelper,
+    Grid,
+    GridConstants,
+    GridMath,
+    GridSettings,
+    GridVals,
+    HoCConfig,
+    SpellHelper,
+    TeamVals,
+    Unit,
+    UnitsHolder,
+    UnitVals,
+    type HoCMath,
+    type TeamType,
+    type AttackType,
+} from "@heroesofcrypto/common";
+
 import { PlayAimKind, type PlayAim } from "../api/play_protocol";
 import { releaseBoardMirror, setBoardMirror } from "../pixi/boardMirror";
 import { OpponentAimOverlay } from "./OpponentAimOverlay";
 import { resolveOpponentAimGeometry, type AimGeometryContext } from "./opponentAimGeometry";
 import { rangeTargetEdgeEvaluationAim } from "./rangeTargetEdges";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+
+const gs = new GridSettings(
+    GridConstants.GRID_SIZE,
+    GridConstants.MAX_Y,
+    GridConstants.MIN_Y,
+    GridConstants.MAX_X,
+    GridConstants.MIN_X,
+    GridConstants.MOVEMENT_DELTA,
+    GridConstants.UNIT_SIZE_DELTA,
+);
+
+function createTestUnit(
+    options: {
+        team?: TeamType;
+        attackType?: AttackType;
+        rangeShots?: number;
+        shotDistance?: number;
+        footprintWidth?: number;
+        footprintHeight?: number;
+        abilities?: string[];
+        spells?: string[];
+    } = {},
+): Unit {
+    const team = options.team ?? TeamVals.RIGHT;
+    const effects = new EffectFactory();
+    const abilities = options.abilities ?? [];
+    return Unit.createUnit(
+        {
+            ...HoCConfig.getCreatureConfig(team, "Nature", "Dryad", "", 10),
+            attack_type: options.attackType ?? AttackVals.MELEE,
+            attack_type_selected: options.attackType ?? AttackVals.MELEE,
+            range_shots: options.rangeShots ?? 0,
+            shot_distance: options.shotDistance ?? 16,
+            footprint_width: options.footprintWidth ?? 1,
+            footprint_height: options.footprintHeight ?? 1,
+            abilities,
+            abilities_descriptions: abilities.map(() => ""),
+            abilities_stack_powered: abilities.map(() => false),
+            abilities_auras: abilities.map(() => false),
+            spells: options.spells ?? [],
+        },
+        gs,
+        team,
+        UnitVals.CREATURE,
+        new AbilityFactory(effects),
+        effects,
+        false,
+    );
+}
+
+function placeUnit(grid: Grid, unitsHolder: UnitsHolder, unit: Unit, cell: HoCMath.XY): void {
+    const position = GridMath.getPositionForFootprintAnchor(
+        gs,
+        cell,
+        unit.getFootprintWidth(),
+        unit.getFootprintHeight(),
+    );
+    unit.setPosition(position.x, position.y);
+    grid.occupyCells(unit.getCells(), unit.getId(), unit.getTeam(), unit.getAttackRange(), false, false);
+    unitsHolder.addUnit(unit);
+}
+
+function createCombatTestContext() {
+    FightStateManager.getInstance().reset();
+    const grid = new Grid(gs, GridVals.NORMAL);
+    const unitsHolder = new UnitsHolder(grid);
+    const attackHandler = new AttackHandler(
+        gs,
+        grid,
+        { getLog: () => "", updateLog: () => {}, hasBeenUpdated: () => false },
+        { add: () => {}, get: () => [], has: () => false, clear: () => {} },
+    );
+    return { grid, unitsHolder, attackHandler };
+}
 
 const mirrorOwner = {};
 afterEach(() => releaseBoardMirror(mirrorOwner));

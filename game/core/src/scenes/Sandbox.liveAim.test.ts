@@ -27,7 +27,7 @@ const fixture = () => {
     const clearGhost = mock();
     const clearOverlay = mock();
     const spell = mock();
-    const scene = Object.assign(Object.create(Sandbox.prototype) as AimScene, {
+    const scene: AimScene = Object.assign(Object.create(Sandbox.prototype), {
         currentActiveUnit: { getId: () => "actor", isDead: () => false, isSmallSize: () => false },
         canShowHoverForActiveUnit: () => true,
         canControlCurrentActiveUnit: () => false,
