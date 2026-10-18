@@ -9,9 +9,10 @@ import {
     TeamVals,
     Unit,
     UnitVals,
+    type TeamType,
 } from "@heroesofcrypto/common";
 import creatures from "../../../heroes-of-crypto-common/src/configuration/creatures.json";
-import { RenderableUnit } from "./RenderableUnit";
+import { previewPlacementFacing, RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 
 const grid = new GridSettings(
@@ -30,6 +31,40 @@ const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document")
 const art = new Texture({ source: new TextureSource({ width: 768, height: 768 }) });
 const atlas = new Texture({ source: new TextureSource({ width: 32768, height: 32768 }) });
 
+function placementUnit(faction: string, name: string, team: TeamType): RenderableUnit {
+    const effects = new EffectFactory();
+    const textureName = `${name.toLowerCase().replaceAll(" ", "_")}_512`;
+    const base = Unit.createUnit(
+        HoCConfig.getCreatureConfig(team, faction, name, textureName, 10),
+        grid,
+        team,
+        UnitVals.CREATURE,
+        new AbilityFactory(effects),
+        effects,
+        false,
+    );
+    return RenderableUnit.fromBase(base, (key) => (key.includes("atlas") ? atlas : art));
+}
+
+function placementHover(root: Container) {
+    return Object.assign(Object.create(HoverManager.prototype), {
+        context: {
+            sceneSettings: { getGridSettings: () => grid },
+            texAny: () => art,
+            attachToWorldRoot: (child: Sprite) => root.addChild(child),
+        },
+    }) as {
+        ensureHoverSilhouetteParams: (
+            props: ReturnType<Unit["getUnitProperties"]>,
+            position: ReturnType<Unit["getPosition"]>,
+            isAttack: boolean,
+            previewUnit: RenderableUnit,
+            exactPlacementCopy: boolean,
+        ) => void;
+        hoverSilhouette: Sprite;
+    };
+}
+
 beforeAll(() => {
     // Canvas-backed cosmetic masks are unavailable in Bun; keep the real unit/atlas sizing path.
     if (!originalDocument) {
@@ -46,18 +81,7 @@ afterAll(() => {
 test.each(roster)("$name placement preview matches its placed figure on both sides and rows", ({ faction, name }) => {
     for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
         for (const y of [128, 1792]) {
-            const effects = new EffectFactory();
-            const textureName = `${name.toLowerCase().replaceAll(" ", "_")}_512`;
-            const base = Unit.createUnit(
-                HoCConfig.getCreatureConfig(team, faction, name, textureName, 10),
-                grid,
-                team,
-                UnitVals.CREATURE,
-                new AbilityFactory(effects),
-                effects,
-                false,
-            );
-            const unit = RenderableUnit.fromBase(base, (key) => (key.includes("atlas") ? atlas : art));
+            const unit = placementUnit(faction, name, team);
             const root = new Container();
             root.scale.set(team === TeamVals.LEFT ? 1.4 : -1.4, -0.78);
             try {
@@ -84,22 +108,7 @@ test.each(roster)("$name placement preview matches its placed figure on both sid
                 expect(preview.x).toBeCloseTo(sprite.x, 6);
                 expect(preview.y).toBeCloseTo(sprite.y, 6);
 
-                const hover = Object.assign(Object.create(HoverManager.prototype), {
-                    context: {
-                        sceneSettings: { getGridSettings: () => grid },
-                        texAny: () => art,
-                        attachToWorldRoot: (child: Sprite) => root.addChild(child),
-                    },
-                }) as {
-                    ensureHoverSilhouetteParams: (
-                        props: ReturnType<Unit["getUnitProperties"]>,
-                        position: ReturnType<Unit["getPosition"]>,
-                        isAttack: boolean,
-                        previewUnit: RenderableUnit,
-                        exactPlacementCopy: boolean,
-                    ) => void;
-                    hoverSilhouette: Sprite;
-                };
+                const hover = placementHover(root);
                 hover.ensureHoverSilhouetteParams(unit.getUnitProperties(), unit.getPosition(), false, unit, true);
                 expect(hover.hoverSilhouette.scale.x).toBeCloseTo(sprite.scale.x, 6);
                 expect(hover.hoverSilhouette.scale.y).toBeCloseTo(sprite.scale.y, 6);
@@ -116,6 +125,55 @@ test.each(roster)("$name placement preview matches its placed figure on both sid
             } finally {
                 unit.destroyVisuals();
                 root.destroy({ children: true });
+            }
+        }
+    }
+});
+
+test.each(roster)("$name catalogue preview matches a fresh drop across rows and board mirrors", ({ faction, name }) => {
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        for (const mirrored of [false, true]) {
+            for (const y of [128, 1792]) {
+                const dropped = placementUnit(faction, name, team);
+                const catalogue = placementUnit(faction, name, TeamVals.NO_TEAM);
+                const world = new Container();
+                world.scale.set(mirrored ? -1.4 : 1.4, -0.78);
+                const hidden = new Container();
+                hidden.visible = false;
+                world.addChild(hidden);
+                try {
+                    const destination = { x: team === TeamVals.LEFT ? -640 : 640, y };
+                    dropped.setPosition(destination.x, destination.y);
+                    dropped.setBattlefieldVisualProjection(true);
+                    dropped.setCreatureAnimationLabPreviewEnabled(true);
+                    dropped.ensureVisual(world, grid);
+
+                    // Catalogue instances are teamless and remain at the origin while the cursor moves.
+                    catalogue.setPosition(0, 0);
+                    catalogue.setBattlefieldVisualProjection(true);
+                    catalogue.setCreatureAnimationLabPreviewEnabled(true);
+                    catalogue.setBoardFacing(previewPlacementFacing(TeamVals.NO_TEAM, destination.x));
+                    catalogue.ensureVisual(hidden, grid);
+                    const hover = placementHover(world);
+                    hover.ensureHoverSilhouetteParams(
+                        catalogue.getUnitProperties(),
+                        destination,
+                        false,
+                        catalogue,
+                        true,
+                    );
+                    const sprite = (dropped as unknown as { sprite: Sprite }).sprite;
+                    expect(hover.hoverSilhouette.scale.x).toBeCloseTo(sprite.scale.x, 6);
+                    expect(hover.hoverSilhouette.scale.y).toBeCloseTo(sprite.scale.y, 6);
+                    expect(hover.hoverSilhouette.anchor.x).toBeCloseTo(sprite.anchor.x, 6);
+                    expect(hover.hoverSilhouette.anchor.y).toBeCloseTo(sprite.anchor.y, 6);
+                    expect(hover.hoverSilhouette.x).toBeCloseTo(sprite.x, 6);
+                    expect(hover.hoverSilhouette.y).toBeCloseTo(sprite.y, 6);
+                } finally {
+                    dropped.destroyVisuals();
+                    catalogue.destroyVisuals();
+                    world.destroy({ children: true });
+                }
             }
         }
     }
