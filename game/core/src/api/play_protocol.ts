@@ -443,6 +443,7 @@ export interface PlayAction {
     tabHidden?: boolean;
     aimKind?: number;
     intentSequence?: number;
+    aimCell?: PlayCell;
 }
 
 export interface PlayIntent {
@@ -767,6 +768,7 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.int32(26, action.aimKind);
     writer.uint64(27, action.intentSequence);
     writer.int32(28, action.aimDirection);
+    if (action.aimCell) writer.message(29, encodeCell(action.aimCell));
     return writer.finish();
 };
 

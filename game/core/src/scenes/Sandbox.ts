@@ -1060,6 +1060,7 @@ export class Sandbox extends PixiScene {
     private opponentAim?: OpponentAim;
     private opponentAimOverlay?: OpponentAimOverlay;
     private opponentAimPaintKey?: string;
+    private opponentAimGhost?: HoCMath.XY;
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private lastEmittedMoveIntentKey?: string;
     private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
@@ -1902,6 +1903,7 @@ export class Sandbox extends PixiScene {
         if (!intent || intent.kind === PlayAimKind.CLEAR) {
             this.opponentAim = undefined;
             this.opponentAimPaintKey = undefined;
+            this.opponentAimGhost = undefined;
             this.opponentAimOverlay?.clear();
             if (!this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
         }
@@ -1978,11 +1980,12 @@ export class Sandbox extends PixiScene {
                 this.attachToWorldRoot(this.opponentAimOverlay.graphics, 5501);
             }
             this.opponentAimOverlay.paint(geometry, gs);
-            if (geometry.ghost)
-                this.hoverManager.showOpponentIntentSilhouette(actor.getUnitProperties(), geometry.ghost);
-            else if (!this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
+            this.opponentAimGhost = geometry.ghost;
+            if (!geometry.ghost && !this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
             this.opponentAimPaintKey = key;
         }
+        if (this.opponentAimGhost)
+            this.hoverManager.showOpponentIntentSilhouette(actor.getUnitProperties(), this.opponentAimGhost);
         if (this.opponentAimOverlay)
             this.opponentAimOverlay.graphics.alpha = 0.85 + Math.sin(performance.now() / 240) * 0.12;
     }

@@ -1,3 +1,4 @@
+import type { PlayAim, OpponentAim } from "../api/play_protocol";
 import type { SandboxSetupPick } from "./PixiScene";
 import type { CyclopsImpactMode } from "../scenes/sandbox/CyclopsFracturePhysics";
 import type { FireSpellRenderMode } from "../settings/fireSpellTiming";
@@ -137,7 +138,7 @@ export class PixiGameManager {
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
-    private aimIntentSink?: (aim: import("../api/play_protocol").PlayAim | undefined) => void;
+    private aimIntentSink?: (aim: PlayAim | undefined) => void;
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private spellIntentSink?: (unitId: string | undefined, spellName: string | undefined) => void;
     private lastAuthoritativeViewportKey = "";
@@ -604,11 +605,11 @@ export class PixiGameManager {
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.m_scene?.setOpponentMoveIntent(intent);
     }
-    public SetAimIntentSink(sink?: (aim: import("../api/play_protocol").PlayAim | undefined) => void): void {
+    public SetAimIntentSink(sink?: (aim: PlayAim | undefined) => void): void {
         this.aimIntentSink = sink;
         this.m_scene?.setAimIntentSink(sink);
     }
-    public SetOpponentAim(intent?: import("../api/play_protocol").OpponentAim): void {
+    public SetOpponentAim(intent?: OpponentAim): void {
         this.m_scene?.setOpponentAim(intent);
     }
     public ApplyAuthoritativeSnapshot(

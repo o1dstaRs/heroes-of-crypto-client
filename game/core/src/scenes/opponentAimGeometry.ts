@@ -1,6 +1,7 @@
 import {
     FireWallHelper,
     GridMath,
+    SmokeHelper,
     SpellHelper,
     SpellTargetType,
     isOffensiveSpellMultiplier,
@@ -76,6 +77,12 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         if (!aim.cell || target?.isDead()) return undefined;
         if (aim.targetSide && (!Number.isInteger(aim.targetSide) || aim.targetSide < 1 || aim.targetSide > 4))
             return undefined;
+        if (
+            aim.aimDirection &&
+            (!Number.isInteger(aim.aimDirection) || aim.aimDirection < 1 || aim.aimDirection > 4096)
+        )
+            return undefined;
+        if (aim.attackFrom && !actor.getFootprintCellsForAnchor(aim.attackFrom).every(valid)) return undefined;
         const origin = aim.attackFrom
             ? GridMath.getPositionForFootprintAnchor(
                   gs,
@@ -147,7 +154,20 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         (spell.getSpellTargetType() === SpellTargetType.FREE_CELL ||
             spell.getSpellTargetType() === SpellTargetType.ALLIES_AREA)
     ) {
-        geometry.cells = SpellHelper.cellTargetedSpellBlockCells(spell.getName(), aim.cell).filter(valid);
+        const cells = SpellHelper.cellTargetedSpellBlockCells(spell.getName(), aim.cell);
+        if (
+            spell.getName() === "Meteorite" &&
+            (!cells.every(valid) ||
+                !cells.some((cell) => {
+                    const id = grid.getOccupantUnitId(cell);
+                    const unit = id ? units.get(id) : undefined;
+                    return unit && !unit.isDead() && unit.getTeam() !== actor.getTeam();
+                }))
+        )
+            return geometry;
+        if (spell.getName() === "Smoke" && !cells.every((cell) => SmokeHelper.isSmokeableCell(grid, valid(cell), cell)))
+            return geometry;
+        geometry.cells = cells.filter(valid);
         return geometry;
     }
     const victim = context.spellImpact ?? target;

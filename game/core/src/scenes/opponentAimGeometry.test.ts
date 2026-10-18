@@ -266,7 +266,7 @@ describe("opponent aim geometry", () => {
 
     test("Meteorite uses the shared spell footprint; heals and resurrection have no projectile beam", () => {
         const f = fixture();
-        const target = createTestUnit({ team: TeamVals.LEFT });
+        const target = createTestUnit({ team: TeamVals.RIGHT });
         placeUnit(f.grid, f.unitsHolder, target, { x: 12, y: 7 });
         for (const name of ["Meteorite", "Heal", "Resurrection"]) {
             const spell = f.actor.getSpells().find((entry) => entry.getName() === name)!;

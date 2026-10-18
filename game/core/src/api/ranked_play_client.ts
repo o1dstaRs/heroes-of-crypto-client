@@ -15,6 +15,7 @@ import {
     encodePlayAction,
     PLAY_ARMED_SPELL_INTENT_REASON,
     PlayActionType,
+    PlayAimKind,
     PlayPhase,
 } from "./play_protocol";
 import type { PlayAction, PlayActionResponse, PlayAim, PlayCell, PlayEvent, PlaySnapshot } from "./play_protocol";
@@ -40,7 +41,9 @@ export const sendRankedPlayAim = async (
             unitId: aim.unitId,
             aimKind: aim.kind,
             intentSequence: ++intentSequence,
-            targetCell: aim.cell,
+            targetCell: aim.kind === PlayAimKind.MOVE ? aim.cell : undefined,
+            aimCell: aim.cell,
+            reason: aim.kind === PlayAimKind.SPELL ? PLAY_ARMED_SPELL_INTENT_REASON : undefined,
             targetUnitId: aim.targetUnitId,
             attackFrom: aim.attackFrom,
             targetSide: aim.targetSide,
