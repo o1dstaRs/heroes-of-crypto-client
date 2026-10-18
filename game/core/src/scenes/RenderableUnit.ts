@@ -2230,7 +2230,7 @@ function getDefaultAnimationConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
-    if (unitName === PEASANT_UNIT_NAME)
+    if (unitName === PEASANT_UNIT_NAME || unitName === DRYAD_UNIT_NAME)
         return getAnimationStateConfig(unitName, "idle", footprintWidth, footprintHeight);
     // Approved idle atlases authored from their matching static figures own the permanent board loop.
     // Other static-redraw creatures keep their single-frame battlefield override.
@@ -2274,6 +2274,21 @@ function getAnimationStateConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
+    // Production omits Dryad's retired idle sheets. Resolve the same approved package for
+    // capability checks and playback so its full-body scale and foot anchor remain available.
+    if (unitName === DRYAD_UNIT_NAME && state === "idle") {
+        const meta = animationAtlases["Dryad Painted"]?.idle;
+        const imageKey = "dryad_painted_idle_atlas";
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
+        return {
+            meta,
+            imageKey,
+            imageSrc,
+            cacheKey: "Dryad::painted-idle-registered-20261003-v4",
+            cacheAcrossScenes: true,
+        };
+    }
     if (unitName === PEASANT_UNIT_NAME && state === "idle") {
         return {
             meta: {
@@ -3742,7 +3757,9 @@ export class RenderableUnit extends Unit {
         const thiefVisibleHeightRatio =
             this.scavengerLabAnimationsEnabled &&
             !this.walkAnim &&
-            (!this.oneShotAnim || SCAVENGER_LAB_ACTIONS.includes(this.oneShotAnim.stateName))
+            (this.oneShotAnim
+                ? SCAVENGER_LAB_ACTIONS.includes(this.oneShotAnim.stateName)
+                : !!this.selectionAnimFrames?.length)
                 ? SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO / scavengerLabCanvasScale(this.oneShotAnim?.stateName)
                 : props.name === SCAVENGER_UNIT_NAME && this.walkAnim
                   ? SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO
@@ -3905,7 +3922,10 @@ export class RenderableUnit extends Unit {
                 ? arbalesterWalkScaleMultiplier(this.walkAnim.frameIndex)
                 : 1;
         const cyclopsLabWalk = props.name === "Cyclops" && this.creatureAnimationLabPreviewEnabled && !!this.walkAnim;
-        const efreetFigureScale = props.name === EFREET_UNIT_NAME ? EFREET_FIGURE_SCALE : 1;
+        const efreetFigure =
+            props.name === EFREET_UNIT_NAME &&
+            (!!this.selectionAnimFrames?.length || !!this.walkAnim || !!this.oneShotAnim);
+        const efreetFigureScale = efreetFigure ? EFREET_FIGURE_SCALE : 1;
         const actionScale =
             (props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? abominationLabWalkScale(this.walkAnim.frameIndex)
@@ -3915,12 +3935,7 @@ export class RenderableUnit extends Unit {
                 : 1) *
             efreetFigureScale *
             this.cannonLabCanvasScale() *
-            (props.name === "Champion" &&
-            this.creatureAnimationLabPreviewEnabled &&
-            !this.walkAnim &&
-            (!this.oneShotAnim || this.championLabReactionConfig(this.oneShotAnim.stateName))
-                ? (this.championLabReactionConfig(this.oneShotAnim?.stateName ?? "")?.meta.frameHeight ?? 1024) / 768
-                : 1) *
+            (this.walkAnim ? 1 : this.championLabCanvasScale()) *
             harpyActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
             nomadReactionCanvasScale(props.name, this.oneShotAnim?.stateName) *
             trentActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
@@ -3995,7 +4010,6 @@ export class RenderableUnit extends Unit {
             props.name === SQUIRE_UNIT_NAME && this.oneShotAnim?.stateName === "death"
                 ? SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER
                 : 1;
-        const efreetFigure = props.name === EFREET_UNIT_NAME;
         const actionScaleX =
             actionScale *
             (props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
@@ -4593,7 +4607,10 @@ export class RenderableUnit extends Unit {
             ? (gs.getCellSize() * heightCells) /
               (Math.max(1, texture.height) *
                   (thief
-                      ? !canonicalPose && props.name === SCAVENGER_UNIT_NAME && this.scavengerLabAnimationsEnabled
+                      ? !canonicalPose &&
+                        props.name === SCAVENGER_UNIT_NAME &&
+                        this.scavengerLabAnimationsEnabled &&
+                        !!this.selectionAnimFrames?.length
                           ? SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO
                           : THIEF_IDLE_VISIBLE_HEIGHT_RATIO
                       : 1))
@@ -4620,13 +4637,13 @@ export class RenderableUnit extends Unit {
         const preview = (this.battlefieldPreviewScratch ??= {} as BattlefieldUnitPreview);
         // Match the authored idle canvas corrections in ensureVisual. Canonical death cutouts use
         // the separate base artwork, so they must not inherit atlas-specific canvas padding.
-        const efreetFigure = !canonicalPose && props.name === EFREET_UNIT_NAME;
+        const efreetFigure = !canonicalPose && props.name === EFREET_UNIT_NAME && !!this.selectionAnimFrames?.length;
         const idleCanvasScale = canonicalPose
             ? 1
             : this.berserkerLabIdleScale() *
               this.arbalesterLabScaleMultiplier("idle") *
               this.blackDragonLabCanvasScale(null) *
-              (props.name === "Champion" && this.creatureAnimationLabPreviewEnabled ? 1024 / 768 : 1) *
+              this.championLabCanvasScale("idle") *
               (efreetFigure ? EFREET_FIGURE_SCALE : 1);
         preview.texture = texture;
         preview.anchorX = 0.5;
@@ -6129,7 +6146,13 @@ export class RenderableUnit extends Unit {
         if (this.boardSelected === selected) return;
         this.boardSelected = selected;
         if (selected) {
+            const previousFrames = this.selectionAnimFrames;
             this.startSelectionAnimationInternal();
+            // An atlas can become ready between scene ticks. Fit its new canvas and ground anchor
+            // before selection exposes the first frame at the static fallback's scale.
+            if (this.selectionAnimFrames && this.selectionAnimFrames !== previousFrames && this.sprite?.parent) {
+                this.ensureVisual(this.sprite.parent, this.gridSettings);
+            }
         } else if (!this.hasAnimationState("idle")) {
             this.stopSelectionAnimationInternal();
         }
@@ -6208,15 +6231,6 @@ export class RenderableUnit extends Unit {
                 imageKey: "frenzied_boar_lab_idle_atlas",
                 imageSrc: images.frenzied_boar_lab_idle_atlas,
                 cacheKey: "Frenzied Boar::lab-idle-half-speed-20261006-v5",
-                cacheAcrossScenes: true,
-            };
-        }
-        if (props.name === DRYAD_UNIT_NAME && animationAtlases["Dryad Painted"]?.idle) {
-            config = {
-                meta: animationAtlases["Dryad Painted"].idle,
-                imageKey: "dryad_painted_idle_atlas",
-                imageSrc: images.dryad_painted_idle_atlas,
-                cacheKey: "Dryad::painted-idle-registered-20261003-v4",
                 cacheAcrossScenes: true,
             };
         }
@@ -7309,7 +7323,8 @@ export class RenderableUnit extends Unit {
             championLabWalk && this.walkAnim ? championLabWalkHeightScale(this.walkAnim.frameIndex) : 1;
         const previousChampionLabWidthScale =
             championLabWalk && this.walkAnim ? championLabWalkWidthScale(this.walkAnim.frameIndex) : 1;
-        const previousChampionIdleCanvasScale = championLabWalk && !this.walkAnim && !this.oneShotAnim ? 1024 / 768 : 1;
+        const previousChampionIdleCanvasScale =
+            championLabWalk && !this.walkAnim && !this.oneShotAnim ? this.championLabCanvasScale("idle") : 1;
         const abominationLabWalk = props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled;
         const previousAbominationLabScale =
             abominationLabWalk && this.walkAnim ? abominationLabWalkScale(this.walkAnim.frameIndex) : 1;
@@ -8659,7 +8674,7 @@ export class RenderableUnit extends Unit {
                 this.getUnitProperties().name === "Battle Mage") &&
             this.creatureAnimationLabPreviewEnabled
                 ? this.sprite
-                    ? this.sprite.texture.height * (this.getName() === "Champion" ? 1024 / 768 : 1)
+                    ? this.sprite.texture.height * this.championLabCanvasScale("idle")
                     : undefined
                 : undefined;
         const orcWalkHeight =
@@ -9726,7 +9741,9 @@ export class RenderableUnit extends Unit {
     private blackDragonLabCanvasScale(state: string | null = this.oneShotAnim?.stateName ?? null): number {
         return this.creatureAnimationLabPreviewEnabled &&
             this.getName() === "Black Dragon" &&
-            (state === null || state === "hit" || state === "death" || !!blackDragonFireState(state))
+            (state === null
+                ? !!this.selectionAnimFrames?.length
+                : state === "hit" || state === "death" || !!blackDragonFireState(state))
             ? BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE
             : 1;
     }
@@ -10016,6 +10033,11 @@ export class RenderableUnit extends Unit {
             ["melee_attack", "melee_attack_up", "melee_attack_down"].includes(state ?? "")
             ? 896 / 768
             : 1;
+    }
+    private championLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Champion") return 1;
+        if (state && state !== "idle") return (this.championLabReactionConfig(state)?.meta.frameHeight ?? 768) / 768;
+        return this.selectionAnimFrames?.length ? 1024 / 768 : 1;
     }
     private championLabReactionConfig(state: string): UnitAtlasConfig | null {
         if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Champion") return null;
