@@ -10,6 +10,9 @@ import { createPortal } from "react-dom";
 import { pickExitCloseButtonSx } from "./exitFightButtonSx";
 
 export const GAME_CORNER_SLOT_INSET = "1rem";
+export const GAME_CORNER_SLOT_TOP = "calc(max(0px, calc(1rem - 2vh)) + 1vh)";
+/** Content below the corner actions needs a full button height and a small gap. */
+export const GAME_CORNER_CONTENT_TOP = `calc(${GAME_CORNER_SLOT_TOP} + ${PICK_EXIT_CLOSE_BUTTON_SIZE_PX + 8}px)`;
 /** Above the sidebars and the system-control row, below Joy's modal layer (1300+ is the confirm dialog). */
 export const GAME_CORNER_SLOT_Z_INDEX = 1450;
 
@@ -26,12 +29,13 @@ export const GameCornerSlot: React.FC<{ children: React.ReactNode }> = ({ childr
             data-game-corner-slot
             sx={{
                 position: "fixed",
-                top: "calc(max(0px, calc(1rem - 2vh)) + 1vh)",
+                top: GAME_CORNER_SLOT_TOP,
                 right: GAME_CORNER_SLOT_INSET,
                 zIndex: GAME_CORNER_SLOT_Z_INDEX,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "flex-end",
+                gap: 1,
             }}
         >
             {children}

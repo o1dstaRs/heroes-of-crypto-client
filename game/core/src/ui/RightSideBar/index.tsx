@@ -29,7 +29,12 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
+import {
+    GAME_CORNER_CONTENT_TOP,
+    GameCornerExitButton,
+    GameCornerSlot,
+    GameCornerStartOverButton,
+} from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
@@ -101,6 +106,7 @@ export default function RightSideBar({
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
     const damageListSpaceRef = useRef<HTMLDivElement>(null);
+    const damageListViewportRef = useRef<HTMLDivElement>(null);
     const [damageListViewportHeight, setDamageListViewportHeight] = useState<number | null>(null);
     // The button row gives up its AI slot when the scene offers no AI toggle (ranked, lobby, vs-AI), and the
     // log takes that height. Read without the throwing hook: the draft screen mounts this bar with no ButtonProvider.
@@ -138,6 +144,14 @@ export default function RightSideBar({
         resizeObserver.observe(space);
         return () => resizeObserver.disconnect();
     }, [gameStarted]);
+
+    useLayoutEffect(() => {
+        // Damage rows can reorder after every attack. Do not let browser scroll anchoring keep an old
+        // creature in view and hide the leaders; each new snapshot starts at the top of the standings.
+        if (damageListViewportRef.current) {
+            damageListViewportRef.current.scrollTop = 0;
+        }
+    }, [unitDamageStatistics, gameStarted, damageListViewportHeight]);
 
     const [barSize, setBarSize] = useState(280);
 
@@ -290,10 +304,12 @@ export default function RightSideBar({
                         : gameStarted
                           ? 0
                           : `${sidebarPlainFrameSideInsetPx(barSize)}px`,
-                // Joy's small List adds another 4px above its first item. Include that fixed inset in the
-                // calculation so the complete visible gap above Damage is exactly halved in combat.
-                // The released space is absorbed by the flexible log; setup keeps its original framing.
-                pt: `${gameStarted ? Math.max(0, Math.round((sidebarPlainFrameVerticalInsetPx(windowSize.height) - 4) / 2)) : sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
+                // Corner actions are portalled outside this layout. Reserve their row so Start over and
+                // the exit never cover Damage (or the sandbox setup tools).
+                pt:
+                    gameStarted || onClose
+                        ? `max(${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px, ${GAME_CORNER_CONTENT_TOP})`
+                        : `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 pb: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 // flexShrink: 0,
                 display: "flex",
@@ -440,6 +456,7 @@ export default function RightSideBar({
                                 </Box>
                                 <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
                                     <Box
+                                        ref={damageListViewportRef}
                                         sx={{
                                             height:
                                                 damageListViewportHeight === null
@@ -449,6 +466,8 @@ export default function RightSideBar({
                                             overflowY: "auto",
                                             overflowX: "hidden",
                                             scrollSnapType: "y mandatory",
+                                            scrollPaddingBlock: "10px",
+                                            overflowAnchor: "none",
                                             p: "10px",
                                             ...hocBronzeScrollSx,
                                         }}
