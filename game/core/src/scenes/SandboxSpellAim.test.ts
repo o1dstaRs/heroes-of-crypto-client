@@ -9,6 +9,7 @@ import {
     projectSpellDamageAgainstUnit,
     projectSpellRebound,
     Spell,
+    SpellElement,
     SpellHelper,
     SpellMultiplierType,
 } from "@heroesofcrypto/common";
@@ -90,9 +91,11 @@ const unitLike = (params: {
             return power === undefined ? undefined : ({ getPower: () => power } as never);
         },
         getBuffPower: (name: string) => (name === "Magic Mirror" ? params.mirrorPower : params.massMirrorPower),
-        // Mirrors Unit.willWaterShieldAbsorb: an intact shield eats anything but a Fire Element's hit.
-        willWaterShieldAbsorb: (attacker?: { hasAbilityActive: (name: string) => boolean }) =>
-            !!params.waterShield && !attacker?.hasAbilityActive("Fire Element"),
+        // Mirrors Unit.willWaterShieldAbsorb: an intact shield eats anything but a fire attack.
+        willWaterShieldAbsorb: (
+            attacker?: { hasAbilityActive: (name: string) => boolean },
+            damageElement?: SpellElement,
+        ) => !!params.waterShield && !attacker?.hasAbilityActive("Fire Element") && damageElement !== SpellElement.FIRE,
         calculatePossibleLosses: (minusHp: number) => Math.floor(minusHp / (params.hitPoints ?? 10)),
     } as unknown as Unit;
 };
@@ -272,12 +275,12 @@ describe("aim projection against a live target", () => {
         expect(efreet.kills).toBe(0);
     });
 
-    // The measured divergence: hover promised 450 damage and 40 kills, the engine dealt 0 because
-    // Unit.applyDamage short-circuits on an intact Water Shield and returns before any HP is subtracted.
-    test("an intact Water Shield absorbs the whole cast, kills and all", () => {
+    // A non-fire spell still spends the shield. Lightning is not a fire attack.
+    test("an intact Water Shield absorbs a non-fire cast, kills and all", () => {
+        const lightning = spellOf("Nature", "Lightning Strike");
         const shielded = projectSpellDamageAgainstUnit({
-            spell: fireStrike,
-            caster: battleMage,
+            spell: lightning,
+            caster: unitLike({ id: "dragon", amountAlive: 1, stackPower: 5 }),
             target: unitLike({ id: "mermaid", abilities: ["Water Element"], waterShield: true, hitPoints: 11 }),
         });
 
@@ -285,7 +288,19 @@ describe("aim projection against a live target", () => {
         expect(shielded.damage).toBe(0);
         expect(shielded.kills).toBe(0);
         // The hit still counts as a full one for anything downstream of it (what a mirror reflects).
-        expect(shielded.landed).toBe(450);
+        expect(shielded.landed).toBe(150);
+    });
+
+    test("a fire spell walks straight through a Water Shield even from a caster who is not a Fire Element", () => {
+        const shielded = projectSpellDamageAgainstUnit({
+            spell: fireStrike,
+            caster: battleMage,
+            target: unitLike({ id: "mermaid", abilities: ["Water Element"], waterShield: true, hitPoints: 11 }),
+        });
+
+        expect(shielded.absorbedByWaterShield).toBe(false);
+        expect(shielded.damage).toBe(450);
+        expect(shielded.kills).toBeGreaterThan(0);
     });
 
     test("fire walks straight through a Water Shield without even breaking it", () => {
