@@ -70,4 +70,16 @@ describe("accepted match draft window", () => {
         expect(source).toContain("if (event.c === 1)");
         expect(source).toContain("navigate(`/game/${event.ps}`)");
     });
+
+    test("a restored confirmed seat waits for the opponent instead of opening an uncreated pick session", () => {
+        const source = readFileSync(join(import.meta.dir, "../MatchmakingRoute.tsx"), "utf8");
+        const restore = source.slice(
+            source.indexOf("getCurrentGame()\n            .then"),
+            source.indexOf("const statusText"),
+        );
+        expect(restore).toContain('acceptedGameIdRef.current = game.confirmed ? game.id : ""');
+        expect(restore).toContain('setState(game.confirmed ? "accepted" : "confirming")');
+        expect(restore).toContain("openStream()");
+        expect(restore).not.toContain("navigate(");
+    });
 });

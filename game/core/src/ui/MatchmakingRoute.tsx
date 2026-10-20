@@ -638,13 +638,11 @@ export const MatchmakingRoute: React.FC = () => {
                     return;
                 }
 
-                if (game.confirmed) {
-                    navigate(`/game/${game.id}`);
-                    return;
-                }
-
                 updatePendingGameId(game.id);
-                setState("confirming");
+                // /current confirms only our own seat. On reload the opponent may still be deciding;
+                // resume the waiting draft and let c=1 authorize entry to the live pick session.
+                acceptedGameIdRef.current = game.confirmed ? game.id : "";
+                setState(game.confirmed ? "accepted" : "confirming");
                 openStream();
             })
             .catch(() => {
@@ -654,7 +652,7 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [getCurrentGame, mockMatchPreview, navigate, openStream, updatePendingGameId]);
+    }, [getCurrentGame, mockMatchPreview, openStream, updatePendingGameId]);
 
     const statusText = useMemo(() => {
         if (needsActivation) {
