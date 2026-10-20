@@ -5,62 +5,74 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 ## Next up
 
 - **Story arc:** pin (#1), queue tactics (#2), origin (#3), edge (#4), board-flash fix (#7) and Through Shot (#8, Sat 6:56 AM) done. Next story is STORY.md #5 why the board shrinks (waiting on Stepan to confirm narrowing's origin); #6, #9, #10 also need his facts — skip crypto chapter (#9) and then-and-now (#6) until Stepan answers open questions.
-- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Next calendar line is Sun 25 question (Sat 24 Through Shot already ran as STORY #8), Mon 26 first turn, etc. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
+- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Next calendar line is Wed 28 No Melee (calendar ends there). Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Unused dev-diary candidates: replay board fix (6add5ffe, 20 Sep: barrels and fire walls were invisible in replays) and replay log/stats fix (166ae50f). Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
 
 ## Today 2026-10-15 (Thu)
 
-| Slot (PT) | Plan | Status |
-|---|---|---|
-| 6:48 AM | Calendar: the queue (STORY #2 / CALENDAR Thu 15). Image: preview_game.webp. Reply with how-to-read-the-board link. | done — https://x.com/Heroes0fcrypto/status/2110730873159168376 |
-| 11:48 AM | Story: STORY #3 origin (text-only). Reply with GitHub client link. | done — https://x.com/Heroes0fcrypto/status/2110805506940153982 |
-| 4:48 PM | Tactics: Chaos calendar line (Fri 16) early, text-only. Reply with faction guide link. | done — https://x.com/Heroes0fcrypto/status/2110882073452167680 |
+| Slot (PT) | Plan                                                                                                               | Status                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| 6:48 AM   | Calendar: the queue (STORY #2 / CALENDAR Thu 15). Image: preview_game.webp. Reply with how-to-read-the-board link. | done — https://x.com/Heroes0fcrypto/status/2110730873159168376 |
+| 11:48 AM  | Story: STORY #3 origin (text-only). Reply with GitHub client link.                                                 | done — https://x.com/Heroes0fcrypto/status/2110805506940153982 |
+| 4:48 PM   | Tactics: Chaos calendar line (Fri 16) early, text-only. Reply with faction guide link.                             | done — https://x.com/Heroes0fcrypto/status/2110882073452167680 |
 
 ## Posted
 
-| When (PT) | Slot | Format | URL | Notes |
-|---|---|---|---|---|
-| 2026-10-14 20:03 | evening | story-pin | https://x.com/Heroes0fcrypto/status/2110567307013726582 | Pin live |
-| 2026-10-15 06:48 | morning | tactics-calendar | https://x.com/Heroes0fcrypto/status/2110730873159168376 | Reply https://x.com/Heroes0fcrypto/status/2110730955853861001 |
-| 2026-10-15 11:48 | midday | story-origin | https://x.com/Heroes0fcrypto/status/2110805506940153982 | Reply https://x.com/Heroes0fcrypto/status/2110805592323572126 |
-| 2026-10-15 16:54 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2110882073452167680 | Chaos, text-only. Reply https://x.com/Heroes0fcrypto/status/2110882131291635810 |
-| 2026-10-16 06:57 | morning | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111094220920643925 | Edge, text-only. Reply https://x.com/Heroes0fcrypto/status/2111094354408530359 |
-| 2026-10-16 11:51 | midday | story-devdiary | https://x.com/Heroes0fcrypto/status/2111168270522822947 | STORY #7 board flash, text-only. Reply https://x.com/Heroes0fcrypto/status/2111168457140302204 |
-| 2026-10-16 16:58 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111245321292423194 | Life, text-only. Reply https://x.com/Heroes0fcrypto/status/2111245446819811489 |
-| 2026-10-17 06:56 | morning | story-tactics | https://x.com/Heroes0fcrypto/status/2111456161060815313 | STORY #8 Through Shot, Tsar Cannon poster. Reply https://x.com/Heroes0fcrypto/status/2111456352145154096 |
-| 2026-10-17 11:59 | midday | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111532527114506733 | Crowd, text-only. Reply https://x.com/Heroes0fcrypto/status/2111532605841588606 |
-| 2026-10-17 16:52 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111606394281500728 | Might, text-only. Reply https://x.com/Heroes0fcrypto/status/2111606435058684023 |
-| 2026-10-18 06:58 | morning | tactics-question | https://x.com/Heroes0fcrypto/status/2111819309269835920 | Sun 18 HoMM flanking question, text-only. Reply https://x.com/Heroes0fcrypto/status/2111819523087081888 |
-| 2026-10-18 11:51 | midday | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111892951626350973 | Thu 22 plan unit, text-only. Reply https://x.com/Heroes0fcrypto/status/2111893175274983766 |
-| 2026-10-18 16:55 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111969404565250121 | Fri 23 Nature, text-only. Reply https://x.com/Heroes0fcrypto/status/2111969556138688776 |
+| When (PT)        | Slot    | Format           | URL                                                     | Notes                                                                                                                   |
+| ---------------- | ------- | ---------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-14 20:03 | evening | story-pin        | https://x.com/Heroes0fcrypto/status/2110567307013726582 | Pin live                                                                                                                |
+| 2026-10-15 06:48 | morning | tactics-calendar | https://x.com/Heroes0fcrypto/status/2110730873159168376 | Reply https://x.com/Heroes0fcrypto/status/2110730955853861001                                                           |
+| 2026-10-15 11:48 | midday  | story-origin     | https://x.com/Heroes0fcrypto/status/2110805506940153982 | Reply https://x.com/Heroes0fcrypto/status/2110805592323572126                                                           |
+| 2026-10-15 16:54 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2110882073452167680 | Chaos, text-only. Reply https://x.com/Heroes0fcrypto/status/2110882131291635810                                         |
+| 2026-10-16 06:57 | morning | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111094220920643925 | Edge, text-only. Reply https://x.com/Heroes0fcrypto/status/2111094354408530359                                          |
+| 2026-10-16 11:51 | midday  | story-devdiary   | https://x.com/Heroes0fcrypto/status/2111168270522822947 | STORY #7 board flash, text-only. Reply https://x.com/Heroes0fcrypto/status/2111168457140302204                          |
+| 2026-10-16 16:58 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111245321292423194 | Life, text-only. Reply https://x.com/Heroes0fcrypto/status/2111245446819811489                                          |
+| 2026-10-17 06:56 | morning | story-tactics    | https://x.com/Heroes0fcrypto/status/2111456161060815313 | STORY #8 Through Shot, Tsar Cannon poster. Reply https://x.com/Heroes0fcrypto/status/2111456352145154096                |
+| 2026-10-17 11:59 | midday  | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111532527114506733 | Crowd, text-only. Reply https://x.com/Heroes0fcrypto/status/2111532605841588606                                         |
+| 2026-10-17 16:52 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111606394281500728 | Might, text-only. Reply https://x.com/Heroes0fcrypto/status/2111606435058684023                                         |
+| 2026-10-18 06:58 | morning | tactics-question | https://x.com/Heroes0fcrypto/status/2111819309269835920 | Sun 18 HoMM flanking question, text-only. Reply https://x.com/Heroes0fcrypto/status/2111819523087081888                 |
+| 2026-10-18 11:51 | midday  | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111892951626350973 | Thu 22 plan unit, text-only. Reply https://x.com/Heroes0fcrypto/status/2111893175274983766                              |
+| 2026-10-18 16:55 | evening | tactics-calendar | https://x.com/Heroes0fcrypto/status/2111969404565250121 | Fri 23 Nature, text-only. Reply https://x.com/Heroes0fcrypto/status/2111969556138688776                                 |
+| 2026-10-19 06:54 | morning | tactics-question | https://x.com/Heroes0fcrypto/status/2112180382678610386 | Sun 25 wounded-stack question, text-only. Reply https://x.com/Heroes0fcrypto/status/2112180463754231965                 |
+| 2026-10-19 11:56 | midday  | tactics-calendar | https://x.com/Heroes0fcrypto/status/2112256493034623098 | Mon 26 first turn, text-only. Reply https://x.com/Heroes0fcrypto/status/2112256603600638111                             |
+| 2026-10-19 16:53 | evening | story-devdiary   | https://x.com/Heroes0fcrypto/status/2112331270386860113 | Morale correction dev-diary (commit e8e47f7c), text-only. Reply https://x.com/Heroes0fcrypto/status/2112331382869615008 |
+| 2026-10-20 06:55 | morning | tactics-calendar | https://x.com/Heroes0fcrypto/status/2112543116544889027 | Tue 27 second attacker, text-only. Reply https://x.com/Heroes0fcrypto/status/2112543170269692271                        |
 
 ## Today 2026-10-16 (Fri)
 
-| Slot (PT) | Plan | Status |
-|---|---|---|
-| 6:48 AM | Calendar: the edge (STORY #4 / CALENDAR Sat 17). Went text-only (preview_game.webp used Thu). Reply with five-positioning link. | done — https://x.com/Heroes0fcrypto/status/2111094220920643925 |
-| 11:48 AM | Story: STORY #7 board-flash fix (text-only, from commit a2d9b16a). Reply on seat-reclaim fix (5fddef59). | done — https://x.com/Heroes0fcrypto/status/2111168270522822947 |
-| 4:48 PM | Tactics: Life (CALENDAR Mon 19), text-only. Reply with faction guide link. | done — https://x.com/Heroes0fcrypto/status/2111245321292423194 |
+| Slot (PT) | Plan                                                                                                                            | Status                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 6:48 AM   | Calendar: the edge (STORY #4 / CALENDAR Sat 17). Went text-only (preview_game.webp used Thu). Reply with five-positioning link. | done — https://x.com/Heroes0fcrypto/status/2111094220920643925 |
+| 11:48 AM  | Story: STORY #7 board-flash fix (text-only, from commit a2d9b16a). Reply on seat-reclaim fix (5fddef59).                        | done — https://x.com/Heroes0fcrypto/status/2111168270522822947 |
+| 4:48 PM   | Tactics: Life (CALENDAR Mon 19), text-only. Reply with faction guide link.                                                      | done — https://x.com/Heroes0fcrypto/status/2111245321292423194 |
 
 ## Today 2026-10-17 (Sat)
 
-| Slot (PT) | Plan | Status |
-|---|---|---|
-| 6:48 AM | Story/tactics: STORY #8 Through Shot with approved test_tsar_cannon_through_shot.png. Reply with play link. | done — https://x.com/Heroes0fcrypto/status/2111456161060815313 |
-| 11:48 AM | Tactics: crowd (CALENDAR Tue 20), text-only. Reply with five-positioning link. | done — https://x.com/Heroes0fcrypto/status/2111532527114506733 |
-| 4:48 PM | Tactics: Might (CALENDAR Wed 21), text-only. Reply with faction guide link. | done — https://x.com/Heroes0fcrypto/status/2111606394281500728 |
+| Slot (PT) | Plan                                                                                                        | Status                                                         |
+| --------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 6:48 AM   | Story/tactics: STORY #8 Through Shot with approved test_tsar_cannon_through_shot.png. Reply with play link. | done — https://x.com/Heroes0fcrypto/status/2111456161060815313 |
+| 11:48 AM  | Tactics: crowd (CALENDAR Tue 20), text-only. Reply with five-positioning link.                              | done — https://x.com/Heroes0fcrypto/status/2111532527114506733 |
+| 4:48 PM   | Tactics: Might (CALENDAR Wed 21), text-only. Reply with faction guide link.                                 | done — https://x.com/Heroes0fcrypto/status/2111606394281500728 |
 
 ## Today 2026-10-18 (Sun)
 
-| Slot (PT) | Plan | Status |
-|---|---|---|
-| 6:48 AM | Question: CALENDAR Sun 18 HoMM flanking/edge, text-only. Calendar reply, no link. | done — https://x.com/Heroes0fcrypto/status/2111819309269835920 |
-| 11:48 AM | Calendar Thu 22 plan unit, text-only. Reply with five-positioning link. | done — https://x.com/Heroes0fcrypto/status/2111892951626350973 |
-| 4:48 PM | Calendar Fri 23 Nature, text-only. Reply with faction guide link. | done — https://x.com/Heroes0fcrypto/status/2111969404565250121 |
+| Slot (PT) | Plan                                                                              | Status                                                         |
+| --------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 6:48 AM   | Question: CALENDAR Sun 18 HoMM flanking/edge, text-only. Calendar reply, no link. | done — https://x.com/Heroes0fcrypto/status/2111819309269835920 |
+| 11:48 AM  | Calendar Thu 22 plan unit, text-only. Reply with five-positioning link.           | done — https://x.com/Heroes0fcrypto/status/2111892951626350973 |
+| 4:48 PM   | Calendar Fri 23 Nature, text-only. Reply with faction guide link.                 | done — https://x.com/Heroes0fcrypto/status/2111969404565250121 |
 
-## Next 2026-10-19 (Mon)
+## Today 2026-10-19 (Mon)
 
-| Slot (PT) | Plan | Status |
-|---|---|---|
-| 6:48 AM | Calendar Sun 25 question (wounded stack: queue vs health), text-only. Calendar reply, no link. | queued |
-| 11:48 AM | Calendar Mon 26 first turn, text-only unless an image carries the idea. Reply with five-positioning link. | queued |
-| 4:48 PM | Calendar Tue 27 second attacker, or a dev-diary detail from the code/git history if a story slot is due. | queued |
+| Slot (PT) | Plan                                                                                                                                                                          | Status                                                         |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 6:48 AM   | Calendar Sun 25 question (wounded stack: queue vs health), text-only. Calendar reply, no link.                                                                                | done — https://x.com/Heroes0fcrypto/status/2112180382678610386 |
+| 11:48 AM  | Calendar Mon 26 first turn, text-only unless an image carries the idea. Reply with five-positioning link.                                                                     | done — https://x.com/Heroes0fcrypto/status/2112256493034623098 |
+| 4:48 PM   | Dev-diary: Morale correction from site commit e8e47f7c (guide said extra action; engine moves unit ahead/behind in queue). Text-only. Reply with question + board guide link. | done — https://x.com/Heroes0fcrypto/status/2112331270386860113 |
+
+## Today 2026-10-20 (Tue)
+
+| Slot (PT) | Plan                                                                                                   | Status                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| 6:48 AM   | Calendar Tue 27 second attacker, text-only. Reply with board guide link.                               | done — https://x.com/Heroes0fcrypto/status/2112543116544889027 |
+| 11:48 AM  | Calendar Wed 28 No Melee (last calendar line), or a dev-diary detail.                                  | queued                                                         |
+| 4:48 PM   | Dev-diary from git (replay board fix 6add5ffe) or a tactics question; STORY #5 if Stepan has answered. | queued                                                         |

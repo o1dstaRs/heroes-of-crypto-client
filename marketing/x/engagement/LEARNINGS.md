@@ -24,3 +24,72 @@ Started 2026-10-14. Baseline week: 15-21 Oct.
 - Lesson: eight of nine scored posts have zero external likes, replies, reposts or quotes; their only "engagement" is our own link-reply, so 24h ER equals 1 / views and ranks low-reach posts highest. The midday ER lead noted on 16–17 Oct is this artifact, not a real format or slot win. Until outside engagement appears, compare posts on views and external replies, and treat ER as uninformative. Applied the same day — see Measurement fix below.
 
 - **Measurement fix (2026-10-18):** `score.py` now subtracts @Heroes0fcrypto's own follow-up replies from `replies_24h` / `replies_7d` and from ER. Existing pulls were re-ingested. Prior daily ER rankings (midday "wins" at 0.10 / 0.1111) were an artifact of counting our own link-reply; corrected outside-reply ER is 0 for every post that only had that self-reply. The pin's 1 reply stays (external follow-back). Until outside engagement appears, compare on views and outside replies; ER is informative only when outside replies or likes exist.
+
+## 2026-10-19 (weekly)
+
+Weekly X research refresh (~13–19 Oct 2026 PT). Read-only. ~26 public X API calls this run.
+
+### Market findings
+
+**Case studies**
+
+- **@TeamWoodGames** (27,306 followers): still silent since May 2025 Danger Pack launch. Skip for outreach.
+- **@Lavapotion** (25,299): this week’s best was the Spooktober animated GIF (148 likes / 10 RTs / 6,218 views) https://x.com/Lavapotion/status/2110695513939165407. Fan-art still strong (141 / 5 / 5,353) https://x.com/Lavapotion/status/2109634018060767465. Personality/CM posts still pull replies. Heavy Wielders of the Essence push (survivors-style — skip those posts for outreach per game-accounts.md). Older GIF spike still the account’s ceiling: Korphan animation 555 / 34 / 11,392 https://x.com/Lavapotion/status/2105572070281412965; trolls death-anim GIF 1,736 / 110 / 32,111 https://x.com/Lavapotion/status/2103419414247018687.
+- **@OverhypeStudios** (8,273): MENACE balancing update live (163 / 13 / 2,711) https://x.com/OverhypeStudios/status/2110726150129397979; 2026 roadmap (256 / 22 / 5,232) https://x.com/OverhypeStudios/status/2108906660546671057; Golden Joystick Early Access nomination with video (68 / 7 / 1,411) https://x.com/OverhypeStudios/status/2110385168905060586. Format = patch/roadmap still + short announcement. Community screenshot posts remain their historical ceiling (e.g. BLASTER cinematography 2,229 / 143 / 70,460).
+
+**Engage-target sample (active this week)**
+
+- **@MightMagicGame** (5,233): Closed Playtest registration for HoMM3 Remake (76 / 12 / 3,015) https://x.com/MightMagicGame/status/2110641829049696282; community roadmap video (128 / 15 / 26,098) https://x.com/MightMagicGame/status/2107802742198571089.
+- **@Midjiwan** (15,459): Polytopia World Championship schedule (14 likes / 105,681 views) https://x.com/Midjiwan/status/2108879639149977969 — views inflated by esports schedule traffic, likes stay low. Finals video 11 / 23,277.
+- **@Wartales_Game** (7,779): Xbox DLC trailer pulled replies (44 / 1 / 13 replies / 2,130) https://x.com/Wartales_Game/status/2108560430197043357.
+- **@Unfrozen_Studio** (4,996): quiet since 30 Sep Roadmap Patch (138 / 14 / 5,014) https://x.com/Unfrozen_Studio/status/2105271554963542108.
+- **@mechabellum** (3,622): tournament result posts only; ~150–500 views, 2–16 likes.
+- **@Conviction_SRPG** (6,920): English demo/UI video (18 / 1 / 912) https://x.com/Conviction_SRPG/status/2110968966625784173; Japanese Screenshot Saturday stronger (56 / 6 / 1,737). English-only for our outreach.
+- **@Klukva_Games** (18,906): favorite-character poll with 4 stills (10 / 2 / 808) https://x.com/Klukva_Games/status/2111098657156300942.
+- **@StudioDraconis** (1,876): Zodiac Legion room-breaching (7 / 2 / 215) https://x.com/StudioDraconis/status/2111819590192001387; AI-tooling threads (low views).
+- **@TerraRandoma** (5,433): nearly dormant originals (one sale quote in late Sept).
+- **@MeltedGames** (2,208): daily demo clips + one decision question during Next Fest week; ~100–250 views each (e.g. https://x.com/MeltedGames/status/2111455981112643819).
+- **@RisingSpire** (2,058): asked if #turnbasedthursday still runs (12 / 1 / 203) https://x.com/RisingSpire/status/2110785501045170206.
+- **@SynthWave6666** (1,367): **character portrait spike** — Blightmarch sketch 948 likes / 34 RTs / 7,592 views https://x.com/SynthWave6666/status/2110025402643263953. Follow-up portrait 72 / 998. Strongest mid-tier format this week: one face + one question + wishlist.
+
+**Trends / events**
+
+- Steam Next Fest is live **19–26 Oct 2026 PT** (news: https://x.com/i/trending/2112073536156438884). Worldwide and US trends today were sports/entertainment only — no tactics or Next Fest on the trend list.
+- Next Fest + turn-based/tactics search since 12 Oct: many demo posts, almost all accounts under the 1,000-follower floor (VEKARRA, kareinet, MixedMoonGames, FLYINGCATINC, etc.). Curator/press accounts (@ControlledPairs) mentioned Ghost Justice — skip as press/creator.
+- Astra / AI-game chatter: ~878 posts in the last ~7 days matching GPT Astra + game keywords (down sharply from the Oct 14 deep-dive’s ~9.5k week). Sample engagement is thin and aimed at AI builders, not tactics players. Do not chase for this account.
+
+### Our comparison (@Heroes0fcrypto)
+
+- Followers **91** (+1 vs baseline 90 on 14 Oct). Following 8. Tweet count 148. Display name still "Heroes Of Crypto (HOCAI)"; bio still ends with 🟦.
+- Pin https://x.com/Heroes0fcrypto/status/2110567307013726582 now **73 views / 2 likes / 1 reply** (external follow-back). Still leads views; 7d window opens ~Wed 21 Oct evening PT.
+- Scored 24h windows (posts.csv, outside replies only after 18 Oct measurement fix): queue 16v, origin 20v / 1 like, Chaos 14v, Edge 14v, board-flash 10v, Life 13v, Through Shot (image) 10v, Crowd 9v. Corrected outside ER ≈ 0 on every post that only had our own link-reply. Pin outside ER 0.06 from 2 likes + 1 follow-back.
+- North star **tactics-player replies: still 0**. Token replies: 0. Outside engagement almost absent except pin likes + 1 follow-back.
+- Saturday 17 Oct was the weakest calendar day so far (9–13 views). First image post since the pin (Tsar Cannon poster, Sat morning) did not lift views vs text-only. Question posts started Sun 18 and Mon 19 — too young for 24h scores.
+- **outreach.csv is empty** (header only). No drafted or posted outreach replies logged this baseline week.
+
+### Proposed changes for Stepan
+
+Proposals only — do **not** edit XCOM.md, CALENDAR.md, or IMAGES.md without approval.
+
+1. **Profile (still open from 14 Oct):** Rename display name from "Heroes Of Crypto (HOCAI)" to "Heroes Of Crypto"; drop the trailing 🟦 from the bio; add the missing period at the end of the tactics line. Tactics players bounce off the token ticker in the name.
+2. **XCOM.md — outreach priority this week:** Prefer drafting replies under (a) @OverhypeStudios MENACE patch/roadmap posts, (b) @MightMagicGame Remake playtest/roadmap when the thread is about the battle screen not the remake trailer hype, (c) @Conviction_SRPG **English** demo posts only, (d) @RisingSpire / @MeltedGames when they post a real board decision, (e) Thursday host threads (@TurnBasedThurs if active). Skip @Lavapotion Wielders posts; skip @TeamWoodGames; skip Next Fest accounts under 1K followers.
+3. **CALENDAR.md — no schedule change yet.** Keep the three-slot cadence and the two question posts. Do not drop Saturday or images on views alone (METRICS.md: never decide on views; min 3 posts per experiment arm). After the Sun 18 + Sun 25 question 24h windows fill, decide whether questions earn the first outside tactics reply.
+4. **IMAGES.md — optional experiment proposal:** One approved **character/unit portrait poster** (house style, real unit art only) on a tactics line that names a unit ability — inspired by @SynthWave6666’s portrait spike — vs our current board still / gen-card. Tag `gen-card` vs a new `portrait-card` in EXPERIMENTS.md. Still text-only for questions. No fake fight clips.
+5. **Do not chase Next Fest or Astra this week.** We have no Steam demo in the fest. Astra volume is thin and the audience is AI builders. One factual Astra post still waits on Stepan confirming how Astra was used (from 14 Oct deep dive).
+6. **Measurement:** Keep comparing on views + outside replies until outside engagement appears. ER remains uninformative when the only reply is our own link-reply (fix already in score.py as of 18 Oct).
+
+### Routine target list additions
+
+Already on game-accounts.md (verified this run; no new file edit required unless Stepan wants them flagged “priority”):
+
+- **@SynthWave6666** — 1,367 followers — Blightmarch dark-fantasy SRPG; character-art posts punching far above weight. Already added 19 Oct. Worth prioritizing when they post an English tactics/board question.
+- **@MeltedGames** — 2,208 — daily demo + decision questions during Next Fest; good draft targets when the post is about a move, not only a wishlist CTA.
+- **@RisingSpire** — 2,058 — classic turn-based; asked about Turn Based Thursday this week.
+
+No new handles above the 1,000-follower floor appeared in this week’s Next Fest / tactics search that aren’t already on the list or excluded (curators/press/sub-1K). Optional: re-check **@TurnBasedThurs** follower count next Monday for Thursday outreach (community host, not a game account — drafts only into their weekly thread).
+
+## 2026-10-19 (daily)
+
+- Three new 24h windows (outside-only replies): Sun 18 HoMM flanking question (morning tactics-question, text-only) 14 views / 0 outside engagement / ER 0; Might (evening tactics-calendar, text-only) 13 views / ER 0; plan unit (Sun midday tactics-calendar, text-only) 11 views / ER 0. Nature (~17h) and the Mon question (~3h, 7 views) still too young; pin 73 views at ~110h, 7d window opens ~Wed 21 Oct 8 PM PT. Followers 91 (unchanged). North star still 0 tactics replies / 0 token across all 12 scored posts.
+- What didn't work: the first question post matched the best tactics statements on views (14) but drew no outside reply, so asking alone didn't break the zero. One question post is one arm-post of three; the Mon 19 question is the second, so don't judge the format yet.
+- Lesson: across 12 scored posts, slot makes no real difference to reach (morning avg 13.5 views, evening 13.3, midday 12.5), but weekend posts averaged 11.4 views vs 14.5 on Thu/Fri. Reach of ~10–15 views per post is the bottleneck, not format or slot: with so few viewers, no format can earn a tactics reply yet. Outreach replies into bigger threads (outreach.csv still empty) are the lever most likely to move the north star.

@@ -5,7 +5,7 @@ Format: post id | author | URL | decision | handled at (PT)
 
 ## Last checked
 
-2026-10-18 8:20 PM PT (newest mention id seen: 2110567549566116259; mentions since then returned 0; own posts through 2111969556138688776, every reply_count 1 is our own follow-up, quote_count 0 on all; to:/@/url search since Oct 14 found only the already-handled DARKHARVESTOR reply)
+2026-10-19 4:27 PM PT (newest mention id seen: 2110567549566116259; mentions since then returned 0; own posts through 2112256603600638111 (11:56 AM post plus its own follow-up), every reply_count 1 is our own follow-up, quote_count 0 on all; to:/@/url search since Oct 19 2:00 PM PT returned 0)
 
 ## Handled
 

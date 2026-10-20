@@ -34,3 +34,13 @@ Started 2026-10-14. Baseline week: 15-21 Oct.
 - 2026-10-18 11:51 PT: Plan-unit tactics post (calendar Thu 22, early) posted: https://x.com/Heroes0fcrypto/status/2111892951626350973 (117 chars). Reply with five-positioning link: https://x.com/Heroes0fcrypto/status/2111893175274983766. Text-only.
 
 - 2026-10-18 16:55 PT: Nature tactics post (calendar Fri 23, early) posted: https://x.com/Heroes0fcrypto/status/2111969404565250121 (129 chars). Reply with faction guide link: https://x.com/Heroes0fcrypto/status/2111969556138688776. Text-only.
+
+- 2026-10-19 06:54 PT: Wounded-stack question (calendar Sun 25, early) posted: https://x.com/Heroes0fcrypto/status/2112180382678610386 (105 chars). Reply (no link): https://x.com/Heroes0fcrypto/status/2112180463754231965. Text-only.
+
+- 2026-10-19 09:58 PT: Daily engagement pull saved to pulls/2026-10-19.json; score.py ingest wrote 3 snapshot cells (24h for Might ~41.1h, Sun question ~27.0h, plan unit ~22.1h). Nature ~17h and Mon question ~3h still outside 20–48h window; no 7d yet (pin ~110h, 73 views). Followers 91 (unchanged vs 2026-10-18, +1 vs baseline 90). Following 8. Tweet count 148. Tactics replies 0, token replies 0. Sun question 24h: 14 views / 0 likes / 0 outside replies / ER 0. Might 24h: 13 views / ER 0. Plan unit 24h: 11 views / ER 0. Yesterday's three slots (Sun 6:58 / 11:51 / 4:55) all posted with URLs, no failures. Today 6:54 question already posted; 11:48 and 4:48 still queued (normal at 9:58 AM). Comment-reply last checked 8:47 AM PT; no outside replies, quotes or mentions in today's pull beyond the already-handled pin follow-back.
+
+- 2026-10-19 11:56 PT: First-turn tactics post (calendar Mon 26, early) posted: https://x.com/Heroes0fcrypto/status/2112256493034623098 (121 chars). Reply with five-positioning link: https://x.com/Heroes0fcrypto/status/2112256603600638111. Text-only.
+
+- 2026-10-19 16:53 PT: Morale dev-diary post (our guide had Morale wrong; fixed 24 Sep, commit e8e47f7c) posted: https://x.com/Heroes0fcrypto/status/2112331270386860113 (246 chars). Reply with question + board guide link: https://x.com/Heroes0fcrypto/status/2112331382869615008. Text-only.
+
+- 2026-10-20 06:55 PT: Second-attacker tactics post (calendar Tue 27, early) posted: https://x.com/Heroes0fcrypto/status/2112543116544889027 (110 chars). Reply with board guide link: https://x.com/Heroes0fcrypto/status/2112543170269692271. Text-only.
