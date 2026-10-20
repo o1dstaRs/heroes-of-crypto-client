@@ -100,14 +100,14 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
                       y: origin.y + Math.sin(direction) * gs.getStep() * 32,
                   }
                 : aim.targetSide
-                  ? rangeTargetEdgeEvaluationAim(gs, aim.cell, aim.targetSide - 1, actor.getPosition())
+                  ? rangeTargetEdgeEvaluationAim(gs, aim.cell, aim.targetSide - 1, origin)
                   : cellPosition(aim.cell);
         const through = actor.hasAbilityActive("Through Shot");
         const area = actor.hasAbilityActive("Area Throw");
         const evaluation = context.evaluateRange(
             units,
             actor,
-            actor.getPosition(),
+            origin,
             end,
             through,
             false,
@@ -131,7 +131,7 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
             geometry.ghost = origin;
         geometry.ray = {
             from: rangeAttackFootprintEdgePoint(
-                actor.getPosition(),
+                origin,
                 impact,
                 actor.getFootprintWidth(),
                 actor.getFootprintHeight(),

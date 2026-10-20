@@ -28,7 +28,7 @@ import { releaseBoardMirror, setBoardMirror } from "../pixi/boardMirror";
 import { OpponentAimOverlay } from "./OpponentAimOverlay";
 import { resolveOpponentAimGeometry, type AimGeometryContext } from "./opponentAimGeometry";
 import { rangeTargetEdgeEvaluationAim } from "./rangeTargetEdges";
-import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { projectBattlefieldPoint, rangeAttackFootprintEdgePoint } from "./sandbox/BattlefieldVisualGrid";
 
 const gs = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -219,6 +219,32 @@ describe("opponent aim geometry", () => {
         )!;
         expect(geometry.ghost).toEqual(GridMath.getPositionForFootprintAnchor(gs, { x: 11, y: 7 }, 2, 1));
         expect(geometry.cells).toEqual(victim.getCells());
+        expect(f.actor.getPosition()).toEqual(position);
+    });
+
+    test("move-and-shoot evaluates and draws from the proposed rectangular footprint", () => {
+        const f = fixture(TeamVals.LEFT, 2, 1);
+        const screen = createTestUnit({ team: TeamVals.RIGHT });
+        const target = createTestUnit({ team: TeamVals.RIGHT });
+        placeUnit(f.grid, f.unitsHolder, screen, { x: 9, y: 7 });
+        placeUnit(f.grid, f.unitsHolder, target, { x: 12, y: 7 });
+        const position = { ...f.actor.getPosition() };
+        const attackFrom = { x: 9, y: 9 };
+        const origin = GridMath.getPositionForFootprintAnchor(gs, attackFrom, 2, 1);
+        const endpoint = rangeTargetEdgeEvaluationAim(gs, target.getBaseCell(), 0, origin);
+
+        const geometry = resolveOpponentAimGeometry(
+            f.aim({ targetUnitId: target.getId(), targetSide: 1, attackFrom }),
+            f.context,
+        )!;
+
+        expect(geometry.ghost).toEqual(origin);
+        expect(geometry.ray).toEqual({
+            from: rangeAttackFootprintEdgePoint(origin, endpoint, 2, 1, gs),
+            to: endpoint,
+        });
+        expect(geometry.cells).toContainEqual(target.getBaseCell());
+        expect(geometry.cells).not.toContainEqual(screen.getBaseCell());
         expect(f.actor.getPosition()).toEqual(position);
     });
 
