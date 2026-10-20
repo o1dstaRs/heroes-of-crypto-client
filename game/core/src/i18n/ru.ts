@@ -551,23 +551,27 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Scout: "Разведчик",
     Spymaster: "Мастер шпионажа",
     "Blind Fury": "Слепая ярость",
-    "Reveal the opponent's picks in 3 random slots. Grants 6 upgrade points.":
-        "Открывает выборы противника в 3 случайных слотах. Даёт 6 очков усилений.",
-    "See all of the opponent's picks during the draft. Grants 5 upgrade points.":
-        "Показывает все выборы противника во время драфта. Даёт 5 очков усилений.",
-    "See none of the opponent's picks. Grants 7 upgrade points.":
-        "Не показывает выборы противника. Даёт 7 очков усилений.",
+    "Reveal the opponent's picks in 3 random slots and see all draft bans in advance. Grants 6 upgrade points.":
+        "Открывает выборы противника в 3 случайных слотах и заранее показывает все баны драфта. Даёт 6 очков усилений.",
+    "See all of the opponent's picks during the draft and all draft bans in advance. Grants 5 upgrade points.":
+        "Показывает все выборы противника во время драфта и заранее все баны. Даёт 5 очков усилений.",
+    "See none of the opponent's picks. Bans are revealed as each creature level opens. Grants 7 upgrade points.":
+        "Не показывает выборы противника. Баны открываются по мере появления выбора каждого уровня существ. Даёт 7 очков усилений.",
     "{count} upgrade points": "очков усилений: {count}",
     "{count} upgrade pts": "очков усилений: {count}",
     "Half their army, spread across every tier": "Половина армии — по всем уровням",
     "The whole enemy draft, live": "Весь драфт противника в реальном времени",
     "Draft blind, field the strongest army": "Драфт вслепую, зато сильнейшая армия",
-    "Opens three of the opponent's six army slots — one per tier block, not three at random: one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. The slots are rolled the moment the draft opens and stay open as those picks fill in. The other three never open.":
-        "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются.",
-    "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick or ban.":
-        "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором или баном.",
-    "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board.":
-        "Вы не видите ни одного выбора противника. Стройте драфт только вокруг своего плана и узнайте его состав уже на поле.",
+    "Opens three of the opponent's six army slots — one per tier block, not three at random: one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. The slots are rolled the moment the draft opens and stay open as those picks fill in. The other three never open. All draft bans are visible in advance.":
+        "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются. Все баны драфта видны заранее.",
+    "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance.":
+        "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее.",
+    "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board. Bans are revealed only as each creature level opens.":
+        "Вы не видите ни одного выбора противника. Стройте драфт только вокруг своего плана и узнайте его состав уже на поле. Баны открываются только по мере появления выбора каждого уровня существ.",
+    "Only revealed bans are shown.": "Показаны только уже раскрытые баны.",
+    "Bans are revealed when each creature level opens.":
+        "Баны открываются по мере появления выбора каждого уровня существ.",
+    "Only bans from revealed creature levels are shown.": "Показаны только баны уже открытых уровней существ.",
     "6 of 7 upgrade points — one augment level short of the maximum.":
         "6 из 7 очков усилений — на один уровень меньше максимума.",
     "5 of 7 upgrade points — two augment levels short of the maximum.":

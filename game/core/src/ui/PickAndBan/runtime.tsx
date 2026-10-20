@@ -51,6 +51,7 @@ import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftShellSx } from "./draftShell";
+import { DraftBanSummary } from "./DraftBanSummary";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -3510,6 +3511,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     userTeam={userTeam}
                     draftScale={draftScale}
                 />
+                <DraftBanSummary banned={banned} />
                 <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="right">
                     <Typography
                         component="a"

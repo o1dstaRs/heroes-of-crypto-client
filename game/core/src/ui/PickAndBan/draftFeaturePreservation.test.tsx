@@ -1,6 +1,6 @@
 import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
-import { Artifact, GridVals, PickPhaseVals, TeamVals } from "@heroesofcrypto/common";
+import { Artifact, CreatureLevelList, GridVals, PickPhaseVals, TeamVals } from "@heroesofcrypto/common";
 import { expect, mock, test } from "bun:test";
 import React, { createContext, useContext } from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
@@ -82,6 +82,19 @@ test("waiting for the opponent keeps a single disabled commit action", () => {
     expect(html.match(/<button /g)).toHaveLength(1);
     expect(html).toContain('disabled=""');
     expect(html).toContain("WAITING OPPONENT");
+});
+
+test("the live draft exposes the server's authorized future-level bans through its ban summary", () => {
+    const html = render({ ...draft, doctrine: 2, banned: [CreatureLevelList[1][0], CreatureLevelList[4][0]] });
+    expect(html).toContain('data-testid="draft-ban-summary"');
+    expect(html).toContain("Level 4");
+    expect(html.match(/<button /g)).toHaveLength(1);
+});
+
+test("the live draft cannot invent future bans absent from its private stream", () => {
+    const html = render({ ...draft, doctrine: 3, banned: [CreatureLevelList[1][0]] });
+    expect(html).toContain('data-testid="draft-ban-summary"');
+    expect(html).not.toContain("Level 4</");
 });
 
 const renderOpponent = (artifacts: { artifactTier1?: number; artifactTier2?: number }): string =>
