@@ -97,18 +97,18 @@ export const patchNotes = {
         {
             version: "v0.1.7",
             date: "10/20/2026",
-            commit: "",
-            href: "",
+            commit: "aefb3f18",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
             commits: [
                 {
                     label: "client",
-                    commit: "",
-                    href: "",
+                    commit: "aefb3f18",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
                 },
                 {
                     label: "common",
-                    commit: "",
-                    href: "",
+                    commit: "0925d8a",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/0925d8a73ffeddb52a5b5bdad0d3cc94744d868c",
                 },
             ],
             title: "Live aim, four artifacts, and a clearer board",
@@ -492,18 +492,18 @@ export const patchNotes = {
         {
             version: "v0.1.7",
             date: "20.10.2026",
-            commit: "",
-            href: "",
+            commit: "aefb3f18",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
             commits: [
                 {
                     label: "клиент",
-                    commit: "",
-                    href: "",
+                    commit: "aefb3f18",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
                 },
                 {
                     label: "common",
-                    commit: "",
-                    href: "",
+                    commit: "0925d8a",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/0925d8a73ffeddb52a5b5bdad0d3cc94744d868c",
                 },
             ],
             title: "Живой прицел, четыре артефакта и более ясное поле",
