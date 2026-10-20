@@ -411,3 +411,24 @@ Slot check: Mon 19 Oct all three slots (6:54 / 11:56 / 4:53) posted with URLs, n
 Audience timing: 14 scored posts (pin excluded). Mean 24h views by slot: evening 14.5 (n=4), morning 12.8 (n=5), midday 11.6 (n=5). By day: Thu 16.7 (n=3), Sun 14.3 (n=3), Fri 12.3 (n=3), Sat 10.7 (n=3), Mon 9.0 (n=2). Monday was the weakest day yet even with Steam Next Fest live, so yesterday's weekday-beats-weekend reading does not hold. Evening now leads by ~2 views, still inside noise.
 
 Recommendation: keep current slots (6:48 / 11:48 / 4:48). No slot or day shows a gap big enough to act on; re-check Friday when the full weekday week is scored.
+
+## Tue 20 Oct 2026, 11:45 AM PT run (window: 11:45 PM Mon – 11:45 AM Tue PT; new posts checked since 7:41 AM; Steam Next Fest day 2)
+
+Official game/studio posts (posted time PT, public metrics at read time ~11:46 AM). Surfaced three.
+- @TFT, Patch 18.5 notes (follow-up adjustments, buffs to underperforming champions), 11:00 AM: 10,321 impressions, 65 likes, 14 replies, 13 reposts, 4 quotes (surfaced). First reply at +4 min; ~14 replies in ~45 min, mostly Azir / Kha'Zix balance takes and "is this the regionals / for-fun patch" questions.
+- @TFT, Patch 18.5 rundown video with @TheTruexy, 11:00 AM: 8,636 impressions, 51 likes, 2 replies (skipped: video link, the notes post is the live thread)
+- @WickedNightGame, "A magical clash!" pixel animation, 10:41 AM: 646 impressions, 35 likes, 1 reply, 9 reposts (skipped: animation clip, no board angle)
+- @AgeOfEmpires, AoE3 DE update: leaderboards and matchmaking queues for Independence Mode, new tech tree sheet, civ/map balance, 10:13 AM (edited; original 10:11 AM post id 2112592681079611689 has 643 impressions): 2,317 impressions, 76 likes, 6 replies, 12 reposts (surfaced). Visible replies start ~+57 min (console/DLC questions, thanks).
+- @MARVELSNAP, 58.x live (Deck Bundles, Dracula 4/2, Nico's Spell fix), 10:02 AM: 12,550 impressions, 154 likes, 14 replies (held back: shop/deck-slot complaints dominate)
+- @PlayHearthstone, Reign of the Black Empire is live, 10:02 AM: 7,245 impressions, 121 likes, 13 replies, 12 reposts (held back: launch CTA; Hearthstone surfaced twice yesterday)
+- @Rainbow6Game, Noor's Lances change, 10:00 AM: 25,791 impressions, 120 likes, 8 replies (skipped: Siege)
+- @NextaleGames, "It's not Triangle Strategy / FFTA2 / Sword of Convallaria" Calame trailer, 9:00 AM: 488 impressions, 33 likes, 2 replies, 6 reposts (surfaced)
+- @CompanyOfHeroes, server maintenance 2–3 PM PT today, 9:00 AM: 763 impressions, 12 likes, 0 replies (skipped: notice)
+- @secretdoor_dh, "We're live!" Shadowstone stream quote, 10:04 AM: 176 impressions, 2 likes, 1 reply (skipped)
+- Earlier in window: @Epic7_Global YouTube reveal teaser for 21 Oct, 3:00 AM: 15,008 impressions, 507 likes, 46 replies (skipped: teaser, no board angle); @Culdcept_NeosEN "Huh? What's this?" teaser, 4:00 AM: 598 impressions, 11 likes, 0 replies.
+- Re-read: @MeltedGames 6:39 AM Flint clip now 111 impressions, 5 likes, 1 reply (was 52 / 3 / 1 at 7:45 AM).
+- Broad turn-based/tactics/Next Fest search since 7:40 AM: only sub-1,000 devs (@ringlas 851), curators and podcasts.
+
+Thread open vs peak (this run only): Tuesday's big wave came earlier than Monday's. Patch and launch posts from big accounts landed in a tight 10:00–11:00 AM PT block (Hearthstone, Snap, R6, AoE, TFT), and TFT's patch notes hit 14 replies within ~45 min. Indie/mid-size studios again posted 9:00–10:45 AM PT with 1–2 replies each. Nothing new from the tracked list after 11:00 AM by 11:46 AM.
+
+Recommendation: two weekdays now agree that indie and mid-size studios post 9:00–10:45 AM PT. Big accounts move with their release calendar: Monday's cluster was 12:20–4 PM PT, but on a Tuesday patch/launch day it was 10–11 AM PT. A single weekday reply window of 9:30 AM–1 PM PT catches both on patch days and the indie posts every day; big-account threads stay open into the evening, so a 3:37 PM pass still lands. Keep the 11:37 AM scan as the main weekday drafting run; confirm Wed–Thu before proposing schedule changes.
