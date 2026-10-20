@@ -5,7 +5,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 ## Next up
 
 - **Story arc:** pin (#1), queue tactics (#2), origin (#3), edge (#4), board-flash fix (#7) and Through Shot (#8, Sat 6:56 AM) done. Next story is STORY.md #5 why the board shrinks (waiting on Stepan to confirm narrowing's origin); #6, #9, #10 also need his facts — skip crypto chapter (#9) and then-and-now (#6) until Stepan answers open questions.
-- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Next calendar line is Wed 28 No Melee (calendar ends there). Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Unused dev-diary candidates: replay board fix (6add5ffe, 20 Sep: barrels and fire walls were invisible in replays) and replay log/stats fix (166ae50f). Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
+- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Wed 28 No Melee went out Tue 11:52 AM. The calendar is used up: fill slots with dev-diary / story beats from git (LEARNINGS: only story posts earn likes so far) and tactics questions. Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Unused dev-diary candidates: replay board fix (6add5ffe, 20 Sep: barrels and fire walls were invisible in replays) and replay log/stats fix (166ae50f). Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
 
 ## Today 2026-10-15 (Thu)
 
@@ -36,6 +36,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 2026-10-19 11:56 | midday  | tactics-calendar | https://x.com/Heroes0fcrypto/status/2112256493034623098 | Mon 26 first turn, text-only. Reply https://x.com/Heroes0fcrypto/status/2112256603600638111                             |
 | 2026-10-19 16:53 | evening | story-devdiary   | https://x.com/Heroes0fcrypto/status/2112331270386860113 | Morale correction dev-diary (commit e8e47f7c), text-only. Reply https://x.com/Heroes0fcrypto/status/2112331382869615008 |
 | 2026-10-20 06:55 | morning | tactics-calendar | https://x.com/Heroes0fcrypto/status/2112543116544889027 | Tue 27 second attacker, text-only. Reply https://x.com/Heroes0fcrypto/status/2112543170269692271                        |
+| 2026-10-20 11:52 | midday  | tactics-calendar | https://x.com/Heroes0fcrypto/status/2112618090542616657 | Wed 28 No Melee, text-only. Reply https://x.com/Heroes0fcrypto/status/2112618214522032309                               |
 
 ## Today 2026-10-16 (Fri)
 
@@ -74,5 +75,5 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | Slot (PT) | Plan                                                                                                   | Status                                                         |
 | --------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | 6:48 AM   | Calendar Tue 27 second attacker, text-only. Reply with board guide link.                               | done — https://x.com/Heroes0fcrypto/status/2112543116544889027 |
-| 11:48 AM  | Calendar Wed 28 No Melee (last calendar line), or a dev-diary detail.                                  | queued                                                         |
+| 11:48 AM  | Calendar Wed 28 No Melee (last calendar line), text-only. Reply with play link.                        | done — https://x.com/Heroes0fcrypto/status/2112618090542616657 |
 | 4:48 PM   | Dev-diary from git (replay board fix 6add5ffe) or a tactics question; STORY #5 if Stepan has answered. | queued                                                         |
