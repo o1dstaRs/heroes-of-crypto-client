@@ -50,6 +50,7 @@ import { MapBadge, MapRevealModal } from "./MapReveal";
 import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
+import { draftShellSx } from "./draftShell";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -70,7 +71,6 @@ import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
-const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v10;
 const pickCommitTextureImage = images.ui_draft_action_stone_texture_v1;
 const OPPONENT_ARMY_BACKGROUND = "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))";
 const OPPONENT_ARMY_TEXT_COLOR = "#f0e7e9";
@@ -489,32 +489,7 @@ const DRAFT_ACTION_HEIGHT = `${72 * DRAFT_ACTION_SCALE}px`;
 const DRAFT_ACTION_WIDTH = `min(${560 * DRAFT_ACTION_WIDTH_SCALE}px, ${84 * DRAFT_ACTION_WIDTH_SCALE}%)`;
 const DRAFT_ACTION_FONT_SIZE = `${23.5 * DRAFT_ACTION_SCALE}px`;
 
-export const draftShellSx = {
-    width: "100%",
-    height: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    p: 0,
-    // Share the warm obsidian-and-ember palette used by the fight-results screen so the draft
-    // belongs to the same visual family instead of reading as a cooler charcoal surface.
-    backgroundColor: "#0b0704",
-    // The selected hearth tavern is a complete edge-to-edge scene. Stretch the original plate to the
-    // viewport on both axes so the full composition remains visible without cover-cropping either side.
-    backgroundImage: `url(${draftBackgroundImage})`,
-    backgroundSize: "100% 100%",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    color: "#e9e6df",
-    overflow: "hidden",
-    position: "relative",
-    fontFamily: hocDisplayFontFamily,
-    // The complete draft surface uses the same carved fantasy face as the sandbox controls. Joy components
-    // (buttons, chips and inputs) declare their own font, so target descendants explicitly as well.
-    "& *, & *::before, & *::after": {
-        fontFamily: `${hocDisplayFontFamily} !important`,
-    },
-} as const;
+export { draftShellSx } from "./draftShell";
 
 /** The factor the fixed board is drawn at: 1.05 whenever it fits, less on windows too small to hold it. */
 export const useDraftScale = (): number => {

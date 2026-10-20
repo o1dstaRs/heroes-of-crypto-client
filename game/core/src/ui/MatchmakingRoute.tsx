@@ -69,6 +69,7 @@ import {
     TERMINAL_MATCHMAKING_STREAM_ERROR,
 } from "./matchmakingAcceptTransition";
 import { MatchFoundOpponentPreview } from "./MatchFoundOpponentPreview";
+import { DraftAcceptanceWindow } from "./PickAndBan/DraftAcceptanceWindow";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -854,6 +855,7 @@ export const MatchmakingRoute: React.FC = () => {
             return;
         }
 
+        clearMatchReadyAlert();
         if (mockMatchPreview) {
             acceptedGameIdRef.current = pendingGameId;
             setState("accepted");
@@ -1014,6 +1016,12 @@ export const MatchmakingRoute: React.FC = () => {
             description: "",
         };
     })();
+
+    // Switch surfaces on the click, before POST /confirm or the opponent's acceptance completes.
+    // Keep the stream mounted so expiry, rejection and the c=1 draft handoff retain their recovery paths.
+    if (state === "accepted" && pendingGameId) {
+        return <DraftAcceptanceWindow secondsRemaining={secondsRemaining} />;
+    }
 
     return (
         <Box
