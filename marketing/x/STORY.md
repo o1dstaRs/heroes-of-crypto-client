@@ -37,7 +37,7 @@ Drafted 14 Oct 2026 PT. Every post and reply here is a draft for Stepan to post 
 - **Jan–Oct 2025:** zero client commits. [ask Stepan: what happened in this year?]
 - **Nov–Dec 2025:** rebuilt on Pixi.js (55 commits), sandbox refactored (25 Dec). Token pool launched 6 Dec 2025.
 - **Jan–May 2026:** zero client commits. [ask Stepan]
-- **Jun 2026–now:** restart, with about 2,000 commits in 4.5 months. Combat VFX and fight-finished overlay (21 Jun), site guides (20–22 Jun), UI and pick-screen pass (1 Aug), ranked reconnects and replays (Sep), matchmaking and sandbox polish (Oct). Client version 0.1.6.
+- **Jun 2026–now:** restart, with about 2,000 commits in 4.5 months. Combat VFX and fight-finished overlay (21 Jun), site guides (20–22 Jun), UI and pick-screen pass (1 Aug), ranked reconnects and replays (Sep), matchmaking and sandbox polish (Oct). Client version 0.1.7.
 
 ## (c) Whitepaper vs code (the code wins)
 
