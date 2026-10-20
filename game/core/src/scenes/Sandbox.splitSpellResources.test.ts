@@ -92,16 +92,14 @@ function fixture(blocked = false) {
 }
 
 describe("Sandbox drag split spell charges", () => {
-    test("shares the real preview's spellbook and returns its charges when the split is removed", () => {
+    test("keeps a full spellbook on the real preview and does not inflate it after merging", () => {
         const { source, preview, scene, target, engine } = fixture();
         const originalBook = [...source.getUnitProperties().spells].sort();
         expect(scene.commitPlacementSplit(source, 1, target)).toBe(true);
         expect(preview.getAmountAlive()).toBe(1);
         expect(preview.getCanCastSpells()).toBe(true);
-        expect(preview.getUnitProperties().spells).toEqual(["Life:Heal", "Life:Spiritual Armor"]);
-        expect([...source.getUnitProperties().spells, ...preview.getUnitProperties().spells].sort()).toEqual(
-            originalBook,
-        );
+        expect([...preview.getUnitProperties().spells].sort()).toEqual(originalBook);
+        expect([...source.getUnitProperties().spells].sort()).toEqual(originalBook);
         expect(engine.apply({ type: "delete_unit", unitId: preview.getId() }).completed).toBe(true);
         expect(source.getAmountAlive()).toBe(40);
         expect([...source.getUnitProperties().spells].sort()).toEqual(originalBook);

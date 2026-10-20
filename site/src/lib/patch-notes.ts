@@ -107,8 +107,8 @@ export const patchNotes = {
                 },
                 {
                     label: "common",
-                    commit: "0925d8a",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/0925d8a73ffeddb52a5b5bdad0d3cc94744d868c",
+                    commit: "83bf0ac",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/83bf0ac58ddf76b832b9f23b2e7a11168671631b",
                 },
             ],
             title: "Live aim, four artifacts, and a clearer board",
@@ -127,6 +127,7 @@ export const patchNotes = {
                         "A Cyclops shot that destroys more than one stack plays the burst for each stack it finishes. Area Throw and other area shots land on the first cell of a large body they touch, and an area counterattack records every victim.",
                         "An intact Water Shield still absorbs a non-fire hit. Fire spells, Fire Breath, Fire Shield, and a Fireforged burn pass through it. Helping Hand stays tied to the living stacks it binds.",
                         "Sidebars stay wide enough to read, at least 256 pixels when the screen can spare them. Ranked and premium controls wrap onto another line instead of shrinking away. While you choose augments, you can see the artifacts the other player drafted.",
+                        "Splitting a stack copies its whole spellbook and quiver onto the new stack, including a one-creature split and a single-charge spell such as Resurrection. The original keeps its own casts and arrows. Merging keeps the larger remaining count of each spell and does not add the books or quivers together.",
                     ],
                 },
                 {
@@ -502,8 +503,8 @@ export const patchNotes = {
                 },
                 {
                     label: "common",
-                    commit: "0925d8a",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/0925d8a73ffeddb52a5b5bdad0d3cc94744d868c",
+                    commit: "83bf0ac",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/83bf0ac58ddf76b832b9f23b2e7a11168671631b",
                 },
             ],
             title: "Живой прицел, четыре артефакта и более ясное поле",
@@ -522,6 +523,7 @@ export const patchNotes = {
                         "Выстрел Cyclops, уничтожающий больше одного стека, показывает взрыв для каждого добитого стека. Area Throw и другие площадные выстрелы попадают в первую клетку крупного тела, которой коснулись, а площадная контратака записывает каждую жертву.",
                         "Целый Water Shield по-прежнему поглощает не огненный удар. Огненные заклинания, Fire Breath, Fire Shield и ожог Fireforged проходят сквозь него. Helping Hand остается связан с живыми стеками, которые он соединяет.",
                         "Боковые панели остаются достаточно широкими, не меньше 256 пикселей, когда экран может это позволить. Кнопки рейтинга и Premium переносятся на следующую строку, а не сжимаются. Пока вы выбираете апгрейды, видны артефакты, которые выбрал другой игрок.",
+                        "Разделение стека копирует всю книгу заклинаний и колчан в новый стек, в том числе когда в нём одно существо и когда заклинание имеет единственный заряд, например Resurrection. У исходного стека остаются свои заряды и стрелы. Объединение сохраняет большее оставшееся число каждого заклинания и не складывает книги и колчаны.",
                     ],
                 },
                 {
