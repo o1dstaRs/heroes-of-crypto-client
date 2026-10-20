@@ -421,7 +421,7 @@ export const PremiumSetupPanel: React.FC<{
                             </PremiumButton>
                         </>
                     ) : (
-                        <Box sx={{ display: "flex", gap: 0.75, mt: 0.75 }}>
+                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.75 }}>
                             <PremiumButton
                                 size="sm"
                                 disabled={busy || advice.ready}

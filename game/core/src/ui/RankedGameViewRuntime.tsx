@@ -2286,7 +2286,7 @@ const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
     );
 };
 
-const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
+export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
     canSubmit,
     selectedUnit,
     snapshot,
@@ -2410,7 +2410,7 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                     />
                 )}
             </Stack>
-            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", mt: 1.5 }}>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ width: "100%", mx: "auto", mt: 1.5 }}>
                 {canShowSplit && (
                     <Button
                         variant="plain"
@@ -2425,8 +2425,8 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                         }
                         sx={{
                             ...hocSidebarImageButtonSx("neutral"),
-                            flex: 1,
-                            minWidth: 0,
+                            flex: "1 1 5.5em",
+                            minWidth: "min(100%, 5.5em)",
                             height: "36px",
                             minHeight: "36px",
                             maxHeight: "36px",
@@ -2454,8 +2454,8 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                     }}
                     sx={{
                         ...hocSidebarImageButtonSx("danger"),
-                        flex: 1,
-                        minWidth: 0,
+                        flex: "1 1 5.5em",
+                        minWidth: "min(100%, 5.5em)",
                         height: "36px",
                         minHeight: "36px",
                         maxHeight: "36px",
@@ -3227,7 +3227,7 @@ export const RankedReadyPlacementButton: React.FC<{
                     fontSize: "inherit",
                     whiteSpace: "normal",
                     lineHeight: 1.1,
-                    px: "6px",
+                    px: "2px",
                     py: "4px",
                     textTransform: "uppercase",
                 }}
@@ -3239,9 +3239,9 @@ export const RankedReadyPlacementButton: React.FC<{
                     component="span"
                     sx={{
                         position: "relative",
-                        width: "3.6em",
+                        width: "3.2em",
                         minWidth: 0,
-                        flex: "0 0 3.6em",
+                        flex: "0 0 3.2em",
                         display: "grid",
                         alignItems: "center",
                         justifyItems: "center",
