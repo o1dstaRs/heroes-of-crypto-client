@@ -95,7 +95,7 @@ const releaseCandidateRoster: PatchNote["roster"] = [
 export const patchNotes = {
     en: [
         {
-            version: "v0.1.7",
+            version: "v0.7.0",
             date: "10/20/2026",
             commit: "aefb3f18",
             href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
@@ -107,8 +107,8 @@ export const patchNotes = {
                 },
                 {
                     label: "common",
-                    commit: "83bf0ac",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/83bf0ac58ddf76b832b9f23b2e7a11168671631b",
+                    commit: "6006707f",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/6006707f1901ae904d6be6716f683021251152c0",
                 },
             ],
             title: "Live aim, four artifacts, and a clearer board",
@@ -148,7 +148,7 @@ export const patchNotes = {
             ],
             roster: [],
             closing:
-                "Version 0.1.7 keeps the same four factions and 57 creatures, and makes the aim, the artifacts, and the numbers on the board the ones the fight uses.",
+                "Version 0.7.0 keeps the same four factions and 57 creatures, and makes the aim, the artifacts, and the numbers on the board the ones the fight uses.",
         },
         {
             version: "v0.1.6",
@@ -491,7 +491,7 @@ export const patchNotes = {
     ] satisfies PatchNote[],
     ru: [
         {
-            version: "v0.1.7",
+            version: "v0.7.0",
             date: "20.10.2026",
             commit: "aefb3f18",
             href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
@@ -503,8 +503,8 @@ export const patchNotes = {
                 },
                 {
                     label: "common",
-                    commit: "83bf0ac",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/83bf0ac58ddf76b832b9f23b2e7a11168671631b",
+                    commit: "6006707f",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/6006707f1901ae904d6be6716f683021251152c0",
                 },
             ],
             title: "Живой прицел, четыре артефакта и более ясное поле",
@@ -544,7 +544,7 @@ export const patchNotes = {
             ],
             roster: [],
             closing:
-                "Версия 0.1.7 сохраняет те же четыре фракции и 57 существ и приводит прицел, артефакты и числа на поле к тем, которыми идет бой.",
+                "Версия 0.7.0 сохраняет те же четыре фракции и 57 существ и приводит прицел, артефакты и числа на поле к тем, которыми идет бой.",
         },
         {
             version: "v0.1.6",
