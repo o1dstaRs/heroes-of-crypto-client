@@ -330,3 +330,84 @@ Slot check: Sun 18 Oct all three slots (6:58 / 11:51 / 4:55) posted with URLs, n
 Audience timing: 12 scored posts (pin excluded). Mean 24h views by slot: morning 13.5 (n=4), evening 13.3 (n=3), midday 12.5 (n=4; 10.3 without the origin story's 20). Weekend posts (Sat/Sun, n=5) averaged 11.4 views vs 14.5 on Thu/Fri (n=6). Zero outside engagement on every scored post, so slot can only be read on views.
 
 Recommendation: keep current slots (6:48 / 11:48 / 4:48). Slot differences are within 1–2 views, smaller than the weekday vs weekend gap. Re-check after the first weekday week (Mon 19 – Fri 23) fills.
+
+## Mon 19 Oct 2026, 11:43 AM PT run (window: 11:43 PM Sun – 11:43 AM Mon PT; Steam Next Fest day 1)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~11:45 AM). Surfaced three.
+
+- @Rainbow6Game, Siege artist appreciation (posted, then reposted 3 times with edits), 11:00–11:26 AM: 16,462 impressions, 77 likes, 4 replies on the 11:00 AM version (skipped: Siege, not Tactics)
+- @PlayHearthstone, event-card reminder, 10:00 AM: 5,750 impressions, 32 likes, 3 replies (skipped: collection reminder)
+- @AgeOfEmpires, AoE IV Longship (health and arrows scale with troops loaded), 9:50 AM: 2,552 impressions, 74 likes, 4 replies, 9 reposts (surfaced)
+- @TFT, T1 chibi cosmetics, 9:00 AM and 9:07 AM reply-thread version: 5,487 / 23,593 impressions, 62 / 610 likes, 1 / 14 replies (skipped: cosmetic)
+- @Rainbow6Game, merch, 9:00 AM: 27,663 impressions, 91 likes, 17 replies (skipped)
+- @NextaleGames, Calame character Breena, protector vs enchantress choice, 9:00 AM: 291 impressions, 9 likes, 0 replies, 2 reposts (surfaced)
+- @TheVowGame, demo post, 9:00 AM: 262 impressions, 7 likes, 1 reply (their own Steam link), 3 reposts (surfaced; new account, 2,338 followers)
+- Re-reads since the 7:48 AM run: @SynthWave6666 armor sketch 7:45 AM: 184 impressions, 10 likes, 0 replies (was 13 / 0 at 7:50 AM); @StellarisGame premiere 7:00 AM: 1,758 / 21 / 1 (was 980 / 5 / 0); @MeltedGames 6:47 AM: 40 / 2 / 0; @AOE_Mobile Day 7 6:00 AM: 813 / 2 / 0; @mechabellum 2v2 5:18 AM: 201 / 2 / 0; @FE_Heroes_EN 12:00 AM: 9,029 / 66 / 3
+- AoE Longship replies arrived at +26 min, +29 min, +1h44, +1h52; two of four are mechanic takes (raid tool vs naval unit), the kind of thread a tactics reply fits.
+
+Thread open vs peak (this run only): the weekday wave opened at 9:00 AM PT on the dot (TFT, R6, Nextale, The Vow all scheduled at 9:00), then AoE 9:50, Hearthstone 10:00, R6 again 11:00. Big accounts gather 1–4 replies in the first hour and keep adding through late morning; small studios (Nextale, Vow, Blightmarch) gain likes over 2–4 hours but almost no replies. Next Fest demo posts from tracked 1,000+ accounts were few; most demo posts came from sub-1,000 solo devs.
+
+Recommendation: weekday reply window is 9:30 AM–1 PM PT, aimed at the first 1–3 hours after the 9:00–10:00 AM PT posting cluster (earlier and tighter than the 10 AM–2:30 PM window logged last week, now backed by one Monday). Keep the 11:37 AM scan as the main weekday drafting run; confirm Tue–Thu before changing the schedule.
+
+## Mon 19 Oct 2026, 3:41 PM PT run (window: 3:41 AM – 3:41 PM Mon PT; new posts checked since 11:40 AM; Steam Next Fest day 1)
+
+Official game/studio posts (posted time PT, public metrics at read time ~3:43 PM). Surfaced two.
+
+- @MARVELSNAP, infection event (log-in card backs/variants, winning strain keeps avatar border), 2:22 PM: 13,232 impressions, 223 likes, 14 replies, 10 reposts (skipped: log-in cosmetics drop)
+- @PlayHearthstone, "Who's still recovering from Barnes on turn 4?" Y'Shaarj memory ask, 2:00 PM: 5,562 impressions, 38 likes, 4 replies (surfaced)
+- @Rainbow6Game, quote post "You cooked with this one", 1:07 PM: 41,275 impressions, 377 likes, 9 replies (skipped: Siege)
+- @PlayHearthstone, Patch 37.0.1 bug fixes, 12:23 PM: 8,928 impressions, 38 likes, 2 replies (skipped: patch note)
+- @secretdoor_dh (Secret Door, Sunderfolk/Shadowstone devs, 2,722 followers), Shadowstone Next Fest demo live with video, 10:08 AM: 47,656 impressions, 22 likes, 1 reply, 2 reposts (surfaced; new account; impressions look boosted relative to likes)
+- No other root posts after 11:40 AM PT from the 41 tracked handles checked across two queries.
+- Broad turn-based/tactics/Next Fest search: aggregators and curators (@Gamenewsclub, @devoriahub, @fnlwpn), and sub-1,000-follower solo devs.
+
+Thread open vs peak (this run only): the Monday afternoon wave was small and came from big accounts only: Hearthstone 12:23 and 2:00 PM, R6 1:07 PM, Snap 2:22 PM. Snap's event post gathered 14 replies in ~80 min; Hearthstone's memory ask got 4 replies in ~1h40, with the first at +2 min and three more after +1h25. Small studios posted nothing new after noon.
+
+Recommendation: unchanged from 11:43 AM. Weekday reply window is 9:30 AM–1 PM PT for indie and mid-size studios; big card-game accounts add a second 12–2:30 PM PT cluster that stays open into late afternoon. Keep the 11:37 AM scan as the main weekday drafting run; confirm Tue–Thu before proposing schedule changes.
+
+## Mon 19 Oct 2026, 7:38 PM PT run (window: 7:38 AM – 7:38 PM Mon PT; new posts checked since 3:41 PM; Steam Next Fest day 1)
+
+Official game/studio posts (posted time PT, public metrics at read time ~7:40 PM). Surfaced two.
+
+- @PlayHearthstone, "Reign of the Black Empire launches TOMORROW! How are you preparing?", 4:00 PM: 5,684 impressions, 57 likes, 12 replies, 9 reposts (surfaced). Replies at +3, +4, +5, +7, +8 min, then +25 min (brand answering, incl. "never too early to start theorycrafting"), +1h22, +1h29, +2h26, +3h29.
+- @DangersDen, dev YouTube interview link, 3:51 PM: 145 impressions, 3 likes, 0 replies (skipped: interview link, no board angle)
+- @MARVELSNAP, "In the event of an outbreak" infection rules, 3:46 PM: 15,309 impressions, 225 likes, 12 replies (skipped: log-in cosmetics event)
+- @secretdoor_dh, Shadowstone dev let's play + Q&A stream Tue 20 Oct 10 AM PT with community challenges, 1:39 PM: 378 impressions, 8 likes, 0 replies, 1 repost (surfaced, low replies)
+- Re-reads: @MARVELSNAP 2:22 PM infection: 40,993 / 385 / 22 replies (was 13,232 / 223 / 14 at 3:43 PM); @PlayHearthstone 2:00 PM Y'Shaarj: 9,846 / 57 / 5 (was 5,562 / 38 / 4); @Rainbow6Game 1:07 PM: 63,820 / 834 / 14 (was 41,275 / 377 / 9); @secretdoor_dh 10:08 AM demo: 89,879 / 26 / 1; @AgeOfEmpires 9:50 AM Longship: 4,288 / 151 / 7 (was 2,552 / 74 / 4); @NextaleGames 9:00 AM: 341 / 16 / 0; @TheVowGame 9:00 AM: 312 / 9 / 1; @SynthWave6666 7:45 AM: 226 / 11 / 0.
+- No root posts after 3:41 PM PT from the other tracked handles. Broad turn-based/Next Fest search after 3:30 PM: @ControlledPairs (press/curator), @xokura_notice (62, news), @PyotrAlexRoma (personal dev account), @VNWofficial (Veterans: Napoleonic Wars official, 92 followers, under floor).
+
+Thread open vs peak (this run only): Monday's last official wave was 3:46–4:00 PM PT (Snap, Hearthstone). Hearthstone's question post got 5 replies in its first 8 minutes and kept adding to +3.5h; Snap's 2:22 PM post went from 14 to 22 replies between ~3:40 and ~7:40 PM, so big-account threads keep growing into the evening. Small studios posted nothing after 1:39 PM, and their threads barely moved (0–1 replies all day).
+
+Recommendation: first full weekday (Mon) now logged across four scans. Indie/mid-size studios: post 9:00–10:10 AM PT, reply window 9:30 AM–1 PM PT. Big card/strategy accounts: second cluster 12:20–4 PM PT, and their threads stay open until evening, so a 4–6 PM PT reply still lands. Keep the 11:37 AM scan as the main weekday drafting run; confirm Tue–Thu before proposing schedule changes.
+
+## Tue 20 Oct 2026, 7:41 AM PT run (window: 7:41 PM Mon – 7:41 AM Tue PT; Steam Next Fest day 2)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~7:45 AM). Surfaced three.
+
+- @MeltedGames, Flint burns 4 Grit to reroll misses, gets a Goblin's Lucky Sock (video), 6:39 AM Tue: 52 impressions, 3 likes, 1 reply (surfaced; reply from @PIASKGames at +20 min)
+- @FE_Heroes_EN, Summoner Duels captain skills this week (Eminence, Turmoil, Mass Confusion), 12:00 AM Tue: 6,134 impressions, 27 likes, 0 replies, 2 reposts (surfaced; Summoner Duels is the PvP mode)
+- @FE_Heroes_EN, Celebratory summoning revival, 12:02 AM Tue: 7,464 impressions, 81 likes, 0 replies (skipped: gacha)
+- @Lavapotion, quote post "This looks amazing!", 11:45 PM Mon: 1,147 impressions, 4 likes, 0 replies (skipped)
+- @Epic7_Global (35,152, new), Epic Seven Next Fest demo reminder, 11:00 PM Mon: 3,223 impressions, 81 likes, 0 replies, 8 reposts (skipped: wishlist CTA)
+- @StudioDraconis, AI-assisted bug triage from a player video, 8:21 PM Mon: 118 impressions, 4 likes, 0 replies (skipped: tooling, not a board decision)
+- @Culdcept_NeosEN (3,985, new), Culdcept BEGINS on Steam 28 Oct, demo updated with new battle map "X", 7:45 PM Mon: 4,079 impressions, 58 likes, 2 replies, 27 reposts, 3 quotes (surfaced; replies at +2h, +3h43)
+- No root posts in window from the other ~40 tracked handles (two queries). Broad turn-based/tactics/Next Fest search: sub-1,000 solo devs, curators, press, creators and one Web3 studio.
+
+Thread open vs peak (this run only): second weekday overnight matches Monday's. Western big accounts (Hearthstone, Snap, TFT, Total War, AoE, CoH) posted nothing between 7:41 PM and 7:41 AM PT; overnight posts came from Asia-timed accounts (FE Heroes at midnight PT, Epic Seven 11 PM PT, Culdcept 7:45 PM PT), which pile up impressions with almost no replies. Only replies overnight: Culdcept 2 in ~12h; Melted's morning clip got a reply in 20 min.
+
+Recommendation: unchanged and now backed by two weekdays: indie/mid-size reply window 9:30 AM–1 PM PT, big-account second cluster 12:20–4 PM PT with threads open into the evening. Overnight Asia-timed official posts are fine to reply to in the 7:37 AM run but won't have live threads. Hearthstone's Reign of the Black Empire launches today, so expect the big wave in the 11:37 AM and 3:37 PM runs.
+
+## Tue 20 Oct 2026, 9:50 AM PT (daily engagement review)
+
+Own-account 24h snapshots filled today (outside replies only):
+
+- Nature https://x.com/Heroes0fcrypto/status/2111969404565250121 posted Sun 4:55 PM PT (~40.9h): 18 impressions, 0 likes, 0 outside replies, ER 0
+- Mon 19 wounded-stack question https://x.com/Heroes0fcrypto/status/2112180382678610386 posted Mon 6:54 AM PT (~26.9h): 10 impressions, 0 likes, 0 outside replies, ER 0
+- Mon 19 first turn https://x.com/Heroes0fcrypto/status/2112256493034623098 posted Mon 11:56 AM PT (~21.9h): 8 impressions, 0 likes, 0 outside replies, ER 0
+- Morale dev-diary (Mon 4:53 PM, ~17h) not scored yet: 9 impressions and 1 like so far, plus 1 like on its follow-up reply. Pin ~134h, 80 impressions; 7d window opens Wed 21 Oct ~8 PM PT.
+
+Slot check: Mon 19 Oct all three slots (6:54 / 11:56 / 4:53) posted with URLs, no failures. Tue 6:55 already posted; 11:48 and 4:48 still queued (normal at 9:50 AM).
+
+Audience timing: 14 scored posts (pin excluded). Mean 24h views by slot: evening 14.5 (n=4), morning 12.8 (n=5), midday 11.6 (n=5). By day: Thu 16.7 (n=3), Sun 14.3 (n=3), Fri 12.3 (n=3), Sat 10.7 (n=3), Mon 9.0 (n=2). Monday was the weakest day yet even with Steam Next Fest live, so yesterday's weekday-beats-weekend reading does not hold. Evening now leads by ~2 views, still inside noise.
+
+Recommendation: keep current slots (6:48 / 11:48 / 4:48). No slot or day shows a gap big enough to act on; re-check Friday when the full weekday week is scored.
