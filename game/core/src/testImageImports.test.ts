@@ -85,7 +85,10 @@ console.log(JSON.stringify({ missing: typeof images.nonexistent_fixture_asset, r
         expect(report.missing).toBe("undefined");
         expect(report.removed).toEqual({ value: "undefined", present: false, listed: false });
         expect(report.restored).toBe(true);
-        expect(report.approved).toEndWith("/dryad_painted_idle_atlas.webp?v=aaaaaaaaaaaaaaaa#ci-stub");
+        const approved = new URL(report.approved);
+        expect(path.basename(approved.pathname)).toBe("dryad_painted_idle_atlas.webp");
+        expect(approved.searchParams.get("v")).toBe("a".repeat(16));
+        expect(approved.hash).toBe("#ci-stub");
     } finally {
         rmSync(directory, { recursive: true, force: true });
     }
