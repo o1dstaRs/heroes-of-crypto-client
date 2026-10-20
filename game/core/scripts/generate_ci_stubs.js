@@ -177,7 +177,9 @@ const knownImages = Object.fromEntries(
     ${JSON.stringify(knownImageKeys)}.map((key) => [key, stubImageUrl(key)]),
 ) as Record<string, string>;
 export const images = new Proxy<Record<string, string>>(knownImages, {
-    get: (_target, key) => typeof key === "string" ? stubImageUrl(key) : undefined,
+    // Production fallback tests remove optional assets; reads must respect those deletions too.
+    get: (target, key) => typeof key === "string" && Object.prototype.hasOwnProperty.call(target, key)
+        ? target[key] : undefined,
     has: (target, key) => typeof key === "string" && Object.prototype.hasOwnProperty.call(target, key),
 });
 export type ImageKey = keyof typeof images;

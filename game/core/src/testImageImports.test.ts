@@ -31,3 +31,62 @@ test("core test setup preserves CI image stubs without requiring private art", (
         rmSync(directory, { recursive: true, force: true });
     }
 });
+
+test("CI image stubs preserve missing and deleted assets for production fallback tests", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "hoc-ci-images-"));
+    try {
+        for (const folder of ["scripts", "src/generated", "src/animations", "src/pixi"]) {
+            mkdirSync(path.join(directory, folder), { recursive: true });
+        }
+        const script = path.join(directory, "scripts/generate_ci_stubs.js");
+        copyFileSync(new URL("../scripts/generate_ci_stubs.js", import.meta.url), script);
+        for (const file of [
+            "src/animations/battlefieldEnvironmentAssets.json",
+            "src/animations/levelOneAssets.json",
+            "src/pixi/shotTrajectoryAssets.json",
+        ]) {
+            writeFileSync(path.join(directory, file), "[]");
+        }
+        writeFileSync(
+            path.join(directory, "src/pixi/battlefieldTextureKeys.ts"),
+            "export const FINAL_STATIC_BATTLEFIELD_TEXTURES = {};",
+        );
+        writeFileSync(
+            path.join(directory, "src/pixi/creaturePortraitAssetKeys.ts"),
+            "export const CREATURE_PORTRAIT_ASSET_KEYS = [];",
+        );
+        for (const file of ["src/pixi/imageAssetTiers.ts", "src/pixi/unitAtlasKeys.ts"]) {
+            writeFileSync(path.join(directory, file), "");
+        }
+        writeFileSync(
+            path.join(directory, "src/generated/image_keys.json"),
+            JSON.stringify(["dryad_idle_atlas_quarter", "dryad_painted_idle_atlas"]),
+        );
+        writeFileSync(
+            path.join(directory, "animation-release.json"),
+            JSON.stringify({ files: { "dryad_painted_idle_atlas.webp": { sha256: "a".repeat(64) } } }),
+        );
+        const generated = Bun.spawnSync({ cmd: [process.execPath, script], stdout: "pipe", stderr: "pipe" });
+        expect(generated.exitCode, generated.stderr.toString()).toBe(0);
+
+        const probe = path.join(directory, "probe.ts");
+        writeFileSync(
+            probe,
+            `import { images } from "./src/generated/image_imports";
+const legacy = images.dryad_idle_atlas_quarter;
+delete images.dryad_idle_atlas_quarter;
+const removed = { value: typeof images.dryad_idle_atlas_quarter, present: "dryad_idle_atlas_quarter" in images, listed: Object.keys(images).includes("dryad_idle_atlas_quarter") };
+images.dryad_idle_atlas_quarter = legacy;
+console.log(JSON.stringify({ missing: typeof images.nonexistent_fixture_asset, removed, restored: images.dryad_idle_atlas_quarter === legacy, approved: images.dryad_painted_idle_atlas }));`,
+        );
+        const result = Bun.spawnSync({ cmd: [process.execPath, probe], stdout: "pipe", stderr: "pipe" });
+        expect(result.exitCode, result.stderr.toString()).toBe(0);
+        const report = JSON.parse(result.stdout.toString());
+        expect(report.missing).toBe("undefined");
+        expect(report.removed).toEqual({ value: "undefined", present: false, listed: false });
+        expect(report.restored).toBe(true);
+        expect(report.approved).toEndWith("/dryad_painted_idle_atlas.webp?v=aaaaaaaaaaaaaaaa#ci-stub");
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
