@@ -772,6 +772,27 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
             display: none;
         }
     }
+
+    /* Same touch gate as the ranked arena. iPadOS does not match (hover: none). */
+    html.hoc-touch .hero-ranked__dossier {
+        display: none;
+    }
+
+    html.hoc-touch .hero-ranked__player:hover:not([data-rank="1"])::before {
+        background: transparent;
+    }
+
+    html.hoc-touch .hero-ranked__slider-controls button:hover,
+    html.hoc-touch .hero-ranked__page-dot:hover {
+        border-color: rgba(220, 177, 88, 0.18);
+        color: #d8c29c;
+        filter: none;
+    }
+
+    html.hoc-touch .hero-ranked__ladder-link:hover {
+        color: #dcb158;
+        text-shadow: none;
+    }
 </style>
 
 <script>

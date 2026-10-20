@@ -11,6 +11,12 @@ const playHref = lang === "ru" ? "/ru/play/" : "/play/ranked/";
 const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 ---
 
+<script is:inline>
+    if (navigator.maxTouchPoints > 0 || matchMedia("(hover: none), (any-pointer: coarse)").matches) {
+        document.documentElement.classList.add("hoc-touch");
+    }
+</script>
+
 <section
     class="ranked-arena section"
     id="arena"
@@ -2388,16 +2394,104 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         }
     }
 
-    @media (hover: none) {
-        .ranked-arena .ranked-arena__game-card:hover,
-        .ranked-arena .ranked-arena__league-card:hover {
-            transform: none;
-        }
+    /* A finger sticks :hover after a tap. hoc-touch is set for a phone or an
+       iPad (iPadOS still reports a fine hovering pointer). Selected and
+       pressed states stay; only the hover paint is put back. */
+    html.hoc-touch .ranked-arena .ranked-arena__player-dossier,
+    html.hoc-touch .ranked-arena .ranked-arena__game-dossier {
+        display: none;
+    }
 
-        .ranked-arena .ranked-arena__player-dossier,
-        .ranked-arena .ranked-arena__game-dossier {
-            display: none;
-        }
+    html.hoc-touch .ranked-arena .ranked-arena__refresh:hover {
+        border-color: rgba(220, 177, 88, 0.18);
+        background: rgba(220, 177, 88, 0.07);
+        color: var(--ink);
+        box-shadow: none;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__tab:hover:not([aria-selected="true"]) {
+        background: transparent;
+        color: var(--muted);
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__clear:hover {
+        background: transparent;
+        color: var(--muted);
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__market-predict:hover,
+    html.hoc-touch .ranked-arena .ranked-arena__market-confirm:not(:disabled):hover,
+    html.hoc-touch .ranked-arena .ranked-arena__market-side:hover,
+    html.hoc-touch .ranked-arena .ranked-arena__market-signin:hover {
+        border-color: rgba(151, 104, 50, 0.45);
+        background: rgba(0, 0, 0, 0.32);
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__market-predict:hover {
+        border-color: color-mix(in srgb, var(--gold) 62%, transparent);
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__game-card:has(.ranked-arena__game-seat:hover) {
+        z-index: 0;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__game-card:hover {
+        background:
+            linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 7%, transparent), transparent 48%),
+            rgba(15, 10, 7, 0.72);
+        box-shadow: inset 3px 0 color-mix(in srgb, var(--game-stage) 42%, transparent);
+        transform: none;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__league-card:hover {
+        border-color: rgba(239, 228, 204, 0.09);
+        box-shadow: none;
+        transform: none;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__retry:hover,
+    html.hoc-touch .ranked-arena .ranked-arena__detail-action:hover,
+    html.hoc-touch .ranked-arena .ranked-arena__league-action:hover {
+        border-color: rgba(242, 199, 93, 0.22);
+        background: rgba(242, 199, 93, 0.085);
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__watch:hover {
+        border-color: transparent;
+        background: transparent;
+        color: var(--gold-soft);
+    }
+
+    html.hoc-touch
+        .ranked-arena
+        .ranked-arena__table-heading-cell:not([aria-sort="ascending"]):not([aria-sort="descending"])
+        .ranked-arena__column-sort:hover {
+        color: inherit;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__player-row:hover:not([data-selected="true"]) {
+        background: transparent;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__stage-count:hover:not([aria-pressed="true"]) {
+        border-bottom-color: transparent;
+        background: transparent;
+        color: var(--muted);
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__game-seat:hover {
+        background: transparent;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__games-more:hover {
+        border-color: rgba(242, 199, 93, 0.2);
+        background: rgba(242, 199, 93, 0.075);
+        transform: none;
+    }
+
+    html.hoc-touch .ranked-arena .ranked-arena__league-player-link:hover {
+        background: rgba(239, 228, 204, 0.025);
+        box-shadow: none;
     }
 
     @media (prefers-reduced-motion: reduce) {
