@@ -1,6 +1,6 @@
 import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
-import { GridVals, PickPhaseVals, TeamVals } from "@heroesofcrypto/common";
+import { Artifact, GridVals, PickPhaseVals, TeamVals } from "@heroesofcrypto/common";
 import { expect, mock, test } from "bun:test";
 import React, { createContext, useContext } from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
@@ -32,7 +32,7 @@ mock.module("../GameSystemControls", () => ({
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET: "1rem",
     GameSystemControls: () => null,
 }));
-const { default: StainedGlassWindow } = await import("./runtime");
+const { default: StainedGlassWindow, OpponentDraftBar } = await import("./runtime");
 
 const draft: PickBanContextType = {
     isConnected: true,
@@ -82,4 +82,37 @@ test("waiting for the opponent keeps a single disabled commit action", () => {
     expect(html.match(/<button /g)).toHaveLength(1);
     expect(html).toContain('disabled=""');
     expect(html).toContain("WAITING OPPONENT");
+});
+
+const renderOpponent = (artifacts: { artifactTier1?: number; artifactTier2?: number }): string =>
+    renderToStaticMarkup(
+        <CacheProvider value={createCache({ key: "opponent-artifacts" })}>
+            <OpponentDraftBar
+                opponentPicked={[12, 33, 24, 51, 17, 40]}
+                opponentLabel="Opponent"
+                watchedSlots={[0, 1, 2, 3, 4, 5]}
+                {...artifacts}
+            />
+        </CacheProvider>,
+    );
+
+test("the augment opponent rail shows both artifact images and accessible names", () => {
+    const tier1 = Artifact.Tier1Artifact.AMULET_OF_RESOLVE;
+    const tier2 = Artifact.Tier2Artifact.TITAN_PLATE;
+    const html = renderOpponent({ artifactTier1: tier1, artifactTier2: tier2 });
+    expect(html).toContain(`alt="${Artifact.TIER1_ARTIFACTS[tier1].name}"`);
+    expect(html).toContain(`alt="${Artifact.TIER2_ARTIFACTS[tier2].name}"`);
+    expect(html.match(/aria-label="Tier-[12] artifact:/g)).toHaveLength(2);
+});
+
+test("the pick-phase opponent rail does not invent artifact slots before the reveal", () => {
+    const html = renderOpponent({});
+    expect(html).not.toContain('aria-label="Tier-1 artifact:');
+    expect(html).not.toContain('aria-label="Tier-2 artifact:');
+});
+
+test("missing or unknown artifacts leave safe empty slots in the setup recap", () => {
+    const html = renderOpponent({ artifactTier1: 0, artifactTier2: 999999 });
+    expect(html).toContain('aria-label="Tier-1 artifact: none picked"');
+    expect(html).toContain('aria-label="Tier-2 artifact: none picked"');
 });

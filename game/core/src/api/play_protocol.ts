@@ -359,7 +359,7 @@ export interface PlaySnapshot {
     leftDoctrine?: number;
     rightDoctrine?: number;
     /** Placement-time army augments picked per team (augment level enum ids; 0 = none). Opponent values are
-     * hidden (0) during placement, revealed at fight start (same as artifacts). */
+     * hidden (0) during placement, revealed at fight start. */
     leftAugmentPlacement?: number;
     leftAugmentArmor?: number;
     leftAugmentMight?: number;

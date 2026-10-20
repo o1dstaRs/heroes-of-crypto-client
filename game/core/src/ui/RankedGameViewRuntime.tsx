@@ -2558,8 +2558,8 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     const yours = userTeam === TeamVals.RIGHT ? right : left;
     const theirs = userTeam === TeamVals.RIGHT ? left : right;
     const hasYours = !!(yours.tier1 || yours.tier2);
-    // The opponent's artifacts only reach us once the fight starts (server withholds them during placement),
-    // so the Opponent column simply appears when its ids show up in the snapshot.
+    // The snapshot reveals opponent artifacts alongside the roster during setup.
+    // Older servers can still omit them, so show the column only when IDs are available.
     const hasTheirs = !!(theirs.tier1 || theirs.tier2);
     if (!hasYours && !hasTheirs) {
         return null;
@@ -3759,6 +3759,16 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                             unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
                                                     )
                                                     .map((unit) => unit.creatureId)}
+                                                artifactTier1={
+                                                    (userTeam === TeamVals.LEFT
+                                                        ? snapshot.rightArtifactTier1
+                                                        : snapshot.leftArtifactTier1) ?? 0
+                                                }
+                                                artifactTier2={
+                                                    (userTeam === TeamVals.LEFT
+                                                        ? snapshot.rightArtifactTier2
+                                                        : snapshot.leftArtifactTier2) ?? 0
+                                                }
                                                 opponentLabel={t("Opponent")}
                                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                                 onInspect={beginAugmentInspect}
