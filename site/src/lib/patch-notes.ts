@@ -97,13 +97,13 @@ export const patchNotes = {
         {
             version: "v0.7.0",
             date: "10/20/2026",
-            commit: "aefb3f18",
-            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
+            commit: "023163a8",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
             commits: [
                 {
                     label: "client",
-                    commit: "aefb3f18",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
+                    commit: "023163a8",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
                 },
                 {
                     label: "common",
@@ -493,13 +493,13 @@ export const patchNotes = {
         {
             version: "v0.7.0",
             date: "20.10.2026",
-            commit: "aefb3f18",
-            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
+            commit: "023163a8",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
             commits: [
                 {
                     label: "клиент",
-                    commit: "aefb3f18",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/aefb3f181b42fb8846132d228e649436a32e61ac",
+                    commit: "023163a8",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
                 },
                 {
                     label: "common",
