@@ -9107,6 +9107,9 @@ export class RenderableUnit extends Unit {
     }
     public startSpawnAnimation(_scale: number): void {
         if (!this.sprite || !this.shadow) return;
+        // Resurrection reuses the dying body. Release its held corpse frame before fading it back in,
+        // including creatures whose authored animations disable the generic spawn motion below.
+        if (this.oneShotAnim?.stateName === "death") this.returnToIdleAnimation();
         const props = this.getUnitProperties();
         const unitName = props.name;
         if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
