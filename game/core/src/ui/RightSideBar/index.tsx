@@ -18,7 +18,7 @@ import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
+import React, { useEffect, useState, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -148,16 +148,11 @@ export default function RightSideBar({
         }
     }, [unitDamageStatistics, gameStarted, damageListViewportHeight]);
 
-    const [barSize, setBarSize] = useState(280);
-
-    const adjustBarSize = useCallback(() => {
-        setBarSize(battleSidebarWidth(windowSize.width, windowSize.height));
-    }, [windowSize]);
+    const barSize = battleSidebarWidth(windowSize.width, windowSize.height);
 
     useEffect(() => {
-        adjustBarSize();
         manager.HomeCamera();
-    }, [adjustBarSize, manager]);
+    }, [windowSize.width, windowSize.height, manager]);
 
     const [attackText, setAttackText] = useState("");
 
@@ -277,6 +272,7 @@ export default function RightSideBar({
     return (
         <Sheet
             className="Sidebar"
+            data-right-sidebar
             sx={{
                 position: "fixed",
                 zIndex: 1, // Lower z-index to allow overlays on top
@@ -534,7 +530,7 @@ export default function RightSideBar({
                     sidebarWidth={barSize}
                     rightStack
                     centerInRow={Boolean(rankedFooter)}
-                    centerMinWidth={premiumFightVisible ? 132 : undefined}
+                    centerMinWidth={rankedFooter ? 224 : premiumFightVisible ? 176 : undefined}
                     center={
                         premiumFightVisible ? (
                             <>

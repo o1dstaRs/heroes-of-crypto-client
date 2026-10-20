@@ -375,6 +375,7 @@ export const PremiumSetupPanel: React.FC<{
                         p: 1,
                         my: setupView ? 0 : 1,
                         minHeight: 0,
+                        flexShrink: setupView ? undefined : 0,
                         overflowY: setupView ? "auto" : undefined,
                     }}
                 >

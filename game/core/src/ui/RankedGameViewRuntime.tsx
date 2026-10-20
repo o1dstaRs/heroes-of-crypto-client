@@ -2427,9 +2427,10 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                             ...hocSidebarImageButtonSx("neutral"),
                             flex: 1,
                             minWidth: 0,
-                            height: "29.25px",
-                            minHeight: "29.25px",
-                            maxHeight: "29.25px",
+                            height: "36px",
+                            minHeight: "36px",
+                            maxHeight: "36px",
+                            fontSize: "0.875rem",
                             py: 0,
                         }}
                     >
@@ -2455,9 +2456,10 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                         ...hocSidebarImageButtonSx("danger"),
                         flex: 1,
                         minWidth: 0,
-                        height: "29.25px",
-                        minHeight: "29.25px",
-                        maxHeight: "29.25px",
+                        height: "36px",
+                        minHeight: "36px",
+                        maxHeight: "36px",
+                        fontSize: "0.875rem",
                         py: 0,
                         ...(deleteArmed ? { fontWeight: "lg", textDecoration: "underline" } : {}),
                     }}
@@ -3141,13 +3143,14 @@ const rankedReadyPlacementButtonSx = {
     ...hocSidebarImageButtonSx("neutral"),
     width: "100%",
     minWidth: 0,
-    height: "39.48px",
-    minHeight: "39.48px",
-    maxHeight: "39.48px",
+    maxWidth: "360px",
+    height: "max(44px, calc(2.2em + 8px))",
+    minHeight: "max(44px, calc(2.2em + 8px))",
+    flexShrink: 0,
     justifySelf: "center",
     py: 0,
     px: 0,
-    fontSize: "clamp(.72rem, 4.65cqw, 1.08rem)",
+    fontSize: "clamp(.875rem, 5cqw, 1.08rem)",
     fontWeight: 880,
     whiteSpace: "nowrap",
     display: "flex",
@@ -3178,7 +3181,7 @@ const rankedReadyPlacementButtonSx = {
     },
 } as const;
 
-const RankedReadyPlacementButton: React.FC<{
+export const RankedReadyPlacementButton: React.FC<{
     canSubmit: boolean;
     ready: boolean;
     snapshot: PlaySnapshot;
@@ -3221,8 +3224,11 @@ const RankedReadyPlacementButton: React.FC<{
                     textAlign: "center",
                     minWidth: 0,
                     overflow: "hidden",
-                    fontSize: "93%",
-                    transform: "translateX(2%)",
+                    fontSize: "inherit",
+                    whiteSpace: "normal",
+                    lineHeight: 1.1,
+                    px: "6px",
+                    py: "4px",
                     textTransform: "uppercase",
                 }}
             >
@@ -3233,9 +3239,9 @@ const RankedReadyPlacementButton: React.FC<{
                     component="span"
                     sx={{
                         position: "relative",
-                        width: "22%",
+                        width: "3.6em",
                         minWidth: 0,
-                        flex: "0 0 22%",
+                        flex: "0 0 3.6em",
                         display: "grid",
                         alignItems: "center",
                         justifyItems: "center",
@@ -3501,10 +3507,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 height: embedded ? "100%" : undefined,
                 minHeight: embedded ? 0 : undefined,
                 maxHeight: embedded ? "none" : "calc(100vh - 24px)",
-                overflowX: embedded ? "visible" : "auto",
-                overflowY: embedded ? "visible" : "auto",
-                scrollbarWidth: embedded ? "none" : undefined,
-                "&::-webkit-scrollbar": embedded ? { display: "none" } : undefined,
+                overflowX: "hidden",
+                overflowY: "auto",
+                scrollbarWidth: "thin",
+                scrollbarGutter: "stable",
                 mx: embedded ? "auto" : undefined,
                 p: 1.25,
                 ...(snapshot.phase === PlayPhase.PLACEMENT ? hocSidebarSectionSx("army") : hocPanelSx),
@@ -3527,7 +3533,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 },
             }}
         >
-            <Stack spacing={1} sx={{ height: "100%", minHeight: 0, flex: "1 1 auto" }}>
+            <Stack spacing={1} sx={{ height: embedded ? "auto" : "100%", minHeight: embedded ? "100%" : 0 }}>
                 <Stack
                     direction="row"
                     spacing={1}

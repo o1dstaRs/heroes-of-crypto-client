@@ -189,6 +189,13 @@ export const GameSystemControls: React.FC<{
         zIndex,
     };
     const leadingGap = 12;
+    const wrappedRowGap = 8;
+    const wrapCenterQuery = `@container game-footer (max-width: ${
+        centerMinWidth + GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX * 2
+    }px)`;
+    const wrapContentQuery = `@container game-footer (max-width: ${
+        centerMinWidth + GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX + leadingGap
+    }px)`;
     // Shrink the two text actions together down to 85%, then give them separate rows. Container
     // queries use the footer's real available width, including fullscreen and browser text scaling.
     const wrapLeadingQuery = `@container game-footer (max-width: ${
@@ -266,7 +273,12 @@ export const GameSystemControls: React.FC<{
                                   },
                                   [stackLeadingQuery]: { gridTemplateColumns: "minmax(0, 1fr)" },
                               }
-                            : {}),
+                            : {
+                                  [wrapCenterQuery]: {
+                                      gridTemplateColumns: "minmax(0, 1fr)",
+                                      rowGap: `${wrappedRowGap}px`,
+                                  },
+                              }),
                     }}
                 >
                     <Box
@@ -277,7 +289,9 @@ export const GameSystemControls: React.FC<{
                             minWidth: 0,
                             flex: leading ? `0 1 ${leading.width}px` : undefined,
                             pointerEvents: leading ? "auto" : "none",
-                            ...(leading ? { [wrapLeadingQuery]: { gridRow: 2 } } : {}),
+                            ...(leading
+                                ? { [wrapLeadingQuery]: { gridRow: 2 } }
+                                : { [wrapCenterQuery]: { display: "none" } }),
                         }}
                     >
                         {leading?.content}
@@ -293,7 +307,9 @@ export const GameSystemControls: React.FC<{
                             alignItems: "center",
                             justifyContent: "center",
                             pointerEvents: center ? "auto" : "none",
-                            ...(leading ? { [wrapLeadingQuery]: { gridColumn: "1 / -1" } } : {}),
+                            ...(leading
+                                ? { [wrapLeadingQuery]: { gridColumn: "1 / -1" } }
+                                : { [wrapCenterQuery]: { gridColumn: 1 } }),
                         }}
                     >
                         {center}
@@ -310,7 +326,7 @@ export const GameSystemControls: React.FC<{
                                       [wrapLeadingQuery]: { gridColumn: 2, gridRow: 2 },
                                       [stackLeadingQuery]: { gridColumn: 1, gridRow: 3 },
                                   }
-                                : {}),
+                                : { [wrapCenterQuery]: { gridColumn: 1, gridRow: 2 } }),
                         }}
                     />
                 </Box>
@@ -318,12 +334,23 @@ export const GameSystemControls: React.FC<{
                 <Box
                     sx={{
                         flex: "1 1 auto",
-                        // Its own line as soon as the plate cannot keep its authored width beside the
-                        // controls; below that threshold this slot no longer fits, and the row wraps.
-                        minWidth: `min(100%, ${centerMinWidth}px)`,
+                        width: "100%",
+                        minWidth: 0,
+                        minHeight: GAME_SYSTEM_CONTROL_SIZE_PX,
+                        boxSizing: "border-box",
                         // The corner row is taken out of flow so the speaker's host node survives a
                         // phase change. This padding is the space it still occupies.
-                        paddingRight: `${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
+                        paddingRight: `${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX + leadingGap}px`,
+                        // Padding is part of the slot's width. Keep the text's own minimum width
+                        // before reserving the corner, then move that corner below the text if needed.
+                        ...(center
+                            ? {
+                                  [wrapContentQuery]: {
+                                      paddingRight: 0,
+                                      paddingBottom: `${GAME_SYSTEM_CONTROL_SIZE_PX + wrappedRowGap}px`,
+                                  },
+                              }
+                            : {}),
                         containerType: "inline-size",
                         display: "flex",
                         alignItems: "center",

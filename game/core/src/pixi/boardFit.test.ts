@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     BATTLEFIELD_HEIGHT_RATIO,
     BATTLE_SIDEBAR_WIDTH_RATIO,
+    BATTLE_SIDEBAR_MIN_WIDTH_PX,
     battleSidebarWidth,
     boardFitHeight,
     boardFitVerticalShift,
@@ -13,6 +14,28 @@ import {
 } from "./boardFit";
 
 describe("battlefield layout", () => {
+    test.each([
+        [1024, 768],
+        [1280, 1024],
+        [1366, 768],
+        [1440, 900],
+        [1512, 982],
+        [1728, 1117],
+        [1920, 1200],
+        [2560, 1600],
+    ])("keeps readable sidebars and a usable board at %s × %s", (width, height) => {
+        const sidebar = battleSidebarWidth(width, height);
+        expect(sidebar).toBeGreaterThanOrEqual(BATTLE_SIDEBAR_MIN_WIDTH_PX);
+        expect(boardFitWidth(width, height)).toBeGreaterThanOrEqual(Math.min(width, height) / 2);
+        expect(boardFitWidth(width, height) + sidebar * 2).toBe(width);
+    });
+
+    test("the readable-width floor does not consume a small window", () => {
+        expect(battleSidebarWidth(0, 0)).toBe(0);
+        expect(boardFitWidth(640, 480)).toBeGreaterThanOrEqual(320);
+        expect(boardFitWidth(480, 640)).toBeGreaterThanOrEqual(240);
+    });
+
     test("narrows both sidebars by 15% and gives their space to the board", () => {
         const width = 3416;
         const height = 1808;

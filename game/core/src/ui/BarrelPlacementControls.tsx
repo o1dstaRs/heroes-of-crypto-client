@@ -43,7 +43,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
     }, [disabled, manager]);
 
     return (
-        <Stack spacing={0.5} sx={{ px: 0.5, py: 0.5 }}>
+        <Stack spacing={0.5} sx={{ px: 0.5, py: 0.5, "& .MuiButton-root": { minHeight: 36, flexShrink: 0 } }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                 <Box
                     component="img"

@@ -11,6 +11,8 @@
 
 /** Sidebars keep 85% of their former width, handing the remaining 15% to the battlefield. */
 export const BATTLE_SIDEBAR_WIDTH_RATIO = 0.85;
+/** Keep desktop controls readable on 4:3 and scaled laptop viewports. */
+export const BATTLE_SIDEBAR_MIN_WIDTH_PX = 256;
 
 /**
  * Painted floor height above its bottom seam in the canonical battlefield artwork (1013px of 1342px),
@@ -34,9 +36,13 @@ export const legacyBoardFitSize = (width: number, height: number): number =>
 export const legacyBattleSidebarWidth = (width: number, height: number): number =>
     Math.max(0, Math.round((width - legacyBoardFitSize(width, height)) / 2));
 
-/** Width of either sidebar after the requested 15% reduction. */
+/** Preserve the narrower rails where they fit, with a control-width floor capped at a quarter screen. */
 export const battleSidebarWidth = (width: number, height: number): number =>
-    Math.max(0, Math.round(legacyBattleSidebarWidth(width, height) * BATTLE_SIDEBAR_WIDTH_RATIO));
+    Math.max(
+        0,
+        Math.round(legacyBattleSidebarWidth(width, height) * BATTLE_SIDEBAR_WIDTH_RATIO),
+        Math.min(BATTLE_SIDEBAR_MIN_WIDTH_PX, Math.floor(width / 4)),
+    );
 
 /** Battlefield width between the two equally sized sidebars. */
 export const boardFitWidth = (width: number, height: number): number =>

@@ -120,8 +120,8 @@ export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = fal
                 position: inline ? "relative" : "absolute",
                 right: inline ? undefined : "calc(100% + 12px)",
                 bottom: inline ? undefined : 0,
-                width: inline ? "min(132px, 100%)" : "126px",
-                height: "35.2px",
+                width: inline ? "min(8.25rem, 100%)" : "7.875rem",
+                height: "max(36px, 2.25rem)",
                 containerType: "inline-size",
                 display: inline && !visible ? "none" : "flex",
                 flexShrink: 0,
@@ -153,8 +153,8 @@ export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boole
                 right: inline ? undefined : "calc(100% + 10px)",
                 top: inline ? undefined : "50%",
                 transform: inline ? undefined : "translateY(-50%)",
-                width: compact ? 132 : 168,
-                height: compact ? 35.2 : PREMIUM_SEARCH_HEIGHT_PX,
+                width: compact ? "8.25rem" : 168,
+                height: compact ? "max(36px, 2.25rem)" : PREMIUM_SEARCH_HEIGHT_PX,
                 containerType: "inline-size",
                 display: visible ? "flex" : "none",
                 alignItems: "center",
@@ -371,21 +371,21 @@ export const PremiumSearch: React.FC<{
             aria-controls={open ? searchId : undefined}
             variant="solid"
             size={compact ? "sm" : "lg"}
-            startDecorator={<PremiumIcon size={compact ? "min(1rem, 12.7cqw)" : 20} />}
+            startDecorator={<PremiumIcon size={compact ? 16 : 20} />}
             onClick={() => setOpen((previous) => !previous)}
             sx={{
                 fontFamily: hocFontFamily,
-                fontSize: compact ? "min(0.78rem, 9.9cqw)" : "0.95rem",
+                fontSize: compact ? "0.8125rem" : "0.95rem",
                 position: "relative",
                 width: "100%",
                 minWidth: 0,
                 flexShrink: 0,
                 zIndex: 1100,
-                height: compact ? "clamp(30px, 27.94cqw, 35.2px)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
-                minHeight: compact ? "clamp(30px, 27.94cqw, 35.2px)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
+                height: compact ? "max(36px, 2.25rem)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
+                minHeight: compact ? "max(36px, 2.25rem)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
                 lineHeight: 1,
                 "--Button-gap": compact ? "4px" : "8px",
-                px: compact ? "min(8px, 6.35cqw)" : 1.5,
+                px: compact ? "8px" : 1.5,
                 whiteSpace: "nowrap",
                 cursor: "var(--hoc-cursor-interactive), pointer",
             }}

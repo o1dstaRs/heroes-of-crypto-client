@@ -35,13 +35,14 @@ export const PremiumFightControls: React.FC = () => {
                 startDecorator={
                     <Typography
                         startDecorator={<PremiumIcon size={14} />}
-                        sx={{ color: "#efcfaf", fontFamily: hocFontFamily, fontSize: "0.72rem" }}
+                        sx={{ color: "#efcfaf", fontFamily: hocFontFamily, fontSize: "0.8125rem" }}
                     >
                         {t("Suggested moves")}
                     </Typography>
                 }
                 sx={{
                     flexShrink: 0,
+                    minHeight: 36,
                     "--Switch-trackWidth": "30px",
                     "--Switch-trackHeight": "18px",
                     "--Switch-thumbSize": "12px",
