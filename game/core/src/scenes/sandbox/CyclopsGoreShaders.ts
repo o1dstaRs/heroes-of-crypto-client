@@ -7,6 +7,7 @@ uniform vec4 uColor;
 const hash = `float hash(float p) { return fract(sin(p * 127.1 + 311.7) * 43758.5453); }`;
 
 export const GORE_VERTEX = `
+precision highp float;
 in vec2 aPosition;
 in vec2 aCenter;
 in vec2 aCorner;
@@ -62,6 +63,7 @@ void main() {
 }`;
 
 export const GORE_FRAGMENT = `
+precision highp float;
 in vec2 vUV;
 in vec2 vCenterUV;
 in vec2 vCorner;
@@ -91,6 +93,7 @@ void main() {
 }`;
 
 export const GORE_MIST_VERTEX = `
+precision highp float;
 in vec2 aPosition;
 in vec2 aUV;
 out vec2 vPoint;
@@ -102,6 +105,7 @@ void main() {
 }`;
 
 export const GORE_MIST_FRAGMENT = `
+precision highp float;
 in vec2 vPoint;
 out vec4 finalColor;
 uniform vec4 uColor;

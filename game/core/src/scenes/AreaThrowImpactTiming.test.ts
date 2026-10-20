@@ -49,7 +49,8 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
             getCumulativeHp: () => unit.amount * 10,
             isDead: () => unit.amount <= 0,
             getAbility: (name: string) => (id === "giant" && name === "Double Throw" ? {} : undefined),
-            hasAbilityActive: (name: string) => id === "giant" && name === "Area Throw",
+            hasAbilityActive: (name: string) =>
+                id === "giant" && name === (shooter === "Cyclops" ? "Large Caliber" : "Area Throw"),
             hasAnimationState: () => false,
             playCyclopsLabRangedThrow: () => false,
         });
@@ -465,3 +466,48 @@ test.each(["Cyclops", "Gargantuan"])(
         expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
     },
 );
+
+test("a Cyclops counter owns only its enemy splash deaths at its boulder's contact", async () => {
+    const f = fixture(false, "Cyclops");
+    f.near.getName = () => "Elf";
+    const splash = [
+        { unitId: "giant", position: f.giant.getPosition(), amount: 1, unitsDied: 0 },
+        { unitId: "near", position: f.near.getPosition(), amount: 30, unitsDied: 3 },
+        { unitId: "far", position: f.far.getPosition(), amount: 30, unitsDied: 3 },
+    ];
+    const pending = f.scene.playCombatExchange(
+        f.near,
+        f.giant,
+        { ...f.areaEvent, type: "unit_attacked", attackType: "range", damage: { amount: 1, splash } },
+        [
+            { attackerId: "near", targetId: "giant", amount: 1, unitsDied: 0, response: false, hitIndex: 0 },
+            {
+                attackerId: "giant",
+                targetId: "near",
+                amount: 30,
+                unitsDied: 3,
+                lethal: true,
+                response: true,
+                hitIndex: 0,
+            },
+        ],
+        (unit: RenderableUnit) => f.events.push(`${unit.getId()}:death`),
+        new Map(f.units),
+        [],
+        false,
+        { amountsBefore: new Map([...f.units.keys()].map((id) => [id, 3])), deadIds: new Set(["near", "far"]) },
+    );
+    await flush();
+    expect(f.shots).toHaveLength(2);
+    f.advance(0.99);
+    expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+    f.advance(0.02);
+    await pending;
+    expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["near:gore", "far:gore"]);
+    expect(f.events.filter((entry) => entry.endsWith(":death")).sort()).toEqual(["far:death", "near:death"]);
+    expect(f.events.filter((entry) => entry.startsWith("damage:")).sort()).toEqual([
+        "damage:1",
+        "damage:30",
+        "damage:30",
+    ]);
+});

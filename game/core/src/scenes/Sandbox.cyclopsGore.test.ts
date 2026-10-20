@@ -32,6 +32,7 @@ const fixture = (ranked = false) => {
             getTeam: () => TeamVals.RIGHT,
             getPosition: () => ({ x, y: 128 }),
             getVisualCenter: () => ({ x, y: 190 }),
+            getAnimationTextureKey: (): string | undefined => undefined,
             getDamagePredictionAnchor: () => ({ x, y: 128 }),
             getStaticBattlefieldPreviewAt: () => pose,
             getAmountAlive: () => 3,
@@ -47,10 +48,12 @@ const fixture = (ranked = false) => {
         b = actor("b", 400);
     const units = new Map([a, b].map((unit) => [unit.getId(), unit]));
     const attacker = {
+        ...actor("cyclops", -200),
         getName: () => "Cyclops",
         getId: () => "cyclops",
         getTeam: () => TeamVals.LEFT,
         getVisualCenter: () => ({ x: -200, y: 200 }),
+        hasAbilityActive: (name: string) => name === "Large Caliber",
     };
     const visuals = new CombatVisuals({
         getGridSettings: () => gs,
@@ -67,12 +70,16 @@ const fixture = (ranked = false) => {
     const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
         combatVisuals: visuals,
         sc_sceneSettings: { getGridSettings: () => gs },
+        unitsHolder: { getAllUnits: () => units },
         dyingVisualUnits: new Set(),
         isSceneDestroyed: () => false,
         renderAreaImpactVfx: () => {},
         popRecordedDullingDefense: () => {},
         showGravechainVfx: () => {},
         playUnitCombatSound: () => {},
+        prepareDirectionalAttackState: () => "attack",
+        spawnBorrowedGraceVfx: () => {},
+        waitForProjectileHitReaction: () => Promise.resolve(),
         offsetReplayDamagePosition: (center: unknown) => center,
         playReplayOneShot: mock(() => Promise.resolve()),
         pyreDeaths: { play: explosions },
@@ -100,7 +107,7 @@ const fixture = (ranked = false) => {
         world.destroy({ children: true });
         texture.destroy(true);
     };
-    return { world, texture, a, b, units, attacker, visuals, scene, explosions, impact, hit, cleanup };
+    return { world, texture, a, b, actor, units, attacker, visuals, scene, explosions, impact, hit, cleanup };
 };
 
 test.each([false, true])(
@@ -158,6 +165,100 @@ test("a captured kill pose survives scratch reuse and resurrection permits a lat
         f.visuals.noteCyclopsKill(f.attacker, unit, { x: 1, y: 0 });
         expect(f.visuals.playCyclopsGoreDeath(unit)).toBe(true);
         expect(f.world.children).toHaveLength(2);
+    } finally {
+        f.cleanup();
+    }
+});
+
+test("a stolen Chakram keeps Cyclops collateral at primary impact and its bounce death at ricochet contact", async () => {
+    const f = fixture();
+    const collateral = f.actor("c", 600);
+    f.units.set("c", collateral);
+    let primaryContact!: () => void;
+    let bounceContact!: () => void;
+    f.scene.playReplayProjectile = (_source: unknown, _victim: unknown, _target: unknown, impact: () => void) =>
+        new Promise<void>((resolve) => {
+            primaryContact = () => {
+                impact();
+                resolve();
+            };
+        });
+    const splash = [f.a, f.b, collateral].map((victim) => ({
+        ...f.hit(victim.getId()),
+        position: victim.getPosition(),
+    }));
+    f.scene.playChakramArcs = (
+        _source: unknown,
+        _damage: unknown,
+        _victim: unknown,
+        _units: unknown,
+        _skipPrimary: unknown,
+        impact: (id: string, hit: (typeof splash)[number], direction: { x: number; y: number }) => void,
+    ) =>
+        new Promise<void>((resolve) => {
+            bounceContact = () => {
+                impact("b", splash[1], { x: 1, y: 0 });
+                resolve();
+            };
+        });
+    const flush = async () => {
+        for (let i = 0; i < 24; i++) await Promise.resolve();
+    };
+    try {
+        const pending = f.scene.playCombatExchange(
+            f.attacker,
+            f.a,
+            {
+                attackType: "range",
+                unitIdsDied: ["a", "b", "c"],
+                animations: [],
+                damage: {
+                    amount: 100,
+                    splash,
+                    chakramFlights: [
+                        {
+                            attackerId: "cyclops",
+                            primaryTargetId: "a",
+                            response: false,
+                            hitIndex: 0,
+                            splash,
+                            arcs: [{ targetUnitId: "b", hitUnitIds: ["b"], cells: [] }],
+                        },
+                    ],
+                },
+            },
+            [
+                {
+                    attackerId: "cyclops",
+                    targetId: "a",
+                    amount: 100,
+                    unitsDied: 3,
+                    lethal: true,
+                    response: false,
+                    hitIndex: 0,
+                },
+            ],
+            (victim: RenderableUnit) => f.scene.playCustomDeathAnimation(victim),
+            f.units,
+            [],
+            false,
+            {
+                amountsBefore: new Map(["a", "b", "c"].map((id) => [id, 3])),
+                deadIds: new Set(["a", "b", "c"]),
+            },
+        );
+        await flush();
+        expect(f.world.children).toHaveLength(0);
+        primaryContact();
+        await flush();
+        expect(f.world.children.filter((root) => root.label === "cyclops-gore")).toHaveLength(2);
+        expect(f.a.destroyVisuals).toHaveBeenCalledTimes(1);
+        expect(collateral.destroyVisuals).toHaveBeenCalledTimes(1);
+        expect(f.b.destroyVisuals).not.toHaveBeenCalled();
+        bounceContact();
+        await pending;
+        expect(f.world.children.filter((root) => root.label === "cyclops-gore")).toHaveLength(3);
+        expect(f.b.destroyVisuals).toHaveBeenCalledTimes(1);
     } finally {
         f.cleanup();
     }

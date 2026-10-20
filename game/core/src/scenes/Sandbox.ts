@@ -4912,31 +4912,61 @@ export class Sandbox extends PixiScene {
         this.preparePyreDeaths?.(dullingEvents ?? [], capturedUnits ?? this.snapshotRenderableUnits());
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
         const remainingAmounts = new Map(deathState?.amountsBefore);
-        const areaThrowWaves =
-            event.attackType === "range" && attacker.hasAbilityActive?.("Area Throw") && event.damage?.splash
-                ? this.splitTargetedAreaThrowWaves(attacker, event, plan, units)
-                : undefined;
+        const areaThrowWaves = new Map<string, NonNullable<IVisibleDamage["splash"]>[]>();
+        if (event.attackType === "range" && event.damage?.splash) {
+            for (const strike of plan) {
+                const source = units.get(strike.attackerId) as RenderableUnit | undefined;
+                if (
+                    !source ||
+                    areaThrowWaves.has(source.getId()) ||
+                    !(source.hasAbilityActive?.("Area Throw") || source.hasAbilityActive?.("Large Caliber"))
+                )
+                    continue;
+                const flights = event.damage.chakramFlights?.filter(
+                    (flight) => flight.attackerId === source.getId() && flight.response === strike.response,
+                );
+                const waves = flights?.length
+                    ? Array.from(
+                          { length: Math.max(...flights.map((flight) => flight.hitIndex)) + 1 },
+                          (_, index) => flights.find((flight) => flight.hitIndex === index)?.splash ?? [],
+                      )
+                    : this.splitTargetedAreaThrowWaves(source, event, plan, units, strike.response);
+                // Old recordings may lack counter-splash numbers; retain their ordinary primary reaction.
+                if (waves.some((wave) => wave.length)) areaThrowWaves.set(source.getId(), waves);
+            }
+        }
         for (const [id, unit] of units) {
             if (unit instanceof RenderableUnit) {
                 unit.continueDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
-                if (areaThrowWaves && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
+                if (areaThrowWaves.size && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
             }
-            if (areaThrowWaves && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
+            if (areaThrowWaves.size && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
         }
-        const cyclopsKills =
-            event.attackType === "range" && attacker.getName() === "Cyclops"
-                ? cyclopsMultiKillTargets(
-                      attacker,
-                      areaThrowWaves ?? [
-                          plan
-                              .filter((strike) => !strike.response)
-                              .map((strike) => ({ ...strike, unitId: strike.targetId })),
-                      ],
-                      remainingAmounts,
-                      deathState?.deadIds ?? new Set(event.unitIdsDied),
-                      units,
-                  )
-                : new Set<string>();
+        const cyclopsKills = new Map<string, ReadonlySet<string>>();
+        if (event.attackType === "range") {
+            for (const strike of plan) {
+                const source = units.get(strike.attackerId);
+                if (!source || source.getName() !== "Cyclops" || cyclopsKills.has(source.getId())) continue;
+                const flights = event.damage?.chakramFlights?.filter((flight) => flight.attackerId === source.getId());
+                cyclopsKills.set(
+                    source.getId(),
+                    cyclopsMultiKillTargets(
+                        source,
+                        areaThrowWaves.get(source.getId()) ??
+                            (flights?.length
+                                ? flights.map((flight) => flight.splash)
+                                : [
+                                      plan
+                                          .filter((hit) => hit.attackerId === source.getId())
+                                          .map((hit) => ({ ...hit, unitId: hit.targetId })),
+                                  ]),
+                        remainingAmounts,
+                        deathState?.deadIds ?? new Set(event.unitIdsDied),
+                        units,
+                    ),
+                );
+            }
+        }
         const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
             const before = remainingAmounts.get(unitId);
             if (before === undefined) return undefined;
@@ -4980,8 +5010,8 @@ export class Sandbox extends PixiScene {
                     .map((id) => (units.get(id) as RenderableUnit | undefined)?.getAnimationTextureKey("cast"))
                     .filter((key): key is string => !!key)
                     .map((key) => this.waitForTexture(key)),
-                ...(areaThrowWaves ?? [])
-                    .flat()
+                ...[...areaThrowWaves.values()]
+                    .flat(2)
                     .flatMap((hit) => {
                         const unit = units.get(hit.unitId) as RenderableUnit | undefined;
                         return [
@@ -5174,15 +5204,17 @@ export class Sandbox extends PixiScene {
                             theftsShown.add(source.getId());
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
-                        if (areaThrowWaves && !strike.response) {
-                            reaction = this.playAreaThrowImpact(source, areaThrowWaves[strike.hitIndex] ?? [], {
+                        const waves = areaThrowWaves.get(source.getId());
+                        if (waves && !isChakramFlight) {
+                            reaction = this.playAreaThrowImpact(source, waves[strike.hitIndex] ?? [], {
                                 damage: event.damage,
                                 hitIndex: strike.hitIndex,
                                 units,
                                 remainingAmounts,
                                 deadIds: deathState?.deadIds ?? new Set(event.unitIdsDied),
                                 onDeath: presentDeath,
-                                cyclopsKills,
+                                cyclopsKills: cyclopsKills.get(source.getId()),
+                                response: strike.response,
                                 events: dullingEvents,
                                 activeAttacks,
                             });
@@ -5269,9 +5301,24 @@ export class Sandbox extends PixiScene {
                                 (strike.response ? undefined : event.damage.missed);
                             // Other AOE losses occur at primary contact. Count them before a later disc can
                             // bounce into that stack, while the bridge victims are counted at their own impact.
-                            for (const hit of flight?.splash ?? []) {
-                                if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
-                                    consumeLoss(hit.unitId, hit.unitsDied);
+                            const collateral = (flight?.splash ?? []).filter(
+                                (hit) => hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId),
+                            );
+                            if (cyclopsKills.get(source.getId())?.size) {
+                                reaction = this.playAreaThrowImpact(source, collateral, {
+                                    damage: event.damage,
+                                    hitIndex: strike.hitIndex,
+                                    response: strike.response,
+                                    units,
+                                    remainingAmounts,
+                                    deadIds: deathState?.deadIds ?? new Set(event.unitIdsDied),
+                                    onDeath: presentDeath,
+                                    cyclopsKills: cyclopsKills.get(source.getId()),
+                                    events: dullingEvents,
+                                    activeAttacks,
+                                });
+                            } else {
+                                for (const hit of collateral) consumeLoss(hit.unitId, hit.unitsDied);
                             }
                             // Begin at contact and finish the return before the next blow. The primary number
                             // is owned by this exchange; the flight owns only its bounce numbers.
@@ -5315,14 +5362,17 @@ export class Sandbox extends PixiScene {
                                         (remaining === 0 ||
                                             (lastLegacyFlight && before !== undefined && legacyLoss >= before))
                                     ) {
-                                        const killed = units.get(unitId);
-                                        if (killed && !shownDeaths.has(unitId))
+                                        const killed = units.get(unitId) as RenderableUnit | undefined;
+                                        if (killed && !shownDeaths.has(unitId)) {
+                                            if (cyclopsKills.get(source.getId())?.has(unitId))
+                                                this.combatVisuals.noteCyclopsKill?.(source, killed, direction);
                                             this.combatVisuals.noteZenaKill?.(
                                                 source,
                                                 killed,
                                                 direction,
                                                 zenaCutTargets.get(unitId),
                                             );
+                                        }
                                         presentDeath(unitId);
                                     }
                                 },
@@ -5335,7 +5385,7 @@ export class Sandbox extends PixiScene {
                                 receivedDamage &&
                                 remaining === 0 &&
                                 renderedVictim &&
-                                cyclopsKills.has(strike.targetId) &&
+                                cyclopsKills.get(source.getId())?.has(strike.targetId) &&
                                 !shownDeaths.has(strike.targetId)
                             ) {
                                 this.combatVisuals.noteCyclopsKill?.(source, renderedVictim, direction);
@@ -5379,7 +5429,8 @@ export class Sandbox extends PixiScene {
                             // A hit animation cancels an authored shot. Preserve the simultaneous outgoing action
                             // before reacting; damage, casualties and sounds still occur at projectile contact.
                             const outgoing = activeAttacks.get(strike.targetId);
-                            reaction = outgoing ? outgoing.then(showReaction) : showReaction();
+                            const hitReaction = outgoing ? outgoing.then(showReaction) : showReaction();
+                            reaction = Promise.all([reaction, hitReaction]).then(() => {});
                         }
                     };
                     try {
@@ -5429,7 +5480,7 @@ export class Sandbox extends PixiScene {
                 }),
             );
         }
-        if (areaThrowWaves && deathState) {
+        if (areaThrowWaves.size && deathState) {
             for (const id of event.unitIdsDied) {
                 const unit = units.get(id);
                 if (!deathState.deadIds.has(id) && unit instanceof RenderableUnit) unit.clearDamagePresentation();
@@ -5449,10 +5500,14 @@ export class Sandbox extends PixiScene {
         event: Extract<GameEvent, { type: "unit_attacked" }>,
         plan: readonly CombatExchangeStrike[],
         units: ReadonlyMap<string, Unit>,
+        response = false,
     ): NonNullable<IVisibleDamage["splash"]>[] {
         const gs = this.sc_sceneSettings.getGridSettings();
-        const splash = [...(event.damage.splash ?? [])];
-        const counterHits = (event.damage.chakramFlights ?? [])
+        const splash = (event.damage.splash ?? []).filter((hit) => {
+            const team = units.get(hit.unitId)?.getTeam();
+            return team === undefined || team !== attacker.getTeam();
+        });
+        const counterHits = (response ? [] : (event.damage.chakramFlights ?? []))
             .filter((flight) => flight.response)
             .flatMap((flight) => flight.splash);
         for (const hit of counterHits) {
@@ -5474,7 +5529,9 @@ export class Sandbox extends PixiScene {
         const animations = event.animations.filter(
             (animation) => animation.fromPosition?.x === source.x && animation.fromPosition.y === source.y,
         );
-        const outgoing = plan.filter((strike) => !strike.response);
+        const outgoing = plan.filter(
+            (strike) => strike.attackerId === attacker.getId() && strike.response === response,
+        );
         const footprints = outgoing.map((strike) => {
             const target = units.get(strike.targetId);
             const aim = animations[strike.hitIndex]?.toPosition ?? strike.position ?? target?.getPosition();
@@ -5518,6 +5575,7 @@ export class Sandbox extends PixiScene {
             events?: readonly GameEvent[];
             activeAttacks?: ReadonlyMap<string, Promise<void>>;
             cyclopsKills?: ReadonlySet<string>;
+            response?: boolean;
         },
     ): Promise<void> {
         if (this.isSceneDestroyed()) return Promise.resolve();
@@ -5534,7 +5592,7 @@ export class Sandbox extends PixiScene {
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
             this.showGravechainVfx(
                 context.damage,
-                { attackerId: attacker.getId(), response: false, hitIndex: context.hitIndex },
+                { attackerId: attacker.getId(), response: context.response ?? false, hitIndex: context.hitIndex },
                 context.units,
                 new Set([hit.unitId]),
             );

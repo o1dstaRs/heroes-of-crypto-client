@@ -26,6 +26,26 @@ const fixture = (stretch = 1) => {
     return { world, texture, pose, effect, spawn, particles, cleanup };
 };
 
+test("shared animation uniforms and seeded noise keep high precision in both WebGL stages", () => {
+    const f = fixture();
+    try {
+        f.spawn();
+        for (const label of ["meat-fragments", "blood-mist"]) {
+            const mesh = f.world.children[0].children.find((child) => child.label === label) as Mesh;
+            const program = mesh.shader!.glProgram!;
+            // Pixi defaults vertex floats to highp and fragment floats to mediump.
+            // A shared uTime with those defaults fails to link; mediump also ruins the noise hash.
+            for (const source of [program.vertex, program.fragment]) {
+                // Pixi may prepend a fallback before the shader's explicit declaration.
+                const precision = [...(source?.matchAll(/precision\s+(\w+)\s+float\s*;/g) ?? [])].at(-1)?.[1];
+                expect(precision).toBe("highp");
+            }
+        }
+    } finally {
+        f.cleanup();
+    }
+});
+
 test("thousands of alpha-masked particles share immutable GPU buffers across victims and frames", () => {
     const f = fixture();
     try {
