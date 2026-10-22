@@ -1,4 +1,10 @@
-import { CreatureLevelList, Doctrine, getVisibleDraftBans, LIVE_PICK_PHASES } from "@heroesofcrypto/common";
+import {
+    CreatureLevelList,
+    Doctrine,
+    getVisibleDraftBans,
+    LIVE_AUTO_BANS_BY_LEVEL,
+    LIVE_PICK_PHASES,
+} from "@heroesofcrypto/common";
 import { afterEach, expect, mock, test } from "bun:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
@@ -42,6 +48,18 @@ test("the ban summary has Russian labels and explanatory copy", () => {
     setLanguage("ru");
     expect(render([])).toContain("Баны открываются по мере появления выбора каждого уровня существ.");
     const html = render(bans);
-    expect(html).toContain("Показаны только уже раскрытые баны.");
-    expect(html).not.toContain("Only revealed bans");
+    expect(html).toContain("Забаненные существа");
+    expect(html).toContain("Уровень 4");
+});
+
+test("all twenty scouting bans are visible immediately, without opening a drawer", () => {
+    const complete = LIVE_AUTO_BANS_BY_LEVEL.flatMap((count, index) => CreatureLevelList[index + 1].slice(0, count));
+    for (const doctrine of [Doctrine.Doctrine.THREE_REVEALS, Doctrine.Doctrine.SEE_ALL]) {
+        const html = render(getVisibleDraftBans(complete, levels, 0, doctrine));
+        expect(html).toContain("<section");
+        expect(html).not.toContain("<details");
+        expect(html).not.toContain("<summary");
+        expect(html.match(/<li /g)).toHaveLength(20);
+        for (const id of complete) expect(html).toContain(`aria-label="${UNIT_ID_TO_NAME[id]}"`);
+    }
 });

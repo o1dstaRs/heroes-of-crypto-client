@@ -129,3 +129,15 @@ test("missing or unknown artifacts leave safe empty slots in the setup recap", (
     expect(html).toContain('aria-label="Tier-1 artifact: none picked"');
     expect(html).toContain('aria-label="Tier-2 artifact: none picked"');
 });
+
+test("scouting bans stay between the armies and the choices throughout picks", () => {
+    for (const doctrine of [1, 2]) {
+        for (const pickPhase of [PickPhaseVals.INITIAL_PICK, PickPhaseVals.PICK, PickPhaseVals.ARTIFACT_2]) {
+            const html = render({ ...draft, doctrine, pickPhase, requiredLevel: 1, banned: [CreatureLevelList[4][0]] });
+            const bans = html.indexOf('data-testid="draft-ban-summary"');
+            expect(bans).toBeGreaterThan(html.indexOf('data-testid="draft-armies-zone"'));
+            expect(bans).toBeLessThan(html.indexOf('data-testid="draft-choice-action-zone"'));
+            expect(html).not.toContain("<details");
+        }
+    }
+});

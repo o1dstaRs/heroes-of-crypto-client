@@ -3420,6 +3420,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </>
                     )}
 
+                    {pickPhase !== PickPhaseVals.DOCTRINE && <DraftBanSummary banned={banned} />}
+
                     <Box
                         data-testid="draft-choice-action-zone"
                         sx={{
@@ -3511,7 +3513,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     userTeam={userTeam}
                     draftScale={draftScale}
                 />
-                <DraftBanSummary banned={banned} />
                 <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="right">
                     <Typography
                         component="a"
