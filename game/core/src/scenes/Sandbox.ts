@@ -8433,6 +8433,7 @@ export class Sandbox extends PixiScene {
         // Ranked skips the post-place re-hydrate that would otherwise prune these maps.
         this.placementBenchBaseHitBoxes.delete(unit.getId());
         this.placementBenchHitBoxes.delete(unit.getId());
+        if (!this.placementBenchHitBoxes.size) this.clearPlacementBench();
         this.layoutVersion++;
         this.refreshSynergyNumbers(unit.getTeam());
         this.refreshUnits();
