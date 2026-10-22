@@ -17734,6 +17734,14 @@
             "sha256": "e1ccda89c2de6c9e9db6c8fb068c057d0782c02e67151f37a0c306a795c11145",
             "bytes": 32158
         },
+        "images/ember_covenant_blessing_256.webp": {
+            "sha256": "aedeac9e3285303d61f661443d39c7652d837f779376cba33fcb304f2e948ca5",
+            "bytes": 37392
+        },
+        "images/ember_covenant_ring.webp": {
+            "sha256": "219a1a255b33e2fce86290cc1dddd6d5dbaedb557649ec07eb0a80c436efffe6",
+            "bytes": 191424
+        },
         "images/empower_augment_256.webp": {
             "sha256": "f9dfb48257eaa77aa646e75c8d9a0a702f335e6d3b45884ce442cff0ca37c4cc",
             "bytes": 12712

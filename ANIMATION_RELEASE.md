@@ -2,7 +2,7 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,672 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,674 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
@@ -46,6 +46,13 @@ dark-background visual comparison and verified synchronization receipt are in
 Do not substitute differently hashed source atlases for the approved rendered copies. In particular,
 the Nightmare quarter-resolution attacks and Troglodyte walk variants intentionally retain the
 approved bytes that the running local sandbox used.
+
+The 2026-10-22 Ember Covenant supplement adds `ember_covenant_blessing_256.webp` and
+`ember_covenant_ring.webp`. Copy these two files from the shared Drive source package
+`heroesofcrypto/image-sources/hydra-ember-covenant/2026-10-22-v3` into the restored release's
+`heroesofcrypto-assets/images` directory. Their approved hashes and sizes are pinned in the release
+manifest. The source package also preserves the prompts, reference artwork, processing recipe,
+previous icon and an interactive preview of the flag-centered fire effect.
 
 ## Build and publish
 
