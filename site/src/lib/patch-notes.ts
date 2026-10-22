@@ -95,7 +95,7 @@ const releaseCandidateRoster: PatchNote["roster"] = [
 export const patchNotes = {
     en: [
         {
-            version: "v0.7.0",
+            version: "v0.1.7",
             date: "10/20/2026",
             commit: "023163a8",
             href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
@@ -148,7 +148,7 @@ export const patchNotes = {
             ],
             roster: [],
             closing:
-                "Version 0.7.0 keeps the same four factions and 57 creatures, and makes the aim, the artifacts, and the numbers on the board the ones the fight uses.",
+                "Version 0.1.7 keeps the same four factions and 57 creatures, and makes the aim, the artifacts, and the numbers on the board the ones the fight uses.",
         },
         {
             version: "v0.1.6",
@@ -491,7 +491,7 @@ export const patchNotes = {
     ] satisfies PatchNote[],
     ru: [
         {
-            version: "v0.7.0",
+            version: "v0.1.7",
             date: "20.10.2026",
             commit: "023163a8",
             href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
@@ -544,7 +544,7 @@ export const patchNotes = {
             ],
             roster: [],
             closing:
-                "Версия 0.7.0 сохраняет те же четыре фракции и 57 существ и приводит прицел, артефакты и числа на поле к тем, которыми идет бой.",
+                "Версия 0.1.7 сохраняет те же четыре фракции и 57 существ и приводит прицел, артефакты и числа на поле к тем, которыми идет бой.",
         },
         {
             version: "v0.1.6",
