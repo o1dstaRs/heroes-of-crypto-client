@@ -97,18 +97,18 @@ export const patchNotes = {
         {
             version: "v0.1.7",
             date: "10/20/2026",
-            commit: "023163a8",
-            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
+            commit: "fcabde35",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
             commits: [
                 {
                     label: "client",
-                    commit: "023163a8",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
+                    commit: "fcabde35",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
                 },
                 {
                     label: "common",
-                    commit: "6006707f",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/6006707f1901ae904d6be6716f683021251152c0",
+                    commit: "e9568286",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/e95682869bcce881195a0a1d31208fe89189170c",
                 },
             ],
             title: "Live aim, four artifacts, and a clearer board",
@@ -493,18 +493,18 @@ export const patchNotes = {
         {
             version: "v0.1.7",
             date: "20.10.2026",
-            commit: "023163a8",
-            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
+            commit: "fcabde35",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
             commits: [
                 {
                     label: "клиент",
-                    commit: "023163a8",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/023163a8bc9dc69f32623832e0ffd7c9e84bdcb0",
+                    commit: "fcabde35",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
                 },
                 {
                     label: "common",
-                    commit: "6006707f",
-                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/6006707f1901ae904d6be6716f683021251152c0",
+                    commit: "e9568286",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/e95682869bcce881195a0a1d31208fe89189170c",
                 },
             ],
             title: "Живой прицел, четыре артефакта и более ясное поле",
