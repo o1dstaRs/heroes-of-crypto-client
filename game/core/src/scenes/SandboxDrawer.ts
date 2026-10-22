@@ -430,6 +430,8 @@ export interface IPlacementDrawContext {
     hoverManager: HoverManager;
     placementGraphics?: Graphics;
     placementFrameContainer?: Container;
+    /** Cached deployment wash. Lives under the hover graphics so a frame pulse does not rebuild it. */
+    placementWashContainer?: Container;
     /**
      * When set, only this team's placement zone is drawn. Ranked play uses it so the viewer
      * never sees the opponent's placement area — revealed enemy units are shown there instead.
@@ -733,24 +735,32 @@ export class SandboxDrawer {
             hoverManager,
             placementGraphics,
             placementFrameContainer,
+            placementWashContainer,
             restrictToTeam,
             showTeamPlacementZones = true,
         } = ctx;
         if (!placementGraphics || !placementFrameContainer) return;
         const g = placementGraphics;
         g.clear();
-        // Remove transient 9-slice frames together with the glow geometry so a hidden or resized
-        // deployment zone can never leave stale light on the board. Frames live in a Container because
-        // Pixi v8 deprecates adding display-object children directly to Graphics.
-        placementFrameContainer.removeChildren();
+        // The gold frame and the zone wash are cached on the placement objects. Detaching them every
+        // frame (removeChildren + re-add) rebuilt Pixi's render groups for the whole placement phase
+        // and flickered the frame. Drop them only when the zone is actually hidden.
+        const showZones = !fightProps.hasFightStarted() && showTeamPlacementZones;
+        if (placementWashContainer) placementWashContainer.visible = showZones;
         if (!fightProps.hasFightStarted()) {
-            if (showTeamPlacementZones) {
-                placementManager.draw(g, placementFrameContainer, restrictToTeam);
+            if (showZones) {
+                placementManager.draw(g, placementFrameContainer, restrictToTeam, placementWashContainer);
+            } else {
+                placementManager.concealPersistentZones();
+                placementFrameContainer.removeChildren();
             }
             // Under the zones and under the hover preview: an occupied-ground wash must never outrank
             // the cell the player is about to click, and the hover's own footprint reads on top of it.
             SandboxDrawer.drawOccupiedFootprints(g, ctx.occupiedFootprints, ctx.gridSettings);
             hoverManager.drawHoverPlacementCell(g);
+        } else {
+            placementManager.concealPersistentZones();
+            placementFrameContainer.removeChildren();
         }
     }
     private static drawOccupiedFootprints(

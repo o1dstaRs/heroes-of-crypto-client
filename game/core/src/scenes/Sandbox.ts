@@ -961,6 +961,10 @@ export class Sandbox extends PixiScene {
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
     private placementFrameContainer?: Container;
+    /** Deployment wash, under the hover graphics. Its geometry is cached; only its alpha breathes. */
+    private placementWashContainer?: Container;
+    /** Cell + selection key for the last placement hover. Pointer-still frames must not rescan the grid. */
+    private placementHoverKey = "";
     private placementBenchGraphics?: Graphics;
     private placementBenchToggleSprite?: Sprite;
     private placementBenchToggleFallback?: Graphics;
@@ -2539,8 +2543,7 @@ export class Sandbox extends PixiScene {
         });
     }
     public override CameraChanged(): void {
-        this.attachToWorldRoot(this.placementGraphics, 90);
-        this.attachToWorldRoot(this.placementFrameContainer, 90.1);
+        this.attachPlacementLayers(90);
         this.attachToWorldRoot(this.movementGraphics, 49.5);
         this.attachToWorldRoot(this.lavaMovementGraphics, LAVA_MOVEMENT_OVERLAY_Z_INDEX);
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
@@ -2646,8 +2649,14 @@ export class Sandbox extends PixiScene {
     private ensurePlacementGraphicsWorld(): void {
         if (!this.placementGraphics) this.placementGraphics = new Graphics();
         if (!this.placementFrameContainer) this.placementFrameContainer = new Container();
-        this.attachToWorldRoot(this.placementGraphics, 100);
-        this.attachToWorldRoot(this.placementFrameContainer, 100.1);
+        if (!this.placementWashContainer) this.placementWashContainer = new Container();
+        this.attachPlacementLayers(100);
+    }
+    /** Wash under the hover graphics, gold frame above it. The three stay in that order at every z. */
+    private attachPlacementLayers(graphicsZ: number): void {
+        this.attachToWorldRoot(this.placementWashContainer, graphicsZ - 0.5);
+        this.attachToWorldRoot(this.placementGraphics, graphicsZ);
+        this.attachToWorldRoot(this.placementFrameContainer, graphicsZ + 0.1);
     }
     private ensureBackgroundSprite(): void {
         this.dungeonVisuals.ensureBackgroundSprite();
@@ -2794,6 +2803,27 @@ export class Sandbox extends PixiScene {
             this.sc_sceneSettings.getGridSettings(),
         );
         return this.overlayPlacementPreviewUnit;
+    }
+    private refreshPlacementHover(): void {
+        if (!this.hasActiveSelection || !this.sc_selectedUnitProperties || !this.sc_mouseWorld) {
+            this.placementHoverKey = "";
+            return;
+        }
+        const point = this.getPlacementPreviewPoint();
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), point);
+        // The preview snaps to a cell. Repeating the large-unit occupancy scan on every still frame
+        // (and on every pointer event inside that cell) was wasted work during the whole placement.
+        const key = [
+            cell?.x,
+            cell?.y,
+            this.sc_selectedUnitProperties.id,
+            this.draggingUnitId ?? "",
+            this.selectionFromOverlay ? 1 : 0,
+            this.layoutVersion,
+        ].join(":");
+        if (key === this.placementHoverKey) return;
+        this.placementHoverKey = key;
+        this.hoverManager.updateHoverPlacementCell(point);
     }
     private getPlacementPreviewPoint(): HoCMath.XY {
         if (
@@ -7160,8 +7190,7 @@ export class Sandbox extends PixiScene {
         if (!fightStarted && this.unitsOverlay) {
             this.unitsOverlay.onResize(w, h);
             // Placement graphics only used pre-fight
-            this.attachToWorldRoot(this.placementGraphics, 100);
-            this.attachToWorldRoot(this.placementFrameContainer, 100.1);
+            this.attachPlacementLayers(100);
         } else if (fightStarted && this.unitsOverlay) {
             // Make sure it’s gone once fight has started
             if (!this.unitsOverlay.container.destroyed) {
@@ -7176,8 +7205,7 @@ export class Sandbox extends PixiScene {
         // 4) Anything that lives in world space and might have been attached.
         // Placement zones must stay below unit sprites; otherwise placed units show badges/stack
         // overlays while their actual art is painted over by the pre-fight placement tint.
-        this.attachToWorldRoot(this.placementGraphics, 90);
-        this.attachToWorldRoot(this.placementFrameContainer, 90.1);
+        this.attachPlacementLayers(90);
         // Holes
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
         this.attachToWorldRoot(this.movementGraphics, 49.5);
@@ -8255,6 +8283,7 @@ export class Sandbox extends PixiScene {
         this.draggingUnitTeam = undefined;
         this.placementDragPointerOrigin = undefined;
         this.placementDragPointerMoved = false;
+        this.placementHoverKey = "";
         this.sc_selectedUnitProperties = undefined;
         this.hoverManager.resetHover(true);
         this.hoverManager.resetBoardHoverState();
@@ -16326,7 +16355,7 @@ export class Sandbox extends PixiScene {
         // CASE 1: Active selection from OVERLAY (New Unit)
         if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.selectionFromOverlay) {
             this.hoverManager.hoveredUnitHighlight = undefined;
-            this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
+            this.refreshPlacementHover();
             return;
         }
         // CASE 2: Active selection from BOARD (Moving existing unit)
@@ -16337,7 +16366,7 @@ export class Sandbox extends PixiScene {
             this.draggingUnitId
         ) {
             this.hoverManager.calculateActiveSelectionHighlight();
-            this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
+            this.refreshPlacementHover();
             return;
         }
         // CASE 3: No active selection → just passive hover highlight (mouse over unit)
@@ -17206,6 +17235,9 @@ export class Sandbox extends PixiScene {
                 this.placementGraphics.clear();
                 this.placementGraphics.visible = false;
             }
+            if (this.placementWashContainer?.visible) {
+                this.placementWashContainer.visible = false;
+            }
             if (this.placementFrameContainer?.visible) {
                 this.placementManager.releaseVisuals();
                 this.placementFrameContainer.visible = false;
@@ -17350,13 +17382,15 @@ export class Sandbox extends PixiScene {
                 );
             }
             this.hoverManager.update(timeStep);
-            if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.sc_mouseWorld) {
-                this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
-            }
+            this.refreshPlacementHover();
             if (this.placementGraphics) {
-                this.placementGraphics.visible = !this.creatureAnimationLabEnabled;
+                const showPlacement = !this.creatureAnimationLabEnabled;
+                this.placementGraphics.visible = showPlacement;
                 if (this.placementFrameContainer) {
-                    this.placementFrameContainer.visible = !this.creatureAnimationLabEnabled;
+                    this.placementFrameContainer.visible = showPlacement;
+                }
+                if (this.placementWashContainer) {
+                    this.placementWashContainer.visible = showPlacement;
                 }
                 if (this.creatureAnimationLabEnabled) {
                     this.placementGraphics.clear();
@@ -19207,6 +19241,7 @@ export class Sandbox extends PixiScene {
             hoverManager: this.hoverManager,
             placementGraphics: this.placementGraphics,
             placementFrameContainer: this.placementFrameContainer,
+            placementWashContainer: this.placementWashContainer,
             restrictToTeam: this.getPlacementDrawTeam(),
             showTeamPlacementZones:
                 Sandbox.DRAW_TEAM_PLACEMENT_ZONES &&

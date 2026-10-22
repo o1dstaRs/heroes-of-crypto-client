@@ -155,6 +155,7 @@ import {
 } from "./hocTheme";
 import {
     hasOffGridSubmitCell,
+    placementActionSkipsSubmitSpinner,
     playerFacingRejection,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
@@ -1029,7 +1030,11 @@ export const RankedGameView: React.FC<Props> = ({
                 }
                 return false;
             }
-            if (!isModelSubmission && !isSilent) {
+            // Placement drops are already on the board. Waiting on the spinner here disabled the next
+            // drag and rebuilt the HUD for every cell, which is the lag during ranked placement.
+            const showsSubmitSpinner =
+                !isModelSubmission && !isSilent && !placementActionSkipsSubmitSpinner(payload.type);
+            if (showsSubmitSpinner) {
                 setBusy(true);
             }
             if (!isSilent) {
@@ -1203,7 +1208,7 @@ export const RankedGameView: React.FC<Props> = ({
                 }
                 return false;
             } finally {
-                if (!isModelSubmission && !isSilent) {
+                if (showsSubmitSpinner) {
                     setBusy(false);
                 }
             }

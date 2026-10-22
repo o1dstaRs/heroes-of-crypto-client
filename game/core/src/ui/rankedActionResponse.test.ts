@@ -6,6 +6,7 @@ import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 import {
     hasOffGridSubmitCell,
     isPlacementMutationAction,
+    placementActionSkipsSubmitSpinner,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -51,6 +52,10 @@ describe("ranked action response snapshots", () => {
         }
         expect(isPlacementMutationAction({ type: "move_unit" })).toBe(false);
         expect(shouldPlayAuthoritativeAction({ type: "move_unit" })).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.PLACE_UNIT)).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.SPLIT_UNIT)).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.DELETE_UNIT)).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.MOVE_UNIT)).toBe(false);
     });
 
     test("never surfaces a bare informational message (e.g. ACTION_ACCEPTED's raw action-type name) as an error", () => {

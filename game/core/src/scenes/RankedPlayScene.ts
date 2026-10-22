@@ -70,6 +70,14 @@ import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { rankedTerrainCellsWithoutOccupiedSmoke, syncRankedTransientTerrain } from "./rankedTransientTerrain";
+import {
+    OPTIMISTIC_PLACEMENT_HOLD_MS,
+    placementContextKey,
+    placementSnapshotWouldRewind,
+    shouldHoldOptimisticPlacement,
+    viewerPlacementAlreadyShown,
+    type PlacementUnitView,
+} from "./rankedPlacementReconcile";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
@@ -1519,6 +1527,8 @@ export class RankedPlayScene extends Sandbox {
     private currentReplayImpactRecord?: SandboxReplayActionRecord;
     private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
+    /** Ignore a stale placement snapshot until this time so a newer local drop is not rewound. */
+    private optimisticPlacementHoldUntil = 0;
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
     private authoritativePlaybackGameId = "";
@@ -2279,13 +2289,38 @@ export class RankedPlayScene extends Sandbox {
 
         const placementUnitIdsKey =
             !snapshot.fightStarted && !snapshot.fightFinished ? this.createPlacementUnitIdsKey(snapshot) : "";
+        // The drop is already drawn. Rebuilding every unit from the confirming snapshot restarts their
+        // sprites and cancels the next drag — the placement glitch. Skip that when the live stacks already
+        // match, and don't let an earlier in-flight snapshot rewind a newer drop.
+        const livePlacement = placementUnitIdsKey ? this.viewerPlacementLive() : [];
+        const samePlacementContext =
+            this.lastPlacementUnitIdsKey !== "" &&
+            placementContextKey(placementUnitIdsKey) === placementContextKey(this.lastPlacementUnitIdsKey);
+        if (
+            samePlacementContext &&
+            this.viewerTeam !== undefined &&
+            shouldHoldOptimisticPlacement({
+                now: performance.now(),
+                holdUntil: this.optimisticPlacementHoldUntil,
+                forceRebuild,
+                wouldRewind: placementSnapshotWouldRewind(this.viewerTeam, livePlacement, snapshot.units),
+            })
+        ) {
+            return;
+        }
+        const ownPlacementShown =
+            samePlacementContext &&
+            placementUnitIdsKey !== this.lastPlacementUnitIdsKey &&
+            this.viewerTeam !== undefined &&
+            viewerPlacementAlreadyShown(this.viewerTeam, livePlacement, snapshot.units);
         const canSkipPreFightHydrate =
             !snapshot.fightStarted &&
             !snapshot.fightFinished &&
+            !forceRebuild &&
             this.viewerTeam !== undefined &&
             this.lastPlacementUnitIdsKey !== "" &&
-            placementUnitIdsKey === this.lastPlacementUnitIdsKey &&
-            !this.hasVisibleOpponentPlacementChange(snapshot);
+            !this.hasVisibleOpponentPlacementChange(snapshot) &&
+            (placementUnitIdsKey === this.lastPlacementUnitIdsKey || ownPlacementShown);
         this.lastPlacementUnitIdsKey = placementUnitIdsKey;
         this.rememberPlacementStates(snapshot);
         if (canSkipPreFightHydrate) {
@@ -4130,6 +4165,7 @@ export class RankedPlayScene extends Sandbox {
                     if (!localResult.completed) {
                         return localResult;
                     }
+                    if (action.type === "place_unit") this.noteOptimisticPlacement();
                     events = localResult.events;
                 }
                 return {
@@ -4139,6 +4175,23 @@ export class RankedPlayScene extends Sandbox {
                 };
             },
         };
+    }
+    private noteOptimisticPlacement(): void {
+        this.optimisticPlacementHoldUntil = performance.now() + OPTIMISTIC_PLACEMENT_HOLD_MS;
+    }
+    private viewerPlacementLive(): PlacementUnitView[] {
+        const live: PlacementUnitView[] = [];
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const cells = unit.getCells().filter((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
+            live.push({
+                id: unit.getId(),
+                team: unit.getTeam(),
+                placed: cells.length > 0,
+                amountAlive: unit.getAmountAlive(),
+                cells,
+            });
+        }
+        return live;
     }
     private createPlacementUnitIdsKey(snapshot: AuthoritativeGameSnapshot): string {
         // Must include each unit's placement state — not just its id — otherwise unplacing a unit

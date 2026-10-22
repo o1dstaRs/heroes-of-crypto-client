@@ -51,6 +51,10 @@ describe("free-space wash under placed units", () => {
         expect(washCall).toBeGreaterThan(placements.indexOf("if (!fightProps.hasFightStarted())"));
         // The cell the player is about to click must read on top of the informational wash.
         expect(hoverCall).toBeGreaterThan(washCall);
+        // The shown zone must not detach its cached frame. removeChildren is only the hidden-zone path.
+        const shown = placements.slice(placements.indexOf("if (showZones)"), placements.indexOf("} else {"));
+        expect(shown).toContain("placementManager.draw(");
+        expect(shown).not.toContain("removeChildren");
     });
 
     test("one rounded shape per footprint, so a 2x1 body is not drawn as two tiles", () => {
