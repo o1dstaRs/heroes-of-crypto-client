@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
     AbilityFactory,
+    AttackVals,
     CreatureVals,
     EffectFactory,
     FightStateManager,
@@ -19,7 +20,7 @@ import {
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import { abilityToTextureName } from "@heroesofcrypto/common/src/abilities/ability_helper";
 import { images } from "../generated/image_imports";
-import { authoritativeSnapshotToSandboxSceneState } from "./RankedPlayScene";
+import { applyRankedUnitSnapshotStats, authoritativeSnapshotToSandboxSceneState } from "./RankedPlayScene";
 import { RenderableUnit } from "./RenderableUnit";
 
 const BLESSING = "Rallying Volley Blessing";
@@ -166,6 +167,123 @@ describe("ranked Rallying Volley Blessing reconnect", () => {
             }
         }
     }
+
+    test("does not show Rallying Volley on a unit that cannot shoot, even when the server lists it", () => {
+        const snapshot: AuthoritativeGameSnapshot = {
+            gameId: "rallying-volley-melee",
+            viewerTeam: TeamVals.LEFT,
+            phase: 2,
+            gridType: GridVals.NORMAL,
+            currentLap: 2,
+            fightStarted: true,
+            fightFinished: false,
+            currentUnitId: "archer",
+            currentTurnTeam: TeamVals.LEFT,
+            latestSequence: 4,
+            narrowingLayers: 0,
+            centerDried: false,
+            units: [
+                unitState({
+                    id: "peasant",
+                    name: "Peasant",
+                    creatureId: CreatureVals.PEASANT,
+                    baseCell: { x: 3, y: 3 },
+                    cells: [{ x: 3, y: 3 }],
+                    rangeShots: 0,
+                    buffs: [BLESSING, "Morale"],
+                    buffLaps: [15, 2],
+                    buffDescriptions: ["shots", "morale"],
+                }),
+                unitState({
+                    id: "archer-melee-selected",
+                    attackType: AttackVals.MELEE,
+                    buffs: [BLESSING],
+                    buffLaps: [15],
+                    buffDescriptions: ["shots"],
+                }),
+                unitState({
+                    id: "quiver-thief",
+                    name: "Peasant",
+                    creatureId: CreatureVals.PEASANT,
+                    baseCell: { x: 4, y: 3 },
+                    cells: [{ x: 4, y: 3 }],
+                    rangeShots: 0,
+                    abilities: ["Endless Quiver"],
+                    buffs: [BLESSING],
+                    buffLaps: [15],
+                    buffDescriptions: ["shots"],
+                }),
+                unitState({
+                    id: "lost-quiver",
+                    name: "Peasant",
+                    creatureId: CreatureVals.PEASANT,
+                    baseCell: { x: 5, y: 3 },
+                    cells: [{ x: 5, y: 3 }],
+                    rangeShots: 0,
+                    stolenAbilities: ["Endless Quiver"],
+                    buffs: [BLESSING, "Morale"],
+                    buffLaps: [15, 1],
+                    buffDescriptions: ["shots", "morale"],
+                }),
+            ],
+            upNext: [],
+        };
+        const state = authoritativeSnapshotToSandboxSceneState(snapshot);
+        const byId = new Map(state.units.map((entry) => [entry.properties.id, entry.properties]));
+
+        expect(byId.get("peasant")!.applied_buffs).toEqual(["Morale"]);
+        expect(byId.get("peasant")!.applied_buffs_laps).toEqual([2]);
+        expect(byId.get("peasant")!.applied_buffs_descriptions).toEqual(["morale"]);
+        expect(byId.get("peasant")!.applied_buffs_powers).toEqual([0]);
+        expect(byId.get("archer-melee-selected")!.applied_buffs).toEqual([BLESSING]);
+        expect(byId.get("quiver-thief")!.applied_buffs).toEqual([BLESSING]);
+        expect(byId.get("lost-quiver")!.applied_buffs).toEqual(["Morale"]);
+
+        const settings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const build = (id: string) => {
+            const effects = new EffectFactory();
+            return RenderableUnit.fromBase(
+                Unit.createUnit(
+                    byId.get(id)!,
+                    settings,
+                    TeamVals.LEFT,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effects),
+                    effects,
+                    false,
+                ),
+                undefined as never,
+            );
+        };
+        const peasant = build("peasant");
+        const stale = {
+            ...byId.get("peasant")!,
+            applied_buffs: [BLESSING, "Morale"],
+            applied_buffs_laps: [15, 2],
+            applied_buffs_descriptions: ["shots", "morale"],
+            applied_buffs_powers: [0, 0],
+        };
+        expect(applyRankedUnitSnapshotStats(peasant, stale)).toBe(true);
+        expect(peasant.getUnitProperties().applied_buffs).toEqual(["Morale"]);
+        expect(peasant.getBuff(BLESSING)).toBeUndefined();
+
+        const archer = build("archer-melee-selected");
+        applyRankedUnitSnapshotStats(archer, byId.get("archer-melee-selected")!);
+        expect(archer.getUnitProperties().applied_buffs).toContain(BLESSING);
+
+        const thief = build("quiver-thief");
+        expect(thief.hasAbilityActive("Endless Quiver")).toBe(true);
+        applyRankedUnitSnapshotStats(thief, byId.get("quiver-thief")!);
+        expect(thief.getUnitProperties().applied_buffs).toContain(BLESSING);
+    });
 
     test("the canonical blessing icon is present in the generated client catalog", () => {
         expect(abilityToTextureName(BLESSING)).toBe("rallying_volley_blessing_256");

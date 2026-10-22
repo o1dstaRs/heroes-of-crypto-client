@@ -611,6 +611,38 @@ export const restoreRankedStepsMoraleMultiplier = (stepsMoraleMultiplier?: numbe
     return true;
 };
 
+const RALLYING_VOLLEY_BLESSING_NAME = "Rallying Volley Blessing";
+
+/**
+ * Shot top-up only. A native shooter still qualifies with an empty quiver or melee selected; a stolen
+ * Endless Quiver does too, because its shot distance is applied later than this check.
+ */
+const canReceiveRallyingVolleyBlessing = (unit: {
+    isRangeCapable(): boolean;
+    hasAbilityActive(abilityName: string): boolean;
+}): boolean => unit.isRangeCapable() || unit.hasAbilityActive("Endless Quiver");
+
+const withoutRallyingVolleyDisplay = (
+    names: readonly string[],
+    laps: readonly number[],
+    descriptions: readonly string[],
+): { names: string[]; laps: number[]; descriptions: string[] } | undefined => {
+    if (!names.includes(RALLYING_VOLLEY_BLESSING_NAME)) {
+        return undefined;
+    }
+    const kept: number[] = [];
+    for (let index = 0; index < names.length; index++) {
+        if (names[index] !== RALLYING_VOLLEY_BLESSING_NAME) {
+            kept.push(index);
+        }
+    }
+    return {
+        names: kept.map((index) => names[index]),
+        laps: kept.map((index) => laps[index] ?? 1),
+        descriptions: kept.map((index) => descriptions[index] ?? ""),
+    };
+};
+
 /**
  * Reconcile the snapshot-owned fields that action replay does not mutate. Both same-board snapshots and
  * skip-rebuild snapshots use this helper, so turn-start state such as Web remains authoritative without
@@ -798,6 +830,18 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
             properties.applied_buffs_descriptions,
             properties.applied_buffs_powers,
         ) || changed;
+
+    // An older server still lists this blessing on every ally. The sidebar reads the display arrays the
+    // sync just copied, so drop it here when this unit cannot shoot. Shooters, including an empty quiver
+    // and a stolen Endless Quiver, keep it. Must run after the sync or the copy writes the name back.
+    if (
+        !canReceiveRallyingVolleyBlessing(unit) &&
+        (unit.getBuff(RALLYING_VOLLEY_BLESSING_NAME) !== undefined ||
+            liveProperties.applied_buffs.includes(RALLYING_VOLLEY_BLESSING_NAME))
+    ) {
+        unit.deleteBuff(RALLYING_VOLLEY_BLESSING_NAME);
+        changed = true;
+    }
 
     const helpingHandCasterId = properties.helping_hand_caster_id;
     const helpingHandPenaltyId = properties.helping_hand_penalty_id;
@@ -1001,6 +1045,27 @@ const getUnitPropertiesFromAuthoritativeState = (
                 };
             })();
             const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
+            // Rallying Volley is a shot top-up. Drop it, and the lap/description at the same index, from
+            // units that cannot shoot, so an older server that still paints it on the whole army does not
+            // put the marker back on the sidebar. Native attack type, not the selected one: a shooter who
+            // has melee selected can still fire. Endless Quiver is on the active ability list, not the
+            // stolen-from list (that one means the unit lost the quiver).
+            const activeAbilities = unitState.abilities ?? baseProperties.abilities;
+            const showRallyingVolley =
+                baseProperties.attack_type === AttackVals.RANGE ||
+                (baseProperties.range_shots > 0 && baseProperties.shot_distance > 0) ||
+                activeAbilities.includes("Endless Quiver");
+            let appliedBuffs = unitState.buffs ?? [];
+            let appliedBuffLaps = unitState.buffLaps ?? appliedBuffs.map(() => 1);
+            let appliedBuffDescriptions = unitState.buffDescriptions ?? appliedBuffs.map(() => "");
+            if (!showRallyingVolley) {
+                const filtered = withoutRallyingVolleyDisplay(appliedBuffs, appliedBuffLaps, appliedBuffDescriptions);
+                if (filtered) {
+                    appliedBuffs = filtered.names;
+                    appliedBuffLaps = filtered.laps;
+                    appliedBuffDescriptions = filtered.descriptions;
+                }
+            }
             return {
                 ...baseProperties,
                 ...abilityOverride,
@@ -1126,10 +1191,10 @@ const getUnitPropertiesFromAuthoritativeState = (
                 // buffLaps/buffDescriptions now come from the snapshot (parallel to buffs); fall back to a
                 // 1-lap placeholder only for legacy snapshots that predate those fields. All four arrays
                 // MUST stay parallel or deleteBuff's cleanup guard silently skips pruning.
-                applied_buffs: unitState.buffs ?? [],
-                applied_buffs_laps: unitState.buffLaps ?? (unitState.buffs ?? []).map(() => 1),
-                applied_buffs_descriptions: unitState.buffDescriptions ?? (unitState.buffs ?? []).map(() => ""),
-                applied_buffs_powers: (unitState.buffs ?? []).map(() => 0),
+                applied_buffs: appliedBuffs,
+                applied_buffs_laps: appliedBuffLaps,
+                applied_buffs_descriptions: appliedBuffDescriptions,
+                applied_buffs_powers: appliedBuffs.map(() => 0),
                 ...(unitState.helpingHandCasterId ? { helping_hand_caster_id: unitState.helpingHandCasterId } : {}),
                 ...(unitState.helpingHandPenaltyId ? { helping_hand_penalty_id: unitState.helpingHandPenaltyId } : {}),
             } as UnitProperties;
