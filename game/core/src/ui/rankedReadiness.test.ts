@@ -350,3 +350,34 @@ describe("bounded readiness retry", () => {
         expect(sends).toBe(1);
     });
 });
+
+test("a readiness retry cannot relabel automated input as a human client retry", async () => {
+    for (const inputSource of [PlayInputSource.CLIENT_AI, PlayInputSource.LOCAL_MODEL]) {
+        const action = createPlayActionFromGameAction(
+            { type: "start_fight" },
+            {
+                gameId: "match",
+                playerId: "lower",
+                team: TeamVals.LEFT,
+                expectedSequence: 15,
+                actionId: "automated",
+            },
+        );
+        action.inputSource = inputSource;
+        let sends = 0,
+            refreshes = 0;
+        await sendRankedReadinessWithRetry(action, intent(), {
+            send: async () => {
+                sends++;
+                return { accepted: false, rejectionReason: "sequence_mismatch" };
+            },
+            refresh: async () => {
+                refreshes++;
+            },
+            getSnapshot: () => ({ ...snapshot(), latestSequence: 16 }),
+            newActionId: () => "retry",
+        });
+        expect(sends).toBe(1);
+        expect(refreshes).toBe(0);
+    }
+});

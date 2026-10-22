@@ -134,7 +134,14 @@ export const sendRankedReadinessWithRetry = async <T extends { accepted: boolean
     },
 ): Promise<T> => {
     const response = await transport.send(action);
-    if (!intent || response.accepted || response.rejectionReason !== "sequence_mismatch") return response;
+    if (
+        !intent ||
+        response.accepted ||
+        response.rejectionReason !== "sequence_mismatch" ||
+        action.inputSource === PlayInputSource.CLIENT_AI ||
+        action.inputSource === PlayInputSource.LOCAL_MODEL
+    )
+        return response;
     await transport.refresh();
     const current = transport.getSnapshot();
     if (!current || !canSubmitRankedReadinessIntent(intent, current)) return response;
