@@ -3,6 +3,7 @@ import { GridSettings, TeamVals, type TeamType, type Unit } from "@heroesofcrypt
 
 import type { SandboxSceneUnitState } from "./Sandbox";
 import { RankedPlayScene } from "./RankedPlayScene";
+import { unprojectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 
 interface PlacementScene {
     viewerTeam?: TeamType;
@@ -10,6 +11,7 @@ interface PlacementScene {
     shouldRenderUnplacedUnitBench(unit: SandboxSceneUnitState): boolean;
     getUnplacedUnitBenchPosition(index: number, total: number): { x: number; y: number } | undefined;
     canSelectUnitForPlacement(unit: Unit): boolean;
+    getBenchUnitAtPosition(point: { x: number; y: number }): Unit | undefined;
     commitPlacementSplit(source: Unit, amount: number, cells: { x: number; y: number }[]): boolean;
 }
 
@@ -56,5 +58,22 @@ describe("ranked split fallback visibility", () => {
         expect(target.shouldRenderUnplacedUnitBench(state(TeamVals.RIGHT))).toBe(false);
         expect(target.canSelectUnitForPlacement({ getTeam: () => TeamVals.LEFT } as Unit)).toBe(false);
         expect(target.getUnplacedUnitBenchPosition(0, 0)).toBeUndefined();
+    });
+
+    test("clicking a bench sprite survives the battlefield's inverse projection", () => {
+        const target = scene(TeamVals.RIGHT);
+        const unit = { getTeam: () => TeamVals.RIGHT } as Unit;
+        const visibleCenter = target.getUnplacedUnitBenchPosition(0, 1)!;
+        Object.assign(target, {
+            placementBenchHitBoxes: new Map([["peeled", { center: visibleCenter, radius: 30 }]]),
+            unitsHolder: { getAllUnits: () => new Map([["peeled", unit]]) },
+        });
+        const settings = new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06);
+        const logicalPointer = unprojectBattlefieldPoint(visibleCenter, settings)!;
+        expect(logicalPointer).toBeDefined();
+        expect(Math.abs(logicalPointer.y - visibleCenter.y)).toBeGreaterThan(30);
+        expect(target.getBenchUnitAtPosition(logicalPointer)).toBe(unit);
+        const farPointer = unprojectBattlefieldPoint({ x: visibleCenter.x + 200, y: visibleCenter.y }, settings)!;
+        expect(target.getBenchUnitAtPosition(farPointer)).toBeUndefined();
     });
 });

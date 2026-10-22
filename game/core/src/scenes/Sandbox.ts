@@ -2439,9 +2439,11 @@ export class Sandbox extends PixiScene {
     }
     private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const hitEntries = Array.from(this.placementBenchHitBoxes?.entries() ?? []).reverse();
+        if (!hitEntries.length) return undefined;
+        const visualPos = projectBattlefieldPoint(worldPos, this.sc_sceneSettings.getGridSettings());
         for (const [unitId, hitBox] of hitEntries) {
-            const dx = worldPos.x - hitBox.center.x;
-            const dy = worldPos.y - hitBox.center.y;
+            const dx = visualPos.x - hitBox.center.x;
+            const dy = visualPos.y - hitBox.center.y;
             if (dx * dx + dy * dy <= hitBox.radius * hitBox.radius) {
                 return this.unitsHolder.getAllUnits().get(unitId);
             }
@@ -8971,7 +8973,7 @@ export class Sandbox extends PixiScene {
                 return;
             }
         }
-        const unitUnderMouse = this.getUnitAtPosition(p);
+        const unitUnderMouse = clickedBenchUnit ?? this.getUnitAtPosition(p);
         if (unitUnderMouse && !this.canSelectUnitForPlacement(unitUnderMouse)) {
             this.clearBoardSelection();
             this.Deselect(false, true);
