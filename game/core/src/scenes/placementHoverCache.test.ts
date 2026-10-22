@@ -40,10 +40,12 @@ const hoverScene = () => {
         unitsHolder: {
             getAllUnits: () => new Map([["stack", { getPosition: () => ({ x: 0, y: 64 }) }]]),
         },
-    }) as Sandbox & {
+    }) as unknown as {
         refreshPlacementHover: () => void;
         placementHoverKey: string;
         placementDragPointerMoved: boolean;
+        sc_mouseWorld: { x: number; y: number };
+        hasActiveSelection: boolean;
     };
     return {
         scene,

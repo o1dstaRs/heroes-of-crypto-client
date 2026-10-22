@@ -121,7 +121,8 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         syncRankedVisibleTurnState() {},
         applyRankedFightStats() {},
         getCurrentActiveUnit: () => undefined,
-    }) as RankedPlayScene & {
+    }) as unknown as {
+        applyAuthoritativeSnapshot: RankedPlayScene["applyAuthoritativeSnapshot"];
         lastPlacementUnitIdsKey: string;
         lastAuthoritativeSequence: number;
         optimisticPlacementHoldUntil: number;
