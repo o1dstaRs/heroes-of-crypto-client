@@ -20,12 +20,14 @@ function circlePath(graphics: Graphics, radius: number): Graphics {
 }
 
 export interface EmberCovenantUnit {
+    getTeam?(): number;
     getUnitProperties(): Pick<UnitProperties, "applied_buffs" | "applied_buffs_laps">;
     getBlessingHaloFrame?(): { x: number; y: number; width: number; height: number; zIndex: number } | undefined;
     isDead(): boolean;
 }
 
 interface Ring {
+    team?: number;
     node: Container;
     plane: Container;
     flame: Sprite;
@@ -38,6 +40,7 @@ interface Ring {
 }
 
 interface RingContext {
+    isImpactPending?(): boolean;
     getUnits(): ReadonlyMap<string, EmberCovenantUnit> | undefined;
     getTexture(): Texture | undefined;
     attachToWorldRoot(container: Container, zIndex: number): void;
@@ -70,11 +73,33 @@ export class EmberCovenantRings {
     }
     /** An authoritative absorb, independent of the shared blessing's disappearance. */
     public absorb(id: string): void {
-        const unit = this.context.getUnits()?.get(id);
-        const frame = unit?.getBlessingHaloFrame?.();
+        const units = this.context.getUnits();
+        const unit = units?.get(id);
+        const recipientRing = this.rings.get(id);
+        const team = unit?.getTeam?.() ?? recipientRing?.team;
+        if ((unit && !carriesCovenant(unit)) || (!unit && recipientRing)) {
+            for (const [ringId, ring] of this.rings) {
+                const ally = units?.get(ringId);
+                if ((ally?.getTeam?.() ?? ring.team) === team && (!ally || !carriesCovenant(ally))) {
+                    ring.breakAge ??= 0;
+                    this.paint(ring, this.context.getTexture());
+                }
+            }
+        }
+        const frame =
+            unit?.getBlessingHaloFrame?.() ??
+            (recipientRing
+                ? {
+                      x: recipientRing.node.x,
+                      y: recipientRing.node.y,
+                      width: recipientRing.node.scale.x / 2.15,
+                      height: recipientRing.node.scale.y / 2.75,
+                      zIndex: recipientRing.node.zIndex + 0.1,
+                  }
+                : undefined);
         if (
             !frame ||
-            unit?.isDead() ||
+            (unit?.isDead() && !recipientRing) ||
             ![frame.x, frame.y, frame.width, frame.height, frame.zIndex].every(Number.isFinite) ||
             frame.width <= 0 ||
             frame.height <= 0
@@ -119,7 +144,7 @@ export class EmberCovenantRings {
                 continue;
             }
             if (!ring) {
-                ring = this.create(id, frame.zIndex - 0.1);
+                ring = this.create(id, frame.zIndex - 0.1, unit.getTeam?.());
                 this.rings.set(id, ring);
             }
             if (protectedUnit) ring.breakAge = undefined;
@@ -132,7 +157,8 @@ export class EmberCovenantRings {
         if (this.rings.size) texture = this.context.getTexture();
         for (const [id, ring] of this.rings) {
             const unit = units.get(id);
-            if (!unit || !carriesCovenant(unit) || unit.isDead()) ring.breakAge ??= 0;
+            if ((!unit || !carriesCovenant(unit) || unit.isDead()) && !this.context.isImpactPending?.())
+                ring.breakAge ??= 0;
             if (ring.breakAge !== undefined) {
                 ring.breakAge += step;
                 if (ring.breakAge >= BREAK_SECONDS) {
@@ -145,7 +171,10 @@ export class EmberCovenantRings {
         }
         for (const [id, impact] of this.impacts) {
             impact.age += step;
-            if (impact.age >= IMPACT_SECONDS || !units.has(id) || units.get(id)?.isDead()) {
+            if (
+                impact.age >= IMPACT_SECONDS ||
+                ((!units.has(id) || units.get(id)?.isDead()) && !this.context.isImpactPending?.())
+            ) {
                 impact.node.destroy();
                 continue;
             }
@@ -159,7 +188,7 @@ export class EmberCovenantRings {
             this.paintImpact(impact);
         }
     }
-    private create(id: string, zIndex: number): Ring {
+    private create(id: string, zIndex: number, team?: number): Ring {
         const node = new Container();
         node.label = "ember-covenant-ring";
         node.eventMode = "none";
@@ -172,7 +201,7 @@ export class EmberCovenantRings {
         sparks.blendMode = "add";
         plane.addChild(echo, flame, sparks);
         node.addChild(plane);
-        const ring = { node, plane, flame, echo, sparks, phase: phaseFor(id), age: 0 };
+        const ring = { node, plane, flame, echo, sparks, phase: phaseFor(id), age: 0, team };
         node.once("destroyed", () => {
             if (this.rings.get(id)?.node === node) this.rings.delete(id);
         });
@@ -181,7 +210,8 @@ export class EmberCovenantRings {
     }
     private paint(ring: Ring, texture: Texture | undefined): void {
         const pulse = Math.sin(this.elapsed * 4 + ring.phase);
-        const broken = ring.breakAge === undefined ? 0 : ring.breakAge / BREAK_SECONDS;
+        const breaking = ring.breakAge !== undefined;
+        const broken = (ring.breakAge ?? 0) / BREAK_SECONDS;
         const appear = Math.min(1, ring.age / 0.3);
         const burst = 1 - (1 - broken) ** 3;
         const flash = Math.max(0, 1 - broken / 0.3);
@@ -189,24 +219,24 @@ export class EmberCovenantRings {
         ring.plane.alpha = appear * (1 - broken) ** 0.7;
         ring.flame.rotation = this.elapsed * 0.22 + ring.phase;
         ring.echo.rotation = -this.elapsed * 0.13 - ring.phase;
-        ring.echo.alpha = 0.16 + pulse * 0.035 + (broken > 0 ? flash * 0.85 : 0);
+        ring.echo.alpha = 0.16 + pulse * 0.035 + (breaking ? flash * 0.85 : 0);
         ring.flame.alpha = 0.83 + pulse * 0.07;
         for (const sprite of [ring.flame, ring.echo]) {
-            sprite.visible = !!texture && (broken === 0 || (sprite === ring.echo && broken < 0.3));
+            sprite.visible = !!texture && (!breaking || (sprite === ring.echo && broken < 0.3));
             if (texture && sprite.texture !== texture) sprite.texture = texture;
             sprite.width = 1;
             sprite.height = 1;
         }
         ring.echo.scale.set(ring.echo.scale.x * (1 + burst * 0.22), ring.echo.scale.y * (1 + burst * 0.22));
-        if (ring.fragments) ring.fragments.visible = broken > 0;
-        if (broken > 0 && texture) this.paintFragments(ring, texture, broken);
+        if (ring.fragments) ring.fragments.visible = breaking;
+        if (breaking && texture) this.paintFragments(ring, texture, broken);
         const sparks = ring.sparks;
         sparks.clear();
         if (!texture) {
             circlePath(sparks, 0.37).stroke({ width: 0.012, color: 0xffb22f, alpha: 0.75 });
             circlePath(sparks, 0.39).stroke({ width: 0.03, color: 0xff641a, alpha: 0.12 });
         }
-        if (broken > 0) {
+        if (breaking) {
             const radius = 0.36 + burst * 0.36;
             circlePath(sparks, radius).stroke({ width: 0.045 * (1 - broken), color: 0xff681b, alpha: 0.5 });
             circlePath(sparks, radius).stroke({ width: 0.009, color: 0xffe8a2, alpha: (1 - broken) * 0.9 });
@@ -229,7 +259,7 @@ export class EmberCovenantRings {
             const radius = 0.37 + t * 0.045 + broken * 0.16;
             const x = Math.cos(angle) * radius;
             const y = Math.sin(angle) * radius + t * 0.04 + broken * 0.12;
-            const alpha = (1 - t) * (broken ? 1 : 0.6);
+            const alpha = (1 - t) * (breaking ? 1 : 0.6);
             sparks.circle(x, y, 0.012).fill({ color: 0xff8c1c, alpha: alpha * 0.22 });
             sparks.circle(x, y, 0.0035).fill({ color: 0xffefae, alpha });
         }

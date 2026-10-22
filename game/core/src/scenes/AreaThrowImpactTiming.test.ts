@@ -237,6 +237,38 @@ test.each(["targeted", "free"])(
     },
 );
 
+test.each(["targeted", "free"])(
+    "%s Covenant absorbs land with each rock, without the former extra delay",
+    async (mode) => {
+        const f = fixture();
+        const shown: number[] = [];
+        const secondary = [47, 53].map((amount) => ({
+            source: "ember_covenant",
+            unitId: "near",
+            position: f.near.getPosition(),
+            amount,
+            unitsDied: 0,
+        }));
+        Object.assign(f.damage, { secondary });
+        f.scene.showShieldAbsorbs = Sandbox.prototype["showShieldAbsorbs"];
+        f.scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
+        const pending = mode === "targeted" ? f.playTargeted() : f.playFree();
+        await flush();
+        f.advance(0.99);
+        expect(shown).toEqual([]);
+        f.advance(0.02);
+        expect(shown).toEqual([47]);
+        await flush();
+        f.advance(0.99);
+        expect(shown).toEqual([47]);
+        f.advance(0.02);
+        expect(shown).toEqual([47, 53]);
+        await pending;
+        f.scene.showShieldAbsorbs(secondary, { x: 0, y: 0 }, 180);
+        expect(shown).toEqual([47, 53]);
+    },
+);
+
 test("live free throws resolve once and retain first-wave victims until their impact", async () => {
     const f = fixture();
     const pending = f.playFree();

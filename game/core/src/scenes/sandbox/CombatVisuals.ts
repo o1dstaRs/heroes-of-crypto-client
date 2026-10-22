@@ -51,6 +51,7 @@ import { CyclopsGoreVfx } from "./CyclopsGoreVfx";
 import type { BrutalityPose } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
+    isCombatImpactPending?(): boolean;
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
     /**
@@ -67,6 +68,7 @@ export interface ICombatVisualsContext {
 }
 
 interface IFloatingText {
+    immediate?: boolean;
     container: Container;
     age: number;
     life: number;
@@ -719,6 +721,7 @@ export class CombatVisuals {
     private emberCovenantTextureLoading = false;
     private emberCovenantTextureRetryAt = 0;
     private emberCovenantRings = new EmberCovenantRings({
+        isImpactPending: () => this.context.isCombatImpactPending?.() ?? false,
         getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
         getTexture: () => {
             if (this.emberCovenantTexture?.destroyed) this.emberCovenantTexture = undefined;
@@ -971,6 +974,7 @@ export class CombatVisuals {
         flagTopAnchor?: HoCMath.XY,
         screenBottomExtent = 0,
         zIndex = 2000,
+        immediate = false,
     ): void {
         // Anti-overlap: if numbers are already floating near this spot, stack this one
         // above them instead of drawing on top.
@@ -1004,11 +1008,12 @@ export class CombatVisuals {
         if (stack > 0 && !flagTopAnchor) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
 
         container.scale.set(glyphScaleX(FT_START_SCALE), -FT_START_SCALE);
-        container.alpha = 0;
+        container.alpha = immediate ? 1 : 0;
         container.position.set(startX, startY);
         this.attachEffect(container, zIndex);
 
         this.floatingTexts.push({
+            immediate,
             container,
             age: 0,
             life: FT_LIFE,
@@ -1121,11 +1126,12 @@ export class CombatVisuals {
         unit?: RenderableUnit,
         presentCasualties?: () => void,
         source?: "ember_covenant",
+        unitId = unit?.getId(),
     ): void {
         if (presentCasualties) presentCasualties();
         else unit?.presentDamageCasualties(unitsDied ?? 0);
-        if (unit && source === "ember_covenant") {
-            this.emberCovenantRings.absorb(unit.getId());
+        if (unitId && source === "ember_covenant") {
+            this.emberCovenantRings.absorb(unitId);
         } else if (unit) {
             this.spawnCommonFlagPop(unit, "absorb");
         }
@@ -1162,6 +1168,8 @@ export class CombatVisuals {
             direction,
             unit?.getFlagEffectAnchor(this.context.getGridSettings()),
             this.context.getGridSettings().getCellSize() * 1.45 + (unitsDied ? 92 : 38),
+            2000,
+            source === "ember_covenant",
         );
     }
     public spawnParalysisPop(unit: RenderableUnit): void {
@@ -2035,7 +2043,7 @@ export class CombatVisuals {
 
             // Fade in quickly, hold, then fade out smoothly.
             let alpha = 1;
-            if (ft.age < FT_FADE_IN) {
+            if (!ft.immediate && ft.age < FT_FADE_IN) {
                 alpha = ft.age / FT_FADE_IN;
             } else if (t > FT_FADE_OUT_FROM) {
                 alpha = 1 - (t - FT_FADE_OUT_FROM) / (1 - FT_FADE_OUT_FROM);

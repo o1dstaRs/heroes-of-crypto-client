@@ -1873,6 +1873,7 @@ export class RankedPlayScene extends Sandbox {
             this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
         )?.getVisualCenter(gs);
         this.showFleshShieldAbsorbedDamage(secondary, attackerPos);
+        this.showShieldAbsorbs(secondary, attackerPos);
         // Devour Essence heal (Hydra): green "+N" + buff-wash on the devourer; skipped in the generic
         // red-number loop below.
         this.showDevourEssenceHeals(secondary);
@@ -1893,7 +1894,13 @@ export class RankedPlayScene extends Sandbox {
         for (const entry of secondary) {
             // Flesh Shield was grouped and rendered above as a labelled yellow value. Keeping it out of
             // this generic loop prevents the same absorption from also appearing as an ordinary red hit.
-            if (entry.source === "flesh_shield" || entry.source === "devour_essence") continue;
+            if (
+                entry.source === "flesh_shield" ||
+                entry.source === "devour_essence" ||
+                entry.source === "water_shield" ||
+                entry.source === "ember_covenant"
+            )
+                continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);

@@ -16,6 +16,7 @@ const setup = () => {
     const unit = (id: string) => ({
         getId: () => id,
         getName: () => "Orc",
+        getTeam: () => (id === "A" ? 1 : 2),
         hasAbilityActive: () => false,
         isDead: () => false,
         isPlayingOneShotAnimation: () => false,
@@ -51,6 +52,41 @@ const setup = () => {
 const flush = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
 };
+
+test.each(["melee", "range"])(
+    "Ember Covenant appears at %s contact, before recovery, with no delayed duplicate",
+    async (attackType) => {
+        const { scene, a, b, events, finish } = setup();
+        const contacts: (() => void)[] = [];
+        const landings: (() => void)[] = [];
+        scene.combatVisuals.showFloatingAbsorbed = () => events.push("absorbed");
+        scene.scheduleSceneTimeout = () => {
+            throw new Error("Covenant must not schedule a delayed label");
+        };
+        scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, impact: () => void) => {
+            contacts.push(impact);
+            return new Promise<void>((resolve) => landings.push(resolve));
+        };
+        const damage = {
+            secondary: [
+                { source: "ember_covenant", unitId: "B", position: { x: 100, y: 0 }, amount: 47, unitsDied: 0 },
+            ],
+        };
+        const pending = scene.playCombatExchange(a, b, { attackType, damage }, [{ ...strike(), amount: 0 }], () => {});
+        await flush();
+        if (attackType === "range") {
+            expect(events).not.toContain("absorbed");
+            contacts[0]();
+            contacts[0]();
+        }
+        expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
+        landings.forEach((land) => land());
+        finish.splice(0).forEach((done) => done());
+        await pending;
+        scene.showShieldAbsorbs(damage.secondary, { x: 0, y: 0 }, 180);
+        expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
+    },
+);
 
 test("melee attacks and counters start together; double strike waits for both attacks and reactions", async () => {
     const { scene, a, b, events, finish } = setup();
@@ -299,5 +335,43 @@ test("ranged hurt audio waits for projectile contact", async () => {
     await flush();
     expect(sounds).toEqual(["B:hurt"]);
     finish.splice(0).forEach((fn) => fn());
+    await pending;
+});
+
+test.each([false, true])("Covenant absorbs wait for their own contact, first shot missed=%s", async (firstMissed) => {
+    const { scene, a, b } = setup();
+    const shown: number[] = [];
+    const flights: { contact(): void; land(): void }[] = [];
+    scene.combatVisuals.showFloatingAbsorbed = (_pos: unknown, amount: number) => shown.push(amount);
+    scene.showAttackMissedVfx = () => {};
+    scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, contact: () => void) =>
+        new Promise<void>((land) => flights.push({ contact, land }));
+    const damage = {
+        secondary: (firstMissed ? [53] : [47, 53]).map((amount) => ({
+            source: "ember_covenant",
+            unitId: "B",
+            position: { x: 100, y: 0 },
+            amount,
+            unitsDied: 0,
+        })),
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "range", damage },
+        [strike(), strike(false, 1)].map((hit) => ({ ...hit, amount: 0, missed: firstMissed && hit.hitIndex === 0 })),
+        () => {},
+    );
+    await flush();
+    expect(shown).toEqual([]);
+    flights[0].contact();
+    expect(shown).toEqual(firstMissed ? [] : [47]);
+    flights[0].land();
+    await flush();
+    expect(flights).toHaveLength(2);
+    expect(shown).toEqual(firstMissed ? [] : [47]);
+    flights[1].contact();
+    expect(shown).toEqual(firstMissed ? [53] : [47, 53]);
+    flights[1].land();
     await pending;
 });

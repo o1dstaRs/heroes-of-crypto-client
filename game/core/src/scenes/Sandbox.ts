@@ -1270,6 +1270,7 @@ export class Sandbox extends PixiScene {
         this.lightingLayer.setEnabled(false);
 
         this.combatVisuals = new CombatVisuals({
+            isCombatImpactPending: () => this.sc_moveBlocked || this.isStrikeInFlight(),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
             // The board camera is deliberately flatter on Y than X (see boardFit). Effect ARTWORK has to
@@ -5237,6 +5238,19 @@ export class Sandbox extends PixiScene {
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
                         const waves = areaThrowWaves.get(source.getId());
+                        if (
+                            (!waves || isChakramFlight) &&
+                            !strike.missed &&
+                            event.damage?.secondary?.some((entry) => entry.source === "ember_covenant")
+                        ) {
+                            const recipients = new Set([strike.targetId]);
+                            if (melee && !isChakramFlight) {
+                                for (const entry of event.damage?.secondary ?? []) {
+                                    if (units.get(entry.unitId)?.getTeam() === victimTeam) recipients.add(entry.unitId);
+                                }
+                            }
+                            this.showEmberCovenantAbsorbsAtImpact(event.damage, recipients, source.getVisualCenter(gs));
+                        }
                         if (waves && !isChakramFlight) {
                             reaction = this.playAreaThrowImpact(source, waves[strike.hitIndex] ?? [], {
                                 damage: event.damage,
@@ -5621,6 +5635,7 @@ export class Sandbox extends PixiScene {
             const remaining = Math.max(0, before - hit.unitsDied);
             context.remainingAmounts.set(hit.unitId, remaining);
             unit?.presentDamageCasualties(hit.unitsDied);
+            if (!hit.missed) this.showEmberCovenantAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
             this.showGravechainVfx(
                 context.damage,
@@ -5754,6 +5769,7 @@ export class Sandbox extends PixiScene {
                     const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
                     remaining.set(hit.unitId, amount);
                     unit?.presentDamageCasualties(hit.unitsDied);
+                    if (!hit.missed) this.showEmberCovenantAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
                     this.showGravechainVfx(
                         event.damage,
@@ -6105,6 +6121,11 @@ export class Sandbox extends PixiScene {
             if ((entry.source !== "water_shield" && entry.source !== "ember_covenant") || entry.amount <= 0) {
                 continue;
             }
+            if (entry.source === "ember_covenant") {
+                const shown = (this.shownEmberCovenantAbsorbs ??= new WeakSet());
+                if (shown.has(entry)) continue;
+                shown.add(entry);
+            }
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
@@ -6117,14 +6138,39 @@ export class Sandbox extends PixiScene {
                     unit,
                     undefined,
                     entry.source === "ember_covenant" ? "ember_covenant" : undefined,
+                    entry.unitId,
                 );
             };
-            if (delayMs > 0) {
+            if (delayMs > 0 && entry.source !== "ember_covenant") {
                 this.scheduleSceneTimeout(show, delayMs);
             } else {
                 show();
             }
         }
+    }
+    private shownEmberCovenantAbsorbs?: WeakSet<object>;
+    private showEmberCovenantAbsorbsAtImpact(
+        damage: IVisibleDamage | undefined,
+        unitIds: ReadonlySet<string>,
+        origin: HoCMath.XY,
+    ): void {
+        if (!damage?.secondary?.some((entry) => entry.source === "ember_covenant")) return;
+        const recipients = new Set<string>();
+        this.showShieldAbsorbs(
+            damage.secondary?.filter((entry) => {
+                if (
+                    entry.source !== "ember_covenant" ||
+                    entry.amount <= 0 ||
+                    !unitIds.has(entry.unitId) ||
+                    recipients.has(entry.unitId) ||
+                    this.shownEmberCovenantAbsorbs?.has(entry)
+                )
+                    return false;
+                recipients.add(entry.unitId);
+                return true;
+            }),
+            origin,
+        );
     }
     protected renderAreaImpactVfx(splash: NonNullable<IVisibleDamage["splash"]>): void {
         if (!splash.length || !this.combatVisuals) {
@@ -10170,6 +10216,8 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                         continue;
                     }
+                    if (damage?.secondary?.some((entry) => entry.source === "ember_covenant"))
+                        this.showEmberCovenantAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                         this.combatVisuals?.showFloatingDamage(
@@ -10346,6 +10394,8 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(unit, center, direction);
                         continue;
                     }
+                    if (damage?.secondary?.some((entry) => entry.source === "ember_covenant"))
+                        this.showEmberCovenantAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                         this.combatVisuals?.showFloatingDamage(
@@ -11977,7 +12027,11 @@ export class Sandbox extends PixiScene {
                                 muzzle,
                                 180,
                             );
-                            this.showShieldAbsorbs(areaEvent?.damage.secondary, muzzle, 180);
+                            this.showShieldAbsorbs(
+                                areaEvent?.damage.secondary?.filter((hit) => hit.source !== "ember_covenant"),
+                                muzzle,
+                                180,
+                            );
                         }
                         const wave = waves[throwIndex] ?? [];
                         shownAnyWave ||= wave.some((hit) => hit.amount > 0);
@@ -12435,10 +12489,10 @@ export class Sandbox extends PixiScene {
                 ...entry,
                 position: { ...entry.position },
             }));
-            damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) => ({
-                ...entry,
-                position: { ...entry.position },
-            }));
+            damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) =>
+                // Contact playback and the later summary share absorb records, so each is presented once.
+                entry.source === "ember_covenant" ? entry : { ...entry, position: { ...entry.position } },
+            );
             // Carry Zena's Chakram ricochet circles (the per-leg swept cells + who each clipped) so the disc
             // actually FLIES its loops in the LIVE sandbox path. Without this, the reconstructed
             // damageForAnimation dropped chakramArcs and the disc just returned home with no circle at all.
@@ -21254,6 +21308,7 @@ export class Sandbox extends PixiScene {
     private barrelDragPointerOrigin?: HoCMath.XY;
     private barrelDragPointerMoved = false;
     private beginStackCountPresentation(): Map<RenderableUnit, number> {
+        this.shownEmberCovenantAbsorbs = new WeakSet();
         this.combatVisuals?.captureHelpingHandPresentation?.();
         const amounts = new Map<RenderableUnit, number>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {

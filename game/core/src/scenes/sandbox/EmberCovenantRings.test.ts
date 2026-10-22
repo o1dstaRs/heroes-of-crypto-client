@@ -11,6 +11,7 @@ afterEach(() => {
 });
 
 const makeUnit = () => ({
+    getTeam: () => 1,
     properties: { applied_buffs: [NAME], applied_buffs_laps: [15] },
     frame: { x: 320, y: 510, width: 32, height: 14, zIndex: 4001 },
     flagVisible: true,
@@ -26,7 +27,7 @@ const makeUnit = () => ({
     },
 });
 
-function setup() {
+function setup(isImpactPending = () => false) {
     const root = new Container();
     roots.push(root);
     const one = makeUnit();
@@ -38,6 +39,7 @@ function setup() {
     ]);
     let texture: Texture | undefined = Texture.WHITE;
     const layer = new EmberCovenantRings({
+        isImpactPending,
         getUnits: () => units,
         getTexture: () => texture,
         attachToWorldRoot: (node, zIndex) => {
@@ -58,6 +60,60 @@ function setup() {
 }
 
 describe("Ember Covenant rings", () => {
+    test("holds removed blessings until impact, then dissolves only the struck army on that frame", () => {
+        let pending = true;
+        const f = setup(() => pending);
+        const opponent = makeUnit();
+        opponent.getTeam = () => 2;
+        f.units.set("opponent", opponent);
+        f.layer.update(0.3);
+        for (const unit of [f.one, f.two, opponent]) unit.properties.applied_buffs.length = 0;
+        f.layer.update(1.2);
+        const planes = f.root.children.map((node) => node.children[0]);
+        expect(planes.every((plane) => plane.alpha === 1)).toBe(true);
+        expect(planes.every((plane) => !plane.children.some((node) => node instanceof MeshSimple))).toBe(true);
+        f.layer.absorb("one");
+        for (const plane of planes.slice(0, 2)) {
+            expect(plane.children.some((node) => node instanceof MeshSimple && node.visible)).toBe(true);
+        }
+        expect(planes[2].children.some((node) => node instanceof MeshSimple)).toBe(false);
+        f.layer.update(0.2);
+        expect(planes[0].alpha).toBeCloseTo(planes[1].alpha);
+        expect(planes[0].alpha).toBeLessThan(1);
+        expect(planes[2].alpha).toBe(1);
+        pending = false;
+        f.layer.update(0.9);
+        expect(f.layer.active).toBe(false);
+    });
+
+    test("fire absorbs flash at contact while the unconsumed blessing stays intact", () => {
+        const f = setup(() => true);
+        f.layer.update(0.3);
+        const ring = f.root.children[0];
+        f.layer.absorb("one");
+        expect(f.root.children.some((node) => node.label === "ember-covenant-absorb")).toBe(true);
+        expect(ring.children[0].children.some((node) => node instanceof MeshSimple)).toBe(false);
+        f.layer.update(0.7);
+        expect(ring.destroyed).toBe(false);
+        expect(ring.children[0].alpha).toBe(1);
+    });
+
+    test("a later logical death cannot hide the earlier absorbed hit's dissolve", () => {
+        const f = setup(() => true);
+        f.layer.update(0.3);
+        const ring = f.root.children[0];
+        f.units.delete("one");
+        f.two.properties.applied_buffs.length = 0;
+        f.layer.update(0.4);
+        expect(ring.destroyed).toBe(false);
+        f.layer.absorb("one");
+        expect(ring.children[0].children.some((node) => node instanceof MeshSimple)).toBe(true);
+        expect(f.root.children.some((node) => node.label === "ember-covenant-absorb")).toBe(true);
+        f.layer.update(0.1);
+        expect(ring.children[0].alpha).toBeLessThan(1);
+        f.layer.update(0.9);
+        expect(f.layer.active).toBe(false);
+    });
     test("uses hydrated buffs and one shared texture behind the flag, with no filters or game RNG", () => {
         const f = setup();
         const properties = JSON.stringify([f.one.properties, f.two.properties]);
