@@ -100,5 +100,20 @@ describe("ranked placement reconcile", () => {
             unit({ id: "theirs", team: TeamVals.RIGHT, placed: false, cells: [], amountAlive: 8 }),
         ];
         expect(viewerPlacementAlreadyShown(TeamVals.LEFT, live, snapshot)).toBe(true);
+        expect(placementSnapshotWouldRewind(TeamVals.LEFT, live, snapshot)).toBe(false);
+    });
+
+    test("an empty board is not a rewind, and a stack-size change of the same stacks is", () => {
+        const live = [unit({ id: "a", amountAlive: 10 })];
+        expect(placementSnapshotWouldRewind(TeamVals.LEFT, [], live)).toBe(false);
+        expect(viewerPlacementAlreadyShown(TeamVals.LEFT, [], live)).toBe(false);
+        expect(placementSnapshotWouldRewind(TeamVals.LEFT, live, [unit({ id: "a", amountAlive: 6 })])).toBe(true);
+        expect(viewerPlacementAlreadyShown(TeamVals.LEFT, live, [unit({ id: "a", placed: false, cells: [] })])).toBe(
+            false,
+        );
+    });
+
+    test("a key with no grid marker is kept whole", () => {
+        expect(placementContextKey("legacy-without-grid")).toBe("legacy-without-grid");
     });
 });

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 import { TeamVals } from "@heroesofcrypto/common";
 
@@ -55,7 +58,16 @@ describe("ranked action response snapshots", () => {
         expect(placementActionSkipsSubmitSpinner(PlayActionType.PLACE_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.SPLIT_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.DELETE_UNIT)).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.UNPLACE_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.MOVE_UNIT)).toBe(false);
+
+        const runtime = readFileSync(join(import.meta.dir, "RankedGameViewRuntime.tsx"), "utf8");
+        const gate = runtime.indexOf("const showsSubmitSpinner =");
+        const raised = runtime.slice(gate, gate + 240);
+        expect(raised).toContain("!placementActionSkipsSubmitSpinner(payload.type)");
+        expect(raised).toMatch(/if \(showsSubmitSpinner\) \{\s*setBusy\(true\);/);
+        const cleared = runtime.slice(runtime.indexOf("} finally {", gate), runtime.indexOf("} finally {", gate) + 160);
+        expect(cleared).toMatch(/if \(showsSubmitSpinner\) \{\s*setBusy\(false\);/);
     });
 
     test("never surfaces a bare informational message (e.g. ACTION_ACCEPTED's raw action-type name) as an error", () => {
