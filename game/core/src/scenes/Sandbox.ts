@@ -15696,10 +15696,11 @@ export class Sandbox extends PixiScene {
                                 }
                                 let pierceMin = 0;
                                 let pierceMax = 0;
-                                for (const volleyMultiplier of volleyMultipliers) {
+                                for (const [volleyIndex, volleyMultiplier] of volleyMultipliers.entries()) {
                                     const band = projectAttackDamageBand({
                                         ...projectionBase,
                                         target: piercedUnit,
+                                        priorHits: volleyIndex,
                                         divisor: pierceDivisor,
                                         abilityMultiplier: throughShotAbilityMultiplier(
                                             this.currentActiveUnit,
@@ -15729,6 +15730,7 @@ export class Sandbox extends PixiScene {
                                     const band = projectAttackDamageBand({
                                         ...projectionBase,
                                         target: piercedUnit,
+                                        priorHits: volleyMultipliers.length,
                                         divisor: pierceDivisor,
                                         abilityMultiplier: throughShotAbilityMultiplier(
                                             this.currentActiveUnit,
@@ -15851,18 +15853,31 @@ export class Sandbox extends PixiScene {
                                     });
                                     return dealt + fireforgedBurn(victim, dealt);
                                 };
-                                const waves = (damage: number): number =>
+                                const laterBand = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: victim,
+                                    priorHits: 1,
+                                    divisor: rangeAttackDivisors[0] ?? rangeDivisor,
+                                    abilityMultiplier: aoeAttackAbilityMultiplier(
+                                        aoeAttacker,
+                                        abilityPower,
+                                        aoeHoverAbility,
+                                    ),
+                                });
+                                const waves = (damage: number, laterDamage: number): number =>
                                     wave(damage, perUnitDamageFactor) +
-                                    (aoeWaves === 2 ? wave(damage, (perUnitDamageFactor ?? 1) * secondWaveCharm) : 0);
+                                    (aoeWaves === 2
+                                        ? wave(laterDamage, (perUnitDamageFactor ?? 1) * secondWaveCharm)
+                                        : 0);
                                 const bonusMax =
                                     aoeAttacker.getBonusRangedAttackChance() > 0 &&
                                     aoeAttacker.projectRangeShotsAfterVolleys(aoeVictims[0], aoeWaves) > 0
-                                        ? wave(withLuckyStrike(band.max), perUnitDamageFactor)
+                                        ? wave(withLuckyStrike(laterBand.max), perUnitDamageFactor)
                                         : 0;
                                 addProjectedDamage(
                                     victim,
-                                    waves(band.min),
-                                    waves(withLuckyStrike(band.max)) + bonusMax,
+                                    waves(band.min, laterBand.min),
+                                    waves(withLuckyStrike(band.max), withLuckyStrike(laterBand.max)) + bonusMax,
                                 );
                             }
                         } else if (isRangeAttackContext) {
@@ -15923,6 +15938,7 @@ export class Sandbox extends PixiScene {
                                 const secondPunch = projectAttackDamage({
                                     ...projectionBase,
                                     target: damageUnit,
+                                    priorHits: 1,
                                     abilityMultiplier:
                                         AbilityHelper.withDualStrikeCharm(
                                             this.currentActiveUnit.calculateAbilityMultiplier(
