@@ -1,0 +1,1285 @@
+{
+ "pulled_at": "2026-10-22T16:42:00Z",
+ "test": false,
+ "user": {
+  "data": {
+   "created_at": "2024-03-14T20:15:16.000Z",
+   "description": "Turn-based tactics in the browser. One fight, then the map shrinks. No install. No wallet to start\n\ud83d\udfe6",
+   "id": "1768370292353884160",
+   "name": "Heroes Of Crypto (HOCAI)",
+   "pinned_tweet_id": "2110567307013726582",
+   "public_metrics": {
+    "followers_count": 92,
+    "following_count": 8,
+    "like_count": 16,
+    "listed_count": 1,
+    "media_count": 52,
+    "tweet_count": 166
+   },
+   "username": "Heroes0fcrypto"
+  }
+ },
+ "posts": {
+  "data": [
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2113268425623486700",
+    "created_at": "2026-10-22T13:57:45.000Z",
+    "edit_history_tweet_ids": [
+     "2113268575997768013"
+    ],
+    "id": "2113268575997768013",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2113268425623486700",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Which side do you read a fight from? It's in Settings, Gameplay, Your side of the battlefield. Random, the default, changes nothing.\nhttps://t.co/gdYw9HUHnk",
+    "url": "https://x.com/Heroes0fcrypto/status/2113268575997768013"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2113268425623486700",
+    "created_at": "2026-10-22T13:57:09.000Z",
+    "edit_history_tweet_ids": [
+     "2113268425623486700"
+    ],
+    "id": "2113268425623486700",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 1,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: a PvP match seats you on the left or the right. Now you can choose the side you see your army on. Only your screen is mirrored: the engine, the log and every cell stay exactly as dealt, and replays and spectators keep the true sides. Unit labels still read forward.",
+    "url": "https://x.com/Heroes0fcrypto/status/2113268425623486700"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2113056295360094346",
+    "created_at": "2026-10-21T23:54:28.000Z",
+    "edit_history_tweet_ids": [
+     "2113056355137540318"
+    ],
+    "id": "2113056355137540318",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2113056295360094346",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The same guard ate every ranked attack on a mountain until we fixed that in July. Line up a Through Shot yourself: https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2113056355137540318"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2113056295360094346",
+    "created_at": "2026-10-21T23:54:14.000Z",
+    "edit_history_tweet_ids": [
+     "2113056295360094346"
+    ],
+    "id": "2113056295360094346",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 17,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: on our test server, the Tsar Cannon drew its aim line through several stacks, and the click did nothing.\n\nA guard that drops moves aimed off the grid also dropped every free-aimed shot, as that shot aims at a point, not a cell. The server never saw it.\n\nFixed 25 Sep.",
+    "url": "https://x.com/Heroes0fcrypto/status/2113056295360094346"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112981039270522892",
+    "created_at": "2026-10-21T18:55:39.000Z",
+    "edit_history_tweet_ids": [
+     "2112981155200819317"
+    ],
+    "id": "2112981155200819317",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 5,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112981039270522892",
+      "type": "replied_to"
+     }
+    ],
+    "text": "When a fight slips away, which turn do you rewind to first: your opening placement, or the move where it turned? https://t.co/gdYw9HUHnk",
+    "url": "https://x.com/Heroes0fcrypto/status/2112981155200819317"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112981039270522892",
+    "created_at": "2026-10-21T18:55:11.000Z",
+    "edit_history_tweet_ids": [
+     "2112981039270522892"
+    ],
+    "id": "2112981039270522892",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 20,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: yesterday we said replays lost barrels and fire walls. That was half of it.\n\nA replay also dropped the real combat log, the damage graph and the turn clock. A Flesh Shield bearer killed by damage it soaked up just vanished.\n\nFixed 20 Sep. Now a replay shows the fight.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112981039270522892"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112906246567399593",
+    "created_at": "2026-10-21T13:58:22.000Z",
+    "edit_history_tweet_ids": [
+     "2112906340259540994"
+    ],
+    "id": "2112906340259540994",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 6,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112906246567399593",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Either way, the queue tells you before it happens. Try both lines in the sandbox: https://t.co/gdYw9HUHnk",
+    "url": "https://x.com/Heroes0fcrypto/status/2112906340259540994"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112906246567399593",
+    "created_at": "2026-10-21T13:57:59.000Z",
+    "edit_history_tweet_ids": [
+     "2112906246567399593"
+    ],
+    "id": "2112906246567399593",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 12,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Their fastest stack acts next in the queue. Do you pull your shooter out of reach, or leave something cheap in its path and make them spend the turn on it?",
+    "url": "https://x.com/Heroes0fcrypto/status/2112906246567399593"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112693816994201854",
+    "created_at": "2026-10-20T23:54:27.000Z",
+    "edit_history_tweet_ids": [
+     "2112693963631313221"
+    ],
+    "id": "2112693963631313221",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 9,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112693816994201854",
+      "type": "replied_to"
+     }
+    ],
+    "text": "When you rewatch a fight you lost, what do you check first: the queue, or the cells you could not stand on? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2112693963631313221"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112693816994201854",
+    "created_at": "2026-10-20T23:53:52.000Z",
+    "edit_history_tweet_ids": [
+     "2112693816994201854"
+    ],
+    "id": "2112693816994201854",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: our replays used to lie about the board. Barrels and fire walls went missing, so a barrel map replayed on bare ground and a Fire Wall was a flash with no burn.\n\nLive play put the terrain back after each rebuild. Replays never did. Now the terrain travels with them.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112693816994201854"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112618090542616657",
+    "created_at": "2026-10-20T18:53:27.000Z",
+    "edit_history_tweet_ids": [
+     "2112618214522032309"
+    ],
+    "id": "2112618214522032309",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 5,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112618090542616657",
+      "type": "replied_to"
+     }
+    ],
+    "text": "No Melee is the whole constraint. The sandbox is there to see the pin happen on purpose: https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2112618214522032309"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112618090542616657",
+    "created_at": "2026-10-20T18:52:57.000Z",
+    "edit_history_tweet_ids": [
+     "2112618090542616657"
+    ],
+    "id": "2112618090542616657",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Tsar Cannon does not punch. Once a melee stack is standing on it, the gun is furniture. Move it while the queue still lets you.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112618090542616657"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112543116544889027",
+    "created_at": "2026-10-20T13:55:15.000Z",
+    "edit_history_tweet_ids": [
+     "2112543170269692271"
+    ],
+    "id": "2112543170269692271",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 7,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112543116544889027",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Luck stays in the fight. It should not be the only way you win: https://t.co/pxHT7VwELS",
+    "url": "https://x.com/Heroes0fcrypto/status/2112543170269692271"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112543116544889027",
+    "created_at": "2026-10-20T13:55:02.000Z",
+    "edit_history_tweet_ids": [
+     "2112543116544889027"
+    ],
+    "id": "2112543116544889027",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 14,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "A plan that needs the high roll is not a plan. Leave another unit able to act if the first hit comes up short.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112543116544889027"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112331270386860113",
+    "created_at": "2026-10-19T23:53:41.000Z",
+    "edit_history_tweet_ids": [
+     "2112331382869615008"
+    ],
+    "id": "2112331382869615008",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 6,
+     "like_count": 1,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112331270386860113",
+      "type": "replied_to"
+     }
+    ],
+    "text": "We fixed the guide in September. So a surge is not a free move, it is a better place in line. Does that change which stack you finish first? https://t.co/pxHT7VwELS",
+    "url": "https://x.com/Heroes0fcrypto/status/2112331382869615008"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112331270386860113",
+    "created_at": "2026-10-19T23:53:14.000Z",
+    "edit_history_tweet_ids": [
+     "2112331270386860113"
+    ],
+    "id": "2112331270386860113",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 1,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Our own guide got Morale wrong. It said a Morale unit gets another action. The engine never gives one. Morale moves the unit ahead of the queue and it hits a quarter harder. Dismorale sends it behind everyone, hitting softer. One turn either way.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112331270386860113"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112256493034623098",
+    "created_at": "2026-10-19T18:56:32.000Z",
+    "edit_history_tweet_ids": [
+     "2112256603600638111"
+    ],
+    "id": "2112256603600638111",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 5,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112256493034623098",
+      "type": "replied_to"
+     }
+    ],
+    "text": "What the opening is allowed to be: https://t.co/9PkBIH6oWG",
+    "url": "https://x.com/Heroes0fcrypto/status/2112256603600638111"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112256493034623098",
+    "created_at": "2026-10-19T18:56:06.000Z",
+    "edit_history_tweet_ids": [
+     "2112256493034623098"
+    ],
+    "id": "2112256493034623098",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "The first move is a handshake. A step that does not claim a cell, a lane, or an aura range told the other player nothing.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112256493034623098"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112180382678610386",
+    "created_at": "2026-10-19T13:53:59.000Z",
+    "edit_history_tweet_ids": [
+     "2112180463754231965"
+    ],
+    "id": "2112180463754231965",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 3,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2112180382678610386",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Health says whether it can take a hit. The queue says whether that hit arrives before you can move it.",
+    "url": "https://x.com/Heroes0fcrypto/status/2112180463754231965"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2112180382678610386",
+    "created_at": "2026-10-19T13:53:40.000Z",
+    "edit_history_tweet_ids": [
+     "2112180382678610386"
+    ],
+    "id": "2112180382678610386",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Before you move a wounded stack: do you check who acts next, or do you check how much health it has left?",
+    "url": "https://x.com/Heroes0fcrypto/status/2112180382678610386"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111969404565250121",
+    "created_at": "2026-10-18T23:55:55.000Z",
+    "edit_history_tweet_ids": [
+     "2111969556138688776"
+    ],
+    "id": "2111969556138688776",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111969404565250121",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The hunt, not the wall: https://t.co/ap7MlsdnTp",
+    "url": "https://x.com/Heroes0fcrypto/status/2111969556138688776"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111969404565250121",
+    "created_at": "2026-10-18T23:55:19.000Z",
+    "edit_history_tweet_ids": [
+     "2111969404565250121"
+    ],
+    "id": "2111969404565250121",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 18,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Nature can lose the straight brawl and still win, if the other player chased one stack into a board that no longer has a way out.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111969404565250121"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111892951626350973",
+    "created_at": "2026-10-18T18:52:24.000Z",
+    "edit_history_tweet_ids": [
+     "2111893175274983766"
+    ],
+    "id": "2111893175274983766",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111892951626350973",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Protect purpose, not just hit points: https://t.co/9PkBIH6oWG",
+    "url": "https://x.com/Heroes0fcrypto/status/2111893175274983766"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111892951626350973",
+    "created_at": "2026-10-18T18:51:31.000Z",
+    "edit_history_tweet_ids": [
+     "2111892951626350973"
+    ],
+    "id": "2111892951626350973",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 12,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Pinning a ranged stack is not a hit on that stack. It is a hit on the reason the rest of the army was standing there.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111892951626350973"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111819309269835920",
+    "created_at": "2026-10-18T13:59:44.000Z",
+    "edit_history_tweet_ids": [
+     "2111819523087081888"
+    ],
+    "id": "2111819523087081888",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 6,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111819309269835920",
+      "type": "replied_to"
+     }
+    ],
+    "text": "We delete the outer cells on purpose. I want the opening you would actually play, not the one that looks brave.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111819523087081888"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111819309269835920",
+    "created_at": "2026-10-18T13:58:53.000Z",
+    "edit_history_tweet_ids": [
+     "2111819309269835920"
+    ],
+    "id": "2111819309269835920",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "If you learned flanking in Heroes of Might and Magic: do you still open on the edge when that edge is going to disappear?",
+    "url": "https://x.com/Heroes0fcrypto/status/2111819309269835920"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111606394281500728",
+    "created_at": "2026-10-17T23:53:00.000Z",
+    "edit_history_tweet_ids": [
+     "2111606435058684023"
+    ],
+    "id": "2111606435058684023",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111606394281500728",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The faction is weight, and the weight has to be earned: https://t.co/ap7MlsdVIX",
+    "url": "https://x.com/Heroes0fcrypto/status/2111606435058684023"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111606394281500728",
+    "created_at": "2026-10-17T23:52:50.000Z",
+    "edit_history_tweet_ids": [
+     "2111606394281500728"
+    ],
+    "id": "2111606394281500728",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 16,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Might is not walking forward and hoping the hit arrives. It is building a contact the other army cannot step out of.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111606394281500728"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111532527114506733",
+    "created_at": "2026-10-17T18:59:38.000Z",
+    "edit_history_tweet_ids": [
+     "2111532605841588606"
+    ],
+    "id": "2111532605841588606",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111532527114506733",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Give the ranged line and the healer different cells: https://t.co/9PkBIH6oWG",
+    "url": "https://x.com/Heroes0fcrypto/status/2111532605841588606"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111532527114506733",
+    "created_at": "2026-10-17T18:59:19.000Z",
+    "edit_history_tweet_ids": [
+     "2111532527114506733"
+    ],
+    "id": "2111532527114506733",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 9,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Packing the army into one knot feels loyal. The first area hit is why it was not.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111532527114506733"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111456161060815313",
+    "created_at": "2026-10-17T13:56:37.000Z",
+    "edit_history_tweet_ids": [
+     "2111456352145154096"
+    ],
+    "id": "2111456352145154096",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111456161060815313",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Through Shot carries the hit through the targets. The fix is the file, not more armor. Play it: https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2111456352145154096"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111456161060815313",
+    "created_at": "2026-10-17T13:55:52.000Z",
+    "edit_history_tweet_ids": [
+     "2111456161060815313"
+    ],
+    "id": "2111456161060815313",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Tsar Cannon does not stop on the first stack. Three units in a file is one shot you lined up for them. https://t.co/DfiPpCBiFm",
+    "url": "https://x.com/Heroes0fcrypto/status/2111456161060815313"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111245321292423194",
+    "created_at": "2026-10-16T23:58:34.000Z",
+    "edit_history_tweet_ids": [
+     "2111245446819811489"
+    ],
+    "id": "2111245446819811489",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 7,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111245321292423194",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Life is stubborn, not safe: https://t.co/ap7MlsdVIX",
+    "url": "https://x.com/Heroes0fcrypto/status/2111245446819811489"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111245321292423194",
+    "created_at": "2026-10-16T23:58:04.000Z",
+    "edit_history_tweet_ids": [
+     "2111245321292423194"
+    ],
+    "id": "2111245321292423194",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 13,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "A Life army that only heals, and never steps forward, runs out of board. The saved stack still needs a cell to matter on.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111245321292423194"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111168270522822947",
+    "created_at": "2026-10-16T18:52:38.000Z",
+    "edit_history_tweet_ids": [
+     "2111168457140302204"
+    ],
+    "id": "2111168457140302204",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 3,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111168270522822947",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Same day, we fixed a player who dropped for a second and lost their seat for the rest of the match. Now they come back into the fight. PvP is mostly that kind of work.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111168457140302204"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111168270522822947",
+    "created_at": "2026-10-16T18:51:53.000Z",
+    "edit_history_tweet_ids": [
+     "2111168270522822947"
+    ],
+    "id": "2111168270522822947",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 11,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "A bug from last month: every time the board shrank, it flashed back to full size for one frame before the cut ring vanished again.\n\nFor one frame, the board lied about the one rule the game is built on. The fix keeps the layers that already shrank and only draws the new ring.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111168270522822947"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111094220920643925",
+    "created_at": "2026-10-16T13:58:10.000Z",
+    "edit_history_tweet_ids": [
+     "2111094354408530359"
+    ],
+    "id": "2111094354408530359",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2111094220920643925",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Five positioning habits, including the edge: https://t.co/9PkBIH6WMe",
+    "url": "https://x.com/Heroes0fcrypto/status/2111094354408530359"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2111094220920643925",
+    "created_at": "2026-10-16T13:57:39.000Z",
+    "edit_history_tweet_ids": [
+     "2111094220920643925"
+    ],
+    "id": "2111094220920643925",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Standing on the edge can be the right cell. Staying there is how a shrinking map writes your next turn for you.",
+    "url": "https://x.com/Heroes0fcrypto/status/2111094220920643925"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110882073452167680",
+    "created_at": "2026-10-15T23:54:53.000Z",
+    "edit_history_tweet_ids": [
+     "2110882131291635810"
+    ],
+    "id": "2110882131291635810",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2110882073452167680",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Four banners, and none of them is a tier list: https://t.co/ap7MlsdVIX",
+    "url": "https://x.com/Heroes0fcrypto/status/2110882131291635810"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110882073452167680",
+    "created_at": "2026-10-15T23:54:39.000Z",
+    "edit_history_tweet_ids": [
+     "2110882073452167680"
+    ],
+    "id": "2110882073452167680",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Chaos is not a rush. You wait until one enemy unit is out of place, then make the rest of the fight an answer to that.",
+    "url": "https://x.com/Heroes0fcrypto/status/2110882073452167680"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110805506940153982",
+    "created_at": "2026-10-15T18:50:44.000Z",
+    "edit_history_tweet_ids": [
+     "2110805592323572126"
+    ],
+    "id": "2110805592323572126",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 19,
+     "like_count": 1,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2110805506940153982",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The code is open source if you want to read the rules instead of trusting them: https://t.co/Q7JoQPT9iU",
+    "url": "https://x.com/Heroes0fcrypto/status/2110805592323572126"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110805506940153982",
+    "created_at": "2026-10-15T18:50:24.000Z",
+    "edit_history_tweet_ids": [
+     "2110805506940153982"
+    ],
+    "id": "2110805506940153982",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 23,
+     "like_count": 1,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "The first commit was 12 June 2024. One repo for the client, one for the server two days later, and a shared rules library so both sides of a match agree on every move.\n\nThe idea: take the Heroes battle screen, drop the map, and put two players on it.",
+    "url": "https://x.com/Heroes0fcrypto/status/2110805506940153982"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110730873159168376",
+    "created_at": "2026-10-15T13:54:10.000Z",
+    "edit_history_tweet_ids": [
+     "2110730955853861001"
+    ],
+    "id": "2110730955853861001",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2110730873159168376",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Why that glance matters more once the map starts shrinking: https://t.co/pxHT7Vw6Wk",
+    "url": "https://x.com/Heroes0fcrypto/status/2110730955853861001"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110730873159168376",
+    "created_at": "2026-10-15T13:53:50.000Z",
+    "edit_history_tweet_ids": [
+     "2110730873159168376"
+    ],
+    "id": "2110730873159168376",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 18,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "If the unit you want to hit acts before the unit you are sending, the plan is already late. Read the queue before you commit. https://t.co/1eQJpPNHH2",
+    "url": "https://x.com/Heroes0fcrypto/status/2110730873159168376"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2110567307013726582",
+    "created_at": "2026-10-15T03:03:53.000Z",
+    "edit_history_tweet_ids": [
+     "2110567307013726582"
+    ],
+    "id": "2110567307013726582",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 97,
+     "like_count": 2,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "We grew up on Heroes III. The battles were the best part, and the map kept making us wait.\n\nSo we built only the battle: turn-based PvP against real players. The board shrinks every few laps, so nobody hides.\n\nFree in the browser.\n\nhttps://t.co/EENa0HvsTL https://t.co/Orq3JKXb6p",
+    "url": "https://x.com/Heroes0fcrypto/status/2110567307013726582"
+   }
+  ],
+  "includes": {
+   "tweets": [
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2113268425623486700",
+     "created_at": "2026-10-22T13:57:09.000Z",
+     "edit_history_tweet_ids": [
+      "2113268425623486700"
+     ],
+     "id": "2113268425623486700",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 8,
+      "like_count": 1,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Dev diary: a PvP match seats you on the left or the right. Now you can choose the side you see your army on. Only your screen is mirrored: the engine, the log and every cell stay exactly as dealt, and replays and spectators keep the true sides. Unit labels still read forward."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2113056295360094346",
+     "created_at": "2026-10-21T23:54:14.000Z",
+     "edit_history_tweet_ids": [
+      "2113056295360094346"
+     ],
+     "id": "2113056295360094346",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 17,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Dev diary: on our test server, the Tsar Cannon drew its aim line through several stacks, and the click did nothing.\n\nA guard that drops moves aimed off the grid also dropped every free-aimed shot, as that shot aims at a point, not a cell. The server never saw it.\n\nFixed 25 Sep."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112981039270522892",
+     "created_at": "2026-10-21T18:55:11.000Z",
+     "edit_history_tweet_ids": [
+      "2112981039270522892"
+     ],
+     "id": "2112981039270522892",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 20,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Dev diary: yesterday we said replays lost barrels and fire walls. That was half of it.\n\nA replay also dropped the real combat log, the damage graph and the turn clock. A Flesh Shield bearer killed by damage it soaked up just vanished.\n\nFixed 20 Sep. Now a replay shows the fight."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112906246567399593",
+     "created_at": "2026-10-21T13:57:59.000Z",
+     "edit_history_tweet_ids": [
+      "2112906246567399593"
+     ],
+     "id": "2112906246567399593",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 12,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Their fastest stack acts next in the queue. Do you pull your shooter out of reach, or leave something cheap in its path and make them spend the turn on it?"
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112693816994201854",
+     "created_at": "2026-10-20T23:53:52.000Z",
+     "edit_history_tweet_ids": [
+      "2112693816994201854"
+     ],
+     "id": "2112693816994201854",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 10,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Dev diary: our replays used to lie about the board. Barrels and fire walls went missing, so a barrel map replayed on bare ground and a Fire Wall was a flash with no burn.\n\nLive play put the terrain back after each rebuild. Replays never did. Now the terrain travels with them."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112618090542616657",
+     "created_at": "2026-10-20T18:52:57.000Z",
+     "edit_history_tweet_ids": [
+      "2112618090542616657"
+     ],
+     "id": "2112618090542616657",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 15,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Tsar Cannon does not punch. Once a melee stack is standing on it, the gun is furniture. Move it while the queue still lets you."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112543116544889027",
+     "created_at": "2026-10-20T13:55:02.000Z",
+     "edit_history_tweet_ids": [
+      "2112543116544889027"
+     ],
+     "id": "2112543116544889027",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 14,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "A plan that needs the high roll is not a plan. Leave another unit able to act if the first hit comes up short."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112331270386860113",
+     "created_at": "2026-10-19T23:53:14.000Z",
+     "edit_history_tweet_ids": [
+      "2112331270386860113"
+     ],
+     "id": "2112331270386860113",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 10,
+      "like_count": 1,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Our own guide got Morale wrong. It said a Morale unit gets another action. The engine never gives one. Morale moves the unit ahead of the queue and it hits a quarter harder. Dismorale sends it behind everyone, hitting softer. One turn either way."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112256493034623098",
+     "created_at": "2026-10-19T18:56:06.000Z",
+     "edit_history_tweet_ids": [
+      "2112256493034623098"
+     ],
+     "id": "2112256493034623098",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 10,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "The first move is a handshake. A step that does not claim a cell, a lane, or an aura range told the other player nothing."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2112180382678610386",
+     "created_at": "2026-10-19T13:53:40.000Z",
+     "edit_history_tweet_ids": [
+      "2112180382678610386"
+     ],
+     "id": "2112180382678610386",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 10,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Before you move a wounded stack: do you check who acts next, or do you check how much health it has left?"
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2111969404565250121",
+     "created_at": "2026-10-18T23:55:19.000Z",
+     "edit_history_tweet_ids": [
+      "2111969404565250121"
+     ],
+     "id": "2111969404565250121",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 18,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Nature can lose the straight brawl and still win, if the other player chased one stack into a board that no longer has a way out."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2111892951626350973",
+     "created_at": "2026-10-18T18:51:31.000Z",
+     "edit_history_tweet_ids": [
+      "2111892951626350973"
+     ],
+     "id": "2111892951626350973",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 12,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "Pinning a ranged stack is not a hit on that stack. It is a hit on the reason the rest of the army was standing there."
+    },
+    {
+     "author_id": "1768370292353884160",
+     "conversation_id": "2111819309269835920",
+     "created_at": "2026-10-18T13:58:53.000Z",
+     "edit_history_tweet_ids": [
+      "2111819309269835920"
+     ],
+     "id": "2111819309269835920",
+     "public_metrics": {
+      "bookmark_count": 0,
+      "impression_count": 15,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+     },
+     "text": "If you learned flanking in Heroes of Might and Magic: do you still open on the edge when that edge is going to disappear?"
+    }
+   ],
+   "users": [
+    {
+     "id": "1768370292353884160",
+     "name": "Heroes Of Crypto (HOCAI)",
+     "profile_image_url": "https://pbs.twimg.com/profile_images/1985398322899914752/o3g_3J0K_normal.jpg",
+     "username": "Heroes0fcrypto",
+     "verified": false
+    }
+   ]
+  },
+  "meta": {
+   "result_count": 45
+  }
+ }
+}
