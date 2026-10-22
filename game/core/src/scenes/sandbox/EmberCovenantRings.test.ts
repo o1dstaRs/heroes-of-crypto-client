@@ -150,6 +150,7 @@ describe("Ember Covenant rings", () => {
             const vertical = node.toGlobal({ x: 0, y: 0.5 });
             expect(node.x).toBe(123);
             expect(node.y).toBeGreaterThan(650);
+            expect(node.y - 650).toBeLessThan(settings.getStep() * (2 / 0.7) * 0.07);
             expect(Math.abs((vertical.y - origin.y) / (horizontal.x - origin.x))).toBeCloseTo(0.34);
         }
     });

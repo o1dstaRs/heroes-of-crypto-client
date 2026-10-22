@@ -88,7 +88,7 @@ export class EmberCovenantRings {
                 scale && [scale.x, scale.y].every(Number.isFinite) && scale.x > 0 && scale.y > 0
                     ? scale.x / scale.y
                     : 1;
-            const bob = Math.sin(this.elapsed * 2 + ring.phase) * cell * 0.025;
+            const bob = Math.sin(this.elapsed * 2 + ring.phase) * cell * 0.012;
             ring.node.setFromMatrix(
                 new Matrix(
                     diameter,
@@ -96,7 +96,7 @@ export class EmberCovenantRings {
                     0,
                     diameter * 0.34 * cameraRatio,
                     top.x,
-                    top.y + cell * 0.24 * cameraRatio + bob,
+                    top.y + cell * 0.04 * cameraRatio + bob,
                 ),
             );
         }
