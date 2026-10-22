@@ -28,7 +28,7 @@ heroes-of-crypto-client/
 
 ## Tech stack
 
-- **Runtime:** Bun
+- **Runtime:** Bun >= 1.4.4
 - **Game render:** PixiJS v8 (y-up world, sprite atlases, container depth-sorting)
 - **UI:** React + MUI Joy (sidebars, toolbar, overlays)
 - **Site:** Astro 7 (static, sitemap, content collections)
@@ -51,7 +51,7 @@ bun run build:ws
 
 # Verify everything (run before pushing — see "Before you push")
 bun run check              # = lint + typecheck + test
-bun run lint:fix           # auto-fix eslint + prettier + scss + package order
+bun run lint:fix           # auto-fix eslint + bun fmt + scss + package order
 ```
 
 ## Before you push
@@ -99,16 +99,16 @@ without the lockfile fails the deploy's `bun install --frozen-lockfile` on the b
 
 Then re-run the gate below: a clean merge is not a passing build.
 
-CI runs **`bun run lint`** check-only (eslint + stylelint + sort-package-json + prettier), so unformatted
+CI runs **`bun run lint`** check-only (eslint + stylelint + sort-package-json + `bun fmt`), so unformatted
 or lint-dirty code fails the build even though it runs fine locally. Run the full gate first:
 
 ```bash
-bun run check       # lint (eslint/stylelint/prettier --check) + typecheck (tsc) + test (bun test)
+bun run check       # lint (eslint/stylelint/bun fmt --check) + typecheck (tsc) + test (bun test)
 ```
 
 If `check` fails:
 
-- **Style/lint** (`prettier`/`eslint`/`scss`/package order) → `bun run lint:fix`, then re-run `bun run check`.
+- **Style/lint** (`bun fmt`/`eslint`/`scss`/package order) → `bun run lint:fix`, then re-run `bun run check`.
   (The `.githooks/pre-commit` hook auto-fixes _staged_ files via `lint-staged`, but only if hooks are
   enabled — `bun install` wires them via `prepare`. Don't rely on it; run `bun run check` yourself.)
 - **typecheck** → fix the type errors in _your_ files. A peer editing `main` may leave a transient `tsc`
@@ -119,7 +119,7 @@ If `check` fails:
 ### Changes to the `@heroesofcrypto/common` submodule
 
 `bun run check`'s typecheck reads common's built `dist`, so after editing `game/heroes-of-crypto-common/src`
-rebuild it (this also runs prettier + the common test suite + `tsc`):
+rebuild it (this also runs `bun fmt` + the common test suite + `tsc`):
 
 ```bash
 bun run --cwd game/heroes-of-crypto-common build
