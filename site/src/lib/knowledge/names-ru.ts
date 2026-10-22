@@ -128,7 +128,6 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "In Its Own World": "В своём мире",
     Infest: "Заражение",
     "Large Caliber": "Крупный калибр",
-    "Leather Armor": "Кожаная броня",
     "Lightning Spin": "Молниеносный вихрь",
     "Limited Supply": "Ограниченный запас",
     "Luck Aura": "Аура удачи",

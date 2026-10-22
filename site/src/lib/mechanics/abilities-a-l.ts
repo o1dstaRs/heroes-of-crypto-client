@@ -327,12 +327,6 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
         ru: ({ p, n }) =>
             `Каждый юнит в блоке 3×3 вокруг клетки попадания — цель, другие враги и ваши юниты — получает ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) обычного выстрела, каждый со своим броском уклонения. Снаряд летит поверх построек и разбивает бочки в блоке; цель, способная стрелять, отвечает после всего урона.`,
     },
-    "Leather Armor": {
-        en: ({ p }) =>
-            `Against shots this unit's base armor counts ${p}% lower (armor buffs and debuffs count in full), so shots hurt it noticeably more.`,
-        ru: ({ p }) =>
-            `Против выстрелов базовая броня этого юнита считается на ${p}% ниже (баффы и дебаффы брони учитываются полностью), поэтому выстрелы ранят его заметно сильнее.`,
-    },
     "Lightning Spin": {
         en: () =>
             "Every attack and retaliation strikes all enemies touching the Hydra — except a Manticore whose Terrifying Gaze has frightened it — each with its own dodge roll, and the Hydra's attacks can't be answered while it isn't Broken.",

@@ -461,13 +461,6 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                 : "Heavy Armor: all magic hits it up to 50% harder (by its stack power and luck) — damage spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield.",
         );
     }
-    if (has("Leather Armor")) {
-        lines.push(
-            isRu
-                ? "Leather Armor: против выстрелов его базовая броня на 50% ниже — вражеские стрелки его естественная контра."
-                : "Leather Armor: its base armor counts 50% lower against shots — enemy shooters are its natural counter.",
-        );
-    }
     if (has("Small Specie")) {
         lines.push(
             isRu
