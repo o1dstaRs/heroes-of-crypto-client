@@ -128,7 +128,7 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
         noteDeathBlowsFromAttackEvent: () => {},
         renderAreaImpactVfx: (hits: unknown[]) => events.push(`blast:${hits.length}`),
         showFleshShieldAbsorbedDamage: () => new Map(),
-        showWaterShieldAbsorbs: () => {},
+        showShieldAbsorbs: () => {},
         offsetReplayDamagePosition: (position: HoCMath.XY) => position,
         playUnitCombatSound: (unit: typeof giant, role: string) => events.push(`${unit.getId()}:${role}`),
         playReplayOneShot: (unit: typeof giant, state: string) => {

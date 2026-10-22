@@ -216,7 +216,7 @@ function fixture(team: TeamType) {
             }),
             noteDeathBlowsFromAttackEvent: () => {},
             showFleshShieldAbsorbedDamage: () => new Map<string, number>(),
-            showWaterShieldAbsorbs: () => {},
+            showShieldAbsorbs: () => {},
             playAreaThrowImpact: (_unit: RenderableUnit, splash: AreaEvent["damage"]["splash"]) => {
                 waveSizes.push(splash?.length ?? 0);
                 return Promise.resolve();

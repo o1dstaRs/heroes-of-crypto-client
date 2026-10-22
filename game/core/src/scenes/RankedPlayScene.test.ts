@@ -1863,6 +1863,19 @@ describe("ranked spell secondary-damage scene log", () => {
         ]);
     });
 
+    test("Ember Covenant reports blocked damage without claiming the recipient was hurt", () => {
+        const event = {
+            type: "unit_attacked",
+            damage: {
+                amount: 0,
+                secondary: [{ source: "ember_covenant", unitId: "hydra", amount: 44, unitsDied: 0 }],
+            },
+        } as unknown as GameEvent;
+        expect(rankedSecondarySceneLogLines(event, new Map([["hydra", "Hydra"]]))).toEqual([
+            "Hydra's Ember Covenant absorbed (44)",
+        ]);
+    });
+
     test("a Lightning Spin off a barrel strike logs each enemy it caught", () => {
         // The spin's unit hits ride the first obstacle_attacked of the action — a barrel has no attack payload.
         const obstacleEvent = {

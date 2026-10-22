@@ -160,7 +160,7 @@ describe("stack counts at damage impact", () => {
                 sc_sceneSettings: { getGridSettings: () => gs },
                 unitsHolder: { getAllUnits: () => new Map([[unit.getId(), unit]]) },
                 combatVisuals: visualsFor(unit),
-                showWaterShieldAbsorbs: () => {},
+                showShieldAbsorbs: () => {},
                 showDevourEssenceHeals: () => {},
                 renderAreaImpactVfx: () => {},
                 spawnDeepWoundsClaws: () => {},

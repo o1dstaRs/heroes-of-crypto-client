@@ -156,7 +156,7 @@ describe("Ember Covenant rings", () => {
         expect(fragments.vertices).toHaveLength(280);
         expect([...fragments.vertices].every(Number.isFinite)).toBe(true);
         const released = spyOn(fragments.geometry, "destroy");
-        f.layer.update(0.36);
+        f.layer.update(0.66);
         expect(f.root.children).toHaveLength(0);
         expect(f.layer.active).toBe(false);
         expect(released).toHaveBeenCalledTimes(1);
@@ -170,7 +170,7 @@ describe("Ember Covenant rings", () => {
             if (reason === "expired") f.one.properties.applied_buffs_laps[0] = 0;
             if (reason === "dead") f.one.dead = true;
             if (reason === "removed") f.units.delete("one");
-            f.layer.update(0.6);
+            f.layer.update(0.9);
             expect(f.root.children).toHaveLength(1);
         }
     });
@@ -219,5 +219,36 @@ describe("Ember Covenant rings", () => {
         f.layer.clear();
         f.layer.clear();
         expect(Texture.WHITE.destroyed).toBe(false);
+    });
+
+    test("a confirmed absorb flashes only its recipient, even after the shared rings finished dissolving", () => {
+        const f = setup();
+        f.layer.update(0.3);
+        f.one.properties.applied_buffs.length = 0;
+        f.two.properties.applied_buffs.length = 0;
+        f.layer.update(0.9);
+        const random = spyOn(Math, "random");
+        try {
+            f.layer.absorb("one");
+            expect(f.root.children).toHaveLength(1);
+            const impact = f.root.children[0];
+            expect(impact.label).toBe("ember-covenant-absorb");
+            expect(impact.zIndex).toBeLessThan(f.one.frame.zIndex);
+            expect(impact.filters?.length ?? 0).toBe(0);
+            f.one.frame.x += 30;
+            f.one.frame.zIndex += 20;
+            f.layer.update(0.2);
+            expect(impact.x).toBe(f.one.frame.x);
+            expect(impact.zIndex).toBeLessThan(f.one.frame.zIndex);
+            expect(impact.zIndex).toBeGreaterThan(f.one.frame.zIndex - 1);
+            expect(impact.alpha).toBeGreaterThan(0);
+            expect(impact.alpha).toBeLessThan(1);
+            f.layer.update(0.5);
+            expect(impact.destroyed).toBe(true);
+            expect(f.layer.active).toBe(false);
+            expect(random).not.toHaveBeenCalled();
+        } finally {
+            random.mockRestore();
+        }
     });
 });

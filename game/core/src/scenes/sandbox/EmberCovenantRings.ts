@@ -3,9 +3,21 @@ import { Container, Graphics, MeshSimple, Sprite, Texture } from "pixi.js";
 
 const NAME = "Ember Covenant Blessing";
 const TAU = Math.PI * 2;
-const BREAK_SECONDS = 0.55;
+const BREAK_SECONDS = 0.85;
+const IMPACT_SECONDS = 0.65;
 const FRAGMENTS = 10;
 const ARC_STEPS = 6;
+const CIRCLE_SEGMENTS = 64;
+
+// Pixi tessellates a sub-unit circle as a small polygon before the flag-sized scale is applied.
+function circlePath(graphics: Graphics, radius: number): Graphics {
+    graphics.moveTo(radius, 0);
+    for (let i = 1; i < CIRCLE_SEGMENTS; i++) {
+        const angle = (i * TAU) / CIRCLE_SEGMENTS;
+        graphics.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    }
+    return graphics.closePath();
+}
 
 export interface EmberCovenantUnit {
     getUnitProperties(): Pick<UnitProperties, "applied_buffs" | "applied_buffs_laps">;
@@ -31,6 +43,12 @@ interface RingContext {
     attachToWorldRoot(container: Container, zIndex: number): void;
 }
 
+interface AbsorbImpact {
+    node: Graphics;
+    age: number;
+    phase: number;
+}
+
 function phaseFor(id: string): number {
     let hash = 2166136261;
     for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619);
@@ -44,10 +62,38 @@ function carriesCovenant(unit: EmberCovenantUnit): boolean {
 
 export class EmberCovenantRings {
     private readonly rings = new Map<string, Ring>();
+    private readonly impacts = new Map<string, AbsorbImpact>();
     private elapsed = 0;
     public constructor(private readonly context: RingContext) {}
     public get active(): boolean {
-        return this.rings.size > 0;
+        return this.rings.size > 0 || this.impacts.size > 0;
+    }
+    /** An authoritative absorb, independent of the shared blessing's disappearance. */
+    public absorb(id: string): void {
+        const unit = this.context.getUnits()?.get(id);
+        const frame = unit?.getBlessingHaloFrame?.();
+        if (
+            !frame ||
+            unit?.isDead() ||
+            ![frame.x, frame.y, frame.width, frame.height, frame.zIndex].every(Number.isFinite) ||
+            frame.width <= 0 ||
+            frame.height <= 0
+        )
+            return;
+        this.impacts.get(id)?.node.destroy();
+        const node = new Graphics();
+        node.label = "ember-covenant-absorb";
+        node.eventMode = "none";
+        node.blendMode = "add";
+        node.position.set(frame.x, frame.y);
+        node.scale.set(frame.width * 2.15, frame.height * 2.75);
+        const impact = { node, age: 0, phase: phaseFor(id) };
+        this.impacts.set(id, impact);
+        node.once("destroyed", () => {
+            if (this.impacts.get(id) === impact) this.impacts.delete(id);
+        });
+        this.context.attachToWorldRoot(node, frame.zIndex - 0.05);
+        this.paintImpact(impact);
     }
     public update(dt: number): void {
         const step = Number.isFinite(dt) && dt > 0 ? dt : 0;
@@ -97,6 +143,21 @@ export class EmberCovenantRings {
             ring.age += step;
             this.paint(ring, texture);
         }
+        for (const [id, impact] of this.impacts) {
+            impact.age += step;
+            if (impact.age >= IMPACT_SECONDS || !units.has(id) || units.get(id)?.isDead()) {
+                impact.node.destroy();
+                continue;
+            }
+            const frame = units.get(id)?.getBlessingHaloFrame?.();
+            impact.node.visible = !!frame;
+            if (frame) {
+                impact.node.position.set(frame.x, frame.y);
+                impact.node.scale.set(frame.width * 2.15, frame.height * 2.75);
+                impact.node.zIndex = frame.zIndex - 0.05;
+            }
+            this.paintImpact(impact);
+        }
     }
     private create(id: string, zIndex: number): Ring {
         const node = new Container();
@@ -122,25 +183,45 @@ export class EmberCovenantRings {
         const pulse = Math.sin(this.elapsed * 4 + ring.phase);
         const broken = ring.breakAge === undefined ? 0 : ring.breakAge / BREAK_SECONDS;
         const appear = Math.min(1, ring.age / 0.3);
-        ring.plane.scale.set((1 + pulse * 0.012) * (1 - broken * 0.25));
+        const burst = 1 - (1 - broken) ** 3;
+        const flash = Math.max(0, 1 - broken / 0.3);
+        ring.plane.scale.set((1 + pulse * 0.012) * (1 + burst * 0.18));
         ring.plane.alpha = appear * (1 - broken) ** 0.7;
         ring.flame.rotation = this.elapsed * 0.22 + ring.phase;
         ring.echo.rotation = -this.elapsed * 0.13 - ring.phase;
-        ring.echo.alpha = 0.16 + pulse * 0.035 + broken * 0.4;
+        ring.echo.alpha = 0.16 + pulse * 0.035 + (broken > 0 ? flash * 0.85 : 0);
         ring.flame.alpha = 0.83 + pulse * 0.07;
         for (const sprite of [ring.flame, ring.echo]) {
-            sprite.visible = !!texture && broken === 0;
+            sprite.visible = !!texture && (broken === 0 || (sprite === ring.echo && broken < 0.3));
             if (texture && sprite.texture !== texture) sprite.texture = texture;
             sprite.width = 1;
             sprite.height = 1;
         }
+        ring.echo.scale.set(ring.echo.scale.x * (1 + burst * 0.22), ring.echo.scale.y * (1 + burst * 0.22));
         if (ring.fragments) ring.fragments.visible = broken > 0;
         if (broken > 0 && texture) this.paintFragments(ring, texture, broken);
         const sparks = ring.sparks;
         sparks.clear();
         if (!texture) {
-            sparks.circle(0, 0, 0.37).stroke({ width: 0.012, color: 0xffb22f, alpha: 0.75 });
-            sparks.circle(0, 0, 0.39).stroke({ width: 0.03, color: 0xff641a, alpha: 0.12 });
+            circlePath(sparks, 0.37).stroke({ width: 0.012, color: 0xffb22f, alpha: 0.75 });
+            circlePath(sparks, 0.39).stroke({ width: 0.03, color: 0xff641a, alpha: 0.12 });
+        }
+        if (broken > 0) {
+            const radius = 0.36 + burst * 0.36;
+            circlePath(sparks, radius).stroke({ width: 0.045 * (1 - broken), color: 0xff681b, alpha: 0.5 });
+            circlePath(sparks, radius).stroke({ width: 0.009, color: 0xffe8a2, alpha: (1 - broken) * 0.9 });
+            for (let i = 0; i < 26; i++) {
+                const angle = ring.phase + (i * TAU) / 26;
+                const travel = burst * (0.22 + (i % 4) * 0.055);
+                const x = Math.cos(angle) * (0.34 + travel);
+                const y = Math.sin(angle) * (0.34 + travel) + broken * broken * 0.2;
+                const tail = 0.025 + (1 - broken) * 0.07;
+                sparks
+                    .moveTo(x - Math.cos(angle) * tail, y - Math.sin(angle) * tail)
+                    .lineTo(x, y)
+                    .stroke({ width: 0.006, color: i % 3 ? 0xffac37 : 0xfff2ce, alpha: (1 - broken) ** 1.3 });
+                sparks.circle(x, y, 0.015).fill({ color: 0xff6d13, alpha: (1 - broken) * 0.18 });
+            }
         }
         for (let i = 0; i < 10; i++) {
             const t = (this.elapsed * 0.38 + i * 0.618 + ring.phase) % 1;
@@ -177,6 +258,7 @@ export class EmberCovenantRings {
             }
             const mesh = new MeshSimple({ texture, vertices, uvs, indices: new Uint32Array(indices) });
             mesh.label = "ember-covenant-dissolve";
+            mesh.blendMode = "add";
             mesh.once("destroyed", () => mesh.geometry.destroy());
             ring.plane.addChildAt(mesh, 2);
             ring.fragments = mesh;
@@ -187,7 +269,7 @@ export class EmberCovenantRings {
             const start = fragment * (ARC_STEPS + 1) * 2;
             const rotation = ring.flame.rotation + Math.sin(fragment * 2.1) * broken * 0.25;
             const angle = ((fragment + 0.5) * TAU) / FRAGMENTS + rotation;
-            const drift = broken * (0.12 + (fragment % 3) * 0.025);
+            const drift = (1 - (1 - broken) ** 3) * (0.22 + (fragment % 3) * 0.045);
             for (let step = 0; step <= ARC_STEPS; step++) {
                 for (let side = 0; side < 2; side++) {
                     const index = (start + step * 2 + side) * 2;
@@ -201,8 +283,34 @@ export class EmberCovenantRings {
         }
         ring.fragments.alpha = (1 - broken) * (1.3 + Math.sin(broken * Math.PI) * 0.4);
     }
+    private paintImpact(impact: AbsorbImpact): void {
+        const t = Math.min(1, impact.age / IMPACT_SECONDS);
+        const burst = 1 - (1 - t) ** 3;
+        const flash = Math.max(0, 1 - t / 0.28);
+        const g = impact.node;
+        g.clear();
+        g.alpha = (1 - t) ** 0.65;
+        // A hot white core at contact, then a gold pressure ring and outward ember streaks.
+        circlePath(g, 0.27 + burst * 0.13).fill({ color: 0xff8a20, alpha: flash * 0.32 });
+        circlePath(g, 0.18 + burst * 0.08).fill({ color: 0xfff1bf, alpha: flash * 0.65 });
+        const radius = 0.28 + burst * 0.65;
+        circlePath(g, radius).stroke({ width: 0.06 * (1 - t), color: 0xff7a1d, alpha: 0.35 });
+        circlePath(g, radius).stroke({ width: 0.012 * (1 - t), color: 0xffe9ab, alpha: 0.9 });
+        for (let i = 0; i < 20; i++) {
+            const angle = impact.phase + (i * TAU) / 20;
+            const reach = 0.3 + burst * (0.55 + (i % 3) * 0.1);
+            const x = Math.cos(angle) * reach;
+            const y = Math.sin(angle) * reach + t * t * 0.15;
+            const tail = (1 - t) * 0.16;
+            g.moveTo(x - Math.cos(angle) * tail, y - Math.sin(angle) * tail)
+                .lineTo(x, y)
+                .stroke({ width: 0.008 * (1 - t), color: i % 3 ? 0xffbd55 : 0xfff5da, alpha: 0.95 });
+        }
+    }
     public clear(): void {
         for (const ring of this.rings.values()) ring.node.destroy({ children: true });
         this.rings.clear();
+        for (const impact of this.impacts.values()) impact.node.destroy();
+        this.impacts.clear();
     }
 }

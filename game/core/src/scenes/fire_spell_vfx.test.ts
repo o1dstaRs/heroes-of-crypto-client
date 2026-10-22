@@ -37,7 +37,7 @@ function fixture(cells = [{ x: 4, y: 5 }]) {
         combatVisuals: visuals,
         unitsHolder: { getAllUnits: () => new Map([["target", { getCells: () => cells }]]) },
         showFleshShieldAbsorbedDamage: mock(() => undefined),
-        showWaterShieldAbsorbs: mock(() => undefined),
+        showShieldAbsorbs: mock(() => undefined),
     });
     return { scene, visuals };
 }

@@ -6095,21 +6095,29 @@ export class Sandbox extends PixiScene {
         }
         return aggregated;
     }
-    protected showWaterShieldAbsorbs(
+    protected showShieldAbsorbs(
         secondary?: IVisibleDamage["secondary"],
         attackerCenter?: HoCMath.XY,
         delayMs = 0,
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         for (const entry of secondary ?? []) {
-            if (entry.source !== "water_shield" || entry.amount <= 0) {
+            if ((entry.source !== "water_shield" && entry.source !== "ember_covenant") || entry.amount <= 0) {
                 continue;
             }
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
             const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, undefined, unit);
+                this.combatVisuals.showFloatingAbsorbed(
+                    pos,
+                    entry.amount,
+                    direction,
+                    undefined,
+                    unit,
+                    undefined,
+                    entry.source === "ember_covenant" ? "ember_covenant" : undefined,
+                );
             };
             if (delayMs > 0) {
                 this.scheduleSceneTimeout(show, delayMs);
@@ -6275,7 +6283,7 @@ export class Sandbox extends PixiScene {
             // using the diff as a last-resort primary value. This is essential for Lightning Spin,
             // whose clicked victim is represented only in `secondary`, and prevents a second red copy.
             const secondaryAlreadyShown = (damage.secondary ?? [])
-                .filter((entry) => entry.unitId === damageUnitId)
+                .filter((entry) => entry.unitId === damageUnitId && entry.source !== "ember_covenant")
                 .reduce(
                     (total, entry) => ({
                         amount: total.amount + entry.amount,
@@ -6555,7 +6563,7 @@ export class Sandbox extends PixiScene {
         // entry is rendered with the primary exchange, so remove those exact chunks before deciding
         // whether a real retaliation remains.
         const secondaryOnAttacker = (attackEvent.damage.secondary ?? [])
-            .filter((entry) => entry.unitId === responseVictimId)
+            .filter((entry) => entry.unitId === responseVictimId && entry.source !== "ember_covenant")
             .reduce(
                 (total, entry) => ({
                     amount: total.amount + entry.amount,
@@ -10596,7 +10604,7 @@ export class Sandbox extends PixiScene {
             // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
             // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
             this.showFleshShieldAbsorbedDamage(secondary, visualCasterPosition);
-            this.showWaterShieldAbsorbs(secondary, visualCasterPosition);
+            this.showShieldAbsorbs(secondary, visualCasterPosition);
             // Thrown spells sweep embers from the caster to each victim; Lightning Strike descends from
             // above, while Meteor Shower bursts where it lands. Ring of Fire is
             // excluded from the per-victim sweep (its flame is the circle drawn above).
@@ -11969,7 +11977,7 @@ export class Sandbox extends PixiScene {
                                 muzzle,
                                 180,
                             );
-                            this.showWaterShieldAbsorbs(areaEvent?.damage.secondary, muzzle, 180);
+                            this.showShieldAbsorbs(areaEvent?.damage.secondary, muzzle, 180);
                         }
                         const wave = waves[throwIndex] ?? [];
                         shownAnyWave ||= wave.some((hit) => hit.amount > 0);
@@ -12488,7 +12496,9 @@ export class Sandbox extends PixiScene {
             const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseVictimId);
             const before = unitSnapshots.get(responseVictimId);
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
-            const secondary = (event.damage.secondary ?? []).filter((hit) => hit.unitId === responseVictimId);
+            const secondary = (event.damage.secondary ?? []).filter(
+                (hit) => hit.unitId === responseVictimId && hit.source !== "ember_covenant",
+            );
             const explosionDamage = lastFuseDamageTaken(attackActionEvents, responseVictimId);
             const approachBurn = this.takeFireWallBurn(attackActionEvents ?? [], responseVictimId).burn;
             const amount = responseFlight
@@ -12743,7 +12753,7 @@ export class Sandbox extends PixiScene {
             attacker.getVisualCenter(gs),
             180,
         );
-        this.showWaterShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs), 180);
+        this.showShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs), 180);
 
         // Devour Essence heal (Hydra devouring a slain enemy): green "+N" + buff-wash on the devourer.
         this.showDevourEssenceHeals(damageForAnimation.secondary);
@@ -20475,7 +20485,7 @@ export class Sandbox extends PixiScene {
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
         this.showFleshShieldAbsorbedDamage(secondary, attackerCenter, 220);
-        this.showWaterShieldAbsorbs(secondary, attackerCenter, 220);
+        this.showShieldAbsorbs(secondary, attackerCenter, 220);
         // Devour Essence is a HEAL riding the same payload — green "+N" on the devourer, kept out of
         // the red-number loop below.
         this.showDevourEssenceHeals(secondary);
@@ -20484,9 +20494,9 @@ export class Sandbox extends PixiScene {
                 (entry) =>
                     entry.source !== "flesh_shield" &&
                     entry.source !== "devour_essence" &&
-                    // A Water Shield absorb is not damage taken — it gets the ABSORBED pop below, never
-                    // a red number.
-                    entry.source !== "water_shield",
+                    // Full absorbs get a labelled pop, never a red damage number.
+                    entry.source !== "water_shield" &&
+                    entry.source !== "ember_covenant",
             )
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;

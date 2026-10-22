@@ -38,7 +38,7 @@ function fixture(active = true, name = "Black Dragon") {
             showFloatingDamage: () => undefined,
         },
         showFleshShieldAbsorbedDamage: () => undefined,
-        showWaterShieldAbsorbs: () => undefined,
+        showShieldAbsorbs: () => undefined,
         moveAnimManager: { isMoving: () => false },
         creatureAnimationLabPlacedUnit: () => ({ ok: true, unit }),
     });

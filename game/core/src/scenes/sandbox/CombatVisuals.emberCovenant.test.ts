@@ -48,7 +48,7 @@ test("ranked hydration preserves the halo for its dissolve and loads its shared 
         visuals.update(0.2);
         expect(halo.destroyed).toBe(false);
         expect(halo.children[0].alpha).toBeLessThan(1);
-        visuals.update(0.36);
+        visuals.update(0.66);
         expect(halo.destroyed).toBe(true);
         visuals.clear();
         expect(Texture.WHITE.destroyed).toBe(false);

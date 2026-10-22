@@ -1120,10 +1120,13 @@ export class CombatVisuals {
         unitsDied?: number,
         unit?: RenderableUnit,
         presentCasualties?: () => void,
+        source?: "ember_covenant",
     ): void {
         if (presentCasualties) presentCasualties();
         else unit?.presentDamageCasualties(unitsDied ?? 0);
-        if (unit) {
+        if (unit && source === "ember_covenant") {
+            this.emberCovenantRings.absorb(unit.getId());
+        } else if (unit) {
             this.spawnCommonFlagPop(unit, "absorb");
         }
         const container = new Container();

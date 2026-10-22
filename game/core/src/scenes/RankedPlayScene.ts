@@ -1477,6 +1477,9 @@ export const rankedSecondarySceneLogLines = (
             case "flesh_shield":
                 text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
                 break;
+            case "ember_covenant":
+                text = `${name}'s Ember Covenant absorbed (${entry.amount})`;
+                break;
             case "water_shield": {
                 // Name the striker — the event itself knows who swung; matches the engine's sandbox line.
                 const strikerId =
