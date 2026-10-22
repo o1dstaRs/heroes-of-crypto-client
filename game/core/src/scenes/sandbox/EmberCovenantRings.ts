@@ -1,7 +1,5 @@
-import type { GridSettings, HoCMath, UnitProperties } from "@heroesofcrypto/common";
-import { Container, Graphics, Matrix, MeshSimple, Sprite, Texture } from "pixi.js";
-
-import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
+import type { UnitProperties } from "@heroesofcrypto/common";
+import { Container, Graphics, MeshSimple, Sprite, Texture } from "pixi.js";
 
 const NAME = "Ember Covenant Blessing";
 const TAU = Math.PI * 2;
@@ -11,10 +9,7 @@ const ARC_STEPS = 6;
 
 export interface EmberCovenantUnit {
     getUnitProperties(): Pick<UnitProperties, "applied_buffs" | "applied_buffs_laps">;
-    getPosition(): HoCMath.XY;
-    getFootprintWidth(): number;
-    getFootprintHeight(): number;
-    getBlessingHaloAnchor?(settings: GridSettings): HoCMath.XY;
+    getBlessingHaloFrame?(): { x: number; y: number; width: number; height: number; zIndex: number } | undefined;
     isDead(): boolean;
 }
 
@@ -32,9 +27,7 @@ interface Ring {
 
 interface RingContext {
     getUnits(): ReadonlyMap<string, EmberCovenantUnit> | undefined;
-    getGridSettings(): GridSettings | undefined;
     getTexture(): Texture | undefined;
-    getBoardScale?(): { x: number; y: number } | undefined;
     attachToWorldRoot(container: Container, zIndex: number): void;
 }
 
@@ -60,45 +53,34 @@ export class EmberCovenantRings {
         const step = Number.isFinite(dt) && dt > 0 ? dt : 0;
         this.elapsed = (this.elapsed + step) % 120;
         const units = this.context.getUnits();
-        const gs = this.context.getGridSettings();
-        if (!units || !gs) {
+        if (!units) {
             this.clear();
             return;
         }
         for (const [id, unit] of units) {
-            if (unit.isDead() || !carriesCovenant(unit)) continue;
+            if (unit.isDead()) continue;
             let ring = this.rings.get(id);
+            const protectedUnit = carriesCovenant(unit);
+            if (!protectedUnit && !ring) continue;
+            const frame = unit.getBlessingHaloFrame?.();
+            if (
+                !frame ||
+                ![frame.x, frame.y, frame.width, frame.height, frame.zIndex].every(Number.isFinite) ||
+                frame.width <= 0 ||
+                frame.height <= 0
+            ) {
+                if (ring) ring.node.visible = false;
+                continue;
+            }
             if (!ring) {
-                ring = this.create(id);
+                ring = this.create(id, frame.zIndex - 0.1);
                 this.rings.set(id, ring);
             }
-            ring.breakAge = undefined;
-            const position = unit.getPosition();
-            const cell = gs.getStep();
-            if (![position.x, position.y, cell].every(Number.isFinite) || cell <= 0) continue;
-            const center = projectBattlefieldPoint(position, gs);
-            const top = unit.getBlessingHaloAnchor?.(gs) ?? {
-                x: center.x,
-                y: center.y + cell * (0.9 + unit.getFootprintHeight() * 0.3),
-            };
-            if (![top.x, top.y].every(Number.isFinite)) continue;
-            const diameter = cell * (1.35 + (unit.getFootprintWidth() - 1) * 0.4);
-            const scale = this.context.getBoardScale?.();
-            const cameraRatio =
-                scale && [scale.x, scale.y].every(Number.isFinite) && scale.x > 0 && scale.y > 0
-                    ? scale.x / scale.y
-                    : 1;
-            const bob = Math.sin(this.elapsed * 2 + ring.phase) * cell * 0.012;
-            ring.node.setFromMatrix(
-                new Matrix(
-                    diameter,
-                    0,
-                    0,
-                    diameter * 0.34 * cameraRatio,
-                    top.x,
-                    top.y + cell * 0.04 * cameraRatio + bob,
-                ),
-            );
+            if (protectedUnit) ring.breakAge = undefined;
+            ring.node.visible = true;
+            ring.node.position.set(frame.x, frame.y);
+            ring.node.scale.set(frame.width * 2.15, frame.height * 2.75);
+            ring.node.zIndex = frame.zIndex - 0.1;
         }
         let texture: Texture | undefined;
         if (this.rings.size) texture = this.context.getTexture();
@@ -116,7 +98,7 @@ export class EmberCovenantRings {
             this.paint(ring, texture);
         }
     }
-    private create(id: string): Ring {
+    private create(id: string, zIndex: number): Ring {
         const node = new Container();
         node.label = "ember-covenant-ring";
         node.eventMode = "none";
@@ -133,7 +115,7 @@ export class EmberCovenantRings {
         node.once("destroyed", () => {
             if (this.rings.get(id)?.node === node) this.rings.delete(id);
         });
-        this.context.attachToWorldRoot(node, 5503);
+        this.context.attachToWorldRoot(node, zIndex);
         return ring;
     }
     private paint(ring: Ring, texture: Texture | undefined): void {

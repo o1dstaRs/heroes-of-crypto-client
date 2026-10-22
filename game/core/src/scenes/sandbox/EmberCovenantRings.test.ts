@@ -1,53 +1,37 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 import { Container, MeshSimple, Sprite, Texture } from "pixi.js";
 
-import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 import { EmberCovenantRings, type EmberCovenantUnit } from "./EmberCovenantRings";
 
 const NAME = "Ember Covenant Blessing";
-const settings = new GridSettings(
-    GridConstants.GRID_SIZE,
-    GridConstants.MAX_Y,
-    GridConstants.MIN_Y,
-    GridConstants.MAX_X,
-    GridConstants.MIN_X,
-    GridConstants.MOVEMENT_DELTA,
-    GridConstants.UNIT_SIZE_DELTA,
-);
 const roots: Container[] = [];
 afterEach(() => {
     for (const root of roots) root.destroy({ children: true });
     roots.length = 0;
 });
 
-const makeUnit = (width = 1, height = 1) => ({
-    properties: { applied_buffs: [NAME], applied_buffs_laps: [Number.MAX_SAFE_INTEGER] },
-    position: { x: 320, y: 384 },
+const makeUnit = () => ({
+    properties: { applied_buffs: [NAME], applied_buffs_laps: [15] },
+    frame: { x: 320, y: 510, width: 32, height: 14, zIndex: 4001 },
+    flagVisible: true,
     dead: false,
     getUnitProperties() {
         return this.properties;
     },
-    getPosition() {
-        return this.position;
-    },
-    getFootprintWidth() {
-        return width;
-    },
-    getFootprintHeight() {
-        return height;
+    getBlessingHaloFrame() {
+        return this.flagVisible ? this.frame : undefined;
     },
     isDead() {
         return this.dead;
     },
 });
 
-function setup(boardScale?: { x: number; y: number }) {
+function setup() {
     const root = new Container();
     roots.push(root);
     const one = makeUnit();
-    const two = makeUnit(2, 1);
-    two.position = { x: 640, y: 256 };
+    const two = makeUnit();
+    two.frame = { ...two.frame, x: 640, y: 390 };
     const units = new Map<string, EmberCovenantUnit>([
         ["one", one],
         ["two", two],
@@ -55,9 +39,7 @@ function setup(boardScale?: { x: number; y: number }) {
     let texture: Texture | undefined = Texture.WHITE;
     const layer = new EmberCovenantRings({
         getUnits: () => units,
-        getGridSettings: () => settings,
         getTexture: () => texture,
-        getBoardScale: () => boardScale,
         attachToWorldRoot: (node, zIndex) => {
             node.zIndex = zIndex;
             root.addChild(node);
@@ -76,7 +58,7 @@ function setup(boardScale?: { x: number; y: number }) {
 }
 
 describe("Ember Covenant rings", () => {
-    test("uses hydrated buffs and one shared texture, with a fixed primitive budget and no filters or game RNG", () => {
+    test("uses hydrated buffs and one shared texture behind the flag, with no filters or game RNG", () => {
         const f = setup();
         const properties = JSON.stringify([f.one.properties, f.two.properties]);
         const random = spyOn(Math, "random");
@@ -84,7 +66,7 @@ describe("Ember Covenant rings", () => {
             f.layer.update(0.3);
             expect(f.root.children).toHaveLength(2);
             const first = f.root.children[0];
-            expect(first.zIndex).toBe(5503);
+            expect(first.zIndex).toBeLessThan(f.one.frame.zIndex);
             expect(first.eventMode).toBe("none");
             expect(first.filters?.length ?? 0).toBe(0);
             expect(first.children[0].children).toHaveLength(3);
@@ -92,7 +74,8 @@ describe("Ember Covenant rings", () => {
             expect(sprites.every((sprite) => sprite.texture === Texture.WHITE)).toBe(true);
             for (let frame = 0; frame < 120; frame++) f.layer.update(1 / 60);
             expect(f.root.children[0]).toBe(first);
-            expect(f.root.children).toHaveLength(2);
+            expect(first.x).toBe(f.one.frame.x);
+            expect(first.y).toBe(f.one.frame.y);
             expect(random).not.toHaveBeenCalled();
             expect(JSON.stringify([f.one.properties, f.two.properties])).toBe(properties);
         } finally {
@@ -101,74 +84,64 @@ describe("Ember Covenant rings", () => {
     });
 
     for (const [width, height] of [
-        [1, 1],
-        [2, 1],
-        [1, 2],
-        [2, 2],
-        [3, 2],
-    ])
-        test(`keeps the ${width}x${height} halo above its creature on a mirrored board`, () => {
+        [29, 13],
+        [50, 13],
+        [29, 24],
+        [58, 26],
+    ]) {
+        test(`centers the fire around a ${width}x${height} amount flag on a mirrored board`, () => {
             const f = setup();
-            const unit = makeUnit(width, height);
-            f.units.clear();
-            f.units.set("one", unit);
+            f.units.delete("two");
+            Object.assign(f.one.frame, { width, height });
             f.root.scale.set(-1, -1);
             f.layer.update(0.3);
             const node = f.root.children[0];
-            const center = projectBattlefieldPoint(unit.position, settings);
             const point = node.toGlobal({ x: 0, y: 0 });
-            expect(point.x).toBeCloseTo(-center.x);
-            expect(point.y).toBeLessThan(-center.y - settings.getStep());
-            const diameter = settings.getStep() * (1.35 + (width - 1) * 0.4);
-            expect(node.toGlobal({ x: 0.5, y: 0 }).x).toBeCloseTo(-center.x - diameter / 2);
-            expect(node.toGlobal({ x: 0.5, y: 0 }).y).toBeCloseTo(point.y);
+            expect(point.x).toBeCloseTo(-f.one.frame.x);
+            expect(point.y).toBeCloseTo(-f.one.frame.y);
+            expect(node.scale.x).toBeGreaterThan(width);
+            expect(node.scale.y).toBeGreaterThan(height);
+            expect(node.zIndex).toBeLessThan(f.one.frame.zIndex);
         });
+    }
 
-    test("follows a moving unit and handles hydration replacing the unit object under the same id", () => {
+    test("keeps its screen shape when the amount flag compensates a stretched camera", () => {
+        const ratios: number[] = [];
+        for (const yScale of [2, 0.7]) {
+            const f = setup();
+            f.units.delete("two");
+            f.root.scale.set(2, -yScale);
+            f.one.frame.height *= 2 / yScale;
+            f.layer.update(0.3);
+            const node = f.root.children[0];
+            const center = node.toGlobal({ x: 0, y: 0 });
+            const right = node.toGlobal({ x: 0.5, y: 0 });
+            const top = node.toGlobal({ x: 0, y: 0.5 });
+            ratios.push(Math.abs((top.y - center.y) / (right.x - center.x)));
+        }
+        expect(ratios[0]).toBeCloseTo(ratios[1]);
+    });
+
+    test("follows the flag through movement and object replacement, including while dissolving", () => {
         const f = setup();
         f.layer.update(0.3);
         const node = f.root.children[0];
         const replacement = makeUnit();
-        replacement.position = { x: 512, y: 512 };
+        replacement.frame = { ...replacement.frame, x: 512, y: 550, zIndex: 4200 };
         f.units.set("one", replacement);
         f.layer.update(0);
         expect(f.root.children[0]).toBe(node);
-        const center = projectBattlefieldPoint(replacement.position, settings);
-        expect(node.x).toBeCloseTo(center.x);
-        expect(node.y).toBeGreaterThan(center.y + settings.getStep());
+        expect(node.x).toBe(512);
+        expect(node.y).toBe(550);
+        expect(node.zIndex).toBeLessThan(4200);
+        replacement.properties.applied_buffs.length = 0;
+        replacement.frame.x = 520;
+        f.layer.update(0.1);
+        expect(node.x).toBe(520);
+        expect(node.children[0].alpha).toBeLessThan(1);
     });
 
-    test("uses the live upper outline and compensates a stretched or mirrored camera", () => {
-        for (const mirrored of [false, true]) {
-            const f = setup({ x: 2, y: 0.7 });
-            f.root.scale.set(mirrored ? -2 : 2, -0.7);
-            f.units.set("one", { ...f.one, getBlessingHaloAnchor: () => ({ x: 123, y: 650 }) });
-            f.layer.update(0.3);
-            const node = f.root.children[0];
-            const origin = node.toGlobal({ x: 0, y: 0 });
-            const horizontal = node.toGlobal({ x: 0.5, y: 0 });
-            const vertical = node.toGlobal({ x: 0, y: 0.5 });
-            expect(node.x).toBe(123);
-            expect(node.y).toBeGreaterThan(650);
-            expect(node.y - 650).toBeLessThan(settings.getStep() * (2 / 0.7) * 0.07);
-            expect(Math.abs((vertical.y - origin.y) / (horizontal.x - origin.x))).toBeCloseTo(0.34);
-        }
-    });
-
-    test("invalid camera scales leave a finite halo", () => {
-        for (const scale of [
-            { x: Infinity, y: 1 },
-            { x: 1, y: NaN },
-            { x: 1, y: 0 },
-        ]) {
-            const f = setup(scale);
-            f.layer.update(0.3);
-            const node = f.root.children[0];
-            expect([node.x, node.y, node.scale.x, node.scale.y].every(Number.isFinite)).toBe(true);
-        }
-    });
-
-    test("every ring collapses together when the army blessing disappears", () => {
+    test("every ring dissolves together when the army blessing disappears", () => {
         const f = setup();
         f.layer.update(0.3);
         f.one.properties.applied_buffs.length = 0;
@@ -182,8 +155,7 @@ describe("Ember Covenant rings", () => {
         expect(fragments).toBeDefined();
         expect(fragments.vertices).toHaveLength(280);
         expect([...fragments.vertices].every(Number.isFinite)).toBe(true);
-        const geometry = fragments.geometry;
-        const released = spyOn(geometry, "destroy");
+        const released = spyOn(fragments.geometry, "destroy");
         f.layer.update(0.36);
         expect(f.root.children).toHaveLength(0);
         expect(f.layer.active).toBe(false);
@@ -191,7 +163,7 @@ describe("Ember Covenant rings", () => {
         released.mockRestore();
     });
 
-    test("an expired buff and a dead or removed unit dissolve without leaving orphaned rings", () => {
+    test("an expired buff and a dead or removed unit dissolve without orphaned rings", () => {
         for (const reason of ["expired", "dead", "removed"]) {
             const f = setup();
             f.layer.update(0.3);
@@ -203,7 +175,29 @@ describe("Ember Covenant rings", () => {
         }
     });
 
-    test("late artwork appears on the existing ring and invalid time deltas cannot poison it", () => {
+    test("waits for a visible flag and hides its ring if the flag is hidden or invalid", () => {
+        const f = setup();
+        f.units.delete("two");
+        f.one.flagVisible = false;
+        f.layer.update(0.3);
+        expect(f.root.children).toHaveLength(0);
+        f.one.flagVisible = true;
+        f.layer.update(0.3);
+        const node = f.root.children[0];
+        f.one.flagVisible = false;
+        f.layer.update(0.1);
+        expect(node.visible).toBe(false);
+        f.one.flagVisible = true;
+        f.one.frame.width = NaN;
+        f.layer.update(0.1);
+        expect(node.visible).toBe(false);
+        f.one.frame.width = 32;
+        f.layer.update(0.1);
+        expect(node.visible).toBe(true);
+        expect(f.root.children[0]).toBe(node);
+    });
+
+    test("late artwork and invalid time deltas cannot poison the existing ring", () => {
         const f = setup();
         f.setTexture(undefined);
         f.layer.update(0.3);
@@ -217,7 +211,7 @@ describe("Ember Covenant rings", () => {
         expect(f.root.children[0]).toBe(node);
     });
 
-    test("clear and external world teardown release nodes but preserve the shared artwork", () => {
+    test("clear and external teardown release nodes but preserve the shared artwork", () => {
         const f = setup();
         f.layer.update(0);
         f.root.removeChildren().forEach((node) => node.destroy({ children: true }));

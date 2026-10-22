@@ -19,9 +19,7 @@ test("ranked hydration preserves the halo for its dissolve and loads its shared 
     const properties = { applied_buffs: ["Ember Covenant Blessing"], applied_buffs_laps: [15] };
     const unit = {
         getUnitProperties: () => properties,
-        getPosition: () => ({ x: 320, y: 320 }),
-        getFootprintWidth: () => 1,
-        getFootprintHeight: () => 1,
+        getBlessingHaloFrame: () => ({ x: 320, y: 450, width: 32, height: 14, zIndex: 4001 }),
         isDead: () => false,
     };
     const units = new Map([["ally", unit]]);

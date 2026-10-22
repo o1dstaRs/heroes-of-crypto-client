@@ -720,7 +720,6 @@ export class CombatVisuals {
     private emberCovenantTextureRetryAt = 0;
     private emberCovenantRings = new EmberCovenantRings({
         getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
-        getGridSettings: () => this.context.getGridSettings(),
         getTexture: () => {
             if (this.emberCovenantTexture?.destroyed) this.emberCovenantTexture = undefined;
             if (
@@ -745,7 +744,6 @@ export class CombatVisuals {
             }
             return this.emberCovenantTexture;
         },
-        getBoardScale: () => this.context.getBoardScale?.(),
         attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
     });
     private audioEpoch = 0;

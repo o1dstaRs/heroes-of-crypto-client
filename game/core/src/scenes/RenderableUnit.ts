@@ -9626,17 +9626,17 @@ export class RenderableUnit extends Unit {
             this.facingDirection,
         );
     }
-    public getBlessingHaloAnchor(gs: GridSettings): HoCMath.XY {
-        const parent = this.sprite?.parent;
-        const bounds = this.getCreatureBounds();
-        if (parent && bounds && bounds.width > 0 && bounds.height > 0) {
-            const anchor = parent.toLocal({ x: bounds.x + bounds.width * 0.5, y: bounds.y });
-            const framing = resolveStoredBattlefieldCreatureFraming(this.getName());
-            anchor.y -= (framing.flagOffsetYCells ?? 0) * gs.getCellSize();
-            return anchor;
-        }
-        const center = this.getVisualCenter(gs);
-        return { x: center.x, y: center.y + gs.getStep() * (0.9 + this.getFootprintHeight() * 0.3) };
+    public getBlessingHaloFrame(): { x: number; y: number; width: number; height: number; zIndex: number } | undefined {
+        const badge = this.badgeContainer;
+        const geometry = this.badgeDrawState?.geometry;
+        if (!badge?.visible || !geometry) return undefined;
+        return {
+            x: badge.x,
+            y: badge.y,
+            width: geometry.headerWidth * Math.abs(badge.scale.x),
+            height: geometry.flagHeight * Math.abs(badge.scale.y),
+            zIndex: badge.zIndex,
+        };
     }
     public getFlagCenterAnchor(gs: GridSettings): HoCMath.XY {
         const badge = this.badgeContainer;
