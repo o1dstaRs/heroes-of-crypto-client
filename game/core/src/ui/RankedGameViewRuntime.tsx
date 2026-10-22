@@ -1,4 +1,5 @@
 import { useBoardMirrored } from "./useBoardMirrored";
+import { canSubmitRankedBoardAction } from "./rankedBoardActions";
 import {
     captureRankedReadinessIntent,
     isRankedReadinessAction,
@@ -1035,6 +1036,12 @@ export const RankedGameView: React.FC<Props> = ({
                 if (!isSilent) {
                     setError("Dropped an action with an off-grid cell");
                 }
+                return false;
+            }
+            if (!canSubmitRankedBoardAction(snapshotRef.current, payload)) {
+                await waitForAuthoritativePlayback();
+                const current = snapshotRef.current;
+                if (current && !isModelSubmission) applySnapshot(current, { forceBoardRebuild: true });
                 return false;
             }
             // Placement drops are already on the board. Waiting on the spinner here disabled the next
@@ -3952,7 +3959,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
                             <RankedPlacementStackActions
                                 immediateDelete={skipAugmentStep}
-                                canSubmit={canSubmit}
+                                canSubmit={canSubmit && !ready}
                                 selectedUnit={selectedUnit}
                                 snapshot={snapshot}
                                 submitGameAction={submitGameAction}

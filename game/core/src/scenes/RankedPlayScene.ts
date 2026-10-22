@@ -1601,6 +1601,7 @@ export class RankedPlayScene extends Sandbox {
     private readonly rankedStatsRightRoster = new Map<string, RankedFightRosterEntry>();
     private readonly rankedStatsCountedUnitIds = new Set<string>();
     private viewerTeam?: TeamType;
+    private rankedPlacementLocked = false;
     protected override getViewerTeam(): TeamType | undefined {
         return this.viewerTeam;
     }
@@ -2019,6 +2020,7 @@ export class RankedPlayScene extends Sandbox {
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         this.barrelPlacementAvailable =
             this.viewerTeam !== undefined && canMoveRankedArtifactBarrel(snapshot, this.viewerTeam);
+        this.rankedPlacementLocked = !this.barrelPlacementAvailable;
         if (!this.barrelPlacementAvailable) this.cancelBarrelPlacement();
         const wasSandboxCoop = this.sandboxCoop;
         this.sandboxCoop = snapshot.sandboxCoop === true;
@@ -2758,10 +2760,10 @@ export class RankedPlayScene extends Sandbox {
     protected override getRevealedOpponentUnitScale(total: number): number {
         return revealedOpponentRowScale(total);
     }
-    protected override shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
-        // Ranked board placement starts with the full army already deployed. There is no intermediate
-        // centre-board bench: hiding unplaced remnants also guarantees its backdrop is never drawn.
-        return false;
+    protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
+        return (
+            this.viewerTeam !== undefined && unitState.team === this.viewerTeam && !unitState.placed && !unitState.dead
+        );
     }
     protected override getUnplacedUnitBenchPosition(
         index: number,
@@ -2796,7 +2798,7 @@ export class RankedPlayScene extends Sandbox {
         return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
     }
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
-        return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
+        return !this.rankedPlacementLocked && this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
     protected override placementSplitEnabled(): boolean {
         return true;
@@ -2806,7 +2808,7 @@ export class RankedPlayScene extends Sandbox {
         if (!transport) {
             return super.commitPlacementSplit(source, amount, targetCells);
         }
-        if (this.viewerTeam === undefined || source.getTeam() !== this.viewerTeam) {
+        if (this.rankedPlacementLocked || this.viewerTeam === undefined || source.getTeam() !== this.viewerTeam) {
             return false;
         }
         if (amount < 1 || amount >= source.getAmountAlive()) {
