@@ -96,6 +96,7 @@ const unitLike = (params: {
             attacker?: { hasAbilityActive: (name: string) => boolean },
             damageElement?: SpellElement,
         ) => !!params.waterShield && !attacker?.hasAbilityActive("Fire Element") && damageElement !== SpellElement.FIRE,
+        willEmberCovenantBlock: () => false,
         calculatePossibleLosses: (minusHp: number) => Math.floor(minusHp / (params.hitPoints ?? 10)),
     } as unknown as Unit;
 };

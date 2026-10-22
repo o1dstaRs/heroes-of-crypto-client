@@ -509,6 +509,7 @@ export function isLazyProjectileAssetKey(key: string): boolean {
 }
 
 const LAZY_COMBAT_EFFECT_ASSETS = new Set([
+    "ember_covenant_ring",
     "vfx_common_absorb_pop_atlas",
     "vfx_common_absorb_pop_atlas_quarter",
     "vfx_common_heal_pop_atlas",
@@ -621,6 +622,7 @@ export function isLazyRosterAssetKey(key: string): boolean {
 // castable spells deliberately stay out of this set because the synchronous Pixi spellbook uses them.
 // A newly-added ability is safe by default: it remains in core until its icon is explicitly classified.
 const LAZY_ABILITY_ASSETS = new Set([
+    "ember_covenant_blessing_256",
     "double_punch_256",
     "backstab_256",
     "handyman_256",

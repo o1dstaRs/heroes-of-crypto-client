@@ -46,6 +46,7 @@ import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
 import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
 import { ZenaBrutalityVfx, prepareBrutalityTarget, type BrutalityTarget } from "./ZenaBrutalityVfx";
 import { HelpingHandLinks } from "./HelpingHandLinks";
+import { EmberCovenantRings } from "./EmberCovenantRings";
 import { CyclopsGoreVfx } from "./CyclopsGoreVfx";
 import type { BrutalityPose } from "./ZenaBrutalityVfx";
 
@@ -712,6 +713,39 @@ export class CombatVisuals {
     private helpingHandLinks = new HelpingHandLinks({
         getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
         getGridSettings: () => this.context.getGridSettings(),
+        attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
+    });
+    private emberCovenantTexture?: Texture;
+    private emberCovenantTextureLoading = false;
+    private emberCovenantTextureRetryAt = 0;
+    private emberCovenantRings = new EmberCovenantRings({
+        getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
+        getGridSettings: () => this.context.getGridSettings(),
+        getTexture: () => {
+            if (this.emberCovenantTexture?.destroyed) this.emberCovenantTexture = undefined;
+            if (
+                !this.emberCovenantTextureLoading &&
+                !this.emberCovenantTexture &&
+                performance.now() >= this.emberCovenantTextureRetryAt
+            ) {
+                const url = (images as Record<string, string>).ember_covenant_ring;
+                if (url) {
+                    this.emberCovenantTextureLoading = true;
+                    void Assets.load<Texture>(url).then(
+                        (texture) => {
+                            this.emberCovenantTexture = texture;
+                            this.emberCovenantTextureLoading = false;
+                        },
+                        () => {
+                            this.emberCovenantTextureLoading = false;
+                            this.emberCovenantTextureRetryAt = performance.now() + 3000;
+                        },
+                    );
+                }
+            }
+            return this.emberCovenantTexture;
+        },
+        getBoardScale: () => this.context.getBoardScale?.(),
         attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
     });
     private audioEpoch = 0;
@@ -1770,6 +1804,7 @@ export class CombatVisuals {
     }
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
         this.helpingHandLinks.clear();
+        if (!options?.keepDetachedOverlays) this.emberCovenantRings.clear();
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
@@ -1926,6 +1961,7 @@ export class CombatVisuals {
     }
     public update(dt: number) {
         this.helpingHandLinks.update(dt);
+        this.emberCovenantRings.update(dt);
         this.gravechains.update(dt);
         this.battleRoarPops?.update(dt);
         this.predatoryAssimilationPops?.update(dt);

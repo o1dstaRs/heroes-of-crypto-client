@@ -581,6 +581,7 @@ describe("pixi texture bundle split", () => {
         const { core, lazyCombatEffectAssets } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
+            "ember_covenant_ring",
             "book_1024_clean_pages_v1",
             "craft_anvil",
             "craft_hammer",
@@ -602,6 +603,7 @@ describe("pixi texture bundle split", () => {
         const { core, lazyAbilityAssets } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
+            "ember_covenant_blessing_256",
             "double_punch_256",
             "fire_breath_256",
             "predatory_assimilation_256",
@@ -619,7 +621,7 @@ describe("pixi texture bundle split", () => {
             expect(lazyAbilityAssets[key]).toBeUndefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazyAbilityAssets)).toHaveLength(101);
+        expect(Object.keys(lazyAbilityAssets)).toHaveLength(102);
     });
 
     test("loads spell and status cards only when the current scene requests them", () => {
