@@ -113,6 +113,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Double Throw": "Двойной бросок",
     "Dulling Defense": "Притупляющая защита",
     "Earth Element": "Стихия земли",
+    "Ember Covenant Blessing": "Благословение огненного обета",
     "Enchanted Skin": "Зачарованная кожа",
     Enchants: "Зачарования",
     "Endless Quiver": "Бесконечный колчан",

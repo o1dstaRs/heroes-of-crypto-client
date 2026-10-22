@@ -103,6 +103,7 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
+    "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
     "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "System:Angelic Host Blessing": "/assets/images/spells/angelic_host_256.webp",
@@ -156,6 +157,7 @@ const abilityCastSpells = new Set([
 
 // Sources of non-castable buffs/debuffs. These links live in ability and artifact code rather than data.
 const appliedBySources: Record<string, string[]> = {
+    "Ember Covenant Blessing": ["Ember Covenant Blessing"],
     "Dulling Defense": ["Dulling Defense"],
     Miner: ["Miner"],
     "Angelic Host Blessing": ["Angelic Host Blessing"],
@@ -278,6 +280,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Armor Rune": "50% шанс за каждое применение дать цели +1 брони. Бонус складывается.",
     "System:Weapon Rune": "50% шанс за каждое применение дать цели +1 атаки. Бонус складывается.",
     "System:Made of Fire": "Существо получает +10% ко всем характеристикам, включая способности.",
+    "System:Ember Covenant Blessing":
+        "Огненные атаки блокируются. Водные и обычные атаки наносят урон как обычно.\nПервая фактическая потеря здоровья любого союзника разрушает все союзные кольца. Действует до разрушения.",
     "System:Water Shield":
         "Полностью поглощает первую входящую атаку в бою (0 полученного урона), после чего разрушается.",
     "System:Visible": "Юнит полностью видим для вражеской команды.",
@@ -342,7 +346,7 @@ function parseDuration(desc: string[]): SpellDuration {
     if (laps) {
         return { kind: "laps", laps: Number(laps[1]) };
     }
-    if (/till\s+broken/i.test(line)) {
+    if (/(?:until|till)\s+broken/i.test(line)) {
         return { kind: "broken" };
     }
     return { kind: "fight" };

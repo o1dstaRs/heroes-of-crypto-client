@@ -24,6 +24,12 @@ const craftedFrozen: NoteSpec = {
 };
 
 export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
+    "Ember Covenant Blessing": {
+        en: () =>
+            "Once at battle start, Hydra gives every living, placed ally a shared fire halo. Fire damage and Fire Element attacks are blocked without consuming it; Water Element attacks and water magic pass through, and ordinary damage works normally. The first actual HP loss from any ally breaks every allied halo, even if the damaged ally was summoned later. Zero damage or a hit fully absorbed by Water Shield leaves the covenant intact. Multiple Hydras do not stack or restore it, and the blessing cannot be copied. Open with a cheap non-fire hit to remove the whole army's protection.",
+        ru: () =>
+            "Один раз в начале боя Hydra даёт каждому живому союзнику на поле общее огненное кольцо. Огненный урон и атаки Fire Element блокируются, не расходуя защиту; атаки Water Element и магия воды проходят сквозь неё, а обычный урон действует как обычно. Первая фактическая потеря здоровья любого союзника разрушает все союзные кольца, даже если раненый союзник был призван позже. Нулевой урон или удар, полностью поглощённый Water Shield, сохраняет обет. Несколько Hydra не усиливают и не восстанавливают защиту; благословение нельзя скопировать. Начните с дешёвого неогненного удара, чтобы снять защиту всей армии.",
+    },
     "Absolving Arrow": {
         en: ({ p, n }) =>
             `Every ally the Monk's arrow flies past — on its shots and counter-shots, hit or miss — rolls to shed a negative effect: the first at ${n(p / 5)}% per stack power (${n(p)}% at full stack) plus 1% per point of luck, each further one on the same ally at half the previous chance, rolled separately. Every status effect (Stun, Freeze, Blindness, Paralysis, Break, Aggr, Boar Saliva, Shatter Armor, Terrifying Gaze, Pegasus Light, Deep Wounds, Poison) goes before spell debuffs; aura penalties and cursed-artifact downsides can't be lifted.`,

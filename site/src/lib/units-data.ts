@@ -112,6 +112,11 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
 const notStackScaled = new Set(["Dulling Defense", "Pegasus Light"]);
 
 const abilityDescriptionRuTemplates: Record<string, string[]> = {
+    "Ember Covenant Blessing": [
+        "В начале боя окружает каждый союзный стек общим кольцом огня.",
+        "Огненные атаки блокируются и не разрушают кольца. Водные и обычные атаки наносят урон как обычно.",
+        "Первая фактическая потеря здоровья любого союзника разрушает все кольца. Один раз за бой; не складывается.",
+    ],
     "Angelic Host Blessing": [
         "Пока этот юнит жив, все союзные летающие юниты получают +{} к атаке, +{} к защите и +{} к дистанции перемещения.",
     ],
