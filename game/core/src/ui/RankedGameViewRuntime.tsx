@@ -1,4 +1,11 @@
 import { useBoardMirrored } from "./useBoardMirrored";
+import {
+    captureRankedReadinessIntent,
+    isRankedReadinessAction,
+    isRecoveredRankedReadinessRejection,
+    RankedReadinessSubmissions,
+    sendRankedReadinessWithRetry,
+} from "./rankedReadiness";
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
 import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
@@ -1042,9 +1049,11 @@ export const RankedGameView: React.FC<Props> = ({
             }
             try {
                 // Integrity telemetry rides every real action, never the heartbeat: evidence only (inputTelemetry.ts).
+                const readinessIntent = !sandboxCoop
+                    ? captureRankedReadinessIntent(snapshotRef.current, payload.team ?? TeamVals.NO_TEAM, payload.type)
+                    : undefined;
                 const telemetry = payload.type === PlayActionType.PING ? undefined : takeInputTelemetry();
-                const result = await sendRankedPlayAction(
-                    gameId,
+                const result = await sendRankedReadinessWithRetry(
                     telemetry
                         ? {
                               ...payload,
@@ -1053,7 +1062,16 @@ export const RankedGameView: React.FC<Props> = ({
                               tabHidden: telemetry.tabHidden,
                           }
                         : payload,
-                    options,
+                    readinessIntent,
+                    {
+                        send: (action) => sendRankedPlayAction(gameId, action, options),
+                        refresh: async () => {
+                            const fresh = await fetchRankedPlaySnapshot(gameId);
+                            if (fresh) applySnapshot(fresh);
+                        },
+                        getSnapshot: () => snapshotRef.current,
+                        newActionId: uuidv4,
+                    },
                 );
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (payload.type === PlayActionType.PING && result.accepted) {
@@ -1105,6 +1123,13 @@ export const RankedGameView: React.FC<Props> = ({
                     if (fresh) {
                         applySnapshot(fresh, { forceBoardRebuild: rejected });
                     }
+                }
+                if (
+                    rejected &&
+                    isRecoveredRankedReadinessRejection(readinessIntent, result.rejectionReason, snapshotRef.current)
+                ) {
+                    setError("");
+                    return true;
                 }
                 if (rejected) {
                     pendingTurnResolutionRef.current = false;
@@ -1223,6 +1248,7 @@ export const RankedGameView: React.FC<Props> = ({
             refreshSnapshot,
             rememberAuthoritativeRecord,
             waitForAuthoritativePlayback,
+            sandboxCoop,
         ],
     );
 
@@ -1248,6 +1274,8 @@ export const RankedGameView: React.FC<Props> = ({
         [gameId, isObserver, effectiveLocalModelConfig.enabled, effectiveLocalModelConfig.modelTeam, userTeam],
     );
 
+    const readinessSubmissions = useRef(new RankedReadinessSubmissions());
+
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
         const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
         actionQueueRef.current = nextSubmission.catch(() => undefined);
@@ -1256,26 +1284,40 @@ export const RankedGameView: React.FC<Props> = ({
 
     const submitProtocolActionForTeam = useCallback(
         async (action: Partial<PlayAction>, team: TeamType, authorization?: string, options?: { silent?: boolean }) => {
-            await queueActionSubmission(async () => {
+            const send = async () => {
                 const envelope = buildActionEnvelope(team);
-                if (!envelope) return;
-
-                await sendPlayAction(
-                    {
-                        ...envelope,
-                        type: PlayActionType.UNKNOWN,
-                        ...action,
-                    },
+                if (!envelope) return false;
+                return sendPlayAction(
+                    { ...envelope, type: PlayActionType.UNKNOWN, ...action },
                     { authorization, silent: options?.silent },
                 );
+            };
+            if (!sandboxCoop && isRankedReadinessAction(action.type)) {
+                const intent = captureRankedReadinessIntent(snapshotRef.current, team, action.type);
+                if (intent) {
+                    return (
+                        (await readinessSubmissions.current.submit(
+                            intent,
+                            () => snapshotRef.current,
+                            queueActionSubmission,
+                            send,
+                        )) ?? false
+                    );
+                }
+                return false;
+            }
+            let accepted = false;
+            await queueActionSubmission(async () => {
+                accepted = await send();
             });
+            return accepted;
         },
-        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction, sandboxCoop],
     );
 
     const submitProtocolAction = useCallback(
         async (action: Partial<PlayAction>) => {
-            await submitProtocolActionForTeam(action, userTeam);
+            return submitProtocolActionForTeam(action, userTeam);
         },
         [submitProtocolActionForTeam, userTeam],
     );
@@ -1288,6 +1330,20 @@ export const RankedGameView: React.FC<Props> = ({
             transportOptions?: SceneGameActionTransportOptions,
             inputSource?: number,
         ) => {
+            if (action.type === "start_fight" && !sandboxCoop) {
+                const current = snapshotRef.current;
+                if (current?.phase === PlayPhase.PLACEMENT) {
+                    await submitProtocolActionForTeam(
+                        {
+                            type: rankedPlacementLockActionType(current),
+                            ...(inputSource !== undefined ? { inputSource } : {}),
+                        },
+                        team,
+                        authorization,
+                    );
+                }
+                return;
+            }
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
@@ -1301,7 +1357,7 @@ export const RankedGameView: React.FC<Props> = ({
                 );
             });
         },
-        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction, sandboxCoop, submitProtocolActionForTeam],
     );
 
     const submitGameAction = useCallback(
@@ -2222,7 +2278,7 @@ interface RankedOverlayProps {
     snapshot: PlaySnapshot;
     status: string;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean | void>;
     userTeam: TeamType;
     isObserver: boolean;
     /** Co-op sandbox: no draft, so the full-screen augment step never opens (the sidebar picker stays). */
@@ -3190,7 +3246,7 @@ export const RankedReadyPlacementButton: React.FC<{
     canSubmit: boolean;
     ready: boolean;
     snapshot: PlaySnapshot;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean | void>;
     /**
      * Co-op sandbox: the same button, but READY is a lobby-style toggle (press again to cancel) that needs
      * at least one unit on the board, and there is no clock. START is the sidebar's usual button.
@@ -3870,13 +3926,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
                                             onCommit={() => {
                                                 if (inSetupStage) {
-                                                    void submitProtocolAction({
+                                                    return submitProtocolAction({
                                                         type: rankedPlacementLockActionType(snapshot),
                                                     });
                                                 } else {
                                                     setAugmentOverlayOpen(false);
+                                                    return true;
                                                 }
                                             }}
+                                            submissionKey={`${snapshot.gameId}:${snapshot.placementStage}`}
                                         />
                                     </Box>
                                 </Box>
