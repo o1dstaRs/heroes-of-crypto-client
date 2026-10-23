@@ -933,6 +933,14 @@ export interface IPlacementSelectionCapture {
     overlayHasSelection: boolean;
 }
 
+const hasShieldAbsorb = (damage: IVisibleDamage | undefined, unitId?: string): boolean =>
+    !!damage?.secondary?.some(
+        (entry) =>
+            (entry.source === "ember_covenant" || entry.source === "water_shield") &&
+            entry.amount > 0 &&
+            (unitId === undefined || entry.unitId === unitId),
+    );
+
 export class Sandbox extends PixiScene {
     private static readonly MOVE_SPEED_FACTOR = 16;
     private static readonly REPLAY_ACTION_GAP_MS = 80;
@@ -5238,7 +5246,7 @@ export class Sandbox extends PixiScene {
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
                         const waves = areaThrowWaves.get(source.getId());
-                        if ((!waves || isChakramFlight) && this.hasShieldAbsorb(event.damage)) {
+                        if ((!waves || isChakramFlight) && hasShieldAbsorb(event.damage)) {
                             const recipients = new Set<string>();
                             if (!strike.missed) {
                                 recipients.add(strike.targetId);
@@ -6138,21 +6146,13 @@ export class Sandbox extends PixiScene {
             );
         }
     }
-    private hasShieldAbsorb(damage: IVisibleDamage | undefined, unitId?: string): boolean {
-        return !!damage?.secondary?.some(
-            (entry) =>
-                (entry.source === "ember_covenant" || entry.source === "water_shield") &&
-                entry.amount > 0 &&
-                (unitId === undefined || entry.unitId === unitId),
-        );
-    }
     private shownShieldAbsorbs?: WeakSet<object>;
     private showShieldAbsorbsAtImpact(
         damage: IVisibleDamage | undefined,
         unitIds: ReadonlySet<string>,
         origin: HoCMath.XY,
     ): void {
-        if (!this.hasShieldAbsorb(damage)) return;
+        if (!hasShieldAbsorb(damage)) return;
         const recipients = new Set<string>();
         this.showShieldAbsorbs(
             damage?.secondary?.filter((entry) => {
@@ -6646,8 +6646,7 @@ export class Sandbox extends PixiScene {
             responseAnimation &&
             (target.hasAbilityActive?.("Chakram") || hasRecordedChakramCounter(attackEvent.damage, responseVictimId)) &&
             attackEvent.damage.splash?.some((hit) => hit.unitId === responseVictimId);
-        const recordedShieldedResponse =
-            !!responseAnimation && this.hasShieldAbsorb(attackEvent.damage, responseVictimId);
+        const recordedShieldedResponse = !!responseAnimation && hasShieldAbsorb(attackEvent.damage, responseVictimId);
         if (
             responseDamage.amount <= 0 &&
             !recordedChakramResponse &&
@@ -10222,7 +10221,7 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                         continue;
                     }
-                    if (this.hasShieldAbsorb(damage))
+                    if (hasShieldAbsorb(damage))
                         this.showShieldAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
@@ -10400,7 +10399,7 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(unit, center, direction);
                         continue;
                     }
-                    if (this.hasShieldAbsorb(damage))
+                    if (hasShieldAbsorb(damage))
                         this.showShieldAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
@@ -12599,8 +12598,7 @@ export class Sandbox extends PixiScene {
                     (target.hasAbilityActive?.("Chakram") ||
                         hasRecordedChakramCounter(event.damage, responseVictimId)) &&
                     event.damage.splash?.some((hit) => hit.unitId === responseVictimId));
-            const recordedShieldedResponse =
-                !!responseAnimation && this.hasShieldAbsorb(event.damage, responseVictimId);
+            const recordedShieldedResponse = !!responseAnimation && hasShieldAbsorb(event.damage, responseVictimId);
             const response =
                 (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse || recordedShieldedResponse) &&
                 retaliationAllowed &&
