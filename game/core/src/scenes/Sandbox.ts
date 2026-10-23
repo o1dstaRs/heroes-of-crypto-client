@@ -2,6 +2,7 @@ import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
+import { chakramContactPath } from "./sandbox/chakramContactPath";
 import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
 import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
@@ -10094,7 +10095,9 @@ export class Sandbox extends PixiScene {
                 string,
                 {
                     center: HoCMath.XY;
+                    ground: HoCMath.XY;
                     impact: HoCMath.XY;
+                    hasCut: boolean;
                     cells: HoCMath.XY[];
                     isSmall: boolean;
                     flagAnchor?: HoCMath.XY;
@@ -10120,12 +10123,14 @@ export class Sandbox extends PixiScene {
                 if (!center) continue;
                 capturedByUnit.set(unitId, {
                     center: { ...center },
+                    ground: unit ? projectBattlefieldPoint(unit.getPosition(), gs) : { ...center },
                     impact: {
                         ...(cutTargets?.get(unitId)?.point ??
                             (typeof unit?.getProjectileImpactPoint === "function"
                                 ? unit.getProjectileImpactPoint(gs)
                                 : center)),
                     },
+                    hasCut: cutTargets?.has(unitId) ?? false,
                     cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                     isSmall: unit?.isSmallSize() ?? true,
                     flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
@@ -10163,7 +10168,7 @@ export class Sandbox extends PixiScene {
             let lastDir: HoCMath.XY = { x: 0, y: 1 };
             let flashBeforeNextVictim = !damage?.missed && !primaryDamage?.missed && primaryWasHit;
             for (const arc of arcs) {
-                const points = arc.cells
+                let points = arc.cells
                     .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                     .filter((position): position is HoCMath.XY => !!position);
                 for (let index = 0; index < points.length; index++) {
@@ -10172,22 +10177,25 @@ export class Sandbox extends PixiScene {
                 if (!points.length) {
                     continue;
                 }
-                // The engine supplies the empty bridge between footprints. Its source/arrival cells are
-                // ground points, while the thrown disc reaches the creature's torso. Replace only those
-                // endpoints and keep every separating cell, so the disc never jumps or cuts through a wall.
-                // Older recordings omitted the source cell: keep their first empty cell and prepend the
-                // previous impact instead of replacing it.
+                // Keep the engine's separating cells, including older recordings that omit the source.
+                // A lethal contact must shape the whole approach, not just its final cell inside the body.
                 const sourceCell = arc.cells[0];
-                if (previousVictim?.cells.some((cell) => cell.x === sourceCell.x && cell.y === sourceCell.y)) {
-                    points.shift();
-                }
+                const startsOnSource = previousVictim?.cells.some(
+                    (cell) => cell.x === sourceCell.x && cell.y === sourceCell.y,
+                );
                 const hitIds = hitIdsForArc(arc);
                 const victim = hitIds[0] ? capturedByUnit.get(hitIds[0]) : undefined;
-                if (victim) {
-                    if (points.length) points[points.length - 1] = victim.impact;
-                    else points.push(victim.impact);
+                if (discEnd && (previousVictim?.hasCut || victim?.hasCut)) {
+                    if (!startsOnSource) points.unshift(previousVictim?.ground ?? discEnd);
+                    points = chakramContactPath(points, discEnd, victim?.impact ?? points[points.length - 1]);
+                } else {
+                    if (startsOnSource) points.shift();
+                    if (victim) {
+                        if (points.length) points[points.length - 1] = victim.impact;
+                        else points.push(victim.impact);
+                    }
+                    if (discEnd) points.unshift(discEnd);
                 }
-                if (discEnd) points.unshift(discEnd);
                 if (!points.length) continue;
                 const arrival = points[points.length - 1];
                 if (flashBeforeNextVictim && hitIds.length && discEnd) {
@@ -10285,7 +10293,9 @@ export class Sandbox extends PixiScene {
             string,
             {
                 center: HoCMath.XY;
+                ground: HoCMath.XY;
                 impact: HoCMath.XY;
+                hasCut: boolean;
                 cells: HoCMath.XY[];
                 isSmall: boolean;
                 flagAnchor?: HoCMath.XY;
@@ -10311,12 +10321,14 @@ export class Sandbox extends PixiScene {
             if (!center) continue;
             capturedByUnit.set(unitId, {
                 center: { ...center },
+                ground: unit ? projectBattlefieldPoint(unit.getPosition(), gs) : { ...center },
                 impact: {
                     ...(cutTargets?.get(unitId)?.point ??
                         (typeof unit?.getProjectileImpactPoint === "function"
                             ? unit.getProjectileImpactPoint(gs)
                             : center)),
                 },
+                hasCut: cutTargets?.has(unitId) ?? false,
                 cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                 isSmall: unit?.isSmallSize() ?? true,
                 flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
@@ -10369,8 +10381,9 @@ export class Sandbox extends PixiScene {
         // One projectile owns the whole throw, all ricochets and the return. Contact effects run at
         // waypoints without awaiting the hit animation or losing any of this frame's travel distance.
         let flashBeforeNextVictim = !!primaryTarget && !damage?.missed && !primaryDodged;
+        let previousVictim = primaryId ? capturedByUnit.get(primaryId) : undefined;
         for (const arc of damage?.chakramArcs ?? []) {
-            const points = arc.cells
+            let points = arc.cells
                 .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                 .filter((position): position is HoCMath.XY => !!position)
                 .map((position) => projectBattlefieldPoint(position, gs));
@@ -10378,6 +10391,18 @@ export class Sandbox extends PixiScene {
             if (!path.length) path.push(points[0]);
             const hitIds =
                 (arc as { hitUnitIds?: string[] }).hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []);
+            const victim = hitIds[0] ? capturedByUnit.get(hitIds[0]) : undefined;
+            if (previousVictim?.hasCut || victim?.hasCut) {
+                const sourceCell = arc.cells[0];
+                if (!previousVictim?.cells.some((cell) => cell.x === sourceCell.x && cell.y === sourceCell.y)) {
+                    points.unshift(previousVictim?.ground ?? path[path.length - 1]);
+                }
+                points = chakramContactPath(
+                    points,
+                    path[path.length - 1],
+                    victim?.impact ?? points[points.length - 1],
+                ).slice(1);
+            }
             if (flashBeforeNextVictim && hitIds.length) {
                 const contact = path[path.length - 1];
                 atArrival(path.length - 1, () => {
@@ -10422,6 +10447,7 @@ export class Sandbox extends PixiScene {
                 }
             });
             flashBeforeNextVictim = hitIds.some((id) => !splashByUnit.get(id)?.missed);
+            previousVictim = victim;
         }
         if (!path.length) return;
         path.push(initialThrow?.from ?? attacker.getRangedProjectileOrigin(path[path.length - 1], gs));

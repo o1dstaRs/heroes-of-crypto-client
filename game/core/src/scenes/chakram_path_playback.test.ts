@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Texture } from "pixi.js";
 
 import {
     GridConstants,
@@ -16,6 +17,7 @@ import { Sandbox } from "./Sandbox";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import type { CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { hasRecordedChakramCounter } from "./sandbox/range_projectile_impact";
+import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 
 type XY = HoCMath.XY;
 type Arc = NonNullable<IVisibleDamage["chakramArcs"]>[number];
@@ -1328,12 +1330,38 @@ const arc = (victim: UnitStub, cells: XY[]): Arc => ({
     hitUnitIds: [victim.getId()],
     cells,
 });
-const play = (scene: object, attacker: UnitStub, primary: UnitStub, arcs: Arc[], hits: Splash[]) =>
+const play = (
+    scene: object,
+    attacker: UnitStub,
+    primary: UnitStub,
+    arcs: Arc[],
+    hits: Splash[],
+    cuts?: ReadonlyMap<string, BrutalityTarget>,
+) =>
     (
         Sandbox.prototype as unknown as {
-            playChakramArcs: (attacker: unknown, damage: Partial<IVisibleDamage>, primary: unknown) => Promise<void>;
+            playChakramArcs: (
+                attacker: unknown,
+                damage: Partial<IVisibleDamage>,
+                primary: unknown,
+                captured?: unknown,
+                force?: boolean,
+                onImpact?: unknown,
+                initialThrow?: unknown,
+                cuts?: ReadonlyMap<string, BrutalityTarget>,
+            ) => Promise<void>;
         }
-    ).playChakramArcs.call(scene, attacker, { chakramArcs: arcs, splash: hits }, primary);
+    ).playChakramArcs.call(
+        scene,
+        attacker,
+        { chakramArcs: arcs, splash: hits },
+        primary,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        cuts,
+    );
 
 const shapes = [
     [1, 1],
@@ -1356,6 +1384,52 @@ const cases = shapes.flatMap(([width, height]) =>
 );
 
 describe("Chakram follows the authoritative footprint bridge", () => {
+    test.each([
+        { mirrored: false, omittedSource: false },
+        { mirrored: true, omittedSource: false },
+        { mirrored: false, omittedSource: true },
+        { mirrored: true, omittedSource: true },
+    ])(
+        "large lethal victims lift the entire bridge, mirrored=$mirrored omittedSource=$omittedSource",
+        async ({ mirrored, omittedSource }) => {
+            setBoardMirror(mirrorOwner, mirrored);
+            const zena = unit("Zena", { x: 3, y: 2 });
+            const primary = unit("Primary", { x: 8, y: 8 }, 1, 2);
+            const bounce = unit("Bounce", { x: 12, y: 7 }, 2, 1);
+            const harness = sceneFor([zena, primary, bounce]);
+            const cuts = new Map<string, BrutalityTarget>(
+                [primary, bounce].map((victim) => [
+                    victim.getId(),
+                    {
+                        point: { x: victim.getVisualCenter().x + 7, y: victim.getVisualCenter().y + 100 },
+                        pose: {
+                            texture: Texture.EMPTY,
+                            ...victim.getVisualCenter(),
+                            anchorX: 0.5,
+                            anchorY: 1,
+                            scaleX: 1,
+                            scaleY: -1,
+                        },
+                    },
+                ]),
+            );
+            const cells = [
+                ...(omittedSource ? [] : [{ x: 8, y: 7 }]),
+                { x: 9, y: 7 },
+                { x: 10, y: 7 },
+                { x: 11, y: 7 },
+            ];
+            await play(harness.scene, zena, primary, [arc(bounce, cells)], [splash(primary), splash(bounce)], cuts);
+
+            expect(harness.paths[0]).toHaveLength(4);
+            expect(harness.paths[0][0]).toEqual(cuts.get(primary.getId())!.point);
+            expect(harness.paths[0].at(-1)).toEqual(cuts.get(bounce.getId())!.point);
+            const floor = Math.max(...cells.map((cell) => projectedCell(cell).y));
+            for (const point of harness.paths[0].slice(1, -1)) expect(point.y).toBeGreaterThan(floor + 50);
+            expect(harness.paths[1][0]).toEqual(cuts.get(bounce.getId())!.point);
+        },
+    );
+
     test.each(cases)("$width x $height, direction $dx/$dy, mirrored=$mirrored", async (geometry) => {
         setBoardMirror(mirrorOwner, geometry.mirrored);
         const zena = unit("Zena", { x: 3, y: 2 });
