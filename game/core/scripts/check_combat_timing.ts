@@ -12,7 +12,10 @@ export async function checkCombatTiming(): Promise<void> {
         "./src/scenes/Sandbox.damageReactions.test.ts",
         "./src/scenes/AreaThrowImpactTiming.test.ts",
         "./src/scenes/ThroughShotImpactTiming.test.ts",
+        "./src/scenes/ThunderbirdShieldLightning.test.ts",
+        "./src/scenes/sandbox/ThunderbirdLightningSprites.test.ts",
         "./src/scenes/sandbox/combat_exchange.test.ts",
+        "../heroes-of-crypto-common/test/engine/chain_lightning_shields.test.ts",
     ];
     console.log("Checking combat attack/response timing before bundling…");
     const checks = Bun.spawn([process.execPath, "test", "--isolate", ...tests], {
