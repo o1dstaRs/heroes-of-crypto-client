@@ -5,7 +5,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 ## Next up
 
 - **Story arc:** pin (#1), queue tactics (#2), origin (#3), edge (#4), board-flash fix (#7) and Through Shot (#8, Sat 6:56 AM) done. Next story is STORY.md #5 why the board shrinks (waiting on Stepan to confirm narrowing's origin); #6, #9, #10 also need his facts — skip crypto chapter (#9) and then-and-now (#6) until Stepan answers open questions.
-- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Wed 28 No Melee went out Tue 11:52 AM. The calendar is used up: fill slots with dev-diary / story beats from git (LEARNINGS: only story posts earn likes so far) and tactics questions. Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Replay board fix (6add5ffe) went out Tue 4:53 PM. Replay log/stats fix (166ae50f) went out Wed 11:55 AM. Tsar Cannon free-aim fix (22146dfa) went out Wed 4:54 PM. Pick-your-side mirrored board (135277b4) went out Thu 22 6:57 AM. Castling dev-diary (64837a49/bce205b7/45d149fb) went out Thu 22 11:59 AM. Hold Water Shield fire change (ffc59ba2) until the live site carries it. Live-aim dev-diary (v0.1.7, a4301daf/458fcaea/eaa4248e) went out Thu 22 4:50 PM. Water Shield fire change is now in live v0.1.7 notes, so it is the next dev-diary candidate; other v0.1.7 items (split copies spellbook/quiver, Last Fuse artifact) are also usable. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
+- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Wed 28 No Melee went out Tue 11:52 AM. The calendar is used up: fill slots with dev-diary / story beats from git (LEARNINGS: only story posts earn likes so far) and tactics questions. Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Replay board fix (6add5ffe) went out Tue 4:53 PM. Replay log/stats fix (166ae50f) went out Wed 11:55 AM. Tsar Cannon free-aim fix (22146dfa) went out Wed 4:54 PM. Pick-your-side mirrored board (135277b4) went out Thu 22 6:57 AM. Castling dev-diary (64837a49/bce205b7/45d149fb) went out Thu 22 11:59 AM. Live-aim dev-diary (v0.1.7, a4301daf/458fcaea/eaa4248e) went out Thu 22 4:50 PM. Water Shield fire change (ffc59ba2) went out Fri 23 6:53 AM. Next dev-diary candidates: other v0.1.7 items (split copies spellbook/quiver, Last Fuse artifact) are also usable. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
 
 ## Today 2026-10-15 (Thu)
 
@@ -52,6 +52,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 2026-10-22 06:57 | morning | story-devdiary | https://x.com/Heroes0fcrypto/status/2113268425623486700 | Pick-your-side dev-diary (commit 135277b4), text-only. Reply https://x.com/Heroes0fcrypto/status/2113268575997768013 |
 | 2026-10-22 11:59 | midday | story-devdiary | https://x.com/Heroes0fcrypto/status/2113344487489765745 | Castling dev-diary (64837a49/bce205b7/45d149fb), text-only. Reply https://x.com/Heroes0fcrypto/status/2113344594238693413 |
 | 2026-10-22 16:50 | evening | story-devdiary | https://x.com/Heroes0fcrypto/status/2113417759832838360 | Live-aim dev-diary (a4301daf/458fcaea/eaa4248e), text-only. Reply https://x.com/Heroes0fcrypto/status/2113417854838030429 |
+| 2026-10-23 06:53 | morning | story-devdiary | https://x.com/Heroes0fcrypto/status/2113629959646503249 | Water Shield fire dev-diary (ffc59ba2), text-only. Reply https://x.com/Heroes0fcrypto/status/2113630011953647671 |
 
 ## Today 2026-10-22 (Thu)
 
@@ -100,3 +101,11 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 6:48 AM   | Calendar Tue 27 second attacker, text-only. Reply with board guide link.                               | done — https://x.com/Heroes0fcrypto/status/2112543116544889027 |
 | 11:48 AM  | Calendar Wed 28 No Melee (last calendar line), text-only. Reply with play link.                        | done — https://x.com/Heroes0fcrypto/status/2112618090542616657 |
 | 4:48 PM   | Dev-diary from git (replay board fix 6add5ffe), text-only. Reply with question + play link.            | done — https://x.com/Heroes0fcrypto/status/2112693816994201854 |
+
+## Today 2026-10-23 (Fri)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Dev-diary from git: fire passes an intact Water Shield (ffc59ba2, v0.1.7), text-only. Reply with exceptions + question + play link. | done — https://x.com/Heroes0fcrypto/status/2113629959646503249 |
+| 11:48 AM | Dev-diary or tactics question (v0.1.7 split copies spellbook/quiver, Last Fuse, or recent Hydra Ember Covenant / shield-absorption commits once live). | |
+| 4:48 PM | TBD | |
