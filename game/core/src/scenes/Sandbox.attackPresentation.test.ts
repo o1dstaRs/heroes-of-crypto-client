@@ -107,32 +107,65 @@ const fixture = ({ fairy = false, noMelee = false, ranged = false } = {}) => {
 };
 
 describe("live attack presentation", () => {
-    test("the live damage summary cannot repeat Covenant already presented at contact", async () => {
-        const h = fixture();
-        const amounts: number[] = [];
-        let summary: IVisibleDamage["secondary"];
-        h.damage.secondary = [
-            {
-                source: "ember_covenant",
-                unitId: h.target.getId(),
-                position: h.target.getPosition(),
-                amount: 47,
-                unitsDied: 0,
-            },
-        ];
-        h.scene.combatVisuals = { showFloatingAbsorbed: (_position: unknown, amount: number) => amounts.push(amount) };
-        h.scene.spawnFireBreathVfx = (_a: unknown, _b: unknown, damage: IVisibleDamage) => {
-            summary = damage.secondary;
-        };
-        const stop = h.scene.playCombatExchange;
-        h.scene.playCombatExchange = async () => {
-            h.scene.showEmberCovenantAbsorbsAtImpact(h.damage, new Set([h.target.getId()]), { x: 0, y: 0 });
-            h.scene.showShieldAbsorbs(summary, { x: 0, y: 0 }, 180);
-            return stop();
-        };
-        await h.run();
-        expect(amounts).toEqual([47]);
-    });
+    test.each(["ember_covenant", "water_shield"] as const)(
+        "%s preserves a fully absorbed ranged counter onto a screening ally",
+        async (source) => {
+            const h = fixture({ ranged: true });
+            const screen = makeUnit("Squire", "Life", TeamVals.LEFT);
+            Object.assign(h.attacker, { getPosition: () => ({ x: 0, y: 0 }) });
+            Object.assign(h.target, { getPosition: () => ({ x: 500, y: 0 }) });
+            Object.assign(screen, { getPosition: () => ({ x: 100, y: 0 }) });
+            h.scene.unitsHolder.getAllUnits().set(screen.getId(), screen);
+            h.damage.secondary = [
+                { source, unitId: screen.getId(), position: screen.getPosition(), amount: 47, unitsDied: 0 },
+            ];
+            h.attackEvent.animations = [
+                {
+                    fromPosition: h.attacker.getPosition(),
+                    toPosition: h.target.getPosition(),
+                    affectedUnitId: h.target.getId(),
+                },
+                {
+                    fromPosition: h.target.getPosition(),
+                    toPosition: screen.getPosition(),
+                    affectedUnitId: screen.getId(),
+                },
+            ];
+            expect(await h.run()).toEqual({ amount: 0, unitsDied: 0 });
+        },
+    );
+
+    test.each(["ember_covenant", "water_shield"] as const)(
+        "the live damage summary cannot repeat %s already presented at contact",
+        async (source) => {
+            const h = fixture();
+            const amounts: number[] = [];
+            let summary: IVisibleDamage["secondary"];
+            h.damage.secondary = [
+                {
+                    source,
+                    unitId: h.target.getId(),
+                    position: h.target.getPosition(),
+                    amount: 47,
+                    unitsDied: 0,
+                },
+            ];
+            h.scene.combatVisuals = {
+                showFloatingAbsorbed: (_position: unknown, amount: number) => amounts.push(amount),
+            };
+            h.scene.spawnFireBreathVfx = (_a: unknown, _b: unknown, damage: IVisibleDamage) => {
+                summary = damage.secondary;
+            };
+            const stop = h.scene.playCombatExchange;
+            h.scene.playCombatExchange = async () => {
+                h.scene.showShieldAbsorbsAtImpact(h.damage, new Set([h.target.getId()]), { x: 0, y: 0 });
+                h.scene.showShieldAbsorbs(summary, { x: 0, y: 0 });
+                return stop();
+            };
+            await h.run();
+            expect(amounts).toEqual([47]);
+        },
+    );
 
     test("a legal counter retains only the defender's direct damage", async () => {
         const h = fixture();

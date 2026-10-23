@@ -53,9 +53,13 @@ const flush = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 
-test.each(["melee", "range"])(
-    "Ember Covenant appears at %s contact, before recovery, with no delayed duplicate",
-    async (attackType) => {
+test.each(
+    ["melee", "range"].flatMap((attackType) =>
+        ["ember_covenant", "water_shield"].map((source) => ({ attackType, source })),
+    ),
+)(
+    "$source appears at $attackType contact, before recovery, with no delayed duplicate",
+    async ({ attackType, source }) => {
         const { scene, a, b, events, finish } = setup();
         const contacts: (() => void)[] = [];
         const landings: (() => void)[] = [];
@@ -68,9 +72,7 @@ test.each(["melee", "range"])(
             return new Promise<void>((resolve) => landings.push(resolve));
         };
         const damage = {
-            secondary: [
-                { source: "ember_covenant", unitId: "B", position: { x: 100, y: 0 }, amount: 47, unitsDied: 0 },
-            ],
+            secondary: [{ source, unitId: "B", position: { x: 100, y: 0 }, amount: 47, unitsDied: 0 }],
         };
         const pending = scene.playCombatExchange(a, b, { attackType, damage }, [{ ...strike(), amount: 0 }], () => {});
         await flush();
@@ -83,8 +85,75 @@ test.each(["melee", "range"])(
         landings.forEach((land) => land());
         finish.splice(0).forEach((done) => done());
         await pending;
-        scene.showShieldAbsorbs(damage.secondary, { x: 0, y: 0 }, 180);
+        scene.showShieldAbsorbs(damage.secondary, { x: 0, y: 0 });
         expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
+    },
+);
+
+test.each(["melee", "range"])(
+    "a shielded reflection appears at %s contact without waiting for recovery",
+    async (attackType) => {
+        const { scene, a, b, events, finish } = setup();
+        let contact!: () => void;
+        let land!: () => void;
+        scene.combatVisuals.showFloatingAbsorbed = () => events.push("absorbed");
+        scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, impact: () => void) => {
+            contact = impact;
+            return new Promise<void>((resolve) => {
+                land = resolve;
+            });
+        };
+        const damage = {
+            secondary: [{ source: "ember_covenant", unitId: "A", position: { x: 0, y: 0 }, amount: 19, unitsDied: 0 }],
+        };
+        const pending = scene.playCombatExchange(a, b, { attackType, damage }, [strike()], () => {});
+        await flush();
+        if (attackType === "range") {
+            expect(events).not.toContain("absorbed");
+            contact();
+        }
+        expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
+        land?.();
+        finish.splice(0).forEach((done) => done());
+        await pending;
+        scene.showShieldAbsorbs(damage.secondary, { x: 100, y: 0 });
+        expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
+    },
+);
+
+test.each([false, true])(
+    "a fully absorbed counter owns its projectile contact, counter first=%s",
+    async (counterFirst) => {
+        const { scene, a, b, finish } = setup();
+        const shown: number[] = [];
+        const flights: { contact(): void; land(): void }[] = [];
+        scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
+        scene.playReplayProjectile = (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
+            new Promise<void>((land) => flights.push({ contact, land }));
+        const damage = {
+            secondary: [{ source: "ember_covenant", unitId: "A", position: { x: 0, y: 0 }, amount: 47, unitsDied: 0 }],
+        };
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            { attackType: "range", damage },
+            [strike(), { ...strike(true), amount: 0 }],
+            () => {},
+        );
+        await flush();
+        expect(flights).toHaveLength(2);
+        expect(shown).toEqual([]);
+        const first = counterFirst ? 1 : 0;
+        flights[first].contact();
+        expect(shown).toEqual(counterFirst ? [47] : []);
+        flights[1 - first].contact();
+        expect(shown).toEqual([47]);
+        flights.forEach((flight) => flight.land());
+        await flush();
+        finish.splice(0).forEach((done) => done());
+        await pending;
+        scene.showShieldAbsorbs(damage.secondary, { x: 0, y: 0 });
+        expect(shown).toEqual([47]);
     },
 );
 

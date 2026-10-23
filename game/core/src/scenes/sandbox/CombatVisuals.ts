@@ -1169,7 +1169,7 @@ export class CombatVisuals {
             unit?.getFlagEffectAnchor(this.context.getGridSettings()),
             this.context.getGridSettings().getCellSize() * 1.45 + (unitsDied ? 92 : 38),
             2000,
-            source === "ember_covenant",
+            true,
         );
     }
     public spawnParalysisPop(unit: RenderableUnit): void {

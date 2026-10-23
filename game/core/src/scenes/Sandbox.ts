@@ -5238,18 +5238,17 @@ export class Sandbox extends PixiScene {
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
                         const waves = areaThrowWaves.get(source.getId());
-                        if (
-                            (!waves || isChakramFlight) &&
-                            !strike.missed &&
-                            event.damage?.secondary?.some((entry) => entry.source === "ember_covenant")
-                        ) {
+                        if ((!waves || isChakramFlight) && !strike.missed && this.hasShieldAbsorb(event.damage)) {
                             const recipients = new Set([strike.targetId]);
                             if (melee && !isChakramFlight) {
                                 for (const entry of event.damage?.secondary ?? []) {
                                     if (units.get(entry.unitId)?.getTeam() === victimTeam) recipients.add(entry.unitId);
                                 }
                             }
-                            this.showEmberCovenantAbsorbsAtImpact(event.damage, recipients, source.getVisualCenter(gs));
+                            if (!plan.some((planned) => planned.targetId === source.getId())) {
+                                recipients.add(source.getId());
+                            }
+                            this.showShieldAbsorbsAtImpact(event.damage, recipients, source.getVisualCenter(gs));
                         }
                         if (waves && !isChakramFlight) {
                             reaction = this.playAreaThrowImpact(source, waves[strike.hitIndex] ?? [], {
@@ -5635,7 +5634,7 @@ export class Sandbox extends PixiScene {
             const remaining = Math.max(0, before - hit.unitsDied);
             context.remainingAmounts.set(hit.unitId, remaining);
             unit?.presentDamageCasualties(hit.unitsDied);
-            if (!hit.missed) this.showEmberCovenantAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
+            if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
             this.showGravechainVfx(
                 context.damage,
@@ -5769,7 +5768,7 @@ export class Sandbox extends PixiScene {
                     const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
                     remaining.set(hit.unitId, amount);
                     unit?.presentDamageCasualties(hit.unitsDied);
-                    if (!hit.missed) this.showEmberCovenantAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
+                    if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
                     this.showGravechainVfx(
                         event.damage,
@@ -6111,59 +6110,54 @@ export class Sandbox extends PixiScene {
         }
         return aggregated;
     }
-    protected showShieldAbsorbs(
-        secondary?: IVisibleDamage["secondary"],
-        attackerCenter?: HoCMath.XY,
-        delayMs = 0,
-    ): void {
+    protected showShieldAbsorbs(secondary?: IVisibleDamage["secondary"], attackerCenter?: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         for (const entry of secondary ?? []) {
             if ((entry.source !== "water_shield" && entry.source !== "ember_covenant") || entry.amount <= 0) {
                 continue;
             }
-            if (entry.source === "ember_covenant") {
-                const shown = (this.shownEmberCovenantAbsorbs ??= new WeakSet());
-                if (shown.has(entry)) continue;
-                shown.add(entry);
-            }
+            const shown = (this.shownShieldAbsorbs ??= new WeakSet());
+            if (shown.has(entry)) continue;
+            shown.add(entry);
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
-            const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(
-                    pos,
-                    entry.amount,
-                    direction,
-                    undefined,
-                    unit,
-                    undefined,
-                    entry.source === "ember_covenant" ? "ember_covenant" : undefined,
-                    entry.unitId,
-                );
-            };
-            if (delayMs > 0 && entry.source !== "ember_covenant") {
-                this.scheduleSceneTimeout(show, delayMs);
-            } else {
-                show();
-            }
+            this.combatVisuals.showFloatingAbsorbed(
+                pos,
+                entry.amount,
+                direction,
+                undefined,
+                unit,
+                undefined,
+                entry.source === "ember_covenant" ? "ember_covenant" : undefined,
+                entry.unitId,
+            );
         }
     }
-    private shownEmberCovenantAbsorbs?: WeakSet<object>;
-    private showEmberCovenantAbsorbsAtImpact(
+    private hasShieldAbsorb(damage: IVisibleDamage | undefined, unitId?: string): boolean {
+        return !!damage?.secondary?.some(
+            (entry) =>
+                (entry.source === "ember_covenant" || entry.source === "water_shield") &&
+                entry.amount > 0 &&
+                (unitId === undefined || entry.unitId === unitId),
+        );
+    }
+    private shownShieldAbsorbs?: WeakSet<object>;
+    private showShieldAbsorbsAtImpact(
         damage: IVisibleDamage | undefined,
         unitIds: ReadonlySet<string>,
         origin: HoCMath.XY,
     ): void {
-        if (!damage?.secondary?.some((entry) => entry.source === "ember_covenant")) return;
+        if (!this.hasShieldAbsorb(damage)) return;
         const recipients = new Set<string>();
         this.showShieldAbsorbs(
-            damage.secondary?.filter((entry) => {
+            damage?.secondary?.filter((entry) => {
                 if (
-                    entry.source !== "ember_covenant" ||
+                    (entry.source !== "ember_covenant" && entry.source !== "water_shield") ||
                     entry.amount <= 0 ||
                     !unitIds.has(entry.unitId) ||
                     recipients.has(entry.unitId) ||
-                    this.shownEmberCovenantAbsorbs?.has(entry)
+                    this.shownShieldAbsorbs?.has(entry)
                 )
                     return false;
                 recipients.add(entry.unitId);
@@ -6609,7 +6603,12 @@ export class Sandbox extends PixiScene {
         // entry is rendered with the primary exchange, so remove those exact chunks before deciding
         // whether a real retaliation remains.
         const secondaryOnAttacker = (attackEvent.damage.secondary ?? [])
-            .filter((entry) => entry.unitId === responseVictimId && entry.source !== "ember_covenant")
+            .filter(
+                (entry) =>
+                    entry.unitId === responseVictimId &&
+                    entry.source !== "ember_covenant" &&
+                    entry.source !== "water_shield",
+            )
             .reduce(
                 (total, entry) => ({
                     amount: total.amount + entry.amount,
@@ -6643,9 +6642,12 @@ export class Sandbox extends PixiScene {
             responseAnimation &&
             (target.hasAbilityActive?.("Chakram") || hasRecordedChakramCounter(attackEvent.damage, responseVictimId)) &&
             attackEvent.damage.splash?.some((hit) => hit.unitId === responseVictimId);
+        const recordedShieldedResponse =
+            !!responseAnimation && this.hasShieldAbsorb(attackEvent.damage, responseVictimId);
         if (
             responseDamage.amount <= 0 &&
             !recordedChakramResponse &&
+            !recordedShieldedResponse &&
             !dullingDefenseRecipientIds(record.events).includes(responseVictimId)
         ) {
             return undefined;
@@ -10216,8 +10218,8 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                         continue;
                     }
-                    if (damage?.secondary?.some((entry) => entry.source === "ember_covenant"))
-                        this.showEmberCovenantAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
+                    if (this.hasShieldAbsorb(damage))
+                        this.showShieldAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                         this.combatVisuals?.showFloatingDamage(
@@ -10394,8 +10396,8 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(unit, center, direction);
                         continue;
                     }
-                    if (damage?.secondary?.some((entry) => entry.source === "ember_covenant"))
-                        this.showEmberCovenantAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
+                    if (this.hasShieldAbsorb(damage))
+                        this.showShieldAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                         this.combatVisuals?.showFloatingDamage(
@@ -12027,11 +12029,6 @@ export class Sandbox extends PixiScene {
                                 muzzle,
                                 180,
                             );
-                            this.showShieldAbsorbs(
-                                areaEvent?.damage.secondary?.filter((hit) => hit.source !== "ember_covenant"),
-                                muzzle,
-                                180,
-                            );
                         }
                         const wave = waves[throwIndex] ?? [];
                         shownAnyWave ||= wave.some((hit) => hit.amount > 0);
@@ -12491,7 +12488,9 @@ export class Sandbox extends PixiScene {
             }));
             damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) =>
                 // Contact playback and the later summary share absorb records, so each is presented once.
-                entry.source === "ember_covenant" ? entry : { ...entry, position: { ...entry.position } },
+                entry.source === "ember_covenant" || entry.source === "water_shield"
+                    ? entry
+                    : { ...entry, position: { ...entry.position } },
             );
             // Carry Zena's Chakram ricochet circles (the per-leg swept cells + who each clipped) so the disc
             // actually FLIES its loops in the LIVE sandbox path. Without this, the reconstructed
@@ -12551,7 +12550,8 @@ export class Sandbox extends PixiScene {
             const before = unitSnapshots.get(responseVictimId);
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
             const secondary = (event.damage.secondary ?? []).filter(
-                (hit) => hit.unitId === responseVictimId && hit.source !== "ember_covenant",
+                (hit) =>
+                    hit.unitId === responseVictimId && hit.source !== "ember_covenant" && hit.source !== "water_shield",
             );
             const explosionDamage = lastFuseDamageTaken(attackActionEvents, responseVictimId);
             const approachBurn = this.takeFireWallBurn(attackActionEvents ?? [], responseVictimId).burn;
@@ -12595,8 +12595,10 @@ export class Sandbox extends PixiScene {
                     (target.hasAbilityActive?.("Chakram") ||
                         hasRecordedChakramCounter(event.damage, responseVictimId)) &&
                     event.damage.splash?.some((hit) => hit.unitId === responseVictimId));
+            const recordedShieldedResponse =
+                !!responseAnimation && this.hasShieldAbsorb(event.damage, responseVictimId);
             const response =
-                (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse) &&
+                (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse || recordedShieldedResponse) &&
                 retaliationAllowed &&
                 (!isRange || responseAnimation || responseFlight)
                     ? { amount, unitsDied }
@@ -12807,7 +12809,7 @@ export class Sandbox extends PixiScene {
             attacker.getVisualCenter(gs),
             180,
         );
-        this.showShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs), 180);
+        this.showShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs));
 
         // Devour Essence heal (Hydra devouring a slain enemy): green "+N" + buff-wash on the devourer.
         this.showDevourEssenceHeals(damageForAnimation.secondary);
@@ -20539,7 +20541,7 @@ export class Sandbox extends PixiScene {
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
         this.showFleshShieldAbsorbedDamage(secondary, attackerCenter, 220);
-        this.showShieldAbsorbs(secondary, attackerCenter, 220);
+        this.showShieldAbsorbs(secondary, attackerCenter);
         // Devour Essence is a HEAL riding the same payload — green "+N" on the devourer, kept out of
         // the red-number loop below.
         this.showDevourEssenceHeals(secondary);
@@ -21308,7 +21310,7 @@ export class Sandbox extends PixiScene {
     private barrelDragPointerOrigin?: HoCMath.XY;
     private barrelDragPointerMoved = false;
     private beginStackCountPresentation(): Map<RenderableUnit, number> {
-        this.shownEmberCovenantAbsorbs = new WeakSet();
+        this.shownShieldAbsorbs = new WeakSet();
         this.combatVisuals?.captureHelpingHandPresentation?.();
         const amounts = new Map<RenderableUnit, number>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
