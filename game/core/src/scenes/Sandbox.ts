@@ -5238,11 +5238,15 @@ export class Sandbox extends PixiScene {
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
                         const waves = areaThrowWaves.get(source.getId());
-                        if ((!waves || isChakramFlight) && !strike.missed && this.hasShieldAbsorb(event.damage)) {
-                            const recipients = new Set([strike.targetId]);
-                            if (melee && !isChakramFlight) {
-                                for (const entry of event.damage?.secondary ?? []) {
-                                    if (units.get(entry.unitId)?.getTeam() === victimTeam) recipients.add(entry.unitId);
+                        if ((!waves || isChakramFlight) && this.hasShieldAbsorb(event.damage)) {
+                            const recipients = new Set<string>();
+                            if (!strike.missed) {
+                                recipients.add(strike.targetId);
+                                if (melee && !isChakramFlight) {
+                                    for (const entry of event.damage?.secondary ?? []) {
+                                        if (units.get(entry.unitId)?.getTeam() === victimTeam)
+                                            recipients.add(entry.unitId);
+                                    }
                                 }
                             }
                             if (!plan.some((planned) => planned.targetId === source.getId())) {

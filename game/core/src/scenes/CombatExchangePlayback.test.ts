@@ -90,13 +90,18 @@ test.each(
     },
 );
 
-test.each(["melee", "range"])(
-    "a shielded reflection appears at %s contact without waiting for recovery",
-    async (attackType) => {
+test.each([
+    { attackType: "melee", missed: false },
+    { attackType: "melee", missed: true },
+    { attackType: "range", missed: false },
+])(
+    "an unassigned absorb appears at $attackType contact without recovery, initiating miss=$missed",
+    async ({ attackType, missed }) => {
         const { scene, a, b, events, finish } = setup();
         let contact!: () => void;
         let land!: () => void;
         scene.combatVisuals.showFloatingAbsorbed = () => events.push("absorbed");
+        scene.showAttackMissedVfx = () => {};
         scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, impact: () => void) => {
             contact = impact;
             return new Promise<void>((resolve) => {
@@ -106,7 +111,13 @@ test.each(["melee", "range"])(
         const damage = {
             secondary: [{ source: "ember_covenant", unitId: "A", position: { x: 0, y: 0 }, amount: 19, unitsDied: 0 }],
         };
-        const pending = scene.playCombatExchange(a, b, { attackType, damage }, [strike()], () => {});
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            { attackType, damage },
+            [{ ...strike(), missed, amount: missed ? 0 : 10 }],
+            () => {},
+        );
         await flush();
         if (attackType === "range") {
             expect(events).not.toContain("absorbed");
