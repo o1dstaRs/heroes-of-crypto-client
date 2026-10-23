@@ -20,7 +20,7 @@
         "test:assets": "bun test src/lib/catalog-assets.test.ts"
     },
     "dependencies": {
-        "@astrojs/sitemap": "^3.7.3",
+        "@astrojs/sitemap": "^3.7.4",
         "@heroesofcrypto/common": "workspace:*",
         "astro": "^7.4.0",
         "katex": "0.19.0",
