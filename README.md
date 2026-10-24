@@ -8,7 +8,7 @@
     <img src="https://github.com/o1dstaRs/heroes-of-crypto-common/actions/workflows/ci.yml/badge.svg" alt="Common CI">
   </a>
   <a href="https://bun.sh/">
-    <img src="https://img.shields.io/badge/Bun-1.4-fa9b3b.svg?logo=bun&logoColor=white" alt="Bun">
+    <img src="https://img.shields.io/badge/Bun-1.4.4-fa9b3b.svg?logo=bun&logoColor=white" alt="Bun">
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
@@ -24,7 +24,7 @@ This repository primarily contains:
 
 ## Build & Test
 
-Requires Bun 1.4 or newer
+Requires Bun 1.4.4 or newer
 
 Prerequisites:
 
@@ -64,8 +64,8 @@ Most important commands to execute from the root folder (you need [bun](https://
 -   `bun run build:core` -> Build the core client package (game/core).
 -   `bun run build:game` -> Build the game packages via Bun workspaces (runs workspace build for @heroesofcrypto/common and @heroesofcrypto/core).
 -   `bun run build:ws` -> Build workspace pieces by running build:common and build:core.
--   `bun run lint` -> Run the full lint suite and style checks (ESLint, Stylelint, package.json sorting, Prettier checks).
--   `bun run lint:fix` -> Run all lint fixers (ESLint --fix, SCSS fixes, package.json sorting, Prettier write).
+-   `bun run lint` -> Run the full lint suite and style checks (ESLint, Stylelint, package.json sorting, `bun fmt --check`).
+-   `bun run lint:fix` -> Run all lint fixers (ESLint --fix, SCSS fixes, package.json sorting, `bun fmt`).
 -   `bun run start` -> Start the game locally.
 
 Release builds and coordinated test/production deployment are documented in [DEPLOYMENT.md](DEPLOYMENT.md). Start with `bun run deploy:plan`; `bun run deploy:all` deploys the shared assistant, test game/APIs/site, then production through the server's existing health checks and rollback.
