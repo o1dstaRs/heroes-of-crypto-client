@@ -23,7 +23,7 @@ export function checkPlacementRendering(): void {
         stderr: "inherit",
     });
     if (result.exitCode !== 0) {
-        throw new Error("Placement rendering check failed. Fix creature sizing before building.");
+        throw new Error("Placement rendering check failed. Fix placement rendering and interaction before building.");
     }
 }
 
