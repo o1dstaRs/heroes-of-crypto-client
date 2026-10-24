@@ -59,6 +59,7 @@ import { unicornBlindnessLanded } from "./UnicornBlindnessVisuals";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { griffinLabFlightSettings } from "./GriffinLabFlight";
 import { mantisLabFlightSettings } from "./MantisLabFlight";
+import { drawRangedInspection, RangedInspectionCache, type RangedInspection } from "./rangedInspection";
 import { Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { usesApprovedBaseAnimations, usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
@@ -1113,6 +1114,7 @@ export class Sandbox extends PixiScene {
     private lastEmittedMoveIntentKey?: string;
     private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
     private currentShiftedUnit?: RenderableUnit;
+    private rangedInspectionCache?: RangedInspectionCache;
     private currentActivePathHashes?: Set<number>;
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
@@ -12471,6 +12473,35 @@ export class Sandbox extends PixiScene {
             this.sc_moveBlocked = false;
         }
     }
+    private getInspectedRangedTargets(): RangedInspection | undefined {
+        const shooter = this.currentShiftedUnit;
+        const fight = FightStateManager.getInstance().getFightProperties();
+        if (
+            !shooter ||
+            !fight.hasFightStarted() ||
+            fight.hasFightFinished() ||
+            this.sc_isAnimating ||
+            this.isActiveUnitMoving
+        ) {
+            this.rangedInspectionCache?.clear();
+            return;
+        }
+        return (this.rangedInspectionCache ??= new RangedInspectionCache()).get({
+            shooter,
+            grid: this.grid,
+            units: this.unitsHolder.getAllUnits(),
+            viewerTeam: this.getViewerTeam(),
+            canShoot: this.attackHandler.canLandRangeAttack(
+                shooter,
+                this.grid.getEnemyAggrMatrixByUnitId(shooter.getId()),
+            ),
+            edgesForTarget: (target) => this.rangeTargetEdgeVisuals(shooter, target),
+        });
+    }
+    private drawInspectedRangedTargets(g: Graphics): void {
+        const inspection = this.getInspectedRangedTargets();
+        if (inspection) drawRangedInspection(g, inspection, this.sc_sceneSettings.getGridSettings());
+    }
     protected renderIncomingThreatPreview(hoveredUnit: Unit | undefined): boolean {
         const shooter = this.currentShiftedUnit;
         if (
@@ -12478,14 +12509,14 @@ export class Sandbox extends PixiScene {
             !shooter ||
             !(shooter instanceof RenderableUnit) ||
             shooter.isDead() ||
-            shooter.getAttackType() !== AttackVals.RANGE ||
+            !shooter.isRangeCapable() ||
             shooter.getRangeShots() <= 0 ||
-            shooter.hasAbilityActive("Handyman") ||
             !hoveredUnit ||
             hoveredUnit.isDead() ||
             // Only a shot at the shooter's ENEMY is a threat; hovering its own allies previews nothing.
             hoveredUnit.getTeam() === shooter.getTeam() ||
-            !this.attackHandler
+            !this.attackHandler ||
+            !this.attackHandler.canLandRangeAttack(shooter, this.grid.getEnemyAggrMatrixByUnitId(shooter.getId()))
         ) {
             return false;
         }
@@ -12493,8 +12524,14 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Aim at the same visible edge a real shot resolves to, so the line and the falloff band match
         // what the shooter would actually get rather than a centre-to-centre approximation.
-        const aim = this.resolveRangeAimForTarget(shooter, hoveredUnit, hoveredUnit.getPosition());
-        const aimPos = aim?.position ?? hoveredUnit.getPosition();
+        const targetCells = hoveredUnit.getCells();
+        const edges = this.getInspectedRangedTargets()?.edges.filter((edge) =>
+            targetCells.some((cell) => cell.x === edge.cell.x && cell.y === edge.cell.y),
+        );
+        const edge = optimalRangeTargetEdge(edges ?? [], shooter.getPosition());
+        if (!edge) return false;
+        const aim = { position: edge.aimPosition, cell: edge.cell, side: edge.side };
+        const aimPos = aim.position;
 
         // Who the shot really meets: a plain shot stops at the FIRST unit on the line, so a teammate
         // standing in front turns this into a screen rather than a hit on the hovered unit.
@@ -18539,6 +18576,7 @@ export class Sandbox extends PixiScene {
             activeAuraRangesScratch: this.activeAuraRangesScratch,
             movementCellsScratch: this.activeMovementCellsScratch,
         });
+        this.drawInspectedRangedTargets(g);
         for (let index = this.shotRangeCornerPool.used; index < this.shotRangeCornerPool.sprites.length; index += 1) {
             this.shotRangeCornerPool.sprites[index].visible = false;
         }

@@ -6,6 +6,7 @@ import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 import { projectedCellPoints } from "./sandbox/BattlefieldVisualGrid";
 import {
     drawMovementArea,
+    ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
     movementFillAlphaForPhase,
     MOVEMENT_TILE_INSET_CELLS,
     movementTilePolygon,
@@ -30,10 +31,13 @@ describe("movement-area cell fill", () => {
         const cells = Array.from({ length: 256 }, (_, i) => ({ x: i % 16, y: Math.floor(i / 16) }));
         const g = new Graphics();
         try {
-            drawMovementArea(g, cells, gs, 0xff3b3b, 0.8);
+            drawMovementArea(g, cells, gs, ENEMY_MOVEMENT_HIGHLIGHT_COLOR, 0.8);
             drawMovementArea(g, [cells[0], cells[0]], gs, 0xffffff, 1.2, 0.5);
-            const fills = g.context.instructions;
+            const fills = g.context.instructions.filter((instruction) => instruction.action === "fill");
             expect(fills).toHaveLength(2);
+            const strokes = g.context.instructions.filter((instruction) => instruction.action === "stroke");
+            expect(strokes).toHaveLength(1);
+            expect(strokes[0].data.style.alpha).toBe(0.42);
             for (const [index, expectedCells] of [cells, [cells[0], cells[0]]].entries()) {
                 const instruction = fills[index];
                 expect(instruction.action).toBe("fill");
@@ -45,7 +49,10 @@ describe("movement-area cell fill", () => {
                 ).toEqual(expectedCells.map((cell) => movementTilePolygon(cell, gs)));
                 expect(instruction.data.style.color).toBe(index === 0 ? 0xff3b3b : 0xffffff);
                 expect(instruction.data.style.alpha).toBe(
-                    movementFillAlphaForPhase(index === 0 ? 0.8 : 1.2) * (index === 0 ? 1 : 0.5),
+                    movementFillAlphaForPhase(
+                        index === 0 ? 0.8 : 1.2,
+                        index === 0 ? ENEMY_MOVEMENT_HIGHLIGHT_COLOR : 0xffffff,
+                    ) * (index === 0 ? 1 : 0.5),
                 );
             }
             g.clear().rect(0, 0, 10, 10);

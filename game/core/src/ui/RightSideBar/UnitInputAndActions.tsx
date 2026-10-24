@@ -8,6 +8,7 @@ import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { shortcutLetter } from "../../utils/shortcutLetter";
 import { t, useTranslation } from "../../i18n/i18n";
 import { hocDisplayFontFamily, hocSidebarCloneSplitButtonSx, hocSidebarImageButtonSx } from "../hocTheme";
 
@@ -137,7 +138,7 @@ const UnitInputAndActions = ({
             if (isEditableShortcutTarget(event.target)) return;
             if (manager.IsStarted() || selectedUnitCount <= 0) return;
 
-            const key = event.key.toLowerCase();
+            const key = shortcutLetter(event);
             if (key !== "a" && key !== "c") return;
 
             event.preventDefault();

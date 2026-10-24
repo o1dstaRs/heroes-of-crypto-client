@@ -6,6 +6,7 @@ const suites = [
     "./src/scenes/placementPreviewScale.test.ts",
     "./src/scenes/placementTextureReadiness.test.ts",
     "./src/scenes/DryadPlacement.test.ts",
+    "./src/scenes/PlacementManager.ranked.test.ts",
 ];
 
 export function checkPlacementRendering(): void {
@@ -22,7 +23,7 @@ export function checkPlacementRendering(): void {
         stderr: "inherit",
     });
     if (result.exitCode !== 0) {
-        throw new Error("Placement rendering check failed. Fix creature sizing before building.");
+        throw new Error("Placement rendering check failed. Fix placement rendering and interaction before building.");
     }
 }
 
