@@ -861,7 +861,7 @@ const TrajectoryPreview: React.FC<{ style: ShotTrajectoryStyle }> = ({ style }) 
             {style === "gold-casings" && (
                 <>
                     <image
-                        href={images.shot_trajectory_arrow_fletching_start_v1}
+                        href={images.shot_trajectory_gold_fletching_wide_socket_v6}
                         x="20"
                         y="62"
                         width="62"
@@ -871,7 +871,7 @@ const TrajectoryPreview: React.FC<{ style: ShotTrajectoryStyle }> = ({ style }) 
                     {[108, 154, 200, 246].map((x) => (
                         <image
                             key={x}
-                            href={images.shot_trajectory_arrow_shaft_segment_perspective_v1}
+                            href={images.shot_trajectory_gold_casing_sprite_v6}
                             x={x - 16}
                             y="70"
                             width="32"
@@ -888,7 +888,7 @@ const TrajectoryPreview: React.FC<{ style: ShotTrajectoryStyle }> = ({ style }) 
                         </image>
                     ))}
                     <image
-                        href={images.shot_trajectory_arrowhead_target_v1}
+                        href={images.shot_trajectory_gold_arrowhead_wide_socket_v6}
                         x="286"
                         y="61"
                         width="68"

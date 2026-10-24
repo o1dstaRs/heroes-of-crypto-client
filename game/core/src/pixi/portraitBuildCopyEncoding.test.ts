@@ -223,6 +223,11 @@ describe("portrait build-copy encoding", () => {
         await Promise.all([mkdir(scripts), mkdir(pixi, { recursive: true }), mkdir(build, { recursive: true })]);
         await Promise.all([
             writeFile(path.join(images, "active_portrait_full.webp"), await image()),
+            writeFile(path.join(images, "book_1024.webp"), await image()),
+            writeFile(
+                path.join(build, "retiredImageAssets.json"),
+                await readFile(new URL("../build/retiredImageAssets.json", import.meta.url)),
+            ),
             writeFile(
                 path.join(scripts, "prepare_level_one_assets.ts"),
                 "export const prepareLevelOneAssets = () => {};",
@@ -280,5 +285,6 @@ describe("portrait build-copy encoding", () => {
         expect(await readFile(path.join(root, "src/generated/image_imports.ts"), "utf8")).toContain(
             "active_portrait_full",
         );
+        expect(await readFile(path.join(root, "src/generated/image_imports.ts"), "utf8")).not.toContain("book_1024");
     });
 });

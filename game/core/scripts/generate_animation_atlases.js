@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const retiredImageFiles = new Set(require("../src/build/retiredImageAssets.json"));
 
 // Approved animation art that must never be silently replaced by an older export. The Scavenger
 // walk uses the user-approved original eight-frame loop. Keep that selected version through
@@ -1031,6 +1032,7 @@ function main() {
         .filter(
             (f) =>
                 f.endsWith(".webp") &&
+                !retiredImageFiles.has(path.basename(f)) &&
                 f.includes(`${path.sep}atlas${path.sep}`) &&
                 (f.endsWith("_atlas.webp") || f.endsWith("_atlas_quarter.webp") || f.endsWith("_atlas_half.webp")),
         )

@@ -2,7 +2,7 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,674 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,233 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
@@ -53,6 +53,12 @@ The 2026-10-22 Ember Covenant supplement adds `ember_covenant_blessing_256.webp`
 `heroesofcrypto-assets/images` directory. Their approved hashes and sizes are pinned in the release
 manifest. The source package also preserves the prompts, reference artwork, processing recipe,
 previous icon and an interactive preview of the flag-centered fire effect.
+
+The 2026-10-24 cleanup removes 452 retired runtime images, including superseded UI and environment
+exports, old creature thumbnails, and five unused artifact icons. The restore manifest no longer
+requires them. Older archives and authoring packages may still contain these files; the image,
+animation-copy, and CI import generators exclude the exact filenames recorded in
+`game/core/src/build/retiredImageAssets.json`. Source artwork and versioned release packages remain available.
 
 ## Build and publish
 
