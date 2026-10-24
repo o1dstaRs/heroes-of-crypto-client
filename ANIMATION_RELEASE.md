@@ -2,7 +2,7 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,233 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,388 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
