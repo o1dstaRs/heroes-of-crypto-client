@@ -481,7 +481,10 @@ describe("AIController", () => {
                 ...overrides,
             }) as unknown as IAIContext;
 
-        it("casts the native Mage's lethal Fireball through sandbox search and the real engine", async () => {
+        it("casts the opt-in native Mage's lethal Fireball through sandbox search and the real engine", async () => {
+            const priorityKey = "V08_MAGE_DAMAGE_KILL_PRIORITY_LEFT";
+            const previousPriority = process.env[priorityKey];
+            process.env[priorityKey] = "1";
             HoC.FightStateManager.getInstance().reset();
             const fightProperties = HoC.FightStateManager.getInstance().getFightProperties();
             const constants = HoC.GridConstants;
@@ -614,6 +617,8 @@ describe("AIController", () => {
                 expect(controller.performingAction).toBe(false);
             } finally {
                 errors.mockRestore();
+                if (previousPriority === undefined) delete process.env[priorityKey];
+                else process.env[priorityKey] = previousPriority;
                 controller.destroy();
                 HoC.FightStateManager.getInstance().reset();
             }
