@@ -161,12 +161,12 @@ const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
     "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
     "life_portrait_bg_golden_dawn_four_corner_haze_v1",
     "might_portrait_bg_blood_claw_strong_red_corners_v1",
-    "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+    "nature_portrait_bg_emerald_forest_v1",
     // The live faction portrait motion pulses these masks over the matching environment plates.
     "chaos_portrait_bg_emissive_glow_v1",
     "life_portrait_bg_emissive_glow_v1",
     "might_portrait_bg_emissive_glow_v1",
-    "nature_portrait_bg_emissive_glow_v1",
+    "nature_portrait_bg_emerald_forest_glow_v1",
     // Current map-selection thumbnails.
     "map_badge_barrels_frameless_v2",
     "map_badge_lava_frameless_v2",

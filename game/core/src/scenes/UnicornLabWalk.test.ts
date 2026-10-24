@@ -84,7 +84,8 @@ test("Unicorn combat retains full-resolution frames and advances eight poses by 
         [2850, 5],
         [3000, 0],
     ]) {
-        unit.stepSelectionAnimation(state.selectionAnimationStartedAtMs + elapsed);
+        // Sample just inside each cel to avoid subtraction rounding across a boundary.
+        unit.stepSelectionAnimation(state.selectionAnimationStartedAtMs + elapsed + 0.01);
         expect(state.selectionAnimFrameIndex).toBe(expected);
         expect(state.sprite.texture).toBe(state.selectionAnimFrames[expected]);
         expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScale);

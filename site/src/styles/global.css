@@ -403,13 +403,18 @@ code {
 }
 
 .hero {
+    --tavern-board-y: 6.426;
+    --tavern-logo-y: 7.776;
+    --tavern-logo-width: 18;
     --hero-bottom-trim: 0px;
     --hero-viewport-fit-trim: 0px;
     --hero-pitch-peek-offset: 0px;
-
     position: relative;
     overflow: hidden;
-    min-height: clamp(560px, calc(100svh - 120px), 740px);
+    min-height: calc(
+        clamp(616px, calc(110svh - 132px), 814px) - var(--hero-bottom-trim) - var(--hero-viewport-fit-trim) +
+            var(--hero-pitch-peek-offset)
+    );
     background: #050606;
 }
 
@@ -421,10 +426,21 @@ code {
 
 @media (min-width: 1081px) {
     .hero {
-        /* One screen below the navigation; fit the complete composition inside it. */
-        min-height: max(616px, calc(100svh - 68px));
-        height: max(616px, calc(100svh - 68px));
+        --hero-bottom-trim: clamp(0px, calc(100svh - 760px), 30px);
+        --hero-viewport-fit-trim: clamp(24px, calc(424px - 44svh), 112px);
+        --hero-pitch-peek-offset: 32px;
+        overflow: visible;
+        height: calc(
+            clamp(616px, calc(110svh - 132px), 814px) - var(--hero-bottom-trim) - var(--hero-viewport-fit-trim) +
+                var(--hero-pitch-peek-offset)
+        );
     }
+
+    .hero-bg,
+    .hero-shade {
+        top: -68px;
+    }
+
 }
 
 .hero-bg {
@@ -436,11 +452,40 @@ code {
 }
 
 .hero-shade {
-    background:
-        radial-gradient(64% 58% at 50% 30%, rgba(239, 74, 63, 0.16), transparent 70%),
-        radial-gradient(40% 40% at 50% 4%, rgba(242, 199, 93, 0.1), transparent 72%),
-        linear-gradient(90deg, rgba(5, 6, 6, 0.86) 0%, rgba(5, 6, 6, 0.54) 50%, rgba(5, 6, 6, 0.86) 100%),
-        linear-gradient(180deg, rgba(5, 6, 6, 0.34) 0%, rgba(5, 6, 6, 0.26) 55%, #070808 100%);
+    background: rgba(0, 0, 0, 0.11);
+}
+
+.hero-shade::after {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.05);
+    content: "";
+    pointer-events: none;
+}
+
+.hero::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: clamp(120px, 12vw, 200px);
+    background: linear-gradient(
+        180deg,
+        rgba(20, 13, 9, 0) 0%,
+        rgba(20, 13, 9, 0.12) 24%,
+        rgba(20, 13, 9, 0.48) 54%,
+        rgba(20, 13, 9, 0.86) 80%,
+        #140d09 96%,
+        #140d09 100%
+    );
+    content: "";
+    pointer-events: none;
+}
+
+@media (min-width: 1081px) {
+    .hero-bg {
+        height: calc(100% + 68px);
+    }
 }
 
 .hero-grid {
@@ -450,16 +495,19 @@ code {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
     align-items: center;
-    min-height: clamp(560px, calc(100svh - 120px), 740px);
+    min-height: calc(
+        clamp(644px, calc(115svh - 138px), 851px) - var(--hero-bottom-trim) - var(--hero-viewport-fit-trim) +
+            var(--hero-pitch-peek-offset)
+    );
     padding: 42px 0 46px;
     transform: translateY(-5%);
 }
 
 @media (min-width: 1081px) {
-    .hero-grid {
-        min-height: 100%;
-        height: 100%;
-        transform: none;
+    .hero-brand-shell,
+    .hero-message-shell {
+        position: relative;
+        top: clamp(64.4px, calc(11.5svh - 13.8px), 85.1px);
     }
 }
 
@@ -467,6 +515,88 @@ code {
     max-width: 1160px;
     margin-inline: auto;
     text-align: center;
+}
+
+/* Keep first-screen copy in the lower central area, clear of both fighters. */
+.hero .hero-grid-bottom {
+    position: absolute;
+    inset: auto 0 calc(clamp(20px, 3vh, 36px) + 1.2rem + clamp(8px, 1.5vh, 18px));
+    width: min(44%, 920px);
+    min-height: 0;
+    padding: 14px 0 18px;
+    margin-inline: auto;
+    transform: none;
+}
+
+.hero .hero-content-bottom {
+    display: grid;
+    gap: clamp(8px, 1.5vh, 18px);
+    width: 100%;
+    text-shadow: 0 2px 8px #080503;
+}
+
+.hero-content-bottom .hero-stats {
+    gap: 8px 24px;
+    max-width: 100%;
+    margin: 0;
+}
+
+.hero-content-bottom .hero-stats span {
+    color: #e5d5ba;
+}
+
+.hero > .hero-claims-bottom {
+    position: absolute;
+    inset: auto 0 8px;
+    z-index: 2;
+    width: min(1100px, calc(100% - 32px));
+    max-width: none;
+    margin: 0 auto;
+    gap: 6px 22px;
+}
+
+@media (max-width: 1080px) {
+    .hero:has(.hero-grid-bottom) {
+        min-height: min(760px, calc(100svh - 68px));
+        height: max(540px, calc(100svh - 68px));
+    }
+
+    .hero .hero-grid-bottom {
+        width: min(88%, 680px);
+        bottom: calc(clamp(20px, 3vh, 36px) + 3rem + clamp(8px, 1.5vh, 18px));
+        padding-bottom: 24px;
+    }
+
+    .hero-content-bottom .hero-stats {
+        gap: 8px 16px;
+    }
+}
+
+@media (max-width: 720px) {
+    .hero:has(.hero-grid-bottom) {
+        min-height: 540px;
+        height: max(540px, calc(100svh - 102px));
+    }
+}
+
+/* Panoramic taverns keep their native 2:1 ratio. Per-image board coordinates
+   anchor the frame six pixels below the header at every desktop width. */
+@media (min-width: 1081px) {
+    .hero:has(.hero-bg[data-board-layout="true"]) {
+        height: calc((50 - var(--tavern-board-y)) * 1vw + 6px);
+        min-height: 0;
+    }
+
+    .hero-bg[data-board-layout="true"] {
+        top: calc(6px - var(--tavern-board-y) * 1vw);
+        height: auto;
+        aspect-ratio: 2 / 1;
+        object-fit: contain;
+    }
+
+    .hero:has(.hero-bg[data-board-layout="true"]) .hero-shade {
+        top: calc(6px - var(--tavern-board-y) * 1vw);
+    }
 }
 
 .hero .hero-actions {
@@ -549,17 +679,24 @@ code {
     line-height: 0;
 }
 
-.hero-logo img {
+.hero-logo-art {
+    position: relative;
+    display: block;
     width: min(552px, 88%);
-    height: auto;
     margin-inline: auto;
+    isolation: isolate;
     filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
     transform: translateY(-25%);
 }
 
+.hero-logo-art img {
+    width: 100%;
+    height: auto;
+}
+
 .hero-brand-block {
     position: relative;
-    transform: translateY(-18%) scale(1.07);
+    transform: translateY(-18%) scale(1.0165);
 }
 
 .sr-only {
@@ -575,9 +712,10 @@ code {
 }
 
 .hero-tagline {
-    max-width: 1160px;
+    max-width: min(920px, calc(100vw - 48px));
     margin-inline: auto;
-    margin-bottom: 26px;
+    margin-top: 26px;
+    margin-bottom: 0;
     color: #fff;
     font-size: clamp(1.0545rem, 1.463vw + 0.7315rem, 1.672rem);
     font-weight: 800;
@@ -586,58 +724,177 @@ code {
     text-wrap: balance;
 }
 
+.hero-message-block {
+    transform: translateY(20%);
+}
+
+.hero-tagline-spacer {
+    visibility: hidden;
+}
+
+.hero-bottom-copy {
+    position: absolute;
+    right: 0;
+    bottom: 8px;
+    left: 0;
+    display: grid;
+    width: min(920px, calc(100% - 48px));
+    margin: 0 auto;
+}
+
+.hero-tagline-bottom {
+    margin: 0;
+}
+
+.hero-pitch-band {
+    position: relative;
+    z-index: 2;
+    padding: 12px 24px 4px;
+    border-top: 1px solid rgba(220, 177, 88, 0.12);
+    border-bottom: 1px solid rgba(220, 177, 88, 0.08);
+    background: #080808;
+    text-align: center;
+}
+
+.hero-pitch-band .hero-tagline {
+    max-width: min(1500px, calc(100vw - 64px));
+    margin: 0 auto;
+    color: var(--hoc-bronze);
+    font-family: var(--hoc-font-display);
+    font-synthesis: none;
+    font-weight: 400;
+    letter-spacing: 0.075em;
+    -webkit-text-stroke: 0.018em rgba(48, 29, 18, 0.9);
+    paint-order: stroke fill;
+    text-shadow:
+        0 0.055em 0 #080605,
+        0 -0.018em 0 rgba(255, 220, 171, 0.2),
+        0 0.09em 0.16em rgba(0, 0, 0, 0.78);
+}
+
+.hero-pitch-band .hero-tagline span {
+    display: block;
+}
+
+.feature-section.hero-intro-section {
+    position: relative;
+    z-index: 2;
+    scroll-margin-top: 68px;
+    background-color: #140d09;
+    background-image:
+        linear-gradient(180deg, #140d09 0%, rgba(20, 13, 9, 0.15) 145px, rgba(8, 6, 5, 0.32) 68%, #080605 100%),
+        url("/assets/images/home/features/feature_smoke.webp");
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-size: 100% 100%, cover;
+}
+
+.hero-intro-section .hero-pitch-band {
+    border-bottom: 0;
+    background: transparent;
+}
+
+/* Share the hero's edge tone, then reveal the smoke without a visible seam. */
+.hero + #features.hero-intro-section {
+    background-image:
+        linear-gradient(
+            180deg,
+            #140d09 0,
+            rgba(20, 13, 9, 0.92) 24px,
+            rgba(20, 13, 9, 0.15) 145px,
+            rgba(8, 6, 5, 0.32) 68%,
+            #080605 100%
+        ),
+        url("/assets/images/home/features/feature_smoke.webp");
+}
+
+.hero-feature-content {
+    padding-top: 4px;
+    padding-bottom: clamp(50px, 7vw, 92px);
+}
+
 .hero-claims {
     display: flex;
     flex-wrap: wrap;
     gap: 10px 26px;
     justify-content: center;
-    margin: 0 auto 30px;
+    width: min(720px, 100%);
+    margin: 0 auto;
     padding: 0;
     max-width: 720px;
     list-style: none;
 }
 
+.hero-claims-bottom {
+    width: min(920px, calc(100vw - 48px));
+}
+
 .hero-claims li {
     position: relative;
-    color: rgba(251, 244, 232, 0.72);
+    color: #f4e3c4;
     font-family: var(--hoc-font-display);
     font-size: 0.86rem;
     font-synthesis: none;
     letter-spacing: 0.09em;
     line-height: 1.35;
     text-transform: uppercase;
+    text-shadow: 0 1px 2px #080503, 0 0 7px rgba(8, 5, 3, 0.95);
 }
 
 .hero-claims li + li::before {
     position: absolute;
-    top: 0.35em;
+    top: 50%;
     left: -14px;
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: rgba(220, 177, 88, 0.6);
+    background: #e4b76b;
     content: "";
+    transform: translateY(-50%);
 }
 
-/* The hero CTA follows the in-game panel buttons rather than the plate-textured pair. */
+/* The selected image is used unchanged; localized HoC Forge text stays live above it. */
 .hero .hero-play {
-    width: min(302px, 100%);
-    min-height: 58px;
-    padding: 14px 26px;
-    border: 1px solid #5b4b2a;
-    border-radius: 10px;
-    background-color: #241f16;
-    background-image: none;
-    color: #efe4cc;
+    position: relative;
+    isolation: isolate;
+    width: min(378.004px, calc(100vw - 48px), 100%);
+    max-width: min(378.004px, calc(100vw - 48px));
+    justify-self: center;
+    aspect-ratio: 2172 / 402;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    background: none;
+    color: #f4e3c4;
     font-family: var(--hoc-font-display);
-    font-size: 1.04rem;
-    font-synthesis: none;
-    font-weight: 400;
-    letter-spacing: 0.15em;
+    font-size: clamp(1.71336rem, 3.2211168vw, 2.3301696rem);
+    font-synthesis: weight;
+    font-weight: 670;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
-    text-shadow: none;
-    -webkit-text-stroke: 0;
-    box-shadow: inset 0 0 0 1px rgba(220, 177, 88, 0.08);
+    text-shadow: 0 1px 1px #341300;
+    -webkit-text-stroke: 0.021em currentColor;
+    box-shadow: none;
+    line-height: 1;
+}
+
+.hero .hero-play-art {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.hero .hero-play span {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    transform: translateY(0.08em);
 }
 
 /* The 4 / 57 / 106 numbers, captioned under the CTA rather than set in their own band. */
@@ -646,15 +903,15 @@ code {
     flex-wrap: wrap;
     gap: 10px 34px;
     justify-content: center;
-    margin: 26px auto 0;
+    margin: clamp(-56px, -4.4vw, -24px) auto 30px;
     padding: 0;
     list-style: none;
 }
 
 .hero-stats li {
     display: flex;
-    gap: 9px;
-    align-items: baseline;
+    gap: 6.3px;
+    align-items: center;
 }
 
 .hero-stats strong {
@@ -669,22 +926,25 @@ code {
 
 .hero-stats span {
     color: rgba(251, 244, 232, 0.6);
-    font-size: 0.86rem;
+    font-size: 0.91rem;
     letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 .hero .hero-play:hover {
-    border-color: #dcb158;
-    background-color: #33291b;
-    color: #ffbf56;
-    filter: none;
-    transform: translateY(-1px);
+    filter: brightness(1.06);
+    transform: none;
 }
 
-.hero .hero-play img {
-    width: 22px;
-    height: 22px;
-    opacity: 0.86;
+.hero .hero-play:focus-visible {
+    outline: 3px solid #ffe2a0;
+    outline-offset: 5px;
+}
+
+.hero .hero-play:active {
+    filter: brightness(0.96);
+    transform: none;
+    box-shadow: none;
 }
 
 .hero-actions,
@@ -1606,8 +1866,7 @@ code {
     height: 100%;
     object-fit: cover;
     object-position: center;
-    opacity: 0.72;
-    transform: scale(1.08);
+    filter: brightness(1.14) contrast(1.05) saturate(1.08);
 }
 
 .mechanic-board::after,
@@ -1622,73 +1881,8 @@ code {
     pointer-events: none;
 }
 
-.board-path {
-    position: absolute;
-    height: 3px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    box-shadow: 0 0 18px rgba(242, 199, 93, 0.55);
-    transform-origin: left center;
-}
-
-.board-path.one {
-    top: 38%;
-    left: 22%;
-    width: 48%;
-    transform: rotate(-13deg);
-}
-
-.board-path.two {
-    top: 58%;
-    left: 34%;
-    width: 38%;
-    transform: rotate(18deg);
-}
-
-.board-marker {
-    position: absolute;
-    width: 17px;
-    height: 17px;
-    border: 3px solid var(--gold);
-    border-radius: 50%;
-    background: rgba(7, 8, 8, 0.74);
-    box-shadow: 0 0 22px rgba(242, 199, 93, 0.48);
-}
-
-.board-marker.one {
-    top: 32%;
-    left: 22%;
-}
-
-.board-marker.two {
-    top: 47%;
-    left: 52%;
-}
-
-.board-marker.three {
-    top: 60%;
-    left: 72%;
-}
-
-.mechanic-icon-row {
-    position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: 14px;
-    z-index: 1;
-    display: flex;
-    gap: 8px;
-}
-
-.mechanic-icon-row img,
-.mechanic-abilities img {
-    width: 48px;
-    height: 48px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 2px;
-    background: #090706;
-    object-fit: cover;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+.mechanic-board::after {
+    background: linear-gradient(180deg, transparent 72%, rgba(5, 6, 6, 0.14));
 }
 
 .mechanic-factions {
@@ -1706,9 +1900,11 @@ code {
         linear-gradient(180deg, color-mix(in srgb, var(--faction) 22%, transparent), rgba(5, 6, 6, 0.2)), #090b0d;
 }
 
-/* Preserve main's composed faction portraits beneath the hero. */
-.mechanic-faction-unit .portrait {
-    transform: scale(1.08);
+.mechanic-faction-unit img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
 }
 
 .mechanic-faction-unit em {
@@ -1731,33 +1927,19 @@ code {
 }
 
 .mechanic-abilities {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    align-content: center;
-    padding: 28px;
-    background:
-        radial-gradient(circle at 50% 48%, rgba(239, 74, 63, 0.32), transparent 46%),
-        linear-gradient(135deg, rgba(242, 199, 93, 0.15), rgba(103, 174, 246, 0.13)), #090b0d;
+    background: #090706;
 }
 
-.mechanic-abilities span {
-    display: grid;
-    place-items: center;
-    aspect-ratio: 1 / 1;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 2px;
-    background: rgba(14, 9, 5, 0.6);
+.mechanic-abilities::after {
+    background: linear-gradient(180deg, transparent 66%, rgba(7, 5, 4, 0.14));
 }
 
-.mechanic-abilities span:nth-child(2),
-.mechanic-abilities span:nth-child(3) {
-    transform: translateY(18px);
-}
-
-.mechanic-abilities img {
-    width: min(74px, 72%);
-    height: min(74px, 72%);
+.mechanic-abilities > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
 }
 
 .feature-card p,
@@ -1892,6 +2074,7 @@ code {
 
 .final-cta {
     padding: 56px 0;
+    scroll-margin-top: 90px;
     border-block: 1px solid rgba(220, 177, 88, 0.26);
     background: linear-gradient(90deg, rgba(105, 48, 18, 0.34), rgba(9, 7, 5, 0.5), rgba(70, 209, 96, 0.08)), #100a06;
     box-shadow:
@@ -1919,6 +2102,7 @@ code {
     margin-bottom: 0;
     font-size: clamp(1.65rem, 1.6vw + 1.1rem, 2.2rem);
 }
+
 
 .subhero {
     padding: 82px 0 62px;
@@ -2681,16 +2865,16 @@ html.reveal-on .patches-section {
     }
 
     .hero-brand-block {
-        transform: scale(1.07);
+        transform: scale(1.0165);
     }
 
-    .hero-logo img,
+    .hero-logo-art,
     .hero-message-block {
         transform: none;
     }
 
     .hero-stats {
-        max-width: calc(100% / 1.07);
+        max-width: calc(100% / 1.0165);
         gap: 10px 20px;
         margin-top: 12px;
     }
@@ -2875,17 +3059,6 @@ html.reveal-on .patches-section {
 
     .mechanic-copy {
         padding: 20px;
-    }
-
-    .mechanic-abilities {
-        gap: 8px;
-        padding: 20px;
-    }
-
-    .mechanic-icon-row img,
-    .mechanic-abilities img {
-        width: 42px;
-        height: 42px;
     }
 
     .visual-panel {
@@ -3123,7 +3296,7 @@ html.reveal-on .patches-section {
     }
 
     .hero-tagline {
-        margin-bottom: 12px;
+        margin-top: 12px;
     }
 
     .hero-actions {
@@ -3185,71 +3358,40 @@ html.reveal-on .patches-section {
     }
 }
 
-/* ---------------------------------------------------------------------------
-   Creature portraits (CreaturePortrait.astro)
+/* Introduce the cards above the row. */
+.hero-intro-section .hero-pitch-band { padding-top: clamp(36px, 4vw, 64px); }
+.feature-intro-heading { padding-top: 12px; text-align: center; }
+.feature-intro-heading .section-heading { max-width: 1100px; margin-bottom: 0; }
+.feature-intro-heading .eyebrow { margin-bottom: 40px; }
+.hero-intro-section .hero-feature-content { padding-top: 8px; padding-bottom: clamp(40px,6vw,80px); }
+.mechanic-factions > .faction-artwork { grid-column: 1 / -1; }
 
-   The game composes a portrait rather than storing one: faction background, a black shade, then the
-   creature art under an approved crop, scale and offsets. These rules are the CSS half of that recipe;
-   the per-creature numbers arrive inline from portrait-recipes.json.
+/* Keep the editor composition identical to every responsive feature card. */
+.mechanic-card { grid-template-rows: auto 1fr; }
+.mechanic-visual { aspect-ratio: 680 / 415; min-height: 0; }
 
-   Global, not scoped: every surface sizes .portrait from its own stylesheet, and a scoped rule could not
-   reach across the component boundary. The portrait always fills the box its parent gives it, so each
-   surface keeps its existing dimensions, radius and clip.
-   --------------------------------------------------------------------------- */
-.portrait {
-    position: relative;
-    display: block;
+/* Frame the supplied gameplay screenshot at x=544,y=425,w=2330,h=1520.
+   Preserve the original pixels and exclude both game interface sidebars. */
+.mechanic-board-gameplay {
+    inset: 0 auto;
+    left: 50%;
+    width: auto;
+    height: 100%;
+    aspect-ratio: 2330 / 1520;
+    transform: translateX(-50%);
     overflow: hidden;
-    width: 100%;
-    height: 100%;
-    /* The ground the art was authored against; it shows wherever a transparent cutout does not cover. */
-    background: #090806;
-    /* The layers below stack among THEMSELVES only. Without this their z-indexes join the surrounding
-       surface's stacking context, and the art (z 3) painted over a codex card's scrim (z 2) and its name
-       and stats (z 1) — the spider across "Arachna Spider" in the owner's screenshot. */
-    isolation: isolate;
 }
-
-.portrait__bg,
-.portrait__art,
-.portrait__blur {
+.mechanic-board-gameplay > img {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
+    width: 146.781116%;
+    max-width: none;
+    height: auto;
+    left: -23.347639%;
+    top: -27.960526%;
+    filter: none;
 }
+.mechanic-board-gameplay::after { background: none; }
 
-.portrait__bg {
-    z-index: 0;
-    object-fit: cover;
-}
-
-.portrait__shade {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: #000;
-    pointer-events: none;
-}
-
-/* Only for creatures whose approved framing asks for a soft backdrop: a blown-up, blurred copy of the
-   art itself sitting behind it, so a narrow cutout does not read as pasted onto the background. */
-.portrait__blur {
-    z-index: 2;
-    object-fit: cover;
-    transform: scale(1.2);
-    filter: blur(14px) brightness(0.42) saturate(0.78);
-}
-
-.portrait__art {
-    z-index: 3;
-    object-position: center;
-    transform-origin: center;
-}
-
-/* The six creatures with no game recipe keep a plain, uncropped image. */
-.portrait__art--plain {
-    object-fit: cover;
-    object-position: center top;
-}
+/* The close-up artwork already contains only the battlefield. */
+.mechanic-board-closeup > img { filter: none; }
+.mechanic-board-closeup::after { background: none; }

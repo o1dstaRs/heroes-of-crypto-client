@@ -27,17 +27,28 @@ test("independent profile preserves edits across restart, keeps history and reje
                 body: JSON.stringify({ key, value }),
             });
         expect((await (await fetch(url)).json()).values["cyclops.impactMode"]).toBe("engine");
-        await Promise.all([patch("mantis.travelSpeed", 1.8), patch("griffin.landingSpeed", 1.4)]);
+        await Promise.all([
+            patch("mantis.travelSpeed", 1.8),
+            patch("griffin.landingSpeed", 1.4),
+            patch("stun.tiltDeg", 90),
+            patch("stun.rotationDeg", -35),
+        ]);
         const saved = await fs.readFile(path.join(directory, "settings.json"), "utf8");
         expect(JSON.parse(saved).values["mantis.travelSpeed"]).toBe(1.8);
         expect(JSON.parse(saved).values["griffin.landingSpeed"]).toBe(1.4);
-        expect((await fs.readdir(path.join(directory, "history"))).length).toBe(2);
+        expect(JSON.parse(saved).values["stun.tiltDeg"]).toBe(90);
+        expect(JSON.parse(saved).values["stun.rotationDeg"]).toBe(-35);
+        expect((await fs.readdir(path.join(directory, "history"))).length).toBe(4);
         expect((await patch("stone.playbackRate", -1)).status).toBe(400);
+        expect((await patch("stun.tiltDeg", 91)).status).toBe(400);
+        expect((await patch("stun.rotationDeg", -181)).status).toBe(400);
         expect((await patch("__proto__", {})).status).toBe(400);
         expect(await fs.readFile(path.join(directory, "settings.json"), "utf8")).toBe(saved);
         await server.restart();
         const html = await server.transformIndexHtml("/", "<html><head></head><body></body></html>");
         expect(html).toContain('"mantis.travelSpeed":1.8');
+        expect(html).toContain('"stun.tiltDeg":90');
+        expect(html).toContain('"stun.rotationDeg":-35');
         expect(await fs.readFile(path.join(directory, "settings.json"), "utf8")).toBe(saved);
         await fs.writeFile(path.join(directory, "settings.json"), "broken json");
         await expect(server.transformIndexHtml("/", "<html></html>")).rejects.toThrow();

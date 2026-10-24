@@ -1,3 +1,4 @@
+import { publishWebFireLights } from "../ArachnaWebLighting";
 import {
     BlurFilter,
     ColorMatrixFilter,
@@ -3512,6 +3513,7 @@ export class DungeonVisuals {
                         Math.sin(localTime * 8.6 + definition.phaseSeconds * 2.3) * 0.02);
             }
         }
+        publishWebFireLights(this.context.getStage(), this.ambientFireSprites.values());
     }
     private clearExperimentalBackgroundFilters(): void {
         const bg = this.bgSprite;
@@ -3856,6 +3858,7 @@ export class DungeonVisuals {
         this.scatteredMountainAppearanceDirty = true;
         this.activeCollapses = [];
         this.ambientFireSprites.clear();
+        publishWebFireLights(this.context.getStage(), []);
         this.ambientFireGlowSprites.clear();
         this.ambientFireContactGlows.clear();
         this.ambientFireFrames.clear();

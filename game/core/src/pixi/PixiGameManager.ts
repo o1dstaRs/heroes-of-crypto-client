@@ -806,6 +806,9 @@ export class PixiGameManager {
     public SetCreatureAnimationLabFireMode(mode: FireSpellRenderMode): void {
         this.m_scene?.setCreatureAnimationLabFireMode(mode);
     }
+    public SetCreatureAnimationLabRapidCharge(enabled: boolean): void {
+        this.m_scene?.setCreatureAnimationLabRapidCharge(enabled);
+    }
     public SetCreatureAnimationLabSpell(spell?: CreatureAnimationLabSpell): void {
         this.m_scene?.setCreatureAnimationLabSpell(spell);
     }

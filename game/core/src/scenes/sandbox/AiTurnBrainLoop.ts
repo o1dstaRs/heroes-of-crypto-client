@@ -1,3 +1,4 @@
+import { overheadEffectElapsedMs, OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -17,7 +18,7 @@ let atlasLeases = 0;
 export function aiTurnBrainFrameAt(elapsedMs: number): number {
     const durations = animationAtlases["Vfx Ai Turn Brain"].loop.frameDurationsMs!;
     const total = durations.reduce((sum, ms) => sum + ms, 0);
-    const time = Math.max(0, elapsedMs) % total;
+    const time = overheadEffectElapsedMs(Math.max(0, elapsedMs) % OVERHEAD_EFFECT_DURATION_MS, total);
     let end = 0;
     for (const [frame, duration] of durations.entries()) {
         end += duration;

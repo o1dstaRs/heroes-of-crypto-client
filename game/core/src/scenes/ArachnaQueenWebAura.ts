@@ -1,7 +1,27 @@
+import { arachnaDewLoads, createArachnaDewGeometry, createArachnaDewShader, updateArachnaDew } from "./ArachnaWebDew";
 import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
-import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
+import {
+    BufferImageSource,
+    Container,
+    Mesh,
+    type Geometry,
+    type Shader,
+    type MeshGeometry,
+    type Texture,
+} from "pixi.js";
+import { ArachnaContactField, CONTACT_FIELD_SIZE } from "./ArachnaWebContacts";
+import {
+    createArachnaSilkGeometry,
+    createArachnaSpiderGeometry,
+    updateArachnaSpiders,
+    updateArachnaSpiderRig,
+    arachnaSilkContacts,
+    type WebPlacement,
+} from "./ArachnaWebGeometry";
+import { createArachnaWebSpiderShader } from "./ArachnaWebSpiderShader";
+import { webFireLights } from "./ArachnaWebLighting";
+import { createArachnaWebSilkShader } from "./ArachnaWebSilkShader";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
-import { auraProjectionKey } from "./auraProjectionKey";
 
 type Point = HoCMath.XY;
 type Footprint = { width: number; height: number };
@@ -26,18 +46,9 @@ export function arachnaWebBounds(
     return bounds.right > bounds.left && bounds.top > bounds.bottom ? bounds : undefined;
 }
 export const ARACHNA_WEB_ATLAS_KEY = "vfx_arachna_web_aura_atlas";
-const COLS = 6;
-const ROWS = 6;
-const FRAME_SIZE = 640;
 const SUBDIVISIONS = 16;
 
-/** Reveal timing stays unchanged; the baked wind/crawling loop plays at 75% speed. */
-export function arachnaWebFrame(ageMs: number): number {
-    const age = Math.max(0, ageMs);
-    return age < 800 ? Math.floor(age / 100) : 8 + (Math.floor(((age - 800) * 0.75) / 100) % 28);
-}
-
-/** Crop the bitmap at board edges instead of squeezing its centre away from the queen. */
+/** Crop artwork at board edges instead of squeezing its centre away from the queen. */
 export function arachnaWebProjection(
     center: Point,
     footprint: Footprint,
@@ -70,12 +81,17 @@ export function arachnaWebProjection(
 }
 
 type WebSprite = {
-    mesh: Mesh<MeshGeometry>;
+    contacts: ArachnaContactField;
+    contactTexture: BufferImageSource;
+    mesh: Mesh<Geometry, Shader>;
+    shadow: Mesh<Geometry, Shader>;
+    spiders: Mesh<MeshGeometry, Shader>;
+    dew: Mesh<Geometry, Shader>;
     started: number;
     seen: number;
-    layout: string;
-    sourceUvs: Float32Array;
-    frame: number;
+    projectionKey: string;
+    hiddenAt?: number;
+    resetAt?: number;
 };
 const owners = new WeakMap<Container, Map<string, WebSprite>>();
 export function resetArachnaQueenWebAuras(container?: Container, now = performance.now()): void {
@@ -83,18 +99,25 @@ export function resetArachnaQueenWebAuras(container?: Container, now = performan
     const sprites = owners.get(container);
     if (!sprites) return;
     for (const [id, sprite] of sprites) {
-        sprite.mesh.visible = false;
+        // Record an actual hidden render, rather than mistaking a slow frame for
+        // a new inspection and continually restarting the reveal animation.
+        if (!sprite.mesh.visible) sprite.hiddenAt ??= sprite.seen;
+        sprite.resetAt = now;
+        sprite.mesh.visible = sprite.shadow.visible = sprite.spiders.visible = sprite.dew.visible = false;
         if (now - sprite.seen > 5000) {
+            sprite.shadow.destroy();
             sprite.mesh.destroy();
+            sprite.spiders.destroy();
+            sprite.dew.destroy();
             sprites.delete(id);
         }
     }
 }
 
-/** Only displays authored bitmap frames. The mesh projects that sprite onto the existing floor. */
+/** Source-matched silk geometry and eight articulated spiders, rendered by the engine. */
 export function drawArachnaQueenWebAura(
     container: Container | undefined,
-    texture: Texture | undefined,
+    _legacyTexture: Texture | undefined,
     center: Point,
     footprint: Footprint,
     range: number,
@@ -104,48 +127,95 @@ export function drawArachnaQueenWebAura(
     narrowing = 0,
     now = performance.now(),
 ): void {
-    if (!container || !texture || texture === Texture.EMPTY) return;
+    if (!container || !(range > 0) || !(alpha > 0)) return;
+    const bounds = arachnaWebBounds(center, footprint, range, gs, narrowing);
+    if (!bounds) return;
     let sprites = owners.get(container);
-    if (!sprites) {
-        sprites = new Map();
-        owners.set(container, sprites);
-    }
+    if (!sprites) owners.set(container, (sprites = new Map()));
+    const placement: WebPlacement = {
+        center,
+        width: (range * 2 + footprint.width) * gs.getCellSize(),
+        height: (range * 2 + footprint.height) * gs.getCellSize(),
+        gs,
+    };
+    const projectionKey = [
+        center.x,
+        center.y,
+        placement.width,
+        placement.height,
+        gs.getMinX(),
+        gs.getMinY(),
+        gs.getMaxX(),
+        gs.getMaxY(),
+    ].join(":");
     let sprite = sprites.get(ownerId);
-    const layout = auraProjectionKey(center, footprint, range, gs, narrowing);
-    const projection =
-        !sprite || sprite.layout !== layout ? arachnaWebProjection(center, footprint, range, gs, narrowing) : undefined;
-    if ((!sprite || sprite.layout !== layout) && !projection) return;
-    if (!sprite && projection) {
-        const geometry = new MeshGeometry({ ...projection, uvs: projection.uvs.slice() });
-        const mesh = new Mesh({ texture, geometry });
-        mesh.eventMode = "none";
-        mesh.once("destroyed", () => geometry.destroy());
-        container.addChild(mesh);
-        sprite = { mesh, started: now, seen: now, layout, sourceUvs: projection.uvs, frame: -1 };
+    if (!sprite) {
+        const contacts = new ArachnaContactField();
+        contacts.update([]);
+        const contactTexture = new BufferImageSource({
+            resource: contacts.pixels,
+            width: CONTACT_FIELD_SIZE,
+            height: CONTACT_FIELD_SIZE,
+            format: "rgba8unorm",
+            scaleMode: "linear",
+            alphaMode: "no-premultiply-alpha",
+            autoGenerateMipmaps: false,
+        });
+        const geometry = createArachnaSilkGeometry(placement);
+        const mesh = new Mesh({ geometry, shader: createArachnaWebSilkShader(false, contactTexture) });
+        const shadow = new Mesh({ geometry, shader: createArachnaWebSilkShader(true, contactTexture) });
+        const spiders = new Mesh({ geometry: createArachnaSpiderGeometry(), shader: createArachnaWebSpiderShader() });
+        const dew = new Mesh({ geometry: createArachnaDewGeometry(), shader: createArachnaDewShader() });
+        dew.label = "arachna-silk-dew";
+        mesh.label = "arachna-source-silk";
+        shadow.label = "arachna-silk-shadow";
+        spiders.label = "arachna-running-spiders";
+        for (const layer of [shadow, mesh, spiders, dew]) {
+            layer.eventMode = "none";
+            layer.once("destroyed", () => layer.shader?.destroy());
+        }
+        mesh.once("destroyed", () => mesh.geometry.destroy());
+        let contactUsers = 2;
+        const releaseContacts = () => {
+            if (--contactUsers === 0) contactTexture.destroy();
+        };
+        mesh.once("destroyed", releaseContacts);
+        shadow.once("destroyed", releaseContacts);
+        spiders.once("destroyed", () => spiders.geometry.destroy());
+        dew.once("destroyed", () => dew.geometry.destroy());
+        container.addChild(shadow, mesh, spiders, dew);
+        sprite = { mesh, shadow, spiders, dew, contacts, contactTexture, started: now, seen: now, projectionKey };
         sprites.set(ownerId, sprite);
-    } else if (sprite && projection) {
-        sprite.mesh.geometry.positions = projection.positions;
-        sprite.sourceUvs = projection.uvs;
-        sprite.layout = layout;
-        sprite.frame = -1;
     }
-    if (!sprite) return;
-    if (now - sprite.seen > 180) sprite.started = now;
+    if (
+        (sprite.hiddenAt !== undefined && now - sprite.hiddenAt > 180) ||
+        (!sprite.mesh.visible && sprite.resetAt !== undefined && now - sprite.resetAt > 180)
+    )
+        sprite.started = now;
+    sprite.hiddenAt = undefined;
     sprite.seen = now;
-    const frame = arachnaWebFrame(now - sprite.started);
-    const { mesh } = sprite;
-    mesh.visible = true;
-    mesh.alpha = Math.min(1, alpha * 1.12);
-    mesh.texture = texture;
-    if (sprite.frame === frame) return;
-    const geometry = mesh.geometry;
-    for (let i = 0; i < sprite.sourceUvs.length; i += 2) {
-        // Half-pixel guards prevent sampling a neighbouring frame at clipped sheet edges.
-        const u = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, sprite.sourceUvs[i]));
-        const v = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, sprite.sourceUvs[i + 1]));
-        geometry.uvs[i] = ((frame % COLS) + u) / COLS;
-        geometry.uvs[i + 1] = (Math.floor(frame / COLS) + v) / ROWS;
+    const age = Math.max(0, now - sprite.started);
+    if (sprite.projectionKey !== projectionKey) {
+        const previous = sprite.mesh.geometry;
+        const geometry = createArachnaSilkGeometry(placement);
+        sprite.mesh.geometry = sprite.shadow.geometry = geometry;
+        previous.destroy();
+        sprite.projectionKey = projectionKey;
     }
-    geometry.getBuffer("aUV").update();
-    sprite.frame = frame;
+    for (const layer of [sprite.shadow, sprite.mesh, sprite.spiders, sprite.dew]) {
+        layer.visible = true;
+        layer.alpha = Math.min(1, alpha * 1.12);
+        const uniforms = layer.shader!.resources.silk.uniforms;
+        uniforms.uTime = age / 1000;
+        uniforms.uReveal = Math.min(1, age / 800);
+        uniforms.uBounds.set([bounds.left, bounds.bottom, bounds.right, bounds.top]);
+        if (uniforms.uTorches) uniforms.uTorches.set(webFireLights(container));
+        if (uniforms.uPlacement) uniforms.uPlacement.set([center.x, center.y, placement.width, -placement.height]);
+    }
+    sprite.contacts.update([...arachnaSilkContacts(age), ...arachnaDewLoads]);
+    updateArachnaDew(sprite.dew.geometry, placement, age, sprite.contacts);
+    sprite.contactTexture.update();
+    updateArachnaSpiders(sprite.spiders.geometry, placement, age, sprite.contacts);
+    const rigUniforms = sprite.spiders.shader!.resources.silk.uniforms;
+    updateArachnaSpiderRig(rigUniforms.uJoints, rigUniforms.uBody, rigUniforms.uAbdomen, age, sprite.contacts);
 }

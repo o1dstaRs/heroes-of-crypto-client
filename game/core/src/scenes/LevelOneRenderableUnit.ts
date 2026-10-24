@@ -1,3 +1,4 @@
+import { StunStars } from "./StunStars";
 import { RenderableUnit as LegacyRenderableUnit } from "./RenderableUnit";
 import { isAiSearchSimulating } from "./aiSearchGuard";
 import { initializeUnitPresentationFields } from "./unitPresentationFields";
@@ -260,16 +261,6 @@ const shouldRedrawContinuousEffect = (
     state.footprintHeight = footprintHeight;
     state.color = color;
     return true;
-};
-
-let sharedRevealedRosterDesaturateFilter: ColorMatrixFilter | undefined;
-
-/** Every revealed opponent uses the same immutable grayscale matrix, so one filter serves the whole roster. */
-const revealedRosterDesaturateFilter = (): ColorMatrixFilter => {
-    if (sharedRevealedRosterDesaturateFilter) return sharedRevealedRosterDesaturateFilter;
-    sharedRevealedRosterDesaturateFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
-    sharedRevealedRosterDesaturateFilter.desaturate();
-    return sharedRevealedRosterDesaturateFilter;
 };
 
 const battlefieldShadowSegmentTextureCache = new WeakMap<Texture, readonly Texture[]>();
@@ -2508,6 +2499,7 @@ export class RenderableUnit extends Unit {
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
     /** Stun/skip badge occupies the hourglass slot immediately left of the amount flag. */
+    private stunStars?: StunStars;
     private stunContainer?: Container;
     private stunSprite?: Sprite;
     /** Crossed-swords emblem behind the flag once the unit has used its response attack this round. */
@@ -2557,9 +2549,6 @@ export class RenderableUnit extends Unit {
     // Split preview: temporarily enlarge the count badge and (optionally) show a projected amount.
     private badgeEmphasisScale = 1;
     private badgeAmountOverride?: number;
-    // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
-    // Attached lazily from one immutable roster-wide instance.
-    private desaturateFilter?: ColorMatrixFilter;
     private battlefieldAlphaHoleFillFilter?: ReturnType<typeof getBattlefieldAlphaHoleFillFilter>;
     private battlefieldContourFilter?: ReturnType<typeof getBattlefieldCreatureContourFilter>;
     private battlefieldStyleFilter?: ColorMatrixFilter;
@@ -3399,19 +3388,14 @@ export class RenderableUnit extends Unit {
         // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
         const isHidden = this.hasBuffActive("Hidden");
         const normalSpriteAlpha = isHidden ? 0.4 : 1;
-        const spriteAlpha =
-            this.visualMode === "ghost" ? 0.25 : this.visualMode === "revealed" ? 0.9 : normalSpriteAlpha;
+        const spriteAlpha = this.visualMode === "ghost" ? 0.25 : normalSpriteAlpha;
         if (this.sprite.alpha !== spriteAlpha) this.sprite.alpha = spriteAlpha;
         const spriteTint = this.currentEffectTint(now);
         if (this.sprite.tint !== spriteTint) this.sprite.tint = spriteTint;
-        // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
-        // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
-        if (this.visualMode === "revealed") {
-            this.desaturateFilter ??= revealedRosterDesaturateFilter();
-        }
+        // Revealed opponents retain their full colour; team flags distinguish the two armies.
         // Retire the experimental shared colour grade. The purpose-built contour pass below is deliberately
         // edge-only: it leaves interior colour untouched while matching the approved level-three baked rim.
-        // Gameplay-only filters (motion blur, revealed-roster grayscale) remain intact.
+        // Gameplay motion-blur filters remain intact.
         const retiredBattlefieldStyleFilter = this.battlefieldStyleFilter;
         const retiredBattlefieldAlphaHoleFillFilter = this.battlefieldAlphaHoleFillFilter;
         const retiredBattlefieldContourFilter = this.battlefieldContourFilter;
@@ -3440,10 +3424,10 @@ export class RenderableUnit extends Unit {
             retiredBattlefieldStyleFilter,
             retiredBattlefieldAlphaHoleFillFilter,
             retiredBattlefieldContourFilter,
-            this.desaturateFilter,
+            undefined,
             runtimeAlphaHoleFillFilter,
             runtimeContourFilter,
-            this.visualMode === "revealed",
+            false,
         );
         this.battlefieldAlphaHoleFillFilter = runtimeAlphaHoleFillFilter;
         this.battlefieldContourFilter = runtimeContourFilter;
@@ -3706,6 +3690,26 @@ export class RenderableUnit extends Unit {
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicators: grouped immediately left of the amount flag ---
         this.ensureFlagStatusIndicators(now);
+        if (
+            spriteVisible &&
+            this.visualMode === "normal" &&
+            !this.isDead() &&
+            this.shouldShowStunIndicator() &&
+            !this.hasStatusEffect("Blindness") &&
+            !this.hasStatusEffect("Whirlpool") &&
+            this.badgeContainer &&
+            this.badgeDrawState &&
+            this.oneShotAnim?.stateName !== "death"
+        ) {
+            this.stunStars ??= new StunStars();
+            this.stunStars.update(
+                this.badgeContainer,
+                now,
+                gs.getCellSize(),
+                this.badgeDrawState.geometry.headerWidth,
+                this.badgeDrawState.geometry.flagHeight,
+            );
+        } else this.stunStars?.hide();
         return scaleY;
     }
     public setSpriteRotation(rotation: number) {
@@ -3945,6 +3949,7 @@ export class RenderableUnit extends Unit {
         }
     }
     public setVisualVisible(visible: boolean): void {
+        if (!visible) this.stunStars?.hide();
         this.visualMode = visible ? "normal" : "hidden";
         if (this.sprite) this.sprite.visible = visible;
         if (this.shadow) this.shadow.visible = visible;
@@ -3960,13 +3965,14 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = visible && this.shouldShowStunIndicator();
+            this.stunContainer.visible = false;
         }
         if (this.respondContainer) {
             this.respondContainer.visible = visible && this.shouldShowRespondTag();
         }
     }
     public setVisualGhost(active: boolean): void {
+        if (active) this.stunStars?.hide();
         this.visualMode = active ? "ghost" : "normal";
         const visible = active || this.visualMode === "normal";
         const alpha = active ? 0.25 : 1;
@@ -3992,7 +3998,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = !active && visible && this.shouldShowStunIndicator();
+            this.stunContainer.visible = false;
         }
         if (this.respondContainer) {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
@@ -4123,6 +4129,7 @@ export class RenderableUnit extends Unit {
         if (this.hourglassContainer && this.hourglassContainer.zIndex !== depth + 2) {
             this.hourglassContainer.zIndex = depth + 2;
         }
+        if (this.stunStars) this.stunStars.root.zIndex = depth + 1.05;
         if (this.stunContainer && this.stunContainer.zIndex !== depth + 2) {
             this.stunContainer.zIndex = depth + 2;
         }
@@ -4155,6 +4162,7 @@ export class RenderableUnit extends Unit {
             if (this.badgeContainer) this.badgeContainer.visible = false;
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
             if (this.hourglassContainer) this.hourglassContainer.visible = false;
+            this.stunStars?.hide();
             if (this.stunContainer) this.stunContainer.visible = false;
             if (this.respondContainer) this.respondContainer.visible = false;
             if (this.activeAura) this.activeAura.visible = false;
@@ -6981,7 +6989,6 @@ export class RenderableUnit extends Unit {
         this.silhouetteShadowBlurFilter?.destroy();
         this.motionBlurFilter = undefined;
         this.dodgeBlurFilter = undefined;
-        this.desaturateFilter = undefined;
         this.battlefieldStyleFilter = undefined;
         this.silhouetteShadowBlurFilter = undefined;
     }
@@ -6991,6 +6998,8 @@ export class RenderableUnit extends Unit {
         this.releaseVisualLifecycleResources();
     }
     public destroyVisuals(): void {
+        this.stunStars?.destroy();
+        this.stunStars = undefined;
         if (this.isDestroyed) return;
         this.isDestroyed = true;
         this.releaseVisualLifecycleResources();
@@ -7798,7 +7807,8 @@ export class RenderableUnit extends Unit {
             Boolean(badge?.visible && geometry);
 
         this.syncFlagStatusIcon("hourglass", "hourglass", canRender && this.shouldShowHourglassIndicator(), badge);
-        this.syncFlagStatusIcon("stun", "stun_hand_forged", canRender && this.shouldShowStunIndicator(), badge);
+        if (this.stunContainer) this.stunContainer.visible = false;
+        if (!this.shouldShowStunIndicator()) this.stunStars?.hide();
         this.syncFlagStatusIcon("respond", "tag", canRender && this.shouldShowRespondTag(now), badge);
 
         const hourglassContainer = this.hourglassContainer;

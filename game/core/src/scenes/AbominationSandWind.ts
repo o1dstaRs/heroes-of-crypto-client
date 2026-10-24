@@ -28,7 +28,8 @@ export function abominationWindParticle(index: number, ageMs: number, variant: A
     const point = (a: number) => {
         const c = Math.cos(a),
             s = Math.sin(a);
-        return { x: radius * c, y: -radius * s };
+        const contour = style.squareShape ? (c ** 8 + s ** 8) ** (1 / 8) : 1;
+        return { x: (radius * c) / contour, y: (-radius * s) / contour };
     };
     return {
         head: point(angle),

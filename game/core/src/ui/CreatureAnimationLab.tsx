@@ -5,6 +5,12 @@ import {
 } from "../settings/animationLabProfile";
 import { readCyclopsImpactMode, type CyclopsImpactMode } from "../scenes/sandbox/CyclopsFracturePhysics";
 import { readFireSpellRenderMode, type FireSpellRenderMode } from "../settings/fireSpellTiming";
+import {
+    readStunOrbitSettings,
+    setStunOrbitSetting,
+    STUN_ORBIT_DEFAULTS,
+    STUN_ORBIT_RANGES,
+} from "../settings/stunOrbitSettings";
 import type { UnitProperties } from "@heroesofcrypto/common";
 import React, { useCallback, useEffect, useState } from "react";
 import "./CreatureAnimationLab.scss";
@@ -47,19 +53,118 @@ const animationButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label:
     },
     { state: "cast", label: "КАСТ", hint: "Применение заклинания" },
     { state: "hit", label: "УРОН", hint: "Получение урона" },
+    { state: "dodge", label: "УВОРОТ", hint: "Уход с линии удара и возврат в стойку" },
     { state: "death", label: "СМЕРТЬ", hint: "Смерть без удаления" },
 ];
 
 const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: string; hint: string }> = [
     {
+        state: "bitter_experience",
+        label: "ГОРЬКИЙ ОПЫТ",
+        hint: "Потери в выжившем отряде · сапоги над своим флагом · 0,65 с",
+    },
+    {
+        state: "small_specie",
+        label: "УВОРОТ ФЕИ · 0,65 С",
+        hint: "Small Specie · уворот феи над флагом атакующего · для превью поставьте противника",
+    },
+    {
+        state: "leather_armor",
+        label: "КОЖАНАЯ БРОНЯ",
+        hint: "Уязвимость к выстрелам · пробитый кожаный доспех над своим флагом · 0,65 с",
+    },
+    {
+        state: "water_shield_break",
+        label: "ЛОПНУТЬ ЩИТ",
+        hint: "Разрыв водяного пузыря при ударе · IDLE восстанавливает щит",
+    },
+    { state: "backstab", label: "УДАР В СПИНУ", hint: "Превью над флагом выбранного существа · 0,65 с" },
+    {
+        state: "single_heal",
+        label: "ЛЕЧЕНИЕ",
+        hint: "Изумрудный крест и +125 над ним — как при лечении в бою · 0,65 с",
+    },
+    { state: "aggr", label: "АГР", hint: "Воин проявляется, кричит и растворяется над флагом · 0,65 с" },
+    {
+        state: "wild_regeneration_engine",
+        label: "РЕГЕНЕРАЦИЯ · ДВИЖОК",
+        hint: "Непрерывная волна исцеления, золотая печать и потоки света · 0,65 с",
+    },
+    { state: "wild_regeneration", label: "РЕГЕНЕРАЦИЯ", hint: "Восстановление здоровья в начале хода · 0,65 с" },
+    {
+        state: "beholder_debuff_all",
+        label: "ВСЕ ДЕБАФЫ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_curse",
+        label: "ПРОКЛЯТИЕ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_sadness",
+        label: "ПЕЧАЛЬ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_quagmire",
+        label: "ТРЯСИНА",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_weakening_beam",
+        label: "ЛУЧ ОСЛАБЛЕНИЯ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_weakness",
+        label: "СЛАБОСТЬ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_rangebane",
+        label: "ПОМЕХА СТРЕЛЬБЕ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "beholder_debuff_cowardice",
+        label: "ТРУСОСТЬ",
+        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+    },
+    {
+        state: "petrifying_gaze",
+        label: "ОКАМЕНЯЮЩИЙ ВЗГЛЯД",
+        hint: "Основной урон → нефритовая голова над флагом цели → повторная реакция и отдельный урон. Поставьте противника",
+    },
+    {
+        state: "terrifying_gaze",
+        label: "УЖАСАЮЩИЙ ВЗГЛЯД · 1 С",
+        hint: "Алые глаза раскрываются, вспыхивают и исчезают в дымке. В бою — над флагом испуганной цели",
+    },
+    {
+        state: "shadow_touch",
+        label: "КАСАНИЕ ТЕНИ",
+        hint: "Рука с иконки сжимает и раскрывает когти · 0,65 с. В бою над флагом противника сразу после урона вместо ответки",
+    },
+    {
+        state: "penetrating_bite",
+        label: "ПРОНИКАЮЩИЙ УКУС",
+        hint: "Смыкание клыков и алый всплеск над флагом жертвы с начала атаки · 0,65 с. Для превью поставьте противника",
+    },
+    {
+        state: "multi_attack",
+        label: "ПОВТОРНЫЙ УДАР",
+        hint: "Общий эффект над флагом на втором, третьем и каждом следующем ударе · 0,65 с",
+    },
+    {
         state: "battle_roar_short",
-        label: "РЁВ 1 С",
-        hint: "РЁВ 1 С",
+        label: "РЁВ · 0,65 С",
+        hint: "РЁВ · 0,65 С",
     },
     {
         state: "battle_roar_long",
-        label: "РЁВ 1,5 С",
-        hint: "РЁВ 1,5 С",
+        label: "РЁВ II · 0,65 С",
+        hint: "РЁВ II · 0,65 С",
     },
     {
         state: "ai_brain",
@@ -67,14 +172,19 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
         hint: "Включить или выключить зацикленный мозг ИИ над флагом выбранного существа",
     },
     {
+        state: "stun",
+        label: "СТАН ★",
+        hint: "Удар дубиной над флагом противника и звёзды оглушения. Повторное нажатие снимает стан",
+    },
+    {
         state: "paralysis",
         label: "ПАРАЛИЧ",
-        hint: "Наложить паралич: анимация 1 с, иконка держится до снятия. Повторное нажатие снимает эффект",
+        hint: "Наложить паралич: анимация 0,65 с, иконка держится до снятия. Повторное нажатие снимает эффект",
     },
     {
         state: "boar_saliva",
-        label: "СЛЮНА 1 С",
-        hint: "Превью капающей слюны над флагом самого быка · 1 с",
+        label: "СЛЮНА · 0,65 С",
+        hint: "Превью капающей слюны над флагом самого быка · 0,65 с",
     },
     {
         state: "infest_hatch",
@@ -104,7 +214,7 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
     {
         state: "crusade",
         label: "КРЕСТОВЫЙ ПОХОД 1 С",
-        hint: "Крестовый поход над флагом чемпиона · 1 с",
+        hint: "Крестовый поход над флагом чемпиона · 0,65 с",
     },
     {
         state: "unyielding_power",
@@ -114,22 +224,22 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
     {
         state: "enchanted_skin",
         label: "МАГИЧЕСКИЙ ЩИТ 1 С",
-        hint: "Enchanted Skin над флагом · 1 с",
+        hint: "Enchanted Skin над флагом · 0,65 с",
     },
     {
         state: "made_of_fire",
         label: "СОЗДАН ИЗ ОГНЯ 1 С",
-        hint: "Made of Fire над флагом · 1 с",
+        hint: "Made of Fire над флагом · 0,65 с",
     },
     {
         state: "unicorn_retaliation",
         label: "ОДИН В ПОЛЕ · 1 С",
-        hint: "Три меча и рог над флагом при ответной атаке · 1 с",
+        hint: "Три меча и рог над флагом при ответной атаке · 0,65 с",
     },
     {
         state: "unicorn_blindness",
         label: "ОСЛЕПЛЕНИЕ · 1 С",
-        hint: "Слепой глаз с отражением рога над флагом · 1 с",
+        hint: "Слепой глаз с отражением рога над флагом · 0,65 с",
     },
     {
         state: "magic_reflection",
@@ -152,6 +262,41 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
         hint: "3 НАДРЕЗА",
     },
     {
+        state: "blind_fury",
+        label: "СЛЕПАЯ ЯРОСТЬ",
+        hint: "Ярость над флагом Трагла при получении удара · 0,65 с",
+    },
+    {
+        state: "miner",
+        label: "MINER · КИРКА",
+        hint: "Тест кирки над самим Траглом · в бою над жертвой · 0,65 с",
+    },
+    {
+        state: "madness",
+        label: "MADNESS · БЕЗУМИЕ",
+        hint: "Защита Трагла от ментального воздействия · 0,65 с",
+    },
+    {
+        state: "lucky_strike",
+        label: "LUCKY STRIKE · КУБИК",
+        hint: "Удачный бросок над собственным флагом · 16 кадров · 0,65 с",
+    },
+    {
+        state: "hamstring",
+        label: "HAMSTRING · КРЫЛЬЯ",
+        hint: "Цепь стягивает крылья над флагом получателя · 16 кадров · 0,65 с",
+    },
+    {
+        state: "shatter_armor",
+        label: "РАЗРУШЕНИЕ БРОНИ · 1 С",
+        hint: "Кираса раскалывается над флагом · Shatter Armor",
+    },
+    {
+        state: "piercing_spear",
+        label: "ПРОБИВАЮЩЕЕ КОПЬЁ",
+        hint: "Копьё пробивает кирасу над флагом противника · 0,65 с",
+    },
+    {
         state: "dulling_defense",
         label: "DULLING DEFENSE · 1 С",
         hint: "DULLING DEFENSE · 1 С",
@@ -164,7 +309,7 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
     {
         state: "absolving_arrow",
         label: "ABSOLVING ARROW · 1 С",
-        hint: "Золотое перо над флагом очищенного союзника · 1 с",
+        hint: "Золотое перо над флагом очищенного союзника · 0,65 с",
     },
     {
         state: "empower",
@@ -175,6 +320,54 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
         state: "ogre_riot",
         label: "RIOT · 1 С",
         hint: "RIOT · 1 С",
+    },
+    {
+        state: "blacksmith_double_punch",
+        label: "КРАФТ · ДВОЙНОЙ УДАР",
+        hint: "Ковка над кузнецом, затем баф над союзником · превью без изменения характеристик",
+    },
+    {
+        state: "blacksmith_double_shot",
+        label: "КРАФТ · ДВОЙНОЙ ВЫСТРЕЛ",
+        hint: "Ковка над кузнецом, затем баф над союзником · превью без изменения характеристик",
+    },
+    {
+        state: "blacksmith_frozen_sword",
+        label: "КРАФТ · ЛЕДЯНОЙ МЕЧ",
+        hint: "Ковка над кузнецом, затем баф над союзником · превью без изменения характеристик",
+    },
+    {
+        state: "blacksmith_frozen_bow",
+        label: "КРАФТ · ЛЕДЯНОЙ ЛУК",
+        hint: "Ковка над кузнецом, затем баф над союзником · превью без изменения характеристик",
+    },
+    { state: "blacksmith_craft", label: "CRAFT · КОВКА", hint: "Удар молота над флагом кузнеца · 16 кадров · 0,65 с" },
+    {
+        state: "blacksmith_armor",
+        label: "ARMOR RUNE · БРОНЯ",
+        hint: "Руна защиты над флагом получателя · 16 кадров · 0,65 с",
+    },
+    {
+        state: "blacksmith_weapon",
+        label: "WEAPON RUNE · ОРУЖИЕ",
+        hint: "Зачарование клинка над флагом получателя · 16 кадров · 0,65 с",
+    },
+    {
+        state: "wind_flow",
+        label: "WIND FLOW · 0,65 С",
+        hint: "Серебристый вихрь собирается и закручивается над флагом · 10 кадров",
+    },
+    { state: "mage_misfortune", label: "MISFORTUNE", hint: "Раскол подковы над флагом получателя" },
+    { state: "mage_fireforged", label: "FIREFORGED SWORD", hint: "Огненный клинок над флагом получателя" },
+    {
+        state: "satyr_courage",
+        label: "COURAGE · 0,65 С",
+        hint: "Золотой лев: рык и движение гривы над флагом получателя",
+    },
+    {
+        state: "satyr_helping_hand",
+        label: "HELPING HAND · 0,65 С",
+        hint: "Раскрытая золотая ладонь и пульс сердца над флагом получателя",
     },
     {
         state: "ogre_magic_mirror",
@@ -243,8 +436,10 @@ export const CreatureAnimationLabPanel: React.FC = () => {
     const [ok, setOk] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const [magicOpen, setMagicOpen] = useState(false);
+    const [rapidCharge, setRapidCharge] = useState(false);
     const [cyclopsImpactMode, setCyclopsImpactMode] = useState<CyclopsImpactMode>(readCyclopsImpactMode);
     const [fireMode, setFireMode] = useState<FireSpellRenderMode>(readFireSpellRenderMode);
+    const [stunOrbit, setStunOrbit] = useState(readStunOrbitSettings);
     const [spell, setSpell] = useState<CreatureAnimationLabSpell>("Lightning Strike");
     const availableSpells = creatureLabSpellOptions.filter(({ name }) => creatureLabHasSpell(selected, name));
     const activeSpell = availableSpells.find(({ name }) => name === spell)?.name ?? availableSpells[0]?.name;
@@ -325,6 +520,18 @@ export const CreatureAnimationLabPanel: React.FC = () => {
     }, [move, magicOpen]);
 
     useEffect(() => {
+        const apply = () => manager.SetCreatureAnimationLabRapidCharge(rapidCharge);
+        apply();
+        const connection = manager.onLoadingChanged.connect((loading) => {
+            if (!loading) apply();
+        });
+        return () => {
+            connection.disconnect();
+            manager.SetCreatureAnimationLabRapidCharge(false);
+        };
+    }, [manager, rapidCharge]);
+
+    useEffect(() => {
         const apply = () => {
             manager.SetCreatureAnimationLabSpell(magicOpen ? activeSpell : undefined);
             manager.SetCreatureAnimationLabFireMode(fireMode);
@@ -357,6 +564,30 @@ export const CreatureAnimationLabPanel: React.FC = () => {
 
     return (
         <>
+            <div
+                role="group"
+                aria-label="Статусы у флага"
+                style={{ position: "fixed", top: 16, left: 12, zIndex: 1200, display: "flex", gap: 6 }}
+            >
+                <button
+                    type="button"
+                    disabled={!selected}
+                    title="Цепь с шаром у флага выбранного юнита. Повторное нажатие снимает обездвиживание"
+                    onClick={() => play("paralysis")}
+                    style={{ ...buttonStyle, minHeight: 32, padding: "6px 8px", opacity: selected ? 1 : 0.5 }}
+                >
+                    ЦЕПЬ С ШАРОМ
+                </button>
+                <button
+                    type="button"
+                    disabled={!selected}
+                    title="Звёзды стана у флага выбранного юнита. Повторное нажатие снимает стан"
+                    onClick={() => play("flag_stun")}
+                    style={{ ...buttonStyle, minHeight: 32, padding: "6px 8px", opacity: selected ? 1 : 0.5 }}
+                >
+                    СТАН ★
+                </button>
+            </div>
             <div style={{ position: "fixed", top: 16, right: 64, zIndex: 1200, display: "flex", gap: 8 }}>
                 {collapsed && (
                     <button
@@ -421,7 +652,9 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                             ))}
                         </select>
                     </label>
-                    {(activeSpell === "Ring of Fire" || activeSpell === "Meteor Shower") && (
+                    {(activeSpell === "Ring of Fire" ||
+                        activeSpell === "Fireball" ||
+                        activeSpell === "Meteor Shower") && (
                         <label style={{ display: "grid", gap: 6, fontSize: 11 }}>
                             Визуальный эффект
                             <select
@@ -498,6 +731,33 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                         <div style={{ color: "#fff5d8", fontSize: 15, fontWeight: 800, marginBottom: 5 }}>
                             {selected?.name ?? "Нет выбранного существа"}
                         </div>
+                        {selected?.abilities.includes("Rapid Charge") && (
+                            <div style={{ display: "grid", gap: 5, marginTop: 8, fontSize: 11 }}>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-label="Бег с эффектом Rapid Charge"
+                                    aria-checked={rapidCharge}
+                                    onClick={() => setRapidCharge(!rapidCharge)}
+                                    style={{
+                                        ...buttonStyle,
+                                        width: "100%",
+                                        borderColor: rapidCharge ? "#e6c470" : undefined,
+                                        background: rapidCharge ? "#594127" : "#30271f",
+                                    }}
+                                >
+                                    {rapidCharge ? "ВКЛ · RAPID CHARGE" : "ВЫКЛ · ОБЫЧНЫЙ БЕГ"}
+                                </button>
+                                <span style={{ color: "#bdb3a0" }}>
+                                    {rapidCharge
+                                        ? selected.name === "Nomad"
+                                            ? "Бег ×2, пыль и земля. "
+                                            : "Пыль, камни и отскоки. "
+                                        : "Обычная анимация. "}
+                                    Клик по карте или стрелки — движение.
+                                </span>
+                            </div>
+                        )}
                         <div
                             className="creature-animation-lab-description"
                             style={{ color: "#bdb3a0", fontSize: 11, lineHeight: 1.45 }}
@@ -650,7 +910,7 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                                             onClick={() => play(state)}
                                             title={
                                                 selected?.name === "Behemoth" && state === "cast"
-                                                    ? "Каст чудища и спрайтовый рёв над его флагом · 1 с"
+                                                    ? "Каст чудища и спрайтовый рёв над его флагом · 0,65 с"
                                                     : selected?.name === "Squire" && state.startsWith("attack")
                                                       ? hint.replace("Бросок", "Удар булавой")
                                                       : selected?.name === "Troglodyte" && state.startsWith("attack")
@@ -697,9 +957,65 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                                         </button>
                                     ))}
                             </div>
+                            {canPreviewCreatureLabState(selected, "stun") && (
+                                <details style={{ marginTop: 9, fontSize: 11 }}>
+                                    <summary style={{ cursor: "pointer", color: "#e6c470" }}>
+                                        Звёздочки стана · орбита
+                                    </summary>
+                                    <div style={{ display: "grid", gap: 6, marginTop: 7 }}>
+                                        {(
+                                            [
+                                                ["tiltDeg", "Наклон плоскости"],
+                                                ["rotationDeg", "Поворот орбиты"],
+                                            ] as const
+                                        ).map(([key, label]) => (
+                                            <label key={key} style={{ display: "grid", gap: 3 }}>
+                                                <span>
+                                                    {label}: {stunOrbit[key]}°
+                                                </span>
+                                                <input
+                                                    type="range"
+                                                    aria-label={`Стан: ${label}`}
+                                                    min={STUN_ORBIT_RANGES[key][0]}
+                                                    max={STUN_ORBIT_RANGES[key][1]}
+                                                    step={1}
+                                                    value={stunOrbit[key]}
+                                                    onChange={(event) => {
+                                                        const value = setStunOrbitSetting(
+                                                            key,
+                                                            Number(event.target.value),
+                                                        );
+                                                        setStunOrbit((current) => ({ ...current, [key]: value }));
+                                                    }}
+                                                />
+                                            </label>
+                                        ))}
+                                        <span style={{ color: "#bdb3a0", fontSize: 10 }}>
+                                            0° — вокруг флага; 90° — через цифры. Поворот меняет направление всей
+                                            орбиты.
+                                        </span>
+                                        <button
+                                            type="button"
+                                            style={{ ...buttonStyle, minHeight: 26, padding: "3px 8px" }}
+                                            onClick={() => {
+                                                setStunOrbitSetting("tiltDeg", STUN_ORBIT_DEFAULTS.tiltDeg);
+                                                setStunOrbitSetting("rotationDeg", STUN_ORBIT_DEFAULTS.rotationDeg);
+                                                setStunOrbit({ ...STUN_ORBIT_DEFAULTS });
+                                            }}
+                                        >
+                                            Сбросить орбиту
+                                        </button>
+                                    </div>
+                                </details>
+                            )}
+                            {selected?.name === "Beholder" && (
+                                <div style={{ marginTop: 7, color: "#bdb3a0", fontSize: 10 }}>
+                                    Дебафы: сразу анимация · 0,65 с. Без противника — над своим флагом.
+                                </div>
+                            )}
                             {selected?.name === "Behemoth" && (
                                 <div style={{ marginTop: 7, color: "#bdb3a0", fontSize: 10 }}>
-                                    КАСТ — движение чудища + рёв над флагом · 1 с.
+                                    КАСТ — движение чудища + рёв над флагом · 0,65 с.
                                 </div>
                             )}
                             <div style={{ marginTop: 8, color: "#8f877b", fontSize: 9.5 }}>

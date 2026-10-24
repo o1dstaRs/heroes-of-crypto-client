@@ -1,0 +1,66 @@
+---
+import "../styles/cta-design-preview.css";
+const variants = [
+    ["base", "Базовый — выбранные кнопки"],
+    ["forge", "Кузня"],
+    ["war-table", "Военный стол"],
+    ["obsidian", "Обсидиан"],
+    ["moonsteel", "Лунная сталь"],
+    ["royal", "Королевское знамя"],
+    ["parchment", "Светлый пергамент"],
+];
+---
+
+<cta-design-picker class="page-shell">
+    <div class="cta-picker-controls" role="group" aria-label="Варианты оформления блока">
+        <span class="cta-picker-label">Оформление блока</span>
+        <button type="button" data-cta-step="-1" aria-label="Предыдущий вариант">←</button>
+        <select aria-label="Фон и кнопки блока">
+            {variants.map(([value, label], index) => <option value={value}>{index + 1}. {label}</option>)}
+        </select>
+        <button type="button" data-cta-step="1" aria-label="Следующий вариант">→</button>
+        <span data-cta-count aria-live="polite">1 / {variants.length}</span>
+    </div>
+</cta-design-picker>
+
+<script>
+    class CtaDesignPicker extends HTMLElement {
+        private controller?: AbortController;
+
+        connectedCallback() {
+            if (this.controller) return;
+            const section = this.closest<HTMLElement>(".final-cta");
+            const select = this.querySelector("select");
+            const count = this.querySelector("[data-cta-count]");
+            if (!section || !select || !count) return;
+            this.controller = new AbortController();
+            const signal = this.controller.signal;
+            const apply = (persist: boolean) => {
+                if (select.value === "base") delete section.dataset.ctaDesign;
+                else section.dataset.ctaDesign = select.value;
+                count.textContent = `${select.selectedIndex + 1} / ${select.options.length}`;
+                if (persist) {
+                    try { localStorage.setItem("hoc-cta-design-v2", select.value); } catch { /* Optional persistence. */ }
+                }
+            };
+            try {
+                const saved = localStorage.getItem("hoc-cta-design-v2");
+                if ([...select.options].some(option => option.value === saved)) select.value = saved!;
+            } catch { /* Use the initial design. */ }
+            apply(false);
+            select.addEventListener("change", () => apply(true), { signal });
+            this.querySelectorAll<HTMLButtonElement>("[data-cta-step]").forEach(button => {
+                button.addEventListener("click", () => {
+                    select.selectedIndex = (select.selectedIndex + Number(button.dataset.ctaStep) + select.options.length) % select.options.length;
+                    apply(true);
+                }, { signal });
+            });
+        }
+
+        disconnectedCallback() {
+            this.controller?.abort();
+            this.controller = undefined;
+        }
+    }
+    if (!customElements.get("cta-design-picker")) customElements.define("cta-design-picker", CtaDesignPicker);
+</script>

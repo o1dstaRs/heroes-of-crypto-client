@@ -115,6 +115,7 @@ test.each([
                     playUnitCombatSound: () => {},
                     popRecordedDullingDefense: () => {},
                     combatVisuals: {
+                        spawnCommonFlagPop: () => {},
                         showFloatingDamage: (_position: unknown, amount: number) => damage.push(amount),
                         spawnBloodSpray: () => {},
                         spawnSlash: () => {},

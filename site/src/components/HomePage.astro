@@ -1,17 +1,15 @@
 ---
+import RankedArena from "./RankedArena.astro";
 import CreaturePortrait from "./CreaturePortrait.astro";
 import DeferredMedia from "./DeferredMedia.astro";
-import { HOME_HERO_IMAGE } from "../lib/hero-media";
 import { knowledgePath } from "../lib/knowledge-base";
-import { localizedFactionName } from "../lib/localization";
-import { content, links, localPath, type Language } from "../lib/site-data";
-import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/units-data";
-import HeroLeaderboard from "./HeroLeaderboard.astro";
-import MetaSnapshot from "./MetaSnapshot.astro";
-import RankedArena from "./RankedArena.astro";
-import SwordFire from "./SwordFire.astro";
-import AxeGlow from "./AxeGlow.astro";
-import PlumeWind from "./PlumeWind.astro";
+import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
+import FactionArtwork from "./FactionArtwork.astro";
+import featureArt from "../data/feature-art.json";
+import GameModes from "./GameModes.astro";
+import TavernBackdrop from "./TavernBackdrop.astro";
+import HeroButtonPicker from "./HeroButtonPicker.astro";
+import CtaDesignPicker from "./CtaDesignPicker.astro";
 
 interface Props {
     lang: Language;
@@ -19,38 +17,15 @@ interface Props {
 
 const { lang } = Astro.props;
 const copy = content[lang];
-const homeLabels = lang === "ru" ? { gameStats: "Статистика игры" } : { gameStats: "Game stats" };
-const heroStats = [
-    { value: String(factionUnits.length), label: copy.hero.stats[0]?.label ?? "Factions" },
-    { value: String(unitCount), label: copy.hero.stats[1]?.label ?? "Combat units" },
-    { value: String(abilityCount), label: copy.hero.stats[2]?.label ?? "Abilities" },
-];
-const factionHighlights = factionUnits.map((faction) => ({
-    ...faction,
-    featuredUnits: [...faction.units].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name)).slice(0, 4),
-    unitCount: faction.units.length,
-}));
 const featureVisuals = [
     {
         variant: "board",
-        icons: [
-            "/assets/images/units/abilities/movement_augment_256.webp",
-            "/assets/images/units/abilities/through_shot_256.webp",
-            "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
-        ],
     },
     {
         variant: "factions",
-        units: factionHighlights.map((faction) => faction.featuredUnits[0]).filter(Boolean),
     },
     {
         variant: "abilities",
-        icons: [
-            "/assets/images/units/abilities/chain_lightning_256.webp",
-            "/assets/images/units/abilities/resurrection_256.webp",
-            "/assets/images/units/abilities/fire_breath_256.webp",
-            "/assets/images/units/abilities/mass_magic_mirror_256.webp",
-        ],
     },
 ] as const;
 const featureCards = copy.features.items.map((item, index) => ({
@@ -61,123 +36,73 @@ const heroPitchLines =
     lang === "en" ? copy.hero.pitch.replace(" single‑session", "|single‑session").split("|") : [copy.hero.pitch];
 const rulesHref = knowledgePath(lang, { section: "rules" });
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
-const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 ---
 
 <section class="hero">
-    <img
-        class="hero-bg"
-        src={HOME_HERO_IMAGE}
-        alt=""
-        width="1750"
-        height="899"
-        fetchpriority="high"
-        loading="eager"
-        decoding="async"
-    />
-    <SwordFire />
-    <AxeGlow />
-    <PlumeWind />
+    <TavernBackdrop lang={lang} />
     <div class="hero-shade"></div>
-    <div class="hero-grid page-shell">
-        <div class="hero-content">
-            <h1 class="hero-logo">
-                <img
-                    src="/assets/images/home/logo/logo_forged.webp"
-                    alt={copy.hero.title}
-                    width="674"
-                    height="484"
-                    fetchpriority="high"
-                />
-                <span class="sr-only">{copy.hero.title}</span>
-            </h1>
-            <p class="hero-tagline">{copy.hero.pitch}</p>
-            <ul class="hero-claims">
-                {copy.hero.claims.map((claim) => <li>{claim}</li>)}
-            </ul>
+    <h1 class="sr-only">{copy.hero.title}</h1>
+    <HeroButtonPicker lang={lang} />
+    <div class="hero-grid hero-grid-bottom page-shell">
+        <div class="hero-content hero-content-bottom">
             <div class="hero-actions">
-                <a class="button hero-play" href={playHref}>
-                    <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
-                    {copy.hero.primaryCta}
+                <a class="button hero-play" href={playHref} aria-label={copy.hero.primaryCta}>
+                    <img class="hero-play-art" src="/assets/images/home/hero/taverns/buttons/06-espresso-gold.webp?v=simple-2" alt="" width="2172" height="402" aria-hidden="true" />
+                    <span>{copy.hero.primaryCta}</span>
                 </a>
             </div>
-            <ul class="hero-stats" aria-label={homeLabels.gameStats}>
-                {
-                    heroStats.map((stat) => (
-                        <li>
-                            <strong>{stat.value}</strong>
-                            <span>{stat.label}</span>
-                        </li>
-                    ))
-                }
-            </ul>
         </div>
     </div>
+    <ul class="hero-claims hero-claims-bottom">
+        {copy.hero.claims.map((claim) => <li>{claim}</li>)}
+    </ul>
 </section>
 
-<section class="section hero-ladder-band">
-    <div class="page-shell">
-        <HeroLeaderboard lang={lang} topN={10} />
+<section class="feature-section hero-intro-section" id="features">
+    <div class="page-shell feature-intro-heading">
+        <div class="section-heading centered">
+            <h2>{copy.features.title}</h2>
+        </div>
     </div>
 
     <div class="page-shell hero-feature-content">
-        <div class="section-heading centered">
-            <p class="eyebrow">{copy.features.eyebrow}</p>
-            <h2>{copy.features.title}</h2>
-            <p class="section-lede">{copy.hero.body}</p>
-        </div>
         <div class="feature-grid mechanic-grid">
             {
                 featureCards.map((item) => (
                     <article class={`feature-card mechanic-card is-${item.visual.variant}`}>
                         <div class="mechanic-visual" aria-hidden="true">
                             <DeferredMedia>
-                                {
-                                    item.visual.variant === "board" && (
-                                        <div class="mechanic-board">
-                                            <img
-                                                src="/assets/images/preview_game.webp"
-                                                alt=""
-                                                width="1200"
-                                                height="630"
-                                                loading="lazy"
-                                            />
-                                            <span class="board-path one"></span>
-                                            <span class="board-path two"></span>
-                                            <span class="board-marker one"></span>
-                                            <span class="board-marker two"></span>
-                                            <span class="board-marker three"></span>
-                                            <span class="mechanic-icon-row">
-                                                {item.visual.icons.map((icon) => (
-                                                    <img src={icon} alt="" width="256" height="256" loading="lazy" />
-                                                ))}
-                                            </span>
-                                        </div>
-                                    )
-                                }
-                                {
-                                    item.visual.variant === "factions" && (
-                                        <div class="mechanic-factions">
-                                            {item.visual.units.map((unit) => (
-                                                <span class="mechanic-faction-unit" style={`--faction: ${factionColors[unit.faction]}`}>
-                                                    <CreaturePortrait slug={unit.slug} name="" />
-                                                    <em>{factionLabel(unit.faction)}</em>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )
-                                }
-                                {
-                                    item.visual.variant === "abilities" && (
-                                        <div class="mechanic-abilities">
-                                            {item.visual.icons.map((icon) => (
-                                                <span>
-                                                    <img src={icon} alt="" width="256" height="256" loading="lazy" />
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )
-                                }
+                            {
+                                item.visual.variant === "board" && (
+                                    <div class="mechanic-board mechanic-board-closeup">
+                                        <img
+                                            src="/assets/images/home/features/battle_cinematic_abomination_v2_20261024.webp"
+                                            alt=""
+                                            width="1619"
+                                            height="971"
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                )
+                            }
+                            {
+                                item.visual.variant === "factions" && (
+                                    <div class="mechanic-factions"><FactionArtwork lang={lang} /></div>
+                                )
+                            }
+                            {
+                                item.visual.variant === "abilities" && (
+                                    <div class="mechanic-abilities">
+                                        <img
+                                            src={featureArt.spellVariant ? `/assets/images/home/features/spells_variant_${featureArt.spellVariant}.webp` : "/assets/images/home/features/spells_cinematic.webp"}
+                                            alt=""
+                                            width="1586"
+                                            height="992"
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                )
+                            }
                             </DeferredMedia>
                         </div>
                         <div class="mechanic-copy">
@@ -189,19 +114,15 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
             }
         </div>
     </div>
+
 </section>
 
-<section class="section hero-ladder-band">
-    <div class="page-shell">
-        <HeroLeaderboard lang={lang} topN={10} />
-    </div>
-</section>
+<GameModes lang={lang} />
 
 <RankedArena lang={lang} />
 
-<MetaSnapshot lang={lang} />
-
-<section class="final-cta">
+<section class="final-cta" id="cta-design">
+    {import.meta.env.DEV && <CtaDesignPicker />}
     <div class="page-shell final-cta-inner">
         <div>
             <p class="eyebrow">{copy.hero.kicker}</p>
@@ -215,6 +136,16 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
             <a class="button secondary" href={rulesHref}>
                 {copy.hero.secondaryCta}
             </a>
+        </div>
+    </div>
+</section>
+
+<section class="feature-section hero-intro-section pre-roadmap-pitch" id="game-pitch">
+    <div class="hero-pitch-band">
+        <div class="page-shell">
+            <p class="hero-tagline hero-tagline-bottom">
+                {heroPitchLines.map((line) => <span>{line}</span>)}
+            </p>
         </div>
     </div>
 </section>
@@ -238,3 +169,9 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
         </div>
     </div>
 </section>
+
+<style>
+    .pre-roadmap-pitch .hero-pitch-band {
+        padding-block: clamp(36px, 4vw, 64px);
+    }
+</style>

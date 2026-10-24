@@ -50,6 +50,45 @@ const texture = new Texture({
     source: new BufferImageSource({ resource: new Uint8Array(4), width: 8192, height: 8192 }),
 });
 const resolve = (key: string) => (Object.hasOwn(images, key) ? texture : undefined);
+test("approved renderer replaces the stun hand with orbit stars and clears them with status/visibility", () => {
+    const effects = new EffectFactory();
+    const requests: string[] = [];
+    const unit = ApprovedUnit.fromBase(
+        Unit.createUnit(
+            HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "squire_512", 10),
+            grid,
+            TeamVals.LEFT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            false,
+        ),
+        (key) => {
+            requests.push(key);
+            return resolve(key);
+        },
+    );
+    const root = new Container();
+    const view = unit as unknown as { stunStars?: { root: Container }; stunContainer?: Container };
+    try {
+        unit.setPosition(0, 1024);
+        unit.setSkipping(true);
+        unit.ensureVisual(root, grid);
+        expect(view.stunStars?.root.visible).toBe(true);
+        expect(view.stunContainer).toBeUndefined();
+        expect(requests).not.toContain("stun_hand_forged");
+        unit.setVisualGhost(true);
+        expect(view.stunStars?.root.visible).toBe(false);
+        unit.setVisualGhost(false);
+        unit.ensureVisual(root, grid);
+        expect(view.stunStars?.root.visible).toBe(true);
+        unit.setSkipping(false);
+        expect(view.stunStars?.root.visible).toBe(false);
+    } finally {
+        unit.destroyVisuals();
+        root.destroy({ children: true });
+    }
+});
 beforeAll(() => {
     if (typeof document === "undefined")
         (globalThis as { document?: unknown }).document = {

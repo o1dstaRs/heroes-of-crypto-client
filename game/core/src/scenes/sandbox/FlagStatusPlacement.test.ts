@@ -35,7 +35,7 @@ test("buffs, debuffs and morale follow the live flag across hydration and expire
     let now = 0;
     const clock = spyOn(performance, "now").mockImplementation(() => now);
     try {
-        f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Weakness", 0, "debuff", f.unit);
+        f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Slow", 0, "debuff", f.unit);
         f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Morale", 1, "buff", f.unit);
         const [debuff, buff] = f.root.children;
         expect(debuff.x).toBe(120);
@@ -52,13 +52,13 @@ test("buffs, debuffs and morale follow the live flag across hydration and expire
             const bounds = icon.getBounds();
             expect(bounds.width).toBeCloseTo(bounds.height);
         }
-        now = 1000;
+        now = 425;
         f.visuals.update(0);
         expect(debuff.destroyed).toBe(false);
         expect(buff.destroyed).toBe(false);
         expect(debuff.alpha).toBe(1);
         expect(buff.alpha).toBe(1);
-        now = 1800;
+        now = 650;
         f.visuals.update(0);
         expect(debuff.destroyed).toBe(true);
         expect(buff.destroyed).toBe(true);
@@ -72,6 +72,8 @@ test.each(["luck", "resist", "heal", "absorb"])(
     "%s labels start above the flag, with no attack-direction drift",
     (kind) => {
         const f = fixture();
+        let now = 0;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
         const pop = spyOn(f.visuals, "spawnCommonFlagPop").mockImplementation(() => undefined);
         const pos = { x: 999, y: 10 };
         try {
@@ -82,11 +84,17 @@ test.each(["luck", "resist", "heal", "absorb"])(
             const label = f.root.children[0];
             expect(label.x).toBe(120);
             expect(label.y).toBeGreaterThan(300);
-            f.visuals.update(0.2);
+            now = 649;
+            f.visuals.update(0);
             expect(label.x).toBe(120);
+            expect(label.destroyed).toBe(false);
+            now = 650;
+            f.visuals.update(0);
+            expect(label.destroyed).toBe(true);
         } finally {
             f.visuals.clear();
             pop.mockRestore();
+            clock.mockRestore();
         }
     },
 );

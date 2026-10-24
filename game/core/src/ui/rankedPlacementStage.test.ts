@@ -10,7 +10,6 @@ import {
     observerPlacementRosterIds,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
-    shouldShowRankedAugmentPicker,
     shouldShowRankedPlacementRosters,
 } from "./rankedPlacementStage";
 
@@ -154,69 +153,19 @@ describe("ranked board placement stage (fail-open)", () => {
     });
 });
 
-/**
- * Augments must stay adjustable in the sidebar while positioning — the regression this pins is that the
- * ability silently vanished when the augment step became its own screen, even though the SERVER never
- * stopped accepting the change (validateAction gates AUGMENT on team ownership alone, and play_session
- * says setup choices "stay EDITABLE through the board stage ... right up until their own board-ready").
- */
-describe("shouldShowRankedAugmentPicker", () => {
-    const placement = { phase: PlayPhase.PLACEMENT };
-
-    test("shows the live picker while positioning the board", () => {
-        expect(shouldShowRankedAugmentPicker(placement, false, false, false)).toBe(true);
-    });
-
-    test("stays hidden behind the Setup step's own full-screen picker", () => {
-        // Two live pickers on one build would let the same points be spent twice over.
-        expect(shouldShowRankedAugmentPicker(placement, true, false, false)).toBe(false);
-    });
-
-    test("collapses to the recap once the player locks in, which is where the server stops accepting", () => {
-        expect(shouldShowRankedAugmentPicker(placement, false, false, true)).toBe(false);
-    });
-
-    test("never offers picking to an observer", () => {
-        expect(shouldShowRankedAugmentPicker(placement, false, true, false)).toBe(false);
-    });
-
-    test("is placement-only — never during the fight", () => {
-        expect(shouldShowRankedAugmentPicker({ phase: PlayPhase.PLAY }, false, false, false)).toBe(false);
-    });
-});
-
-/**
- * The two augment pickers have different SHAPES and each belongs in one place.
- *
- * SideToggleContainer expands every augment card at once — right on the full-screen Setup step, wrong in
- * the narrow sidebar, where it stacks three tall radio groups and pushes the artifacts and the rest of the
- * panel off the bottom. SandboxToggleContainer is the compact form: a row of augment icons with only the
- * chosen augment's options underneath. Both drive the same picker underneath, so this is layout only.
- */
-describe("the ranked sidebar uses the compact augment picker", () => {
+describe("augments belong to the separate setup screen", () => {
     const source = readFileSync(join(import.meta.dir, "RankedGameViewRuntime.tsx"), "utf8");
 
-    test("the sidebar mounts the compact container and the full-screen step keeps the expanded one", () => {
-        const sidebar = source.slice(
-            source.indexOf("augmentsEditableInSidebar ? ("),
-            source.indexOf("{/* The augment step is its own full screen"),
-        );
-        expect(sidebar).toContain("<SandboxToggleContainer");
-        expect(sidebar).not.toContain("<SideToggleContainer");
-        // The Setup step still gets the expanded cards — it has the room for them.
-        expect(source).toContain("<SideToggleContainer");
+    test("board placement shows the chosen build without an augment editor", () => {
+        expect(source).not.toContain("<SandboxToggleContainer");
+        expect(source).toContain("<RankedAugmentSummary");
+        expect(source).toContain("Your augments");
+        expect(source).toContain("<SynergiesRow synergies={synergies}");
     });
 
-    test("the compact picker is still wired to the authoritative build and the commit gate", () => {
-        // Layout change only: dropping either prop would silently show a blank picker with a full budget,
-        // or leave the "Lock in augments" button unable to tell when the points are spent.
-        const sidebar = source.slice(
-            source.indexOf("<SandboxToggleContainer"),
-            source.indexOf("{/* The augment step is its own full screen"),
-        );
-        expect(sidebar).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
-        expect(sidebar).toContain("onReadyChange={setAugmentReady}");
-        // Ranked hides the free artifact picker (artifacts are drafted); the co-op sandbox shows it.
-        expect(sidebar).toContain("showArtifactPicker={skipAugmentStep}");
+    test("the setup screen retains its authoritative picker and completion gate", () => {
+        expect(source).toContain("<SideToggleContainer");
+        expect(source).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
+        expect(source).toContain("onReadyChange={setAugmentReady}");
     });
 });

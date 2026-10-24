@@ -4,6 +4,7 @@ import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo, ISpellEffectSummary, SpellEffectSummaryKind } from "../../scenes/VisibleState";
+import { images } from "../../generated/image_imports";
 import { spellElementStyle, type SpellElementStyle } from "../spellElementStyle";
 import { popoverPositionAtPointer } from "./popoverPosition";
 
@@ -101,7 +102,14 @@ const spellElementChip = (style: SpellElementStyle): React.JSX.Element => {
                 textTransform: "uppercase",
             }}
         >
-            <span aria-hidden="true">{style.mark}</span>
+            <img
+                src={images[style.imageKey]}
+                alt=""
+                aria-hidden="true"
+                width={24}
+                height={24}
+                style={{ objectFit: "contain", borderRadius: "4px", flexShrink: 0 }}
+            />
             {style.label}
         </span>
     );

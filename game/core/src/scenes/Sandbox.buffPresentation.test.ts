@@ -26,14 +26,14 @@ const gridSettings = new GridSettings(
     GridConstants.UNIT_SIZE_DELTA,
 );
 
-for (const [school, name] of [
-    ["Life", "Spiritual Armor"],
-    ["Life", "Blessing"],
-    ["Life", "Helping Hand"],
-    ["Life", "Courage"],
-    ["Chaos", "Fireforged Sword"],
-]) {
-    test(`${name} reaches the generic buff animation from a real unit application`, () => {
+for (const [school, name, generic] of [
+    ["Life", "Spiritual Armor", true],
+    ["Life", "Blessing", true],
+    ["Life", "Helping Hand", false],
+    ["Life", "Courage", false],
+    ["Chaos", "Fireforged Sword", false],
+] as const) {
+    test(`${name} ${generic ? "uses the generic buff animation" : "leaves presentation to its recorded flag cue"}`, () => {
         const effects = new EffectFactory();
         const unit = Unit.createUnit(
             HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Peasant", "", 10),
@@ -55,9 +55,11 @@ for (const [school, name] of [
         expect(pop).not.toHaveBeenCalled();
         unit.applyBuff(new Spell({ spellProperties: HoCConfig.getSpellConfig(school, name), amount: 1 }));
         scene.reconcileEffectVisuals();
-        expect(pop).toHaveBeenCalledWith(expect.objectContaining({ unit, flash: "buff", buffs: [name] }));
+        expect(pop).toHaveBeenCalledWith(
+            expect.objectContaining({ unit, flash: generic ? "buff" : "none", buffs: generic ? [name] : [] }),
+        );
         scene.reconcileEffectVisuals();
-        expect(pop.mock.calls.filter(([entry]) => entry.buffs.includes(name))).toHaveLength(1);
+        expect(pop.mock.calls.filter(([entry]) => entry.buffs.includes(name))).toHaveLength(generic ? 1 : 0);
     });
 }
 
@@ -68,7 +70,7 @@ test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confi
         flashBuffApplied: mock(() => undefined),
     };
     const units = new Map([["ally", unit]]);
-    const spawnEnchantResult = mock(() => undefined);
+    const spawnCommonFlagPop = mock(() => undefined);
     const events: GameEvent[] = [
         {
             type: "spell_cast",
@@ -87,15 +89,14 @@ test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confi
         shouldDeferActionToAuthoritativeReplay: () => false,
         sc_sceneSettings: { getGridSettings: () => gridSettings },
         texAny: () => Texture.WHITE,
-        combatVisuals: { spawnEnchantResult },
+        combatVisuals: { spawnCommonFlagPop },
     }) as { applyGameAction(action: GameAction): boolean };
     expect(scene.applyGameAction({ type: "cast_spell", casterId: "caster", targetId: "ally", spellName: name })).toBe(
         true,
     );
-    expect(spawnEnchantResult).toHaveBeenCalledWith(
-        { x: 128, y: 64 },
-        gridSettings.getCellSize(),
-        expect.objectContaining({ success: true, label: name === "Armor Rune" ? "+2 armor" : "+2 attack" }),
+    expect(spawnCommonFlagPop).toHaveBeenCalledWith(
+        unit,
+        name === "Armor Rune" ? "blacksmith_armor" : "blacksmith_weapon",
     );
     expect(unit.flashBuffApplied).toHaveBeenCalledTimes(1);
 });

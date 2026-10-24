@@ -59,6 +59,7 @@ import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { AugmentStepPreview } from "./AugmentStepPreview";
 import { PlacementStepPreview } from "./PlacementStepPreview";
+import { PickPreviewStageSwitcher } from "./PickPreviewStageSwitcher";
 import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import { DraftEndedNotice } from "./exitRules/DraftEndedNotice";
@@ -596,6 +597,37 @@ const LevelFourPickPreview: React.FC = () => (
         </div>
     </PickBanContext.Provider>
 );
+
+/** Visual fixtures for the two interludes between creature picks. */
+const PickInterludePreview: React.FC<{ stage: "map" | "artifact2" }> = ({ stage }) => {
+    const previewState: PickBanContextType = {
+        ...LEVEL_THREE_PICK_PREVIEW_STATE,
+        phaseIdentity: `${stage}-preview`,
+        ...(stage === "map"
+            ? { mapType: GridVals.NORMAL }
+            : {
+                  picked: [12, 24, 31, 25, 37],
+                  pickPhase: PickPhaseVals.ARTIFACT_2,
+                  requiredLevel: 0,
+                  tier2Offers: [1, 2, 3],
+              }),
+    };
+    return (
+        <PickBanContext.Provider value={previewState}>
+            <div className="container" style={{ display: "flex" }}>
+                <CssVarsProvider theme={hocJoyTheme}>
+                    <CssBaseline />
+                </CssVarsProvider>
+                <StainedGlassWindow
+                    userTeam={TeamVals.LEFT as TeamType}
+                    gameId={`${stage}-pick-preview`}
+                    opponentLabel="Opponent"
+                    showOpponentRosterDuringAugmentHandoff={false}
+                />
+            </div>
+        </PickBanContext.Provider>
+    );
+};
 
 /**
  * BACKEND-FREE PLAYABLE DRAFT.
@@ -1491,6 +1523,11 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 <>
                     {/* Backend-free visual fixture: intentionally remains on the starting-bundle phase. */}
                     <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
+                    <Route path="/preview/picks/map" element={<PickInterludePreview key="map" stage="map" />} />
+                    <Route
+                        path="/preview/picks/artifact2"
+                        element={<PickInterludePreview key="artifact2" stage="artifact2" />}
+                    />
                     {/* Backend-free visual fixture for the first creature-pick phase. */}
                     <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
                     {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
@@ -1778,6 +1815,7 @@ const App: React.FC = () => {
                             {/* Floating notifications, friends, and messages; compact during fights. */}
                             <SocialDock />
                             <AuthedRoutes windowSize={windowSize} />
+                            {import.meta.env.DEV && <PickPreviewStageSwitcher />}
                         </PremiumSearchProvider>
                     </Router>
                 </CurrentLobbyProvider>

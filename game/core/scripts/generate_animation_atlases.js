@@ -8,6 +8,76 @@ const crypto = require("crypto");
 // walk uses the user-approved original eight-frame loop. Keep that selected version through
 // later image-generation passes instead of restoring the older six-pose gait.
 const PINNED_ATLAS_SHA256 = Object.freeze({
+    // Crafted recipient buffs, 2026-10-22.
+    "vfx_blacksmith_double_punch_pop_atlas_quarter.webp":
+        "fe414d3648238dd8a6cf670ced6d70568892962f4d9f4e11a1ab7b13a6392bbc",
+    "vfx_blacksmith_double_punch_pop_atlas.webp": "ee5bebb4d3b298d9814bad60b980ed4cb1e62f67af76d3ae92d022a5146f2f39",
+    "vfx_blacksmith_double_shot_pop_atlas.webp": "0b97e2aecbea325ddf46b90a6e3f739b8ef2dd91dc53df10b36dcfebd1dc7f39",
+    "vfx_blacksmith_double_shot_pop_atlas_quarter.webp":
+        "962ea98edcb5b0b8dea8ce3ab857ad713c765a968ec82035a241bdb5ca6f3f68",
+    "vfx_blacksmith_frozen_sword_pop_atlas_quarter.webp":
+        "c47d19fcf19c517d4c362946767bdc1550865846f3f0c080564006401e07e166",
+    "vfx_blacksmith_frozen_sword_pop_atlas.webp": "6d3d3b9e0b1f91ddad85646b4cf37dae047194a8ea7f1c34b126f764a3395118",
+    "vfx_blacksmith_frozen_bow_pop_atlas_quarter.webp":
+        "8932ec227cda9b9c08a67f51e141ddba4c22fe9d38bd7deafea5602dace63757",
+    "vfx_blacksmith_frozen_bow_pop_atlas.webp": "bac34c7b9711a6328d60eaf947fc0d08a3e7526abf4ccf239b946187f40cdb94",
+    // Blacksmith flag spell cels, 2026-10-20.
+    "vfx_blacksmith_craft_pop_atlas.webp": "9de518a45f58f51cde659350284248ae3ca93c6a3d3503154b5d6ec28c25b969",
+    "vfx_blacksmith_craft_pop_atlas_quarter.webp": "c6bd127eecd79781d8bb77636039c01e2e003b823bfd694fc48019480ac42e28",
+    "vfx_blacksmith_armor_pop_atlas.webp": "fd4067259482cb93fd3003385e9c0eb3a610380b0feb7d495869c944b3cc616a",
+    "vfx_blacksmith_armor_pop_atlas_quarter.webp": "0cd0ba61eecb903cc8b0b3c52cb52ff99c0f96275122816e35e2f5e488f8e932",
+    "vfx_blacksmith_weapon_pop_atlas.webp": "7504988b53e04938d55e7796f87a078e1c53f53d6ede1ce84d7e902c79763d6c",
+    "vfx_blacksmith_weapon_pop_atlas_quarter.webp": "08a902ea95e9d0e4fbd3482bd0fbf3400afd404e5d522747a9685f9678a64537",
+    // Peasant Bitter Experience: painted boot-stamp cels, 2026-10-20.
+    "vfx_bitter_experience_pop_atlas.webp": "780f6cc2926c4f6883832e92914fc05ed9fd8ceb1b87515df777d2839cee8cd1",
+    "vfx_bitter_experience_pop_atlas_quarter.webp": "33597b865b743289be102a0c57e47d888e409d57fa76354974894c97c68da485",
+    // Arbalester Leather Armor vulnerability: painted impact cels, 2026-10-20.
+    "vfx_leather_armor_pop_atlas.webp": "b1496849606bf6bf66b9b27ddb8078f8863880ac09c0a9a5a9c8ef993042f60e",
+    "vfx_leather_armor_pop_atlas_quarter.webp": "fb08cef084b317ba3e9d8478d2d296feded9f0b5166ca880a406a65aa1dcd09b",
+    // Leprechaun Lucky Strike painted die cels, 2026-10-20.
+    "vfx_lucky_strike_pop_atlas.webp": "1a9ae0650040321896b87e26cb11b5f761d805b1fcb2a553c307f318e4f6c39a",
+    "vfx_lucky_strike_pop_atlas_quarter.webp": "36ac7dc216cdd08afd7b3400ff79646568f5f9d2707be730e8a11a38166c0e04",
+    // Dryad Hamstring chained-wing cels, 2026-10-20.
+    "vfx_hamstring_pop_atlas.webp": "4983cc641f1f73fcaadd1b522fa87016443734ee7c4704ebc77cacf1fecbe8e3",
+    "vfx_hamstring_pop_atlas_quarter.webp": "cc5f591f22ece04707e84016950148a22ed9a1e7d3ffb7071e418fc70e0a50ab",
+    // Troglodyte flag effects: sixteen painted cels each, 2026-10-20.
+    "vfx_blind_fury_pop_atlas_quarter.webp": "9593df15e19dd420367b35e4929033541e3a556f1d7c88b2637c18f2baab23a7",
+    "vfx_blind_fury_pop_atlas.webp": "ce695b1d37f1461071ff3a4b1b6ed0474097bb0803ad71f2fe23ea637b2592ed",
+    "vfx_miner_pop_atlas.webp": "cd362132ff4740591a688ee1c106b445b29d812380758fae877180e0d4f31054",
+    "vfx_miner_pop_atlas_quarter.webp": "9548cca721487f3f93a250787c527150c824a3879e73caeaaaf3a4280e2b5249",
+    "vfx_madness_pop_atlas_quarter.webp": "0ffaba12fdce5afb5c095e24060c44910070dc20218e25e564be03d8e43050b6",
+    "vfx_madness_pop_atlas.webp": "7dd1a4472b49ad4b2a78b50e3eaae5fde4a79b164c570c4891d871f26f21a67e",
+
+    "vfx_mage_misfortune_pop_atlas.webp": "7198edae3285da4797a632390c40d70f991c7e3dd933f7cad26a729570f61319",
+    "vfx_mage_misfortune_pop_atlas_quarter.webp": "23922ef9e3015f1914fc661ae2d22ace4e94c061f37f861e648d259f3e77155b",
+    "vfx_mage_fireforged_pop_atlas.webp": "ae0959f6f2d961ce8a6673b40468b56fb0307d21e4cc3ca3d97c6ff58bbb95b1",
+    "vfx_mage_fireforged_pop_atlas_quarter.webp": "31088fcc7158ec83519f427cd54e1b6725918682148e62db33fc6751452fb4eb",
+    "vfx_ring_fire_hollow_burst_atlas.webp": "a7300a1dd6522cd882a9c59f8146f8913aaa37e3196a4b256eaf75c643dfdca1",
+    "vfx_ring_fire_hollow_burst_atlas_quarter.webp": "b703be2d889204ddb19199baccbcac7d451df27b580ef9415ed8094aab3ce57f",
+    // Centaur Piercing Spear above-target cels, 2026-10-20.
+    "vfx_piercing_spear_pop_atlas.webp": "02da6816236f65a3a608d4bf28bf1577d45ea2a993cd9bc9dcf55f0de6e4f342",
+    "vfx_piercing_spear_pop_atlas_quarter.webp": "1d210aee240d7d2bac65db802e944d8eb77efd06b6a8a8bd5cff6de32cdba43a",
+    // Fairy Small Specie: nine dodge cels above the fairy's flag, 2026-10-20.
+    "vfx_small_specie_pop_atlas.webp": "f7a0571d995eb9fd2151a480d8ee65ba7997eb0970f1820737a164880f3856c9",
+    "vfx_small_specie_pop_atlas_quarter.webp": "b24fc92d04039745e60fc43e4d54ea31970ab3bb53a51ccc0917a69fa4d32471",
+    // Wind Flow above-flag wind cels, 2026-10-18.
+    "vfx_wind_flow_pop_atlas.webp": "99ed303ecba4ccee444b1ee18a228022e00c4c3a623e15e4e70e7d55b80e244f",
+    "vfx_wind_flow_pop_atlas_quarter.webp": "65dc54445fc44557c62fc956532c6d45802758097fe085270a1d1e589959d241",
+    // Satyr buff cels: roaring lion and blessing hand, 2026-10-18.
+    "vfx_satyr_courage_pop_atlas_quarter.webp": "2be5f83ef66187f20495ba76f3ba4226d02c54c9efa82a8c3c41acf8346c392b",
+    "vfx_satyr_courage_pop_atlas.webp": "b683d87730a0b6561492ed776c61e28393573739c41b2657acf65c4eab80d0a2",
+    "vfx_satyr_helping_hand_pop_atlas_quarter.webp": "8b735c16d58853fd8b5dce953553a477a77a6ca7d8ac136fefb65d1b33b86719",
+    "vfx_satyr_helping_hand_pop_atlas.webp": "cb04fe1e71fc3b0ff4af863ac07e2651fe48f15984dca7199b3cd6ee3a2f3271",
+
+    // Wild Regeneration: wounded palm heals, then dissolves above the flag.
+    "vfx_wild_regeneration_pop_atlas.webp": "311cd0e377cb2b0c56e8f7f408a8970d7172d7b6d42cfa68ca0dc35816621390",
+    "vfx_wild_regeneration_pop_atlas_quarter.webp": "75d4bc75c514bab03535d0a6eac9e1c7848ed8ff4a647ad6bc8163c0ac259608",
+    // Shadow Touch v3: icon-faithful hand, sculpted highlights and sixteen grasp/release cels, 2026-10-18.
+    "vfx_shadow_touch_pop_atlas.webp": "5a8f07f60d0e669f91dd3ae54cca2d62be49c6e6bde5d53db9674b1689f28f21",
+    "vfx_shadow_touch_pop_atlas_quarter.webp": "3c14993a6151d98064529dcc81ee3a63d3dec259ff3909a55c4a67eb746f0670",
+    // Shatter Armor: steel cuirass fracture above the recipient flag, 2026-10-18.
+    "vfx_shatter_armor_pop_atlas.webp": "6cafc816e5c94799779884c19a024a236f7329de8520fdddd802df518b526f3d",
+    "vfx_shatter_armor_pop_atlas_quarter.webp": "5964259befc29f0b4fac2aa69ac5439db7995b04191da8d24cc319fb1508462c",
     // Mantis Paralysis: painted ability-icon cels, 2026-10-17.
     "vfx_paralysis_pop_atlas.webp": "aa15b64799d8cdbc97cdca1fedb56b946300c093aca5f7081ff7bbfa67f1a858",
     "vfx_paralysis_pop_atlas_quarter.webp": "d40726e49fccd0dd45b07e27c144cb497f436021dd9445a41cbe16261994f3f9",
@@ -270,10 +340,24 @@ const PINNED_ATLAS_SHA256 = Object.freeze({
         "ae3e9171462bce3bfa13cfbdcc0eba33a4b971751a5cfa515a146ca5d21ac6b0",
     "arachna_queen_lab_melee_attack_down_atlas_quarter.webp":
         "80000c76253a7bf39ba1ad67fa29c0910cb7b2ff0e5932a1776bbe830570f8cb",
-    // Pegasus connected wind/breath idle with a restrained wing flourish every 5.6 seconds.
-    "pegasus_idle_atlas.webp": "bfcf81ca8d85b9c04417e579fca46c3d90bb6e65c0e1403090ea8dad00e11367",
-    "pegasus_idle_atlas_half.webp": "21a249618dd3ef3ae11daf74cf95bcc06a692e79e9cd2dcc6d67b408a25fba33",
-    "pegasus_idle_atlas_quarter.webp": "3cc7ac7653d5ed11854205e8d8cda4ea174926f0f9e15e58bea9ff61623c215f",
+    // Pegasus connected combat poses with fixed canonical scale and padded canvases.
+    "pegasus_attack_atlas.webp": "d06ff141afd4d025b39090ee65318e53bb8bc85dbb84543de929ee3538ff3f18",
+    "pegasus_attack_atlas_half.webp": "d9dce5fae9ea0df8c3e854aa5ad0b739e361ee72554c03ec706fd39a346e7a42",
+    "pegasus_attack_atlas_quarter.webp": "cc67c100f9c4cd6ee46aef26870a4e8a10255459140808ef6165e45f4c672bea",
+    "pegasus_attack_up_atlas_quarter.webp": "bdefd148d8f0e2da6d47c855de311eab5f834c1a306c217dc4a328fd96fde8ab",
+    "pegasus_attack_up_atlas.webp": "2f877436700a33295a4d58bea4670b83d9e0450615c9cf9c46d3086836b425c4",
+    "pegasus_attack_down_atlas.webp": "966b11887d044726d7037cb466510f0376368e79065455c7a197a8602813871a",
+    "pegasus_attack_down_atlas_quarter.webp": "bf90873265a94593c69c0769afb6f1684642dc1d4fbef941b2121a7611ff7549",
+    "pegasus_hit_atlas_half.webp": "d936adde2bdac86320b7d16a0f96d37dfc5e3c27b42c436c263a0f3c55a15bd3",
+    "pegasus_hit_atlas_quarter.webp": "45c50f8c8cc9dd360424c1ebd9922046bbdceecb46e786ba946b98bef6cceda1",
+    "pegasus_hit_atlas.webp": "69c5485aa0935d28c27b0ecbfef94fae2c153cc8bc967ef4c4b94635bcb5e01a",
+    "pegasus_death_atlas_quarter.webp": "6c18ab4fbd10cfa59146f5f24bfe77e37f429cdb591007d0de3f8b0ae02d08de",
+    "pegasus_death_atlas.webp": "7c1f96edec54ddd070da9bf056b2f241dc09800bf8277ddc54125447e86d55d4",
+    "pegasus_death_atlas_half.webp": "4340b5a75b37df30667790f2c1e2727b8c8727249837532bb3bf80270e8cc5a9",
+    // Pegasus planted hoof registration; connected wind/breath idle accelerated 1.3x (4.31-second loop).
+    "pegasus_idle_atlas.webp": "49baa03edae5e4f920bcd6308e802d392deb8c9301f5244072f79814f8842646",
+    "pegasus_idle_atlas_half.webp": "6f2b29f778c0c31be0a9a8760fc08c2ac3843cc3c94eff1e1db7ff8c753c32bb",
+    "pegasus_idle_atlas_quarter.webp": "fd90ae9f9d9ff7ccc5ec0787f497694a1e194ed7d82280ad33b6af9bcc9148e3",
     // Pegasus flight v2: palette and skeletal scale matched to the actual in-game idle figure.
     "pegasus_flight_walk_atlas.webp": "2b2b25b3cda2cefdaeb30c1bdc546363d0074a53c5b27c5f8f41bb126c0136fd",
     "pegasus_flight_walk_atlas_quarter.webp": "473e207345583765bb90df86176d30fd3e06a9f867dabdaf18702a96232be48e",
@@ -871,6 +955,9 @@ const PINNED_ATLAS_SHA256 = Object.freeze({
     "troglodyte_hit_atlas_quarter.webp": "3b630f9ca3f88d7859c75c4fc5e373b5366a812ba19d04866b64ee2cc50b8cb4",
     "troglodyte_death_atlas.webp": "5d4b47276ab17d1caeba8f78830dd7cf9223febf9758dfbdd56f40a066bc1568",
     "troglodyte_death_atlas_quarter.webp": "239d0260e36be30b61fad1cf8f885b21e1df68db21c186dc419d5b525501dae8",
+    // Wandering Mage walk: shared material palette matched to the approved idle (2026-10-20).
+    "ash_moth_walk_atlas.webp": "907fb47dc006c1c70d37fe0b471001533e907b8b93987dabe68f78519ab20c7f",
+    "ash_moth_walk_atlas_quarter.webp": "25889955c25244ef714cd7404a6df4697663f8f1d4dd80b34d1018b929832554",
     "ash_moth_idle_atlas.webp": "097df0fd4c762cad0f4e9945ba1b7a784957c61aefd692eccc95fc7eadcc7699",
     "ash_moth_idle_atlas_quarter.webp": "378ce5f55c7ff50061f55b97eb7d3b726b6bd706efb57899c693c21a9a0b6a56",
     "troglodyte_walk_atlas.webp": "8d87e86aa86c015a71a165fd0790ab9804c75dde7406dab63383a27b65a65f28",
@@ -1100,19 +1187,39 @@ function main() {
             Array.isArray(meta.frameDurationsMs) &&
             meta.frameDurationsMs.length === meta.frameCount;
         const authoredWhirlpool = unitName === "Vfx Whirlpool" && state === "swirl";
+        const authoredScavengerDodge = unitName === "Scavenger Combat" && state === "dodge";
         if (
+            authoredScavengerDodge ||
             authoredAbominationReaction ||
             authoredCannonIdle ||
             authoredAbominationSandVfx ||
             authoredDeepWoundsFlag ||
             authoredWhirlpool ||
+            unitName.startsWith("Vfx Blacksmith ") ||
             unitName.startsWith("Vfx Ogre ") ||
+            unitName.startsWith("Vfx Satyr ") ||
             unitName.startsWith("Vfx Unicorn ") ||
+            unitName === "Vfx Aggr" ||
             unitName === "Vfx Paralysis" ||
+            unitName === "Vfx Stun" ||
+            unitName === "Vfx Penetrating Bite" ||
             unitName === "Vfx Empower" ||
             unitName === "Vfx Absolving Arrow" ||
             unitName === "Vfx Borrowed Grace" ||
             unitName === "Vfx Dulling Defense" ||
+            unitName === "Vfx Blind Fury" ||
+            unitName === "Vfx Miner" ||
+            unitName === "Vfx Madness" ||
+            unitName === "Vfx Backstab" ||
+            unitName === "Vfx Hamstring" ||
+            unitName === "Vfx Bitter Experience" ||
+            unitName === "Vfx Lucky Strike" ||
+            unitName === "Vfx Shatter Armor" ||
+            unitName === "Vfx Leather Armor" ||
+            unitName === "Vfx Small Specie" ||
+            unitName === "Vfx Shadow Touch" ||
+            unitName === "Vfx Wild Regeneration" ||
+            unitName === "Vfx Wind Flow" ||
             unitName === "Vfx Made Of Fire"
         ) {
             meta.loopDurationMs = meta.frameDurationsMs.reduce((sum, ms) => sum + ms, 0);

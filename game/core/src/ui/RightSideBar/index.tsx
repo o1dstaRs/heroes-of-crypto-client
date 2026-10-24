@@ -529,8 +529,8 @@ export default function RightSideBar({
                     onHeightChange={setFooterHeight}
                     sidebarWidth={barSize}
                     rightStack
-                    centerInRow={Boolean(rankedFooter)}
-                    centerMinWidth={rankedFooter ? 224 : premiumFightVisible ? 176 : undefined}
+                    centerInRow={Boolean(rankedFooter && footerLeading)}
+                    centerMinWidth={premiumFightVisible ? 132 : undefined}
                     center={
                         premiumFightVisible ? (
                             <>

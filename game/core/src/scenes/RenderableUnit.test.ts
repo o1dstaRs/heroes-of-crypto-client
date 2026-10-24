@@ -139,7 +139,6 @@ import {
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import { BATTLEFIELD_CREATURE_FRAMING } from "../ui/battlefieldCreatureFraming";
 import { BATTLEFIELD_SHADOW_TUNING_BY_CREATURE } from "../ui/battlefieldShadowTuning";
-import { DEFAULT_STUN_BADGE_TUNING, stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { BATTLEFIELD_HEIGHT_RATIO } from "../pixi/boardFit";
 import { animationAtlases } from "../generated/animation_atlases";
 import { images } from "../generated/image_imports";
@@ -5145,8 +5144,8 @@ describe("Wandering Mage board animation states", () => {
         for (const state of ["melee_attack_up", "melee_attack", "melee_attack_down", "cast"]) {
             const durations =
                 state === "cast"
-                    ? [80, 140, 160, 220, 200, 160, 140, 100].map((duration) => duration / 1.15)
-                    : [50, 110, 130, 60, 70, 90, 140, 70];
+                    ? [80, 140, 160, 220, 200, 160, 140, 100].map((duration) => duration / 1.15 / 1.2)
+                    : [50, 110, 130, 60, 70, 90, 140, 70].map((duration) => duration / 1.2);
             for (const direction of [-1, 1]) {
                 const unit = createWanderingMage();
                 unit.setBoardFacing(direction);
@@ -5197,7 +5196,7 @@ describe("Wandering Mage board animation states", () => {
                 completed = true;
             }),
         ).toBe(true);
-        for (let i = 0; i < 43; i++) unit.stepSpawnAnimation(1 / 240);
+        for (let i = 0; i < 35; i++) unit.stepSpawnAnimation(1 / 240);
         expect(completed).toBe(false);
         unit.stepSpawnAnimation(1 / 240);
         expect(completed).toBe(true);
@@ -5238,7 +5237,7 @@ describe("Wandering Mage board animation states", () => {
             expect(unit.playOneShotAnimation("cast")).toBe(true);
             unit.ensureVisual(root, gridSettings);
             expect(sync.mock.calls.at(-1)?.[1]).toBe(-1);
-            unit.stepOneShotAnimation(1200 / 1.15 + 0.001);
+            unit.stepOneShotAnimation(1200 / 1.15 / 1.2 + 0.001);
             unit.ensureVisual(root, gridSettings);
             expect(sync.mock.calls.at(-1)?.[1]).toBeGreaterThanOrEqual(0);
         } finally {
@@ -5246,16 +5245,16 @@ describe("Wandering Mage board animation states", () => {
         }
     });
 
-    assetTest("finishes Mage book ignition 15% faster during the animation freeze", () => {
+    assetTest("finishes Mage book ignition another 20% faster during the animation freeze", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const unit = createWanderingMage();
         let completions = 0;
         expect(unit.playOneShotAnimation("cast", () => completions++)).toBe(true);
-        for (let tick = 0; tick < 62; tick++) unit.stepSpawnAnimation(1 / 240);
+        for (let tick = 0; tick < 52; tick++) unit.stepSpawnAnimation(1 / 240);
         expect(completions).toBe(0);
         expect(unit.isPlayingOneShotAnimation("cast")).toBe(true);
-        // 62 render ticks are 1033ms; the shortened cast ends at 1043.478ms.
-        unit.stepSpawnAnimation((1200 / 1.15 - (62 * 1000) / 60) / 4000 + 1e-9);
+        // 52 render ticks are 866.667ms; the accelerated cast ends at 869.565ms.
+        unit.stepSpawnAnimation((1200 / 1.15 / 1.2 - (52 * 1000) / 60) / 4000 + 1e-9);
         expect(completions).toBe(1);
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
         const internals = unit as unknown as AnimationInternals;
@@ -5266,7 +5265,7 @@ describe("Wandering Mage board animation states", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const unit = createWanderingMage();
         const internals = unit as unknown as AnimationInternals;
-        const durations = [40, 50, 60, 80, 100, 100, 100, 100, 100, 100, 120, 250];
+        const durations = [40, 50, 60, 80, 100, 100, 100, 100, 100, 100, 120, 250].map((duration) => duration / 1.2);
         let completions = 0;
         expect(unit.playOneShotAnimation("death", () => completions++)).toBe(true);
         expect(internals.oneShotAnim?.frames).toHaveLength(12);
@@ -5290,7 +5289,7 @@ describe("Wandering Mage board animation states", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         for (const [state, steps] of [
             ["hit", Math.ceil(36 / 1.17)],
-            ["death", 72],
+            ["death", 60],
         ] as const) {
             const unit = createWanderingMage();
             let completions = 0;
@@ -5321,7 +5320,7 @@ describe("Wandering Mage board animation states", () => {
         unit.ensureVisual(new Container(), gridSettings);
         expect(unit.isPlayingOneShotAnimation("cast")).toBe(true);
         expect(internals.oneShotAnim?.frameDurationsMs).toEqual(
-            [80, 140, 160, 220, 200, 160, 140, 100].map((duration) => duration / 1.15),
+            [80, 140, 160, 220, 200, 160, 140, 100].map((duration) => duration / 1.15 / 1.2),
         );
         expect(internals.sprite?.texture.width).toBe(256);
         expect(internals.sprite?.texture.height).toBe(256);
@@ -8073,14 +8072,15 @@ describe("RenderableUnit revealed roster card", () => {
         );
     });
 
-    test("revealed opponents retain grayscale but never paint their occupied cells", () => {
+    test("revealed opponents retain full colour but never paint their occupied cells", () => {
         const { unit, worldRoot } = revealedUnit();
         expect(cardOf(unit)).toBeUndefined();
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y) as Sprite;
         expect(sprite).toBeDefined();
         const grayscale = sprite.filters?.find((filter) => filter instanceof ColorMatrixFilter);
-        expect(grayscale).toBeDefined();
-        expect(grayscale!.resolution).toBe("inherit");
+        expect(grayscale).toBeUndefined();
+        expect(sprite.alpha).toBe(1);
+        expect(sprite.tint).toBe(0xffffff);
         unit.setPosition(pos.x + 300, pos.y);
         unit.ensureVisual(worldRoot, gridSettings);
         expect(cardOf(unit)).toBeUndefined();
@@ -8126,6 +8126,7 @@ describe("RenderableUnit steady-state overlays", () => {
         hourglassContainer?: Container;
         hourglassSprite?: Sprite;
         stunContainer?: Container;
+        stunStars?: { root: Container };
         stunSprite?: Sprite;
         respondContainer?: Container;
         respondSprite?: Sprite;
@@ -8469,7 +8470,7 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(internals.respondContainer?.y).toBe(responseEmblemY);
     });
 
-    test("replaces the hourglass with the forged hand stun badge in the same flag slot", () => {
+    test("replaces the hourglass with stars around the flag without loading a hand icon", () => {
         const requestedTextures: string[] = [];
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (textureName) => {
             requestedTextures.push(textureName);
@@ -8482,26 +8483,20 @@ describe("RenderableUnit steady-state overlays", () => {
 
         unit.ensureVisual(worldRoot, gridSettings);
         const internals = unit as unknown as OverlayInternals;
-        const { bannerLeft: flagLeft, flagHeight } = internals.badgeDrawState!.geometry;
-
-        expect(requestedTextures).toContain("stun_hand_forged");
+        expect(requestedTextures).not.toContain("stun_hand_forged");
         expect(internals.hourglassContainer).toBeUndefined();
-        expect(internals.stunContainer?.parent).toBe(internals.badgeContainer);
-        expect(internals.stunContainer?.visible).toBe(true);
-        expect(internals.stunContainer?.y).toBe(0);
-        const layout = stunBadgeLayout(flagHeight, flagLeft, DEFAULT_STUN_BADGE_TUNING);
-        expect(internals.stunSprite?.width).toBeCloseTo(layout.width);
-        expect(internals.stunSprite?.height).toBeCloseTo(layout.height);
-        expect(internals.stunContainer!.x).toBeCloseTo(layout.centerX);
+        expect(internals.stunContainer).toBeUndefined();
+        expect(internals.stunStars?.root.visible).toBe(true);
+        expect(internals.stunStars?.root.parent).toBe(internals.badgeContainer?.parent);
 
         unit.setSkipping(false);
         unit.ensureVisual(worldRoot, gridSettings);
-        expect(internals.stunContainer?.visible).toBe(false);
+        expect(internals.stunContainer).toBeUndefined();
         expect(internals.hourglassContainer?.visible).toBe(true);
         expect(internals.hourglassContainer?.parent).toBe(internals.badgeContainer);
     });
 
-    test("shows the board stun badge immediately when an already-rendered unit receives the effect", () => {
+    test("hides the hourglass without showing a hand when an already-rendered unit receives stun", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setOnHourglass(true);
@@ -8515,11 +8510,10 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(unit.applyEffect(stun!)).toBe(true);
 
         expect(internals.hourglassContainer?.visible).toBe(false);
-        expect(internals.stunContainer?.visible).toBe(true);
-        expect(internals.stunContainer?.parent).toBe(internals.badgeContainer);
+        expect(internals.stunContainer).toBeUndefined();
 
         unit.deleteEffect("Stun");
-        expect(internals.stunContainer?.visible).toBe(false);
+        expect(internals.stunContainer).toBeUndefined();
         expect(internals.hourglassContainer?.visible).toBe(true);
     });
 
@@ -8543,15 +8537,14 @@ describe("RenderableUnit steady-state overlays", () => {
         } else {
             expect(unit.applyEffect(new EffectFactory().makeEffect("Paralysis")!)).toBe(true);
         }
-        expect(textures).toContain("immobilized_boot_forged");
+        expect(textures).toContain("immobilized_chain_ball");
         expect(internals.immobilizedContainer?.visible).toBe(true);
         expect(internals.immobilizedContainer?.parent).toBe(internals.badgeContainer);
         expect(internals.immobilizedSprite!.scale.y).toBeLessThan(0);
+        const immobilizedX = internals.immobilizedContainer!.x;
         unit.setSkipping(true);
-        expect(internals.stunContainer?.visible).toBe(true);
-        expect(internals.immobilizedContainer!.x + internals.immobilizedSprite!.width / 2).toBeLessThan(
-            internals.stunContainer!.x - internals.stunSprite!.width / 2,
-        );
+        expect(internals.stunContainer).toBeUndefined();
+        expect(internals.immobilizedContainer!.x).toBeCloseTo(immobilizedX);
         unit.setVisualGhost(true);
         expect(internals.immobilizedContainer?.visible).toBe(false);
         unit.setVisualGhost(false);
@@ -8561,7 +8554,7 @@ describe("RenderableUnit steady-state overlays", () => {
             unit.ensureVisual(root, gridSettings);
         } else unit.deleteEffect("Paralysis");
         expect(internals.immobilizedContainer?.visible).toBe(false);
-        expect(internals.stunContainer?.visible).toBe(true);
+        expect(internals.stunContainer).toBeUndefined();
     });
 
     test("immobilized badge follows Whirlpool and Web movement locks independently", () => {
@@ -8635,7 +8628,7 @@ describe("RenderableUnit steady-state overlays", () => {
         }
     });
 
-    test("shows the board stun badge immediately when ranked snapshot metadata arrives", () => {
+    test("keeps the hand badge hidden when ranked stun metadata arrives", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
@@ -8643,11 +8636,10 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(internals.stunContainer).toBeUndefined();
 
         unit.setSkipping(true);
-        expect(internals.stunContainer?.visible).toBe(true);
-        expect(internals.stunContainer?.parent).toBe(internals.badgeContainer);
+        expect(internals.stunContainer).toBeUndefined();
 
         unit.setSkipping(false);
-        expect(internals.stunContainer?.visible).toBe(false);
+        expect(internals.stunContainer).toBeUndefined();
     });
 
     test("keeps crossed swords visible when a lap flip clears responded before the next rendered frame", () => {
@@ -9012,38 +9004,19 @@ describe("RenderableUnit filter lifecycle", () => {
         expect(internals.motionBlurFilter).toBeUndefined();
     });
 
-    test("shares one immutable grayscale filter across the revealed opponent roster", () => {
-        const first = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
-        const second = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
-        const root = new Container();
-        first.setVisualRevealed(true);
-        second.setVisualRevealed(true);
-        first.ensureVisual(root, gridSettings);
-        second.ensureVisual(root, gridSettings);
-
-        type RevealedInternals = { desaturateFilter?: object };
-        expect((first as unknown as RevealedInternals).desaturateFilter).toBe(
-            (second as unknown as RevealedInternals).desaturateFilter,
-        );
-        first.destroyVisuals();
-        second.destroyVisuals();
-    });
-
-    test("destroys every unit-owned filter without destroying the shared grayscale filter", () => {
+    test("destroys every unit-owned filter once", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
-        const destroyCalls = [0, 0, 0, 0, 0];
+        const destroyCalls = [0, 0, 0, 0];
         const filters = destroyCalls.map((_, index) => ({ destroy: () => destroyCalls[index]++ }));
         const internals = unit as unknown as {
             motionBlurFilter?: (typeof filters)[number];
             dodgeBlurFilter?: (typeof filters)[number];
-            desaturateFilter?: (typeof filters)[number];
             battlefieldStyleFilter?: (typeof filters)[number];
             silhouetteShadowBlurFilter?: (typeof filters)[number];
         };
         [
             internals.motionBlurFilter,
             internals.dodgeBlurFilter,
-            internals.desaturateFilter,
             internals.battlefieldStyleFilter,
             internals.silhouetteShadowBlurFilter,
         ] = filters;
@@ -9051,7 +9024,7 @@ describe("RenderableUnit filter lifecycle", () => {
         unit.destroyVisuals();
         unit.destroyVisuals();
 
-        expect(destroyCalls).toEqual([1, 1, 0, 1, 1]);
+        expect(destroyCalls).toEqual([1, 1, 1, 1]);
     });
 
     test("releases unit-owned filters when the shared battlefield container destroys its sprite", () => {

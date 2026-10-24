@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
@@ -79,7 +79,7 @@ type VisualsInternals = {
     areaImpacts: { graphics: Container }[];
     resurrectBursts: { graphics: Container }[];
     mirrorRebounds: { container: Container }[];
-    windSpears: { container: Container }[];
+    skewerSpears?: { active: boolean };
     slashes: { container: Container }[];
     bloodSprays: { container: Container }[];
     fireTexture?: Texture;
@@ -94,6 +94,13 @@ afterEach(() => {
 });
 
 describe("floating received damage", () => {
+    let now = 1000;
+    let clock: { mockRestore(): void };
+    beforeEach(() => {
+        now = 1000;
+        clock = spyOn(performance, "now").mockImplementation(() => now);
+    });
+    afterEach(() => clock.mockRestore());
     test("uses the hover kill icon and rises vertically from the stack flag", () => {
         const { visuals, attached } = makeVisuals();
         const skullTexture = new Texture({ source: new TextureSource({ width: 256, height: 256 }) });
@@ -117,7 +124,8 @@ describe("floating received damage", () => {
         expect(floating.y).toBe(flagTop.y + 80 + 6);
 
         const startY = floating.y;
-        visuals.update(0.4);
+        now += 325;
+        visuals.update(0.325);
         expect(floating.x).toBe(flagTop.x);
         // Halfway through easeOutCubic, 87.5% of the reduced 50.4px rise is complete.
         expect(floating.y - startY).toBeCloseTo(72 * 0.7 * 0.875);
@@ -137,7 +145,8 @@ describe("floating received damage", () => {
         let previousY = labels.map((label) => label.y);
         expect(new Set(previousY).size).toBe(3);
         for (let frame = 0; frame < 7; frame++) {
-            visuals.update(0.1);
+            now += 50;
+            visuals.update(0.05);
             labels.forEach((label, index) => {
                 expect(label.x).toBe(flagTop.x);
                 expect(label.y).toBeGreaterThan(previousY[index]);
@@ -156,6 +165,7 @@ describe("floating received damage", () => {
 
         const floating = internals(visuals).floatingTexts[0].container;
         const children = [...floating.children];
+        now += 1000;
         visuals.update(1);
 
         expect(floating.destroyed).toBe(true);
@@ -367,13 +377,6 @@ describe("spawnDeathVfx kill-specific death animations", () => {
     test("a full clear tears down every detached combat overlay and its owned textures", () => {
         const { visuals } = makeVisuals();
         visuals.spawnMagicMirrorRebound({ x: 0, y: 0 }, { x: 100, y: 0 }, 80);
-        visuals.spawnWindSpear(
-            [
-                { x: 0, y: 0 },
-                { x: 100, y: 0 },
-            ],
-            80,
-        );
         visuals.spawnSlash({ x: 50, y: 50 }, 80);
         visuals.spawnBloodSpray({ x: 50, y: 50 }, 80, { x: 1, y: 0 });
         visuals.spawnResurrectionBurst({ x: 50, y: 50 }, 80);
@@ -390,7 +393,6 @@ describe("spawnDeathVfx kill-specific death animations", () => {
             ...state.areaImpacts.map((effect) => effect.graphics),
             ...state.resurrectBursts.map((effect) => effect.graphics),
             ...state.mirrorRebounds.map((effect) => effect.container),
-            ...state.windSpears.map((effect) => effect.container),
             ...state.slashes.map((effect) => effect.container),
             ...state.bloodSprays.map((effect) => effect.container),
         ];
@@ -400,7 +402,7 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(state.areaImpacts).toHaveLength(0);
         expect(state.resurrectBursts).toHaveLength(0);
         expect(state.mirrorRebounds).toHaveLength(0);
-        expect(state.windSpears).toHaveLength(0);
+        expect(state.skewerSpears?.active ?? false).toBe(false);
         expect(state.slashes).toHaveLength(0);
         expect(state.bloodSprays).toHaveLength(0);
         expect(overlays.every((overlay) => overlay.destroyed)).toBe(true);

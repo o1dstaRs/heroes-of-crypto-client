@@ -1,0 +1,112 @@
+.pick-preview-stages {
+    position: fixed;
+    z-index: 1400;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: max(10px, env(safe-area-inset-left));
+    display: flex;
+    width: 230px;
+    max-width: calc(100vw - 164px);
+    align-items: center;
+    padding: 3px;
+    border: 1px solid #8b7147;
+    border-radius: 7px;
+    background: linear-gradient(#292217, #100e0b);
+    box-shadow:
+        0 2px 12px #000c,
+        inset 0 0 0 1px #d3af6533;
+    color: #ead9b4;
+    color-scheme: dark;
+}
+
+.pick-preview-stages select {
+    min-width: 0;
+    width: 100%;
+    height: 30px;
+    border: 0;
+    padding: 0 4px;
+    background: #17130e;
+    color: inherit;
+    font:
+        12px Georgia,
+        serif;
+    cursor: pointer;
+}
+
+.pick-preview-stages button {
+    flex: 0 0 27px;
+    height: 30px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font:
+        24px Georgia,
+        serif;
+    cursor: pointer;
+}
+
+.pick-preview-stages button:hover:not(:disabled) {
+    background: #b8964d33;
+}
+
+.pick-preview-stages button:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.pick-preview-stages :focus-visible {
+    outline: 2px solid #e7be65;
+    outline-offset: -2px;
+}
+
+.pick-preview-order {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: max-content;
+    max-width: min(420px, calc(100vw - 24px));
+    padding: 6px;
+    border: 1px solid #8b7147;
+    border-radius: 7px;
+    background: #17130ef5;
+    box-shadow: 0 2px 12px #000c;
+}
+
+.pick-preview-order .pick-preview-order-help {
+    flex: 0 0 100%;
+    padding: 3px 4px;
+    font: 12px/1.4 sans-serif;
+}
+
+.pick-preview-stages .pick-preview-order button {
+    flex: 0 0 auto;
+    height: 30px;
+    padding: 0 10px;
+    background: #b8964d22;
+    font: 12px sans-serif;
+}
+
+.pick-preview-stages .pick-preview-order button[aria-pressed="true"] {
+    background: #b8964d44;
+}
+
+.pick-stat-order {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+}
+
+.pick-stat-order-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    width: 100%;
+}
+
+.pick-stat-order-grid button {
+    text-align: left;
+}

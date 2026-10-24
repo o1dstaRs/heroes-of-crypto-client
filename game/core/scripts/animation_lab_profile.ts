@@ -17,6 +17,8 @@ const ranges: Record<string, [number, number]> = {
     "stone.playbackRate": [0.25, 4],
     "stone.settledHoldMs": [0, 1000],
     "cyclops.clothPeriodMs": [300, 10000],
+    "stun.tiltDeg": [0, 90],
+    "stun.rotationDeg": [-180, 180],
 };
 for (const unit of ["mantis", "griffin"])
     for (const phase of ["takeoffSpeed", "travelSpeed", "landingSpeed"]) ranges[`${unit}.${phase}`] = [0.25, 3];

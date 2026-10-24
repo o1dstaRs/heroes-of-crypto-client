@@ -14,11 +14,10 @@ describe("AI turn brain sprite loop", () => {
         expect(meta.pauseMs).toBe(0);
         let cursor = 0;
         for (let frame = 0; frame < 8; frame++) {
-            const duration = meta.frameDurationsMs![frame];
-            expect(duration).toBeCloseTo(150 / 1.66, 8);
+            const duration = 650 / meta.frameCount;
             expect(aiTurnBrainFrameAt(cursor + 0.001)).toBe(frame);
             expect(aiTurnBrainFrameAt(cursor + duration - 0.001)).toBe(frame);
-            expect(aiTurnBrainFrameAt(meta.loopDurationMs! * 100 + cursor + 0.001)).toBe(frame);
+            expect(aiTurnBrainFrameAt(650 * 100 + cursor + 0.001)).toBe(frame);
             cursor += duration;
         }
         expect(aiTurnBrainFrameAt(-1)).toBe(0);
@@ -58,7 +57,7 @@ describe("AI turn brain sprite loop", () => {
             expect(node.y).toBeCloseTo(300 + 64 * 0.07);
             expect(node.scale.y).toBeCloseTo(-1.6);
             expect(sprite.scale.x).toBe(scale);
-            now = animationAtlases["Vfx Ai Turn Brain"].loop.loopDurationMs! * 100 + 1;
+            now = 650 * 100 + 1;
             loop.update();
             expect(loop.active).toBe(true);
             expect(sprite.texture.frame.x).toBe(0);

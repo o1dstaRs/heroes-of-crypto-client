@@ -1,3 +1,4 @@
+import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -109,7 +110,7 @@ export class AngelResurrectionPops {
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const ageMs = Math.max(0, now - pop.startedAtMs);
+            const ageMs = overheadEffectElapsedMs(now - pop.startedAtMs, 1200);
             const frame = angelResurrectionFrameAt(ageMs);
             const position = pop.follow?.();
             if (frame === undefined || (pop.follow && !position)) {

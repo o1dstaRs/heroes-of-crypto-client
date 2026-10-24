@@ -1,3 +1,4 @@
+import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -107,11 +108,11 @@ export class BattleRoarPops {
         this.update(0);
     }
     public update(_dtSeconds: number): void {
-        // Scene steps are fixed and capped under load. A one-second UI effect must use real elapsed time.
+        // Scene steps are fixed and capped under load. An overhead UI effect must use real elapsed time.
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const ageMs = Math.max(0, now - pop.startedAtMs);
+            const ageMs = overheadEffectElapsedMs(now - pop.startedAtMs, pop.durationMs);
             const frame = battleRoarFrameAt(ageMs, pop.durationMs);
             if (frame === undefined) {
                 pop.container.destroy({ children: true });
