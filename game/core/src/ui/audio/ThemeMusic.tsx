@@ -17,23 +17,17 @@ import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from 
  * The arena theme ("The Besieged Town") and the shared sound control.
  *
  * Mounted ONCE, above the router, rather than inside each screen: a single long-lived <audio> element means
- * walking from matchmaking to the lobby list and on to the portal does not restart the track, which is
- * exactly what re-mounting per route would do.
+ * moving from the ranked arena into a match does not restart the track.
  *
- * Which menu screens sing is decided here (see SINGING_ROUTES). A ranked match is not one of those routes:
+ * The ranked arena carries the menu playlist. A ranked match uses its own track:
  * it plays "Iron and Silk" from the moment it is found until the player leaves, fight included. The offline
  * sandbox at "/" stays quiet.
- *
- * The site (heroesofcrypto.io) plays the same track on mode select and profile through its own copy of this,
- * site/src/components/ThemeMusic.astro. It is a DIFFERENT ORIGIN and cannot see this localStorage, so the
- * redirect pages under /play hand the setting over in the query string; the keys and the parameter names
- * used by settings/audioLevels have to match on both sides.
  *
  * All levels live in settings/audioLevels. The medallion controls master sound and offers the music
  * checkbox on every route; music and effects keep their separate balances in player settings.
  */
 const FADE_MS = 900;
-/** How long two songs overlap. Shared with the home page so the arena and the game menus change the same way. */
+/** How long two songs overlap. */
 const CROSSFADE_MS = 2200;
 
 /**
@@ -42,7 +36,7 @@ const CROSSFADE_MS = 2200;
  * matchmaking screen, where the wait can be minutes.
  *
  * Each entry ships as Opus/WebM and MP3; the browser picks. Adding a track is a matter of dropping both
- * encodes into public/audio and appending here (and to the site's copy, which keeps its own list).
+ * encodes into public/audio and appending here.
  */
 const PLAYLIST = [
     { webm: "/audio/the_besieged_town.webm", mp3: "/audio/the_besieged_town.mp3" },
@@ -87,18 +81,14 @@ const isLiveGamePath = (pathname: string): boolean => /^\/game\/[^/]+\/?$/.test(
  */
 const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_and_silk.mp3" } as const;
 
-/** Route prefixes that carry the menu theme. A ranked match sings via the match-track flag instead, and
- * the offline sandbox stays quiet.
+const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+
+/** The ranked arena carries the menu theme. A ranked match sings via the match-track flag instead.
  *
  * Note this governs what PLAYS, not where the speaker is offered: the control sits in the bottom-right
  * corner on every screen, the silent ones included. It is a setting, not a now-playing indicator — muting
  * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored. */
-const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
-
-const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
-
-const shouldSing = (pathname: string): boolean =>
-    SINGING_ROUTES.some((route) => pathname === route || pathname.startsWith(route));
+const shouldSing = (pathname: string): boolean => /^\/play\/?$/.test(pathname);
 
 export const ThemeMusic: React.FC = () => {
     const { pathname } = useLocation();
