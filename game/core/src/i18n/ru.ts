@@ -1090,12 +1090,12 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "A private lobby needs a 4-digit PIN": "Для приватного лобби нужен 4-значный PIN",
     "Failed to load lobbies": "Не удалось загрузить лобби",
     "Failed to create lobby": "Не удалось создать лобби",
-    "non-refundable": "без возврата",
-    "Free while the season has minted no gold": "Бесплатно, пока в сезоне не отчеканено золото",
-    "Lobbies are free until the season has minted gold and calibrated its first players.":
-        "Лобби бесплатны, пока сезон не отчеканит золото и не откалибрует первых игроков.",
-    "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.":
-        "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, и задаёт цену. Она списывается с создателя и не возвращается; то, что вы ставите на саму игру, — отдельно.",
+    "Unable to load the lobby price. Please try again shortly.":
+        "Не удалось загрузить стоимость лобби. Попробуйте ещё раз чуть позже.",
+    "Opening a lobby costs at least 1 G. If it expires after 24 hours without starting, its opening fee is returned. Cancelling it yourself does not return the fee.":
+        "Открытие лобби стоит не меньше 1 G. Если через 24 часа игра не начнётся, лобби закроется, а плата за открытие вернётся. При самостоятельной отмене плата не возвращается.",
+    "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price, with a minimum of 1 G. If the lobby expires after 24 hours without starting, its opening fee is returned. Cancelling it yourself does not return the fee; game wagers are separate.":
+        "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, задаёт цену, не меньше 1 G. Если через 24 часа игра не начнётся, лобби закроется, а плата за открытие вернётся. При самостоятельной отмене плата не возвращается; ставки на игру — отдельно.",
     "Opening a lobby costs {price} G.": "Открытие лобби стоит {price} G.",
     "Opening a lobby costs {price} G — you have {purse} G available":
         "Открытие лобби стоит {price} G — вам доступно {purse} G",
