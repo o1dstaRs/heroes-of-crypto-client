@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
 import catalog from "../src/ui/sidebarPortraitPages.json";
 
@@ -27,11 +28,16 @@ for (const [name, animation] of Object.entries(catalog.animations)) {
     const rawFile = path.join(temporary, "master.raw");
     // Keep the decoded master on disk. Only one atlas row and one page need to reside in JS memory.
     try {
-        const decoded = await sharp(source).ensureAlpha().raw().toFile(rawFile);
+        const decoded = await sharp(source).metadata();
+        if (!decoded.width || !decoded.height) throw new Error(`Missing portrait dimensions: ${name}`);
+        await pipeline(sharp(source).ensureAlpha().raw(), createWriteStream(rawFile));
+        Bun.gc(true);
         const cols = decoded.width / animation.frameWidth;
         if (!Number.isInteger(cols)) throw new Error(`Invalid portrait geometry: ${name}`);
         const raw = await open(rawFile, "r");
         try {
+            if ((await raw.stat()).size !== decoded.width * decoded.height * 4)
+                throw new Error(`Unexpected decoded portrait size: ${name}`);
             for (const page of animation.pages) {
                 const filename = inside(page.releasePath);
                 const previous = await readFile(filename).catch((error: NodeJS.ErrnoException) => {
@@ -76,5 +82,6 @@ for (const [name, animation] of Object.entries(catalog.animations)) {
     } finally {
         await rm(temporary, { recursive: true, force: true });
     }
+    Bun.gc(true);
     console.log(`Verified restored pages: ${name}`);
 }

@@ -5,7 +5,8 @@ import { resolve } from "node:path";
 const workspace = process.argv[2] ?? "core";
 if (workspace !== "core" && workspace !== "common") throw new Error("Expected core or common workspace");
 const root = resolve(import.meta.dir, workspace === "core" ? "../game/core" : "../game/heroes-of-crypto-common");
-const pattern = workspace === "core" ? "src/**/*.test.{ts,tsx,js}" : "test/**/*.test.{ts,tsx,js}";
+const pattern =
+    workspace === "core" ? "src/**/*.{test,spec}.{ts,tsx,js,jsx}" : "{src,test}/**/*.{test,spec}.{ts,tsx,js,jsx}";
 const files = [...new Bun.Glob(pattern).scanSync({ cwd: root })].sort();
 if (!files.length) throw new Error("No workspace tests discovered");
 let failed = false;

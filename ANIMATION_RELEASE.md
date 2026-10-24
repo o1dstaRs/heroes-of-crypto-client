@@ -24,39 +24,16 @@ folders with their directory structure intact. The old compact archive and sourc
 | `resources-05.zip` | `3c7e436c479acb706bab1ffc5e7eea9f22d65a766eb97ffb65333f34fd48e0b6` |
 | `resources-06.zip` | `2e1942919d034d57cc2440c05608dcd10e112eeb8e574e8fc81dac19f5a42d7f` |
 
-Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+):
-
-```sh
-python3 restore_compact.py --drive "/path/to/downloaded/heroesofcrypto"
-```
-
-Then extract `animation-release-patch-20261017.zip` into that same directory. It supplies the Griffin
-question-bow aura and Cyclops boulder that were previously carried in `source.zip`. For these PRs,
-use Git for source code; downloading the old `source.zip` is unnecessary. The asset manifest in this
-PR is the final verification authority. The portable kit's `verify_compact.py` also checks source
-files, so it is intended for installations that extracted `source.zip` as well.
-
-Finally extract `animation-review-fixes-20261017.zip` there. It supplies the current Fireball and
-Arcane Ward Blessing icons and seven registered atlas variants that the earlier portable package
-omitted. Wandering Mage already had Fireball in its configured spellbook.
-
-Also download [sidebar_portraits_paged_v1](https://drive.google.com/drive/folders/1VMZgBqWKLP2WyAcP9pbThHO9vBESbzb1) from the shared Drive's `heroesofcrypto/animations/output`
-and place that folder under the restored release's `animations/output`. This supplement adds 1,084
-portrait pages and 55 metadata files; its hashes are included in the release manifest. The compact
-archives above predate this supplement. Its reproducible recipe, master references, encoding report,
-dark-background visual comparison and verified synchronization receipt are in
-[sidebar-portrait-streaming-20261017-pr194](https://drive.google.com/drive/folders/1VsDYY5JcBhVdTZRgl0hnov-Uu2ejItm-) under `heroesofcrypto/image-sources`.
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The six archives
+and the verified shared files contain the required runtime assets, settings reference and site exports.
+No older compact archive, source ZIP, patch ZIP or separately downloaded portrait-page supplement is
+required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.
 
 Do not substitute differently hashed source atlases for the approved rendered copies. In particular,
 the Nightmare quarter-resolution attacks and Troglodyte walk variants intentionally retain the
 approved bytes that the running local sandbox used.
 
-The 2026-10-22 Ember Covenant supplement adds `ember_covenant_blessing_256.webp` and
-`ember_covenant_ring.webp`. Copy these two files from the shared Drive source package
-`heroesofcrypto/image-sources/hydra-ember-covenant/2026-10-22-v3` into the restored release's
-`heroesofcrypto-assets/images` directory. Their approved hashes and sizes are pinned in the release
-manifest. The source package also preserves the prompts, reference artwork, processing recipe,
-previous icon and an interactive preview of the flag-centered fire effect.
+The Ember Covenant icon and ring are included in this release with their approved hashes.
 
 The 2026-10-24 cleanup removes 452 retired runtime images, including superseded UI and environment
 exports, old creature thumbnails, and five unused artifact icons. The restore manifest no longer

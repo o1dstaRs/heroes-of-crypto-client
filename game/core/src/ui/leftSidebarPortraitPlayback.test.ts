@@ -4,6 +4,7 @@ import {
     createForwardPortraitClock,
     createPortraitIdleClock,
     isRefinedPortrait,
+    sidebarPortraitSourceFile,
     REFINED_HIGHER_LEVEL_PORTRAIT_FRAMES,
     REFINED_PORTRAIT_FRAMES,
     isRefinedLevelOnePortrait,
@@ -79,4 +80,20 @@ test("all 39 higher-level portraits use the full clock while Life level one stay
     for (const slug of ["peasant", "squire", "blacksmith", "arbalester"]) {
         expect(isRefinedPortrait(`/images/${slug}_left_screen_idle_atlas.webp`)).toBe(false);
     }
+});
+
+test("deployed content hashes preserve the approved portrait playback selection", () => {
+    for (const slug of Object.keys(REFINED_PORTRAIT_FRAMES)) {
+        const deployed = `/assets/${slug}_left_screen_idle_atlas-Dhpkex1K.webp?v=3#portrait`;
+        expect(isRefinedPortrait(deployed)).toBe(true);
+        expect(isRefinedLevelOnePortrait(deployed)).toBe(slug in REFINED_LEVEL_ONE_PORTRAIT_FRAMES);
+        expect(sidebarPortraitSourceFile(deployed)).toBe(`${slug}_left_screen_idle_atlas.webp`);
+    }
+    for (const slug of ["peasant", "hydra"]) {
+        expect(sidebarPortraitSourceFile(`/assets/${slug}_left_screen_idle_atlas-aB_12-xy.webp`)).toBe(
+            `${slug}_left_screen_idle_atlas.webp`,
+        );
+    }
+    expect(isRefinedPortrait("/assets/unknown_left_screen_idle_atlas-Dhpkex1K.webp")).toBe(false);
+    expect(sidebarPortraitSourceFile("/images/custom-portrait.webp")).toBe("custom-portrait.webp");
 });

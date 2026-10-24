@@ -1,3 +1,9 @@
+/** Vite adds a content hash to atlas filenames in deployed builds. */
+export const sidebarPortraitSourceFile = (src: string): string => {
+    const file = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
+    return file.replace(/(_atlas)-[A-Za-z0-9_-]{8,}(?=\.webp$)/, "$1");
+};
+
 /** Complete source movies: never trim the turn or recovery to hide a loop defect. */
 export const REFINED_LEVEL_ONE_PORTRAIT_FRAMES: Readonly<Record<string, number>> = Object.freeze({
     fairy: 100,
@@ -15,7 +21,7 @@ export const REFINED_LEVEL_ONE_PORTRAIT_FRAMES: Readonly<Record<string, number>>
 });
 
 export const isRefinedLevelOnePortrait = (src: string): boolean => {
-    const file = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
+    const file = sidebarPortraitSourceFile(src);
     return Object.keys(REFINED_LEVEL_ONE_PORTRAIT_FRAMES).some(
         (slug) => file === `${slug}_left_screen_idle_atlas.webp`,
     );
@@ -70,7 +76,7 @@ export const REFINED_PORTRAIT_FRAMES: Readonly<Record<string, number>> = Object.
 });
 
 export const isRefinedPortrait = (src: string): boolean => {
-    const file = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
+    const file = sidebarPortraitSourceFile(src);
     return Object.keys(REFINED_PORTRAIT_FRAMES).some((slug) => file === `${slug}_left_screen_idle_atlas.webp`);
 };
 

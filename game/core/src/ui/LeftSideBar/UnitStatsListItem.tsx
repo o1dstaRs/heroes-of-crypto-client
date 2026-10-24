@@ -51,6 +51,7 @@ import {
     createHydraPortraitIdleClock,
     createPortraitIdleClock,
     isRefinedPortrait,
+    sidebarPortraitSourceFile,
 } from "../leftSidebarPortraitPlayback";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
@@ -155,7 +156,7 @@ const AtlasAnimation: React.FC<{
     );
     const isImageLoaded = loadedSource === src;
     const refinedPortrait = isRefinedPortrait(src);
-    const redrawnPeasant = src.split(/[?#]/, 1)[0].split("/").pop() === "peasant_left_screen_idle_atlas.webp";
+    const redrawnPeasant = sidebarPortraitSourceFile(src) === "peasant_left_screen_idle_atlas.webp";
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const onLoadedRef = React.useRef(onLoaded);
     React.useLayoutEffect(() => {
@@ -211,7 +212,7 @@ const AtlasAnimation: React.FC<{
         const image = getDecodedImage(src) as HTMLImageElement | undefined;
         if (!image) return;
         const portraitFrame = refinedPortrait
-            ? (src.split(/[?#]/, 1)[0].split("/").pop() === "hydra_left_screen_idle_atlas.webp"
+            ? (sidebarPortraitSourceFile(src) === "hydra_left_screen_idle_atlas.webp"
                   ? createHydraPortraitIdleClock
                   : createPortraitIdleClock)(
                   meta.frameCount ?? 1,
@@ -344,7 +345,7 @@ const PagedPortraitCanvas = ({
             playback === "ping-pong"
                 ? buildAtlasPingPongTiming(meta)
                 : { frameForElapsed: (elapsed: number) => Math.floor(elapsed / (1000 / meta.fps)) % meta.frameCount };
-        const sourceFile = config.src.split(/[?#]/, 1)[0].split("/").pop();
+        const sourceFile = sidebarPortraitSourceFile(config.src);
         const frameForElapsed = isRefinedPortrait(config.src)
             ? (sourceFile === "hydra_left_screen_idle_atlas.webp"
                   ? createHydraPortraitIdleClock
