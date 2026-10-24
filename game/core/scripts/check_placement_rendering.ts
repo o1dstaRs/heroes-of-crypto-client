@@ -6,6 +6,7 @@ const suites = [
     "./src/scenes/placementPreviewScale.test.ts",
     "./src/scenes/placementTextureReadiness.test.ts",
     "./src/scenes/DryadPlacement.test.ts",
+    "./src/scenes/PlacementManager.ranked.test.ts",
 ];
 
 export function checkPlacementRendering(): void {
