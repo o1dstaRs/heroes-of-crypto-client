@@ -13,8 +13,11 @@ import {
 } from "@heroesofcrypto/common";
 
 import { AIController, cloneAIKnownPaths, type IAIContext } from "./AIController";
+import { DamageStatisticHolder } from "./DamageStats";
 import type { LocalModelOpponentConfig } from "./LocalModelOpponent";
 import type { RenderableUnit } from "./RenderableUnit";
+import { searchSandboxAiDecision, type ISandboxAiSearchHost } from "./sandboxAiSearch";
+import { SceneLog } from "./SceneLog";
 import { SceneSettings } from "./SceneSettings";
 
 /** The board the stubs below are measured on; the specs build their own equivalents per case. */
@@ -477,6 +480,144 @@ describe("AIController", () => {
                 setSelectedAttackType: mock(() => undefined),
                 ...overrides,
             }) as unknown as IAIContext;
+
+        it("casts the native Mage's lethal Fireball through sandbox search and the real engine", async () => {
+            HoC.FightStateManager.getInstance().reset();
+            const fightProperties = HoC.FightStateManager.getInstance().getFightProperties();
+            const constants = HoC.GridConstants;
+            const settings = new GridSettings(
+                constants.GRID_SIZE,
+                constants.MAX_Y,
+                constants.MIN_Y,
+                constants.MAX_X,
+                constants.MIN_X,
+                constants.MOVEMENT_DELTA,
+                constants.UNIT_SIZE_DELTA,
+            );
+            const grid = new HoC.Grid(settings, HoC.GridVals.NORMAL);
+            const unitsHolder = new HoC.UnitsHolder(grid);
+            const effects = new HoC.EffectFactory();
+            const abilityFactory = new HoC.AbilityFactory(effects);
+            const native = (team: number, faction: string, name: string, amount: number, x: number, y: number) => {
+                const unit = HoC.Unit.createUnit(
+                    HoC.HoCConfig.getCreatureConfig(team, faction, name, "", amount),
+                    settings,
+                    team,
+                    HoC.UnitVals.CREATURE,
+                    abilityFactory,
+                    effects,
+                    false,
+                );
+                const position = GridMath.getPositionForFootprintAnchor(
+                    settings,
+                    { x, y },
+                    unit.getFootprintWidth(),
+                    unit.getFootprintHeight(),
+                );
+                unit.setPosition(position.x, position.y);
+                grid.occupyCells(unit.getCells(), unit.getId(), team, unit.getAttackRange(), false, false);
+                unitsHolder.addUnit(unit);
+                return unit;
+            };
+            const mage = native(TeamVals.LEFT, "Chaos", "Wandering Mage", 50, 2, 7);
+            native(TeamVals.LEFT, "Life", "Peasant", 30, 2, 9);
+            const shooter = native(TeamVals.RIGHT, "Chaos", "Orc", 10, 13, 8);
+            unitsHolder.refreshStackPowerForAllUnits();
+            const sceneLog = new SceneLog();
+            const attackHandler = new HoC.AttackHandler(settings, grid, sceneLog, new DamageStatisticHolder());
+            const moveHandler = new HoC.MoveHandler(settings, grid, unitsHolder);
+            const pathHelper = new HoC.PathHelper(settings);
+            let activeId = mage.getId();
+            const engine = new HoC.GameActionEngine({
+                fightProperties,
+                grid,
+                unitsHolder,
+                attackHandler,
+                moveHandler,
+                sceneLog,
+                getCurrentActiveUnitId: () => activeId || undefined,
+            });
+            fightProperties.startFight();
+            fightProperties.setTeamUnitsAlive(TeamVals.LEFT, 2);
+            fightProperties.setTeamUnitsAlive(TeamVals.RIGHT, 1);
+            fightProperties.startTurn(TeamVals.LEFT, 1_000);
+            const host: ISandboxAiSearchHost = {
+                grid,
+                unitsHolder,
+                pathHelper,
+                attackHandler,
+                moveHandler,
+                sceneLog,
+                abilityFactory,
+                fightProperties: () => fightProperties,
+                canLandRangeAttack: (unit) =>
+                    attackHandler.canLandRangeAttack(unit, grid.getEnemyAggrMatrixByUnitId(unit.getId())),
+                isBarrelCellAllowed: () => true,
+                canPlaceUnit: () => true,
+                canSplitUnit: () => false,
+            };
+            const applied: GameAction[] = [];
+            const fireballCharges = () =>
+                mage
+                    .getSpells()
+                    .find((spell) => spell.getName() === "Fireball")!
+                    .getAmount();
+            const searchEvidence: {
+                incumbent: GameAction[];
+                selected: GameAction[];
+                charges: number;
+                targetDead: boolean;
+            }[] = [];
+            const search = mock<NonNullable<IAIContext["searchAiDecision"]>>((unit, version, incumbent, decision) => {
+                const selected = searchSandboxAiDecision(host, unit, version, incumbent, decision);
+                searchEvidence.push({ incumbent, selected, charges: fireballCharges(), targetDead: shooter.isDead() });
+                return selected;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unitsHolder.getAllUnits().get(activeId) as RenderableUnit | undefined,
+                getGrid: () => grid,
+                getGridMatrix: () => grid.getMatrix(),
+                getUnitsHolder: () => unitsHolder,
+                getAttackHandler: () => attackHandler,
+                getPathHelper: () => pathHelper,
+                getSceneLog: () => sceneLog,
+                searchAiDecision: search,
+                isAuthoritativeAction: () => false,
+                applyGameAction: (action: GameAction) => {
+                    applied.push(action);
+                    const result = engine.apply(action);
+                    if (result.events.some((event) => event.type === "turn_completed")) activeId = "";
+                    return result.completed;
+                },
+            });
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            const errors = spyOn(console, "error").mockImplementation(() => {});
+            try {
+                await controller.performAction(true);
+                expect(search).toHaveBeenCalledTimes(1);
+                expect(errors).not.toHaveBeenCalled();
+                expect(searchEvidence).toMatchObject([
+                    {
+                        incumbent: [{ type: "cast_spell", spellName: "Fireball" }],
+                        selected: [{ type: "cast_spell", spellName: "Fireball" }],
+                        charges: 1,
+                        targetDead: false,
+                    },
+                ]);
+                expect(applied).toMatchObject([
+                    { type: "cast_spell", spellName: "Fireball", targetId: shooter.getId() },
+                ]);
+                expect(shooter.isDead()).toBe(true);
+                expect(fireballCharges()).toBe(0);
+                expect(controller.performingAction).toBe(false);
+            } finally {
+                errors.mockRestore();
+                controller.destroy();
+                HoC.FightStateManager.getInstance().reset();
+            }
+        });
 
         it("applies the plan returned by search instead of the policy plan", async () => {
             const unit = createUnit();
