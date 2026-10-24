@@ -22,7 +22,7 @@ const flush = async () => {
     for (let index = 0; index < 30; index++) await Promise.resolve();
 };
 
-const fixture = (redirect = false) => {
+const fixture = (redirect = false, shooter = "Gargantuan") => {
     const events: string[] = [];
     const width = gs.getMaxX() - gs.getMinX();
     const logical = (fraction: number) => ({ x: gs.getMinX() + width * fraction, y: gs.getMaxY() * 0.5 });
@@ -32,7 +32,7 @@ const fixture = (redirect = false) => {
         const unit = Object.assign(Object.create(RenderableUnit.prototype) as RenderableUnit, {
             amount: 3,
             getId: () => id,
-            getName: () => (id === "giant" ? "Gargantuan" : "Squire"),
+            getName: () => (id === "giant" ? shooter : "Squire"),
             getPosition: () => position,
             getCells: () => [GridMath.getCellForPosition(gs, position)],
             getTeam: () => (id === "giant" ? 1 : 2),
@@ -49,7 +49,10 @@ const fixture = (redirect = false) => {
             getCumulativeHp: () => unit.amount * 10,
             isDead: () => unit.amount <= 0,
             getAbility: (name: string) => (id === "giant" && name === "Double Throw" ? {} : undefined),
-            hasAbilityActive: (name: string) => id === "giant" && name === "Area Throw",
+            hasAbilityActive: (name: string) =>
+                id === "giant" && name === (shooter === "Cyclops" ? "Large Caliber" : "Area Throw"),
+            hasAnimationState: () => false,
+            playCyclopsLabRangedThrow: () => false,
         });
         return unit;
     };
@@ -65,6 +68,8 @@ const fixture = (redirect = false) => {
     Object.assign(projectiles, {
         ensureProjectileTexture: () => Promise.resolve(),
         spawnGargantuanImpact: () => {},
+        spawnCyclopsImpact: () => {},
+        ensureGargantuanImpactTexture: () => Promise.resolve(),
     });
     cleanup.push(() => {
         projectiles.destroy();
@@ -123,7 +128,7 @@ const fixture = (redirect = false) => {
         noteDeathBlowsFromAttackEvent: () => {},
         renderAreaImpactVfx: (hits: unknown[]) => events.push(`blast:${hits.length}`),
         showFleshShieldAbsorbedDamage: () => new Map(),
-        showWaterShieldAbsorbs: () => {},
+        showShieldAbsorbs: () => {},
         offsetReplayDamagePosition: (position: HoCMath.XY) => position,
         playUnitCombatSound: (unit: typeof giant, role: string) => events.push(`${unit.getId()}:${role}`),
         playReplayOneShot: (unit: typeof giant, state: string) => {
@@ -131,6 +136,8 @@ const fixture = (redirect = false) => {
             return Promise.resolve();
         },
         combatVisuals: {
+            noteCyclopsKill: (_attacker: RenderableUnit, victim: RenderableUnit) =>
+                events.push(`${victim.getId()}:gore`),
             showFloatingDamage: (_position: HoCMath.XY, amount: number) => events.push(`damage:${amount}`),
             showDamageVisualsFromDiff: () => {},
         },
@@ -229,6 +236,61 @@ test.each(["targeted", "free"])(
         expect(f.events.filter((entry) => entry.startsWith("blast:"))).toEqual(["blast:2", "blast:1"]);
     },
 );
+
+test.each(["targeted", "free"])(
+    "%s Covenant absorbs land with each rock, without the former extra delay",
+    async (mode) => {
+        const f = fixture();
+        const shown: number[] = [];
+        const secondary = [47, 53].map((amount) => ({
+            source: "ember_covenant",
+            unitId: "near",
+            position: f.near.getPosition(),
+            amount,
+            unitsDied: 0,
+        }));
+        Object.assign(f.damage, { secondary });
+        f.scene.showShieldAbsorbs = Sandbox.prototype["showShieldAbsorbs"];
+        f.scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
+        const pending = mode === "targeted" ? f.playTargeted() : f.playFree();
+        await flush();
+        f.advance(0.99);
+        expect(shown).toEqual([]);
+        f.advance(0.02);
+        expect(shown).toEqual([47]);
+        await flush();
+        f.advance(0.99);
+        expect(shown).toEqual([47]);
+        f.advance(0.02);
+        expect(shown).toEqual([47, 53]);
+        await pending;
+        f.scene.showShieldAbsorbs(secondary, { x: 0, y: 0 });
+        expect(shown).toEqual([47, 53]);
+    },
+);
+
+test.each(["targeted", "free"])("%s Water Shield absorption appears at the first rock impact", async (mode) => {
+    const f = fixture();
+    const shown: number[] = [];
+    const secondary = [
+        { source: "water_shield", unitId: "near", position: f.near.getPosition(), amount: 47, unitsDied: 0 },
+    ];
+    Object.assign(f.damage, { secondary });
+    Object.assign(f.damage.splash[0], { amount: 0, unitsDied: 0 });
+    f.scene.showShieldAbsorbs = Sandbox.prototype["showShieldAbsorbs"];
+    f.scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
+    const pending = mode === "targeted" ? f.playTargeted() : f.playFree();
+    await flush();
+    f.advance(0.99);
+    expect(shown).toEqual([]);
+    f.advance(0.02);
+    expect(shown).toEqual([47]);
+    await flush();
+    f.advance(1.01);
+    await pending;
+    f.scene.showShieldAbsorbs(secondary, { x: 0, y: 0 });
+    expect(shown).toEqual([47]);
+});
 
 test("live free throws resolve once and retain first-wave victims until their impact", async () => {
     const f = fixture();
@@ -408,4 +470,99 @@ test.each(["targeted", "free"])("cancelling a %s throw suppresses damage and the
     expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual([]);
     expect([f.near.getDisplayedAmount(), f.far.getDisplayedAmount()]).toEqual([3, 3]);
     expect(f.events).not.toContain("turn");
+});
+
+test.each(["targeted", "live free", "replay free"])(
+    "Cyclops %s multi-stack deaths are marked only at each killing boulder's contact",
+    async (mode) => {
+        const f = fixture(false, "Cyclops");
+        f.damage.splash[2].unitsDied = 2;
+        f.areaEvent.unitIdsDied = ["near", "far"];
+        f.record.events.push({ type: "unit_destroyed", unitId: "near" });
+        if (mode !== "targeted") {
+            f.scene.createActionEngine = () => ({
+                apply: () => {
+                    f.near.amount = 0;
+                    f.far.amount = 0;
+                    f.units.clear();
+                    return { completed: true, events: f.record.events };
+                },
+            });
+        }
+        const pending = mode === "targeted" ? f.playTargeted() : f.playFree(mode === "replay free");
+        await flush();
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+        f.advance(0.99);
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+        f.advance(0.02);
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["far:gore"]);
+        expect(f.events.indexOf("far:gore")).toBeLessThan(f.events.indexOf("far:death"));
+        expect(f.events).toContain("near:hit");
+        await flush();
+        expect(f.shots).toHaveLength(2);
+        f.advance(1.01);
+        await pending;
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["far:gore", "near:gore"]);
+        expect(f.events.indexOf("near:gore")).toBeLessThan(f.events.indexOf("near:death"));
+    },
+);
+
+test.each(["Cyclops", "Gargantuan"])(
+    "%s keeps ordinary deaths without two directly destroyed stacks",
+    async (shooter) => {
+        const f = fixture(false, shooter);
+        const pending = f.playTargeted();
+        await flush();
+        f.advance(1.01);
+        await flush();
+        f.advance(1.01);
+        await pending;
+        expect(f.events).toContain("far:death");
+        expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+    },
+);
+
+test("a Cyclops counter owns only its enemy splash deaths at its boulder's contact", async () => {
+    const f = fixture(false, "Cyclops");
+    f.near.getName = () => "Elf";
+    const splash = [
+        { unitId: "giant", position: f.giant.getPosition(), amount: 1, unitsDied: 0 },
+        { unitId: "near", position: f.near.getPosition(), amount: 30, unitsDied: 3 },
+        { unitId: "far", position: f.far.getPosition(), amount: 30, unitsDied: 3 },
+    ];
+    const pending = f.scene.playCombatExchange(
+        f.near,
+        f.giant,
+        { ...f.areaEvent, type: "unit_attacked", attackType: "range", damage: { amount: 1, splash } },
+        [
+            { attackerId: "near", targetId: "giant", amount: 1, unitsDied: 0, response: false, hitIndex: 0 },
+            {
+                attackerId: "giant",
+                targetId: "near",
+                amount: 30,
+                unitsDied: 3,
+                lethal: true,
+                response: true,
+                hitIndex: 0,
+            },
+        ],
+        (unit: RenderableUnit) => f.events.push(`${unit.getId()}:death`),
+        new Map(f.units),
+        [],
+        false,
+        { amountsBefore: new Map([...f.units.keys()].map((id) => [id, 3])), deadIds: new Set(["near", "far"]) },
+    );
+    await flush();
+    expect(f.shots).toHaveLength(2);
+    f.advance(0.99);
+    expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
+    f.advance(0.02);
+    await pending;
+    expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["near:gore", "far:gore"]);
+    expect(f.events.filter((entry) => entry.endsWith(":death")).sort()).toEqual(["far:death", "near:death"]);
+    expect(f.events.filter((entry) => entry.startsWith("damage:")).sort()).toEqual([
+        "damage:1",
+        "damage:30",
+        "damage:30",
+    ]);
 });

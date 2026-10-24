@@ -388,7 +388,9 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("doctrine_") ||
         key.endsWith("_augment_256") ||
         /_left_screen_x2(?:_[a-z0-9]+)*$/.test(key) ||
-        /_left_screen_idle_atlas$/.test(key) ||
+        // Include alternate portrait exports without an idle state, plus reduced-size sheets.
+        /_left_screen_(?:[a-z0-9]+_)*atlas(?:_(?:half|quarter))?$/.test(key) ||
+        /^arbalester_v8(?:_page_\d{2})?_atlas$/.test(key) ||
         /_portrait_full(?:_v\d+)?$/.test(key)
     );
 }
@@ -507,6 +509,7 @@ export function isLazyProjectileAssetKey(key: string): boolean {
 }
 
 const LAZY_COMBAT_EFFECT_ASSETS = new Set([
+    "ember_covenant_ring",
     "vfx_common_absorb_pop_atlas",
     "vfx_common_absorb_pop_atlas_quarter",
     "vfx_common_heal_pop_atlas",
@@ -619,6 +622,7 @@ export function isLazyRosterAssetKey(key: string): boolean {
 // castable spells deliberately stay out of this set because the synchronous Pixi spellbook uses them.
 // A newly-added ability is safe by default: it remains in core until its icon is explicitly classified.
 const LAZY_ABILITY_ASSETS = new Set([
+    "ember_covenant_blessing_256",
     "double_punch_256",
     "backstab_256",
     "handyman_256",

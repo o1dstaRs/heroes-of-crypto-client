@@ -8,10 +8,23 @@ import {
     type UnitProperties,
 } from "@heroesofcrypto/common";
 
+import { PlayAimKind, type PlayAim } from "../api/play_protocol";
 import { PixiGameManager } from "./PixiGameManager";
 import type { SceneConstructor } from "./PixiScene";
 
 class SceneDouble {
+    public moveIntentSink: Parameters<PixiGameManager["SetMoveIntentSink"]>[0];
+    public spellIntentSink: Parameters<PixiGameManager["SetSpellIntentSink"]>[0];
+    public aimIntentSink: Parameters<PixiGameManager["SetAimIntentSink"]>[0];
+    public setMoveIntentSink(sink: typeof this.moveIntentSink): void {
+        this.moveIntentSink = sink;
+    }
+    public setSpellIntentSink(sink: typeof this.spellIntentSink): void {
+        this.spellIntentSink = sink;
+    }
+    public setAimIntentSink(sink: typeof this.aimIntentSink): void {
+        this.aimIntentSink = sink;
+    }
     public premiumEnabled = false;
     public setPremiumSandboxGuidance(enabled: boolean): void {
         this.premiumEnabled = enabled;
@@ -28,6 +41,72 @@ class SceneDouble {
 }
 
 describe("PixiGameManager scene reload", () => {
+    it("retains ranked intent relays registered before the first scene exists and after a reload", () => {
+        const manager = new PixiGameManager();
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+        });
+        const spell = mock();
+        const move = mock();
+        const aim = mock();
+        const shot: PlayAim = { kind: PlayAimKind.MOVE, unitId: "caster", cell: { x: 4, y: 5 } };
+        manager.SetSpellIntentSink(spell);
+        manager.SetMoveIntentSink(move);
+        manager.SetAimIntentSink(aim);
+        manager.LoadGame();
+        const first = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        first.spellIntentSink?.("caster", "Heal");
+        first.moveIntentSink?.("caster", { x: 4, y: 5 });
+        first.aimIntentSink?.(shot);
+        expect(spell).toHaveBeenCalledWith("caster", "Heal");
+        expect(move).toHaveBeenCalledWith("caster", { x: 4, y: 5 });
+        expect(aim).toHaveBeenCalledWith(shot);
+
+        manager.LoadGame(true);
+        const next = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(next).not.toBe(first);
+        const cleared: PlayAim = { kind: PlayAimKind.CLEAR, unitId: "next" };
+        next.spellIntentSink?.("next", "Spiritual Armor");
+        next.moveIntentSink?.("next", undefined);
+        next.aimIntentSink?.(cleared);
+        expect(spell).toHaveBeenLastCalledWith("next", "Spiritual Armor");
+        expect(move).toHaveBeenLastCalledWith("next", undefined);
+        expect(aim).toHaveBeenLastCalledWith(cleared);
+
+        manager.SetSpellIntentSink(undefined);
+        manager.SetMoveIntentSink(undefined);
+        manager.SetAimIntentSink(undefined);
+        expect(next.spellIntentSink).toBeUndefined();
+        expect(next.moveIntentSink).toBeUndefined();
+        expect(next.aimIntentSink).toBeUndefined();
+        manager.LoadGame(true);
+        const offline = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(offline.spellIntentSink).toBeUndefined();
+        expect(offline.moveIntentSink).toBeUndefined();
+        expect(offline.aimIntentSink).toBeUndefined();
+    });
+
+    it("does not revive a relay removed while the scene was still loading", () => {
+        const manager = new PixiGameManager();
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+        });
+        manager.SetSpellIntentSink(mock());
+        manager.SetMoveIntentSink(mock());
+        manager.SetAimIntentSink(mock());
+        manager.SetSpellIntentSink(undefined);
+        manager.SetMoveIntentSink(undefined);
+        manager.SetAimIntentSink(undefined);
+        manager.LoadGame();
+        const scene = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(scene.spellIntentSink).toBeUndefined();
+        expect(scene.moveIntentSink).toBeUndefined();
+        expect(scene.aimIntentSink).toBeUndefined();
+    });
     it("blocks board clicks and fight start while the selected map is still loading", () => {
         const manager = new PixiGameManager();
         let loading = true;

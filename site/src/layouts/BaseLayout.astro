@@ -3,6 +3,7 @@ import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import { content, languageSwitchPath, type Language } from "../lib/site-data";
 import { abilityCount, unitCount } from "../lib/units-data";
+import { HOME_HERO_IMAGE } from "../lib/hero-media";
 import "../styles/global.css";
 
 interface Props {
@@ -21,6 +22,7 @@ const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.me
 const resolvedDescription = description ?? copy.meta.description;
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
+const isHomePage = Astro.url.pathname === "/" || Astro.url.pathname === "/ru/";
 const gameURL = new URL(lang === "ru" ? "/ru/" : "/", siteOrigin);
 const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
 // hreflang alternates: every page mirrors EN <-> RU, so map this URL to both and let search
@@ -116,12 +118,12 @@ const jsonLd = {
         {publishedTime && <meta property="article:published_time" content={publishedTime} />}
         {tags.map((tag) => <meta property="article:tag" content={tag} />)}
 
-        <link rel="preload" as="image" href="/assets/images/preview_game.webp" />
+        {isHomePage && <link rel="preload" as="image" href={HOME_HERO_IMAGE} fetchpriority="high" />}
         <link
             rel="preload"
             as="font"
-            type="font/ttf"
-            href="/assets/fonts/hoc-forge/HoCForge-Regular.ttf"
+            type="font/woff2"
+            href="/assets/fonts/hoc-forge/HoCForge-Regular.woff2"
             crossorigin
         />
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />

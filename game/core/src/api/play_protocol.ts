@@ -70,6 +70,30 @@ export const PlaySpellIntentState = {
     CLEARED: 2,
 } as const;
 
+export const PlayAimKind = {
+    CLEAR: 1,
+    MOVE: 2,
+    MELEE: 3,
+    RANGED: 4,
+    SPELL: 5,
+} as const;
+
+export interface PlayAim {
+    kind: (typeof PlayAimKind)[keyof typeof PlayAimKind];
+    unitId: string;
+    cell?: PlayCell;
+    targetUnitId?: string;
+    attackFrom?: PlayCell;
+    targetSide?: number;
+    targetOrientation?: number;
+    aimDirection?: number;
+    spellName?: string;
+}
+
+export interface OpponentAim extends PlayAim {
+    expiresAt: number;
+}
+
 export const PlayEventKind = {
     UNKNOWN: 0,
     SNAPSHOT: 1,
@@ -212,6 +236,8 @@ export interface PlayUnitState {
     baseArmor?: number;
     /** Server-computed FINAL base attack (proto field 43) — the attack twin of baseArmor. */
     baseAttack?: number;
+    helpingHandCasterId?: string;
+    helpingHandPenaltyId?: string;
     /**
      * The unit's board footprint in cells (proto fields 45/46): footprintWidth across x, footprintHeight
      * up y, anchored on the max-corner baseCell. `size` cannot express a rectangle — a 2x1 and a 1x2 would
@@ -333,7 +359,7 @@ export interface PlaySnapshot {
     leftDoctrine?: number;
     rightDoctrine?: number;
     /** Placement-time army augments picked per team (augment level enum ids; 0 = none). Opponent values are
-     * hidden (0) during placement, revealed at fight start (same as artifacts). */
+     * hidden (0) during placement, revealed at fight start. */
     leftAugmentPlacement?: number;
     leftAugmentArmor?: number;
     leftAugmentMight?: number;
@@ -404,6 +430,7 @@ export interface PlayAction {
     // Fire Wall's rotated aim: 1-based FireWallOrientation (1=HORIZONTAL,2=DIAGONAL_DOWN,3=VERTICAL,
     // 4=DIAGONAL_UP; 0/undefined = legacy horizontal). 1-based so HORIZONTAL (0) survives the zero-skip.
     targetOrientation?: number;
+    aimDirection?: number;
     attackType?: number;
     spellName?: string;
     hasLavaCell?: boolean;
@@ -414,6 +441,9 @@ export interface PlayAction {
     inputSource?: number;
     pointerEvents?: number;
     tabHidden?: boolean;
+    aimKind?: number;
+    intentSequence?: number;
+    aimCell?: PlayCell;
 }
 
 export interface PlayIntent {
@@ -423,6 +453,15 @@ export interface PlayIntent {
     /** See PlaySpellIntentState. Absent or 0 means this hint is a move aim. */
     spellState?: number;
     spellName?: string;
+    aimKind?: number;
+    intentSequence?: number;
+    targetUnitId?: string;
+    aimCell?: PlayCell;
+    attackFrom?: PlayCell;
+    targetSide?: number;
+    targetOrientation?: number;
+    aimDirection?: number;
+    leaseMs?: number;
 }
 
 /** What an ephemeral opponent hint should change. Spell and move channels do not clear each other. */
@@ -616,7 +655,7 @@ class ProtoReader {
             return;
         }
         if (wireType === 2) {
-            this.offset += this.varintNumber();
+            this.bytesValue();
             return;
         }
         if (wireType === 5) {
@@ -726,6 +765,10 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.int32(23, action.inputSource);
     writer.int32(24, action.pointerEvents);
     writer.bool(25, action.tabHidden);
+    writer.int32(26, action.aimKind);
+    writer.uint64(27, action.intentSequence);
+    writer.int32(28, action.aimDirection);
+    if (action.aimCell) writer.message(29, encodeCell(action.aimCell));
     return writer.finish();
 };
 
@@ -830,6 +873,24 @@ const decodePlayIntent = (bytes: Uint8Array): PlayIntent => {
             intent.spellState = reader.varintNumber();
         } else if (field === 5) {
             intent.spellName = reader.string();
+        } else if (field === 6) {
+            intent.aimKind = reader.varintNumber();
+        } else if (field === 7) {
+            intent.intentSequence = reader.varintNumber();
+        } else if (field === 8) {
+            intent.targetUnitId = reader.string();
+        } else if (field === 9) {
+            intent.aimCell = decodeCell(reader.bytesValue());
+        } else if (field === 10) {
+            intent.attackFrom = decodeCell(reader.bytesValue());
+        } else if (field === 11) {
+            intent.targetSide = reader.varintNumber();
+        } else if (field === 12) {
+            intent.targetOrientation = reader.varintNumber();
+        } else if (field === 13) {
+            intent.leaseMs = reader.varintNumber();
+        } else if (field === 14) {
+            intent.aimDirection = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }
@@ -1224,6 +1285,10 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.footprintWidth = reader.varintNumber();
         } else if (field === 46) {
             unit.footprintHeight = reader.varintNumber();
+        } else if (field === 47) {
+            unit.helpingHandCasterId = reader.string();
+        } else if (field === 48) {
+            unit.helpingHandPenaltyId = reader.string();
         } else {
             reader.skip(wireType);
         }

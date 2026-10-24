@@ -23,7 +23,7 @@ function fixture(passive = true) {
             spawnLightningStrike: () => undefined,
         },
         showFleshShieldAbsorbedDamage: () => undefined,
-        showWaterShieldAbsorbs: () => undefined,
+        showShieldAbsorbs: () => undefined,
         reboundMirrorPosition: () => ({ x: 100, y: 100 }),
         moveAnimManager: { isMoving: () => false },
         creatureAnimationLabPlacedUnit: () => ({ ok: true, unit: holder }),

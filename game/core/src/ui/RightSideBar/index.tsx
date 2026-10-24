@@ -18,7 +18,7 @@ import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
+import React, { useEffect, useState, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -101,6 +101,7 @@ export default function RightSideBar({
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
     const damageListSpaceRef = useRef<HTMLDivElement>(null);
+    const damageListViewportRef = useRef<HTMLDivElement>(null);
     const [damageListViewportHeight, setDamageListViewportHeight] = useState<number | null>(null);
     // The button row gives up its AI slot when the scene offers no AI toggle (ranked, lobby, vs-AI), and the
     // log takes that height. Read without the throwing hook: the draft screen mounts this bar with no ButtonProvider.
@@ -139,16 +140,19 @@ export default function RightSideBar({
         return () => resizeObserver.disconnect();
     }, [gameStarted]);
 
-    const [barSize, setBarSize] = useState(280);
+    useLayoutEffect(() => {
+        // Damage rows can reorder after every attack. Do not let browser scroll anchoring keep an old
+        // creature in view and hide the leaders; each new snapshot starts at the top of the standings.
+        if (damageListViewportRef.current) {
+            damageListViewportRef.current.scrollTop = 0;
+        }
+    }, [unitDamageStatistics, gameStarted, damageListViewportHeight]);
 
-    const adjustBarSize = useCallback(() => {
-        setBarSize(battleSidebarWidth(windowSize.width, windowSize.height));
-    }, [windowSize]);
+    const barSize = battleSidebarWidth(windowSize.width, windowSize.height);
 
     useEffect(() => {
-        adjustBarSize();
         manager.HomeCamera();
-    }, [adjustBarSize, manager]);
+    }, [windowSize.width, windowSize.height, manager]);
 
     const [attackText, setAttackText] = useState("");
 
@@ -268,6 +272,7 @@ export default function RightSideBar({
     return (
         <Sheet
             className="Sidebar"
+            data-right-sidebar
             sx={{
                 position: "fixed",
                 zIndex: 1, // Lower z-index to allow overlays on top
@@ -421,6 +426,8 @@ export default function RightSideBar({
                                     <Typography
                                         sx={{
                                             flex: 1,
+                                            alignSelf: "flex-end",
+                                            mb: "2px",
                                             textAlign: "center",
                                             fontFamily: hocDisplayFontFamily,
                                             fontSize: "1.139rem",
@@ -440,6 +447,7 @@ export default function RightSideBar({
                                 </Box>
                                 <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
                                     <Box
+                                        ref={damageListViewportRef}
                                         sx={{
                                             height:
                                                 damageListViewportHeight === null
@@ -449,6 +457,8 @@ export default function RightSideBar({
                                             overflowY: "auto",
                                             overflowX: "hidden",
                                             scrollSnapType: "y mandatory",
+                                            scrollPaddingBlock: "10px",
+                                            overflowAnchor: "none",
                                             p: "10px",
                                             ...hocBronzeScrollSx,
                                         }}
@@ -520,7 +530,7 @@ export default function RightSideBar({
                     sidebarWidth={barSize}
                     rightStack
                     centerInRow={Boolean(rankedFooter)}
-                    centerMinWidth={premiumFightVisible ? 132 : undefined}
+                    centerMinWidth={rankedFooter ? 224 : premiumFightVisible ? 176 : undefined}
                     center={
                         premiumFightVisible ? (
                             <>

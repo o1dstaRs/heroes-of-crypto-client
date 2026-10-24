@@ -84,6 +84,45 @@ describe("access-token response rotation", () => {
     });
 });
 
+describe("access-token storage quota", () => {
+    const originalSetItem = localStorageStub.setItem;
+
+    afterEach(() => {
+        localStorageStub.setItem = originalSetItem;
+    });
+
+    test("drops replays, then dev drafts, until the session token fits", () => {
+        jest.useFakeTimers({ now: 1_800_000_000_000 });
+        const session = `Bearer ${makeToken(1_800_000_000 + 3_600, "login")}`;
+        const quota = session.length + "en".length + "gold".length;
+        localStorageStub.setItem = (key: string, value: string) => {
+            const next =
+                [...values.entries()]
+                    .filter(([existing]) => existing !== key)
+                    .reduce((sum, [, stored]) => sum + stored.length, 0) + value.length;
+            if (next > quota) {
+                throw new DOMException(
+                    "Failed to execute 'setItem' on 'Storage': Setting the value of 'accessToken' exceeded the quota.",
+                    "QuotaExceededError",
+                );
+            }
+            originalSetItem(key, value);
+        };
+        values.set("hoc:language", "en");
+        values.set("hoc:sandbox-replays:v1", "r".repeat(40));
+        values.set("hoc-dev-battlefield-creature-framing-v31", "d".repeat(40));
+        values.set("hoc.ranked.armyColor", "gold");
+
+        expect(() => setStoredAccessToken(session)).not.toThrow();
+
+        expect(localStorage.getItem("accessToken")).toBe(session);
+        expect(localStorage.getItem("hoc:sandbox-replays:v1")).toBeNull();
+        expect(localStorage.getItem("hoc-dev-battlefield-creature-framing-v31")).toBeNull();
+        expect(localStorage.getItem("hoc:language")).toBe("en");
+        expect(localStorage.getItem("hoc.ranked.armyColor")).toBe("gold");
+    });
+});
+
 describe("access-token expiration", () => {
     test("an old expiration timer cannot clear the newer rotated token", () => {
         const nowMs = 1_800_000_000_000;

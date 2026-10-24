@@ -50,6 +50,8 @@ import { MapBadge, MapRevealModal } from "./MapReveal";
 import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
+import { draftShellSx } from "./draftShell";
+import { DraftBanSummary } from "./DraftBanSummary";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -70,7 +72,6 @@ import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
-const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v10;
 const pickCommitTextureImage = images.ui_draft_action_stone_texture_v1;
 const OPPONENT_ARMY_BACKGROUND = "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))";
 const OPPONENT_ARMY_TEXT_COLOR = "#f0e7e9";
@@ -489,32 +490,7 @@ const DRAFT_ACTION_HEIGHT = `${72 * DRAFT_ACTION_SCALE}px`;
 const DRAFT_ACTION_WIDTH = `min(${560 * DRAFT_ACTION_WIDTH_SCALE}px, ${84 * DRAFT_ACTION_WIDTH_SCALE}%)`;
 const DRAFT_ACTION_FONT_SIZE = `${23.5 * DRAFT_ACTION_SCALE}px`;
 
-export const draftShellSx = {
-    width: "100%",
-    height: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    p: 0,
-    // Share the warm obsidian-and-ember palette used by the fight-results screen so the draft
-    // belongs to the same visual family instead of reading as a cooler charcoal surface.
-    backgroundColor: "#0b0704",
-    // The selected hearth tavern is a complete edge-to-edge scene. Stretch the original plate to the
-    // viewport on both axes so the full composition remains visible without cover-cropping either side.
-    backgroundImage: `url(${draftBackgroundImage})`,
-    backgroundSize: "100% 100%",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    color: "#e9e6df",
-    overflow: "hidden",
-    position: "relative",
-    fontFamily: hocDisplayFontFamily,
-    // The complete draft surface uses the same carved fantasy face as the sandbox controls. Joy components
-    // (buttons, chips and inputs) declare their own font, so target descendants explicitly as well.
-    "& *, & *::before, & *::after": {
-        fontFamily: `${hocDisplayFontFamily} !important`,
-    },
-} as const;
+export { draftShellSx } from "./draftShell";
 
 /** The factor the fixed board is drawn at: 1.05 whenever it fits, less on windows too small to hold it. */
 export const useDraftScale = (): number => {
@@ -2371,6 +2347,74 @@ const placeIntoLevelSlots = (picked: number[]): { id: number; level: number }[] 
     return ARMY_LAYOUT.map((level) => ({ id: byLevel[level].shift() ?? 0, level }));
 };
 
+const DraftArtifactSlots: React.FC<{
+    artifactTier1: number;
+    artifactTier2: number;
+    onArtifactInspect?: (artifact: Artifact.ArtifactProperties) => void;
+    onInspectEnd?: () => void;
+}> = ({ artifactTier1, artifactTier2, onArtifactInspect, onInspectEnd }) => {
+    const t1 = artifactTier1 > 0 ? Artifact.TIER1_ARTIFACTS[artifactTier1 as Artifact.Tier1Artifact] : undefined;
+    const t2 = artifactTier2 > 0 ? Artifact.TIER2_ARTIFACTS[artifactTier2 as Artifact.Tier2Artifact] : undefined;
+    return (
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+            {[t1, t2].map((a, tier) => {
+                const img = a ? images[a.imageKey] : undefined;
+                return (
+                    <Tooltip
+                        key={`artifact-tier-${tier + 1}`}
+                        title={
+                            a ? (
+                                <Box sx={{ maxWidth: 300 }}>
+                                    <Typography level="title-sm" textColor="inherit">
+                                        {a.name}
+                                    </Typography>
+                                    <Typography level="body-sm" textColor="inherit">
+                                        {Artifact.formatArtifactDescription(a)}
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                `Tier-${tier + 1} artifact — none picked`
+                            )
+                        }
+                        variant="soft"
+                    >
+                        <Box
+                            aria-label={`Tier-${tier + 1} artifact: ${a?.name ?? "none picked"}`}
+                            onMouseEnter={a ? () => onArtifactInspect?.(a) : undefined}
+                            onMouseLeave={a ? () => onInspectEnd?.() : undefined}
+                            sx={{
+                                width: 32,
+                                height: 32,
+                                flex: "0 0 auto",
+                                borderRadius: "7px",
+                                display: "grid",
+                                placeItems: "center",
+                                border: a ? "1px solid rgba(245,158,11,0.45)" : "1px dashed rgba(245,158,11,0.28)",
+                                bgcolor: a ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.03)",
+                                overflow: "hidden",
+                            }}
+                        >
+                            {img && (
+                                <img
+                                    src={img}
+                                    alt={a?.name ?? ""}
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "cover",
+                                        borderRadius: "inherit",
+                                        transform: "scale(1.15)",
+                                    }}
+                                />
+                            )}
+                        </Box>
+                    </Tooltip>
+                );
+            })}
+        </Box>
+    );
+};
+
 // Sticky bottom-center summary of the player's own draft so far — chosen doctrine (doctrine), picked units, and
 // picked artifacts. Stays pinned as the draft advances so the player always sees the army they're building.
 export const MyDraftBar: React.FC<{
@@ -2400,8 +2444,6 @@ export const MyDraftBar: React.FC<{
     // keep showing that persisted choice instead of falling back to the old no-doctrine emoji.
     const visibleDoctrine = doctrine > 0 ? doctrine : getPreGameDoctrine();
     const visibleDoctrineCopy = getDoctrineCopy(visibleDoctrine);
-    const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
-    const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
     // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
     const slots = placeIntoLevelSlots(picked);
     // This rail is the player's OWN army, so it flies their chosen colour. The opponent's rail opposite is
@@ -2552,50 +2594,12 @@ export const MyDraftBar: React.FC<{
                 <BarDivider />
                 {/* BOTH artifact slots are always here — the tier-2 one as an empty frame until it is
                     drafted. Rendering it only once picked shifted everything left of it mid-draft. */}
-                <Box sx={{ display: "flex", gap: 0.5 }}>
-                    {[t1, t2].map((a, tier) => {
-                        const img = a ? images[a.imageKey] : undefined;
-                        return (
-                            <Tooltip
-                                key={`artifact-tier-${tier + 1}`}
-                                title={a ? a.name : `Tier-${tier + 1} artifact — not drafted yet`}
-                                variant="soft"
-                            >
-                                <Box
-                                    onMouseEnter={a ? () => onArtifactInspect?.(a) : undefined}
-                                    onMouseLeave={a ? () => onInspectEnd?.() : undefined}
-                                    sx={{
-                                        width: 32,
-                                        height: 32,
-                                        flex: "0 0 auto",
-                                        borderRadius: "7px",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        border: a
-                                            ? "1px solid rgba(245,158,11,0.45)"
-                                            : "1px dashed rgba(245,158,11,0.28)",
-                                        bgcolor: a ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.03)",
-                                        overflow: "hidden",
-                                    }}
-                                >
-                                    {img && (
-                                        <img
-                                            src={img}
-                                            alt={a?.name ?? ""}
-                                            style={{
-                                                width: "100%",
-                                                height: "100%",
-                                                objectFit: "cover",
-                                                borderRadius: "inherit",
-                                                transform: "scale(1.15)",
-                                            }}
-                                        />
-                                    )}
-                                </Box>
-                            </Tooltip>
-                        );
-                    })}
-                </Box>
+                <DraftArtifactSlots
+                    artifactTier1={artifactTier1}
+                    artifactTier2={artifactTier2}
+                    onArtifactInspect={onArtifactInspect}
+                    onInspectEnd={onInspectEnd}
+                />
             </Sheet>
         </Box>
     );
@@ -2624,6 +2628,8 @@ interface StainedGlassProps {
 // is the set of slot indices (0..5) your scouting doctrine watches — a watched-but-empty slot shows the eye.
 export const OpponentDraftBar: React.FC<{
     opponentPicked: number[];
+    artifactTier1?: number;
+    artifactTier2?: number;
     opponentLabel: string;
     // Opponent slot indices (0..5) this player's scouting doctrine actually watches — server-authoritative
     // (SSE `ws` / slotsSeen), seeded at doctrine selection: all six for Spymaster, the three tier-block-random
@@ -2633,7 +2639,7 @@ export const OpponentDraftBar: React.FC<{
     onInspectEnd?: () => void;
     /** Seeds this match's synergy draw — the rails show the four synergies actually in play. */
     gameId?: string;
-}> = ({ opponentPicked, watchedSlots, onInspect, onInspectEnd, gameId }) => {
+}> = ({ opponentPicked, artifactTier1, artifactTier2, watchedSlots, onInspect, onInspectEnd, gameId }) => {
     // Build the 6 fixed level-ordered slots directly from the slot-aligned reveal array (no bucketing), so each
     // creature lands at its real slot index — preserving bundle-vs-picked ordering within a level.
     const slots = ARMY_LAYOUT.map((level, i) => ({ id: opponentPicked[i] ?? 0, level }));
@@ -2779,6 +2785,12 @@ export const OpponentDraftBar: React.FC<{
                         );
                     })}
                 </Box>
+                {(artifactTier1 !== undefined || artifactTier2 !== undefined) && (
+                    <>
+                        <BarDivider />
+                        <DraftArtifactSlots artifactTier1={artifactTier1 ?? 0} artifactTier2={artifactTier2 ?? 0} />
+                    </>
+                )}
             </Sheet>
         </Box>
     );
@@ -3407,6 +3419,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             </Box>
                         </>
                     )}
+
+                    {pickPhase !== PickPhaseVals.DOCTRINE && <DraftBanSummary banned={banned} />}
 
                     <Box
                         data-testid="draft-choice-action-zone"

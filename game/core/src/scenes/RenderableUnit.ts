@@ -3,6 +3,12 @@ import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
 import { isAiSearchSimulating } from "./aiSearchGuard";
 import { initializeUnitPresentationFields } from "./unitPresentationFields";
+import {
+    captureReplayAppliedSpell,
+    restoreReplayAppliedSpell,
+    restoreReplayEffect,
+    type HelpingHandReplayStatState,
+} from "./sandbox/HelpingHandReplayState";
 import { syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
 import { isTrollLabCastGuard, syncTrollLabCastGlow } from "./TrollLabCastVisuals";
 import { syncTrollLabCastMatch } from "./TrollLabCastMatch";
@@ -93,6 +99,7 @@ import { syncNomadIdleVisuals } from "./NomadIdleVisuals";
 import { syncHyenaIdleVisuals } from "./HyenaIdleVisuals";
 import { syncMonkLabIdle } from "./MonkLabIdleVisuals";
 import {
+    Cache,
     Container,
     Sprite,
     Graphics,
@@ -126,6 +133,7 @@ import {
     type TeamType,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
+import { SPELL_BOOK_FURNITURE, spellIconTextureKey } from "./spellIcons";
 import { syncBlacksmithWalkColorFilter } from "./BlacksmithWalkColorFilter";
 import { syncManticoreLabIdle } from "./ManticoreLabIdleVisuals";
 import { manticoreLabAttackEye } from "./ManticoreLabAttackEyes";
@@ -2222,7 +2230,7 @@ function getDefaultAnimationConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
-    if (unitName === PEASANT_UNIT_NAME)
+    if (unitName === PEASANT_UNIT_NAME || unitName === DRYAD_UNIT_NAME)
         return getAnimationStateConfig(unitName, "idle", footprintWidth, footprintHeight);
     // Approved idle atlases authored from their matching static figures own the permanent board loop.
     // Other static-redraw creatures keep their single-frame battlefield override.
@@ -2266,6 +2274,21 @@ function getAnimationStateConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
+    // Production omits Dryad's retired idle sheets. Resolve the same approved package for
+    // capability checks and playback so its full-body scale and foot anchor remain available.
+    if (unitName === DRYAD_UNIT_NAME && state === "idle") {
+        const meta = animationAtlases["Dryad Painted"]?.idle;
+        const imageKey = "dryad_painted_idle_atlas";
+        const imageSrc = images[imageKey];
+        if (!meta || !imageSrc) return null;
+        return {
+            meta,
+            imageKey,
+            imageSrc,
+            cacheKey: "Dryad::painted-idle-registered-20261003-v4",
+            cacheAcrossScenes: true,
+        };
+    }
     if (unitName === PEASANT_UNIT_NAME && state === "idle") {
         return {
             meta: {
@@ -2410,19 +2433,16 @@ function getActiveTurnFireFrames(): Texture[] {
     return activeTurnFireFramesCache ?? [];
 }
 
+function loadedAtlasTexture(imageSrc: string, resolvedTexture?: Texture): Texture | undefined {
+    // Texture.from(string) probes Cache.get even during an ordinary pending load, logging on every
+    // retry. Only inspect a present entry, and never reuse wrappers backed by a retired source.
+    const texture = resolvedTexture ?? (Cache.has(imageSrc) ? Cache.get<Texture>(imageSrc) : undefined);
+    return texture && !texture.destroyed && texture.source && !texture.source.destroyed ? texture : undefined;
+}
+
 function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, resolvedTexture?: Texture): Texture[] {
-    let parentTexture = resolvedTexture;
-    if (!parentTexture) {
-        try {
-            parentTexture = Texture.from(imageSrc);
-        } catch {
-            return [];
-        }
-    }
-    // Texture.from can return no texture while a background atlas is still being loaded. Falling back
-    // to the unit's already-visible static board texture keeps one missing atlas from aborting the whole
-    // scene hydrate (the L1 framing editor intentionally creates sixteen creatures at once).
-    if (!parentTexture?.source) return [];
+    const parentTexture = loadedAtlasTexture(imageSrc, resolvedTexture);
+    if (!parentTexture) return [];
     const source = parentTexture.source; // v8-friendly
     if (
         imageKey === "tsar_cannon_lab_walk_atlas" ||
@@ -2666,15 +2686,8 @@ function cachedAtlasFrames(
     imageKey: string,
     resolvedTexture?: Texture,
 ): Texture[] {
-    let parentTexture = resolvedTexture;
-    if (!parentTexture) {
-        try {
-            parentTexture = Texture.from(imageSrc);
-        } catch {
-            return [];
-        }
-    }
-    if (!parentTexture?.source) return [];
+    const parentTexture = loadedAtlasTexture(imageSrc, resolvedTexture);
+    if (!parentTexture) return [];
 
     let framesByKey = atlasFramesCache.get(parentTexture);
     const layoutKey = JSON.stringify([
@@ -2705,7 +2718,7 @@ function cachedAtlasFrames(
  * in the module cache. PixiScene lease-counts these textures and unloads them with the last owning scene.
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
-    const resolvedTexture = texResolver(config.imageKey);
+    const resolvedTexture = loadedAtlasTexture(config.imageSrc, texResolver(config.imageKey));
     // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
     // than creating a wrapper that can outlive the lease and keep the decoded source resident. A multi-frame
     // sheet still has to be cut, even when the whole atlas texture is already in hand.
@@ -3307,8 +3320,7 @@ export class RenderableUnit extends Unit {
         ru.restingBadgeOffsetY = undefined;
         ru.movementBadgeOffsetY = undefined;
         ru.badgeAmountOverride = undefined;
-        ru.combatAmountOverride = undefined;
-        ru.combatAmountModel = undefined;
+        ru.combatAmountPresentation = undefined;
         ru.badgeHeader = undefined;
         ru.badgeFlagGlow = undefined;
         ru.activeTurnPointer = undefined;
@@ -3433,6 +3445,14 @@ export class RenderableUnit extends Unit {
         this.pixiSpells = [];
 
         const spellsData = this.parseSpellData(this.unitProperties.spells);
+        const bookTextures = {
+            spell_cell_260: this.texResolver(SPELL_BOOK_FURNITURE.cell) ?? Texture.EMPTY,
+            scrollBadge: this.texResolver(SPELL_BOOK_FURNITURE.scrollBadge),
+            innerFrame: this.texResolver(SPELL_BOOK_FURNITURE.innerFrame),
+            stackRail: this.texResolver(SPELL_BOOK_FURNITURE.stackRail),
+            stackFillGreen: this.texResolver(SPELL_BOOK_FURNITURE.stackFillGreen),
+            stackFillRed: this.texResolver(SPELL_BOOK_FURNITURE.stackFillRed),
+        };
 
         for (const [k, v] of spellsData.entries()) {
             const spArr = k.split(":");
@@ -3450,32 +3470,13 @@ export class RenderableUnit extends Unit {
             // This used to also require a hand-authored "<spell>_font" strip, and a missing one dropped the
             // spell from the book entirely and silently: that is how Wandering Mage shipped with an empty
             // spellbook. A new spell now needs one icon and nothing else.
-            const generatedIconKey =
-                spellName === "Fire Strike"
-                    ? "fire_strike_chaos_256_v1"
-                    : spellName === "Meteorite"
-                      ? "meteorite_chaos_256_v1"
-                      : undefined;
-            const iconTex = this.texResolver(generatedIconKey ?? SpellHelper.spellToTextureName(spellName));
-            const cellTex = this.texResolver("spell_cell_260");
-            const scrollBadgeTex = this.texResolver("spell_cast_wax_seal_blank_v1");
-            const stackRailTex = this.texResolver("spell_stack_rail_variant2");
-            const stackFillGreenTex = this.texResolver("spell_stack_fill_green_variant2");
-            const stackFillRedTex = this.texResolver("spell_stack_fill_red_variant2");
-            const innerFrameTex = this.texResolver("spell_inner_frame_linework_v2");
+            const iconTex = this.texResolver(spellIconTextureKey(spellName));
 
             // Art can arrive after the book opens. A missing icon must never hide an available spell.
             const newSpell = new PixiRenderableSpell(
                 { spellProperties: spellProperties, amount: v },
                 this.spellBookLayer,
-                {
-                    spell_cell_260: cellTex ?? Texture.EMPTY,
-                    scrollBadge: scrollBadgeTex,
-                    innerFrame: innerFrameTex,
-                    stackRail: stackRailTex,
-                    stackFillGreen: stackFillGreenTex,
-                    stackFillRed: stackFillRedTex,
-                },
+                bookTextures,
                 iconTex ?? Texture.EMPTY,
                 this.digitTextures,
             );
@@ -3756,7 +3757,9 @@ export class RenderableUnit extends Unit {
         const thiefVisibleHeightRatio =
             this.scavengerLabAnimationsEnabled &&
             !this.walkAnim &&
-            (!this.oneShotAnim || SCAVENGER_LAB_ACTIONS.includes(this.oneShotAnim.stateName))
+            (this.oneShotAnim
+                ? SCAVENGER_LAB_ACTIONS.includes(this.oneShotAnim.stateName)
+                : !!this.selectionAnimFrames?.length)
                 ? SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO / scavengerLabCanvasScale(this.oneShotAnim?.stateName)
                 : props.name === SCAVENGER_UNIT_NAME && this.walkAnim
                   ? SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO
@@ -3919,7 +3922,10 @@ export class RenderableUnit extends Unit {
                 ? arbalesterWalkScaleMultiplier(this.walkAnim.frameIndex)
                 : 1;
         const cyclopsLabWalk = props.name === "Cyclops" && this.creatureAnimationLabPreviewEnabled && !!this.walkAnim;
-        const efreetFigureScale = props.name === EFREET_UNIT_NAME ? EFREET_FIGURE_SCALE : 1;
+        const efreetFigure =
+            props.name === EFREET_UNIT_NAME &&
+            (!!this.selectionAnimFrames?.length || !!this.walkAnim || !!this.oneShotAnim);
+        const efreetFigureScale = efreetFigure ? EFREET_FIGURE_SCALE : 1;
         const actionScale =
             (props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? abominationLabWalkScale(this.walkAnim.frameIndex)
@@ -3929,12 +3935,7 @@ export class RenderableUnit extends Unit {
                 : 1) *
             efreetFigureScale *
             this.cannonLabCanvasScale() *
-            (props.name === "Champion" &&
-            this.creatureAnimationLabPreviewEnabled &&
-            !this.walkAnim &&
-            (!this.oneShotAnim || this.championLabReactionConfig(this.oneShotAnim.stateName))
-                ? (this.championLabReactionConfig(this.oneShotAnim?.stateName ?? "")?.meta.frameHeight ?? 1024) / 768
-                : 1) *
+            (this.walkAnim ? 1 : this.championLabCanvasScale()) *
             harpyActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
             nomadReactionCanvasScale(props.name, this.oneShotAnim?.stateName) *
             trentActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
@@ -4009,7 +4010,6 @@ export class RenderableUnit extends Unit {
             props.name === SQUIRE_UNIT_NAME && this.oneShotAnim?.stateName === "death"
                 ? SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER
                 : 1;
-        const efreetFigure = props.name === EFREET_UNIT_NAME;
         const actionScaleX =
             actionScale *
             (props.name === "Hydra" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
@@ -4605,7 +4605,15 @@ export class RenderableUnit extends Unit {
                   : 1.5) * creatureScale;
         const scaleY = tall
             ? (gs.getCellSize() * heightCells) /
-              (Math.max(1, texture.height) * (thief ? THIEF_IDLE_VISIBLE_HEIGHT_RATIO : 1))
+              (Math.max(1, texture.height) *
+                  (thief
+                      ? !canonicalPose &&
+                        props.name === SCAVENGER_UNIT_NAME &&
+                        this.scavengerLabAnimationsEnabled &&
+                        !!this.selectionAnimFrames?.length
+                          ? SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO
+                          : THIEF_IDLE_VISIBLE_HEIGHT_RATIO
+                      : 1))
             : chipSide / Math.max(1, texture.height);
         const widthCells =
             props.name === SCAVENGER_UNIT_NAME
@@ -4627,9 +4635,16 @@ export class RenderableUnit extends Unit {
             (this.previewDestinationGroundScratch ??= { x: 0, y: 0 }),
         );
         const preview = (this.battlefieldPreviewScratch ??= {} as BattlefieldUnitPreview);
-        // The sword idle has a padded 1024px canvas around a 576px figure. Match the same
-        // normalization as ensureVisual so a placement ghost cannot shrink on drop.
-        const idleCanvasScale = !canonicalPose && props.name === "Berserker" ? this.berserkerLabIdleScale() : 1;
+        // Match the authored idle canvas corrections in ensureVisual. Canonical death cutouts use
+        // the separate base artwork, so they must not inherit atlas-specific canvas padding.
+        const efreetFigure = !canonicalPose && props.name === EFREET_UNIT_NAME && !!this.selectionAnimFrames?.length;
+        const idleCanvasScale = canonicalPose
+            ? 1
+            : this.berserkerLabIdleScale() *
+              this.arbalesterLabScaleMultiplier("idle") *
+              this.blackDragonLabCanvasScale(null) *
+              this.championLabCanvasScale("idle") *
+              (efreetFigure ? EFREET_FIGURE_SCALE : 1);
         preview.texture = texture;
         preview.anchorX = 0.5;
         preview.anchorY = tall ? this.selectionAnimFootAnchorY : 0.5;
@@ -4640,8 +4655,14 @@ export class RenderableUnit extends Unit {
             framing.scaleX *
             perspective *
             compensation.x;
-        preview.scaleX *= idleCanvasScale;
-        preview.scaleY = -scaleY * idleCanvasScale * framing.scaleY * perspective * compensation.y;
+        preview.scaleX *= idleCanvasScale * (efreetFigure ? EFREET_LAB_IDLE_SCALE_X : 1);
+        preview.scaleY =
+            -scaleY *
+            idleCanvasScale *
+            (efreetFigure ? EFREET_LAB_IDLE_SCALE_Y : 1) *
+            framing.scaleY *
+            perspective *
+            compensation.y;
         preview.x =
             ground.x +
             gs.getCellSize() *
@@ -4658,6 +4679,12 @@ export class RenderableUnit extends Unit {
                   SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION *
                   perspective
                 : 0);
+        if (efreetFigure) {
+            const renderedScaleY = -preview.scaleY;
+            preview.y +=
+                (preview.anchorY * texture.height - EFREET_LAB_LOWER_FIRE_BASE_Y) *
+                (renderedScaleY / EFREET_FIGURE_SCALE - renderedScaleY);
+        }
         preview.rotation = 0;
         return preview;
     }
@@ -6119,7 +6146,13 @@ export class RenderableUnit extends Unit {
         if (this.boardSelected === selected) return;
         this.boardSelected = selected;
         if (selected) {
+            const previousFrames = this.selectionAnimFrames;
             this.startSelectionAnimationInternal();
+            // An atlas can become ready between scene ticks. Fit its new canvas and ground anchor
+            // before selection exposes the first frame at the static fallback's scale.
+            if (this.selectionAnimFrames && this.selectionAnimFrames !== previousFrames && this.sprite?.parent) {
+                this.ensureVisual(this.sprite.parent, this.gridSettings);
+            }
         } else if (!this.hasAnimationState("idle")) {
             this.stopSelectionAnimationInternal();
         }
@@ -6198,15 +6231,6 @@ export class RenderableUnit extends Unit {
                 imageKey: "frenzied_boar_lab_idle_atlas",
                 imageSrc: images.frenzied_boar_lab_idle_atlas,
                 cacheKey: "Frenzied Boar::lab-idle-half-speed-20261006-v5",
-                cacheAcrossScenes: true,
-            };
-        }
-        if (props.name === DRYAD_UNIT_NAME && animationAtlases["Dryad Painted"]?.idle) {
-            config = {
-                meta: animationAtlases["Dryad Painted"].idle,
-                imageKey: "dryad_painted_idle_atlas",
-                imageSrc: images.dryad_painted_idle_atlas,
-                cacheKey: "Dryad::painted-idle-registered-20261003-v4",
                 cacheAcrossScenes: true,
             };
         }
@@ -7299,7 +7323,8 @@ export class RenderableUnit extends Unit {
             championLabWalk && this.walkAnim ? championLabWalkHeightScale(this.walkAnim.frameIndex) : 1;
         const previousChampionLabWidthScale =
             championLabWalk && this.walkAnim ? championLabWalkWidthScale(this.walkAnim.frameIndex) : 1;
-        const previousChampionIdleCanvasScale = championLabWalk && !this.walkAnim && !this.oneShotAnim ? 1024 / 768 : 1;
+        const previousChampionIdleCanvasScale =
+            championLabWalk && !this.walkAnim && !this.oneShotAnim ? this.championLabCanvasScale("idle") : 1;
         const abominationLabWalk = props.name === "Abomination" && this.creatureAnimationLabPreviewEnabled;
         const previousAbominationLabScale =
             abominationLabWalk && this.walkAnim ? abominationLabWalkScale(this.walkAnim.frameIndex) : 1;
@@ -8649,7 +8674,7 @@ export class RenderableUnit extends Unit {
                 this.getUnitProperties().name === "Battle Mage") &&
             this.creatureAnimationLabPreviewEnabled
                 ? this.sprite
-                    ? this.sprite.texture.height * (this.getName() === "Champion" ? 1024 / 768 : 1)
+                    ? this.sprite.texture.height * this.championLabCanvasScale("idle")
                     : undefined
                 : undefined;
         const orcWalkHeight =
@@ -9082,6 +9107,9 @@ export class RenderableUnit extends Unit {
     }
     public startSpawnAnimation(_scale: number): void {
         if (!this.sprite || !this.shadow) return;
+        // Resurrection reuses the dying body. Release its held corpse frame before fading it back in,
+        // including creatures whose authored animations disable the generic spawn motion below.
+        if (this.oneShotAnim?.stateName === "death") this.returnToIdleAnimation();
         const props = this.getUnitProperties();
         const unitName = props.name;
         if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
@@ -9598,6 +9626,18 @@ export class RenderableUnit extends Unit {
             this.facingDirection,
         );
     }
+    public getBlessingHaloFrame(): { x: number; y: number; width: number; height: number; zIndex: number } | undefined {
+        const badge = this.badgeContainer;
+        const geometry = this.badgeDrawState?.geometry;
+        if (!badge?.visible || !geometry) return undefined;
+        return {
+            x: badge.x,
+            y: badge.y,
+            width: geometry.headerWidth * Math.abs(badge.scale.x),
+            height: geometry.flagHeight * Math.abs(badge.scale.y),
+            zIndex: badge.zIndex,
+        };
+    }
     public getFlagCenterAnchor(gs: GridSettings): HoCMath.XY {
         const badge = this.badgeContainer;
         return badge?.visible ? { x: badge.x, y: badge.y } : this.getFlagEffectAnchor(gs);
@@ -9716,7 +9756,9 @@ export class RenderableUnit extends Unit {
     private blackDragonLabCanvasScale(state: string | null = this.oneShotAnim?.stateName ?? null): number {
         return this.creatureAnimationLabPreviewEnabled &&
             this.getName() === "Black Dragon" &&
-            (state === null || state === "hit" || state === "death" || !!blackDragonFireState(state))
+            (state === null
+                ? !!this.selectionAnimFrames?.length
+                : state === "hit" || state === "death" || !!blackDragonFireState(state))
             ? BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE
             : 1;
     }
@@ -10006,6 +10048,11 @@ export class RenderableUnit extends Unit {
             ["melee_attack", "melee_attack_up", "melee_attack_down"].includes(state ?? "")
             ? 896 / 768
             : 1;
+    }
+    private championLabCanvasScale(state = this.oneShotAnim?.stateName): number {
+        if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Champion") return 1;
+        if (state && state !== "idle") return (this.championLabReactionConfig(state)?.meta.frameHeight ?? 768) / 768;
+        return this.selectionAnimFrames?.length ? 1024 / 768 : 1;
     }
     private championLabReactionConfig(state: string): UnitAtlasConfig | null {
         if (!this.creatureAnimationLabPreviewEnabled || this.getName() !== "Champion") return null;
@@ -12810,6 +12857,43 @@ export class RenderableUnit extends Unit {
     public setHoverTurnAura(hovered: boolean): void {
         this.isHoverTurnAura = hovered;
     }
+    public captureHelpingHandReplayStatState(): HelpingHandReplayStatState | undefined {
+        if (!this.getBuff("Helping Hand") && !this.getDebuff("Helping Hand")) return undefined;
+        const initial = this.initialUnitProperties;
+        return {
+            initialStats: {
+                max_hp: initial.max_hp,
+                base_armor: initial.base_armor,
+                armor_mod: initial.armor_mod,
+                base_attack: initial.base_attack,
+                attack_mod: initial.attack_mod,
+                attack_damage_min: initial.attack_damage_min,
+                attack_damage_max: initial.attack_damage_max,
+                magic_resist: initial.magic_resist,
+                initiative: initial.initiative,
+                steps: initial.steps,
+                shot_distance: initial.shot_distance,
+                luck: initial.luck,
+                morale: initial.morale,
+            },
+            buffs: this.buffs.map(captureReplayAppliedSpell),
+            debuffs: this.debuffs.map(captureReplayAppliedSpell),
+            effects: this.effects.map((effect) => ({
+                defaults: effect.getDefaultProperties(),
+                properties: structuredClone(effect.getProperties()),
+            })),
+            adjustedBaseStatsLaps: [...this.adjustedBaseStatsLaps],
+            luckPerTurn: this.luckPerTurn,
+        };
+    }
+    public restoreHelpingHandReplayStatState(state: HelpingHandReplayStatState): void {
+        Object.assign(this.initialUnitProperties, state.initialStats);
+        this.buffs = state.buffs.map(restoreReplayAppliedSpell);
+        this.debuffs = state.debuffs.map(restoreReplayAppliedSpell);
+        this.effects = state.effects.map(restoreReplayEffect);
+        this.adjustedBaseStatsLaps = [...state.adjustedBaseStatsLaps];
+        this.luckPerTurn = state.luckPerTurn;
+    }
     public setRemainingStats(amountAlive: number, hp: number, amountDied: number): void {
         this.clearDamagePresentation();
         const alive = Math.max(0, Math.floor(amountAlive));
@@ -13496,18 +13580,13 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Sharpened Weapons Aura
-        const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
-        if (sharpenedWeaponsAuraAbility) {
-            const percentage = Number(
-                (
-                    this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility, _synergyAbilityPowerIncrease) * 100 -
-                    100
-                ).toFixed(2),
-            );
+        // Sharpened Weapons Blessing
+        const sharpenedWeaponsBlessing = this.getAbility("Sharpened Weapons Blessing");
+        if (sharpenedWeaponsBlessing) {
+            const percentage = this.calculateSharpenedWeaponsBlessingPower(_synergyAbilityPowerIncrease);
             this.refreshAbiltyDescription(
-                sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsBlessing.getName(),
+                sharpenedWeaponsBlessing.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -14074,8 +14153,7 @@ export class RenderableUnit extends Unit {
             if (visible) this.stackPowerContainer.alpha = 1;
         }
     }
-    private combatAmountOverride?: number;
-    private combatAmountModel?: number;
+    private combatAmountPresentation?: { initial: number; amount: number; model: number };
     private loadingPlaceholder?: UnitLoadingPlaceholder;
     private animationAssetsRequested = false;
     private getCreatureGroundDepth(): number {
@@ -14099,24 +14177,47 @@ export class RenderableUnit extends Unit {
         );
     }
     public getDisplayedAmount(): number {
-        if (this.combatAmountModel !== undefined && this.combatAmountModel !== this.getAmountAlive()) {
+        if (this.combatAmountPresentation && this.combatAmountPresentation.model !== this.getAmountAlive()) {
             this.clearDamagePresentation();
         }
-        return this.badgeAmountOverride ?? this.combatAmountOverride ?? this.getAmountAlive();
+        return this.badgeAmountOverride ?? this.combatAmountPresentation?.amount ?? this.getAmountAlive();
     }
     public beginDamagePresentation(amount = this.getAmountAlive()): void {
-        this.combatAmountOverride = Math.max(0, Math.floor(amount));
-        this.combatAmountModel = this.getAmountAlive();
+        const initial = Math.max(0, Math.floor(amount));
+        this.combatAmountPresentation = { initial, amount: initial, model: this.getAmountAlive() };
+    }
+    /** An exchange can follow an approach burn within the same action; keep losses already presented. */
+    public continueDamagePresentation(amount = this.getAmountAlive()): void {
+        this.getDisplayedAmount();
+        const presentation = this.combatAmountPresentation;
+        if (!presentation) {
+            this.beginDamagePresentation(amount);
+            return;
+        }
+        // A locally applied action can supply its pre-hit count only once its exchange is built.
+        // Rebase that starting count while retaining burns already shown during the approach.
+        const losses = presentation.initial - presentation.amount;
+        presentation.initial = Math.max(0, Math.floor(amount));
+        presentation.amount = Math.max(0, presentation.initial - losses);
+    }
+    /** Delayed numbers belong to this action, even if a snapshot or another action lands first. */
+    public captureDamageCasualties(unitsDied: number): () => void {
+        const presentation = this.combatAmountPresentation;
+        return () => {
+            if (presentation && presentation === this.combatAmountPresentation) this.presentDamageCasualties(unitsDied);
+        };
     }
     public presentDamageCasualties(unitsDied: number): void {
         this.getDisplayedAmount();
-        if (this.combatAmountOverride !== undefined && unitsDied > 0) {
-            this.combatAmountOverride = Math.max(0, this.combatAmountOverride - Math.floor(unitsDied));
+        if (this.combatAmountPresentation && unitsDied > 0) {
+            this.combatAmountPresentation.amount = Math.max(
+                0,
+                this.combatAmountPresentation.amount - Math.floor(unitsDied),
+            );
         }
     }
     public clearDamagePresentation(): void {
-        this.combatAmountOverride = undefined;
-        this.combatAmountModel = undefined;
+        this.combatAmountPresentation = undefined;
     }
     public flashScorch(): void {
         this.effectFlashStartMs = performance.now();

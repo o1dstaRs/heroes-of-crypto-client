@@ -1,7 +1,9 @@
 import type { GameAction, GameEvent, IGameActionResult } from "@heroesofcrypto/common";
 
+import { isQuotaExceededError, reserveStorageHeadroom } from "../api/local_storage_quota";
 import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import type { SandboxSceneState } from "../scenes/Sandbox";
+import { shareReplaySnapshot } from "./shareReplaySnapshot";
 
 export const SANDBOX_REPLAY_VERSION = 1;
 export const SANDBOX_REPLAY_STORAGE_KEY = "hoc:sandbox-replays:v1";
@@ -59,6 +61,30 @@ const createSandboxReplayId = (): string => {
     return `sandbox-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 };
 
+type ReplayIdleScheduler = (work: (hasTime: () => boolean) => void) => () => void;
+
+interface ReplayCompaction {
+    state: SandboxSceneState;
+    previous?: SandboxSceneState;
+    units: Map<string, SandboxSceneState["units"][number]>;
+    unitIndex: number;
+}
+
+const scheduleReplayIdleWork: ReplayIdleScheduler = (work) => {
+    if (typeof requestIdleCallback === "function") {
+        const handle = requestIdleCallback((deadline) => {
+            const until = performance.now() + 3;
+            work(() => performance.now() < until && deadline.timeRemaining() > 1);
+        });
+        return () => cancelIdleCallback(handle);
+    }
+    const handle = setTimeout(() => {
+        const until = performance.now() + 2;
+        work(() => performance.now() < until);
+    }, 16);
+    return () => clearTimeout(handle);
+};
+
 const isSandboxReplay = (value: unknown): value is SandboxReplay => {
     if (!value || typeof value !== "object") {
         return false;
@@ -92,7 +118,7 @@ export const listSandboxReplays = (storage = getBrowserStorage()): SandboxReplay
         if (!raw) {
             return [];
         }
-        return normalizeReplays(JSON.parse(raw)).map(cloneReplayData);
+        return normalizeReplays(JSON.parse(raw));
     } catch {
         return [];
     }
@@ -104,8 +130,9 @@ export const loadSandboxReplay = (id: string, storage = getBrowserStorage()): Sa
 /**
  * Store the newest replays that fit. A long fight snapshots the whole board per action and can outgrow the
  * browser's storage quota; a throwing save used to surface as an uncaught error on every action (37 error
- * reports from one spectator tab). Older replays are dropped until the write fits, and if even the newest
- * alone does not, the save is skipped: a local replay is a convenience, never worth an error.
+ * reports from one spectator tab). Older replays are dropped until the write fits and still leaves room for
+ * the session token. If even the newest alone does not, the save is skipped: a local replay is a convenience,
+ * never worth an error or a failed login.
  */
 export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): void => {
     if (!storage) {
@@ -120,11 +147,20 @@ export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserSto
     while (kept.length > 0) {
         try {
             storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(kept));
-            return;
-        } catch {
+        } catch (err) {
+            if (!isQuotaExceededError(err)) {
+                throw err;
+            }
             kept = kept.slice(0, -1);
+            continue;
         }
+        // Leave room for the session token. Packing replays to the last byte makes the next login throw.
+        if (reserveStorageHeadroom(storage)) {
+            return;
+        }
+        kept = kept.slice(0, -1);
     }
+    storage.removeItem(SANDBOX_REPLAY_STORAGE_KEY);
 };
 
 export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): void => {
@@ -150,10 +186,14 @@ export class SandboxReplayRecorder {
     // landing-frame hitch worse as a match went on. The in-memory replay stays current synchronously;
     // the expensive serialize + write is coalesced behind a short debounce and flushed on reset.
     private persistHandle?: ReturnType<typeof setTimeout>;
+    private cancelCompaction?: () => void;
+    private compactedThrough = -1;
+    private compaction?: ReplayCompaction;
     private static readonly PERSIST_DEBOUNCE_MS = 750;
     public constructor(
         private readonly captureSceneState: () => SandboxSceneState,
         private readonly storage = getBrowserStorage(),
+        private readonly scheduleIdleWork: ReplayIdleScheduler = scheduleReplayIdleWork,
     ) {}
     public beginAction(now = Date.now()): void {
         this.ensureReplay(now);
@@ -174,15 +214,84 @@ export class SandboxReplayRecorder {
             stateAfter: this.captureSceneState(),
         });
         replay.updatedAtMs = now;
+        this.scheduleCompaction();
         this.schedulePersist();
     }
     public getCurrentReplay(): SandboxReplay | undefined {
-        return this.replay ? cloneReplayData(this.replay) : undefined;
+        if (!this.replay) return undefined;
+        // Export each checkpoint independently: callers may edit one without changing another that
+        // shared its immutable branches inside the recorder. JSON storage already expands them this way.
+        return {
+            ...this.replay,
+            initialState: cloneReplayData(this.replay.initialState),
+            actions: this.replay.actions.map((record) => cloneReplayData(record)),
+        };
+    }
+    public hasActions(): boolean {
+        return !!this.replay?.actions.length;
     }
     public reset(): void {
+        this.cancelCompaction?.();
+        this.cancelCompaction = undefined;
+        this.compactedThrough = -1;
+        this.compaction = undefined;
         // Persist any debounced write before discarding the finished replay.
         this.flush();
         this.replay = undefined;
+    }
+    public dispose(): void {
+        try {
+            this.reset();
+        } catch {
+            // A storage failure must not retain the retired scene or prevent leaving the battle.
+            this.replay = undefined;
+        }
+    }
+    private scheduleCompaction(): void {
+        if (this.cancelCompaction) return;
+        const replay = this.replay;
+        this.cancelCompaction = this.scheduleIdleWork((hasTime) => {
+            if (!replay || replay !== this.replay) return;
+            this.cancelCompaction = undefined;
+            // Capture stays on the action path; sharing runs only in short background slices.
+            while (hasTime() && this.compactedThrough < replay.actions.length) {
+                if (!this.compaction) {
+                    const previous =
+                        this.compactedThrough < 0
+                            ? undefined
+                            : this.compactedThrough > 0
+                              ? replay.actions[this.compactedThrough - 1].stateAfter
+                              : replay.initialState;
+                    this.compaction = {
+                        state:
+                            this.compactedThrough < 0
+                                ? replay.initialState
+                                : replay.actions[this.compactedThrough].stateAfter,
+                        previous,
+                        units: new Map(previous?.units.map((unit) => [unit.properties.id, unit])),
+                        unitIndex: 0,
+                    };
+                }
+                const pending = this.compaction;
+                if (pending.unitIndex < pending.state.units.length) {
+                    const unit = pending.state.units[pending.unitIndex];
+                    pending.state.units[pending.unitIndex++] = shareReplaySnapshot(
+                        unit,
+                        pending.units.get(unit.properties.id),
+                    );
+                    continue;
+                }
+                const shared = shareReplaySnapshot(pending.state, pending.previous);
+                if (this.compactedThrough < 0) {
+                    replay.initialState = shared;
+                } else {
+                    replay.actions[this.compactedThrough].stateAfter = shared;
+                }
+                this.compaction = undefined;
+                this.compactedThrough++;
+            }
+            if (this.compactedThrough < replay.actions.length) this.scheduleCompaction();
+        });
     }
     /** Persist the current replay to storage now, cancelling any pending debounced write. */
     public flush(): void {

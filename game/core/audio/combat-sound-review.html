@@ -119,11 +119,12 @@
         Waveforms show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or
         artistic fit: compare the sounds at the same volume here.
     </p>
-    <input id="search" placeholder="Find a unit…" aria-label="Find a unit" />
+    <input id="search" placeholder="Find a unit or spell…" aria-label="Find a unit or spell" />
     <select id="role" aria-label="Sound role">
         <option value="">All sounds</option>
         <option value="attack">Attacks</option>
         <option value="hurt">Damage received</option>
+        <option value="cast">Spell casts</option>
     </select>
     <select id="codec" aria-label="Codec">
         <option value="webm">Opus</option>
@@ -158,12 +159,12 @@
             <div id="art-images" class="art-images"></div>
             <p id="attack-basis"></p>
         </section>
-        <label for="generation-prompt">Sound description</label>
+        <label id="prompt-label" for="generation-prompt">Sound description</label>
         <textarea id="generation-prompt"></textarea>
         <p>
             <button id="generate">Generate 4 takes</button>
             <button id="close-regeneration">Close</button>
-            <span class="muted">Generation uses ElevenLabs credits. Listen, then apply your preferred take.</span>
+            <span id="generation-note" class="muted">Generation uses ElevenLabs credits. Listen, then apply your preferred take.</span>
         </p>
         <p id="generation-status" aria-live="polite"></p>
         <div id="candidates"></div>
@@ -211,17 +212,39 @@
         }
         function render() {
             const visible = filtered();
+            const bytes = (codec) =>
+                sounds.reduce((n, c) => n + ((c.encoded && c.encoded[codec] && c.encoded[codec].bytes) || 0), 0);
+            const waiting = sounds.filter((c) => !c.encoded).length;
             $("totals").textContent =
-                sounds.length +
+                sounds.filter((c) => c.encoded).length +
                 " sounds · Opus " +
-                (sounds.reduce((n, c) => n + c.encoded.webm.bytes, 0) / 1048576).toFixed(2) +
+                (bytes("webm") / 1048576).toFixed(2) +
                 " MiB · MP3 " +
-                (sounds.reduce((n, c) => n + c.encoded.mp3.bytes, 0) / 1048576).toFixed(2) +
-                " MiB · " +
+                (bytes("mp3") / 1048576).toFixed(2) +
+                " MiB" +
+                (waiting ? " · " + waiting + " spell placeholders" : "") +
+                " · " +
                 visible.length +
                 " shown";
             $("rows").innerHTML = visible
                 .map((c) => {
+                    if (!c.encoded) {
+                        return (
+                            "<tr><td>" +
+                            escape(c.unit) +
+                            '<br><span class="muted">' +
+                            escape(c.school || "") +
+                            (c.level ? " · level " + c.level : "") +
+                            (c.target_label ? " · " + escape(c.target_label) : "") +
+                            '</span></td><td>cast</td><td><button data-regenerate="' +
+                            c.slug +
+                            "/" +
+                            c.role +
+                            '">Next sound</button><div class="muted">No sound yet</div></td><td></td><td>—</td><td>—</td><td><span class="muted">' +
+                            escape(c.summary || "") +
+                            "</span></td></tr>"
+                        );
+                    }
                     const m = c.encoded[$("codec").value];
                     const w = c.waveform;
                     return (
@@ -240,10 +263,18 @@
                         '">Original</button>' +
                         (c.role === "event"
                             ? ""
-                            : '<button data-regenerate="' + c.slug + "/" + c.role + '">Regenerate</button>') +
-                        (c.source?.kind === "user-provided"
-                            ? '<div class="muted">Provided recording · ' + escape(c.source.filename) + "</div>"
-                            : "") +
+                            : '<button data-regenerate="' +
+                              c.slug +
+                              "/" +
+                              c.role +
+                              '">' +
+                              (c.role === "cast" ? "Next sound" : "Regenerate") +
+                              "</button>") +
+                        (c.source?.kind === "freesound"
+                            ? '<div class="muted">Freesound CC0 · ' + escape(c.source.filename || c.source.author || "") + "</div>"
+                            : c.source?.kind === "user-provided"
+                              ? '<div class="muted">Provided recording · ' + escape(c.source.filename) + "</div>"
+                              : "") +
                         '</td><td><svg viewBox="0 0 180 42" role="img" aria-label="Waveform"><path stroke="#d1aa70" d="' +
                         w
                             .map(
@@ -297,11 +328,16 @@
                     }),
             );
             document.querySelectorAll("[data-regenerate]").forEach((b) => {
-                b.onclick = () => openRegeneration(sounds.find((c) => c.slug + "/" + c.role === b.dataset.regenerate));
+                b.onclick = async () => {
+                    const sound = sounds.find((c) => c.slug + "/" + c.role === b.dataset.regenerate);
+                    const running = await openRegeneration(sound);
+                    if (sound && sound.role === "cast" && running === undefined) $("generate").click();
+                };
             });
         }
         let selectedSound = null,
             pollTimer = null;
+        const playedJobs = new Set();
         async function api(path, body) {
             const response = await fetch(
                 path,
@@ -324,12 +360,17 @@
         }
         async function refreshCatalog() {
             const catalog = await api("/api/audio/catalog");
-            $("elevenlabs-link").hidden = !catalog.provider_url;
+            const spellSelected = selectedSound && selectedSound.role === "cast";
+            $("elevenlabs-link").hidden = !catalog.provider_url || spellSelected;
             if (catalog.provider_url) $("elevenlabs-link").href = catalog.provider_url;
             sounds = catalog.sounds;
             render();
-            $("generate").disabled = !catalog.can_generate;
-            if (!catalog.can_generate)
+            const spell = selectedSound && selectedSound.role === "cast";
+            $("generate").textContent = spell ? "Next Freesound sound" : "Generate 4 takes";
+            $("generate").disabled = spell ? !catalog.freesound : !catalog.can_generate;
+            if (spell && !catalog.freesound)
+                $("generation-status").textContent = "Save the Freesound API key before requesting the next sound.";
+            else if (!spell && !catalog.can_generate)
                 $("generation-status").textContent = "Configure ELEVENLABS_API_KEY in the local server environment.";
         }
         async function openRegeneration(c) {
@@ -337,7 +378,14 @@
             clearTimeout(pollTimer);
             selectedSound = c;
             $("regeneration-title").textContent = c.unit + " · " + c.role;
-            $("generation-prompt").value = c.design_prompt || "";
+            $("prompt-label").textContent = c.role === "cast" ? "Spell" : "Sound description";
+            $("generation-prompt").readOnly = c.role === "cast";
+            $("generation-prompt").value = c.role === "cast" ? c.summary || c.unit : c.design_prompt || "";
+            $("generate").textContent = c.role === "cast" ? "Next Freesound sound" : "Generate 4 takes";
+            $("generation-note").textContent =
+                c.role === "cast"
+                    ? "Each click takes the next unused CC0 Freesound preview and masters it to −20 LUFS, −3 dBTP, mono 48 kHz Opus and MP3."
+                    : "Generation uses ElevenLabs credits. Listen, then apply your preferred take.";
             const art = c.art_reference;
             $("art-reference").hidden = !art;
             $("art-images").replaceChildren();
@@ -360,8 +408,10 @@
                 }
             }
             $("library-link").href =
-                "https://opengameart.org/art-search-advanced?keys=" +
-                encodeURIComponent(c.library_query || c.unit + " " + c.role + " sound");
+                c.role === "cast"
+                    ? "https://freesound.org/search/?q=spell+cast&f=license:%22Creative+Commons+0%22"
+                    : "https://opengameart.org/art-search-advanced?keys=" +
+                      encodeURIComponent(c.library_query || c.unit + " " + c.role + " sound");
             $("candidates").textContent = "";
             $("generation-status").textContent = "Loading available takes…";
             $("generate").disabled = true;
@@ -374,10 +424,14 @@
                 if (running) poll(running.id);
                 else
                     $("generation-status").textContent = data.jobs.length
-                        ? "Compare available takes, or generate four new variations."
-                        : "Find a library sound or generate four variations.";
+                        ? "Compare the mastered takes, or request another."
+                        : c.role === "cast"
+                          ? "The next click takes the next unused CC0 Freesound spell cast and masters it."
+                          : "Find a library sound or generate four variations.";
+                return running;
             } catch (error) {
                 $("generation-status").textContent = error.message;
+                return null;
             }
         }
         function showJobs(jobs) {
@@ -470,31 +524,47 @@
                 if (!$("regeneration").open || selectedSound.slug !== slug || selectedSound.role !== role) return;
                 const data = await api("/api/audio/jobs?slug=" + selectedSound.slug + "&role=" + selectedSound.role);
                 showJobs(data.jobs);
+                const spell = role === "cast";
                 $("generation-status").textContent =
                     job.status === "generating"
-                        ? "Generating and mastering… " + job.candidates.length + " of 4 takes ready."
-                        : job.candidates.length + " takes ready. Listen and choose one to apply.";
+                        ? spell
+                            ? "Downloading the next CC0 clip and mastering it…"
+                            : "Generating and mastering… " + job.candidates.length + " of 4 takes ready."
+                        : spell
+                          ? job.candidates.length
+                              ? "Mastered. Listen, then apply it if it fits this spell. Another click takes the next unused clip."
+                              : "No clip in this batch fit the loudness, length, or format check. Click again for the next ones."
+                          : job.candidates.length + " takes ready. Listen and choose one to apply.";
                 $("generate").disabled = job.status === "generating";
+                if (job.status !== "generating" && spell && job.candidates.length && !playedJobs.has(job.id)) {
+                    playedJobs.add(job.id);
+                    const take = job.candidates[job.candidates.length - 1];
+                    play({ ...take.result, asset_base: take.asset_base, source_id: take.source_id });
+                }
                 if (job.status === "generating") pollTimer = setTimeout(() => poll(id), 2000);
             } catch (error) {
                 $("generation-status").textContent = error.message;
             }
         }
         $("generate").onclick = async () => {
+            const spell = selectedSound && selectedSound.role === "cast";
             $("generate").disabled = true;
-            $("generation-status").textContent = "Starting four takes…";
+            $("generation-status").textContent = spell
+                ? "Fetching the next CC0 Freesound clip…"
+                : "Starting four takes…";
             try {
                 const job = await api("/api/audio/regenerate", {
                     slug: selectedSound.slug,
                     role: selectedSound.role,
-                    prompt: $("generation-prompt").value,
+                    prompt: spell ? selectedSound.unit : $("generation-prompt").value,
                     request_id: crypto.randomUUID(),
                 });
                 await poll(job.id);
             } catch (error) {
                 $("generation-status").textContent = error.message;
-                // A lost POST response may still have started a charged run. Reopen the dialog
-                // to reconcile its existing jobs instead of offering an immediate repeat.
+                // A lost creature POST may still have started a charged run. Do not immediately
+                // re-enable that button. A rejected spell request never spends ElevenLabs credits.
+                if (spell) $("generate").disabled = false;
             }
         };
         $("close-regeneration").onclick = () => $("regeneration").close();
@@ -509,7 +579,7 @@
         $("stop").onclick = stop;
         $("playlist").onclick = () => {
             stop();
-            queue = filtered();
+            queue = filtered().filter((c) => c.encoded);
             stopped = false;
             if (queue.length) play(queue.shift());
         };

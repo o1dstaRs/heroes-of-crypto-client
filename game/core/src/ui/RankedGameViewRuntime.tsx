@@ -1,4 +1,12 @@
 import { useBoardMirrored } from "./useBoardMirrored";
+import { canSubmitRankedBoardAction } from "./rankedBoardActions";
+import {
+    captureRankedReadinessIntent,
+    isRankedReadinessAction,
+    isRecoveredRankedReadinessRejection,
+    RankedReadinessSubmissions,
+    sendRankedReadinessWithRetry,
+} from "./rankedReadiness";
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
 import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
@@ -35,6 +43,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
+import { LiveAimSender, OpponentAimReceiver } from "../api/live_aim";
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
 import { isPreviewPlayGame } from "../api/previewPlaySession";
 import { createVsAiGame } from "../api/vs_ai_client";
@@ -45,8 +54,7 @@ import {
     playEventsUrl,
     rankedEventHeaders,
     sendRankedPlayAction,
-    sendRankedPlayMoveIntent,
-    sendRankedPlaySpellIntent,
+    sendRankedPlayAim,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
 import {
@@ -68,6 +76,7 @@ import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
     collectRankedReplaySnapshots,
+    getRankedReplayInitialSnapshot,
     createSandboxReplayFromRankedReplay,
     parseRankedReplayAction,
     withReplayJournalTails,
@@ -154,6 +163,7 @@ import {
 } from "./hocTheme";
 import {
     hasOffGridSubmitCell,
+    placementActionSkipsSubmitSpinner,
     playerFacingRejection,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
@@ -351,6 +361,7 @@ export const RankedGameView: React.FC<Props> = ({
     const abortRef = useRef<AbortController | null>(null);
     const latestSequenceRef = useRef(0);
     const snapshotRef = useRef<PlaySnapshot | null>(null);
+    const aimSenderRef = useRef<LiveAimSender | undefined>(undefined);
     const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
@@ -732,6 +743,9 @@ export const RankedGameView: React.FC<Props> = ({
         }
         let closed = false;
         let retryTimer: number | undefined;
+        let playbackQueue = Promise.resolve();
+        const aimReceiver = new OpponentAimReceiver();
+        let serverClockOffset = Infinity;
 
         const connect = async () => {
             abortRef.current?.abort();
@@ -767,7 +781,7 @@ export const RankedGameView: React.FC<Props> = ({
 
                 while (!closed) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) throw new Error("Event stream disconnected");
 
                     buffer += decoder.decode(value, { stream: true });
                     const frames = buffer.split("\n\n");
@@ -775,46 +789,58 @@ export const RankedGameView: React.FC<Props> = ({
                     for (const frame of frames) {
                         const event = parseRankedPlaySseFrame(frame);
                         if (!event) continue;
+                        if (event.serverTimeMs > 0)
+                            serverClockOffset = Math.min(serverClockOffset, Date.now() - event.serverTimeMs);
 
-                        // Ephemeral opponent hint: a move aim or an armed spell. Neither is authoritative
-                        // (no snapshot, journal, or sequence). Arming a spell drops the move ghost; a move
-                        // aim does not hide a spell that is still armed.
                         if (event.kind === PlayEventKind.MOVE_INTENT) {
-                            const view = readOpponentIntent(event.intent);
-                            if (view.kind === "spell") {
-                                manager.SetOpponentSpellIntent({ unitId: view.unitId, spellName: view.spellName });
-                                manager.SetOpponentMoveIntent(undefined);
-                            } else if (view.kind === "clear-spell") {
-                                manager.SetOpponentSpellIntent(undefined);
-                            } else if (view.kind === "move") {
-                                manager.SetOpponentMoveIntent({
-                                    unitId: view.unitId,
-                                    cell: { x: view.cell.x, y: view.cell.y },
-                                });
+                            if (document.hidden || event.sequence !== latestSequenceRef.current) continue;
+                            if (event.intent?.aimKind) {
+                                const snap = snapshotRef.current;
+                                const age = Number.isFinite(serverClockOffset)
+                                    ? Math.max(0, Date.now() - event.serverTimeMs - serverClockOffset)
+                                    : 0;
+                                const aim = aimReceiver.read(event, snap ?? undefined, performance.now(), age);
+                                if (aim) manager.SetOpponentAim(aim);
                             } else {
-                                manager.SetOpponentMoveIntent(undefined);
+                                const view = readOpponentIntent(event.intent);
+                                if (view.kind === "spell") {
+                                    manager.SetOpponentSpellIntent({ unitId: view.unitId, spellName: view.spellName });
+                                    manager.SetOpponentMoveIntent(undefined);
+                                } else if (view.kind === "clear-spell") manager.SetOpponentSpellIntent(undefined);
+                                else if (view.kind === "move")
+                                    manager.SetOpponentMoveIntent({ unitId: view.unitId, cell: view.cell });
+                                else manager.SetOpponentMoveIntent(undefined);
                             }
                             continue;
                         }
 
                         latestSequenceRef.current = Math.max(latestSequenceRef.current, event.sequence);
-                        const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
-                        if (!played) {
-                            rememberAuthoritativeRecord(event.journalEntry, {
-                                stateAfterSnapshot: event.snapshot,
+                        manager.SetOpponentAim(undefined);
+                        aimSenderRef.current?.reset();
+                        playbackQueue = playbackQueue
+                            .then(async () => {
+                                if (closed) return;
+                                const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
+                                if (!played)
+                                    rememberAuthoritativeRecord(event.journalEntry, {
+                                        stateAfterSnapshot: event.snapshot,
+                                    });
+                                if (event.snapshot) {
+                                    await waitForAuthoritativePlayback();
+                                    if (!closed) applySnapshot(event.snapshot, { skipBoardRebuild: played });
+                                }
+                                const sseError = rejectionErrorFromPlayEvent(event);
+                                if (sseError && !closed) setError(sseError);
+                            })
+                            .catch((err: unknown) => {
+                                if (!closed) setError(err instanceof Error ? err.message : "Playback failed");
                             });
-                        }
-                        if (event.snapshot) {
-                            await waitForAuthoritativePlayback();
-                            applySnapshot(event.snapshot, { skipBoardRebuild: played });
-                        }
-                        const sseError = rejectionErrorFromPlayEvent(event);
-                        if (sseError) {
-                            setError(sseError);
-                        }
                     }
                 }
             } catch (err: unknown) {
+                manager.SetOpponentAim(undefined);
+                aimReceiver.reset();
+                aimSenderRef.current?.reset();
                 if (!closed && (err as Error).name !== "AbortError") {
                     setStatus("Reconnecting");
                     setError((err as Error).message || "Event stream disconnected");
@@ -1012,7 +1038,17 @@ export const RankedGameView: React.FC<Props> = ({
                 }
                 return false;
             }
-            if (!isModelSubmission && !isSilent) {
+            if (!canSubmitRankedBoardAction(snapshotRef.current, payload)) {
+                await waitForAuthoritativePlayback();
+                const current = snapshotRef.current;
+                if (current && !isModelSubmission) applySnapshot(current, { forceBoardRebuild: true });
+                return false;
+            }
+            // Placement drops are already on the board. Waiting on the spinner here disabled the next
+            // drag and rebuilt the HUD for every cell, which is the lag during ranked placement.
+            const showsSubmitSpinner =
+                !isModelSubmission && !isSilent && !placementActionSkipsSubmitSpinner(payload.type);
+            if (showsSubmitSpinner) {
                 setBusy(true);
             }
             if (!isSilent) {
@@ -1020,9 +1056,11 @@ export const RankedGameView: React.FC<Props> = ({
             }
             try {
                 // Integrity telemetry rides every real action, never the heartbeat: evidence only (inputTelemetry.ts).
+                const readinessIntent = !sandboxCoop
+                    ? captureRankedReadinessIntent(snapshotRef.current, payload.team ?? TeamVals.NO_TEAM, payload.type)
+                    : undefined;
                 const telemetry = payload.type === PlayActionType.PING ? undefined : takeInputTelemetry();
-                const result = await sendRankedPlayAction(
-                    gameId,
+                const result = await sendRankedReadinessWithRetry(
                     telemetry
                         ? {
                               ...payload,
@@ -1031,7 +1069,16 @@ export const RankedGameView: React.FC<Props> = ({
                               tabHidden: telemetry.tabHidden,
                           }
                         : payload,
-                    options,
+                    readinessIntent,
+                    {
+                        send: (action) => sendRankedPlayAction(gameId, action, options),
+                        refresh: async () => {
+                            const fresh = await fetchRankedPlaySnapshot(gameId);
+                            if (fresh) applySnapshot(fresh);
+                        },
+                        getSnapshot: () => snapshotRef.current,
+                        newActionId: uuidv4,
+                    },
                 );
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (payload.type === PlayActionType.PING && result.accepted) {
@@ -1083,6 +1130,13 @@ export const RankedGameView: React.FC<Props> = ({
                     if (fresh) {
                         applySnapshot(fresh, { forceBoardRebuild: rejected });
                     }
+                }
+                if (
+                    rejected &&
+                    isRecoveredRankedReadinessRejection(readinessIntent, result.rejectionReason, snapshotRef.current)
+                ) {
+                    setError("");
+                    return true;
                 }
                 if (rejected) {
                     pendingTurnResolutionRef.current = false;
@@ -1186,7 +1240,7 @@ export const RankedGameView: React.FC<Props> = ({
                 }
                 return false;
             } finally {
-                if (!isModelSubmission && !isSilent) {
+                if (showsSubmitSpinner) {
                     setBusy(false);
                 }
             }
@@ -1201,6 +1255,7 @@ export const RankedGameView: React.FC<Props> = ({
             refreshSnapshot,
             rememberAuthoritativeRecord,
             waitForAuthoritativePlayback,
+            sandboxCoop,
         ],
     );
 
@@ -1226,6 +1281,8 @@ export const RankedGameView: React.FC<Props> = ({
         [gameId, isObserver, effectiveLocalModelConfig.enabled, effectiveLocalModelConfig.modelTeam, userTeam],
     );
 
+    const readinessSubmissions = useRef(new RankedReadinessSubmissions());
+
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
         const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
         actionQueueRef.current = nextSubmission.catch(() => undefined);
@@ -1234,26 +1291,40 @@ export const RankedGameView: React.FC<Props> = ({
 
     const submitProtocolActionForTeam = useCallback(
         async (action: Partial<PlayAction>, team: TeamType, authorization?: string, options?: { silent?: boolean }) => {
-            await queueActionSubmission(async () => {
+            const send = async () => {
                 const envelope = buildActionEnvelope(team);
-                if (!envelope) return;
-
-                await sendPlayAction(
-                    {
-                        ...envelope,
-                        type: PlayActionType.UNKNOWN,
-                        ...action,
-                    },
+                if (!envelope) return false;
+                return sendPlayAction(
+                    { ...envelope, type: PlayActionType.UNKNOWN, ...action },
                     { authorization, silent: options?.silent },
                 );
+            };
+            if (!sandboxCoop && isRankedReadinessAction(action.type)) {
+                const intent = captureRankedReadinessIntent(snapshotRef.current, team, action.type);
+                if (intent) {
+                    return (
+                        (await readinessSubmissions.current.submit(
+                            intent,
+                            () => snapshotRef.current,
+                            queueActionSubmission,
+                            send,
+                        )) ?? false
+                    );
+                }
+                return false;
+            }
+            let accepted = false;
+            await queueActionSubmission(async () => {
+                accepted = await send();
             });
+            return accepted;
         },
-        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction, sandboxCoop],
     );
 
     const submitProtocolAction = useCallback(
         async (action: Partial<PlayAction>) => {
-            await submitProtocolActionForTeam(action, userTeam);
+            return submitProtocolActionForTeam(action, userTeam);
         },
         [submitProtocolActionForTeam, userTeam],
     );
@@ -1266,6 +1337,20 @@ export const RankedGameView: React.FC<Props> = ({
             transportOptions?: SceneGameActionTransportOptions,
             inputSource?: number,
         ) => {
+            if (action.type === "start_fight" && !sandboxCoop) {
+                const current = snapshotRef.current;
+                if (current?.phase === PlayPhase.PLACEMENT) {
+                    await submitProtocolActionForTeam(
+                        {
+                            type: rankedPlacementLockActionType(current),
+                            ...(inputSource !== undefined ? { inputSource } : {}),
+                        },
+                        team,
+                        authorization,
+                    );
+                }
+                return;
+            }
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
@@ -1279,7 +1364,7 @@ export const RankedGameView: React.FC<Props> = ({
                 );
             });
         },
-        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction, sandboxCoop, submitProtocolActionForTeam],
     );
 
     const submitGameAction = useCallback(
@@ -1440,14 +1525,15 @@ export const RankedGameView: React.FC<Props> = ({
             setError("");
 
             try {
-                const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
-                const initialSnapshot = replaySnapshots[0] ?? replay.currentSnapshot;
+                const opening = getRankedReplayInitialSnapshot(replay);
+                const initialSnapshot = opening ? withReplayJournalTails([opening], replay.journal)[0] : undefined;
                 if (initialSnapshot) {
                     applySnapshot(initialSnapshot, { forceBoardRebuild: true, replayRewind: true });
                     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
                 }
 
                 const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
+                    shareSnapshots: true,
                     snapshotToState: (playSnapshot) =>
                         authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
                     // The whole snapshot rides along too: the board comes from the scene state above, but
@@ -1465,6 +1551,7 @@ export const RankedGameView: React.FC<Props> = ({
                     }
                 }
 
+                const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
                 if (!replaySnapshots.length) {
                     throw new Error("Replay has no snapshots to play");
                 }
@@ -1528,7 +1615,8 @@ export const RankedGameView: React.FC<Props> = ({
                     return;
                 }
                 storedReplayRef.current = replay;
-                const initialSnapshot = collectRankedReplaySnapshots(replay)[0] ?? replay.currentSnapshot;
+                const initialSnapshot = getRankedReplayInitialSnapshot(replay);
+                if (!initialSnapshot) throw new Error("Replay has no snapshots to play");
                 applySnapshot(initialSnapshot, { forceBoardRebuild: true });
             })
             .catch((err: unknown) => {
@@ -1585,90 +1673,46 @@ export const RankedGameView: React.FC<Props> = ({
         return () => manager.SetSandboxSetupTransport(undefined);
     }, [isObserver, manager, pixiReady, replayOnly, sandboxCoop, submitProtocolAction, userTeam]);
 
-    // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
-    // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
     useEffect(() => {
-        if (isObserver) {
-            manager.SetMoveIntentSink(undefined);
-            manager.SetSpellIntentSink(undefined);
+        if (isObserver || replayOnly) {
+            manager.SetAimIntentSink(undefined);
             return undefined;
         }
-        const MIN_INTERVAL_MS = 80;
-        let lastSentMs = 0;
-        let pendingTimer: number | undefined;
-        let pending: { unitId: string; cell?: { x: number; y: number } } | null = null;
-
-        const flush = () => {
-            pendingTimer = undefined;
-            if (!pending) {
-                return;
-            }
-            const aim = pending;
-            pending = null;
-            const snap = snapshotRef.current;
-            const me = snap?.players.find((player) => player.team === userTeam);
-            if (!snap || !me) {
-                return;
-            }
-            // Active aims are only meaningful on our own turn; clears always go through.
-            if (aim.cell && snap.currentTurnTeam !== userTeam) {
-                return;
-            }
-            lastSentMs = performance.now();
-            sendRankedPlayMoveIntent(gameId, {
-                playerId: me.playerId,
-                team: userTeam,
-                unitId: aim.unitId,
-                targetCell: aim.cell,
-            });
-        };
-
-        const sink = (unitId: string | undefined, cell: { x: number; y: number } | undefined) => {
-            pending = { unitId: unitId ?? "", cell: cell ? { x: cell.x, y: cell.y } : undefined };
-            if (!cell) {
-                if (pendingTimer !== undefined) {
-                    window.clearTimeout(pendingTimer);
-                }
-                flush();
-                return;
-            }
-            const now = performance.now();
-            const dueAt = lastSentMs + MIN_INTERVAL_MS;
-            if (now >= dueAt) {
-                flush();
-            } else if (pendingTimer === undefined) {
-                pendingTimer = window.setTimeout(flush, dueAt - now);
+        const sender = new LiveAimSender(
+            () => {
+                const snap = snapshotRef.current;
+                const me = snap?.players.find((player) => player.team === userTeam);
+                if (
+                    document.hidden ||
+                    !snap ||
+                    !me ||
+                    snap.phase !== PlayPhase.PLAY ||
+                    snap.fightFinished ||
+                    snap.currentTurnTeam !== userTeam ||
+                    snap.latestSequence !== latestSequenceRef.current
+                )
+                    return undefined;
+                return { playerId: me.playerId, unitId: snap.currentUnitId, sequence: snap.latestSequence };
+            },
+            (aim, context) => sendRankedPlayAim(gameId, { ...context, team: userTeam, aim }),
+        );
+        aimSenderRef.current = sender;
+        manager.SetAimIntentSink((aim) => sender.update(aim));
+        const onVisibility = () => {
+            if (document.hidden) {
+                sender.reset();
+                manager.SetOpponentAim(undefined);
             }
         };
-
-        const spellSink = (unitId: string | undefined, spellName: string | undefined) => {
-            const snap = snapshotRef.current;
-            const me = snap?.players.find((player) => player.team === userTeam);
-            if (!snap || !me) {
-                return;
-            }
-            // An armed spell is only meaningful on our own turn; a clear always goes through.
-            if (spellName && snap.currentTurnTeam !== userTeam) {
-                return;
-            }
-            sendRankedPlaySpellIntent(gameId, {
-                playerId: me.playerId,
-                team: userTeam,
-                unitId: unitId ?? "",
-                spellName,
-            });
-        };
-
-        manager.SetMoveIntentSink(sink);
-        manager.SetSpellIntentSink(spellSink);
+        document.addEventListener("visibilitychange", onVisibility);
         return () => {
-            if (pendingTimer !== undefined) {
-                window.clearTimeout(pendingTimer);
-            }
-            manager.SetMoveIntentSink(undefined);
-            manager.SetSpellIntentSink(undefined);
+            sender.dispose();
+            aimSenderRef.current = undefined;
+            manager.SetAimIntentSink(undefined);
+            manager.SetOpponentAim(undefined);
+            document.removeEventListener("visibilitychange", onVisibility);
         };
-    }, [manager, gameId, isObserver, userTeam]);
+    }, [manager, gameId, isObserver, replayOnly, userTeam]);
 
     const modelPlacementRunKeyRef = useRef("");
     const playerInitialPlacementRunKeyRef = useRef("");
@@ -2241,7 +2285,7 @@ interface RankedOverlayProps {
     snapshot: PlaySnapshot;
     status: string;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean | void>;
     userTeam: TeamType;
     isObserver: boolean;
     /** Co-op sandbox: no draft, so the full-screen augment step never opens (the sidebar picker stays). */
@@ -2310,7 +2354,7 @@ const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
     );
 };
 
-const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
+export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
     canSubmit,
     selectedUnit,
     snapshot,
@@ -2434,7 +2478,7 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                     />
                 )}
             </Stack>
-            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", mt: 1.5 }}>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ width: "100%", mx: "auto", mt: 1.5 }}>
                 {canShowSplit && (
                     <Button
                         variant="plain"
@@ -2449,11 +2493,12 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                         }
                         sx={{
                             ...hocSidebarImageButtonSx("neutral"),
-                            flex: 1,
-                            minWidth: 0,
-                            height: "29.25px",
-                            minHeight: "29.25px",
-                            maxHeight: "29.25px",
+                            flex: "1 1 5.5em",
+                            minWidth: "min(100%, 5.5em)",
+                            height: "36px",
+                            minHeight: "36px",
+                            maxHeight: "36px",
+                            fontSize: "0.875rem",
                             py: 0,
                         }}
                     >
@@ -2477,11 +2522,12 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                     }}
                     sx={{
                         ...hocSidebarImageButtonSx("danger"),
-                        flex: 1,
-                        minWidth: 0,
-                        height: "29.25px",
-                        minHeight: "29.25px",
-                        maxHeight: "29.25px",
+                        flex: "1 1 5.5em",
+                        minWidth: "min(100%, 5.5em)",
+                        height: "36px",
+                        minHeight: "36px",
+                        maxHeight: "36px",
+                        fontSize: "0.875rem",
                         py: 0,
                         ...(deleteArmed ? { fontWeight: "lg", textDecoration: "underline" } : {}),
                     }}
@@ -2582,8 +2628,8 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     const yours = userTeam === TeamVals.RIGHT ? right : left;
     const theirs = userTeam === TeamVals.RIGHT ? left : right;
     const hasYours = !!(yours.tier1 || yours.tier2);
-    // The opponent's artifacts only reach us once the fight starts (server withholds them during placement),
-    // so the Opponent column simply appears when its ids show up in the snapshot.
+    // The snapshot reveals opponent artifacts alongside the roster during setup.
+    // Older servers can still omit them, so show the column only when IDs are available.
     const hasTheirs = !!(theirs.tier1 || theirs.tier2);
     if (!hasYours && !hasTheirs) {
         return null;
@@ -3165,13 +3211,14 @@ const rankedReadyPlacementButtonSx = {
     ...hocSidebarImageButtonSx("neutral"),
     width: "100%",
     minWidth: 0,
-    height: "39.48px",
-    minHeight: "39.48px",
-    maxHeight: "39.48px",
+    maxWidth: "360px",
+    height: "max(44px, calc(2.2em + 8px))",
+    minHeight: "max(44px, calc(2.2em + 8px))",
+    flexShrink: 0,
     justifySelf: "center",
     py: 0,
     px: 0,
-    fontSize: "clamp(.72rem, 4.65cqw, 1.08rem)",
+    fontSize: "clamp(.875rem, 5cqw, 1.08rem)",
     fontWeight: 880,
     whiteSpace: "nowrap",
     display: "flex",
@@ -3202,11 +3249,11 @@ const rankedReadyPlacementButtonSx = {
     },
 } as const;
 
-const RankedReadyPlacementButton: React.FC<{
+export const RankedReadyPlacementButton: React.FC<{
     canSubmit: boolean;
     ready: boolean;
     snapshot: PlaySnapshot;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean | void>;
     /**
      * Co-op sandbox: the same button, but READY is a lobby-style toggle (press again to cancel) that needs
      * at least one unit on the board, and there is no clock. START is the sidebar's usual button.
@@ -3245,8 +3292,11 @@ const RankedReadyPlacementButton: React.FC<{
                     textAlign: "center",
                     minWidth: 0,
                     overflow: "hidden",
-                    fontSize: "93%",
-                    transform: "translateX(2%)",
+                    fontSize: "inherit",
+                    whiteSpace: "normal",
+                    lineHeight: 1.1,
+                    px: "2px",
+                    py: "4px",
                     textTransform: "uppercase",
                 }}
             >
@@ -3257,9 +3307,9 @@ const RankedReadyPlacementButton: React.FC<{
                     component="span"
                     sx={{
                         position: "relative",
-                        width: "22%",
+                        width: "3.2em",
                         minWidth: 0,
-                        flex: "0 0 22%",
+                        flex: "0 0 3.2em",
                         display: "grid",
                         alignItems: "center",
                         justifyItems: "center",
@@ -3525,10 +3575,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 height: embedded ? "100%" : undefined,
                 minHeight: embedded ? 0 : undefined,
                 maxHeight: embedded ? "none" : "calc(100vh - 24px)",
-                overflowX: embedded ? "visible" : "auto",
-                overflowY: embedded ? "visible" : "auto",
-                scrollbarWidth: embedded ? "none" : undefined,
-                "&::-webkit-scrollbar": embedded ? { display: "none" } : undefined,
+                overflowX: "hidden",
+                overflowY: "auto",
+                scrollbarWidth: "thin",
+                scrollbarGutter: "stable",
                 mx: embedded ? "auto" : undefined,
                 p: 1.25,
                 ...(snapshot.phase === PlayPhase.PLACEMENT ? hocSidebarSectionSx("army") : hocPanelSx),
@@ -3551,7 +3601,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 },
             }}
         >
-            <Stack spacing={1} sx={{ height: "100%", minHeight: 0, flex: "1 1 auto" }}>
+            <Stack spacing={1} sx={{ height: embedded ? "auto" : "100%", minHeight: embedded ? "100%" : 0 }}>
                 <Stack
                     direction="row"
                     spacing={1}
@@ -3783,6 +3833,16 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                             unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
                                                     )
                                                     .map((unit) => unit.creatureId)}
+                                                artifactTier1={
+                                                    (userTeam === TeamVals.LEFT
+                                                        ? snapshot.rightArtifactTier1
+                                                        : snapshot.leftArtifactTier1) ?? 0
+                                                }
+                                                artifactTier2={
+                                                    (userTeam === TeamVals.LEFT
+                                                        ? snapshot.rightArtifactTier2
+                                                        : snapshot.leftArtifactTier2) ?? 0
+                                                }
                                                 opponentLabel={t("Opponent")}
                                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                                 onInspect={beginAugmentInspect}
@@ -3873,13 +3933,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
                                             onCommit={() => {
                                                 if (inSetupStage) {
-                                                    void submitProtocolAction({
+                                                    return submitProtocolAction({
                                                         type: rankedPlacementLockActionType(snapshot),
                                                     });
                                                 } else {
                                                     setAugmentOverlayOpen(false);
+                                                    return true;
                                                 }
                                             }}
+                                            submissionKey={`${snapshot.gameId}:${snapshot.placementStage}`}
                                         />
                                     </Box>
                                 </Box>
@@ -3897,7 +3959,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
                             <RankedPlacementStackActions
                                 immediateDelete={skipAugmentStep}
-                                canSubmit={canSubmit}
+                                canSubmit={canSubmit && !ready}
                                 selectedUnit={selectedUnit}
                                 snapshot={snapshot}
                                 submitGameAction={submitGameAction}

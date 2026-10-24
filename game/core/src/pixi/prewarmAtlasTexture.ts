@@ -1,6 +1,6 @@
 import { RendererType, type Renderer, type Texture, type TextureSource } from "pixi.js";
 
-type PrewarmRenderer = Pick<Renderer, "texture"> & Partial<Pick<Renderer, "type">>;
+type PrewarmRenderer = Pick<Renderer, "texture"> & Partial<Pick<Renderer, "type" | "uid">>;
 type PrepareBitmap = (image: HTMLImageElement, source: TextureSource, signal: AbortSignal) => Promise<ImageBitmap>;
 
 const prepareBitmap: PrepareBitmap = async (image, source, signal) => {
@@ -33,6 +33,13 @@ export class AtlasTexturePrewarmer {
         // The temporary resource is consumed synchronously by WebGL. Keep WebGPU's existing
         // external-image copy/lifetime path, which has different resource and alpha handling.
         if (renderer.type === RendererType.WEBGPU) return prewarmAtlasTexture(renderer, frame);
+        // A visible idle/action frame may already have uploaded this sheet. Pixi clears the renderer's
+        // GPU entry on eviction and context loss, so this checks current residency rather than a stale
+        // "seen before" flag. Binding still refreshes Pixi's usage clock without decoding another bitmap.
+        if (renderer.uid !== undefined && frame.source._gpuData[renderer.uid]) {
+            this.cancel();
+            return prewarmAtlasTexture(renderer, frame);
+        }
         if (this.pending && this.pending.source !== frame.source) {
             // Finish or cancel the previous decode before starting another, even if turn priority changes.
             if (!this.pending.settled) {

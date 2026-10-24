@@ -1,6 +1,38 @@
 import { expect, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 
+test.each(["ember_covenant", "water_shield"])(
+    "%s keeps a recorded zero-damage counter in the replay impact plan",
+    (source) => {
+        const attacker = { getId: () => "A", getPosition: () => ({ x: 0, y: 0 }) };
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            getReplayUnitDamage: () => ({ amount: 0, unitsDied: 0 }),
+            takeFireWallBurn: () => ({}),
+        });
+        const event = {
+            attackType: "range",
+            damage: {
+                secondary: [{ source, unitId: "screen", position: { x: 100, y: 0 }, amount: 47, unitsDied: 0 }],
+            },
+            animations: [
+                { fromPosition: { x: 0, y: 0 }, toPosition: { x: 500, y: 0 }, affectedUnitId: "B" },
+                { fromPosition: { x: 500, y: 0 }, toPosition: { x: 100, y: 0 }, affectedUnitId: "screen" },
+            ],
+        };
+        expect(scene.getReplayRetaliationDamage(attacker, {}, event, { events: [] })).toEqual({
+            amount: 0,
+            unitsDied: 0,
+        });
+        scene.getReplayUnitDamage = () => ({ amount: 5, unitsDied: 0 });
+        expect(scene.getReplayRetaliationDamage(attacker, {}, event, { events: [] })).toEqual({
+            amount: 5,
+            unitsDied: 0,
+        });
+        event.animations.pop();
+        expect(scene.getReplayRetaliationDamage(attacker, {}, event, { events: [] })).toBeUndefined();
+    },
+);
+
 test("the shared exchange targets the counter's actual screening victim by its origin", () => {
     const attacker = {
         getId: () => "A",

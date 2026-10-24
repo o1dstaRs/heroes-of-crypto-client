@@ -3,17 +3,8 @@ import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.js
 import abilitiesJson from "@heroesofcrypto/common/src/configuration/abilities.json";
 import effectsJson from "@heroesofcrypto/common/src/configuration/effects.json";
 
-export type FactionName = "Life" | "Nature" | "Chaos" | "Death" | "Might";
-
-export const factionOrder: FactionName[] = ["Chaos", "Life", "Might", "Nature"];
-
-export const factionColors: Record<FactionName, string> = {
-    Chaos: "#c63d33",
-    Life: "#4ea36e",
-    Might: "#e0b04a",
-    Nature: "#6f9bd6",
-    Death: "#8a76bf",
-};
+import { factionColors, factionOrder, type FactionName } from "./factions";
+export { factionColors, factionOrder, type FactionName } from "./factions";
 
 interface RawCreature {
     name: string;
@@ -62,6 +53,7 @@ const abilityIconOverrides: Readonly<Record<string, string>> = {
     "Angelic Host Blessing": "/assets/images/units/abilities/angelic_host_256.webp",
     "Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
     "Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
+    "Sharpened Weapons Blessing": "/assets/images/units/abilities/sharpened_weapons_aura_256.webp",
 };
 
 const abilityIcon = (name: string): string =>
@@ -121,6 +113,11 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
 const notStackScaled = new Set(["Dulling Defense", "Pegasus Light"]);
 
 const abilityDescriptionRuTemplates: Record<string, string[]> = {
+    "Ember Covenant Blessing": [
+        "В начале боя окружает каждый союзный стек общим кольцом огня.",
+        "Огненный урон блокируется и не разрушает кольца. Первое другое попадание поглощается, после чего все союзные кольца исчезают.",
+        "Атаки Water Element и магия воды игнорируют поглощение, наносят урон и снимают все кольца. Последующие попадания наносят урон как обычно. Один раз за бой; не складывается.",
+    ],
     "Angelic Host Blessing": [
         "Пока этот юнит жив, все союзные летающие юниты получают +{} к атаке, +{} к защите и +{} к дистанции перемещения.",
     ],
@@ -181,7 +178,6 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "One in the Field": ["Отвечает на каждую атаку."],
     "Endless Quiver": ["Бесконечный запас стрел."],
     Sniper: ["Игнорирует штрафы за выстрелы по дальним целям."],
-    "Leather Armor": ["Броня этого юнита против дальних атак снижена на {}%."],
     "Limited Supply": ["Доступно только {}% стрел."],
     "Enchanted Skin": ["Дает 100% защиту от любой магии, включая баффы и дебаффы."],
     Undead: ["Неуязвим к ментальным атакам, яду и вампиризму. Уязвим к святым атакам."],
@@ -200,7 +196,10 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Имеет +{}% базовой брони, но получает на {}% больше магического урона — от заклинаний, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield.",
     ],
     "No Melee": ["У юнита нет ближней атаки."],
-    "Sharpened Weapons Aura": ["Союзники ближнего боя под эффектом получают +{}% к базовой силе атаки."],
+    "Sharpened Weapons Blessing": [
+        "Пока этот юнит жив, все союзные юниты ближнего боя и магии на поле боя получают +{}% к базовой атаке.",
+        "Не складывается с другими благословениями заточенного оружия.",
+    ],
     "Range Null Field Aura": ["Вражеские юниты под эффектом не могут использовать дальние атаки."],
     "Luck Aura": ["Союзники в радиусе получают максимальную удачу."],
     "Arrows Wingshield Aura": [

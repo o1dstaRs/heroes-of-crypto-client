@@ -110,9 +110,17 @@ export class PlacementManager {
         addHashes(TeamVals.RIGHT, this.rightPlacements[0]);
         addHashes(TeamVals.RIGHT, this.rightPlacements[1]);
     }
+    /** Hide cached washes and frames without destroying them. */
+    public concealPersistentZones(): void {
+        for (const placement of [...this.leftPlacements, ...this.rightPlacements]) {
+            placement?.concealPersistentZone();
+        }
+    }
     /** Draw all placements or only for a specific team */
-    public draw(gfx: Graphics, frameContainer: Container, team?: TeamType): void {
-        const drawOne = (p?: IDrawablePlacement) => p && p.draw(gfx, frameContainer);
+    public draw(gfx: Graphics, frameContainer: Container, team?: TeamType, washContainer?: Container): void {
+        // An undrawn team must not keep last frame's wash. Drawn zones turn theirs back on.
+        this.concealPersistentZones();
+        const drawOne = (p?: IDrawablePlacement) => p && p.draw(gfx, frameContainer, washContainer);
 
         if (team === undefined) {
             drawOne(this.leftPlacements[0]);

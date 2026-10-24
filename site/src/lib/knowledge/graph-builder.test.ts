@@ -172,6 +172,16 @@ describe("knowledge graph builder", () => {
         expect(byId.get("formula:resistances")?.text).toContain("immune target still relays Gravechain");
     });
 
+    test("the AI knowledge base explains doctrine ban visibility and the public observer restriction", () => {
+        expect(byId.get("doctrine:scout")?.text).toContain("all draft bans in advance");
+        expect(byId.get("doctrine:spymaster")?.text).toContain("all draft bans in advance");
+        expect(byId.get("doctrine:battle-trance")?.text).toContain("Bans are revealed as each creature level opens");
+        const bans = graph.nodes.find((node) => node.name === "Draft bans");
+        expect(bans?.text).toContain("Public observers always receive only bans for levels already opened");
+        expect(bans?.text).toContain("hidden bans are omitted by the server");
+        expect(bans?.textRu).toContain("скрытые баны сервер не отправляет");
+    });
+
     test("everything the game names in English has a Russian name, and the Russian text uses it", () => {
         const gameNamed = graph.nodes.filter((node) =>
             ["unit", "ability", "effect", "spell", "artifact", "doctrine"].includes(node.type),

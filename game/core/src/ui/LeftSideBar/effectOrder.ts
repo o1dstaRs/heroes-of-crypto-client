@@ -9,43 +9,47 @@
  * -----------------------------------------------------------------------------
  */
 
+import { HoCConstants } from "@heroesofcrypto/common";
+
 /** Just enough of IVisibleImpact to rank it; keeps this module free of the UI types. */
 export interface IOrderableEffect {
     name: string;
     description: string;
+    laps?: number;
+    appliedOrder?: number;
 }
 
-/**
- * Army-wide and whole-fight first when read in ARRIVAL order: augments, then artifacts, then the per-turn
- * traffic. Grouping rather than a pure arrival sort is deliberate — it stops an effect jumping groups the
- * moment another expires.
- */
+const isTemporary = (effect: IOrderableEffect): boolean =>
+    effect.laps !== undefined &&
+    effect.laps > 0 &&
+    effect.laps !== Number.MAX_SAFE_INTEGER &&
+    effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL;
+
+/** Temporary effects lead; permanent buffs, artifacts and augments follow in their own blocks. */
 const buffRank = (buff: IOrderableEffect): number => {
-    if (buff.name.endsWith(" Augment")) return 0;
-    if (buff.description.startsWith("Artifact.")) return 1;
-    return 2;
+    if (isTemporary(buff)) return 0;
+    if (buff.name.endsWith(" Augment")) return 3;
+    if (buff.description.startsWith("Artifact.")) return 2;
+    return 1;
 };
 
 /**
- * Buffs as the sidebar shows them: MOST RECENT FIRST (owner call — the newest effect reads leftmost).
- *
- * The grouping above still decides the blocks; this reverses the finished order, so the per-turn traffic —
- * the part that actually changes from turn to turn — leads, newest first, and the permanent army-wide
- * augments settle at the far end where they need the least attention. Reversing the FINISHED list rather
- * than flipping the rank keeps each group contiguous, so an effect still cannot jump groups when a
- * neighbour expires.
+ * Use successful application events to merge spell debuffs and ability effects chronologically.
+ * Older snapshots without those events retain reverse arrival order; remaining duration is never age.
  */
-export const orderSidebarBuffs = <T extends IOrderableEffect>(buffs: readonly T[]): T[] =>
-    buffs
-        .map((buff, index) => ({ buff, index }))
-        .sort((a, b) => buffRank(a.buff) - buffRank(b.buff) || a.index - b.index)
-        .map((entry) => entry.buff)
-        .reverse();
+const orderEffects = <T extends IOrderableEffect>(effects: readonly T[], rank: (effect: T) => number): T[] =>
+    effects
+        .map((effect, index) => ({ effect, index }))
+        .sort(
+            (a, b) =>
+                rank(a.effect) - rank(b.effect) ||
+                (b.effect.appliedOrder ?? -1) - (a.effect.appliedOrder ?? -1) ||
+                b.index - a.index,
+        )
+        .map((entry) => entry.effect);
 
-/**
- * Debuffs as the sidebar shows them: MOST RECENT FIRST.
- *
- * Debuffs carry no grouping — they are all per-turn traffic — so recency is the whole rule. Copies rather
- * than reversing in place: the array belongs to the caller's props.
- */
-export const orderSidebarDebuffs = <T extends IOrderableEffect>(debuffs: readonly T[]): T[] => [...debuffs].reverse();
+export const orderSidebarBuffs = <T extends IOrderableEffect>(buffs: readonly T[]): T[] =>
+    orderEffects(buffs, buffRank);
+
+export const orderSidebarDebuffs = <T extends IOrderableEffect>(debuffs: readonly T[]): T[] =>
+    orderEffects(debuffs, (effect) => (isTemporary(effect) ? 0 : 1));

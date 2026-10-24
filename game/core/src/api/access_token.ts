@@ -1,3 +1,5 @@
+import { writeStorageItem } from "./local_storage_quota";
+
 export const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
 
 type AccessTokenListener = (accessToken: string | null) => void;
@@ -191,7 +193,10 @@ export const setStoredAccessToken = (accessToken: string | null | undefined): st
         return null;
     }
 
-    storage()?.setItem(ACCESS_TOKEN_STORAGE_KEY, normalized);
+    const store = storage();
+    if (store) {
+        writeStorageItem(store, ACCESS_TOKEN_STORAGE_KEY, normalized);
+    }
     scheduleExpiration(normalized);
     notifyListeners(normalized);
     return normalized;

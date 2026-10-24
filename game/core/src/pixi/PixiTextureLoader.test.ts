@@ -25,7 +25,7 @@ import {
     unloadRosterAssets,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
-import { NARROWING_BACKGROUND_KEYS } from "./imageAssetTiers";
+import { NARROWING_BACKGROUND_KEYS, isCoreTextureAssetKey } from "./imageAssetTiers";
 
 test("background floors load serially, share in-flight work, and recover after an optional download fails", async () => {
     let rejectFirst!: (error: Error) => void;
@@ -378,6 +378,75 @@ describe("pixi texture bundle split", () => {
         }
     });
 
+    test("leaves every sidebar animation and authoring variant available without globally preloading it", () => {
+        const sidebarKeys = Object.keys(images).filter(
+            (key) => key.includes("_left_screen_") && key.includes("_atlas"),
+        );
+        for (const key of [
+            "peasant_left_screen_idle_atlas",
+            "angel_left_screen_idle_atlas",
+            "arbalester_left_screen_idle_atlas",
+            "arbalester_left_screen_integrated_idle_atlas",
+            "arbalester_left_screen_source_exact_idle_atlas",
+            "arbalester_left_screen_restored_v5_atlas",
+            "arbalester_left_screen_redraw_v2_atlas",
+            "arbalester_left_screen_redraw_v2_final_atlas",
+            "arbalester_left_screen_redraw_v3_coherent_atlas",
+        ]) {
+            expect(sidebarKeys).toContain(key);
+        }
+        for (const animationsEnabled of [false, true]) {
+            const split = getSplitBundles({ animationsEnabled });
+            for (const key of sidebarKeys) {
+                expect(split.deferredReactUiAssets[key]?.src, key).toBe((images as Record<string, string>)[key]);
+                expect(split.core[key], key).toBeUndefined();
+                expect(split.idleAtlases[key], key).toBeUndefined();
+                expect(split.animations[key], key).toBeUndefined();
+                expect(isCoreTextureAssetKey(key), key).toBe(false);
+            }
+        }
+    });
+
+    test("recognises reduced sidebar sheets without deferring similarly named battlefield art", () => {
+        for (const suffix of ["", "_half", "_quarter"]) {
+            for (const base of ["wolf_left_screen_idle_atlas", "arbalester_left_screen_redraw_v2_final_atlas"]) {
+                expect(isDeferredReactUiAssetKey(`${base}${suffix}`)).toBe(true);
+                expect(isCoreTextureAssetKey(`${base}${suffix}`)).toBe(false);
+            }
+        }
+        for (const key of [
+            "wolf_idle_atlas_half",
+            "peasant_footstep_dust_low_sweep_atlas",
+            "wolf_left_screening_idle_atlas",
+            "wolf_left_screen_idle_atlas_mask",
+        ]) {
+            expect(isDeferredReactUiAssetKey(key), key).toBe(false);
+        }
+    });
+
+    test("paged and integrated Arbalester portraits never enter a global Pixi preload bundle", () => {
+        const keys = [
+            "arbalester_v8_atlas",
+            "arbalester_v8_page_00_atlas",
+            "arbalester_v8_page_19_atlas",
+            "blacksmith_left_screen_idle_page_00_atlas",
+        ];
+        for (const key of keys) {
+            expect(isDeferredReactUiAssetKey(key), key).toBe(true);
+            expect(isCoreTextureAssetKey(key), key).toBe(false);
+            if (key.includes("_page_")) expect(isProductionOmittedAssetKey(key), key).toBe(false);
+        }
+        const split = getSplitBundles();
+        for (const key of Object.keys(images).filter((key) =>
+            /_left_screen_.*_page_\d{2}_atlas$|^arbalester_v8_page_\d{2}_atlas$/.test(key),
+        )) {
+            expect(split.deferredReactUiAssets[key]?.src, key).toBe((images as Record<string, string>)[key]);
+            expect(split.core[key], key).toBeUndefined();
+            expect(split.idleAtlases[key], key).toBeUndefined();
+            expect(split.animations[key], key).toBeUndefined();
+        }
+    });
+
     test("keeps only live environment variants in core and lets the fire pit load on demand", () => {
         const { core } = getSplitBundles({ animationsEnabled: false });
         const deferred = [
@@ -512,6 +581,7 @@ describe("pixi texture bundle split", () => {
         const { core, lazyCombatEffectAssets } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
+            "ember_covenant_ring",
             "book_1024_clean_pages_v1",
             "craft_anvil",
             "craft_hammer",
@@ -533,6 +603,7 @@ describe("pixi texture bundle split", () => {
         const { core, lazyAbilityAssets } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
+            "ember_covenant_blessing_256",
             "double_punch_256",
             "fire_breath_256",
             "predatory_assimilation_256",
@@ -550,7 +621,7 @@ describe("pixi texture bundle split", () => {
             expect(lazyAbilityAssets[key]).toBeUndefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazyAbilityAssets)).toHaveLength(101);
+        expect(Object.keys(lazyAbilityAssets)).toHaveLength(102);
     });
 
     test("loads spell and status cards only when the current scene requests them", () => {

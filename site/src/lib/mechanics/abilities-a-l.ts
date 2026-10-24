@@ -24,6 +24,12 @@ const craftedFrozen: NoteSpec = {
 };
 
 export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
+    "Ember Covenant Blessing": {
+        en: () =>
+            "Once at battle start, Hydra gives every living, placed ally a shared fire halo. Fire spells and fire abilities are blocked without consuming it. A normal direct hit, including Black Dragon's primary melee attack, is fully absorbed and dissolves every allied halo; Fire Element immunity does not turn that hit into fire magic. Water Element attacks and water magic bypass absorption: they deal damage and also dissolve every halo. Later hits, including a double attack's second hit, land normally. Zero damage leaves the covenant intact; its absorption preserves Water Shield for a later hit. Damage to an unprotected ally summoned later also ends the covenant. Multiple Hydras do not stack or restore it, and the blessing cannot be copied. Open with a cheap non-fire hit to remove the whole army's protection.",
+        ru: () =>
+            "Один раз в начале боя Hydra даёт каждому живому союзнику на поле общее огненное кольцо. Огненные заклинания и способности блокируются, не расходуя защиту. Обычное прямое попадание, включая основной удар Black Dragon, полностью поглощается и снимает все союзные кольца; иммунитет Fire Element не превращает этот удар в огненную магию. Атаки Water Element и магия воды игнорируют поглощение: наносят урон и также снимают все кольца. Последующие попадания, включая второй удар двойной атаки, наносят урон как обычно. Нулевой урон сохраняет обет; поглощение обетом оставляет Water Shield для следующего удара. Урон незащищённому союзнику, призванному позже, также снимает обет. Несколько Hydra не усиливают и не восстанавливают защиту; благословение нельзя скопировать. Начните с дешёвого неогненного удара, чтобы снять защиту всей армии.",
+    },
     "Absolving Arrow": {
         en: ({ p, n }) =>
             `Every ally the Monk's arrow flies past — on its shots and counter-shots, hit or miss — rolls to shed a negative effect: the first at ${n(p / 5)}% per stack power (${n(p)}% at full stack) plus 1% per point of luck, each further one on the same ally at half the previous chance, rolled separately. Every status effect (Stun, Freeze, Blindness, Paralysis, Break, Aggr, Boar Saliva, Shatter Armor, Terrifying Gaze, Pegasus Light, Deep Wounds, Poison) goes before spell debuffs; aura penalties and cursed-artifact downsides can't be lifted.`,
@@ -261,9 +267,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Fire Breath": {
         en: ({ p, n }) =>
-            `Each melee attack or retaliation also burns whoever stands directly behind the target on the line of the strike, friend or foe (1 cell behind a 1×1 target, 2 behind a 2×2), for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of the Dragon's melee damage against them — their armor applies — cut by their magic resistance. Fire Elements and 100%-magic-resistance units take nothing and block it. It fires even if the main blow is dodged, and magic-damage bonuses raise it. Because it is priced from the Dragon's melee damage, attack bonuses raise it too — the Might augment, attack auras and attack artifacts.`,
+            `Each melee attack or retaliation also burns whoever stands directly behind the target on the line of the strike, friend or foe (1 cell behind a 1×1 target, 2 behind a 2×2), for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of the Dragon's melee damage against them — their armor applies — cut by their magic resistance. Fire Elements and 100%-magic-resistance units take nothing and block it. It passes through a Water Shield without breaking it. It fires even if the main blow is dodged, and magic-damage bonuses raise it. Because it is priced from the Dragon's melee damage, attack bonuses raise it too — the Might augment, attack auras and attack artifacts.`,
         ru: ({ p, n }) =>
-            `Каждая атака или ответ в ближнем бою также обжигает того, кто стоит прямо за целью на линии удара, своего или чужого (на 1 клетку за целью 1×1, на 2 — за целью 2×2), на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) урона дракона в ближнем бою по нему — его броня учитывается — с учётом его сопротивления магии. Юниты с Fire Element и со 100% сопротивления магии не получают урона и загораживают огонь. Дыхание срабатывает даже при уклонении от основного удара, а бонусы к магическому урону его усиливают. Раз оно считается от урона дракона в ближнем бою, его повышают и бонусы к атаке — апгрейд «Сила», ауры и артефакты атаки.`,
+            `Каждая атака или ответ в ближнем бою также обжигает того, кто стоит прямо за целью на линии удара, своего или чужого (на 1 клетку за целью 1×1, на 2 — за целью 2×2), на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) урона дракона в ближнем бою по нему — его броня учитывается — с учётом его сопротивления магии. Юниты с Fire Element и со 100% сопротивления магии не получают урона и загораживают огонь. Оно проходит сквозь Water Shield, не разрушая его. Дыхание срабатывает даже при уклонении от основного удара, а бонусы к магическому урону его усиливают. Раз оно считается от урона дракона в ближнем бою, его повышают и бонусы к атаке — апгрейд «Сила», ауры и артефакты атаки.`,
     },
     "Fire Element": {
         en: ({ p }) =>
@@ -273,9 +279,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Fire Shield": {
         en: ({ p, n }) =>
-            `Every landed melee hit on the Efreet — second strikes, spin hits and retaliations against its own attacks included, but not a Skewer Strike's pierce — burns the striker for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of the damage dealt, rounded up, as fire magic cut by the striker's magic resistance; Fire Elements take nothing. Shots and dodged hits don't trigger it, and magic-damage bonuses raise it.`,
+            `Every landed melee hit on the Efreet — second strikes, spin hits and retaliations against its own attacks included, but not a Skewer Strike's pierce — burns the striker for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of the damage dealt, rounded up, as fire magic cut by the striker's magic resistance; Fire Elements take nothing. It passes through a Water Shield without breaking it. Shots and dodged hits don't trigger it, and magic-damage bonuses raise it.`,
         ru: ({ p, n }) =>
-            `Каждое попадание по Efreet в ближнем бою — включая вторые удары, удары вращением и ответы на его собственные атаки, но не пробивающий удар Skewer Strike — обжигает ударившего на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) нанесённого урона с округлением вверх, как магия огня с учётом сопротивления магии ударившего; Fire Element урона не получает. Выстрелы и удары, от которых Efreet уклонился, щит не вызывают, а бонусы к магическому урону его усиливают.`,
+            `Каждое попадание по Efreet в ближнем бою — включая вторые удары, удары вращением и ответы на его собственные атаки, но не пробивающий удар Skewer Strike — обжигает ударившего на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) нанесённого урона с округлением вверх, как магия огня с учётом сопротивления магии ударившего; Fire Element урона не получает. Огонь проходит сквозь Water Shield, не разрушая его. Выстрелы и удары, от которых Efreet уклонился, щит не вызывают, а бонусы к магическому урону его усиливают.`,
     },
     "Flesh Shield Aura": {
         en: ({ p, n }) =>
@@ -326,12 +332,6 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
             `Every unit in the 3×3 block around the landing cell — the target, other enemies and your own units — takes ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of a normal shot, each with its own dodge roll. The shell flies over structures and smashes barrels in the block; a target that can shoot answers after all the damage lands.`,
         ru: ({ p, n }) =>
             `Каждый юнит в блоке 3×3 вокруг клетки попадания — цель, другие враги и ваши юниты — получает ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) обычного выстрела, каждый со своим броском уклонения. Снаряд летит поверх построек и разбивает бочки в блоке; цель, способная стрелять, отвечает после всего урона.`,
-    },
-    "Leather Armor": {
-        en: ({ p }) =>
-            `Against shots this unit's base armor counts ${p}% lower (armor buffs and debuffs count in full), so shots hurt it noticeably more.`,
-        ru: ({ p }) =>
-            `Против выстрелов базовая броня этого юнита считается на ${p}% ниже (баффы и дебаффы брони учитываются полностью), поэтому выстрелы ранят его заметно сильнее.`,
     },
     "Lightning Spin": {
         en: () =>

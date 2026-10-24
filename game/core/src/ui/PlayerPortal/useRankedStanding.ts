@@ -16,5 +16,7 @@ const standingResource = createPlayerResource(
  * cadence. A failed load simply yields null — every caller renders nothing rather than an error, so
  * a hiccup here can never block matchmaking.
  */
+export const useRankedStandingState = (reloadKey: unknown = 0) => usePlayerResource(standingResource, reloadKey);
+
 export const useRankedStanding = (reloadKey: unknown = 0): RankedStanding | null =>
-    usePlayerResource(standingResource, reloadKey).data;
+    useRankedStandingState(reloadKey).data;

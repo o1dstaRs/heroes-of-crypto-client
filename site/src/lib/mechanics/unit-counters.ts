@@ -461,13 +461,6 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                 : "Heavy Armor: all magic hits it up to 50% harder (by its stack power and luck) — damage spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield.",
         );
     }
-    if (has("Leather Armor")) {
-        lines.push(
-            isRu
-                ? "Leather Armor: против выстрелов его базовая броня на 50% ниже — вражеские стрелки его естественная контра."
-                : "Leather Armor: its base armor counts 50% lower against shots — enemy shooters are its natural counter.",
-        );
-    }
     if (has("Small Specie")) {
         lines.push(
             isRu
@@ -478,8 +471,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Water Shield")) {
         lines.push(
             isRu
-                ? "Water Shield: первый урон в бою обнуляется — снимите щит дешёвым ударом перед главной атакой; урон существ с Fire Element проходит сквозь щит, не снимая его."
-                : "Water Shield: the first damage it takes in the fight is reduced to 0 — pop it with a cheap hit before your main attack; Fire Element attackers go through it without breaking it.",
+                ? "Water Shield: первый урон в бою обнуляется — снимите щит дешёвым ударом перед главной атакой; огонь проходит сквозь щит, не снимая его: Fireball, Fire Breath, Fire Shield и поджог Fireforged."
+                : "Water Shield: the first damage it takes in the fight is reduced to 0 — pop it with a cheap hit before your main attack; fire goes through it without breaking it, including Fireball, Fire Breath, Fire Shield and a Fireforged burn.",
         );
     }
     return lines;

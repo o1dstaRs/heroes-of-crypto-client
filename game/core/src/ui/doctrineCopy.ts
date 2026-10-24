@@ -55,7 +55,7 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
             "one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or " +
             "their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. " +
             "The slots are rolled the moment the draft opens and stay open as those picks " +
-            "fill in. The other three never open.",
+            "fill in. The other three never open. All draft bans are visible in advance.",
         budget: "6 of 7 upgrade points — one augment level short of the maximum.",
         why:
             "The middle line, and the only doctrine guaranteed to show you something at every power tier — " +
@@ -67,7 +67,8 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
         tagline: "The whole enemy draft, live",
         detail:
             "Every one of the opponent's six picks is visible for the entire draft, each revealed as they " +
-            "lock it in — so you always know what they have taken before you commit your next pick or ban.",
+            "lock it in — so you always know what they have taken before you commit your next pick. " +
+            "All draft bans are visible in advance.",
         budget: "5 of 7 upgrade points — two augment levels short of the maximum.",
         why:
             "Total information: you ban what actually threatens you and pick real counters instead of " +
@@ -79,7 +80,7 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
         tagline: "Draft blind, field the strongest army",
         detail:
             "You see none of the opponent's picks at any point. You draft entirely on your own plan and " +
-            "meet whatever they built on the board.",
+            "meet whatever they built on the board. Bans are revealed only as each creature level opens.",
         budget: "All 7 upgrade points — the full budget, enough for two level-3 augments plus a level-1.",
         why:
             "Trades every scrap of information for raw army strength. Take it when you have a composition " +

@@ -69,7 +69,15 @@ python3 game/core/scripts/serve_audio_review.py --port 5174
 
 Open `http://127.0.0.1:5174/tmp/audio/review.html`. Filter by unit or role, switch codec, compare
 the selected source with its master, inspect waveforms and trim amounts, or play the visible set
-in sequence. Technical selection does not establish artistic fit: the report keeps all takes
+in sequence. Castable spells from the five schools, plus Craft and the two runes, are empty
+rows on that page until a cast sound exists. System effects, artifacts, and auras are omitted.
+A spell row's **Next sound** button does not call ElevenLabs. Each click asks this server for
+the next unused CC0 result of the Freesound “spell cast” search, then masters that preview to
+the same −20 LUFS, −3 dBTP, mono 48 kHz, Opus and MP3 contract. Casts may run to 2.5 seconds.
+A clip that fails the check is skipped, and the next result is tried, up to eight per click.
+**Apply to game** copies the chosen pair to `public/audio/spells` and leaves creature attack
+and hurt files alone. The Freesound key stays outside the page and outside tracked metadata.
+Technical selection does not establish artistic fit: the report keeps all takes
 available locally for listening and revision.
 
 Every creature row has **Regenerate**. It opens an editable sound description, a library search,

@@ -463,6 +463,9 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({
                             <Typography level="body-sm" sx={{ color: "#d99" }}>
                                 {t("Banned creatures")}
                             </Typography>
+                            <Typography level="body-sm" sx={{ color: "#c0b7a6", mb: 1 }}>
+                                {t("Only bans from revealed creature levels are shown.")}
+                            </Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
                                 {bans.map((creatureId) => (
                                     <Stack key={creatureId} spacing={0.25} alignItems="center" sx={{ width: 64 }}>

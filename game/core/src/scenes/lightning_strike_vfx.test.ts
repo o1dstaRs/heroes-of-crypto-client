@@ -22,7 +22,7 @@ function fixture(alive: boolean) {
         sc_sceneSettings: { getGridSettings: () => gs },
         combatVisuals: visuals,
         showFleshShieldAbsorbedDamage: () => undefined,
-        showWaterShieldAbsorbs: () => undefined,
+        showShieldAbsorbs: () => undefined,
         reboundMirrorPosition: () => ({ x: 350, y: 440 }),
     });
     return { scene, visuals, gs };

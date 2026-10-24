@@ -158,10 +158,14 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
 
     for (const [k, v] of Object.entries(rawImages)) {
         const src = normalizeUrl(v, k);
-        // Only per-unit atlases are supplementary. Terrain and VFX atlases belong to core because the
-        // board uses them at first paint. Unit source-resolution sheets are authoring duplicates: the
-        // renderer exclusively asks for their quarter/half variants, so never decode those originals.
-        if (isRedundantFullResolutionUnitAtlasKey(k)) {
+        // Sidebar sheets also appear in the generated unit metadata. React owns their loading,
+        // including authoring variants, so route them before the battlefield animation tiers.
+        if (isDeferredReactUiAssetKey(k)) {
+            deferredReactUiAssets[k] = { src };
+        } else if (isRedundantFullResolutionUnitAtlasKey(k)) {
+            // Only per-unit atlases are supplementary. Terrain and VFX atlases belong to core because the
+            // board uses them at first paint. Unit source-resolution sheets are authoring duplicates: the
+            // renderer exclusively asks for their quarter/half variants, so never decode those originals.
             excludedFullResolutionUnitAtlases[k] = { src };
         } else if (isUnitAnimationAtlasKey(k) || isNamedUnitStateSheetKey(k)) {
             if (!shouldPreloadUnitAnimationAtlas(k, animationsEnabled)) {
@@ -171,8 +175,6 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
             } else {
                 animations[k] = { src };
             }
-        } else if (isDeferredReactUiAssetKey(k)) {
-            deferredReactUiAssets[k] = { src };
         } else if (isDeferredEnvironmentAssetKey(k)) {
             deferredEnvironmentAssets[k] = { src };
         } else if (isDeferredPlacementAssetKey(k)) {

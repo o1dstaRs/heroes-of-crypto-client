@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { GAME_SYSTEM_CONTROL_SIZE_PX, GAME_SYSTEM_CONTROLS_STACK_GAP_PX } from "../GameSystemControls";
 import {
     shouldShowSystemMenuLabel,
+    SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
     SYSTEM_DOCK_BUTTON_SIZE_PX,
     SYSTEM_DOCK_GAP_PX,
     SYSTEM_DOCK_STEP_PX,
@@ -70,6 +71,16 @@ describe("system controls fan geometry", () => {
         expect(SYSTEM_DOCK_BUTTON_SIZE_PX).toBe(GAME_SYSTEM_CONTROL_SIZE_PX);
         expect(SYSTEM_DOCK_GAP_PX).toBe(GAME_SYSTEM_CONTROLS_STACK_GAP_PX);
         expect(SYSTEM_DOCK_STEP_PX).toBe(GAME_SYSTEM_CONTROL_SIZE_PX + GAME_SYSTEM_CONTROLS_STACK_GAP_PX);
+    });
+
+    it("paints the dock ring on both axes, large enough to meet the corner medallions", () => {
+        const [width, height] = SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE.split(/\s+/).map((part) =>
+            Number(part.replace("%", "")),
+        );
+        // One value is `N% auto`. Safari keeps that auto height at the contained size, so the ring
+        // stays small on Mac. The ring artwork fills ~86% of its canvas; 116% of that meets the 32px box.
+        expect(height).toBe(width);
+        expect(width).toBeGreaterThanOrEqual(116);
     });
 
     it("spaces the children one control apart, nearest first", () => {

@@ -57,7 +57,7 @@ Do not invent win rates, player counts, damage numbers, or "the meta."
 Do this on 14 Oct, before any of the calendar posts.
 
 1. Bio: `Turn-based tactics in the browser. One fight, then the map shrinks. No install. No wallet to start.`
-2. Banner and avatar: game art only. Pin image is `site/public/assets/images/preview_game.webp`. Do not use `pool_lock_event_upd.webp`, `rocket.webp`, or `its_coming.webp`.
+2. Banner and avatar: game art only. Pin image is `site/public/assets/images/preview_game.webp`. Do not use token art.
 3. Pin the post in `CALENDAR.md` under "Pin". It is the only post with the URL in the body.
 4. In Grok Bot, set the timezone to America/Los_Angeles. Create the three bots in `BOTS.md`. Leave routines off until the first Scout draft and the first Editor draft are both ones you would actually post.
 

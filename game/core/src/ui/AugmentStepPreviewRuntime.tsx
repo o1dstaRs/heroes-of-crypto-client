@@ -180,6 +180,8 @@ export const AugmentStepPreview: React.FC = () => {
                             </Box>
                             <OpponentDraftBar
                                 opponentPicked={PREVIEW_ARMY}
+                                artifactTier1={2}
+                                artifactTier2={2}
                                 opponentLabel="Opponent"
                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                 gameId="augment-step-preview"

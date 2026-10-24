@@ -126,11 +126,11 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             "На его атаки никогда не отвечают: цель не может нанести ответный удар — если только он не под Break, который отключает это на 2 круга.",
     },
-    "Sharpened Weapons Aura": {
+    "Sharpened Weapons Blessing": {
         en: ({ p, n }) =>
-            `Allied non-ranged units — melee and magic, the Crusader included — within 2 cells get +${n(p / 5)}% base attack per stack power (+${n(p)}% at full stack; ±1% per point of the Crusader's luck). Several Crusaders don't stack.`,
+            `Allied non-ranged units — melee and magic, the Crusader included — anywhere on the battlefield get +${n(p / 5)}% base attack per stack power (+${n(p)}% at full stack; ±1% per point of the Crusader's luck). Might's Abilities power adds its full bonus; Aura Range has no effect. The strongest living, unbroken source applies, and several Crusaders don't stack.`,
         ru: ({ p, n }) =>
-            `Союзные юниты без дальней атаки — ближнего боя и магии, включая Crusader, — в радиусе 2 клеток получают +${n(p / 5)}% к базовой атаке за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи Crusader). Несколько Crusader не складываются.`,
+            `Союзные юниты без дальней атаки — ближнего боя и магии, включая Crusader, — на всём поле боя получают +${n(p / 5)}% к базовой атаке за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи Crusader). Синергия «Сила способностей» прибавляется целиком; «Радиус аур» не влияет. Действует сильнейший живой носитель без Break; несколько Crusader не складываются.`,
     },
     "Shatter Armor": {
         en: ({ p, n }) =>
@@ -256,9 +256,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Water Shield": {
         en: () =>
-            "Once per battle, the first damage the Mermaid takes from any source — attack, retaliation, spell, splash, poison tick, Fire Wall, even an Armageddon wave — is reduced to 0 and the shield breaks; that hit's on-hit effects (stun, poison, petrify…) are cancelled too. Damage from Fire Element creatures ignores the shield without breaking it. While the Mermaid is Broken the shield neither absorbs nor breaks; it works again once Break wears off. Once broken it never comes back.",
+            "Once per battle, the first damage the Mermaid takes from any source — attack, retaliation, spell, splash, poison tick, Fire Wall, even an Armageddon wave — is reduced to 0 and the shield breaks; that hit's on-hit effects (stun, poison, petrify…) are cancelled too. Fire attacks ignore the shield without breaking it: a Fire Element creature's hit, fire spells (Fireball, Fire Strike, Ring of Fire), Fire Breath, Fire Shield and a Fireforged Sword burn. The weapon hit under that burn is not fire, so it can still break the shield; the burn itself still lands. Walking into a Fire Wall still spends the shield on one burn. While the Mermaid is Broken the shield neither absorbs nor breaks; it works again once Break wears off. Once broken it never comes back.",
         ru: () =>
-            "Один раз за бой первый урон, который Mermaid получает из любого источника — атака, ответ, заклинание, удар по площади, тик яда, Fire Wall, даже волна Армагеддона, — становится 0, и щит разрушается; эффекты этого удара (оглушение, яд, окаменение…) тоже отменяются. Урон от существ с Fire Element проходит сквозь щит, не разрушая его. Пока Mermaid под Break, щит не поглощает урон и не разрушается — он снова работает, когда Break закончится. Разрушенный щит не восстанавливается.",
+            "Один раз за бой первый урон, который Mermaid получает из любого источника — атака, ответ, заклинание, удар по площади, тик яда, Fire Wall, даже волна Армагеддона, — становится 0, и щит разрушается; эффекты этого удара (оглушение, яд, окаменение…) тоже отменяются. Огненные атаки проходят сквозь щит, не разрушая его: удар существа с Fire Element, огненные заклинания (Fireball, Fire Strike, Ring of Fire), Fire Breath, Fire Shield и поджог Fireforged Sword. Удар оружием под этим поджогом — не огонь, поэтому он может разрушить щит; сам поджог всё равно проходит. Вход в Fire Wall по-прежнему тратит щит на одно горение. Пока Mermaid под Break, щит не поглощает урон и не разрушается — он снова работает, когда Break закончится. Разрушенный щит не восстанавливается.",
     },
     "Web Aura": {
         en: ({ p }) =>

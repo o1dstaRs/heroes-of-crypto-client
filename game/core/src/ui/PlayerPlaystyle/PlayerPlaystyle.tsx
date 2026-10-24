@@ -1,52 +1,36 @@
-import React, { useEffect, useState, type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 
 import type { PlayerMetricsSummary } from "../../api/player_metrics_contract";
-import { fetchPlayerMetrics } from "../../api/social_client";
-import { isMockPortalEnabled } from "../PlayerPortal/mockPortal";
-import { buildMockPlayerMetrics } from "./mockPlayerMetrics";
 import { renderPlayerPlaystyle, type PlaystyleState } from "./renderPlayerPlaystyle";
+import { usePlayerMetrics } from "./usePlayerMetrics";
 import "./playerPlaystyle.css";
 
-export const PlayerPlaystyle: React.FC<{
-    playerId?: string;
-    reloadKey: number;
+interface PlayerPlaystylePresentationProps {
     language: string;
     compact?: boolean;
     /** Wraps a rendered playstyle. Not called when nothing has been collected yet. */
     wrap?: (body: ReactNode) => ReactNode;
-}> = ({ playerId, reloadKey, language, compact = false, wrap }) => {
-    const [metrics, setMetrics] = useState<PlayerMetricsSummary | null>(null);
-    const [state, setState] = useState<PlaystyleState>("loading");
-    useEffect(() => {
-        let cancelled = false;
-        setMetrics(null);
-        if (isMockPortalEnabled()) {
-            setMetrics(buildMockPlayerMetrics());
-            setState("ready");
-            return;
-        }
-        if (!playerId) {
-            setState("ready");
-            return;
-        }
-        setState("loading");
-        void fetchPlayerMetrics(playerId)
-            .then((data) => {
-                if (!cancelled) {
-                    setMetrics(data);
-                    setState("ready");
-                }
-            })
-            .catch(() => {
-                if (!cancelled) setState("error");
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [playerId, reloadKey]);
-    const markup = renderPlayerPlaystyle(metrics, language, state, compact);
+}
+
+export const PlayerPlaystyleView: React.FC<
+    PlayerPlaystylePresentationProps & { metrics: PlayerMetricsSummary | null; loading: boolean; error: string }
+> = ({ metrics, loading, error, language, compact = false, wrap }) => {
+    const state: PlaystyleState = metrics ? "ready" : loading ? "loading" : error ? "error" : "ready";
+    const markup = React.useMemo(
+        () => renderPlayerPlaystyle(metrics, language, state, compact),
+        [metrics, language, state, compact],
+    );
     // Stay blank while loading too, so a player with no battle data never sees the heading flash in.
     if (state === "loading" || !markup) return null;
     const body = <div aria-live="polite" dangerouslySetInnerHTML={{ __html: markup }} />;
     return wrap ? wrap(body) : body;
+};
+
+export const PlayerPlaystyle: React.FC<PlayerPlaystylePresentationProps & { playerId?: string; reloadKey: number }> = ({
+    playerId,
+    reloadKey,
+    ...presentation
+}) => {
+    const { data: metrics, loading, error } = usePlayerMetrics(playerId, reloadKey);
+    return <PlayerPlaystyleView {...presentation} metrics={metrics} loading={loading} error={error} />;
 };

@@ -1,5 +1,6 @@
-import { Assets, Rectangle, Texture } from "pixi.js";
+import { Rectangle, Texture } from "pixi.js";
 import { images } from "../imageAssets";
+import { pagedAtlasTextureLoader } from "../pixi/pagedAtlasTexture";
 
 export interface ArbalesterIdlePage {
     imageKey: string;
@@ -138,11 +139,8 @@ export class ArbalesterIdlePagePool {
 const sharedPagePool = new ArbalesterIdlePagePool(async (page, format) => {
     const url = (images as Record<string, string>)[page.imageKey];
     if (!url) throw new Error(`Missing native animation page: ${page.imageKey}`);
-    const parent = await Assets.load<Texture>(url);
-    if (parent.width !== page.width || parent.height !== page.height) {
-        await Assets.unload(url);
-        throw new Error(`Native animation page dimensions differ: ${page.imageKey}`);
-    }
+    const resource = await pagedAtlasTextureLoader.load(url, page.width, page.height);
+    const parent = resource.texture;
     parent.source.scaleMode = "linear";
     const frames = Array.from(
         { length: page.frameCount },
@@ -161,7 +159,7 @@ const sharedPagePool = new ArbalesterIdlePagePool(async (page, format) => {
         frames,
         async unload() {
             for (const frame of frames) frame.destroy(false);
-            await Assets.unload(url);
+            await resource.unload();
         },
     };
 });

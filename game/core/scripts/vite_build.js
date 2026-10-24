@@ -3,8 +3,12 @@
 // .env.test file. Clear only the public build variables that belong to Vite before importing it so
 // `build({ mode })` can resolve the requested environment normally.
 import { prepareBuildEnvironment } from "../../../scripts/build_environment";
+import { checkCombatTiming } from "./check_combat_timing";
 
 const mode = process.argv[2] || "production";
+
+// Include direct builds and build:skip: a timing regression must fail before assets or Vite run.
+await checkCombatTiming();
 
 // Bun sets NODE_ENV=development for every package script, and Vite only FILLS NODE_ENV when it is unset
 // — so `bun scripts/vite_build.js production` inherited "development" and built the app in dev mode:
@@ -30,6 +34,11 @@ if (!readFileSync(generatedImageMap, "utf8").includes("/* CI stub")) {
 // build:skip must not silently publish an old generated image map or incomplete animation checkout.
 const { verifyLevelOneBuildAssets } = await import("./verify_level_one_build_assets.ts");
 verifyLevelOneBuildAssets();
+
+// Check every creature against this mode's actual asset manifest before producing a bundle.
+// Keeping the gate here also covers build:skip and direct invocations of this build entry point.
+const { checkPlacementRendering } = await import("./check_placement_rendering.ts");
+checkPlacementRendering();
 
 const { build } = await import("vite");
 

@@ -208,42 +208,44 @@ describe("PixiScene teardown", () => {
     });
 });
 
-test("Start over transfers deferred environment leases before the old scene evicts its atlases", async () => {
-    const first = new SceneConstructor({});
-    const second = new SceneConstructor({});
-    first.textures = {};
-    second.textures = first.textures;
-    const containers = Array.from({ length: 4 }, () => new Container());
-    const app = {
-        getWorldRoot: () => containers[0],
-        getCamera: () => containers[1],
-        getUIContainer: () => containers[2],
-        getCursorOverlayRoot: () => containers[3],
-    };
-    first.pixiApp = app;
-    second.pixiApp = app;
-    const texture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
-    const load = spyOn(Assets, "load").mockImplementation((async () => texture) as typeof Assets.load);
-    const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
-    const key = "ambient_fire_video_torch_left_natural_v4_64_atlas";
-    try {
-        first.texAny(key, { priority: "visible" });
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(first.texAny(key)).toBe(texture);
-        first.Destroy();
-        expect(second.texAny(key)).toBe(texture);
-        await Promise.resolve();
-        expect(unload).not.toHaveBeenCalled();
-        second.Destroy();
-        await Promise.resolve();
-        expect(unload).toHaveBeenCalledTimes(1);
-        expect(second.textures[key]).toBeUndefined();
-    } finally {
-        first.Destroy();
-        second.Destroy();
-        load.mockRestore();
-        unload.mockRestore();
-        texture.destroy(true);
-        containers.forEach((container) => container.destroy());
-    }
-});
+test.each(["ambient_fire_video_torch_left_natural_v4_64_atlas", "book_1024_clean_pages_v1"])(
+    "Start over transfers the %s lease before the old scene evicts its texture",
+    async (key) => {
+        const first = new SceneConstructor({});
+        const second = new SceneConstructor({});
+        first.textures = {};
+        second.textures = first.textures;
+        const containers = Array.from({ length: 4 }, () => new Container());
+        const app = {
+            getWorldRoot: () => containers[0],
+            getCamera: () => containers[1],
+            getUIContainer: () => containers[2],
+            getCursorOverlayRoot: () => containers[3],
+        };
+        first.pixiApp = app;
+        second.pixiApp = app;
+        const texture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
+        const load = spyOn(Assets, "load").mockImplementation((async () => texture) as typeof Assets.load);
+        const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
+        try {
+            first.texAny(key, { priority: "visible" });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(first.texAny(key)).toBe(texture);
+            first.Destroy();
+            expect(second.texAny(key)).toBe(texture);
+            await Promise.resolve();
+            expect(unload).not.toHaveBeenCalled();
+            second.Destroy();
+            await Promise.resolve();
+            expect(unload).toHaveBeenCalledTimes(1);
+            expect(second.textures[key]).toBeUndefined();
+        } finally {
+            first.Destroy();
+            second.Destroy();
+            load.mockRestore();
+            unload.mockRestore();
+            texture.destroy(true);
+            containers.forEach((container) => container.destroy());
+        }
+    },
+);

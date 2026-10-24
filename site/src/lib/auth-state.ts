@@ -1,3 +1,5 @@
+import { writeAuthStorage } from "./auth-storage";
+
 // Client-side view of the auth session. The site is statically rendered, so "am I logged in?" can
 // only be answered in the browser from what the auth flow persisted to localStorage:
 //   accessToken  — the bearer token (auth-client.ts stores it on login/register/verify)
@@ -71,7 +73,7 @@ export function getAuthToken(nowMs = Date.now()): string | null {
         // Keep one canonical representation everywhere. In particular, X-New-Token is a raw JWT,
         // while every authenticated API expects an Authorization value with the Bearer scheme.
         if (stored !== normalized) {
-            localStorage.setItem(TOKEN_KEY, normalized);
+            writeAuthStorage(TOKEN_KEY, normalized);
         }
         return normalized;
     } catch {

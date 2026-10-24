@@ -24,7 +24,9 @@ import { personalArmyPresetFor } from "../scenes/personalArmyTint";
 import { isGreenTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
-    draw(gfx: Graphics, frameContainer: Container): void;
+    draw(gfx: Graphics, frameContainer: Container, washContainer?: Container): void;
+    /** Hide a cached zone without destroying it, so an undrawn team does not leave its wash up. */
+    concealPersistentZone(): void;
     releaseVisuals(): void;
 }
 
@@ -329,20 +331,29 @@ function drawPlacementWash(
     topOpacityMultiplier = PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
     topMinAlpha = PLACEMENT_WASH_TOP_MIN_ALPHA,
     geometry?: PlacementWashGeometry,
+    /**
+     * When set, both fills use this alpha and the caller pulses `graphics.alpha` instead. Rebuilding the
+     * projected polygons every frame was a placement hitch; the breathing range is only 1.5 points.
+     */
+    fillAlpha?: number,
 ): void {
-    const alpha = movementFillAlphaForPhase(phase) * opacityScale;
+    const pulsed = movementFillAlphaForPhase(phase) * opacityScale;
+    const alpha = fillAlpha ?? pulsed;
     const cellPolygons = geometry?.cellPolygons ?? cells.map((cell) => placementWashCellPolygon(cell, cells, gs));
     for (const polygon of cellPolygons) {
-        gfx.poly(polygon).fill({ color, alpha });
+        gfx.poly(polygon);
     }
+    if (cellPolygons.length) gfx.fill({ color, alpha });
     const topExtension = geometry?.topExtension ?? placementWashTopExtensionPolygon(cells, gs);
     if (topExtension.length) {
         gfx.poly(topExtension).fill({
             color,
-            alpha: Math.min(
-                1,
-                Math.max(topMinAlpha, movementFillAlphaForPhase(phase) * opacityScale * topOpacityMultiplier),
-            ),
+            alpha:
+                fillAlpha ??
+                Math.min(
+                    1,
+                    Math.max(topMinAlpha, movementFillAlphaForPhase(phase) * opacityScale * topOpacityMultiplier),
+                ),
         });
     }
 }
@@ -1028,7 +1039,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
         this.visualGridSettings = gs;
         this.drawCells = this.possibleCellPositions();
     }
-    public draw(gfx: Graphics, _frameContainer: Container): void {
+    public draw(gfx: Graphics, _frameContainer: Container, _washContainer?: Container): void {
         const cells = this.drawCells;
         if (placementUsesEnemyMovementWash(this.placementPositionType)) {
             drawMovementArea(gfx, cells, this.visualGridSettings, ENEMY_MOVEMENT_HIGHLIGHT_COLOR, enemyMovementPhase);
@@ -1036,6 +1047,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
             drawSpawnTiles(gfx, this.visualGridSettings, cells, SPAWN_COLOR_GREEN);
         }
     }
+    public concealPersistentZone(): void {}
     public releaseVisuals(): void {}
 }
 
@@ -1045,25 +1057,24 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
     private readonly washGeometry: PlacementWashGeometry;
     private carpetVisual?: PlacementCarpetVisual;
     private goldBorderVisual?: PlacementBorderVisual;
+    private zoneWash?: Graphics;
+    private zoneWashKey = "";
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3, _sideOriented = true) {
         super(gs, pos, size);
         this.visualGridSettings = gs;
         this.drawCells = this.possibleCellPositions();
         this.washGeometry = placementWashGeometry(this.drawCells, this.visualGridSettings);
     }
-    public draw(gfx: Graphics, frameContainer: Container): void {
+    public draw(gfx: Graphics, frameContainer: Container, washContainer?: Container): void {
         const cells = this.drawCells;
         if (placementUsesEnemyMovementWash(this.placementPositionType)) {
-            drawPlacementWash(
+            this.paintZoneWash(
                 gfx,
-                cells,
-                this.visualGridSettings,
+                washContainer,
                 placementWashColor(this.placementPositionType, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR),
-                enemyMovementPhase,
                 1,
                 RED_PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
                 RED_PLACEMENT_WASH_TOP_MIN_ALPHA,
-                this.washGeometry,
             );
             this.goldBorderVisual = drawPlacementGoldBorder(
                 frameContainer,
@@ -1075,16 +1086,13 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
         } else {
             // Use the green flag's forest tone. Its opacity is perceptually compensated because that cloth
             // colour is much darker than the red highlight, while the native stone remains visible beneath it.
-            drawPlacementWash(
+            this.paintZoneWash(
                 gfx,
-                cells,
-                this.visualGridSettings,
+                washContainer,
                 placementWashColor(this.placementPositionType, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR),
-                enemyMovementPhase,
                 GREEN_PLACEMENT_OPACITY_SCALE,
                 PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
                 PLACEMENT_WASH_TOP_MIN_ALPHA,
-                this.washGeometry,
             );
             if (this.carpetVisual) this.carpetVisual.layer.visible = false;
             this.goldBorderVisual = drawPlacementGoldBorder(
@@ -1095,11 +1103,69 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
                 this.goldBorderVisual,
             );
         }
+        if (this.goldBorderVisual) this.goldBorderVisual.layer.visible = true;
+    }
+    public concealPersistentZone(): void {
+        if (this.zoneWash) this.zoneWash.visible = false;
+        if (this.goldBorderVisual) this.goldBorderVisual.layer.visible = false;
+    }
+    /**
+     * Project the zone once into its own Graphics. Later frames only move that object's alpha, which is
+     * the breathing the old per-frame polygon rebuild was paying for.
+     */
+    private paintZoneWash(
+        gfx: Graphics,
+        washContainer: Container | undefined,
+        color: number,
+        opacityScale: number,
+        topOpacityMultiplier: number,
+        topMinAlpha: number,
+    ): void {
+        if (!washContainer) {
+            drawPlacementWash(
+                gfx,
+                this.drawCells,
+                this.visualGridSettings,
+                color,
+                enemyMovementPhase,
+                opacityScale,
+                topOpacityMultiplier,
+                topMinAlpha,
+                this.washGeometry,
+            );
+            return;
+        }
+        const key = `${color}:${opacityScale}:${topOpacityMultiplier}:${topMinAlpha}:${this.drawCells.length}:${this.visualGridSettings.getStep()}`;
+        if (!this.zoneWash || this.zoneWash.destroyed || this.zoneWashKey !== key) {
+            this.zoneWash?.destroy();
+            const wash = new Graphics({ label: "placement-zone-wash" });
+            wash.eventMode = "none";
+            drawPlacementWash(
+                wash,
+                this.drawCells,
+                this.visualGridSettings,
+                color,
+                0,
+                opacityScale,
+                topOpacityMultiplier,
+                topMinAlpha,
+                this.washGeometry,
+                1,
+            );
+            this.zoneWash = wash;
+            this.zoneWashKey = key;
+        }
+        this.zoneWash.alpha = movementFillAlphaForPhase(enemyMovementPhase) * opacityScale;
+        this.zoneWash.visible = true;
+        if (this.zoneWash.parent !== washContainer) washContainer.addChild(this.zoneWash);
     }
     public releaseVisuals(): void {
         if (this.carpetVisual) destroyPlacementCarpetVisual(this.carpetVisual);
         if (this.goldBorderVisual) destroyPlacementBorderVisual(this.goldBorderVisual);
+        this.zoneWash?.destroy();
         this.carpetVisual = undefined;
         this.goldBorderVisual = undefined;
+        this.zoneWash = undefined;
+        this.zoneWashKey = "";
     }
 }

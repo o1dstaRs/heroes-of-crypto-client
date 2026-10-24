@@ -13,6 +13,25 @@ const deferred = <T>() => {
 };
 
 describe("player profile loading", () => {
+    test("loads metrics for the requested player and isolates late responses", async () => {
+        const first = deferred<{ playerId: string }>();
+        const requested: string[] = [];
+        const resource = createPlayerResource(
+            (playerId) => {
+                requested.push(playerId);
+                return playerId === "first" ? first.promise : Promise.resolve({ playerId });
+            },
+            () => "Unavailable",
+        );
+        const firstRequest = resource.load("first");
+        await resource.load("second");
+        expect(resource.getSnapshot("second").data).toEqual({ playerId: "second" });
+        first.resolve({ playerId: "first" });
+        await firstRequest;
+        expect(resource.getSnapshot("second").data).toEqual({ playerId: "second" });
+        expect(requested).toEqual(["first", "second"]);
+    });
+
     test("the arena and portal share a request and its completed response", async () => {
         const response = deferred<{ username: string }>();
         let calls = 0;

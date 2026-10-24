@@ -70,6 +70,14 @@ import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { rankedTerrainCellsWithoutOccupiedSmoke, syncRankedTransientTerrain } from "./rankedTransientTerrain";
+import {
+    OPTIMISTIC_PLACEMENT_HOLD_MS,
+    placementContextKey,
+    placementSnapshotWouldRewind,
+    shouldHoldOptimisticPlacement,
+    viewerPlacementAlreadyShown,
+    type PlacementUnitView,
+} from "./rankedPlacementReconcile";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
@@ -603,6 +611,38 @@ export const restoreRankedStepsMoraleMultiplier = (stepsMoraleMultiplier?: numbe
     return true;
 };
 
+const RALLYING_VOLLEY_BLESSING_NAME = "Rallying Volley Blessing";
+
+/**
+ * Shot top-up only. A native shooter still qualifies with an empty quiver or melee selected; a stolen
+ * Endless Quiver does too, because its shot distance is applied later than this check.
+ */
+const canReceiveRallyingVolleyBlessing = (unit: {
+    isRangeCapable(): boolean;
+    hasAbilityActive(abilityName: string): boolean;
+}): boolean => unit.isRangeCapable() || unit.hasAbilityActive("Endless Quiver");
+
+const withoutRallyingVolleyDisplay = (
+    names: readonly string[],
+    laps: readonly number[],
+    descriptions: readonly string[],
+): { names: string[]; laps: number[]; descriptions: string[] } | undefined => {
+    if (!names.includes(RALLYING_VOLLEY_BLESSING_NAME)) {
+        return undefined;
+    }
+    const kept: number[] = [];
+    for (let index = 0; index < names.length; index++) {
+        if (names[index] !== RALLYING_VOLLEY_BLESSING_NAME) {
+            kept.push(index);
+        }
+    }
+    return {
+        names: kept.map((index) => names[index]),
+        laps: kept.map((index) => laps[index] ?? 1),
+        descriptions: kept.map((index) => descriptions[index] ?? ""),
+    };
+};
+
 /**
  * Reconcile the snapshot-owned fields that action replay does not mutate. Both same-board snapshots and
  * skip-rebuild snapshots use this helper, so turn-start state such as Web remains authoritative without
@@ -616,6 +656,15 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
 
     unit.clearDamagePresentation();
     let changed = false;
+    const liveProperties = unit.getUnitProperties() as UnitProperties;
+    if (
+        properties.max_hp_authoritative &&
+        (!liveProperties.max_hp_authoritative || liveProperties.max_hp !== properties.max_hp)
+    ) {
+        liveProperties.max_hp = properties.max_hp;
+        liveProperties.max_hp_authoritative = true;
+        changed = true;
+    }
     const hp = Math.max(0, Math.floor(properties.hp));
     if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {
         unit.setRemainingStats(alive, hp, properties.amount_died);
@@ -630,7 +679,6 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
 
     // Deliberate in-place write into the live properties: this is an authoritative-reconciliation site,
     // so the Readonly guard on getUnitProperties is intentionally bypassed here and nowhere casually.
-    const liveProperties = unit.getUnitProperties() as UnitProperties;
     const rankedProperties = properties as UnitProperties & { range_shots_authoritative?: boolean };
     // Remaining ammo is snapshot-owned too. Ranged attacks are replayed locally when their journal record
     // arrives, but a fallback poll can apply the snapshot without that replay, and same-board snapshots
@@ -724,6 +772,10 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
             changed = true;
         }
     }
+    if (unit.getDebuff("Helping Hand") && !properties.applied_debuffs.includes("Helping Hand")) {
+        unit.deleteDebuff("Helping Hand");
+        changed = true;
+    }
 
     // Same-board and replayed-action snapshots deliberately keep the existing RenderableUnit alive. That
     // preserves animation continuity, but it also means a newly-applied server debuff never reaches the
@@ -778,6 +830,36 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
             properties.applied_buffs_descriptions,
             properties.applied_buffs_powers,
         ) || changed;
+
+    // An older server still lists this blessing on every ally. The sidebar reads the display arrays the
+    // sync just copied, so drop it here when this unit cannot shoot. Shooters, including an empty quiver
+    // and a stolen Endless Quiver, keep it. Must run after the sync or the copy writes the name back.
+    if (
+        !canReceiveRallyingVolleyBlessing(unit) &&
+        (unit.getBuff(RALLYING_VOLLEY_BLESSING_NAME) !== undefined ||
+            liveProperties.applied_buffs.includes(RALLYING_VOLLEY_BLESSING_NAME))
+    ) {
+        unit.deleteBuff(RALLYING_VOLLEY_BLESSING_NAME);
+        changed = true;
+    }
+
+    const helpingHandCasterId = properties.helping_hand_caster_id;
+    const helpingHandPenaltyId = properties.helping_hand_penalty_id;
+    if (helpingHandCasterId && helpingHandPenaltyId) {
+        if (
+            liveProperties.helping_hand_caster_id !== helpingHandCasterId ||
+            liveProperties.helping_hand_penalty_id !== helpingHandPenaltyId
+        ) {
+            unit.setHelpingHandLink(helpingHandCasterId, helpingHandPenaltyId);
+            changed = true;
+        }
+    } else if (
+        liveProperties.helping_hand_caster_id !== undefined ||
+        liveProperties.helping_hand_penalty_id !== undefined
+    ) {
+        unit.clearHelpingHandLink();
+        changed = true;
+    }
 
     return changed;
 };
@@ -963,6 +1045,27 @@ const getUnitPropertiesFromAuthoritativeState = (
                 };
             })();
             const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
+            // Rallying Volley is a shot top-up. Drop it, and the lap/description at the same index, from
+            // units that cannot shoot, so an older server that still paints it on the whole army does not
+            // put the marker back on the sidebar. Native attack type, not the selected one: a shooter who
+            // has melee selected can still fire. Endless Quiver is on the active ability list, not the
+            // stolen-from list (that one means the unit lost the quiver).
+            const activeAbilities = unitState.abilities ?? baseProperties.abilities;
+            const showRallyingVolley =
+                baseProperties.attack_type === AttackVals.RANGE ||
+                (baseProperties.range_shots > 0 && baseProperties.shot_distance > 0) ||
+                activeAbilities.includes("Endless Quiver");
+            let appliedBuffs = unitState.buffs ?? [];
+            let appliedBuffLaps = unitState.buffLaps ?? appliedBuffs.map(() => 1);
+            let appliedBuffDescriptions = unitState.buffDescriptions ?? appliedBuffs.map(() => "");
+            if (!showRallyingVolley) {
+                const filtered = withoutRallyingVolleyDisplay(appliedBuffs, appliedBuffLaps, appliedBuffDescriptions);
+                if (filtered) {
+                    appliedBuffs = filtered.names;
+                    appliedBuffLaps = filtered.laps;
+                    appliedBuffDescriptions = filtered.descriptions;
+                }
+            }
             return {
                 ...baseProperties,
                 ...abilityOverride,
@@ -1088,10 +1191,12 @@ const getUnitPropertiesFromAuthoritativeState = (
                 // buffLaps/buffDescriptions now come from the snapshot (parallel to buffs); fall back to a
                 // 1-lap placeholder only for legacy snapshots that predate those fields. All four arrays
                 // MUST stay parallel or deleteBuff's cleanup guard silently skips pruning.
-                applied_buffs: unitState.buffs ?? [],
-                applied_buffs_laps: unitState.buffLaps ?? (unitState.buffs ?? []).map(() => 1),
-                applied_buffs_descriptions: unitState.buffDescriptions ?? (unitState.buffs ?? []).map(() => ""),
-                applied_buffs_powers: (unitState.buffs ?? []).map(() => 0),
+                applied_buffs: appliedBuffs,
+                applied_buffs_laps: appliedBuffLaps,
+                applied_buffs_descriptions: appliedBuffDescriptions,
+                applied_buffs_powers: appliedBuffs.map(() => 0),
+                ...(unitState.helpingHandCasterId ? { helping_hand_caster_id: unitState.helpingHandCasterId } : {}),
+                ...(unitState.helpingHandPenaltyId ? { helping_hand_penalty_id: unitState.helpingHandPenaltyId } : {}),
             } as UnitProperties;
         } catch {
             // Legacy snapshots may not carry a usable creature id, so fall through factions.
@@ -1372,6 +1477,9 @@ export const rankedSecondarySceneLogLines = (
             case "flesh_shield":
                 text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
                 break;
+            case "ember_covenant":
+                text = `${name}'s Ember Covenant absorbed (${entry.amount})`;
+                break;
             case "water_shield": {
                 // Name the striker — the event itself knows who swung; matches the engine's sandbox line.
                 const strikerId =
@@ -1484,8 +1592,11 @@ export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
     private fullReplayPlaybackActive = false;
+    private currentReplayImpactRecord?: SandboxReplayActionRecord;
     private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
+    /** Ignore a stale placement snapshot until this time so a newer local drop is not rewound. */
+    private optimisticPlacementHoldUntil = 0;
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
     private authoritativePlaybackGameId = "";
@@ -1493,6 +1604,7 @@ export class RankedPlayScene extends Sandbox {
     private readonly rankedStatsRightRoster = new Map<string, RankedFightRosterEntry>();
     private readonly rankedStatsCountedUnitIds = new Set<string>();
     private viewerTeam?: TeamType;
+    private rankedPlacementLocked = false;
     protected override getViewerTeam(): TeamType | undefined {
         return this.viewerTeam;
     }
@@ -1761,6 +1873,7 @@ export class RankedPlayScene extends Sandbox {
             this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
         )?.getVisualCenter(gs);
         this.showFleshShieldAbsorbedDamage(secondary, attackerPos);
+        this.showShieldAbsorbs(secondary, attackerPos);
         // Devour Essence heal (Hydra): green "+N" + buff-wash on the devourer; skipped in the generic
         // red-number loop below.
         this.showDevourEssenceHeals(secondary);
@@ -1781,7 +1894,13 @@ export class RankedPlayScene extends Sandbox {
         for (const entry of secondary) {
             // Flesh Shield was grouped and rendered above as a labelled yellow value. Keeping it out of
             // this generic loop prevents the same absorption from also appearing as an ordinary red hit.
-            if (entry.source === "flesh_shield" || entry.source === "devour_essence") continue;
+            if (
+                entry.source === "flesh_shield" ||
+                entry.source === "devour_essence" ||
+                entry.source === "water_shield" ||
+                entry.source === "ember_covenant"
+            )
+                continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
@@ -1810,6 +1929,10 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
+    }
+    protected override renderReplayBuffApplications(_events: readonly GameEvent[]): void {
+        // Ranked snapshots own generic buff pops, including when spectating without a transport.
+        // Named cast flourishes still render from the recorded outcomes through renderCastOutcomes.
     }
     private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
@@ -1907,6 +2030,7 @@ export class RankedPlayScene extends Sandbox {
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         this.barrelPlacementAvailable =
             this.viewerTeam !== undefined && canMoveRankedArtifactBarrel(snapshot, this.viewerTeam);
+        this.rankedPlacementLocked = !this.barrelPlacementAvailable;
         if (!this.barrelPlacementAvailable) this.cancelBarrelPlacement();
         const wasSandboxCoop = this.sandboxCoop;
         this.sandboxCoop = snapshot.sandboxCoop === true;
@@ -2005,6 +2129,7 @@ export class RankedPlayScene extends Sandbox {
         return this.awaitingTurnHandoff;
     }
     protected override onReplayHangRecovery(): void {
+        this.currentReplayImpactRecord = undefined;
         // The hung replay may have left the board half-applied. Clear the cached signature so the next
         // authoritative snapshot does a full hydrate instead of short-circuiting on an unchanged
         // signature, reconciling the scene to server truth.
@@ -2025,6 +2150,7 @@ export class RankedPlayScene extends Sandbox {
         if (this.fullReplayPlaybackActive) {
             return;
         }
+        this.rememberStatusSnapshot(snapshot);
         this.premiumSnapshot = snapshot;
         if (
             this.premiumTurnPreview &&
@@ -2240,13 +2366,38 @@ export class RankedPlayScene extends Sandbox {
 
         const placementUnitIdsKey =
             !snapshot.fightStarted && !snapshot.fightFinished ? this.createPlacementUnitIdsKey(snapshot) : "";
+        // The drop is already drawn. Rebuilding every unit from the confirming snapshot restarts their
+        // sprites and cancels the next drag — the placement glitch. Skip that when the live stacks already
+        // match, and don't let an earlier in-flight snapshot rewind a newer drop.
+        const livePlacement = placementUnitIdsKey ? this.viewerPlacementLive() : [];
+        const samePlacementContext =
+            this.lastPlacementUnitIdsKey !== "" &&
+            placementContextKey(placementUnitIdsKey) === placementContextKey(this.lastPlacementUnitIdsKey);
+        if (
+            samePlacementContext &&
+            this.viewerTeam !== undefined &&
+            shouldHoldOptimisticPlacement({
+                now: performance.now(),
+                holdUntil: this.optimisticPlacementHoldUntil,
+                forceRebuild,
+                wouldRewind: placementSnapshotWouldRewind(this.viewerTeam, livePlacement, snapshot.units),
+            })
+        ) {
+            return;
+        }
+        const ownPlacementShown =
+            samePlacementContext &&
+            placementUnitIdsKey !== this.lastPlacementUnitIdsKey &&
+            this.viewerTeam !== undefined &&
+            viewerPlacementAlreadyShown(this.viewerTeam, livePlacement, snapshot.units);
         const canSkipPreFightHydrate =
             !snapshot.fightStarted &&
             !snapshot.fightFinished &&
+            !forceRebuild &&
             this.viewerTeam !== undefined &&
             this.lastPlacementUnitIdsKey !== "" &&
-            placementUnitIdsKey === this.lastPlacementUnitIdsKey &&
-            !this.hasVisibleOpponentPlacementChange(snapshot);
+            !this.hasVisibleOpponentPlacementChange(snapshot) &&
+            (placementUnitIdsKey === this.lastPlacementUnitIdsKey || ownPlacementShown);
         this.lastPlacementUnitIdsKey = placementUnitIdsKey;
         this.rememberPlacementStates(snapshot);
         if (canSkipPreFightHydrate) {
@@ -2498,6 +2649,18 @@ export class RankedPlayScene extends Sandbox {
             ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: !this.sandboxCoop })
             : undefined;
         return super.playAuthoritativeActionRecord(action, events, replayStateAfter).then((played) => {
+            // Several queued records can play before React applies any snapshot. Settle this record's
+            // counts now, or the next animation starts from pre-hit model stats and restores casualties.
+            if (
+                played &&
+                replayStateAfter &&
+                authoritativeSequence !== undefined &&
+                authoritativeSequence >= this.lastAuthoritativeSequence &&
+                !this.isSceneDestroyed()
+            ) {
+                this.applyRankedUnitStats(replayStateAfter.units);
+                this.lastAuthoritativeSequence = authoritativeSequence;
+            }
             // The animation has finished but the turn-handoff snapshot is applied right after (await in
             // RankedGameView), with render frames in between. Suppress the finished unit's pulse aura
             // until that snapshot syncs the new active unit, so it doesn't flash back on for a frame.
@@ -2607,10 +2770,10 @@ export class RankedPlayScene extends Sandbox {
     protected override getRevealedOpponentUnitScale(total: number): number {
         return revealedOpponentRowScale(total);
     }
-    protected override shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
-        // Ranked board placement starts with the full army already deployed. There is no intermediate
-        // centre-board bench: hiding unplaced remnants also guarantees its backdrop is never drawn.
-        return false;
+    protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
+        return (
+            this.viewerTeam !== undefined && unitState.team === this.viewerTeam && !unitState.placed && !unitState.dead
+        );
     }
     protected override getUnplacedUnitBenchPosition(
         index: number,
@@ -2645,7 +2808,7 @@ export class RankedPlayScene extends Sandbox {
         return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
     }
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
-        return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
+        return !this.rankedPlacementLocked && this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
     protected override placementSplitEnabled(): boolean {
         return true;
@@ -2655,7 +2818,7 @@ export class RankedPlayScene extends Sandbox {
         if (!transport) {
             return super.commitPlacementSplit(source, amount, targetCells);
         }
-        if (this.viewerTeam === undefined || source.getTeam() !== this.viewerTeam) {
+        if (this.rankedPlacementLocked || this.viewerTeam === undefined || source.getTeam() !== this.viewerTeam) {
             return false;
         }
         if (amount < 1 || amount >= source.getAmountAlive()) {
@@ -4079,6 +4242,7 @@ export class RankedPlayScene extends Sandbox {
                     if (!localResult.completed) {
                         return localResult;
                     }
+                    if (action.type === "place_unit") this.noteOptimisticPlacement();
                     events = localResult.events;
                 }
                 return {
@@ -4088,6 +4252,23 @@ export class RankedPlayScene extends Sandbox {
                 };
             },
         };
+    }
+    private noteOptimisticPlacement(): void {
+        this.optimisticPlacementHoldUntil = performance.now() + OPTIMISTIC_PLACEMENT_HOLD_MS;
+    }
+    private viewerPlacementLive(): PlacementUnitView[] {
+        const live: PlacementUnitView[] = [];
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const cells = unit.getCells().filter((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
+            live.push({
+                id: unit.getId(),
+                team: unit.getTeam(),
+                placed: cells.length > 0,
+                amountAlive: unit.getAmountAlive(),
+                cells,
+            });
+        }
+        return live;
     }
     private createPlacementUnitIdsKey(snapshot: AuthoritativeGameSnapshot): string {
         // Must include each unit's placement state — not just its id — otherwise unplacing a unit
@@ -4385,6 +4566,7 @@ export class RankedPlayScene extends Sandbox {
         );
     }
     private resetRankedReplayPresentation(): void {
+        this.resetStatusApplicationOrder();
         this.resetRankedFightStats();
         this.rankedSceneLogGameId = "";
         this.rankedSceneLogSequence = -1;
@@ -4411,6 +4593,97 @@ export class RankedPlayScene extends Sandbox {
     private static replayRecordSnapshot(record: SandboxReplayActionRecord): AuthoritativeGameSnapshot | undefined {
         return record.authoritativeSnapshot;
     }
+    protected override async playSandboxReplayRecord(record: SandboxReplayActionRecord): Promise<boolean> {
+        this.currentReplayImpactRecord = record;
+        try {
+            return await super.playSandboxReplayRecord(record);
+        } finally {
+            if (this.currentReplayImpactRecord === record) this.currentReplayImpactRecord = undefined;
+        }
+    }
+    protected override endHelpingHandLinksAtImpact(unitId: string): void {
+        const record = this.currentReplayImpactRecord;
+        if (!record) {
+            super.endHelpingHandLinksAtImpact(unitId);
+            return;
+        }
+        const affected = new Map<string, { buff: boolean; debuff: boolean }>();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const properties = unit.getUnitProperties();
+            const casterId = properties.helping_hand_caster_id;
+            const penaltyId = properties.helping_hand_penalty_id;
+            if (!casterId || !penaltyId || ![properties.id, casterId, penaltyId].includes(unitId)) continue;
+            affected.set(properties.id, { buff: true, debuff: affected.get(properties.id)?.debuff ?? false });
+            affected.set(penaltyId, { buff: affected.get(penaltyId)?.buff ?? false, debuff: true });
+        }
+        super.endHelpingHandLinksAtImpact(unitId);
+        let changed = false;
+        for (const { properties } of record.stateAfter.units) {
+            const ended = affected.get(properties.id);
+            const unit = this.unitsHolder.getAllUnits().get(properties.id) as RenderableUnit | undefined;
+            if (!ended || properties.id === unitId || properties.amount_alive <= 0 || !unit || unit.isDead()) continue;
+            const live = unit.getUnitProperties() as UnitProperties;
+            const hasBuff = live.applied_buffs.includes("Helping Hand");
+            const hasDebuff = live.applied_debuffs.includes("Helping Hand");
+            if ((!ended.buff || hasBuff) && (!ended.debuff || hasDebuff)) continue;
+            if (
+                hasBuff !== properties.applied_buffs.includes("Helping Hand") ||
+                hasDebuff !== properties.applied_debuffs.includes("Helping Hand")
+            ) {
+                continue;
+            }
+            if (properties.max_hp_authoritative) {
+                live.hp = live.hp >= live.max_hp ? properties.max_hp : Math.min(live.hp, properties.max_hp);
+                live.max_hp = properties.max_hp;
+                live.max_hp_authoritative = true;
+            }
+            if (properties.base_armor_authoritative) {
+                live.base_armor = properties.base_armor;
+                live.base_armor_authoritative = true;
+            }
+            const fight = FightStateManager.getInstance().getFightProperties();
+            const team = unit.getTeam();
+            unit.adjustBaseStats(
+                fight.hasFightStarted(),
+                fight.getCurrentLap(),
+                fight.getAdditionalAbilityPowerPerTeam(team),
+                fight.getAdditionalMovementStepsPerTeam(team),
+                fight.getAdditionalFlyArmorPerTeam(team),
+                fight.getAdditionalMoralePerTeam(team),
+                fight.getAdditionalLuckPerTeam(team),
+                fight.getStepsMoraleMultiplier(),
+            );
+            if (this.sc_selectedUnitProperties?.id === properties.id) {
+                this.setSelectedUnitProperties(live);
+                this.sc_unitPropertiesUpdateNeeded = true;
+            }
+            changed = true;
+        }
+        if (changed) this.sc_visibleStateUpdateNeeded = true;
+    }
+    protected override onReplaySpellImpact(record: SandboxReplayActionRecord): void {
+        if (record.action.type !== "cast_spell" || record.action.spellName !== "Helping Hand") {
+            return;
+        }
+        const affectedIds = new Set([record.action.casterId]);
+        if (record.action.targetId) affectedIds.add(record.action.targetId);
+        for (const event of record.events) {
+            if (event.type !== "effects_applied") continue;
+            for (const application of event.applications) {
+                if (application.name === "Helping Hand") affectedIds.add(application.unitId);
+            }
+        }
+        for (const { properties } of record.stateAfter.units) {
+            if (
+                affectedIds.has(properties.id) &&
+                properties.helping_hand_caster_id === record.action.casterId &&
+                properties.helping_hand_penalty_id
+            ) {
+                affectedIds.add(properties.helping_hand_penalty_id);
+            }
+        }
+        this.applyRankedUnitStats(record.stateAfter.units.filter((unit) => affectedIds.has(unit.properties.id)));
+    }
     protected override onReplayRecordSettling(record: SandboxReplayActionRecord): void {
         const snapshot = RankedPlayScene.replayRecordSnapshot(record);
         if (!snapshot) {
@@ -4426,6 +4699,8 @@ export class RankedPlayScene extends Sandbox {
         if (!snapshot) {
             return;
         }
+        this.rememberStatusSnapshot(snapshot);
+        this.rememberStatusApplications(record.events);
         // Everything the live snapshot path does around a hydrate that is NOT the board itself. Each of
         // these is already gated on its own game id + sequence, so replaying them in order behaves exactly
         // as it did live: seed on the first record, then emit only what is new.

@@ -39,7 +39,7 @@ export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortr
         creature: art.source ?? visual?.source,
         background: visual?.background,
         glow: resolveCreaturePortraitBackgroundMotion(creatureId)?.glowSrc,
-        atlas: animation?.src,
+        atlas: animation?.pages?.[0]?.src ?? animation?.src,
     };
 };
 
@@ -77,10 +77,7 @@ export const warmLeftSidebarPortrait = (creatureId: number, animate = true): Pro
             clearDecodedImageForeground(selectedForegroundOwner);
             if (ready) {
                 if (animate)
-                    replaceDecodedImagePrefetch(selectedOptionalPrefetchOwner, [
-                        { src: sources.glow, lock: true },
-                        { src: sources.atlas },
-                    ]);
+                    replaceDecodedImagePrefetch(selectedOptionalPrefetchOwner, [{ src: sources.glow, lock: true }]);
             } else {
                 selectedRetention?.release();
                 selectedRetention = undefined;

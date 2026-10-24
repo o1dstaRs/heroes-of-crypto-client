@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 
 function fixture() {
+    const casualties: number[] = [];
+    const presentCasualties = () => undefined;
     const unit = {
         getId: () => "unit",
         getName: () => "Magic Dragon",
@@ -14,6 +16,10 @@ function fixture() {
         },
         flashLuckyStrike: () => undefined,
         flashBuffApplied: () => undefined,
+        captureDamageCasualties: (amount: number) => {
+            casualties.push(amount);
+            return presentCasualties;
+        },
     };
     const calls: { kind: string; args: unknown[] }[] = [];
     const record =
@@ -34,7 +40,7 @@ function fixture() {
         creatureAnimationLabPlacedUnit: () => ({ ok: true, unit }),
         moveAnimManager: { isMoving: () => false },
     });
-    return { scene, unit, calls };
+    return { scene, unit, calls, casualties, presentCasualties };
 }
 
 test("confirmed misses, luck and snare saves pass the actual recipient to the common flag layer", () => {
@@ -63,13 +69,14 @@ test("authoritative healing and both shield sources retain numbers and identify 
     f.scene.showFleshShieldAbsorbedDamage([
         { source: "flesh_shield", unitId: "unit", position: { x: 100, y: 200 }, amount: 23, unitsDied: 1 },
     ]);
-    f.scene.showWaterShieldAbsorbs([
-        { source: "water_shield", unitId: "unit", position: { x: 100, y: 200 }, amount: 31 },
-    ]);
+    f.scene.showShieldAbsorbs([{ source: "water_shield", unitId: "unit", position: { x: 100, y: 200 }, amount: 31 }]);
     expect(f.calls.map((c) => c.kind)).toEqual(["heal", "absorb", "absorb"]);
     expect(f.calls.map((c) => c.args[1])).toEqual([17, 23, 31]);
-    for (const c of f.calls) expect(c.args.at(-1)).toBe(f.unit);
+    expect(f.calls[0].args[2]).toBe(f.unit);
+    for (const c of f.calls.slice(1)) expect(c.args[4]).toBe(f.unit);
     expect(f.calls[1].args[3]).toBe(1);
+    expect(f.calls[1].args[5]).toBe(f.presentCasualties);
+    expect(f.casualties).toEqual([1]);
 });
 
 test("resisted debuff records coalesce per recipient; successful debuffs stay silent", () => {
@@ -91,6 +98,20 @@ test("resisted debuff records coalesce per recipient; successful debuffs stay si
         },
     ]);
     expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "resist"] }]);
+});
+
+test("Ember Covenant labels only authoritative blocked damage, with its own impact burst", () => {
+    const f = fixture();
+    f.scene.showShieldAbsorbs([
+        { source: "ember_covenant", unitId: "unit", position: { x: 100, y: 200 }, amount: 47 },
+        { source: "ember_covenant", unitId: "unit", position: { x: 100, y: 200 }, amount: 0 },
+        { source: "fire_breath", unitId: "unit", position: { x: 100, y: 200 }, amount: 15 },
+    ]);
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0].kind).toBe("absorb");
+    expect(f.calls[0].args[1]).toBe(47);
+    expect(f.calls[0].args[4]).toBe(f.unit);
+    expect(f.calls[0].args[6]).toBe("ember_covenant");
 });
 
 test("each common lab button uses the same above-flag runtime", () => {

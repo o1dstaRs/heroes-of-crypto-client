@@ -103,11 +103,13 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
+    "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
     "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "System:Angelic Host Blessing": "/assets/images/spells/angelic_host_256.webp",
     "System:Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
     "System:Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
+    "System:Sharpened Weapons Blessing": "/assets/images/units/abilities/sharpened_weapons_aura_256.webp",
 };
 
 const damageSpells = new Set([
@@ -156,12 +158,14 @@ const abilityCastSpells = new Set([
 
 // Sources of non-castable buffs/debuffs. These links live in ability and artifact code rather than data.
 const appliedBySources: Record<string, string[]> = {
+    "Ember Covenant Blessing": ["Ember Covenant Blessing"],
     "Dulling Defense": ["Dulling Defense"],
     Miner: ["Miner"],
     "Angelic Host Blessing": ["Angelic Host Blessing"],
     "Arcane Ward Blessing": ["Arcane Ward Blessing"],
     "Arrows Wingshield Blessing": ["Arrows Wingshield Blessing"],
     "Rallying Volley Blessing": ["Rallying Volley Blessing"],
+    "Sharpened Weapons Blessing": ["Sharpened Weapons Blessing"],
     "Warding Mane Blessing": ["Warding Mane Blessing"],
     "Made of Fire": ["Made of Fire"],
     "Water Shield": ["Water Shield"],
@@ -250,6 +254,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner, но не ниже 1.",
     "System:Warding Mane Blessing":
         "Warding Mane Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Warding Mane Blessing.",
+    "System:Sharpened Weapons Blessing":
+        "Sharpened Weapons Blessing даёт +{}% к базовой атаке на всём поле боя.\nДействует, пока жив союзный юнит с Sharpened Weapons Blessing.",
     "System:Morale": "Юнит достигает максимальной морали, повышая множитель атаки до 1.25.",
     "System:Dismorale": "Мораль юнита падает до минимума, снижая множитель атаки до 0.8.",
     "System:Dulling Defense":
@@ -278,6 +284,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Armor Rune": "50% шанс за каждое применение дать цели +1 брони. Бонус складывается.",
     "System:Weapon Rune": "50% шанс за каждое применение дать цели +1 атаки. Бонус складывается.",
     "System:Made of Fire": "Существо получает +10% ко всем характеристикам, включая способности.",
+    "System:Ember Covenant Blessing":
+        "Огненные атаки блокируются, не расходуя благословение.\nПервое другое попадание полностью поглощается, после чего все союзные кольца исчезают. Атаки Water Element и магия воды игнорируют поглощение, наносят урон и также снимают все кольца. Действует до разрушения.",
     "System:Water Shield":
         "Полностью поглощает первую входящую атаку в бою (0 полученного урона), после чего разрушается.",
     "System:Visible": "Юнит полностью видим для вражеской команды.",
@@ -286,7 +294,8 @@ const descriptionsRu: Record<string, string> = {
         "Лечит раненое переднее существо союзника на {} единиц здоровья за каждое живое существо в стеке заклинателя — не выше максимального здоровья и без воскрешения погибших.",
     "Life:Spiritual Armor": "Дает союзнику дополнительные 30% брони.",
     "Life:Blessing": "Благословляет союзника, чтобы он всегда наносил максимально возможный урон.",
-    "Life:Helping Hand": "Передает союзнику 30% максимального здоровья и базовой брони заклинателя.",
+    "Life:Helping Hand":
+        "Передает союзнику 30% максимального здоровья и базовой брони заклинателя через золотую духовную связь.\nБонус и штраф немедленно исчезают, если любой из связанных стеков погибает.",
     "Life:Courage": "Мораль союзного юнита достигает пика.",
     "Life:Mass Heal": "Лечит всех союзников на 2.5 единицы здоровья за каждое живое существо в стеке заклинателя.",
     "Nature:Summon Wolves":
@@ -341,7 +350,7 @@ function parseDuration(desc: string[]): SpellDuration {
     if (laps) {
         return { kind: "laps", laps: Number(laps[1]) };
     }
-    if (/till\s+broken/i.test(line)) {
+    if (/(?:until|till)\s+broken/i.test(line)) {
         return { kind: "broken" };
     }
     return { kind: "fight" };

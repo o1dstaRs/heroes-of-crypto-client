@@ -7,7 +7,7 @@ test("spellbook sounds follow real transitions, with no repeated open/close soun
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         sc_renderSpellBookOverlay: false,
         buttonManager: { sc_renderSpellBookOverlay: false },
-        spellBookOverlay: { setOpen: () => {} },
+        spellBookOverlay: { setOpen: () => {}, render: () => {} },
         spellBookContainer: { visible: true },
         ensureSpellBookBackground: () => {},
         setSpellBookWorldBlur: () => {},

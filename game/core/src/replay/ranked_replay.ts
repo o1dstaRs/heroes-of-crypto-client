@@ -12,6 +12,7 @@ import {
 import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import type { SandboxSceneState } from "../scenes/Sandbox";
 import { SANDBOX_REPLAY_VERSION, type SandboxReplay } from "./sandbox_replay";
+import { shareReplaySnapshot } from "./shareReplaySnapshot";
 
 export const RANKED_REPLAY_VERSION = 1;
 
@@ -299,11 +300,11 @@ export const createRankedReplayFromPayload = (payload: RankedReplayPayload): Ran
     });
 };
 
-export const collectRankedReplaySnapshots = (replay: RankedReplay): PlaySnapshot[] => {
+const rankedReplaySnapshotReferences = (replay: RankedReplay): PlaySnapshot[] => {
     const bySequence = new Map<number, PlaySnapshot>();
     const addSnapshot = (snapshot?: PlaySnapshot): void => {
         if (snapshot) {
-            bySequence.set(snapshot.latestSequence, cloneReplayData(snapshot));
+            bySequence.set(snapshot.latestSequence, snapshot);
         }
     };
 
@@ -316,6 +317,21 @@ export const collectRankedReplaySnapshots = (replay: RankedReplay): PlaySnapshot
     return [...bySequence.values()].sort((a, b) => a.latestSequence - b.latestSequence);
 };
 
+export const collectRankedReplaySnapshots = (replay: RankedReplay): PlaySnapshot[] =>
+    rankedReplaySnapshotReferences(replay).map(cloneReplayData);
+
+/** Select the opening checkpoint without copying the rest of the battle just to read [0]. */
+export const getRankedReplayInitialSnapshot = (replay: RankedReplay): PlaySnapshot | undefined => {
+    let initial: PlaySnapshot | undefined;
+    const consider = (snapshot?: PlaySnapshot) => {
+        if (snapshot && (!initial || snapshot.latestSequence <= initial.latestSequence)) initial = snapshot;
+    };
+    consider(replay.initialSnapshot);
+    for (const event of replay.events) consider(event.snapshot);
+    consider(replay.currentSnapshot);
+    return initial ? cloneReplayData(initial) : undefined;
+};
+
 export const createSandboxReplayFromRankedReplay = (
     replay: RankedReplay,
     options: {
@@ -326,6 +342,8 @@ export const createSandboxReplayFromRankedReplay = (
          * as a scene state. Optional: without it a replay simply plays the board, as it always did.
          */
         snapshotToAuthoritative?: (snapshot: PlaySnapshot) => AuthoritativeGameSnapshot | undefined;
+        /** Transfer detached converter results to the renderer as shared, frozen checkpoints. */
+        shareSnapshots?: boolean;
         nowMs?: number;
     },
 ): SandboxReplay | undefined => {
@@ -333,7 +351,7 @@ export const createSandboxReplayFromRankedReplay = (
         return undefined;
     }
 
-    const snapshots = collectRankedReplaySnapshots(replay);
+    const snapshots = rankedReplaySnapshotReferences(replay);
     if (!snapshots.length) {
         return undefined;
     }
@@ -342,7 +360,7 @@ export const createSandboxReplayFromRankedReplay = (
     const firstActionSequence = replay.actions[0]?.sequence ?? Number.MAX_SAFE_INTEGER;
     const initialSnapshot =
         snapshots.filter((snapshot) => snapshot.latestSequence < firstActionSequence).at(-1) ?? snapshots[0];
-    const initialState = options.snapshotToState(initialSnapshot);
+    const initialState = options.snapshotToState(cloneReplayData(initialSnapshot));
     if (!initialState) {
         return undefined;
     }
@@ -351,7 +369,6 @@ export const createSandboxReplayFromRankedReplay = (
     const pending: {
         action: RankedReplayActionRecord;
         snapshot: PlaySnapshot;
-        stateAfter: SandboxSceneState;
     }[] = [];
     for (const actionRecord of replay.actions) {
         if (actionRecord.sequence <= initialSnapshot.latestSequence) {
@@ -363,11 +380,7 @@ export const createSandboxReplayFromRankedReplay = (
             return undefined;
         }
 
-        const stateAfter = options.snapshotToState(stateAfterSnapshot);
-        if (!stateAfter) {
-            return undefined;
-        }
-        pending.push({ action: actionRecord, snapshot: stateAfterSnapshot, stateAfter });
+        pending.push({ action: actionRecord, snapshot: stateAfterSnapshot });
     }
 
     const stamped = withReplayJournalTails(
@@ -375,20 +388,40 @@ export const createSandboxReplayFromRankedReplay = (
         replay.journal,
     );
     const actions: SandboxReplay["actions"] = [];
+    let previousState = cloneReplayData(initialState);
+    if (options.shareSnapshots) previousState = shareReplaySnapshot(previousState);
+    const replayInitialState = previousState;
+    let previousAuthoritative: AuthoritativeGameSnapshot | undefined;
     for (let index = 0; index < pending.length; index += 1) {
         const item = pending[index];
-        const snapshot = stamped[index];
-        if (!item || !snapshot) {
+        const reference = stamped[index];
+        if (!item || !reference) {
             continue;
         }
+        // Converters historically receive detached snapshots and may mutate them. Keep that boundary,
+        // but only one checkpoint's working copy needs to be live during preparation.
+        const snapshot = cloneReplayData(item.snapshot);
+        const convertedState = options.snapshotToState(snapshot);
+        if (!convertedState) return undefined;
+        const stateAfter = options.shareSnapshots ? convertedState : cloneReplayData(convertedState);
+        if (reference !== item.snapshot) snapshot.journalTail = cloneReplayData(reference.journalTail);
         const authoritativeSnapshot = options.snapshotToAuthoritative?.(snapshot);
+        const authoritative =
+            authoritativeSnapshot && !options.shareSnapshots
+                ? cloneReplayData(authoritativeSnapshot)
+                : authoritativeSnapshot;
+        previousState = options.shareSnapshots ? shareReplaySnapshot(stateAfter, previousState) : stateAfter;
+        previousAuthoritative =
+            options.shareSnapshots && authoritative
+                ? shareReplaySnapshot(authoritative, previousAuthoritative)
+                : authoritative;
         actions.push({
             sequence: item.action.sequence,
             clientTimeMs: item.action.acceptedAtMs || nowMs + actions.length,
             action: cloneReplayData(item.action.action),
             events: cloneReplayData(item.action.events),
-            stateAfter: cloneReplayData(item.stateAfter),
-            ...(authoritativeSnapshot ? { authoritativeSnapshot: cloneReplayData(authoritativeSnapshot) } : {}),
+            stateAfter: previousState,
+            ...(previousAuthoritative ? { authoritativeSnapshot: previousAuthoritative } : {}),
         });
     }
 
@@ -402,7 +435,7 @@ export const createSandboxReplayFromRankedReplay = (
         id: `ranked:${replay.gameId}`,
         createdAtMs: actions[0]?.clientTimeMs ?? nowMs,
         updatedAtMs: actions.at(-1)?.clientTimeMs ?? nowMs,
-        initialState: cloneReplayData(initialState),
+        initialState: replayInitialState,
         actions,
     };
 };

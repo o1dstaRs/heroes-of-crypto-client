@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import { Graphics, Polygon } from "pixi.js";
 
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 
 import { projectedCellPoints } from "./sandbox/BattlefieldVisualGrid";
-import { MOVEMENT_TILE_INSET_CELLS, movementTilePolygon, tunedCellFillCornerPoints } from "./movementAreaVisual";
+import {
+    drawMovementArea,
+    movementFillAlphaForPhase,
+    MOVEMENT_TILE_INSET_CELLS,
+    movementTilePolygon,
+    tunedCellFillCornerPoints,
+} from "./movementAreaVisual";
 import { normalizeMovementAreaTuning } from "./movementAreaTuning";
 
 const settings = () =>
@@ -18,6 +25,37 @@ const settings = () =>
     );
 
 describe("movement-area cell fill", () => {
+    test("batches a full board while preserving each inset polygon and overlapping range order", () => {
+        const gs = settings();
+        const cells = Array.from({ length: 256 }, (_, i) => ({ x: i % 16, y: Math.floor(i / 16) }));
+        const g = new Graphics();
+        try {
+            drawMovementArea(g, cells, gs, 0xff3b3b, 0.8);
+            drawMovementArea(g, [cells[0], cells[0]], gs, 0xffffff, 1.2, 0.5);
+            const fills = g.context.instructions;
+            expect(fills).toHaveLength(2);
+            for (const [index, expectedCells] of [cells, [cells[0], cells[0]]].entries()) {
+                const instruction = fills[index];
+                expect(instruction.action).toBe("fill");
+                if (instruction.action !== "fill") throw new Error("Expected a fill");
+                expect(
+                    instruction.data.path.shapePath.shapePrimitives.map(({ shape }) =>
+                        shape instanceof Polygon ? shape.points : undefined,
+                    ),
+                ).toEqual(expectedCells.map((cell) => movementTilePolygon(cell, gs)));
+                expect(instruction.data.style.color).toBe(index === 0 ? 0xff3b3b : 0xffffff);
+                expect(instruction.data.style.alpha).toBe(
+                    movementFillAlphaForPhase(index === 0 ? 0.8 : 1.2) * (index === 0 ? 1 : 0.5),
+                );
+            }
+            g.clear().rect(0, 0, 10, 10);
+            drawMovementArea(g, [], gs, 0xffffff, 0);
+            expect(g.context.instructions).toHaveLength(0);
+        } finally {
+            g.destroy();
+        }
+    });
+
     test("insets the wash so painted seams remain untouched", () => {
         const gs = settings();
         const cell = { x: 7, y: 8 };

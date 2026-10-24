@@ -375,6 +375,7 @@ export const PremiumSetupPanel: React.FC<{
                         p: 1,
                         my: setupView ? 0 : 1,
                         minHeight: 0,
+                        flexShrink: setupView ? undefined : 0,
                         overflowY: setupView ? "auto" : undefined,
                     }}
                 >
@@ -420,7 +421,7 @@ export const PremiumSetupPanel: React.FC<{
                             </PremiumButton>
                         </>
                     ) : (
-                        <Box sx={{ display: "flex", gap: 0.75, mt: 0.75 }}>
+                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.75 }}>
                             <PremiumButton
                                 size="sm"
                                 disabled={busy || advice.ready}

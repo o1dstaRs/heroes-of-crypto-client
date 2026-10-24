@@ -22,6 +22,15 @@ const castableAbilityNames = Object.values(abilitiesJson as Record<string, { nam
     .sort();
 
 describe("spell codex", () => {
+    test("the shared covenant links to its blessing and lasts until broken", () => {
+        expect(spells.find((spell) => spell.name === "Ember Covenant Blessing")).toMatchObject({
+            kind: "effect",
+            polarity: "buff",
+            duration: { kind: "broken" },
+            appliedBy: ["Ember Covenant Blessing"],
+        });
+    });
+
     test("labels offensive magic as damage rather than debuffs", () => {
         for (const name of [
             "Fireball",

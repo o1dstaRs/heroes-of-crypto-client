@@ -60,6 +60,7 @@ import {
     placementVerticalBoundarySpan,
     DrawableRectanglePlacement,
     DrawableSquarePlacement,
+    setSpawnFlowPhase,
 } from "./PixiDrawablePlacement";
 
 const settings = () =>
@@ -109,6 +110,31 @@ describe("placement tile highlight", () => {
         square.releaseVisuals();
         graphics.destroy();
         frames.destroy({ children: true });
+    });
+
+    test("a rectangle wash is projected once and only its opacity breathes", () => {
+        const gs = settings();
+        const placement = new DrawableRectanglePlacement(gs, PlacementPositionType.LEFT_BOTTOM, 3);
+        const graphics = new Graphics();
+        const frames = new Container();
+        const wash = new Container();
+        setSpawnFlowPhase(0.4);
+
+        placement.draw(graphics, frames, wash);
+        const cached = wash.children[0] as Graphics;
+        const alpha = cached.alpha;
+        setSpawnFlowPhase(1.7);
+        placement.draw(graphics, frames, wash);
+
+        expect(wash.children).toHaveLength(1);
+        expect(wash.children[0]).toBe(cached);
+        expect(cached.alpha).toBeCloseTo(movementFillAlphaForPhase(1.7) * GREEN_PLACEMENT_OPACITY_SCALE);
+        expect(cached.alpha).not.toBeCloseTo(alpha);
+        placement.releaseVisuals();
+        expect(wash.children).toHaveLength(0);
+        graphics.destroy();
+        frames.destroy({ children: true });
+        wash.destroy({ children: true });
     });
 
     test("releases derived border and carpet GPU resources idempotently", () => {

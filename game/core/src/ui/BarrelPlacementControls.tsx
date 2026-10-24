@@ -43,7 +43,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
     }, [disabled, manager]);
 
     return (
-        <Stack spacing={0.5} sx={{ px: 0.5, py: 0.5 }}>
+        <Stack spacing={0.5} sx={{ px: 0.5, py: 0.5, "& .MuiButton-root": { minHeight: 36, flexShrink: 0 } }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                 <Box
                     component="img"
@@ -59,7 +59,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
             {[0, 1].map((index) => {
                 const barrel = positions.find((entry) => entry.index === index);
                 return (
-                    <Stack key={index} direction="row" spacing={0.5} alignItems="center">
+                    <Stack key={index} direction="row" spacing={0.5} useFlexGap flexWrap="wrap" alignItems="center">
                         <Typography level="body-xs" sx={{ flex: 1 }}>
                             Barrel {index + 1}
                             {barrel ? ` · ${barrel.cell.x + 1}, ${barrel.cell.y + 1}` : " · unplaced"}
@@ -88,7 +88,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
                 );
             })}
             {placing !== undefined ? (
-                <Stack direction="row" spacing={0.5} alignItems="center">
+                <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" alignItems="center">
                     <Typography level="body-xs" sx={{ flex: 1 }}>
                         Click an empty cell in your deployment zone. Esc cancels.
                     </Typography>

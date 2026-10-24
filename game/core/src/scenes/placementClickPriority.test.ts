@@ -63,7 +63,9 @@ describe("placement click priority", () => {
             sandbox.indexOf("// 3. UNIT SELECTION"),
         );
         const commitPriority = placementInput.indexOf("shouldCommitPlacementBeforeUnitSelection({");
-        const spriteFallback = placementInput.indexOf("const unitUnderMouse = this.getUnitAtPosition(p);");
+        const spriteFallback = placementInput.indexOf(
+            "const unitUnderMouse = clickedBenchUnit ?? this.getUnitAtPosition(p);",
+        );
 
         expect(placementInput).toContain("const clickedGridUnit = this.getGridUnitAtPosition(p);");
         expect(commitPriority).toBeGreaterThan(-1);

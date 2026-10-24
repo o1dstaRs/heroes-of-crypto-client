@@ -44,6 +44,34 @@ const baseUnit = () => {
     );
 };
 
+test("pending damage counts retain their action identity across an AI rollback", () => {
+    const grid = new Grid(settings, GridVals.NORMAL);
+    const units = new UnitsHolder(grid);
+    const fight = FightStateManager.getInstance().getFightProperties();
+    const unit = RenderableUnit.fromBase(baseUnit(), () => undefined);
+    units.addUnit(unit);
+    unit.beginDamagePresentation(20);
+    const pending = unit.captureDamageCasualties(3);
+    const presentation = Reflect.get(unit, "combatAmountPresentation");
+    const before = snapshotBattle(units, grid, fight);
+    runAiSearchSimulation(() => {
+        unit.setPosition(500, 500);
+        unit.setResponded(true);
+        restoreBattle(before, units, grid, fight);
+    });
+    expect(Reflect.get(unit, "combatAmountPresentation")).toBe(presentation);
+    pending();
+    expect(unit.getDisplayedAmount()).toBe(17);
+    expect(unit.getAmountAlive()).toBe(12);
+    expect(snapshotBattle(units, grid, fight)).toEqual(before);
+    unit.beginDamagePresentation();
+    pending();
+    expect(unit.getDisplayedAmount()).toBe(12);
+    unit.captureDamageCasualties(2)();
+    expect(unit.getDisplayedAmount()).toBe(10);
+    expect(snapshotBattle(units, grid, fight)).toEqual(before);
+});
+
 for (const [renderer, factory] of [
     ["battlefield", RenderableUnit],
     ["level one", LevelOneRenderableUnit],

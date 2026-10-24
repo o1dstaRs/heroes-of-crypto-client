@@ -5,6 +5,7 @@ import {
     GridMath,
     GridSettings,
     TeamVals,
+    type HoCMath,
     type IVisibleDamage,
     type TeamType,
 } from "@heroesofcrypto/common";
@@ -12,6 +13,7 @@ import { Sandbox } from "./Sandbox";
 import { RankedPlayScene } from "./RankedPlayScene";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import { prepareBrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 import type { RenderableUnit } from "./RenderableUnit";
 
 const gs = new GridSettings(
@@ -25,6 +27,22 @@ const gs = new GridSettings(
 );
 const flush = async () => {
     for (let i = 0; i < 24; i++) await Promise.resolve();
+};
+const expectStraightApproach = (points: HoCMath.XY[]) => {
+    const from = points[0];
+    const to = points[points.length - 1];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.hypot(dx, dy);
+    let previousProgress = -1;
+    for (const point of points) {
+        const x = point.x - from.x;
+        const y = point.y - from.y;
+        expect(Math.abs(x * dy - y * dx) / length).toBeLessThan(0.000001);
+        const progress = (x * dx + y * dy) / (length * length);
+        expect(progress).toBeGreaterThan(previousProgress);
+        previousProgress = progress;
+    }
 };
 
 const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") => {
@@ -98,8 +116,9 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
     visuals.spawnBloodSpray = mock();
     visuals.spawnSlash = mock();
     visuals.showMissLabel = mock();
-    const flights: { impact: () => void; finish: () => void }[] = [];
+    const flights: { from: HoCMath.XY; to: HoCMath.XY; impact: () => void; finish: () => void }[] = [];
     const hops: (() => void)[] = [];
+    const paths: HoCMath.XY[][] = [];
     const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => units },
@@ -119,12 +138,17 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
         playReplayOneShot: () => Promise.resolve(),
         delayReplay: () => Promise.resolve(),
         waitForProjectileHitReaction: () => Promise.resolve(),
-        playReplayProjectile: (_source: unknown, _victim: unknown, _position: unknown, impact: () => void) =>
-            new Promise<void>((finish) => flights.push({ impact, finish })),
+        fireUnitProjectile: (_source: unknown, opts: { from: HoCMath.XY; to: HoCMath.XY; onImpact: () => void }) =>
+            new Promise<void>((finish) =>
+                flights.push({ from: opts.from, to: opts.to, impact: opts.onImpact, finish }),
+            ),
         rangedProjectiles: {
             prepare: () => Promise.resolve(),
             showChakramBounce: mock(() => Promise.resolve()),
-            fireAlongPath: () => new Promise<void>((resolve) => hops.push(resolve)),
+            fireAlongPath: (points: HoCMath.XY[]) => {
+                paths.push(points.map((point) => ({ ...point })));
+                return new Promise<void>((resolve) => hops.push(resolve));
+            },
         },
     });
     const run = (plan: CombatExchangeStrike[], damage: Partial<IVisibleDamage> = {}, melee = false) =>
@@ -145,7 +169,7 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
         world.destroy({ children: true });
         texture.destroy(true);
     };
-    return { scene, a, b, c, units, visuals, world, flights, hops, run, roots, cleanup };
+    return { scene, a, b, c, units, visuals, world, flights, hops, paths, run, roots, cleanup };
 };
 const strike = (overrides: Partial<CombatExchangeStrike> = {}): CombatExchangeStrike => ({
     attackerId: "A",
@@ -164,6 +188,9 @@ describe("Zena lethal impact routing", () => {
         try {
             const pending = f.run([strike()]);
             await flush();
+            const cut = prepareBrutalityTarget(f.b.getStaticBattlefieldPreviewAt()!, f.b.getName())!;
+            expect(f.flights[0].to).toEqual(cut.point);
+            expect(f.flights[0].to).not.toEqual(f.b.getProjectileImpactPoint());
             expect(f.roots()).toHaveLength(0);
             expect(f.b.destroyVisuals).not.toHaveBeenCalled();
             f.flights[0].impact();
@@ -194,6 +221,7 @@ describe("Zena lethal impact routing", () => {
         try {
             const pending = f.run([strike(changes)]);
             await flush();
+            expect(f.flights[0].to).toEqual(f.b.getProjectileImpactPoint());
             f.flights[0].impact();
             f.flights[0].finish();
             await pending;
@@ -240,6 +268,10 @@ describe("Zena lethal impact routing", () => {
                 ),
             );
             await flush();
+            expect(f.flights[0].to).toEqual(f.b.getProjectileImpactPoint());
+            expect(f.flights[1].to).toEqual(
+                prepareBrutalityTarget(f.a.getStaticBattlefieldPreviewAt()!, f.a.getName())!.point,
+            );
             f.flights[1].impact();
             f.flights[1].finish();
             await flush();
@@ -272,7 +304,13 @@ describe("Zena lethal impact routing", () => {
                 amount: 100,
                 unitsDied: 5,
             }));
-            const arcs = [{ targetUnitId: "C", hitUnitIds: ["C"], cells: [...f.b.getCells(), ...f.c.getCells()] }];
+            const arcs = [
+                {
+                    targetUnitId: "C",
+                    hitUnitIds: ["C"],
+                    cells: [...f.b.getCells(), { x: 7, y: 4 }, { x: 8, y: 4 }, ...f.c.getCells()],
+                },
+            ];
             const damage = {
                 unitId: "B",
                 splash,
@@ -293,18 +331,114 @@ describe("Zena lethal impact routing", () => {
             };
             const pending = f.run([strike()], damage);
             await flush();
+            const firstCut = prepareBrutalityTarget(f.b.getStaticBattlefieldPreviewAt()!, f.b.getName())!;
+            const bounceCut = prepareBrutalityTarget(f.c.getStaticBattlefieldPreviewAt()!, f.c.getName())!;
+            expect(f.flights[0].to).toEqual(firstCut.point);
             f.flights[0].impact();
             f.flights[0].finish();
             await flush();
             expect(f.roots()).toHaveLength(1);
             expect(f.c.destroyVisuals).not.toHaveBeenCalled();
+            expect(f.paths[0][0]).toEqual(firstCut.point);
+            expect(f.paths[0].at(-1)).toEqual(bounceCut.point);
+            // The neck is chosen before flight: every separating waypoint must already lie on
+            // that approach, rather than staying on the floor until the disc enters the victim.
+            expect(f.paths[0]).toHaveLength(4);
+            expectStraightApproach(f.paths[0]);
             f.hops.shift()!();
             await flush();
             expect(f.roots()).toHaveLength(2);
             expect(f.c.destroyVisuals).toHaveBeenCalledTimes(1);
+            expect(f.paths[1][0]).toEqual(bounceCut.point);
             f.hops.shift()!();
             await pending;
             expect(f.roots()).toHaveLength(2);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("single-projectile playback chooses the same complete neck approach before launch", async () => {
+        const f = fixture();
+        try {
+            const primaryCut = prepareBrutalityTarget(f.b.getStaticBattlefieldPreviewAt()!, f.b.getName())!;
+            const bounceCut = prepareBrutalityTarget(f.c.getStaticBattlefieldPreviewAt()!, f.c.getName())!;
+            const cells = [...f.b.getCells(), { x: 7, y: 4 }, { x: 8, y: 4 }, ...f.c.getCells()];
+            const onImpact = mock();
+            const pending = f.scene.playChakramArcs(
+                f.a,
+                {
+                    unitId: "B",
+                    chakramArcs: [{ targetUnitId: "C", hitUnitIds: ["C"], cells }],
+                    splash: [f.b, f.c].map((unit) => ({
+                        unitId: unit.getId(),
+                        position: unit.getPosition(),
+                        amount: 100,
+                        unitsDied: 5,
+                    })),
+                },
+                f.b,
+                f.units,
+                true,
+                undefined,
+                { from: f.a.getPosition(), to: primaryCut.point, onImpact },
+                new Map([
+                    ["B", primaryCut],
+                    ["C", bounceCut],
+                ]),
+            );
+            await flush();
+            expect(onImpact).not.toHaveBeenCalled();
+            expect(f.paths[0]).toHaveLength(6);
+            expect(f.paths[0][1]).toEqual(primaryCut.point);
+            expect(f.paths[0][4]).toEqual(bounceCut.point);
+            expectStraightApproach(f.paths[0].slice(1, -1));
+            f.hops.shift()!();
+            await pending;
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test.each([
+        { name: "wounding", amount: 30, unitsDied: 1, missed: false },
+        { name: "missed", amount: 0, unitsDied: 0, missed: true },
+        { name: "absorbed", amount: 0, unitsDied: 0, missed: false },
+    ])("a $name ricochet keeps its body contact and its living victim", async ({ amount, unitsDied, missed }) => {
+        const f = fixture();
+        try {
+            const arcs = [{ targetUnitId: "C", hitUnitIds: ["C"], cells: [...f.b.getCells(), ...f.c.getCells()] }];
+            const splash = [
+                { unitId: "B", position: f.b.getPosition(), amount: 100, unitsDied: 5 },
+                { unitId: "C", position: f.c.getPosition(), amount, unitsDied, missed },
+            ];
+            const pending = f.run([strike()], {
+                unitId: "B",
+                splash,
+                chakramArcs: arcs,
+                chakramFlights: [
+                    {
+                        attackerId: "A",
+                        primaryTargetId: "B",
+                        response: false,
+                        hitIndex: 0,
+                        missed: false,
+                        arcs,
+                        splash,
+                    },
+                ],
+            });
+            await flush();
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
+            expect(f.paths[0].at(-1)).toEqual(f.c.getProjectileImpactPoint());
+            f.hops.shift()!();
+            await flush();
+            expect(f.c.destroyVisuals).not.toHaveBeenCalled();
+            expect(f.roots()).toHaveLength(1);
+            f.hops.shift()!();
+            await pending;
         } finally {
             f.cleanup();
         }
@@ -315,10 +449,14 @@ describe("Zena lethal impact routing", () => {
         try {
             const pending = f.run([strike({ lethal: false, unitsDied: 2 }), strike({ unitsDied: 3, hitIndex: 1 })]);
             await flush();
+            expect(f.flights[0].to).toEqual(f.b.getProjectileImpactPoint());
             f.flights[0].impact();
             f.flights[0].finish();
             await flush();
             expect(f.roots()).toHaveLength(0);
+            expect(f.flights[1].to).toEqual(
+                prepareBrutalityTarget(f.b.getStaticBattlefieldPreviewAt()!, f.b.getName())!.point,
+            );
             f.flights[1].impact();
             f.flights[1].finish();
             await flush();
@@ -331,6 +469,32 @@ describe("Zena lethal impact routing", () => {
             expect(root.getChildByLabel("severed-head")!.rotation).not.toBe(0);
             f.visuals.clear();
             expect(root.destroyed).toBe(true);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("the finisher keeps its preflight pose even if the preview scratch changes while the disc flies", async () => {
+        const f = fixture();
+        try {
+            const pose = f.b.getStaticBattlefieldPreviewAt()!;
+            f.b.getStaticBattlefieldPreviewAt = () => pose;
+            const expected = { ...pose };
+            const pending = f.run([strike()]);
+            await flush();
+            const cut = { ...f.flights[0].to };
+            pose.x += 700;
+            pose.scaleX *= -1;
+            pose.scaleY *= 1.8;
+            f.flights[0].impact();
+            const root = f.roots()[0];
+            expect(root.position.x).toBe(expected.x);
+            expect(root.position.y).toBe(expected.y);
+            expect(f.flights[0].to).toEqual(cut);
+            f.flights[0].finish();
+            await flush();
+            f.hops.splice(0).forEach((finish) => finish());
+            await pending;
         } finally {
             f.cleanup();
         }

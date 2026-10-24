@@ -1,5 +1,7 @@
 ---
 import CreaturePortrait from "./CreaturePortrait.astro";
+import DeferredMedia from "./DeferredMedia.astro";
+import { HOME_HERO_IMAGE } from "../lib/hero-media";
 import { knowledgePath } from "../lib/knowledge-base";
 import { localizedFactionName } from "../lib/localization";
 import { content, links, localPath, type Language } from "../lib/site-data";
@@ -65,11 +67,13 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 <section class="hero">
     <img
         class="hero-bg"
-        src="/assets/images/home/hero/generated/crusader_berserker_legs_redrawn_20260922.webp"
+        src={HOME_HERO_IMAGE}
         alt=""
         width="1750"
         height="899"
         fetchpriority="high"
+        loading="eager"
+        decoding="async"
     />
     <SwordFire />
     <AxeGlow />
@@ -127,52 +131,54 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 featureCards.map((item) => (
                     <article class={`feature-card mechanic-card is-${item.visual.variant}`}>
                         <div class="mechanic-visual" aria-hidden="true">
-                            {
-                                item.visual.variant === "board" && (
-                                    <div class="mechanic-board">
-                                        <img
-                                            src="/assets/images/preview_game.webp"
-                                            alt=""
-                                            width="1200"
-                                            height="630"
-                                            loading="lazy"
-                                        />
-                                        <span class="board-path one"></span>
-                                        <span class="board-path two"></span>
-                                        <span class="board-marker one"></span>
-                                        <span class="board-marker two"></span>
-                                        <span class="board-marker three"></span>
-                                        <span class="mechanic-icon-row">
-                                            {item.visual.icons.map((icon) => (
-                                                <img src={icon} alt="" width="256" height="256" loading="lazy" />
+                            <DeferredMedia>
+                                {
+                                    item.visual.variant === "board" && (
+                                        <div class="mechanic-board">
+                                            <img
+                                                src="/assets/images/preview_game.webp"
+                                                alt=""
+                                                width="1200"
+                                                height="630"
+                                                loading="lazy"
+                                            />
+                                            <span class="board-path one"></span>
+                                            <span class="board-path two"></span>
+                                            <span class="board-marker one"></span>
+                                            <span class="board-marker two"></span>
+                                            <span class="board-marker three"></span>
+                                            <span class="mechanic-icon-row">
+                                                {item.visual.icons.map((icon) => (
+                                                    <img src={icon} alt="" width="256" height="256" loading="lazy" />
+                                                ))}
+                                            </span>
+                                        </div>
+                                    )
+                                }
+                                {
+                                    item.visual.variant === "factions" && (
+                                        <div class="mechanic-factions">
+                                            {item.visual.units.map((unit) => (
+                                                <span class="mechanic-faction-unit" style={`--faction: ${factionColors[unit.faction]}`}>
+                                                    <CreaturePortrait slug={unit.slug} name="" />
+                                                    <em>{factionLabel(unit.faction)}</em>
+                                                </span>
                                             ))}
-                                        </span>
-                                    </div>
-                                )
-                            }
-                            {
-                                item.visual.variant === "factions" && (
-                                    <div class="mechanic-factions">
-                                        {item.visual.units.map((unit) => (
-                                            <span class="mechanic-faction-unit" style={`--faction: ${factionColors[unit.faction]}`}>
-                                                <CreaturePortrait slug={unit.slug} name="" />
-                                                <em>{factionLabel(unit.faction)}</em>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )
-                            }
-                            {
-                                item.visual.variant === "abilities" && (
-                                    <div class="mechanic-abilities">
-                                        {item.visual.icons.map((icon) => (
-                                            <span>
-                                                <img src={icon} alt="" width="256" height="256" loading="lazy" />
-                                            </span>
-                                        ))}
-                                    </div>
-                                )
-                            }
+                                        </div>
+                                    )
+                                }
+                                {
+                                    item.visual.variant === "abilities" && (
+                                        <div class="mechanic-abilities">
+                                            {item.visual.icons.map((icon) => (
+                                                <span>
+                                                    <img src={icon} alt="" width="256" height="256" loading="lazy" />
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )
+                                }
+                            </DeferredMedia>
                         </div>
                         <div class="mechanic-copy">
                             <h3>{item.title}</h3>

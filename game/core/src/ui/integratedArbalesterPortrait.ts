@@ -1,7 +1,7 @@
 import { CreatureVals } from "@heroesofcrypto/common";
 
 import type { AnimationAtlasMeta } from "../generated/animation_atlases";
-import type { LeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
+import { withSidebarPortraitPages, type LeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 
 const FRAME_COUNT = 100;
 // Restore the source-video cycle, repeated twice, at the original slowed cadence.
@@ -31,4 +31,6 @@ export const resolveIntegratedArbalesterPortrait = (
     creatureId: number,
     fallback: Readonly<LeftSidebarPortraitAnimation> | null,
 ): Readonly<LeftSidebarPortraitAnimation> | null =>
-    creatureId === CreatureVals.ARBALESTER ? INTEGRATED_ARBALESTER_PORTRAIT : fallback;
+    creatureId === CreatureVals.ARBALESTER
+        ? withSidebarPortraitPages(INTEGRATED_ARBALESTER_PORTRAIT, "arbalester_v8_atlas.webp")
+        : fallback;

@@ -61,6 +61,7 @@ import {
     isAmbiguousConfirmFailure,
     isCurrentAcceptAttempt,
     matchmakingOpponentId,
+    matchmakingStateAfterStreamError,
     type MatchmakingCurrentGame,
     resolveConfirmFailure,
     resolveTerminalHandoff,
@@ -68,6 +69,7 @@ import {
     TERMINAL_MATCHMAKING_STREAM_ERROR,
 } from "./matchmakingAcceptTransition";
 import { MatchFoundOpponentPreview } from "./MatchFoundOpponentPreview";
+import { DraftAcceptanceWindow } from "./PickAndBan/DraftAcceptanceWindow";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -382,6 +384,7 @@ export const MatchmakingRoute: React.FC = () => {
         });
 
         source.onmessage = (event: MatchmakingEvent) => {
+            if (streamRef.current !== source) return;
             setError("");
             setQueueSize(!event.ps && typeof event.po === "number" ? event.po : null);
             setSecondsRemaining(typeof event.r === "number" ? event.r : null);
@@ -512,7 +515,7 @@ export const MatchmakingRoute: React.FC = () => {
             }
 
             setError(err.message);
-            setState((current) => (current === "accepted" ? current : "error"));
+            setState((current) => matchmakingStateAfterStreamError(current, err.message));
             // A dropped stream right after a found match is usually the accept window expiring. Pull the
             // fresh /me so a no-accept penalty renders as a countdown instead of just "connection aborted".
             void me().catch(() => undefined);
@@ -635,13 +638,11 @@ export const MatchmakingRoute: React.FC = () => {
                     return;
                 }
 
-                if (game.confirmed) {
-                    navigate(`/game/${game.id}`);
-                    return;
-                }
-
                 updatePendingGameId(game.id);
-                setState("confirming");
+                // /current confirms only our own seat. On reload the opponent may still be deciding;
+                // resume the waiting draft and let c=1 authorize entry to the live pick session.
+                acceptedGameIdRef.current = game.confirmed ? game.id : "";
+                setState(game.confirmed ? "accepted" : "confirming");
                 openStream();
             })
             .catch(() => {
@@ -651,7 +652,7 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [getCurrentGame, mockMatchPreview, navigate, openStream, updatePendingGameId]);
+    }, [getCurrentGame, mockMatchPreview, openStream, updatePendingGameId]);
 
     const statusText = useMemo(() => {
         if (needsActivation) {
@@ -852,6 +853,7 @@ export const MatchmakingRoute: React.FC = () => {
             return;
         }
 
+        clearMatchReadyAlert();
         if (mockMatchPreview) {
             acceptedGameIdRef.current = pendingGameId;
             setState("accepted");
@@ -1013,6 +1015,12 @@ export const MatchmakingRoute: React.FC = () => {
         };
     })();
 
+    // Switch surfaces on the click, before POST /confirm or the opponent's acceptance completes.
+    // Keep the stream mounted so expiry, rejection and the c=1 draft handoff retain their recovery paths.
+    if (state === "accepted" && pendingGameId) {
+        return <DraftAcceptanceWindow secondsRemaining={secondsRemaining} />;
+    }
+
     return (
         <Box
             sx={{
@@ -1030,17 +1038,12 @@ export const MatchmakingRoute: React.FC = () => {
                     "70%, 100%": { transform: "scale(1.35)", opacity: 0 },
                 },
                 "@keyframes matchFoundGlow": {
-                    "0%, 100%": {
-                        boxShadow: "0 28px 80px rgba(0,0,0,0.52), 0 0 0 1px rgba(255,209,102,0.18)",
-                    },
-                    "50%": {
-                        boxShadow:
-                            "0 28px 80px rgba(0,0,0,0.52), 0 0 0 1px rgba(255,209,102,0.72), 0 0 54px rgba(255,183,0,0.28)",
-                    },
+                    "0%, 100%": { opacity: 0.2 },
+                    "50%": { opacity: 0.75 },
                 },
                 "@keyframes acceptAttention": {
-                    "0%, 100%": { transform: "translateY(0)", boxShadow: "0 8px 26px rgba(85,216,120,0.24)" },
-                    "50%": { transform: "translateY(-2px)", boxShadow: "0 12px 38px rgba(85,216,120,0.48)" },
+                    "0%, 100%": { transform: "translateY(0)" },
+                    "50%": { transform: "translateY(-2px)" },
                 },
             }}
         >
@@ -1050,11 +1053,20 @@ export const MatchmakingRoute: React.FC = () => {
                     position: "fixed",
                     inset: 0,
                     pointerEvents: "none",
+                    background: ARENA_IDLE_WASH,
+                }}
+            />
+            <Box
+                aria-hidden="true"
+                sx={{
+                    position: "fixed",
+                    inset: 0,
+                    pointerEvents: "none",
                     background:
-                        state === "confirming"
-                            ? "radial-gradient(circle at 34% 58%, rgba(255,209,102,0.2), transparent 38%), radial-gradient(circle at 78% 35%, rgba(255,143,0,0.12), transparent 32%), linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.38))"
-                            : ARENA_IDLE_WASH,
-                    transition: "background 320ms ease",
+                        "radial-gradient(circle at 34% 58%, rgba(255,209,102,0.2), transparent 38%), radial-gradient(circle at 78% 35%, rgba(255,143,0,0.12), transparent 32%)",
+                    opacity: state === "confirming" ? 1 : 0,
+                    transition: "opacity 320ms ease",
+                    "@media (prefers-reduced-motion: reduce)": { transition: "none" },
                 }}
             />
 
@@ -1092,6 +1104,7 @@ export const MatchmakingRoute: React.FC = () => {
                     aria-labelledby="ranked-heading"
                     variant="outlined"
                     sx={{
+                        position: "relative",
                         minWidth: 0,
                         minHeight: profileSummaryOpen ? { lg: 724 } : undefined,
                         display: "flex",
@@ -1112,9 +1125,22 @@ export const MatchmakingRoute: React.FC = () => {
                                 : state === "accepted"
                                   ? "0 28px 80px rgba(0,0,0,0.52), 0 0 40px rgba(85,216,120,0.13)"
                                   : "0 28px 80px rgba(0,0,0,0.52)",
-                        animation: state === "confirming" ? "matchFoundGlow 1.65s ease-in-out infinite" : "none",
                         transition: "border-color 280ms ease, box-shadow 280ms ease, background-color 280ms ease",
-                        "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                        // Rasterize the glow once and pulse its opacity. Animating this large card's
+                        // shadow repainted the blurred panel and its contents on every frame.
+                        "&::after": {
+                            content: '""',
+                            position: "absolute",
+                            inset: 0,
+                            borderRadius: "inherit",
+                            pointerEvents: "none",
+                            border: "1px solid rgba(255,209,102,0.72)",
+                            boxShadow: "inset 0 0 54px rgba(255,183,0,0.24)",
+                            opacity: 0,
+                            animation: state === "confirming" ? "matchFoundGlow 1.65s ease-in-out infinite" : "none",
+                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                        },
+                        "@media (prefers-reduced-motion: reduce)": { transition: "none" },
                         backdropFilter: "blur(16px)",
                     }}
                 >
@@ -1368,7 +1394,14 @@ export const MatchmakingRoute: React.FC = () => {
                             >
                                 {state === "confirming" ? (
                                     <Stack spacing={0} alignItems="center">
-                                        <Typography level="h2" sx={{ color: presentation.accent, lineHeight: 0.95 }}>
+                                        <Typography
+                                            level="h2"
+                                            sx={{
+                                                color: presentation.accent,
+                                                lineHeight: 0.95,
+                                                fontVariantNumeric: "tabular-nums",
+                                            }}
+                                        >
                                             {secondsRemaining && secondsRemaining > 0 ? secondsRemaining : "!"}
                                         </Typography>
                                         <Typography

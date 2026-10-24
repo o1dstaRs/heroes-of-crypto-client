@@ -1,6 +1,9 @@
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
+import { chakramContactPath } from "./sandbox/chakramContactPath";
+import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
 import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
@@ -30,10 +33,11 @@ import { unicornBlindnessLanded } from "./UnicornBlindnessVisuals";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { griffinLabFlightSettings } from "./GriffinLabFlight";
 import { mantisLabFlightSettings } from "./MantisLabFlight";
-import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
+import { Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { usesApprovedBaseAnimations, usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
-import { AtlasTexturePrewarmer } from "../pixi/prewarmAtlasTexture";
+import { AtlasTexturePrewarmer, prewarmAtlasTexture } from "../pixi/prewarmAtlasTexture";
+import { AtlasPrewarmSources } from "../pixi/atlasPrewarmSources";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -181,10 +185,12 @@ import {
     preservesFacingForPureVerticalSingleCellAttack,
     RenderableUnit,
 } from "./RenderableUnit";
+import type { HelpingHandReplayStatState } from "./sandbox/HelpingHandReplayState";
 import { resolveCreatureHeadPriorityDepths, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { shouldCommitPlacementBeforeUnitSelection } from "./placementClickPriority";
 import { PixiRenderableSpell } from "./RenderableSpell";
+import { spellBookTextureKeys, spellIconTextureKey } from "./spellIcons";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
 import {
     combatFootprintCellsForBase,
@@ -208,6 +214,9 @@ import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
 import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
 import { FireWallLayer, type IFireWallCell } from "./sandbox/FireWallLayer";
+import { PlayAimKind, type PlayAim, type OpponentAim } from "../api/play_protocol";
+import { OpponentAimOverlay } from "./OpponentAimOverlay";
+import { resolveOpponentAimGeometry } from "./opponentAimGeometry";
 import { fireWallCrossingSchedule } from "./sandbox/fireWallCrossing";
 import { WindLayer } from "./sandbox/WindLayer";
 import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
@@ -557,6 +566,7 @@ export type SceneActionEngine = Pick<GameActionEngine, "apply">;
 
 export interface SandboxSceneUnitState {
     properties: UnitProperties;
+    helpingHandStatState?: HelpingHandReplayStatState;
     team: TeamType;
     placed: boolean;
     dead: boolean;
@@ -924,6 +934,14 @@ export interface IPlacementSelectionCapture {
     overlayHasSelection: boolean;
 }
 
+const hasShieldAbsorb = (damage: IVisibleDamage | undefined, unitId?: string): boolean =>
+    !!damage?.secondary?.some(
+        (entry) =>
+            (entry.source === "ember_covenant" || entry.source === "water_shield") &&
+            entry.amount > 0 &&
+            (unitId === undefined || entry.unitId === unitId),
+    );
+
 export class Sandbox extends PixiScene {
     private static readonly MOVE_SPEED_FACTOR = 16;
     private static readonly REPLAY_ACTION_GAP_MS = 80;
@@ -952,6 +970,10 @@ export class Sandbox extends PixiScene {
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
     private placementFrameContainer?: Container;
+    /** Deployment wash, under the hover graphics. Its geometry is cached; only its alpha breathes. */
+    private placementWashContainer?: Container;
+    /** Cell + selection key for the last placement hover. Pointer-still frames must not rescan the grid. */
+    private placementHoverKey = "";
     private placementBenchGraphics?: Graphics;
     private placementBenchToggleSprite?: Sprite;
     private placementBenchToggleFallback?: Graphics;
@@ -1047,6 +1069,12 @@ export class Sandbox extends PixiScene {
     private readonly unyieldingPowerTriggers = new UnyieldingPowerTriggers();
     private oneInTheFieldTriggers = new OneInTheFieldTriggers();
     private readonly madeOfFireBuffStates = new Map<string, boolean>();
+    private aimIntentSink?: (aim: PlayAim | undefined) => void;
+    private localAim?: PlayAim;
+    private opponentAim?: OpponentAim;
+    private opponentAimOverlay?: OpponentAimOverlay;
+    private opponentAimPaintKey?: string;
+    private opponentAimGhost?: HoCMath.XY;
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private lastEmittedMoveIntentKey?: string;
     private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
@@ -1089,7 +1117,8 @@ export class Sandbox extends PixiScene {
     private spellBookBackdrop: Graphics;
     private spellBookOverlay?: SpellBookOverlay;
     private spellBookBackground?: Sprite;
-    private spellBookBackgroundLoad?: Promise<Texture>;
+    private spellBookBackgroundLoad?: Promise<void>;
+    private spellBookFallback?: Graphics;
     private spellBookBlurFilter?: BlurFilter;
     private digitTextures?: Map<number, Texture>;
     private nextVisibleTurnTimerUpdateMs = 0;
@@ -1250,6 +1279,7 @@ export class Sandbox extends PixiScene {
         this.lightingLayer.setEnabled(false);
 
         this.combatVisuals = new CombatVisuals({
+            isCombatImpactPending: () => this.sc_moveBlocked || this.isStrikeInFlight(),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
             // The board camera is deliberately flatter on Y than X (see boardFit). Effect ARTWORK has to
@@ -1421,7 +1451,7 @@ export class Sandbox extends PixiScene {
                 setCurrentActiveSpell: (s) => {
                     this.currentActiveSpell = s;
                 },
-                getCurrentActiveSpell: () => this.currentActiveSpell,
+                getSelectedSpellName: () => this.getSelectedSpellName(),
                 getVisibleState: () => this.sc_visibleState,
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
                 isAiToggleAllowed: () => this.isAiToggleAllowed(),
@@ -1496,6 +1526,14 @@ export class Sandbox extends PixiScene {
             context.pixiApp.getUIContainer(),
             context.pixiApp.getApplication().screen.width,
             context.pixiApp.getApplication().screen.height,
+            {
+                content: this.spellBookContainer,
+                prepare: (unit) => this.prepareSpellBookPresentation(unit),
+                onError: () => {
+                    this.setSpellBookOverlayState(false);
+                    this.tellPlayer("Unable to open the spellbook. Please try again.");
+                },
+            },
         );
         // --- Init Sub-Managers Moved UP ---
 
@@ -1872,6 +1910,110 @@ export class Sandbox extends PixiScene {
     protected getToggleAiControlledTeam(): TeamType | undefined {
         return undefined;
     }
+    public override setAimIntentSink(sink?: (aim: PlayAim | undefined) => void): void {
+        this.aimIntentSink = sink;
+    }
+    public override clearLocalAimTarget(): void {
+        this.localAim = undefined;
+        this.syncLocalAim();
+    }
+    public override setOpponentAim(intent?: OpponentAim): void {
+        this.opponentAim = intent;
+        if (!intent || intent.kind === PlayAimKind.CLEAR) {
+            this.opponentAim = undefined;
+            this.opponentAimPaintKey = undefined;
+            this.opponentAimGhost = undefined;
+            this.opponentAimOverlay?.clear();
+            if (!this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
+        }
+        this.setOpponentSpellIntent(
+            intent?.kind === PlayAimKind.SPELL && intent.spellName
+                ? { unitId: intent.unitId, spellName: intent.spellName }
+                : undefined,
+        );
+    }
+    private syncLocalAim(): void {
+        if (!this.aimIntentSink) return;
+        const unit = this.currentActiveUnit;
+        if (
+            !unit ||
+            unit.isDead() ||
+            !this.canShowHoverForActiveUnit() ||
+            this.isPlayingActionAnimation() ||
+            this.isAwaitingAuthoritativeTurnHandoff() ||
+            this.sc_visibleState?.hasFinished
+        ) {
+            this.localAim = undefined;
+            this.aimIntentSink(undefined);
+            return;
+        }
+        const spell = this.currentActiveSpell;
+        if (this.localAim?.unitId !== unit.getId()) this.localAim = undefined;
+        if (this.localAim?.kind === PlayAimKind.RANGED && unit.getAttackTypeSelection() !== AttackVals.RANGE)
+            this.localAim = undefined;
+        if (spell && (this.localAim?.kind !== PlayAimKind.SPELL || this.localAim.spellName !== spell.getName())) {
+            this.localAim = { kind: PlayAimKind.SPELL, unitId: unit.getId(), spellName: spell.getName() };
+        } else if (!spell && this.localAim?.kind === PlayAimKind.SPELL) {
+            this.localAim = undefined;
+        }
+        if (spell?.getName() === "Fire Wall" && this.localAim)
+            this.localAim.targetOrientation = this.fireWallAimOrientation + 1;
+        this.aimIntentSink(this.localAim?.unitId === unit.getId() ? this.localAim : undefined);
+    }
+    private renderOpponentAim(): void {
+        const aim = this.opponentAim;
+        if (!aim) return;
+        const actor = this.currentActiveUnit;
+        if (
+            performance.now() >= aim.expiresAt ||
+            !actor ||
+            actor.getId() !== aim.unitId ||
+            actor.isDead() ||
+            this.canControlCurrentActiveUnit() ||
+            this.isPlayingActionAnimation() ||
+            this.sc_visibleState?.hasFinished
+        ) {
+            this.setOpponentAim(undefined);
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const key = JSON.stringify({ ...aim, expiresAt: 0, layout: this.layoutVersion });
+        if (key !== this.opponentAimPaintKey) {
+            const spell =
+                aim.kind === PlayAimKind.SPELL && aim.spellName ? actor.getBookSpellByName(aim.spellName) : undefined;
+            const target = aim.targetUnitId ? this.unitsHolder.getAllUnits().get(aim.targetUnitId) : undefined;
+            const impact = spell && target ? this.thrownSpellVictim(spell, actor, target) : target;
+            const geometry = resolveOpponentAimGeometry(aim, {
+                actor,
+                units: this.unitsHolder.getAllUnits(),
+                grid: this.grid,
+                settings: gs,
+                evaluateRange: this.attackHandler.evaluateRangeAttack.bind(this.attackHandler),
+                spell,
+                spellImpact: impact,
+                spellEndpoint:
+                    spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined,
+                spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact) : undefined,
+                spellSparesTarget: spell ? this.spellSparesItsTarget(spell) : undefined,
+            });
+            if (!geometry) {
+                this.setOpponentAim(undefined);
+                return;
+            }
+            if (!this.opponentAimOverlay) {
+                this.opponentAimOverlay = new OpponentAimOverlay();
+                this.attachToWorldRoot(this.opponentAimOverlay.graphics, 5501);
+            }
+            this.opponentAimOverlay.paint(geometry, gs);
+            this.opponentAimGhost = geometry.ghost;
+            if (!geometry.ghost && !this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
+            this.opponentAimPaintKey = key;
+        }
+        if (this.opponentAimGhost)
+            this.hoverManager.showOpponentIntentSilhouette(actor.getUnitProperties(), this.opponentAimGhost);
+        if (this.opponentAimOverlay)
+            this.opponentAimOverlay.graphics.alpha = 0.85 + Math.sin(performance.now() / 240) * 0.12;
+    }
     public override setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.moveIntentSink = sink;
         if (!sink) {
@@ -1885,6 +2027,15 @@ export class Sandbox extends PixiScene {
         }
     }
     private emitLocalMoveIntent(cell: HoCMath.XY | undefined): void {
+        if (cell && this.currentActiveUnit) {
+            const footprint = this.currentActiveUnit.isSmallSize()
+                ? [cell]
+                : this.hoverManager.findLargeUnitMoveCandidate(cell);
+            const anchor = footprint ? GridMath.getFootprintAnchorForCells(footprint) : undefined;
+            this.localAim = anchor
+                ? { kind: PlayAimKind.MOVE, unitId: this.currentActiveUnit.getId(), cell: anchor }
+                : undefined;
+        }
         if (!this.moveIntentSink) {
             return;
         }
@@ -2298,9 +2449,11 @@ export class Sandbox extends PixiScene {
     }
     private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const hitEntries = Array.from(this.placementBenchHitBoxes?.entries() ?? []).reverse();
+        if (!hitEntries.length) return undefined;
+        const visualPos = projectBattlefieldPoint(worldPos, this.sc_sceneSettings.getGridSettings());
         for (const [unitId, hitBox] of hitEntries) {
-            const dx = worldPos.x - hitBox.center.x;
-            const dy = worldPos.y - hitBox.center.y;
+            const dx = visualPos.x - hitBox.center.x;
+            const dy = visualPos.y - hitBox.center.y;
             if (dx * dx + dy * dy <= hitBox.radius * hitBox.radius) {
                 return this.unitsHolder.getAllUnits().get(unitId);
             }
@@ -2402,8 +2555,7 @@ export class Sandbox extends PixiScene {
         });
     }
     public override CameraChanged(): void {
-        this.attachToWorldRoot(this.placementGraphics, 90);
-        this.attachToWorldRoot(this.placementFrameContainer, 90.1);
+        this.attachPlacementLayers(90);
         this.attachToWorldRoot(this.movementGraphics, 49.5);
         this.attachToWorldRoot(this.lavaMovementGraphics, LAVA_MOVEMENT_OVERLAY_Z_INDEX);
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
@@ -2509,8 +2661,14 @@ export class Sandbox extends PixiScene {
     private ensurePlacementGraphicsWorld(): void {
         if (!this.placementGraphics) this.placementGraphics = new Graphics();
         if (!this.placementFrameContainer) this.placementFrameContainer = new Container();
-        this.attachToWorldRoot(this.placementGraphics, 100);
-        this.attachToWorldRoot(this.placementFrameContainer, 100.1);
+        if (!this.placementWashContainer) this.placementWashContainer = new Container();
+        this.attachPlacementLayers(100);
+    }
+    /** Wash under the hover graphics, gold frame above it. The three stay in that order at every z. */
+    private attachPlacementLayers(graphicsZ: number): void {
+        this.attachToWorldRoot(this.placementWashContainer, graphicsZ - 0.5);
+        this.attachToWorldRoot(this.placementGraphics, graphicsZ);
+        this.attachToWorldRoot(this.placementFrameContainer, graphicsZ + 0.1);
     }
     private ensureBackgroundSprite(): void {
         this.dungeonVisuals.ensureBackgroundSprite();
@@ -2657,6 +2815,27 @@ export class Sandbox extends PixiScene {
             this.sc_sceneSettings.getGridSettings(),
         );
         return this.overlayPlacementPreviewUnit;
+    }
+    private refreshPlacementHover(): void {
+        if (!this.hasActiveSelection || !this.sc_selectedUnitProperties || !this.sc_mouseWorld) {
+            this.placementHoverKey = "";
+            return;
+        }
+        const point = this.getPlacementPreviewPoint();
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), point);
+        // The preview snaps to a cell. Repeating the large-unit occupancy scan on every still frame
+        // (and on every pointer event inside that cell) was wasted work during the whole placement.
+        const key = [
+            cell?.x,
+            cell?.y,
+            this.sc_selectedUnitProperties.id,
+            this.draggingUnitId ?? "",
+            this.selectionFromOverlay ? 1 : 0,
+            this.layoutVersion,
+        ].join(":");
+        if (key === this.placementHoverKey) return;
+        this.placementHoverKey = key;
+        this.hoverManager.updateHoverPlacementCell(point);
     }
     private getPlacementPreviewPoint(): HoCMath.XY {
         if (
@@ -3101,6 +3280,9 @@ export class Sandbox extends PixiScene {
             summoned,
         );
         const renderableUnit = RenderableUnit.fromBase(base, this.texAny);
+        if (unitState.helpingHandStatState) {
+            renderableUnit.restoreHelpingHandReplayStatState(unitState.helpingHandStatState);
+        }
         renderableUnit.setBattlefieldVisualProjection(true);
         if (renderableUnit.getSpellsCount() > 0) {
             this.ensureDigitTextures();
@@ -3143,6 +3325,8 @@ export class Sandbox extends PixiScene {
             const baseCell = unit.getBaseCell();
             units.push({
                 properties: unit.getAllProperties(),
+                helpingHandStatState:
+                    unit instanceof RenderableUnit ? unit.captureHelpingHandReplayStatState() : undefined,
                 team: unit.getTeam(),
                 placed: occupiedCells.length > 0,
                 dead: unit.isDead(),
@@ -3188,7 +3372,7 @@ export class Sandbox extends PixiScene {
         return this.replayRecorder.getCurrentReplay();
     }
     public override canPlayCurrentSandboxReplay(): boolean {
-        return !!this.getCurrentSandboxReplay()?.actions.length;
+        return this.replayRecorder.hasActions();
     }
     public override async playSandboxReplay(
         replay: SandboxReplay,
@@ -3220,6 +3404,7 @@ export class Sandbox extends PixiScene {
             clearPersonalArmyTint();
             await this.preloadTextureKeys(replayTextureKeys(replay, sequence));
             if (this.isSceneDestroyed()) return false;
+            this.resetStatusApplicationOrder();
             this.hydrateSceneState(cloneReplayData(replay.initialState));
             // Hydration requests map, terrain and placement textures as well as creature art.
             await this.waitForPendingTextures();
@@ -3241,6 +3426,7 @@ export class Sandbox extends PixiScene {
                 const previousState = index > 0 ? records[index - 1]?.stateAfter : replay.initialState;
 
                 if (this.shouldApplyReplayRecordAsCheckpoint(record, index, startFightIndex)) {
+                    this.rememberStatusApplications(record.events);
                     this.hydrateSceneState(cloneReplayData(record.stateAfter));
                     this.onReplayRecordPresented(record);
                     continue;
@@ -3261,6 +3447,7 @@ export class Sandbox extends PixiScene {
                 // them as corpses with no sprites, and a death with no event of its own has no other
                 // moment at which it can be seen to die.
                 this.onReplayRecordSettling(record);
+                this.rememberStatusApplications(record.events);
                 this.hydrateSceneState(cloneReplayData(record.stateAfter));
                 this.onReplayRecordPresented(record);
                 await this.delayReplay(Sandbox.REPLAY_ACTION_GAP_MS);
@@ -3371,7 +3558,7 @@ export class Sandbox extends PixiScene {
             record.action.type === "delete_unit"
         );
     }
-    private async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+    protected async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         this.preparePyreDeaths?.(record.events);
         const action = cloneReplayData(record.action);
         const replayActorId = this.getReplayTurnActorId(action);
@@ -4219,9 +4406,12 @@ export class Sandbox extends PixiScene {
         // Chain Lightning arcs AT IMPACT, together with the (AOE) damage numbers — not 360ms earlier
         // during the swing, where it flashed and faded before the damage showed ("no lightning" + "delayed").
         this.spawnChainLightningVfx(attacker, target, attackEvent.damage);
-        // Fire damage burns AT IMPACT too (Fire Shield reflect / dragon-breath burn / Fireforged Sword).
-        this.spawnFireDamageVfx(attacker, target, attackEvent.damage);
-        this.showReplayAttackDamage(attacker, target, attackEvent, record, presentedUnitIds);
+        // Fire Shield was presented at contact by the exchange, alongside its physical blow.
+        this.spawnFireDamageVfx(attacker, target, {
+            ...attackEvent.damage,
+            secondary: attackEvent.damage.secondary?.filter((hit) => hit.source !== "fire_shield"),
+        });
+        this.showReplayAttackDamage(attacker, target, attackEvent, record, presentedUnitIds, true);
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
@@ -4759,19 +4949,65 @@ export class Sandbox extends PixiScene {
         const units = new Map(capturedUnits ?? this.unitsHolder.getAllUnits());
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
+        const pendingFireShieldDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_shield");
+        const fireShieldOwners = new Set(fireShieldCasterIds(attacker.getId(), target.getId(), event.damage));
         this.preparePyreDeaths?.(dullingEvents ?? [], capturedUnits ?? this.snapshotRenderableUnits());
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
         const remainingAmounts = new Map(deathState?.amountsBefore);
-        const areaThrowWaves =
-            event.attackType === "range" && attacker.hasAbilityActive?.("Area Throw") && event.damage?.splash
-                ? this.splitTargetedAreaThrowWaves(attacker, event, plan, units)
-                : undefined;
+        const areaThrowWaves = new Map<string, NonNullable<IVisibleDamage["splash"]>[]>();
+        if (event.attackType === "range" && event.damage?.splash) {
+            for (const strike of plan) {
+                const source = units.get(strike.attackerId) as RenderableUnit | undefined;
+                if (
+                    !source ||
+                    areaThrowWaves.has(source.getId()) ||
+                    !(source.hasAbilityActive?.("Area Throw") || source.hasAbilityActive?.("Large Caliber"))
+                )
+                    continue;
+                const flights = event.damage.chakramFlights?.filter(
+                    (flight) => flight.attackerId === source.getId() && flight.response === strike.response,
+                );
+                const waves = flights?.length
+                    ? Array.from(
+                          { length: Math.max(...flights.map((flight) => flight.hitIndex)) + 1 },
+                          (_, index) => flights.find((flight) => flight.hitIndex === index)?.splash ?? [],
+                      )
+                    : this.splitTargetedAreaThrowWaves(source, event, plan, units, strike.response);
+                // Old recordings may lack counter-splash numbers; retain their ordinary primary reaction.
+                if (waves.some((wave) => wave.length)) areaThrowWaves.set(source.getId(), waves);
+            }
+        }
         for (const [id, unit] of units) {
             if (unit instanceof RenderableUnit) {
-                unit.beginDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
-                if (areaThrowWaves && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
+                unit.continueDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
+                if (areaThrowWaves.size && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
             }
-            if (areaThrowWaves && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
+            if (areaThrowWaves.size && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
+        }
+        const cyclopsKills = new Map<string, ReadonlySet<string>>();
+        if (event.attackType === "range") {
+            for (const strike of plan) {
+                const source = units.get(strike.attackerId);
+                if (!source || source.getName() !== "Cyclops" || cyclopsKills.has(source.getId())) continue;
+                const flights = event.damage?.chakramFlights?.filter((flight) => flight.attackerId === source.getId());
+                cyclopsKills.set(
+                    source.getId(),
+                    cyclopsMultiKillTargets(
+                        source,
+                        areaThrowWaves.get(source.getId()) ??
+                            (flights?.length
+                                ? flights.map((flight) => flight.splash)
+                                : [
+                                      plan
+                                          .filter((hit) => hit.attackerId === source.getId())
+                                          .map((hit) => ({ ...hit, unitId: hit.targetId })),
+                                  ]),
+                        remainingAmounts,
+                        deathState?.deadIds ?? new Set(event.unitIdsDied),
+                        units,
+                    ),
+                );
+            }
         }
         const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
             const before = remainingAmounts.get(unitId);
@@ -4812,8 +5048,12 @@ export class Sandbox extends PixiScene {
             });
             // Cold atlases or projectile art must not make one side start after the other has struck.
             await Promise.all([
-                ...(areaThrowWaves ?? [])
-                    .flat()
+                ...[...fireShieldOwners]
+                    .map((id) => (units.get(id) as RenderableUnit | undefined)?.getAnimationTextureKey("cast"))
+                    .filter((key): key is string => !!key)
+                    .map((key) => this.waitForTexture(key)),
+                ...[...areaThrowWaves.values()]
+                    .flat(2)
                     .flatMap((hit) => {
                         const unit = units.get(hit.unitId) as RenderableUnit | undefined;
                         return [
@@ -4906,6 +5146,72 @@ export class Sandbox extends PixiScene {
                                   : source.hasAbilityActive?.("Chakram")) ||
                               arcs.length > 0 ||
                               (strike.response && hasRecordedChakramCounter(event.damage, strike.targetId)));
+                    const bounceIds = new Set(
+                        arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
+                    );
+                    const splash =
+                        flight?.splash ??
+                        event.damage?.splash?.filter(
+                            (hit) =>
+                                hit.unitId === strike.targetId ||
+                                bounceIds.has(hit.unitId) ||
+                                units.get(hit.unitId)?.getTeam() === victimTeam,
+                        );
+                    // The engine has already resolved the kills. Plan their visual contacts before the
+                    // throw, without marking a death until the projectile actually reaches that victim.
+                    const zenaCutTargets = new Map<string, BrutalityTarget>();
+                    if (!melee && source.getName() === "Zena") {
+                        const prepareCut = (unitId: string): void => {
+                            const unit = units.get(unitId) as RenderableUnit | undefined;
+                            if (!unit || shownDeaths.has(unitId)) return;
+                            const cut = this.combatVisuals.prepareZenaKill?.(source, unit);
+                            if (cut) zenaCutTargets.set(unitId, cut);
+                        };
+                        const amounts = new Map(remainingAmounts);
+                        const lose = (unitId: string, count: number): number | undefined => {
+                            const before = amounts.get(unitId);
+                            if (before === undefined) return undefined;
+                            const remaining = Math.max(0, before - count);
+                            amounts.set(unitId, remaining);
+                            return remaining;
+                        };
+                        const remaining = lose(strike.targetId, strike.unitsDied);
+                        if (strike.lethal && !strike.missed && strike.amount > 0 && remaining === 0)
+                            prepareCut(strike.targetId);
+                        if (isChakramFlight) {
+                            for (const hit of flight?.splash ?? []) {
+                                if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
+                                    lose(hit.unitId, hit.unitsDied);
+                            }
+                            const lastLegacyFlight =
+                                !flight &&
+                                !plan.some(
+                                    (next) =>
+                                        next.attackerId === strike.attackerId &&
+                                        next.response === strike.response &&
+                                        next.hitIndex > strike.hitIndex,
+                                );
+                            const hits = new Map(splash?.map((hit) => [hit.unitId, hit]));
+                            for (const arc of arcs) {
+                                for (const unitId of arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])) {
+                                    const hit = hits.get(unitId);
+                                    if (!hit || hit.missed || hit.amount <= 0 || hit.unitsDied <= 0) continue;
+                                    const remaining = flight ? lose(unitId, hit.unitsDied) : undefined;
+                                    const before = deathState?.amountsBefore.get(unitId);
+                                    const legacyLoss =
+                                        splash
+                                            ?.filter((entry) => entry.unitId === unitId)
+                                            .reduce((sum, entry) => sum + entry.unitsDied, 0) ?? 0;
+                                    if (
+                                        deathState?.deadIds.has(unitId) &&
+                                        (remaining === 0 ||
+                                            (lastLegacyFlight && before !== undefined && legacyLoss >= before))
+                                    )
+                                        prepareCut(unitId);
+                                }
+                            }
+                        }
+                    }
                     const absolvingProgress = event.damage?.absolutions?.length
                         ? this.createAbsolvingArrowProgress(
                               source,
@@ -4917,6 +5223,8 @@ export class Sandbox extends PixiScene {
                           )
                         : undefined;
                     let reaction = Promise.resolve();
+                    let shieldReaction = Promise.resolve();
+                    let shieldingOwners: ReadonlySet<string> = new Set();
                     let chakramFlight = Promise.resolve();
                     let impacted = false;
                     const impact = (): void => {
@@ -4938,14 +5246,33 @@ export class Sandbox extends PixiScene {
                             theftsShown.add(source.getId());
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
-                        if (areaThrowWaves && !strike.response) {
-                            reaction = this.playAreaThrowImpact(source, areaThrowWaves[strike.hitIndex] ?? [], {
+                        const waves = areaThrowWaves.get(source.getId());
+                        if ((!waves || isChakramFlight) && hasShieldAbsorb(event.damage)) {
+                            const recipients = new Set<string>();
+                            if (!strike.missed) {
+                                recipients.add(strike.targetId);
+                                if (melee && !isChakramFlight) {
+                                    for (const entry of event.damage?.secondary ?? []) {
+                                        if (units.get(entry.unitId)?.getTeam() === victimTeam)
+                                            recipients.add(entry.unitId);
+                                    }
+                                }
+                            }
+                            if (!plan.some((planned) => planned.targetId === source.getId())) {
+                                recipients.add(source.getId());
+                            }
+                            this.showShieldAbsorbsAtImpact(event.damage, recipients, source.getVisualCenter(gs));
+                        }
+                        if (waves && !isChakramFlight) {
+                            reaction = this.playAreaThrowImpact(source, waves[strike.hitIndex] ?? [], {
                                 damage: event.damage,
                                 hitIndex: strike.hitIndex,
                                 units,
                                 remainingAmounts,
                                 deadIds: deathState?.deadIds ?? new Set(event.unitIdsDied),
                                 onDeath: presentDeath,
+                                cyclopsKills: cyclopsKills.get(source.getId()),
+                                response: strike.response,
                                 events: dullingEvents,
                                 activeAttacks,
                             });
@@ -4985,6 +5312,39 @@ export class Sandbox extends PixiScene {
                                 renderedVictim?.getDamagePredictionAnchor(gs),
                             );
                         }
+                        if (!strike.missed) {
+                            // Secondary entries preserve the order of each striker's reflections. A later
+                            // blow owns its next burn; the final blow also takes any sweep/AOE reflections.
+                            const reflections = pendingFireShieldDamage.filter((hit) => hit.unitId === source.getId());
+                            if (
+                                plan.some(
+                                    (next) =>
+                                        next.attackerId === strike.attackerId &&
+                                        next.hitIndex > strike.hitIndex &&
+                                        !next.missed,
+                                )
+                            )
+                                reflections.splice(1);
+                            for (const hit of reflections) {
+                                pendingFireShieldDamage.splice(pendingFireShieldDamage.indexOf(hit), 1);
+                                const remaining = consumeLoss(hit.unitId, hit.unitsDied);
+                                if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(hit.unitId))
+                                    presentDeath(hit.unitId);
+                            }
+                            if (reflections.length) {
+                                this.showFireShieldDamageAtImpact(reflections, to, units);
+                                const reflectedDamage = { ...event.damage, secondary: reflections };
+                                shieldingOwners = new Set(
+                                    fireShieldCasterIds(attacker.getId(), target.getId(), reflectedDamage),
+                                );
+                                shieldReaction = this.playFireShieldPassives(
+                                    attacker.getId(),
+                                    target.getId(),
+                                    reflectedDamage,
+                                    activeAttacks,
+                                );
+                            }
+                        }
                         if (strike.missed) {
                             this.showAttackMissedVfx(source, victim, {
                                 ...event.damage,
@@ -4993,26 +5353,30 @@ export class Sandbox extends PixiScene {
                             });
                         }
                         if (isChakramFlight) {
-                            const bounceIds = new Set(
-                                arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
-                            );
-                            const splash =
-                                flight?.splash ??
-                                event.damage.splash?.filter(
-                                    (hit) =>
-                                        hit.unitId === strike.targetId ||
-                                        bounceIds.has(hit.unitId) ||
-                                        units.get(hit.unitId)?.getTeam() === victimTeam,
-                                );
                             const primaryMissed =
                                 flight?.missed ??
                                 splash?.find((hit) => hit.unitId === strike.targetId)?.missed ??
                                 (strike.response ? undefined : event.damage.missed);
                             // Other AOE losses occur at primary contact. Count them before a later disc can
                             // bounce into that stack, while the bridge victims are counted at their own impact.
-                            for (const hit of flight?.splash ?? []) {
-                                if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
-                                    consumeLoss(hit.unitId, hit.unitsDied);
+                            const collateral = (flight?.splash ?? []).filter(
+                                (hit) => hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId),
+                            );
+                            if (cyclopsKills.get(source.getId())?.size) {
+                                reaction = this.playAreaThrowImpact(source, collateral, {
+                                    damage: event.damage,
+                                    hitIndex: strike.hitIndex,
+                                    response: strike.response,
+                                    units,
+                                    remainingAmounts,
+                                    deadIds: deathState?.deadIds ?? new Set(event.unitIdsDied),
+                                    onDeath: presentDeath,
+                                    cyclopsKills: cyclopsKills.get(source.getId()),
+                                    events: dullingEvents,
+                                    activeAttacks,
+                                });
+                            } else {
+                                for (const hit of collateral) consumeLoss(hit.unitId, hit.unitsDied);
                             }
                             // Begin at contact and finish the return before the next blow. The primary number
                             // is owned by this exchange; the flight owns only its bounce numbers.
@@ -5056,12 +5420,22 @@ export class Sandbox extends PixiScene {
                                         (remaining === 0 ||
                                             (lastLegacyFlight && before !== undefined && legacyLoss >= before))
                                     ) {
-                                        const killed = units.get(unitId);
-                                        if (killed && !shownDeaths.has(unitId))
-                                            this.combatVisuals.noteZenaKill?.(source, killed, direction);
+                                        const killed = units.get(unitId) as RenderableUnit | undefined;
+                                        if (killed && !shownDeaths.has(unitId)) {
+                                            if (cyclopsKills.get(source.getId())?.has(unitId))
+                                                this.combatVisuals.noteCyclopsKill?.(source, killed, direction);
+                                            this.combatVisuals.noteZenaKill?.(
+                                                source,
+                                                killed,
+                                                direction,
+                                                zenaCutTargets.get(unitId),
+                                            );
+                                        }
                                         presentDeath(unitId);
                                     }
                                 },
+                                undefined,
+                                zenaCutTargets,
                             );
                         }
                         if (strike.lethal) {
@@ -5069,13 +5443,36 @@ export class Sandbox extends PixiScene {
                                 receivedDamage &&
                                 remaining === 0 &&
                                 renderedVictim &&
+                                cyclopsKills.get(source.getId())?.has(strike.targetId) &&
+                                !shownDeaths.has(strike.targetId)
+                            ) {
+                                this.combatVisuals.noteCyclopsKill?.(source, renderedVictim, direction);
+                            }
+                            if (
+                                receivedDamage &&
+                                remaining === 0 &&
+                                renderedVictim &&
                                 !shownDeaths.has(strike.targetId)
                             )
-                                this.combatVisuals.noteZenaKill?.(source, renderedVictim, direction);
+                                this.combatVisuals.noteZenaKill?.(
+                                    source,
+                                    renderedVictim,
+                                    direction,
+                                    zenaCutTargets.get(strike.targetId),
+                                );
                             presentDeath(strike.targetId);
                         } else if (receivedDamage && renderedVictim) {
                             const showReaction = (): Promise<void> => {
                                 if (this.isSceneDestroyed() || shownDeaths.has(strike.targetId))
+                                    return Promise.resolve();
+                                // The shield cast is this Efreet's reaction. A generic hit animation would
+                                // cancel it (or insert another whole animation before the reflection).
+                                if (
+                                    shieldingOwners.has(strike.targetId) &&
+                                    victim.getName() === "Efreet" &&
+                                    !victim.isDead() &&
+                                    victim.hasAbilityActive("Fire Shield")
+                                )
                                     return Promise.resolve();
                                 // Final engine HP can already be zero after a later blow. This hit still precedes it.
                                 const hit = this.playReplayOneShot(victim, "hit", 3000, true);
@@ -5090,7 +5487,8 @@ export class Sandbox extends PixiScene {
                             // A hit animation cancels an authored shot. Preserve the simultaneous outgoing action
                             // before reacting; damage, casualties and sounds still occur at projectile contact.
                             const outgoing = activeAttacks.get(strike.targetId);
-                            reaction = outgoing ? outgoing.then(showReaction) : showReaction();
+                            const hitReaction = outgoing ? outgoing.then(showReaction) : showReaction();
+                            reaction = Promise.all([reaction, hitReaction]).then(() => {});
                         }
                     };
                     try {
@@ -5116,7 +5514,8 @@ export class Sandbox extends PixiScene {
                             await this.playReplayProjectile(
                                 source,
                                 victim,
-                                renderedVictim ? undefined : fallbackPosition,
+                                zenaCutTargets.get(strike.targetId)?.point ??
+                                    (renderedVictim ? undefined : fallbackPosition),
                                 impact,
                                 isChakramFlight,
                                 absolvingProgress,
@@ -5135,17 +5534,23 @@ export class Sandbox extends PixiScene {
                             pendingDeaths.delete(source.getId());
                         }
                     }
-                    await reaction;
+                    await Promise.all([reaction, shieldReaction]);
                 }),
             );
         }
-        if (areaThrowWaves && deathState) {
+        if (areaThrowWaves.size && deathState) {
             for (const id of event.unitIdsDied) {
                 const unit = units.get(id);
                 if (!deathState.deadIds.has(id) && unit instanceof RenderableUnit) unit.clearDamagePresentation();
             }
         }
-        await this.playFireShieldPassives(attacker.getId(), target.getId(), event.damage);
+        if (pendingFireShieldDamage.length && !this.isSceneDestroyed()) {
+            this.showFireShieldDamageAtImpact(pendingFireShieldDamage, target.getVisualCenter(gs), units);
+            await this.playFireShieldPassives(attacker.getId(), target.getId(), {
+                ...event.damage,
+                secondary: pendingFireShieldDamage,
+            });
+        }
         return shownDeaths;
     }
     private splitTargetedAreaThrowWaves(
@@ -5153,10 +5558,14 @@ export class Sandbox extends PixiScene {
         event: Extract<GameEvent, { type: "unit_attacked" }>,
         plan: readonly CombatExchangeStrike[],
         units: ReadonlyMap<string, Unit>,
+        response = false,
     ): NonNullable<IVisibleDamage["splash"]>[] {
         const gs = this.sc_sceneSettings.getGridSettings();
-        const splash = [...(event.damage.splash ?? [])];
-        const counterHits = (event.damage.chakramFlights ?? [])
+        const splash = (event.damage.splash ?? []).filter((hit) => {
+            const team = units.get(hit.unitId)?.getTeam();
+            return team === undefined || team !== attacker.getTeam();
+        });
+        const counterHits = (response ? [] : (event.damage.chakramFlights ?? []))
             .filter((flight) => flight.response)
             .flatMap((flight) => flight.splash);
         for (const hit of counterHits) {
@@ -5178,7 +5587,9 @@ export class Sandbox extends PixiScene {
         const animations = event.animations.filter(
             (animation) => animation.fromPosition?.x === source.x && animation.fromPosition.y === source.y,
         );
-        const outgoing = plan.filter((strike) => !strike.response);
+        const outgoing = plan.filter(
+            (strike) => strike.attackerId === attacker.getId() && strike.response === response,
+        );
         const footprints = outgoing.map((strike) => {
             const target = units.get(strike.targetId);
             const aim = animations[strike.hitIndex]?.toPosition ?? strike.position ?? target?.getPosition();
@@ -5221,6 +5632,8 @@ export class Sandbox extends PixiScene {
             onDeath: (unitId: string) => void;
             events?: readonly GameEvent[];
             activeAttacks?: ReadonlyMap<string, Promise<void>>;
+            cyclopsKills?: ReadonlySet<string>;
+            response?: boolean;
         },
     ): Promise<void> {
         if (this.isSceneDestroyed()) return Promise.resolve();
@@ -5234,10 +5647,11 @@ export class Sandbox extends PixiScene {
             const remaining = Math.max(0, before - hit.unitsDied);
             context.remainingAmounts.set(hit.unitId, remaining);
             unit?.presentDamageCasualties(hit.unitsDied);
+            if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
             this.showGravechainVfx(
                 context.damage,
-                { attackerId: attacker.getId(), response: false, hitIndex: context.hitIndex },
+                { attackerId: attacker.getId(), response: context.response ?? false, hitIndex: context.hitIndex },
                 context.units,
                 new Set([hit.unitId]),
             );
@@ -5262,6 +5676,13 @@ export class Sandbox extends PixiScene {
                 );
             }
             if (unit && hit.unitsDied > 0 && remaining === 0 && context.deadIds.has(hit.unitId)) {
+                if (!hit.missed && hit.amount > 0 && context.cyclopsKills?.has(hit.unitId)) {
+                    const center = unit.getVisualCenter(gs);
+                    this.combatVisuals.noteCyclopsKill?.(attacker, unit, {
+                        x: center.x - from.x,
+                        y: center.y - from.y,
+                    });
+                }
                 context.onDeath(hit.unitId);
             } else if (unit && hit.amount > 0) {
                 const react = (): Promise<void> => {
@@ -5299,7 +5720,7 @@ export class Sandbox extends PixiScene {
         for (const [id, unit] of units) {
             const amount = remaining.get(id) ?? unit.getAmountAlive();
             remaining.set(id, amount);
-            unit.beginDamagePresentation(amount);
+            unit.continueDamagePresentation(amount);
             if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
         }
         const waves = splitAreaThrowWaves(event.damage.splash);
@@ -5360,6 +5781,7 @@ export class Sandbox extends PixiScene {
                     const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
                     remaining.set(hit.unitId, amount);
                     unit?.presentDamageCasualties(hit.unitsDied);
+                    if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
                     this.showGravechainVfx(
                         event.damage,
@@ -5413,9 +5835,14 @@ export class Sandbox extends PixiScene {
         attackerId: string,
         targetId: string,
         damage?: IVisibleDamage,
+        activeAttacks?: ReadonlyMap<string, Promise<void>>,
     ): Promise<void> {
         await Promise.all(
             fireShieldCasterIds(attackerId, targetId, damage).map(async (id) => {
+                // Preserve the owner's simultaneous counter, but do not wait for the other fighter
+                // or its hit reaction. Damage and flames have already landed at physical contact.
+                await activeAttacks?.get(id);
+                if (this.isSceneDestroyed()) return;
                 const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
                 if (
                     !unit ||
@@ -5431,6 +5858,32 @@ export class Sandbox extends PixiScene {
                 await this.playReplayOneShot(unit, "cast", 3000);
             }),
         );
+    }
+    private showFireShieldDamageAtImpact(
+        secondary: IVisibleDamage["secondary"],
+        origin: HoCMath.XY,
+        units: ReadonlyMap<string, Unit>,
+    ): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const { fill, stroke } = this.getSecondaryDamageStyle("fire_shield");
+        for (const hit of secondary ?? []) {
+            if (hit.amount <= 0 && hit.unitsDied <= 0) continue;
+            // Captured figures include an attacker already removed by the local engine's reflection.
+            const unit = units.get(hit.unitId) as RenderableUnit | undefined;
+            const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
+            const direction = { x: center.x - origin.x, y: center.y - origin.y };
+            this.combatVisuals?.spawnFireBurn(center, gs.getCellSize(), 0.85);
+            this.combatVisuals?.showFloatingDamage(
+                unit ? this.offsetReplayDamagePosition(center, unit, direction) : center,
+                hit.amount,
+                direction,
+                hit.unitsDied,
+                fill,
+                stroke,
+                unit?.getDamagePredictionAnchor(gs),
+                unit,
+            );
+        }
     }
     private async playReplayProjectile(
         attacker: RenderableUnit,
@@ -5651,8 +6104,16 @@ export class Sandbox extends PixiScene {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
+            const presentCasualties = unit?.captureDamageCasualties(entry.unitsDied);
             const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied, unit);
+                this.combatVisuals.showFloatingAbsorbed(
+                    pos,
+                    entry.amount,
+                    direction,
+                    entry.unitsDied,
+                    unit,
+                    presentCasualties,
+                );
             };
             if (delayMs > 0) {
                 this.scheduleSceneTimeout(show, delayMs);
@@ -5662,28 +6123,53 @@ export class Sandbox extends PixiScene {
         }
         return aggregated;
     }
-    protected showWaterShieldAbsorbs(
-        secondary?: IVisibleDamage["secondary"],
-        attackerCenter?: HoCMath.XY,
-        delayMs = 0,
-    ): void {
+    protected showShieldAbsorbs(secondary?: IVisibleDamage["secondary"], attackerCenter?: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         for (const entry of secondary ?? []) {
-            if (entry.source !== "water_shield" || entry.amount <= 0) {
+            if ((entry.source !== "water_shield" && entry.source !== "ember_covenant") || entry.amount <= 0) {
                 continue;
             }
+            const shown = (this.shownShieldAbsorbs ??= new WeakSet());
+            if (shown.has(entry)) continue;
+            shown.add(entry);
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
-            const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, undefined, unit);
-            };
-            if (delayMs > 0) {
-                this.scheduleSceneTimeout(show, delayMs);
-            } else {
-                show();
-            }
+            this.combatVisuals.showFloatingAbsorbed(
+                pos,
+                entry.amount,
+                direction,
+                undefined,
+                unit,
+                undefined,
+                entry.source === "ember_covenant" ? "ember_covenant" : undefined,
+                entry.unitId,
+            );
         }
+    }
+    private shownShieldAbsorbs?: WeakSet<object>;
+    private showShieldAbsorbsAtImpact(
+        damage: IVisibleDamage | undefined,
+        unitIds: ReadonlySet<string>,
+        origin: HoCMath.XY,
+    ): void {
+        if (!hasShieldAbsorb(damage)) return;
+        const recipients = new Set<string>();
+        this.showShieldAbsorbs(
+            damage?.secondary?.filter((entry) => {
+                if (
+                    (entry.source !== "ember_covenant" && entry.source !== "water_shield") ||
+                    entry.amount <= 0 ||
+                    !unitIds.has(entry.unitId) ||
+                    recipients.has(entry.unitId) ||
+                    this.shownShieldAbsorbs?.has(entry)
+                )
+                    return false;
+                recipients.add(entry.unitId);
+                return true;
+            }),
+            origin,
+        );
     }
     protected renderAreaImpactVfx(splash: NonNullable<IVisibleDamage["splash"]>): void {
         if (!splash.length || !this.combatVisuals) {
@@ -5738,6 +6224,7 @@ export class Sandbox extends PixiScene {
                     splashUnit,
                 );
             } else {
+                const presentCasualties = splashUnit?.captureDamageCasualties(entry.unitsDied);
                 this.scheduleSceneTimeout(
                     () =>
                         this.combatVisuals.showFloatingDamage(
@@ -5749,6 +6236,8 @@ export class Sandbox extends PixiScene {
                             undefined,
                             flagAnchor,
                             splashUnit,
+                            undefined,
+                            presentCasualties,
                         ),
                     shotIndex * 220,
                 );
@@ -5763,13 +6252,17 @@ export class Sandbox extends PixiScene {
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
         record: SandboxReplay["actions"][number],
         presentedUnitIds: ReadonlySet<string> = new Set(),
+        fireShieldPresented = false,
     ): void {
         const damage = attackEvent.damage;
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
 
         // Additive: shown alongside the splash/primary numbers below, not instead of them.
-        this.showSecondaryDamageNumbers(damage.secondary, attackerCenter);
+        this.showSecondaryDamageNumbers(
+            fireShieldPresented ? damage.secondary?.filter((hit) => hit.source !== "fire_shield") : damage.secondary,
+            attackerCenter,
+        );
 
         // Deep Wounds: rake an orange claw slash across the wounded unit for EVERY application recorded
         // during this attack (a double-punch wounder produces two entries -> two claws). Driven off the
@@ -5835,7 +6328,7 @@ export class Sandbox extends PixiScene {
             // using the diff as a last-resort primary value. This is essential for Lightning Spin,
             // whose clicked victim is represented only in `secondary`, and prevents a second red copy.
             const secondaryAlreadyShown = (damage.secondary ?? [])
-                .filter((entry) => entry.unitId === damageUnitId)
+                .filter((entry) => entry.unitId === damageUnitId && entry.source !== "ember_covenant")
                 .reduce(
                     (total, entry) => ({
                         amount: total.amount + entry.amount,
@@ -5870,6 +6363,7 @@ export class Sandbox extends PixiScene {
                     return;
                 }
                 const pos = { ...spawnPos };
+                const presentCasualties = victim.captureDamageCasualties(hit.unitsDied);
                 this.scheduleSceneTimeout(() => {
                     this.combatVisuals.showFloatingDamage(
                         pos,
@@ -5880,6 +6374,8 @@ export class Sandbox extends PixiScene {
                         undefined,
                         flagAnchor,
                         victim,
+                        undefined,
+                        presentCasualties,
                     );
                 }, index * ATTACK_HIT_STAGGER_MS);
             });
@@ -6017,7 +6513,8 @@ export class Sandbox extends PixiScene {
         unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
     }
     protected playCustomDeathAnimation(unit: RenderableUnit): boolean {
-        if (this.combatVisuals?.playZenaBrutalityDeath?.(unit)) {
+        this.endHelpingHandLinksAtImpact(unit.getId());
+        if (this.combatVisuals?.playCyclopsGoreDeath?.(unit) || this.combatVisuals?.playZenaBrutalityDeath?.(unit)) {
             unit.destroyVisuals();
             this.dyingVisualUnits.delete(unit);
             this.pyreDeaths?.play(unit.getId(), unit);
@@ -6111,7 +6608,12 @@ export class Sandbox extends PixiScene {
         // entry is rendered with the primary exchange, so remove those exact chunks before deciding
         // whether a real retaliation remains.
         const secondaryOnAttacker = (attackEvent.damage.secondary ?? [])
-            .filter((entry) => entry.unitId === responseVictimId)
+            .filter(
+                (entry) =>
+                    entry.unitId === responseVictimId &&
+                    entry.source !== "ember_covenant" &&
+                    entry.source !== "water_shield",
+            )
             .reduce(
                 (total, entry) => ({
                     amount: total.amount + entry.amount,
@@ -6120,11 +6622,22 @@ export class Sandbox extends PixiScene {
                 { amount: 0, unitsDied: 0 },
             );
         const explosionDamage = lastFuseDamageTaken(record.events, responseVictimId);
+        // The approach already showed these losses; including them in the counter subtracts them twice.
+        const approachBurn = this.takeFireWallBurn(record.events ?? [], responseVictimId).burn;
         const responseDamage = {
-            amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount - explosionDamage.amount),
+            amount: Math.max(
+                0,
+                totalResponseDamage.amount -
+                    secondaryOnAttacker.amount -
+                    explosionDamage.amount -
+                    (approachBurn?.amount ?? 0),
+            ),
             unitsDied: Math.max(
                 0,
-                totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied - explosionDamage.unitsDied,
+                totalResponseDamage.unitsDied -
+                    secondaryOnAttacker.unitsDied -
+                    explosionDamage.unitsDied -
+                    (approachBurn?.unitsDied ?? 0),
             ),
         };
         // His blow can move no hit points — Flesh Shield took all of it, or the swing was reduced to
@@ -6134,9 +6647,11 @@ export class Sandbox extends PixiScene {
             responseAnimation &&
             (target.hasAbilityActive?.("Chakram") || hasRecordedChakramCounter(attackEvent.damage, responseVictimId)) &&
             attackEvent.damage.splash?.some((hit) => hit.unitId === responseVictimId);
+        const recordedShieldedResponse = !!responseAnimation && hasShieldAbsorb(attackEvent.damage, responseVictimId);
         if (
             responseDamage.amount <= 0 &&
             !recordedChakramResponse &&
+            !recordedShieldedResponse &&
             !dullingDefenseRecipientIds(record.events).includes(responseVictimId)
         ) {
             return undefined;
@@ -6510,6 +7025,8 @@ export class Sandbox extends PixiScene {
             // Rune success/failure and any other stated roll; no forge to wait on.
             this.renderCastOutcomes(record.events);
         }
+        this.onReplaySpellImpact(record);
+        this.renderReplayBuffApplications(record.events);
         // The magic-armor save on a Vine Throw is exactly such a stated roll.
         this.renderSnareResistVfx(record.events);
         if (result.completed) {
@@ -6735,8 +7252,7 @@ export class Sandbox extends PixiScene {
         if (!fightStarted && this.unitsOverlay) {
             this.unitsOverlay.onResize(w, h);
             // Placement graphics only used pre-fight
-            this.attachToWorldRoot(this.placementGraphics, 100);
-            this.attachToWorldRoot(this.placementFrameContainer, 100.1);
+            this.attachPlacementLayers(100);
         } else if (fightStarted && this.unitsOverlay) {
             // Make sure it’s gone once fight has started
             if (!this.unitsOverlay.container.destroyed) {
@@ -6751,8 +7267,7 @@ export class Sandbox extends PixiScene {
         // 4) Anything that lives in world space and might have been attached.
         // Placement zones must stay below unit sprites; otherwise placed units show badges/stack
         // overlays while their actual art is painted over by the pre-fight placement tint.
-        this.attachToWorldRoot(this.placementGraphics, 90);
-        this.attachToWorldRoot(this.placementFrameContainer, 90.1);
+        this.attachPlacementLayers(90);
         // Holes
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
         this.attachToWorldRoot(this.movementGraphics, 49.5);
@@ -7830,6 +8345,7 @@ export class Sandbox extends PixiScene {
         this.draggingUnitTeam = undefined;
         this.placementDragPointerOrigin = undefined;
         this.placementDragPointerMoved = false;
+        this.placementHoverKey = "";
         this.sc_selectedUnitProperties = undefined;
         this.hoverManager.resetHover(true);
         this.hoverManager.resetBoardHoverState();
@@ -7977,6 +8493,7 @@ export class Sandbox extends PixiScene {
         // Ranked skips the post-place re-hydrate that would otherwise prune these maps.
         this.placementBenchBaseHitBoxes.delete(unit.getId());
         this.placementBenchHitBoxes.delete(unit.getId());
+        if (!this.placementBenchHitBoxes.size) this.clearPlacementBench();
         this.layoutVersion++;
         this.refreshSynergyNumbers(unit.getTeam());
         this.refreshUnits();
@@ -8517,7 +9034,7 @@ export class Sandbox extends PixiScene {
                 return;
             }
         }
-        const unitUnderMouse = this.getUnitAtPosition(p);
+        const unitUnderMouse = clickedBenchUnit ?? this.getUnitAtPosition(p);
         if (unitUnderMouse && !this.canSelectUnitForPlacement(unitUnderMouse)) {
             this.clearBoardSelection();
             this.Deselect(false, true);
@@ -8626,40 +9143,74 @@ export class Sandbox extends PixiScene {
         filter.destroy();
         this.spellBookBlurFilter = undefined;
     }
-    private ensureSpellBookBackground(): void {
-        if (this.spellBookBackground || this.spellBookBackgroundLoad) return;
-        const url = images.book_1024_clean_pages_v1;
-        const load = Assets.load<Texture>(url);
+    private ensureSpellBookBackground(): Promise<void> {
+        if (this.spellBookBackground) return Promise.resolve();
+        if (this.spellBookBackgroundLoad) return this.spellBookBackgroundLoad;
+        const load = this.waitForTexture("book_1024_clean_pages_v1", { priority: "visible" }).then((texture) => {
+            if (this.spellBookBackgroundLoad !== load || this.isSceneDestroyed() || this.spellBookContainer.destroyed)
+                return;
+            this.spellBookBackgroundLoad = undefined;
+            if (!texture) {
+                if (!this.spellBookFallback) {
+                    this.spellBookFallback = new Graphics()
+                        .roundRect(-510, -435, 1020, 870, 24)
+                        .fill(0x35251b)
+                        .stroke({ width: 5, color: 0x9c783c })
+                        .roundRect(-475, -402, 455, 795, 8)
+                        .fill(0xcbb483)
+                        .roundRect(20, -402, 455, 795, 8)
+                        .fill(0xd7c193);
+                    this.spellBookContainer.addChildAt(
+                        this.spellBookFallback,
+                        Math.min(1, this.spellBookContainer.children.length),
+                    );
+                }
+                return;
+            }
+            if (this.sc_renderSpellBookOverlay && this.currentActiveUnit) {
+                prewarmAtlasTexture(this.pixiApp.getApplication().renderer, texture);
+            }
+            this.spellBookFallback?.destroy();
+            this.spellBookFallback = undefined;
+            const bookSprite = new Sprite(texture);
+            bookSprite.anchor.set(0.5);
+            bookSprite.position.set(0, 0);
+            bookSprite.zIndex = 0;
+            this.spellBookBackground = bookSprite;
+            this.spellBookContainer.addChildAt(bookSprite, Math.min(1, this.spellBookContainer.children.length));
+        });
         this.spellBookBackgroundLoad = load;
-        void load.then(
-            (texture) => {
-                if (this.spellBookBackgroundLoad !== load) {
-                    void Assets.unload(url).catch(() => undefined);
-                    return;
-                }
-                this.spellBookBackgroundLoad = undefined;
-                if (this.spellBookContainer.destroyed) {
-                    void Assets.unload(url).catch(() => undefined);
-                    return;
-                }
-                const bookSprite = new Sprite(texture);
-                bookSprite.anchor.set(0.5);
-                bookSprite.position.set(0, 0);
-                bookSprite.zIndex = 0;
-                this.spellBookBackground = bookSprite;
-                this.spellBookContainer.addChildAt(bookSprite, Math.min(1, this.spellBookContainer.children.length));
-            },
-            () => {
-                if (this.spellBookBackgroundLoad === load) this.spellBookBackgroundLoad = undefined;
-            },
-        );
+        return load;
     }
     private releaseSpellBookBackground(): void {
-        const hadRequest = !!this.spellBookBackground || !!this.spellBookBackgroundLoad;
         this.spellBookBackground?.destroy();
         this.spellBookBackground = undefined;
         this.spellBookBackgroundLoad = undefined;
-        if (hadRequest) void Assets.unload(images.book_1024_clean_pages_v1).catch(() => undefined);
+        this.spellBookFallback?.destroy();
+        this.spellBookFallback = undefined;
+    }
+    private async prepareSpellBookPresentation(unit: RenderableUnit): Promise<void> {
+        this.setHoveredSpell(undefined);
+        for (const entry of this.unitsHolder.getAllUnits().values()) (entry as RenderableUnit).hideSpells();
+        const keys = spellBookTextureKeys(unit.getSpells().map((spell) => spell.getName()));
+        await Promise.all([
+            this.ensureSpellBookBackground(),
+            ...keys.map(async (key) => {
+                const texture = await this.waitForTexture(key, { priority: "visible" });
+                if (
+                    texture &&
+                    !this.isSceneDestroyed() &&
+                    this.sc_renderSpellBookOverlay &&
+                    this.currentActiveUnit === unit
+                )
+                    prewarmAtlasTexture(this.pixiApp.getApplication().renderer, texture);
+            }),
+        ]);
+        if (this.isSceneDestroyed() || !this.sc_renderSpellBookOverlay || this.currentActiveUnit !== unit) return;
+        const screen = this.pixiApp.getApplication().screen;
+        this.layoutSpellBook(screen.width, screen.height);
+        this.ensureDigitTextures();
+        if (this.digitTextures) unit.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
     }
     private setHoveredSpell(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
         if (this.hoveredSpell !== spell) {
@@ -8707,6 +9258,10 @@ export class Sandbox extends PixiScene {
     }
     private handleSpellbookClick(worldPos: HoCMath.XY): void {
         const caster = this.currentActiveUnit;
+        if (this.spellBookOverlay && !this.spellBookOverlay.isReadyFor(caster)) {
+            this.closeSpellBook();
+            return;
+        }
         const hovered =
             caster instanceof RenderableUnit
                 ? caster.getHoveredSpell(this.spellbookGlobalFromWorld(worldPos), true)
@@ -8925,6 +9480,27 @@ export class Sandbox extends PixiScene {
         // Craft and the Runes report their roll on the event; renderCastOutcomes turns it into the pop.
         this.renderCastOutcomes(result.events);
         return true;
+    }
+    protected renderReplayBuffApplications(events: readonly GameEvent[]): void {
+        // Live sandbox casts use the state diff, which is suspended during playback. Render the
+        // recorded applications at the cast instead, even if the best-effort engine reapply rejects.
+        const buffsByUnit = new Map<string, Set<string>>();
+        for (const event of events) {
+            if (event.type !== "effects_applied") continue;
+            for (const application of event.applications) {
+                if (application.kind !== "buff" || application.resisted || application.sourceUnitId) continue;
+                if (application.name === "Armor Rune" || application.name === "Weapon Rune") continue;
+                const names = animatableEffectNames([application.name]);
+                if (!names.size) continue;
+                const buffs = buffsByUnit.get(application.unitId) ?? new Set<string>();
+                buffs.add(application.name);
+                buffsByUnit.set(application.unitId, buffs);
+            }
+        }
+        for (const [unitId, buffs] of buffsByUnit) {
+            const unit = this.renderableForEffectPop(unitId);
+            if (unit) this.playEffectPops({ unit, flash: "buff", debuffs: [], buffs: [...buffs] });
+        }
     }
     protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
         const resistedUnits = new Set<string>();
@@ -9477,6 +10053,7 @@ export class Sandbox extends PixiScene {
             direction: HoCMath.XY,
         ) => void,
         initialThrow?: { from: HoCMath.XY; to: HoCMath.XY; onImpact?: () => void },
+        cutTargets?: ReadonlyMap<string, BrutalityTarget>,
     ): Promise<void> {
         if (
             !this.rangedProjectiles ||
@@ -9518,7 +10095,9 @@ export class Sandbox extends PixiScene {
                 string,
                 {
                     center: HoCMath.XY;
+                    ground: HoCMath.XY;
                     impact: HoCMath.XY;
+                    hasCut: boolean;
                     cells: HoCMath.XY[];
                     isSmall: boolean;
                     flagAnchor?: HoCMath.XY;
@@ -9544,11 +10123,14 @@ export class Sandbox extends PixiScene {
                 if (!center) continue;
                 capturedByUnit.set(unitId, {
                     center: { ...center },
+                    ground: unit ? projectBattlefieldPoint(unit.getPosition(), gs) : { ...center },
                     impact: {
-                        ...(typeof unit?.getProjectileImpactPoint === "function"
-                            ? unit.getProjectileImpactPoint(gs)
-                            : center),
+                        ...(cutTargets?.get(unitId)?.point ??
+                            (typeof unit?.getProjectileImpactPoint === "function"
+                                ? unit.getProjectileImpactPoint(gs)
+                                : center)),
                     },
+                    hasCut: cutTargets?.has(unitId) ?? false,
                     cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                     isSmall: unit?.isSmallSize() ?? true,
                     flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
@@ -9586,7 +10168,7 @@ export class Sandbox extends PixiScene {
             let lastDir: HoCMath.XY = { x: 0, y: 1 };
             let flashBeforeNextVictim = !damage?.missed && !primaryDamage?.missed && primaryWasHit;
             for (const arc of arcs) {
-                const points = arc.cells
+                let points = arc.cells
                     .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                     .filter((position): position is HoCMath.XY => !!position);
                 for (let index = 0; index < points.length; index++) {
@@ -9595,22 +10177,25 @@ export class Sandbox extends PixiScene {
                 if (!points.length) {
                     continue;
                 }
-                // The engine supplies the empty bridge between footprints. Its source/arrival cells are
-                // ground points, while the thrown disc reaches the creature's torso. Replace only those
-                // endpoints and keep every separating cell, so the disc never jumps or cuts through a wall.
-                // Older recordings omitted the source cell: keep their first empty cell and prepend the
-                // previous impact instead of replacing it.
+                // Keep the engine's separating cells, including older recordings that omit the source.
+                // A lethal contact must shape the whole approach, not just its final cell inside the body.
                 const sourceCell = arc.cells[0];
-                if (previousVictim?.cells.some((cell) => cell.x === sourceCell.x && cell.y === sourceCell.y)) {
-                    points.shift();
-                }
+                const startsOnSource = previousVictim?.cells.some(
+                    (cell) => cell.x === sourceCell.x && cell.y === sourceCell.y,
+                );
                 const hitIds = hitIdsForArc(arc);
                 const victim = hitIds[0] ? capturedByUnit.get(hitIds[0]) : undefined;
-                if (victim) {
-                    if (points.length) points[points.length - 1] = victim.impact;
-                    else points.push(victim.impact);
+                if (discEnd && (previousVictim?.hasCut || victim?.hasCut)) {
+                    if (!startsOnSource) points.unshift(previousVictim?.ground ?? discEnd);
+                    points = chakramContactPath(points, discEnd, victim?.impact ?? points[points.length - 1]);
+                } else {
+                    if (startsOnSource) points.shift();
+                    if (victim) {
+                        if (points.length) points[points.length - 1] = victim.impact;
+                        else points.push(victim.impact);
+                    }
+                    if (discEnd) points.unshift(discEnd);
                 }
-                if (discEnd) points.unshift(discEnd);
                 if (!points.length) continue;
                 const arrival = points[points.length - 1];
                 if (flashBeforeNextVictim && hitIds.length && discEnd) {
@@ -9644,6 +10229,8 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                         continue;
                     }
+                    if (hasShieldAbsorb(damage))
+                        this.showShieldAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                         this.combatVisuals?.showFloatingDamage(
@@ -9706,7 +10293,9 @@ export class Sandbox extends PixiScene {
             string,
             {
                 center: HoCMath.XY;
+                ground: HoCMath.XY;
                 impact: HoCMath.XY;
+                hasCut: boolean;
                 cells: HoCMath.XY[];
                 isSmall: boolean;
                 flagAnchor?: HoCMath.XY;
@@ -9732,11 +10321,14 @@ export class Sandbox extends PixiScene {
             if (!center) continue;
             capturedByUnit.set(unitId, {
                 center: { ...center },
+                ground: unit ? projectBattlefieldPoint(unit.getPosition(), gs) : { ...center },
                 impact: {
-                    ...(typeof unit?.getProjectileImpactPoint === "function"
-                        ? unit.getProjectileImpactPoint(gs)
-                        : center),
+                    ...(cutTargets?.get(unitId)?.point ??
+                        (typeof unit?.getProjectileImpactPoint === "function"
+                            ? unit.getProjectileImpactPoint(gs)
+                            : center)),
                 },
+                hasCut: cutTargets?.has(unitId) ?? false,
                 cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                 isSmall: unit?.isSmallSize() ?? true,
                 flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
@@ -9789,8 +10381,9 @@ export class Sandbox extends PixiScene {
         // One projectile owns the whole throw, all ricochets and the return. Contact effects run at
         // waypoints without awaiting the hit animation or losing any of this frame's travel distance.
         let flashBeforeNextVictim = !!primaryTarget && !damage?.missed && !primaryDodged;
+        let previousVictim = primaryId ? capturedByUnit.get(primaryId) : undefined;
         for (const arc of damage?.chakramArcs ?? []) {
-            const points = arc.cells
+            let points = arc.cells
                 .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                 .filter((position): position is HoCMath.XY => !!position)
                 .map((position) => projectBattlefieldPoint(position, gs));
@@ -9798,6 +10391,18 @@ export class Sandbox extends PixiScene {
             if (!path.length) path.push(points[0]);
             const hitIds =
                 (arc as { hitUnitIds?: string[] }).hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []);
+            const victim = hitIds[0] ? capturedByUnit.get(hitIds[0]) : undefined;
+            if (previousVictim?.hasCut || victim?.hasCut) {
+                const sourceCell = arc.cells[0];
+                if (!previousVictim?.cells.some((cell) => cell.x === sourceCell.x && cell.y === sourceCell.y)) {
+                    points.unshift(previousVictim?.ground ?? path[path.length - 1]);
+                }
+                points = chakramContactPath(
+                    points,
+                    path[path.length - 1],
+                    victim?.impact ?? points[points.length - 1],
+                ).slice(1);
+            }
             if (flashBeforeNextVictim && hitIds.length) {
                 const contact = path[path.length - 1];
                 atArrival(path.length - 1, () => {
@@ -9819,6 +10424,8 @@ export class Sandbox extends PixiScene {
                         popChakramMiss(unit, center, direction);
                         continue;
                     }
+                    if (hasShieldAbsorb(damage))
+                        this.showShieldAbsorbsAtImpact(damage, new Set([unitId]), attackerCenter);
                     if (dmg && dmg.amount > 0) {
                         this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount, "range");
                         this.combatVisuals?.showFloatingDamage(
@@ -9840,6 +10447,7 @@ export class Sandbox extends PixiScene {
                 }
             });
             flashBeforeNextVictim = hitIds.some((id) => !splashByUnit.get(id)?.missed);
+            previousVictim = victim;
         }
         if (!path.length) return;
         path.push(initialThrow?.from ?? attacker.getRangedProjectileOrigin(path[path.length - 1], gs));
@@ -10077,7 +10685,7 @@ export class Sandbox extends PixiScene {
             // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
             // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
             this.showFleshShieldAbsorbedDamage(secondary, visualCasterPosition);
-            this.showWaterShieldAbsorbs(secondary, visualCasterPosition);
+            this.showShieldAbsorbs(secondary, visualCasterPosition);
             // Thrown spells sweep embers from the caster to each victim; Lightning Strike descends from
             // above, while Meteor Shower bursts where it lands. Ring of Fire is
             // excluded from the per-victim sweep (its flame is the circle drawn above).
@@ -10567,6 +11175,7 @@ export class Sandbox extends PixiScene {
             // without this explicit reset the previous creature ghost and its footprint remain under the
             // aiming line. Force the visual clear in case a just-finished move left the silhouette locked.
             this.hoverManager.clearHoverSilhouette(true);
+            this.localAim = { kind: PlayAimKind.RANGED, unitId: unit.getId(), cell: hoveredCell };
             const cellCenter = hoveredObstacleCenter;
             const intersections = this.grid.hasScatteredMountains()
                 ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
@@ -10626,6 +11235,12 @@ export class Sandbox extends PixiScene {
             return this.grid.hasScatteredMountains() || notHovering();
         }
         this.hoverManager.hoverAttackFromCell = attackFromCell;
+        this.localAim = {
+            kind: PlayAimKind.MELEE,
+            unitId: unit.getId(),
+            attackFrom: attackFromCell,
+            cell: GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), hoveredObstacleCenter),
+        };
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
         const cellCenter = hoveredObstacleCenter;
         this.hoverManager.updateHoverSilhouette(attackFromPos);
@@ -10761,6 +11376,18 @@ export class Sandbox extends PixiScene {
         const lineEnd =
             evaluation.attackObstacle?.position ??
             GridMath.projectLineToFieldEdge(gs, unit.getPosition().x, unit.getPosition().y, aim.x, aim.y);
+        this.localAim = {
+            kind: PlayAimKind.RANGED,
+            unitId: unit.getId(),
+            cell: GridMath.getCellForPosition(gs, aim),
+            aimDirection:
+                ((Math.round(
+                    (Math.atan2(aim.y - unit.getPosition().y, aim.x - unit.getPosition().x) * 4096) / (Math.PI * 2),
+                ) +
+                    4096) %
+                    4096) +
+                1,
+        };
         const shotStart = rangeAttackFootprintEdgePoint(
             unit.getPosition(),
             lineEnd,
@@ -10987,6 +11614,12 @@ export class Sandbox extends PixiScene {
         }
         this.clearAggrBlockedActionHint();
 
+        if (this.currentActiveUnit)
+            this.localAim = {
+                kind: PlayAimKind.RANGED,
+                unitId: this.currentActiveUnit.getId(),
+                cell: cells.at(-1),
+            };
         this.hoverManager.drawAOEArea(cells);
         // Trajectory line to the selected center — the same arrow a single-target ranged hover draws.
         // The 3x3 outline shows where the splash lands, while the line preserves the throw-direction cue.
@@ -11378,10 +12011,11 @@ export class Sandbox extends PixiScene {
             }
             this.preparePyreDeaths(events, unitSnapshot);
             for (const [id, captured] of unitSnapshot) {
-                captured.beginDamagePresentation(remainingAmounts.get(id));
+                captured.continueDamagePresentation(remainingAmounts.get(id));
                 if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(captured);
             }
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
+            const cyclopsKills = cyclopsMultiKillTargets(unit, waves, remainingAmounts, deadIds, unitSnapshot);
             const throwCount = areaEvent?.damage.rangedVolleyCount ?? Math.max(waves.length, isDoubleShot ? 2 : 1);
             const shownDeaths = new Set<string>();
             let shownAnyWave = false;
@@ -11424,7 +12058,6 @@ export class Sandbox extends PixiScene {
                                 muzzle,
                                 180,
                             );
-                            this.showWaterShieldAbsorbs(areaEvent?.damage.secondary, muzzle, 180);
                         }
                         const wave = waves[throwIndex] ?? [];
                         shownAnyWave ||= wave.some((hit) => hit.amount > 0);
@@ -11435,6 +12068,7 @@ export class Sandbox extends PixiScene {
                                 units: unitSnapshot,
                                 remainingAmounts,
                                 deadIds,
+                                cyclopsKills,
                                 onDeath: (unitId) => {
                                     if (shownDeaths.has(unitId)) return;
                                     shownDeaths.add(unitId);
@@ -11881,10 +12515,12 @@ export class Sandbox extends PixiScene {
                 ...entry,
                 position: { ...entry.position },
             }));
-            damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) => ({
-                ...entry,
-                position: { ...entry.position },
-            }));
+            damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) =>
+                // Contact playback and the later summary share absorb records, so each is presented once.
+                entry.source === "ember_covenant" || entry.source === "water_shield"
+                    ? entry
+                    : { ...entry, position: { ...entry.position } },
+            );
             // Carry Zena's Chakram ricochet circles (the per-leg swept cells + who each clipped) so the disc
             // actually FLIES its loops in the LIVE sandbox path. Without this, the reconstructed
             // damageForAnimation dropped chakramArcs and the disc just returned home with no circle at all.
@@ -11942,8 +12578,12 @@ export class Sandbox extends PixiScene {
             const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseVictimId);
             const before = unitSnapshots.get(responseVictimId);
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
-            const secondary = (event.damage.secondary ?? []).filter((hit) => hit.unitId === responseVictimId);
+            const secondary = (event.damage.secondary ?? []).filter(
+                (hit) =>
+                    hit.unitId === responseVictimId && hit.source !== "ember_covenant" && hit.source !== "water_shield",
+            );
             const explosionDamage = lastFuseDamageTaken(attackActionEvents, responseVictimId);
+            const approachBurn = this.takeFireWallBurn(attackActionEvents ?? [], responseVictimId).burn;
             const amount = responseFlight
                 ? (responsePrimary?.amount ?? 0)
                 : before
@@ -11953,7 +12593,8 @@ export class Sandbox extends PixiScene {
                             before.hp -
                             (after?.getCumulativeHp() ?? 0) -
                             secondary.reduce((sum, hit) => sum + hit.amount, 0) -
-                            explosionDamage.amount,
+                            explosionDamage.amount -
+                            (approachBurn?.amount ?? 0),
                     )
                   : 0;
             const unitsDied = responseFlight
@@ -11964,7 +12605,8 @@ export class Sandbox extends PixiScene {
                         before.amount -
                             (after?.getAmountAlive() ?? 0) -
                             secondary.reduce((sum, hit) => sum + hit.unitsDied, 0) -
-                            explosionDamage.unitsDied,
+                            explosionDamage.unitsDied -
+                            (approachBurn?.unitsDied ?? 0),
                     )
                   : 0;
             // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
@@ -11982,8 +12624,9 @@ export class Sandbox extends PixiScene {
                     (target.hasAbilityActive?.("Chakram") ||
                         hasRecordedChakramCounter(event.damage, responseVictimId)) &&
                     event.damage.splash?.some((hit) => hit.unitId === responseVictimId));
+            const recordedShieldedResponse = !!responseAnimation && hasShieldAbsorb(event.damage, responseVictimId);
             const response =
-                (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse) &&
+                (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse || recordedShieldedResponse) &&
                 retaliationAllowed &&
                 (!isRange || responseAnimation || responseFlight)
                     ? { amount, unitsDied }
@@ -12194,16 +12837,24 @@ export class Sandbox extends PixiScene {
             attacker.getVisualCenter(gs),
             180,
         );
-        this.showWaterShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs), 180);
+        this.showShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs));
 
         // Devour Essence heal (Hydra devouring a slain enemy): green "+N" + buff-wash on the devourer.
         this.showDevourEssenceHeals(damageForAnimation.secondary);
 
-        // Fire damage burst — Fire Shield reflect, dragon-breath burn, Fireforged Sword strike. Lives
-        // in this shared section (not the melee branch above) so a RANGED attacker's fire also burns,
-        // and delayed like the Flesh Shield pops so it lands with the numbers rather than the wind-up.
-        // Same ABILITY VFX CONTRACT: the ranked replay path fires this very helper.
-        this.spawnFireDamageVfx(attacker, target, damageForAnimation, 180);
+        // Fire Shield was presented at contact by the shared exchange. The other fire effects use
+        // this shared section so ranged attacks burn too, together with their remaining numbers.
+        this.spawnFireDamageVfx(
+            attacker,
+            target,
+            exchangeAnimated
+                ? {
+                      ...damageForAnimation,
+                      secondary: damageForAnimation.secondary?.filter((hit) => hit.source !== "fire_shield"),
+                  }
+                : damageForAnimation,
+            180,
+        );
 
         // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
         // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
@@ -12346,6 +12997,10 @@ export class Sandbox extends PixiScene {
                             rTarget,
                         );
                     } else {
+                        const presentCasualties =
+                            rTarget instanceof RenderableUnit
+                                ? rTarget.captureDamageCasualties(dmg.unitsDied)
+                                : undefined;
                         this.scheduleSceneTimeout(() => {
                             this.combatVisuals.showFloatingDamage(
                                 pos,
@@ -12356,6 +13011,8 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 damageFlagAnchor,
                                 rTarget,
+                                undefined,
+                                presentCasualties,
                             );
                         }, index * ATTACK_HIT_STAGGER_MS);
                     }
@@ -12489,19 +13146,23 @@ export class Sandbox extends PixiScene {
                         attacker,
                     );
                 }
-                if (attackerFireShield > 0) {
+                if (attackerFireShield > 0 && !exchangeAnimated) {
                     const fsPos = { ...spawnPos };
                     const fireStyle = this.getSecondaryDamageStyle("fire_shield");
+                    const burnCasualties = pureDamage > 0 ? 0 : lossesNotAbsorbed;
+                    const presentCasualties = attacker.captureDamageCasualties(burnCasualties);
                     this.scheduleSceneTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             fsPos,
                             attackerFireShield,
                             dir,
-                            pureDamage > 0 ? 0 : lossesNotAbsorbed,
+                            burnCasualties,
                             fireStyle.fill,
                             fireStyle.stroke,
                             attacker.getDamagePredictionAnchor(gs),
                             attacker,
+                            undefined,
+                            presentCasualties,
                         );
                     }, 280);
                 }
@@ -12589,6 +13250,13 @@ export class Sandbox extends PixiScene {
             if (presented) {
                 alreadyShown = Math.max(alreadyShown, presented.amount);
                 alreadyDied = Math.max(alreadyDied, presented.unitsDied);
+            }
+            if (exchangeAnimated) {
+                for (const hit of damageForAnimation.secondary ?? []) {
+                    if (hit.source !== "fire_shield" || hit.unitId !== uId) continue;
+                    alreadyShown += hit.amount;
+                    alreadyDied += hit.unitsDied;
+                }
             }
             const unaccountedDiff = diff - alreadyShown;
 
@@ -12678,6 +13346,8 @@ export class Sandbox extends PixiScene {
                 const flagAnchor = u instanceof RenderableUnit ? u.getDamagePredictionAnchor(gs) : undefined;
 
                 if (uId === primaryVictimId) {
+                    const presentCasualties =
+                        u instanceof RenderableUnit ? u.captureDamageCasualties(extraDiedCount) : undefined;
                     this.scheduleSceneTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             spawnPos,
@@ -12688,6 +13358,8 @@ export class Sandbox extends PixiScene {
                             fsStroke,
                             flagAnchor,
                             u,
+                            undefined,
+                            presentCasualties,
                         );
                     }, 300);
                 } else {
@@ -14019,6 +14691,7 @@ export class Sandbox extends PixiScene {
         return this.isActiveUnitMoving || this.sc_isAnimating || this.moveAnimManager.isMoving();
     }
     protected override hover(): void {
+        this.localAim = undefined;
         if (this.pendingBarrelPlacement) {
             this.updateBarrelPlacementPreview();
             return;
@@ -14045,6 +14718,11 @@ export class Sandbox extends PixiScene {
 
         // 0. Spellbook Interaction — the active unit's own book, so only when we can drive it.
         if (canDriveActiveUnit && this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
+            if (this.spellBookOverlay && !this.spellBookOverlay.isReadyFor(this.currentActiveUnit)) {
+                this.setHoveredSpell(undefined);
+                this.hoverManager.clear();
+                return;
+            }
             if (this.currentActiveUnit instanceof RenderableUnit) {
                 const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
                     this.spellbookGlobalFromWorld(this.pointerVisualWorld),
@@ -14393,10 +15071,19 @@ export class Sandbox extends PixiScene {
                 if (!hideDirectStatusArrow && trajectoryEnd) {
                     this.highlightScatteredObstaclesAlongTrajectory(caster.getPosition(), trajectoryEnd);
                 }
+                const aimCell = GridMath.getCellForPosition(gs2, this.sc_mouseWorld);
+                this.localAim = {
+                    kind: PlayAimKind.SPELL,
+                    unitId: caster.getId(),
+                    spellName: spell.getName(),
+                    targetUnitId: targetCenter ? hoveredUnit?.getId() : undefined,
+                    cell: aimCell && GridMath.isCellWithinGrid(gs2, aimCell) ? aimCell : undefined,
+                    targetOrientation: spell.getName() === "Fire Wall" ? this.fireWallAimOrientation + 1 : undefined,
+                };
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
                     targetPos: hideDirectStatusArrow ? undefined : targetCenter,
-                    iconTex: this.texAny(SpellHelper.spellToTextureName(spell.getName())) ?? Texture.EMPTY,
+                    iconTex: this.texAny(spellIconTextureKey(spell.getName())) ?? Texture.EMPTY,
                     label: spell.getName(),
                     color: spellColor,
                     beamStyle: isPositiveSpell ? "positive" : "negative",
@@ -14650,6 +15337,7 @@ export class Sandbox extends PixiScene {
                         let arrowEndPos: HoCMath.XY | undefined;
                         let arrowEndVisual: HoCMath.XY | undefined;
                         let optimalRangeEdge: RangeTargetEdgeVisual | undefined;
+                        let relayedRangeAim: GridMath.IClosestSideCenter | undefined;
 
                         if (!isRangeAttackContext && attackFromPos) {
                             // Pick one of eight stable anchors around the target footprint (four edge
@@ -14698,6 +15386,7 @@ export class Sandbox extends PixiScene {
                                       this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
                                           this.currentActiveUnit.hasAbilityActive("Area Throw"),
                                   );
+                            relayedRangeAim = rangeAim;
                             arrowEndPos = rangeAim?.position;
                             arrowEndVisual = rangeAim
                                 ? projectedRangeAttackCellSideCenter(rangeAim.cell, rangeAim.side, gs)
@@ -14728,6 +15417,11 @@ export class Sandbox extends PixiScene {
                                     : dy >= 0
                                       ? GridMath.RangeAttackCellSide.DOWN
                                       : GridMath.RangeAttackCellSide.UP;
+                            relayedRangeAim = {
+                                cell: targetCell,
+                                side: fallbackSide,
+                                position: rangeAttackCellSideCenter(targetCell, fallbackSide, gs),
+                            };
                             arrowEndPos = rangeAttackCellSideCenter(targetCell, fallbackSide, gs);
                             arrowEndVisual = projectedRangeAttackCellSideCenter(targetCell, fallbackSide, gs);
                         }
@@ -14817,6 +15511,14 @@ export class Sandbox extends PixiScene {
                             const primary = shotEvaluation?.affectedUnits[0]?.[0];
                             if (primary) this.hoverManager.addTargetHighlight(primary);
                         }
+                        this.localAim = {
+                            kind: isRangeAttackContext ? PlayAimKind.RANGED : PlayAimKind.MELEE,
+                            unitId: this.currentActiveUnit.getId(),
+                            targetUnitId: targetUnit.getId(),
+                            cell: isRangeAttackContext ? relayedRangeAim?.cell : targetUnit.getBaseCell(),
+                            targetSide: isRangeAttackContext && relayedRangeAim ? relayedRangeAim.side + 1 : undefined,
+                            attackFrom: attackFromCell,
+                        };
                         const damageUnit = !this.currentActiveUnit.hasAbilityActive("Through Shot")
                             ? (shotEvaluation?.affectedUnits[0]?.[0] ?? targetUnit)
                             : targetUnit;
@@ -15091,10 +15793,11 @@ export class Sandbox extends PixiScene {
                                 }
                                 let pierceMin = 0;
                                 let pierceMax = 0;
-                                for (const volleyMultiplier of volleyMultipliers) {
+                                for (const [volleyIndex, volleyMultiplier] of volleyMultipliers.entries()) {
                                     const band = projectAttackDamageBand({
                                         ...projectionBase,
                                         target: piercedUnit,
+                                        priorHits: volleyIndex,
                                         divisor: pierceDivisor,
                                         abilityMultiplier: throughShotAbilityMultiplier(
                                             this.currentActiveUnit,
@@ -15124,6 +15827,7 @@ export class Sandbox extends PixiScene {
                                     const band = projectAttackDamageBand({
                                         ...projectionBase,
                                         target: piercedUnit,
+                                        priorHits: volleyMultipliers.length,
                                         divisor: pierceDivisor,
                                         abilityMultiplier: throughShotAbilityMultiplier(
                                             this.currentActiveUnit,
@@ -15246,18 +15950,31 @@ export class Sandbox extends PixiScene {
                                     });
                                     return dealt + fireforgedBurn(victim, dealt);
                                 };
-                                const waves = (damage: number): number =>
+                                const laterBand = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: victim,
+                                    priorHits: 1,
+                                    divisor: rangeAttackDivisors[0] ?? rangeDivisor,
+                                    abilityMultiplier: aoeAttackAbilityMultiplier(
+                                        aoeAttacker,
+                                        abilityPower,
+                                        aoeHoverAbility,
+                                    ),
+                                });
+                                const waves = (damage: number, laterDamage: number): number =>
                                     wave(damage, perUnitDamageFactor) +
-                                    (aoeWaves === 2 ? wave(damage, (perUnitDamageFactor ?? 1) * secondWaveCharm) : 0);
+                                    (aoeWaves === 2
+                                        ? wave(laterDamage, (perUnitDamageFactor ?? 1) * secondWaveCharm)
+                                        : 0);
                                 const bonusMax =
                                     aoeAttacker.getBonusRangedAttackChance() > 0 &&
                                     aoeAttacker.projectRangeShotsAfterVolleys(aoeVictims[0], aoeWaves) > 0
-                                        ? wave(withLuckyStrike(band.max), perUnitDamageFactor)
+                                        ? wave(withLuckyStrike(laterBand.max), perUnitDamageFactor)
                                         : 0;
                                 addProjectedDamage(
                                     victim,
-                                    waves(band.min),
-                                    waves(withLuckyStrike(band.max)) + bonusMax,
+                                    waves(band.min, laterBand.min),
+                                    waves(withLuckyStrike(band.max), withLuckyStrike(laterBand.max)) + bonusMax,
                                 );
                             }
                         } else if (isRangeAttackContext) {
@@ -15318,6 +16035,7 @@ export class Sandbox extends PixiScene {
                                 const secondPunch = projectAttackDamage({
                                     ...projectionBase,
                                     target: damageUnit,
+                                    priorHits: 1,
                                     abilityMultiplier:
                                         AbilityHelper.withDualStrikeCharm(
                                             this.currentActiveUnit.calculateAbilityMultiplier(
@@ -15750,7 +16468,7 @@ export class Sandbox extends PixiScene {
         // CASE 1: Active selection from OVERLAY (New Unit)
         if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.selectionFromOverlay) {
             this.hoverManager.hoveredUnitHighlight = undefined;
-            this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
+            this.refreshPlacementHover();
             return;
         }
         // CASE 2: Active selection from BOARD (Moving existing unit)
@@ -15761,7 +16479,7 @@ export class Sandbox extends PixiScene {
             this.draggingUnitId
         ) {
             this.hoverManager.calculateActiveSelectionHighlight();
-            this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
+            this.refreshPlacementHover();
             return;
         }
         // CASE 3: No active selection → just passive hover highlight (mouse over unit)
@@ -16433,6 +17151,10 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        this.aimIntentSink = undefined;
+        this.opponentAimOverlay?.destroy();
+        this.opponentAimOverlay = undefined;
+        this.replayRecorder?.dispose();
         this.atlasTexturePrewarmer.destroy();
         this.sandboxPremiumEnabled = false;
         this.clearSandboxPremiumGuidance();
@@ -16448,6 +17170,7 @@ export class Sandbox extends PixiScene {
         this.placementManager.releaseVisuals();
         this.aiController.destroy();
         this.dungeonVisuals?.destroy();
+        this.spellBookOverlay?.destroy();
         this.releaseSpellBookBackground();
         this.releaseSpellBookBlurFilter();
         this.fireWallLayer?.destroy();
@@ -16625,6 +17348,9 @@ export class Sandbox extends PixiScene {
                 this.placementGraphics.clear();
                 this.placementGraphics.visible = false;
             }
+            if (this.placementWashContainer?.visible) {
+                this.placementWashContainer.visible = false;
+            }
             if (this.placementFrameContainer?.visible) {
                 this.placementManager.releaseVisuals();
                 this.placementFrameContainer.visible = false;
@@ -16646,6 +17372,8 @@ export class Sandbox extends PixiScene {
         // Re-assert the opponent's relayed move silhouette every frame so it stays put and
         // tracks the unit, independent of the viewer's own (mouse-driven) hover updates.
         this.renderOpponentMoveIntent();
+        this.renderOpponentAim();
+        this.syncLocalAim();
         this.syncLocalSpellIntent();
         this.renderOpponentSpellIntent();
 
@@ -16767,13 +17495,15 @@ export class Sandbox extends PixiScene {
                 );
             }
             this.hoverManager.update(timeStep);
-            if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.sc_mouseWorld) {
-                this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
-            }
+            this.refreshPlacementHover();
             if (this.placementGraphics) {
-                this.placementGraphics.visible = !this.creatureAnimationLabEnabled;
+                const showPlacement = !this.creatureAnimationLabEnabled;
+                this.placementGraphics.visible = showPlacement;
                 if (this.placementFrameContainer) {
-                    this.placementFrameContainer.visible = !this.creatureAnimationLabEnabled;
+                    this.placementFrameContainer.visible = showPlacement;
+                }
+                if (this.placementWashContainer) {
+                    this.placementWashContainer.visible = showPlacement;
                 }
                 if (this.creatureAnimationLabEnabled) {
                     this.placementGraphics.clear();
@@ -16847,28 +17577,8 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // Update SpellBook
-        if (this.spellBookContainer) {
-            const showSpellBook = !!this.sc_renderSpellBookOverlay;
-            // Re-fit on the closed -> open transition: the canvas can still be settling into its final
-            // size when the scene is constructed, and no resize necessarily fires before the first open.
-            if (showSpellBook && !this.spellBookContainer.visible) {
-                this.ensureSpellBookBackground();
-                if (this.currentActiveUnit && this.digitTextures) {
-                    this.currentActiveUnit.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
-                }
-                const screen = this.pixiApp.getApplication().screen;
-                this.layoutSpellBook(screen.width, screen.height);
-            }
-            this.spellBookContainer.visible = showSpellBook;
-        }
-        if (this.sc_renderSpellBookOverlay && this.spellBookOverlay && this.currentActiveUnit) {
-            for (const unit of this.unitsHolder.getAllUnits().values()) {
-                const rUnit = unit as RenderableUnit;
-                if (rUnit !== this.currentActiveUnit) {
-                    rUnit.hideSpells();
-                }
-            }
+        this.spellBookOverlay?.setOpen(this.sc_renderSpellBookOverlay);
+        if (this.sc_renderSpellBookOverlay && this.spellBookOverlay) {
             this.spellBookOverlay.render(this.currentActiveUnit);
         }
     }
@@ -17558,6 +18268,7 @@ export class Sandbox extends PixiScene {
                     ? this.beginStackCountPresentation()
                     : new Map<RenderableUnit, number>();
                 const result = engine.apply(action);
+                if (result.completed) this.rememberStatusApplications(result.events);
                 for (const [unit, amount] of amountsBefore) {
                     // Refused actions and raises have no casualty timeline to hold on the ribbon.
                     if (!result.completed || unit.getAmountAlive() > amount) unit.clearDamagePresentation();
@@ -17637,6 +18348,9 @@ export class Sandbox extends PixiScene {
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        if (result.completed && action.type === "cast_spell" && !this.shouldDeferActionToAuthoritativeReplay(action)) {
+            this.renderCastOutcomes(result.events);
+        }
         return result.completed;
     }
     protected renderPoisonTickVfx(unit: RenderableUnit, damage: number, unitsDied: number): void {
@@ -17685,6 +18399,7 @@ export class Sandbox extends PixiScene {
             (event, delay, removeBody) => this.renderPyreExplosion(event, delay, removeBody),
             (unit) => this.dyingVisualUnits.add(unit),
             (unit) => {
+                this.endHelpingHandLinksAtImpact(unit.getId());
                 this.dyingVisualUnits.delete(unit);
                 unit.destroyVisuals();
             },
@@ -18299,6 +19014,7 @@ export class Sandbox extends PixiScene {
             (this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined) ??
             unitSnapshot.get(event.unitId);
         this.combatVisuals?.resetZenaDeath?.(event.unitId, unit);
+        this.combatVisuals?.resetCyclopsDeath?.(event.unitId, unit);
         if (!unit) {
             return;
         }
@@ -18638,6 +19354,7 @@ export class Sandbox extends PixiScene {
             hoverManager: this.hoverManager,
             placementGraphics: this.placementGraphics,
             placementFrameContainer: this.placementFrameContainer,
+            placementWashContainer: this.placementWashContainer,
             restrictToTeam: this.getPlacementDrawTeam(),
             showTeamPlacementZones:
                 Sandbox.DRAW_TEAM_PLACEMENT_ZONES &&
@@ -18959,7 +19676,12 @@ export class Sandbox extends PixiScene {
                 unit.ensureVisual(unitsContainer, gs);
             }
         }
-        if (this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.digitTextures) {
+        if (
+            this.sc_renderSpellBookOverlay &&
+            this.currentActiveUnit &&
+            this.digitTextures &&
+            this.spellBookOverlay?.isReadyFor(this.currentActiveUnit)
+        ) {
             // parseSpells may have skipped cards whose lazy icon was not decoded yet. Rebuild only the
             // open, active book as supplementary icons arrive; closed/enemy books do no extra work.
             this.setHoveredSpell(undefined);
@@ -19312,11 +20034,13 @@ export class Sandbox extends PixiScene {
             .catch((error) => console.warn("[premium] Sandbox turn suggestions unavailable", error));
     }
     private productionAiSearchModule?: Promise<typeof import("./sandboxAiSearch")>;
-    private readonly prewarmedAtlasSources = new WeakSet<object>();
+    private readonly prewarmedAtlasSources = new AtlasPrewarmSources(() => this.pixiApp.getApplication()?.renderer.uid);
     private readonly atlasTexturePrewarmer = new AtlasTexturePrewarmer();
     private atlasPrewarmQuietScans = 0;
+    private atlasPrewarmNextQuietScanAt = 0;
     private atlasPrewarmUnitCount = -1;
     private static readonly ATLAS_PREWARM_QUIET_SCANS = 180;
+    private static readonly ATLAS_PREWARM_QUIET_INTERVAL_MS = 1000;
     private altInspectGraphics?: Graphics;
     private altInspectPainted = false;
     protected sc_mapStateHydrated = false;
@@ -19403,10 +20127,23 @@ export class Sandbox extends PixiScene {
         }
     }
     public override setOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
+        if (
+            this.opponentSpellIntent?.unitId === intent?.unitId &&
+            this.opponentSpellIntent?.spellName === intent?.spellName
+        ) {
+            return;
+        }
         this.opponentSpellIntent = intent;
         if (!intent) {
             this.hoverManager.clearOpponentSpellBadge();
         }
+        this.buttonManager?.refreshButtons();
+    }
+    private getSelectedSpellName(): string | undefined {
+        const unit = this.currentActiveUnit;
+        if (!unit || unit.isDead() || this.sc_visibleState?.hasFinished) return undefined;
+        if (this.canControlCurrentActiveUnit()) return this.currentActiveSpell?.getName();
+        return this.opponentSpellIntent?.unitId === unit.getId() ? this.opponentSpellIntent.spellName : undefined;
     }
     private syncLocalSpellIntent(): void {
         if (!this.spellIntentSink) {
@@ -19429,14 +20166,13 @@ export class Sandbox extends PixiScene {
         if (!intent) {
             return;
         }
-        if (this.currentActiveUnit?.getId() !== intent.unitId) {
-            this.opponentSpellIntent = undefined;
-            this.hoverManager.clearOpponentSpellBadge();
+        if (this.canControlCurrentActiveUnit() || this.getSelectedSpellName() !== intent.spellName) {
+            this.setOpponentSpellIntent(undefined);
             return;
         }
         const unit = this.unitsHolder.getAllUnits().get(intent.unitId);
-        if (!unit) {
-            this.hoverManager.clearOpponentSpellBadge();
+        if (!unit || unit.isDead()) {
+            this.setOpponentSpellIntent(undefined);
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -19447,7 +20183,7 @@ export class Sandbox extends PixiScene {
         const casterPos = unit instanceof RenderableUnit ? unit.getVisualCenter(gs) : unit.getPosition();
         this.hoverManager.drawOpponentSpellBadge({
             casterPos,
-            iconTex: this.texAny(SpellHelper.spellToTextureName(intent.spellName)) ?? Texture.EMPTY,
+            iconTex: this.texAny(spellIconTextureKey(intent.spellName)) ?? Texture.EMPTY,
             label: intent.spellName,
             color: isPositive ? 0x18c868 : 0xe02b16,
         });
@@ -19601,6 +20337,7 @@ export class Sandbox extends PixiScene {
                 })),
         ];
     }
+    protected onReplaySpellImpact(_record: SandboxReplayActionRecord): void {}
     protected onReplayRecordSettling(_record: SandboxReplayActionRecord): void {}
     protected onReplayRecordPresented(_record: SandboxReplayActionRecord): void {}
     private dispelSmokeUnderRegisteredUnit(unit: RenderableUnit): void {
@@ -19832,7 +20569,7 @@ export class Sandbox extends PixiScene {
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
         this.showFleshShieldAbsorbedDamage(secondary, attackerCenter, 220);
-        this.showWaterShieldAbsorbs(secondary, attackerCenter, 220);
+        this.showShieldAbsorbs(secondary, attackerCenter);
         // Devour Essence is a HEAL riding the same payload — green "+N" on the devourer, kept out of
         // the red-number loop below.
         this.showDevourEssenceHeals(secondary);
@@ -19841,9 +20578,9 @@ export class Sandbox extends PixiScene {
                 (entry) =>
                     entry.source !== "flesh_shield" &&
                     entry.source !== "devour_essence" &&
-                    // A Water Shield absorb is not damage taken — it gets the ABSORBED pop below, never
-                    // a red number.
-                    entry.source !== "water_shield",
+                    // Full absorbs get a labelled pop, never a red damage number.
+                    entry.source !== "water_shield" &&
+                    entry.source !== "ember_covenant",
             )
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;
@@ -19853,6 +20590,7 @@ export class Sandbox extends PixiScene {
                 const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : sCenter;
                 const flagAnchor = sUnit?.getDamagePredictionAnchor(gs);
                 const style = this.getSecondaryDamageStyle(entry.source);
+                const presentCasualties = sUnit?.captureDamageCasualties(entry.unitsDied);
                 this.scheduleSceneTimeout(
                     () => {
                         if (entry.source === "petrifying_gaze" && sUnit) {
@@ -19873,6 +20611,8 @@ export class Sandbox extends PixiScene {
                             style.stroke,
                             flagAnchor,
                             sUnit,
+                            undefined,
+                            presentCasualties,
                         );
                     },
                     220 + index * 180,
@@ -19907,17 +20647,24 @@ export class Sandbox extends PixiScene {
             this.atlasPrewarmUnitCount = units.size;
             this.atlasPrewarmQuietScans = 0;
         }
-        if (this.atlasPrewarmQuietScans >= Sandbox.ATLAS_PREWARM_QUIET_SCANS) return;
-        if (this.oneShotPresentationActive()) return;
+        if (this.oneShotPresentationActive() || this.moveAnimManager.isMoving() || this.rangedProjectiles.hasActive())
+            return;
+        if (this.atlasPrewarmQuietScans >= Sandbox.ATLAS_PREWARM_QUIET_SCANS) {
+            const now = performance.now();
+            if (now < this.atlasPrewarmNextQuietScanAt) return;
+            // Pixi can evict a source or replace its allocation on context recovery without a source
+            // event. Recheck occasionally, instead of abandoning readiness after the first quiet spell.
+            this.atlasPrewarmNextQuietScanAt = now + Sandbox.ATLAS_PREWARM_QUIET_INTERVAL_MS;
+        }
         const frame = this.nextUnuploadedAtlasFrame();
         if (!frame?.source) {
             this.atlasTexturePrewarmer.cancel();
             this.atlasPrewarmQuietScans++;
             return;
         }
+        this.atlasPrewarmQuietScans = 0;
         if (!this.uploadAtlasFrame(frame)) return;
         this.prewarmedAtlasSources.add(frame.source);
-        this.atlasPrewarmQuietScans = 0;
     }
     private oneShotPresentationActive(): boolean {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
@@ -20172,7 +20919,7 @@ export class Sandbox extends PixiScene {
         this.sc_renderSpellBookOverlay = active;
         this.buttonManager.sc_renderSpellBookOverlay = active;
         this.spellBookOverlay?.setOpen(active);
-        if (active) this.ensureSpellBookBackground();
+        if (active) this.spellBookOverlay?.render(this.currentActiveUnit);
         this.setSpellBookWorldBlur(active);
         if (changed)
             this.playSceneGameSound(
@@ -20591,6 +21338,8 @@ export class Sandbox extends PixiScene {
     private barrelDragPointerOrigin?: HoCMath.XY;
     private barrelDragPointerMoved = false;
     private beginStackCountPresentation(): Map<RenderableUnit, number> {
+        this.shownShieldAbsorbs = new WeakSet();
+        this.combatVisuals?.captureHelpingHandPresentation?.();
         const amounts = new Map<RenderableUnit, number>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             if (!(unit instanceof RenderableUnit)) continue;
@@ -20599,6 +21348,10 @@ export class Sandbox extends PixiScene {
             unit.beginDamagePresentation(amount);
         }
         return amounts;
+    }
+    protected endHelpingHandLinksAtImpact(unitId: string): void {
+        this.unitsHolder?.refreshHelpingHandLinks?.(unitId);
+        this.combatVisuals?.endHelpingHandLinksForUnit?.(unitId);
     }
     private drawAltInspectOverlay(): void {
         const g = this.altInspectGraphics;

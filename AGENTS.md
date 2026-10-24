@@ -28,10 +28,10 @@ heroes-of-crypto-client/
 
 ## Tech stack
 
-- **Runtime:** Bun
+- **Runtime:** Bun >= 1.4.4
 - **Game render:** PixiJS v8 (y-up world, sprite atlases, container depth-sorting)
 - **UI:** React + MUI Joy (sidebars, toolbar, overlays)
-- **Site:** Astro 6 (static, sitemap, content collections)
+- **Site:** Astro 7 (static, sitemap, content collections)
 - **Shared logic:** `@heroesofcrypto/common` (git submodule from `github:o1dstaRs/heroes-of-crypto-common#main`)
 
 ## Commands
@@ -51,7 +51,7 @@ bun run build:ws
 
 # Verify everything (run before pushing — see "Before you push")
 bun run check              # = lint + typecheck + test
-bun run lint:fix           # auto-fix eslint + prettier + scss + package order
+bun run lint:fix           # auto-fix eslint + bun fmt + scss + package order
 ```
 
 ## Before you push
@@ -63,18 +63,25 @@ standing on up to date with its remote:
 
 ```bash
 git fetch <remote>                       # remote is `origin` here; check `git remote -v`, it is not always the same
-git pull --rebase <remote> <branch>      # the branch you are ON, not always main
+git -c rebase.autoStash=false pull --rebase -X ours <remote> <branch> # the branch you are ON, not always main
 ```
 
 Peers push to these branches continuously, so "it was current when I started" is never true by the time you
 finish. Skipping this produces a non-fast-forward rejection at best, and at worst a deploy built from code
 that is already behind what the PR claims.
 
-**Resolve conflicts per HUNK, not per file.** `git checkout --theirs <file>` replaces the _entire_ file and
-silently discards your unrelated edits elsewhere in it. Prefer `git merge -X theirs` (or `-X ours`), which
-only decides the _conflicting_ hunks and keeps both sides' untouched work, or edit the conflict markers by
-hand. After resolving, verify both sides survived — grep for a symbol you added and one the other side
-added — rather than assuming the merge kept them.
+**Remote changes take precedence in conflicting hunks.** During a rebase, `ours` is the upstream-based
+history and `theirs` is the local commit being replayed, so use `--rebase -X ours`. For an ordinary merge
+of the remote branch, the corresponding option is `-X theirs`. Preserve nonconflicting local work; never
+replace whole files with `git checkout --ours/--theirs`, or use the whole-tree `-s ours` strategy. Resolve
+any remaining conflicts per hunk with the remote intent taking precedence, then verify both the remote
+change and unrelated local changes survived. Never stash a peer's edits to make the pull succeed.
+
+**Deployment must enforce freshness, including direct server deploy commands.** Sync before validation
+and building. Record the branch and commit being built; fetch that same remote branch again immediately
+before each upload. If the checkout, upstream, or remote commit changed, stop and rebuild from a newly
+synced checkout. Never rebase after a build and upload the older output. Deploy only clean, published
+commits, and recheck the common pin. Use the guarded deploy commands; manual rsync must not bypass them.
 
 **Re-check the submodule pin after every rebase or merge.** A submodule pointer does not report a conflict:
 git silently resolves `game/heroes-of-crypto-common` to one side, and because it is configured
@@ -92,16 +99,16 @@ without the lockfile fails the deploy's `bun install --frozen-lockfile` on the b
 
 Then re-run the gate below: a clean merge is not a passing build.
 
-CI runs **`bun run lint`** check-only (eslint + stylelint + sort-package-json + prettier), so unformatted
+CI runs **`bun run lint`** check-only (eslint + stylelint + sort-package-json + `bun fmt`), so unformatted
 or lint-dirty code fails the build even though it runs fine locally. Run the full gate first:
 
 ```bash
-bun run check       # lint (eslint/stylelint/prettier --check) + typecheck (tsc) + test (bun test)
+bun run check       # lint (eslint/stylelint/bun fmt --check) + typecheck (tsc) + test (bun test)
 ```
 
 If `check` fails:
 
-- **Style/lint** (`prettier`/`eslint`/`scss`/package order) → `bun run lint:fix`, then re-run `bun run check`.
+- **Style/lint** (`bun fmt`/`eslint`/`scss`/package order) → `bun run lint:fix`, then re-run `bun run check`.
   (The `.githooks/pre-commit` hook auto-fixes _staged_ files via `lint-staged`, but only if hooks are
   enabled — `bun install` wires them via `prepare`. Don't rely on it; run `bun run check` yourself.)
 - **typecheck** → fix the type errors in _your_ files. A peer editing `main` may leave a transient `tsc`
@@ -112,7 +119,7 @@ If `check` fails:
 ### Changes to the `@heroesofcrypto/common` submodule
 
 `bun run check`'s typecheck reads common's built `dist`, so after editing `game/heroes-of-crypto-common/src`
-rebuild it (this also runs prettier + the common test suite + `tsc`):
+rebuild it (this also runs `bun fmt` + the common test suite + `tsc`):
 
 ```bash
 bun run --cwd game/heroes-of-crypto-common build

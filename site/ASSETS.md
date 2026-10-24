@@ -48,3 +48,23 @@ builds do not require a person's Google login. Without `HOC_SITE_ASSETS_DIR`, th
 those exports; it never guesses a local source directory. The deployed `dist` contains all runtime
 assets, served by the website itself. It has no dependency on any developer's computer. Drive
 sharing permissions remain unchanged; do not make sources public solely to serve browser images.
+
+## Site font delivery
+
+The site loads `public/assets/fonts/hoc-forge/HoCForge-Regular.woff2`, a lossless compressed export
+of the adjacent TTF source. Keep all glyphs (including Cyrillic), hinting, and spacing intact.
+After changing the source, regenerate with FontTools and Brotli installed:
+
+```sh
+python - <<'PY'
+from pathlib import Path
+from fontTools.ttLib import TTFont
+
+source = Path("site/public/assets/fonts/hoc-forge/HoCForge-Regular.ttf")
+font = TTFont(source, recalcTimestamp=False)
+font.flavor = "woff2"
+font.save(source.with_suffix(".woff2"))
+PY
+```
+
+The font preload in `BaseLayout.astro` must use the same URL and format as `global.css`.

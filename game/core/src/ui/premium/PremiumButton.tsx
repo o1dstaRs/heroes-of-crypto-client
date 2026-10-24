@@ -16,6 +16,9 @@ export const PremiumButton = forwardRef<HTMLButtonElement, ButtonProps>(function
             startDecorator={startDecorator}
             sx={[
                 {
+                    minHeight: 36,
+                    maxWidth: "100%",
+                    flexShrink: 0,
                     color: solid ? "var(--hoc-premium-text)" : "var(--hoc-premium-accent)",
                     bgcolor: solid ? "var(--hoc-premium-button)" : "transparent",
                     border: "1px solid",

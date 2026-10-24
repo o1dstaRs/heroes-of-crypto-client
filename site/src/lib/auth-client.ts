@@ -10,6 +10,7 @@ import {
     loadGoogleIdentityServices,
     renderGoogleIdentityButton,
 } from "../../../game/core/src/ui/auth/googleIdentityServices";
+import { writeAuthStorage } from "./auth-storage";
 import { exchangeGoogleCredential } from "./google-auth";
 
 type AuthAction = "login" | "register" | "verify" | "forgot-password" | "reset-password";
@@ -131,7 +132,7 @@ async function postProto(path: string, body: Uint8Array, parseResponse = false) 
     const token = authorization || newToken;
 
     if (token) {
-        localStorage.setItem("accessToken", token);
+        writeAuthStorage("accessToken", token);
     }
 
     if (!parseResponse) {
@@ -140,7 +141,7 @@ async function postProto(path: string, body: Uint8Array, parseResponse = false) 
 
     const responseBytes = new Uint8Array(await response.arrayBuffer());
     const user = ResponseMe.deserializeBinary(responseBytes).toObject();
-    localStorage.setItem("hocAuthUser", JSON.stringify(user));
+    writeAuthStorage("hocAuthUser", JSON.stringify(user));
     return user;
 }
 
@@ -357,8 +358,8 @@ async function submitGoogleCredential(form: HTMLFormElement, credential: string)
             isProd,
             requestId: requestId(),
         });
-        localStorage.setItem("accessToken", session.token);
-        localStorage.setItem("hocAuthUser", JSON.stringify(session.user));
+        writeAuthStorage("accessToken", session.token);
+        writeAuthStorage("hocAuthUser", JSON.stringify(session.user));
         setStatus(form, successMessage, "success");
         form.dispatchEvent(new CustomEvent("hoc-auth-success", { bubbles: true, detail: { action: "google" } }));
         redirectAfterAuth("login", session.user.email || "");

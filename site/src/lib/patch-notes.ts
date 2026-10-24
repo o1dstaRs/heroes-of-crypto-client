@@ -95,6 +95,62 @@ const releaseCandidateRoster: PatchNote["roster"] = [
 export const patchNotes = {
     en: [
         {
+            version: "v0.1.7",
+            date: "10/20/2026",
+            commit: "fcabde35",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
+            commits: [
+                {
+                    label: "client",
+                    commit: "fcabde35",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
+                },
+                {
+                    label: "common",
+                    commit: "e9568286",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/e95682869bcce881195a0a1d31208fe89189170c",
+                },
+            ],
+            title: "Live aim, four artifacts, and a clearer board",
+            impact: "You can see where the other player is aiming, new artifacts change how a fight ends, and the same board is easier to read on a smaller screen.",
+            stats: [
+                { value: "57", label: "creatures" },
+                { value: "109", label: "abilities" },
+                { value: "54", label: "spells" },
+                { value: "28", label: "artifacts" },
+            ],
+            sections: [
+                {
+                    title: "A fight you can read",
+                    items: [
+                        "The other player's aim shows on your board: a move, a shot, a spell, and the direction of a Through Shot. Moving the pointer off the board clears the aimed cell, and an armed spell stays selected. A shot taken after a move is drawn from the landing footprint, not from the cell the shooter left.",
+                        "A Cyclops shot that destroys more than one stack plays the burst for each stack it finishes. Area Throw and other area shots land on the first cell of a large body they touch, and an area counterattack records every victim.",
+                        "An intact Water Shield still absorbs a non-fire hit. Fire spells, Fire Breath, Fire Shield, and a Fireforged burn pass through it. Helping Hand stays tied to the living stacks it binds.",
+                        "Sidebars stay wide enough to read, at least 256 pixels when the screen can spare them. Ranked and premium controls wrap onto another line instead of shrinking away. While you choose augments, you can see the artifacts the other player drafted.",
+                        "Splitting a stack copies its whole spellbook and quiver onto the new stack, including a one-creature split and a single-charge spell such as Resurrection. The original keeps its own casts and arrows. Merging keeps the larger remaining count of each spell and does not add the books or quivers together.",
+                    ],
+                },
+                {
+                    title: "Artifacts",
+                    items: [
+                        "Quiver of Echoes gives a ranged unit a 40% chance of one extra attack. Gravechain is cursed: an attack has a 50% chance per enemy to bind Gravebound along up to 3 links, slowing those units by 25% for 3 laps, and every unit in your army loses 1 movement step.",
+                        "Aegis of the Arcane gives the whole army a separate 18% magic-defense roll, combined with the defense the unit already has. Last Fuse makes an enemy stack your army destroys explode into other enemies beside it, for 25% of the killing blow or 25 damage per point of the attacker's stack power, whichever is higher. Your own units are not hurt. Resurrection cancels the burst, and a Water Shield can absorb one.",
+                        "Farsight Quiver lets allied archers ignore range falloff and deal full damage. A shot through Smoke is still halved. Tome of Amplification is a tier 1 artifact and raises non-healing buffs you cast on allies by 35%. Rime Charm is tier 1: a 30% chance, plus the attacker's luck, to slow the target for 3 laps.",
+                    ],
+                },
+                {
+                    title: "The same armies, tuned",
+                    items: [
+                        "Arachna Spider is attack 31 and damage 55–70. Arachna Queen keeps attack 32 and damage 54–78, with armor 40 and 200 health.",
+                        "Cyclops is attack 22, damage 18–23, 72 health, and armor 19. Dryad experience is 11. Wandering Mage experience is 6.466, so 1,000 experience buys 155 creatures. Scavenger stays at 6.1.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Version 0.1.7 keeps the same four factions and 57 creatures, and makes the aim, the artifacts, and the numbers on the board the ones the fight uses.",
+        },
+        {
             version: "v0.1.6",
             date: "10/04/2026",
             commit: "74ee648a",
@@ -434,6 +490,62 @@ export const patchNotes = {
         },
     ] satisfies PatchNote[],
     ru: [
+        {
+            version: "v0.1.7",
+            date: "20.10.2026",
+            commit: "fcabde35",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
+            commits: [
+                {
+                    label: "клиент",
+                    commit: "fcabde35",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/fcabde357cb811e175b10cd3b405b9f4df665cf0",
+                },
+                {
+                    label: "common",
+                    commit: "e9568286",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/e95682869bcce881195a0a1d31208fe89189170c",
+                },
+            ],
+            title: "Живой прицел, четыре артефакта и более ясное поле",
+            impact: "Видно, куда целится другой игрок, новые артефакты меняют то, чем заканчивается бой, а то же поле легче читать на меньшем экране.",
+            stats: [
+                { value: "57", label: "существ" },
+                { value: "109", label: "способностей" },
+                { value: "54", label: "заклинания" },
+                { value: "28", label: "артефактов" },
+            ],
+            sections: [
+                {
+                    title: "Бой, который можно прочитать",
+                    items: [
+                        "Прицел другого игрока виден на вашем поле: ход, выстрел, заклинание и направление Through Shot. Увод указателя с поля снимает клетку прицела, а уже выбранное заклинание остается выбранным. Выстрел после хода рисуется от клетки, куда встает стрелок, а не от той, которую он покинул.",
+                        "Выстрел Cyclops, уничтожающий больше одного стека, показывает взрыв для каждого добитого стека. Area Throw и другие площадные выстрелы попадают в первую клетку крупного тела, которой коснулись, а площадная контратака записывает каждую жертву.",
+                        "Целый Water Shield по-прежнему поглощает не огненный удар. Огненные заклинания, Fire Breath, Fire Shield и ожог Fireforged проходят сквозь него. Helping Hand остается связан с живыми стеками, которые он соединяет.",
+                        "Боковые панели остаются достаточно широкими, не меньше 256 пикселей, когда экран может это позволить. Кнопки рейтинга и Premium переносятся на следующую строку, а не сжимаются. Пока вы выбираете апгрейды, видны артефакты, которые выбрал другой игрок.",
+                        "Разделение стека копирует всю книгу заклинаний и колчан в новый стек, в том числе когда в нём одно существо и когда заклинание имеет единственный заряд, например Resurrection. У исходного стека остаются свои заряды и стрелы. Объединение сохраняет большее оставшееся число каждого заклинания и не складывает книги и колчаны.",
+                    ],
+                },
+                {
+                    title: "Артефакты",
+                    items: [
+                        "Quiver of Echoes дает стрелку 40% шанс на одну дополнительную атаку. Gravechain проклят: атака с вероятностью 50% на каждого врага накладывает Gravebound по цепочке до 3 звеньев, замедляя их на 25% на 3 хода, а каждое существо вашей армии теряет 1 шаг движения.",
+                        "Aegis of the Arcane дает всей армии отдельный бросок магической защиты 18%, который складывается с защитой, которая у существа уже есть. Last Fuse взрывает вражеский стек, уничтоженный вашей армией, и бьет других врагов рядом: 25% добивающего удара или 25 урона за единицу силы стека атакующего, что больше. Свои существа не страдают. Воскрешение отменяет взрыв, а Water Shield может поглотить один.",
+                        "Farsight Quiver позволяет союзным стрелкам игнорировать спад урона с дистанцией и бить полным уроном. Выстрел сквозь Smoke по-прежнему делит урон пополам. Tome of Amplification теперь артефакт 1-го уровня и усиливает нелечащие баффы по союзникам на 35%. Rime Charm тоже 1-го уровня: 30% плюс удача атакующего, чтобы замедлить цель на 3 хода.",
+                    ],
+                },
+                {
+                    title: "Те же армии, другие числа",
+                    items: [
+                        "Arachna Spider: атака 31, урон 55–70. Arachna Queen сохраняет атаку 32 и урон 54–78, при броне 40 и 200 здоровья.",
+                        "Cyclops: атака 22, урон 18–23, 72 здоровья и броня 19. Опыт Dryad равен 11. Опыт Wandering Mage равен 6.466, поэтому 1000 опыта дают 155 существ. У Scavenger по-прежнему 6.1.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Версия 0.1.7 сохраняет те же четыре фракции и 57 существ и приводит прицел, артефакты и числа на поле к тем, которыми идет бой.",
+        },
         {
             version: "v0.1.6",
             date: "04.10.2026",

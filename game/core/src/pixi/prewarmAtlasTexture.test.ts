@@ -89,6 +89,59 @@ describe("temporary atlas bitmap preparation", () => {
         for (let index = 0; index < 12; index++) await Promise.resolve();
     };
 
+    test("already resident atlases skip bitmap decoding, but eviction and another renderer still prepare them", async () => {
+        const texture = frame();
+        const image = texture.source.resource;
+        const prepared = bitmap();
+        const prepare = mock(async () => prepared);
+        const uploads: unknown[] = [];
+        const target = { ...renderer((source) => uploads.push(source.resource)), uid: 17 };
+        const prewarmer = new AtlasTexturePrewarmer(prepare);
+        texture.source._gpuData[17] = { destroy: () => undefined } as never;
+
+        expect(prewarmer.prewarm(target, texture)).toBe(true);
+        await flush();
+        expect(prepare).not.toHaveBeenCalled();
+        expect(uploads).toEqual([image]);
+
+        texture.source.unload();
+        texture.source._gpuData[18] = { destroy: () => undefined } as never;
+        expect(prewarmer.prewarm(target, texture)).toBe(false);
+        await flush();
+        expect(prepare).toHaveBeenCalledTimes(1);
+        expect(prewarmer.prewarm(target, texture)).toBe(true);
+        expect(uploads).toEqual([image, prepared]);
+        expect(prepared.close).toHaveBeenCalledTimes(1);
+        expect(texture.source.resource).toBe(image);
+        prewarmer.destroy();
+        texture.destroy(true);
+    });
+
+    test("a visible upload during preparation cancels and releases the now-redundant bitmap", async () => {
+        const texture = frame();
+        const prepared = bitmap();
+        let finish!: (value: ImageBitmap) => void;
+        let signal!: AbortSignal;
+        const prewarmer = new AtlasTexturePrewarmer(async (_image, _source, currentSignal) => {
+            signal = currentSignal;
+            return new Promise<ImageBitmap>((resolve) => (finish = resolve));
+        });
+        const uploads: unknown[] = [];
+        const target = { ...renderer((source) => uploads.push(source.resource)), uid: 17 };
+        expect(prewarmer.prewarm(target, texture)).toBe(false);
+        await flush();
+        texture.source._gpuData[17] = { destroy: () => undefined } as never;
+        expect(prewarmer.prewarm(target, texture)).toBe(true);
+        expect(signal.aborted).toBe(true);
+        expect(uploads).toEqual([texture.source.resource]);
+        finish(prepared);
+        await flush();
+        expect(prepared.close).toHaveBeenCalledTimes(1);
+        prewarmer.destroy();
+        expect(prepared.close).toHaveBeenCalledTimes(1);
+        texture.destroy(true);
+    });
+
     test("uploads the prepared bitmap on the next caller step, restores the image and releases all temporary pixels", async () => {
         const texture = frame();
         const image = texture.source.resource;

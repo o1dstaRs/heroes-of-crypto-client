@@ -36,7 +36,7 @@ const makeContext = (over: Partial<ISandboxButtonContext> = {}): { ctx: ISandbox
         setCurrentEnemiesCellsWithinMovementRange: () => {},
         setSelectedAttackType: () => {},
         setCurrentActiveSpell: () => {},
-        getCurrentActiveSpell: () => undefined,
+        getSelectedSpellName: () => undefined,
         setVisibleButtons: () => {},
         setAIActive: (active: boolean) => {
             rec.aiActive.push(active);
@@ -299,6 +299,64 @@ describe("ButtonManager spellbook gating", () => {
             isDisabled: true,
             text: "Select spell",
         });
+    });
+
+    for (const canControl of [true, false]) {
+        it(`shows the selected spell's art and name on ${canControl ? "our" : "the opponent's"} turn`, () => {
+            expect(
+                spellbookButtonFor(2, true, {
+                    canControlCurrentActiveUnit: () => canControl,
+                    getSelectedSpellName: () => "Meteorite",
+                }),
+            ).toMatchObject({
+                isDisabled: !canControl,
+                text: "Selected spell: Meteorite",
+                customSpriteName: "meteorite_chaos_256_v1",
+            });
+        });
+    }
+
+    it("updates and clears the opponent's spell without enabling their controls", () => {
+        const fight = FightStateManager.getInstance();
+        fight.reset();
+        fight.getFightProperties().startFight();
+        let selectedSpellName: string | undefined = "Fire Strike";
+        let captured: IVisibleButton[] = [];
+        let opened = false;
+        const { ctx, rec } = makeContext({
+            getCurrentActiveUnit: () => makeCaster({ spells: 3, canCast: true }),
+            canControlCurrentActiveUnit: () => false,
+            getSelectedSpellName: () => selectedSpellName,
+            setVisibleButtons: (buttons) => {
+                captured = buttons;
+            },
+            setSpellBookOverlay: () => {
+                opened = true;
+            },
+        });
+        try {
+            const manager = new ButtonManager(ctx, false);
+            const button = () => captured.find((item) => item.name === "Spellbook");
+            expect(button()?.customSpriteName).toBe("fire_strike_chaos_256_v1");
+            selectedSpellName = "Heal";
+            manager.refreshButtons();
+            expect(button()).toMatchObject({
+                text: "Selected spell: Heal",
+                customSpriteName: "heal_256",
+                isDisabled: true,
+            });
+            for (const name of ["Spellbook", "AttackType", "Next"]) {
+                manager.propagateButtonClicked(name, VisibleButtonState.FIRST);
+            }
+            expect(opened).toBe(false);
+            expect(rec.actions).toHaveLength(0);
+            selectedSpellName = undefined;
+            manager.refreshButtons();
+            expect(button()).toMatchObject({ text: "Select spell", isDisabled: true });
+            expect(button()?.customSpriteName).toBeUndefined();
+        } finally {
+            fight.reset();
+        }
     });
 
     it("a click on a spell-less unit says why and does not open the book", () => {

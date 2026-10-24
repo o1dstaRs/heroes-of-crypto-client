@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { CreatureVals, FactionVals, HoCConfig, TeamVals } from "@heroesofcrypto/common";
+import { CREATURES_JSON, CreatureVals, FactionVals, HoCConfig, TeamVals } from "@heroesofcrypto/common";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -14,6 +14,9 @@ import {
 } from "../decodedImageCache";
 import { hocJoyTheme } from "../hocTheme";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
+import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import { isCreaturePortraitMirrored } from "../creaturePortraitVisual";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import {
     leftSidebarPortraitSources,
     resetLeftSidebarPortraitWarmForTests,
@@ -37,8 +40,14 @@ const installImages = () => {
     }));
 };
 
-const renderPortrait = async (animatePortrait = true) => {
-    const unitProperties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Arbalester", "arbalester_512", 2);
+const renderPortrait = async (animatePortrait = true, name = "Arbalester", faction = "Life") => {
+    const unitProperties = HoCConfig.getCreatureConfig(
+        TeamVals.LEFT,
+        faction,
+        name,
+        `${name.toLowerCase().replaceAll(" ", "_")}_512`,
+        2,
+    );
     const html = renderToStaticMarkup(
         <CacheProvider value={createCache({ key: "hoc-portrait-test" })}>
             <CssVarsProvider theme={hocJoyTheme}>
@@ -53,6 +62,9 @@ const renderPortrait = async (animatePortrait = true) => {
     );
     const ids: string[] = [];
     const animatedLabels: string[] = [];
+    const atlasElements: Array<{ tag: string; source: string | null }> = [];
+    let stillStyle: string | null = null;
+    let animatedStyle: string | null = null;
     await new HTMLRewriter()
         .on("[data-creature-portrait]", {
             element(element) {
@@ -62,11 +74,22 @@ const renderPortrait = async (animatePortrait = true) => {
         .on('[aria-label$="animated portrait"]', {
             element(element) {
                 animatedLabels.push(element.getAttribute("aria-label")!);
+                animatedStyle = element.getAttribute("style");
+            },
+        })
+        .on("img[data-portrait-critical]", {
+            element(element) {
+                if (element.getAttribute("alt") === name) stillStyle = element.getAttribute("style");
+            },
+        })
+        .on("[data-sidebar-atlas]", {
+            element(element) {
+                atlasElements.push({ tag: element.tagName, source: element.getAttribute("data-sidebar-atlas") });
             },
         })
         .transform(new Response(html))
         .text();
-    return { html, ids, animatedLabels };
+    return { html, ids, animatedLabels, atlasElements, stillStyle, animatedStyle };
 };
 
 test("a first cold selection waits for its complete portrait pair instead of painting a partial creature", async () => {
@@ -87,7 +110,45 @@ test("a ready portrait preserves the integrated animation and inspection can dis
     expect(animated.ids).toEqual([String(CreatureVals.ARBALESTER)]);
     expect(animated.animatedLabels).toEqual(["Arbalester animated portrait"]);
     expect(animated.html).toContain(resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src);
+    expect(animated.atlasElements).toEqual([
+        { tag: "canvas", source: resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src },
+    ]);
     const inspected = await renderPortrait(false);
     expect(inspected.ids).toEqual([String(CreatureVals.ARBALESTER)]);
+    expect(inspected.animatedLabels).toEqual([]);
+    expect(inspected.atlasElements).toEqual([]);
+});
+
+const animatedCreatures = Object.entries(CREATURES_JSON).flatMap(([faction, creatures]) =>
+    Object.keys(creatures)
+        .map((name) => ({ faction, name, id: UNIT_NAME_TO_ID[name] }))
+        .filter(({ id }) => resolveIntegratedArbalesterPortrait(id, resolveLeftSidebarPortraitAnimation(id))),
+);
+const styleProperties = (style: string | null) =>
+    Object.fromEntries(
+        (style ?? "")
+            .split(";")
+            .filter(Boolean)
+            .map((property) => property.split(":")),
+    );
+
+test.each(animatedCreatures)("$name keeps its still's facing and framing when animation starts", async (creature) => {
+    installImages();
+    expect(await warmLeftSidebarPortrait(creature.id, false)).toBe(true);
+    const animated = await renderPortrait(true, creature.name, creature.faction);
+    const still = styleProperties(animated.stillStyle);
+    const motion = styleProperties(animated.animatedStyle);
+    expect(animated.animatedLabels).toEqual([`${creature.name} animated portrait`]);
+    expect(still.transform).toContain(`scaleX(${isCreaturePortraitMirrored(creature.id) ? -1 : 1})`);
+    const placement = ["transform", "position", "left", "top", "width", "height", "transform-origin"];
+    for (const property of placement) {
+        expect(motion[property], `${creature.name}: ${property}`).toBe(still[property]);
+    }
+    expect(still.opacity).toBe("1");
+    expect(motion.opacity).toBe("0");
+    const inspected = await renderPortrait(false, creature.name, creature.faction);
+    for (const property of placement) {
+        expect(styleProperties(inspected.stillStyle)[property]).toBe(still[property]);
+    }
     expect(inspected.animatedLabels).toEqual([]);
 });

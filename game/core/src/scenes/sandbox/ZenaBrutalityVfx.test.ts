@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Container, Graphics, Sprite, Texture, TextureSource } from "pixi.js";
-import { ZenaBrutalityVfx, type BrutalityPose } from "./ZenaBrutalityVfx";
+import { ZenaBrutalityVfx, prepareBrutalityTarget, type BrutalityPose } from "./ZenaBrutalityVfx";
 import { BRUTALITY_ANATOMY } from "./brutality_anatomy";
 import { FINAL_STATIC_BATTLEFIELD_TEXTURES } from "../../pixi/battlefieldTextureKeys";
 
@@ -25,6 +25,40 @@ const setup = (stretch = 1, facing = 1) => {
 };
 
 describe("Zena brutality", () => {
+    test.each([
+        ["Peasant", 0.47, 0.235],
+        ["Wolf", 0.72, 0.475],
+        ["Arachna Queen", 0.535, 0.575],
+    ] as const)("%s contact lies on its actual removal seam", (name, x, y) => {
+        const { effect, pose, texture } = setup();
+        const target = prepareBrutalityTarget(pose, name)!;
+        expect(target.point.x).toBeCloseTo(pose.x + (x - pose.anchorX) * texture.width * pose.scaleX, 6);
+        expect(target.point.y).toBeCloseTo(pose.y + (y - pose.anchorY) * texture.height * pose.scaleY, 6);
+        effect.clear();
+        texture.destroy(true);
+    });
+
+    test.each([-1, 1])(
+        "the preflight contact matches the death's neck through board stretch and mirror, facing=%s",
+        (facing) => {
+            for (const stretch of [1, 1.8]) {
+                const { effect, pose, world, texture } = setup(stretch, facing);
+                world.scale.x = -1;
+                const target = prepareBrutalityTarget(pose, "Wolf")!;
+                expect(target.pose).not.toBe(pose);
+                expect(effect.spawn(target.pose, "Wolf", 128, { x: facing, y: 0.5 })).toBe(true);
+                const death = (effect as unknown as { deaths: { neck: { x: number; y: number } }[] }).deaths[0];
+                const contact = world.toGlobal(target.point);
+                const neck = world.children[0].toGlobal(death.neck);
+                expect(neck.x).toBeCloseTo(contact.x, 5);
+                expect(neck.y).toBeCloseTo(contact.y, 5);
+                effect.clear();
+                texture.destroy(true);
+                world.destroy({ children: true });
+            }
+        },
+    );
+
     test.each([-1, 1])("the victim's real head lifts, spins away from the strike and lands, facing=%s", (facing) => {
         const { effect, pose, world, texture } = setup(1, facing);
         expect(effect.spawn(pose, "Peasant", 128, { x: facing, y: 0 })).toBe(true);
@@ -36,15 +70,15 @@ describe("Zena brutality", () => {
         expect(((head.children[0] as Container).children[0] as Sprite).texture).toBe(texture);
         expect(body.mask).toBeInstanceOf(Graphics);
         expect((head.children[0] as Container).mask).toBeInstanceOf(Graphics);
-        effect.update(0.2);
+        effect.update(0.2 / 1.2);
         expect((head.x - start.x) * facing).toBeGreaterThan(0);
         expect(head.y).toBeGreaterThan(start.y);
         expect(Math.abs(head.rotation)).toBeGreaterThan(1);
-        effect.update(0.74);
+        effect.update(0.74 / 1.2);
         expect(head.y).toBeCloseTo(0, 5);
-        effect.update(0.13);
+        effect.update(0.13 / 1.2);
         expect(head.y).toBeGreaterThan(0);
-        effect.update(0.13);
+        effect.update(0.13 / 1.2);
         expect(head.y).toBeCloseTo(0, 5);
         expect(body.alpha).toBe(0);
         effect.clear();
@@ -77,7 +111,10 @@ describe("Zena brutality", () => {
         const root = world.children[0];
         const head = root.getChildByLabel("severed-head")!;
         expect(effect.active).toBe(true);
-        effect.update(3);
+        effect.update(2.65 / 1.2 - 0.001);
+        expect(effect.active).toBe(true);
+        expect(root.destroyed).toBe(false);
+        effect.update(0.002);
         expect(effect.active).toBe(false);
         expect(root.destroyed).toBe(true);
         expect(head.destroyed).toBe(true);

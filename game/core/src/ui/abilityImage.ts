@@ -16,6 +16,7 @@ export const ABILITY_IMAGE_ALIASES: Readonly<Record<string, string>> = {
     warding_mane_blessing_256: "warding_mane_aura_256",
     arrows_wingshield_blessing_256: "arrows_wingshield_aura_256",
     angelic_host_blessing_256: "angelic_host_256",
+    sharpened_weapons_blessing_256: "sharpened_weapons_aura_256",
 };
 
 /**

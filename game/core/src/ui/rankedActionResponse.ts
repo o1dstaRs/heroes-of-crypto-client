@@ -2,11 +2,26 @@ import type { GameAction, TeamType } from "@heroesofcrypto/common";
 
 import { GridConstants } from "@heroesofcrypto/common";
 
-import { PlayActionType, PlayPhase, type PlayAction, type PlaySnapshot } from "../api/play_protocol";
+import {
+    PlayActionType,
+    PlayPhase,
+    type PlayAction,
+    type PlayActionTypeValue,
+    type PlaySnapshot,
+} from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 
 export const isPlacementMutationAction = (action: Pick<GameAction, "type">): boolean =>
     action.type === "place_unit" || action.type === "delete_unit" || action.type === "split_unit";
+
+// These already land on the board before the HTTP round trip. The "Submitting" spinner disabled the
+// next click and re-rendered the whole ranked HUD for every drag, which is the lag players feel
+// while arranging an army.
+export const placementActionSkipsSubmitSpinner = (type: PlayActionTypeValue): boolean =>
+    type === PlayActionType.PLACE_UNIT ||
+    type === PlayActionType.SPLIT_UNIT ||
+    type === PlayActionType.DELETE_UNIT ||
+    type === PlayActionType.UNPLACE_UNIT;
 
 // Placement mutations are already applied optimistically by the scene. Replaying their journal record
 // through the combat animation queue adds no visual value and can deadlock that queue while a placement

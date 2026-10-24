@@ -245,19 +245,25 @@ describe("lobby creation price", () => {
         expect(String(get.mock.calls[0]?.[0])).toContain(endpoints.mm.lobbyPrice);
     });
 
-    test("0 means the season has no economy yet and lobbies are still free", async () => {
+    test("rejects a zero price instead of allowing a free lobby", async () => {
         spyOn(axiosMMInstance, "get").mockResolvedValue({
             data: { price: 0, seasonGold: 0, calibratedPlayers: 0, perCalibratedPlayer: 10 },
         } as never);
-        expect((await fetchLobbyPriceBreakdown()).price).toBe(0);
+        await expect(fetchLobbyPriceBreakdown()).rejects.toThrow("Lobby price is unavailable");
     });
 
-    test("a malformed answer reads as free rather than as a bogus charge", async () => {
-        // The quote is only DISPLAYED — the server charges what it charges — so a garbled body must
-        // not render as "costs NaN G" or, worse, as a negative price the UI reads as a credit.
-        for (const body of [{}, { price: "12" }, { price: -5 }, { price: Number.NaN }, null]) {
+    test("rejects malformed prices instead of authorizing creation", async () => {
+        for (const body of [
+            {},
+            { price: "12" },
+            { price: -5 },
+            { price: Number.NaN },
+            { price: 1.5 },
+            { price: Number.POSITIVE_INFINITY },
+            null,
+        ]) {
             spyOn(axiosMMInstance, "get").mockResolvedValue({ data: body } as never);
-            expect((await fetchLobbyPriceBreakdown()).price).toBe(0);
+            await expect(fetchLobbyPriceBreakdown()).rejects.toThrow("Lobby price is unavailable");
         }
     });
 
@@ -267,9 +273,9 @@ describe("lobby creation price", () => {
         expect((await fetchLobbyPriceBreakdown()).perCalibratedPlayer).toBe(10);
     });
 
-    test("floors fractional figures so the UI never shows a part-coin price", async () => {
+    test("floors fractional pool figures while preserving the valid quoted price", async () => {
         spyOn(axiosMMInstance, "get").mockResolvedValue({
-            data: { price: 7.9, seasonGold: 100.5, calibratedPlayers: 3.2, perCalibratedPlayer: 10 },
+            data: { price: 7, seasonGold: 100.5, calibratedPlayers: 3.2, perCalibratedPlayer: 10 },
         } as never);
         expect(await fetchLobbyPriceBreakdown()).toMatchObject({ price: 7, seasonGold: 100, calibratedPlayers: 3 });
     });

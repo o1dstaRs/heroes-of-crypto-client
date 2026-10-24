@@ -44,9 +44,14 @@ import { BoarSalivaPops } from "./BoarSalivaPops";
 import { DevourEssencePops } from "./DevourEssencePops";
 import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
 import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
-import { ZenaBrutalityVfx } from "./ZenaBrutalityVfx";
+import { ZenaBrutalityVfx, prepareBrutalityTarget, type BrutalityTarget } from "./ZenaBrutalityVfx";
+import { HelpingHandLinks } from "./HelpingHandLinks";
+import { EmberCovenantRings } from "./EmberCovenantRings";
+import { CyclopsGoreVfx } from "./CyclopsGoreVfx";
+import type { BrutalityPose } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
+    isCombatImpactPending?(): boolean;
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
     /**
@@ -63,6 +68,7 @@ export interface ICombatVisualsContext {
 }
 
 interface IFloatingText {
+    immediate?: boolean;
     container: Container;
     age: number;
     life: number;
@@ -250,6 +256,7 @@ interface IUnitAblaze {
 /** A damage number waiting for the moment it belongs to (a burn the walk animation has not reached yet). */
 interface IDelayedFloatingDamage {
     audioUnit?: Pick<Unit, "getName" | "getId">;
+    presentCasualties?: () => void;
     pos: HoCMath.XY;
     amount: number;
     unitsDied: number;
@@ -698,10 +705,50 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private cyclopsGore = new CyclopsGoreVfx((container) => this.attachEffect(container, 4550));
+    private cyclopsKills = new Map<string, { pose?: BrutalityPose; direction: HoCMath.XY }>();
+    private cyclopsDeathBodies = new WeakSet<RenderableUnit>();
     private zenaBrutality = new ZenaBrutalityVfx((container) => this.attachEffect(container, 4550));
-    private zenaKills = new Map<string, HoCMath.XY>();
+    private zenaKills = new Map<string, { direction: HoCMath.XY; target?: BrutalityTarget }>();
     private zenaDeathBodies = new WeakSet<RenderableUnit>();
     private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
+    private helpingHandLinks = new HelpingHandLinks({
+        getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
+        getGridSettings: () => this.context.getGridSettings(),
+        attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
+    });
+    private emberCovenantTexture?: Texture;
+    private emberCovenantTextureLoading = false;
+    private emberCovenantTextureRetryAt = 0;
+    private emberCovenantRings = new EmberCovenantRings({
+        isImpactPending: () => this.context.isCombatImpactPending?.() ?? false,
+        getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
+        getTexture: () => {
+            if (this.emberCovenantTexture?.destroyed) this.emberCovenantTexture = undefined;
+            if (
+                !this.emberCovenantTextureLoading &&
+                !this.emberCovenantTexture &&
+                performance.now() >= this.emberCovenantTextureRetryAt
+            ) {
+                const url = (images as Record<string, string>).ember_covenant_ring;
+                if (url) {
+                    this.emberCovenantTextureLoading = true;
+                    void Assets.load<Texture>(url).then(
+                        (texture) => {
+                            this.emberCovenantTexture = texture;
+                            this.emberCovenantTextureLoading = false;
+                        },
+                        () => {
+                            this.emberCovenantTextureLoading = false;
+                            this.emberCovenantTextureRetryAt = performance.now() + 3000;
+                        },
+                    );
+                }
+            }
+            return this.emberCovenantTexture;
+        },
+        attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
+    });
     private audioEpoch = 0;
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
@@ -927,6 +974,7 @@ export class CombatVisuals {
         flagTopAnchor?: HoCMath.XY,
         screenBottomExtent = 0,
         zIndex = 2000,
+        immediate = false,
     ): void {
         // Anti-overlap: if numbers are already floating near this spot, stack this one
         // above them instead of drawing on top.
@@ -960,11 +1008,12 @@ export class CombatVisuals {
         if (stack > 0 && !flagTopAnchor) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
 
         container.scale.set(glyphScaleX(FT_START_SCALE), -FT_START_SCALE);
-        container.alpha = 0;
+        container.alpha = immediate ? 1 : 0;
         container.position.set(startX, startY);
         this.attachEffect(container, zIndex);
 
         this.floatingTexts.push({
+            immediate,
             container,
             age: 0,
             life: FT_LIFE,
@@ -1075,9 +1124,15 @@ export class CombatVisuals {
         direction?: HoCMath.XY,
         unitsDied?: number,
         unit?: RenderableUnit,
+        presentCasualties?: () => void,
+        source?: "ember_covenant",
+        unitId = unit?.getId(),
     ): void {
-        if (unit) {
-            unit.presentDamageCasualties(unitsDied ?? 0);
+        if (presentCasualties) presentCasualties();
+        else unit?.presentDamageCasualties(unitsDied ?? 0);
+        if (unitId && source === "ember_covenant") {
+            this.emberCovenantRings.absorb(unitId);
+        } else if (unit) {
             this.spawnCommonFlagPop(unit, "absorb");
         }
         const container = new Container();
@@ -1113,6 +1168,8 @@ export class CombatVisuals {
             direction,
             unit?.getFlagEffectAnchor(this.context.getGridSettings()),
             this.context.getGridSettings().getCellSize() * 1.45 + (unitsDied ? 92 : 38),
+            2000,
+            true,
         );
     }
     public spawnParalysisPop(unit: RenderableUnit): void {
@@ -1748,7 +1805,15 @@ export class CombatVisuals {
         // fetching URL-backed assets immediately, so warming a rare spell kept both images decoded for
         // every battle. spawnCraftForge resolves them only when the spell is actually cast.
     }
+    public captureHelpingHandPresentation(): void {
+        this.helpingHandLinks.capturePresentation();
+    }
+    public endHelpingHandLinksForUnit(unitId: string): void {
+        this.helpingHandLinks.endForUnit(unitId);
+    }
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
+        this.helpingHandLinks.clear();
+        if (!options?.keepDetachedOverlays) this.emberCovenantRings.clear();
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
@@ -1829,6 +1894,9 @@ export class CombatVisuals {
             this.zenaBrutality.clear();
             this.zenaKills.clear();
             this.zenaDeathBodies = new WeakSet();
+            this.cyclopsGore.clear();
+            this.cyclopsKills.clear();
+            this.cyclopsDeathBodies = new WeakSet();
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1901,6 +1969,8 @@ export class CombatVisuals {
         this.lightTexture = undefined;
     }
     public update(dt: number) {
+        this.helpingHandLinks.update(dt);
+        this.emberCovenantRings.update(dt);
         this.gravechains.update(dt);
         this.battleRoarPops?.update(dt);
         this.predatoryAssimilationPops?.update(dt);
@@ -1932,6 +2002,7 @@ export class CombatVisuals {
             this.areaImpacts.length === 0 &&
             !this.lastFuse.active &&
             !this.zenaBrutality.active &&
+            !this.cyclopsGore.active &&
             this.resurrectBursts.length === 0 &&
             !this.lightningProcedural?.active &&
             !this.whirlpoolSprites?.active &&
@@ -1972,7 +2043,7 @@ export class CombatVisuals {
 
             // Fade in quickly, hold, then fade out smoothly.
             let alpha = 1;
-            if (ft.age < FT_FADE_IN) {
+            if (!ft.immediate && ft.age < FT_FADE_IN) {
                 alpha = ft.age / FT_FADE_IN;
             } else if (t > FT_FADE_OUT_FROM) {
                 alpha = 1 - (t - FT_FADE_OUT_FROM) / (1 - FT_FADE_OUT_FROM);
@@ -2029,6 +2100,7 @@ export class CombatVisuals {
         this.stepAreaImpacts(dt);
         this.lastFuse.update(dt);
         this.zenaBrutality.update(dt);
+        this.cyclopsGore.update(dt);
         this.stepResurrectBursts(dt);
         this.spellAtmosphere?.begin();
         this.lightningProcedural?.update();
@@ -2354,23 +2426,62 @@ export class CombatVisuals {
             }
         }
     }
+    public noteCyclopsKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: RenderableUnit,
+        direction: HoCMath.XY,
+    ): void {
+        if (attacker.getName() !== "Cyclops" || attacker.getTeam() === victim.getTeam()) return;
+        const pose = victim.getStaticBattlefieldPreviewAt?.(victim.getPosition(), this.context.getGridSettings(), true);
+        this.cyclopsKills.set(victim.getId(), { pose: pose ? { ...pose } : undefined, direction: { ...direction } });
+    }
+    public playCyclopsGoreDeath(unit: RenderableUnit): boolean {
+        if (this.cyclopsDeathBodies.has(unit)) return true;
+        const kill = this.cyclopsKills.get(unit.getId());
+        if (!kill) return false;
+        this.cyclopsKills.delete(unit.getId());
+        const gs = this.context.getGridSettings();
+        const pose = kill.pose ?? unit.getStaticBattlefieldPreviewAt?.(unit.getPosition(), gs, true);
+        if (!pose) return false;
+        let seed = 0;
+        for (const char of unit.getId()) seed = (Math.imul(seed, 31) + char.charCodeAt(0)) >>> 0;
+        const spawned = this.cyclopsGore.spawn(pose, gs.getCellSize(), kill.direction, seed % 65521);
+        if (spawned) {
+            this.cyclopsDeathBodies.add(unit);
+            this.deathBlowByUnitId.delete(unit.getId());
+        }
+        return spawned;
+    }
+    public resetCyclopsDeath(unitId: string, unit?: RenderableUnit): void {
+        this.cyclopsKills.delete(unitId);
+        if (unit) this.cyclopsDeathBodies.delete(unit);
+    }
+    public prepareZenaKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: RenderableUnit,
+    ): BrutalityTarget | undefined {
+        if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return undefined;
+        const pose = victim.getStaticBattlefieldPreviewAt?.(victim.getPosition(), this.context.getGridSettings(), true);
+        return pose ? prepareBrutalityTarget(pose, victim.getName()) : undefined;
+    }
     public noteZenaKill(
         attacker: Pick<Unit, "getName" | "getTeam">,
         victim: Pick<Unit, "getId" | "getTeam">,
         direction: HoCMath.XY,
+        target?: BrutalityTarget,
     ): void {
         if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return;
-        this.zenaKills.set(victim.getId(), { ...direction });
+        this.zenaKills.set(victim.getId(), { direction: { ...direction }, target });
     }
     public playZenaBrutalityDeath(unit: RenderableUnit): boolean {
         if (this.zenaDeathBodies.has(unit)) return true;
-        const direction = this.zenaKills.get(unit.getId());
-        if (!direction) return false;
+        const kill = this.zenaKills.get(unit.getId());
+        if (!kill) return false;
         this.zenaKills.delete(unit.getId());
         const gs = this.context.getGridSettings();
-        const pose = unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
+        const pose = kill.target?.pose ?? unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
         if (!pose) return false;
-        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), direction);
+        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), kill.direction);
         if (spawned) {
             this.zenaDeathBodies.add(unit);
             this.deathBlowByUnitId.delete(unit.getId());
@@ -4100,8 +4211,10 @@ export class CombatVisuals {
         flagTopAnchor?: HoCMath.XY,
         audioUnit?: Pick<Unit, "getName" | "getId">,
         zIndex?: number,
+        presentCasualties?: () => void,
     ): void {
-        if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
+        if (presentCasualties) presentCasualties();
+        else if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
@@ -4729,6 +4842,8 @@ export class CombatVisuals {
             stroke,
             audioUnit,
             zIndex,
+            presentCasualties:
+                audioUnit instanceof RenderableUnit ? audioUnit.captureDamageCasualties(unitsDied) : undefined,
         });
     }
     private stepDelayedFloatingDamage(dt: number): void {
@@ -4749,6 +4864,7 @@ export class CombatVisuals {
                 undefined,
                 pending.audioUnit,
                 pending.zIndex,
+                pending.presentCasualties,
             );
         }
     }

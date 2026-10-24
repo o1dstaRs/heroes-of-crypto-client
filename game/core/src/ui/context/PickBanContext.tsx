@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CustomEventSource, PickPhaseVals, TeamType, TeamVals } from "@heroesofcrypto/common";
-import { IS_PROD } from "../env";
+import { PickPhaseVals, TeamType, TeamVals } from "@heroesofcrypto/common";
+import { setStoredAccessToken } from "../../api/access_token";
+import { followPickEventStream, pickStreamId } from "../../api/pick_event_stream";
 import { tokenExpSafe } from "../auth/context/auth_utils";
 import { IPickPhaseEventData, pickPhaseIdentity, PickBanContext } from "./PickBanContextDefs";
 
@@ -29,7 +30,9 @@ export const PickBanEventProvider: React.FC<{
     children: React.ReactNode;
     url: string;
     userTeam: TeamType;
-}> = ({ children, url, userTeam }) => {
+    onConnectionConflict?: () => void;
+    reclaimConnection?: boolean;
+}> = ({ children, url, userTeam, onConnectionConflict, reclaimConnection }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [events, setEvents] = useState<IPickPhaseEventData[]>([]);
     const [banned, setBanned] = useState<number[]>([]);
@@ -76,7 +79,7 @@ export const PickBanEventProvider: React.FC<{
                     cookieExp > Date.now() / 1000 &&
                     (storedExp === null || cookieExp > storedExp)
                 ) {
-                    localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+                    setStoredAccessToken(accessTokenCookie);
                 }
                 document.cookie = `${STORAGE_KEY}=; Max-Age=0; path=/`;
                 const hostname = window.location.hostname;
@@ -88,30 +91,15 @@ export const PickBanEventProvider: React.FC<{
         };
         refreshLocalStorageFromCookie();
 
-        const token = localStorage.getItem(STORAGE_KEY);
-
-        // Create SSE connection
-        const eventSource = new CustomEventSource<IPickPhaseEventData>(url, {
-            token: token ?? undefined,
-            debug: !IS_PROD ? false : false,
-        });
-
-        /**
-         * An OPEN stream is a connected stream.
-         *
-         * isConnected only flipped on a decoded pick frame, and a draft is quiet between picks — the
-         * heartbeats that keep it alive are SSE comments, which the parser drops. So a reconnect into a
-         * thinking opponent read as "never connected", and twelve seconds later the stall watch handed the
-         * player the read-only observer view of their own draft (owner, 20 Sep). onopen fires only on a real
-         * 200: a draft genuinely open in another tab answers 429 and never reaches here, so that signal —
-         * the one the read-only view exists for — still works.
-         */
-        eventSource.onopen = () => {
+        const controller = new AbortController();
+        setIsConnected(false);
+        setError(null);
+        const onOpen = () => {
             setIsConnected(true);
             setError(null);
         };
 
-        eventSource.onmessage = (event: IPickPhaseEventData) => {
+        const onMessage = (event: IPickPhaseEventData) => {
             setEvents((prevEvents) => [...prevEvents, event]);
             setIsConnected(true);
             setBanned(event.b);
@@ -144,17 +132,28 @@ export const PickBanEventProvider: React.FC<{
             }
         };
 
-        eventSource.onerror = (error: Error) => {
-            console.error("SSE Connection Error:", error);
-            setError(error.message);
-            setIsConnected(false);
-        };
+        void followPickEventStream(
+            url,
+            {
+                onOpen,
+                onMessage,
+                onError: (error) => {
+                    setError(error.message);
+                    setIsConnected(false);
+                },
+                onConflict: () => {
+                    setIsConnected(false);
+                    onConnectionConflict?.();
+                },
+            },
+            controller.signal,
+            { connectionId: pickStreamId(), takeover: reclaimConnection },
+        );
 
-        // Cleanup on unmount
         return () => {
-            eventSource.close();
+            controller.abort();
         };
-    }, [url, userTeam]);
+    }, [url, userTeam, onConnectionConflict, reclaimConnection]);
 
     // Memoize context value to prevent unnecessary re-renders
     const contextValue = useMemo(

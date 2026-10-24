@@ -2,7 +2,7 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 4,533 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,674 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
@@ -36,9 +36,23 @@ Finally extract `animation-review-fixes-20261017.zip` there. It supplies the cur
 Arcane Ward Blessing icons and seven registered atlas variants that the earlier portable package
 omitted. Wandering Mage already had Fireball in its configured spellbook.
 
+Also download [sidebar_portraits_paged_v1](https://drive.google.com/drive/folders/1VMZgBqWKLP2WyAcP9pbThHO9vBESbzb1) from the shared Drive's `heroesofcrypto/animations/output`
+and place that folder under the restored release's `animations/output`. This supplement adds 1,084
+portrait pages and 55 metadata files; its hashes are included in the release manifest. The compact
+archives above predate this supplement. Its reproducible recipe, master references, encoding report,
+dark-background visual comparison and verified synchronization receipt are in
+[sidebar-portrait-streaming-20261017-pr194](https://drive.google.com/drive/folders/1VsDYY5JcBhVdTZRgl0hnov-Uu2ejItm-) under `heroesofcrypto/image-sources`.
+
 Do not substitute differently hashed source atlases for the approved rendered copies. In particular,
 the Nightmare quarter-resolution attacks and Troglodyte walk variants intentionally retain the
 approved bytes that the running local sandbox used.
+
+The 2026-10-22 Ember Covenant supplement adds `ember_covenant_blessing_256.webp` and
+`ember_covenant_ring.webp`. Copy these two files from the shared Drive source package
+`heroesofcrypto/image-sources/hydra-ember-covenant/2026-10-22-v3` into the restored release's
+`heroesofcrypto-assets/images` directory. Their approved hashes and sizes are pinned in the release
+manifest. The source package also preserves the prompts, reference artwork, processing recipe,
+previous icon and an interactive preview of the flag-centered fire effect.
 
 ## Build and publish
 
@@ -64,6 +78,14 @@ lossless creature atlases as well. This changes only local build copies and only
 already lossy artwork and the 310 explicitly pinned render assets remain byte-identical. Every encoded
 copy must retain the source canvas dimensions and all alpha values. The reviewed 333 optimized copies
 reduce their combined size from 1,057,450,226 to 342,665,676 bytes (67.6%). Full authored masters remain in Drive.
+
+All 55 animated sidebar portraits stream native-resolution pages of at most five frames. The pages use
+WebP quality 93 with exact alpha; every page passes a visible-pixel PSNR floor of 40 dB against its
+SHA-pinned master. `game/core/scripts/build_sidebar_portrait_pages.ts` reproduces the export from a
+flattened directory of the approved masters, without resizing, reframing or changing playback timing.
+The runtime keeps the current page and two lookahead pages, shares one page decoder, limits inactive
+decoded pages to 16 MiB, cancels obsolete selections and pauses hidden tabs. Production rejects any
+missing or differently hashed page before generating image imports.
 
 The shared Drive now contains every manifest resource. Previous differing revisions, available authoring
 materials, synchronization records, and processing recipes are preserved under

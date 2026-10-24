@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { GridVals, type GameAction, type IGameActionResult } from "@heroesofcrypto/common";
 
+import { STORAGE_HEADROOM_CHARS } from "../api/local_storage_quota";
 import {
     MAX_SAVED_SANDBOX_REPLAYS,
     SandboxReplayRecorder,
@@ -152,16 +153,23 @@ describe("SandboxReplayRecorder", () => {
     });
 
     describe("when the browser's storage quota is full", () => {
-        /** Storage that refuses any write longer than `limit` characters, like a full localStorage. */
+        /** Storage that refuses once the stored characters would pass `limit`, like a full localStorage. */
         class QuotaStorage extends MemoryStorage {
+            private used = 0;
             public constructor(private readonly limit: number) {
                 super();
             }
             public override setItem(key: string, value: string): void {
-                if (value.length > this.limit) {
+                const next = this.used - (this.getItem(key)?.length ?? 0) + value.length;
+                if (next > this.limit) {
                     throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
                 }
                 super.setItem(key, value);
+                this.used = next;
+            }
+            public override removeItem(key: string): void {
+                this.used -= this.getItem(key)?.length ?? 0;
+                super.removeItem(key);
             }
         }
         const replay = (index: number): SandboxReplay => ({
@@ -175,8 +183,8 @@ describe("SandboxReplayRecorder", () => {
         });
 
         it("drops the oldest replays until the newest fits, and never throws", () => {
-            const oneReplay = JSON.stringify([replay(0)]).length;
-            const storage = new QuotaStorage(oneReplay * 2 + 1);
+            const twoReplays = JSON.stringify([replay(1), replay(0)]).length;
+            const storage = new QuotaStorage(twoReplays + STORAGE_HEADROOM_CHARS);
 
             expect(() => {
                 for (let i = 0; i < 5; i += 1) {
@@ -185,6 +193,16 @@ describe("SandboxReplayRecorder", () => {
             }).not.toThrow();
 
             expect(listSandboxReplays(storage).map((saved) => saved.id)).toEqual(["replay-4", "replay-3"]);
+        });
+
+        it("keeps a gap for the session token instead of packing replays to the quota", () => {
+            const oneReplay = JSON.stringify([replay(0)]).length;
+            const storage = new QuotaStorage(oneReplay + STORAGE_HEADROOM_CHARS);
+
+            saveSandboxReplay(replay(1), storage);
+            saveSandboxReplay(replay(2), storage);
+
+            expect(listSandboxReplays(storage).map((saved) => saved.id)).toEqual(["replay-2"]);
         });
 
         it("skips the save when even the newest replay alone does not fit", () => {

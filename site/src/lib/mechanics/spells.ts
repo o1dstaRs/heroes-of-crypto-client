@@ -40,9 +40,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Helping Hand": {
         en: ({ p, n }) =>
-            `For 3 laps the ally's creatures gain ${n(p)}% of one Satyr's max health and ${n(p)}% of its base armor, and the Satyr loses the same. It can't target the Satyr itself or another Satyr stack; Tome of Amplification makes the gift ${n(amplified(p))}% while the Satyr still pays ${n(p)}%.`,
+            `For 3 laps the ally's creatures gain ${n(p)}% of one caster creature's max health and ${n(p)}% of its base armor, and the caster loses the same. A visible golden spiritual link joins the two stacks. If either stack dies, the link, bonus and penalty end immediately. It can't target the caster itself or another stack of the same creature; Tome of Amplification makes the gift ${n(amplified(p))}% while the caster still pays ${n(p)}%.`,
         ru: ({ p, n }) =>
-            `3 круга существа союзника получают ${n(p)}% максимального здоровья одного Satyr и ${n(p)}% его базовой брони, а Satyr теряет столько же. Нельзя применить на себя или на другой стек Satyr; с Tome of Amplification подарок — ${n(amplified(p))}%, а Satyr по-прежнему теряет ${n(p)}%.`,
+            `3 круга существа союзника получают ${n(p)}% максимального здоровья одного существа заклинателя и ${n(p)}% его базовой брони, а заклинатель теряет столько же. Стеки соединяет видимая золотая духовная связь. Если любой из них погибает, связь, бонус и штраф немедленно исчезают. Нельзя применить на себя или на другой стек того же существа; с Tome of Amplification подарок — ${n(amplified(p))}%, а заклинатель по-прежнему теряет ${n(p)}%.`,
     },
     "Mass Heal": {
         en: ({ p, n }) =>
@@ -100,9 +100,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Fireforged Sword": {
         en: ({ p, n }) =>
-            `For 3 laps the ally's melee and ranged attacks — retaliations included — set every unit they damage alight for ${n(p)}% of the damage that landed. Area attacks count: a pierce, a splash, a spin or a bounce burns each creature for its own share. Fire: armor doesn't reduce it, magic resistance does; Water Elements take ×1.5, Fire Elements nothing. Magic-damage bonuses do not raise the percentage. Tome of Amplification makes it ${n(amplified(p))}%.`,
+            `For 3 laps the ally's melee and ranged attacks — retaliations included — set every unit they hit alight for ${n(p)}% of that hit. Area attacks count: a pierce, a splash, a spin or a bounce burns each creature for its own share. Fire: armor doesn't reduce it, magic resistance does; Water Elements take ×1.5, Fire Elements nothing, and a Water Shield does not absorb the burn or break on it (the weapon hit underneath still can). Magic-damage bonuses do not raise the percentage. Tome of Amplification makes it ${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `3 круга атаки союзника в ближнем и дальнем бою — включая ответы — поджигают каждого, по кому прошёл урон, на ${n(p)}% нанесённого урона. Удары по площади тоже: пробивание, залп, вращение и отскок поджигают каждое задетое существо на его собственную долю. Это огонь: броня его не снижает, сопротивление магии снижает; Water Element получает ×1,5, Fire Element — ничего. Бонусы к магическому урону процент не повышают. С Tome of Amplification — ${n(amplified(p))}%.`,
+            `3 круга атаки союзника в ближнем и дальнем бою — включая ответы — поджигают каждого, по кому пришёлся удар, на ${n(p)}% этого удара. Удары по площади тоже: пробивание, залп, вращение и отскок поджигают каждое задетое существо на его собственную долю. Это огонь: броня его не снижает, сопротивление магии снижает; Water Element получает ×1,5, Fire Element — ничего, а Water Shield не поглощает поджог и не разрушается от него (удар оружием под ним — может). Бонусы к магическому урону процент не повышают. С Tome of Amplification — ${n(amplified(p))}%.`,
     },
     Riot: {
         en: ({ p, n }) =>
@@ -124,9 +124,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Magic Mirror": {
         en: ({ p, n }) =>
-            `For 3 laps the holder still takes every hit in full, but the attacker also takes ${n(p)}% of the magic damage that landed — reduced by its own element and magic resistance; a Water Shield can absorb it — including Fire Breath, Chain Lightning, Fire Shield and Fireforged burns. A debuff spell (or a Spit Ball or Hamstring debuff) has ${n(p)}% to be copied onto its caster as well; the holder keeps it. Status effects, Castling and the Vine snare aren't mirrored. It doesn't stack with Mass Magic Mirror: whichever is on the unit first stays; Tome of Amplification makes it ${n(Math.floor(amplified(p)))}%. On a Magic Dragon it doesn't add to Magic Reflection: a damage spell returns whichever share is stronger — Reflection's or the Mirror's — every time, never a chance.`,
+            `For 3 laps the holder still takes every hit in full, but the attacker also takes ${n(p)}% of the magic damage that landed — reduced by its own element and magic resistance. A Water Shield absorbs a non-fire rebound such as Chain Lightning; fire rebounds (Fire Breath, Fire Shield, Fireforged burns) pass through without breaking it. A debuff spell (or a Spit Ball or Hamstring debuff) has ${n(p)}% to be copied onto its caster as well; the holder keeps it. Status effects, Castling and the Vine snare aren't mirrored. It doesn't stack with Mass Magic Mirror: whichever is on the unit first stays; Tome of Amplification makes it ${n(Math.floor(amplified(p)))}%. On a Magic Dragon it doesn't add to Magic Reflection: a damage spell returns whichever share is stronger — Reflection's or the Mirror's — every time, never a chance.`,
         ru: ({ p, n }) =>
-            `3 круга владелец по-прежнему получает каждый удар целиком, но атакующий тоже получает ${n(p)}% прошедшего магического урона — с учётом своей стихии и сопротивления магии; Water Shield может его поглотить, — включая Fire Breath, Chain Lightning, Fire Shield и поджоги Fireforged. Дебафф заклинания (или Spit Ball и Hamstring) с шансом ${n(p)}% копируется и на заклинателя; у владельца он остаётся. Эффекты Статуса, Castling и захват лозой не отражаются. Не складывается с Mass Magic Mirror: остаётся тот, что наложен первым; с Tome of Amplification — ${n(Math.floor(amplified(p)))}%. На Magic Dragon не складывается с Magic Reflection: заклинание урона каждый раз возвращается по большей из двух долей — Reflection или Mirror, — без всякого шанса.`,
+            `3 круга владелец по-прежнему получает каждый удар целиком, но атакующий тоже получает ${n(p)}% прошедшего магического урона — с учётом своей стихии и сопротивления магии. Water Shield поглощает не огненный возврат, например Chain Lightning; огненный возврат (Fire Breath, Fire Shield, поджоги Fireforged) проходит сквозь щит, не разрушая его. Дебафф заклинания (или Spit Ball и Hamstring) с шансом ${n(p)}% копируется и на заклинателя; у владельца он остаётся. Эффекты Статуса, Castling и захват лозой не отражаются. Не складывается с Mass Magic Mirror: остаётся тот, что наложен первым; с Tome of Amplification — ${n(Math.floor(amplified(p)))}%. На Magic Dragon не складывается с Magic Reflection: заклинание урона каждый раз возвращается по большей из двух долей — Reflection или Mirror, — без всякого шанса.`,
     },
     "Mass Magic Mirror": {
         en: ({ p, n }) =>
@@ -250,10 +250,12 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
 
 /** Spells that are the ability of the same (or a related) name — the ability's note is the right one. */
 const SPELL_TO_ABILITY: Readonly<Record<string, string>> = {
+    "Ember Covenant Blessing": "Ember Covenant Blessing",
     "Angelic Host Blessing": "Angelic Host Blessing",
     "Arcane Ward Blessing": "Arcane Ward Blessing",
     "Arrows Wingshield Blessing": "Arrows Wingshield Blessing",
     "Rallying Volley Blessing": "Rallying Volley Blessing",
+    "Sharpened Weapons Blessing": "Sharpened Weapons Blessing",
     "Warding Mane Blessing": "Warding Mane Blessing",
     "Battle Roar": "Battle Roar",
     Castling: "Castling",

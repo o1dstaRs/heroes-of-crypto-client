@@ -31,7 +31,11 @@ Include server source fixes in step 2; changing only its common dependency canno
 
 Deploy refuses dirty repositories, unpublished commits, a drifted common checkout, mutable common pins, and mismatched manifest/lockfile pins. It never commits, pushes, stashes or switches branches. Root and server must be on main; a detached common checkout is allowed when its pinned commit is published on remote main.
 
-It fetches/rebases the current main branches before each deployment phase and rechecks the common pin. If a peer advances a repository after validation, it stops; rerun the release so test and production receive the same validated revisions. Commit or pin updates are deliberate preparation steps rather than silent changes during deployment.
+Before validation and building, it fetches the current main branches and runs `pull --rebase -X ours` with autostash disabled. In a rebase, `ours` is the upstream-based side: remote changes win conflicting hunks while unrelated local work survives. Remaining local commits must be published before deployment. If syncing updates the running deployment scripts, rerun the command to load those scripts.
+
+After validation, each phase fetches again and verifies the recorded commits and common pin without rebasing. The coordinator passes those exact revisions to the server deployer. If a peer advances a branch after validation, deployment stops; rebuild from a newly synced checkout. Rebasing after a build cannot make its existing output current.
+
+The direct server deployer enforces the same freshness rule for server, client-only and site-only releases, including `--client-test`. It checks clean, published source revisions before building and fetches again before every upload attempt, including retries. It follows each checkout's configured current-branch upstream; a detached common checkout is allowed only at the client's recorded pin, published on remote main. A deleted or unreachable branch, changed checkout/upstream, or stale build stops the upload. `--dry-run` fetches and checks freshness without rebasing the working tree.
 
 ## Public routing
 

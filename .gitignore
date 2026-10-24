@@ -9,6 +9,7 @@ lerna-debug.log
 docs/
 .parcel-cache/
 .bin
+__pycache__/
 
 # Generated self-contained AI meta reports can be tens of megabytes.
 ai-meta*report*.html

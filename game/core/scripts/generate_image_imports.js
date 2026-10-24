@@ -13,7 +13,7 @@ if (testAssets && fs.existsSync(outputFile) && fs.readFileSync(outputFile, "utf8
     process.exit(0);
 }
 const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
-require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets(undefined, { reuseVerifiedInstalled: testAssets });
 
 // Tests exercise authoring-only animation states too, even after a production build pruned their URLs.
 const productionBuild = !testAssets && process.env.NODE_ENV === "production";
@@ -94,6 +94,7 @@ for (const file of files) {
 // Use the existing portrait WebP recipe for reachable production atlases too. Encode before hashing
 // the URLs, retain exact alpha/canvas geometry, and never recompress an already-lossy sheet.
 if (productionBuild && !testAssets) {
+    await require("../src/build/verifySidebarPortraitPages.ts").verifySidebarPortraitPages(imageDir);
     require("./verify_animation_release.ts").verifyProductionImageSources(
         entries.filter((entry) => !entry.productionOmitted).map((entry) => entry.file),
     );

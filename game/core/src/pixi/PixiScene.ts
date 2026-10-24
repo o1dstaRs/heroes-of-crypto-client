@@ -1,10 +1,10 @@
+import type { PlayAim, OpponentAim } from "../api/play_protocol";
 import type { CyclopsImpactMode } from "../scenes/sandbox/CyclopsFracturePhysics";
 import type { FireSpellRenderMode } from "../settings/fireSpellTiming";
 // game/core/src/pixi/PixiScene.ts
 import { Assets, Texture } from "pixi.js";
 import { Signal } from "typed-signals";
 import {
-    HoCConstants,
     HoCConfig,
     HoCLib,
     HoCMath,
@@ -72,6 +72,7 @@ import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { PremiumTurnPreview } from "../api/premium_client";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
+import { StatusApplicationOrder } from "./statusApplicationOrder";
 
 export { getScenesGrouped, registerScene } from "./sceneRegistry";
 
@@ -249,6 +250,7 @@ export abstract class PixiScene {
     public sc_selectedAttackType: AttackType = AttackVals.NO_ATTACK;
     public sc_visibleState?: IVisibleState;
     public sc_visibleOverallImpact?: IVisibleOverallImpact;
+    private statusApplicationOrder?: StatusApplicationOrder;
     public sc_groundBody: BodyLike | undefined;
     public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
     public sc_isSelection = false;
@@ -349,6 +351,9 @@ export abstract class PixiScene {
     public selectAuthoritativeUnit(_unitId: string): void {}
     public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
+    public setAimIntentSink(_sink?: (aim: PlayAim | undefined) => void): void {}
+    public setOpponentAim(_intent?: OpponentAim): void {}
+    public clearLocalAimTarget(): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],
@@ -535,8 +540,8 @@ export abstract class PixiScene {
         }
         return undefined;
     };
-    protected async waitForTexture(key: string): Promise<Texture | undefined> {
-        const immediate = this.texAny(key);
+    protected async waitForTexture(key: string, options?: TextureLoadOptions): Promise<Texture | undefined> {
+        const immediate = this.texAny(key, options);
         if (immediate || this.sc_destroyed) return immediate;
 
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
@@ -547,7 +552,7 @@ export abstract class PixiScene {
         } catch {
             return undefined;
         }
-        return this.sc_destroyed ? undefined : this.texAny(key);
+        return this.sc_destroyed ? undefined : this.texAny(key, options);
     }
     public getBaseHotkeys(): HotKey[] {
         return [];
@@ -690,6 +695,22 @@ export abstract class PixiScene {
         this.sc_visibleOverallImpact = this.getUnitVisibleImpact(unitProperties);
         this.sc_unitPropertiesUpdateNeeded = true;
     }
+    protected rememberStatusApplications(events: readonly GameEvent[]): void {
+        if ((this.statusApplicationOrder ??= new StatusApplicationOrder()).record(events))
+            this.refreshVisibleStatusOrder();
+    }
+    protected rememberStatusSnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        if ((this.statusApplicationOrder ??= new StatusApplicationOrder()).recordSnapshot(snapshot))
+            this.refreshVisibleStatusOrder();
+    }
+    protected resetStatusApplicationOrder(): void {
+        this.statusApplicationOrder?.clear();
+    }
+    private refreshVisibleStatusOrder(): void {
+        if (this.sc_selectedUnitProperties)
+            this.sc_visibleOverallImpact = this.getUnitVisibleImpact(this.sc_selectedUnitProperties);
+        this.sc_unitPropertiesUpdateNeeded = true;
+    }
     public getUnitVisibleImpact(unitProperties: UnitProperties): IVisibleOverallImpact {
         const visibleAbilitiesImpact: IVisibleImpact[] = [];
         const visibleBuffsImpact: IVisibleImpact[] = [];
@@ -806,6 +827,7 @@ export abstract class PixiScene {
                     isStackPowered: false,
                     isAura: false,
                     stacks: unitProperties.applied_effects_stacks?.[i],
+                    appliedOrder: this.statusApplicationOrder?.get(unitProperties.id, effectName, false),
                 });
             }
         }
@@ -835,6 +857,7 @@ export abstract class PixiScene {
                     stackPower: 0,
                     isStackPowered: false,
                     isAura: HoCConfig.isAuraEffectName(buffName),
+                    appliedOrder: this.statusApplicationOrder?.get(unitProperties.id, buffName, true),
                 });
             }
         }
@@ -860,26 +883,10 @@ export abstract class PixiScene {
                     stackPower: 0,
                     isStackPowered: false,
                     isAura: HoCConfig.isAuraEffectName(debuffName),
+                    appliedOrder: this.statusApplicationOrder?.get(unitProperties.id, debuffName, false),
                 });
             }
         }
-
-        visibleBuffsImpact.sort((a, b) => {
-            if (a.laps === b.laps) return 0;
-            if (a.laps === Number.MAX_SAFE_INTEGER) return -1;
-            if (b.laps === Number.MAX_SAFE_INTEGER) return 1;
-            if (a.laps === HoCConstants.NUMBER_OF_LAPS_TOTAL) return 1;
-            if (b.laps === HoCConstants.NUMBER_OF_LAPS_TOTAL) return -1;
-            return a.laps - b.laps;
-        });
-        visibleDebuffsImpact.sort((a, b) => {
-            if (a.laps === b.laps) return 0;
-            if (a.laps === Number.MAX_SAFE_INTEGER) return -1;
-            if (b.laps === Number.MAX_SAFE_INTEGER) return 1;
-            if (a.laps === HoCConstants.NUMBER_OF_LAPS_TOTAL) return 1;
-            if (b.laps === HoCConstants.NUMBER_OF_LAPS_TOTAL) return -1;
-            return a.laps - b.laps;
-        });
 
         return {
             abilities: visibleAbilitiesImpact,

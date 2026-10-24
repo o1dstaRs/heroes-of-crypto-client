@@ -377,6 +377,7 @@ const copy = isRu
               },
           ],
           draftNotes: [
+              "Scout и Spymaster заранее видят все баны драфта. Battle Trance узнаёт баны только при открытии выбора существ соответствующего уровня. Публичный режим наблюдения всегда раскрывает баны постепенно по уровням, независимо от доктрин игроков.",
               "Квота состава по уровням — 2/2/1/1; выбранный бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
               "Игра автоматически убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Рейтинговое предпочтение добавляет сверху не более одного общего бана на матч; оно не заменяет автобан.",
               "Дополнительный бан применяется только к драфтовому юниту и только если после него на этом уровне остаётся минимум два доступных небандловых варианта. Если выбранный юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт (бандлы, предложения артефактов и автобаны); после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
@@ -454,19 +455,19 @@ const copy = isRu
           doctrines: [
               {
                   name: "Spymaster",
-                  sees: "Все выборы существ противника, по мере того как он их делает. Артефакты остаются скрытыми.",
+                  sees: "Все выборы существ противника, по мере того как он их делает, и все баны заранее. Артефакты остаются скрытыми.",
                   points: 5,
                   note: "Полная информация, наименьший бюджет армии.",
               },
               {
                   name: "Scout",
-                  sees: "Один случайный слот существа уровня 1, один уровня 2 и один старший слот (уровень 3 или 4). Если соперник делает последний пик уровня 4, открывается уровень 3.",
+                  sees: "Один случайный слот существа уровня 1, один уровня 2 и один старший слот (уровень 3 или 4). Если соперник делает последний пик уровня 4, открывается уровень 3. Все баны видны заранее.",
                   points: 6,
                   note: "Частичный обзор за средний бюджет.",
               },
               {
                   name: "Battle Trance",
-                  sees: "Не отмечает ни одного слота заранее. Столкновение со скрытым пиком всё равно раскрывает именно этот слот.",
+                  sees: "Не отмечает ни одного слота заранее. Столкновение со скрытым пиком всё равно раскрывает именно этот слот. Баны открываются при появлении выбора существ соответствующего уровня.",
                   points: 7,
                   note: "Драфт вслепую — зато самая сильная армия.",
               },
@@ -711,6 +712,7 @@ const copy = isRu
           ],
           draftNotes: [
               "The roster quota by level is 2/2/1/1; your selected bundle already supplies one level-1 and one level-2 creature.",
+              "Scout and Spymaster see all draft bans in advance. Battle Trance learns bans only as each creature level opens. Public observers always receive bans level by level, regardless of the players' doctrines.",
               "The game automatically removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. Ranked ban preferences add at most one shared extra ban per match; they do not replace an auto-ban.",
               "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft (bundles, artifact offers and automatic bans); after 25 tries the ban is skipped for that match. If the automatic bans already removed the unit, nothing further is banned.",
               "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. If the opponent's level-4 pick ends the draft, Scout watches level 3 instead. A watched slot shows the opponent's pick as it happens, and that creature is then unavailable to you — no creature is drafted twice. Under any doctrine, attempting an opponent's hidden pick reveals that collision and sends you back to pick again.",
@@ -787,19 +789,19 @@ const copy = isRu
           doctrines: [
               {
                   name: "Spymaster",
-                  sees: "Every one of the opponent's creature picks, as they happen. Artifacts stay hidden.",
+                  sees: "Every one of the opponent's creature picks, as they happen, and all draft bans in advance. Artifacts stay hidden.",
                   points: 5,
                   note: "Full information, smallest army budget.",
               },
               {
                   name: "Scout",
-                  sees: "One random level-1 creature slot, one level-2 slot, and one senior slot (level 3 or 4). If the opponent makes the last level-4 pick, Scout watches level 3.",
+                  sees: "One random level-1 creature slot, one level-2 slot, and one senior slot (level 3 or 4). If the opponent makes the last level-4 pick, Scout watches level 3. All draft bans are visible in advance.",
                   points: 6,
                   note: "A partial read for a middling budget.",
               },
               {
                   name: "Battle Trance",
-                  sees: "No slots are watched in advance. Colliding with a hidden opponent pick still reveals that specific slot.",
+                  sees: "No slots are watched in advance. Colliding with a hidden opponent pick still reveals that specific slot. Bans are revealed as each creature level opens.",
                   points: 7,
                   note: "Draft blind, field the strongest army.",
               },
@@ -1061,7 +1063,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
         <div class="rules-showcase" aria-label={copy.heroLabel}>
             <figure class="rules-board-shot rules-hero-board">
-                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="eager" />
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="lazy" />
                 <figcaption class="rules-capture-caption">
                     <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
                     <span>{rulesVisuals.combatCaption}</span>
@@ -1121,7 +1123,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <p>{copy.loopIntro}</p>
             </div>
             {embedded && <figure class="rules-game-capture rules-game-capture-wide">
-                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="eager" />
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="lazy" />
                 <figcaption class="rules-capture-caption">
                     <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
                     <span>{rulesVisuals.combatCaption}</span>

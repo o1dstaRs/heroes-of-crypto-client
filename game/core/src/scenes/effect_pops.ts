@@ -32,7 +32,10 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
  * attacking that target gain morale) is one such: it isn't in aura_effects.json (it's a regular
  * EFFECT-type ability), hence this explicit list.
  */
-const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set(["Pegasus Light"]);
+const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set([
+    "Pegasus Light",
+    "Sharpened Weapons Blessing",
+]);
 const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Gravebound",
     "Dulling Defense",
