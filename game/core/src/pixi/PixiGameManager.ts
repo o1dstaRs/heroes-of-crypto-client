@@ -39,6 +39,7 @@ import { resizeBoard } from "./boardResize";
 import { observeElementBox } from "./observeElementBox";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
+import { shortcutLetter } from "../utils/shortcutLetter";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
@@ -761,16 +762,18 @@ export class PixiGameManager {
     }
     private HandleKey(e: KeyboardEvent, down: boolean): void {
         if (this.m_hoveringCanvas || !down) {
-            const { key } = e;
-            const hotKey = this.allHotKeys.find((hk) => hk.key === key);
+            const letter = shortcutLetter(e);
+            const hotKey = this.allHotKeys.find(
+                (hk) => hk.key === e.key || (letter !== "" && hk.key.toLowerCase() === letter),
+            );
             if (hotKey) {
-                const wasDown = !!this.m_keyMap[key];
+                const wasDown = !!this.m_keyMap[hotKey.key];
                 if (wasDown !== down) {
                     if (!hotKey.step) hotKey.callback(down);
-                    this.m_keyMap[key] = down;
+                    this.m_keyMap[hotKey.key] = down;
                 }
                 if (this.m_hoveringCanvas) e.preventDefault();
-                if (key === "Escape") this.UpdateHoverInfo();
+                if (e.key === "Escape") this.UpdateHoverInfo();
             }
         }
     }

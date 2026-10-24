@@ -73,6 +73,7 @@ import { axiosMMInstance, endpoints } from "../api/axios";
 import { images } from "../generated/image_imports";
 import { t, useTranslation } from "../i18n/i18n";
 import { usePixiManager } from "../pixi/PixiGameManager";
+import { shortcutLetter } from "../utils/shortcutLetter";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
     collectRankedReplaySnapshots,
@@ -2407,7 +2408,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
             if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) {
                 return;
             }
-            const key = event.key.toLowerCase();
+            const key = shortcutLetter(event);
             if ((key !== "s" && key !== "d") || (key === "s" && !canSplit) || (key === "d" && !canSubmit)) {
                 return;
             }

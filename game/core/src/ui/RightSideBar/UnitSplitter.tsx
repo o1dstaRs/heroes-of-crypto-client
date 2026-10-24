@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { shortcutLetter } from "../../utils/shortcutLetter";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
@@ -63,7 +64,7 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
             if (isEditableShortcutTarget(event.target)) return;
             if (manager.IsStarted() || totalUnits <= 0) return;
 
-            const key = event.key.toLowerCase();
+            const key = shortcutLetter(event);
             if (key !== "s" && key !== "d") return;
 
             const canSplit = totalUnits > 1;

@@ -40,6 +40,34 @@ class SceneDouble {
     }
 }
 
+const press = (key: string, code?: string): KeyboardEvent =>
+    ({ key, code, preventDefault: mock() }) as unknown as KeyboardEvent;
+
+describe("PixiGameManager Russian keyboard shortcuts", () => {
+    it("resets the camera from the physical R key when the layout produces к", () => {
+        const manager = new PixiGameManager();
+        const home = mock(() => undefined);
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+            m_hoveringCanvas: true,
+            HomeCamera: home,
+        });
+        manager.LoadGame();
+        const input = manager as unknown as {
+            HandleKey(event: KeyboardEvent, down: boolean): void;
+        };
+
+        input.HandleKey(press("к", "KeyR"), true);
+        input.HandleKey(press("К"), false);
+        input.HandleKey(press("к", "KeyR"), true);
+        input.HandleKey(press("Ы", "KeyS"), true);
+
+        expect(home).toHaveBeenCalledTimes(2);
+    });
+});
+
 describe("PixiGameManager scene reload", () => {
     it.each(["s", "S"])("never starts or readies the scene when pressing %s without an available split", (key) => {
         const manager = new PixiGameManager();

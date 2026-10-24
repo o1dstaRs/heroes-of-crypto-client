@@ -19,6 +19,7 @@ import {
     writeStoredLavaPitVisualMode,
     type LavaPitVisualMode,
 } from "../scenes/sandbox/lavaPitVisualMode";
+import { shortcutLetter } from "../utils/shortcutLetter";
 import { hocColors, hocDisplayFontFamily } from "./hocTheme";
 import { RankedGameView } from "./RankedGameView";
 
@@ -311,7 +312,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
             } else if (event.key === "ArrowRight") {
                 event.preventDefault();
                 stepFrame(1);
-            } else if (event.key.toLowerCase() === "r") {
+            } else if (shortcutLetter(event) === "r") {
                 event.preventDefault();
                 updateTuning({ reverse: !tuning.reverse });
             }
