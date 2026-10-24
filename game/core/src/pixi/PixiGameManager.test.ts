@@ -41,6 +41,27 @@ class SceneDouble {
 }
 
 describe("PixiGameManager scene reload", () => {
+    it.each(["s", "S"])("never starts or readies the scene when pressing %s without an available split", (key) => {
+        const manager = new PixiGameManager();
+        const start = mock(() => undefined);
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+            m_hoveringCanvas: true,
+            StartGame: start,
+        });
+        manager.LoadGame();
+        const input = manager as unknown as {
+            HandleKey(event: KeyboardEvent, down: boolean): void;
+        };
+        const event = { key, preventDefault: mock() } as unknown as KeyboardEvent;
+        input.HandleKey(event, true);
+        input.HandleKey(event, false);
+        input.HandleKey(event, true);
+        expect(start).not.toHaveBeenCalled();
+    });
+
     it("retains ranked intent relays registered before the first scene exists and after a reload", () => {
         const manager = new PixiGameManager();
         Object.assign(manager, {

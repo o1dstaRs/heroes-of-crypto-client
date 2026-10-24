@@ -1001,8 +1001,6 @@ export class PixiGameManager {
         this.allHotKeys = [
             hotKeyPress("r", "Reset Camera", () => this.HomeCamera()),
             hotKeyPress("R", "Reset Camera", () => this.HomeCamera()),
-            hotKeyPress("s", "Start Scene", () => this.StartGame()),
-            hotKeyPress("S", "Start Scene", () => this.StartGame()),
             ...this.sceneBaseHotKeys,
             ...this.sceneHotKeys,
         ];
