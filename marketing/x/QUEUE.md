@@ -115,3 +115,4 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | Slot (PT) | Plan | Status |
 | --- | --- | --- |
 | 6:48 AM | Carry over Fri 4:48 PM: split stacks keep a full spellbook (bc03c968, v0.1.7), text-only, reply with stack-power caveat + question + play link (box /workspace/post.txt, reply.txt). | blocked 6:52 AM — X "Review your phone" modal still open in box browser; not confirmed by xcom (account security choice is Stepan's); waiting on Stepan |
+| 11:48 AM | Carry over: split stacks keep a full spellbook (bc03c968), still sitting in the compose box. | blocked 11:56 AM — "Review your phone" modal still open in box browser; waiting on Stepan |
