@@ -393,11 +393,13 @@ export const damagePredictionLayout = (
     _isLargeTarget: boolean,
     hasKills: boolean,
     verticalScaleCompensation = 1,
+    hasAbilityPreview = false,
 ): { scale: number; verticalScale: number; centerOffsetY: number } => {
     const scale = DAMAGE_PREDICTION_SCALE;
     const verticalScale = scale * verticalScaleCompensation;
     const rowHeight = (DAMAGE_PREDICTION_FONT_SIZE + DAMAGE_PREDICTION_STROKE_WIDTH) * verticalScale;
-    const blockHeight = rowHeight + (hasKills ? DAMAGE_PREDICTION_ROW_SPACING * verticalScale : 0);
+    const extraRows = Number(hasKills) + Number(hasAbilityPreview);
+    const blockHeight = rowHeight + extraRows * DAMAGE_PREDICTION_ROW_SPACING * verticalScale;
     return {
         scale,
         verticalScale,
@@ -1288,6 +1290,8 @@ export class HoverManager {
     private hoverKillText?: Text;
     private hoverDamageIcon?: Sprite;
     private hoverRangeModifierIcon?: Sprite;
+    private hoverAbilityText?: Text;
+    private hoverAbilityIcon?: Sprite;
     private hoverDamageAnchor?: DamagePredictionAnchorState;
     private attachDamagePredictionObject(obj: Sprite | Text): void {
         this.context.attachToCursorOverlay(obj, DAMAGE_PREDICTION_OVERLAY_Z_INDEX);
@@ -1300,6 +1304,7 @@ export class HoverManager {
         killIconPath?: string,
         rangeModifierIconPath?: string,
         targetKey?: string,
+        abilityPreview?: { text: string; iconPath: string },
     ): void {
         if (targetKey) {
             this.hoverDamageAnchor = pinnedDamagePredictionAnchor(this.hoverDamageAnchor, targetKey, position);
@@ -1311,8 +1316,12 @@ export class HoverManager {
             isLargeTarget,
             hasKills,
             verticalScaleCompensation,
+            !!abilityPreview,
         );
         const centerY = position.y + centerOffsetY;
+        const spacing = DAMAGE_PREDICTION_ROW_SPACING * verticalScale;
+        const damageRowY = centerY + ((Number(hasKills) + Number(!!abilityPreview)) * spacing) / 2;
+        const killRowY = damageRowY - spacing;
         const hasKillIcon = !!killIconPath && hasKills;
         const hasRangeModifierIcon = !!rangeModifierIconPath;
 
@@ -1410,9 +1419,7 @@ export class HoverManager {
             }
 
             // Layout: Stacked Centered
-            const spacing = DAMAGE_PREDICTION_ROW_SPACING * verticalScale;
-
-            positionDamageRow(centerY + spacing / 2);
+            positionDamageRow(damageRowY);
 
             // Icon placement
             if (hasKillIcon && this.hoverDamageIcon) {
@@ -1429,20 +1436,56 @@ export class HoverManager {
                 const startX = position.x - totalW / 2;
 
                 this.hoverDamageIcon.anchor.set(0, 0.5);
-                this.hoverDamageIcon.position.set(startX, centerY - spacing / 2);
+                this.hoverDamageIcon.position.set(startX, killRowY);
 
                 this.hoverKillText.anchor.set(0, 0.5);
-                this.hoverKillText.position.set(startX + iconWidth + padding, centerY - spacing / 2);
+                this.hoverKillText.position.set(startX + iconWidth + padding, killRowY);
             } else {
                 this.hoverKillText.anchor.set(0.5, 0.5);
-                this.hoverKillText.position.set(position.x, centerY - spacing / 2);
+                this.hoverKillText.position.set(position.x, killRowY);
             }
         } else {
             // A damage-only prediction is one centered row below the creature.
             if (this.hoverDamageIcon) this.hoverDamageIcon.visible = false;
             if (this.hoverKillText) this.hoverKillText.visible = false;
 
-            positionDamageRow(centerY);
+            positionDamageRow(damageRowY);
+        }
+        if (abilityPreview) {
+            this.hoverAbilityText ??= new Text({
+                text: "",
+                style: {
+                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
+                    fontSize: 20,
+                    fill: 0xbce3ca,
+                    stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
+                    fontWeight: "bold",
+                },
+            });
+            const text = this.hoverAbilityText;
+            text.text = abilityPreview.text;
+            text.visible = true;
+            text.scale.set(scale, -verticalScale);
+            text.anchor.set(0, 0.5);
+            this.attachDamagePredictionObject(text);
+            const texture = this.context.texAny(abilityPreview.iconPath) || Texture.from(abilityPreview.iconPath);
+            this.hoverAbilityIcon ??= new Sprite(texture);
+            const icon = this.hoverAbilityIcon;
+            icon.texture = texture;
+            icon.visible = true;
+            icon.anchor.set(0, 0.5);
+            icon.width = DAMAGE_PREDICTION_FONT_SIZE * scale;
+            icon.height = DAMAGE_PREDICTION_FONT_SIZE * verticalScale;
+            icon.scale.y = -Math.abs(icon.scale.y);
+            this.attachDamagePredictionObject(icon);
+            const padding = 5 * scale;
+            const startX = position.x - (icon.width + padding + text.width) / 2;
+            const rowY = damageRowY - (hasKills ? 2 : 1) * spacing;
+            icon.position.set(startX, rowY);
+            text.position.set(startX + icon.width + padding, rowY);
+        } else {
+            if (this.hoverAbilityText) this.hoverAbilityText.visible = false;
+            if (this.hoverAbilityIcon) this.hoverAbilityIcon.visible = false;
         }
         // Both rows are laid out left-to-right around the target; keep them reading that way on a board
         // mirrored for this viewer. Only the glyphs positioned above may be passed in.
@@ -1452,6 +1495,8 @@ export class HoverManager {
                 hasRangeModifierIcon ? this.hoverRangeModifierIcon : undefined,
                 hasKills ? this.hoverKillText : undefined,
                 hasKills && hasKillIcon ? this.hoverDamageIcon : undefined,
+                abilityPreview ? this.hoverAbilityText : undefined,
+                abilityPreview ? this.hoverAbilityIcon : undefined,
             ],
             position.x,
         );
@@ -1520,6 +1565,8 @@ export class HoverManager {
         if (this.hoverRangeModifierIcon) {
             this.hoverRangeModifierIcon.visible = false;
         }
+        if (this.hoverAbilityText) this.hoverAbilityText.visible = false;
+        if (this.hoverAbilityIcon) this.hoverAbilityIcon.visible = false;
         if (!preserveDamagePredictionAnchor) this.hoverDamageAnchor = undefined;
         this.clearSpellPreview();
         this.hoverAttackTargetUnit = undefined;

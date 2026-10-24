@@ -254,6 +254,7 @@ import {
     lavaMovementOverlayCells,
 } from "./lavaMovementOverlay";
 import { formatCombatRange } from "./combatRange";
+import { petrifyingGazePreview, petrifyingGazePreviewText } from "./petrifyingGazePreview";
 import {
     throwTransparencyFor,
     isTargetedSpellReachable,
@@ -15728,6 +15729,9 @@ export class Sandbox extends PixiScene {
                         // SUM, so the kill spread has to be taken once, from the final post-tail damage —
                         // never per hit and never from a pre-tail band.
                         const projectedByUnit = new Map<string, { unit: Unit; min: number; max: number }>();
+                        let gazeImpact: { min: number; max: number } | undefined;
+                        let gazeMultipleHits = false;
+                        let gazeAfterBurn = false;
                         const addProjectedDamage = (victim: Unit, minDamage: number, maxDamage: number): void => {
                             const alreadyStruck = projectedByUnit.get(victim.getId());
                             if (alreadyStruck) {
@@ -15817,6 +15821,10 @@ export class Sandbox extends PixiScene {
                                         victim: piercedUnit,
                                         damage: withLuckyStrike(band.max),
                                     });
+                                    if (piercedUnit.getId() === damageUnit.getId() && volleyIndex === 0) {
+                                        gazeImpact = { min: tailMin, max: tailMax };
+                                        gazeMultipleHits = volleyMultipliers.length > 1;
+                                    }
                                     pierceMin += tailMin + fireforgedBurn(piercedUnit, tailMin);
                                     pierceMax += tailMax + fireforgedBurn(piercedUnit, tailMax);
                                 }
@@ -15866,6 +15874,7 @@ export class Sandbox extends PixiScene {
                                     victim: damageUnit,
                                     damage: withLuckyStrike(band.max),
                                 });
+                                gazeImpact = { min: tailMin, max: tailMax };
                                 addProjectedDamage(
                                     damageUnit,
                                     tailMin + fireforgedBurn(damageUnit, tailMin),
@@ -15939,6 +15948,23 @@ export class Sandbox extends PixiScene {
                                     ),
                                 });
                                 const perUnitDamageFactor = secondaryDamageFactorById.get(victim.getId());
+                                if (victim.getId() === damageUnit.getId()) {
+                                    gazeImpact = {
+                                        min: applyAoeDamageTail({
+                                            attacker: aoeAttacker,
+                                            victim,
+                                            damage: band.min,
+                                            perUnitDamageFactor,
+                                        }),
+                                        max: applyAoeDamageTail({
+                                            attacker: aoeAttacker,
+                                            victim,
+                                            damage: withLuckyStrike(band.max),
+                                            perUnitDamageFactor,
+                                        }),
+                                    };
+                                    gazeMultipleHits = aoeWaves > 1;
+                                }
                                 // Every wave burns every unit it damages on that wave's own damage (Fireforged
                                 // Sword), the aimed unit and the splash alike, as the engine does.
                                 const wave = (damage: number, factor: number | undefined): number => {
@@ -15993,6 +16019,9 @@ export class Sandbox extends PixiScene {
                             const secondMin = doubleShot.second.min;
                             const secondMax = withLuckyStrike(doubleShot.second.max);
                             const bonusMax = doubleShot.bonus ? withLuckyStrike(doubleShot.bonus.max) : 0;
+                            gazeImpact = { min: firstMin, max: firstMax };
+                            gazeMultipleHits = secondMax > 0 || bonusMax > 0;
+                            gazeAfterBurn = true;
                             // Each shot that lands burns on its own damage. A second shot is a second attack.
                             addProjectedDamage(
                                 damageUnit,
@@ -16024,6 +16053,8 @@ export class Sandbox extends PixiScene {
                             );
                             let meleeMin = swing.min + penetratingBite;
                             let meleeMax = withLuckyStrike(swing.max) + penetratingBite;
+                            gazeImpact = { min: meleeMin, max: meleeMax };
+                            gazeAfterBurn = true;
                             // Double Punch / Crafted Double Punch: a SECOND full swing at the ability's own
                             // (stack-powered, luck- and Dual-Strike-Charm-scaled) share. The engine fires it
                             // unconditionally from attack_handler ~2547; the hover showed only the first punch,
@@ -16032,6 +16063,7 @@ export class Sandbox extends PixiScene {
                                 this.currentActiveUnit.getAbility("Double Punch") ??
                                 this.currentActiveUnit.getAbility("Crafted Double Punch");
                             if (doublePunchAbility && !this.currentActiveUnit.hasAbilityActive("No Melee")) {
+                                gazeMultipleHits = true;
                                 const secondPunch = projectAttackDamage({
                                     ...projectionBase,
                                     target: damageUnit,
@@ -16154,6 +16186,7 @@ export class Sandbox extends PixiScene {
                                     attackFromCell,
                                     withLuckyStrike,
                                 );
+                                if (enemy.getId() === damageUnit.getId() && !gazeImpact) gazeImpact = band;
                                 // A spin, a skewer and a breath are attacks of their own. Each creature they
                                 // damage burns for that creature's share, not only the one the swing was aimed at.
                                 addProjectedDamage(
@@ -16233,6 +16266,27 @@ export class Sandbox extends PixiScene {
                             killStr = formatCombatRange(totalMinKills, totalMaxKills);
                             killIconPath = images.combat_kills_skull_icon_v1;
                         }
+                        const gaze = gazeImpact
+                            ? petrifyingGazePreview(
+                                  attackerUnit,
+                                  damageUnit,
+                                  gazeImpact,
+                                  abilityPower,
+                                  rangeDivisor,
+                                  (impact) => {
+                                      const remaining =
+                                          AllAbilities.projectFleshShieldAura(
+                                              attackerUnit,
+                                              damageUnit,
+                                              impact,
+                                              isRangeAttackContext,
+                                              this.grid,
+                                              this.unitsHolder,
+                                          )?.remainingDamage ?? impact;
+                                      return remaining + (gazeAfterBurn ? fireforgedBurn(damageUnit, remaining) : 0);
+                                  },
+                              )
+                            : undefined;
 
                         // Ranged shot whose line of sight crosses the central mountain is blocked: aim at
                         // the mountain, not the enemy behind it. This applies to Through Shot too — the
@@ -16354,6 +16408,12 @@ export class Sandbox extends PixiScene {
                                 killIconPath,
                                 rangeModifierIconPath,
                                 damageUnit.getId(),
+                                gaze
+                                    ? {
+                                          text: petrifyingGazePreviewText(gaze, gazeMultipleHits),
+                                          iconPath: images.petrifying_gaze_256,
+                                      }
+                                    : undefined,
                             );
                             const smokeLogical = isRangeAttackContext
                                 ? this.resolveSmokeEntryPoint(arrowStartLogical, finalArrowEndPos)
