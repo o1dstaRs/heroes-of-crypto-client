@@ -5,7 +5,7 @@ Generate X images with the local Codex CLI from the real unit art. These rules s
 ## Hard rules
 - Characters come only from real files in `site/public/assets/images/units/` (portraits, `factions/`) or `site/public/assets/images/preview_game.webp`. Composite them pixel-for-pixel. Never redraw, restyle, recolor, extend, or invent a unit. AI generation is for backgrounds only.
 - Every image is clearly a poster or art card, never a fake screenshot, fake fight frame, or fake game UI.
-- No emoji, hashtags, numbers, win rates, damage, player counts, token art (`pool_lock_event_upd.webp`, `rocket.webp`, `its_coming.webp`), $HOCAI, or URLs.
+- No emoji, hashtags, numbers, win rates, damage, player counts, token art, $HOCAI, or URLs.
 - Text: one headline (at most 8 words, taken from the post's idea) and an optional caption naming the unit or faction and its real ability from XCOM.md facts.
 - The human approves every image. Nothing gets posted by the bot.
 
