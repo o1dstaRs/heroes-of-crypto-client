@@ -466,3 +466,9 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - 20 scored own posts since 15 Oct (pin excluded): midday 12.9 avg views (n=7), evening 12.8 (n=6), morning 12.7 (n=7). The spread is now 0.2 views, so posting slot makes no measurable difference at this reach.
 - The one early-like signal this week came on a morning post (pick-your-side, 6:57 AM PT, 1 like within ~3h), but n=1.
 - No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-23 daily engagement review (own posts, 24h views by slot)
+
+- 23 scored own posts since 15 Oct (pin excluded): midday 14.4 avg views (n=8), evening 13.4 (n=7), morning 13.1 (n=8). Midday pulled ahead by ~1 view after Castling (Thu 11:59 AM PT, 25 views).
+- The three best non-pin 24h reaches were all midday story posts (Castling 25, origin 20, replay part two 20). That is a format-plus-slot overlap, not a slot result on its own (n is small and tactics posts filled most mornings).
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.

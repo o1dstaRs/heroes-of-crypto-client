@@ -107,5 +107,11 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | Slot (PT) | Plan | Status |
 | --- | --- | --- |
 | 6:48 AM | Dev-diary from git: fire passes an intact Water Shield (ffc59ba2, v0.1.7), text-only. Reply with exceptions + question + play link. | done — https://x.com/Heroes0fcrypto/status/2113629959646503249 |
-| 11:48 AM | Dev-diary or tactics question (v0.1.7 split copies spellbook/quiver, Last Fuse, or recent Hydra Ember Covenant / shield-absorption commits once live). | |
-| 4:48 PM | TBD | |
+| 11:48 AM | Dev-diary or tactics question (v0.1.7 split copies spellbook/quiver, Last Fuse, or recent Hydra Ember Covenant / shield-absorption commits once live). | missed — nothing on the timeline from this slot (checked 4:56 PM) |
+| 4:48 PM | Dev-diary from git: split stacks keep a full spellbook (bc03c968, v0.1.7), text-only. Reply with stack-power caveat + question + play link. Text in box /workspace/post.txt and reply.txt. | blocked 4:58 PM — X phone-number check modal in box browser; waiting on Stepan |
+
+## Today 2026-10-24 (Sat)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Carry over Fri 4:48 PM: split stacks keep a full spellbook (bc03c968, v0.1.7), text-only, reply with stack-power caveat + question + play link (box /workspace/post.txt, reply.txt). | blocked 6:52 AM — X "Review your phone" modal still open in box browser; not confirmed by xcom (account security choice is Stepan's); waiting on Stepan |
