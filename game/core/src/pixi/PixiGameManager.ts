@@ -361,7 +361,9 @@ export class PixiGameManager {
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
             const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
-            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
+            loadingScreen.animateProgress(
+                displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs),
+            );
         };
         renderCoreProgress = renderLoadingProgress;
         renderLoadingProgress();
