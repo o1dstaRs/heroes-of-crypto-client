@@ -1,8 +1,10 @@
 # Local parity release — 2026-10-25
 
-This compact release restores the approved game artwork, animation settings, card/stat order and site
-exports. The client and server must use the same common revision. No credentials, account data,
-cookies, databases or server secrets are included.
+This release publishes the approved creature animations, combat effects, grayscale turn presentation,
+flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
+outside Git. Production builds and the deploy readiness check verify all 5,233 required runtime files
+against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
+with the missing or mismatched filenames instead of silently building old animations.
 
 ## Download and restore
 
@@ -25,6 +27,51 @@ folders with their directory structure intact. The old compact archive and sourc
 Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+):
 
 ```sh
+python3 restore_compact.py --drive "/path/to/downloaded/heroesofcrypto"
+```
+
+Then extract `animation-release-patch-20261017.zip` into that same directory. It supplies the Griffin
+question-bow aura and Cyclops boulder that were previously carried in `source.zip`. For these PRs,
+use Git for source code; downloading the old `source.zip` is unnecessary. The asset manifest in this
+PR is the final verification authority. The portable kit's `verify_compact.py` also checks source
+files, so it is intended for installations that extracted `source.zip` as well.
+
+Finally extract `animation-review-fixes-20261017.zip` there. It supplies the current Fireball and
+Arcane Ward Blessing icons and seven registered atlas variants that the earlier portable package
+omitted. Wandering Mage already had Fireball in its configured spellbook.
+
+Also download [sidebar_portraits_paged_v1](https://drive.google.com/drive/folders/1VMZgBqWKLP2WyAcP9pbThHO9vBESbzb1) from the shared Drive's `heroesofcrypto/animations/output`
+and place that folder under the restored release's `animations/output`. This supplement adds 1,084
+portrait pages and 55 metadata files; its hashes are included in the release manifest. The compact
+archives above predate this supplement. Its reproducible recipe, master references, encoding report,
+dark-background visual comparison and verified synchronization receipt are in
+[sidebar-portrait-streaming-20261017-pr194](https://drive.google.com/drive/folders/1VsDYY5JcBhVdTZRgl0hnov-Uu2ejItm-) under `heroesofcrypto/image-sources`.
+
+Do not substitute differently hashed source atlases for the approved rendered copies. In particular,
+the Nightmare quarter-resolution attacks and Troglodyte walk variants intentionally retain the
+approved bytes that the running local sandbox used.
+
+The 2026-10-22 Ember Covenant supplement adds `ember_covenant_blessing_256.webp` and
+`ember_covenant_ring.webp`. Copy these two files from the shared Drive source package
+`heroesofcrypto/image-sources/hydra-ember-covenant/2026-10-22-v3` into the restored release's
+`heroesofcrypto-assets/images` directory. Their approved hashes and sizes are pinned in the release
+manifest. The source package also preserves the prompts, reference artwork, processing recipe,
+previous icon and an interactive preview of the flag-centered fire effect.
+
+The 2026-10-24 cleanup removes 452 retired runtime images, including superseded UI and environment
+exports, old creature thumbnails, and five unused artifact icons. The restore manifest no longer
+requires them. Older archives and authoring packages may still contain these files; the image,
+animation-copy, and CI import generators exclude the exact filenames recorded in
+`game/core/src/build/retiredImageAssets.json`. Source artwork and versioned release packages remain available.
+
+## Build and publish
+
+After the common PR is available, initialize the client's pinned submodule and install dependencies.
+Set these paths to the restored assets, then run from the client repository:
+
+```sh
+export HOC_IMAGES_LOC="/path/to/release/heroesofcrypto-assets/images"
+export HOC_ANIMATIONS_LOC="/path/to/release/heroesofcrypto-assets/animations"
 bun install --frozen-lockfile
 python3 game/core/scripts/restore_asset_release.py /path/to/downloads /path/to/new-empty-release --drive /path/to/shared/heroesofcrypto
 bun game/core/scripts/restore_sidebar_portrait_pages.ts /path/to/new-empty-release/heroesofcrypto-assets

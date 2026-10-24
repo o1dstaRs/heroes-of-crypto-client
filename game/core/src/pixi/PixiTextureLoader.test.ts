@@ -653,7 +653,7 @@ describe("pixi texture bundle split", () => {
         for (const key of [
             "wolf_pick_sandbox_x2",
             "life_portrait_bg_golden_dawn_four_corner_haze_v1",
-            "nature_portrait_bg_tier_1_2",
+            "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
             "units_overlay_toggle_square_v1",
             "pick_attack_magic_silver",
             "pick_attack_melee_silver",

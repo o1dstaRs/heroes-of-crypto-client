@@ -75,6 +75,9 @@ test("Unicorn combat retains full-resolution frames and advances eight poses by 
     expect(unit.getAnimationTextureKey("walk")).toBe("unicorn_lab_walk_atlas");
     unit.ensureVisual(world, grid);
     const idleScale = Math.abs(state.sprite.scale.y);
+    // Exact frame boundaries need an integer clock origin: fractional performance.now() subtraction can round down.
+    const animationStartMs = 1000;
+    state.selectionAnimationStartedAtMs = animationStartMs;
     for (const [elapsed, expected] of [
         [0, 0],
         [2100, 1],
@@ -84,8 +87,7 @@ test("Unicorn combat retains full-resolution frames and advances eight poses by 
         [2850, 5],
         [3000, 0],
     ]) {
-        // Sample just inside each cel to avoid subtraction rounding across a boundary.
-        unit.stepSelectionAnimation(state.selectionAnimationStartedAtMs + elapsed + 0.01);
+        unit.stepSelectionAnimation(animationStartMs + elapsed);
         expect(state.selectionAnimFrameIndex).toBe(expected);
         expect(state.sprite.texture).toBe(state.selectionAnimFrames[expected]);
         expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleScale);
