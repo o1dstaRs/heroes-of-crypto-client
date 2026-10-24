@@ -1,7 +1,8 @@
+import { FEATURE_CARD_ROSTER, resolveFeatureCardUnit } from '../lib/feature-card-roster';
+
 interface Slot { faction: string; creature: string; x: number; y: number; scale: number; flip: boolean }
 interface Config { spellVariant: number; slots: Slot[] }
-interface Group { faction: string; units: { name: string; slug: string; src: string }[] }
-const data = JSON.parse(document.querySelector('#editor-data')!.textContent!) as { roster: Group[]; config: Config };
+const data = JSON.parse(document.querySelector('#editor-data')!.textContent!) as { config: Config };
 const config = structuredClone(data.config);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 let selected = 0;
@@ -18,7 +19,8 @@ function render() {
     document.querySelectorAll<HTMLElement>('[data-slot]').forEach(el => {
         const i = Number(el.dataset.slot), slot = config.slots[i];
         const image = el.querySelector('img')!;
-        const unit = data.roster[i].units.find(unit => unit.slug === slot.creature)!;
+        const unit = resolveFeatureCardUnit(i, slot.creature);
+        if (!unit) return;
         if (image.getAttribute('src') !== unit.src) image.src = unit.src;
         image.style.left = `${50 + slot.x}%`;
         image.style.top = `${50 + slot.y}%`;
@@ -35,8 +37,8 @@ function render() {
 function change() { dirty = true; status.textContent = 'Есть несохранённые изменения.'; render(); }
 function select(index: number) {
     selected = index;
-    $('slot-title').textContent = data.roster[index].faction;
-    creature.replaceChildren(...data.roster[index].units.map(unit => new Option(unit.name, unit.slug)));
+    $('slot-title').textContent = FEATURE_CARD_ROSTER[index].faction;
+    creature.replaceChildren(...FEATURE_CARD_ROSTER[index].units.map(unit => new Option(unit.name, unit.slug)));
     creature.value = config.slots[index].creature;
     document.querySelectorAll<HTMLElement>('[data-select-slot]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.selectSlot) === index)));
     render();
