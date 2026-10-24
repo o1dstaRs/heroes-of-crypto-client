@@ -472,3 +472,8 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - 23 scored own posts since 15 Oct (pin excluded): midday 14.4 avg views (n=8), evening 13.4 (n=7), morning 13.1 (n=8). Midday pulled ahead by ~1 view after Castling (Thu 11:59 AM PT, 25 views).
 - The three best non-pin 24h reaches were all midday story posts (Castling 25, origin 20, replay part two 20). That is a format-plus-slot overlap, not a slot result on its own (n is small and tactics posts filled most mornings).
 - No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-24 daily review (9:41 AM PT pull)
+- 24h snapshots: Thu 22 4:50 PM evening 13 views (40.8h); Fri 23 6:53 AM morning 13 views (26.8h). Evening and morning tie at this reach.
+- 7d tails: Sat 17 4:52 PM evening 13 -> 17 (+4, largest non-pin tail so far); Sun 18 6:58 AM morning 14 -> 15; Sat 17 6:56 AM 10 -> 10; Sat 17 11:59 AM midday 9 -> 9. Weekend posts keep showing the weakest reach and almost no tail.
+- No posts went out from Fri 23 11:48 AM through Sat 24 morning (missed / blocked by X phone check), so no new slot data for Fri midday, Fri evening or Sat morning.
