@@ -153,7 +153,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Rapid Charge": "Стремительный натиск",
     Resurrection: "Воскрешение",
     "Shadow Touch": "Касание тени",
-    "Sharpened Weapons Aura": "Аура заточенного оружия",
+    "Sharpened Weapons Blessing": "Благословение заточенного оружия",
     "Shatter Armor": "Сокрушение брони",
     "Skewer Strike": "Удар насквозь",
     "Sky Runner": "Небесный бегун",

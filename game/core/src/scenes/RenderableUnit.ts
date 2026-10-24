@@ -13580,18 +13580,13 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Sharpened Weapons Aura
-        const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
-        if (sharpenedWeaponsAuraAbility) {
-            const percentage = Number(
-                (
-                    this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility, _synergyAbilityPowerIncrease) * 100 -
-                    100
-                ).toFixed(2),
-            );
+        // Sharpened Weapons Blessing
+        const sharpenedWeaponsBlessing = this.getAbility("Sharpened Weapons Blessing");
+        if (sharpenedWeaponsBlessing) {
+            const percentage = this.calculateSharpenedWeaponsBlessingPower(_synergyAbilityPowerIncrease);
             this.refreshAbiltyDescription(
-                sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsBlessing.getName(),
+                sharpenedWeaponsBlessing.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 

@@ -126,11 +126,11 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             "На его атаки никогда не отвечают: цель не может нанести ответный удар — если только он не под Break, который отключает это на 2 круга.",
     },
-    "Sharpened Weapons Aura": {
+    "Sharpened Weapons Blessing": {
         en: ({ p, n }) =>
-            `Allied non-ranged units — melee and magic, the Crusader included — within 2 cells get +${n(p / 5)}% base attack per stack power (+${n(p)}% at full stack; ±1% per point of the Crusader's luck). Several Crusaders don't stack.`,
+            `Allied non-ranged units — melee and magic, the Crusader included — anywhere on the battlefield get +${n(p / 5)}% base attack per stack power (+${n(p)}% at full stack; ±1% per point of the Crusader's luck). Might's Abilities power adds its full bonus; Aura Range has no effect. The strongest living, unbroken source applies, and several Crusaders don't stack.`,
         ru: ({ p, n }) =>
-            `Союзные юниты без дальней атаки — ближнего боя и магии, включая Crusader, — в радиусе 2 клеток получают +${n(p / 5)}% к базовой атаке за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи Crusader). Несколько Crusader не складываются.`,
+            `Союзные юниты без дальней атаки — ближнего боя и магии, включая Crusader, — на всём поле боя получают +${n(p / 5)}% к базовой атаке за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи Crusader). Синергия «Сила способностей» прибавляется целиком; «Радиус аур» не влияет. Действует сильнейший живой носитель без Break; несколько Crusader не складываются.`,
     },
     "Shatter Armor": {
         en: ({ p, n }) =>

@@ -53,6 +53,7 @@ const abilityIconOverrides: Readonly<Record<string, string>> = {
     "Angelic Host Blessing": "/assets/images/units/abilities/angelic_host_256.webp",
     "Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
     "Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
+    "Sharpened Weapons Blessing": "/assets/images/units/abilities/sharpened_weapons_aura_256.webp",
 };
 
 const abilityIcon = (name: string): string =>
@@ -195,7 +196,10 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Имеет +{}% базовой брони, но получает на {}% больше магического урона — от заклинаний, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield.",
     ],
     "No Melee": ["У юнита нет ближней атаки."],
-    "Sharpened Weapons Aura": ["Союзники ближнего боя под эффектом получают +{}% к базовой силе атаки."],
+    "Sharpened Weapons Blessing": [
+        "Пока этот юнит жив, все союзные юниты ближнего боя и магии на поле боя получают +{}% к базовой атаке.",
+        "Не складывается с другими благословениями заточенного оружия.",
+    ],
     "Range Null Field Aura": ["Вражеские юниты под эффектом не могут использовать дальние атаки."],
     "Luck Aura": ["Союзники в радиусе получают максимальную удачу."],
     "Arrows Wingshield Aura": [

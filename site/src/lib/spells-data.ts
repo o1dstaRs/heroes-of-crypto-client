@@ -109,6 +109,7 @@ const spellIconOverrides: Readonly<Record<string, string>> = {
     "System:Angelic Host Blessing": "/assets/images/spells/angelic_host_256.webp",
     "System:Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
     "System:Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
+    "System:Sharpened Weapons Blessing": "/assets/images/units/abilities/sharpened_weapons_aura_256.webp",
 };
 
 const damageSpells = new Set([
@@ -164,6 +165,7 @@ const appliedBySources: Record<string, string[]> = {
     "Arcane Ward Blessing": ["Arcane Ward Blessing"],
     "Arrows Wingshield Blessing": ["Arrows Wingshield Blessing"],
     "Rallying Volley Blessing": ["Rallying Volley Blessing"],
+    "Sharpened Weapons Blessing": ["Sharpened Weapons Blessing"],
     "Warding Mane Blessing": ["Warding Mane Blessing"],
     "Made of Fire": ["Made of Fire"],
     "Water Shield": ["Water Shield"],
@@ -252,6 +254,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner, но не ниже 1.",
     "System:Warding Mane Blessing":
         "Warding Mane Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Warding Mane Blessing.",
+    "System:Sharpened Weapons Blessing":
+        "Sharpened Weapons Blessing даёт +{}% к базовой атаке на всём поле боя.\nДействует, пока жив союзный юнит с Sharpened Weapons Blessing.",
     "System:Morale": "Юнит достигает максимальной морали, повышая множитель атаки до 1.25.",
     "System:Dismorale": "Мораль юнита падает до минимума, снижая множитель атаки до 0.8.",
     "System:Dulling Defense":
