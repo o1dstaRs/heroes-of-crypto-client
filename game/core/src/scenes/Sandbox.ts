@@ -9332,9 +9332,7 @@ export class Sandbox extends PixiScene {
 
         // Switch to the MAGIC attack type (parity with legacy) so the toolbar shows the scepter and
         // the melee hover/attack positions are suppressed while a spell is armed.
-        if (
-            this.applyGameAction({ type: "select_attack_type", unitId: caster.getId(), attackType: AttackVals.MAGIC })
-        ) {
+        if (this.selectArmedSpellAttackType(caster)) {
             this.sc_selectedAttackType = caster.getAttackTypeSelection();
         }
 
@@ -9374,6 +9372,13 @@ export class Sandbox extends PixiScene {
 
         // Refresh the toolbar so the spellbook button shows the armed spell's icon immediately.
         this.buttonManager.refreshButtons(true);
+    }
+    protected selectArmedSpellAttackType(caster: RenderableUnit): boolean {
+        return this.applyGameAction({
+            type: "select_attack_type",
+            unitId: caster.getId(),
+            attackType: AttackVals.MAGIC,
+        });
     }
     private describeSpellRefusal(spell: Spell, targetUnit: Unit): string {
         const caster = this.currentActiveUnit;
