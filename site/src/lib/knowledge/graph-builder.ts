@@ -334,7 +334,7 @@ function unitText(unit: Unit, language: Language): string {
     const movement = isRu
         ? (movementLabelRu[unit.movementType] ?? unit.movementType)
         : movementLabel(unit.movementType);
-    const footprint = unit.size === 1 ? "1x1" : unit.size === 2 ? "2x2" : `${unit.size}`;
+    const footprint = `${unit.footprintWidth}x${unit.footprintHeight}`;
     const abilityLines = unit.abilities.map(
         (ability) =>
             `${isRu ? ruLabel(ability.name) : ability.name}: ${(isRu ? ability.descriptionRu : ability.description).replace(/\s+/g, " ")}`,
@@ -1710,6 +1710,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 initiative: unit.initiative,
                 steps: unit.steps,
                 size: unit.size,
+                footprintWidth: unit.footprintWidth,
+                footprintHeight: unit.footprintHeight,
                 experience: unit.experience,
                 attackType: unit.attackType,
                 movementType: unit.movementType,
