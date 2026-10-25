@@ -22,7 +22,12 @@ import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { placementFootprintCandidates } from "./placementFootprintCandidates";
-import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
+import {
+    projectBattlefieldPoint,
+    projectedPolyline,
+    projectedRangeAttackCellSideCenter,
+    projectedRectPoints,
+} from "./sandbox/BattlefieldVisualGrid";
 import {
     CREATURE_ATTACK_FOREGROUND_Z_INDEX,
     placementFacingDirectionForTeam,
@@ -839,6 +844,9 @@ export class HoverManager {
         if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
             this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
         if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
+        for (const graphics of [this.hoverAttackOrigin, this.hoverShotGuide]) {
+            if (this.isGraphicsUsable(graphics)) this.safeAttachGraphics(graphics, ATTACK_GEOMETRY_Z_INDEX);
+        }
         this.attachSpellBadge(this.localSpellBadge);
         this.attachSpellBadge(this.opponentSpellBadge);
         this.updateSpellCasterBadges();
@@ -875,6 +883,7 @@ export class HoverManager {
             .stroke({ width: 2, color: 0xff6666, alpha: 0.85 });
     }
     public clear(): void {
+        this.clearAttackGeometry();
         this.hoverAttackUnits = undefined;
         this.hoverAttackFromCell = undefined;
         this.hoverPlacementCell = undefined;
@@ -1029,6 +1038,75 @@ export class HoverManager {
         const cells = this.hoverBattlefieldFootprintCells;
         if (!cells || cells.length === 0) return;
         this.drawFootprintCells(gfx, cells, false);
+    }
+    private ensureAttackGeometry(kind: "origin" | "shot"): Graphics | undefined {
+        const existing = kind === "origin" ? this.hoverAttackOrigin : this.hoverShotGuide;
+        if (this.isGraphicsUsable(existing)) return existing;
+        const graphics = new Graphics();
+        graphics.eventMode = "none";
+        if (!this.safeAttachGraphics(graphics, ATTACK_GEOMETRY_Z_INDEX)) {
+            graphics.destroy();
+            return undefined;
+        }
+        if (kind === "origin") this.hoverAttackOrigin = graphics;
+        else this.hoverShotGuide = graphics;
+        return graphics;
+    }
+    private clearAttackGeometry(): void {
+        for (const graphics of [this.hoverAttackOrigin, this.hoverShotGuide]) {
+            if (this.safeClearGraphics(graphics)) graphics!.visible = false;
+        }
+    }
+    private drawMeleeAttackOrigin(): void {
+        const active = this.context.getCurrentActiveUnit?.();
+        const props = active?.getUnitProperties() ?? this.context.getSelectedUnitProperties?.();
+        const anchor = this.hoverAttackFromCell;
+        if (!anchor || !props) return;
+        const cells = combatFootprintCellsForBase(anchor, footprintWidthOf(props), footprintHeightOf(props));
+        this.hoverBattlefieldFootprintCells = cells;
+        const graphics = this.ensureAttackGeometry("origin");
+        if (!graphics) return;
+        const gs = this.context.sceneSettings.getGridSettings();
+        const inset = Math.max(2, gs.getCellSize() * 0.055) / gs.getCellSize();
+        const polygon =
+            cells.length === 1 ? tunedCellFillPolygon(cells[0], gs, inset) : placementZonePolygon(cells, gs, inset);
+        const width = Math.max(2.5, gs.getCellSize() * 0.035);
+        // The floor wash can disappear underneath an adjacent creature or the attacker standing still.
+        // Keep only its perimeter above the figures, so the exact landing remains readable in both cases.
+        graphics.clear();
+        graphics.visible = true;
+        graphics
+            .poly(polygon)
+            .stroke({ width: width + 3, color: 0x17120b, alpha: 0.9, join: "round" })
+            .poly(polygon)
+            .stroke({ width, color: 0xffe2a0, alpha: 1, join: "round" });
+    }
+    private drawRangeShotGuide(from: HoCMath.XY, to: HoCMath.XY, edge?: RangeTargetEdgeVisual): void {
+        const graphics = this.ensureAttackGeometry("shot");
+        if (!graphics) return;
+        graphics.clear();
+        graphics.visible = true;
+        // Unlike the decorative arrow's socket, this endpoint is the selected target-cell seam.
+        // A thin continuous sightline makes its precise contact readable between the moving casings.
+        graphics
+            .moveTo(from.x, from.y)
+            .lineTo(to.x, to.y)
+            .stroke({ width: 4, color: 0x17120b, alpha: 0.65 })
+            .moveTo(from.x, from.y)
+            .lineTo(to.x, to.y)
+            .stroke({ width: 1.5, color: 0xffe2a0, alpha: 0.85 });
+        if (edge) {
+            const dx = (edge.to.x - edge.from.x) * 0.3;
+            const dy = (edge.to.y - edge.from.y) * 0.3;
+            graphics
+                .moveTo(to.x - dx, to.y - dy)
+                .lineTo(to.x + dx, to.y + dy)
+                .stroke({ width: 6, color: 0x17120b, alpha: 0.9, cap: "round" })
+                .moveTo(to.x - dx, to.y - dy)
+                .lineTo(to.x + dx, to.y + dy)
+                .stroke({ width: 3, color: 0xffe2a0, alpha: 1, cap: "round" });
+        }
+        graphics.circle(to.x, to.y, 3).fill({ color: 0xfff2cf, alpha: 1 });
     }
     public isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
@@ -1236,6 +1314,8 @@ export class HoverManager {
         smokeFrom?: HoCMath.XY;
     };
     private hoverAttackSword?: Sprite;
+    private hoverAttackOrigin?: Graphics;
+    private hoverShotGuide?: Graphics;
     private silhouetteLocked = false;
     public setSilhouetteLocked(locked: boolean): void {
         this.silhouetteLocked = locked;
@@ -1247,6 +1327,8 @@ export class HoverManager {
     }
     public clearHoverSilhouette(force = false): void {
         if (this.silhouetteLocked && !force) return;
+
+        this.clearAttackGeometry();
 
         if (this.hoverSilhouette) {
             this.hoverSilhouette.visible = false;
@@ -1269,6 +1351,8 @@ export class HoverManager {
     }
     public hideSilhouettesOnly(): void {
         if (this.silhouetteLocked) return;
+
+        this.clearAttackGeometry();
 
         if (this.hoverSilhouette) {
             this.hoverSilhouette.visible = false;
@@ -1502,6 +1586,7 @@ export class HoverManager {
         );
     }
     public clearAttackVisuals(preserveDamagePredictionAnchor = false): void {
+        this.clearAttackGeometry();
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
@@ -1572,13 +1657,18 @@ export class HoverManager {
         this.hoverAttackTargetUnit = undefined;
     }
     public drawRangeTargetEdge(edge: RangeTargetEdgeVisual, trajectoryFrom: HoCMath.XY): void {
-        this.drawRangeTerminalArrowhead(edge.markerCenter, trajectoryFrom, edge.markerScale);
+        this.drawRangeTerminalArrowhead(edge.markerCenter, trajectoryFrom, edge.markerScale, edge);
     }
     public drawRangeTerminalArrowhead(
         markerCenter: HoCMath.XY,
         trajectoryFrom: HoCMath.XY,
         markerScale = 1,
+        edge?: RangeTargetEdgeVisual,
     ): HoCMath.XY {
+        const impact = edge
+            ? projectedRangeAttackCellSideCenter(edge.cell, edge.side, this.context.sceneSettings.getGridSettings())
+            : markerCenter;
+        this.drawRangeShotGuide(trajectoryFrom, impact, edge);
         const useOrcPalette = shotTrajectoryUsesOrcPalette(this.context.getCurrentActiveUnit()?.getName());
         const texture = useOrcPalette
             ? (this.hoverRangeTargetEdgeOrcTexture ??
@@ -1966,6 +2056,12 @@ export class HoverManager {
         rememberAnimation = true,
         meleeFacingAngle?: number,
     ): void {
+        if (marker === "melee") {
+            this.clearAttackGeometry();
+            this.drawMeleeAttackOrigin();
+        } else if (this.safeClearGraphics(this.hoverAttackOrigin)) {
+            this.hoverAttackOrigin!.visible = false;
+        }
         for (const sprite of this.hoverShotShaftSprites) sprite.visible = false;
         if (this.hoverShotStartFletching) this.hoverShotStartFletching.visible = false;
         if (this.isGraphicsUsable(this.hoverShotJointSparks)) {
@@ -2104,8 +2200,8 @@ export class HoverManager {
                 drawDashes(0, arrowLen, 1.5, 0xffffe9, 0.9);
                 break;
             case "gold-casings": {
-                // The authored arrow pieces remain the only trajectory rail. Graphics are reserved for
-                // moving golden sparks distributed over its full length; no line, glow rail or dots are drawn.
+                // The authored arrow pieces carry the animation. The separate precision guide ends at
+                // the real target edge rather than this decorative arrowhead's socket.
                 g.visible = true;
                 const ux = Math.cos(angle);
                 const uy = Math.sin(angle);
@@ -3585,3 +3681,4 @@ export class HoverManager {
 }
 
 const TARGET_HIGHLIGHT_Z_INDEX = CREATURE_ATTACK_FOREGROUND_Z_INDEX + 1;
+const ATTACK_GEOMETRY_Z_INDEX = TARGET_HIGHLIGHT_Z_INDEX + 1;
