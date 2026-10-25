@@ -1,9 +1,12 @@
 import {
     Artifact,
     CreaturePoolByLevel,
+    GridVals,
     creatureInfo,
+    draftFactionContinuations,
     synergyVariantsForSeed,
     ToFactionName,
+    type IDraftScoutingContext,
 } from "@heroesofcrypto/common";
 
 import { synergyNextLevel } from "../LeftSideBar/synergyLadder";
@@ -16,12 +19,14 @@ export interface PremiumDraftState {
     artifactTier1: number;
     artifactTier2: number;
     isYourTurn: boolean | null;
+    scouting?: IDraftScoutingContext;
 }
 
 export interface PremiumDraftAssessment {
     headline: string;
     focus: string;
     roster: string;
+    scouting?: string;
     notes: { label: string; text: string }[];
 }
 
@@ -47,6 +52,28 @@ export const premiumDraftAssessment = (draft: PremiumDraftState): PremiumDraftAs
     const hasRangedDamage = shooters.length > 0 || rangedSpells.length > 0;
     const picksLeft = Math.max(0, totalPicks - own.length);
     const notes: PremiumDraftAssessment["notes"] = [];
+    const scouting = draft.scouting;
+    const paths = scouting ? draftFactionContinuations(draft.picked, draft.opponentPicked, scouting) : [];
+    const mapName =
+        scouting?.map === GridVals.NORMAL
+            ? "Normal"
+            : scouting?.map === GridVals.LAVA_CENTER
+              ? "Lava"
+              : scouting?.map === GridVals.BLOCK_CENTER
+                ? "Block"
+                : undefined;
+    const bansComplete = scouting?.knownBanLevels.length === 4;
+    const scoutingLine = scouting
+        ? `${mapName ? `Map: ${mapName}` : "Map hidden"} · ${bansComplete ? "all bans known" : scouting.knownBanLevels.length ? `bans known for levels ${scouting.knownBanLevels.join(", ")}` : "bans hidden"}`
+        : undefined;
+    if (scouting) {
+        const banned = rosterInfo(scouting.bannedCreatureIds).map((unit) => unit.name);
+        notes.push({ label: "Scouting", text: `${scoutingLine}. Information follows your doctrine.` });
+        notes.push({
+            label: "Bans",
+            text: `${banned.length ? banned.join(", ") : "No bans revealed yet"}.${bansComplete ? "" : " Future-level bans are still hidden."}`,
+        });
+    }
     let headline: string;
     let focus: string;
     if (!own.length) {
@@ -101,8 +128,16 @@ export const premiumDraftAssessment = (draft: PremiumDraftState): PremiumDraftAs
                 gaps.push("Aura range has no aura carrier to benefit yet.");
         }
         const next = synergyNextLevel(count);
-        if (next?.unitsAway === 1 && picksLeft > 0)
-            synergyNotes.push(`one more distinct ${faction} creature reaches ${label} level ${next.level}`);
+        if (next?.unitsAway === 1 && picksLeft > 0) {
+            const path = paths.find((entry) => ToFactionName[entry.faction] === faction);
+            if (path && !path.reachable) {
+                gaps.push(`${faction} ${label} level ${next.level} cannot be reached in your remaining picks.`);
+            } else {
+                synergyNotes.push(
+                    `one more distinct ${faction} creature reaches ${label} level ${next.level}${path?.uncertain ? " if it survives the hidden bans and opposing picks" : path ? " if the opponent leaves a matching creature available" : ""}`,
+                );
+            }
+        }
     }
     if (synergyNotes.length) notes.push({ label: "Synergies", text: `${synergyNotes.join("; ")}.` });
     if (gaps.length) {
@@ -139,6 +174,7 @@ export const premiumDraftAssessment = (draft: PremiumDraftState): PremiumDraftAs
         headline,
         focus,
         roster: `${own.length} of ${totalPicks} creatures locked in`,
+        scouting: scoutingLine,
         notes,
     };
 };

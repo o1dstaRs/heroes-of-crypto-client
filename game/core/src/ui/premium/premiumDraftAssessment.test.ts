@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Artifact, CreatureVals, creatureInfo } from "@heroesofcrypto/common";
+import { Artifact, CreatureVals, CreatureLevelList, GridVals, creatureInfo } from "@heroesofcrypto/common";
 
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
 
@@ -16,6 +16,49 @@ const note = (state: PremiumDraftState, label: string) =>
     premiumDraftAssessment(state).notes.find((entry) => entry.label === label)?.text;
 
 describe("Premium draft assessment", () => {
+    test("shows the authorized map and bans without claiming hidden information", () => {
+        const scouting = {
+            map: GridVals.BLOCK_CENTER,
+            bannedCreatureIds: [CreatureVals.HYDRA],
+            knownBanLevels: [1, 2, 3, 4],
+            remainingPickLevels: [1, 2, 3, 4],
+        };
+        const state = draft({ scouting });
+        expect(premiumDraftAssessment(state).scouting).toBe("Map: Block · all bans known");
+        expect(note(state, "Bans")).toContain("Hydra");
+        const hidden = draft({
+            scouting: { bannedCreatureIds: [], knownBanLevels: [], remainingPickLevels: [1, 2, 3, 4] },
+        });
+        expect(premiumDraftAssessment(hidden).scouting).toBe("Map hidden · bans hidden");
+        expect(JSON.stringify(premiumDraftAssessment(hidden))).not.toContain("Hydra");
+    });
+
+    test("removes an impossible next-synergy recommendation when the remaining level is banned out", () => {
+        const nature = creatureInfo(CreatureVals.ELF)!.faction;
+        const state = draft({
+            picked: [CreatureVals.ELF, CreatureVals.PEASANT],
+            scouting: {
+                bannedCreatureIds: CreatureLevelList[4].filter((id) => creatureInfo(id)?.faction === nature),
+                knownBanLevels: [1, 2, 3, 4],
+                remainingPickLevels: [4],
+            },
+        });
+        expect(note(state, "Synergy gap")).toContain("Nature Flying armor level 1 cannot be reached");
+        expect(note(state, "Synergies") ?? "").not.toContain("one more distinct Nature");
+    });
+
+    test("lists revealed ban levels without claiming that skipped levels are visible", () => {
+        const state = draft({
+            scouting: {
+                map: GridVals.BLOCK_CENTER,
+                bannedCreatureIds: [],
+                knownBanLevels: [1, 4],
+                remainingPickLevels: [4],
+            },
+        });
+        expect(premiumDraftAssessment(state).scouting).toBe("Map: Block · bans known for levels 1, 4");
+    });
+
     test("assesses confirmed picks while waiting and updates after the next pick", () => {
         const before = draft({ picked: [CreatureVals.PEASANT] });
         expect(premiumDraftAssessment(before).headline).toBe("No ranged damage drafted yet");

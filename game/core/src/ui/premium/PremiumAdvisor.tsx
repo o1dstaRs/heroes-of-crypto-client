@@ -256,7 +256,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
     draft,
 }) => {
     if (!advice?.entitlement.active) return null;
-    const assessment = premiumDraftAssessment(draft);
+    const assessment = premiumDraftAssessment({ ...draft, scouting: advice.scouting });
     const preferred = draft.isYourTurn ? advice.choices?.[0] : undefined;
     return (
         <Tooltip
@@ -325,6 +325,9 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                 </strong>
                 <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
                 <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
+                {assessment.scouting && (
+                    <Box sx={{ mt: 0.5, color: "#e7bc83", fontSize: 11 }}>{assessment.scouting}</Box>
+                )}
             </Box>
         </Tooltip>
     );
