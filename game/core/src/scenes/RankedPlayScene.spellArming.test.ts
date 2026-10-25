@@ -13,6 +13,7 @@ import {
     GridSettings,
     GridVals,
     HoCConfig,
+    MoveHandler,
     TeamVals,
     Unit,
     UnitsHolder,
@@ -43,7 +44,9 @@ function fixture(team: TeamType, charges: number) {
     const layer = new Container();
     const create = (faction: string, name: string, seat: TeamType, cell: { x: number; y: number }) => {
         const props = HoCConfig.getCreatureConfig(seat, faction, name, "", name === "Magic Dragon" ? 1 : 1000);
-        if (name === "Magic Dragon") props.spells = Array(charges).fill("Nature:Lightning Strike");
+        if (name === "Magic Dragon") {
+            props.spells.splice(0, props.spells.length, ...Array(charges).fill("Nature:Lightning Strike"));
+        }
         const unit = RenderableUnit.fromBase(
             Unit.createUnit(props, settings, seat, UnitVals.CREATURE, new AbilityFactory(effects), effects, false),
             () => Texture.WHITE,
@@ -134,6 +137,7 @@ describe("ranked spell selection", () => {
                         grid: f.grid,
                         unitsHolder: f.unitsHolder,
                         fightProperties: f.fight,
+                        moveHandler: new MoveHandler(settings, f.grid, f.unitsHolder),
                         getCurrentActiveUnitId: () => f.caster.getId(),
                         sceneLog: f.log,
                         attackHandler: new AttackHandler(settings, f.grid, f.log, {
@@ -200,8 +204,8 @@ describe("ranked spell selection", () => {
                 shatterNewlyDeadUnits() {},
                 capturePlacementSelection: () => ({ hasActiveSelection: false }),
                 hydrateSceneState() {
-                    this.currentActiveSpell = undefined;
-                    this.currentActiveUnit = active;
+                    f.scene.currentActiveSpell = undefined;
+                    f.scene.currentActiveUnit = active;
                 },
                 applyScatteredMountainsFromSnapshot() {},
                 refreshUnits() {},
