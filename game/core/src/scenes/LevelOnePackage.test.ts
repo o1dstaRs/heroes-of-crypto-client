@@ -52,7 +52,7 @@ const resolve = (key: string) => (Object.hasOwn(images, key) ? texture : undefin
 test("approved renderer replaces the stun hand with orbit stars and clears them with status/visibility", () => {
     const effects = new EffectFactory();
     const requests: string[] = [];
-    const unit = ApprovedUnit.fromBase(
+    const unit = RenderableUnit.fromBase(
         Unit.createUnit(
             HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "squire_512", 10),
             grid,
