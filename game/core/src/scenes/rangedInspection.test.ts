@@ -136,7 +136,7 @@ function fixture(abilities = ["Handyman", "Piercing Spear", "Boost Health"], pro
         sc_hoverInfoArr: [],
         getViewerTeam: () => 1,
         isEnemyActiveTurn: () => true,
-        highlightScatteredObstaclesAlongTrajectory: () => {},
+        dungeonVisuals: { highlightScatteredMountains: () => {} },
         hoverManager: {
             drawAttackArrow: (_from: HoCMath.XY, to: HoCMath.XY) => arrows.push(to),
             addTargetHighlight: () => {},

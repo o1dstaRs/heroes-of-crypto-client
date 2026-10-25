@@ -87,6 +87,7 @@ import {
     Unit,
     IAttackTargets,
     IAttackObstacle,
+    IRangeAttackEvaluation,
     FightStateManager,
     UnitsHolder,
     MoveHandler,
@@ -145,6 +146,7 @@ import {
 } from "@heroesofcrypto/common";
 import { clearPersonalArmyTint, personalArmyPresetFor } from "./personalArmyTint";
 import { UnitsOverlay } from "./UnitsOverlay";
+import { projectRangedObstacles, type RangedObstaclePreview } from "./rangedObstaclePreview";
 import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
@@ -1077,6 +1079,7 @@ export class Sandbox extends PixiScene {
     private opponentAimOverlay?: OpponentAimOverlay;
     private opponentAimPaintKey?: string;
     private opponentAimGhost?: HoCMath.XY;
+    private opponentAimBarrelCells: HoCMath.XY[] = [];
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private lastEmittedMoveIntentKey?: string;
     private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
@@ -1926,6 +1929,8 @@ export class Sandbox extends PixiScene {
             this.opponentAim = undefined;
             this.opponentAimPaintKey = undefined;
             this.opponentAimGhost = undefined;
+            if (this.opponentAimBarrelCells?.length) this.dungeonVisuals.clearScatteredMountainHighlight();
+            this.opponentAimBarrelCells = [];
             this.opponentAimOverlay?.clear();
             if (!this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
         }
@@ -2002,6 +2007,7 @@ export class Sandbox extends PixiScene {
                 grid: this.grid,
                 settings: gs,
                 evaluateRange: this.attackHandler.evaluateRangeAttack.bind(this.attackHandler),
+                getObstacleIntersections: this.attackHandler.getObstacleIntersections.bind(this.attackHandler),
                 spell,
                 spellImpact: impact,
                 spellEndpoint:
@@ -2020,11 +2026,15 @@ export class Sandbox extends PixiScene {
             }
             this.opponentAimOverlay.paint(geometry, gs);
             this.opponentAimGhost = geometry.ghost;
+            if (aim.kind !== PlayAimKind.RANGED && this.opponentAimBarrelCells?.length)
+                this.dungeonVisuals.clearScatteredMountainHighlight();
+            this.opponentAimBarrelCells = geometry.barrelCells ?? [];
             if (!geometry.ghost && !this.opponentMoveIntent) this.hoverManager.clearOpponentIntentSilhouette();
             this.opponentAimPaintKey = key;
         }
         if (this.opponentAimGhost)
             this.hoverManager.showOpponentIntentSilhouette(actor.getUnitProperties(), this.opponentAimGhost);
+        if (aim.kind === PlayAimKind.RANGED) this.highlightScatteredObstaclesInCells(this.opponentAimBarrelCells);
         if (this.opponentAimOverlay)
             this.opponentAimOverlay.graphics.alpha = 0.85 + Math.sin(performance.now() / 240) * 0.12;
     }
@@ -11147,6 +11157,22 @@ export class Sandbox extends PixiScene {
         this.dungeonVisuals.highlightScatteredMountains(intersections.map((obstacle) => obstacle.position));
         return intersections;
     }
+    private rangedObstaclePreview(
+        attacker: Unit,
+        aim: HoCMath.XY,
+        evaluation?: IRangeAttackEvaluation,
+        obstacleTarget = false,
+    ): RangedObstaclePreview {
+        return projectRangedObstacles({
+            attacker,
+            aim,
+            evaluation,
+            obstacleTarget,
+            grid: this.grid,
+            units: this.unitsHolder.getAllUnits(),
+            handler: this.attackHandler,
+        });
+    }
     private updateObstacleHover(): boolean {
         // Clear any stale obstacle-hit state and report "not targeting the obstacle".
         const notHovering = (): boolean => {
@@ -11215,13 +11241,10 @@ export class Sandbox extends PixiScene {
             this.hoverManager.clearHoverSilhouette(true);
             this.localAim = { kind: PlayAimKind.RANGED, unitId: unit.getId(), cell: hoveredCell };
             const cellCenter = hoveredObstacleCenter;
-            const intersections = this.grid.hasScatteredMountains()
-                ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
-                : [];
-            const hasDoubleShot = !!(unit.getAbility("Double Shot") ?? unit.getAbility("Crafted Double Shot"));
-            const projectileHits = intersections.slice(0, hasDoubleShot ? 2 : 1);
+            const projectileHits = this.rangedObstaclePreview(unit, cellCenter, undefined, true).hits;
             const actualHit = projectileHits.at(-1)?.position ?? cellCenter;
-            const reachesAimedStone = actualHit.x === cellCenter.x && actualHit.y === cellCenter.y;
+            const actualHitCell = GridMath.getCellForPosition(gs, actualHit);
+            const reachesAimedStone = actualHitCell.x === hoveredCell.x && actualHitCell.y === hoveredCell.y;
             this.hoverRangeAttackObstacle = projectileHits.at(-1);
             // Match ordinary creature targeting exactly: the fletching starts where this ray exits the
             // shooter's occupied footprint, not at the unit's centre underneath its artwork.
@@ -11411,7 +11434,15 @@ export class Sandbox extends PixiScene {
             false,
             false,
         );
+        const obstacleOnly = !!evaluation.attackObstacle && evaluation.affectedUnits.length === 0;
+        const obstaclePreview = this.rangedObstaclePreview(
+            unit,
+            obstacleOnly ? evaluation.attackObstacle!.position : aim,
+            evaluation,
+            obstacleOnly,
+        );
         const lineEnd =
+            obstaclePreview.blocker?.position ??
             evaluation.attackObstacle?.position ??
             GridMath.projectLineToFieldEdge(gs, unit.getPosition().x, unit.getPosition().y, aim.x, aim.y);
         this.localAim = {
@@ -11503,14 +11534,13 @@ export class Sandbox extends PixiScene {
                 killStr ? images.combat_kills_skull_icon_v1 : undefined,
             );
         }
-        const obstacle = evaluation.attackObstacle;
+        const obstacle = obstaclePreview.blocker;
         this.hoverRangeAttackObstacle = obstacle;
-        if (obstacle) {
-            if (this.grid.hasScatteredMountains()) {
-                this.dungeonVisuals.highlightScatteredMountains([obstacle.position]);
-            } else {
-                this.hoverManager.highlightObstacle(obstacle.position, gs.getCellSize());
-            }
+        if (this.grid.hasScatteredMountains()) {
+            this.hoverManager.clearObstacleHighlight();
+            this.dungeonVisuals.highlightScatteredMountains(obstaclePreview.hits.map((hit) => hit.position));
+        } else if (obstacle) {
+            this.hoverManager.highlightObstacle(obstacle.position, gs.getCellSize());
         } else {
             this.hoverManager.clearObstacleHighlight();
             this.dungeonVisuals.clearScatteredMountainHighlight();
@@ -12222,13 +12252,16 @@ export class Sandbox extends PixiScene {
             shooter.hasAbilityActive("Large Caliber") || shooter.hasAbilityActive("Area Throw"),
         );
         const interceptor = evaluation.affectedUnits?.[0]?.[0];
+        const obstaclePreview = this.rangedObstaclePreview(shooter, aimPos, evaluation);
         const screened = !!interceptor && interceptor.getId() !== hoveredUnit.getId();
         const impactUnit = (interceptor ?? hoveredUnit) as RenderableUnit;
         const impactAim = screened ? this.resolveRangeAimForTarget(shooter, impactUnit, impactUnit.getPosition()) : aim;
-        const impactLogical = impactAim?.position ?? impactUnit.getPosition();
-        const impactPos = impactAim
-            ? projectedRangeAttackCellSideCenter(impactAim.cell, impactAim.side, gs)
-            : projectBattlefieldPoint(impactLogical, gs);
+        const impactLogical = obstaclePreview.blocker?.position ?? impactAim?.position ?? impactUnit.getPosition();
+        const impactPos = obstaclePreview.blocker
+            ? projectBattlefieldPoint(impactLogical, gs)
+            : impactAim
+              ? projectedRangeAttackCellSideCenter(impactAim.cell, impactAim.side, gs)
+              : projectBattlefieldPoint(impactLogical, gs);
 
         // Falloff the SHOOTER would apply on THIS ray — taken from the evaluation above so it includes
         // smoke (a ray crossing a smoked cell doubles the divisor, capped at 1/8), not just distance.
@@ -12243,7 +12276,7 @@ export class Sandbox extends PixiScene {
             undefined,
             smokeLogical ? projectBattlefieldPoint(smokeLogical, gs) : undefined,
         );
-        this.highlightScatteredObstaclesAlongTrajectory(shooterLogical, impactLogical);
+        this.dungeonVisuals.highlightScatteredMountains(obstaclePreview.hits.map((hit) => hit.position));
         this.hoverManager.addTargetHighlight(impactUnit);
 
         const line = screened
@@ -16369,54 +16402,14 @@ export class Sandbox extends PixiScene {
                               )
                             : undefined;
 
-                        // Ranged shot whose line of sight crosses the central mountain is blocked: aim at
-                        // the mountain, not the enemy behind it. This applies to Through Shot too — the
-                        // pierce travels THROUGH lined-up units, but a solid mountain on the trajectory
-                        // before the target still stops it (the obstacle check below uses the
-                        // attacker→target segment, isThroughShot=false, so a mountain BEHIND a reachable
-                        // target doesn't trigger it).
-                        let blockedByObstacle: IAttackObstacle | undefined;
-                        let doubleShotObstacleIntersections: IAttackObstacle[] = [];
-                        if (isRangeAttackContext) {
-                            if (this.hasStandingShotBlockingObstacle()) {
-                                // Test the SHOT'S ACTUAL trajectory — attacker -> the resolved visible
-                                // edge the projectile flies to (arrowEndPos, same edge the arrow and the
-                                // committed shot use) — NOT the target's geometric CENTER. A shot at a
-                                // unit whose near edge threads the 2x2 corridor or clears a mountain has a
-                                // center line that clips the mountain but an edge line that is clear; using
-                                // the center here wrongly reported "Hit the mountain" and routed the click
-                                // to the obstacle, so reachable units became unattackable.
-                                blockedByObstacle = this.currentActiveUnit.hasAbilityActive("Through Shot")
-                                    ? this.attackHandler.evaluateRangeAttack(
-                                          this.unitsHolder.getAllUnits(),
-                                          this.currentActiveUnit,
-                                          arrowStartLogical,
-                                          arrowEndPos!,
-                                          false,
-                                          this.sc_isSelection,
-                                          this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
-                                              this.currentActiveUnit.hasAbilityActive("Area Throw"),
-                                      ).attackObstacle
-                                    : shotEvaluation?.attackObstacle;
-                                if (
-                                    blockedByObstacle &&
-                                    this.grid.hasScatteredMountains() &&
-                                    (this.currentActiveUnit.getAbility("Double Shot") ??
-                                        this.currentActiveUnit.getAbility("Crafted Double Shot"))
-                                ) {
-                                    doubleShotObstacleIntersections = this.attackHandler
-                                        .getObstacleIntersections(arrowStartLogical, arrowEndPos!)
-                                        .slice(0, 2);
-                                    // With one stone the bonus projectile reaches the creature. With two,
-                                    // the second stone consumes the second projectile and becomes the arrow
-                                    // endpoint; both intersections are highlighted below.
-                                    blockedByObstacle =
-                                        doubleShotObstacleIntersections.length >= 2
-                                            ? doubleShotObstacleIntersections[1]
-                                            : undefined;
-                                }
-                            }
-                        }
+                        // Double Shot can spend both projectiles on barrels before reaching the creature.
+                        // Splash attacks instead mark barrels in their impact area, ignoring those along the line.
+                        const obstaclePreview =
+                            isRangeAttackContext && arrowEndPos
+                                ? this.rangedObstaclePreview(this.currentActiveUnit, arrowEndPos, shotEvaluation)
+                                : undefined;
+                        const blockedByObstacle = obstaclePreview?.blocker;
+                        const projectedObstacleHits = obstaclePreview?.hits ?? [];
 
                         if (blockedByObstacle) {
                             this.hoverRangeAttackObstacle = blockedByObstacle;
@@ -16443,10 +16436,9 @@ export class Sandbox extends PixiScene {
                             if (this.grid.hasScatteredMountains()) {
                                 this.hoverManager.clearObstacleHighlight();
                                 this.dungeonVisuals.highlightScatteredMountains(
-                                    (doubleShotObstacleIntersections.length
-                                        ? doubleShotObstacleIntersections
-                                        : [blockedByObstacle]
-                                    ).map((obstacle) => obstacle.position),
+                                    (projectedObstacleHits.length ? projectedObstacleHits : [blockedByObstacle]).map(
+                                        (obstacle) => obstacle.position,
+                                    ),
                                 );
                             } else {
                                 this.hoverManager.highlightObstacle(
@@ -16455,31 +16447,21 @@ export class Sandbox extends PixiScene {
                                 );
                             }
                             this.sc_hoverInfoArr = [
-                                doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
+                                projectedObstacleHits.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
                             ];
                             this.sc_hoverTextUpdateNeeded = true;
                             isAttacking = true;
                         } else {
                             // Moving onto a reachable (unblocked) target: drop any mountain-hit glow.
                             this.hoverRangeAttackObstacle = undefined;
-                            if (doubleShotObstacleIntersections.length > 0) {
+                            if (projectedObstacleHits.length > 0) {
                                 this.hoverManager.clearObstacleHighlight();
                                 this.dungeonVisuals.highlightScatteredMountains(
-                                    doubleShotObstacleIntersections.map((obstacle) => obstacle.position),
+                                    projectedObstacleHits.map((obstacle) => obstacle.position),
                                 );
                             } else {
                                 this.hoverManager.clearObstacleHighlight();
-                                // A Large Caliber ball flies over the barrels on its line and breaks every one in
-                                // the blast around the unit it hits.
-                                if (
-                                    isRangeAttackContext &&
-                                    arrowEndPos &&
-                                    this.currentActiveUnit.hasAbilityActive("Large Caliber")
-                                ) {
-                                    this.highlightScatteredObstaclesInCells(shotEvaluation?.affectedCells.flat() ?? []);
-                                } else {
-                                    this.dungeonVisuals.clearScatteredMountainHighlight();
-                                }
+                                this.dungeonVisuals.clearScatteredMountainHighlight();
                             }
                             this.hoverManager.drawDamagePrediction(
                                 dmgStr,
