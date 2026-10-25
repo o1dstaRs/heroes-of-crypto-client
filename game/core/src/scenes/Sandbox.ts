@@ -19416,11 +19416,7 @@ export class Sandbox extends PixiScene {
         // default, e.g. RANGE for a thrower like Gargantuan). When this is just a re-activation
         // of the already-active unit, restore the player's current pick so a manual attack-type
         // switch survives the next authoritative snapshot instead of silently reverting.
-        const priorAttackTypeSelection = nextUnit.getAttackTypeSelection();
-        nextUnit.refreshPossibleAttackTypes(canLandRange);
-        if (reactivatingSameUnit && nextUnit.getPossibleAttackTypes().includes(priorAttackTypeSelection)) {
-            nextUnit.selectAttackType(priorAttackTypeSelection);
-        }
+        this.refreshActiveAttackType(nextUnit, canLandRange, reactivatingSameUnit);
 
         // The anchor, not the cell under the centre — see refreshActiveUnitReach.
         const currentCell = nextUnit.getBaseCell();
@@ -19443,6 +19439,31 @@ export class Sandbox extends PixiScene {
         this.buttonManager.setButtonsRefreshLocked(false);
         this.buttonManager.refreshButtons(true);
         this.turnTrace("aggro+path+attackTypes+buttons", tPath);
+    }
+    private refreshActiveAttackType(unit: RenderableUnit, canLandRange: boolean, reactivatingSameUnit: boolean): void {
+        const prior = unit.getAttackTypeSelection();
+        unit.refreshPossibleAttackTypes(canLandRange);
+        if (reactivatingSameUnit && unit.getPossibleAttackTypes().includes(prior)) {
+            unit.selectAttackType(prior);
+            return;
+        }
+        // This is a human targeting preference, not an engine/AI policy. Damage mages start with
+        // their usable spells; spent scrolls, Break and a move that forbids casting keep the fallback.
+        if (
+            this.canControlCurrentActiveUnit() &&
+            !this.isBoardInputLockedByAI() &&
+            !unit.hasMovedThisTurn() &&
+            unit.getPossibleAttackTypes().includes(AttackVals.MAGIC) &&
+            unit
+                .getSpells()
+                .some(
+                    (spell) =>
+                        isOffensiveSpellMultiplier(spell.getMultiplierType()) &&
+                        SpellHelper.isSpellUsableByCaster(unit, spell),
+                )
+        ) {
+            unit.selectAttackType(AttackVals.MAGIC);
+        }
     }
     private isAttackableUnderForcedTarget(targetUnit: Unit): boolean {
         // Terrifying Gaze is the mirror image of Aggr and is checked first: it removes exactly one enemy from
