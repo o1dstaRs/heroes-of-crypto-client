@@ -477,3 +477,8 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - 24h snapshots: Thu 22 4:50 PM evening 13 views (40.8h); Fri 23 6:53 AM morning 13 views (26.8h). Evening and morning tie at this reach.
 - 7d tails: Sat 17 4:52 PM evening 13 -> 17 (+4, largest non-pin tail so far); Sun 18 6:58 AM morning 14 -> 15; Sat 17 6:56 AM 10 -> 10; Sat 17 11:59 AM midday 9 -> 9. Weekend posts keep showing the weakest reach and almost no tail.
 - No posts went out from Fri 23 11:48 AM through Sat 24 morning (missed / blocked by X phone check), so no new slot data for Fri midday, Fri evening or Sat morning.
+
+## 2026-10-25 daily engagement review (own posts)
+
+- 7d snapshots for Sun 18 morning question (15), Sun 18 midday plan unit (12), Sun 18 evening Nature (18) and Mon 19 morning question (10): Sunday's evening post again beat morning and midday, but the spread is still within a few views and n=1 per slot for that day.
+- Late make-up post (Sat 24, 10:03 PM PT) had 9 views at ~11.6h; its 24h number tomorrow will show whether a late-night post does worse than the regular slots. No change to the posting schedule recommended.

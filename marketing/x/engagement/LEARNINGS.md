@@ -129,3 +129,10 @@ No new handles above the 1,000-follower floor appeared in this week’s Next Fes
 - What didn't work: the "player-facing change on a named unit" combination (Water Shield) did not beat plain dev-diaries: 13 views, no like. Posting stalled: Fri 11:48 missed, Fri 4:48 PM and Sat 6:48 AM blocked by X's phone-number check in the box browser, so tweet_count is still 172 and the account has been silent for ~27h.
 - What worked: nothing new; pick-your-side (16 views / 1 like / ER 0.0625) is still this week's best ER and Castling (25 views) the best non-pin reach.
 - Lesson: at ~13 views per post, single-post format tweaks (named unit, player-facing) don't move ER measurably; the account needs reach first (outreach replies, the still-empty outreach.csv) before format tests can be read. A posting outage costs more than any format choice, so clearing the X phone check is the top priority. Proposal for Stepan, not an edit.
+
+## 2026-10-25 (daily)
+
+- No new 24h windows because of the posting outage (5 slots missed Fri 23 to Sat 24). 7d snapshots for the Sun 18 posts and the Mon 19 question: Nature 18, Sun 18 question 15, plan unit 12, wounded-stack question 10 views, all 0 outside engagement, and each within 0 to 1 view of its 24h number. Followers 92 (flat, +1 over the week). Tactics replies 0, token replies 0; mentions since 23 Oct returned 0.
+- What didn't work: plain tactics and question posts have no long tail at all; 7d reach equals 24h reach. The outage meant a full day with no posts and the make-up post went out at 10 PM, when it has 9 views at ~12h.
+- What worked: Castling kept growing (25 to 28 views), the only non-pin post still adding views after day one. Pick-your-side (16 views / 1 like / ER 0.0625) stays the week's best ER.
+- Lesson: posts that name units and admit an error (Castling) keep collecting views after day one where plain lines stop; but at ~10 to 18 views per post, nothing has earned an outside reply in 11 days, so reach (outreach replies, still none posted) remains the blocker. Proposal for Stepan, not an edit.
