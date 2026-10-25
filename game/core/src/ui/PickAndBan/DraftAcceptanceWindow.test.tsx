@@ -66,7 +66,7 @@ describe("accepted match draft window", () => {
         expect(accept).toContain("clearMatchReadyAlert()");
         expect(accept).not.toContain("closeStream()");
         expect(source).toContain('if (state === "accepted" && pendingGameId)');
-        expect(source).toContain("return <DraftAcceptanceWindow secondsRemaining={secondsRemaining} />");
+        expect(source).toContain("<DraftAcceptanceWindow secondsRemaining={secondsRemaining} />");
         expect(source).toContain("if (event.c === 1)");
         expect(source).toContain("navigate(`/game/${event.ps}`)");
     });

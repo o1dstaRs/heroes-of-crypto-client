@@ -2019,6 +2019,16 @@ export class Sandbox extends PixiScene {
                 aim.kind === PlayAimKind.SPELL && aim.spellName ? actor.getBookSpellByName(aim.spellName) : undefined;
             const target = aim.targetUnitId ? this.unitsHolder.getAllUnits().get(aim.targetUnitId) : undefined;
             const impact = spell && target ? this.thrownSpellVictim(spell, actor, target) : target;
+            const flight =
+                spell && target && SpellHelper.isInterceptedThrownSpell(spell.getName())
+                    ? thrownSpellImpact(
+                          spell.getName(),
+                          this.grid,
+                          actor.getBaseCell(),
+                          target.getBaseCell(),
+                          this.throwTransparency(spell.getName(), actor),
+                      )
+                    : undefined;
             const geometry = resolveOpponentAimGeometry(aim, {
                 actor,
                 units: this.unitsHolder.getAllUnits(),
@@ -2028,7 +2038,8 @@ export class Sandbox extends PixiScene {
                 spell,
                 spellImpact: impact,
                 spellEndpoint:
-                    spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined,
+                    flight?.toPosition ??
+                    (spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined),
                 spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact, target) : undefined,
                 spellSparesTarget: spell ? this.spellSparesItsTarget(spell) : undefined,
             });
@@ -9533,9 +9544,7 @@ export class Sandbox extends PixiScene {
 
         // Switch to the MAGIC attack type (parity with legacy) so the toolbar shows the scepter and
         // the melee hover/attack positions are suppressed while a spell is armed.
-        if (
-            this.applyGameAction({ type: "select_attack_type", unitId: caster.getId(), attackType: AttackVals.MAGIC })
-        ) {
+        if (this.selectArmedSpellAttackType(caster)) {
             this.sc_selectedAttackType = caster.getAttackTypeSelection();
         }
 
@@ -9575,6 +9584,13 @@ export class Sandbox extends PixiScene {
 
         // Refresh the toolbar so the spellbook button shows the armed spell's icon immediately.
         this.buttonManager.refreshButtons(true);
+    }
+    protected selectArmedSpellAttackType(caster: RenderableUnit): boolean {
+        return this.applyGameAction({
+            type: "select_attack_type",
+            unitId: caster.getId(),
+            attackType: AttackVals.MAGIC,
+        });
     }
     private describeSpellRefusal(spell: Spell, targetUnit: Unit): string {
         const caster = this.currentActiveUnit;

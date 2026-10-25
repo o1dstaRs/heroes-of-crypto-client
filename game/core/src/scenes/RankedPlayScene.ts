@@ -2474,6 +2474,9 @@ export class RankedPlayScene extends Sandbox {
                 const bookSpell = active.getBookSpellByName(armedSpellName);
                 if (bookSpell && bookSpell.canUse(active.getStackPower())) {
                     this.currentActiveSpell = bookSpell;
+                    if (this.selectArmedSpellAttackType(active)) {
+                        this.sc_selectedAttackType = active.getAttackTypeSelection();
+                    }
                 }
             }
         }
@@ -2842,6 +2845,15 @@ export class RankedPlayScene extends Sandbox {
         transport({ type: "split_unit", unitId: source.getId(), amount, cells: targetCells });
         this.playSceneGameSound("place_unit");
         return true;
+    }
+    protected override selectArmedSpellAttackType(caster: RenderableUnit): boolean {
+        if (!this.sc_gameActionTransport) return super.selectArmedSpellAttackType(caster);
+        if (caster !== this.getCurrentActiveUnit() || !this.canControlCurrentActiveUnit()) return false;
+        // Arming is local targeting state. CAST_SPELL carries the spell and target and is validated
+        // independently of the server's selected attack mode. Sending SELECT_ATTACK_TYPE here creates
+        // a second authoritative snapshot/rebuild between choosing the card and clicking its target.
+        // The existing spell-intent channel already shows the opponent which spell is being aimed.
+        return caster.getAttackTypeSelection() === AttackVals.MAGIC || caster.selectAttackType(AttackVals.MAGIC);
     }
     protected override canShowHoverForActiveUnit(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();
