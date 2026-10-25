@@ -85,9 +85,19 @@ export const MatchHistorySearchControls: React.FC<MatchHistorySearchControlsProp
                 getOptionLabel={(option) => (typeof option === "string" ? option : option.label)}
                 filterOptions={(options, state) => {
                     const words = normalizeHistorySearch(state.inputValue).split(/\s+/).filter(Boolean);
-                    return options.filter((option) =>
+                    const filtered = options.filter((option) =>
                         words.every((word) => normalizeHistorySearch(option.label).includes(word)),
                     );
+                    const exact = filtered.find(
+                        (option) => normalizeHistorySearch(option.label) === normalizeHistorySearch(state.inputValue),
+                    );
+                    return exact
+                        ? [
+                              exact,
+                              ...filtered.filter((option) => option !== exact && option.kind === exact.kind),
+                              ...filtered.filter((option) => option.kind !== exact.kind),
+                          ]
+                        : filtered;
                 }}
                 onInputChange={(_, value, reason) => {
                     if (reason !== "reset") onQueryChange(value);

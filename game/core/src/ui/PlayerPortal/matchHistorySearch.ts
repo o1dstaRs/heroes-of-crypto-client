@@ -41,15 +41,45 @@ export const matchHistorySuggestions: MatchHistorySuggestion[] = [
         .map(([id, label]): MatchHistorySuggestion => ({ label, kind: "creature", creatureId: Number(id) })),
 ];
 
+const catalogNames = [
+    ...new Set([
+        ...artifacts.map((artifact) => normalizeHistorySearch(artifact.name)),
+        ...Object.entries(UNIT_ID_TO_NAME)
+            .filter(([id]) => Number(id) > 0)
+            .map(([, name]) => normalizeHistorySearch(name)),
+    ]),
+];
+
+const searchClauses = (query: string): Array<{ text: string; names: string[] }> => {
+    const words = normalizeHistorySearch(query).split(/\s+/).filter(Boolean);
+    const clauses: Array<{ text: string; names: string[] }> = [];
+    for (let start = 0; start < words.length;) {
+        let text = words[start];
+        let next = start + 1;
+        for (let end = words.length; end > start; end--) {
+            const phrase = words.slice(start, end).join(" ");
+            if (catalogNames.some((name) => name.includes(phrase))) {
+                text = phrase;
+                next = end;
+                break;
+            }
+        }
+        const exact = catalogNames.filter((name) => name === text);
+        clauses.push({ text, names: exact.length ? exact : catalogNames.filter((name) => name.includes(text)) });
+        start = next;
+    }
+    return clauses;
+};
+
 export const searchPortalMatches = (
     matches: readonly PortalMatchData[],
     query: string,
     scope: MatchHistoryScope = "either",
 ): PortalMatchData[] => {
-    const words = normalizeHistorySearch(query).split(/\s+/).filter(Boolean);
-    if (words.length === 0) return [...matches];
+    const clauses = searchClauses(query);
+    if (clauses.length === 0) return [...matches];
     return matches.filter((match) => {
-        const names: string[] = [match.opponent_username ?? ""];
+        const names: string[] = [];
         for (const side of ["player", "opponent"] as const) {
             if (scope !== "either" && scope !== side) continue;
             const creatureIds = side === "player" ? match.creature_ids : match.opponent_creature_ids;
@@ -62,8 +92,13 @@ export const searchPortalMatches = (
                 if (id === artifact.id) names.push(artifact.name);
             }
         }
-        const haystack = names.map(normalizeHistorySearch);
-        return words.every((word) => haystack.some((name) => name.includes(word)));
+        const haystack = new Set(names.map(normalizeHistorySearch));
+        const opponent = normalizeHistorySearch(match.opponent_username ?? "");
+        return clauses.every(
+            (clause) =>
+                clause.names.some((name) => haystack.has(name)) ||
+                clause.text.split(" ").every((word) => opponent.includes(word)),
+        );
     });
 };
 
