@@ -39,7 +39,7 @@ const MapThumb: React.FC<{ display: IMapDisplay; size: number; radius: number }>
 
 // Persistent map indicator between the two armies: the word MAP plus the map's own thumbnail — the name
 // itself only on hover, so the badge stays narrow and the armies sit close to it. Shows "?" until the
-// server reveals the map (right before the L3 picks).
+// server reveals the map (with Spymaster's bundle choices, otherwise before the L3 picks).
 export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
     useTranslation();
     const display = getMapDisplay(mapType);
@@ -96,7 +96,45 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
     );
 };
 
-// Blocking reveal shown ONCE when the map is first revealed (right before the L3 picks). Auto-dismisses
+export const StartingMapPreview: React.FC<{ mapType: number }> = ({ mapType }) => {
+    useTranslation();
+    const display = getMapDisplay(mapType);
+    if (!display) return null;
+    return (
+        <Tooltip title={t(display.blurb)} variant="soft">
+            <Sheet
+                data-testid="starting-map-preview"
+                aria-label={`${t("Map type")}: ${t(display.name)}. ${t(display.blurb)}`}
+                variant="soft"
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    p: 0.75,
+                    borderRadius: "10px",
+                    border: `1px solid ${display.accent}66`,
+                    bgcolor: "rgba(8,10,18,0.92)",
+                    width: 240,
+                    height: 65,
+                    boxSizing: "border-box",
+                    flex: "0 0 auto",
+                }}
+            >
+                <MapThumb display={display} size={48} radius={7} />
+                <Box>
+                    <Typography level="body-xs" sx={{ opacity: 0.65 }}>
+                        {t("Map type")} · {t("Spymaster")}
+                    </Typography>
+                    <Typography level="title-md" sx={{ color: display.accent }}>
+                        {t(display.name)}
+                    </Typography>
+                </Box>
+            </Sheet>
+        </Tooltip>
+    );
+};
+
+// Blocking reveal shown ONCE at the usual L3 reveal. Spymaster uses the inline bundle preview instead. Auto-dismisses
 // after a few seconds; the acting player can dismiss instantly with Continue and pick straight away.
 export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
     useTranslation();

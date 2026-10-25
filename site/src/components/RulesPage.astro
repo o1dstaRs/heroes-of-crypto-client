@@ -344,7 +344,7 @@ const copy = isRu
               "Каждое задрафтованное существо приходит одним стеком ценностью 1000 опыта: число существ — 1000, делённое на опыт одного существа, с округлением вверх (Peasant 200, Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2, Black Dragon 1). Поэтому сравнивайте не одну фигуру, а весь стек, его способности и роль в составе.",
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
               "Публичный список сейчас сфокусирован на четырёх игровых фракциях: Хаос, Жизнь, Сила и Природа, в каждой по 14 существ для драфта (по четыре на уровнях 1 и 2, по три на уровнях 3 и 4). Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные существа со следом 2x1 или 2x2 и утилити-юниты с аурами. Arachna Spider в драфте не бывает: её создаёт только Infest у Arachna Queen.",
-              "В живом драфте семь этапов выбора и отдельное раскрытие карты перед пиком 3 уровня: Доктрина, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. Бан выбирается заранее в рейтинговом лобби и разрешается при создании матча, а не во время этапа Доктрины. После драфта вы тратите очки на апгрейды и переходите к расстановке состава 2/2/1/1.",
+              "В живом драфте семь этапов выбора и раскрытие карты перед пиком 3 уровня (Spymaster видит её уже при выборе бандла): Доктрина, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. Бан выбирается заранее в рейтинговом лобби и разрешается при создании матча, а не во время этапа Доктрины. После драфта вы тратите очки на апгрейды и переходите к расстановке состава 2/2/1/1.",
           ],
           draftSteps: [
               {
@@ -361,7 +361,7 @@ const copy = isRu
               },
               {
                   title: "Раскрытие карты · перед этапом 5",
-                  text: "Карта уже выбрана при создании драфта, но до этого момента скрыта. Сразу после завершения пиков 2 уровня сервер одновременно показывает её обоим игрокам; она не перевыбирается. Пик 3 уровня, артефакт 2 тира и пик 4 уровня делаются уже со знанием карты.",
+                  text: "Карта выбрана при создании драфта. Spymaster видит её вместе с вариантами стартового бандла; Scout и Battle Trance — после завершения пиков 2 уровня. Публичные наблюдатели не получают раннее раскрытие карты от Spymaster. Карта не перевыбирается. Пик 3 уровня, артефакт 2 тира и пик 4 уровня делаются уже со знанием карты.",
               },
               {
                   title: "5. Пик 3 уровня",
@@ -455,7 +455,7 @@ const copy = isRu
           doctrines: [
               {
                   name: "Spymaster",
-                  sees: "Все выборы существ противника, по мере того как он их делает, и все баны заранее. Артефакты остаются скрытыми.",
+                  sees: "Все выборы существ противника, по мере того как он их делает, и все баны заранее. Карта известна уже при выборе стартового бандла. Артефакты остаются скрытыми.",
                   points: 5,
                   note: "Полная информация, наименьший бюджет армии.",
               },
@@ -574,7 +574,7 @@ const copy = isRu
               "Обычное завершение хода после движения или другого действия ничего не стоит. В начале круга шанс срабатывания точно равен модулю морали в процентах: плюс ходит первым с 1,25× урона на круг, минус ходит поздно с 0,8× урона, но хода не теряет. Те же ×1,25 / ×0,8 действуют на ответные удары, урон заклинаний, Heal и Resurrection.",
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
-              "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём — и одновременно показывается обоим игрокам сразу после пиков 2 уровня, перед пиком 3 уровня. Бой затем идёт именно на ней: карта не перевыбирается.",
+              "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём. Spymaster видит её вместе с вариантами стартового бандла, а Scout и Battle Trance — сразу после пиков 2 уровня, перед пиком 3 уровня. Публичные наблюдатели не получают раннее раскрытие карты от Spymaster. Бой затем идёт именно на ней: карта не перевыбирается.",
           ],
           mapsTableCaption: "Три рейтинговые карты",
           mapsColumns: ["Карта", "Центр", "Сужение", "Шанс"],
@@ -678,7 +678,7 @@ const copy = isRu
               "Every drafted creature arrives as one stack worth 1,000 experience: its body count is 1,000 divided by the creature's experience value, rounded up (Peasant 200, Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2, Black Dragon 1). Compare the whole stack, its abilities, and its role—not one body in isolation.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
               "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature, each with 14 draftable creatures (four at levels 1 and 2, three at levels 3 and 4). Across them you get melee fighters, ranged units, spellcasters, flyers, large creatures with 2x1 or 2x2 footprints, and utility pieces with auras. Arachna Spider is never offered: only an Arachna Queen's Infest creates it.",
-              "The live draft has seven player-choice stages plus a map reveal before the Level-3 pick: Doctrine, Bundle, Levels 1, 2 and 3, Tier-2 artifact, and Level 4. Your ban is saved beforehand in the ranked lobby and resolved when the match is created—not during Doctrine. You then spend augment points and place the completed 2/2/1/1 roster.",
+              "The live draft has seven player-choice stages plus a map reveal before the Level-3 pick (Spymaster sees it from the Bundle stage): Doctrine, Bundle, Levels 1, 2 and 3, Tier-2 artifact, and Level 4. Your ban is saved beforehand in the ranked lobby and resolved when the match is created—not during Doctrine. You then spend augment points and place the completed 2/2/1/1 roster.",
           ],
           draftSteps: [
               {
@@ -695,7 +695,7 @@ const copy = isRu
               },
               {
                   title: "Map reveal · before stage 5",
-                  text: "The map was selected when the draft was created but remained hidden. Immediately after both Level-2 picks finish, the server reveals it to both players at once; it is not rerolled. Everyone makes the Level-3, Tier-2 artifact, and Level-4 choices knowing the map.",
+                  text: "The map is fixed when the draft is created. Spymaster sees it alongside the starting bundle choices; Scout and Battle Trance receive it after both Level-2 picks finish. Public observers never receive Spymaster's early map reveal. The map is not rerolled. Everyone makes the Level-3, Tier-2 artifact, and Level-4 choices knowing the map.",
               },
               {
                   title: "5. Level-3 pick",
@@ -789,7 +789,7 @@ const copy = isRu
           doctrines: [
               {
                   name: "Spymaster",
-                  sees: "Every one of the opponent's creature picks, as they happen, and all draft bans in advance. Artifacts stay hidden.",
+                  sees: "Every one of the opponent's creature picks, as they happen, and all draft bans in advance. The map is known from the starting bundle choice. Artifacts stay hidden.",
                   points: 5,
                   note: "Full information, smallest army budget.",
               },
@@ -908,7 +908,7 @@ const copy = isRu
               "Ending after moving or another action costs nothing. At lap start, the roll chance is exactly the absolute morale percentage: positive acts first with 1.25× damage for the lap; negative acts late with 0.8× damage but does not lose its turn. The same ×1.25 / ×0.8 applies to retaliation, damage spells, Heal and Resurrection.",
           mapTitle: "The map does not wait forever",
           mapParagraphs: [
-              "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created—each equally likely, one chance in three—and reveals it to both players together immediately after the Level-2 picks, before Level 3. The fight is played on exactly that map; it is never rerolled.",
+              "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created—each equally likely, one chance in three. Spymaster sees it with the starting bundle choices; Scout and Battle Trance receive it immediately after the Level-2 picks, before Level 3. Public observers never receive Spymaster's early map reveal. The fight is played on exactly that map; it is never rerolled.",
           ],
           mapsTableCaption: "The three ranked maps",
           mapsColumns: ["Map", "Center", "Narrows", "Chance"],

@@ -175,6 +175,8 @@ describe("knowledge graph builder", () => {
     test("the AI knowledge base explains doctrine ban visibility and the public observer restriction", () => {
         expect(byId.get("doctrine:scout")?.text).toContain("all draft bans in advance");
         expect(byId.get("doctrine:spymaster")?.text).toContain("all draft bans in advance");
+        expect(byId.get("doctrine:spymaster")?.text).toContain("Know the map from the starting bundle choice");
+        expect(byId.get("doctrine:spymaster")?.textRu).toContain("Карта известна уже при выборе стартового бандла");
         expect(byId.get("doctrine:battle-trance")?.text).toContain("Bans are revealed as each creature level opens");
         const bans = graph.nodes.find((node) => node.name === "Draft bans");
         expect(bans?.text).toContain("Public observers always receive only bans for levels already opened");
