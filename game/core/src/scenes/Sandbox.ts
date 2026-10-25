@@ -1986,6 +1986,16 @@ export class Sandbox extends PixiScene {
                 aim.kind === PlayAimKind.SPELL && aim.spellName ? actor.getBookSpellByName(aim.spellName) : undefined;
             const target = aim.targetUnitId ? this.unitsHolder.getAllUnits().get(aim.targetUnitId) : undefined;
             const impact = spell && target ? this.thrownSpellVictim(spell, actor, target) : target;
+            const flight =
+                spell && target && SpellHelper.isInterceptedThrownSpell(spell.getName())
+                    ? thrownSpellImpact(
+                          spell.getName(),
+                          this.grid,
+                          actor.getBaseCell(),
+                          target.getBaseCell(),
+                          this.throwTransparency(spell.getName(), actor),
+                      )
+                    : undefined;
             const geometry = resolveOpponentAimGeometry(aim, {
                 actor,
                 units: this.unitsHolder.getAllUnits(),
@@ -1995,7 +2005,8 @@ export class Sandbox extends PixiScene {
                 spell,
                 spellImpact: impact,
                 spellEndpoint:
-                    spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined,
+                    flight?.toPosition ??
+                    (spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined),
                 spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact, target) : undefined,
                 spellSparesTarget: spell ? this.spellSparesItsTarget(spell) : undefined,
             });
