@@ -236,6 +236,7 @@ export interface PlayUnitState {
     baseArmor?: number;
     /** Server-computed FINAL base attack (proto field 43) — the attack twin of baseArmor. */
     baseAttack?: number;
+    bitterExperienceStacks?: number;
     helpingHandCasterId?: string;
     helpingHandPenaltyId?: string;
     /**
@@ -1289,6 +1290,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.helpingHandCasterId = reader.string();
         } else if (field === 48) {
             unit.helpingHandPenaltyId = reader.string();
+        } else if (field === 49) {
+            unit.bitterExperienceStacks = Math.max(0, reader.varintNumber() - 1);
         } else {
             reader.skip(wireType);
         }

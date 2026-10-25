@@ -141,6 +141,21 @@ A ranked-affecting common change only reaches the server after: commit + push `c
 common pin (lockfile) → reinstall → restart the ranked server. Client-only fixes take effect on a browser
 refresh (vite serves common via the `src` alias).
 
+### Ranked acceptance and draft handoff
+
+An accepted match must reach the picking screen with matchmaking and game confirmation running in
+separate processes and Redis queues/pub/sub disabled. A successful `POST /confirm` acknowledges that
+player's acceptance; it does not mean the draft is ready. Keep the matchmaking stream mounted while
+waiting for the server's `c: 1` handoff, and preserve acceptance/error recovery in
+`game/core/src/ui/MatchmakingRoute.tsx`.
+
+The server reconciles open matchmaking streams against persisted game readiness. Never replace this
+with a process-local confirmation queue or assume a combined local server proves production works.
+Changes to acceptance, SSE, confirmation, or draft creation must preserve the server's
+`src/api/mm/v1/matchmaking_handoff.test.ts` and `matchmaking_handoff.integration.test.ts`, including the
+separate game process, disabled Redis, empty matchmaking queue, and automatic timer delivery. The
+server README's **Matchmaking handoff** section documents the invariant and regression command.
+
 ## Conventions
 
 - **No per-user absolute paths in tracked files.** Never commit `/Users/<name>/…`, `~`, npx-cache

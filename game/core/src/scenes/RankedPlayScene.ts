@@ -658,6 +658,13 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     let changed = false;
     const liveProperties = unit.getUnitProperties() as UnitProperties;
     if (
+        properties.bitter_experience_stacks !== undefined &&
+        liveProperties.bitter_experience_stacks !== properties.bitter_experience_stacks
+    ) {
+        liveProperties.bitter_experience_stacks = properties.bitter_experience_stacks;
+        changed = true;
+    }
+    if (
         properties.max_hp_authoritative &&
         (!liveProperties.max_hp_authoritative || liveProperties.max_hp !== properties.max_hp)
     ) {
@@ -1092,6 +1099,7 @@ const getUnitPropertiesFromAuthoritativeState = (
                 max_hp: unitState.maxHp || baseProperties.max_hp,
                 amount_alive: Math.max(0, Math.floor(unitState.amountAlive)),
                 amount_died: Math.max(0, Math.floor(unitState.amountDied)),
+                bitter_experience_stacks: unitState.bitterExperienceStacks,
                 attack_type_selected:
                     unitState.attackType > 0
                         ? (unitState.attackType as AttackType)
