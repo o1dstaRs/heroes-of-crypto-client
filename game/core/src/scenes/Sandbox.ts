@@ -1996,7 +1996,7 @@ export class Sandbox extends PixiScene {
                 spellImpact: impact,
                 spellEndpoint:
                     spell && impact ? this.optimalSpellTrajectoryAim(spell, actor, impact)?.position : undefined,
-                spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact) : undefined,
+                spellSplash: spell && impact ? this.splashedSpellTargets(spell, actor, impact, target) : undefined,
                 spellSparesTarget: spell ? this.spellSparesItsTarget(spell) : undefined,
             });
             if (!geometry) {
@@ -10547,14 +10547,26 @@ export class Sandbox extends PixiScene {
     private spellSparesItsTarget(spell: Spell): boolean {
         return spell.getName() === "Ring of Fire";
     }
-    private splashedSpellTargets(spell: Spell, caster: Unit, target: Unit): Unit[] {
+    private splashedSpellTargets(spell: Spell, caster: Unit, target: Unit, aimedTarget = target): Unit[] {
         // Ring of Fire spares the creature at its centre; Fireball burns it. That difference lives in
         // spellSparesItsTarget, so both share this list of everyone ELSE the blast catches.
         if (spell.getName() !== "Ring of Fire" && spell.getName() !== "Fireball") {
             return [];
         }
         const gs = this.sc_sceneSettings.getGridSettings();
-        const cells = GridMath.getCellsAroundFootprint(gs, target.getCells());
+        const cells =
+            spell.getName() === "Fireball"
+                ? SpellHelper.fireballBlastCells(
+                      gs,
+                      thrownSpellImpact(
+                          spell.getName(),
+                          this.grid,
+                          caster.getBaseCell(),
+                          aimedTarget.getBaseCell(),
+                          this.throwTransparency(spell.getName(), caster),
+                      ).cell,
+                  )
+                : GridMath.getCellsAroundFootprint(gs, target.getCells());
         const seen = new Set<string>([caster.getId(), target.getId()]);
         const splashed: Unit[] = [];
         for (const cell of cells) {
@@ -10650,6 +10662,13 @@ export class Sandbox extends PixiScene {
                 }
             }
             const secondary = spellCastSecondaryDamage(event);
+            const flight = SpellHelper.isInterceptedThrownSpell(event.spellName)
+                ? event.animations.find((animation) => animation.fromPosition && animation.toPosition)
+                : undefined;
+            const flightOrigin = flight?.fromPosition
+                ? projectBattlefieldPoint(flight.fromPosition, gs)
+                : visualCasterPosition;
+            const flightEnd = flight?.toPosition ? projectBattlefieldPoint(flight.toPosition, gs) : undefined;
             // Cast geometry is independent of damage recipients (including casts with no victims).
             const isRing = event.spellName === "Ring of Fire";
             const isFireball = event.spellName === "Fireball";
@@ -10667,8 +10686,8 @@ export class Sandbox extends PixiScene {
                     GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
                     gs,
                 );
-                if (visualCasterPosition) {
-                    this.combatVisuals.spawnFireSweep(visualCasterPosition, ringCenter, cellSize);
+                if (flightOrigin) {
+                    this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? ringCenter, cellSize);
                     this.combatVisuals.spawnFireBurn(ringCenter, cellSize, 1.45);
                 }
                 this.combatVisuals.spawnFireRing(
@@ -10739,8 +10758,8 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && !isFireball && visualCasterPosition) {
-                    this.combatVisuals.spawnFireSweep(visualCasterPosition, hitPosition, cellSize);
+                if (isThrown && !isRing && !isFireball && flightOrigin) {
+                    this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? hitPosition, cellSize);
                 }
                 if (event.spellName === "Lightning Strike") {
                     this.combatVisuals.spawnLightningStrike(hitUnit?.getVisualCenter(gs) ?? hitPosition, cellSize);
@@ -15039,7 +15058,16 @@ export class Sandbox extends PixiScene {
                     this.hoverManager.addTargetHighlight(impactUnit, sparesTarget ? 0xb8860b : spellColor);
                     const rTarget = impactUnit as RenderableUnit;
                     const trajectoryAim = this.optimalSpellTrajectoryAim(spell, caster, impactUnit);
-                    trajectoryEnd = trajectoryAim?.position ?? impactUnit.getPosition();
+                    const flight = SpellHelper.isInterceptedThrownSpell(spell.getName())
+                        ? thrownSpellImpact(
+                              spell.getName(),
+                              this.grid,
+                              caster.getBaseCell(),
+                              hoveredUnit.getBaseCell(),
+                              this.throwTransparency(spell.getName(), caster),
+                          )
+                        : undefined;
+                    trajectoryEnd = flight?.toPosition ?? trajectoryAim?.position ?? impactUnit.getPosition();
                     targetCenter = projectBattlefieldPoint(trajectoryEnd, gs2);
 
                     // Offensive spells preview their damage exactly like an attack hover does, so the player
@@ -15063,7 +15091,7 @@ export class Sandbox extends PixiScene {
                         // Everything the splash also catches gets its own number, the way the Area Throw
                         // preview labels each unit under the 3x3. Same damage on each — a spell does not
                         // fall off across its own blast.
-                        for (const splashed of this.splashedSpellTargets(spell, caster, impactUnit)) {
+                        for (const splashed of this.splashedSpellTargets(spell, caster, impactUnit, hoveredUnit)) {
                             const splashDamage = this.previewSpellDamage(spell, caster, splashed) ?? 0;
                             const labelPos =
                                 splashed instanceof RenderableUnit
@@ -17933,6 +17961,15 @@ export class Sandbox extends PixiScene {
     ): GridMath.IClosestSideCenter | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const transparent = this.throwTransparency(spell.getName(), caster);
+        if (SpellHelper.isInterceptedThrownSpell(spell.getName())) {
+            return SpellHelper.interceptedThrownSpellAim(
+                this.grid,
+                (cell) => GridMath.isCellWithinGrid(gs, cell),
+                caster.getBaseCell(),
+                target.getBaseCell(),
+                transparent,
+            );
+        }
         const requiresLineOfSight = SpellHelper.targetedSpellRequiresLineOfSight(spell.getName());
         const candidates = rangeTargetExteriorEdges(target.getCells()).map(({ cell, side }) => {
             const neighbour = rangeTargetEdgeMarkerCell(cell, side);
@@ -18053,9 +18090,10 @@ export class Sandbox extends PixiScene {
 
         // Origin is the mage's visual centre. A creature endpoint uses the same one optimal exterior point
         // as the live spell beam; blocked terrain remains centered because it has no creature contour.
-        const logicalOrigin = caster.getPosition();
+        const logicalOrigin = impact.fromPosition ?? caster.getPosition();
         const spell = this.currentActiveSpell;
         const logicalEnd =
+            impact.toPosition ??
             (spell && victim ? this.optimalSpellTrajectoryAim(spell, caster, victim)?.position : undefined) ??
             victim?.getPosition() ??
             cellPos(impact.cell);
@@ -21362,9 +21400,10 @@ export class Sandbox extends PixiScene {
 
         // Origin is the mage's visual centre. A creature endpoint uses the same one optimal exterior point
         // as the live spell beam; blocked terrain remains centered because it has no creature contour.
-        const logicalOrigin = caster.getPosition();
+        const logicalOrigin = impact.fromPosition ?? caster.getPosition();
         const spell = this.currentActiveSpell;
         const logicalEnd =
+            impact.toPosition ??
             (spell && victim ? this.optimalSpellTrajectoryAim(spell, caster, victim)?.position : undefined) ??
             victim?.getPosition() ??
             cellPos(impact.cell);
