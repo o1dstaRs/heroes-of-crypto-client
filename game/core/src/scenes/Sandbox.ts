@@ -961,7 +961,7 @@ export class Sandbox extends PixiScene {
     private readonly attackHandler: AttackHandler;
     private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
-    private buttonManager: ButtonManager;
+    protected buttonManager: ButtonManager;
     private readonly fightStatsTracker = new FightStatsTracker();
     private lastFightSnapshot?: IFightSnapshot;
     private hoverRangeAttackObstacle?: IAttackObstacle;
