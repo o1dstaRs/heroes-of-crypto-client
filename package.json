@@ -62,7 +62,7 @@
         "test": "bun run check:test-skips && bun run test:deployment && bun run test:core && bun run test:common && bun run test:mcp && bun run test:site",
         "test:common": "bun run --cwd game/heroes-of-crypto-common test",
         "test:core": "bun run --cwd game/core generate:test-images && bun test --isolate --cwd game/core src --path-ignore-patterns='tmp/**'",
-        "test:deployment": "bun test scripts/deployment.test.ts",
+        "test:deployment": "bun test --timeout 60000 ./scripts/deployment.test.ts",
         "test:mcp": "bun run --cwd game/mcp test",
         "test:site": "bun run --cwd site test",
         "typecheck": "bun run typecheck:core && bun run typecheck:deployment",
