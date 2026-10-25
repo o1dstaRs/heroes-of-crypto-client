@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 import { FightStateManager, GridConstants, GridSettings, GridVals, HoCConstants } from "@heroesofcrypto/common";
@@ -30,7 +30,6 @@ describe("mountain HP bar layout", () => {
 });
 
 describe("mountain collapse animation", () => {
-    const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
     const gridSettings = new GridSettings(
         GridConstants.GRID_SIZE,
         GridConstants.MAX_Y,
@@ -101,22 +100,32 @@ describe("mountain collapse animation", () => {
         expect(collapseCount()).toBe(0);
     });
 
-    test("cleans the chunks up after the animation, even with both mountains gone", async () => {
-        primeBlockCenterFight(1, 1);
-        const { visuals, attached, collapseCount } = createVisuals();
-        visuals.ensureCenterTerrainSprite();
+    test("cleans the chunks up after the animation, even with both mountains gone", () => {
+        let now = 10_000;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        try {
+            primeBlockCenterFight(1, 1);
+            const { visuals, attached, collapseCount } = createVisuals();
+            visuals.ensureCenterTerrainSprite();
 
-        // Both mountains die at once (e.g. final AOE) -> two simultaneous collapses.
-        FightStateManager.getInstance().getFightProperties().setObstacleHitsPerMountain(0, 0);
-        visuals.ensureCenterTerrainSprite();
-        expect(collapseCount()).toBe(2);
-        const containers = findCollapseContainers(attached);
-        expect(containers).toHaveLength(2);
+            // Both mountains die at once (e.g. final AOE) -> two simultaneous collapses.
+            FightStateManager.getInstance().getFightProperties().setObstacleHitsPerMountain(0, 0);
+            visuals.ensureCenterTerrainSprite();
+            expect(collapseCount()).toBe(2);
+            const containers = findCollapseContainers(attached);
+            expect(containers).toHaveLength(2);
 
-        // Past the full lifetime the step (which runs even on the both-destroyed early-return path)
-        // must have destroyed every chunk container.
-        await sleep(1500);
-        visuals.ensureCenterTerrainSprite();
-        expect(containers.every((container) => container.destroyed)).toBe(true);
+            // Check the active animation too: cleanup must happen after its lifetime, never on creation.
+            now += 250;
+            visuals.ensureCenterTerrainSprite();
+            expect(containers.every((container) => !container.destroyed)).toBe(true);
+
+            // This step still runs on the both-destroyed early-return path.
+            now += 1250;
+            visuals.ensureCenterTerrainSprite();
+            expect(containers.every((container) => container.destroyed)).toBe(true);
+        } finally {
+            clock.mockRestore();
+        }
     });
 });

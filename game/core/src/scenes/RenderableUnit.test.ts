@@ -8863,15 +8863,12 @@ describe("RenderableUnit applied buff/debuff display de-duplication", () => {
 });
 
 describe("RenderableUnit dodge animation", () => {
-    const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
     // In-grid position (x ∈ (-1024, 1024), y ∈ (0, 2048)) so ensureVisual builds the sprite.
     const pos = { x: 0, y: 1024 };
 
     function createVisualUnit(): { unit: RenderableUnit; worldRoot: Container } {
         const effectFactory = new EffectFactory();
-        // Satyr is level 2, which suppresses the generic sidestep. Efreet is a level-3 figure
-        // with no approved sprite package, so this covers the dodge that higher tiers still use.
+        // Authored creatures suppress the procedural sidestep, including higher-level figures.
         const base = Unit.createUnit(
             HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Chaos", "Efreet", "Efreet_512", 1),
             gridSettings,
@@ -8894,48 +8891,36 @@ describe("RenderableUnit dodge animation", () => {
         expect(unit.isDodging()).toBe(false);
     });
 
-    test("keeps an authored figure stationary without procedural dodge ghosts", async () => {
-        const { unit, worldRoot } = createVisualUnit();
-        const childrenBefore = worldRoot.children.length;
-        const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        const restX = spriteBefore!.x;
-        const restY = spriteBefore!.y;
+    test("keeps an authored figure stationary without dodge ghosts during and after the old envelope", () => {
+        let now = 10_000;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        let visual: ReturnType<typeof createVisualUnit> | undefined;
+        try {
+            visual = createVisualUnit();
+            const { unit, worldRoot } = visual;
+            const childrenBefore = worldRoot.children.length;
+            const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y)!;
+            const restX = spriteBefore.x;
+            const restY = spriteBefore.y;
 
-        unit.playDodgeAnimation(40, -20);
-        expect(unit.isDodging()).toBe(false);
-        unit.ensureVisual(worldRoot, gridSettings);
-
-        // 250ms sits inside the hold phase (22%..55% of the 640ms dodge) where the envelope is exactly 1.
-        await sleep(250);
-        unit.ensureVisual(worldRoot, gridSettings);
-        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        expect(sprite).toBeDefined();
-        expect(sprite!.x).toBeCloseTo(restX, 5);
-        expect(sprite!.y).toBeCloseTo(restY, 5);
-        expect(sprite!.rotation).toBe(0);
-        // Afterimage ghosts joined the world root behind the sprite.
-        expect(worldRoot.children.length).toBe(childrenBefore);
-    });
-
-    test("springs back to rest and cleans up its ghosts after the dodge completes", async () => {
-        const { unit, worldRoot } = createVisualUnit();
-        const childrenBefore = worldRoot.children.length;
-        const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        const restX = spriteBefore!.x;
-        const restY = spriteBefore!.y;
-
-        unit.playDodgeAnimation(40, -20);
-        unit.ensureVisual(worldRoot, gridSettings);
-        // 640ms dodge + 300ms ghost life, with margin.
-        await sleep(1100);
-        unit.ensureVisual(worldRoot, gridSettings);
-
-        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        expect(sprite!.x).toBeCloseTo(restX, 5);
-        expect(sprite!.y).toBeCloseTo(restY, 5);
-        expect(sprite!.rotation).toBe(0);
-        expect(unit.isDodging()).toBe(false);
-        expect(worldRoot.children.length).toBe(childrenBefore);
+            unit.playDodgeAnimation(40, -20);
+            // The old hold phase and the full 640ms + 300ms ghost lifetime remain covered.
+            for (const elapsed of [0, 250, 1100]) {
+                now = 10_000 + elapsed;
+                unit.ensureVisual(worldRoot, gridSettings);
+                const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
+                expect(sprite).toBeDefined();
+                expect(sprite!.x).toBeCloseTo(restX, 5);
+                expect(sprite!.y).toBeCloseTo(restY, 5);
+                expect(sprite!.rotation).toBe(0);
+                expect(unit.isDodging()).toBe(false);
+                expect(worldRoot.children.length).toBe(childrenBefore);
+            }
+        } finally {
+            visual?.unit.destroyVisuals();
+            visual?.worldRoot.destroy({ children: true });
+            clock.mockRestore();
+        }
     });
 });
 
