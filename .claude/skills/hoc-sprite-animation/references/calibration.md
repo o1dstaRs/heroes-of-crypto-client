@@ -4,7 +4,7 @@ Use this procedure for the first end-to-end example of an animation family. Its 
 
 ## Stage 1: establish the sources
 
-Create a work folder named `<creature>_<state>_calibration_v1` under `/Users/pro/Workplace/heroesofcrypto-assets/design` with only the subfolders actually needed during the run. If it exists, use the next version or a timestamp; never reuse it destructively. Keep at least:
+Create a work folder named `<creature>_<state>_calibration_v1` under `game/core/tmp/imagegen` with only the subfolders actually needed during the run. If it exists, use the next version or a timestamp; never reuse it destructively. Keep at least:
 
 - the untouched canonical creature source and its hash;
 - the untouched Sprite AI download and its metadata;
@@ -17,7 +17,7 @@ If the target animation already exists in runtime, copy its atlas/meta into a `r
 
 Choose the identity source deliberately. Prefer a canonical, unclipped, full-body image with the highest usable detail; do not silently use a cropped icon or portrait merely because its filename resembles the creature name. Record why the selected source is canonical for this run.
 
-Sprite AI is currently evidenced by exports from `https://www.sprite-ai.art/`. A local example is `/Users/pro/Workplace/heroesofcrypto-assets/design/peasant_walk_sprite_ai_source_export_v1`: eight 256x256 RGBA frames at 8 fps plus GIF, sheet, and JSON. Inspect the service during the calibration run because its controls and export shape may change. Visually compare all exported representations; the known sample demonstrates that a GIF can be usable while its PNG atlas contains large opaque geometric artifacts.
+Sprite AI is evidenced by exports from `https://www.sprite-ai.art/`. The production record `peasant_walk_sprite_ai_source_export_v1` documents eight 256x256 RGBA frames at 8 fps plus GIF, sheet, and JSON; locate it in the available source packages. Inspect the service during the calibration run because its controls and export shape may change. Visually compare all exported representations; the known sample demonstrates that a GIF can be usable while its PNG atlas contains large opaque geometric artifacts.
 
 ## Stage 2: approve motion separately from art
 

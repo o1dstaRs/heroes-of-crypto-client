@@ -74,7 +74,7 @@ ensure_monitor() {
 ensure_client() {
     if port_busy "$CLIENT_PORT"; then echo "client: already on :$CLIENT_PORT"; return; fi
     echo "client: starting (vite --port $CLIENT_PORT --strictPort) -> $CLIENT_LOG"
-    # NODE_ENV=development is what `npm start` sets via cross-env, and the app needs it: without it the
+    # NODE_ENV=development is what `bun start` sets via cross-env, and the app needs it: without it the
     # bundle takes the production path, the dev `?e2eEmail=`/`?e2ePlayerId=` auto-login never runs, and
     # React mounts nothing at all — a blank page on every URL, with no error in the console or vite log.
     (cd "$CLIENT_DIR/game/core" && NODE_ENV=development nohup bun x vite --port "$CLIENT_PORT" --strictPort >"$CLIENT_LOG" 2>&1 &)
@@ -104,7 +104,7 @@ cmd_vs_ai() {
     echo "vs-ai: seeding one active player + creating the game + printing a Play-vs-AI link (AI drives picks/placement/fight) ..."
     # Run from the server dir so bun auto-loads its .env (HOC_ARANGODB_* creds).
     # AI version = difficulty tier, passed PER-GAME (no fresh server needed): HOC_VS_AI_DIFFICULTY =
-    # easy(v0.4)|normal(v0.6)|hard(v0.7)|brutal(v0.7+search). HOC_VS_AI_VERSION still works (mapped),
+    # easy(v0.4)|normal(v0.6)|hard(v0.7)|brutal(v0.8+search). HOC_VS_AI_VERSION still works (mapped),
     # but it's the older path — the difficulty gate above only applies to it.
     (cd "$SERVER_DIR" && \
         HOC_PLAY_BASE_URL="${HOC_PLAY_BASE_URL:-http://localhost:$SERVER_PORT}" \

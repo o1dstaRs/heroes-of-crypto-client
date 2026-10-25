@@ -42,7 +42,6 @@ import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { shortcutLetter } from "../utils/shortcutLetter";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { PixiApp } from "./PixiApp";
-// import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import type { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
 

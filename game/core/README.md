@@ -15,7 +15,7 @@ src/
 ├── api/          # Service clients and the play-protocol codec (lobby, ranked, vs-AI, portal, social)
 ├── generated/    # Generated asset metadata (image imports, animation atlases)
 ├── i18n/         # Translation catalogues and locale plumbing
-├── obstacles/    # Obstacle model and board obstacle generation
+├── obstacles/    # Obstacle model
 ├── pixi/         # Pixi renderer: app, scene, camera, drawer, sprites, textures, animation
 ├── replay/       # Deterministic replay of ranked and sandbox fights
 ├── scenes/       # Scene and turn orchestration
@@ -24,31 +24,29 @@ src/
 ├── ui/           # React UI shell (MUI Joy): sidebars, pick & ban, overlays, portal, audio
 ├── utils/        # Hotkeys, AI-opponent helpers, pre-game perks, React helpers
 ├── wallet/       # Wallet connection (wagmi / viem / RainbowKit)
-├── intex.ts      # Entry point (note the intentional misspelling)
 └── statics.ts    # Static constants and shared values
 ```
 
 ## Entry Point
 
-`src/intex.ts` is deliberately thin: it imports `./scenes`, whose `index.ts` in turn imports
-`Sandbox`. Importing a scene module is what registers it — the scene wires itself up on import
-rather than being constructed by the entry point.
+Vite loads `src/ui/index.html`, which boots React and the route tree through `src/ui/index.tsx`.
+The battle surface in `src/ui/Main/index.tsx` loads `MainRuntime` lazily. That runtime imports
+`src/scenes/index.ts`, which registers `Sandbox` through its module side effect. Menus and login
+can therefore render before the battle scene is loaded.
 
 ## Rendering (`src/pixi/`)
 
-The renderer is Pixi-only; there is no physics engine and no hand-written WebGL shader layer.
+Rendering uses Pixi's scene graph, textures, and filters.
 
 - **`PixiApp.ts`** — owns the Pixi `Application` and the container hierarchy. `worldRoot` is
   Y-flipped once so the rest of the code can work in y-up world coordinates; camera pan/zoom is a
   transform on the `camera` container above it.
 - **`PixiScene.ts`** — base scene: per-frame `Step`, selection state, statistics lines, and the
   hooks concrete scenes build on.
-- **`PixiDrawer.ts` / `PixiSprite.ts` / `PixiTextureLoader.ts`** — board and sprite drawing, plus
-  texture/atlas loading.
+- **`PixiDrawer.ts` / `PixiTextureLoader.ts`** — board drawing and staged texture/atlas loading.
 - **`PixiUnitsFactory.ts`** — creates units and heroes, positions them on the grid, and registers
   them with the scene manager.
-- **`PixiAnimation.ts`** — atlas-driven unit and effect animation.
-- **`PixiCamera.ts` / `boardFit.ts`** — camera control and fitting the board to the viewport.
+- **`boardFit.ts`** — fitting the board to the viewport; `PixiApp` owns the camera container.
 - **`SimplePhysicsManager.ts`** — a small kinematic position/velocity helper for movement
   interpolation. The game is turn-based, so it runs with zero gravity and simple friction; it is
   not a physics simulation.
@@ -63,8 +61,8 @@ Scene code drives a fight from placement through to the result.
 - **`PlacementManager.ts`**, **`placementSplitPower.ts`** — army placement and stack splitting.
 - **`RenderableUnit.ts`**, **`RenderableSpell.ts`**, **`UnitChip.ts`**, **`UnitsOverlay.ts`** — the
   drawable wrappers around common's unit and spell models.
-- **`fight_vfx_catalog.ts`**, **`effect_pops.ts`**, **`atlasAnimationTiming.ts`** — combat VFX. The
-  catalog is shared so live and replay paths render the same animations.
+- **`sandbox/CombatVisuals.ts`**, **`effect_pops.ts`**, **`atlasAnimationTiming.ts`** — combat VFX
+  and animation timing shared by live and replay playback.
 - **`SceneLog.ts`**, **`sceneLogTurnHeaders.ts`**, **`DamageStats.ts`**, **`FightStatsTracker.ts`** —
   battle log and statistics.
 - **`AIController.ts`**, **`LocalModelOpponent.ts`** — local AI opponents.

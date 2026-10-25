@@ -1,5 +1,11 @@
 # MCP Game Layer Design
 
+This document preserves the original design and rollout proposals. The MCP package and its
+evaluation harness are implemented; the milestone and first-PR sections below are historical
+planning notes. For current behavior, use [the tool server](game/mcp/src/server.ts),
+[runtime adapter](game/mcp/src/runtime.ts), [browser AI controller](game/core/src/scenes/AIController.ts),
+and [package commands](game/mcp/package.json). Verify proposed interfaces against those sources.
+
 Goal: let AI models act as the in-game AI brain for Heroes of Crypto through the same shared rules engine used by the browser client, without giving models private state, filesystem access, or a separate rules implementation.
 
 The intended product use is:
@@ -778,7 +784,7 @@ Useful metrics:
 
 This will make it possible to compare models and prompts without relying on vibes.
 
-## Implementation Plan
+## Original Implementation Plan (historical)
 
 ### Milestone 1: Local playable MCP prototype
 
@@ -831,7 +837,7 @@ This will make it possible to compare models and prompts without relying on vibe
 - Should Sandbox model AI be dev-only until hosted inference cost/rate limits are understood?
 - What is the exact timeout policy before a disconnected player is replaced by model AI?
 
-## Recommended First PR
+## Original First-PR Scope (historical)
 
 Keep the first PR small:
 

@@ -17,11 +17,12 @@ The approved aim components are pinned separately in `game/core/src/pixi/shotTra
 ## Combat order and sprite-only motion
 
 Both sandbox actions and authoritative battle replays use the same resolved-strike queue.
-A melee strike and its victim's hit reaction start together; the next response or repeated
-strike waits for both clips. Ranged reactions start on projectile contact. A defender with
-a recorded response that dies from the first blow responds before its fatal blow. Later
-blows cannot hit an already presented corpse, and mutually lethal opening blows finish
-before either figure can interrupt its own death animation. This changes presentation only.
+The opening attack and its recorded response start in the same frame for melee and ranged
+attacks. Repeated blows wait for that exchange to finish. Ranged hit reactions start on
+projectile contact. A defender killed in the opening exchange still completes its recorded
+response. Later blows cannot hit an already presented corpse, and mutually lethal opening
+blows finish before either figure can interrupt its own death animation. This changes
+presentation only. `RankedCombatTiming.test.ts` and `CombatExchangePlayback.test.ts` cover it.
 
 Levels one and two suppress procedural cutout sway, bounce, recoil, attack windup and dodge.
 Approved sprite clips remain enabled; unfinished actions have no invented motion or death

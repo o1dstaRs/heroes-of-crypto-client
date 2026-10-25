@@ -4,10 +4,10 @@ Read this before packaging, runtime replacement, or client integration.
 
 ## Storage
 
-- Design/calibration record: `/Users/pro/Workplace/heroesofcrypto-assets/design`.
-- Canonical runtime idle: `/Users/pro/Workplace/heroesofcrypto-assets/animations/output/<creature>_idle`.
-- Repository intermediates: `game/core/tmp/imagegen` or another ignored local `tmp` folder.
-- Keep all assets local; do not save them to Dropbox or another synchronized folder.
+- Local design, calibration, and generation intermediates: `game/core/tmp/imagegen/<versioned-package>`.
+- Canonical runtime idle: `"$HOC_ANIMATIONS_LOC/output/<creature>_idle"`; resolve this configured root before writing. Canonical identity art comes from `HOC_IMAGES_LOC`.
+- Shared source-package handoff: `"$HOME/Google Drive/My Drive/heroesofcrypto/image-sources/<versioned-package>"`, outside the runtime images directory.
+- Before finishing image work, synchronize approved runtime files to their configured canonical roots and the source artwork, prompts, references, variants, recipes, and metadata to the shared source package. Verify copied files by SHA-256. Preserve differing prior masters in package history. Follow the repository's Google Drive policy; never use Dropbox or another synchronized cloud folder.
 
 Expected runtime shape:
 
