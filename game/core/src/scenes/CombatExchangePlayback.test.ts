@@ -53,6 +53,73 @@ const flush = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 
+test.each([
+    { active: true, missed: false, amount: 10, lethal: false, response: false, expected: true },
+    { active: false, missed: false, amount: 10, lethal: false, response: false, expected: false },
+    { active: true, missed: true, amount: 0, lethal: false, response: false, expected: false },
+    { active: true, missed: false, amount: 0, lethal: false, response: false, expected: false },
+    { active: true, missed: false, amount: 10, lethal: true, response: false, expected: false },
+    { active: true, missed: false, amount: 10, lethal: false, response: true, expected: false },
+])("Shadow Touch marks the surviving victim immediately after damage: %j", async (options) => {
+    const { scene, a, b, events, finish } = setup();
+    a.hasAbilityActive = (name?: string) => options.active && name === "Shadow Touch";
+    scene.combatVisuals.prepareCommonFlagPop = () => undefined;
+    scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) => events.push(`${unit.getId()}:${kind}`);
+    scene.showAttackMissedVfx = () => events.push("miss");
+    const plan: CombatExchangeStrike[] = [
+        { ...strike(false, 0, options.lethal), amount: options.amount, missed: options.missed },
+    ];
+    if (options.response) plan.push(strike(true));
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, plan, () => {});
+    await flush();
+    const popIndex = events.indexOf("B:shadow_touch");
+    expect(popIndex >= 0).toBe(options.expected);
+    expect(events).not.toContain("A:shadow_touch");
+    if (options.expected) {
+        expect(events[popIndex - 1]).toBe("damage");
+        expect(events).not.toContain("B:attack");
+    }
+    for (let i = 0; i < 5; i++) {
+        finish.splice(0).forEach((resolve) => resolve());
+        await flush();
+    }
+    await pending;
+});
+
+test.each(["melee", "range"])(
+    "%s extra strikes pop above their source without delaying attacks",
+    async (attackType) => {
+        const { scene, a, b, events, finish } = setup();
+        // An unresolved effect preload must never hold up either combatant or any later strike.
+        scene.combatVisuals.prepareCommonFlagPop = () => new Promise(() => {});
+        scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) =>
+            events.push(`${unit.getId()}:${kind}`);
+        scene.playReplayProjectile = (unit: typeof a) => {
+            events.push(`${unit.getId()}:projectile`);
+            return new Promise<void>((resolve) => finish.push(resolve));
+        };
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            { attackType },
+            orderCombatExchange([strike(), strike(false, 1), strike(false, 2), strike(false, 3)], strike(true)),
+            () => {},
+        );
+        await flush();
+        expect(events.filter((event) => event.endsWith(":multi_attack"))).toHaveLength(0);
+        for (let i = 0; i < 10; i++) {
+            finish.splice(0).forEach((resolve) => resolve());
+            await flush();
+        }
+        await pending;
+        expect(events.filter((event) => event.endsWith(":multi_attack"))).toEqual(Array(3).fill("A:multi_attack"));
+        for (const [i, event] of events.entries()) {
+            if (event === "A:multi_attack")
+                expect(events[i + 1]).toBe(attackType === "melee" ? "A:attack" : "A:projectile");
+        }
+    },
+);
+
 test.each(
     ["melee", "range"].flatMap((attackType) =>
         ["ember_covenant", "water_shield"].map((source) => ({ attackType, source })),
@@ -416,6 +483,105 @@ test("ranged hurt audio waits for projectile contact", async () => {
     expect(sounds).toEqual(["B:hurt"]);
     finish.splice(0).forEach((fn) => fn());
     await pending;
+});
+
+test.each([
+    { attackType: "melee", missed: false, amount: 10, response: false, expected: "B" },
+    { attackType: "melee", missed: false, amount: 10, response: true, expected: "A" },
+    { attackType: "range", missed: false, amount: 10, response: false, expected: undefined },
+    { attackType: "melee", missed: true, amount: 0, response: false, expected: "B" },
+    { attackType: "melee", missed: false, amount: 0, response: false, expected: "B" },
+])(
+    "Penetrating Bite appears over the victim when the attack starts, including counters and misses: %j",
+    async ({ attackType, missed, amount, response, expected }) => {
+        const { scene, a, b, events, finish } = setup();
+        (response ? b : a).hasAbilityActive = (name?: string) => name === "Penetrating Bite";
+        const pops: string[] = [];
+        scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) => {
+            pops.push(`${unit.getId()}:${kind}`);
+            events.push(`${unit.getId()}:${kind}`);
+        };
+        scene.combatVisuals.prepareCommonFlagPop = () => undefined;
+        scene.playReplayProjectile = () => Promise.resolve();
+        scene.showAttackMissedVfx = () => undefined;
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            { attackType },
+            [{ ...strike(response), missed, amount }],
+            () => {},
+        );
+        await flush();
+        for (let i = 0; i < 10; i++) {
+            finish.splice(0).forEach((resolve) => resolve());
+            await flush();
+        }
+        await pending;
+        expect(pops).toEqual(expected ? [`${expected}:penetrating_bite`] : []);
+        if (expected) {
+            const start = events.indexOf(`${expected}:penetrating_bite`);
+            expect(events[start + 1]).toBe(`${response ? "B" : "A"}:attack`);
+        }
+    },
+);
+
+test.each([
+    { landed: true, resisted: false, missed: false, lethal: false, response: false, active: true, expected: true },
+    { landed: false, resisted: false, missed: false, lethal: false, response: false, active: true, expected: false },
+    { landed: true, resisted: true, missed: false, lethal: false, response: false, active: true, expected: false },
+    { landed: true, resisted: false, missed: true, lethal: false, response: false, active: true, expected: false },
+    { landed: true, resisted: false, missed: false, lethal: true, response: false, active: true, expected: false },
+    { landed: true, resisted: false, missed: false, lethal: false, response: true, active: true, expected: true },
+    { landed: true, resisted: false, missed: false, lethal: false, response: false, active: false, expected: false },
+])("Terrifying Gaze appears on its confirmed victim during the attack, never after recovery: %j", async (options) => {
+    const { scene, a, b, events, finish } = setup();
+    const source = options.response ? b : a;
+    const victim = options.response ? a : b;
+    source.hasAbilityActive = (name?: string) => options.active && name === "Terrifying Gaze";
+    scene.combatVisuals.prepareTerrifyingGazePop = async () => {
+        events.push("gaze:ready");
+    };
+    scene.combatVisuals.spawnTerrifyingGazePop = (unit: typeof a) => events.push(`${unit.getId()}:gaze`);
+    scene.showAttackMissedVfx = () => {};
+    const applications = options.landed
+        ? [
+              {
+                  type: "effects_applied",
+                  applications: [
+                      { unitId: victim.getId(), name: "Terrifying Gaze", kind: "effect", resisted: options.resisted },
+                      { unitId: "unrelated", name: "Terrifying Gaze", kind: "effect", resisted: false },
+                  ],
+              },
+          ]
+        : [];
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        [
+            {
+                ...strike(options.response, 0, options.lethal),
+                missed: options.missed,
+            },
+        ],
+        () => {},
+        undefined,
+        applications,
+    );
+    await flush();
+    const cue = `${victim.getId()}:gaze`;
+    expect(events.includes(cue)).toBe(options.expected);
+    if (options.expected) {
+        expect(events.indexOf("gaze:ready")).toBeLessThan(events.indexOf(`${source.getId()}:attack`));
+        expect(events.indexOf(cue)).toBe(events.indexOf(`${source.getId()}:attack`) + 1);
+        expect(finish.length).toBeGreaterThan(0);
+    }
+    for (let i = 0; i < 3; i++) {
+        finish.splice(0).forEach((fn) => fn());
+        await flush();
+    }
+    await pending;
+    expect(events.filter((event) => event === cue)).toHaveLength(options.expected ? 1 : 0);
 });
 
 test.each([false, true])("Covenant absorbs wait for their own contact, first shot missed=%s", async (firstMissed) => {

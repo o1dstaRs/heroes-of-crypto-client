@@ -27,7 +27,7 @@ describe("game system controls", () => {
      * bottom inset with a 96px centre — so in a fight the speaker hovered above the social dock's buttons.
      */
     test("keeps fullscreen and sound on the bottom line whatever the centre grows to", () => {
-        expect(gameSystemControlsSx.alignItems).toBe("end");
+        expect<unknown>(gameSystemControlsSx.alignItems).toBe("end");
     });
 
     test("the centred plate's empty flank matches the social, sound and fullscreen row", () => {

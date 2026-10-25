@@ -23,6 +23,7 @@ const fixture = () => {
             getMaxHp: () => 10,
             isDead: () => false,
             getAnimationTextureKey: () => undefined,
+            hasAnimationState: () => false,
             hasAbilityActive: () => false,
             getAbility: () => undefined,
             beginDamagePresentation: () => {},

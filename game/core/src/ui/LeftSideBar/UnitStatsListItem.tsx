@@ -1,4 +1,5 @@
 import { type LeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import { HydraPortraitPalette } from "../HydraPortraitPalette";
 import {
     displayedSidebarCreatureId,
     clearLeftSidebarPortraitSelection,
@@ -45,6 +46,13 @@ import {
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
 import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import {
+    createForwardPortraitClock,
+    createHydraPortraitIdleClock,
+    createPortraitIdleClock,
+    isRefinedPortrait,
+    sidebarPortraitSourceFile,
+} from "../leftSidebarPortraitPlayback";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
@@ -69,6 +77,8 @@ import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
+import { BlacksmithSpells } from "./BlacksmithSpells";
+import { CreatureNameFlag } from "./CreatureNameFlag";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -145,6 +155,8 @@ const AtlasAnimation: React.FC<{
         isAtlasReady(src) ? src : undefined,
     );
     const isImageLoaded = loadedSource === src;
+    const refinedPortrait = isRefinedPortrait(src);
+    const redrawnPeasant = sidebarPortraitSourceFile(src) === "peasant_left_screen_idle_atlas.webp";
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const onLoadedRef = React.useRef(onLoaded);
     React.useLayoutEffect(() => {
@@ -199,10 +211,21 @@ const AtlasAnimation: React.FC<{
         if (!isImageLoaded || !canvasRef.current) return;
         const image = getDecodedImage(src) as HTMLImageElement | undefined;
         if (!image) return;
-        const stop = playSidebarAtlas(canvasRef.current, image, timing);
+        const portraitFrame = refinedPortrait
+            ? (sidebarPortraitSourceFile(src) === "hydra_left_screen_idle_atlas.webp"
+                  ? createHydraPortraitIdleClock
+                  : createPortraitIdleClock)(
+                  meta.frameCount ?? 1,
+                  meta.fps || 4,
+                  meta.loopDurationMs === undefined ? undefined : meta.loopDurationMs * 2,
+              )
+            : redrawnPeasant
+              ? createForwardPortraitClock(meta.frameCount ?? 1, meta.fps || 4)
+              : timing.frameForElapsed;
+        const stop = playSidebarAtlas(canvasRef.current, image, { ...timing, frameForElapsed: portraitFrame });
         if (stop) onLoadedRef.current();
         return stop;
-    }, [src, timing, isImageLoaded]);
+    }, [src, timing, isImageLoaded, refinedPortrait, redrawnPeasant, meta.frameCount, meta.fps, meta.loopDurationMs]);
 
     const frameWidth = meta.frameWidth ?? 512;
     const frameHeight = meta.frameHeight ?? 512;
@@ -322,10 +345,23 @@ const PagedPortraitCanvas = ({
             playback === "ping-pong"
                 ? buildAtlasPingPongTiming(meta)
                 : { frameForElapsed: (elapsed: number) => Math.floor(elapsed / (1000 / meta.fps)) % meta.frameCount };
+        const sourceFile = sidebarPortraitSourceFile(config.src);
+        const frameForElapsed = isRefinedPortrait(config.src)
+            ? (sourceFile === "hydra_left_screen_idle_atlas.webp"
+                  ? createHydraPortraitIdleClock
+                  : createPortraitIdleClock)(
+                  meta.frameCount,
+                  meta.fps,
+                  meta.loopDurationMs === undefined ? undefined : meta.loopDurationMs * 2,
+              )
+            : sourceFile === "peasant_left_screen_idle_atlas.webp"
+              ? createForwardPortraitClock(meta.frameCount, meta.fps)
+              : timing.frameForElapsed;
+        frameForElapsed(0);
         return playPagedSidebarAtlas(
             canvas.current,
             { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages: config.pages },
-            timing,
+            { frameForElapsed },
             () => ready.current(),
         );
     }, [config, playback]);
@@ -1406,6 +1442,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
             displayedCreatureId === undefined ? null : (
                 <CreaturePortraitImage
                     creatureId={displayedCreatureId}
+                    portraitSurface="sidebar"
                     alt={portraitAlt}
                     artScale={portraitArtScale * LEFT_SIDEBAR_ART_SCALE}
                     artScaleX={portraitArtScaleX}
@@ -1420,24 +1457,25 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
                     sx={{ width: "100%", height: "100%", bgcolor: "transparent" }}
                     imageStyle={{ transition: "none", imageRendering: "auto" }}
                     animatedArtSource={portraitAtlasSource}
-                    renderArt={
-                        portraitAtlasMeta
-                            ? (art) => (
-                                  <SidebarPortraitAnimation
-                                      key={portraitAtlasSource}
-                                      art={art}
-                                      config={{
-                                          src: portraitAtlasSource!,
-                                          meta: portraitAtlasMeta,
-                                          pages: portraitPages,
-                                      }}
-                                      onLoaded={onImageLoaded}
-                                      maxHeight={portraitHeight}
-                                      playback={portraitPlayback}
-                                  />
-                              )
-                            : undefined
-                    }
+                    renderArt={(art) => {
+                        const content = portraitAtlasMeta ? (
+                            <SidebarPortraitAnimation
+                                key={portraitAtlasSource}
+                                art={art}
+                                config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta, pages: portraitPages }}
+                                onLoaded={onImageLoaded}
+                                maxHeight={portraitHeight}
+                                playback={portraitPlayback}
+                            />
+                        ) : (
+                            art
+                        );
+                        return portraitAlt === "Hydra" ? (
+                            <HydraPortraitPalette>{content}</HydraPortraitPalette>
+                        ) : (
+                            content
+                        );
+                    }}
                 />
             ),
         [
@@ -1710,11 +1748,12 @@ const UnitStatsLayout: React.FC<{
                         boxSizing: "border-box",
                         border: "1px solid rgba(9, 7, 5, 0.98)",
                         borderBottom: 0,
+                        borderTop: 0,
                         boxShadow: "inset 0 0 0 1px rgba(151, 104, 54, 0.82), inset 0 0 0 2px rgba(4, 4, 3, 0.78)",
-                        // Keep just the selected-card contour. It ends cleanly at the Abilities divider;
-                        // the separate full-height sidebar rails no longer need any transition ornaments.
+                        // Keep the selected-card side rails only; the painted flag owns its upper edge.
+                        // Side framing ends cleanly at the Abilities divider.
                         clipPath:
-                            "polygon(0 0, 100% 0, 100% 100%, calc(100% - 3px) 100%, calc(100% - 3px) 3px, 3px 3px, 3px 100%, 0 100%)",
+                            "polygon(0 0, 3px 0, 3px 100%, calc(100% - 3px) 100%, calc(100% - 3px) 0, 100% 0, 100% 100%, 0 100%)",
                         pointerEvents: "none",
                     },
                 }}
@@ -1872,6 +1911,12 @@ const UnitStatsLayout: React.FC<{
                     />
                 </IconScrollWell>
             </PanelSection>
+
+            {unitProperties.name === "Blacksmith" && (
+                <PanelSection title="Magic" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
+                    <BlacksmithSpells spells={unitProperties.spells} size={abilityTileSize(metrics)} />
+                </PanelSection>
+            )}
 
             {/* Move the complete lower pair together. At the approved scale, 1.2 of the shared gap closes
                 the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
@@ -2212,8 +2257,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                 nested
             >
                 <Box sx={unitDetailsShellSx(metrics)}>
-                    {/* The creature name uses the same plaque as Abilities / Buffs / Debuffs. The wrapper
-                        only positions that shared component over the team flag; it adds no second surface. */}
+                    {/* The cloth shows the surviving share of this stack; its name stays stationary. */}
                     <Box
                         sx={{
                             // Centred in the cloth between the crossbar and the crest — the run down from the
@@ -2230,31 +2274,15 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                             // then shares the exact screen-space edge of the roster collapse control at
                             // every responsive density, without relying on a guessed pixel offset.
                             transform: `translateY(calc(${-bannerLayout(metrics).above}px - var(--sidebar-card-top-inset, 0px)))`,
-                            // A restrained finishing rail closes the card above the name plaque without
-                            // crossing the plaque or stealing any room from the portrait.
-                            "&::before": {
-                                content: '""',
-                                position: "absolute",
-                                // Share the plaque's upper edge instead of floating above it. This keeps the
-                                // requested line visible even when the card begins at the top of the screen.
-                                top: 0,
-                                left: "1.5%",
-                                right: "1.5%",
-                                height: "1px",
-                                background:
-                                    "linear-gradient(90deg, transparent 0%, rgba(116,77,42,.72) 5%, rgba(203,159,92,.72) 50%, rgba(116,77,42,.72) 95%, transparent 100%)",
-                                boxShadow: "0 1px 0 rgba(0,0,0,.7)",
-                                pointerEvents: "none",
-                            },
                         }}
                     >
-                        <SectionTitle
+                        <CreatureNameFlag
+                            team={unitProperties.team}
                             title={unitProperties.name.toUpperCase()}
                             metrics={metrics}
-                            displayFont
-                            preserveCase
-                            namePlaque
-                            namePlaqueTeam={unitProperties.team}
+                            unitId={unitProperties.id}
+                            alive={unitProperties.amount_alive}
+                            died={unitProperties.amount_died}
                         />
                         <Box
                             sx={{

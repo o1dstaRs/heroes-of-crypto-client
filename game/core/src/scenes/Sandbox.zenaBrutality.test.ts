@@ -116,6 +116,7 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
     visuals.spawnBloodSpray = mock();
     visuals.spawnSlash = mock();
     visuals.showMissLabel = mock();
+    visuals.spawnCommonFlagPop = mock();
     const flights: { from: HoCMath.XY; to: HoCMath.XY; impact: () => void; finish: () => void }[] = [];
     const hops: (() => void)[] = [];
     const paths: HoCMath.XY[][] = [];

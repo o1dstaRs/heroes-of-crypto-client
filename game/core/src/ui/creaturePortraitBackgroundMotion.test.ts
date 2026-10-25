@@ -16,7 +16,11 @@ describe("creature portrait background motion", () => {
         const motion = resolveCreaturePortraitBackgroundMotion(creatureId);
 
         expect(motion?.kind).toBe(kind);
-        expect(motion?.glowSrc).toContain(`${kind}_portrait_bg_emissive_glow_v1.webp`);
+        expect(motion?.glowSrc).toContain(
+            kind === "nature"
+                ? "nature_portrait_bg_emerald_forest_glow_v1.webp"
+                : `${kind}_portrait_bg_emissive_glow_v1.webp`,
+        );
         expect(motion?.primaryAnimation).toContain(`hocPortrait${kind[0].toUpperCase()}${kind.slice(1)}`);
         expect(motion?.secondaryAnimation).toContain(`hocPortrait${kind[0].toUpperCase()}${kind.slice(1)}`);
     });

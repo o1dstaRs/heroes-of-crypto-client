@@ -48,7 +48,7 @@ describe("Battle Roar painted flag effect", () => {
             const scale = { x: sprite.scale.x, y: sprite.scale.y };
             const y = container.y;
             for (let i = 0; i < 14; i++) {
-                now += 100;
+                now += 45;
                 layer.update(0.1);
                 expect(container.x).toBe(anchor.x);
                 expect(container.y).toBe(y);
@@ -61,7 +61,7 @@ describe("Battle Roar painted flag effect", () => {
             layer.update(0);
             expect(container.x).toBe(150);
             expect(container.y).toBe(y + 50);
-            now += 100;
+            now += 45;
             layer.update(0.1);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);
@@ -172,14 +172,14 @@ describe("Battle Roar painted flag effect", () => {
                 layer.update(1 / 60);
                 expect(pop.alpha).toBeGreaterThan(0);
                 expect(pop.alpha).toBeLessThan(1);
-                now = 5000 + durationMs * 0.5;
+                now = 5000 + 650 * 0.5;
                 layer.update(1 / 60);
                 expect(pop.alpha).toBe(1);
-                now = 5000 + durationMs - 50;
+                now = 5000 + 650 - 30;
                 layer.update(0);
                 expect(pop.alpha).toBeGreaterThan(0);
                 expect(pop.alpha).toBeLessThan(0.2);
-                now = 5000 + durationMs;
+                now = 5000 + 650;
                 layer.update(0);
                 expect(layer.active).toBe(false);
                 expect(pop.destroyed).toBe(true);

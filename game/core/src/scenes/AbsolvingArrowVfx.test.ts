@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { Container, Text } from "pixi.js";
 import type { GridSettings, IVisibleDamage, UnitsHolder } from "@heroesofcrypto/common";
 
@@ -161,21 +161,27 @@ describe("Absolving Arrow success VFX", () => {
     });
 
     test("uses a distinct CLEANSED label and golden-white burst that tears down normally", () => {
-        const attached: Container[] = [];
-        const visuals = new CombatVisuals({
-            getGridSettings: () => gs,
-            getUnitsHolder: () => undefined as unknown as UnitsHolder,
-            getSelectedUnitProperties: () => undefined,
-            updateSelectedUnitProperties: () => {},
-            setUnitPropertiesUpdateNeeded: () => {},
-            attachToWorldRoot: (container) => attached.push(container),
-        });
-        visuals.showCleanse({ x: 25, y: 50 });
-        const text = attached[0].children[0] as Text;
-        expect(text.text).toBe("CLEANSED");
-        expect(attached).toHaveLength(2);
-        visuals.update(1);
-        expect(attached.every((container) => container.destroyed)).toBe(true);
+        const clock = spyOn(performance, "now").mockReturnValue(1000);
+        try {
+            const attached: Container[] = [];
+            const visuals = new CombatVisuals({
+                getGridSettings: () => gs,
+                getUnitsHolder: () => undefined as unknown as UnitsHolder,
+                getSelectedUnitProperties: () => undefined,
+                updateSelectedUnitProperties: () => {},
+                setUnitPropertiesUpdateNeeded: () => {},
+                attachToWorldRoot: (container) => attached.push(container),
+            });
+            visuals.showCleanse({ x: 25, y: 50 });
+            const text = attached[0].children[0] as Text;
+            expect(text.text).toBe("CLEANSED");
+            expect(attached).toHaveLength(2);
+            clock.mockReturnValue(2000);
+            visuals.update(1);
+            expect(attached.every((container) => container.destroyed)).toBe(true);
+        } finally {
+            clock.mockRestore();
+        }
     });
 });
 

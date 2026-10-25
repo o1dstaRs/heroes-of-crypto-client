@@ -5,6 +5,7 @@ import { content, languageSwitchPath, type Language } from "../lib/site-data";
 import { abilityCount, unitCount } from "../lib/units-data";
 import { HOME_HERO_IMAGE } from "../lib/hero-media";
 import "../styles/global.css";
+import "../styles/buttons.css";
 
 interface Props {
     lang: Language;
@@ -134,7 +135,7 @@ const jsonLd = {
         <title>{resolvedTitle}</title>
         <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     </head>
-    <body>
+    <body class="site-button-theme">
         <SiteHeader lang={lang} currentPath={Astro.url.pathname} />
         <main>
             <slot />

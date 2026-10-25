@@ -190,7 +190,6 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
     const metrics = useSidebarMetrics();
-    const iconOnlyMoreTime = metrics.barSize < 200;
     const aiToggleSize = Math.max(30, Math.round(42 * metrics.startButtonScale));
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
@@ -746,17 +745,22 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             messageBoxTitle = "Calculating next turn";
         } else if (perspectiveTeam !== undefined) {
             // Frame the turn from the watcher's side instead of by absolute team colours. On the other
-            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "Opponent's turn";
+            // side's turn the heading is left EMPTY on purpose — the button below says "Enemy turn" for
+            // the whole of it, and printing it twice was the only thing in this card saying the same word
+            // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
+            // fixed slot.
+            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
         } else {
             // Sandbox/observer: the side on the clock is already named by the board, the Up Next queue and
-            // the timer's own fill, and this heading was the one piece of chrome costing the card a whole
-            // row of height — the row the effect wells need to show their icons whole in a browser window.
+            // the timer's own fill, and the heading was the one line of chrome costing the card a whole row
+            // of height — the row the effect wells need to show their icons whole in a windowed browser.
             messageBoxTitle = "";
         }
         messageBoxText = "";
     }
 
     // --- ICON LOGIC ---
+    const iconOnlyMoreTime = metrics.barSize < 200;
     let footerIndicator: React.ReactNode;
 
     // Shared with the bottom-centre NextLapHazardBadge and the UpNextOverlay icon, so all three warnings
@@ -860,7 +864,22 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                 </Typography>
                             ) : undefined
                         }
-                        footerIndicator={footerIndicator}
+                        footerIndicator={
+                            <Box
+                                sx={{
+                                    width: 22,
+                                    height: 22,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: hocColors.gold,
+                                    filter: `drop-shadow(0 0 3px ${hocColors.gold}66)`,
+                                    "& svg": { color: "inherit" },
+                                }}
+                            >
+                                {footerIndicator}
+                            </Box>
+                        }
                         footer={
                             !cannotAct && visibleState.canRequestAdditionalTime ? (
                                 <Button

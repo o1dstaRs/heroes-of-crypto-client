@@ -214,28 +214,50 @@ describe("rectangular footprints on the sandbox interaction surface", () => {
 const recorder = () => {
     const polygons: number[][] = [];
     const holes: number[][] = [];
+    const ellipses: number[][] = [];
+    const fills: number[][] = [];
+    const textures: unknown[][] = [];
+    const strokes: { color: number; width: number }[] = [];
     const graphics = {
         poly(points: number[]) {
             polygons.push([...points]);
             return graphics;
         },
+        save: () => graphics,
+        restore: () => graphics,
+        setFillStyle: () => graphics,
+        transform: () => graphics,
+        texture: (...args: unknown[]) => {
+            textures.push(args);
+            return graphics;
+        },
         rect: () => graphics,
         circle: () => graphics,
+        ellipse: (...args: number[]) => {
+            ellipses.push(args);
+            return graphics;
+        },
         moveTo: () => graphics,
         lineTo: () => graphics,
-        stroke: () => graphics,
-        fill: () => graphics,
+        stroke: (style: { color: number; width: number }) => {
+            strokes.push(style);
+            return graphics;
+        },
+        fill: () => {
+            fills.push(polygons.at(-1)!);
+            return graphics;
+        },
         cut: () => {
             holes.push(polygons.at(-1)!);
             return graphics;
         },
     };
-    return { graphics, polygons, holes };
+    return { graphics, polygons, holes, ellipses, fills, strokes, textures };
 };
 
 /** The outermost aura sheet — the first thing drawn for a hovered unit's aura, at its full extent. */
 const auraOutline = (footprint: IFootprintExtent, range: number, xy: HoCMath.XY): number[] => {
-    const { graphics, polygons } = recorder();
+    const { graphics, fills } = recorder();
     SandboxDrawer.drawGameplayVisuals(
         graphics as never,
         {
@@ -248,7 +270,7 @@ const auraOutline = (footprint: IFootprintExtent, range: number, xy: HoCMath.XY)
             hoveredAuraRanges: { xy, auraRanges: [{ range, isBuff: true }], footprint },
         } as unknown as IGameplayDrawContext,
     );
-    return polygons[0];
+    return fills[0];
 };
 
 describe("aura squares hug the owner's body", () => {
@@ -319,6 +341,8 @@ describe("aura squares hug the owner's body", () => {
             } as unknown as IGameplayDrawContext,
         );
         expect(overlay.polygons).toHaveLength(0);
+        expect(overlay.textures).toHaveLength(0);
+        expect(overlay.fills).toHaveLength(0);
         expect(floor.holes).toHaveLength(5);
         expect(floor.polygons.length).toBeGreaterThan(10);
     });
@@ -413,4 +437,42 @@ describe("a client AI seat expands a move destination from the anchor", () => {
         expect(key(viaCellCentre(peasant))).toBe("8,8");
         expect(key(GridMath.getFootprintCellsForAnchor(anchor, 1, 1))).toBe("8,8");
     });
+});
+
+test("aura artwork renders without the additional luminous square boundary", () => {
+    for (const [name, isBuff] of [
+        ["Abomination", true],
+        ["Crusader", true],
+        ["Griffin", false],
+        ["Pegasus", true],
+        ["Champion", true],
+        ["Arachna Queen", false],
+        ["Zena", true],
+        ["Wolf", true],
+        ["Dark Champion", false],
+    ] as const) {
+        const overlay = recorder();
+        SandboxDrawer.drawGameplayVisuals(
+            overlay.graphics as never,
+            {
+                fightProps: { hasFightStarted: () => false },
+                hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+                isActiveUnitMoving: false,
+                gridSettings,
+                hoverGlowPhase: 0,
+                sc_isAnimating: false,
+                hoveredAuraRanges: {
+                    xy: {
+                        x: (gridSettings.getMinX() + gridSettings.getMaxX()) / 2,
+                        y: (gridSettings.getMinY() + gridSettings.getMaxY()) / 2,
+                    },
+                    auraRanges: [{ range: 2, isBuff }],
+                    footprint: { width: 2, height: 2 },
+                    auraOwner: { name, id: name },
+                },
+            } as unknown as IGameplayDrawContext,
+        );
+        expect(overlay.ellipses).toHaveLength(0);
+        expect(overlay.textures).toHaveLength(0);
+    }
 });

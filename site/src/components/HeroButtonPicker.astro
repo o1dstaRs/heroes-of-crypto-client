@@ -1,0 +1,142 @@
+---
+import type { Language } from "../lib/site-data";
+interface Props { lang: Language }
+const { lang } = Astro.props;
+const ru = lang === "ru";
+const variants = [
+    ["01-black-iron", ru ? "Тёмное железо" : "Black iron"],
+    ["02-oak-bronze", ru ? "Дуб и бронза" : "Oak & bronze"],
+    ["03-silver-turquoise", ru ? "Серебро и бирюза" : "Silver & turquoise"],
+    ["04-slate-runes", ru ? "Камень и сталь" : "Slate & steel"],
+    ["05-forest-leather", ru ? "Зелёная кожа" : "Forest leather"],
+    ["06-espresso-gold", ru ? "Эспрессо и золото" : "Espresso & gold"],
+    ["07-chestnut-gold", ru ? "Каштан и золото" : "Chestnut & gold"],
+    ["08-walnut-brass", ru ? "Орех и латунь" : "Walnut & brass"],
+    ["09-cognac-gold", ru ? "Коньячный и золото" : "Cognac & gold"],
+    ["10-chocolate-gold", ru ? "Шоколад и золото" : "Chocolate & gold"],
+    ["11-bronze-ingot", ru ? "Бронзовый слиток" : "Bronze ingot"],
+    ["12-ivory-gold", ru ? "Светлое золото" : "Pale gold"],
+    ["13-amber-glass", ru ? "Дымчатый янтарь" : "Smoked amber"],
+    ["14-slate-brass", ru ? "Сланец и латунь" : "Slate & brass"],
+    ["15-wine-gold", ru ? "Винный бархат" : "Wine velvet"],
+    ["16-teal-bronze", ru ? "Петроль и бронза" : "Petrol & bronze"],
+    ["17-oak-steel", ru ? "Дуб и сталь" : "Oak & steel"],
+    ["18-copper-cushion", ru ? "Медь и кожа" : "Copper & leather"],
+    ["19-black-gold", ru ? "Чёрное золото" : "Black & gold"],
+    ["20-antique-olive", ru ? "Оливковая бронза" : "Olive bronze"],
+    ["21-smoked-frame", ru ? "Дымчатая рамка" : "Smoked frame"],
+];
+---
+<hero-button-picker data-error={ru ? "Не удалось загрузить кнопку" : "Could not load button"}>
+    <details>
+        <summary>{ru ? "Кнопка" : "Button"} · <span data-button-number>6</span></summary>
+        <div class="button-options" role="group" aria-label={ru ? "Варианты кнопки Play" : "Play button variants"}>
+            {variants.map(([file, label], index) => (
+                <button type="button" data-button-file={file} data-css={file === "21-smoked-frame" ? "smoked-frame" : undefined} data-src={file === "21-smoked-frame" ? undefined : `/assets/images/home/hero/taverns/buttons/${file}.webp?v=simple-2`} aria-pressed={index === 5 ? "true" : "false"}>
+                    <b>{index + 1}</b><span>{label}</span>
+                </button>
+            ))}
+            <span class="button-status" aria-live="polite"></span>
+        </div>
+    </details>
+</hero-button-picker>
+<style>
+    hero-button-picker { position: absolute; z-index: 4; top: 60px; right: 16px; color: #f4e3c4; font-size: 13px; }
+    summary { width: fit-content; margin-left: auto; padding: 8px 12px; border: 1px solid #8e693d; border-radius: 8px; background: #130c07eb; cursor: pointer; }
+    .button-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 420px; max-width: calc(100vw - 32px); max-height: min(60svh, 520px); overflow-y: auto; overscroll-behavior: contain; margin-top: 8px; padding: 10px; border: 1px solid #8e693d; border-radius: 10px; background: #130c07f5; box-shadow: 0 4px 20px #0008; }
+    button { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid #66533a; border-radius: 5px; background: #201b15; color: #eadbc5; font: inherit; text-align: left; cursor: pointer; }
+    button[aria-pressed="true"] { background: #62523a; border-color: #d0b177; color: #fff3d6; }
+    button:hover { border-color: #d0b177; }
+    button:focus-visible, summary:focus-visible { outline: 2px solid #fff0d2; outline-offset: 3px; }
+    .button-status:empty { display: none; }
+    .button-status { grid-column: 1 / -1; }
+    :global(.hero .hero-play[data-button-style="smoked-frame"]) {
+        border: 1.3px solid rgba(202, 202, 202, 0.8);
+        border-radius: 10px;
+        background: transparent;
+        color: #ddd8c3;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+        -webkit-text-stroke: 0;
+        text-shadow: 0 1px 2px #0008;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 5px 18px rgba(0, 0, 0, 0.58);
+    }
+    /* Match the neutral PickCommitButton surface from the game. */
+    :global(.hero .hero-play[data-button-style="smoked-frame"]::before) {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        opacity: 0.9;
+        filter: brightness(0.7);
+        background-color: #120b04;
+        background-image:
+            linear-gradient(160deg, rgba(42, 24, 7, 0.72) 0%, rgba(14, 8, 2, 0.78) 100%),
+            repeating-linear-gradient(14deg, rgba(255, 255, 255, 0.014) 0 1px, rgba(0, 0, 0, 0.075) 1px 3px),
+            url("/assets/images/ui/ui_draft_action_stone_texture_v1.webp");
+        background-size: 100% 100%, auto, 320px 320px;
+        background-position: center, center, center;
+        background-repeat: no-repeat, repeat, repeat;
+        background-blend-mode: normal, normal, normal;
+    }
+    :global(.hero .hero-play[data-button-style="smoked-frame"] .hero-play-art) { display: none; }
+    :global(.hero .hero-play[data-button-style="smoked-frame"] span) { transform: none; }
+    :global(.hero .hero-play[data-button-style="smoked-frame"]:hover) {
+        border-color: #e1ddcb;
+    }
+    :global(.hero .hero-play[data-button-style="smoked-frame"]:focus-visible) {
+        outline: 2px solid #e1ddcb;
+        outline-offset: 4px;
+    }
+    @media (max-width: 600px) {
+        .button-options { grid-template-columns: 1fr; width: 240px; max-height: 55svh; }
+    }
+</style>
+<script>
+    class HeroButtonPicker extends HTMLElement {
+        private controller?: AbortController;
+        private request = 0;
+        connectedCallback() {
+            if (this.controller) return;
+            this.controller = new AbortController();
+            const buttons = [...this.querySelectorAll<HTMLButtonElement>("button[data-button-file]")];
+            const hero = this.closest(".hero");
+            const art = hero?.querySelector<HTMLImageElement>(".hero-play-art");
+            const link = hero?.querySelector<HTMLElement>(".hero-play");
+            const status = this.querySelector<HTMLElement>(".button-status");
+            if (!art || !link || !status) return;
+            const select = async (button: HTMLButtonElement) => {
+                const request = ++this.request;
+                try {
+                    if (button.dataset.css) {
+                        link.dataset.buttonStyle = button.dataset.css;
+                        link.style.aspectRatio = "2172 / 402";
+                    } else {
+                        const image = new Image();
+                        image.src = button.dataset.src!;
+                        await image.decode();
+                        if (request !== this.request || !this.isConnected) return;
+                        art.src = image.src;
+                        art.width = image.naturalWidth;
+                        art.height = image.naturalHeight;
+                        link.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
+                        delete link.dataset.buttonStyle;
+                    }
+                    buttons.forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+                    const number = this.querySelector("[data-button-number]");
+                    if (number) number.textContent = String(buttons.indexOf(button) + 1);
+                    status.textContent = "";
+                    try { localStorage.setItem("hoc-hero-button-v1", button.dataset.buttonFile!); } catch { /* Optional persistence. */ }
+                } catch { if (request === this.request) status.textContent = this.dataset.error!; }
+            };
+            buttons.forEach(button => button.addEventListener("click", () => void select(button), {signal: this.controller!.signal}));
+            let selected = buttons[5];
+            try { selected = buttons.find(button => button.dataset.buttonFile === localStorage.getItem("hoc-hero-button-v1")) ?? selected; } catch { /* Use first variant. */ }
+            if (selected) void select(selected);
+        }
+        disconnectedCallback() { this.request++; this.controller?.abort(); this.controller = undefined; }
+    }
+    if (!customElements.get("hero-button-picker")) customElements.define("hero-button-picker", HeroButtonPicker);
+</script>

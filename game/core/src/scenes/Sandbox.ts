@@ -1,3 +1,20 @@
+import {
+    BLACKSMITH_CRAFT_FLAGS,
+    BLACKSMITH_FLAG_KINDS,
+    blacksmithCraftFlagKind,
+    blacksmithRuneFlagKind,
+    isBlacksmithSpell,
+    type BlacksmithFlagKind,
+} from "./blacksmithFlagEffects";
+import { OVERHEAD_EFFECT_DURATION_MS } from "../settings/statusEffectTiming";
+import { stunRecipients } from "./stunFlagEffects";
+import { troglodyteFlagApplications } from "./troglodyteFlagEffects";
+import { terrifyingGazeRecipients } from "./terrifyingGazeFlagEffects";
+import { PETRIFYING_GAZE_DURATION_MS } from "./sandbox/PetrifyingGazePops";
+import { BEHOLDER_DEBUFFS, isBeholderDebuff, beholderDebuffTextureName } from "./sandbox/BeholderDebuffPops";
+import { resetWyvernPoisonAuras } from "./WyvernPoisonAura";
+import { shatterArmorRecipients } from "./shatterArmorFlagEffects";
+import { isBackstabImpact } from "./backstabFlagEffects";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -12,7 +29,11 @@ import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { replayTextureKeys } from "../replay/replayTextureKeys";
 import { dullingDefenseRecipientIds } from "./effect_pops";
 import { teamColor } from "./teamColors";
-import { borrowedGraceTransfers, borrowedGraceBuffsByThief } from "./sandbox/borrowedGraceTransfers";
+import {
+    borrowedGraceTransfers,
+    borrowedGraceBuffsByThief,
+    borrowedGraceFlagKind,
+} from "./sandbox/borrowedGraceTransfers";
 import { CRUSADER_SIX_SWORDS_AURA_KEY, resetCrusaderSixSwordsAuras } from "./CrusaderSixSwordsAura";
 import { GRIFFIN_QUESTION_BOW_AURA_KEY, resetGriffinQuestionBowAuras } from "./GriffinQuestionBowAura";
 import { PEGASUS_WINGED_SWORD_AURA_KEY, resetPegasusWingedSwordAuras } from "./PegasusWingedSwordAura";
@@ -26,6 +47,11 @@ import { chainLightningRecipients } from "./sandbox/chainLightningRecipients";
 import { fireShieldCasterIds } from "./sandbox/fireShieldCasters";
 import { isInfestHatchSummon } from "./sandbox/InfestHatchPops";
 import { CHAMPION_ARROW_ATLAS_KEY, resetChampionArrowAuras } from "./ChampionArrowAura";
+import { hamstringRecipients } from "./hamstringFlagEffects";
+import { bitterExperienceTriggered } from "./bitterExperienceFlagEffects";
+import { resetDryadWindAuras } from "./DryadWindAura";
+import { resetLeprechaunCloverAuras } from "./LeprechaunCloverAura";
+import { resetValkyrieBloodAuras } from "./ValkyrieBloodAura";
 import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
 import { ARACHNA_WEB_ATLAS_KEY, resetArachnaQueenWebAuras } from "./ArachnaQueenWebAura";
 import { resetAbominationSandAuras } from "./AbominationSandAura";
@@ -210,10 +236,13 @@ import {
 import { ButtonManager } from "./ButtonManager";
 import { empowerAppliedUnitIds } from "./empowerFlagEffects";
 import { ogreSpellFlagApplications, OGRE_SPELL_FLAG_EFFECTS, type OgreSpellFlagKind } from "./ogreSpellFlagEffects";
+import { satyrSpellFlagApplications, SATYR_SPELL_FLAG_EFFECTS, type SatyrSpellFlagKind } from "./satyrSpellFlagEffects";
+import { windFlowRecipients } from "./windFlowFlagEffects";
 import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
+import { MAGE_SPELL_FLAG_EFFECTS, mageSpellFlagApplications, type MageSpellFlagKind } from "./mageSpellFlagEffects";
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
 import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
 import { FireWallLayer, type IFireWallCell } from "./sandbox/FireWallLayer";
@@ -993,10 +1022,14 @@ export class Sandbox extends PixiScene {
     private readonly revealedOpponentUnitIds = new Set<string>();
     private selectedBoardUnit?: RenderableUnit;
     private creatureAnimationLabEnabled = false;
+    private creatureAnimationLabRapidCharge = false;
     private creatureAnimationLabSpell?: CreatureAnimationLabSpell;
     private creatureAnimationLabSpellCell?: HoCMath.XY;
     private creatureAnimationLabFireCells: IFireWallCell[] = [];
     private creatureAnimationLabFireUntil = 0;
+    private creatureAnimationLabSmokeCells: ISmokeCloudCell[] = [];
+    private creatureAnimationLabSmokeUntil = 0;
+    private creatureAnimationLabSmokeLayer?: SmokeCloudLayer;
     private creatureAnimationLabAiBrainUnitId?: string;
     private creatureAnimationLabParalysisUnits?: Set<string>;
     private creatureAnimationLabReservedCells?: HoCMath.XY[];
@@ -4067,67 +4100,50 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    protected spawnSkewerWindSpearVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
-        const skewerHits = (damage?.secondary ?? []).filter((s) => s.source === "skewer_strike");
-        if (!skewerHits.length) {
-            return;
-        }
+    protected spawnSkewerWindSpearVfx(
+        attacker: RenderableUnit,
+        target: Pick<Unit, "getPosition">,
+        damage?: IVisibleDamage,
+        events: readonly GameEvent[] = [],
+        obstaclePrimary = false,
+    ): void {
+        if (attacker.getName() !== "Pikeman" || !attacker.hasAbilityActive?.("Skewer Strike")) return;
+        const from = attacker.getPosition(),
+            primary = target.getPosition();
+        const dx = primary.x - from.x,
+            dy = primary.y - from.y;
+        const primaryDistance = Math.hypot(dx, dy);
+        if (primaryDistance < 1) return;
+        // Secondary entries include both sides of an exchange: only the actual pierced cell beyond
+        // this attack's primary can extend this weapon. Killed targets retain their recorded position.
+        const beyond = (position: HoCMath.XY): boolean =>
+            (position.x - from.x) * dx + (position.y - from.y) * dy > primaryDistance ** 2 + 1 &&
+            Math.abs((position.x - from.x) * dy - (position.y - from.y) * dx) < 1;
+        // A shield-absorbed skewer is still a real contact (amount can be zero).
+        const hit = damage?.secondary?.find((entry) => entry.source === "skewer_strike" && beyond(entry.position));
+        // Barrels are recorded separately, not in unit damage. A pierce past an aimed barrel
+        // uses untagged obstacle events; ownership and the forward ray exclude other blows.
+        const obstacle = events.find(
+            (entry): entry is ObstacleAttackedEvent =>
+                entry.type === "obstacle_attacked" &&
+                entry.attackerId === attacker.getId() &&
+                (entry.source === "skewer_strike" || (obstaclePrimary && !entry.source)) &&
+                beyond(entry.targetPosition),
+        );
+        const position = hit?.position ?? obstacle?.targetPosition;
+        if (position) this.spawnPikemanSpearToCell(attacker, position);
+    }
+    private spawnPikemanSpearToCell(attacker: RenderableUnit, position: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
-        const centerOf = (unitId: string, fallback: HoCMath.XY): HoCMath.XY => {
-            const u = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
-            return u && typeof u.getVisualCenter === "function"
-                ? u.getVisualCenter(gs)
-                : projectBattlefieldPoint(fallback, gs);
-        };
-        const attackerCenter = attacker.getVisualCenter(gs);
-        const targetCenter =
-            target instanceof RenderableUnit
-                ? target.getVisualCenter(gs)
-                : projectBattlefieldPoint(target.getPosition(), gs);
-        const points: HoCMath.XY[] = [attackerCenter, targetCenter];
-        const skewerUnits: (RenderableUnit | undefined)[] = [];
-        for (const hit of skewerHits) {
-            points.push(centerOf(hit.unitId, hit.position));
-            skewerUnits.push(this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined);
-        }
-        this.combatVisuals?.spawnWindSpear(points, gs.getCellSize());
-
-        // Jolt each pierced "behind" unit a little as the light reaches it — a small push in the pierce
-        // direction, timed to when the light orb passes (the target itself already gets the normal hit
-        // knockback). Travel window matches the VFX so the shake lands as the light arrives.
-        const cs = gs.getCellSize();
-        let total = 0;
-        for (let i = 1; i < points.length; i++) {
-            total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-        }
-        const travelMs = 190; // keep in sync with WINDSPEAR_TRAVEL_MS
-        let acc = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y); // up to the target
-        for (let k = 0; k < skewerUnits.length; k++) {
-            const idx = k + 2; // points[2..] are the behind units
-            const segdx = points[idx].x - points[idx - 1].x;
-            const segdy = points[idx].y - points[idx - 1].y;
-            const slen = Math.hypot(segdx, segdy) || 1;
-            acc += slen;
-            const unit = skewerUnits[k];
-            if (!unit || typeof unit.applyRecoil !== "function") {
-                continue;
-            }
-            const jmag = cs * 0.14;
-            const jx = (segdx / slen) * jmag;
-            const jy = (segdy / slen) * jmag;
-            const arrivalMs = total > 0 ? (acc / total) * travelMs : 0;
-            this.scheduleSceneTimeout(() => unit.applyRecoil(jx, jy), Math.max(0, arrivalMs));
-        }
-
-        // Wind-up spear thrust on the attacker: pull back from the target, then lunge into it. Applied
-        // last so it overrides the plain forward recoil for a skewer ("замахивается копьём").
-        const dirX = targetCenter.x - attackerCenter.x;
-        const dirY = targetCenter.y - attackerCenter.y;
-        const dlen = Math.hypot(dirX, dirY);
-        if (dlen > 0.001) {
-            const mag = gs.getCellSize() * 0.32;
-            attacker.applyWindupRecoil((dirX / dlen) * mag, (dirY / dlen) * mag);
-        }
+        const pose = attacker.getSkewerSpearPose();
+        if (!pose) return;
+        const end = projectBattlefieldPoint(position, gs);
+        // The hit cell gates Skewer Strike; artwork extends by 35% of the live painted spear.
+        // Both endpoints follow the sprite transform, including mirroring and camera compensation.
+        this.combatVisuals?.spawnSkewerSpear(attacker.getId(), end, gs.getCellSize(), () => {
+            if (this.isSceneDestroyed() || attacker.isPlayingOneShotAnimation("death")) return undefined;
+            return attacker.getSkewerSpearPose();
+        });
     }
     protected spawnShatterArmorSlashVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
         if (!attacker.hasAbilityActive("Shatter Armor") || !damage || damage.amount <= 0) {
@@ -4215,12 +4231,18 @@ export class Sandbox extends PixiScene {
         });
         this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
     }
-    protected showAttackMissedVfx(_attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+    protected showAttackMissedVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
         if (!damage?.missed) return;
         const gs = this.sc_sceneSettings.getGridSettings();
         const victimId = damage.unitId ?? target.getId();
         const victim = (this.unitsHolder.getAllUnits().get(victimId) as RenderableUnit | undefined) ?? target;
         const rVictim = victim as RenderableUnit;
+        // Small Specie only participates against level-four attackers. Other miss sources keep MISS.
+        if (attacker.getLevel?.() === 4 && rVictim.hasAbilityActive?.("Small Specie") && !rVictim.isDead()) {
+            if (rVictim.hasAnimationState?.("dodge")) rVictim.playDodgeAnimation(0, 0);
+            this.combatVisuals.spawnCommonFlagPop(attacker, "small_specie");
+            return;
+        }
         const center =
             typeof rVictim.getVisualCenter === "function"
                 ? rVictim.getVisualCenter(gs)
@@ -4258,15 +4280,23 @@ export class Sandbox extends PixiScene {
             : undefined;
         this.combatVisuals.showResistLabel(above, direction, target);
     }
-    protected spawnLuckyStrikeVfx(damage?: IVisibleDamage): void {
+    protected spawnLuckyStrikeVfx(damage?: IVisibleDamage, onlyStrikerIds?: ReadonlySet<string>): void {
         if (!damage?.luckyStrikeBy?.length) {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
-        for (const strikerId of damage.luckyStrikeBy) {
+        for (const strikerId of new Set(damage.luckyStrikeBy)) {
+            if (onlyStrikerIds && !onlyStrikerIds.has(strikerId)) continue;
+            const shown = (this.luckyStrikePopShownForAction ??= new Set());
+            if (shown.has(strikerId)) continue;
             const striker = this.unitsHolder.getAllUnits().get(strikerId) as RenderableUnit | undefined;
             if (!striker || striker.isDead()) {
+                continue;
+            }
+            shown.add(strikerId);
+            if (striker.getName() === "Leprechaun") {
+                this.combatVisuals.spawnCommonFlagPop(striker, "lucky_strike");
                 continue;
             }
             striker.flashLuckyStrike();
@@ -4281,16 +4311,24 @@ export class Sandbox extends PixiScene {
         thief: RenderableUnit,
         units: ReadonlyMap<string, Unit>,
     ): void {
-        const visuals = this.combatVisuals;
         for (const transfer of borrowedGraceTransfers(damage, thief.getId())) {
             const victim = units.get(transfer.targetId) as RenderableUnit | undefined;
             if (!victim || victim.getTeam() === thief.getTeam()) continue;
-            void this.waitForTexture(SpellHelper.spellToTextureName(transfer.buffName)).then((icon) => {
-                if (!icon || this.isSceneDestroyed() || this.combatVisuals !== visuals) return;
-                const current = this.unitsHolder.getAllUnits().get(thief.getId()) as RenderableUnit | undefined;
-                if (current && !current.isDead()) visuals?.spawnBorrowedGrace(victim, current, icon);
-            });
+            this.showBorrowedGraceTransfer(victim, thief, transfer.buffName);
         }
+    }
+    private showBorrowedGraceTransfer(victim: RenderableUnit, thief: RenderableUnit, buffName: string): void {
+        const visuals = this.combatVisuals;
+        if (!visuals || this.isSceneDestroyed()) return;
+        if (borrowedGraceFlagKind(buffName)) {
+            visuals.spawnBorrowedGrace(victim, thief, buffName);
+            return;
+        }
+        void this.waitForTexture(SpellHelper.spellToTextureName(buffName)).then((icon) => {
+            if (!icon || this.isSceneDestroyed() || this.combatVisuals !== visuals) return;
+            const current = this.unitsHolder.getAllUnits().get(thief.getId()) as RenderableUnit | undefined;
+            if (current && !current.isDead()) visuals.spawnBorrowedGrace(victim, current, buffName, icon);
+        });
     }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         this.beginDullingDefensePresentation();
@@ -4444,9 +4482,6 @@ export class Sandbox extends PixiScene {
             new Set([...destroyedUnitIds, ...presentedUnitIds]),
             record,
         );
-        // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
-        // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
-        this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
         this.destroyReplayAttackUnitsAtImpact([...destroyedUnitIds].filter((id) => !shownDeaths.has(id)));
         this.spawnAbilityStealVfx(record.events, target.getId());
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
@@ -4457,6 +4492,10 @@ export class Sandbox extends PixiScene {
         );
         this.applyReplayEvents(replayEvents, record.stateAfter);
         this.popRecordedDullingDefense(record.events);
+        this.popRecordedStun(record.events);
+        this.popRecordedHamstring(record.events);
+        this.popRecordedShatterArmor(record.events);
+        this.popRecordedTroglodyteEffects(record.events);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -4482,7 +4521,9 @@ export class Sandbox extends PixiScene {
     private async waitForProjectileHitReaction(unit: RenderableUnit): Promise<boolean> {
         if (typeof unit.isPlayingOneShotAnimation !== "function") return true;
         const busy = (): boolean =>
-            ["hit", "attack", "attack_up", "attack_down"].some((state) => unit.isPlayingOneShotAnimation(state));
+            ["hit", "dodge", "attack", "attack_up", "attack_down"].some((state) =>
+                unit.isPlayingOneShotAnimation(state),
+            );
         for (let frame = 0; frame < 300 && busy(); frame++) {
             if (this.isSceneDestroyed()) return false;
             await this.delayReplay(16);
@@ -4494,6 +4535,8 @@ export class Sandbox extends PixiScene {
         opts: IFireProjectileOptions,
         previewState?: string,
     ): Promise<void> {
+        if (unit.hasAbilityActive?.("Hamstring")) this.combatVisuals?.prepareCommonFlagPop?.("hamstring");
+        if (unit.hasAbilityActive?.("Lucky Strike")) this.combatVisuals?.prepareCommonFlagPop?.("lucky_strike");
         if (opts.tsarCannonball) {
             opts = {
                 ...opts,
@@ -4932,7 +4975,50 @@ export class Sandbox extends PixiScene {
         if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
         playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true));
     }
+    /** Shared by every creature and attack source; never await or retime a strike for this overlay. */
+    private showRepeatedAttackFlag(unit: RenderableUnit, hitIndex: number): void {
+        if (hitIndex > 0) this.combatVisuals?.spawnCommonFlagPop?.(unit, "multi_attack");
+    }
     /** Play the first blow and response together, then any extra blows; impacts never apply engine damage. */
+    private presentedPetrifyingGaze?: WeakSet<object>;
+    protected async presentPetrifyingGaze(
+        entry: NonNullable<IVisibleDamage["secondary"]>[number],
+        attackerCenter: HoCMath.XY,
+        unit?: RenderableUnit,
+        primaryReaction: Promise<void> = Promise.resolve(),
+        onDeath?: () => void,
+    ): Promise<void> {
+        if (entry.source !== "petrifying_gaze" || (entry.amount <= 0 && entry.unitsDied <= 0)) return;
+        const shown = (this.presentedPetrifyingGaze ??= new WeakSet());
+        if (shown.has(entry)) return;
+        shown.add(entry);
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
+        const direction = { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y };
+        // The head appears at the flag after contact. The secondary hit waits for the entire
+        // authored head animation and completion of the first hit reaction.
+        const finishPrimaryNumbers = unit ? await this.combatVisuals.spawnPetrifyingGazePop?.(unit) : undefined;
+        await Promise.all([primaryReaction, this.delayReplay(PETRIFYING_GAZE_DURATION_MS)]);
+        if (this.isSceneDestroyed()) return;
+        finishPrimaryNumbers?.();
+        unit?.presentDamageCasualties?.(entry.unitsDied);
+        this.spawnBitterExperienceOnImpact(unit, entry);
+        const style = this.getSecondaryDamageStyle(entry.source);
+        this.combatVisuals.showFloatingDamage(
+            position,
+            entry.amount,
+            direction,
+            entry.unitsDied,
+            style.fill,
+            style.stroke,
+            unit?.getDamagePredictionAnchor(gs),
+        );
+        if (unit) {
+            this.playUnitCombatSound(unit, "hurt");
+            if (onDeath) onDeath();
+            else await this.playReplayOneShot(unit, "hit", 3000, true);
+        }
+    }
     private async playCombatExchange(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -4945,6 +5031,40 @@ export class Sandbox extends PixiScene {
         deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
         attackLap = FightStateManager.getInstance().getFightProperties().getCurrentLap(),
     ): Promise<Set<string>> {
+        if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Bitter Experience")))
+            this.combatVisuals?.prepareCommonFlagPop?.("bitter_experience");
+        if (attacker.hasAbilityActive?.("Small Specie") || target.hasAbilityActive?.("Small Specie"))
+            this.combatVisuals?.prepareCommonFlagPop?.("small_specie");
+        if (event.damage?.luckyStrikeBy?.length) this.combatVisuals?.prepareCommonFlagPop?.("lucky_strike");
+        if (event.attackType === "range" && [attacker, target].some((unit) => unit.hasAbilityActive?.("Leather Armor")))
+            this.combatVisuals?.prepareCommonFlagPop?.("leather_armor");
+        const gazeEntries = (event.damage?.secondary ?? []).filter((entry) => entry.source === "petrifying_gaze");
+        if (gazeEntries.length) this.combatVisuals?.preparePetrifyingGazePop?.();
+        const shadowTouchActive =
+            event.attackType === "melee" &&
+            attacker.hasAbilityActive?.("Shadow Touch") &&
+            !plan.some((strike) => strike.response);
+        if (shadowTouchActive) this.combatVisuals?.prepareCommonFlagPop?.("shadow_touch");
+        if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Backstab")))
+            this.combatVisuals?.prepareCommonFlagPop?.("backstab");
+        if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Blind Fury")))
+            this.combatVisuals?.prepareCommonFlagPop?.("blind_fury");
+        for (const { kind } of troglodyteFlagApplications(dullingEvents))
+            this.combatVisuals?.prepareCommonFlagPop?.(kind);
+        if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Piercing Spear")))
+            this.combatVisuals?.prepareCommonFlagPop?.("piercing_spear");
+        if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Aggr")))
+            this.combatVisuals?.prepareCommonFlagPop?.("aggr");
+        if (hamstringRecipients(dullingEvents).length) this.combatVisuals?.prepareCommonFlagPop?.("hamstring");
+        if (stunRecipients(dullingEvents).length) this.combatVisuals?.prepareCommonFlagPop?.("stun");
+        if (shatterArmorRecipients(dullingEvents).length) this.combatVisuals?.prepareCommonFlagPop?.("shatter_armor");
+        if (plan.some((strike) => strike.hitIndex > 0)) this.combatVisuals?.prepareCommonFlagPop?.("multi_attack");
+        if (
+            event.attackType === "melee" &&
+            [attacker, target].some((unit) => unit.hasAbilityActive?.("Penetrating Bite"))
+        ) {
+            this.combatVisuals?.prepareCommonFlagPop?.("penetrating_bite");
+        }
         if (event.attackType === "range" && attacker.hasAbilityActive?.("Through Shot")) {
             return this.playThroughShotExchange(
                 attacker,
@@ -4965,6 +5085,8 @@ export class Sandbox extends PixiScene {
         let oneInTheFieldShown = false;
         const theftsShown = new Set<string>();
         const blindnessShown = new Set<string>();
+        const terrifyingGazeTargets = terrifyingGazeRecipients(dullingEvents);
+        const terrifyingGazeShown = new Set<string>();
         const shownDeaths = new Set<string>();
         const pendingDeaths = new Map<string, RenderableUnit>();
         const activeAttacks = new Map<string, Promise<void>>();
@@ -5071,6 +5193,16 @@ export class Sandbox extends PixiScene {
             });
             // Cold atlases or projectile art must not make one side start after the other has struck.
             await Promise.all([
+                ...(melee &&
+                prepared.some(
+                    ({ source, strike }) =>
+                        source.hasAbilityActive?.("Terrifying Gaze") &&
+                        terrifyingGazeTargets.has(strike.targetId) &&
+                        !strike.missed &&
+                        !strike.lethal,
+                )
+                    ? [this.combatVisuals?.prepareTerrifyingGazePop?.()]
+                    : []),
                 ...[...fireShieldOwners]
                     .map((id) => (units.get(id) as RenderableUnit | undefined)?.getAnimationTextureKey("cast"))
                     .filter((key): key is string => !!key)
@@ -5245,6 +5377,12 @@ export class Sandbox extends PixiScene {
                               renderedVictim ? undefined : fallbackPosition,
                           )
                         : undefined;
+                    const gazeHits = gazeEntries.filter(
+                        (entry) =>
+                            entry.unitId === strike.targetId &&
+                            !plan.some((next) => next.targetId === strike.targetId && next.hitIndex > strike.hitIndex),
+                    );
+                    let gazePresentation = Promise.resolve();
                     let reaction = Promise.resolve();
                     let shieldReaction = Promise.resolve();
                     let shieldingOwners: ReadonlySet<string> = new Set();
@@ -5253,6 +5391,8 @@ export class Sandbox extends PixiScene {
                     const impact = (): void => {
                         if (impacted || this.isSceneDestroyed()) return;
                         impacted = true;
+                        this.spawnLuckyStrikeVfx(event.damage, new Set([source.getId()]));
+                        if (!melee && !strike.missed) this.flushBeholderEffectPops(strike.targetId);
                         absolvingProgress?.(1);
                         if (!strike.response && victim === target && repeatedAttack && !oneInTheFieldShown) {
                             oneInTheFieldShown = true;
@@ -5314,6 +5454,10 @@ export class Sandbox extends PixiScene {
                         // The unit this blow struck. The incoming hit lists both fighters too, and popping there
                         // showed Dulling Defense before the knight had answered.
                         this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
+                        this.popRecordedStun(dullingEvents, new Set([strike.targetId]));
+                        this.popRecordedHamstring(dullingEvents, new Set([strike.targetId]));
+                        this.popRecordedShatterArmor(dullingEvents, new Set([strike.targetId]));
+                        this.popRecordedTroglodyteEffects(dullingEvents, new Set([strike.targetId]));
                         const remaining = consumeLoss(strike.targetId, strike.unitsDied);
                         renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
                         const from = source.getVisualCenter(gs);
@@ -5322,6 +5466,23 @@ export class Sandbox extends PixiScene {
                             : (fallbackPosition ?? victim.getVisualCenter(gs));
                         const direction = { x: to.x - from.x, y: to.y - from.y };
                         const receivedDamage = !strike.missed && strike.amount > 0;
+                        if (
+                            renderedVictim &&
+                            isBackstabImpact(
+                                source,
+                                victim,
+                                event.attackType,
+                                strike.missed,
+                                strike.amount,
+                                FightStateManager.getInstance().getFightProperties().isSideOrientedPlacement(),
+                            )
+                        )
+                            this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "backstab");
+                        this.spawnBitterExperienceOnImpact(renderedVictim, strike);
+                        this.spawnBlindFuryOnImpact(renderedVictim, strike);
+                        this.spawnLeatherArmorOnImpact(renderedVictim, strike, event.attackType);
+                        if (receivedDamage && renderedVictim && source.hasAbilityActive?.("Piercing Spear"))
+                            this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "piercing_spear");
                         if (receivedDamage) {
                             this.onCombatImpact?.(source, victimTeam, strike.amount, event.attackType);
                             if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
@@ -5334,6 +5495,11 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 renderedVictim?.getDamagePredictionAnchor(gs),
                             );
+                            // Shadow Touch replaces the victim's counter: reveal it after the damage
+                            // at contact, never on the harpy, a miss, or a flag removed by a lethal blow.
+                            if (shadowTouchActive && !strike.response && !strike.lethal && renderedVictim) {
+                                this.combatVisuals.spawnCommonFlagPop(renderedVictim, "shadow_touch");
+                            }
                         }
                         if (!strike.missed) {
                             // Secondary entries preserve the order of each striker's reflections. A later
@@ -5374,6 +5540,8 @@ export class Sandbox extends PixiScene {
                                 unitId: strike.targetId,
                                 missed: true,
                             });
+                            if (renderedVictim?.hasAnimationState?.("dodge"))
+                                reaction = this.waitForProjectileHitReaction(renderedVictim).then(() => {});
                         }
                         if (isChakramFlight) {
                             const primaryMissed =
@@ -5461,7 +5629,7 @@ export class Sandbox extends PixiScene {
                                 zenaCutTargets,
                             );
                         }
-                        if (strike.lethal) {
+                        if (strike.lethal && !gazeHits.length) {
                             if (
                                 receivedDamage &&
                                 remaining === 0 &&
@@ -5513,11 +5681,44 @@ export class Sandbox extends PixiScene {
                             const hitReaction = outgoing ? outgoing.then(showReaction) : showReaction();
                             reaction = Promise.all([reaction, hitReaction]).then(() => {});
                         }
+                        if (gazeHits.length) {
+                            gazePresentation = (async () => {
+                                for (const [index, entry] of gazeHits.entries()) {
+                                    await this.presentPetrifyingGaze(
+                                        entry,
+                                        from,
+                                        renderedVictim,
+                                        reaction,
+                                        strike.lethal && index === gazeHits.length - 1
+                                            ? () => presentDeath(strike.targetId)
+                                            : undefined,
+                                    );
+                                    consumeLoss(strike.targetId, entry.unitsDied);
+                                }
+                            })();
+                        }
                     };
                     try {
+                        this.showRepeatedAttackFlag(source, strike.hitIndex);
                         if (melee) {
+                            if (renderedVictim && source.hasAbilityActive?.("Penetrating Bite")) {
+                                this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "penetrating_bite");
+                            }
                             this.playUnitCombatSound(source, "attack", true);
                             const attack = this.playReplayOneShot(source, attackState, 5000, true);
+                            if (!strike.missed)
+                                this.spawnSkewerWindSpearVfx(source, victim, event.damage, dullingEvents);
+                            if (
+                                renderedVictim &&
+                                !strike.missed &&
+                                !strike.lethal &&
+                                source.hasAbilityActive?.("Terrifying Gaze") &&
+                                terrifyingGazeTargets.has(strike.targetId) &&
+                                !terrifyingGazeShown.has(strike.targetId)
+                            ) {
+                                terrifyingGazeShown.add(strike.targetId);
+                                this.combatVisuals?.spawnTerrifyingGazePop(renderedVictim);
+                            }
                             if (
                                 (source.getUnitProperties?.().level ?? 0) > 2 &&
                                 !usesApprovedBaseAnimations(source.getName())
@@ -5557,7 +5758,7 @@ export class Sandbox extends PixiScene {
                             pendingDeaths.delete(source.getId());
                         }
                     }
-                    await Promise.all([reaction, shieldReaction]);
+                    await Promise.all([reaction, gazePresentation, shieldReaction]);
                 }),
             );
         }
@@ -5672,6 +5873,13 @@ export class Sandbox extends PixiScene {
             unit?.presentDamageCasualties(hit.unitsDied);
             if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
+            this.popRecordedStun(context.events, new Set([hit.unitId]));
+            this.popRecordedHamstring(context.events, new Set([hit.unitId]));
+            this.popRecordedShatterArmor(context.events, new Set([hit.unitId]));
+            this.popRecordedTroglodyteEffects(context.events, new Set([hit.unitId]));
+            this.spawnBitterExperienceOnImpact(unit, hit);
+            this.spawnBlindFuryOnImpact(unit, hit);
+            this.spawnLeatherArmorOnImpact(unit, hit, "range");
             this.showGravechainVfx(
                 context.damage,
                 { attackerId: attacker.getId(), response: context.response ?? false, hitIndex: context.hitIndex },
@@ -5735,6 +5943,10 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const units = new Map(capturedUnits ?? this.snapshotRenderableUnits());
         units.set(attacker.getId(), attacker);
+        if ([...units.values()].some((unit) => unit.hasAbilityActive?.("Bitter Experience")))
+            this.combatVisuals?.prepareCommonFlagPop?.("bitter_experience");
+        if ([...units.values()].some((unit) => unit.hasAbilityActive?.("Leather Armor")))
+            this.combatVisuals?.prepareCommonFlagPop?.("leather_armor");
         const remaining = new Map(deathState?.amountsBefore);
         const deadIds = deathState?.deadIds ?? new Set(event.unitIdsDied);
         const shownDeaths = new Set<string>();
@@ -5749,6 +5961,7 @@ export class Sandbox extends PixiScene {
         const waves = splitAreaThrowWaves(event.damage.splash);
         const outgoing = plan.filter((strike) => !strike.response);
         const volleyCount = Math.max(1, outgoing.length, waves.length, event.damage.rangedVolleyCount ?? 0);
+        if (volleyCount > 1) this.combatVisuals?.prepareCommonFlagPop?.("multi_attack");
         const attackState = this.prepareDirectionalAttackState(attacker, target, false);
         const textureKeys = [
             attacker.getAnimationTextureKey(attackState),
@@ -5806,6 +6019,13 @@ export class Sandbox extends PixiScene {
                     unit?.presentDamageCasualties(hit.unitsDied);
                     if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
+                    this.popRecordedStun(events, new Set([hit.unitId]));
+                    this.popRecordedHamstring(events, new Set([hit.unitId]));
+                    this.popRecordedShatterArmor(events, new Set([hit.unitId]));
+                    this.popRecordedTroglodyteEffects(events, new Set([hit.unitId]));
+                    this.spawnBitterExperienceOnImpact(unit, hit);
+                    this.spawnBlindFuryOnImpact(unit, hit);
+                    this.spawnLeatherArmorOnImpact(unit, hit, "range");
                     this.showGravechainVfx(
                         event.damage,
                         { attackerId: attacker.getId(), response: false, hitIndex },
@@ -5841,6 +6061,7 @@ export class Sandbox extends PixiScene {
                     }
                 },
             );
+            this.showRepeatedAttackFlag(attacker, hitIndex);
             const attack = usesAuthoredRangedRelease(attacker.getName())
                 ? Promise.resolve()
                 : this.playReplayOneShot(attacker, attackState, 5000, true);
@@ -6302,6 +6523,8 @@ export class Sandbox extends PixiScene {
         // damage numbers rather than ahead of the blow.
         this.flushEffectPops();
 
+        this.spawnLuckyStrikeVfx(damage);
+
         // AOE attacks (Cyclops' Large Caliber, Gargantuan's Area Throw) carry a per-affected-unit
         // breakdown. Draw a floating number on EVERY splashed unit at its own position — including
         // our own units caught in the blast — rather than a single number on the primary target.
@@ -6339,7 +6562,6 @@ export class Sandbox extends PixiScene {
         // Fully-missed attack: "MISS" + bullet-time dodge instead of a damage number. Placed after the
         // secondary/deepWounds rendering above (a missed primary can still land Skewer/Lightning-Spin
         // side damage) and before the HP-diff fallback, which must not run for a dodge.
-        this.spawnLuckyStrikeVfx(damage);
         if (damage.missed) {
             this.showAttackMissedVfx(attacker, target, damage);
             return;
@@ -6739,6 +6961,10 @@ export class Sandbox extends PixiScene {
             attacker,
         );
         this.popRecordedDullingDefense(record.events);
+        this.popRecordedStun(record.events);
+        this.popRecordedHamstring(record.events);
+        this.popRecordedShatterArmor(record.events);
+        this.popRecordedTroglodyteEffects(record.events);
         spawnResponseAbilitySteal();
         onImpact?.();
 
@@ -6813,20 +7039,26 @@ export class Sandbox extends PixiScene {
         const scattered = this.grid.hasScatteredMountains();
         this.sc_sceneLog.updateLog(`${unit.getName()} hit mountain`);
         let appliedImpacts = 0;
-        await this.animateObstacleStrikeSequence(unit, strikePositions, action.attackFrom, (impactIndex) => {
-            if (impactIndex === 0) {
-                this.showObstacleStrikeUnitDamage(unit, record.events);
-            }
-            if (!scattered) {
-                return;
-            }
-            const impact = obstacleImpacts[impactIndex];
-            if (!impact) {
-                return;
-            }
-            this.applyReplayEvents(impact);
-            appliedImpacts = impactIndex + 1;
-        });
+        await this.animateObstacleStrikeSequence(
+            unit,
+            strikePositions,
+            action.attackFrom,
+            (impactIndex) => {
+                if (impactIndex === 0) {
+                    this.showObstacleStrikeUnitDamage(unit, record.events);
+                }
+                if (!scattered) {
+                    return;
+                }
+                const impact = obstacleImpacts[impactIndex];
+                if (!impact) {
+                    return;
+                }
+                this.applyReplayEvents(impact);
+                appliedImpacts = impactIndex + 1;
+            },
+            record.events,
+        );
         this.applyReplayEvents([...obstacleImpacts.slice(appliedImpacts).flat(), ...remainingEvents]);
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
@@ -6893,26 +7125,9 @@ export class Sandbox extends PixiScene {
             );
         }
 
-        // Craft (ALLIES_AREA area cast): capture the pre-cast state NOW so the forge result pops can diff it
-        // after the engine applies — mirroring the live castAreaSpellAtCell path so a Craft resolved through
-        // the authoritative replay (the opponent's cast, and in ranked the local player's own — the live
-        // path defers to replay there) still renders the forge + per-ally results. targetCell is set only for
-        // the area craft cast; single-target / swap (Castling) spells use targetId and skip this.
-        // Only the forge CAST animation is replayed for Craft (area cast). The per-ally RESULTS
-        // (weapon/Stun/"No effect") and any rune-enchant success/"Failed" are DELIBERATELY NOT rendered from
-        // the replay: it re-runs the spell with local crypto-secure RNG (createActionEngine reconciles only
-        // amounts from the next snapshot, NOT the discrete roll), so an outcome-dependent pop here would be a
-        // ~random wrong result. The authoritative outcome instead arrives via the snapshot — a resulting Stun
-        // pops through processDebuffPops, and a crafted weapon / rune buff shows in the unit's panel. The
-        // forge itself is outcome-independent, so it is safe to play. The crafted ABILITY additionally pops
-        // on the board in ranked, diffed off the snapshot's ability list (RankedPlayScene.processDebuffPops
-        // -> renderCastOutcomes), which is authoritative and so identical on both players' screens.
-        const isCraftCast = action.spellName === "Craft";
+        // Craft announces its cast over the smith's flag. The recorded outcomes remain authoritative;
+        // replay must never infer rune success from a fresh local roll.
         const craftCasterPos = { ...caster.getPosition() };
-        const craftTargetPos =
-            isCraftCast && action.targetCell
-                ? (this.getAreaSpellVisualCenter("Craft", action.targetCell) ?? caster.getVisualCenter(gs))
-                : caster.getVisualCenter(gs);
 
         // Castling (POSITION_CHANGE) swaps the caster with a target. Re-running the engine during
         // replay is unreliable here (validateTurnAction can reject — the turn has handed over), so apply
@@ -7031,23 +7246,8 @@ export class Sandbox extends PixiScene {
         // Fire Strike / Meteorite: same reasoning as the heal above — `damaged[]` on the RECORD is what the
         // server resolved, so the fire and the numbers are safe to play during replay.
         this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
-        // Forge cast animation only (outcome-independent); the per-ally results come from the
-        // authoritative snapshot, not this local re-roll — see the note at the capture above.
-        // Spawned BEFORE the result branch and never gated on it: the record is authoritative (the server
-        // already resolved this cast), while the local re-apply is best-effort and in ranked is routinely
-        // rejected — the caster is marked as having acted, its Craft charge is already spent in a synced
-        // snapshot (`spell_not_available`), or the turn has handed over. Gating the animation on
-        // `result.completed` therefore swallowed the whole forge in ranked while it always played in sandbox.
-        if (isCraftCast) {
-            const forgeMs = this.combatVisuals?.spawnCraftForge(craftTargetPos, gs.getCellSize()) ?? 0;
-            // The per-ally results the SERVER rolled, held until the forge finishes so they read as its
-            // output. Safe from the replay precisely because they are stated on the record rather than
-            // re-derived — re-running the roll locally would show each player a different craft.
-            this.scheduleSceneTimeout(() => this.renderCastOutcomes(record.events), forgeMs + 80);
-        } else {
-            // Rune success/failure and any other stated roll; no forge to wait on.
-            this.renderCastOutcomes(record.events);
-        }
+        // The record is authoritative even if the local re-apply was rejected after turn handover.
+        const castSequenceMs = this.renderSpellCastSequence(caster, action.spellName, record.events);
         this.onReplaySpellImpact(record);
         this.renderReplayBuffApplications(record.events);
         // The magic-armor save on a Vine Throw is exactly such a stated roll.
@@ -7060,7 +7260,7 @@ export class Sandbox extends PixiScene {
             // the next snapshot.
             this.applyReplayEvents(record.events);
         }
-        await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
+        await this.delayReplay(Math.max(Sandbox.REPLAY_SPELL_HOLD_MS, castSequenceMs));
         return true;
     }
     private captureFightSnapshot(): IFightSnapshot {
@@ -9339,6 +9539,7 @@ export class Sandbox extends PixiScene {
         }
 
         // Arm the spell; the next board click on a valid unit casts it.
+        this.prepareBlacksmithCast(hovered.getName());
         this.currentActiveSpell = hovered;
         this.closeSpellBook();
         this.sc_sceneLog.updateLog(`${caster.getName()} prepares ${hovered.getName()} - pick a target`);
@@ -9505,8 +9706,7 @@ export class Sandbox extends PixiScene {
         }
 
         this.cleanupAfterSpell(result.events, unitSnapshot);
-        // Craft and the Runes report their roll on the event; renderCastOutcomes turns it into the pop.
-        this.renderCastOutcomes(result.events);
+        this.renderSpellCastSequence(caster, spell.getName(), result.events);
         return true;
     }
     protected renderReplayBuffApplications(events: readonly GameEvent[]): void {
@@ -9531,6 +9731,20 @@ export class Sandbox extends PixiScene {
         }
     }
     protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
+        const stunnedUnits = new Set(stunRecipients(events));
+        for (const id of stunnedUnits) {
+            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            if (unit && !unit.isDead()) this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+        }
+        const madnessUnits = new Set(
+            troglodyteFlagApplications(events)
+                .filter((entry) => entry.kind === "madness")
+                .map((entry) => entry.unitId),
+        );
+        for (const id of madnessUnits) {
+            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            if (unit && !unit.isDead()) this.combatVisuals?.spawnCommonFlagPop(unit, "madness");
+        }
         const resistedUnits = new Set<string>();
         for (const event of events ?? []) {
             if (event.type !== "effects_applied") continue;
@@ -9539,6 +9753,7 @@ export class Sandbox extends PixiScene {
             }
         }
         for (const id of resistedUnits) {
+            if (madnessUnits.has(id)) continue;
             const recipient = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
             if (recipient && !recipient.isDead()) this.combatVisuals?.spawnCommonFlagPop(recipient, "resist");
         }
@@ -9548,11 +9763,22 @@ export class Sandbox extends PixiScene {
             recipient.flashBuffApplied();
             this.combatVisuals?.spawnCommonFlagPop(recipient, "empower");
         }
-        for (const { unitId, kind } of ogreSpellFlagApplications(events)) {
+        for (const { unitId, kind } of [
+            ...ogreSpellFlagApplications(events),
+            ...satyrSpellFlagApplications(events),
+            ...mageSpellFlagApplications(events),
+        ]) {
             const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             if (!recipient || recipient.isDead()) continue;
-            recipient.flashBuffApplied();
+            if (kind === "mage_misfortune") recipient.flashDebuffDarken();
+            else recipient.flashBuffApplied();
             this.combatVisuals?.spawnCommonFlagPop(recipient, kind);
+        }
+        for (const id of windFlowRecipients(events)) {
+            const recipient = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            if (!recipient || recipient.isDead()) continue;
+            recipient.flashBuffApplied();
+            this.combatVisuals?.spawnCommonFlagPop(recipient, "wind_flow");
         }
         for (const id of battleRoarAppliedUnitIds(events)) {
             const recipient = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
@@ -9572,21 +9798,28 @@ export class Sandbox extends PixiScene {
                 switch (entry.outcome) {
                     case "double":
                     case "frozen":
-                        // Each ally is a DISTINCT unit at its own position, so every pop uses stackIndex 0.
-                        if (entry.grantedAbility) {
-                            this.popAbilityOnUnit(unit, entry.grantedAbility, 0);
+                        if (event.spellName === "Craft") {
+                            const kind = blacksmithCraftFlagKind(entry.grantedAbility);
+                            if (kind) {
+                                unit.flashBuffApplied();
+                                this.combatVisuals?.spawnCommonFlagPop(unit, kind);
+                            }
                         }
                         break;
                     case "stun":
+                        if (event.spellName === "Craft" && !stunnedUnits.has(entry.unitId)) {
+                            stunnedUnits.add(entry.unitId);
+                            this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+                        }
                         break;
                     case "nothing":
                         this.combatVisuals?.showCraftFail(
-                            unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                            unit.getFlagEffectAnchor(this.sc_sceneSettings.getGridSettings()),
                         );
                         break;
                     case "enchanted":
                     case "failed":
-                        this.showEnchantResult(unit, event.spellName, entry.outcome === "enchanted", entry.amount);
+                        this.showEnchantResult(unit, event.spellName, entry.outcome === "enchanted");
                         break;
                     default:
                         break;
@@ -9594,25 +9827,43 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean, total?: number): void {
-        const isArmor = spellName === "Armor Rune";
-        const iconTexture = this.texAny(isArmor ? "armor_rune_256" : "weapon_rune_256");
-        if (!iconTexture) {
+    private prepareBlacksmithCast(spellName: string): void {
+        if (!isBlacksmithSpell(spellName)) return;
+        this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft");
+        const rune = blacksmithRuneFlagKind(spellName);
+        for (const kind of rune ? [rune] : Object.values(BLACKSMITH_CRAFT_FLAGS)) {
+            this.combatVisuals?.prepareCommonFlagPop(kind);
+        }
+        if (spellName === "Craft") this.combatVisuals?.prepareCommonFlagPop("stun");
+    }
+    /** Every completed smith cast announces the smith first, then its recorded recipients. */
+    private renderSpellCastSequence(
+        caster: RenderableUnit,
+        spellName: string,
+        events: readonly GameEvent[] | undefined,
+    ): number {
+        if (!isBlacksmithSpell(spellName)) {
+            this.renderCastOutcomes(events);
+            return 0;
+        }
+        this.prepareBlacksmithCast(spellName);
+        const forgeMs = this.showBlacksmithCraft(caster);
+        this.scheduleSceneTimeout(() => this.renderCastOutcomes(events), forgeMs + 80);
+        return forgeMs + 80 + OVERHEAD_EFFECT_DURATION_MS;
+    }
+    private showBlacksmithCraft(caster: RenderableUnit): number {
+        this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft");
+        return OVERHEAD_EFFECT_DURATION_MS;
+    }
+    private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean): void {
+        const kind = blacksmithRuneFlagKind(spellName);
+        if (!kind) return;
+        if (!success) {
+            this.combatVisuals?.showCraftFail(target.getFlagEffectAnchor(this.sc_sceneSettings.getGridSettings()));
             return;
         }
-        if (success) {
-            target.flashBuffApplied();
-        }
-        this.combatVisuals?.spawnEnchantResult(
-            target.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-            this.sc_sceneSettings.getGridSettings().getCellSize(),
-            {
-                tint: isArmor ? 0x59b6ff : 0xff7a3c,
-                iconTexture,
-                label: success ? `+${total ?? 1} ${isArmor ? "armor" : "attack"}` : "Failed",
-                success,
-            },
-        );
+        target.flashBuffApplied();
+        this.combatVisuals?.spawnCommonFlagPop(target, kind);
     }
     private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
         return spell?.getName() === "Fire Wall";
@@ -9665,20 +9916,10 @@ export class Sandbox extends PixiScene {
         // Meteorite's impact burst + one damage number per enemy caught under the 2x2.
         this.renderSpellDamageVfx(result.events, casterPos, unitSnapshot);
 
-        // Craft-only theatrics: the forge cast (anvil + hammer) over the selected 2x2, then each ally's
-        // crafted result once it finishes. Gated on the spell — Smoke shares this cast path but has no
-        // forge and no per-ally outcome, and playing the anvil over a Wandering Mage would be nonsense. Its own
-        // visual is the ground cloud, which SmokeCloudLayer picks up from the authoritative store.
-        if (spell.getName() === "Craft") {
-            const forgePos = this.getAreaSpellVisualCenter(spell.getName(), cell) ?? caster.getVisualCenter(gs);
-            const forgeMs =
-                this.combatVisuals?.spawnCraftForge(forgePos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
-                0;
-            this.cleanupAfterSpell(result.events, unitSnapshot);
-            this.scheduleSceneTimeout(() => this.renderCastOutcomes(result.events), forgeMs + 80);
-            return true;
-        }
         this.cleanupAfterSpell(result.events, unitSnapshot);
+        if (isBlacksmithSpell(spell.getName())) {
+            this.renderSpellCastSequence(caster, spell.getName(), result.events);
+        }
         return true;
     }
     private cleanupAfterSpell(
@@ -10557,7 +10798,16 @@ export class Sandbox extends PixiScene {
                     this.playSceneGameSound("heal");
                     playedHealSound = true;
                 }
-                this.combatVisuals.showFloatingHeal(healedUnit.getVisualCenter(gs), heal.amount, healedUnit);
+                if (event.spellName === "Heal") {
+                    this.combatVisuals.showFloatingHeal(
+                        healedUnit.getVisualCenter(gs),
+                        heal.amount,
+                        healedUnit,
+                        "single_heal",
+                    );
+                } else {
+                    this.combatVisuals.showFloatingHeal(healedUnit.getVisualCenter(gs), heal.amount, healedUnit);
+                }
             }
         }
     }
@@ -10697,7 +10947,9 @@ export class Sandbox extends PixiScene {
             // Cast geometry is independent of damage recipients (including casts with no victims).
             const isRing = event.spellName === "Ring of Fire";
             const isFireball = event.spellName === "Fireball";
-            const isMeteor = event.spellName === "Meteor Shower" && !!event.targetCell;
+            const isMeteor =
+                (event.spellName === "Meteor Shower" || event.spellName === "Meteorite") && !!event.targetCell;
+            const isFireStrike = event.spellName === "Fire Strike";
             if (event.targetCell && (isRing || event.spellName === "Whirlpool")) {
                 const target = event.targetId ? this.unitsHolder?.getAllUnits().get(event.targetId) : undefined;
                 const occupied = target?.getCells();
@@ -10707,15 +10959,8 @@ export class Sandbox extends PixiScene {
                 else this.combatVisuals.spawnWhirlpool(footprint);
             }
             if (isFireball && event.targetCell) {
-                const ringCenter = projectBattlefieldPoint(
-                    GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
-                    gs,
-                );
-                if (flightOrigin) {
-                    this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? ringCenter, cellSize);
-                    this.combatVisuals.spawnFireBurn(ringCenter, cellSize, 1.45);
-                }
-                this.combatVisuals.spawnFireRing(
+                // The engine records the first struck cell; retain the approved filled burst renderer.
+                this.combatVisuals.spawnFireball(
                     spellFootprint([event.targetCell], gs),
                     spellFootprint([event.targetCell], gs, 1),
                 );
@@ -10724,7 +10969,10 @@ export class Sandbox extends PixiScene {
                 const cells = cellTargetedSpellBlockCells(event.spellName, event.targetCell).filter((cell) =>
                     GridMath.isCellWithinGrid(gs, cell),
                 );
-                this.combatVisuals.spawnMeteorShower(cells.map((cell) => spellFootprint([cell], gs)));
+                const footprints = cells.map((cell) => spellFootprint([cell], gs));
+                // Battle Mage uses the dragon's procedural renderer without changing the user's other spell previews.
+                if (event.spellName === "Meteorite") this.combatVisuals.spawnMeteorShower(footprints, "particles");
+                else this.combatVisuals.spawnMeteorShower(footprints);
             }
             if (!event.damaged?.length && !secondary?.length) {
                 continue;
@@ -10783,26 +11031,47 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && !isFireball && flightOrigin) {
+                if (isThrown && !isRing && !isFireball && !isFireStrike && flightOrigin) {
                     this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? hitPosition, cellSize);
                 }
-                if (event.spellName === "Lightning Strike") {
+                let arrowLaunched = false;
+                const showSpellHit = () => {
+                    if (hit.amount > 0)
+                        this.combatVisuals?.showFloatingDamage(
+                            hitPosition,
+                            hit.amount,
+                            undefined,
+                            hit.unitsDied,
+                            undefined,
+                            undefined,
+                            flagAnchor,
+                            audioUnit,
+                        );
+                };
+                if (isFireStrike) {
+                    const sourceUnit = (caster ?? capturedUnits?.get(event.casterId)) as RenderableUnit | undefined;
+                    const source = sourceUnit?.getSpellProjectileOrigin
+                        ? () => sourceUnit.getSpellProjectileOrigin(gs)
+                        : undefined;
+                    const origin = source?.() ?? flightOrigin;
+                    const victim = hitUnit ?? capturedUnits?.get(hit.unitId);
+                    if (origin) {
+                        arrowLaunched =
+                            this.combatVisuals.spawnFireStrikeArrow(
+                                origin,
+                                flightEnd ?? victim?.getProjectileImpactPoint?.(gs) ?? hitPosition,
+                                hitPosition,
+                                cellSize,
+                                source,
+                                showSpellHit,
+                            ) > 0;
+                    }
+                } else if (event.spellName === "Lightning Strike") {
                     this.combatVisuals.spawnLightningStrike(hitUnit?.getVisualCenter(gs) ?? hitPosition, cellSize);
-                } else if (!isRing && !isMeteor) {
+                } else if (!isRing && !isMeteor && !isFireball) {
                     this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
                 }
-                if (hit.amount > 0) {
-                    this.combatVisuals.showFloatingDamage(
-                        hitPosition,
-                        hit.amount,
-                        undefined,
-                        hit.unitsDied,
-                        undefined,
-                        undefined,
-                        flagAnchor,
-                        audioUnit,
-                    );
-                }
+                if (!arrowLaunched) showSpellHit();
             }
         }
     }
@@ -10813,11 +11082,30 @@ export class Sandbox extends PixiScene {
         if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
             return;
         }
+        for (const name of entry.debuffs.filter(isBeholderDebuff)) {
+            void this.waitForTexture(beholderDebuffTextureName(name)!);
+        }
         if (this.isStrikeInFlight()) {
             this.pendingEffectPops.push(entry);
             return;
         }
         this.playEffectPops(entry);
+    }
+    /** Queue this projectile victim's Spit Ball motifs at contact; the visual layer waits for damage numbers. */
+    protected flushBeholderEffectPops(unitId: string): void {
+        if (!this.pendingEffectPops?.length) return;
+        const ready: IPendingEffectPop[] = [];
+        this.pendingEffectPops = this.pendingEffectPops.flatMap((entry) => {
+            if (entry.unit.getId() !== unitId) return [entry];
+            const debuffs = entry.debuffs.filter(isBeholderDebuff);
+            if (!debuffs.length) return [entry];
+            ready.push({ ...entry, debuffs, buffs: [], flash: "debuff" });
+            const remaining = entry.debuffs.filter((name) => !isBeholderDebuff(name));
+            return remaining.length || entry.buffs.length
+                ? [{ ...entry, debuffs: remaining, flash: remaining.length ? ("debuff" as const) : ("buff" as const) }]
+                : [];
+        });
+        for (const entry of ready) this.playEffectPops(entry);
     }
     protected flushEffectPops(): void {
         if (!this.pendingEffectPops.length) {
@@ -10881,6 +11169,18 @@ export class Sandbox extends PixiScene {
         stackIndex: number,
         kind: "debuff" | "buff",
     ): void {
+        if (effectName === "Aggr") {
+            if (!unit.isDead()) this.combatVisuals?.spawnCommonFlagPop(unit, "aggr");
+            return;
+        }
+        if (effectName === "Terrifying Gaze") {
+            if (!unit.isDead()) this.combatVisuals?.spawnTerrifyingGazePop(unit);
+            return;
+        }
+        if (effectName === "Stun") {
+            if (!unit.isDead()) this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+            return;
+        }
         if (effectName === "Paralysis") {
             if (!unit.isDead()) this.combatVisuals?.spawnParalysisPop(unit);
             return;
@@ -10893,13 +11193,24 @@ export class Sandbox extends PixiScene {
         // (when the name first appears) and can't tell a double-punch's two applications apart, so the claw
         // is driven per-application off `damage.deepWounds` via spawnDeepWoundsClaws() on both the live and
         // replay attack paths. Only the effect ICON still pops here.
-        const iconTextureName = SpellHelper.spellToTextureName(effectName);
+        const iconTextureName =
+            (kind === "debuff" ? beholderDebuffTextureName(effectName) : undefined) ??
+            SpellHelper.spellToTextureName(effectName);
+        const startedAtMs = performance.now();
+        const visuals = this.combatVisuals;
         const id = unit.getId();
         void this.waitForTexture(iconTextureName).then((iconTexture) => {
             const current = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (!iconTexture || !current || current.isDead()) return;
+            if (
+                !iconTexture ||
+                !current ||
+                current.isDead() ||
+                this.isSceneDestroyed() ||
+                this.combatVisuals !== visuals
+            )
+                return;
             const position = current.getFlagEffectAnchor(this.sc_sceneSettings.getGridSettings());
-            this.combatVisuals?.spawnDebuffPop(position, iconTexture, effectName, stackIndex, kind, current);
+            visuals?.spawnDebuffPop(position, iconTexture, effectName, stackIndex, kind, current, startedAtMs);
         });
     }
     protected onAiToggleChanged(_active: boolean): void {}
@@ -11043,20 +11354,26 @@ export class Sandbox extends PixiScene {
         void (async () => {
             let appliedImpacts = 0;
             try {
-                await this.animateObstacleStrikeSequence(unit, strikePositions, attackFromCell, (impactIndex) => {
-                    if (impactIndex === 0) {
-                        this.showObstacleStrikeUnitDamage(unit, result.events);
-                    }
-                    if (!scattered) {
-                        return;
-                    }
-                    const impact = obstacleImpacts[impactIndex];
-                    if (!impact) {
-                        return;
-                    }
-                    this.applyTurnEngineEvents(impact, unitSnapshot);
-                    appliedImpacts = impactIndex + 1;
-                });
+                await this.animateObstacleStrikeSequence(
+                    unit,
+                    strikePositions,
+                    attackFromCell,
+                    (impactIndex) => {
+                        if (impactIndex === 0) {
+                            this.showObstacleStrikeUnitDamage(unit, result.events);
+                        }
+                        if (!scattered) {
+                            return;
+                        }
+                        const impact = obstacleImpacts[impactIndex];
+                        if (!impact) {
+                            return;
+                        }
+                        this.applyTurnEngineEvents(impact, unitSnapshot);
+                        appliedImpacts = impactIndex + 1;
+                    },
+                    result.events,
+                );
             } finally {
                 // Classic mountains aggregate all hits into one event, so apply it after the final impact.
                 // The slice is also a recovery path if an animation is interrupted before every scattered
@@ -11082,12 +11399,42 @@ export class Sandbox extends PixiScene {
         worldPositions: readonly HoCMath.XY[],
         attackFromCell: HoCMath.XY | undefined,
         onImpact?: (impactIndex: number) => void,
+        events: readonly GameEvent[] = [],
     ): Promise<void> {
+        if (worldPositions.length > 1) this.combatVisuals?.prepareCommonFlagPop?.("multi_attack");
         const gsAnim = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = unit.getVisualCenter(gsAnim);
         if (attackFromCell) {
             for (let hitIndex = 0; hitIndex < worldPositions.length; hitIndex += 1) {
+                if (this.isSceneDestroyed()) return;
+                this.showRepeatedAttackFlag(unit, hitIndex);
                 const worldPos = worldPositions[hitIndex];
+                if (unit.getName() === "Pikeman") {
+                    unit.faceBoardTarget(worldPos);
+                    const state = unit.getAttackAnimationStateForTarget(worldPos, "melee");
+                    const key = unit.getAnimationTextureKey(state);
+                    if (key) await this.waitForTexture(key);
+                    if (this.isSceneDestroyed()) return;
+                    const primaryEvent = events.find(
+                        (entry): entry is ObstacleAttackedEvent =>
+                            entry.type === "obstacle_attacked" &&
+                            entry.attackerId === unit.getId() &&
+                            entry.targetPosition.x === worldPos.x &&
+                            entry.targetPosition.y === worldPos.y,
+                    );
+                    this.playUnitCombatSound(unit, "attack", true);
+                    const attack = this.playReplayOneShot(unit, state, 5000, true);
+                    this.spawnSkewerWindSpearVfx(
+                        unit,
+                        { getPosition: () => worldPos },
+                        primaryEvent?.damage,
+                        events,
+                        true,
+                    );
+                    onImpact?.(hitIndex);
+                    await attack;
+                    continue;
+                }
                 const animDir = { x: worldPos.x - attackerCenter.x, y: worldPos.y - attackerCenter.y };
                 const animLen = Math.hypot(animDir.x, animDir.y);
                 if (animLen <= 0.001) {
@@ -11110,6 +11457,8 @@ export class Sandbox extends PixiScene {
         const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const unitName = unit.getName().trim().toLowerCase();
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
+            if (this.isSceneDestroyed()) return;
+            this.showRepeatedAttackFlag(unit, shotIndex);
             await this.fireUnitProjectile(unit, {
                 from: unit.getRangedProjectileOrigin(worldPositions[shotIndex], gsAnim),
                 to: worldPositions[shotIndex],
@@ -12000,6 +12349,14 @@ export class Sandbox extends PixiScene {
         cellPosition: HoCMath.XY,
         replayRecord?: SandboxReplay["actions"][number],
     ): Promise<void> {
+        if (
+            [...this.unitsHolder.getAllUnits().values()].some((target) =>
+                target.hasAbilityActive?.("Bitter Experience"),
+            )
+        )
+            this.combatVisuals?.prepareCommonFlagPop?.("bitter_experience");
+        if ([...this.unitsHolder.getAllUnits().values()].some((target) => target.hasAbilityActive?.("Leather Armor")))
+            this.combatVisuals?.prepareCommonFlagPop?.("leather_armor");
         // What this throw IS: an Area Throw at the cell, or — for a Large Caliber shooter aiming at a barrel — an
         // obstacle_attack the engine resolves as the same splash. A replay re-applies the action the server recorded.
         const recordedAction = replayRecord?.action;
@@ -12084,6 +12441,7 @@ export class Sandbox extends PixiScene {
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
             const cyclopsKills = cyclopsMultiKillTargets(unit, waves, remainingAmounts, deadIds, unitSnapshot);
             const throwCount = areaEvent?.damage.rangedVolleyCount ?? Math.max(waves.length, isDoubleShot ? 2 : 1);
+            if (throwCount > 1) this.combatVisuals?.prepareCommonFlagPop?.("multi_attack");
             const shownDeaths = new Set<string>();
             let shownAnyWave = false;
             let fleshShieldDamageByUnit = new Map<string, { amount: number; unitsDied: number }>();
@@ -12104,6 +12462,7 @@ export class Sandbox extends PixiScene {
                 if (this.isSceneDestroyed()) return;
                 let impacted = false;
                 let reaction = Promise.resolve();
+                this.showRepeatedAttackFlag(unit, throwIndex);
                 const attack = usesAuthoredRangedRelease(unit.getName())
                     ? Promise.resolve()
                     : this.playReplayOneShot(unit, attackState, 5000, true);
@@ -12901,12 +13260,11 @@ export class Sandbox extends PixiScene {
             // Shared helper (see ABILITY VFX CONTRACT); the ranked replay path calls the same one.
             this.spawnChainLightningVfx(attacker, target, damageForAnimation);
 
-            // Pikeman's Skewer Strike: a wind spear through the target and the unit(s) behind it. Reads
-            // the authoritative damage.secondary from the live engine result (no-op unless it skewered).
+            // Resolve post-hit overlays from the authoritative attack result. The spear extension
+            // already follows the authored thrust inside playCombatExchange.
             const skewerAttackEvent = attackActionEvents?.find(
                 (e): e is Extract<GameEvent, { type: "unit_attacked" }> => e.type === "unit_attacked",
             );
-            this.spawnSkewerWindSpearVfx(attacker, target, skewerAttackEvent?.damage);
             // Shatter Armor: red wound gashes across the target on a landed strike.
             this.spawnShatterArmorSlashVfx(attacker, target, skewerAttackEvent?.damage);
             // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
@@ -12943,6 +13301,22 @@ export class Sandbox extends PixiScene {
             180,
         );
         this.showShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs));
+
+        const gazeDamageByUnit = new Map<string, { amount: number; unitsDied: number }>();
+        for (const entry of damageForAnimation.secondary ?? []) {
+            if (entry.source !== "petrifying_gaze") continue;
+            const total = gazeDamageByUnit.get(entry.unitId) ?? { amount: 0, unitsDied: 0 };
+            total.amount += entry.amount;
+            total.unitsDied += entry.unitsDied;
+            gazeDamageByUnit.set(entry.unitId, total);
+            if (!exchangeAnimated)
+                void this.presentPetrifyingGaze(
+                    entry,
+                    attacker.getVisualCenter(gs),
+                    (actionEventSnapshot?.get(entry.unitId) ?? this.unitsHolder.getAllUnits().get(entry.unitId)) as
+                        RenderableUnit | undefined,
+                );
+        }
 
         // Devour Essence heal (Hydra devouring a slain enemy): green "+N" + buff-wash on the devourer.
         this.showDevourEssenceHeals(damageForAnimation.secondary);
@@ -13193,6 +13567,10 @@ export class Sandbox extends PixiScene {
         // A skewer or a spin dulls someone the exchange never drew. The blow itself already popped
         // the unit it struck.
         this.popRecordedDullingDefense(attackActionEvents);
+        this.popRecordedStun(attackActionEvents);
+        this.popRecordedHamstring(attackActionEvents);
+        this.popRecordedShatterArmor(attackActionEvents);
+        this.popRecordedTroglodyteEffects(attackActionEvents);
 
         if (stackLost > 0 || hpLost > 0) {
             const maxHp = attacker.getMaxHp();
@@ -13237,8 +13615,15 @@ export class Sandbox extends PixiScene {
                 // staggered so it reads as its own distinct hit instead of a single summed number.
                 const attackerFireShield = fireShieldByName.get(attacker.getName()) ?? 0;
                 const attackerFleshShield = fleshShieldDamageByUnit.get(attacker.getId());
-                const lossesNotAbsorbed = Math.max(0, stackLost - (attackerFleshShield?.unitsDied ?? 0));
-                const pureDamage = Math.max(0, damageTaken - attackerFireShield - (attackerFleshShield?.amount ?? 0));
+                const attackerGaze = gazeDamageByUnit.get(attacker.getId());
+                const lossesNotAbsorbed = Math.max(
+                    0,
+                    stackLost - (attackerFleshShield?.unitsDied ?? 0) - (attackerGaze?.unitsDied ?? 0),
+                );
+                const pureDamage = Math.max(
+                    0,
+                    damageTaken - attackerFireShield - (attackerFleshShield?.amount ?? 0) - (attackerGaze?.amount ?? 0),
+                );
                 if (pureDamage > 0 && !exchangeAnimated) {
                     this.combatVisuals.showFloatingDamage(
                         spawnPos,
@@ -13356,6 +13741,8 @@ export class Sandbox extends PixiScene {
                 alreadyShown = Math.max(alreadyShown, presented.amount);
                 alreadyDied = Math.max(alreadyDied, presented.unitsDied);
             }
+            alreadyShown += gazeDamageByUnit.get(uId)?.amount ?? 0;
+            alreadyDied += gazeDamageByUnit.get(uId)?.unitsDied ?? 0;
             if (exchangeAnimated) {
                 for (const hit of damageForAnimation.secondary ?? []) {
                     if (hit.source !== "fire_shield" || hit.unitId !== uId) continue;
@@ -13437,15 +13824,19 @@ export class Sandbox extends PixiScene {
                           : "";
                 const { fill: fsFill, stroke: fsStroke } = this.getSecondaryDamageStyle(secondarySource);
 
-                if (isPetrified && u instanceof RenderableUnit && primaryAttackDir) {
-                    // "Yank" the target away from the attacker (recoil), then it springs back.
-                    const len = Math.sqrt(
-                        primaryAttackDir.x * primaryAttackDir.x + primaryAttackDir.y * primaryAttackDir.y,
+                if (isPetrified) {
+                    void this.presentPetrifyingGaze(
+                        {
+                            source: "petrifying_gaze",
+                            unitId: uId,
+                            position: snap.pos,
+                            amount: unaccountedDiff,
+                            unitsDied: extraDiedCount,
+                        },
+                        attacker.getVisualCenter(gs),
+                        u instanceof RenderableUnit ? u : undefined,
                     );
-                    if (len > 0.001) {
-                        const mag = this.sc_sceneSettings.getGridSettings().getCellSize() * 0.35;
-                        u.applyRecoil((primaryAttackDir.x / len) * mag, (primaryAttackDir.y / len) * mag);
-                    }
+                    continue;
                 }
 
                 const flagAnchor = u instanceof RenderableUnit ? u.getDamagePredictionAnchor(gs) : undefined;
@@ -13775,6 +14166,7 @@ export class Sandbox extends PixiScene {
     }
     public override setCreatureAnimationLabEnabled(enabled: boolean): void {
         if (!enabled) {
+            this.creatureAnimationLabRapidCharge = false;
             this.rangedProjectiles?.setCyclopsImpactMode(readCyclopsImpactMode());
             for (const id of this.creatureAnimationLabParalysisUnits ?? []) {
                 this.unitsHolder.getAllUnits().get(id)?.deleteEffect("Paralysis");
@@ -13917,6 +14309,7 @@ export class Sandbox extends PixiScene {
     public override setCreatureAnimationLabSpell(spell?: CreatureAnimationLabSpell): void {
         this.creatureAnimationLabSpell = this.creatureAnimationLabEnabled ? spell : undefined;
         if (spell !== "Fire Wall") this.creatureAnimationLabFireCells = [];
+        if (spell !== "Smoke") this.creatureAnimationLabSmokeCells = [];
     }
     public override castCreatureAnimationLabSpell(): CreatureAnimationLabResult {
         const spell = this.creatureAnimationLabSpell;
@@ -13927,6 +14320,13 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const middle = Math.floor(gs.getGridSize() / 2);
         const cell = this.creatureAnimationLabSpellCell ?? { x: middle, y: middle };
+        if (spell === "Smoke") {
+            this.creatureAnimationLabSmokeCells = [-1, 0, 1]
+                .flatMap((dx) => [-1, 0, 1].map((dy) => ({ x: cell.x + dx, y: cell.y + dy, l: 3 })))
+                .filter((target) => GridMath.isCellWithinGrid(gs, target));
+            this.creatureAnimationLabSmokeUntil = performance.now() + 10000;
+            return { ok: true, message: "Smoke · объёмный дым и гарь · 10 с" };
+        }
         if (spell === "Fire Wall") {
             const orientation = this.shiftHeld
                 ? FireWallHelper.FireWallOrientation.VERTICAL
@@ -13968,8 +14368,37 @@ export class Sandbox extends PixiScene {
         ]);
         return { ok: true, message: `${spell} · клетка ${cell.x + 1}, ${cell.y + 1}` };
     }
+    private updateCreatureAnimationLabSmoke(timeStep: number): void {
+        const terrainGridSettings = this.sc_sceneSettings.getGridSettings();
+        if (!this.creatureAnimationLabEnabled || performance.now() >= this.creatureAnimationLabSmokeUntil)
+            this.creatureAnimationLabSmokeCells = [];
+        if (this.creatureAnimationLabSmokeCells.length && !this.creatureAnimationLabSmokeLayer) {
+            this.creatureAnimationLabSmokeLayer = new SmokeCloudLayer();
+            this.attachToWorldRoot(this.creatureAnimationLabSmokeLayer.getContainer(), 51);
+        }
+        this.creatureAnimationLabSmokeLayer?.update(
+            timeStep,
+            this.creatureAnimationLabSmokeCells,
+            terrainGridSettings.getCellSize(),
+            this.terrainCellToWorld,
+        );
+    }
     private zenaLabRicochetRunning = false;
     private angelLabActionRequest = 0;
+    private penetratingBiteLabVictim(unit: RenderableUnit): RenderableUnit | undefined {
+        return ([...this.unitsHolder.getAllUnits().values()] as RenderableUnit[])
+            .filter(
+                (candidate) =>
+                    candidate.getTeam() !== unit.getTeam() &&
+                    !candidate.isDead() &&
+                    candidate.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === candidate.getId()),
+            )
+            .sort(
+                (a, b) =>
+                    Math.hypot(a.getPosition().x - unit.getPosition().x, a.getPosition().y - unit.getPosition().y) -
+                    Math.hypot(b.getPosition().x - unit.getPosition().x, b.getPosition().y - unit.getPosition().y),
+            )[0];
+    }
     public override playCreatureAnimationLabState(state: CreatureAnimationLabState): CreatureAnimationLabResult {
         const actionRequest = ++this.angelLabActionRequest;
         if (this.moveAnimManager.isMoving()) {
@@ -13978,6 +14407,46 @@ export class Sandbox extends PixiScene {
         const selected = this.creatureAnimationLabPlacedUnit();
         const unit = selected.unit;
         if (!selected.ok || !unit) return selected;
+        if (state.startsWith("beholder_debuff_")) {
+            if (!unit.hasAbilityActive("Spit Ball")) return { ok: false, message: "Выберите бехолдера" };
+            const slug = state.slice("beholder_debuff_".length);
+            const names = BEHOLDER_DEBUFFS.filter(
+                (name) => slug === "all" || name.toLowerCase().replaceAll(" ", "_") === slug,
+            );
+            const victim = this.penetratingBiteLabVictim(unit) ?? unit;
+            const visuals = this.combatVisuals;
+            const valid = () =>
+                !this.isSceneDestroyed() &&
+                this.angelLabActionRequest === actionRequest &&
+                this.combatVisuals === visuals &&
+                this.unitsHolder.getAllUnits().get(victim.getId()) === victim &&
+                !victim.isDead();
+            void Promise.all(names.map((name) => this.waitForTexture(beholderDebuffTextureName(name)!))).then(
+                (atlases) => {
+                    if (!valid()) return;
+                    const gs = this.sc_sceneSettings.getGridSettings();
+                    const started = performance.now();
+                    names.forEach((name, index) => {
+                        const atlas = atlases[index];
+                        if (atlas)
+                            visuals.spawnDebuffPop(
+                                victim.getFlagEffectAnchor(gs),
+                                atlas,
+                                name,
+                                index,
+                                "debuff",
+                                victim,
+                                started,
+                                true,
+                            );
+                    });
+                },
+            );
+            return {
+                ok: true,
+                message: `${victim.getName()}: ${slug === "all" ? "все 7 дебафов" : names[0]} · 0,65 с`,
+            };
+        }
         if (state === "infest_hatch" || state === "infest_hatch_queen") {
             const queenHatch = state === "infest_hatch_queen";
             const hatchName = queenHatch ? "Arachna Queen" : "Arachna Spider";
@@ -14095,10 +14564,28 @@ export class Sandbox extends PixiScene {
         if (state === "idle") {
             this.creatureAnimationLabAiBrainUnitId = undefined;
             if (this.creatureAnimationLabParalysisUnits?.delete(unit.getId())) unit.deleteEffect("Paralysis");
+            if (unit.getName() === "Mermaid") unit.setWaterShieldBreakPreview(false);
+        }
+        if (state === "water_shield_break") {
+            if (unit.getName() !== "Mermaid") return { ok: false, message: "Выберите русалку" };
+            unit.setWaterShieldBreakPreview(true);
+            return { ok: true, message: "Водяной щит лопнул · IDLE восстанавливает пузырь" };
         }
         if (state === "devour_essence") {
             this.combatVisuals?.spawnDevourEssencePop(unit);
-            return { ok: true, message: `${unit.getName()}: Поглощение сущности · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Поглощение сущности · 0,65 с` };
+        }
+        if (state === "stun" || state === "flag_stun") {
+            const victim = state === "flag_stun" ? unit : (this.penetratingBiteLabVictim(unit) ?? unit);
+            if (victim.hasStatusEffect("Stun")) {
+                victim.deleteEffect("Stun");
+                victim.setSkipping(false);
+                return { ok: true, message: `${victim.getName()}: стан снят` };
+            }
+            const effect = new EffectFactory().makeEffect("Stun");
+            if (!effect || !victim.applyEffect(effect)) return { ok: false, message: "Не удалось наложить стан" };
+            this.combatVisuals?.spawnCommonFlagPop(victim, "stun");
+            return { ok: true, message: `${victim.getName()}: стан · повторное нажатие снимает эффект` };
         }
         if (state === "paralysis") {
             const id = unit.getId();
@@ -14116,21 +14603,163 @@ export class Sandbox extends PixiScene {
         }
         if (state === "boar_saliva") {
             this.combatVisuals?.spawnBoarSalivaPop(unit);
-            return { ok: true, message: `${unit.getName()}: Boar Saliva · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Boar Saliva · 0,65 с` };
+        }
+        if (state === "penetrating_bite") {
+            const victim = this.penetratingBiteLabVictim(unit);
+            if (!victim) return { ok: false, message: "Поставьте противника на поле для превью укуса" };
+            this.combatVisuals?.spawnCommonFlagPop(victim, "penetrating_bite");
+            return { ok: true, message: `${unit.getName()} → ${victim.getName()}: Проникающий укус · 0,65 с` };
+        }
+        if (state === "blind_fury" || state === "madness") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, state);
+            return {
+                ok: true,
+                message: `${unit.getName()}: ${state === "blind_fury" ? "Blind Fury" : "Madness"} · 0,65 с`,
+            };
+        }
+        if (state === "miner") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "miner");
+            return { ok: true, message: `${unit.getName()}: Miner · 0,65 с` };
+        }
+        if (state === "piercing_spear") {
+            const victim = this.penetratingBiteLabVictim(unit);
+            if (!victim) return { ok: false, message: "Поставьте противника на поле для превью копья" };
+            this.combatVisuals?.spawnCommonFlagPop(victim, "piercing_spear");
+            return { ok: true, message: `${unit.getName()} → ${victim.getName()}: Пробивающее копьё · 0,65 с` };
+        }
+        if (state === "backstab") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "backstab");
+            return { ok: true, message: `${unit.getName()}: Удар в спину над своим флагом · 0,65 с` };
+        }
+        if (state === "dodge") {
+            unit.playDodgeAnimation(0, 0);
+            return { ok: true, message: `${unit.getName()}: Уворот` };
+        }
+        if (state === "small_specie") {
+            const attacker = this.penetratingBiteLabVictim(unit);
+            if (!attacker) return { ok: false, message: "Поставьте противника для превью уворота феи" };
+            if (unit.hasAnimationState?.("dodge")) unit.playDodgeAnimation(0, 0);
+            this.combatVisuals?.spawnCommonFlagPop(attacker, "small_specie");
+            return {
+                ok: true,
+                message: `${unit.getName()}: Small Specie · над флагом атакующего ${attacker.getName()} · 0,65 с`,
+            };
+        }
+        if (state === "petrifying_gaze") {
+            const victim = this.penetratingBiteLabVictim(unit);
+            if (!victim) return { ok: false, message: "Поставьте противника для превью взгляда" };
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const pos = victim.getVisualCenter(gs);
+            this.combatVisuals.showFloatingDamage(
+                pos,
+                120,
+                undefined,
+                0,
+                undefined,
+                undefined,
+                victim.getDamagePredictionAnchor(gs),
+            );
+            void this.presentPetrifyingGaze(
+                {
+                    source: "petrifying_gaze",
+                    unitId: victim.getId(),
+                    position: victim.getPosition(),
+                    amount: 45,
+                    unitsDied: 0,
+                },
+                unit.getVisualCenter(gs),
+                victim,
+                this.playReplayOneShot(victim, "hit", 3000, true),
+            );
+            return {
+                ok: true,
+                message: "Окаменяющий взгляд: основной урон → знак → повторный удар и отдельный урон (превью)",
+            };
+        }
+        if (state === "aggr") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "aggr");
+            return { ok: true, message: `${unit.getName()}: Агр · появление и крик · 0,65 с над флагом` };
+        }
+        if (state === "terrifying_gaze") {
+            this.combatVisuals?.spawnTerrifyingGazePop(unit);
+            return {
+                ok: true,
+                message: `${unit.getName()}: Ужасающий взгляд · 0,65 с · в бою над флагом испуганной цели`,
+            };
+        }
+        if (state === "shadow_touch") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "shadow_touch");
+            return { ok: true, message: `${unit.getName()}: Shadow Touch · 0,65 с · в бою над флагом противника` };
+        }
+        if (state === "wind_flow") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "wind_flow");
+            return { ok: true, message: `${unit.getName()}: Wind Flow · серебристый вихрь · 0,65 с над флагом` };
         }
         if (state === "deep_wounds_1" || state === "deep_wounds_2" || state === "deep_wounds_3") {
             const level = Number(state.slice(-1)) as DeepWoundsVisualLevel;
             this.combatVisuals?.spawnDeepWoundsPop(unit, level);
-            return { ok: true, message: `${unit.getName()}: Глубокие раны ${level} · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Глубокие раны ${level} · 0,65 с` };
         }
         if (state === "angel_resurrection") {
             this.combatVisuals?.spawnAngelResurrectionPop(unit);
-            return { ok: true, message: `${unit.getName()}: Воскрешение · 1,2 с` };
+            return { ok: true, message: `${unit.getName()}: Воскрешение · 0,65 с` };
+        }
+        if (BLACKSMITH_FLAG_KINDS.includes(state as BlacksmithFlagKind)) {
+            if (state === "blacksmith_craft") {
+                this.prepareBlacksmithCast("Craft");
+                this.showBlacksmithCraft(unit);
+                return { ok: true, message: "Craft · ковка над флагом кузнеца · 0,65 с" };
+            }
+            const recipient =
+                [...this.unitsHolder.getAllUnits().values()].find(
+                    (candidate) =>
+                        candidate.getId() !== unit.getId() &&
+                        !candidate.isDead() &&
+                        candidate.getTeam() === unit.getTeam() &&
+                        candidate.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === candidate.getId()),
+                ) ?? unit;
+            const grantedAbility = Object.entries(BLACKSMITH_CRAFT_FLAGS).find(([, kind]) => kind === state)?.[0];
+            const spellName =
+                state === "blacksmith_armor" ? "Armor Rune" : state === "blacksmith_weapon" ? "Weapon Rune" : "Craft";
+            this.renderSpellCastSequence(unit, spellName, [
+                {
+                    type: "spell_cast",
+                    casterId: unit.getId(),
+                    spellName,
+                    unitIdsDied: [],
+                    animations: [],
+                    outcomes: [
+                        {
+                            unitId: recipient.getId(),
+                            outcome: grantedAbility
+                                ? grantedAbility.includes("Frozen")
+                                    ? "frozen"
+                                    : "double"
+                                : "enchanted",
+                            grantedAbility,
+                        },
+                    ],
+                },
+            ]);
+            return {
+                ok: true,
+                message: `Ковка: ${unit.getName()} → ${grantedAbility ?? spellName}: ${recipient.getName()}`,
+            };
         }
         if (Object.values(OGRE_SPELL_FLAG_EFFECTS).includes(state as OgreSpellFlagKind)) {
             this.combatVisuals?.spawnCommonFlagPop(unit, state as OgreSpellFlagKind);
             const name = Object.entries(OGRE_SPELL_FLAG_EFFECTS).find(([, kind]) => kind === state)?.[0];
-            return { ok: true, message: `${unit.getName()}: ${name} · 1 с над флагом` };
+            return { ok: true, message: `${unit.getName()}: ${name} · 0,65 с над флагом` };
+        }
+        if (Object.values(MAGE_SPELL_FLAG_EFFECTS).includes(state as MageSpellFlagKind)) {
+            this.combatVisuals?.spawnCommonFlagPop(unit, state as MageSpellFlagKind);
+            return { ok: true, message: `${unit.getName()}: ${state} · 0,65 с над флагом получателя` };
+        }
+        if (Object.values(SATYR_SPELL_FLAG_EFFECTS).includes(state as SatyrSpellFlagKind)) {
+            this.combatVisuals?.spawnCommonFlagPop(unit, state as SatyrSpellFlagKind);
+            const name = Object.entries(SATYR_SPELL_FLAG_EFFECTS).find(([, kind]) => kind === state)?.[0];
+            return { ok: true, message: `${unit.getName()}: ${name} · 0,65 с над флагом получателя` };
         }
         if (state === "borrowed_grace") {
             const victim = [...this.unitsHolder.getAllUnits().values()].find(
@@ -14145,11 +14774,7 @@ export class Sandbox extends PixiScene {
                     .getBuffs()
                     .find((buff) => AllAbilities.isTakeableBuff(buff))
                     ?.getName() ?? "Blessing";
-            const visuals = this.combatVisuals;
-            void this.waitForTexture(SpellHelper.spellToTextureName(buffName)).then((icon) => {
-                if (icon && visuals && !this.isSceneDestroyed() && this.combatVisuals === visuals)
-                    visuals.spawnBorrowedGrace(victim as RenderableUnit, unit, icon);
-            });
+            this.showBorrowedGraceTransfer(victim as RenderableUnit, unit, buffName);
             return {
                 ok: true,
                 message: `Превью Borrowed Grace: ${victim.getName()} → ${unit.getName()} · ${buffName}`,
@@ -14157,15 +14782,40 @@ export class Sandbox extends PixiScene {
         }
         if (state === "absolving_arrow") {
             this.combatVisuals?.spawnCommonFlagPop(unit, "absolving_arrow");
-            return { ok: true, message: `${unit.getName()}: Absolving Arrow · 1 с над флагом` };
+            return { ok: true, message: `${unit.getName()}: Absolving Arrow · 0,65 с над флагом` };
+        }
+        if (state === "multi_attack") {
+            this.showRepeatedAttackFlag(unit, 1);
+            return { ok: true, message: `${unit.getName()}: повторный удар · 0,65 с над флагом` };
         }
         if (state === "empower") {
             this.combatVisuals?.spawnCommonFlagPop(unit, "empower");
-            return { ok: true, message: `${unit.getName()}: Empower · 1 с над флагом` };
+            return { ok: true, message: `${unit.getName()}: Empower · 0,65 с над флагом` };
+        }
+        if (state === "lucky_strike") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "lucky_strike");
+            return { ok: true, message: "Lucky Strike · кубик над флагом лепрекона · 0,65 с" };
+        }
+        if (state === "bitter_experience") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "bitter_experience");
+            return { ok: true, message: `${unit.getName()}: Bitter Experience · 0,65 с` };
+        }
+        if (state === "hamstring") {
+            const victim = this.penetratingBiteLabVictim(unit) ?? unit;
+            this.combatVisuals?.spawnCommonFlagPop(victim, "hamstring");
+            return { ok: true, message: `Hamstring → ${victim.getName()} · 0,65 с над флагом` };
+        }
+        if (state === "shatter_armor") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "shatter_armor");
+            return { ok: true, message: `${unit.getName()}: Shatter Armor · 0,65 с над флагом` };
+        }
+        if (state === "leather_armor") {
+            this.combatVisuals?.spawnCommonFlagPop(unit, "leather_armor");
+            return { ok: true, message: "Кожаная броня: уязвимость к выстрелам над своим флагом" };
         }
         if (state === "dulling_defense") {
             this.combatVisuals?.spawnCommonFlagPop(unit, "dulling_defense");
-            return { ok: true, message: `${unit.getName()}: Dulling Defense · 1 с над флагом` };
+            return { ok: true, message: `${unit.getName()}: Dulling Defense · 0,65 с над флагом` };
         }
         if (state === "common_miss") {
             const gs = this.sc_sceneSettings.getGridSettings();
@@ -14186,42 +14836,62 @@ export class Sandbox extends PixiScene {
                 heal: "Лечение",
                 absorb: "Поглощение урона",
             };
-            return { ok: true, message: `${unit.getName()}: ${labels[kind]} · 1 с` };
+            return { ok: true, message: `${unit.getName()}: ${labels[kind]} · 0,65 с` };
+        }
+        if (state === "single_heal") {
+            this.combatVisuals?.showFloatingHeal(
+                unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                125,
+                unit,
+                "single_heal",
+            );
+            return { ok: true, message: "Heal: +125 над изумрудным крестом · 0,65 с (превью)" };
+        }
+        if (state === "wild_regeneration_engine") {
+            if (!unit.hasAbilityActive("Wild Regeneration")) return { ok: false, message: "Нужна Wild Regeneration" };
+            this.combatVisuals?.spawnWildRegenerationEngine(unit);
+            return { ok: true, message: `${unit.getName()}: Регенерация · движок · 0,65 с` };
+        }
+        if (state === "wild_regeneration") {
+            if (!unit.hasAbilityActive("Wild Regeneration"))
+                return { ok: false, message: "Нужно существо с активной Wild Regeneration" };
+            this.combatVisuals?.spawnCommonFlagPop(unit, "wild_regeneration");
+            return { ok: true, message: `${unit.getName()}: Регенерация над флагом · 0,65 с` };
         }
         if (state === "enchanted_skin") {
             if (!showsEnchantedSkinShield(unit))
                 return { ok: false, message: "Нужен чёрный дракон с активной Enchanted Skin" };
             this.combatVisuals?.spawnCommonFlagPop(unit, "enchanted_skin");
-            return { ok: true, message: `${unit.getName()}: Enchanted Skin над флагом · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Enchanted Skin над флагом · 0,65 с` };
         }
         if (state === "made_of_fire") {
             if (!unit.canTraverseLava())
                 return { ok: false, message: "Нужно существо с Made of Fire или Lava Striders" };
             this.combatVisuals?.spawnCommonFlagPop(unit, "made_of_fire");
-            return { ok: true, message: `${unit.getName()}: Made of Fire над флагом · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Made of Fire над флагом · 0,65 с` };
         }
         if (state === "unicorn_retaliation" || state === "unicorn_blindness") {
             const ability = state === "unicorn_retaliation" ? "One in the Field" : "Blindness";
             if (!unit.hasAbilityActive(ability)) return { ok: false, message: `Нужно существо с ${ability}` };
             this.combatVisuals?.spawnCommonFlagPop(unit, state);
-            return { ok: true, message: `${unit.getName()}: ${ability} над флагом · 1 с` };
+            return { ok: true, message: `${unit.getName()}: ${ability} над флагом · 0,65 с` };
         }
         if (state === "magic_reflection") {
             this.combatVisuals?.spawnMagicReflectionPop(unit);
-            return { ok: true, message: `${unit.getName()}: Магическое отражение · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Магическое отражение · 0,65 с` };
         }
         if (state === "crusade") {
             this.combatVisuals?.spawnCrusadePop(unit);
-            return { ok: true, message: `${unit.getName()}: Крестовый поход · 1 с` };
+            return { ok: true, message: `${unit.getName()}: Крестовый поход · 0,65 с` };
         }
         if (state === "unyielding_power") {
             this.combatVisuals?.spawnUnyieldingPowerPop(unit);
-            return { ok: true, message: `${unit.getName()}: Unyielding Power 1 с` };
+            return { ok: true, message: `${unit.getName()}: Unyielding Power 0,65 с` };
         }
         if (state === "battle_roar_short" || state === "battle_roar_long") {
             const durationMs = state === "battle_roar_short" ? 1000 : 1500;
             this.combatVisuals?.spawnBattleRoarPop(unit, durationMs);
-            return { ok: true, message: `${unit.getName()}: Battle Roar ${durationMs / 1000} с` };
+            return { ok: true, message: `${unit.getName()}: Battle Roar 0,65 с` };
         }
         if (unit.getName() === "Wolf") {
             // The melee-only Wolf uses the same attack family in the lab and combat.
@@ -14404,6 +15074,8 @@ export class Sandbox extends PixiScene {
             const arbalester = unit.getName() === "Arbalester";
             const cannon = unit.getName() === "Tsar Cannon";
             const centaur = unit.getName() === "Centaur";
+            if (centaur && unit.hasAbilityActive?.("Piercing Spear"))
+                this.combatVisuals?.prepareCommonFlagPop?.("piercing_spear");
             const dryad = ["Dryad", "Elf"].includes(unit.getName());
             const medusa = unit.getName() === "Medusa";
             const beholder = unit.getName() === "Beholder";
@@ -14443,6 +15115,8 @@ export class Sandbox extends PixiScene {
                 );
             });
             const target = targets[0] as RenderableUnit | undefined;
+            if (target?.hasAbilityActive?.("Leather Armor"))
+                this.combatVisuals?.prepareCommonFlagPop?.("leather_armor");
             const side = from.x < (gs.getMinX() + gs.getMaxX()) / 2 ? 1 : -1;
             const to = target?.getProjectileImpactPoint(gs) ?? {
                 x: from.x + side * gs.getCellSize() * 4,
@@ -14512,6 +15186,12 @@ export class Sandbox extends PixiScene {
                               )
                                   return;
                               target.playOneShotAnimation("hit", undefined, true);
+                              this.spawnLeatherArmorOnImpact(target, { amount: 1 }, "range");
+                              if (centaur && unit.hasAbilityActive?.("Piercing Spear"))
+                                  this.combatVisuals?.spawnCommonFlagPop(target, "piercing_spear");
+                              // Forced lab preview; real combat only presents successful Hamstrung events.
+                              if (unit.hasAbilityActive?.("Hamstring") && target.canFly())
+                                  this.combatVisuals?.spawnCommonFlagPop(target, "hamstring");
                           }
                         : undefined,
                 },
@@ -14572,8 +15252,28 @@ export class Sandbox extends PixiScene {
             return { ok: true, message: `Angel: ${state}` };
         }
         const started = unit.playOneShotAnimation(state, undefined, true);
+        if (
+            started &&
+            ["melee_attack", "melee_attack_up", "melee_attack_down"].includes(state) &&
+            unit.hasAbilityActive?.("Piercing Spear")
+        ) {
+            const victim = this.penetratingBiteLabVictim(unit);
+            if (victim) this.combatVisuals?.spawnCommonFlagPop(victim, "piercing_spear");
+        }
+        if (
+            started &&
+            ["melee_attack", "melee_attack_up", "melee_attack_down"].includes(state) &&
+            unit.hasAbilityActive?.("Penetrating Bite")
+        ) {
+            const victim = this.penetratingBiteLabVictim(unit);
+            if (victim) this.combatVisuals?.spawnCommonFlagPop(victim, "penetrating_bite");
+        }
         if (started && state === "cast" && unit.getName() === "Behemoth") {
             this.combatVisuals?.spawnBattleRoarPop(unit);
+        }
+        if (started && state === "cast" && unit.getName() === "Blacksmith") {
+            this.prepareBlacksmithCast("Craft");
+            this.showBlacksmithCraft(unit);
         }
         return started
             ? { ok: true, message: `${unit.getName()}: ${state}` }
@@ -14590,6 +15290,9 @@ export class Sandbox extends PixiScene {
         const startCell = unit.getBaseCell();
         const targetAnchor = { x: startCell.x + stepX, y: startCell.y + stepY };
         return this.moveCreatureAnimationLabUnitToAnchor(unit, targetAnchor);
+    }
+    public override setCreatureAnimationLabRapidCharge(enabled: boolean): void {
+        this.creatureAnimationLabRapidCharge = enabled;
     }
     private findCreatureAnimationLabRoute(
         unit: RenderableUnit,
@@ -14699,6 +15402,10 @@ export class Sandbox extends PixiScene {
         const worldPath = route.map((anchor) => this.footprintCenterForAnchor(unit, anchor));
         worldPath[0] = startPosition;
         if (worldPath.length === 1) worldPath.push(targetPosition);
+        const rapidCharge =
+            this.creatureAnimationLabEnabled &&
+            this.creatureAnimationLabRapidCharge &&
+            unit.hasAbilityActive("Rapid Charge");
         this.moveAnimManager.startMoveAnimation(
             unit,
             worldPath,
@@ -14717,11 +15424,12 @@ export class Sandbox extends PixiScene {
                 this.layoutVersion++;
                 this.sc_visibleStateUpdateNeeded = true;
             },
+            rapidCharge,
         );
         this.isActiveUnitMoving = true;
         return {
             ok: true,
-            message: `${unit.getName()}: движение в клетку ${targetAnchor.x}, ${targetAnchor.y}`,
+            message: `${unit.getName()}: ${rapidCharge ? "Rapid Charge" : "обычный бег"} в клетку ${targetAnchor.x}, ${targetAnchor.y}`,
         };
     }
     public override setLegacyBoardBackground(enabled: boolean): void {
@@ -17558,6 +18266,7 @@ export class Sandbox extends PixiScene {
                     this.terrainCellToWorld,
                 );
             }
+            this.updateCreatureAnimationLabSmoke(timeStep);
             // Vines, same authoritative-store pattern as the smoke above.
             if (this.vineLayer) {
                 const vines = fightProps.getVines();
@@ -17596,6 +18305,7 @@ export class Sandbox extends PixiScene {
             }
         } else {
             // Pre-fight logic
+            this.updateCreatureAnimationLabSmoke(timeStep);
             if (!this.creatureAnimationLabEnabled || performance.now() >= this.creatureAnimationLabFireUntil)
                 this.creatureAnimationLabFireCells = [];
             this.fireWallLayer?.update(
@@ -17708,10 +18418,14 @@ export class Sandbox extends PixiScene {
         this.auraFloorGraphics?.clear();
         resetArachnaQueenWebAuras(this.arachnaWebAuraContainer);
         resetChampionArrowAuras(this.arachnaWebAuraContainer);
+        resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
+        resetDryadWindAuras(this.arachnaWebAuraContainer);
+        resetLeprechaunCloverAuras(this.arachnaWebAuraContainer);
         resetZenaChakramAuras(this.arachnaWebAuraContainer);
         resetPegasusWingedSwordAuras(this.arachnaWebAuraContainer);
         resetCrusaderSixSwordsAuras(this.arachnaWebAuraContainer);
         resetGriffinQuestionBowAuras(this.arachnaWebAuraContainer);
+        resetWyvernPoisonAuras(this.arachnaWebAuraContainer);
         resetAbominationSandAuras(this.arachnaWebAuraContainer);
         resetAbominationSandAuras(this.abominationDustContainer);
         resetAbominationSandAuras(this.abominationGustContainer);
@@ -17862,6 +18576,11 @@ export class Sandbox extends PixiScene {
             getGriffinQuestionBowAuraTexture: () => this.texAny(GRIFFIN_QUESTION_BOW_AURA_KEY),
             getPegasusWingedSwordAuraTexture: () => this.texAny(PEGASUS_WINGED_SWORD_AURA_KEY),
             getCrusaderSixSwordsAuraTexture: () => this.texAny(CRUSADER_SIX_SWORDS_AURA_KEY),
+            getWhiteTigerAuraRevealed: (ownerId, range) => {
+                const unit = this.unitsHolder.getAllUnits().get(ownerId);
+                // Use the same enemy/body-cell membership oracle as Disguise Aura itself.
+                return !!unit && this.unitsHolder.getNumberOfEnemiesWithinRange(unit, range) > 0;
+            },
             getAuraOwnerFacing: (ownerId) =>
                 (
                     this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined
@@ -17945,7 +18664,7 @@ export class Sandbox extends PixiScene {
         if (this.currentActiveSpell) return true;
 
         const activeUnit = this.currentActiveUnit;
-        if (!activeUnit || this.isActiveUnitMoving) return false;
+        if (!activeUnit || (this.isActiveUnitMoving && activeUnit.getName() !== "Wyvern")) return false;
         return activeUnit.getAuraRanges().some((range) => range > 0);
     }
     private throwTransparency(spellName: string, caster: Unit): TransparencyPredicate | undefined {
@@ -19282,6 +20001,15 @@ export class Sandbox extends PixiScene {
         // Red aura on the enemy's turn, white on yours, so the pulsing ring telegraphs whose turn it is.
         nextUnit.setActiveAuraColor(this.activeTurnAuraColor());
         nextUnit.syncVisual(worldRoot, gs);
+        const regeneratedHp = nextUnit.consumeRegenerationHp?.() ?? 0;
+        if (regeneratedHp > 0 && !nextUnit.isDead()) {
+            this.combatVisuals?.showFloatingHeal(
+                nextUnit.getVisualCenter(gs),
+                regeneratedHp,
+                nextUnit,
+                "wild_regeneration",
+            );
+        }
 
         if (
             fightProps.hasFightStarted() &&
@@ -19766,10 +20494,14 @@ export class Sandbox extends PixiScene {
 
         resetArachnaQueenWebAuras(this.arachnaWebAuraContainer);
         resetChampionArrowAuras(this.arachnaWebAuraContainer);
+        resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
+        resetDryadWindAuras(this.arachnaWebAuraContainer);
+        resetLeprechaunCloverAuras(this.arachnaWebAuraContainer);
         resetZenaChakramAuras(this.arachnaWebAuraContainer);
         resetPegasusWingedSwordAuras(this.arachnaWebAuraContainer);
         resetCrusaderSixSwordsAuras(this.arachnaWebAuraContainer);
         resetGriffinQuestionBowAuras(this.arachnaWebAuraContainer);
+        resetWyvernPoisonAuras(this.arachnaWebAuraContainer);
         if (this.gameplayGraphics) this.gameplayGraphics.clear();
         this.auraFloorGraphics?.clear();
         resetAbominationSandAuras(this.arachnaWebAuraContainer);
@@ -20101,6 +20833,11 @@ export class Sandbox extends PixiScene {
     private static readonly CREATURE_ANIMATION_LAB_MOVE_SPEED_FACTOR = Sandbox.MOVE_SPEED_FACTOR * 2;
     private unitsOverlayBuilt = false;
     private dullingPopShownForAction = new Set<string>();
+    private stunPopShownForAction = new Set<string>();
+    private hamstringPopShownForAction = new Set<string>();
+    private luckyStrikePopShownForAction = new Set<string>();
+    private shatterPopShownForAction = new Set<string>();
+    private troglodytePopsShownForAction = new Set<string>();
     private shownAbsolutions?: WeakSet<object>;
     private shownGravechains?: WeakSet<object>;
     private legacyGraveboundShown?: Set<string>;
@@ -20738,6 +21475,14 @@ export class Sandbox extends PixiScene {
             )
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;
+                if (entry.source === "petrifying_gaze") {
+                    void this.presentPetrifyingGaze(
+                        entry,
+                        attackerCenter,
+                        this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined,
+                    );
+                    return;
+                }
                 const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
                 const sCenter = sUnit ? sUnit.getVisualCenter(gs) : projectBattlefieldPoint(entry.position, gs);
                 const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
@@ -20747,15 +21492,6 @@ export class Sandbox extends PixiScene {
                 const presentCasualties = sUnit?.captureDamageCasualties(entry.unitsDied);
                 this.scheduleSceneTimeout(
                     () => {
-                        if (entry.source === "petrifying_gaze" && sUnit) {
-                            // "Yank" the petrified unit away from the attacker, then it springs back —
-                            // the same reaction the live sandbox path gives a gaze kill.
-                            const len = Math.hypot(sDir.x, sDir.y);
-                            if (len > 0.001) {
-                                const mag = gs.getCellSize() * 0.35;
-                                sUnit.applyRecoil((sDir.x / len) * mag, (sDir.y / len) * mag);
-                            }
-                        }
                         this.combatVisuals.showFloatingDamage(
                             sPos,
                             entry.amount,
@@ -21155,9 +21891,93 @@ export class Sandbox extends PixiScene {
     }
     private beginDullingDefensePresentation(): void {
         this.dullingPopShownForAction = new Set();
+        this.stunPopShownForAction = new Set();
+        this.hamstringPopShownForAction = new Set();
+        this.luckyStrikePopShownForAction = new Set();
+        this.shatterPopShownForAction = new Set();
+        this.troglodytePopsShownForAction = new Set();
         this.shownAbsolutions = new WeakSet();
         this.shownGravechains = new WeakSet();
         this.legacyGraveboundShown = new Set();
+    }
+    private spawnBitterExperienceOnImpact(
+        unit: RenderableUnit | undefined,
+        hit: { amount: number; unitsDied?: number; missed?: boolean; lethal?: boolean },
+    ): void {
+        if (unit && bitterExperienceTriggered(unit, hit))
+            this.combatVisuals?.spawnCommonFlagPop(unit, "bitter_experience");
+    }
+    private spawnBlindFuryOnImpact(unit: RenderableUnit | undefined, hit: { amount: number; missed?: boolean }): void {
+        if (unit && !hit.missed && hit.amount > 0 && !unit.isDead() && unit.hasAbilityActive?.("Blind Fury"))
+            this.combatVisuals?.spawnCommonFlagPop(unit, "blind_fury");
+    }
+    /** Leather Armor modifies incoming ranged damage; present it on the victim at projectile contact. */
+    private spawnLeatherArmorOnImpact(
+        unit: RenderableUnit | undefined,
+        hit: { amount: number; missed?: boolean },
+        attackType: string,
+    ): void {
+        if (
+            attackType === "range" &&
+            unit &&
+            !hit.missed &&
+            hit.amount > 0 &&
+            !unit.isDead() &&
+            unit.hasAbilityActive?.("Leather Armor")
+        )
+            this.combatVisuals?.spawnCommonFlagPop(unit, "leather_armor");
+    }
+    protected popRecordedTroglodyteEffects(
+        events: readonly GameEvent[] | undefined,
+        onlyUnitIds?: ReadonlySet<string>,
+    ): void {
+        for (const { unitId, kind } of troglodyteFlagApplications(events)) {
+            if (onlyUnitIds && !onlyUnitIds.has(unitId)) continue;
+            const shown = (this.troglodytePopsShownForAction ??= new Set());
+            const key = `${unitId}:${kind}`;
+            if (shown.has(key)) continue;
+            const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) continue;
+            shown.add(key);
+            this.combatVisuals?.spawnCommonFlagPop(unit, kind);
+        }
+    }
+    protected popRecordedHamstring(events: readonly GameEvent[] | undefined, onlyUnitIds?: ReadonlySet<string>): void {
+        for (const id of hamstringRecipients(events)) {
+            if (onlyUnitIds && !onlyUnitIds.has(id)) continue;
+            const shown = (this.hamstringPopShownForAction ??= new Set());
+            if (shown.has(id)) continue;
+            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) continue;
+            shown.add(id);
+            this.combatVisuals?.spawnCommonFlagPop(unit, "hamstring");
+        }
+    }
+    protected popRecordedStun(events: readonly GameEvent[] | undefined, onlyUnitIds?: ReadonlySet<string>): void {
+        for (const id of stunRecipients(events)) {
+            if (onlyUnitIds && !onlyUnitIds.has(id)) continue;
+            const shown = (this.stunPopShownForAction ??= new Set());
+            if (shown.has(id)) continue;
+            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) continue;
+            shown.add(id);
+            this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+        }
+    }
+    protected popRecordedShatterArmor(
+        events: readonly GameEvent[] | undefined,
+        onlyUnitIds?: ReadonlySet<string>,
+    ): void {
+        for (const unitId of shatterArmorRecipients(events)) {
+            if (onlyUnitIds && !onlyUnitIds.has(unitId)) continue;
+            this.shatterPopShownForAction ??= new Set();
+            if (this.shatterPopShownForAction.has(unitId)) continue;
+            const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) continue;
+            this.shatterPopShownForAction.add(unitId);
+            unit.flashDebuffDarken();
+            this.combatVisuals?.spawnCommonFlagPop(unit, "shatter_armor");
+        }
     }
     protected popRecordedDullingDefense(
         events: readonly GameEvent[] | undefined,

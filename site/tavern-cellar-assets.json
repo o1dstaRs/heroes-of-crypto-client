@@ -1,0 +1,14 @@
+{
+  "release": "tavern-lower-floor-20261024",
+  "generator": "built-in image_gen",
+  "files": [
+    {
+      "file": "runtime/tavern_lower_floor_20261024.webp",
+      "destination": "site/public/assets/images/home/features/tavern_lower_floor_20261024.webp",
+      "sha256": "804a313c2564347d16bf4394beb42ffb953bda7e12ec3c36bfe03b277869d336",
+      "width": 2060,
+      "height": 763,
+      "bytes": 342438
+    }
+  ]
+}

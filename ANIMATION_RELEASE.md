@@ -1,58 +1,40 @@
-# Animation and effect release — 2026-10-17
+# Local parity release — 2026-10-25
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,233 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,502 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
-## Obtain the assets
+## Download and restore
 
-Download from the [versioned release folder](https://drive.google.com/drive/folders/17XBPKZw4cglCNnYl3FaKXBGSdKnJNVDv):
+Download every resources ZIP from [local-parity-20261025](https://drive.google.com/drive/folders/1zSPXuiVGXuZW_GQ5KkCmDd68pA1_G7Fy).
+The release also reuses exact, unchanged files from the [shared heroesofcrypto folder](https://drive.google.com/drive/folders/1K0HdVnGuX3HJqMX7zPKKy19nrZMrcMo9).
+Keep that folder available locally through Google Drive, or download its images and animations/output
+folders with their directory structure intact. The old compact archive and source.zip are not required.
 
-| Archive                                | SHA-256                                                            |
-| -------------------------------------- | ------------------------------------------------------------------ |
-| `assets-compact.zip`                   | `cb3a565c781e1540161d5bb2850addf23f6a46b41d72ae52c791c1c8d1a66130` |
-| `restore-tools.zip`                    | `4b248d7b2fdee2a733cb734f72c704b48499d64a4c81f22a2aed829ce5883c76` |
-| `animation-release-patch-20261017.zip` | `f3e5562aa279717b63426ab41369334ae9eedd89d502d91fbc5bb698d270b2b5` |
-| `animation-review-fixes-20261017.zip`  | `4a89a15c7ca275935cae66d00e02b5aa24ced02ffff6b04828422573fb650b59` |
+**Download all seven archives. The restore tools verify every archive and shared source revision before a build.**
 
-Extract the compact archive into an empty local release directory, then extract `restore-tools.zip`
-there, replacing the older scripts. Download the base files listed in `drive-required-files.json`
-from the [existing shared art folder](https://drive.google.com/drive/folders/1K0HdVnGuX3HJqMX7zPKKy19nrZMrcMo9).
-Run from the extracted release directory:
+| Archive | SHA-256 |
+| --- | --- |
+| `resources-01.zip` | `d59b0b55f096fd1d8e83569f1d32399833e9f8d806db8aa663331a370e065f11` |
+| `resources-02.zip` | `e7a5d5b4427698de0693175c6566a6bcee734993b9b402c246f210dc87c892ba` |
+| `resources-03.zip` | `8a8e6f8d355b58e01e9288b289c875ce687943c46d1ac12b6f106ca56f022a5f` |
+| `resources-04.zip` | `f2a65b2293f38337cc4039ad79bdddb47c5b5903d0dd93605ea2a869f76b271b` |
+| `resources-05.zip` | `3c7e436c479acb706bab1ffc5e7eea9f22d65a766eb97ffb65333f34fd48e0b6` |
+| `resources-06.zip` | `2e1942919d034d57cc2440c05608dcd10e112eeb8e574e8fc81dac19f5a42d7f` |
+| `resources-07.zip` | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
 
-```sh
-python3 restore_compact.py --drive "/path/to/downloaded/heroesofcrypto"
-```
-
-Then extract `animation-release-patch-20261017.zip` into that same directory. It supplies the Griffin
-question-bow aura and Cyclops boulder that were previously carried in `source.zip`. For these PRs,
-use Git for source code; downloading the old `source.zip` is unnecessary. The asset manifest in this
-PR is the final verification authority. The portable kit's `verify_compact.py` also checks source
-files, so it is intended for installations that extracted `source.zip` as well.
-
-Finally extract `animation-review-fixes-20261017.zip` there. It supplies the current Fireball and
-Arcane Ward Blessing icons and seven registered atlas variants that the earlier portable package
-omitted. Wandering Mage already had Fireball in its configured spellbook.
-
-Also download [sidebar_portraits_paged_v1](https://drive.google.com/drive/folders/1VMZgBqWKLP2WyAcP9pbThHO9vBESbzb1) from the shared Drive's `heroesofcrypto/animations/output`
-and place that folder under the restored release's `animations/output`. This supplement adds 1,084
-portrait pages and 55 metadata files; its hashes are included in the release manifest. The compact
-archives above predate this supplement. Its reproducible recipe, master references, encoding report,
-dark-background visual comparison and verified synchronization receipt are in
-[sidebar-portrait-streaming-20261017-pr194](https://drive.google.com/drive/folders/1VsDYY5JcBhVdTZRgl0hnov-Uu2ejItm-) under `heroesofcrypto/image-sources`.
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The seven archives
+and the verified shared files contain the required runtime assets, settings reference and site exports.
+No older compact archive, source ZIP, patch ZIP or separately downloaded portrait-page supplement is
+required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.
 
 Do not substitute differently hashed source atlases for the approved rendered copies. In particular,
 the Nightmare quarter-resolution attacks and Troglodyte walk variants intentionally retain the
 approved bytes that the running local sandbox used.
 
-The 2026-10-22 Ember Covenant supplement adds `ember_covenant_blessing_256.webp` and
-`ember_covenant_ring.webp`. Copy these two files from the shared Drive source package
-`heroesofcrypto/image-sources/hydra-ember-covenant/2026-10-22-v3` into the restored release's
-`heroesofcrypto-assets/images` directory. Their approved hashes and sizes are pinned in the release
-manifest. The source package also preserves the prompts, reference artwork, processing recipe,
-previous icon and an interactive preview of the flag-centered fire effect.
+The Ember Covenant icon and ring are included in this release with their approved hashes.
 
 The 2026-10-24 cleanup removes 452 retired runtime images, including superseded UI and environment
 exports, old creature thumbnails, and five unused artifact icons. The restore manifest no longer
@@ -69,42 +51,46 @@ Set these paths to the restored assets, then run from the client repository:
 export HOC_IMAGES_LOC="/path/to/release/heroesofcrypto-assets/images"
 export HOC_ANIMATIONS_LOC="/path/to/release/heroesofcrypto-assets/animations"
 bun install --frozen-lockfile
+python3 game/core/scripts/restore_asset_release.py /path/to/downloads /path/to/new-empty-release --drive /path/to/shared/heroesofcrypto
+bun game/core/scripts/restore_sidebar_portrait_pages.ts /path/to/new-empty-release/heroesofcrypto-assets
+export HOC_IMAGES_LOC="/path/to/new-empty-release/heroesofcrypto-assets/images"
+export HOC_ANIMATIONS_LOC="/path/to/new-empty-release/heroesofcrypto-assets/animations"
 bun --cwd game/core check:animation-release
 bun --cwd game/core build:images
 bun run check
+bun --cwd game/core build:test
 ```
 
-Use the existing deployment workflow after review. The Vite production build emits content-hashed
-asset URLs, so publishing the new build gives browsers the new art. Merge the common PR first;
-client and server pin the same published common SHA. Rebuild/restart the authoritative server and
-publish the client together through the normal release process. Opening these PRs does not deploy.
+The restore script verifies archive sizes and SHA-256 and all reused Drive files before writing. It
+refuses a nonempty destination. Each restored file is verified again. Duplicate content is stored once.
+The 1,084 sidebar portrait pages are reproduced losslessly from 55 pinned master sheets using the
+versioned recipe; every generated page must match its pinned SHA-256 and size. An encoder mismatch
+stops restoration. This saves about 2.3 GB of duplicate pixels without changing the displayed artwork.
+Authored frame sequences, previews and unused source materials remain in the owner's local backup;
+they are not needed to build or run this release.
 
-Production builds apply the existing portrait WebP recipe (quality 90, exact alpha, effort 6) to reachable
-lossless creature atlases as well. This changes only local build copies and only when the result is smaller;
-already lossy artwork and the 310 explicitly pinned render assets remain byte-identical. Every encoded
-copy must retain the source canvas dimensions and all alpha values. The reviewed 333 optimized copies
-reduce their combined size from 1,057,450,226 to 342,665,676 bytes (67.6%). Full authored masters remain in Drive.
+`game/core/animation-release.json` pins every required canonical runtime file.
+`game/core/asset-release-archives.json` maps each restored path to an archive blob, an exact shared Drive
+file, or its reproducible portrait page. The restored config directory is a reference copy: never copy
+it over an existing developer's canonical editor profile. Site exports are versioned with the client
+and included in the compact package. Browsers load bundled URLs; Drive is needed only for handoff.
 
-All 55 animated sidebar portraits stream native-resolution pages of at most five frames. The pages use
-WebP quality 93 with exact alpha; every page passes a visible-pixel PSNR floor of 40 dB against its
-SHA-pinned master. `game/core/scripts/build_sidebar_portrait_pages.ts` reproduces the export from a
-flattened directory of the approved masters, without resizing, reframing or changing playback timing.
-The runtime keeps the current page and two lookahead pages, shares one page decoder, limits inactive
-decoded pages to 16 MiB, cancels obsolete selections and pauses hidden tabs. Production rejects any
-missing or differently hashed page before generating image imports.
+## Parity and release sequence
 
-The shared Drive now contains every manifest resource. Previous differing revisions, available authoring
-materials, synchronization records, and processing recipes are preserved under
-`heroesofcrypto/image-sources/animation-release-20261017-pr194`. The compact kit excludes original editing
-frames and previews listed in its omitted-authoring inventory; runtime atlases and metadata are complete.
+Local and published builds use the same approved animation bytes. Production-only lossy animation
+encoding is removed; static portrait preparation remains shared. Native portrait geometry, playback,
+palette, framing and gameplay range are preserved. Approved safe browser preferences and card/stat
+order are embedded for a fresh browser. Explicit existing browser preferences remain respected.
+More time uses the rounded gold button from the test server. AI results no longer wait for a ranked
+reward record.
 
-## Settings and smoke checks
+Review and merge the coordinated common, server and client PRs, then publish the test environment
+through the guarded deployment commands. Fetch and verify the published revisions immediately before
+building and uploading. The client submodule and server package/lockfile must pin the same common
+commit. This handoff does not authorize a production deployment.
 
-Approved animation values are versioned in `src/settings/approvedAnimationProfile.json`; safe browser
-defaults are in `approvedBrowserPreferences.json` (paths relative to `game/core`). A fresh browser gets
-these values without the author's profile, cookies, account, database or local files. Existing user
-preferences are preserved. An explicitly configured local editor profile remains a local override.
-
-Check Black Dragon fire, Mantis victim lightning, Crusader six-sword aura, Monk copied-buff and
-counter-shot effects, grayscale turn figures, flag/morale pops, and a ranked replay. Build from the
-verified resources, not CI image stubs. CI stubs test code contracts and do not contain real art.
+Validation covers sandbox, draft levels 1–4, artifacts, augments, placement, server-driven human and
+AI combat, results, site pages and browser logs. Core tests run in bounded batches so isolated Pixi/React
+VMs cannot accumulate until the process exhausts workstation memory. Large game images are hashed
+and copied to the build output sequentially after bundling, preserving their bytes without retaining
+the complete art package in the bundler heap. The final real-art build peaked at about 1.43 GiB.

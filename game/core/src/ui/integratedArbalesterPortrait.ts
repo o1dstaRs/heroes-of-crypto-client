@@ -1,6 +1,7 @@
 import { CreatureVals } from "@heroesofcrypto/common";
 
 import type { AnimationAtlasMeta } from "../generated/animation_atlases";
+import { images } from "../generated/image_imports";
 import { withSidebarPortraitPages, type LeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 
 const FRAME_COUNT = 100;
@@ -9,7 +10,7 @@ const DURATION_SEC = 241 / 24 / 0.93;
 const FPS = FRAME_COUNT / DURATION_SEC;
 
 const INTEGRATED_ARBALESTER_PORTRAIT: Readonly<LeftSidebarPortraitAnimation> = Object.freeze({
-    src: new URL("../../images/arbalester_v8_atlas.webp", import.meta.url).toString(),
+    src: images.arbalester_v8_atlas,
     meta: Object.freeze({
         frameWidth: 572,
         frameHeight: 808,

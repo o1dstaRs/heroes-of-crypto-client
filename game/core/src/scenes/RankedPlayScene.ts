@@ -1911,6 +1911,14 @@ export class RankedPlayScene extends Sandbox {
                 continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            if (entry.source === "petrifying_gaze") {
+                void this.presentPetrifyingGaze(
+                    entry,
+                    attackerPos ?? projectBattlefieldPoint(entry.position, gs),
+                    unit,
+                );
+                continue;
+            }
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {

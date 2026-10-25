@@ -208,12 +208,16 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
     };
 };
 
-test.each(["targeted", "free"])(
+test.each(["targeted", "free", "replay"])(
     "%s Double Throw lands every victim's damage and reaction at each rock's impact",
     async (mode) => {
         const f = fixture();
-        const pending = mode === "targeted" ? f.playTargeted() : f.playFree();
+        const pops: string[] = [];
+        f.scene.combatVisuals.spawnCommonFlagPop = (unit: typeof f.giant, kind: string) =>
+            pops.push(`${unit.getId()}:${kind}`);
+        const pending = mode === "targeted" ? f.playTargeted() : f.playFree(mode === "replay");
         await flush();
+        expect(pops).toEqual([]);
         f.advance(0.99);
         expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual([]);
         expect([f.near.getDisplayedAmount(), f.far.getDisplayedAmount()]).toEqual([3, 3]);
@@ -225,6 +229,7 @@ test.each(["targeted", "free"])(
         expect(f.shots).toHaveLength(1);
         await flush();
         expect(f.shots).toHaveLength(2);
+        expect(pops).toEqual(["giant:multi_attack"]);
         f.advance(0.99);
         expect(f.near.getDisplayedAmount()).toBe(2);
         f.advance(0.02);
@@ -234,6 +239,7 @@ test.each(["targeted", "free"])(
         expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual(["damage:11", "damage:22", "damage:7"]);
         expect(f.events.filter((entry) => entry === "far:death")).toHaveLength(1);
         expect(f.events.filter((entry) => entry.startsWith("blast:"))).toEqual(["blast:2", "blast:1"]);
+        expect(pops).toHaveLength(1);
     },
 );
 

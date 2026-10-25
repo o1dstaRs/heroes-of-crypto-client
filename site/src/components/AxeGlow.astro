@@ -55,8 +55,7 @@
             const layout = () => {
                 const imageBox = background.getBoundingClientRect();
                 const box = this.getBoundingClientRect();
-                const fit = getComputedStyle(background).objectFit === "contain" ? Math.min : Math.max;
-                const scale = fit(imageBox.width / 768, imageBox.height / 394.6);
+                const scale = Math.max(imageBox.width / 768, imageBox.height / 394.6);
                 const position = getComputedStyle(background).objectPosition.split(" ").map(parseFloat);
                 canvas.style.width = `${98 * scale}px`;
                 canvas.style.height = `${175 * scale}px`;
@@ -120,7 +119,10 @@
                 layout();
                 sync();
             };
-            const loadOnMotionChange = () => requestAtlas();
+            requestAtlas();
+            const loadOnMotionChange = () => {
+                requestAtlas();
+            };
             reducedMotion.addEventListener("change", loadOnMotionChange);
             this.dispose = () => {
                 disposed = true;

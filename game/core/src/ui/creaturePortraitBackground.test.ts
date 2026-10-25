@@ -9,8 +9,8 @@ import {
 } from "./creaturePortraitBackground";
 
 describe("creaturePortraitBackgroundKey", () => {
-    test("adds five percent to the previous eight-percent faction-background shade", () => {
-        expect(CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA).toBeCloseTo(0.126, 6);
+    test("adds fifteen percent to the existing faction-background shade", () => {
+        expect(CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA).toBeCloseTo(0.2571, 6);
     });
 
     test("adds another ten percent only to Life and Chaos backgrounds", () => {
@@ -18,14 +18,19 @@ describe("creaturePortraitBackgroundKey", () => {
         expect(creaturePortraitBackgroundOpacity(CreatureVals.ORC)).toBe(1);
         expect(creaturePortraitBackgroundOpacity(CreatureVals.WOLF)).toBe(1);
         expect(creaturePortraitBackgroundOpacity(CreatureVals.CENTAUR)).toBe(1);
-        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.PEASANT)).toBeCloseTo(0.2134, 6);
-        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.ORC)).toBeCloseTo(0.2134, 6);
-        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.WOLF)).toBeCloseTo(0.126, 6);
-        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.CENTAUR)).toBeCloseTo(0.126, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.PEASANT)).toBeCloseTo(0.33139, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.ORC)).toBeCloseTo(0.33139, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.WOLF)).toBeCloseTo(0.2571, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.CENTAUR)).toBeCloseTo(0.2571, 6);
     });
 
-    test("uses the green X-ray leaf with corner glow for every drafted Nature level", () => {
-        const background = "nature_portrait_bg_xray_leaf_corner_glow_v2_soft";
+    test("uses the approved emerald forest background for every drafted Nature level", () => {
+        const background = "nature_portrait_bg_emerald_forest_v1";
+        const natureIds = Object.entries(CreatureFactionsMap)
+            .filter(([, faction]) => faction === FactionVals.NATURE)
+            .map(([id]) => Number(id));
+        expect(natureIds.length).toBeGreaterThan(0);
+        for (const id of natureIds) expect(creaturePortraitBackgroundKey(id)).toBe(background);
         expect(creaturePortraitBackgroundKey(CreatureVals.WOLF)).toBe(background);
         expect(creaturePortraitBackgroundKey(CreatureVals.DRYAD)).toBe(background);
         expect(creaturePortraitBackgroundKey(CreatureVals.ELF)).toBe(background);
@@ -37,9 +42,7 @@ describe("creaturePortraitBackgroundKey", () => {
     });
 
     test("gives the summon-only Arachna Spider the late-creature background", () => {
-        expect(creaturePortraitBackgroundKey(CreatureVals.ARACHNA_SPIDER)).toBe(
-            "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
-        );
+        expect(creaturePortraitBackgroundKey(CreatureVals.ARACHNA_SPIDER)).toBe("nature_portrait_bg_emerald_forest_v1");
     });
 
     test("uses the corner-fire Obsidian Fissure for every Chaos level", () => {

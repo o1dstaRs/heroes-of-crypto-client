@@ -1,3 +1,12 @@
+import { SkewerSpears, type SkewerSpearPose } from "./SkewerSpear";
+import { bitterExperienceTriggered } from "../bitterExperienceFlagEffects";
+import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
+import { WildRegenerationEngine } from "./WildRegenerationEngine";
+import { HealCrossPops } from "./HealCrossPops";
+import { PetrifyingGazePops } from "./PetrifyingGazePops";
+import { BeholderDebuffPops, isBeholderDebuff } from "./BeholderDebuffPops";
+import { TerrifyingGazePops } from "./TerrifyingGazePops";
+import { borrowedGraceFlagKind } from "./borrowedGraceTransfers";
 import { playCombatSound } from "../../ui/audio/combatSounds";
 import { GravechainVfx } from "./GravechainVfx";
 import { LastFuseVfx } from "./LastFuseVfx";
@@ -70,6 +79,7 @@ export interface ICombatVisualsContext {
 interface IFloatingText {
     immediate?: boolean;
     container: Container;
+    startedAtMs: number;
     age: number;
     life: number;
     startX: number;
@@ -344,18 +354,6 @@ interface IMirrorRebound {
     age: number; // seconds
 }
 
-interface IWindSpear {
-    container: Container;
-    head: Sprite; // bright leading light orb
-    trail: Sprite[]; // soft glow orbs lagging behind the head (comet-like light trail)
-    pts: HoCMath.XY[]; // polyline: [attacker, primary target, unit(s) behind]
-    segLens: number[]; // length of each polyline segment
-    total: number; // total polyline length
-    cellSize: number;
-    age: number; // seconds since spawn (negative = lead delay before the thrust)
-    life: number; // total seconds (travel + fade)
-}
-
 interface ISlashDrop {
     x: number;
     y: number;
@@ -450,13 +448,13 @@ interface IAbilitySteal {
 }
 
 // Tuning for the floating damage numbers.
-const FT_LIFE = 0.8; // seconds on screen
+const FT_LIFE = OVERHEAD_EFFECT_DURATION_MS / 1000;
 const FT_RISE = 72; // world px the number floats up
 const FT_DAMAGE_RISE = FT_RISE * 0.7; // Received damage rises 30% less above the flag.
 const FT_DRIFT = 26; // world px horizontal drift in the hit direction
-const FT_POP_DUR = 0.16; // seconds of the spawn "pop"
+const FT_POP_DUR = FT_LIFE * 0.2; // seconds of the spawn "pop"
 const FT_START_SCALE = 0.55; // scale the number pops in from
-const FT_FADE_IN = 0.1; // seconds to fade in
+const FT_FADE_IN = FT_LIFE * 0.125; // seconds to fade in
 const FT_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
 const FT_STACK_DIST = 64; // px: numbers closer than this are stacked, not overlapped
 const FT_STACK_STEP = 46; // px: vertical gap per stacked number
@@ -470,11 +468,11 @@ const FT_FLAG_GAP = 6;
 // Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
 // (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
 // damage number so the icon + name are readable, then drifts up and fades.
-const DP_LIFE = 1.8; // seconds: keep the icon and name readable before dissolving
+const DP_LIFE = OVERHEAD_EFFECT_DURATION_MS / 1000;
 const DP_RISE = 64; // world px the pop floats up over its life
-const DP_POP_DUR = 0.3; // seconds of the spawn "pop" (icon scales in with overshoot)
+const DP_POP_DUR = DP_LIFE / 6; // seconds of the spawn "pop" (icon scales in with overshoot)
 const DP_START_SCALE = 0.25; // scale the pop springs in from
-const DP_FADE_IN = 0.16; // seconds to fade in
+const DP_FADE_IN = DP_LIFE * (0.16 / 1.8); // seconds to fade in
 const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
 const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
 
@@ -530,18 +528,6 @@ const MIRROR_Z = 1960; // just above the chain bolts (1950), below the damage nu
 const MIRROR_GLASS = 0x9fe8ff; // pale cyan glass
 const MIRROR_EDGE = 0xe8fbff; // near-white rim highlight
 const MIRROR_SHARD = 0xd6f4ff; // the returning shard
-
-// Tuning for Pikeman's Skewer Strike — a soft ORB of LIGHT that glides from the attacker through the
-// primary target and the unit(s) standing behind it (jolting each as it passes), so a two-unit pierce
-// reads at a glance. Fires the instant the strike lands (no lead); a glow trail follows, then it fades.
-const WINDSPEAR_LEAD_MS = 0; // fire immediately with the strike — no delay
-const WINDSPEAR_TRAVEL_MS = 190; // time for the light to glide the whole pierce line
-const WINDSPEAR_FADE_MS = 150; // glow dissipation after the light reaches the end
-const WINDSPEAR_Z = 1955; // just above chain lightning (1950), below the damage numbers (2000)
-const WINDSPEAR_TINT = 0xdff4ff; // soft cyan-white light
-const WINDSPEAR_TRAIL_COUNT = 7; // soft glow orbs trailing the head
-const WINDSPEAR_HEAD_CELLS = 0.95; // head orb diameter in cells
-const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail orbs behind the head
 
 // Tuning for Shatter Armor — a single bloody GASH torn across the struck enemy at impact, at a random
 // angle, then it fades while a few droplets of blood drip down. An irregular, tapered, slightly-curved
@@ -770,11 +756,12 @@ export class CombatVisuals {
     private spellFireParticles?: SpellFireParticles;
     private fireSpellRenderMode: FireSpellRenderMode = readFireSpellRenderMode();
     private mirrorRebounds: IMirrorRebound[] = [];
-    private windSpears: IWindSpear[] = [];
+    private skewerSpears?: SkewerSpears;
     private slashes: ISlash[] = [];
     private bloodSprays: IBloodSpray[] = [];
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
+    private beholderDebuffPops?: BeholderDebuffPops;
     private battleRoarPops?: BattleRoarPops;
     private borrowedGracePops?: BorrowedGracePops;
     private predatoryAssimilationPops?: PredatoryAssimilationPops;
@@ -782,6 +769,10 @@ export class CombatVisuals {
     private crusadePops?: CrusadePops;
     private unyieldingPowerPops?: UnyieldingPowerPops;
     private magicReflectionPops?: MagicReflectionPops;
+    private petrifyingGazePops?: PetrifyingGazePops;
+    private terrifyingGazePops?: TerrifyingGazePops;
+    private wildRegenerationEngine?: WildRegenerationEngine;
+    private healCrossPops?: HealCrossPops;
     private readonly commonFlagPops = new Map<FlagPopKind, CommonFlagPops>();
     private angelResurrectionPops?: AngelResurrectionPops;
     private deepWoundsPops?: DeepWoundsPops;
@@ -1015,6 +1006,7 @@ export class CombatVisuals {
         this.floatingTexts.push({
             immediate,
             container,
+            startedAtMs: performance.now(),
             age: 0,
             life: FT_LIFE,
             startX,
@@ -1025,6 +1017,7 @@ export class CombatVisuals {
         });
     }
     public showMissLabel(pos: HoCMath.XY, _direction?: HoCMath.XY, unit?: RenderableUnit): void {
+        if (unit?.hasAnimationState?.("dodge")) unit.playDodgeAnimation(0, 0);
         const container = new Container();
         const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
         label.anchor.set(0.5);
@@ -1130,6 +1123,8 @@ export class CombatVisuals {
     ): void {
         if (presentCasualties) presentCasualties();
         else unit?.presentDamageCasualties(unitsDied ?? 0);
+        if (unit && bitterExperienceTriggered(unit, { amount, unitsDied }))
+            this.spawnCommonFlagPop(unit, "bitter_experience");
         if (unitId && source === "ember_covenant") {
             this.emberCovenantRings.absorb(unitId);
         } else if (unit) {
@@ -1182,15 +1177,41 @@ export class CombatVisuals {
             return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
         });
     }
-    public spawnCommonFlagPop(unit: RenderableUnit, kind: FlagPopKind): void {
-        if (kind === "resist" && showsEnchantedSkinShield(unit)) kind = "enchanted_skin";
-        const gs = this.context.getGridSettings();
-        const id = unit.getId();
+    private getCommonFlagPopLayer(kind: FlagPopKind): CommonFlagPops {
         let layer = this.commonFlagPops.get(kind);
         if (!layer) {
             layer = new CommonFlagPops(kind, (container, zIndex) => this.context.attachToWorldRoot(container, zIndex));
             this.commonFlagPops.set(kind, layer);
         }
+        return layer;
+    }
+    public prepareCommonFlagPop(kind: FlagPopKind): void {
+        this.getCommonFlagPopLayer(kind).preload();
+    }
+    public spawnHealCross(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        this.healCrossPops ??= new HealCrossPops((c, z) => this.context.attachToWorldRoot(c, z));
+        const id = unit.getId(),
+            gs = this.context.getGridSettings();
+        void this.healCrossPops.spawn(id, gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnWildRegenerationEngine(unit: RenderableUnit): void {
+        this.wildRegenerationEngine ??= new WildRegenerationEngine((c, z) => this.context.attachToWorldRoot(c, z));
+        const id = unit.getId(),
+            gs = this.context.getGridSettings();
+        void this.wildRegenerationEngine.spawn(id, gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
+    public spawnCommonFlagPop(unit: RenderableUnit, kind: FlagPopKind): void {
+        if (kind === "resist" && showsEnchantedSkinShield(unit)) kind = "enchanted_skin";
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        const layer = this.getCommonFlagPopLayer(kind);
         void layer.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
@@ -1312,6 +1333,55 @@ export class CombatVisuals {
             return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
         });
     }
+    public preparePetrifyingGazePop(): void {
+        void Assets.load<Texture>(images.vfx_petrifying_gaze_pop_atlas).catch(() => undefined);
+    }
+    public async spawnPetrifyingGazePop(unit: RenderableUnit): Promise<() => void> {
+        const gs = this.context.getGridSettings();
+        const damageAnchor = unit.getDamagePredictionAnchor(gs);
+        const primaryNumbers = new Set(
+            this.floatingTexts.filter(
+                (text) =>
+                    Math.abs(text.startX - damageAnchor.x) < gs.getCellSize() * 0.25 &&
+                    text.startY >= damageAnchor.y &&
+                    text.startY < damageAnchor.y + gs.getCellSize() * 4,
+            ),
+        );
+        // Final engine HP may already be zero. The presentation still owns this victim's flag.
+        // Use the same flag anchor as luck; damage gets its usual lane after the head finishes.
+        const follow = (): HoCMath.XY => unit.getFlagEffectAnchor(gs);
+        this.petrifyingGazePops ??= new PetrifyingGazePops((container, z) =>
+            this.context.attachToWorldRoot(container, z),
+        );
+        await this.petrifyingGazePops.spawn(unit.getId(), gs.getCellSize(), follow);
+        // Replace only the numbers captured at this impact. Slow render frames must not
+        // leave the first hit underneath the passive's new number/kill row.
+        return () => {
+            // Remove immediately before the secondary number, even if the renderer skipped its expiry frame.
+            this.petrifyingGazePops?.finish(unit.getId());
+            this.floatingTexts = this.floatingTexts.filter((text) => {
+                if (!primaryNumbers.has(text)) return true;
+                text.container.destroy({ children: true });
+                return false;
+            });
+        };
+    }
+    public async prepareTerrifyingGazePop(): Promise<void> {
+        // The combat exchange awaits this before attack start so a cold icon cannot arrive after recovery.
+        await Assets.load<Texture>(images.terrifying_gaze_256).catch(() => undefined);
+    }
+    public spawnTerrifyingGazePop(unit: RenderableUnit): void {
+        if (unit.isDead()) return;
+        const gs = this.context.getGridSettings();
+        const id = unit.getId();
+        this.terrifyingGazePops ??= new TerrifyingGazePops((container, z) =>
+            this.context.attachToWorldRoot(container, z),
+        );
+        void this.terrifyingGazePops.spawn(id, gs.getCellSize(), () => {
+            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
+            return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+        });
+    }
     public spawnDebuffPop(
         pos: HoCMath.XY,
         iconTexture: Texture,
@@ -1319,8 +1389,39 @@ export class CombatVisuals {
         stackIndex = 0,
         kind: "debuff" | "buff" = "debuff",
         unit?: RenderableUnit,
+        startedAtMs = performance.now(),
+        immediatePreview = false,
     ): void {
         const cell = this.context.getGridSettings().getCellSize();
+        if (kind === "debuff" && isBeholderDebuff(name)) {
+            const gs = this.context.getGridSettings();
+            const id = unit?.getId();
+            this.beholderDebuffPops ??= new BeholderDebuffPops((container, z) => this.attachEffect(container, z));
+            // Capture this flag's active number/loss overlays. Their own completion controls the reveal,
+            // including slow frames; a fixed wall-clock timeout can otherwise overlap damage.
+            const damageAnchor = unit?.getDamagePredictionAnchor(gs) ?? pos;
+            const damageNumbers = (immediatePreview ? [] : this.floatingTexts).filter((text) => {
+                const aboveFlag = text.startY - damageAnchor.y;
+                return Math.abs(text.startX - damageAnchor.x) < cell * 0.25 && aboveFlag > 0 && aboveFlag < cell * 4;
+            });
+            this.beholderDebuffPops.spawn(
+                id ?? `${pos.x}:${pos.y}`,
+                pos,
+                cell,
+                name,
+                iconTexture,
+                id
+                    ? () => {
+                          const current = this.context.getUnitsHolder().getAllUnits().get(id) as
+                              RenderableUnit | undefined;
+                          return current && !current.isDead() ? current.getFlagEffectAnchor(gs) : undefined;
+                      }
+                    : undefined,
+                startedAtMs,
+                () => damageNumbers.some((text) => !text.container.destroyed),
+            );
+            return;
+        }
         const container = new Container();
 
         const iconSize = cell * 0.72;
@@ -1403,7 +1504,8 @@ export class CombatVisuals {
             () => !corpse?.isPlayingOneShotAnimation("death"),
         );
     }
-    public spawnBorrowedGrace(victim: RenderableUnit, thief: RenderableUnit, icon: Texture): void {
+    public spawnBorrowedGrace(victim: RenderableUnit, thief: RenderableUnit, buffName: string, icon?: Texture): void {
+        const kind = borrowedGraceFlagKind(buffName);
         const gs = this.context.getGridSettings();
         const victimId = victim.getId(),
             thiefId = thief.getId();
@@ -1419,10 +1521,16 @@ export class CombatVisuals {
         void this.borrowedGracePops.spawn(
             victim.getFlagEffectAnchor(gs),
             gs.getCellSize(),
-            icon,
+            kind ? undefined : icon,
             () => flag(victimId),
             () => flag(thiefId),
-            () => current(thiefId)?.flashBuffApplied(),
+            () => {
+                const unit = current(thiefId);
+                if (!unit || unit.isDead()) return;
+                unit.flashBuffApplied();
+                if (kind === "battle_roar") this.spawnBattleRoarPop(unit);
+                else if (kind) this.spawnCommonFlagPop(unit, kind);
+            },
         );
     }
     public spawnPredatoryAssimilation(from: HoCMath.XY, thief: RenderableUnit, icon: Texture, stackIndex = 0): void {
@@ -1793,6 +1901,7 @@ export class CombatVisuals {
         this.attachEffect(container, 2000);
         this.floatingTexts.push({
             container,
+            startedAtMs: performance.now(),
             age: 0,
             life: 0.0001,
             startX: -100000,
@@ -1817,6 +1926,9 @@ export class CombatVisuals {
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
+        if (!keepDetachedOverlays) this.terrifyingGazePops?.clear();
+        if (!keepDetachedOverlays) this.petrifyingGazePops?.clear();
+        if (!keepDetachedOverlays) this.beholderDebuffPops?.clear();
         if (!keepDetachedOverlays) this.battleRoarPops?.clear();
         if (!keepDetachedOverlays) this.predatoryAssimilationPops?.clear();
         if (!keepDetachedOverlays) this.borrowedGracePops?.clear();
@@ -1824,6 +1936,8 @@ export class CombatVisuals {
         if (!keepDetachedOverlays) this.crusadePops?.clear();
         if (!keepDetachedOverlays) this.unyieldingPowerPops?.clear();
         if (!keepDetachedOverlays) this.magicReflectionPops?.clear();
+        if (!keepDetachedOverlays) this.wildRegenerationEngine?.clear();
+        if (!keepDetachedOverlays) this.healCrossPops?.clear();
         if (!keepDetachedOverlays) for (const layer of this.commonFlagPops.values()) layer.clear();
         if (!keepDetachedOverlays) this.angelResurrectionPops?.clear();
         if (!keepDetachedOverlays) this.deepWoundsPops?.clear();
@@ -1905,10 +2019,7 @@ export class CombatVisuals {
                 rebound.container.destroy({ children: true });
             }
             this.mirrorRebounds.length = 0;
-            for (const spear of this.windSpears) {
-                spear.container.destroy({ children: true });
-            }
-            this.windSpears.length = 0;
+            this.skewerSpears?.clear();
             for (const slash of this.slashes) {
                 slash.container.destroy({ children: true });
             }
@@ -1972,6 +2083,9 @@ export class CombatVisuals {
         this.helpingHandLinks.update(dt);
         this.emberCovenantRings.update(dt);
         this.gravechains.update(dt);
+        this.terrifyingGazePops?.update();
+        this.petrifyingGazePops?.update();
+        this.beholderDebuffPops?.update();
         this.battleRoarPops?.update(dt);
         this.predatoryAssimilationPops?.update(dt);
         this.borrowedGracePops?.update(dt);
@@ -1980,6 +2094,8 @@ export class CombatVisuals {
         this.unyieldingPowerPops?.update(dt);
         this.magicReflectionPops?.update(dt);
         for (const layer of this.commonFlagPops.values()) layer.update(dt);
+        this.wildRegenerationEngine?.update();
+        this.healCrossPops?.update();
         this.angelResurrectionPops?.update(dt);
         this.deepWoundsPops?.update(dt);
         this.paralysisPops?.update();
@@ -2009,7 +2125,7 @@ export class CombatVisuals {
             !this.spellFireSprites?.active &&
             !this.spellFireParticles?.active &&
             this.mirrorRebounds.length === 0 &&
-            this.windSpears.length === 0 &&
+            !this.skewerSpears?.active &&
             this.abilitySteals.length === 0 &&
             this.slashes.length === 0 &&
             this.bloodSprays.length === 0 &&
@@ -2021,7 +2137,7 @@ export class CombatVisuals {
         }
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
-            ft.age += dt;
+            ft.age = Math.max(0, performance.now() - ft.startedAtMs) / 1000;
             const t = ft.age / ft.life;
             if (t >= 1) {
                 ft.container.destroy({ children: true });
@@ -2109,7 +2225,7 @@ export class CombatVisuals {
         this.spellFireParticles?.update();
         this.spellAtmosphere?.update();
         this.stepMirrorRebounds(dt);
-        this.stepWindSpears(dt);
+        this.skewerSpears?.update();
         this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
         this.stepBloodSprays(dt);
@@ -3152,7 +3268,10 @@ export class CombatVisuals {
         this.fireSpellRenderMode = mode;
         saveFireSpellRenderMode(mode);
     }
-    public spawnFireRing(target: WhirlpoolFootprint, area: WhirlpoolFootprint): void {
+    public spawnFireball(target: WhirlpoolFootprint, area: WhirlpoolFootprint): void {
+        this.spawnFireRing(target, area, false);
+    }
+    public spawnFireRing(target: WhirlpoolFootprint, area: WhirlpoolFootprint, hollow = true): void {
         if (this.fireSpellRenderMode === "particles") {
             this.spellFireParticles ??= new SpellFireParticles(
                 (container, z) => this.context.attachToWorldRoot(container, z),
@@ -3160,7 +3279,7 @@ export class CombatVisuals {
                 undefined,
                 (sample) => this.emitSpellAtmosphere(sample),
             );
-            this.spellFireParticles.ring(target, area);
+            this.spellFireParticles.ring(target, area, hollow);
             return;
         }
         this.spellFireSprites ??= new SpellFireSprites(
@@ -3168,10 +3287,35 @@ export class CombatVisuals {
             undefined,
             (sample) => this.emitSpellAtmosphere(sample),
         );
-        void this.spellFireSprites.ring(target, area);
+        void this.spellFireSprites.ring(target, area, hollow);
     }
-    public spawnMeteorShower(cells: readonly WhirlpoolFootprint[]): void {
-        if (this.fireSpellRenderMode === "particles") {
+    public spawnFireStrikeArrow(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        ground: HoCMath.XY,
+        cellSize: number,
+        source?: () => HoCMath.XY,
+        onImpact?: () => void,
+    ): number {
+        this.spellFireParticles ??= new SpellFireParticles(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        );
+        return this.spellFireParticles.strike(
+            from,
+            { center: to, width: cellSize, height: cellSize },
+            { center: ground, width: cellSize, height: cellSize * 0.65 },
+            source,
+            onImpact,
+        );
+    }
+    public spawnMeteorShower(
+        cells: readonly WhirlpoolFootprint[],
+        mode: FireSpellRenderMode = this.fireSpellRenderMode,
+    ): void {
+        if (mode === "particles") {
             this.spellFireParticles ??= new SpellFireParticles(
                 (container, z) => this.context.attachToWorldRoot(container, z),
                 undefined,
@@ -3815,124 +3959,14 @@ export class CombatVisuals {
             }
         }
     }
-    public spawnWindSpear(points: HoCMath.XY[], cellSize: number): void {
-        if (points.length < 2) {
-            return;
-        }
-        const pts = points.map((p) => ({ x: p.x, y: p.y }));
-        const segLens: number[] = [];
-        let total = 0;
-        for (let i = 0; i < pts.length - 1; i++) {
-            const len = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
-            segLens.push(len);
-            total += len;
-        }
-        if (total < 1) {
-            return;
-        }
-        const container = new Container();
-        this.attachEffect(container, WINDSPEAR_Z);
-        const tex = this.getLightTexture();
-        const mkOrb = (): Sprite => {
-            const s = new Sprite(tex);
-            s.anchor.set(0.5);
-            s.blendMode = "add";
-            s.tint = WINDSPEAR_TINT;
-            s.visible = false;
-            container.addChild(s);
-            return s;
-        };
-        // Trail orbs first (drawn under the head), then the bright head on top.
-        const trail: Sprite[] = [];
-        for (let t = 0; t < WINDSPEAR_TRAIL_COUNT; t++) {
-            trail.push(mkOrb());
-        }
-        const head = mkOrb();
-        this.windSpears.push({
-            container,
-            head,
-            trail,
-            pts,
-            segLens,
-            total,
-            cellSize,
-            age: -WINDSPEAR_LEAD_MS / 1000,
-            life: (WINDSPEAR_TRAVEL_MS + WINDSPEAR_FADE_MS) / 1000,
-        });
-    }
-    private pointAlong(spear: IWindSpear, d: number): HoCMath.XY {
-        const clamped = Math.max(0, Math.min(spear.total, d));
-        let acc = 0;
-        for (let i = 0; i < spear.segLens.length; i++) {
-            const seg = spear.segLens[i];
-            if (clamped <= acc + seg || i === spear.segLens.length - 1) {
-                const t = seg > 0 ? (clamped - acc) / seg : 0;
-                const a = spear.pts[i];
-                const b = spear.pts[i + 1];
-                return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-            }
-            acc += seg;
-        }
-        return spear.pts[spear.pts.length - 1];
-    }
-    private stepWindSpears(dt: number): void {
-        const travel = WINDSPEAR_TRAVEL_MS / 1000;
-        for (let i = this.windSpears.length - 1; i >= 0; i--) {
-            const spear = this.windSpears[i];
-            spear.age += dt;
-            if (spear.age < 0) {
-                continue; // thrust hasn't started (lead delay)
-            }
-            if (spear.age >= spear.life) {
-                spear.container.destroy({ children: true });
-                this.windSpears.splice(i, 1);
-                continue;
-            }
-            // The light orb glides down the whole pierce line over the travel window; soft glow orbs lag
-            // behind it as a comet-like trail. After it reaches the end, the whole thing fades out.
-            const cs = spear.cellSize;
-            const tipProgress = Math.min(1, spear.age / travel);
-            const leadDist = easeOutCubic(tipProgress) * spear.total;
-            // Fade out over the fade window once the light has reached the end of the line.
-            const fadeT = Math.max(0, (spear.age - travel) / (WINDSPEAR_FADE_MS / 1000));
-            const groupAlpha = Math.max(0, Math.min(1, 1 - fadeT));
-            if (groupAlpha <= 0.01) {
-                spear.head.visible = false;
-                for (const s of spear.trail) {
-                    s.visible = false;
-                }
-                continue;
-            }
-
-            const headSize = cs * WINDSPEAR_HEAD_CELLS;
-            const texW = spear.head.texture.width || 64;
-            const headPos = this.pointAlong(spear, leadDist);
-            spear.head.visible = true;
-            spear.head.position.set(headPos.x, headPos.y);
-            spear.head.scale.set(headSize / texW, (headSize / texW) * this.boardStretch());
-            spear.head.alpha = groupAlpha;
-
-            // Each trail orb sits a little further back along the line, shrinking and dimming — a soft
-            // glow tail that reads as light streaming through (not a hard arrow).
-            const spacing = cs * WINDSPEAR_TRAIL_SPACING;
-            for (let s = 0; s < spear.trail.length; s++) {
-                const orb = spear.trail[s];
-                const d = leadDist - spacing * (s + 1);
-                if (d < 0) {
-                    orb.visible = false;
-                    continue;
-                }
-                const k = 1 - (s + 1) / (spear.trail.length + 1); // 1 (near head) → ~0 (far back)
-                const pos = this.pointAlong(spear, d);
-                orb.visible = true;
-                orb.position.set(pos.x, pos.y);
-                orb.scale.set(
-                    (headSize * (0.45 + 0.5 * k)) / texW,
-                    ((headSize * (0.45 + 0.5 * k)) / texW) * this.boardStretch(),
-                );
-                orb.alpha = groupAlpha * 0.55 * k;
-            }
-        }
+    public spawnSkewerSpear(
+        id: string,
+        end: HoCMath.XY,
+        cell: number,
+        follow: () => SkewerSpearPose | undefined,
+    ): void {
+        this.skewerSpears ??= new SkewerSpears((root, z) => this.context.attachToWorldRoot(root, z));
+        this.skewerSpears.spawn(id, end, cell, follow);
     }
     public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
         const container = new Container();
@@ -4215,6 +4249,8 @@ export class CombatVisuals {
     ): void {
         if (presentCasualties) presentCasualties();
         else if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
+        if (audioUnit instanceof RenderableUnit && bitterExperienceTriggered(audioUnit, { amount, unitsDied }))
+            this.spawnCommonFlagPop(audioUnit, "bitter_experience");
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
@@ -4257,11 +4293,19 @@ export class CombatVisuals {
             zIndex,
         );
     }
-    public showFloatingHeal(pos: HoCMath.XY, amount: number, unit?: RenderableUnit): void {
+    public showFloatingHeal(
+        pos: HoCMath.XY,
+        amount: number,
+        unit?: RenderableUnit,
+        kind: "heal" | "wild_regeneration" | "single_heal" = "heal",
+    ): void {
         if (amount <= 0) {
             return;
         }
-        if (unit) this.spawnCommonFlagPop(unit, "heal");
+        if (unit) {
+            if (kind === "single_heal") this.spawnHealCross(unit);
+            else this.spawnCommonFlagPop(unit, kind);
+        }
         const container = new Container();
         const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#66ff99", "#0b3d1e") });
         healText.anchor.set(0.5);
@@ -4273,7 +4317,6 @@ export class CombatVisuals {
             unit?.getFlagEffectAnchor(this.context.getGridSettings()),
             this.context.getGridSettings().getCellSize() * 1.45 + 26,
         );
-        this.spawnHealBurst(pos);
     }
     private spawnHealBurst(pos: HoCMath.XY, ringColor = 0x66ff99, moteColor = 0xaaffcc): void {
         const graphics = new Graphics();

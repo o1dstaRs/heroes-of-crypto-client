@@ -1,3 +1,4 @@
+import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
@@ -148,7 +149,7 @@ export class PredatoryAssimilationPops {
     public update(_dt: number): void {
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const age = Math.max(0, this.now() - pop.started),
+            const age = overheadEffectElapsedMs(this.now() - pop.started, LIFE_MS),
                 pose = assimilationPose(age);
             const current = pop.follow();
             if (pose.finished) {

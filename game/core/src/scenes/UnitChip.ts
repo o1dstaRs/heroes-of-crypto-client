@@ -188,6 +188,7 @@ export type UnitChipOptions = {
         backgroundTexture?: Texture;
         backgroundOpacity?: number;
         backgroundShadeAlpha?: number;
+        backgroundShadeTexture?: Texture;
         framing: PortraitFraming;
         mirrorX?: boolean;
     };
@@ -226,6 +227,7 @@ export class UnitChip extends Container {
     private portraitBase?: Graphics;
     private portraitBackground?: Sprite;
     private portraitBackgroundShade?: Graphics;
+    private portraitComposedBackgroundShade?: Sprite;
     private portraitMask?: Graphics;
     private portraitFrame: Graphics;
     private typeOverlay: Container;
@@ -304,6 +306,12 @@ export class UnitChip extends Container {
         this.sprite = new Sprite(this.idleTexture);
         this.sprite.anchor.set(0.5);
         this.portraitContainer.addChild(this.sprite);
+        if (opts.portrait?.backgroundShadeTexture) {
+            this.portraitComposedBackgroundShade = new Sprite(opts.portrait.backgroundShadeTexture);
+            this.portraitComposedBackgroundShade.anchor.set(0.5);
+            this.portraitComposedBackgroundShade.alpha = this.portraitBackgroundShadeAlpha;
+            this.portraitContainer.addChild(this.portraitComposedBackgroundShade);
+        }
         if (this.portraitMask) {
             this.portraitContainer.addChild(this.portraitMask);
             this.portraitContainer.mask = this.portraitMask;
@@ -388,9 +396,20 @@ export class UnitChip extends Container {
         }
         this.updateHighlight();
     }
-    public setPortraitTextures(texture: Texture, backgroundTexture?: Texture): void {
+    public setPortraitTextures(texture: Texture, backgroundTexture?: Texture, backgroundShadeTexture?: Texture): void {
         if (this.destroyed || this.sprite.destroyed || !this.portraitFraming) return;
         let changed = false;
+        if (
+            backgroundShadeTexture &&
+            backgroundShadeTexture !== Texture.EMPTY &&
+            !backgroundShadeTexture.destroyed &&
+            !backgroundShadeTexture.source.destroyed &&
+            this.portraitComposedBackgroundShade &&
+            this.portraitComposedBackgroundShade.texture !== backgroundShadeTexture
+        ) {
+            this.portraitComposedBackgroundShade.texture = backgroundShadeTexture;
+            changed = true;
+        }
 
         if (
             texture !== Texture.EMPTY &&
@@ -601,6 +620,13 @@ export class UnitChip extends Container {
         const framedX = (cardWidth * framing.offsetX) / 100;
         this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
+        if (this.portraitComposedBackgroundShade) {
+            this.portraitComposedBackgroundShade.width = this.sprite.width;
+            this.portraitComposedBackgroundShade.height = this.sprite.height;
+            this.portraitComposedBackgroundShade.scale.x =
+                Math.abs(this.portraitComposedBackgroundShade.scale.x) * (this.mirrorPortraitX ? -1 : 1);
+            this.portraitComposedBackgroundShade.position.copyFrom(this.sprite.position);
+        }
     }
     public setPortraitTexture(texture: Texture): void {
         if (this.portraitFraming) {
@@ -854,9 +880,12 @@ export class UnitChip extends Container {
         const ready = (texture: Texture): boolean =>
             texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
         const portraitReady =
-            ready(this.idleTexture) && (!this.portraitBackground || ready(this.portraitBackground.texture));
+            ready(this.idleTexture) &&
+            (!this.portraitBackground || ready(this.portraitBackground.texture)) &&
+            (!this.portraitComposedBackgroundShade || ready(this.portraitComposedBackgroundShade.texture));
         this.sprite.visible = portraitReady;
         if (this.portraitBackground) this.portraitBackground.visible = portraitReady;
         if (this.portraitBackgroundShade) this.portraitBackgroundShade.visible = portraitReady;
+        if (this.portraitComposedBackgroundShade) this.portraitComposedBackgroundShade.visible = portraitReady;
     }
 }

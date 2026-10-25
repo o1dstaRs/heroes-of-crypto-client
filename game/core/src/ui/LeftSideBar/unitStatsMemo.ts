@@ -37,7 +37,9 @@ export const areUnitStatsPropsEqual = (prev: UnitStatsListItemProps, next: UnitS
     if (!pUnit || !nUnit) return false;
     if (
         pUnit.id !== nUnit.id ||
+        pUnit.team !== nUnit.team ||
         pUnit.amount_alive !== nUnit.amount_alive ||
+        pUnit.amount_died !== nUnit.amount_died ||
         pUnit.hp !== nUnit.hp ||
         pUnit.steps !== nUnit.steps ||
         pUnit.name !== nUnit.name
@@ -52,6 +54,11 @@ export const areUnitStatsPropsEqual = (prev: UnitStatsListItemProps, next: UnitS
         pUnit.range_shots !== nUnit.range_shots ||
         pUnit.range_shots_mod !== nUnit.range_shots_mod ||
         pUnit.magic_resist_mod !== nUnit.magic_resist_mod
+    )
+        return false;
+    if (
+        pUnit.spells.length !== nUnit.spells.length ||
+        pUnit.spells.some((spell, index) => spell !== nUnit.spells[index])
     )
         return false;
     return true;

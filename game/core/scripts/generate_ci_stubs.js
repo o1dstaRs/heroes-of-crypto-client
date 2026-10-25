@@ -43,7 +43,7 @@ for (const key of [
     "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
     "life_portrait_bg_golden_dawn_four_corner_haze_v1",
     "might_portrait_bg_blood_claw_strong_red_corners_v1",
-    "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+    "nature_portrait_bg_emerald_forest_v1",
 ]) {
     imageKeys.add(key);
 }

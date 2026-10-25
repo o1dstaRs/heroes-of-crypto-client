@@ -1,5 +1,4 @@
 ---
-import { portraitMarkup } from "../lib/portrait";
 import type { Language } from "../lib/site-data";
 
 interface Props {
@@ -53,19 +52,6 @@ const copy = isRu
           disconnect: "Отключение",
           doubleDisconnect: "Оба игрока отключились",
           cancel: "Отмена",
-          abandon: "Выход из матча",
-          unscored: "Без результата",
-          void: "Аннулирован",
-          exitConcededAt: "Сдача при потерях {pct}%",
-          exitAbandonedAt: "Выход при потерях {pct}%",
-          exitAbandonedBeforeFight: "Выход до начала боя",
-          exitUnscoredCalibration: "Без результата: выход во время калибровки",
-          exitUnscoredDouble: "Без результата: оба игрока вышли",
-          exitVoided: "Аннулирован: проблема сервера",
-          exitCauseAbsence: "закончилось время отсутствия",
-          exitCauseAfk: "пропущенные ходы",
-          exitPreview: "По новым правилам выхода: {label}",
-          exitRules: "Как работает выход",
           maps: ["Неизвестная", "Обычная", "Водный центр", "FIRE PIT", "Горный центр"],
           noArtifact: "Не выбран",
           level: "ур.",
@@ -113,19 +99,6 @@ const copy = isRu
           disconnect: "Disconnect",
           doubleDisconnect: "Both players disconnected",
           cancel: "Cancelled",
-          abandon: "Abandoned",
-          unscored: "Unscored",
-          void: "Voided",
-          exitConcededAt: "Conceded at {pct}% casualties",
-          exitAbandonedAt: "Abandoned at {pct}% casualties",
-          exitAbandonedBeforeFight: "Abandoned before the fight",
-          exitUnscoredCalibration: "Unscored: abandoned during calibration",
-          exitUnscoredDouble: "Unscored: both players left",
-          exitVoided: "Voided: server problem",
-          exitCauseAbsence: "away time ran out",
-          exitCauseAfk: "missed turns",
-          exitPreview: "Under the new leaving rules: {label}",
-          exitRules: "How leaving works",
           maps: ["Unknown", "Normal", "Water center", "FIRE PIT", "Mountain center"],
           noArtifact: "Not selected",
           level: "Lv.",
@@ -157,6 +130,7 @@ const copy = isRu
 </section>
 
 <script>
+    import { portraitMarkup } from "../lib/portrait";
     import {
         TIER1_ARTIFACTS,
         TIER2_ARTIFACTS,

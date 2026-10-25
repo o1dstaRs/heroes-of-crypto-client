@@ -1,4 +1,4 @@
-export type PickLanternFireSource = "natural-atlas" | "candle-video";
+export type PickLanternFireSource = "engine" | "natural-atlas" | "candle-video";
 export type PickLanternFireSlot = 0 | 1;
 
 export interface PickLanternFireTuning {
@@ -27,16 +27,15 @@ export interface PickLanternFireChangeDetail {
     tuning: PickLanternFireTuning;
 }
 
-export const PICK_LANTERN_FIRE_STORAGE_KEY = "hoc-dev-pick-lantern-fires-v2";
+export const PICK_LANTERN_FIRE_STORAGE_KEY = "hoc-dev-pick-lantern-fires-v3";
 export const PICK_LANTERN_FIRE_CHANGE_EVENT = "hoc:pick-lantern-fire-change";
-const PICK_LANTERN_FIRE_PRESET_REVISION_KEY = "hoc-dev-pick-lantern-fires-revision";
-const PICK_LANTERN_FIRE_PRESET_REVISION = "approved-two-fire-2026-08-24-v2";
+const LEGACY_STORAGE_KEY = "hoc-dev-pick-lantern-fires-v2";
 
 // Percentages are relative to the uncropped draft background. anchorY is the flame's bottom edge,
 // not its centre: changing height can never move the point where the flame meets the lantern wick.
 export const DEFAULT_PICK_LANTERN_FIRE_TUNING: Readonly<PickLanternFireTuning> = {
     enabled: true,
-    source: "natural-atlas",
+    source: "engine",
     anchorX: 29.74,
     anchorY: 16.61,
     width: 2.4,
@@ -44,20 +43,20 @@ export const DEFAULT_PICK_LANTERN_FIRE_TUNING: Readonly<PickLanternFireTuning> =
     opacity: 1.08,
     fps: 16,
     playbackRate: 0.78,
-    brightness: 1.65,
+    brightness: 1.1,
     contrast: 0.84,
     saturation: 0.84,
-    hue: 15,
+    hue: 0,
     blackCutoff: 0.17,
     density: 0.7,
-    glowOpacity: 0.62,
+    glowOpacity: 0.38,
     glowSize: 2.09,
     maskInset: 0,
 };
 
 export const DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING: Readonly<PickLanternFireTuning> = {
-    enabled: true,
-    source: "natural-atlas",
+    enabled: false,
+    source: "engine",
     anchorX: 29.67,
     anchorY: 16.76,
     width: 1.55,
@@ -68,7 +67,7 @@ export const DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING: Readonly<PickLanternFireTu
     brightness: 1.34,
     contrast: 0.84,
     saturation: 0.84,
-    hue: 15,
+    hue: 0,
     blackCutoff: 0.17,
     density: 0.8,
     glowOpacity: 0.78,
@@ -92,7 +91,10 @@ export const normalizePickLanternFireTuning = (
 ): PickLanternFireTuning => {
     return {
         enabled: typeof value?.enabled === "boolean" ? value.enabled : fallback.enabled,
-        source: value?.source === "candle-video" || value?.source === "natural-atlas" ? value.source : fallback.source,
+        source:
+            value?.source === "engine" || value?.source === "candle-video" || value?.source === "natural-atlas"
+                ? value.source
+                : fallback.source,
         anchorX: clamp(value?.anchorX, fallback.anchorX, 0, 100),
         anchorY: clamp(value?.anchorY, fallback.anchorY, 0, 100),
         width: clamp(value?.width, fallback.width, 0.2, 30),
@@ -117,18 +119,29 @@ const defaultTunings = (): [PickLanternFireTuning, PickLanternFireTuning] => [
     { ...DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING },
 ];
 
+export const migrateLegacyLanternTunings = (legacy: unknown): [PickLanternFireTuning, PickLanternFireTuning] => {
+    if (!Array.isArray(legacy)) return defaultTunings();
+    return DEFAULT_PICK_LANTERN_FIRE_TUNINGS.map((preset, slot) => {
+        const prior = normalizePickLanternFireTuning(legacy[slot], preset);
+        return { ...preset, anchorX: prior.anchorX, anchorY: prior.anchorY, width: prior.width, height: prior.height };
+    }) as [PickLanternFireTuning, PickLanternFireTuning];
+};
+
 export const readPickLanternFireTunings = (): [PickLanternFireTuning, PickLanternFireTuning] => {
     if (typeof window === "undefined" || import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
         return defaultTunings();
     }
     try {
-        if (window.localStorage.getItem(PICK_LANTERN_FIRE_PRESET_REVISION_KEY) !== PICK_LANTERN_FIRE_PRESET_REVISION) {
-            const approved = defaultTunings();
-            window.localStorage.setItem(PICK_LANTERN_FIRE_STORAGE_KEY, JSON.stringify(approved));
-            window.localStorage.setItem(PICK_LANTERN_FIRE_PRESET_REVISION_KEY, PICK_LANTERN_FIRE_PRESET_REVISION);
-            return approved;
+        let raw = window.localStorage.getItem(PICK_LANTERN_FIRE_STORAGE_KEY);
+        if (!raw) {
+            const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+            if (legacy) {
+                // Retain the user's placement. Keep the original v2 record intact for comparison.
+                const migrated = migrateLegacyLanternTunings(JSON.parse(legacy));
+                raw = JSON.stringify(migrated);
+                window.localStorage.setItem(PICK_LANTERN_FIRE_STORAGE_KEY, raw);
+            }
         }
-        const raw = window.localStorage.getItem(PICK_LANTERN_FIRE_STORAGE_KEY);
         if (!raw) return defaultTunings();
         const parsed = JSON.parse(raw) as Array<Partial<PickLanternFireTuning>>;
         return [
