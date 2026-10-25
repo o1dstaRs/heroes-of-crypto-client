@@ -10950,15 +10950,8 @@ export class Sandbox extends PixiScene {
                 else this.combatVisuals.spawnWhirlpool(footprint);
             }
             if (isFireball && event.targetCell) {
-                const ringCenter = projectBattlefieldPoint(
-                    GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
-                    gs,
-                );
-                if (flightOrigin) {
-                    this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? ringCenter, cellSize);
-                    this.combatVisuals.spawnFireBurn(ringCenter, cellSize, 1.45);
-                }
-                this.combatVisuals.spawnFireRing(
+                // The engine records the first struck cell; retain the approved filled burst renderer.
+                this.combatVisuals.spawnFireball(
                     spellFootprint([event.targetCell], gs),
                     spellFootprint([event.targetCell], gs, 1),
                 );
@@ -11029,7 +11022,7 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && !isFireball && flightOrigin) {
+                if (isThrown && !isRing && !isFireball && !isFireStrike && flightOrigin) {
                     this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? hitPosition, cellSize);
                 }
                 let arrowLaunched = false;
@@ -11051,13 +11044,13 @@ export class Sandbox extends PixiScene {
                     const source = sourceUnit?.getSpellProjectileOrigin
                         ? () => sourceUnit.getSpellProjectileOrigin(gs)
                         : undefined;
-                    const origin = source?.() ?? visualCasterPosition;
+                    const origin = source?.() ?? flightOrigin;
                     const victim = hitUnit ?? capturedUnits?.get(hit.unitId);
                     if (origin) {
                         arrowLaunched =
                             this.combatVisuals.spawnFireStrikeArrow(
                                 origin,
-                                victim?.getProjectileImpactPoint?.(gs) ?? hitPosition,
+                                flightEnd ?? victim?.getProjectileImpactPoint?.(gs) ?? hitPosition,
                                 hitPosition,
                                 cellSize,
                                 source,

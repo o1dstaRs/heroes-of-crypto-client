@@ -11,8 +11,12 @@ const files = [...new Bun.Glob(pattern).scanSync({ cwd: root })].sort();
 if (!files.length) throw new Error("No workspace tests discovered");
 let failed = false;
 const batchSize = 10;
-for (let offset = 0; offset < files.length; offset += batchSize) {
-    const batch = files.slice(offset, offset + batchSize);
+const standalone = new Set(["src/shims/browserAiImports.test.ts"]);
+for (let offset = 0; offset < files.length;) {
+    const next = files.slice(offset, offset + batchSize);
+    const boundary = next.findIndex((file) => standalone.has(file));
+    const count = boundary === 0 ? 1 : boundary > 0 ? boundary : batchSize;
+    const batch = files.slice(offset, offset + count);
     console.log(`${workspace} tests ${offset + 1}–${offset + batch.length}/${files.length}`);
     const result = Bun.spawnSync({
         cmd: [
@@ -29,5 +33,6 @@ for (let offset = 0; offset < files.length; offset += batchSize) {
         stderr: "inherit",
     });
     failed ||= result.exitCode !== 0;
+    offset += batch.length;
 }
 process.exit(failed ? 1 : 0);
