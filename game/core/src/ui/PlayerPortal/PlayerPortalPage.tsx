@@ -916,7 +916,7 @@ export const PlayerPortalPage: React.FC = () => {
                         {/* Match history */}
                         <Section
                             title={t("Match history")}
-                            subtitle={tf("{count} most recent finished matches", { count: matches.length })}
+                            subtitle={t("Find past matches by artifacts, creatures or opponents.")}
                         >
                             <MatchHistory
                                 filterable

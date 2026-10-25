@@ -6,9 +6,11 @@ import ExploreRoundedIcon from "@mui/icons-material/ExploreRounded";
 import LoopRoundedIcon from "@mui/icons-material/LoopRounded";
 import MilitaryTechRoundedIcon from "@mui/icons-material/MilitaryTechRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
-import { Box, Button, IconButton, Sheet, Stack, ToggleButtonGroup, Tooltip, Typography } from "@mui/joy";
-import React, { useId, useMemo, useState } from "react";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import { Alert, Box, Button, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import React, { useId, useState } from "react";
 
+import type { MatchHistoryScope } from "../../api/player_portal_client";
 import { rankedSeasonCurrencyAt, type RankedSeasonCatalog } from "../../api/ranked_season_client";
 import { images } from "../../generated/image_imports";
 import { t, tf, useTranslation } from "../../i18n/i18n";
@@ -17,7 +19,6 @@ import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBa
 import { hocColors } from "../hocTheme";
 import { getDoctrineIconImage } from "../doctrineCopy";
 import {
-    filterPortalMatches,
     formatMatchDamage,
     formatMatchDuration,
     formatSignedMatchValue,
@@ -36,6 +37,8 @@ import {
 } from "./matchHistoryModel";
 import { augmentEffectSummary } from "./augmentEffect";
 import { CreatureIcon, creatureName, InfoCard, timeAgo } from "./portalFormat";
+import { MatchHistorySearchControls } from "./MatchHistorySearchControls";
+import { useMatchHistorySearch } from "./useMatchHistorySearch";
 
 const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
@@ -850,6 +853,7 @@ const MatchCard: React.FC<{
         <Sheet
             aria-labelledby={headingId}
             component="article"
+            data-game-id={match.game_id}
             variant="soft"
             sx={{
                 position: "relative",
@@ -1239,58 +1243,81 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     seasons,
 }) => {
     const [filter, setFilter] = useState<MatchHistoryFilter>("all");
+    const [query, setQuery] = useState("");
+    const [scope, setScope] = useState<MatchHistoryScope>("either");
     const [expandedGameId, setExpandedGameId] = useState<string>();
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     useTranslation();
-    const filteredMatches = useMemo(() => filterPortalMatches(matches, filter), [filter, matches]);
-    const wins = useMemo(() => filterPortalMatches(matches, "wins").length, [matches]);
-    const losses = useMemo(() => filterPortalMatches(matches, "losses").length, [matches]);
+    const history = useMatchHistorySearch(matches, query, scope, filter, filterable);
+    const filteredMatches = history.matches;
+    const clearFilters = () => {
+        setQuery("");
+        setScope("either");
+        setFilter("all");
+        setExpandedGameId(undefined);
+    };
 
     return (
         <Stack spacing={1} sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
-            {filterable && matches.length > 0 && (
-                <ToggleButtonGroup
-                    aria-label={t("Filter match history")}
-                    size="sm"
-                    buttonFlex={1}
-                    value={filter}
-                    onChange={(_, value) => {
-                        if (value) {
-                            setFilter(value as MatchHistoryFilter);
-                            setExpandedGameId(undefined);
-                        }
+            {filterable && (
+                <MatchHistorySearchControls
+                    query={query}
+                    scope={scope}
+                    filter={filter}
+                    count={filteredMatches.length}
+                    loading={history.loading}
+                    onQueryChange={(value) => {
+                        setQuery(value);
+                        setExpandedGameId(undefined);
                     }}
-                    sx={{
-                        alignSelf: "flex-start",
-                        width: { xs: "100%", sm: "auto" },
-                        maxWidth: "100%",
-                        boxSizing: "border-box",
-                        borderRadius: "7px",
-                        "& button": {
-                            minWidth: 0,
-                            px: 1,
-                            whiteSpace: "nowrap",
-                            color: hocColors.mutedStrong,
-                            borderColor: hocColors.orangeBorder,
-                            borderRadius: "7px",
-                            "&[aria-pressed='true']": { bgcolor: hocColors.orangeSoft, color: hocColors.parchment },
-                        },
+                    onScopeChange={(value) => {
+                        setScope(value);
+                        setExpandedGameId(undefined);
                     }}
-                >
-                    <Button value="all">{tf("All {count}", { count: matches.length })}</Button>
-                    <Button value="wins">{tf("Wins {count}", { count: wins })}</Button>
-                    <Button value="losses">{tf("Losses {count}", { count: losses })}</Button>
-                </ToggleButtonGroup>
+                    onFilterChange={(value) => {
+                        setFilter(value);
+                        setExpandedGameId(undefined);
+                    }}
+                />
             )}
 
-            {filteredMatches.length === 0 && (
-                <Typography level={compact ? "body-xs" : "body-sm"} textColor={hocColors.muted}>
-                    {matches.length === 0
-                        ? t("No finished matches yet.")
-                        : filter === "wins"
-                          ? t("No wins in recent matches.")
-                          : t("No losses in recent matches.")}
-                </Typography>
+            {history.error && (
+                <Alert
+                    color="warning"
+                    variant="soft"
+                    endDecorator={
+                        <Button size="sm" variant="plain" onClick={history.retry}>
+                            {t("Try again")}
+                        </Button>
+                    }
+                >
+                    {t("Unable to search match history.")}
+                </Alert>
+            )}
+
+            {filteredMatches.length === 0 && !history.loading && !history.error && (
+                <Stack
+                    spacing={1}
+                    alignItems={filterable ? "center" : "flex-start"}
+                    sx={{ py: filterable ? 4 : 0, textAlign: filterable ? "center" : "left" }}
+                >
+                    {filterable && <SearchRoundedIcon sx={{ color: hocColors.gold, opacity: 0.65, fontSize: 30 }} />}
+                    <Typography level={compact ? "body-xs" : "body-sm"} textColor={hocColors.mutedStrong}>
+                        {!query && filter === "all" && scope === "either"
+                            ? t("No finished matches yet.")
+                            : t("No matches found.")}
+                    </Typography>
+                    {(query || filter !== "all" || scope !== "either") && (
+                        <>
+                            <Typography level="body-xs" textColor={hocColors.muted}>
+                                {t("Try another name or search either army.")}
+                            </Typography>
+                            <Button size="sm" variant="plain" onClick={clearFilters} sx={{ color: hocColors.gold }}>
+                                {t("Clear filters")}
+                            </Button>
+                        </>
+                    )}
+                </Stack>
             )}
 
             {filteredMatches.map((match) => {
@@ -1308,6 +1335,24 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                     />
                 );
             })}
+
+            {filterable && history.hasMore && !history.loading && (
+                <Button
+                    variant="soft"
+                    size="sm"
+                    loading={history.loadingMore}
+                    onClick={history.loadMore}
+                    sx={{
+                        alignSelf: "center",
+                        mt: 1,
+                        color: hocColors.parchment,
+                        bgcolor: hocColors.orangeSoft,
+                        border: `1px solid ${hocColors.orangeBorder}`,
+                    }}
+                >
+                    {t("Load more matches")}
+                </Button>
+            )}
         </Stack>
     );
 };

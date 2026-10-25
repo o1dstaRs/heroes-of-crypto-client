@@ -54,6 +54,11 @@ bun run check              # = lint + typecheck + test
 bun run lint:fix           # auto-fix eslint + bun fmt + scss + package order
 ```
 
+Use **`bun fmt`**, not a separate Prettier invocation, for formatting. Run it on the files you changed:
+`bun fmt --no-script <paths>`. The `--no-script` flag bypasses a package's `fmt` script so targeted
+formatting stays targeted. Use `bun fmt --no-script --check <paths>` for a read-only formatting check;
+the repository's lint/check commands remain the validation gate. Do not format a peer's in-flight files.
+
 ## Before you push
 
 ### Sync with the remote first — always

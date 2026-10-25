@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
+import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
 
 import {
     applyPremium,
@@ -269,8 +270,14 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                         Draft so far · {assessment.roster}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
-                        {assessment.headline}. {assessment.focus}
+                        {assessment.headline}.
+                        {assessment.focus !== assessment.routeWarning ? ` ${assessment.focus}` : ""}
                     </Typography>
+                    <PremiumDraftRoutes
+                        routes={assessment.routes}
+                        remaining={assessment.remaining}
+                        routeWarning={assessment.routeWarning}
+                    />
                     {assessment.notes.map((note) => (
                         <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
                             <strong>{note.label}:</strong> {note.text}
