@@ -1,5 +1,5 @@
 import { axiosGameInstance, endpoints } from "./axios";
-import type { GameAction } from "@heroesofcrypto/common";
+import type { GameAction, IDraftScoutingContext } from "@heroesofcrypto/common";
 
 import type { PremiumEvidence } from "./premium_search_stream";
 export type { PremiumEvidence, PremiumOutcomeEvidence, PremiumMetricEvidence } from "./premium_search_stream";
@@ -64,6 +64,7 @@ export interface PremiumAdvice {
     choices?: PremiumChoice[];
     offers?: Pick<PremiumChoice, "kind" | "value" | "label">[];
     draftLevel?: number;
+    scouting?: IDraftScoutingContext;
     augments?: { kind: string; value: number }[];
     synergies?: { faction: number; synergy: number; factionName: string; name: string; level: number }[];
     reasons?: string[];

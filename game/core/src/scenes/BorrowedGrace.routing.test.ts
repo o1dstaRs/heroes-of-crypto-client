@@ -27,7 +27,6 @@ import {
     SandboxReplayRecorder,
     type ReplayStorage,
 } from "../replay/sandbox_replay";
-import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 import { RenderableUnit } from "./RenderableUnit";
 import {
     applyRankedUnitSnapshotStats,
@@ -62,11 +61,8 @@ const transfer: GameEvent = {
 };
 
 describe("Borrowed Grace client routing", () => {
-    test.each([
-        ["main", RenderableUnit],
-        ["level one", LevelOneRenderableUnit],
-    ] as const)("%s card follows the shared live chance at every stack tier", (_name, Renderer) => {
-        const monk = Renderer.fromBase(makeMonk(), () => Texture.EMPTY);
+    test("card follows the shared live chance at every stack tier", () => {
+        const monk = RenderableUnit.fromBase(makeMonk(), () => Texture.EMPTY);
         Object.assign(monk.getUnitProperties(), { luck: 4, luck_authoritative: true });
         const index = monk.getUnitProperties().abilities.indexOf("Borrowed Grace");
         for (const stack of [1, 2, 3, 4, 5]) {

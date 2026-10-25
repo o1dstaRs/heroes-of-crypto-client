@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { FIGHT_EVENT_VFX } from "./fight_vfx_catalog";
+import { FIGHT_EVENT_VFX } from "./testSupport/fightVfxCatalog";
 
 /**
  * The Magic Reflection rebound is rendered from `spell_cast.damaged[]`, inside the SHARED

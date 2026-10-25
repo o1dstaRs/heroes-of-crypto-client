@@ -72,6 +72,21 @@ describe("knowledge graph builder", () => {
         ).toBe(true);
     });
 
+    test("unit search describes the actual occupied cells in both languages", () => {
+        for (const [name, width, height] of [
+            ["Peasant", 1, 1],
+            ["Wolf", 2, 1],
+            ["Centaur", 2, 1],
+            ["Hydra", 2, 2],
+        ] as const) {
+            const node = byId.get(`unit:${slugify(name)}`);
+            expect(node?.text).toContain(`Size: ${width}x${height}`);
+            expect(node?.textRu).toContain(`Размер: ${width}x${height}`);
+            expect(node?.props?.footprintWidth).toBe(width);
+            expect(node?.props?.footprintHeight).toBe(height);
+        }
+    });
+
     test("abilities and spells carry both languages and their carriers", () => {
         const ability = abilities.find((candidate) => candidate.units.length > 0) ?? abilities[0];
         const node = byId.get(`ability:${slugify(ability.name)}`);
@@ -175,6 +190,8 @@ describe("knowledge graph builder", () => {
     test("the AI knowledge base explains doctrine ban visibility and the public observer restriction", () => {
         expect(byId.get("doctrine:scout")?.text).toContain("all draft bans in advance");
         expect(byId.get("doctrine:spymaster")?.text).toContain("all draft bans in advance");
+        expect(byId.get("doctrine:spymaster")?.text).toContain("Know the map from the starting bundle choice");
+        expect(byId.get("doctrine:spymaster")?.textRu).toContain("Карта известна уже при выборе стартового бандла");
         expect(byId.get("doctrine:battle-trance")?.text).toContain("Bans are revealed as each creature level opens");
         const bans = graph.nodes.find((node) => node.name === "Draft bans");
         expect(bans?.text).toContain("Public observers always receive only bans for levels already opened");

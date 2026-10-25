@@ -68,11 +68,14 @@ function fixture(team: TeamType, charges: number) {
     caster.ensureSpellBookRendering(layer, new Map());
     caster.renderSpells(1);
     const submitted: GameAction[] = [];
+    let pendingCast = false;
     const log = { updateLog() {} } as unknown as ISceneLog;
     const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
         viewerTeam: team,
         sc_gameActionTransport: (action: GameAction) => {
+            if (pendingCast) return { handled: true, completed: false, message: "Waiting for server turn update" };
             submitted.push(action);
+            pendingCast = action.type === "cast_spell";
             return { handled: true, completed: true };
         },
         currentActiveUnit: caster,
@@ -95,13 +98,11 @@ function fixture(team: TeamType, charges: number) {
         },
         updateCurrentMovePath() {},
         buttonManager: { refreshButtons() {} },
+        hoverManager: { clearHoverSilhouette() {}, clearAttackVisuals() {} },
+        dungeonVisuals: { clearScatteredMountainHighlight() {} },
         isBoardInputLockedByAI: () => false,
         getUnitAtPosition: () => enemy,
         isAttackBlockedByAggr: () => undefined,
-        submitActionForAuthoritativeReplay(action: GameAction) {
-            submitted.push(action);
-            return true;
-        },
     });
     const card = caster.getBookSpellByName("Lightning Strike")!;
     const bounds = card.getSprite().getBounds();
@@ -129,6 +130,9 @@ describe("ranked spell selection", () => {
                             targetCell: f.enemy.getBaseCell(),
                         },
                     ]);
+                    // A repeat click before the authoritative response cannot submit a second cast.
+                    f.scene.MouseDown(f.enemy.getPosition());
+                    expect(f.submitted).toHaveLength(1);
 
                     // The authoritative copy can still be in its melee mode: a cast is self-contained.
                     f.caster.selectAttackType(AttackVals.MELEE_MAGIC);
@@ -164,79 +168,87 @@ describe("ranked spell selection", () => {
         }
     }
 
-    test("a full snapshot rebuild restores both the armed spell and its local magic mode", () => {
-        const f = fixture(TeamVals.LEFT, 2);
-        try {
-            f.select();
-            const active = RenderableUnit.fromBase(
-                Unit.createUnit(
-                    structuredClone(f.caster.getAllProperties()),
-                    settings,
-                    TeamVals.LEFT,
-                    UnitVals.CREATURE,
-                    new AbilityFactory(new EffectFactory()),
-                    new EffectFactory(),
-                    false,
-                ),
-                () => Texture.WHITE,
-            );
-            active.setStackPower(3);
-            active.refreshPossibleAttackTypes(true);
-            active.selectAttackType(AttackVals.MELEE_MAGIC);
-            active.ensureSpellBookRendering(f.layer, new Map());
-            Object.assign(f.scene, {
-                lastAuthoritativeSequence: 0,
-                lastPlacementUnitIdsKey: "",
-                lastPlacementStateByUnitId: new Map(),
-                rememberStatusSnapshot() {},
-                processDebuffPops() {},
-                applyRankedDamageStatistics() {},
-                applyAuthoritativeSceneLog() {},
-                isPlayingActionAnimation: () => false,
-                createBoardSignature: () => "rebuilt",
-                applyRankedTimer() {},
-                applyRankedSnapshotMetadata() {},
-                applyAuthoritativeNarrowing() {},
-                renderNewlyAppliedArmageddon() {},
-                renderNewlyAppliedPyre() {},
-                renderNewlyAppliedMorale() {},
-                renderNewlyAppliedPoison() {},
-                shatterNewlyDeadUnits() {},
-                capturePlacementSelection: () => ({ hasActiveSelection: false }),
-                hydrateSceneState() {
-                    f.scene.currentActiveSpell = undefined;
-                    f.scene.currentActiveUnit = active;
-                },
-                applyScatteredMountainsFromSnapshot() {},
-                refreshUnits() {},
-                reconcileAuraEffectsFromSnapshot() {},
-                syncRankedVisibleTurnState() {},
-                applyRankedFightStats() {},
-            });
-            const snapshot: AuthoritativeGameSnapshot = {
-                gameId: "spell-rebuild",
-                viewerTeam: TeamVals.LEFT,
-                phase: 2,
-                gridType: GridVals.NORMAL,
-                currentLap: 2,
-                fightStarted: true,
-                fightFinished: false,
-                currentUnitId: active.getId(),
-                currentTurnTeam: TeamVals.LEFT,
-                latestSequence: 1,
-                narrowingLayers: 0,
-                centerDried: false,
-                units: [],
-                upNext: [],
-            };
-            f.scene.applyAuthoritativeSnapshot(snapshot, { forceBoardRebuild: true });
-            expect(f.scene.currentActiveSpell).toBe(active.getBookSpellByName("Lightning Strike"));
-            expect(active.getAttackTypeSelection()).toBe(AttackVals.MAGIC);
-            expect(f.submitted).toEqual([]);
-        } finally {
-            f.layer.destroy({ children: true });
-        }
-    });
+    for (const scenario of ["armed spell", "manual melee on the same turn", "new turn"] as const) {
+        test(`a full snapshot rebuild preserves ${scenario}`, () => {
+            const f = fixture(TeamVals.LEFT, 2);
+            try {
+                if (scenario === "armed spell") f.select();
+                const active = RenderableUnit.fromBase(
+                    Unit.createUnit(
+                        structuredClone(f.caster.getAllProperties()),
+                        settings,
+                        TeamVals.LEFT,
+                        UnitVals.CREATURE,
+                        new AbilityFactory(new EffectFactory()),
+                        new EffectFactory(),
+                        false,
+                    ),
+                    () => Texture.WHITE,
+                );
+                active.setStackPower(3);
+                active.refreshPossibleAttackTypes(true);
+                active.selectAttackType(scenario === "armed spell" ? AttackVals.MELEE_MAGIC : AttackVals.MAGIC);
+                active.ensureSpellBookRendering(f.layer, new Map());
+                Object.assign(f.scene, {
+                    rankedTurnActivationKey: `spell-rebuild:2:${active.getId()}:1000`,
+                    lastAuthoritativeSequence: 0,
+                    lastPlacementUnitIdsKey: "",
+                    lastPlacementStateByUnitId: new Map(),
+                    rememberStatusSnapshot() {},
+                    processDebuffPops() {},
+                    applyRankedDamageStatistics() {},
+                    applyAuthoritativeSceneLog() {},
+                    isPlayingActionAnimation: () => false,
+                    createBoardSignature: () => "rebuilt",
+                    applyRankedTimer() {},
+                    applyRankedSnapshotMetadata() {},
+                    applyAuthoritativeNarrowing() {},
+                    renderNewlyAppliedArmageddon() {},
+                    renderNewlyAppliedPyre() {},
+                    renderNewlyAppliedMorale() {},
+                    renderNewlyAppliedPoison() {},
+                    shatterNewlyDeadUnits() {},
+                    capturePlacementSelection: () => ({ hasActiveSelection: false }),
+                    hydrateSceneState() {
+                        f.scene.currentActiveSpell = undefined;
+                        f.scene.currentActiveUnit = active;
+                    },
+                    applyScatteredMountainsFromSnapshot() {},
+                    refreshUnits() {},
+                    reconcileAuraEffectsFromSnapshot() {},
+                    syncRankedVisibleTurnState() {},
+                    applyRankedFightStats() {},
+                });
+                const snapshot: AuthoritativeGameSnapshot = {
+                    gameId: "spell-rebuild",
+                    viewerTeam: TeamVals.LEFT,
+                    phase: 2,
+                    gridType: GridVals.NORMAL,
+                    currentLap: 2,
+                    fightStarted: true,
+                    fightFinished: false,
+                    currentUnitId: active.getId(),
+                    currentTurnTeam: TeamVals.LEFT,
+                    currentTurnStartMs: scenario === "new turn" ? 2000 : 1000,
+                    latestSequence: 1,
+                    narrowingLayers: 0,
+                    centerDried: false,
+                    units: [],
+                    upNext: [],
+                };
+                f.scene.applyAuthoritativeSnapshot(snapshot, { forceBoardRebuild: true });
+                expect(f.scene.currentActiveSpell).toBe(
+                    scenario === "armed spell" ? active.getBookSpellByName("Lightning Strike") : undefined,
+                );
+                expect(active.getAttackTypeSelection()).toBe(
+                    scenario === "manual melee on the same turn" ? AttackVals.MELEE_MAGIC : AttackVals.MAGIC,
+                );
+                expect(f.submitted).toEqual([]);
+            } finally {
+                f.layer.destroy({ children: true });
+            }
+        });
+    }
 
     test("an observer or a different active unit cannot change a caster's local mode", () => {
         const f = fixture(TeamVals.LEFT, 2);

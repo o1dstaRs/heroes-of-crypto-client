@@ -68,7 +68,7 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
         detail:
             "Every one of the opponent's six picks is visible for the entire draft, each revealed as they " +
             "lock it in — so you always know what they have taken before you commit your next pick. " +
-            "All draft bans are visible in advance.",
+            "All draft bans are visible in advance. The map is revealed with your starting bundle choices.",
         budget: "5 of 7 upgrade points — two augment levels short of the maximum.",
         why:
             "Total information: you ban what actually threatens you and pick real counters instead of " +

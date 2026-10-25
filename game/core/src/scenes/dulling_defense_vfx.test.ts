@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { FIGHT_EVENT_VFX } from "./fight_vfx_catalog";
+import { FIGHT_EVENT_VFX } from "./testSupport/fightVfxCatalog";
 
 const sandboxSource = (): string => readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
 
@@ -38,7 +38,7 @@ describe("Dulling Defense VFX wiring", () => {
     });
 
     test("the ability card prints the flat attack loss, not a stack-and-luck count", () => {
-        for (const file of ["RenderableUnit.ts", "LevelOneRenderableUnit.ts"]) {
+        for (const file of ["RenderableUnit.ts"]) {
             const source = readFileSync(join(import.meta.dir, file), "utf8");
             const block = sliceFrom(source, "Dulling Defense removes a flat amount", 450);
 

@@ -307,6 +307,25 @@ export const RU_TRANSLATIONS: Record<string, string> = {
 
     // ~~~ Match history ~~~
     "Match history": "История матчей",
+    All: "Все",
+    "Find past matches by artifacts, creatures or opponents.":
+        "Ищите прошлые матчи по артефактам, существам или соперникам.",
+    "Search artifacts, creatures or opponents…": "Артефакт, существо или соперник…",
+    "Search match history": "Поиск в истории матчей",
+    "Clear history search": "Очистить поиск по истории",
+    "Searching match history": "Поиск матчей",
+    "Searching match history…": "Ищем матчи…",
+    "Search army": "Армия для поиска",
+    "Either army": "Любая армия",
+    "Opponent's army": "Армия соперника",
+    "Try:": "Например:",
+    "Combine names to narrow your search.": "Укажите несколько названий, чтобы уточнить поиск.",
+    "{count} matches shown": "Показано матчей: {count}",
+    "Unable to search match history.": "Не удалось выполнить поиск по истории матчей.",
+    "No matches found.": "Матчи не найдены.",
+    "Try another name or search either army.": "Попробуйте другое название или поиск по обеим армиям.",
+    "Clear filters": "Сбросить фильтры",
+    "Load more matches": "Загрузить ещё матчи",
     "{count} most recent finished matches": "последние завершённые матчи: {count}",
     Victory: "Победа",
     Defeat: "Поражение",
@@ -553,8 +572,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Blind Fury": "Слепая ярость",
     "Reveal the opponent's picks in 3 random slots and see all draft bans in advance. Grants 6 upgrade points.":
         "Открывает выборы противника в 3 случайных слотах и заранее показывает все баны драфта. Даёт 6 очков усилений.",
-    "See all of the opponent's picks during the draft and all draft bans in advance. Grants 5 upgrade points.":
-        "Показывает все выборы противника во время драфта и заранее все баны. Даёт 5 очков усилений.",
+    "See all of the opponent's picks during the draft and all draft bans in advance. Know the map from the starting bundle choice. Grants 5 upgrade points.":
+        "Показывает все выборы противника во время драфта и заранее все баны. Карта известна уже при выборе стартового бандла. Даёт 5 очков усилений.",
     "See none of the opponent's picks. Bans are revealed as each creature level opens. Grants 7 upgrade points.":
         "Не показывает выборы противника. Баны открываются по мере появления выбора каждого уровня существ. Даёт 7 очков усилений.",
     "{count} upgrade points": "очков усилений: {count}",
@@ -564,8 +583,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Draft blind, field the strongest army": "Драфт вслепую, зато сильнейшая армия",
     "Opens three of the opponent's six army slots — one per tier block, not three at random: one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. The slots are rolled the moment the draft opens and stay open as those picks fill in. The other three never open. All draft bans are visible in advance.":
         "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются. Все баны драфта видны заранее.",
-    "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance.":
-        "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее.",
+    "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance. The map is revealed with your starting bundle choices.":
+        "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее. Карта открывается вместе с вариантами стартового бандла.",
     "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board. Bans are revealed only as each creature level opens.":
         "Вы не видите ни одного выбора противника. Стройте драфт только вокруг своего плана и узнайте его состав уже на поле. Баны открываются только по мере появления выбора каждого уровня существ.",
     "Only revealed bans are shown.": "Показаны только уже раскрытые баны.",

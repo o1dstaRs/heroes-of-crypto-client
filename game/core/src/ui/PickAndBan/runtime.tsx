@@ -46,7 +46,7 @@ import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { getDoctrineCopy } from "../doctrineCopy";
-import { MapBadge, MapRevealModal } from "./MapReveal";
+import { MapBadge, MapRevealModal, StartingMapPreview } from "./MapReveal";
 import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
@@ -3442,10 +3442,15 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                     gameId={gameId}
                                     pendingId={pendingPick}
                                 />
-                                {/* Reads t("Map: ?") until the server reveals the map right before the L3 picks, then
-                                the name — dead centre between the two armies. */}
+                                {/* The server supplies only the map this player is allowed to know. */}
                                 <Box sx={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
-                                    <MapBadge mapType={mapType} />
+                                    {pickPhase === PickPhaseVals.INITIAL_PICK &&
+                                    doctrine === Doctrine.Doctrine.SEE_ALL &&
+                                    mapType ? (
+                                        <StartingMapPreview mapType={mapType} />
+                                    ) : (
+                                        <MapBadge mapType={mapType} />
+                                    )}
                                 </Box>
                                 {shouldShowOpponentDraftRail(pickPhase, showOpponentRosterDuringAugmentHandoff) && (
                                     <OpponentDraftBar
@@ -3545,7 +3550,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     </Box>
 
                     {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
-                    <MapRevealModal mapType={mapType} />
+                    <MapRevealModal mapType={doctrine === Doctrine.Doctrine.SEE_ALL ? 0 : mapType} />
                 </Box>
                 {/* Keep draft progress out of the fixed board and just above the shared system-control row, so
                 the rail and fullscreen / exit / sound controls remain anchored throughout every phase. */}

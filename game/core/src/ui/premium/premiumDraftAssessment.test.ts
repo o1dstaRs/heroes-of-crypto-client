@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Artifact, CreatureVals, creatureInfo } from "@heroesofcrypto/common";
+import { Artifact, CreatureVals, CreatureLevelList, GridVals, creatureInfo } from "@heroesofcrypto/common";
 
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
 
@@ -16,6 +16,115 @@ const note = (state: PremiumDraftState, label: string) =>
     premiumDraftAssessment(state).notes.find((entry) => entry.label === label)?.text;
 
 describe("Premium draft assessment", () => {
+    test("shows named, level-correct routes and warns when they compete for the same picks", () => {
+        const state = draft({
+            picked: [CreatureVals.ORC, CreatureVals.PEASANT, CreatureVals.ELF, CreatureVals.HARPY],
+            opponentPicked: [CreatureVals.GARGANTUAN],
+            scouting: {
+                bannedCreatureIds: [CreatureVals.BLACK_DRAGON],
+                knownBanLevels: [1, 2, 3, 4],
+                remainingPickLevels: [3, 4],
+            },
+        });
+        const result = premiumDraftAssessment(state);
+        expect(result.remaining).toBe("L3 × 1 · L4 × 1");
+        expect(result.routes).toHaveLength(4);
+        expect(result.routeWarning).toContain("cannot all be completed");
+        expect(result.focus).toBe(result.routeWarning!);
+        const targets = result.routes.flatMap((route) => route.targets);
+        expect(targets.every((unit) => unit.level >= 3)).toBe(true);
+        expect(targets.map((unit) => unit.id)).not.toContain(CreatureVals.GARGANTUAN);
+        expect(targets.map((unit) => unit.id)).not.toContain(CreatureVals.BLACK_DRAGON);
+        expect(targets.map((unit) => unit.name)).toContain("Thunderbird");
+    });
+
+    test("does not propose ranged damage when no remaining level can supply it", () => {
+        const state = draft({
+            picked: [CreatureVals.PEASANT],
+            scouting: {
+                bannedCreatureIds: CreatureLevelList[4].filter((id) => {
+                    const unit = creatureInfo(id)!;
+                    return unit.ranged || unit.rangedSpellDamage;
+                }),
+                knownBanLevels: [1, 2, 3, 4],
+                remainingPickLevels: [4],
+            },
+        });
+        expect(premiumDraftAssessment(state).focus).toContain("No ranged damage remains");
+        expect(premiumDraftAssessment(state).focus).not.toContain("Look for a shooter");
+        expect(premiumDraftAssessment(draft({ picked: [CreatureVals.ELF] })).routes).toEqual([]);
+    });
+
+    test("also checks competing advances that each need two more creatures", () => {
+        const result = premiumDraftAssessment(
+            draft({
+                picked: [CreatureVals.PEASANT, CreatureVals.BLACKSMITH, CreatureVals.ELF, CreatureVals.TRENT],
+                scouting: { bannedCreatureIds: [], knownBanLevels: [1, 2, 3, 4], remainingPickLevels: [3, 4] },
+            }),
+        );
+        expect(result.routes.every((route) => route.reachable && route.count === 2 && route.target === 4)).toBe(true);
+        expect(result.routeWarning).toContain("cannot all be completed");
+    });
+
+    test("completed drafts do not show future routes", () => {
+        const state = draft({
+            picked: [
+                CreatureVals.ORC,
+                CreatureVals.PEASANT,
+                CreatureVals.ELF,
+                CreatureVals.HARPY,
+                CreatureVals.MONK,
+                CreatureVals.HYDRA,
+            ],
+            scouting: { bannedCreatureIds: [], knownBanLevels: [1, 2, 3, 4], remainingPickLevels: [] },
+        });
+        expect(premiumDraftAssessment(state).routes).toEqual([]);
+        expect(premiumDraftAssessment(state).remaining).toBeUndefined();
+    });
+
+    test("shows the authorized map and bans without claiming hidden information", () => {
+        const scouting = {
+            map: GridVals.BLOCK_CENTER,
+            bannedCreatureIds: [CreatureVals.HYDRA],
+            knownBanLevels: [1, 2, 3, 4],
+            remainingPickLevels: [1, 2, 3, 4],
+        };
+        const state = draft({ scouting });
+        expect(premiumDraftAssessment(state).scouting).toBe("Map: Block · all bans known");
+        expect(note(state, "Bans")).toContain("Hydra");
+        const hidden = draft({
+            scouting: { bannedCreatureIds: [], knownBanLevels: [], remainingPickLevels: [1, 2, 3, 4] },
+        });
+        expect(premiumDraftAssessment(hidden).scouting).toBe("Map hidden · bans hidden");
+        expect(JSON.stringify(premiumDraftAssessment(hidden))).not.toContain("Hydra");
+    });
+
+    test("removes an impossible next-synergy recommendation when the remaining level is banned out", () => {
+        const nature = creatureInfo(CreatureVals.ELF)!.faction;
+        const state = draft({
+            picked: [CreatureVals.ELF, CreatureVals.PEASANT],
+            scouting: {
+                bannedCreatureIds: CreatureLevelList[4].filter((id) => creatureInfo(id)?.faction === nature),
+                knownBanLevels: [1, 2, 3, 4],
+                remainingPickLevels: [4],
+            },
+        });
+        expect(note(state, "Synergy gap")).toContain("Nature Flying armor level 1 cannot be reached");
+        expect(note(state, "Synergies") ?? "").not.toContain("one more distinct Nature");
+    });
+
+    test("lists revealed ban levels without claiming that skipped levels are visible", () => {
+        const state = draft({
+            scouting: {
+                map: GridVals.BLOCK_CENTER,
+                bannedCreatureIds: [],
+                knownBanLevels: [1, 4],
+                remainingPickLevels: [4],
+            },
+        });
+        expect(premiumDraftAssessment(state).scouting).toBe("Map: Block · bans known for levels 1, 4");
+    });
+
     test("assesses confirmed picks while waiting and updates after the next pick", () => {
         const before = draft({ picked: [CreatureVals.PEASANT] });
         expect(premiumDraftAssessment(before).headline).toBe("No ranged damage drafted yet");

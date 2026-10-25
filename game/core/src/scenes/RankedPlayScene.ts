@@ -2166,6 +2166,7 @@ export class RankedPlayScene extends Sandbox {
         if (this.fullReplayPlaybackActive) {
             return;
         }
+        const priorTurnActivationKey = this.rankedTurnActivationKey;
         this.rememberStatusSnapshot(snapshot);
         this.premiumSnapshot = snapshot;
         if (
@@ -2449,6 +2450,8 @@ export class RankedPlayScene extends Sandbox {
         // rebuilt board re-activates the same unit (mirrors the attack-type restore in activation).
         const armedSpellName = this.currentActiveSpell?.getName();
         const armedUnitId = armedSpellName ? this.getCurrentActiveUnit()?.getId() : undefined;
+        const selectedAttackUnit = this.getCurrentActiveUnit();
+        const selectedAttackType = selectedAttackUnit?.getAttackTypeSelection();
         this.hydrateSceneState(state);
         // hydrateSceneState -> refreshWithNewType just re-carved the CLASSIC mountain pair, so the seeded
         // scattered layout must be re-stamped from scratch (standing stones only) before anything below
@@ -2474,6 +2477,21 @@ export class RankedPlayScene extends Sandbox {
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
         this.syncRankedVisibleTurnState(snapshot);
+        // A rebuilt instance is a fresh activation to Sandbox. Keep a human's chosen stance on the
+        // SAME authoritative turn; a new turn receives the normal default instead.
+        const activeAfterRebuild = this.getCurrentActiveUnit();
+        if (
+            priorTurnActivationKey &&
+            priorTurnActivationKey === this.rankedTurnActivationKey &&
+            activeAfterRebuild?.getId() === selectedAttackUnit?.getId() &&
+            selectedAttackType !== undefined &&
+            this.canControlCurrentActiveUnit()
+        ) {
+            if (activeAfterRebuild?.selectAttackType(selectedAttackType)) {
+                this.sc_selectedAttackType = activeAfterRebuild.getAttackTypeSelection();
+                this.buttonManager.refreshButtons(true);
+            }
+        }
         // Re-arm the spell the hydrate wiped, when the SAME unit is still active, still ours to control,
         // and its rebuilt book still holds usable charges of that spell. See the capture above the hydrate.
         if (armedSpellName && armedUnitId) {

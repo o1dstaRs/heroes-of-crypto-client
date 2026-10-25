@@ -334,7 +334,7 @@ function unitText(unit: Unit, language: Language): string {
     const movement = isRu
         ? (movementLabelRu[unit.movementType] ?? unit.movementType)
         : movementLabel(unit.movementType);
-    const footprint = unit.size === 1 ? "1x1" : unit.size === 2 ? "2x2" : `${unit.size}`;
+    const footprint = `${unit.footprintWidth}x${unit.footprintHeight}`;
     const abilityLines = unit.abilities.map(
         (ability) =>
             `${isRu ? ruLabel(ability.name) : ability.name}: ${(isRu ? ability.descriptionRu : ability.description).replace(/\s+/g, " ")}`,
@@ -1310,13 +1310,13 @@ function formulaSpecs(): FormulaSpec[] {
                 "The Barrels map: where the barrels stand, what they block, how to break them, and when the map narrows.",
             summaryRu: "Карта Barrels: где стоят бочки, что они блокируют, как их разбить и когда сужается поле.",
             text: bullet([
-                "The ranked map — Normal, Barrels or FIRE PIT, equally likely — is fixed when the draft is created and revealed to both players during the draft. On Barrels: exactly 12 destructible barrels, placed from the match ID across the four central columns; there is no single central block.",
+                "The ranked map — Normal, Barrels or FIRE PIT, equally likely — is fixed when the draft is created. Spymaster sees it with the starting bundle choices; Scout and Battle Trance learn it before the level-3 picks. Public observers never receive Spymaster's early map reveal. On Barrels: exactly 12 destructible barrels, placed from the match ID across the four central columns; there is no single central block.",
                 "A barrel is a structure: an ordinary shot is stopped by the first barrel in its lane.",
                 "Any unit can attack a barrel directly, in melee or with a shot, and a single hit destroys it. Double Shot spends up to two of its projectiles clearing barrels instead of hitting the target; Cyclops (Large Caliber) and Gargantuan (Area Throw) fly over structures and smash every barrel caught in the 3×3.",
                 "The Barrels map narrows at laps 5 and 9 (Normal and FIRE PIT at 4, 7 and 10).",
             ]),
             textRu: bullet([
-                "Рейтинговая карта — Normal, Barrels или FIRE PIT, с равными шансами — определяется при создании драфта и видна обоим игрокам во время драфта. На Barrels ровно 12 разрушаемых бочек, расставленных по четырём центральным колонкам по ID матча; единого блока в центре нет.",
+                "Рейтинговая карта — Normal, Barrels или FIRE PIT, с равными шансами — определяется при создании драфта. Spymaster видит её при выборе стартового бандла, Scout и Battle Trance — перед пиками 3 уровня. Публичные наблюдатели не получают раннее раскрытие карты от Spymaster. На Barrels ровно 12 разрушаемых бочек, расставленных по четырём центральным колонкам по ID матча; единого блока в центре нет.",
                 "Бочка — постройка: обычный выстрел останавливает первая бочка на линии.",
                 "Любой юнит может атаковать бочку напрямую, в ближнем бою или выстрелом, и один удар её уничтожает. Double Shot тратит до двух своих снарядов на расчистку бочек вместо попадания по цели; Cyclops (Large Caliber) и Gargantuan (Area Throw) летят поверх построек и разбивают все бочки в зоне 3×3.",
                 "Карта Barrels сужается на 5 и 9 кругах (Normal и FIRE PIT — на 4, 7 и 10).",
@@ -1710,6 +1710,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 initiative: unit.initiative,
                 steps: unit.steps,
                 size: unit.size,
+                footprintWidth: unit.footprintWidth,
+                footprintHeight: unit.footprintHeight,
                 experience: unit.experience,
                 attackType: unit.attackType,
                 movementType: unit.movementType,
@@ -1967,7 +1969,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         const points = `${doctrine.upgradePoints} ${pluralRu(doctrine.upgradePoints, ["очко", "очка", "очков"])} апгрейдов`;
         const descriptionRu =
             doctrine.revealMode === "all"
-                ? `Показывает все выборы соперника во время драфта и заранее все баны. Даёт ${points}.`
+                ? `Показывает все выборы соперника во время драфта и заранее все баны. Карта известна уже при выборе стартового бандла. Даёт ${points}.`
                 : doctrine.revealMode === "random3"
                   ? `Открывает выборы соперника в 3 случайных слотах его армии и заранее все баны. Даёт ${points}.`
                   : `Не показывает ни одного выбора соперника. Баны открываются по мере появления выбора каждого уровня существ. Даёт ${points}.`;

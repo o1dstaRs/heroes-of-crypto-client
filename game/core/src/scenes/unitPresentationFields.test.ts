@@ -17,7 +17,6 @@ import { BufferImageSource, Container, Texture } from "pixi.js";
 import { restoreBattle, snapshotBattle } from "../../../heroes-of-crypto-common/src/simulation/battle_snapshot";
 import { runAiSearchSimulation } from "./aiSearchGuard";
 import { RenderableUnit } from "./RenderableUnit";
-import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 
 const settings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -72,10 +71,7 @@ test("pending damage counts retain their action identity across an AI rollback",
     expect(snapshotBattle(units, grid, fight)).toEqual(before);
 });
 
-for (const [renderer, factory] of [
-    ["battlefield", RenderableUnit],
-    ["level one", LevelOneRenderableUnit],
-] as const) {
+for (const [renderer, factory] of [["battlefield", RenderableUnit]] as const) {
     test(`${renderer} lazy visuals stay outside battle snapshots and survive rollback by identity`, () => {
         const grid = new Grid(settings, GridVals.NORMAL);
         const units = new UnitsHolder(grid);

@@ -16,9 +16,8 @@
 </p>
 
 For a detailed overview of the game mechanics, roadmap, and the vision behind Heroes of Crypto, please check out our [Whitepaper](https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai).
-This repository primarily contains:
-
-1. The core game client at `game/core`, which implements the game mechanics and the user interface built with [mui](https://mui.com/) React components, and uses PixiJS 8 (pixijs8) as the game engine for rendering, animation, and game loop integration.
+This repository contains the PixiJS 8 and React game client in `game/core`, the Astro marketing site in
+`site`, and the headless model/MCP adapter in `game/mcp`.
 
 **Depends on** the shared libraries in `game/heroes-of-crypto-common`. This package provides code shared between the client and server — protobuf definitions and generated code, shared TypeScript types, networking helpers, serialization utilities, and the game constants and rules. See the common repo at https://github.com/o1dstaRs/heroes-of-crypto-common
 
@@ -29,16 +28,15 @@ Requires Bun 1.4.4 or newer
 Prerequisites:
 
 ```bash
-brew install protoc-gen-js
-# works just fine with 'libprotoc 33.0'
-brew install protobuf
-which protoc
-
-# pull the heroes-of-crypto common libraries and build protoc
-git pull --recurse-submodules
+# Initialize the shared rules package after cloning.
+git submodule update --init --recursive
 bun install
-bun run --cwd game/heroes-of-crypto-common build:proto
+bun run build:common
 ```
+
+Generated protocol sources are checked in. Follow the shared package's
+[agent instructions](game/heroes-of-crypto-common/AGENTS.md) before changing them: its current
+`build:proto` script deletes generated files before failing and must not be used.
 
 Env variables:
 
@@ -59,20 +57,25 @@ JavaScript origins. Add `http://localhost:4321` when testing the Astro site loca
 
 Most important commands to execute from the root folder (you need [bun](https://bun.com/) installed):
 
--   `bun run build` -> Full project build: runs lint fixers, lint checks, then builds workspace packages (common + core).
+-   `bun run build` -> Full project build: runs lint fixers, lint and image-policy checks, then builds common, core, site, and MCP.
 -   `bun run build:common` -> Build the shared heroes-of-crypto-common package (game/heroes-of-crypto-common).
 -   `bun run build:core` -> Build the core client package (game/core).
 -   `bun run build:game` -> Build the game packages via Bun workspaces (runs workspace build for @heroesofcrypto/common and @heroesofcrypto/core).
--   `bun run build:ws` -> Build workspace pieces by running build:common and build:core.
+-   `bun run build:ws` -> Build common, core, site, and MCP, in that order.
+-   `bun run check` -> Run lint, image-policy and path-case checks, type checking, and all workspace tests.
 -   `bun run lint` -> Run the full lint suite and style checks (ESLint, Stylelint, package.json sorting, `bun fmt --check`).
 -   `bun run lint:fix` -> Run all lint fixers (ESLint --fix, SCSS fixes, package.json sorting, `bun fmt`).
 -   `bun run start` -> Start the game locally.
+-   `bun run start:site` -> Start the marketing site locally.
 
 Release builds and coordinated test/production deployment are documented in [DEPLOYMENT.md](DEPLOYMENT.md). Start with `bun run deploy:plan`; `bun run deploy:all` deploys the shared assistant, test game/APIs/site, then production through the server's existing health checks and rollback.
 
 ## Contribution
 
 We welcome contributions to the Heroes of Crypto game client! Whether you’re a seasoned developer or just getting started, there are many ways you can help improve the project.
+
+Agents using the shared working tree must follow [AGENTS.md](AGENTS.md), including its mainline workflow
+and verification requirements. The fork workflow below is for external contributors.
 
 ### How to Contribute
 

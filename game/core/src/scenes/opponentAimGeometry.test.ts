@@ -126,6 +126,7 @@ function fixture(team: TeamType = TeamVals.LEFT, width = 1, height = 1, abilitie
         grid: fight.grid,
         settings: gs,
         evaluateRange: fight.attackHandler.evaluateRangeAttack.bind(fight.attackHandler),
+        getObstacleIntersections: fight.attackHandler.getObstacleIntersections.bind(fight.attackHandler),
     };
     const aim = (overrides: Partial<PlayAim> = {}): PlayAim => ({
         kind: PlayAimKind.RANGED,

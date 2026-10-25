@@ -23,6 +23,8 @@ interface RawCreature {
     movement_type: string;
     exp: number;
     size: number;
+    footprint_width?: number;
+    footprint_height?: number;
     level: number;
     spells: string[];
     abilities: string[];
@@ -409,6 +411,8 @@ export interface Unit {
     faction: FactionName;
     level: number;
     size: number;
+    footprintWidth: number;
+    footprintHeight: number;
     experience: number;
     hp: number;
     armor: number;
@@ -491,6 +495,8 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         faction,
         level: raw.level,
         size: raw.size,
+        footprintWidth: raw.footprint_width ?? raw.size,
+        footprintHeight: raw.footprint_height ?? raw.size,
         experience: raw.exp,
         hp: raw.hp,
         armor: raw.armor,

@@ -11,7 +11,6 @@ import {
 } from "@heroesofcrypto/common";
 import { BufferImageSource, Container, Text, Texture } from "pixi.js";
 import { RenderableUnit } from "./RenderableUnit";
-import { RenderableUnit as ApprovedUnit } from "./LevelOneRenderableUnit";
 import { Sandbox } from "./Sandbox";
 import { images } from "../generated/image_imports";
 import { usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
@@ -114,10 +113,9 @@ test.each(roster)("%s/%s retains the package after authoritative unit reconstruc
         resolve,
     );
     expect(placement instanceof RenderableUnit).toBe(true);
-    expect(placement instanceof ApprovedUnit).toBe(true);
     placement.destroyVisuals();
     const hydrate = Sandbox.prototype as unknown as {
-        createRenderableUnitFromSceneState(this: unknown, state: unknown): ApprovedUnit;
+        createRenderableUnitFromSceneState(this: unknown, state: unknown): RenderableUnit;
     };
     const unit = hydrate.createRenderableUnitFromSceneState.call(
         {
@@ -280,7 +278,7 @@ const approvedWolf = (resolveTexture: (key: string) => Texture | undefined) => {
 test("an approved creature shows its team token with the stack count until its board image lands", () => {
     let baseAvailable = false;
     const unit = approvedWolf((key) => (baseAvailable && !key.includes("atlas") ? texture : undefined));
-    expect(unit instanceof ApprovedUnit).toBe(true);
+    expect(unit instanceof RenderableUnit).toBe(true);
     const root = new Container();
     unit.setPosition(0, 1024);
 

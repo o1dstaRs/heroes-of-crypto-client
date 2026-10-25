@@ -16,10 +16,12 @@ import {
 import { PlayAimKind, type PlayAim } from "../api/play_protocol";
 import { rangeTargetEdgeEvaluationAim } from "./rangeTargetEdges";
 import { rangeAttackFootprintEdgePoint } from "./sandbox/BattlefieldVisualGrid";
+import { projectRangedObstacles } from "./rangedObstaclePreview";
 
 export interface AimGeometry {
     color: number;
     cells: HoCMath.XY[];
+    barrelCells?: HoCMath.XY[];
     ray?: { from: HoCMath.XY; to: HoCMath.XY };
     ghost?: HoCMath.XY;
 }
@@ -30,6 +32,7 @@ export interface AimGeometryContext {
     grid: Grid;
     settings: GridSettings;
     evaluateRange: AttackHandler["evaluateRangeAttack"];
+    getObstacleIntersections: AttackHandler["getObstacleIntersections"];
     spell?: Spell;
     spellImpact?: Unit;
     spellEndpoint?: HoCMath.XY;
@@ -127,6 +130,34 @@ export function resolveOpponentAimGeometry(aim: PlayAim, context: AimGeometryCon
         } else {
             geometry.cells = evaluation.affectedCells[0] ?? victim?.getCells() ?? [];
         }
+        const obstacleOnly = through && !target && !!evaluation.attackObstacle && evaluation.affectedUnits.length === 0;
+        const obstaclePreview = projectRangedObstacles({
+            attacker: actor,
+            grid,
+            units,
+            handler: {
+                evaluateRangeAttack: context.evaluateRange,
+                getObstacleIntersections: context.getObstacleIntersections,
+            },
+            from: origin,
+            aim: obstacleOnly ? evaluation.attackObstacle!.position : end,
+            evaluation,
+            obstacleTarget: obstacleOnly || (!target && grid.getOccupantUnitId(aim.cell) === "B"),
+            blastCells: area && !target && !evaluation.affectedUnits.length ? geometry.cells : undefined,
+        });
+        geometry.barrelCells = obstaclePreview.hits.map((hit) => GridMath.getCellForPosition(gs, hit.position));
+        if (obstaclePreview.blocker) {
+            impact = obstaclePreview.blocker.position;
+            if (!through) geometry.cells = [];
+        } else if (obstaclePreview.hits.length && !area && !actor.hasAbilityActive("Large Caliber")) {
+            impact = through ? GridMath.projectLineToFieldEdge(gs, origin.x, origin.y, end.x, end.y) : end;
+            if (!through && !geometry.cells.length) geometry.cells = target?.getCells() ?? [];
+        }
+        geometry.cells = [
+            ...new Map(
+                [...geometry.cells, ...geometry.barrelCells].map((cell) => [`${cell.x}:${cell.y}`, cell]),
+            ).values(),
+        ];
         if (aim.attackFrom && (origin.x !== actor.getPosition().x || origin.y !== actor.getPosition().y))
             geometry.ghost = origin;
         geometry.ray = {

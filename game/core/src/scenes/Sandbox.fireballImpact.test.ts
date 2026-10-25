@@ -104,7 +104,7 @@ describe("Fireball splash preview uses the accepted impact cell", () => {
             },
             canControlCurrentActiveUnit: () => false,
             isPlayingActionAnimation: () => false,
-            attackHandler: { evaluateRangeAttack: () => undefined },
+            attackHandler: { evaluateRangeAttack: () => undefined, getObstacleIntersections: () => [] },
             hoverManager: { clearOpponentIntentSilhouette: () => undefined },
             opponentAimOverlay: { paint: (geometry: AimGeometry) => painted.push(geometry), graphics: {} },
         });

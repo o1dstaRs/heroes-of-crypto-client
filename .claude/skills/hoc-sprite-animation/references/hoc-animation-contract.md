@@ -4,10 +4,10 @@ Read this before packaging, runtime promotion, or client integration.
 
 ## Storage and promotion boundary
 
-- Canonical design and calibration work: `/Users/pro/Workplace/heroesofcrypto-assets/design`.
-- Canonical runtime animations: `/Users/pro/Workplace/heroesofcrypto-assets/animations/output`.
-- Repository generation intermediates: `game/core/tmp/imagegen` or another ignored local `tmp` folder.
-- Do not write game art to Dropbox or another synchronized folder.
+- Local design, calibration, and generation intermediates: `game/core/tmp/imagegen/<versioned-package>`.
+- Canonical runtime animations: `"$HOC_ANIMATIONS_LOC/output"`; resolve this configured root before writing. Canonical identity art comes from `HOC_IMAGES_LOC`.
+- Shared source-package handoff: `"$HOME/Google Drive/My Drive/heroesofcrypto/image-sources/<versioned-package>"`, outside the runtime images directory.
+- Before finishing image work, synchronize approved runtime files to their configured canonical roots and the source artwork, prompts, references, variants, recipes, and metadata to the shared source package. Verify copied files by SHA-256. Preserve differing prior masters in package history. Follow the repository's Google Drive policy; never use Dropbox or another synchronized cloud folder.
 - Do not overwrite runtime atlases while exploring. Promotion requires explicit authorization in the current task and an approved preview.
 - Before replacement, save the installed atlas/meta and hashes under the design record. Stage the new files outside runtime, verify them, then install them without deleting the recoverable prior copy.
 
@@ -50,7 +50,7 @@ The packer does not create the animated `*_preview.webp`. Generate that preview 
 
 ## Client integration
 
-After approved runtime assets are present, run the existing image/animation generation and validation commands; do not hand-edit generated imports. The canonical scanner is `game/core/scripts/generate_animation_atlases.js`, which reads `*_meta.json` and atlas WebPs under the local animations output root. Some UI consumers derive a faster loop and pause from `totalDurationSec`, so verify the actual target scene rather than assuming metadata timing is displayed unchanged.
+After approved runtime assets are present, run the existing image/animation generation and validation commands; do not hand-edit generated imports. The canonical scanner is `game/core/scripts/generate_animation_atlases.js`, which reads `*_meta.json` and atlas WebPs under `HOC_ANIMATIONS_LOC/output`. Some UI consumers derive a faster loop and pause from `totalDurationSec`, so verify the actual target scene rather than assuming metadata timing is displayed unchanged.
 
 Run from the repository root as applicable:
 
