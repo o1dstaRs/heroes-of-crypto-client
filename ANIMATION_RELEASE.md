@@ -2,7 +2,7 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,388 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,502 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
@@ -13,7 +13,7 @@ The release also reuses exact, unchanged files from the [shared heroesofcrypto f
 Keep that folder available locally through Google Drive, or download its images and animations/output
 folders with their directory structure intact. The old compact archive and source.zip are not required.
 
-**Upload verification is in progress. Do not deploy from a partial download.**
+**Download all seven archives. The restore tools verify every archive and shared source revision before a build.**
 
 | Archive | SHA-256 |
 | --- | --- |
@@ -23,8 +23,9 @@ folders with their directory structure intact. The old compact archive and sourc
 | `resources-04.zip` | `f2a65b2293f38337cc4039ad79bdddb47c5b5903d0dd93605ea2a869f76b271b` |
 | `resources-05.zip` | `3c7e436c479acb706bab1ffc5e7eea9f22d65a766eb97ffb65333f34fd48e0b6` |
 | `resources-06.zip` | `2e1942919d034d57cc2440c05608dcd10e112eeb8e574e8fc81dac19f5a42d7f` |
+| `resources-07.zip` | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
 
-Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The six archives
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The seven archives
 and the verified shared files contain the required runtime assets, settings reference and site exports.
 No older compact archive, source ZIP, patch ZIP or separately downloaded portrait-page supplement is
 required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.
@@ -90,4 +91,6 @@ commit. This handoff does not authorize a production deployment.
 
 Validation covers sandbox, draft levels 1–4, artifacts, augments, placement, server-driven human and
 AI combat, results, site pages and browser logs. Core tests run in bounded batches so isolated Pixi/React
-VMs cannot accumulate until the process exhausts workstation memory.
+VMs cannot accumulate until the process exhausts workstation memory. Large game images are hashed
+and copied to the build output sequentially after bundling, preserving their bytes without retaining
+the complete art package in the bundler heap. The final real-art build peaked at about 1.43 GiB.

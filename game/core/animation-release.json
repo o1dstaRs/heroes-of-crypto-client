@@ -21552,6 +21552,462 @@
         "animations/output/arbalester_left_screen_redraw_v2/atlas/arbalester_left_screen_redraw_v2_atlas.webp": {
             "sha256": "294e8b32cd1b846d19ac5ef809c04ad48ae433f2a5870cec8d76b07ecb6e1149",
             "bytes": 20740356
+        },
+        "images/nature_portrait_bg_emerald_forest_glow_v1.webp": {
+            "sha256": "2b84904ddffa5f459cb319815424dd4bbc273ee10df82dc3d7df2d907c93bc6d",
+            "bytes": 497832
+        },
+        "images/nature_portrait_bg_emerald_forest_v1.webp": {
+            "sha256": "721e1120b270137315183fff26ade0171d88a0cf190f28e7273812e3685a593a",
+            "bytes": 375044
+        },
+        "images/portrait_aaa_front_bg_shade_v1_abomination.webp": {
+            "sha256": "82a0e0033c811398b446244d256bd76c9820cc2c60a9169a8d50a65705e3dcbb",
+            "bytes": 11230
+        },
+        "images/portrait_aaa_front_bg_shade_v1_angel.webp": {
+            "sha256": "aeb605d75a6a53dc3c570fb5c3be11b5bbc38dbd1e5e96920a7af85e9b14d01d",
+            "bytes": 34464
+        },
+        "images/portrait_aaa_front_bg_shade_v1_arbalester.webp": {
+            "sha256": "3934f268bbfbec2d2d45ef26f10e4c4146221781aefc5b7fb0283bcfcdff0f1a",
+            "bytes": 5324
+        },
+        "images/portrait_aaa_front_bg_shade_v1_battle_mage.webp": {
+            "sha256": "56d973934bab4212d818ea61450654b00e67e147233762273c3c8a8c89a376b1",
+            "bytes": 23876
+        },
+        "images/portrait_aaa_front_bg_shade_v1_behemoth.webp": {
+            "sha256": "9db8081d29435f69f27afb717a759ba77da7f43415f3a2ae7d8d94b2614cdcd5",
+            "bytes": 31962
+        },
+        "images/portrait_aaa_front_bg_shade_v1_beholder.webp": {
+            "sha256": "6efdb218edd827228e3bc21915a95b0fe5cb256eefdf08e2c6379763372a1435",
+            "bytes": 47494
+        },
+        "images/portrait_aaa_front_bg_shade_v1_berserker.webp": {
+            "sha256": "640b070aef2e293351f552c225ef9bfb812324f86d2ee90602193526bbf580a1",
+            "bytes": 5348
+        },
+        "images/portrait_aaa_front_bg_shade_v1_black_dragon.webp": {
+            "sha256": "ba88a4efee22bea770b79d599cc408ff474a43735c2cc4df3a9afde341250510",
+            "bytes": 39136
+        },
+        "images/portrait_aaa_front_bg_shade_v1_blacksmith.webp": {
+            "sha256": "4b930f2c85a447815864d839f7b22e23e07bbb880f85229c27dcdec9b1c5ae34",
+            "bytes": 6232
+        },
+        "images/portrait_aaa_front_bg_shade_v1_centaur.webp": {
+            "sha256": "194645af9b16153468c7f6a043a6d7f97222d86c78e29ed04ab9288b50a2f89c",
+            "bytes": 5102
+        },
+        "images/portrait_aaa_front_bg_shade_v1_champion.webp": {
+            "sha256": "0d29adb7cc5c94cec96bdabc6a647c72e6ce4e96f059e0992e47ee525e78239e",
+            "bytes": 55856
+        },
+        "images/portrait_aaa_front_bg_shade_v1_crusader.webp": {
+            "sha256": "937a85bd9cedf238fca6bbbda237777b91e1fdeca98b87141155eaf32b1f2609",
+            "bytes": 55428
+        },
+        "images/portrait_aaa_front_bg_shade_v1_cyclops.webp": {
+            "sha256": "278c2257073f144c862c5a03594b14d1c3b37043e9064d2a613d0c3ef053b4a4",
+            "bytes": 11258
+        },
+        "images/portrait_aaa_front_bg_shade_v1_efreet.webp": {
+            "sha256": "8b3229048ae8f8276fe8c1a1015298268f33ee35012440475cea3ac53b2ea67f",
+            "bytes": 67122
+        },
+        "images/portrait_aaa_front_bg_shade_v1_frenzied_boar.webp": {
+            "sha256": "2ae91f3586490dc972a37b0b06cdc8cc2ae202339295bc1f6874ace51fa4f55b",
+            "bytes": 59660
+        },
+        "images/portrait_aaa_front_bg_shade_v1_goblin_knight.webp": {
+            "sha256": "504d74741eaf8e8600d0e87f8e9c9ddb31f85f1cb96bfda3865b1ac2b62a2421",
+            "bytes": 18620
+        },
+        "images/portrait_aaa_front_bg_shade_v1_griffin.webp": {
+            "sha256": "29f47e2b5a3e33afe0accf4f6a0a6b20006cc953b535eb54fb9ce23ac818b575",
+            "bytes": 37106
+        },
+        "images/portrait_aaa_front_bg_shade_v1_harpy.webp": {
+            "sha256": "e5e7d7f30330c8ef473d9a7ec2960357a701ea607a691c748384a5fab6717010",
+            "bytes": 67734
+        },
+        "images/portrait_aaa_front_bg_shade_v1_healer.webp": {
+            "sha256": "d55f445d639ea0cf0e75571738526f82b56a7c6d55aedc7a781c1af4ce3841b4",
+            "bytes": 57314
+        },
+        "images/portrait_aaa_front_bg_shade_v1_hydra.webp": {
+            "sha256": "cd516f98191fce0a1eff6ccac9fc9943c7274734edc193043536fc969b5711fc",
+            "bytes": 59534
+        },
+        "images/portrait_aaa_front_bg_shade_v1_hyena.webp": {
+            "sha256": "7c2e277efb176870f30e5c77a6159932e5ec84bcc1646a462f262bebc0054d5a",
+            "bytes": 59334
+        },
+        "images/portrait_aaa_front_bg_shade_v1_manticore.webp": {
+            "sha256": "d7b7d0b88499b07ca54faecce829a43a53e1c7600aa50eb91985c34a8b1121d8",
+            "bytes": 39198
+        },
+        "images/portrait_aaa_front_bg_shade_v1_medusa.webp": {
+            "sha256": "09b8a831eb4ea71e8890510acc27bb90a572400d6de325ec9c45e75f04293938",
+            "bytes": 29508
+        },
+        "images/portrait_aaa_front_bg_shade_v1_mermaid.webp": {
+            "sha256": "fe58b2cb99de06bd99f9861e22a2a0d50659dbdd4d6a7ccbf04c4a2fecfdfabf",
+            "bytes": 5148
+        },
+        "images/portrait_aaa_front_bg_shade_v1_monk.webp": {
+            "sha256": "c7a9d0b246235b559a98a79f2a12f4c216fe848311fc8206e7bbec90dd7128cb",
+            "bytes": 10486
+        },
+        "images/portrait_aaa_front_bg_shade_v1_nightmare.webp": {
+            "sha256": "31604c3016112f3997a7ae5cbeae53aade0e25e5f8cfd4a417b1c5bc24ed158b",
+            "bytes": 82876
+        },
+        "images/portrait_aaa_front_bg_shade_v1_nomad.webp": {
+            "sha256": "6c4e1b09309533a3c995d1ce1c93970959ada8219756b6668260a6409a3c7348",
+            "bytes": 32904
+        },
+        "images/portrait_aaa_front_bg_shade_v1_ogre_mage.webp": {
+            "sha256": "a175cb2cc750345d7c70e53a692fab0cbee3a8d698c8281280c65cacb8771429",
+            "bytes": 10724
+        },
+        "images/portrait_aaa_front_bg_shade_v1_orc.webp": {
+            "sha256": "cd5ae42a0df31593bcba83129cd412c78132ace5e3f503f89b00bfa18298aa3c",
+            "bytes": 23274
+        },
+        "images/portrait_aaa_front_bg_shade_v1_peasant.webp": {
+            "sha256": "9bd909b892e7780dc168ffdd573ef11d99d7b31ecbaf1b9458c536eed98ef4ae",
+            "bytes": 5968
+        },
+        "images/portrait_aaa_front_bg_shade_v1_pikeman.webp": {
+            "sha256": "ef10af4bce015c75f5ca8dfed977cf907e7d382ffcaadcc04e3707df29f9dd29",
+            "bytes": 11434
+        },
+        "images/portrait_aaa_front_bg_shade_v1_scavenger.webp": {
+            "sha256": "e183f228a5e0cf0f874e5bf007af928cdccd2ddcfb057132a9740e18201bd9f6",
+            "bytes": 12898
+        },
+        "images/portrait_aaa_front_bg_shade_v1_squire.webp": {
+            "sha256": "b5792109e279a4c9f25989a4e3454392aecdeb966fb0095685e524ef047f189f",
+            "bytes": 2584
+        },
+        "images/portrait_aaa_front_bg_shade_v1_thunderbird.webp": {
+            "sha256": "2305cedd83afe2be34a2023367e3e6e4c16dbb7d3693ba71f0af17f6c3d7640c",
+            "bytes": 32560
+        },
+        "images/portrait_aaa_front_bg_shade_v1_troglodyte.webp": {
+            "sha256": "b113b1ace50e418879efc8fe9653a4085c9c8937689af25afc72f51e8811690e",
+            "bytes": 33426
+        },
+        "images/portrait_aaa_front_bg_shade_v1_troll.webp": {
+            "sha256": "fa8e7a1dd7d3115b60c24ae49c2f557e158cf740e387ecdbd3abcdfef2593bc0",
+            "bytes": 55262
+        },
+        "images/portrait_aaa_front_bg_shade_v1_tsar_cannon.webp": {
+            "sha256": "afe1fdfcfb237e1a887aa6fb57996f74a02c9bc7d42fd69b359e41a7e0e9816e",
+            "bytes": 24340
+        },
+        "images/portrait_aaa_front_bg_shade_v1_valkyrie.webp": {
+            "sha256": "342a5dfae2c43807a0b3e15b856fe1823a8f658b5320726a2674408039863df5",
+            "bytes": 55920
+        },
+        "images/portrait_aaa_front_bg_shade_v1_wandering_mage.webp": {
+            "sha256": "da05a7026d23fb22ddbc67a7e8e3d1ffdf9d0d9178b0e7576f166d17e1702559",
+            "bytes": 60786
+        },
+        "images/portrait_aaa_front_bg_shade_v1_wolf_rider.webp": {
+            "sha256": "7dc2251e24bfdc3e6bb62ce3a46315ac2493cc8d9afb8c1b24ecade201d256c7",
+            "bytes": 3032
+        },
+        "images/portrait_aaa_front_bg_shade_v1_wyvern.webp": {
+            "sha256": "0ec89fc7a36bb2eacc3735891392d3db09f26c333fdbfc54f9374c4a78b60fe7",
+            "bytes": 37932
+        },
+        "images/portrait_aaa_front_bg_shade_v1_zena.webp": {
+            "sha256": "f0d7595d8f5b1625e3adca3a9514430899d39398d2f1b1ba984bd72e44dc2bb6",
+            "bytes": 39096
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_arachna_queen.webp": {
+            "sha256": "d9ccb09585bbeb0728da0ea5d6fe0156242a859d49949d7bc8b89fdfbc87eb0b",
+            "bytes": 659250
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_dryad.webp": {
+            "sha256": "05ce887a2e3f853e27a8c767416c07d49b6b56eaa5bd585b6f85bb83823c4911",
+            "bytes": 59878
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_elf.webp": {
+            "sha256": "79cfda958e5d1f095ea918a04a1a5c2170f89455b24c492e1bb552365f52dd97",
+            "bytes": 607300
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_fairy.webp": {
+            "sha256": "7be0a4a205251bca8f50ed64af9ad3dc88921991f57105819f7b5f7217fa855c",
+            "bytes": 43028
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_gargantuan.webp": {
+            "sha256": "2ade98963469784e62c3ed33f65bfa19dd7bff3d603f9c97a354995dd8f7297e",
+            "bytes": 669942
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_leprechaun.webp": {
+            "sha256": "61c3e6b5344005e2c606457e7f6b367b1ffeb5b040648b8c659ed0a853379cf2",
+            "bytes": 41770
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_magic_dragon.webp": {
+            "sha256": "24cef6707d15e207b06f60b79b72f0da112a80c04b521096a6da504ca8104a2d",
+            "bytes": 635850
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_mantis.webp": {
+            "sha256": "7c61c77befe6467d0ae47ce0b9cf8fc1a5f88bfe42831191ffeb32dac3806ffe",
+            "bytes": 472512
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_pegasus.webp": {
+            "sha256": "7ef966c42d9b4cacbc2a5c1d0b917d89141d91da24eee2ae53034c7417261adc",
+            "bytes": 624422
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_satyr.webp": {
+            "sha256": "f2414c7feea055b320972045e3f23cf7afb28681b229dae578968ee71059bd76",
+            "bytes": 673070
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_trent.webp": {
+            "sha256": "42d6fa102db2d4bf2d934090eafc3676abf386b391e84a323c2d1edcf0c89f86",
+            "bytes": 666194
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_unicorn.webp": {
+            "sha256": "09563a929befbaa9a2b6e4edf7ac939bd99fca545d8501995923eec348cf9f59",
+            "bytes": 468860
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_white_tiger.webp": {
+            "sha256": "9841560de7877c1031842e858352adfdf5b036a9952542e1ff40ec2a945d5cd9",
+            "bytes": 680466
+        },
+        "images/portrait_aaa_front_nature_cutout_v2_wolf.webp": {
+            "sha256": "cd8e177ae588a5b6e62c005c96190344abd7887356e1a72a697e7a6de64a9645",
+            "bytes": 569260
+        },
+        "images/portrait_aaa_front_v1_abomination.webp": {
+            "sha256": "3569a6f41f283e21fc5825068bdc6c299b330e78ed7337238bdb7132ca1e31d2",
+            "bytes": 563478
+        },
+        "images/portrait_aaa_front_v1_angel.webp": {
+            "sha256": "317bb106e373d7f19fc99efe5bfbd86da6b1d2fc8a7ad7c4b006cb4399faf874",
+            "bytes": 618048
+        },
+        "images/portrait_aaa_front_v1_arachna_queen.webp": {
+            "sha256": "9858eecbf2918260e1ea52b41ac3ce9d66fcdec07865241d7d014417d372eedf",
+            "bytes": 556332
+        },
+        "images/portrait_aaa_front_v1_arbalester.webp": {
+            "sha256": "ad5664bcc9f80f5cee52f1355b741413d07a3bf4db83479087a10c8f9e48543f",
+            "bytes": 45172
+        },
+        "images/portrait_aaa_front_v1_battle_mage.webp": {
+            "sha256": "b98324cd96d61342e24902a27a170fe1c5db67b42736b680147173653b863490",
+            "bytes": 638154
+        },
+        "images/portrait_aaa_front_v1_behemoth.webp": {
+            "sha256": "168ba92087eb4c50e1742d7803f086643a12775df4f9722f7ae6421a31088ffe",
+            "bytes": 460326
+        },
+        "images/portrait_aaa_front_v1_beholder.webp": {
+            "sha256": "8c6dbec3291954019b199236cbe651a1c1b23868bd20517f59b914c74f763216",
+            "bytes": 606308
+        },
+        "images/portrait_aaa_front_v1_berserker.webp": {
+            "sha256": "f6dc31c1569bd28ab775b7bbc54e624026375a327e6e1591b21a555f4a948a29",
+            "bytes": 47274
+        },
+        "images/portrait_aaa_front_v1_black_dragon.webp": {
+            "sha256": "4d96ff983019ef06a36acdccb92e7287b81323e61c572ffb63cb2499dd9569f6",
+            "bytes": 594658
+        },
+        "images/portrait_aaa_front_v1_blacksmith.webp": {
+            "sha256": "d785c1cb812eedd0bd6e78b0aaab84aa8cdfbdf05c46a4c88853fc0d64b31704",
+            "bytes": 48956
+        },
+        "images/portrait_aaa_front_v1_centaur.webp": {
+            "sha256": "3d280e1b10b1c526ce9ccb95aaedebcdd0da9215fb8771dbe934158da3abf299",
+            "bytes": 43200
+        },
+        "images/portrait_aaa_front_v1_champion.webp": {
+            "sha256": "154a67d0c12f6913425c0ec94e1106b1ff4024e9504cb90d5ea35337ff1c2a98",
+            "bytes": 628238
+        },
+        "images/portrait_aaa_front_v1_crusader.webp": {
+            "sha256": "162876e546ae8bd8ac245a5baec758ec200444a982d7fd4c760381e24a2c11f0",
+            "bytes": 632048
+        },
+        "images/portrait_aaa_front_v1_cyclops.webp": {
+            "sha256": "f094c4ca8eca320f9a0d494881217804ac7da1ca90f166b9443a732af928036d",
+            "bytes": 453944
+        },
+        "images/portrait_aaa_front_v1_dryad.webp": {
+            "sha256": "d2101d0ea234838a084fe776d80b8352af507b04efc6c1d421022d8c7936eb77",
+            "bytes": 50770
+        },
+        "images/portrait_aaa_front_v1_efreet.webp": {
+            "sha256": "f336fc18d52960bfffd22f9a7ea1ef7b0fade9da0cec46961745c8bc2814ddb1",
+            "bytes": 531138
+        },
+        "images/portrait_aaa_front_v1_elf.webp": {
+            "sha256": "45e838eb5d74fc03dae67beaa8978c7b48e4579b485da02eebd74390acc16538",
+            "bytes": 582240
+        },
+        "images/portrait_aaa_front_v1_fairy.webp": {
+            "sha256": "0ff06bc7bdf5e0862b3c1befed168398be42208a1a9f4c29b1ebc0a0a3718070",
+            "bytes": 42282
+        },
+        "images/portrait_aaa_front_v1_frenzied_boar.webp": {
+            "sha256": "9bd1fe95f89cc4362bfeb06675edf75b16735e4b38df0c57d8a8b27732e94c09",
+            "bytes": 604524
+        },
+        "images/portrait_aaa_front_v1_gargantuan.webp": {
+            "sha256": "d54ccb7f5d5d8c4b0b1348228577e118fab9b412e05c64092cd0f06ec0ae98ca",
+            "bytes": 629444
+        },
+        "images/portrait_aaa_front_v1_goblin_knight.webp": {
+            "sha256": "9e0f65446205a4e5d1e1f61c4960a93e33a55fd5c4db1a31efd315ac2cab990d",
+            "bytes": 523258
+        },
+        "images/portrait_aaa_front_v1_griffin.webp": {
+            "sha256": "0323a8d9f35c0b8e1cb12e06359e663efc4e1a83c687f434aee061adec5c7407",
+            "bytes": 552806
+        },
+        "images/portrait_aaa_front_v1_harpy.webp": {
+            "sha256": "63912d8669cbde65b2be00884c433a01c287951f2cbcc1f066cc917715432c59",
+            "bytes": 593650
+        },
+        "images/portrait_aaa_front_v1_healer.webp": {
+            "sha256": "ff67aa01bf6912f8244c306ef2d36e61e97b29d4d856d71efaed3971833ea49b",
+            "bytes": 607244
+        },
+        "images/portrait_aaa_front_v1_hydra.webp": {
+            "sha256": "5fe5e13aff3e76821b17227162febb0b055c6804fdf8a352d011083ce377c5e7",
+            "bytes": 658958
+        },
+        "images/portrait_aaa_front_v1_hyena.webp": {
+            "sha256": "2f0c4c8022f46619ea1386f5e03b648812a0dab80d544f9deec4969f03b08ff4",
+            "bytes": 550170
+        },
+        "images/portrait_aaa_front_v1_leprechaun.webp": {
+            "sha256": "e3fae142219919da6bfced710e5a40709c008391dc91a4b2e98594d5c0e4ce4c",
+            "bytes": 42108
+        },
+        "images/portrait_aaa_front_v1_magic_dragon.webp": {
+            "sha256": "46f55747f1b93cabf8cc25f80aea5f5c3bb428c4211e16204190a6108a5f2453",
+            "bytes": 629650
+        },
+        "images/portrait_aaa_front_v1_manticore.webp": {
+            "sha256": "172db172f90d23bd52fadbc489f12fd42f58686fc4b73661ca0968d72c4fc070",
+            "bytes": 586650
+        },
+        "images/portrait_aaa_front_v1_mantis.webp": {
+            "sha256": "7fb2be9502f81c9a735afb8c902e653ee150dcaf3df430e5dc1f86edf3392282",
+            "bytes": 512664
+        },
+        "images/portrait_aaa_front_v1_medusa.webp": {
+            "sha256": "2b3f7063635ac674a18662e31227a0767f80722eb013e209ac89fb657c4d86e4",
+            "bytes": 643380
+        },
+        "images/portrait_aaa_front_v1_mermaid.webp": {
+            "sha256": "373c4114b7ba06919d9e26b85f03a89b487499482a3c55b5ab00b7d7ec4b690e",
+            "bytes": 47922
+        },
+        "images/portrait_aaa_front_v1_monk.webp": {
+            "sha256": "ebe9ce043e437d3521f1d979cf4c155a5e7b62941fc7c4724e65954b370be2b5",
+            "bytes": 653642
+        },
+        "images/portrait_aaa_front_v1_nightmare.webp": {
+            "sha256": "6993550faacf1258f6687d8c39e01ca591ba44cc5a3d576c9a61994f051b689b",
+            "bytes": 523194
+        },
+        "images/portrait_aaa_front_v1_nomad.webp": {
+            "sha256": "d5df7aca1ee744d4e445b54cd1ade391cd8fc983a040dd4a017e6a5f8e1d8b62",
+            "bytes": 584826
+        },
+        "images/portrait_aaa_front_v1_ogre_mage.webp": {
+            "sha256": "097181edbe69c777c2d1aaa62f52f137386730cc6e2ef9775f5eb1921d7e861e",
+            "bytes": 573962
+        },
+        "images/portrait_aaa_front_v1_orc.webp": {
+            "sha256": "9306823d07d7c2c1418be9e19d16c45c4eef663e1864ebf458ab3db9aec4443d",
+            "bytes": 492952
+        },
+        "images/portrait_aaa_front_v1_peasant.webp": {
+            "sha256": "a1457031c1c2b6d454ab148619a5bf6eaf8fba5a203316c473a5993ca9dd4a3d",
+            "bytes": 51822
+        },
+        "images/portrait_aaa_front_v1_pegasus.webp": {
+            "sha256": "d9ea528be7989dc9dd25aa3272210af3744d41437de700b30ca4e3c8b3470aca",
+            "bytes": 551584
+        },
+        "images/portrait_aaa_front_v1_pikeman.webp": {
+            "sha256": "8a991c07f2e17c15cb031fbcb69ad943847d5fd3cd2300ff5b8c281b0f601f84",
+            "bytes": 669328
+        },
+        "images/portrait_aaa_front_v1_satyr.webp": {
+            "sha256": "10dc360cc966a00ff0d517135eefa112982d01a7f22e19f808b20c5a2b3e9a5b",
+            "bytes": 645440
+        },
+        "images/portrait_aaa_front_v1_scavenger.webp": {
+            "sha256": "af4283ce92f6a3d07588fb0c93e96fe6d2eeb391a8ef78e176c64becaca71915",
+            "bytes": 457506
+        },
+        "images/portrait_aaa_front_v1_squire.webp": {
+            "sha256": "05d7af50a084a577295cd09b0aa5b3072225f1a12aad015e8d89b162f720b9de",
+            "bytes": 57436
+        },
+        "images/portrait_aaa_front_v1_thunderbird.webp": {
+            "sha256": "90b7c8be87ef57c1b1f89a7cbac6a6a8f8724a3876aef90d668143e29873ed5d",
+            "bytes": 490682
+        },
+        "images/portrait_aaa_front_v1_trent.webp": {
+            "sha256": "b49e72ba8efe81915584cf485121c1a7f468666adfd57c4bcbfef71be2466b8d",
+            "bytes": 625230
+        },
+        "images/portrait_aaa_front_v1_troglodyte.webp": {
+            "sha256": "a238c1dcda1c6e105f3ec7c16c812a1ed74f77cdcf6c7ecc43b4507e79da75df",
+            "bytes": 499666
+        },
+        "images/portrait_aaa_front_v1_troll.webp": {
+            "sha256": "8ff3365f1aefa92d009706a458fe8a6b9d71b6acb51cc6cfdb11f22fd1bae5af",
+            "bytes": 531384
+        },
+        "images/portrait_aaa_front_v1_tsar_cannon.webp": {
+            "sha256": "e54615f0349c9f1bd01ad9ae431932c640ed154ba41240a6b2157892d8e85a39",
+            "bytes": 596060
+        },
+        "images/portrait_aaa_front_v1_unicorn.webp": {
+            "sha256": "7aa59aaafb9fa0f7ed663a630b663e12e9b9175e43906c3c61b261be1862082c",
+            "bytes": 434884
+        },
+        "images/portrait_aaa_front_v1_valkyrie.webp": {
+            "sha256": "070bf6fb2328e73403e8b162d89c2f4dfc25a805b7f108b4ed69c399df060854",
+            "bytes": 743636
+        },
+        "images/portrait_aaa_front_v1_wandering_mage.webp": {
+            "sha256": "68bc8e69babf27f2062f70f80bd8e657d560714b75a3f11905845e2d59ce92e1",
+            "bytes": 449276
+        },
+        "images/portrait_aaa_front_v1_white_tiger.webp": {
+            "sha256": "932da1e67fe74d4da4139bd853265d5511b09d6b8529e243e92ca450210815a9",
+            "bytes": 625126
+        },
+        "images/portrait_aaa_front_v1_wolf.webp": {
+            "sha256": "a842cf41e4cd7995d675fc10c65da7a0689d829af0319d085d3b774548f307c3",
+            "bytes": 479022
+        },
+        "images/portrait_aaa_front_v1_wolf_rider.webp": {
+            "sha256": "be71e4b8d0a228a379250b276ed92b579ee5f42bedb97555b2123175cc48d283",
+            "bytes": 50718
+        },
+        "images/portrait_aaa_front_v1_wyvern.webp": {
+            "sha256": "26991104988a916ca8ecc41a12198fa322b1fe24c0c7ff0494c8303ceea58fe9",
+            "bytes": 548838
+        },
+        "images/portrait_aaa_front_v1_zena.webp": {
+            "sha256": "2a3f66e30c3d74a13e80c6208053cca3f77dcfece889cf1b9d86bb81956283de",
+            "bytes": 371570
         }
     },
     "sidebarPortraitPages": {
