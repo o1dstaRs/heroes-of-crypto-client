@@ -13,7 +13,8 @@ export async function checkCombatTiming(): Promise<void> {
         "./src/scenes/AreaThrowImpactTiming.test.ts",
         "./src/scenes/ThroughShotImpactTiming.test.ts",
         "./src/scenes/ThunderbirdShieldLightning.test.ts",
-        "./src/scenes/sandbox/ThunderbirdLightningSprites.test.ts",
+        "./src/scenes/sandbox/ThunderbirdLightningTiming.test.ts",
+        "./src/scenes/sandbox/ThunderbirdLightningProcedural.test.ts",
         "./src/scenes/sandbox/combat_exchange.test.ts",
         "../heroes-of-crypto-common/test/engine/chain_lightning_shields.test.ts",
     ];

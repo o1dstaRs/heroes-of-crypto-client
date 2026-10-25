@@ -1281,7 +1281,6 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.lightingLayer.getContainer(), 950);
         // Starts off with the current floor, whose lighting is painted into the texture (see
         // setLegacyBoardBackground); it comes back the moment the legacy, unlit floor is selected.
-        // MoonlightLayer is the sole board light; legacy mode must not revive the orange corner braziers.
         this.lightingLayer.setEnabled(false);
 
         this.combatVisuals = new CombatVisuals({

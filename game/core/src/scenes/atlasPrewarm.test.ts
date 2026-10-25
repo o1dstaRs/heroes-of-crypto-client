@@ -12,7 +12,6 @@ import {
 import { BufferImageSource, Texture } from "pixi.js";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS } from "../pixi/creatureAnimationSettings";
 import { RenderableUnit } from "./RenderableUnit";
-import { RenderableUnit as ApprovedUnit } from "./LevelOneRenderableUnit";
 
 const grid = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -47,17 +46,7 @@ function sheet(): Texture {
     });
 }
 
-// Both RenderableUnit flavours expose fromBase with the same structural shape; keep the helper open
-// to the approved (level-one) class without coupling the two class hierarchies.
-type AnyRenderableUnitFromBase = (
-    base: Unit,
-    resolver: (name: string) => Texture | undefined,
-) => { prewarmCombatAtlasFrame(sources: WeakSet<object>): Texture | undefined; destroyVisuals(): void };
-
-function create(
-    resolver: (name: string) => Texture | undefined,
-    ctor: AnyRenderableUnitFromBase = RenderableUnit.fromBase,
-) {
+function create(resolver: (name: string) => Texture | undefined) {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
     const effects = new EffectFactory();
@@ -70,7 +59,7 @@ function create(
         effects,
         false,
     );
-    return ctor(base, resolver);
+    return RenderableUnit.fromBase(base, resolver);
 }
 
 test("a combat sheet is offered before walk and idle, and a missing sheet is not decoded", () => {
@@ -103,7 +92,4 @@ test("an approved unit whose sheets are still downloading contributes nothing", 
     const unit = create(() => undefined);
     expect(unit.prewarmCombatAtlasFrame(new WeakSet())).toBeUndefined();
     unit.destroyVisuals();
-    const approved = create(() => undefined, ApprovedUnit.fromBase);
-    expect(approved.prewarmCombatAtlasFrame(new WeakSet())).toBeUndefined();
-    approved.destroyVisuals();
 });
