@@ -1155,6 +1155,35 @@ describe("ranked placement scene state", () => {
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(8))).toBe(false);
     });
 
+    test("hydrates and updates Bitter Experience stacks without rebuilding the unit", () => {
+        const snapshotProperties = (stacks?: number) =>
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([unitState({ bitterExperienceStacks: stacks })]),
+                fightStarted: true,
+            }).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(0),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LEFT,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        expect(liveUnit.getUnitProperties().bitter_experience_stacks).toBe(0);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(3))).toBe(true);
+        expect(liveUnit.getUnitProperties().bitter_experience_stacks).toBe(3);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(3))).toBe(false);
+        expect(snapshotProperties(3).bitter_experience_stacks).toBe(3);
+        expect(snapshotProperties().bitter_experience_stacks).toBeUndefined();
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties())).toBe(false);
+        expect(liveUnit.getUnitProperties().bitter_experience_stacks).toBe(3);
+    });
+
     test("syncs Dulling Defense into the ranked debuff display without rebuilding the unit", () => {
         const snapshotProperties = (totalReduced?: number) =>
             authoritativeSnapshotToSandboxSceneState(

@@ -585,6 +585,7 @@ const AbilityCell: React.FC<{
                         isAura={ability.isAura}
                     />
                 )}
+                <StackCountBadge stacks={ability.stacks} minimum={0} />
             </Box>
         </Tooltip>
     );
@@ -618,15 +619,14 @@ const AbilityStack: React.FC<IAbilityStackProps & { metrics: ISidebarMetrics; ha
 };
 
 /**
- * Small count badge drawn on a stacking effect's icon (today: Poison). One application is the normal case
- * and carries no badge — the number only appears once the effect has actually stacked, so the icon row
- * stays quiet for every non-stacking debuff.
+ * Effects show a badge after stacking; accumulating abilities also show their initial zero and first stack.
  */
-const StackCountBadge: React.FC<{ stacks?: number }> = ({ stacks }) => {
-    if (!stacks || stacks < 2) return null;
+const StackCountBadge: React.FC<{ stacks?: number; minimum?: number }> = ({ stacks, minimum = 2 }) => {
+    if (stacks === undefined || stacks < minimum) return null;
 
     return (
         <Box
+            aria-label={`Current stacks: ${stacks}`}
             sx={{
                 position: "absolute",
                 top: "-2px",

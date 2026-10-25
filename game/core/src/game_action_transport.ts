@@ -90,6 +90,7 @@ export interface AuthoritativeUnitState {
      */
     baseArmor?: number;
     baseAttack?: number;
+    bitterExperienceStacks?: number;
     helpingHandCasterId?: string;
     helpingHandPenaltyId?: string;
     /**

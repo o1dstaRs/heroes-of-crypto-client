@@ -789,10 +789,15 @@ export abstract class PixiScene {
 
             if (!abilityName || !abilityDescription) continue;
 
+            const stacks = abilityName === "Bitter Experience" ? unitProperties.bitter_experience_stacks : undefined;
             visibleAbilitiesImpact.push({
                 name: abilityName,
                 smallTextureName: AbilityHelper.abilityToTextureName(abilityName),
-                description: abilityDescription,
+                description:
+                    stacks === undefined
+                        ? abilityDescription
+                        : `${abilityDescription}\nCurrent stacks: ${stacks} (+${stacks} armor, +${stacks} movement).`,
+                stacks,
                 laps: Number.MAX_SAFE_INTEGER,
                 stackPower: unitProperties.stack_power,
                 isStackPowered,

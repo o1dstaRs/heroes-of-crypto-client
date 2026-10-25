@@ -35,8 +35,8 @@ export interface IVisibleImpact {
     /** Last successful application, shared across spell debuffs and ability effects. UI-only. */
     appliedOrder?: number;
     /**
-     * How many times a stacking effect (Poison) has been re-applied. Rendered as a small count badge on
-     * the icon's top-right corner. Absent or 1 for everything that replaces itself instead of stacking.
+     * Accumulated ability stacks (Bitter Experience) or stacking effect applications (Poison).
+     * Rendered as a small count badge on the icon's top-right corner.
      */
     stacks?: number;
     /** Permanently removed by Predatory Assimilation; retained only so the sidebar can show STOLEN. */

@@ -57,6 +57,35 @@ const renderedStats = async (unitProperties: UnitProperties) => {
     return stats;
 };
 
+test.each([0, 1, 4])("shows Bitter Experience at %i stacks with its accumulated bonus", async (stacks) => {
+    const unit = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Peasant", "peasant_512", 10);
+    unit.bitter_experience_stacks = stacks;
+    const impact = (Object.create(PixiScene.prototype) as PixiScene).getUnitVisibleImpact(unit);
+    const ability = impact.abilities.find((candidate) => candidate.name === "Bitter Experience")!;
+    expect(ability.stacks).toBe(stacks);
+    expect(ability.description).toContain(`Current stacks: ${stacks} (+${stacks} armor, +${stacks} movement).`);
+
+    let displayed = "";
+    await new HTMLRewriter()
+        .on(`[aria-label="Current stacks: ${stacks}"]`, {
+            text(chunk) {
+                displayed += chunk.text;
+            },
+        })
+        .transform(new Response(renderedUnit(unit, impact)))
+        .text();
+    expect(displayed).toBe(String(stacks));
+});
+
+test("leaves the Bitter Experience count unknown when an older ranked server omits it", () => {
+    const unit = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Peasant", "peasant_512", 10);
+    delete unit.bitter_experience_stacks;
+    const impact = (Object.create(PixiScene.prototype) as PixiScene).getUnitVisibleImpact(unit);
+    const ability = impact.abilities.find((candidate) => candidate.name === "Bitter Experience")!;
+    expect(ability.stacks).toBeUndefined();
+    expect(ability.description).not.toContain("Current stacks:");
+});
+
 test.each([{ shots: 6 }, { shots: 5 }, { shots: 0 }])(
     "shows $shots remaining shots alongside scrolls within the three-row stat grid",
     async ({ shots }) => {
