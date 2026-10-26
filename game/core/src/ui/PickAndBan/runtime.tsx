@@ -3459,7 +3459,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </>
                     )}
 
-                    {pickPhase !== PickPhaseVals.DOCTRINE && <DraftBanSummary banned={banned} />}
+                    {pickPhase !== PickPhaseVals.DOCTRINE && <DraftBanSummary banned={banned} doctrine={doctrine} />}
 
                     <Box
                         data-testid="draft-choice-action-zone"

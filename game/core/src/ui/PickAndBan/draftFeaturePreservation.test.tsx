@@ -6,6 +6,7 @@ import React, { createContext, useContext } from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
 import { PickBanContext, type PickBanContextType } from "../context/PickBanContextDefs";
+import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 
 const advice = { recommendation: "preserved" };
 const premiumContext = createContext<typeof advice | undefined>(undefined);
@@ -86,16 +87,30 @@ test("waiting for the opponent keeps a single disabled commit action", () => {
 });
 
 test("the live draft exposes the server's authorized future-level bans through its ban summary", () => {
-    const html = render({ ...draft, doctrine: 2, banned: [CreatureLevelList[1][0], CreatureLevelList[4][0]] });
+    const banned = [CreatureLevelList[1][0], CreatureLevelList[4][0]];
+    const html = render({ ...draft, doctrine: Doctrine.Doctrine.SEE_ALL, banned });
     expect(html).toContain('data-testid="draft-ban-summary"');
-    expect(html).toContain("Level 4");
+    for (const id of banned) expect(html).toContain(`aria-label="${UNIT_ID_TO_NAME[id]}"`);
     expect(html.match(/<button /g)).toHaveLength(1);
 });
 
-test("the live draft cannot invent future bans absent from its private stream", () => {
-    const html = render({ ...draft, doctrine: 3, banned: [CreatureLevelList[1][0]] });
+test("the live draft hides the ban summary for Battle Trance throughout picks and artifacts", () => {
+    for (const pickPhase of [PickPhaseVals.INITIAL_PICK, PickPhaseVals.PICK, PickPhaseVals.ARTIFACT_2]) {
+        const html = render({
+            ...draft,
+            doctrine: Doctrine.Doctrine.SEE_NONE,
+            pickPhase,
+            requiredLevel: 4,
+            banned: [CreatureLevelList[1][0], CreatureLevelList[4][0]],
+        });
+        expect(html).not.toContain('data-testid="draft-ban-summary"');
+    }
+});
+
+test("scouting summaries never invent bans absent from the private stream", () => {
+    const html = render({ ...draft, doctrine: Doctrine.Doctrine.THREE_REVEALS, banned: [CreatureLevelList[1][0]] });
     expect(html).toContain('data-testid="draft-ban-summary"');
-    expect(html).not.toContain("Level 4</");
+    expect(html).not.toContain(`aria-label="${UNIT_ID_TO_NAME[CreatureLevelList[4][0]]}"`);
 });
 
 const renderOpponent = (artifacts: { artifactTier1?: number; artifactTier2?: number }): string =>
