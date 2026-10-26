@@ -141,6 +141,7 @@ export default function TouchBattleHud() {
                 </button>
                 <div id="hoc-touch-audio-slot" />
                 <button
+                    className="hoc-touch-medallion"
                     aria-label={t(fullscreen ? "Exit fullscreen" : "Fullscreen")}
                     aria-pressed={fullscreen}
                     onClick={() => {
@@ -149,27 +150,18 @@ export default function TouchBattleHud() {
                         );
                     }}
                 >
-                    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                            d={
-                                fullscreen
-                                    ? "M3 8h5V3m8 0v5h5M8 21v-5H3m18 0h-5v5"
-                                    : "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"
-                            }
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        />
-                    </svg>
+                    <img src={images.ui_control_fullscreen_forged_bronze_v1} alt="" draggable={false} />
                 </button>
             </nav>
             {fullscreenNotice && (
                 <div className="hoc-touch-notice" role="status">
                     <span>{t("Fullscreen is unavailable here. Use Add to Home Screen for an app view.")}</span>
-                    <button aria-label={t("Close")} onClick={() => setFullscreenNotice(false)}>
-                        ×
+                    <button
+                        className="hoc-touch-medallion"
+                        aria-label={t("Close")}
+                        onClick={() => setFullscreenNotice(false)}
+                    >
+                        <img src={images.ui_control_close_oxblood_bronze_v2} alt="" draggable={false} />
                     </button>
                 </div>
             )}
@@ -192,6 +184,9 @@ export default function TouchBattleHud() {
                                 key={button.name}
                                 className="hoc-touch-combat-action"
                                 disabled={button.isDisabled}
+                                aria-pressed={
+                                    button.name === "AI" ? button.state === VisibleButtonState.SECOND : undefined
+                                }
                                 aria-label={t(buttonLabel(button))}
                                 title={t(button.text)}
                                 onClick={() => {
@@ -230,6 +225,7 @@ export default function TouchBattleHud() {
                     </button>
                 )}
                 <button
+                    className="hoc-touch-icon-action"
                     onClick={() => {
                         manager.CancelTouchAction();
                         manager.HandleEscapeKey(true);
@@ -237,7 +233,8 @@ export default function TouchBattleHud() {
                         manager.SetTouchInspectMode(false);
                     }}
                 >
-                    ×<span>{t("Deselect")}</span>
+                    <img src={images.ui_control_close_oxblood_bronze_v2} alt="" draggable={false} />
+                    <span>{t("Deselect")}</span>
                 </button>
             </div>
         </>

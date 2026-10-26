@@ -482,3 +482,10 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 
 - 7d snapshots for Sun 18 morning question (15), Sun 18 midday plan unit (12), Sun 18 evening Nature (18) and Mon 19 morning question (10): Sunday's evening post again beat morning and midday, but the spread is still within a few views and n=1 per slot for that day.
 - Late make-up post (Sat 24, 10:03 PM PT) had 9 views at ~11.6h; its 24h number tomorrow will show whether a late-night post does worse than the regular slots. No change to the posting schedule recommended.
+
+## 2026-10-26 daily engagement review (own posts)
+
+- Late make-up post (Sat 24, 10:03 PM PT) reached 13 views at ~35.6h, the same as the regular-slot weekday posts of 22–23 Oct (13). A late-night post did not underperform here (n=1).
+- Sunday 25 Oct: morning Last Fuse 17 views (26.7h), midday Farsight Quiver 16 (21.8h); evening augment-draft already 19 at ~16.8h. Sunday reach matched weekdays this week, unlike the weak Sat/Sun 17–18 posts.
+- 7d tail: Mon 19 midday first-move post went 8 -> 20 views, the largest non-pin tail so far; Mon 19 evening 9 -> 10, Tue 20 morning 13 -> 16. Tails stay small and don't favor one slot.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.

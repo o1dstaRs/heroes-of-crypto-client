@@ -1,5 +1,62 @@
+// Match hocSidebarSectionSx / hocSidebarImageButtonSx. Nine-slice rails keep the authored bronze
+// corners intact on both a 44px tap target and a wide confirmation plate; CSS never redraws the bezel.
+@mixin touch-frame {
+    box-sizing: border-box;
+    border: 6px solid transparent;
+    border-image: var(--hoc-touch-frame) 104 / 6px / 0 stretch;
+    border-radius: 0;
+    background:
+        linear-gradient(rgb(8 7 6 / 42%), rgb(8 7 6 / 64%)),
+        var(--hoc-touch-stone) center / 320px;
+    color: #d8c29c;
+    box-shadow: 0 5px 18px rgb(0 0 0 / 65%);
+}
+
+@mixin touch-plate {
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+    border: 5px solid transparent;
+    border-image: var(--hoc-touch-plate) 45 fill / 5px / 0 stretch;
+    border-radius: 0;
+    background: transparent;
+    color: #cda078;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.15;
+    letter-spacing: 0.045em;
+    text-shadow: 0 1px 1px #070504;
+    touch-action: manipulation;
+    transition:
+        filter 140ms ease,
+        transform 100ms ease;
+
+    &:active:not(:disabled) {
+        filter: brightness(1.2);
+        transform: translateY(1px);
+    }
+
+    &[aria-pressed="true"],
+    &[aria-expanded="true"] {
+        color: #f2d5a4;
+        filter: brightness(1.2);
+        box-shadow: inset 0 0 16px rgb(194 103 36 / 18%);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        filter: grayscale(0.65) brightness(0.7);
+    }
+
+    &:focus-visible {
+        outline: 2px solid #dcb158;
+        outline-offset: 2px;
+    }
+}
+
 html[data-hoc-touch-game="true"] {
     overflow: hidden;
+    font-family: "HoC Forge", Georgia, "Times New Roman", serif;
 }
 
 body[data-hoc-touch-game="true"] {
@@ -60,16 +117,17 @@ body[data-hoc-touch-game="true"] {
 
     [data-touch-panel] {
         z-index: 30 !important;
-        top: calc(52px + var(--hoc-safe-top)) !important;
-        bottom: calc(76px + var(--hoc-safe-bottom)) !important;
+        top: calc(60px + var(--hoc-safe-top)) !important;
+        bottom: calc(84px + var(--hoc-safe-bottom)) !important;
         width: min(340px, calc(var(--hoc-game-width) * 0.44)) !important;
         height: auto !important;
-        max-height: calc(var(--hoc-game-height) - 128px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
+        max-height: calc(var(--hoc-game-height) - 144px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
         overflow: hidden auto !important;
         overscroll-behavior: contain;
         box-shadow: 0 8px 36px rgb(0 0 0 / 65%);
-        border: 1px solid rgb(220 177 88 / 40%);
-        border-radius: 10px;
+        // The sidebar already owns its smoked-bronze artwork. Keep that frame instead of adding a box.
+        border: 0;
+        border-radius: 0;
 
         &[data-touch-panel-open="false"] {
             display: none !important;
@@ -94,7 +152,11 @@ body[data-hoc-touch-game="true"] {
     }
 
     [data-touch-panel="army"] {
+        // Exit / start-over keep their own 44px row; no roster tab or scrolled placement control may
+        // slide behind them. The drawer remains scrollable on the shorter landscape phone surface.
+        top: calc(112px + var(--hoc-safe-top)) !important;
         right: calc(8px + var(--hoc-safe-right)) !important;
+        max-height: calc(var(--hoc-game-height) - 196px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
     }
 
     [data-desktop-turn-overlay],
@@ -107,55 +169,50 @@ body[data-hoc-touch-game="true"] {
     .hoc-touch-topbar,
     .hoc-touch-actionbar,
     .hoc-touch-confirm {
+        @include touch-frame;
+
         position: fixed;
         z-index: 40;
         display: flex;
         align-items: center;
         gap: 6px;
-        padding: 4px 8px;
-        border: 1px solid rgb(220 177 88 / 28%);
-        background: rgb(18 15 12 / 96%);
-        color: #efe4cc;
-        box-sizing: border-box;
+        padding: 0 6px;
 
         button {
+            @include touch-plate;
+
             display: inline-flex;
             flex: 0 0 auto;
             align-items: center;
             justify-content: center;
             gap: 3px;
-            min-width: 44px;
-            min-height: 44px;
-            padding: 4px 10px;
-            border: 1px solid rgb(220 177 88 / 24%);
-            border-radius: 8px;
-            background: #211b14;
-            color: #efe4cc;
-            font-size: 13px;
-            line-height: 1.15;
-            touch-action: manipulation;
-
-            &:active,
-            &[aria-pressed="true"],
-            &[aria-expanded="true"] {
-                background: #46351c;
-                border-color: #dcb158;
-            }
-
-            &:disabled {
-                opacity: 0.4;
-            }
-
-            &:focus-visible {
-                outline: 2px solid #dcb158;
-                outline-offset: 2px;
-            }
+            padding: 3px 10px;
         }
 
         .hoc-touch-primary {
-            background: #543b19;
-            border-color: #dcb158;
-            color: #fff2cf;
+            color: #efc490;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            box-shadow: inset 0 0 18px rgb(172 75 21 / 20%);
+        }
+
+        // Finished medallions carry their own face and frame, just like the desktop combat toolbar.
+        .hoc-touch-medallion,
+        .hoc-touch-combat-action,
+        .hoc-touch-icon-action,
+        .hoc-audio-control > button {
+            padding: 0;
+            border: 0;
+            background-color: transparent;
+            box-shadow: none;
+
+            img {
+                width: 44px;
+                height: 44px;
+                object-fit: contain;
+                pointer-events: none;
+            }
         }
     }
 
@@ -163,8 +220,7 @@ body[data-hoc-touch-game="true"] {
         top: var(--hoc-safe-top);
         left: var(--hoc-safe-left);
         right: var(--hoc-safe-right);
-        height: 52px;
-        border-radius: 0 0 10px 10px;
+        height: 56px;
     }
 
     .hoc-touch-turn {
@@ -172,7 +228,7 @@ body[data-hoc-touch-game="true"] {
         flex: 1 1 auto;
         flex-direction: column;
         min-width: 0;
-        padding-inline: 4px;
+        padding-inline: 8px;
 
         strong,
         span {
@@ -186,7 +242,7 @@ body[data-hoc-touch-game="true"] {
         }
 
         span {
-            color: #c4b79c;
+            color: #b5a17e;
             font-size: 11px;
         }
     }
@@ -196,9 +252,9 @@ body[data-hoc-touch-game="true"] {
         left: var(--hoc-safe-left);
         right: var(--hoc-safe-right);
         min-height: 72px;
+        padding-block: 2px;
         justify-content: center;
         overflow: auto hidden;
-        border-radius: 10px 10px 0 0;
 
         .hoc-touch-primary-slot {
             flex: 0 1 240px;
@@ -230,19 +286,20 @@ body[data-hoc-touch-game="true"] {
             display: none;
         }
 
-        .hoc-touch-combat-action {
+        .hoc-touch-combat-action,
+        .hoc-touch-icon-action {
             min-width: 64px;
             min-height: 62px;
-            padding: 2px 8px;
-
-            img {
-                width: 38px;
-                height: 38px;
-                object-fit: contain;
-            }
+            padding: 0 4px;
 
             span {
+                color: #d8c29c;
                 font-size: 11px;
+                letter-spacing: 0;
+            }
+
+            &[aria-pressed="true"] img {
+                filter: brightness(1.15) drop-shadow(0 0 4px rgb(230 161 62 / 35%));
             }
         }
     }
@@ -265,9 +322,28 @@ body[data-hoc-touch-game="true"] {
     }
 
     .hoc-audio-control[data-touch-audio="true"] .hoc-audio-popup {
+        @include touch-frame;
+
         z-index: 60;
         min-width: 260px !important;
         max-width: calc(var(--hoc-game-width) - 32px);
+        padding: 12px !important;
+        border: 6px solid transparent !important;
+        border-image: var(--hoc-touch-frame) 104 / 6px / 0 stretch !important;
+        border-radius: 0 !important;
+        background:
+            linear-gradient(rgb(8 7 6 / 42%), rgb(8 7 6 / 64%)),
+            var(--hoc-touch-stone) center / 320px !important;
+
+        .hoc-audio-heading {
+            color: #d8c29c !important;
+            font-size: 14px !important;
+            letter-spacing: 0.06em;
+        }
+
+        button {
+            @include touch-plate;
+        }
 
         > button,
         label {
@@ -277,17 +353,31 @@ body[data-hoc-touch-game="true"] {
         }
 
         label input {
-            width: 22px !important;
-            height: 22px !important;
+            width: 28px !important;
+            height: 28px !important;
+            flex: 0 0 28px;
             margin: 0;
-            accent-color: #dcb158;
-            color-scheme: dark;
+            appearance: none;
+            border: 0;
+            background: var(--hoc-touch-radio-off) center / contain no-repeat;
+
+            &:checked {
+                background-image: var(--hoc-touch-radio-on);
+            }
+
+            &:focus-visible {
+                outline: 2px solid #dcb158;
+                outline-offset: 2px;
+            }
         }
 
         label {
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: flex-start;
+            padding-inline: 10px;
+            box-sizing: border-box;
+            gap: 10px;
             font-size: 13px;
         }
     }
@@ -304,28 +394,71 @@ body[data-hoc-touch-game="true"] {
         width: 100%;
 
         input {
+            min-width: 0;
             width: 128px;
+            flex: 1 1 auto;
             height: 44px;
             margin: 0;
-            accent-color: #dcb158;
+            appearance: none;
+            background: transparent;
             touch-action: none;
+
+            &::-webkit-slider-runnable-track {
+                height: 8px;
+                border: 1px solid #704c2d;
+                border-radius: 3px;
+                background: linear-gradient(90deg, #9b5325 var(--hoc-touch-volume), #0b0806 var(--hoc-touch-volume));
+                box-shadow: inset 0 1px 2px #000;
+            }
+
+            &::-moz-range-track {
+                height: 8px;
+                border: 1px solid #704c2d;
+                border-radius: 3px;
+                background: #0b0806;
+                box-shadow: inset 0 1px 2px #000;
+            }
+
+            &::-moz-range-progress {
+                height: 6px;
+                background: #9b5325;
+            }
+
+            &::-webkit-slider-thumb {
+                width: 26px;
+                height: 26px;
+                margin-top: -10px;
+                appearance: none;
+                border: 0;
+                background: var(--hoc-touch-slider-thumb) center / contain no-repeat;
+            }
+
+            &::-moz-range-thumb {
+                width: 26px;
+                height: 26px;
+                border: 0;
+                background: var(--hoc-touch-slider-thumb) center / contain no-repeat;
+            }
+
+            &:focus-visible {
+                outline: 2px solid #dcb158;
+                outline-offset: 2px;
+            }
         }
     }
 
     .hoc-touch-notice {
+        @include touch-frame;
+
         position: fixed;
         z-index: 60;
-        top: calc(58px + var(--hoc-safe-top));
+        top: calc(62px + var(--hoc-safe-top));
         left: 50%;
         display: flex;
         align-items: center;
         gap: 8px;
         max-width: calc(var(--hoc-game-width) - 32px);
         padding: 6px 12px;
-        border: 1px solid #8e6934;
-        border-radius: 8px;
-        background: #211b14;
-        color: #efe4cc;
         font-size: 13px;
         transform: translateX(-50%);
 
@@ -335,12 +468,18 @@ body[data-hoc-touch-game="true"] {
             border: 0;
             background: transparent;
             color: inherit;
-            font-size: 24px;
+            padding: 0;
+
+            img {
+                width: 44px;
+                height: 44px;
+                pointer-events: none;
+            }
         }
     }
 
     [data-game-corner-slot] {
-        top: calc(58px + var(--hoc-safe-top)) !important;
+        top: calc(62px + var(--hoc-safe-top)) !important;
         right: calc(8px + var(--hoc-safe-right)) !important;
     }
 
@@ -357,8 +496,7 @@ body[data-hoc-touch-game="true"] {
         width: max-content;
         max-width: calc(var(--hoc-game-width) - 32px);
         transform: translateX(-50%);
-        border-color: #dcb158;
-        border-radius: 10px;
+        padding: 6px;
         box-shadow: 0 4px 24px rgb(0 0 0 / 60%);
 
         > span {
@@ -405,9 +543,7 @@ body[data-hoc-touch-game="true"] {
             right: 8px;
             width: auto !important;
             padding: 6px;
-            border: 1px solid #8e6934;
-            border-radius: 8px;
-            background: #17130f;
+            @include touch-frame;
         }
 
         &[data-touch-draft-roster-open="false"] [data-testid="draft-armies-zone"] {
@@ -467,16 +603,14 @@ body[data-hoc-touch-game="true"] {
     }
 
     .hoc-touch-draft-army-toggle {
+        @include touch-plate;
+
         position: absolute;
         z-index: 30;
         top: 4px;
         right: 8px;
         min-height: 44px;
         padding: 6px 12px;
-        border: 1px solid #8e6934;
-        border-radius: 8px;
-        background: #211b14;
-        color: #efe4cc;
         font-size: 14px;
         touch-action: manipulation;
     }
@@ -486,11 +620,9 @@ body[data-hoc-touch-game="true"] {
         padding: 6px;
 
         button {
+            @include touch-plate;
+
             padding: 4px;
-            border: 1px solid rgb(220 177 88 / 30%);
-            border-radius: 6px;
-            background: #211b14;
-            color: #efe4cc;
             font-size: 12px;
         }
     }
@@ -503,11 +635,6 @@ body[data-hoc-touch-game="true"] {
         button {
             flex: 1;
         }
-
-        [aria-pressed="true"] {
-            border-color: #dcb158;
-            background: #46351c;
-        }
     }
 
     .hoc-touch-roster-grid {
@@ -519,10 +646,16 @@ body[data-hoc-touch-game="true"] {
         overscroll-behavior: contain;
 
         button {
+            @include touch-frame;
+
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 4px;
+            padding: 4px 2px;
+            color: #d8c29c;
+            font-size: 12px;
+            letter-spacing: 0;
         }
     }
 }
@@ -534,26 +667,24 @@ body[data-hoc-touch-game="true"] .hoc-touch-split-amount {
     width: 100%;
 
     button {
+        @include touch-plate;
+
         flex: 0 0 44px;
         min-width: 44px;
         min-height: 44px;
-        border: 1px solid #8e6934;
-        border-radius: 6px;
-        background: #211b14;
-        color: #efe4cc;
         font-size: 20px;
     }
 
     input {
+        @include touch-frame;
+
         min-width: 0;
         width: 100%;
         height: 44px;
         padding: 4px;
         box-sizing: border-box;
-        border: 1px solid #8e6934;
-        border-radius: 6px;
-        background: #100d0a;
         color: #efe4cc;
+        font-family: inherit;
         font-size: 16px;
         text-align: center;
     }
@@ -581,14 +712,13 @@ body[data-hoc-touch-game="true"] {
     }
 
     .hoc-touch-draft-progress {
+        @include touch-frame;
+
         position: fixed;
         left: calc(16px + var(--hoc-safe-left));
         bottom: calc(16px + var(--hoc-safe-bottom));
         z-index: 55;
         padding: 6px 10px;
-        border: 1px solid #8e6934;
-        border-radius: 6px;
-        background: #17130f;
         color: #dcb158;
         font-size: 12px;
     }

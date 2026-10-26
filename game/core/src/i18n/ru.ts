@@ -623,8 +623,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются. Все баны драфта видны заранее.",
     "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance. The map is revealed with your starting bundle choices.":
         "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее. Карта открывается вместе с вариантами стартового бандла.",
-    "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board. Bans are revealed only as each creature level opens.":
-        "Вы не видите ни одного выбора противника. Стройте драфт только вокруг своего плана и узнайте его состав уже на поле. Баны открываются только по мере появления выбора каждого уровня существ.",
+    "You see none of the opponent's picks in advance. You draft entirely on your own plan, without a draft-ban summary. Banned choices become unavailable only as each creature level opens.":
+        "Вы заранее не видите выборов противника и строите драфт вокруг своего плана. Сводки банов нет; забаненные варианты становятся недоступны лишь при открытии соответствующего уровня существ.",
     "Only revealed bans are shown.": "Показаны только уже раскрытые баны.",
     "Bans are revealed when each creature level opens.":
         "Баны открываются по мере появления выбора каждого уровня существ.",

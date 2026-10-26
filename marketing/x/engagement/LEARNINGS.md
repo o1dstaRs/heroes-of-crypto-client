@@ -136,3 +136,42 @@ No new handles above the 1,000-follower floor appeared in this week’s Next Fes
 - What didn't work: plain tactics and question posts have no long tail at all; 7d reach equals 24h reach. The outage meant a full day with no posts and the make-up post went out at 10 PM, when it has 9 views at ~12h.
 - What worked: Castling kept growing (25 to 28 views), the only non-pin post still adding views after day one. Pick-your-side (16 views / 1 like / ER 0.0625) stays the week's best ER.
 - Lesson: posts that name units and admit an error (Castling) keep collecting views after day one where plain lines stop; but at ~10 to 18 views per post, nothing has earned an outside reply in 11 days, so reach (outreach replies, still none posted) remains the blocker. Proposal for Stepan, not an edit.
+
+## 2026-10-26 (weekly)
+
+Weekly X research refresh (19–26 Oct 2026 PT). Read-only. About 27 public X API reads. Full report: research/2026-10-26-weekly.md (+ .html).
+
+### Market findings
+
+- Case studies: @Lavapotion's best was again video (swamp march 107 likes / 4,714 views https://x.com/Lavapotion/status/2113279271099597273), 3x to 4x its photo and link posts. @OverhypeStudios posted no originals since 15 Oct. @TeamWoodGames still dormant.
+- Small accounts broke out on format, not size: @SynthWave6666 (1,554, +14% in a week) character color-study + either/or question 2,483 / 16,620 views https://x.com/SynthWave6666/status/2112729249354248498 (their text-only wishlist asks got 25–31 likes); @WickedNightGame (1,940) combat pixel animation 654 / 17,074 https://x.com/WickedNightGame/status/2113993752394264762; @NextaleGames (1,228) "It's not Triangle Strategy, it's not FFT A2…" comparison video 199 / 6,174 https://x.com/NextaleGames/status/2112574563124920496, 10x their normal reach.
+- @Blindspot_Games hosted #TurnBasedThursday on 22 Oct: 52 replies https://x.com/Blindspot_Games/status/2113238941969330520. The host thread is the best weekly reply venue; @TurnBasedThurs (7,494) names the host on Wednesdays.
+- Quiet: @MightMagicGame (last original 15 Oct), @Unfrozen_Studio, @Wartales_Game, @shirogames, @Klukva_Games, @TerraRandoma.
+- Events: Next Fest 19–26 Oct (ends 26 Oct 10 AM PT) with an AI-demo-flood backlash; Final Fantasy Resonance launched 22 Oct (turn-based chatter, mostly personal/creator accounts); Culdcept BEGINS on Steam 28 Oct. US trends had no games. Astra + game: 929 posts in ~7 days (broader query than last week; still thin).
+- Caution: @AresRPG is pitched by creators as "browser-based, turn-based tactical" with AI agents and a token whitelist, our exact description with a token. Stay out of that conversation.
+
+### Our comparison
+
+- Followers 91 (92 most of the week, 91 on 19 Oct): flat. Pin 116 views / 2 likes. 17 of 21 slots posted (5 lost to X's phone check on 23–24 Oct), all text-only. 2 outside likes (Morale, pick-your-side), 0 outside replies, 0 tactics, 0 token. Castling (midday, named units, admitted error) is the best non-pin post at 29 views and still growing. outreach.csv empty two weeks running; no EXPERIMENTS.md arm has run.
+- Lesson: every peer breakout this week had an image or motion, and we posted no media at all after 17 Oct. Text dev-diaries earn the occasional like, but at 10–20 views there is nobody to reply. Reach (outreach + media) is the bottleneck, not slot or wording.
+
+### Proposed changes for Stepan (proposals only, no edits to XCOM.md / CALENDAR.md / IMAGES.md)
+
+1. Outreach: at least one posted outreach reply a day, logged in outreach.csv; first fixed target is the Thu 29 Oct #TurnBasedThursday host thread, with one real board image.
+2. Media: (a) a real recorded clip/GIF of one mechanic we already dev-diaried (Castling swap, Through Shot, shrinking board); (b) unit-portrait card + either/or question about that unit (SynthWave shape). Each as a 3-post EXPERIMENTS.md arm vs text-only.
+3. Calendar (current one ends 28 Oct): keep 3 slots, no question-only posts, midday = named-unit "we got it wrong" dev-diary, plus one true "If you played Heroes III…" comparison post a week (Nextale shape).
+4. Reply targets: prioritize @SynthWave6666, @WickedNightGame, @NextaleGames (board/mechanic posts only) and the weekly #TurnBasedThursday host; skip @AresRPG talk, FF Resonance personal accounts, @Conviction_SRPG non-SRPG promos, @secretdoor_dh giveaways.
+5. Profile (open since 14 Oct): drop "(HOCAI)", drop the 🟦, add the final period.
+6. Posting runs should ping Stepan right away when X shows a contact-confirmation prompt.
+
+### Routine target list additions
+
+- No new official game/studio accounts above 1,000 followers this week. Rejected: @IdleSloth84_ (40,783, creator), @turnbasedlovers and @ControlledPairs (curators), @solvictusig (226), @yokozunagames (23), @Still_Pulsing (85).
+- Priority while active: @SynthWave6666 (1,554), @WickedNightGame (1,940), @NextaleGames (1,228), the weekly #TurnBasedThursday host (this week @Blindspot_Games, 7,433).
+- Watch-only source (not a reply target): @TurnBasedThurs (7,494), for the Wednesday host announcement.
+
+## 2026-10-26 daily review
+
+- Worked: nothing new earned an outside reaction. The only ER above 0 among new snapshots is still the Morale "our own guide got it wrong" dev-diary (7d: 10 views, 1 like, ER 0.10); admitted-error posts remain the only text format with likes (Morale, pick-your-side were the two likes).
+- Didn't work: the three v0.1.7 patch-note dev-diaries (split-spellbook, Last Fuse, Farsight Quiver) all scored 13–17 views and ER 0 at 24h. "New in v0.1.7: <artifact>" reads like patch notes and draws no reply even with a direct play instruction.
+- Followers slipped 92 -> 91. With 0 outside replies in 12 days, this supports Monday's proposals (outreach replies and media) over more text-post wording changes.

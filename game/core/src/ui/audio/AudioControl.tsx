@@ -162,11 +162,14 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
                     transition: "opacity 140ms ease",
                 }}
             >
-                <span style={{ fontSize: 12, color: "#efe4cc" }}>
+                <span className="hoc-audio-heading" style={{ fontSize: 12, color: "#efe4cc" }}>
                     {t("Sound")} · {Math.round(masterVolume * 100)}%
                 </span>
                 {touch ? (
-                    <div className="hoc-touch-volume-row">
+                    <div
+                        className="hoc-touch-volume-row"
+                        style={{ "--hoc-touch-volume": `${Math.round(masterVolume * 100)}%` } as React.CSSProperties}
+                    >
                         <button
                             type="button"
                             aria-label={t("Decrease sound volume")}

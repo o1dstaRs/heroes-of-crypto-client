@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { useLocation } from "react-router";
+import { touchGameSkin } from "./touchGameSkin";
 
 import {
     readGameViewport,
@@ -47,6 +48,7 @@ export const GameViewport: React.FC<{ children: (size: Viewport) => React.ReactN
         body.style.setProperty("--hoc-game-width", `${viewport.width}px`);
         body.style.setProperty("--hoc-game-height", `${viewport.height}px`);
         body.style.setProperty("--hoc-physical-width", `${viewport.physicalWidth}px`);
+        for (const [property, value] of Object.entries(touchGameSkin)) body.style.setProperty(property, value);
         const style = getComputedStyle(body);
         setTouchGameInsets({
             top: parseFloat(style.getPropertyValue("--hoc-safe-top")) || 0,
@@ -61,6 +63,7 @@ export const GameViewport: React.FC<{ children: (size: Viewport) => React.ReactN
             for (const property of ["--hoc-game-width", "--hoc-game-height", "--hoc-physical-width"]) {
                 body.style.removeProperty(property);
             }
+            for (const property of Object.keys(touchGameSkin)) body.style.removeProperty(property);
         };
     }, [viewport]);
 
