@@ -354,6 +354,16 @@ export abstract class PixiScene {
     public setAimIntentSink(_sink?: (aim: PlayAim | undefined) => void): void {}
     public setOpponentAim(_intent?: OpponentAim): void {}
     public clearLocalAimTarget(): void {}
+    public getTouchConfirmationLabel(_point: HoCMath.XY): string | null {
+        return null;
+    }
+    public InspectTouchUnit(_point: HoCMath.XY): void {}
+    public isTouchInspectionOnly(): boolean {
+        return false;
+    }
+    public getTouchInteractionKey(): string {
+        return String(this.sc_isAnimating);
+    }
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],

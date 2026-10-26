@@ -889,6 +889,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
 
     return (
         <Box
+            data-desktop-matchup={placement === "fight" || undefined}
             data-testid={`matchup-overlay-${placement}`}
             sx={{
                 position: "fixed",

@@ -1,3 +1,5 @@
+import { useGameLayout } from "../mobile/GameViewport";
+import { TouchSplitAmount } from "../mobile/TouchSplitAmount";
 import React, { useEffect } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
@@ -40,6 +42,7 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
 
 const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
     const manager = usePixiManager();
+    const { touch } = useGameLayout();
     const [splitValue, setSplitValue] = React.useState(1); // Start with minimum value
     const hasSelectedUnit = totalUnits > 0;
 
@@ -112,17 +115,26 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                     <Typography level="body-sm">{hasSelectedUnit ? totalUnits - splitValue : 1}</Typography>
                 </Box>
 
-                <Slider
-                    sx={hocSplitterSliderSx}
-                    value={hasSelectedUnit ? splitValue : 0}
-                    onChange={handleSliderChange}
-                    min={hasSelectedUnit ? 1 : 0}
-                    max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
-                    track={hasSelectedUnit ? "normal" : false}
-                    disabled={!hasSelectedUnit}
-                    step={1}
-                    aria-label="Unit Split Slider"
-                />
+                {touch ? (
+                    <TouchSplitAmount
+                        value={splitValue}
+                        max={Math.max(1, totalUnits - 1)}
+                        disabled={!hasSelectedUnit || totalUnits < 2}
+                        onChange={setSplitValue}
+                    />
+                ) : (
+                    <Slider
+                        sx={hocSplitterSliderSx}
+                        value={hasSelectedUnit ? splitValue : 0}
+                        onChange={handleSliderChange}
+                        min={hasSelectedUnit ? 1 : 0}
+                        max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
+                        track={hasSelectedUnit ? "normal" : false}
+                        disabled={!hasSelectedUnit}
+                        step={1}
+                        aria-label="Unit Split Slider"
+                    />
+                )}
             </Stack>
             <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 2, marginBottom: 2 }}>
                 <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>

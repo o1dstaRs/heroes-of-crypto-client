@@ -27,6 +27,7 @@ import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 
 import { hocJoyTheme } from "./hocTheme";
+import { GameViewport } from "./mobile/GameViewport";
 import { SEAT_RECLAIM_ATTEMPTS, SEAT_RECLAIM_INTERVAL_MS, seatReclaimDecision } from "./seatReclaim";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
@@ -41,6 +42,7 @@ import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
+import "./mobile/mobileGame.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
@@ -162,13 +164,6 @@ const usePreventSelection = () => {
             }
         };
 
-        // Prevent selection on touch devices
-        const preventTouchSelection = (e: TouchEvent) => {
-            if (e.touches.length > 1) {
-                e.preventDefault();
-            }
-        };
-
         // Prevent context menu
         const preventContextMenu = (e: Event) => {
             if (isEditableTarget(e.target)) {
@@ -187,7 +182,6 @@ const usePreventSelection = () => {
 
         // Add event listeners
         document.addEventListener("mousedown", preventMouseSelection);
-        document.addEventListener("touchstart", preventTouchSelection, { passive: false });
         document.addEventListener("contextmenu", preventContextMenu);
         document.addEventListener("copy", preventClipboard);
         document.addEventListener("cut", preventClipboard);
@@ -202,7 +196,6 @@ const usePreventSelection = () => {
             document.body.style.userSelect = "";
 
             document.removeEventListener("mousedown", preventMouseSelection);
-            document.removeEventListener("touchstart", preventTouchSelection);
             document.removeEventListener("contextmenu", preventContextMenu);
             document.removeEventListener("copy", preventClipboard);
             document.removeEventListener("cut", preventClipboard);
@@ -1739,29 +1732,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
 };
 
 const App: React.FC = () => {
-    const [windowSize, setWindowSize] = useState<IWindowSize>({
-        width: window.innerWidth,
-        height: window.innerHeight,
-    });
-
-    const updateWindowSize = useCallback(() => {
-        setWindowSize({
-            width: window.innerWidth,
-            height: window.innerHeight,
-        });
-    }, []);
-
     usePreventSelection();
-
-    useEffect(() => {
-        window.addEventListener("resize", updateWindowSize);
-        document.addEventListener("fullscreenchange", updateWindowSize);
-
-        return () => {
-            window.removeEventListener("resize", updateWindowSize);
-            document.removeEventListener("fullscreenchange", updateWindowSize);
-        };
-    }, [updateWindowSize]);
 
     return (
         <AuthProvider>
@@ -1773,12 +1744,18 @@ const App: React.FC = () => {
                         {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
                             screens does not restart the theme. It decides for itself which routes sing. */}
                         <ThemeMusic />
-                        <LiveMatchBanner />
-                        <PremiumSearchProvider>
-                            {/* Floating notifications, friends, and messages; compact during fights. */}
-                            <SocialDock />
-                            <AuthedRoutes windowSize={windowSize} />
-                        </PremiumSearchProvider>
+                        <GameViewport>
+                            {(windowSize) => (
+                                <>
+                                    <LiveMatchBanner />
+                                    <PremiumSearchProvider>
+                                        {/* Floating notifications, friends, and messages; compact during fights. */}
+                                        <SocialDock />
+                                        <AuthedRoutes windowSize={windowSize} />
+                                    </PremiumSearchProvider>
+                                </>
+                            )}
+                        </GameViewport>
                     </Router>
                 </CurrentLobbyProvider>
             </SocialProvider>

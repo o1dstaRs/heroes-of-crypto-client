@@ -1,3 +1,6 @@
+import { TouchSplitAmount } from "./mobile/TouchSplitAmount";
+import { useGameLayout } from "./mobile/GameViewport";
+import { readGameViewport } from "../viewport/gameViewport";
 import { useBoardMirrored } from "./useBoardMirrored";
 import { canSubmitRankedBoardAction } from "./rankedBoardActions";
 import {
@@ -2119,8 +2122,8 @@ export const RankedGameView: React.FC<Props> = ({
                 style={{
                     display: "flex",
                     position: "relative",
-                    width: "100vw",
-                    height: "100vh",
+                    width: "var(--hoc-game-width, 100vw)",
+                    height: "var(--hoc-game-height, 100vh)",
                     overflow: "hidden",
                     backgroundColor: "#07090d",
                 }}
@@ -2363,6 +2366,21 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     userTeam,
     immediateDelete = false,
 }) => {
+    const manager = usePixiManager();
+    const requestStackAction = useCallback(
+        (action: GameAction) => {
+            const run = () => {
+                void submitGameAction(action);
+            };
+            if (readGameViewport().touch)
+                manager.RequestTouchConfirmation(
+                    action.type === "split_unit" ? "Split selected stack?" : "Remove selected stack?",
+                    run,
+                );
+            else run();
+        },
+        [manager, submitGameAction],
+    );
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
     // Delete permanently destroys the stack — no bench, no undo — so one stray click must not be
@@ -2415,7 +2433,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
             event.preventDefault();
             event.stopPropagation();
             if (key === "s") {
-                void submitGameAction({ type: "split_unit", unitId: selectedUnit.id, amount: sliderValue });
+                void requestStackAction({ type: "split_unit", unitId: selectedUnit.id, amount: sliderValue });
                 return;
             }
             if (!immediateDelete && !deleteArmed) {
@@ -2423,11 +2441,11 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                 return;
             }
             setDeleteArmed(false);
-            void submitGameAction({ type: "delete_unit", unitId: selectedUnit.id });
+            void requestStackAction({ type: "delete_unit", unitId: selectedUnit.id });
         };
         window.addEventListener("keydown", onKeyDown, { capture: true });
         return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnit.id, sliderValue, submitGameAction]);
+    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnit.id, sliderValue, requestStackAction]);
 
     return (
         <Box
@@ -2466,18 +2484,26 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         <Typography level="body-sm">{amountAlive - sliderValue}</Typography>
                     </Box>
                 )}
-                {canShowSplit && (
-                    <Slider
-                        sx={hocSplitterSliderSx}
-                        min={1}
-                        max={Math.max(1, maxSplitAmount)}
-                        value={sliderValue}
-                        disabled={!canSplit}
-                        step={1}
-                        aria-label="Ranked unit split slider"
-                        onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
-                    />
-                )}
+                {canShowSplit &&
+                    (readGameViewport().touch ? (
+                        <TouchSplitAmount
+                            value={sliderValue}
+                            max={maxSplitAmount}
+                            disabled={!canSplit}
+                            onChange={setSplitAmount}
+                        />
+                    ) : (
+                        <Slider
+                            sx={hocSplitterSliderSx}
+                            min={1}
+                            max={Math.max(1, maxSplitAmount)}
+                            value={sliderValue}
+                            disabled={!canSplit}
+                            step={1}
+                            aria-label="Ranked unit split slider"
+                            onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
+                        />
+                    ))}
             </Stack>
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ width: "100%", mx: "auto", mt: 1.5 }}>
                 {canShowSplit && (
@@ -2486,7 +2512,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         size="sm"
                         disabled={!canSplit}
                         onClick={() =>
-                            void submitGameAction({
+                            void requestStackAction({
                                 type: "split_unit",
                                 unitId: selectedUnit.id,
                                 amount: sliderValue,
@@ -2511,12 +2537,16 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     size="sm"
                     disabled={!canSubmit}
                     onClick={() => {
+                        if (readGameViewport().touch) {
+                            requestStackAction({ type: "delete_unit", unitId: selectedUnit.id });
+                            return;
+                        }
                         if (!deleteArmed) {
                             setDeleteArmed(true);
                             return;
                         }
                         setDeleteArmed(false);
-                        void submitGameAction({
+                        void requestStackAction({
                             type: "delete_unit",
                             unitId: selectedUnit.id,
                         });
@@ -3261,6 +3291,7 @@ export const RankedReadyPlacementButton: React.FC<{
      */
     coop?: { hasPlacedUnits: boolean };
 }> = ({ canSubmit, ready, snapshot, submitProtocolAction, coop }) => {
+    const manager = usePixiManager();
     const [nowMs, setNowMs] = useState(Date.now());
     useEffect(() => {
         return startVisibleInterval(() => setNowMs(Date.now()), 1000);
@@ -3275,12 +3306,16 @@ export const RankedReadyPlacementButton: React.FC<{
             variant="plain"
             disabled={disabled}
             title={coop && !ready && !coop.hasPlacedUnits ? t("Place at least one unit first") : undefined}
-            onClick={() =>
-                void submitProtocolAction({
-                    type: PlayActionType.READY_PLACEMENT,
-                    ...(coop && ready ? { reason: SANDBOX_UNREADY_REASON } : {}),
-                })
-            }
+            onClick={() => {
+                const run = () => {
+                    void submitProtocolAction({
+                        type: PlayActionType.READY_PLACEMENT,
+                        ...(coop && ready ? { reason: SANDBOX_UNREADY_REASON } : {}),
+                    });
+                };
+                if (readGameViewport().touch && !ready) manager.RequestTouchConfirmation("Ready placement?", run);
+                else run();
+            }}
             sx={rankedReadyPlacementButtonSx}
         >
             <Box
@@ -3360,6 +3395,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     allowPlacementExit = false,
 }) => {
     const navigate = useNavigate();
+    const { touch } = useGameLayout();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
     // A spectator's FIGHT panel floats bottom-centre over the board (GameSystemControls' centre slot), where it
     // hides the units it describes — so its header drags it anywhere, and a double-click puts it back.
@@ -3417,6 +3453,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // Ranked placement opens the augment step as its own screen; the player picks there, locks in, and
     // the chosen upgrades collapse to a read-only sidebar summary. null = not yet interacted -> open by
     // default at placement start.
+    const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     const [augmentOverlayOpenState, setAugmentOverlayOpen] = useState<boolean | null>(null);
     // Split placement runs Setup (augments/synergies, stage 0) then Board (positioning, stage 1). A legacy
     // combined placement reports placementSplit=false and behaves as before (augments + board share one
@@ -3753,14 +3790,29 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 variant="plain"
                                 sx={{ ...draftShellSx, height: "100%", border: "none" }}
                             >
-                                <PickLanternFire slot={0} active={augmentOverlayOpen} />
-                                <PickLanternFire slot={1} active={augmentOverlayOpen} />
+                                {!touch && <PickLanternFire slot={0} active={augmentOverlayOpen} />}
+                                {!touch && <PickLanternFire slot={1} active={augmentOverlayOpen} />}
                                 {/* The same fixed 1340x800 board every draft phase uses, so this step is
                                     pixel-identical to the ones before it and only scales with the window. */}
-                                <Box sx={draftBoardSx(draftScale)} onMouseLeave={endAugmentInspect}>
+                                <Box
+                                    sx={draftBoardSx(draftScale)}
+                                    onMouseLeave={endAugmentInspect}
+                                    data-touch-draft-board={touch || undefined}
+                                    data-touch-draft-roster-open={touchRosterOpen}
+                                >
+                                    {touch && (
+                                        <button
+                                            className="hoc-touch-draft-army-toggle"
+                                            aria-expanded={touchRosterOpen}
+                                            onClick={() => setTouchRosterOpen(!touchRosterOpen)}
+                                        >
+                                            {t("Armies")}
+                                        </button>
+                                    )}
                                     {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
                                     <Box
+                                        data-testid="draft-header-zone"
                                         sx={{
                                             width: "100%",
                                             height: DRAFT_HEADER_HEIGHT,
@@ -3784,6 +3836,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     {/* Setup always recaps the player's draft. Opponent visibility follows the
                                     snapshot's explicit policy: normal rail by default, privacy card when set. */}
                                     <Stack
+                                        data-testid="draft-armies-zone"
                                         direction="row"
                                         spacing={1.5}
                                         sx={{
@@ -3853,6 +3906,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         )}
                                     </Stack>
                                     <Box
+                                        data-testid="draft-choice-action-zone"
                                         sx={{
                                             display: "flex",
                                             flexDirection: "column",
@@ -3864,6 +3918,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         }}
                                     >
                                         <Box
+                                            data-testid="draft-choice-zone"
                                             sx={{
                                                 position: "relative",
                                                 display: "flex",
@@ -3916,34 +3971,41 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     disabled regardless. */}
                                         {/* One bar carries the action, the budget and the clock: gold while points are
                                     still unspent, green once the build is complete. */}
-                                        <PickCommitButton
-                                            label={inSetupStage && ready ? "Waiting for opponent…" : "Lock in augments"}
-                                            armed={
-                                                !((!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready)))
-                                            }
-                                            isYourTurn
-                                            tone={setupComplete ? "green" : "gold"}
-                                            blockedHint={
-                                                augmentReady.pointsRemaining > 0
-                                                    ? `You still have ${augmentReady.pointsRemaining} upgrade point${
-                                                          augmentReady.pointsRemaining === 1 ? "" : "s"
-                                                      } to spend — pick augments until the budget is empty.`
-                                                    : undefined
-                                            }
-                                            seconds={augmentSecondsLeft}
-                                            extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
-                                            onCommit={() => {
-                                                if (inSetupStage) {
-                                                    return submitProtocolAction({
-                                                        type: rankedPlacementLockActionType(snapshot),
-                                                    });
-                                                } else {
-                                                    setAugmentOverlayOpen(false);
-                                                    return true;
+                                        <Box data-touch-draft-commit sx={{ display: "contents" }}>
+                                            <PickCommitButton
+                                                label={
+                                                    inSetupStage && ready ? "Waiting for opponent…" : "Lock in augments"
                                                 }
-                                            }}
-                                            submissionKey={`${snapshot.gameId}:${snapshot.placementStage}`}
-                                        />
+                                                armed={
+                                                    !(
+                                                        (!ready && !setupComplete) ||
+                                                        (inSetupStage && (!canSubmit || ready))
+                                                    )
+                                                }
+                                                isYourTurn
+                                                tone={setupComplete ? "green" : "gold"}
+                                                blockedHint={
+                                                    augmentReady.pointsRemaining > 0
+                                                        ? `You still have ${augmentReady.pointsRemaining} upgrade point${
+                                                              augmentReady.pointsRemaining === 1 ? "" : "s"
+                                                          } to spend — pick augments until the budget is empty.`
+                                                        : undefined
+                                                }
+                                                seconds={augmentSecondsLeft}
+                                                extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
+                                                onCommit={() => {
+                                                    if (inSetupStage) {
+                                                        return submitProtocolAction({
+                                                            type: rankedPlacementLockActionType(snapshot),
+                                                        });
+                                                    } else {
+                                                        setAugmentOverlayOpen(false);
+                                                        return true;
+                                                    }
+                                                }}
+                                                submissionKey={`${snapshot.gameId}:${snapshot.placementStage}`}
+                                            />
+                                        </Box>
                                     </Box>
                                 </Box>
                                 {augmentOverlayOpen && (

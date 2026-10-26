@@ -1,3 +1,4 @@
+import { isTouchGameActive } from "../viewport/gameViewport";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -8635,6 +8636,57 @@ export class Sandbox extends PixiScene {
             // console.log("Shift+Click Shifted Unit:", unit.getName());
         }
     }
+    public override getTouchConfirmationLabel(_point: HoCMath.XY): string | null {
+        if (this.sc_renderSpellBookOverlay) return null;
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return this.currentActiveSpell ? "Cast spell" : "Confirm action";
+        }
+        return this.hasActiveSelection || this.pendingBarrelPlacement ? "Place here" : null;
+    }
+    public override InspectTouchUnit(point: HoCMath.XY): void {
+        const unit = this.getInspectableUnitAtPosition(this.getLogicalBattlefieldPoint(point));
+        if (!(unit instanceof RenderableUnit)) return;
+        if (this.hasActiveSelection || this.pendingBarrelPlacement) this.Deselect(false, true);
+        if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) this.selectedBoardUnit.setBoardSelected(false);
+        this.currentShiftedUnit = unit;
+        this.selectedBoardUnit = unit;
+        unit.setBoardSelected(true);
+        this.sc_selectedUnitProperties = unit.getUnitProperties();
+        this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+        this.sc_unitPropertiesUpdateNeeded = true;
+        this.hasActiveSelection = false;
+        this.selectionFromOverlay = false;
+    }
+    public override isTouchInspectionOnly(): boolean {
+        const viewer = this.getViewerTeam();
+        if (this.replayPlaybackActive || (this.sc_gameActionTransport && viewer === undefined)) return true;
+        const fight = FightStateManager.getInstance().getFightProperties();
+        return (
+            fight.hasFightStarted() &&
+            (fight.hasFightFinished() ||
+                this.isBoardInputLockedByAI() ||
+                (!!this.sc_gameActionTransport && this.currentActiveUnit?.getTeam() !== viewer))
+        );
+    }
+    public override getTouchInteractionKey(): string {
+        const fight = FightStateManager.getInstance().getFightProperties();
+        return JSON.stringify([
+            fight.hasFightStarted(),
+            fight.hasFightFinished(),
+            fight.getCurrentLap(),
+            fight.getAlreadyMadeTurnSize(),
+            this.currentActiveUnit?.getId(),
+            this.currentActiveUnit?.getAmountAlive(),
+            this.currentActiveUnit?.getCumulativeHp(),
+            this.currentActiveUnit?.getBaseCell().x,
+            this.currentActiveUnit?.getBaseCell().y,
+            this.sc_selectedUnitProperties?.id,
+            this.sc_selectedUnitProperties?.amount_alive,
+            this.currentActiveSpell?.getName(),
+            this.pendingBarrelPlacement?.team,
+            this.pendingBarrelPlacement?.index,
+        ]);
+    }
     public override MouseDown(p: HoCMath.XY): void {
         this.pointerVisualWorld = p;
         const logicalPoint = this.getLogicalBattlefieldPoint(p);
@@ -17196,7 +17248,7 @@ export class Sandbox extends PixiScene {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const started = fightProps.hasFightStarted();
         if (this.unitsOverlay?.container) {
-            this.unitsOverlay.container.visible = !started && !this.sc_gameActionTransport;
+            this.unitsOverlay.container.visible = !started && !this.sc_gameActionTransport && !isTouchGameActive();
         }
         if (started) {
             this.unitsOverlay.clearSelection(true);

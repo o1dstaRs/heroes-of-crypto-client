@@ -1,3 +1,4 @@
+import { isTouchGameActive } from "../viewport/gameViewport";
 import { borrowedGraceBuffsByThief } from "./sandbox/borrowedGraceTransfers";
 import { chainLightningRecipients } from "./sandbox/chainLightningRecipients";
 import {
@@ -1689,7 +1690,7 @@ export class RankedPlayScene extends Sandbox {
         const started = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         if (this.sandboxCoop && !started && this.viewerTeam !== undefined) {
             this.ensureUnitsOverlayBuilt();
-            this.unitsOverlay?.setVisible(true);
+            this.unitsOverlay?.setVisible(!isTouchGameActive());
             return;
         }
         this.unitsOverlay?.setVisible(false);

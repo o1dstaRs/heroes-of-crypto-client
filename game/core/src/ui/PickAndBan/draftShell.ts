@@ -4,7 +4,7 @@ import { hocDisplayFontFamily } from "../hocTheme";
 /** Shared by the accepted-match waiting screen, live draft and augment handoff. */
 export const draftShellSx = {
     width: "100%",
-    height: "100vh",
+    height: "var(--hoc-game-height, 100vh)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

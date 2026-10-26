@@ -1,3 +1,4 @@
+import { boardBottomInset } from "../../pixi/boardFit";
 import { GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 /**
@@ -74,7 +75,7 @@ export function battlefieldArtworkLayout(
     const scaleY = boardHeight / fieldHeight;
     const bottomMidX = (field.bottomLeft.x + field.bottomRight.x) * 0.5;
     const artworkLeft = viewportWidth * 0.5 + boardWidth * BATTLEFIELD_HORIZONTAL_BIAS - bottomMidX * scaleX;
-    const artworkTop = viewportHeight - field.bottomLeft.y * scaleY;
+    const artworkTop = viewportHeight - boardBottomInset() - field.bottomLeft.y * scaleY;
     const width = BATTLEFIELD_ARTWORK.width * scaleX;
     const height = BATTLEFIELD_ARTWORK.height * scaleY;
     return {
