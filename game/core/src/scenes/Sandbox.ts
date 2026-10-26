@@ -1391,6 +1391,9 @@ export class Sandbox extends PixiScene {
         );
         const fightAlreadyStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         if (!this.sc_gameActionTransport && !fightAlreadyStarted) {
+            // Touch uses the React roster from the first frame. Build its creature choices without
+            // briefly displaying the desktop canvas tray before a later placement/fight refresh.
+            this.unitsOverlay.setVisible(!isTouchGameActive());
             this.ensureUnitsOverlayBuilt();
         } else {
             this.unitsOverlay.setVisible(false);
