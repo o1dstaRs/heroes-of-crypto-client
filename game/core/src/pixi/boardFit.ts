@@ -11,6 +11,7 @@
 
 /** Sidebars keep 85% of their former width, handing the remaining 15% to the battlefield. */
 import { getTouchGameInsets, isTouchGameActive } from "../viewport/gameViewport";
+import { BATTLEFIELD_ARTWORK, BATTLEFIELD_HORIZONTAL_OVERSCAN } from "./battlefieldArtwork";
 
 export const BATTLE_SIDEBAR_WIDTH_RATIO = 0.85;
 /** Keep desktop controls readable on 4:3 and scaled laptop viewports. */
@@ -49,20 +50,29 @@ export const battleSidebarWidth = (width: number, height: number): number =>
               Math.min(BATTLE_SIDEBAR_MIN_WIDTH_PX, Math.floor(width / 4)),
           );
 
+/** Fit one uniformly scaled painting; spare tablet width must never stretch the floor on X. */
+const touchBoardFit = (width: number, height: number): { width: number; height: number } => {
+    const field = BATTLEFIELD_ARTWORK.field;
+    const fieldWidth = field.bottomRight.x - field.bottomLeft.x;
+    const fieldHeight = field.bottomLeft.y - field.topLeft.y;
+    const insets = getTouchGameInsets();
+    const maxWidth = Math.max(0, width - 24);
+    const maxHeight = Math.max(0, height - 112 - insets.top - insets.bottom) * BATTLEFIELD_HEIGHT_RATIO;
+    const scale = Math.min((maxWidth * BATTLEFIELD_HORIZONTAL_OVERSCAN) / fieldWidth, maxHeight / fieldHeight);
+    return { width: (fieldWidth * scale) / BATTLEFIELD_HORIZONTAL_OVERSCAN, height: fieldHeight * scale };
+};
+
 /** Battlefield width between the two equally sized sidebars. */
 export const boardFitWidth = (width: number, height: number): number =>
     isTouchGameActive()
-        ? Math.max(0, Math.min(width - 24, (height - 112) * 1.6))
+        ? touchBoardFit(width, height).width
         : Math.max(0, width - 2 * battleSidebarWidth(width, height));
 
 /** Battlefield height matched to the painted 16-row floor. */
 export const boardFitHeight = (width: number, height: number): number =>
-    Math.max(
-        0,
-        (isTouchGameActive()
-            ? height - 112 - getTouchGameInsets().top - getTouchGameInsets().bottom
-            : legacyBoardFitSize(width, height)) * BATTLEFIELD_HEIGHT_RATIO,
-    );
+    isTouchGameActive()
+        ? touchBoardFit(width, height).height
+        : Math.max(0, legacyBoardFitSize(width, height) * BATTLEFIELD_HEIGHT_RATIO);
 
 export type BoardChildScaleCompensation = Readonly<{ x: number; y: number }>;
 

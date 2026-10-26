@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 
-import { isFullscreenPresentationActive, onFullscreenChange, syncFullscreenPresentationAttribute } from "./fullscreen";
+import {
+    isFullscreenActive,
+    isFullscreenPresentationActive,
+    onFullscreenChange,
+    syncFullscreenPresentationAttribute,
+} from "./fullscreen";
 
 /** React state backed by the browser's actual fullscreen element, including vendor-prefixed events. */
-export const useFullscreenActive = (): boolean => {
-    const [active, setActive] = useState(isFullscreenPresentationActive);
+export const useFullscreenActive = (nativeOnly = false): boolean => {
+    const [active, setActive] = useState(nativeOnly ? isFullscreenActive : isFullscreenPresentationActive);
 
     useEffect(() => {
-        const sync = () => setActive(syncFullscreenPresentationAttribute());
+        const sync = () => {
+            const presentation = syncFullscreenPresentationAttribute(nativeOnly);
+            setActive(nativeOnly ? isFullscreenActive() : presentation);
+        };
         sync();
         const unsubscribeFullscreen = onFullscreenChange(sync);
         window.addEventListener("resize", sync);
@@ -15,7 +23,7 @@ export const useFullscreenActive = (): boolean => {
             unsubscribeFullscreen();
             window.removeEventListener("resize", sync);
         };
-    }, []);
+    }, [nativeOnly]);
 
     return active;
 };

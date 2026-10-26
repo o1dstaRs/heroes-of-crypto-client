@@ -33,6 +33,7 @@ describe("touch battlefield fit", () => {
         const boardHeight = boardFitHeight(width, height);
         const bottom = height / 2 - boardFitVerticalShift(width, height) + boardHeight / 2;
         const art = battlefieldArtworkLayout(width, height, boardWidth, boardHeight);
+        expect(art.width / BATTLEFIELD_ARTWORK.width).toBeCloseTo(art.height / BATTLEFIELD_ARTWORK.height, 8);
         const paintedBottom =
             art.y - art.height / 2 + (BATTLEFIELD_ARTWORK.field.bottomLeft.y * art.height) / BATTLEFIELD_ARTWORK.height;
         expect(battleSidebarWidth(width, height)).toBe(0);
@@ -40,5 +41,19 @@ describe("touch battlefield fit", () => {
         expect(boardWidth).toBeLessThan(width);
         expect(bottom).toBeCloseTo(height - 76, 6);
         expect(paintedBottom).toBeCloseTo(bottom, 6);
+    });
+    test("width-constrained views keep the same artwork aspect without clipping the field", () => {
+        setTouchGameActive(true);
+        const width = 600,
+            height = 1024;
+        const art = battlefieldArtworkLayout(
+            width,
+            height,
+            boardFitWidth(width, height),
+            boardFitHeight(width, height),
+        );
+        expect(art.width / BATTLEFIELD_ARTWORK.width).toBeCloseTo(art.height / BATTLEFIELD_ARTWORK.height, 8);
+        expect(boardFitWidth(width, height)).toBeLessThanOrEqual(width - 24);
+        expect(boardFitHeight(width, height)).toBeLessThan(height - 128);
     });
 });

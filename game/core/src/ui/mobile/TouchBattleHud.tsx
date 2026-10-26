@@ -6,6 +6,8 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { VisibleButtonState, type IVisibleButton, type IVisibleState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
 import { useGameLayout } from "./GameViewport";
+import { toggleFullscreen } from "../fullscreen";
+import { useFullscreenActive } from "../useFullscreenActive";
 
 const buttonLabel = (button: IVisibleButton): string => {
     switch (button.name) {
@@ -56,18 +58,6 @@ const buttonImage = (button: IVisibleButton): string | undefined => {
     }
 };
 
-const enterFullscreen = async () => {
-    try {
-        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-            await document.documentElement.requestFullscreen();
-        }
-        const orientation = screen.orientation as ScreenOrientation & { lock?: (orientation: string) => Promise<void> };
-        await orientation?.lock?.("landscape");
-    } catch {
-        // The landscape surface also works when the browser cannot lock device orientation.
-    }
-};
-
 export default function TouchBattleHud() {
     const manager = usePixiManager();
     const { panel, setPanel } = useGameLayout();
@@ -76,6 +66,8 @@ export default function TouchBattleHud() {
     const [started, setStarted] = useState(manager.hasStarted);
     const [pending, setPending] = useState(manager.GetTouchActionLabel());
     const [inspect, setInspect] = useState(false);
+    const fullscreen = useFullscreenActive(true);
+    const [fullscreenNotice, setFullscreenNotice] = useState(false);
     const [visible, setVisible] = useState<IVisibleState | undefined>(manager.m_scene?.sc_visibleState);
 
     useEffect(() => {
@@ -148,10 +140,22 @@ export default function TouchBattleHud() {
                     +
                 </button>
                 <div id="hoc-touch-audio-slot" />
-                <button aria-label={t("Fullscreen")} onClick={() => void enterFullscreen()}>
+                <button
+                    aria-label={t(fullscreen ? "Exit fullscreen" : "Fullscreen")}
+                    aria-pressed={fullscreen}
+                    onClick={() => {
+                        void toggleFullscreen({ landscape: true }).then((result) =>
+                            setFullscreenNotice(result === "unavailable" || result === "denied"),
+                        );
+                    }}
+                >
                     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
                         <path
-                            d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"
+                            d={
+                                fullscreen
+                                    ? "M3 8h5V3m8 0v5h5M8 21v-5H3m18 0h-5v5"
+                                    : "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"
+                            }
                             fill="none"
                             stroke="currentColor"
                             strokeWidth="2"
@@ -161,6 +165,14 @@ export default function TouchBattleHud() {
                     </svg>
                 </button>
             </nav>
+            {fullscreenNotice && (
+                <div className="hoc-touch-notice" role="status">
+                    <span>{t("Fullscreen is unavailable here. Use Add to Home Screen for an app view.")}</span>
+                    <button aria-label={t("Close")} onClick={() => setFullscreenNotice(false)}>
+                        ×
+                    </button>
+                </div>
+            )}
             {pending && (
                 <div className="hoc-touch-confirm" role="region" aria-label={t("Confirm battle action")}>
                     <span aria-live="polite">{t(pending)}</span>

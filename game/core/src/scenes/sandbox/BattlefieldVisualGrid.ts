@@ -1,29 +1,12 @@
 import { boardBottomInset } from "../../pixi/boardFit";
+import {
+    BATTLEFIELD_ARTWORK,
+    BATTLEFIELD_HORIZONTAL_BIAS,
+    BATTLEFIELD_HORIZONTAL_OVERSCAN,
+} from "../../pixi/battlefieldArtwork";
 import { GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
 
-/**
- * Authored geometry of background_stone_tiles_sinister_16x16.webp.
- *
- * The simulation remains a regular 16x16 square grid. These four points only describe how that logical
- * square is painted in the battlefield illustration, so screen-space cell effects can follow the visible
- * stone seams without leaking perspective into pathing, distances, occupancy or combat rules.
- */
-export const BATTLEFIELD_ARTWORK = Object.freeze({
-    width: 1576,
-    height: 1378,
-    field: Object.freeze({
-        topLeft: Object.freeze({ x: 205, y: 329 }),
-        topRight: Object.freeze({ x: 1293, y: 329 }),
-        bottomRight: Object.freeze({ x: 1561, y: 1342 }),
-        bottomLeft: Object.freeze({ x: 12, y: 1342 }),
-    }),
-});
-
-/** Narrow bleed under the side panels removes the bitmap's rounded dark edge from the combat frame. */
-export const BATTLEFIELD_HORIZONTAL_OVERSCAN = 1.03;
-
-/** Keep the right-hand bleed while allowing the authored lower-left border to land on the frame corner. */
-export const BATTLEFIELD_HORIZONTAL_BIAS = 0.011;
+export { BATTLEFIELD_ARTWORK, BATTLEFIELD_HORIZONTAL_BIAS, BATTLEFIELD_HORIZONTAL_OVERSCAN };
 
 /**
  * Hand-traced centres of the 17x17 painted stone seams in the source artwork (top -> bottom).

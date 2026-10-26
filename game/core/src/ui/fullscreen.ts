@@ -59,8 +59,8 @@ export const isFullscreenPresentationActive = (): boolean =>
     isFullscreenActive() || viewportFillsBrowserWindow(window.innerHeight, window.outerHeight);
 
 /** Mirror the browser state onto <html>, giving fullscreen-only layout a synchronous CSS hook. */
-export const syncFullscreenPresentationAttribute = (): boolean => {
-    const active = isFullscreenPresentationActive();
+export const syncFullscreenPresentationAttribute = (nativeOnly = false): boolean => {
+    const active = nativeOnly ? isFullscreenActive() : isFullscreenPresentationActive();
     if (active) {
         document.documentElement.setAttribute(FULLSCREEN_PRESENTATION_ATTRIBUTE, "true");
     } else {
@@ -89,38 +89,57 @@ export const onFullscreenChange = (handler: () => void): (() => void) => {
     };
 };
 
-/**
- * Enter fullscreen if windowed, leave it if not. Failures are swallowed: a browser that refuses the request
- * (no user gesture, embedded frame, policy) has nothing useful to report to a player mid-fight.
- */
-export const toggleFullscreen = (): void => {
+export type FullscreenResult = "entered" | "exited" | "unavailable" | "denied";
+
+/** Enter/exit through the browser's supported API; touch controls can offer a fallback if it refuses. */
+export const toggleFullscreen = async (options: { landscape?: boolean } = {}): Promise<FullscreenResult> => {
     const doc = document as PrefixedDocument;
     try {
         if (isFullscreenActive()) {
-            setFullscreenPresentationAttribute(false);
             const exit =
                 doc.exitFullscreen?.bind(doc) ??
                 doc.webkitExitFullscreen?.bind(doc) ??
                 doc.mozCancelFullScreen?.bind(doc) ??
                 doc.msExitFullscreen?.bind(doc);
-            void Promise.resolve(exit?.())
-                .then(syncFullscreenPresentationAttribute)
-                .catch(syncFullscreenPresentationAttribute);
-            return;
+            if (!exit) return "unavailable";
+            await exit();
+            if (options.landscape) {
+                try {
+                    window.screen.orientation?.unlock?.();
+                } catch {
+                    /* Optional on mobile Safari. */
+                }
+            }
+            return "exited";
         }
         const root = document.documentElement as PrefixedElement;
         const request =
-            root.requestFullscreen?.bind(root) ??
+            (root.requestFullscreen
+                ? () => root.requestFullscreen(options.landscape ? { navigationUI: "hide" } : undefined)
+                : undefined) ??
             root.webkitRequestFullscreen?.bind(root) ??
             root.mozRequestFullScreen?.bind(root) ??
             root.msRequestFullscreen?.bind(root);
+        if (!request) return "unavailable";
         // Apply compact fullscreen layout on the click itself. The resolved browser state then confirms it
         // or removes it again if fullscreen was refused.
         setFullscreenPresentationAttribute(true);
-        void Promise.resolve(request?.())
-            .then(syncFullscreenPresentationAttribute)
-            .catch(syncFullscreenPresentationAttribute);
+        // Invoke before the first await: fullscreen must consume the original trusted tap.
+        await request();
+        if (options.landscape) {
+            const orientation = window.screen.orientation as ScreenOrientation & {
+                lock?: (mode: string) => Promise<void>;
+            };
+            try {
+                await orientation?.lock?.("landscape");
+            } catch {
+                /* CSS already provides landscape without a lock. */
+            }
+        }
+        return "entered";
     } catch {
-        syncFullscreenPresentationAttribute();
+        return "denied";
+    } finally {
+        syncFullscreenPresentationAttribute(Boolean(options.landscape));
     }
 };

@@ -259,6 +259,86 @@ body[data-hoc-touch-game="true"] {
         }
     }
 
+    #hoc-touch-audio-slot .hoc-audio-control {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    .hoc-audio-control[data-touch-audio="true"] .hoc-audio-popup {
+        z-index: 60;
+        min-width: 260px !important;
+        max-width: calc(var(--hoc-game-width) - 32px);
+
+        > button,
+        label {
+            min-height: 44px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        label input {
+            width: 22px !important;
+            height: 22px !important;
+            margin: 0;
+            accent-color: #dcb158;
+            color-scheme: dark;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+    }
+
+    #hoc-touch-audio-slot .hoc-audio-popup {
+        top: calc(100% + 10px);
+        bottom: auto !important;
+    }
+
+    .hoc-touch-volume-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+
+        input {
+            width: 128px;
+            height: 44px;
+            margin: 0;
+            accent-color: #dcb158;
+            touch-action: none;
+        }
+    }
+
+    .hoc-touch-notice {
+        position: fixed;
+        z-index: 60;
+        top: calc(58px + var(--hoc-safe-top));
+        left: 50%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: calc(var(--hoc-game-width) - 32px);
+        padding: 6px 12px;
+        border: 1px solid #8e6934;
+        border-radius: 8px;
+        background: #211b14;
+        color: #efe4cc;
+        font-size: 13px;
+        transform: translateX(-50%);
+
+        button {
+            min-width: 44px;
+            min-height: 44px;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font-size: 24px;
+        }
+    }
+
     [data-game-corner-slot] {
         top: calc(58px + var(--hoc-safe-top)) !important;
         right: calc(8px + var(--hoc-safe-right)) !important;

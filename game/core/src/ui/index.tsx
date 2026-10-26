@@ -74,6 +74,7 @@ import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { MatchmakingRoute } from "./MatchmakingRoute";
 import { ThemeMusic } from "./audio/ThemeMusic";
+import { AudioDeviceSupport } from "./audio/AudioDeviceSupport";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
@@ -1743,7 +1744,9 @@ const App: React.FC = () => {
                     <Router>
                         {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
                             screens does not restart the theme. It decides for itself which routes sing. */}
-                        <ThemeMusic />
+                        <AudioDeviceSupport>
+                            <ThemeMusic />
+                        </AudioDeviceSupport>
                         <GameViewport>
                             {(windowSize) => (
                                 <>

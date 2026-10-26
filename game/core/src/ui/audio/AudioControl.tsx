@@ -2,13 +2,17 @@ import React, { useCallback, useEffect, useId, useRef, useState, useSyncExternal
 
 import { images } from "../../generated/image_imports";
 import { useTranslation } from "../../i18n/i18n";
+import { readGameViewport } from "../../viewport/gameViewport";
 import {
     DEFAULT_MASTER_VOLUME,
+    DEFAULT_EFFECTS_VOLUME,
     getAudioLevels,
     getAudioLevelsServerSnapshot,
     setMasterMuted,
     setMasterVolume,
     setMusicMuted,
+    setEffectsMuted,
+    setEffectsVolume,
     subscribeAudioLevels,
 } from "../../settings/audioLevels";
 
@@ -18,12 +22,14 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
     onSettingsChange,
 }) => {
     const { t } = useTranslation();
-    const { masterVolume, masterMuted, musicMuted } = useSyncExternalStore(
+    const { masterVolume, masterMuted, musicMuted, effectsMuted, effectsVolume } = useSyncExternalStore(
         subscribeAudioLevels,
         getAudioLevels,
         getAudioLevelsServerSnapshot,
     );
     const [expanded, setExpanded] = useState(false);
+    const touch = readGameViewport().touch;
+    const rootRef = useRef<HTMLDivElement>(null);
     const collapseTimer = useRef<number | null>(null);
     const popupId = useId();
 
@@ -48,15 +54,43 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
     }, [cancelCollapse]);
 
     useEffect(() => cancelCollapse, [cancelCollapse]);
+    useEffect(() => {
+        if (!touch || !expanded) return;
+        const dismiss = (event: PointerEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) setExpanded(false);
+        };
+        document.addEventListener("pointerdown", dismiss, true);
+        return () => document.removeEventListener("pointerdown", dismiss, true);
+    }, [touch, expanded]);
 
     const silent = masterMuted || masterVolume === 0;
+    const toggleMute = () => {
+        const nextMuted = !silent;
+        setMasterMuted(nextMuted);
+        if (!nextMuted && masterVolume === 0) setMasterVolume(DEFAULT_MASTER_VOLUME);
+        onSettingsChange();
+    };
+    const changeVolume = (next: number) => {
+        setMasterVolume(next);
+        if (next > 0) setMasterMuted(false);
+        onSettingsChange();
+    };
     return (
         <div
-            onMouseEnter={show}
-            onMouseLeave={scheduleCollapse}
-            onFocus={show}
+            ref={rootRef}
+            className="hoc-audio-control"
+            data-touch-audio={touch || undefined}
+            onMouseEnter={() => {
+                if (!touch) show();
+            }}
+            onMouseLeave={() => {
+                if (!touch) scheduleCollapse();
+            }}
+            onFocus={() => {
+                if (!touch) show();
+            }}
             onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) scheduleCollapse();
+                if (!touch && !event.currentTarget.contains(event.relatedTarget)) scheduleCollapse();
             }}
             onKeyDown={(event) => {
                 if (event.key === "Escape" && expanded) {
@@ -76,15 +110,16 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
         >
             <button
                 type="button"
-                aria-pressed={silent}
-                aria-label={t(silent ? "Unmute sound" : "Mute sound")}
+                aria-pressed={touch ? undefined : silent}
+                aria-label={t(touch ? "Sound settings" : silent ? "Unmute sound" : "Mute sound")}
                 aria-expanded={expanded}
                 aria-controls={popupId}
                 onClick={() => {
-                    const nextMuted = !silent;
-                    setMasterMuted(nextMuted);
-                    if (!nextMuted && masterVolume === 0) setMasterVolume(DEFAULT_MASTER_VOLUME);
-                    onSettingsChange();
+                    if (touch) {
+                        cancelCollapse();
+                        setExpanded((value) => !value);
+                        onSettingsChange();
+                    } else toggleMute();
                 }}
                 style={{
                     display: "grid",
@@ -105,6 +140,7 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
             />
             <div
                 id={popupId}
+                className="hoc-audio-popup"
                 aria-hidden={!expanded}
                 style={{
                     position: "absolute",
@@ -129,28 +165,85 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
                 <span style={{ fontSize: 12, color: "#efe4cc" }}>
                     {t("Sound")} · {Math.round(masterVolume * 100)}%
                 </span>
-                <div
-                    className="hoc-volume-slider-shell"
-                    style={{ "--hoc-volume-level": `${Math.round(4 + masterVolume * 78)}px` } as React.CSSProperties}
-                >
-                    <input
-                        type="range"
-                        className="hoc-volume-slider"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={Math.round(masterVolume * 100)}
-                        aria-label={t("Sound volume")}
-                        aria-orientation="vertical"
+                {touch ? (
+                    <div className="hoc-touch-volume-row">
+                        <button
+                            type="button"
+                            aria-label={t("Decrease sound volume")}
+                            onClick={() => changeVolume(Math.max(0, masterVolume - 0.1))}
+                            tabIndex={expanded ? 0 : -1}
+                        >
+                            −
+                        </button>
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={Math.round(masterVolume * 100)}
+                            aria-label={t("Sound volume")}
+                            tabIndex={expanded ? 0 : -1}
+                            onChange={(event) => changeVolume(Number(event.target.value) / 100)}
+                        />
+                        <button
+                            type="button"
+                            aria-label={t("Increase sound volume")}
+                            onClick={() => changeVolume(Math.min(1, masterVolume + 0.1))}
+                            tabIndex={expanded ? 0 : -1}
+                        >
+                            +
+                        </button>
+                    </div>
+                ) : (
+                    <div
+                        className="hoc-volume-slider-shell"
+                        style={
+                            { "--hoc-volume-level": `${Math.round(4 + masterVolume * 78)}px` } as React.CSSProperties
+                        }
+                    >
+                        <input
+                            type="range"
+                            className="hoc-volume-slider"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={Math.round(masterVolume * 100)}
+                            aria-label={t("Sound volume")}
+                            aria-orientation="vertical"
+                            tabIndex={expanded ? 0 : -1}
+                            onChange={(event) => {
+                                changeVolume(Number(event.target.value) / 100);
+                            }}
+                        />
+                    </div>
+                )}
+                {touch && (
+                    <button
+                        type="button"
+                        aria-pressed={silent}
+                        aria-label={t(silent ? "Unmute sound" : "Mute sound")}
+                        onClick={toggleMute}
                         tabIndex={expanded ? 0 : -1}
-                        onChange={(event) => {
-                            const next = Number(event.target.value) / 100;
-                            setMasterVolume(next);
-                            if (next > 0) setMasterMuted(false);
-                            onSettingsChange();
-                        }}
-                    />
-                </div>
+                    >
+                        {t(silent ? "Unmute sound" : "Mute sound")}
+                    </button>
+                )}
+                {touch && (
+                    <label className="hoc-touch-effects-toggle">
+                        <input
+                            type="checkbox"
+                            checked={!effectsMuted && effectsVolume > 0}
+                            tabIndex={expanded ? 0 : -1}
+                            onChange={(event) => {
+                                setEffectsMuted(!event.target.checked);
+                                if (event.target.checked && effectsVolume === 0)
+                                    setEffectsVolume(DEFAULT_EFFECTS_VOLUME);
+                                onSettingsChange();
+                            }}
+                        />
+                        {t("Sound effects")}
+                    </label>
+                )}
                 <label
                     style={{
                         display: "flex",

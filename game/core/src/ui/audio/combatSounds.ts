@@ -143,10 +143,13 @@ let bus: GainNode | undefined;
 const voices = new Set<AudioBufferSourceNode>();
 
 const unlock = (): boolean => {
-    if (typeof window === "undefined" || typeof AudioContext === "undefined") return false;
+    if (typeof window === "undefined") return false;
+    const Context =
+        globalThis.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Context) return false;
     try {
         if (!context) {
-            context = new AudioContext();
+            context = new Context();
             bus = context.createGain();
             bus.gain.value = effectsGain();
             const compressor = context.createDynamicsCompressor();
@@ -161,12 +164,16 @@ const unlock = (): boolean => {
                 if (effectsGain() <= 0) stopCombatSounds();
             });
         }
-        if (context.state === "suspended") void context.resume().catch(() => undefined);
+        // iOS can interrupt an already unlocked context when switching apps or taking a call.
+        if (context.state !== "running" && context.state !== "closed") void context.resume().catch(() => undefined);
         return context.state !== "closed";
     } catch {
         return false;
     }
 };
+
+/** Call synchronously from a trusted gesture, before playback moves to an animation or decode promise. */
+export const getGameAudioContext = (): AudioContext | undefined => (unlock() ? context : undefined);
 
 const player = createCombatSoundPlayer({
     gain: effectsGain,
