@@ -4,7 +4,7 @@ import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 import type { RenderableUnit } from "../RenderableUnit";
 import { CombatVisuals } from "./CombatVisuals";
 
-function fixture() {
+function fixture(legacyEffectsEnabled = true) {
     const root = new Container();
     root.scale.set(0.8, -0.5);
     const makeUnit = (x: number, y: number) =>
@@ -17,6 +17,7 @@ function fixture() {
     const unit = makeUnit(120, 300);
     const units = new Map([["target", unit]]);
     const visuals = new CombatVisuals({
+        legacyEffectsEnabled,
         getGridSettings: () => ({ getCellSize: () => 64 }) as GridSettings,
         getBoardScale: () => ({ x: root.scale.x, y: root.scale.y }),
         attachToWorldRoot: (container) => {
@@ -103,3 +104,67 @@ test.each(["luck", "resist", "heal", "absorb"])(
         }
     },
 );
+
+test("live combat suppresses static buff icons and duplicate lucky/resist captions", () => {
+    const f = fixture(false);
+    const pop = spyOn(f.visuals, "spawnCommonFlagPop").mockImplementation(() => undefined);
+    try {
+        for (const [name, kind] of [
+            ["Deep Wounds", "debuff"],
+            ["Courage", "buff"],
+            ["Double Punch", "buff"],
+        ] as const)
+            f.visuals.spawnDebuffPop({ x: 120, y: 300 }, Texture.WHITE, name, 0, kind, f.unit);
+        f.visuals.showLuckyLabel({ x: 120, y: 300 }, undefined, f.unit);
+        f.visuals.showResistLabel({ x: 120, y: 300 }, undefined, f.unit);
+        expect(pop.mock.calls.map((call) => call[1])).toEqual(["lucky", "resist"]);
+        expect(f.root.children).toHaveLength(0);
+        // Loss presentation and healing numbers remain independent of the retired icon renderer.
+        f.visuals.showFloatingHeal({ x: 120, y: 300 }, 10, f.unit);
+        expect(f.root.children).toHaveLength(1);
+    } finally {
+        pop.mockRestore();
+        f.visuals.clear();
+    }
+});
+
+test("live combat skips archived procedural effects before allocating or loading textures", () => {
+    const f = fixture(false);
+    const pos = { x: 120, y: 300 };
+    const info = { texture: Texture.WHITE, x: 120, y: 300, scaleX: 1, scaleY: -1 };
+    try {
+        f.visuals.spawnShatter(info);
+        f.visuals.spawnDeathVfx(info, "target", true);
+        f.visuals.spawnFireSweep(pos, { x: 200, y: 300 }, 64);
+        f.visuals.spawnFireBurn(pos, 64);
+        f.visuals.spawnPoisonCloud(pos, 64);
+        f.visuals.spawnEnchantResult(pos, 64, {
+            tint: 0xffffff,
+            iconTexture: Texture.WHITE,
+            label: "Double Punch",
+            success: true,
+        });
+        f.visuals.spawnMagicMirrorRebound(pos, { x: 200, y: 300 }, 64);
+        f.visuals.spawnSlash(pos, 64);
+        f.visuals.spawnBloodSpray(pos, 64);
+        f.visuals.spawnClawSlash(pos, 64, 3);
+        f.visuals.spawnResurrectionBurst(pos, 64);
+        f.visuals.spawnAreaImpact(pos, 64);
+        let arrived = 0;
+        f.visuals.spawnAbilityGift(
+            pos,
+            { x: 200, y: 300 },
+            64,
+            "Double Punch",
+            "gifted",
+            Texture.WHITE,
+            () => arrived++,
+        );
+        expect(arrived).toBe(1);
+        f.visuals.update(1);
+        expect(f.root.children).toHaveLength(0);
+        expect(Texture.WHITE.destroyed).toBe(false);
+    } finally {
+        f.visuals.clear();
+    }
+});

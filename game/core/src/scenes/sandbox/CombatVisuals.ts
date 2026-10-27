@@ -66,6 +66,8 @@ import { CyclopsGoreVfx } from "./CyclopsGoreVfx";
 import type { BrutalityPose } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
+    /** Archived renderer comparisons only; live scenes use authored effects with this omitted. */
+    legacyEffectsEnabled?: boolean;
     isCombatImpactPending?(): boolean;
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
@@ -1049,6 +1051,7 @@ export class CombatVisuals {
     }
     public showResistLabel(pos: HoCMath.XY, direction?: HoCMath.XY, unit?: RenderableUnit): void {
         if (unit) this.spawnCommonFlagPop(unit, "resist");
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         const label = new PixiText({
             text: "RESISTED",
@@ -1073,6 +1076,7 @@ export class CombatVisuals {
     }
     public showLuckyLabel(pos: HoCMath.XY, direction?: HoCMath.XY, unit?: RenderableUnit): void {
         if (unit) this.spawnCommonFlagPop(unit, "lucky");
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         const label = new PixiText({
             text: "LUCKY!",
@@ -1419,6 +1423,7 @@ export class CombatVisuals {
             );
             return;
         }
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
 
         const iconSize = cell * 0.72;
@@ -1596,6 +1601,10 @@ export class CombatVisuals {
         },
         onArrival?: () => void,
     ): void {
+        if (!this.context.legacyEffectsEnabled) {
+            onArrival?.();
+            return;
+        }
         if (Math.hypot(to.x - from.x, to.y - from.y) < 1) {
             onArrival?.();
             return;
@@ -2232,6 +2241,7 @@ export class CombatVisuals {
         this.stepEnchants(dt);
     }
     public spawnShatter(info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const tex = info.texture;
         const source = tex?.source;
         const frame = tex?.frame;
@@ -2613,6 +2623,7 @@ export class CombatVisuals {
      * a later death by spell to the earlier attack.
      */
     public noteDeathBlow(unitId: string, kind: DeathBlowKind, dir?: HoCMath.XY): void {
+        if (!this.context.legacyEffectsEnabled) return;
         // Never let a re-note DOWNGRADE the record: the live path can attribute the same kill twice
         // (once at impact, once in the turn-event sweep after teardown), and the later pass — computed
         // when the corpse's position is gone — used to clobber a good angle with undefined, which is
@@ -2624,6 +2635,7 @@ export class CombatVisuals {
         this.deathBlowByUnitId.set(unitId, { kind, dir });
     }
     public spawnDeathVfx(info: IDeathVfxInfo, unitId?: string, frozen = false): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
         if (unitId) {
             this.deathBlowByUnitId.delete(unitId);
@@ -3129,6 +3141,7 @@ export class CombatVisuals {
         return this.lightTexture;
     }
     public spawnFireSweep(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const len = Math.hypot(dx, dy);
@@ -3176,6 +3189,7 @@ export class CombatVisuals {
         this.fireSweeps.push({ container, particles });
     }
     public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
@@ -3404,6 +3418,7 @@ export class CombatVisuals {
         return this.poisonTexture;
     }
     public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
         const tex = this.getPoisonTexture();
@@ -3670,6 +3685,7 @@ export class CombatVisuals {
         cellSize: number,
         opts: { tint: number; iconTexture: Texture; label: string; success: boolean },
     ): number {
+        if (!this.context.legacyEffectsEnabled) return 0;
         const container = new Container();
         // worldRoot is y-up; counter-flip so local coords are screen-style (y down) and the icon/text stay upright.
         container.scale.set(glyphScaleX(1), -1);
@@ -3871,6 +3887,7 @@ export class CombatVisuals {
         void this.whirlpoolSprites.spawn(footprint);
     }
     public spawnMagicMirrorRebound(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         this.attachEffect(container, MIRROR_Z);
         const pane = new Graphics();
@@ -3967,6 +3984,7 @@ export class CombatVisuals {
         this.skewerSpears.spawn(id, end, cell, follow);
     }
     public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         this.attachEffect(container, SLASH_Z);
         const gfx = new Graphics();
@@ -4076,6 +4094,7 @@ export class CombatVisuals {
         }
     }
     public spawnBloodSpray(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
         const baseAng = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) : Math.PI / 2;
 
@@ -4148,6 +4167,7 @@ export class CombatVisuals {
         }
     }
     public spawnClawSlash(center: HoCMath.XY, cellSize: number, intensity: number): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const level = intensity >= 18 ? 3 : intensity >= 10 ? 2 : 1;
         const markCount = 2 + level; // 3, 4, or 5 claws
         const spanScale = 0.85 + 0.12 * level; // a deeper wound rakes bigger
@@ -4318,6 +4338,7 @@ export class CombatVisuals {
         );
     }
     private spawnHealBurst(pos: HoCMath.XY, ringColor = 0x66ff99, moteColor = 0xaaffcc): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const graphics = new Graphics();
         this.attachEffect(graphics, HEAL_BURST_Z);
         this.healBursts.push({
@@ -4335,6 +4356,7 @@ export class CombatVisuals {
         });
     }
     public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const graphics = new Graphics();
         this.attachEffect(graphics, RESURRECT_BURST_Z);
         this.resurrectBursts.push({
@@ -4406,6 +4428,7 @@ export class CombatVisuals {
         }
     }
     public spawnAreaImpact(pos: HoCMath.XY, cellSize: number, radius = cellSize * 1.6): void {
+        if (!this.context.legacyEffectsEnabled) return;
         const graphics = new Graphics();
         this.attachEffect(graphics, AREA_IMPACT_Z);
         this.areaImpacts.push({

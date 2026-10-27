@@ -11,6 +11,7 @@ import { CombatVisuals } from "./CombatVisuals";
 const makeVisuals = (): { visuals: CombatVisuals; attached: Container[] } => {
     const attached: Container[] = [];
     const visuals = new CombatVisuals({
+        legacyEffectsEnabled: true,
         getGridSettings: () => undefined as unknown as GridSettings,
         attachToWorldRoot: (obj: Container) => {
             attached.push(obj);

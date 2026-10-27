@@ -160,7 +160,7 @@ describe("Absolving Arrow success VFX", () => {
         expect(cleanses).toEqual(["near", "far"]);
     });
 
-    test("uses a distinct CLEANSED label and golden-white burst that tears down normally", () => {
+    test("keeps the CLEANSED label without the retired generic burst", () => {
         const clock = spyOn(performance, "now").mockReturnValue(1000);
         try {
             const attached: Container[] = [];
@@ -175,7 +175,7 @@ describe("Absolving Arrow success VFX", () => {
             visuals.showCleanse({ x: 25, y: 50 });
             const text = attached[0].children[0] as Text;
             expect(text.text).toBe("CLEANSED");
-            expect(attached).toHaveLength(2);
+            expect(attached).toHaveLength(1);
             clock.mockReturnValue(2000);
             visuals.update(1);
             expect(attached.every((container) => container.destroyed)).toBe(true);
