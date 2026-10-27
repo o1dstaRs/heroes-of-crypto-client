@@ -215,7 +215,8 @@ export const CreatureNameFlag: React.FC<{
                 style={{
                     position: "absolute",
                     left: "50%",
-                    top: "48%",
+                    // Centre the capital letters between the gold rails, accounting for the font’s lower leading.
+                    top: "55%",
                     transform: "translate(-50%,-50%)",
                     fontFamily: hocDisplayFontFamily,
                     fontSize,
