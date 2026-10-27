@@ -621,3 +621,36 @@ test.each([false, true])("Covenant absorbs wait for their own contact, first sho
     flights[1].land();
     await pending;
 });
+
+test("each strike reports actual playback progress without advancing while a reaction is held", async () => {
+    const { scene, a, b, finish } = setup();
+    let progress = 0;
+    scene.aiController = {
+        noteActionPresentationProgress: () => {
+            progress++;
+        },
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        orderCombatExchange([strike()], strike(true)),
+        () => {},
+    );
+    await flush();
+    expect(progress).toBe(1);
+    finish.shift()!();
+    await flush();
+    expect(progress).toBe(2);
+    await flush();
+    expect(progress).toBe(2);
+    finish.shift()!();
+    await flush();
+    expect(progress).toBe(4);
+    finish.shift()!();
+    await flush();
+    expect(progress).toBe(5);
+    finish.shift()!();
+    await pending;
+    expect(progress).toBe(6);
+});

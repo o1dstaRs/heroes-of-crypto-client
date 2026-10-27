@@ -5178,6 +5178,7 @@ export class Sandbox extends PixiScene {
         const groups = groupCombatExchange(plan);
         for (const [groupIndex, group] of groups.entries()) {
             if (this.isSceneDestroyed()) break;
+            this.aiController?.noteActionPresentationProgress?.();
             futureAttackers = new Set(
                 groups
                     .slice(groupIndex + 1)
@@ -5393,6 +5394,7 @@ export class Sandbox extends PixiScene {
                     const impact = (): void => {
                         if (impacted || this.isSceneDestroyed()) return;
                         impacted = true;
+                        this.aiController?.noteActionPresentationProgress?.();
                         this.spawnLuckyStrikeVfx(event.damage, new Set([source.getId()]));
                         if (!melee && !strike.missed) this.flushBeholderEffectPops(strike.targetId);
                         absolvingProgress?.(1);
@@ -5761,6 +5763,7 @@ export class Sandbox extends PixiScene {
                         finishAttacks.get(source.getId())?.();
                     }
                     await Promise.all([reaction, gazePresentation, shieldReaction]);
+                    this.aiController?.noteActionPresentationProgress?.();
                     const dying = pendingDeaths.get(source.getId());
                     if (dying && !futureAttackers.has(source.getId())) {
                         if (!this.isSceneDestroyed()) {

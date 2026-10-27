@@ -230,7 +230,7 @@ export class AIController {
     // AI State
     public isAIActive = false;
     public performingAction = false;
-    // Timestamp performingAction last went true; the stall watchdog (PERFORMING_ACTION_STALL_MS) uses it to
+    // Timestamp of the action’s latest presentation progress; the stall watchdog uses it to
     // recover from a wedged flag. 0 when idle.
     private performingActionSinceMs = 0;
     public constructor(context: IAIContext) {
@@ -270,6 +270,10 @@ export class AIController {
         const buttonManager = this.context.getButtonManager();
         buttonManager.sc_isAIActive = this.isAIActive;
         buttonManager.refreshButtons(true);
+    }
+    /** Refresh the stall deadline only when a presentation phase actually advances. */
+    public noteActionPresentationProgress(): void {
+        if (!this.destroyed && this.performingAction) this.performingActionSinceMs = HoCLib.getTimeMillis();
     }
     private finishAIAction(priorAIActive: boolean): void {
         this.restoreAIState(priorAIActive);
