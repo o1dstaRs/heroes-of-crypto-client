@@ -220,7 +220,7 @@ body[data-hoc-touch-game="true"] {
         top: var(--hoc-safe-top);
         left: var(--hoc-safe-left);
         right: var(--hoc-safe-right);
-        height: 56px;
+        height: var(--hoc-touch-topbar-height);
     }
 
     .hoc-touch-turn {
@@ -251,7 +251,7 @@ body[data-hoc-touch-game="true"] {
         bottom: var(--hoc-safe-bottom);
         left: var(--hoc-safe-left);
         right: var(--hoc-safe-right);
-        min-height: 72px;
+        height: var(--hoc-touch-actionbar-height);
         padding-block: 2px;
         justify-content: center;
         overflow: auto hidden;

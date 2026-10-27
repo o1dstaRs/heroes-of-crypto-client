@@ -6,6 +6,9 @@ import {
     readGameViewport,
     setTouchGameActive,
     setTouchGameInsets,
+    GAME_VIEWPORT_CHANGED,
+    TOUCH_TOPBAR_HEIGHT,
+    TOUCH_ACTIONBAR_HEIGHT,
     type GameViewport as Viewport,
 } from "../../viewport/gameViewport";
 
@@ -40,7 +43,10 @@ export const GameViewport: React.FC<{ children: (size: Viewport) => React.ReactN
 
     useLayoutEffect(() => {
         setTouchGameActive(viewport.touch);
-        if (!viewport.touch) return () => setTouchGameActive(false);
+        if (!viewport.touch) {
+            window.dispatchEvent(new Event(GAME_VIEWPORT_CHANGED));
+            return () => setTouchGameActive(false);
+        }
         const body = document.body;
         document.documentElement.dataset.hocTouchGame = "true";
         body.dataset.hocTouchGame = "true";
@@ -48,19 +54,30 @@ export const GameViewport: React.FC<{ children: (size: Viewport) => React.ReactN
         body.style.setProperty("--hoc-game-width", `${viewport.width}px`);
         body.style.setProperty("--hoc-game-height", `${viewport.height}px`);
         body.style.setProperty("--hoc-physical-width", `${viewport.physicalWidth}px`);
+        body.style.setProperty("--hoc-touch-topbar-height", `${TOUCH_TOPBAR_HEIGHT}px`);
+        body.style.setProperty("--hoc-touch-actionbar-height", `${TOUCH_ACTIONBAR_HEIGHT}px`);
         for (const [property, value] of Object.entries(touchGameSkin)) body.style.setProperty(property, value);
         const style = getComputedStyle(body);
         setTouchGameInsets({
             top: parseFloat(style.getPropertyValue("--hoc-safe-top")) || 0,
             bottom: parseFloat(style.getPropertyValue("--hoc-safe-bottom")) || 0,
         });
+        // A pointer/orientation change can keep the same canvas dimensions. Notify Pixi after the
+        // touch state and safe areas are current; a ResizeObserver alone misses that transition.
+        window.dispatchEvent(new Event(GAME_VIEWPORT_CHANGED));
         return () => {
             setTouchGameActive(false);
             setTouchGameInsets({ top: 0, bottom: 0 });
             delete document.documentElement.dataset.hocTouchGame;
             delete body.dataset.hocTouchGame;
             delete body.dataset.hocGameRotated;
-            for (const property of ["--hoc-game-width", "--hoc-game-height", "--hoc-physical-width"]) {
+            for (const property of [
+                "--hoc-game-width",
+                "--hoc-game-height",
+                "--hoc-physical-width",
+                "--hoc-touch-topbar-height",
+                "--hoc-touch-actionbar-height",
+            ]) {
                 body.style.removeProperty(property);
             }
             for (const property of Object.keys(touchGameSkin)) body.style.removeProperty(property);

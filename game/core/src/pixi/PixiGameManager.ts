@@ -36,7 +36,7 @@ import {
 import { MAX_FPS } from "../statics";
 import { boardFitPadding } from "./boardFit";
 import { resizeBoard } from "./boardResize";
-import { pointInGameElement, readGameViewport } from "../viewport/gameViewport";
+import { GAME_VIEWPORT_CHANGED, pointInGameElement, readGameViewport } from "../viewport/gameViewport";
 import { TouchBoardInput } from "./TouchBoardInput";
 import { observeElementBox } from "./observeElementBox";
 import { FpsCalculator } from "./FpsCalculator";
@@ -314,6 +314,7 @@ export class PixiGameManager {
 
         this.addInitEventListener(window, "resize", onResize);
         this.addInitEventListener(window, "orientationchange", onResize);
+        this.addInitEventListener(window, GAME_VIEWPORT_CHANGED, onResize);
         // The window is not the only thing that resizes the board. Its wrapper is a flex item sitting next
         // to the sidebars, so a panel that mounts or grows mid-match — ranked placement mounts several —
         // re-lays the board out while the window never changes. The canvas then kept the pixel size it was

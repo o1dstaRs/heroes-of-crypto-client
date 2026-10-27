@@ -7,6 +7,12 @@ export interface GameViewport {
     rotated: boolean;
 }
 
+// Shared by CSS and the camera: touch controls occupy real space, never playable floor.
+export const TOUCH_TOPBAR_HEIGHT = 56;
+export const TOUCH_ACTIONBAR_HEIGHT = 78;
+export const TOUCH_BOARD_GAP = 8;
+export const GAME_VIEWPORT_CHANGED = "hoc-game-viewport-changed";
+
 let touchGameActive = false;
 let touchInsets = { top: 0, bottom: 0 };
 export const isTouchGameActive = (): boolean => touchGameActive;

@@ -7278,6 +7278,9 @@ export class Sandbox extends PixiScene {
         const fightStarted = fightProps.hasFightStarted();
         if (!fightStarted && this.unitsOverlay) {
             this.unitsOverlay.onResize(w, h);
+            // Touch has its own scrollable Army drawer. Re-evaluate on layout changes too, otherwise
+            // a tray created in desktop mode stays visible underneath the newly mounted touch bar.
+            this.updateUnitsOverlayVisibility();
             // Placement graphics only used pre-fight
             this.attachPlacementLayers(100);
         } else if (fightStarted && this.unitsOverlay) {
@@ -17251,7 +17254,7 @@ export class Sandbox extends PixiScene {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const started = fightProps.hasFightStarted();
         if (this.unitsOverlay?.container) {
-            this.unitsOverlay.container.visible = !started && !this.sc_gameActionTransport && !isTouchGameActive();
+            this.unitsOverlay.setVisible(!started && !this.sc_gameActionTransport && !isTouchGameActive());
         }
         if (started) {
             this.unitsOverlay.clearSelection(true);

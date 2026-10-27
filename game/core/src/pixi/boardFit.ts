@@ -10,7 +10,13 @@
  */
 
 /** Sidebars keep 85% of their former width, handing the remaining 15% to the battlefield. */
-import { getTouchGameInsets, isTouchGameActive } from "../viewport/gameViewport";
+import {
+    getTouchGameInsets,
+    isTouchGameActive,
+    TOUCH_TOPBAR_HEIGHT,
+    TOUCH_ACTIONBAR_HEIGHT,
+    TOUCH_BOARD_GAP,
+} from "../viewport/gameViewport";
 import { BATTLEFIELD_ARTWORK, BATTLEFIELD_HORIZONTAL_OVERSCAN } from "./battlefieldArtwork";
 
 export const BATTLE_SIDEBAR_WIDTH_RATIO = 0.85;
@@ -27,7 +33,8 @@ export const BATTLEFIELD_HEIGHT_RATIO = (1013 / 1342) * BATTLEFIELD_VERTICAL_BLE
 
 /** Padding remains zero: the new top band comes from the shorter rows, not from cropping the board. */
 export const BOARD_FIT_PADDING_RATIO = 0;
-export const boardBottomInset = (): number => (isTouchGameActive() ? 76 + getTouchGameInsets().bottom : 0);
+export const boardBottomInset = (): number =>
+    isTouchGameActive() ? TOUCH_ACTIONBAR_HEIGHT + TOUCH_BOARD_GAP + getTouchGameInsets().bottom : 0;
 
 export const boardFitPadding = (width: number, height: number): number =>
     Math.round(Math.min(width, height) * BOARD_FIT_PADDING_RATIO);
@@ -57,8 +64,10 @@ const touchBoardFit = (width: number, height: number): { width: number; height: 
     const fieldHeight = field.bottomLeft.y - field.topLeft.y;
     const insets = getTouchGameInsets();
     const maxWidth = Math.max(0, width - 24);
-    const maxHeight = Math.max(0, height - 112 - insets.top - insets.bottom) * BATTLEFIELD_HEIGHT_RATIO;
-    const scale = Math.min((maxWidth * BATTLEFIELD_HORIZONTAL_OVERSCAN) / fieldWidth, maxHeight / fieldHeight);
+    // Fit the wall as well as the floor below the top controls. Fitting only the floor let the
+    // first-row creatures (and the desktop roster during a layout switch) extend behind the bar.
+    const maxHeight = Math.max(0, height - TOUCH_TOPBAR_HEIGHT - insets.top - TOUCH_BOARD_GAP - boardBottomInset());
+    const scale = Math.min((maxWidth * BATTLEFIELD_HORIZONTAL_OVERSCAN) / fieldWidth, maxHeight / field.bottomLeft.y);
     return { width: (fieldWidth * scale) / BATTLEFIELD_HORIZONTAL_OVERSCAN, height: fieldHeight * scale };
 };
 
