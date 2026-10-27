@@ -5658,7 +5658,7 @@ export class Sandbox extends PixiScene {
                         if (
                             receivedDamage &&
                             renderedVictim &&
-                            (!strike.lethal || pendingDeaths.has(strike.targetId))
+                            (!strike.lethal || gazeHits.length > 0 || pendingDeaths.has(strike.targetId))
                         ) {
                             const showReaction = (): Promise<void> => {
                                 if (this.isSceneDestroyed() || shownDeaths.has(strike.targetId))

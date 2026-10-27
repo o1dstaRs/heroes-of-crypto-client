@@ -270,17 +270,17 @@ describe("Zena lethal impact routing", () => {
             );
             await flush();
             expect(f.flights[0].to).toEqual(f.b.getProjectileImpactPoint());
+            expect(f.flights).toHaveLength(1);
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
             expect(f.flights[1].to).toEqual(
                 prepareBrutalityTarget(f.a.getStaticBattlefieldPreviewAt()!, f.a.getName())!.point,
             );
             f.flights[1].impact();
             f.flights[1].finish();
             await flush();
-            expect(f.roots()).toHaveLength(0);
-            // Preserve the initiating victim's recorded outgoing projectile before removing its body.
-            f.flights[0].impact();
-            f.flights[0].finish();
-            await flush();
+            expect(f.roots()).toHaveLength(1);
             f.hops.splice(0).forEach((finish) => finish());
             await pending;
             expect(f.roots()).toHaveLength(1);
