@@ -1,5 +1,5 @@
 {
-    "version": "2026-10-25-local-parity",
+    "version": "2026-10-27-combat-order",
     "format": 2,
     "baselineFolder": "https://drive.google.com/drive/folders/1K0HdVnGuX3HJqMX7zPKKy19nrZMrcMo9",
     "archives": [
@@ -44,6 +44,12 @@
             "sha256": "76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e",
             "bytes": 35170592,
             "files": 114
+        },
+        {
+            "file": "resources-08.zip",
+            "bytes": 464696,
+            "sha256": "798e6fbde8c660133ad06968501ceb9f91f8a79b350aa9ee1c4eea8a19b548f7",
+            "files": 2
         }
     ],
     "files": {
@@ -38548,6 +38554,20 @@
             "source": "archive",
             "archive": "resources-07.zip",
             "path": "blobs/2a3f66e30c3d74a13e80c6208053cca3f77dcfece889cf1b9d86bb81956283de"
+        },
+        "heroesofcrypto-assets/images/might_portrait_bg_frontal_crimson_v2.webp": {
+            "sha256": "fcf9149a5f57752187597051acc34ca4df0e1395352b4df3f9cb4836ca28f161",
+            "bytes": 141804,
+            "source": "archive",
+            "archive": "resources-08.zip",
+            "path": "heroesofcrypto-assets/images/might_portrait_bg_frontal_crimson_v2.webp"
+        },
+        "heroesofcrypto-assets/images/life_portrait_bg_frontal_sky_v2.webp": {
+            "sha256": "7b4620acd962302df8a503a8b535598f46d664d60e20580df900c0666d97f706",
+            "bytes": 322448,
+            "source": "archive",
+            "archive": "resources-08.zip",
+            "path": "heroesofcrypto-assets/images/life_portrait_bg_frontal_sky_v2.webp"
         }
     }
 }

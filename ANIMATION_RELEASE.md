@@ -1,8 +1,8 @@
-# Local parity release — 2026-10-25
+# Local parity release — 2026-10-27 update
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,502 required runtime files
+outside Git. Production builds and the deploy readiness check verify all 5,504 required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
@@ -13,7 +13,7 @@ The release also reuses exact, unchanged files from the [shared heroesofcrypto f
 Keep that folder available locally through Google Drive, or download its images and animations/output
 folders with their directory structure intact. The old compact archive and source.zip are not required.
 
-**Download all seven archives. The restore tools verify every archive and shared source revision before a build.**
+**Download all eight archives. The restore tools verify every archive and shared source revision before a build.**
 
 | Archive | SHA-256 |
 | --- | --- |
@@ -24,8 +24,11 @@ folders with their directory structure intact. The old compact archive and sourc
 | `resources-05.zip` | `3c7e436c479acb706bab1ffc5e7eea9f22d65a766eb97ffb65333f34fd48e0b6` |
 | `resources-06.zip` | `2e1942919d034d57cc2440c05608dcd10e112eeb8e574e8fc81dac19f5a42d7f` |
 | `resources-07.zip` | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
+| `resources-08.zip` | `798e6fbde8c660133ad06968501ceb9f91f8a79b350aa9ee1c4eea8a19b548f7` |
 
-Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The seven archives
+Archive 08 adds the two approved frontal portrait backgrounds used by the release UI.
+
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The eight archives
 and the verified shared files contain the required runtime assets, settings reference and site exports.
 No older compact archive, source ZIP, patch ZIP or separately downloaded portrait-page supplement is
 required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.

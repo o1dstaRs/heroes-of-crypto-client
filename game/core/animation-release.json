@@ -1,5 +1,5 @@
 {
-    "version": "2026-10-25-local-parity",
+    "version": "2026-10-27-combat-order",
     "files": {
         "animations/output/abomination_attack/atlas/abomination_attack_atlas.webp": {
             "sha256": "e1d60006c5d502a0b7f9a556acbca8cab0a1d0b37b5c33596606bf7ee79e24e8",
@@ -22008,6 +22008,14 @@
         "images/portrait_aaa_front_v1_zena.webp": {
             "sha256": "2a3f66e30c3d74a13e80c6208053cca3f77dcfece889cf1b9d86bb81956283de",
             "bytes": 371570
+        },
+        "images/might_portrait_bg_frontal_crimson_v2.webp": {
+            "sha256": "fcf9149a5f57752187597051acc34ca4df0e1395352b4df3f9cb4836ca28f161",
+            "bytes": 141804
+        },
+        "images/life_portrait_bg_frontal_sky_v2.webp": {
+            "sha256": "7b4620acd962302df8a503a8b535598f46d664d60e20580df900c0666d97f706",
+            "bytes": 322448
         }
     },
     "sidebarPortraitPages": {
