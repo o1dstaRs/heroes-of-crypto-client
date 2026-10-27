@@ -55,18 +55,14 @@ const PORTRAIT_SLUGS: Readonly<Partial<Record<number, string>>> = {
     [CreatureVals.MANTICORE]: "manticore",
 };
 
-/** Approved portraits on local sandbox and draft previews; framing editors retain their own sources. */
+/** Approved portraits on sandbox and draft previews in every build; framing editors retain their own sources. */
 export const usesLocalFrontFacingPortraits = (pathname: string): boolean =>
     pathname === "/" ||
     pathname.startsWith("/sandbox/") ||
     /^\/preview\/(?:picks\/(?:bundle|local|level[1-4]|map|artifact2)|augments|placement)$/.test(pathname);
 
 export const frontFacingPortraitPreviewSource = (creatureId: number): string | undefined => {
-    if (
-        !import.meta.env.DEV ||
-        typeof window === "undefined" ||
-        !usesLocalFrontFacingPortraits(window.location.pathname)
-    ) {
+    if (typeof window === "undefined" || !usesLocalFrontFacingPortraits(window.location.pathname)) {
         return undefined;
     }
     const slug = PORTRAIT_SLUGS[creatureId];
