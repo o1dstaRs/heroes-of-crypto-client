@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { getCreaturesByLevel } from "@heroesofcrypto/common";
+import release from "../../animation-release.json";
 import { images } from "../generated/image_imports";
 import { LEFT_SIDEBAR_PORTRAIT_ATLASES } from "../ui/leftSidebarPortraitAnimationSources";
 import { resolveLeftSidebarPortraitBackground } from "../ui/leftSidebarPortraitBackground";
@@ -24,6 +25,7 @@ test("every roster sidebar has a shippable faction background and every authored
         isProductionOmittedUnreferencedAssetKey,
     ];
     let animated = 0;
+    const releaseFiles = new Set<string>();
     for (const creatureId of [1, 2, 3, 4].flatMap((level) => [...getCreaturesByLevel(level)])) {
         const background = resolveLeftSidebarPortraitBackground(creatureId);
         expect(background, `creature ${creatureId}: background`).toBeString();
@@ -45,6 +47,7 @@ test("every roster sidebar has a shippable faction background and every authored
         for (const source of sources) {
             const key = keyForSource.get(source);
             expect(key, `creature ${creatureId}: ${source}`).toBeDefined();
+            releaseFiles.add(`${key}.webp`);
             expect(
                 omitted.some((omit) => omit(key!)),
                 `creature ${creatureId}: ${key}`,
@@ -52,6 +55,8 @@ test("every roster sidebar has a shippable faction background and every authored
         }
     }
     expect(animated).toBeGreaterThan(50);
+    const declaredFiles = new Set(Object.keys(release.files).map((file) => file.split("/").at(-1)));
+    expect([...releaseFiles].filter((file) => !declaredFiles.has(file))).toEqual([]);
 });
 
 test("production retains every card, sidebar and full-body portrait source used by the local selectors", () => {
