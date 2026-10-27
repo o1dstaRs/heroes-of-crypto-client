@@ -20,6 +20,7 @@ import { UnitChip } from "./UnitChip";
 import { images } from "../imageAssets";
 import { frontFacingPortraitPreviewSource } from "../ui/frontFacingPortraitPreview";
 import { resolveCreaturePortraitVisual } from "../ui/creaturePortraitVisual";
+import { getPickPreviewOrder, subscribePickPreviewOrder } from "../ui/pickPreviewOrder";
 import { creatureTypePresentation } from "../ui/creatureTypePresentation";
 import {
     clearLeftSidebarPortraitPrefetch,
@@ -302,6 +303,7 @@ export class UnitsOverlay {
     private isOpen = true;
     private tweenCancel?: () => void;
     private allChips: UnitChip[] = [];
+    private readonly unsubscribePickOrder: () => void;
     private chipLevels = new Map<UnitChip, UnitLevelId>();
     private levelTabs: LevelTab[] = [];
     private cellSize = 0;
@@ -425,6 +427,9 @@ export class UnitsOverlay {
         });
 
         this.app.stage.addChild(this.container);
+        this.unsubscribePickOrder = subscribePickPreviewOrder(() =>
+            this.onResize(this.app.renderer.width, this.app.renderer.height),
+        );
     }
     private updateButtonVisuals(isHovered: boolean): void {
         const r = this.btnRadius;
@@ -444,6 +449,28 @@ export class UnitsOverlay {
     private toggleExpandedList(): void {
         this.isListExpanded = !this.isListExpanded;
         this.onResize(this.app.renderer.width, this.app.renderer.height);
+    }
+    public getCreatureChoices(): { name: string; creatureId: number; level: number }[] {
+        return this.levelBuckets
+            .flatMap((_, index) => this.orderedChips(index + 1))
+            .map((chip) => ({
+                name: chip.nameKey,
+                creatureId: UNIT_NAME_TO_ID[chip.nameKey],
+                level: this.chipLevels.get(chip) ?? 1,
+            }));
+    }
+    private orderedChips(level: number): UnitChip[] {
+        const chips = this.allChips.filter((chip) => this.chipLevels.get(chip) === level);
+        const byId = new Map(chips.map((chip) => [UNIT_NAME_TO_ID[chip.nameKey], chip]));
+        const ordered = getPickPreviewOrder(level, [...byId.keys()]).map((id) => byId.get(id)!);
+        // The lab-only summon follows its queen and never becomes a normal pick-order entry.
+        const spider = ordered.findIndex((chip) => chip.nameKey === "Arachna Spider");
+        if (spider >= 0) {
+            const [summon] = ordered.splice(spider, 1);
+            const queen = ordered.findIndex((chip) => chip.nameKey === "Arachna Queen");
+            ordered.splice(queen < 0 ? ordered.length : queen + 1, 0, summon);
+        }
+        return ordered;
     }
     private selectChip(chip: UnitChip): void {
         const unitName = chip.nameKey;
@@ -929,11 +956,8 @@ export class UnitsOverlay {
         const cardWidth = cardHeight * PICK_CARD_ASPECT;
         const cardGap = Math.max(2, cardWidth * 0.07);
         const factionGap = Math.max(cardGap * 2.2, cardWidth * 0.22);
-        const selectedRow = this.rowsContainer.children[this.selectedLevel - 1] as Container | undefined;
-        const bucketCounts = this.factions.map(
-            (_, f) => (selectedRow?.children[f] as Container | undefined)?.children.length ?? 0,
-        );
-        const creatureCount = bucketCounts.reduce((sum, count) => sum + count, 0);
+        const orderedChips = this.orderedChips(this.selectedLevel);
+        const creatureCount = orderedChips.length;
         // The expanded grid owns the complete inner frame now that the ALL control is gone. Feeding that full
         // height to the grid grows both card axes together, keeps 190:256, and brings the lower row down to the
         // same inset as the top and side edges without introducing a scrollbar.
@@ -945,10 +969,9 @@ export class UnitsOverlay {
             ? Math.min(this.overlayW, gridX + expandedLayout.width)
             : this.overlayW;
 
-        const bucketWidths = bucketCounts.map((n) => Math.max(0, n * cardWidth + Math.max(0, n - 1) * cardGap));
-        const visibleBucketCount = bucketWidths.filter((width) => width > 0).length;
-        const rowInnerWidth =
-            bucketWidths.reduce((sum, width) => sum + width, 0) + Math.max(0, visibleBucketCount - 1) * factionGap;
+        const gapBefore = (index: number) =>
+            index === 0 ? 0 : orderedChips[index].parent === orderedChips[index - 1].parent ? cardGap : factionGap;
+        const rowInnerWidth = orderedChips.reduce((width, _, index) => width + cardWidth + gapBefore(index), 0);
         const rowPadding = Math.max(cardGap, cell * 0.08);
         const scrollContentWidth = this.isListExpanded ? gridW : Math.max(gridW, rowInnerWidth + rowPadding * 2);
         const rowStartX = scrollContentWidth > gridW ? rowPadding : (gridW - rowInnerWidth) * 0.5;
@@ -1100,47 +1123,30 @@ export class UnitsOverlay {
                 continue;
             }
 
+            // Buckets retain faction membership, but placement follows the saved pick sequence,
+            // including swaps across factions. Both expanded and scrolling views use that sequence.
+            for (const bucket of rowCont.children as Container[]) bucket.position.set(0, 0);
             if (this.isListExpanded) {
                 // Start immediately after the L1–L4 rail. The frame's right edge is trimmed to this content
                 // width above, so the roster has no large empty field on either side.
                 const originX = expandedLayout.padding + expandedLayout.cardWidth * 0.5;
                 const originY = expandedLayout.padding + expandedLayout.cardHeight * 0.5;
-                let index = 0;
-                for (const bucketCont of rowCont.children as Container[]) {
-                    bucketCont.position.set(0, 0);
-                    for (const chip of bucketCont.children as UnitChip[]) {
-                        const column = index % expandedLayout.columns;
-                        const row = Math.floor(index / expandedLayout.columns);
-                        chip.layout(expandedLayout.cardWidth, expandedLayout.cardHeight);
-                        chip.position.set(
-                            originX + column * (expandedLayout.cardWidth + expandedLayout.gap),
-                            originY + row * (expandedLayout.cardHeight + expandedLayout.gap),
-                        );
-                        index++;
-                    }
+                for (const [index, chip] of orderedChips.entries()) {
+                    const column = index % expandedLayout.columns;
+                    const row = Math.floor(index / expandedLayout.columns);
+                    chip.layout(expandedLayout.cardWidth, expandedLayout.cardHeight);
+                    chip.position.set(
+                        originX + column * (expandedLayout.cardWidth + expandedLayout.gap),
+                        originY + row * (expandedLayout.cardHeight + expandedLayout.gap),
+                    );
                 }
             } else {
-                let bucketX = rowStartX;
-                let visibleBucketsPlaced = 0;
-                for (let f = 0; f < this.factions.length; f++) {
-                    const bucketCont = rowCont.children[f] as Container | undefined;
-                    if (!bucketCont) {
-                        continue;
-                    }
-                    const chips = bucketCont.children as unknown as UnitChip[];
-                    const n = chips.length;
-                    if (!n) continue;
-
-                    if (visibleBucketsPlaced > 0) bucketX += factionGap;
-                    bucketCont.position.set(bucketX, 0);
-                    const spacing = cardWidth + cardGap;
-                    for (let c = 0; c < n; c++) {
-                        const chip = chips[c];
-                        chip.layout(cardWidth, cardHeight);
-                        chip.position.set(cardWidth * 0.5 + c * spacing, viewportH * 0.5);
-                    }
-                    bucketX += bucketWidths[f];
-                    visibleBucketsPlaced++;
+                let x = rowStartX;
+                for (const [index, chip] of orderedChips.entries()) {
+                    x += gapBefore(index);
+                    chip.layout(cardWidth, cardHeight);
+                    chip.position.set(x + cardWidth * 0.5, viewportH * 0.5);
+                    x += cardWidth;
                 }
             }
         }
@@ -1221,6 +1227,7 @@ export class UnitsOverlay {
         }
     }
     public destroy(): void {
+        this.unsubscribePickOrder();
         this.clearSidebarPortraitPrefetch();
         if (this.tweenCancel) this.tweenCancel();
         this.app.stage.off("pointermove", this.onScrollbarPointerMove);

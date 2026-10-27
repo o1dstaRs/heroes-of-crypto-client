@@ -133,7 +133,7 @@ const save = (orders: Orders, level: number) => {
             .catch(() => publish({ ...getSnapshot(), serverStatus: "error", saveError: true }));
     }
 };
-const subscribe = (listener: () => void) => {
+export const subscribePickPreviewOrder = (listener: () => void) => {
     listeners.add(listener);
     void initializeServerOrder();
     return () => {
@@ -141,7 +141,11 @@ const subscribe = (listener: () => void) => {
     };
 };
 
-export const usePickPreviewOrder = () => useSyncExternalStore(subscribe, getSnapshot, () => empty);
+export const usePickPreviewOrder = () => useSyncExternalStore(subscribePickPreviewOrder, getSnapshot, () => empty);
+
+/** Pixi and touch rosters use the same saved order as the React pick cards. */
+export const getPickPreviewOrder = (level: number, roster: readonly number[]): number[] =>
+    applyPickPreviewOrder(roster, getSnapshot().orders[level]);
 
 export const setPickPreviewOrderEditing = (editing: boolean) => publish({ ...getSnapshot(), editing, selected: null });
 

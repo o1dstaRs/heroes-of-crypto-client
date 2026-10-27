@@ -440,7 +440,6 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                 unitProperties={unitProperties}
                                 overallImpact={selection.overallImpact}
                                 factionType={selection.factionType}
-                                animatePortrait={!inspection}
                             />
                         </List>
                     </Box>

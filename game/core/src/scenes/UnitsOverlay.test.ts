@@ -16,6 +16,7 @@ import {
     warmLeftSidebarPortrait,
 } from "../ui/leftSidebarPortraitWarm";
 import { UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
+import approvedPickCardOrder from "../settings/approvedPickCardOrder.json";
 
 import { UnitChip } from "./UnitChip";
 import {
@@ -190,6 +191,38 @@ describe("UnitChip portrait layer readiness", () => {
 });
 
 describe("UnitsOverlay chip visibility", () => {
+    test("expanded, scrolling and touch rosters preserve the approved pick order at every level", () => {
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+        overlay.build();
+        const state = overlay as unknown as OverlayInternals;
+        try {
+            for (const [level, ids] of Object.entries(approvedPickCardOrder)) {
+                state.setSelectedLevel(Number(level));
+                expect(
+                    overlay
+                        .getCreatureChoices()
+                        .filter((choice) => choice.level === Number(level))
+                        .map((choice) => choice.creatureId),
+                ).toEqual(ids);
+                for (const expanded of [true, false]) {
+                    state.isListExpanded = expanded;
+                    overlay.onResize(1600, 900);
+                    const row = state.rowsContainer.children[Number(level) - 1] as Container;
+                    const chips = row.children.flatMap((bucket) => (bucket as Container).children as UnitChip[]);
+                    chips.sort((a, b) => a.y - b.y || a.x - b.x);
+                    expect(chips.map((chip) => UNIT_NAME_TO_ID[chip.nameKey])).toEqual(ids);
+                }
+            }
+        } finally {
+            overlay.destroy();
+        }
+    });
+
     test("uses the chosen larger image-backed collapse control", () => {
         expect(TOGGLE_BUTTON_CELL_FRACTION).toBeCloseTo(0.88);
         const requestedKeys: string[] = [];
