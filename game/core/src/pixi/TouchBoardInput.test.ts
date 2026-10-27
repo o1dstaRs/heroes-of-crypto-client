@@ -1,13 +1,14 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import { TouchBoardInput, type TouchBoardView } from "./TouchBoardInput";
+import { TouchBoardInput, type TouchBoardView, type TouchPoint } from "./TouchBoardInput";
 
-const fixture = () => {
+const fixture = (zoomAnchor?: () => TouchPoint) => {
     const taps = mock(() => {});
     const gestures = mock(() => {});
     let view: TouchBoardView = { zoom: 1, x: 0, y: 0 };
     const input = new TouchBoardInput({
         size: () => ({ width: 400, height: 300 }),
+        zoomAnchor,
         toPoint: (point) => point,
         onTap: taps,
         onGesture: gestures,
@@ -58,6 +59,32 @@ describe("touch battlefield gestures", () => {
         input.move(1, { x: 1000, y: 1000 });
         input.up(1);
         expect(view()).toEqual({ zoom: 2, x: 200, y: 150 });
+        expect(taps).not.toHaveBeenCalled();
+    });
+    test("repeated zoom buttons keep the battlefield anchor fixed instead of drifting toward the wall", () => {
+        const anchor = { x: 170, y: 210 };
+        const { input, view, taps } = fixture(() => anchor);
+        const displayedAnchor = () => ({
+            x: (anchor.x - 200) * view().zoom + 200 + view().x,
+            y: (anchor.y - 150) * view().zoom + 150 + view().y,
+        });
+        input.zoomBy(2);
+        expect(displayedAnchor()).toEqual(anchor);
+        input.zoomBy(1.5);
+        expect(view().zoom).toBe(3);
+        expect(displayedAnchor()).toEqual(anchor);
+        input.zoomBy(1 / 3);
+        expect(view()).toEqual({ zoom: 1, x: 0, y: 0 });
+        expect(taps).not.toHaveBeenCalled();
+    });
+    test("pinch zoom still follows the fingers rather than the zoom-button anchor", () => {
+        const { input, view, taps } = fixture(() => ({ x: 170, y: 210 }));
+        input.down(1, { x: 100, y: 100 });
+        input.down(2, { x: 200, y: 100 });
+        input.move(2, { x: 300, y: 100 });
+        expect(view()).toEqual({ zoom: 2, x: 100, y: 50 });
+        input.up(2);
+        input.up(1);
         expect(taps).not.toHaveBeenCalled();
     });
     test("cancellation and camera reset discard contacts and pending gestures", () => {

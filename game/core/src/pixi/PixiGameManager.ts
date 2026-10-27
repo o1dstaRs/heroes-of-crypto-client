@@ -34,7 +34,7 @@ import {
     VisibleButtonState,
 } from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
-import { boardFitPadding } from "./boardFit";
+import { boardBottomInset, boardFitHeight, boardFitPadding } from "./boardFit";
 import { resizeBoard } from "./boardResize";
 import { GAME_VIEWPORT_CHANGED, pointInGameElement, readGameViewport } from "../viewport/gameViewport";
 import { TouchBoardInput } from "./TouchBoardInput";
@@ -597,7 +597,9 @@ export class PixiGameManager {
         this._pixiApp.getTicker().addOnce(() => this.fitViewToWindow());
 
         this.isInitialized = true;
-        if (readGameViewport().touch) this.installTouchBoardInput(glCanvas, debugCanvas, wrapper);
+        // Keep the handler ready for a later coarse-pointer layout without recreating the live Pixi
+        // renderer. Each contact below still checks the current layout before owning a touch event.
+        this.installTouchBoardInput(glCanvas, debugCanvas, wrapper);
         // Signal readiness only after LoadGame() has created m_scene. Ranked routes apply the
         // authoritative snapshot as soon as this flips; emitting earlier can drop the first PLAY
         // snapshot and leave a direct fight link with an empty board until another SSE event arrives.
@@ -784,6 +786,13 @@ export class PixiGameManager {
             );
         const input = new TouchBoardInput({
             size: () => ({ width: wrapper.clientWidth, height: wrapper.clientHeight }),
+            zoomAnchor: () => {
+                const width = wrapper.clientWidth;
+                const height = wrapper.clientHeight;
+                // The wall and the two docks are outside the playing field. Zoom toward the cells,
+                // rather than the canvas centre, so repeated + presses keep the battlefield centred.
+                return { x: width / 2, y: height - boardBottomInset() - boardFitHeight(width, height) / 2 };
+            },
             toPoint: ({ x, y }) =>
                 pointInGameElement(
                     x,
@@ -854,7 +863,7 @@ export class PixiGameManager {
                         this.m_hoveringCanvas = true;
                         return;
                     }
-                    if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+                    if ((e.pointerType !== "touch" && e.pointerType !== "pen") || !readGameViewport().touch) return;
                     e.preventDefault();
                     e.stopImmediatePropagation();
                     if (type === "pointerdown") {
@@ -870,6 +879,11 @@ export class PixiGameManager {
             );
         }
         this.addInitEventListener(window, "resize", () => input.reset(false));
+        this.addInitEventListener(window, GAME_VIEWPORT_CHANGED, () => {
+            const touch = readGameViewport().touch;
+            input.reset(!touch);
+            if (!touch) input.allowMouse();
+        });
         this.addInitEventListener(window, "blur", () => input.cancel());
         this.addInitEventListener(document, "visibilitychange", () => {
             if (document.hidden) input.cancel();

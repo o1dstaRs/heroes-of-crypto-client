@@ -167,8 +167,7 @@ body[data-hoc-touch-game="true"] {
     }
 
     .hoc-touch-topbar,
-    .hoc-touch-actionbar,
-    .hoc-touch-confirm {
+    .hoc-touch-actionbar {
         @include touch-frame;
 
         position: fixed;
@@ -491,17 +490,24 @@ body[data-hoc-touch-game="true"] {
     }
 
     .hoc-touch-confirm {
-        bottom: calc(80px + var(--hoc-safe-bottom));
-        left: 50%;
-        width: max-content;
-        max-width: calc(var(--hoc-game-width) - 32px);
-        transform: translateX(-50%);
-        padding: 6px;
-        box-shadow: 0 4px 24px rgb(0 0 0 / 60%);
+        // Confirm in the space already reserved for actions. A second floating row used to hide the
+        // lower deployment cells precisely when the player needed to review the chosen destination.
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        min-width: 0;
+        max-width: 640px;
 
         > span {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
             padding-inline: 8px;
             font-size: 13px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
     }
 

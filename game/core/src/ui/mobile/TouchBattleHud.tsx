@@ -165,77 +165,88 @@ export default function TouchBattleHud() {
                     </button>
                 </div>
             )}
-            {pending && (
-                <div className="hoc-touch-confirm" role="region" aria-label={t("Confirm battle action")}>
-                    <span aria-live="polite">{t(pending)}</span>
-                    <button onClick={() => manager.CancelTouchAction()}>{t("Cancel")}</button>
-                    <button className="hoc-touch-primary" onClick={() => manager.ConfirmTouchAction()}>
-                        {t("Confirm")}
-                    </button>
-                </div>
-            )}
             <div className="hoc-touch-actionbar" role="toolbar" aria-label={t("Turn actions")}>
-                <div id="hoc-touch-primary-slot" className="hoc-touch-primary-slot" hidden={started} />
-                {started && buttons.some((button) => button.isVisible) ? (
-                    buttons
-                        .filter((button) => button.isVisible)
-                        .map((button) => (
-                            <button
-                                key={button.name}
-                                className="hoc-touch-combat-action"
-                                disabled={button.isDisabled}
-                                aria-pressed={
-                                    button.name === "AI" ? button.state === VisibleButtonState.SECOND : undefined
-                                }
-                                aria-label={t(buttonLabel(button))}
-                                title={t(button.text)}
-                                onClick={() => {
-                                    setInspect(false);
-                                    manager.SetTouchInspectMode(false);
-                                    propagateClick(button.name, button.state);
-                                }}
-                            >
-                                {buttonImage(button) && <img src={buttonImage(button)} alt="" draggable={false} />}
-                                <span>{t(buttonLabel(button))}</span>
-                            </button>
-                        ))
+                {/* Keep this portal target mounted while confirming, so ranked ready/search controls
+                    return to the same live dock when the player cancels or finishes an action. */}
+                <div id="hoc-touch-primary-slot" className="hoc-touch-primary-slot" hidden={started || !!pending} />
+                {pending ? (
+                    <div className="hoc-touch-confirm" role="region" aria-label={t("Confirm battle action")}>
+                        <span aria-live="polite">{t(pending)}</span>
+                        <button onClick={() => manager.CancelTouchAction()}>{t("Cancel")}</button>
+                        <button className="hoc-touch-primary" onClick={() => manager.ConfirmTouchAction()}>
+                            {t("Confirm")}
+                        </button>
+                    </div>
                 ) : (
                     <>
-                        <button className="hoc-touch-primary" onClick={() => togglePanel("army")}>
-                            {t("Army & placement")}
-                        </button>
-                        {visible?.canBeStarted && manager.GetTouchCreatureChoices().length > 0 && (
-                            <button className="hoc-touch-primary" onClick={() => manager.StartGame()}>
-                                {t("Start battle")}
+                        {started && buttons.some((button) => button.isVisible) ? (
+                            buttons
+                                .filter((button) => button.isVisible)
+                                .map((button) => (
+                                    <button
+                                        key={button.name}
+                                        className="hoc-touch-combat-action"
+                                        disabled={button.isDisabled}
+                                        aria-pressed={
+                                            button.name === "AI"
+                                                ? button.state === VisibleButtonState.SECOND
+                                                : undefined
+                                        }
+                                        aria-label={t(buttonLabel(button))}
+                                        title={t(button.text)}
+                                        onClick={() => {
+                                            setInspect(false);
+                                            manager.SetTouchInspectMode(false);
+                                            propagateClick(button.name, button.state);
+                                        }}
+                                    >
+                                        {buttonImage(button) && (
+                                            <img src={buttonImage(button)} alt="" draggable={false} />
+                                        )}
+                                        <span>{t(buttonLabel(button))}</span>
+                                    </button>
+                                ))
+                        ) : (
+                            <>
+                                <button className="hoc-touch-primary" onClick={() => togglePanel("army")}>
+                                    {t("Army & placement")}
+                                </button>
+                                {visible?.canBeStarted && manager.GetTouchCreatureChoices().length > 0 && (
+                                    <button className="hoc-touch-primary" onClick={() => manager.StartGame()}>
+                                        {t("Start battle")}
+                                    </button>
+                                )}
+                                <span className="hoc-touch-hint">
+                                    {t("Tap a stack, then its destination. Pinch to zoom.")}
+                                </span>
+                            </>
+                        )}
+                        {buttons.some(
+                            (button) => button.name === "Spellbook" && button.text === "Selected spell: Fire Wall",
+                        ) && (
+                            <button
+                                onClick={() => {
+                                    manager.RotateTouchSpell();
+                                }}
+                                aria-label={t("Rotate spell")}
+                            >
+                                ↻<span>{t("Rotate")}</span>
                             </button>
                         )}
-                        <span className="hoc-touch-hint">{t("Tap a stack, then its destination. Pinch to zoom.")}</span>
+                        <button
+                            className="hoc-touch-icon-action"
+                            onClick={() => {
+                                manager.CancelTouchAction();
+                                manager.HandleEscapeKey(true);
+                                setInspect(false);
+                                manager.SetTouchInspectMode(false);
+                            }}
+                        >
+                            <img src={images.ui_control_close_oxblood_bronze_v2} alt="" draggable={false} />
+                            <span>{t("Deselect")}</span>
+                        </button>
                     </>
                 )}
-                {buttons.some(
-                    (button) => button.name === "Spellbook" && button.text === "Selected spell: Fire Wall",
-                ) && (
-                    <button
-                        onClick={() => {
-                            manager.RotateTouchSpell();
-                        }}
-                        aria-label={t("Rotate spell")}
-                    >
-                        ↻<span>{t("Rotate")}</span>
-                    </button>
-                )}
-                <button
-                    className="hoc-touch-icon-action"
-                    onClick={() => {
-                        manager.CancelTouchAction();
-                        manager.HandleEscapeKey(true);
-                        setInspect(false);
-                        manager.SetTouchInspectMode(false);
-                    }}
-                >
-                    <img src={images.ui_control_close_oxblood_bronze_v2} alt="" draggable={false} />
-                    <span>{t("Deselect")}</span>
-                </button>
             </div>
         </>
     );

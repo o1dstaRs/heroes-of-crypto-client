@@ -19,6 +19,7 @@ interface Contact {
 
 interface TouchBoardOptions {
     size: () => { width: number; height: number };
+    zoomAnchor?: () => TouchPoint;
     toPoint: (client: TouchPoint) => TouchPoint;
     onTap: (client: TouchPoint, inspect: boolean) => void;
     onView: (view: TouchBoardView) => void;
@@ -93,7 +94,7 @@ export class TouchBoardInput {
     public zoomBy(factor: number): void {
         const { width, height } = this.options.size();
         this.options.onGesture();
-        this.zoomAt(this.view.zoom * factor, { x: width / 2, y: height / 2 });
+        this.zoomAt(this.view.zoom * factor, this.options.zoomAnchor?.() ?? { x: width / 2, y: height / 2 });
     }
     public reset(notify = true): void {
         this.cancel(notify);
