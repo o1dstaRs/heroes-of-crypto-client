@@ -101,6 +101,7 @@ test.each([
                 const projectiles: IFireProjectileOptions[] = [];
                 const deaths: RenderableUnit[] = [];
                 const damage: number[] = [];
+                const displayedCounts: number[][] = [];
 
                 const scene = Object.assign(Object.create(Sandbox.prototype), {
                     sc_sceneSettings: { getGridSettings: () => gs },
@@ -115,7 +116,10 @@ test.each([
                     popRecordedDullingDefense: () => {},
                     combatVisuals: {
                         spawnCommonFlagPop: () => {},
-                        showFloatingDamage: (_position: unknown, amount: number) => damage.push(amount),
+                        showFloatingDamage: (_position: unknown, amount: number) => {
+                            damage.push(amount);
+                            displayedCounts.push(actors.map((actor) => actor.getDisplayedAmount()));
+                        },
                         spawnBloodSpray: () => {},
                         spawnSlash: () => {},
                     },
@@ -134,7 +138,7 @@ test.each([
                     attackerId: source.getId(),
                     targetId: victim.getId(),
                     amount: 10,
-                    unitsDied: lethal ? 10 : 0,
+                    unitsDied: lethal ? 10 : 1,
                     lethal,
                     response,
                     hitIndex: 0,
@@ -186,6 +190,10 @@ test.each([
                         lethal ? actors.map((actor) => actor.getId()).sort() : [],
                     );
                     expect(damage).toEqual([10, 10]);
+                    expect(displayedCounts).toEqual([
+                        [10, lethal ? 0 : 9],
+                        [lethal ? 0 : 9, lethal ? 0 : 9],
+                    ]);
                     const attackStarts = starts.filter((entry) => entry.state.includes("attack"));
                     const firstReaction = starts.find((entry) => entry.actor === defender && entry.state === "hit");
                     expect(firstReaction).toBeDefined();
