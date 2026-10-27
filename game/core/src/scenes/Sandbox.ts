@@ -3970,7 +3970,7 @@ export class Sandbox extends PixiScene {
      *      flight and flushEffectPops releases it here at impact (with a per-frame drain as the
      *      backstop, so holding can never swallow one).
      *
-     * Retaliation note: playCombatExchange starts the initiating strike and its recorded response together
+     * Retaliation note: playCombatExchange finishes each strike and reaction before the next recorded blow
      * in every mode. Per-strike effects belong in its impact callback, keyed by source and response.
      * ───────────────────────────────────────────────────────────────────────────────────────────────
      */
@@ -4979,7 +4979,7 @@ export class Sandbox extends PixiScene {
     private showRepeatedAttackFlag(unit: RenderableUnit, hitIndex: number): void {
         if (hitIndex > 0) this.combatVisuals?.spawnCommonFlagPop?.(unit, "multi_attack");
     }
-    /** Play the first blow and response together, then any extra blows; impacts never apply engine damage. */
+    /** Present recorded blows, reactions and casualties in order; never apply engine damage here. */
     private presentedPetrifyingGaze?: WeakSet<object>;
     protected async presentPetrifyingGaze(
         entry: NonNullable<IVisibleDamage["secondary"]>[number],
@@ -5162,15 +5162,17 @@ export class Sandbox extends PixiScene {
             return remaining;
         };
         const presentDeath = (unitId: string): void => {
-            if (shownDeaths.has(unitId)) return;
-            shownDeaths.add(unitId);
+            if (shownDeaths.has(unitId) || pendingDeaths.has(unitId)) return;
             const unit = units.get(unitId) as RenderableUnit | undefined;
             if (!unit) return;
-            // A dying participant can still own an already-recorded simultaneous strike.
+            // Keep a dying figure until its already-recorded outgoing strike and reactions finish.
             if (activeAttacks.has(unitId) || futureAttackers.has(unitId)) {
                 if (!this.unitsHolder.getAllUnits().has(unitId)) this.dyingVisualUnits.add(unit);
                 pendingDeaths.set(unitId, unit);
-            } else onDeath(unit);
+            } else {
+                shownDeaths.add(unitId);
+                onDeath(unit);
+            }
         };
         const initialChakramActive = initialChakram ?? attacker.hasAbilityActive?.("Chakram");
         const groups = groupCombatExchange(plan);
@@ -5652,7 +5654,12 @@ export class Sandbox extends PixiScene {
                                     zenaCutTargets.get(strike.targetId),
                                 );
                             presentDeath(strike.targetId);
-                        } else if (receivedDamage && renderedVictim) {
+                        }
+                        if (
+                            receivedDamage &&
+                            renderedVictim &&
+                            (!strike.lethal || pendingDeaths.has(strike.targetId))
+                        ) {
                             const showReaction = (): Promise<void> => {
                                 if (this.isSceneDestroyed() || shownDeaths.has(strike.targetId))
                                     return Promise.resolve();
@@ -5724,13 +5731,13 @@ export class Sandbox extends PixiScene {
                                 !usesApprovedBaseAnimations(source.getName())
                             )
                                 this.applyReplayLunge(source, victim);
-                            impact();
                             await Promise.all([
                                 attack,
                                 (source.getUnitProperties?.().level ?? 0) > 2
                                     ? this.delayReplay(220)
                                     : Promise.resolve(),
                             ]);
+                            if (!this.isSceneDestroyed()) impact();
                         } else {
                             const attack = usesAuthoredRangedRelease(source.getName())
                                 ? Promise.resolve()
@@ -5752,13 +5759,16 @@ export class Sandbox extends PixiScene {
                     } finally {
                         activeAttacks.delete(source.getId());
                         finishAttacks.get(source.getId())?.();
-                        const dying = pendingDeaths.get(source.getId());
-                        if (dying && !futureAttackers.has(source.getId())) {
-                            if (!this.isSceneDestroyed()) onDeath(dying);
-                            pendingDeaths.delete(source.getId());
-                        }
                     }
                     await Promise.all([reaction, gazePresentation, shieldReaction]);
+                    const dying = pendingDeaths.get(source.getId());
+                    if (dying && !futureAttackers.has(source.getId())) {
+                        if (!this.isSceneDestroyed()) {
+                            shownDeaths.add(source.getId());
+                            onDeath(dying);
+                        }
+                        pendingDeaths.delete(source.getId());
+                    }
                 }),
             );
         }

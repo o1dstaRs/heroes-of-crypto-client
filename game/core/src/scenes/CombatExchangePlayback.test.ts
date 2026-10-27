@@ -72,6 +72,8 @@ test.each([
     if (options.response) plan.push(strike(true));
     const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, plan, () => {});
     await flush();
+    finish.splice(0).forEach((done) => done());
+    await flush();
     const popIndex = events.indexOf("B:shadow_touch");
     expect(popIndex >= 0).toBe(options.expected);
     expect(events).not.toContain("A:shadow_touch");
@@ -148,6 +150,10 @@ test.each(
             contacts[0]();
             contacts[0]();
         }
+        if (attackType === "melee") {
+            finish.splice(0).forEach((done) => done());
+            await flush();
+        }
         expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
         landings.forEach((land) => land());
         finish.splice(0).forEach((done) => done());
@@ -190,6 +196,10 @@ test.each([
             expect(events).not.toContain("absorbed");
             contact();
         }
+        if (attackType === "melee") {
+            finish.splice(0).forEach((done) => done());
+            await flush();
+        }
         expect(events.filter((event) => event === "absorbed")).toHaveLength(1);
         land?.();
         finish.splice(0).forEach((done) => done());
@@ -199,43 +209,42 @@ test.each([
     },
 );
 
-test.each([false, true])(
-    "a fully absorbed counter owns its projectile contact, counter first=%s",
-    async (counterFirst) => {
-        const { scene, a, b, finish } = setup();
-        const shown: number[] = [];
-        const flights: { contact(): void; land(): void }[] = [];
-        scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
-        scene.playReplayProjectile = (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
-            new Promise<void>((land) => flights.push({ contact, land }));
-        const damage = {
-            secondary: [{ source: "ember_covenant", unitId: "A", position: { x: 0, y: 0 }, amount: 47, unitsDied: 0 }],
-        };
-        const pending = scene.playCombatExchange(
-            a,
-            b,
-            { attackType: "range", damage },
-            [strike(), { ...strike(true), amount: 0 }],
-            () => {},
-        );
-        await flush();
-        expect(flights).toHaveLength(2);
-        expect(shown).toEqual([]);
-        const first = counterFirst ? 1 : 0;
-        flights[first].contact();
-        expect(shown).toEqual(counterFirst ? [47] : []);
-        flights[1 - first].contact();
-        expect(shown).toEqual([47]);
-        flights.forEach((flight) => flight.land());
-        await flush();
-        finish.splice(0).forEach((done) => done());
-        await pending;
-        scene.showShieldAbsorbs(damage.secondary, { x: 0, y: 0 });
-        expect(shown).toEqual([47]);
-    },
-);
+test("an absorbed ranged response waits for the first hit and owns its contact", async () => {
+    const { scene, a, b, finish } = setup();
+    const shown: number[] = [];
+    const flights: { contact(): void; land(): void }[] = [];
+    scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
+    scene.playReplayProjectile = (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
+        new Promise<void>((land) => flights.push({ contact, land }));
+    const damage = {
+        secondary: [{ source: "ember_covenant", unitId: "A", position: { x: 0, y: 0 }, amount: 47, unitsDied: 0 }],
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "range", damage },
+        [strike(), { ...strike(true), amount: 0 }],
+        () => {},
+    );
+    await flush();
+    expect(flights).toHaveLength(1);
+    flights[0].contact();
+    flights[0].land();
+    await flush();
+    expect(shown).toEqual([]);
+    expect(flights).toHaveLength(1);
+    finish.splice(0).forEach((done) => done());
+    await flush();
+    expect(flights).toHaveLength(2);
+    flights[1].contact();
+    expect(shown).toEqual([47]);
+    flights[1].land();
+    await pending;
+    scene.showShieldAbsorbs(damage.secondary, { x: 0, y: 0 });
+    expect(shown).toEqual([47]);
+});
 
-test("melee attacks and counters start together; double strike waits for both attacks and reactions", async () => {
+test("melee waits for attack, damage flag and hit reaction before counter and extra blows", async () => {
     const { scene, a, b, events, finish } = setup();
     const pending = scene.playCombatExchange(
         a,
@@ -245,60 +254,61 @@ test("melee attacks and counters start together; double strike waits for both at
         () => {},
     );
     await flush();
-    expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
-    const [finishA, finishB] = finish.splice(0);
-    finishA();
+    expect(events).toEqual(["A:attack"]);
+    finish.shift()!();
     await flush();
-    expect(events.slice(4)).toEqual(["A:hit"]);
-    finishB();
+    expect(events).toEqual(["A:attack", "damage", "B:hit"]);
+    finish.shift()!();
     await flush();
-    expect(events.slice(4)).toEqual(["A:hit", "B:hit"]);
-    const [finishAHit, finishBHit] = finish.splice(0);
-    finishBHit();
+    expect(events.at(-1)).toBe("B:attack");
+    finish.shift()!();
     await flush();
-    expect(events).toHaveLength(6);
-    finishAHit();
+    expect(events.slice(-2)).toEqual(["damage", "A:hit"]);
+    finish.shift()!();
     await flush();
-    expect(events.slice(6)).toEqual(["A:attack", "damage", "B:hit"]);
-    finish.splice(0).forEach((fn) => fn());
+    expect(events.at(-1)).toBe("A:attack");
+    finish.shift()!();
+    await flush();
+    expect(events.slice(-2)).toEqual(["damage", "B:hit"]);
+    finish.shift()!();
     await pending;
 });
+
 test.each([
-    { primaryLethal: true, counterLethal: false },
-    { primaryLethal: false, counterLethal: true },
-    { primaryLethal: true, counterLethal: true },
+    { primaryLethal: true, counterLethal: false, first: "B" },
+    { primaryLethal: false, counterLethal: true, first: "A" },
+    { primaryLethal: true, counterLethal: true, first: "A" },
 ])(
-    "lethal melee remains simultaneous: primary=$primaryLethal counter=$counterLethal",
-    async ({ primaryLethal, counterLethal }) => {
+    "lethal exchange shows the doomed fighter's outgoing blow before death: %j",
+    async ({ primaryLethal, counterLethal, first }) => {
         const { scene, a, b, events, finish } = setup();
         const pending = scene.playCombatExchange(
             a,
             b,
             { attackType: "melee" },
             orderCombatExchange([strike(false, 0, primaryLethal), strike(false, 1)], strike(true, 0, counterLethal)),
-            (unit: { getId(): string }) => events.push(unit.getId() + ":death"),
+            (unit: typeof a) => events.push(unit.getId() + ":death"),
         );
         await flush();
-        expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
-        const [finishA, finishB] = finish.splice(0);
-        finishA();
-        await flush();
-        expect(events.slice(4)).toEqual([counterLethal ? "A:death" : "A:hit"]);
-        finishB();
-        await flush();
-        expect(events.slice(5)).toEqual([primaryLethal ? "B:death" : "B:hit"]);
-        finish.splice(0).forEach((fn) => fn());
+        expect(events).toEqual([first + ":attack"]);
+        for (let i = 0; i < 8; i++) {
+            finish.splice(0).forEach((done) => done());
+            await flush();
+        }
         const deaths = await pending;
         expect([...deaths].sort()).toEqual([...(counterLethal ? ["A"] : []), ...(primaryLethal ? ["B"] : [])]);
         expect(events.filter((event) => event.endsWith(":attack"))).toHaveLength(2);
+        for (const id of deaths) expect(events.indexOf(id + ":attack")).toBeLessThan(events.indexOf(id + ":death"));
+        if (!primaryLethal || !counterLethal) expect(events.at(-1)).toBe((primaryLethal ? "B" : "A") + ":death");
     },
 );
-test("ranged attack and counter fly together; contacts own damage and double shot waits for the exchange", async () => {
+
+test("ranged counter and extra shot wait for projectile contact and the full victim reaction", async () => {
     const { scene, a, b, events, finish } = setup();
-    const flights: { contact: () => void; land: () => void }[] = [];
-    scene.playReplayProjectile = (source: { getId(): string }, _b: unknown, _pos: unknown, onImpact: () => void) => {
+    const flights: { contact(): void; land(): void }[] = [];
+    scene.playReplayProjectile = (source: typeof a, _b: unknown, _pos: unknown, contact: () => void) => {
         events.push(source.getId() + ":projectile");
-        return new Promise<void>((resolve) => flights.push({ contact: onImpact, land: resolve }));
+        return new Promise<void>((land) => flights.push({ contact, land }));
     };
     const pending = scene.playCombatExchange(
         a,
@@ -308,42 +318,28 @@ test("ranged attack and counter fly together; contacts own damage and double sho
         () => {},
     );
     await flush();
-    expect(events).toEqual(["A:projectile", "B:projectile"]);
-    // The counter may arrive first because it has a different release frame or travel distance.
-    flights[1].contact();
-    flights[1].land();
-    await flush();
-    expect(events).toEqual(["A:projectile", "B:projectile", "damage"]);
-    flights[0].contact();
-    await flush();
-    expect(events.slice(3)).toEqual(["damage", "B:hit"]);
-    flights[0].land();
-    await flush();
-    expect(events.at(-1)).toBe("A:hit");
-    expect(flights).toHaveLength(2);
-    finish.splice(0).forEach((fn) => fn());
-    await flush();
-    expect(events.at(-1)).toBe("A:projectile");
-    expect(flights).toHaveLength(3);
-    flights[2].contact();
-    flights[2].land();
-    await flush();
-    finish.splice(0).forEach((fn) => fn());
+    expect(events).toEqual(["A:projectile"]);
+    for (let i = 0; i < 3; i++) {
+        expect(flights).toHaveLength(i + 1);
+        flights[i].contact();
+        flights[i].land();
+        await flush();
+        expect(events.slice(-2)).toEqual(["damage", i === 1 ? "A:hit" : "B:hit"]);
+        expect(flights).toHaveLength(i + 1);
+        finish.splice(0).forEach((done) => done());
+        await flush();
+    }
     await pending;
-    expect(events.slice(-2)).toEqual(["damage", "B:hit"]);
 });
 
-test("both combatants' textures are ready before either attack starts", async () => {
+test("a cold response atlas loads before its attack without interrupting the first reaction", async () => {
     const { scene, a, b, events, finish } = setup();
-    a.getAnimationTextureKey = (state: string) => (state === "attack" ? "A:atlas" : undefined);
     b.getAnimationTextureKey = (state: string) => (state === "attack" ? "B:atlas" : undefined);
     let loadB!: () => void;
-    scene.waitForTexture = (key: string) =>
-        key === "A:atlas"
-            ? Promise.resolve()
-            : new Promise<void>((resolve) => {
-                  loadB = resolve;
-              });
+    scene.waitForTexture = () =>
+        new Promise<void>((resolve) => {
+            loadB = resolve;
+        });
     const pending = scene.playCombatExchange(
         a,
         b,
@@ -352,51 +348,52 @@ test("both combatants' textures are ready before either attack starts", async ()
         () => {},
     );
     await flush();
-    expect(events).toEqual([]);
+    expect(events).toEqual(["A:attack"]);
+    finish.shift()!();
+    await flush();
+    finish.shift()!();
+    await flush();
+    expect(events).toEqual(["A:attack", "damage", "B:hit"]);
     loadB();
     await flush();
-    expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
-    finish.splice(0).forEach((fn) => fn());
-    await flush();
-    finish.splice(0).forEach((fn) => fn());
+    expect(events.at(-1)).toBe("B:attack");
+    for (let i = 0; i < 4; i++) {
+        finish.splice(0).forEach((done) => done());
+        await flush();
+    }
     await pending;
 });
 
-test.each([false, true])("scene teardown discards deferred hit/death reactions, lethal=%s", async (lethal) => {
+test.each([false, true])("scene teardown cancels impacts, replies and deaths, lethal=%s", async (lethal) => {
     const { scene, a, b, events, finish } = setup();
     const pending = scene.playCombatExchange(
         a,
         b,
         { attackType: "melee" },
         orderCombatExchange([strike(false, 0, lethal)], strike(true, 0, lethal)),
-        (unit: { getId(): string }) => events.push(unit.getId() + ":death"),
+        (unit: typeof a) => events.push(unit.getId() + ":death"),
     );
     await flush();
-    expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
+    expect(events).toEqual(["A:attack"]);
     scene.isSceneDestroyed = () => true;
-    finish.splice(0).forEach((resolve) => resolve());
+    finish.splice(0).forEach((done) => done());
     await pending;
-    expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
+    expect(events).toEqual(["A:attack"]);
 });
 
-test("an intercepted counter starts alongside the attack and reacts on the screening unit", async () => {
+test("an intercepted response follows the first reaction and hurts only its actual screening victim", async () => {
     const { scene, a, b, events, finish } = setup();
     const screen = { ...a, getId: () => "screen" };
-    const units = new Map([
-        ["A", a],
-        ["B", b],
-        ["screen", screen],
-    ]);
-    scene.unitsHolder.getAllUnits = () => units;
-    const flights: { contact: () => void; land: () => void }[] = [];
-    scene.playReplayProjectile = (
-        source: { getId(): string },
-        victim: { getId(): string },
-        _position: unknown,
-        onImpact: () => void,
-    ) => {
-        events.push(`${source.getId()}>${victim.getId()}`);
-        return new Promise<void>((resolve) => flights.push({ contact: onImpact, land: resolve }));
+    scene.unitsHolder.getAllUnits = () =>
+        new Map([
+            ["A", a],
+            ["B", b],
+            ["screen", screen],
+        ]);
+    const flights: { contact(): void; land(): void }[] = [];
+    scene.playReplayProjectile = (source: typeof a, victim: typeof a, _pos: unknown, contact: () => void) => {
+        events.push(source.getId() + ">" + victim.getId());
+        return new Promise<void>((land) => flights.push({ contact, land }));
     };
     const pending = scene.playCombatExchange(
         a,
@@ -406,17 +403,19 @@ test("an intercepted counter starts alongside the attack and reacts on the scree
         () => {},
     );
     await flush();
-    expect(events).toEqual(["A>B", "B>screen"]);
-    flights[1].contact();
-    expect(events.slice(2)).toEqual(["damage", "screen:hit"]);
-    flights[1].land();
+    expect(events).toEqual(["A>B"]);
     flights[0].contact();
     flights[0].land();
     await flush();
-    finish.splice(0).forEach((resolve) => resolve());
+    finish.splice(0).forEach((done) => done());
+    await flush();
+    expect(events.at(-1)).toBe("B>screen");
+    flights[1].contact();
+    flights[1].land();
+    await flush();
+    finish.splice(0).forEach((done) => done());
     await pending;
-    expect(events).not.toContain("A:hit");
-    expect(events.filter((entry) => entry.endsWith(":hit"))).toEqual(["screen:hit", "B:hit"]);
+    expect(events.filter((event) => event.endsWith(":hit"))).toEqual(["B:hit", "screen:hit"]);
 });
 
 test("a removed replay victim uses its captured impact point without hitting a different figure", async () => {
@@ -439,9 +438,10 @@ test("each melee blow sounds once, with a hurt reaction on actual contact includ
     scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
     const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, [strike(false, 0, true)], () => {});
     await flush();
-    expect(sounds).toEqual(["A:attack", "B:hurt"]);
+    expect(sounds).toEqual(["A:attack"]);
     finish.splice(0).forEach((fn) => fn());
     await pending;
+    expect(sounds).toEqual(["A:attack", "B:hurt"]);
 });
 
 test("a miss has an attack sound but no hurt reaction", async () => {

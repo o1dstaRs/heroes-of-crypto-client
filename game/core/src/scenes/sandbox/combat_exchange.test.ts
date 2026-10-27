@@ -31,10 +31,10 @@ test("mutually lethal first strikes both survive the plan, with no second blow",
         "B>A:0†",
     ]);
 });
-test("only the first strike shares a group with the response", () => {
+test("each strike has its own presentation group", () => {
     expect(
         groupCombatExchange(orderCombatExchange([hit("A", "B"), hit("A", "B", 1)], hit("B", "A"))).map(labels),
-    ).toEqual([["A>B:0", "B>A:0"], ["A>B:1"]]);
+    ).toEqual([["A>B:0"], ["B>A:0"], ["A>B:1"]]);
     expect(groupCombatExchange(orderCombatExchange([hit("A", "B"), hit("A", "B", 1)])).map(labels)).toEqual([
         ["A>B:0"],
         ["A>B:1"],
@@ -59,5 +59,12 @@ test("no response is invented and a second projectile may hit another living int
         "A>screen:0†",
         "B>A:0",
         "A>B:1",
+    ]);
+});
+
+test("a doomed defender presents its recorded blow before the lethal answer", () => {
+    expect(groupCombatExchange(orderCombatExchange([hit("A", "B", 0, true)], hit("B", "A"))).map(labels)).toEqual([
+        ["B>A:0"],
+        ["A>B:0†"],
     ]);
 });

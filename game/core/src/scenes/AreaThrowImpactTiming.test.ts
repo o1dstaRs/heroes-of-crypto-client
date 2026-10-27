@@ -559,6 +559,9 @@ test("a Cyclops counter owns only its enemy splash deaths at its boulder's conta
         { amountsBefore: new Map([...f.units.keys()].map((id) => [id, 3])), deadIds: new Set(["near", "far"]) },
     );
     await flush();
+    expect(f.shots).toHaveLength(1);
+    f.advance(1.01);
+    await flush();
     expect(f.shots).toHaveLength(2);
     f.advance(0.99);
     expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
