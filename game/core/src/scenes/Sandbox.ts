@@ -5193,7 +5193,7 @@ export class Sandbox extends PixiScene {
                 const attackState = this.prepareDirectionalAttackState(source, victim, melee);
                 return [{ strike, source, renderedVictim, victim, attackState }];
             });
-            // Cold atlases or projectile art must not make one side start after the other has struck.
+            // Prepare this strike’s textures before it starts so loading cannot interrupt its reaction.
             await Promise.all([
                 ...(melee &&
                 prepared.some(
@@ -5682,7 +5682,7 @@ export class Sandbox extends PixiScene {
                                 this.applyReplayHitKnockback(victim, source, strike.amount);
                                 return Promise.all([hit, this.delayReplay(330)]).then(() => {});
                             };
-                            // A hit animation cancels an authored shot. Preserve the simultaneous outgoing action
+                            // A hit animation cancels an authored shot. Preserve any outgoing action already in flight
                             // before reacting; damage, casualties and sounds still occur at projectile contact.
                             const outgoing = activeAttacks.get(strike.targetId);
                             const hitReaction = outgoing ? outgoing.then(showReaction) : showReaction();
@@ -6093,8 +6093,8 @@ export class Sandbox extends PixiScene {
     ): Promise<void> {
         await Promise.all(
             fireShieldCasterIds(attackerId, targetId, damage).map(async (id) => {
-                // Preserve the owner's simultaneous counter, but do not wait for the other fighter
-                // or its hit reaction. Damage and flames have already landed at physical contact.
+                // Preserve any outgoing action already in flight. This passive belongs to the
+                // current contact; the next recorded strike waits for its completion.
                 await activeAttacks?.get(id);
                 if (this.isSceneDestroyed()) return;
                 const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
