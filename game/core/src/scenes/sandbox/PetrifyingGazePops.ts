@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { OVERHEAD_EFFECT_DURATION_MS, overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -27,7 +28,7 @@ export class PetrifyingGazePops {
     private readonly frameViews = new Map<Texture, Texture[]>();
     private generation = 0;
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
         private readonly load: () => Promise<Texture> = () =>
             Assets.load<Texture>(images.vfx_petrifying_gaze_pop_atlas),
@@ -77,7 +78,7 @@ export class PetrifyingGazePops {
             container.scale.set(1, -1);
             const offset = cell * 0.07;
             container.position.set(position.x, position.y + offset);
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow);
             this.pops.set(id, { container, sprite, frames, started: this.now(), follow, offset });
             this.update();
         } finally {

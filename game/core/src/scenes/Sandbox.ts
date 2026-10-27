@@ -48,7 +48,6 @@ import { fireShieldCasterIds } from "./sandbox/fireShieldCasters";
 import { isInfestHatchSummon } from "./sandbox/InfestHatchPops";
 import { CHAMPION_ARROW_ATLAS_KEY, resetChampionArrowAuras } from "./ChampionArrowAura";
 import { hamstringRecipients } from "./hamstringFlagEffects";
-import { bitterExperienceTriggered } from "./bitterExperienceFlagEffects";
 import { resetDryadWindAuras } from "./DryadWindAura";
 import { resetLeprechaunCloverAuras } from "./LeprechaunCloverAura";
 import { resetValkyrieBloodAuras } from "./ValkyrieBloodAura";
@@ -5002,7 +5001,6 @@ export class Sandbox extends PixiScene {
         if (this.isSceneDestroyed()) return;
         finishPrimaryNumbers?.();
         unit?.presentDamageCasualties?.(entry.unitsDied);
-        this.spawnBitterExperienceOnImpact(unit, entry);
         const style = this.getSecondaryDamageStyle(entry.source);
         this.combatVisuals.showFloatingDamage(
             position,
@@ -5012,6 +5010,10 @@ export class Sandbox extends PixiScene {
             style.fill,
             style.stroke,
             unit?.getDamagePredictionAnchor(gs),
+            undefined,
+            undefined,
+            undefined,
+            unit,
         );
         if (unit) {
             this.playUnitCombatSound(unit, "hurt");
@@ -5482,7 +5484,6 @@ export class Sandbox extends PixiScene {
                             )
                         )
                             this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "backstab");
-                        this.spawnBitterExperienceOnImpact(renderedVictim, strike);
                         this.spawnBlindFuryOnImpact(renderedVictim, strike);
                         this.spawnLeatherArmorOnImpact(renderedVictim, strike, event.attackType);
                         if (receivedDamage && renderedVictim && source.hasAbilityActive?.("Piercing Spear"))
@@ -5498,6 +5499,10 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 undefined,
                                 renderedVictim?.getDamagePredictionAnchor(gs),
+                                undefined,
+                                undefined,
+                                undefined,
+                                strike.lethal ? undefined : renderedVictim,
                             );
                             // Shadow Touch replaces the victim's counter: reveal it after the damage
                             // at contact, never on the harpy, a miss, or a flag removed by a lethal blow.
@@ -5890,7 +5895,6 @@ export class Sandbox extends PixiScene {
             this.popRecordedHamstring(context.events, new Set([hit.unitId]));
             this.popRecordedShatterArmor(context.events, new Set([hit.unitId]));
             this.popRecordedTroglodyteEffects(context.events, new Set([hit.unitId]));
-            this.spawnBitterExperienceOnImpact(unit, hit);
             this.spawnBlindFuryOnImpact(unit, hit);
             this.spawnLeatherArmorOnImpact(unit, hit, "range");
             this.showGravechainVfx(
@@ -5917,6 +5921,10 @@ export class Sandbox extends PixiScene {
                     undefined,
                     undefined,
                     unit?.getDamagePredictionAnchor(gs),
+                    undefined,
+                    undefined,
+                    undefined,
+                    unit,
                 );
             }
             if (unit && hit.unitsDied > 0 && remaining === 0 && context.deadIds.has(hit.unitId)) {
@@ -6036,7 +6044,6 @@ export class Sandbox extends PixiScene {
                     this.popRecordedHamstring(events, new Set([hit.unitId]));
                     this.popRecordedShatterArmor(events, new Set([hit.unitId]));
                     this.popRecordedTroglodyteEffects(events, new Set([hit.unitId]));
-                    this.spawnBitterExperienceOnImpact(unit, hit);
                     this.spawnBlindFuryOnImpact(unit, hit);
                     this.spawnLeatherArmorOnImpact(unit, hit, "range");
                     this.showGravechainVfx(
@@ -6060,6 +6067,10 @@ export class Sandbox extends PixiScene {
                             undefined,
                             undefined,
                             unit?.getDamagePredictionAnchor(gs),
+                            undefined,
+                            undefined,
+                            undefined,
+                            unit,
                         );
                     }
                     if (unit && hit.unitsDied > 0 && amount === 0 && deadIds.has(hit.unitId)) {
@@ -21912,13 +21923,6 @@ export class Sandbox extends PixiScene {
         this.shownAbsolutions = new WeakSet();
         this.shownGravechains = new WeakSet();
         this.legacyGraveboundShown = new Set();
-    }
-    private spawnBitterExperienceOnImpact(
-        unit: RenderableUnit | undefined,
-        hit: { amount: number; unitsDied?: number; missed?: boolean; lethal?: boolean },
-    ): void {
-        if (unit && bitterExperienceTriggered(unit, hit))
-            this.combatVisuals?.spawnCommonFlagPop(unit, "bitter_experience");
     }
     private spawnBlindFuryOnImpact(unit: RenderableUnit | undefined, hit: { amount: number; missed?: boolean }): void {
         if (unit && !hit.missed && hit.amount > 0 && !unit.isDead() && unit.hasAbilityActive?.("Blind Fury"))

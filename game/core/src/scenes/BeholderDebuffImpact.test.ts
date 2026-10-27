@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 
@@ -74,34 +74,51 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     expect(popped).toContain("B:Blessing");
 });
 
-test("the battle visual layer hides the motif group until its captured damage overlay is destroyed", async () => {
-    const { Container, Texture, TextureSource } = await import("pixi.js");
+test("the battle visual layer shows motifs immediately above the moving damage row", async () => {
+    const { Container, Rectangle, Texture, TextureSource } = await import("pixi.js");
     const { CombatVisuals } = await import("./sandbox/CombatVisuals");
     const root = new Container();
-    const damage = new Container();
+    root.scale.y = -1;
     const atlas = new Texture({ source: new TextureSource({ width: 1024, height: 1024 }) });
+    let now = 1000;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    const flag = { x: 100, y: 200 };
     const unit = {
         getId: () => "victim",
         isDead: () => false,
-        getFlagEffectAnchor: () => ({ x: 100, y: 200 }),
-        getDamagePredictionAnchor: () => ({ x: 100, y: 200 }),
-    };
-    const visuals = Object.assign(Object.create(CombatVisuals.prototype), {
-        context: {
-            getGridSettings: () => ({ getCellSize: () => 64 }),
-            getUnitsHolder: () => ({ getAllUnits: () => new Map([["victim", unit]]) }),
-            attachToWorldRoot: (node: InstanceType<typeof Container>) => root.addChild(node),
+        getFlagEffectAnchor: () => flag,
+        getDamagePredictionAnchor: () => flag,
+    } as unknown as import("./RenderableUnit").RenderableUnit;
+    const visuals = new CombatVisuals({
+        getGridSettings: () => ({ getCellSize: () => 64 }),
+        getUnitsHolder: () => ({ getAllUnits: () => new Map([["victim", unit]]) }),
+        attachToWorldRoot: (node: InstanceType<typeof Container>) => {
+            root.addChild(node);
         },
-        floatingTexts: [{ container: damage, startX: 100, startY: 242 }],
-    });
-    visuals.spawnDebuffPop({ x: 100, y: 200 }, atlas, "Curse", 0, "debuff", unit);
-    expect(root.children[0].visible).toBe(false);
-    damage.destroy();
-    visuals.beholderDebuffPops.update();
-    expect(root.children[0].visible).toBe(true);
-    expect(root.children[0].x).toBe(100);
-    expect(root.children[0].y).toBe(200);
-    visuals.beholderDebuffPops.clear();
-    expect(atlas.source.destroyed).toBe(false);
-    atlas.destroy(true);
+        getSelectedUnitProperties: () => undefined,
+        updateSelectedUnitProperties: () => undefined,
+        setUnitPropertiesUpdateNeeded: () => undefined,
+    } as unknown as import("./sandbox/CombatVisuals").ICombatVisualsContext);
+    try {
+        visuals.showFloatingDamage(flag, 25, undefined, 0, undefined, undefined, flag);
+        const damage = root.children[0];
+        damage.boundsArea = new Rectangle(-40, -36, 80, 72);
+        visuals.spawnDebuffPop(flag, atlas, "Curse", 0, "debuff", unit);
+        const motif = root.children[1];
+        expect(motif.visible).toBe(true);
+        for (const age of [125, 350, 600]) {
+            now = 1000 + age;
+            visuals.update(0);
+            expect(damage.destroyed).toBe(false);
+            expect(motif.visible).toBe(true);
+            const bounds = motif.getBounds();
+            expect((bounds.minX + bounds.maxX) / 2).toBeCloseTo(100);
+            expect(motif.getBounds().maxY).toBeLessThan(damage.getBounds().minY);
+        }
+    } finally {
+        visuals.clear();
+        clock.mockRestore();
+        expect(atlas.source.destroyed).toBe(false);
+        atlas.destroy(true);
+    }
 });

@@ -134,7 +134,7 @@ describe("Battle Roar painted flag effect", () => {
             now = 600;
             visuals.update(0.4);
             expect(pop.x).toBe(150);
-            expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
+            expect(pop.y).toBeCloseTo(250 + 6);
             now = 1000;
             visuals.update(0.7);
             expect(pop.destroyed).toBe(true);

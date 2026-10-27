@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -63,7 +64,7 @@ export class PredatoryAssimilationPops {
         arrived: boolean;
     }[] = [];
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -125,7 +126,12 @@ export class PredatoryAssimilationPops {
         acquired.width = acquired.height = cell * 0.78;
         root.addChild(captured, claw, acquired);
         root.scale.set(1, -1);
-        this.attach(root, 5520);
+        const started = this.now();
+        this.attach(root, 5520, () => {
+            const pose = assimilationPose(overheadEffectElapsedMs(this.now() - started, LIFE_MS));
+            if (pose.travel > 0 && pose.travel < 1) return undefined;
+            return pose.travel >= 1 ? (follow() ?? to) : from;
+        });
         // Offset is fixed in world units; following resolves replacement units after ranked hydration.
         const offset = cell * (0.85 + stackIndex * 0.9);
         this.pops.push({
@@ -136,7 +142,7 @@ export class PredatoryAssimilationPops {
             from: { x: from.x, y: from.y + offset },
             to: { x: to.x, y: to.y + offset },
             cell,
-            started: this.now(),
+            started,
             follow: () => {
                 const p = follow();
                 return p ? { x: p.x, y: p.y + offset } : undefined;

@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
@@ -44,7 +45,7 @@ export class BattleRoarPops {
         offsetY: number;
     }[] = [];
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -103,7 +104,7 @@ export class BattleRoarPops {
         const position = follow?.() ?? anchor;
         container.position.set(position.x, position.y + offsetY);
         container.scale.set(1, -1);
-        this.attach(container, 5520);
+        this.attach(container, 5520, follow ?? (() => anchor));
         this.pops.push({ container, sprite, startedAtMs: this.now(), durationMs, follow, offsetY });
         this.update(0);
     }

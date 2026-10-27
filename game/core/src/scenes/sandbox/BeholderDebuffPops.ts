@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { beholderDebuffFramePose } from "./beholderDebuffRegistration";
@@ -44,7 +45,7 @@ export class BeholderDebuffPops {
     private groups: Group[] = [];
     private readonly frameCache = new Map<Texture, Texture[]>();
     public constructor(
-        private readonly attach: (container: Container, z: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -84,7 +85,7 @@ export class BeholderDebuffPops {
             if (this.groups.length >= MAX_GROUPS) this.groups.shift()!.container.destroy({ children: true });
             const container = new Container();
             container.visible = false;
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow ?? (() => anchor));
             group = {
                 unitId,
                 container,

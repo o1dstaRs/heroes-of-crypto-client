@@ -56,7 +56,7 @@ test("single Heal lab preview uses the combat renderer with +125 on the selected
 
 test("combat Heal retains its amount and flag anchor without also spawning the generic heal icon", () => {
     const flag = { x: 120, y: 280 };
-    const unit = { getFlagEffectAnchor: () => flag };
+    const unit = { getId: () => "healed", getFlagEffectAnchor: () => flag };
     const cross: unknown[] = [];
     const common: unknown[][] = [];
     const numbers: unknown[][] = [];
@@ -78,7 +78,7 @@ test("combat Heal retains its amount and flag anchor without also spawning the g
     visuals.showFloatingHeal(position, 0, unit, "single_heal");
     expect(cross).toEqual([unit]);
     expect(common).toHaveLength(0);
-    expect(numbers).toEqual([["+17", position, undefined, flag, 64 * 1.45 + 26]]);
+    expect(numbers).toEqual([["+17", position, undefined, { ...flag, unitId: "healed" }, 36]]);
     expect(bursts).toHaveLength(0);
     visuals.showFloatingHeal(position, 31, unit);
     expect(cross).toHaveLength(1);

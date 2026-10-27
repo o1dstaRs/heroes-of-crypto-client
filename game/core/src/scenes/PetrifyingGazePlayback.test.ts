@@ -139,7 +139,7 @@ test("cancelled scene cannot show the delayed gaze hit", async () => {
 
 test("gaze uses the luck flag anchor and removes its head before the secondary damage", async () => {
     const flag = { x: 120, y: 230 };
-    let follow!: () => { x: number; y: number };
+    let follow!: () => { x: number; y: number; unitId?: string };
     const finished: string[] = [];
     const visuals = Object.assign(Object.create(CombatVisuals.prototype), {
         context: { getGridSettings: () => ({ getCellSize: () => 128 }) },
@@ -156,9 +156,9 @@ test("gaze uses the luck flag anchor and removes its head before the secondary d
         getFlagEffectAnchor: () => flag,
         getDamagePredictionAnchor: () => ({ x: 130, y: 900 }),
     });
-    expect(follow()).toEqual(flag);
+    expect(follow()).toEqual({ ...flag, unitId: "victim" });
     flag.y = 260;
-    expect(follow()).toEqual({ x: 120, y: 260 });
+    expect(follow()).toEqual({ x: 120, y: 260, unitId: "victim" });
     expect(finished).toEqual([]);
     finish();
     expect(finished).toEqual(["victim"]);

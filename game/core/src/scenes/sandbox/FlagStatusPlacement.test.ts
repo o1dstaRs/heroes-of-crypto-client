@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { Container, Sprite, Texture } from "pixi.js";
+import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 import type { RenderableUnit } from "../RenderableUnit";
 import { CombatVisuals } from "./CombatVisuals";
@@ -38,14 +38,19 @@ test("buffs, debuffs and morale follow the live flag across hydration and expire
         f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Slow", 0, "debuff", f.unit);
         f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Morale", 1, "buff", f.unit);
         const [debuff, buff] = f.root.children;
-        expect(debuff.x).toBe(120);
+        // Fixed label metrics keep this layout test independent of a browser canvas/font service.
+        for (const pop of [debuff, buff]) pop.boundsArea = new Rectangle(-50, -24, 100, 90);
+        now = 200;
+        f.visuals.update(0);
+        expect((debuff.x + buff.x) / 2).toBeCloseTo(120);
         expect(debuff.y).toBeGreaterThan(300);
-        expect(buff.y - debuff.y).toBeCloseTo(64 * 1.35);
+        expect(buff.y).toBeCloseTo(debuff.y);
+        expect(buff.x - debuff.x).toBeGreaterThan(100);
         f.units.set("target", f.makeUnit(200, 400));
         now = 400;
         f.visuals.update(0);
-        expect(debuff.x).toBe(200);
-        expect(debuff.y).toBeCloseTo(400 + 64 * 0.85);
+        expect((debuff.x + buff.x) / 2).toBeCloseTo(200);
+        expect(debuff.y).toBeGreaterThan(400);
         expect(debuff.scale.y / debuff.scale.x).toBeCloseTo(-1.6);
         for (const pop of [debuff, buff]) {
             const icon = pop.children[0] as Sprite;

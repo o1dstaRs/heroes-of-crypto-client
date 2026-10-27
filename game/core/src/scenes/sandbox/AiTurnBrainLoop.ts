@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { overheadEffectElapsedMs, OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
@@ -39,7 +40,7 @@ export class AiTurnBrainLoop {
     private sprite?: Sprite;
     private startedAtMs = 0;
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -105,7 +106,7 @@ export class AiTurnBrainLoop {
         this.container = container;
         this.sprite = sprite;
         this.startedAtMs = this.now();
-        this.attach(container, 5520);
+        this.attach(container, 5520, () => this.target?.follow());
         this.update();
     }
     public update(): void {

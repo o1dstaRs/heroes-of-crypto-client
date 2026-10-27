@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { images } from "../../imageAssets";
 import { OVERHEAD_EFFECT_DURATION_MS, overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
@@ -35,7 +36,7 @@ export class HealCrossPops {
         }
     >();
     public constructor(
-        private readonly attach: (container: Container, z: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now = () => performance.now(),
         private readonly load: () => Promise<Texture> = () =>
             Assets.load<Texture>(images.vfx_single_heal_pop_atlas_half),
@@ -80,7 +81,7 @@ export class HealCrossPops {
             container.addChild(sprite);
             container.scale.set(1, -1);
             this.pops.set(id, { container, sprite, started, follow, offset: cell * 0.07 });
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow);
             this.update();
         } finally {
             if (generation === this.generation) this.pending.delete(id);

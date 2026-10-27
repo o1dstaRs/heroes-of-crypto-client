@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Assets, Container, GlProgram, Mesh, MeshGeometry, Shader, type Texture } from "pixi.js";
 import { images } from "../../imageAssets";
@@ -160,7 +161,7 @@ export class WildRegenerationEngine {
         }
     >();
     public constructor(
-        private readonly attach: (c: Container, z: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now = () => performance.now(),
         private readonly load: () => Promise<Texture> = () =>
             Assets.load<Texture>(images.vfx_wild_regeneration_pop_atlas),
@@ -192,7 +193,7 @@ export class WildRegenerationEngine {
             container.scale.set(1, -1);
             this.pops.set(id, { container, mesh, started: this.now(), follow, offset: cell * 0.07 });
             container.position.set(pos.x, pos.y + cell * 0.07);
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow);
             this.update();
         } finally {
             if (generation === this.generation) this.pending.delete(id);

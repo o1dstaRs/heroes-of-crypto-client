@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { bitterExperienceTriggered } from "./bitterExperienceFlagEffects";
 import { Sandbox } from "./Sandbox";
+import { CombatVisuals } from "./sandbox/CombatVisuals";
+import type { ICombatVisualsContext } from "./sandbox/CombatVisuals";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 
 const flush = async () => {
@@ -8,7 +10,7 @@ const flush = async () => {
 };
 
 test.each(["melee", "range"])(
-    "Bitter Experience %s follows each landed hit and counter at contact",
+    "Bitter Experience %s starts only after its damage number for every landed hit and counter",
     async (attackType) => {
         for (const active of [true, false]) {
             for (const missed of [true, false]) {
@@ -26,6 +28,19 @@ test.each(["melee", "range"])(
                 });
                 const a = unit("A"),
                     b = unit("B");
+                const numbers: string[] = [];
+                const visuals = new CombatVisuals({
+                    attachToWorldRoot: () => {
+                        numbers.push("number");
+                    },
+                } as unknown as ICombatVisualsContext);
+                visuals.prepareCommonFlagPop = () => {};
+                visuals.spawnCommonFlagPop = (victim, kind) => {
+                    if (kind === "bitter_experience") {
+                        expect(numbers.length).toBeGreaterThan(pops.length);
+                        pops.push(victim.getId());
+                    }
+                };
                 const scene = Object.assign(Object.create(Sandbox.prototype), {
                     oneInTheFieldTriggers: new OneInTheFieldTriggers(),
                     sc_sceneSettings: { getGridSettings: () => ({}) },
@@ -39,13 +54,7 @@ test.each(["melee", "range"])(
                     isSceneDestroyed: () => false,
                     prepareDirectionalAttackState: () => "attack",
                     offsetReplayDamagePosition: (to: unknown) => to,
-                    combatVisuals: {
-                        showFloatingDamage() {},
-                        prepareCommonFlagPop() {},
-                        spawnCommonFlagPop: (victim: typeof a, kind: string) => {
-                            if (kind === "bitter_experience") pops.push(victim.getId());
-                        },
-                    },
+                    combatVisuals: visuals,
                     showAttackMissedVfx() {},
                     playReplayOneShot: () => Promise.resolve(),
                     playReplayProjectile: (_a: unknown, _b: unknown, _p: unknown, onImpact: () => void) =>
@@ -71,6 +80,7 @@ test.each(["melee", "range"])(
                 }
                 await pending;
                 expect(pops).toEqual(active && !missed ? ["B", "A", "B"] : []);
+                visuals.clear();
             }
         }
     },

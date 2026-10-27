@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -193,7 +194,7 @@ export class CommonFlagPops {
     }[] = [];
     public constructor(
         private readonly kind: FlagPopKind,
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -323,7 +324,7 @@ export class CommonFlagPops {
             const offsetY = cellSize * 0.07;
             container.position.set(position.x, position.y + offsetY);
             container.scale.set(1, -1);
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow ?? (() => anchor));
             this.pops.push({ unitId, container, sprite, startedAtMs, follow, offsetY });
             this.update(0);
         } finally {

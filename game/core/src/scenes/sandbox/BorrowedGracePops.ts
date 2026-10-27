@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { OVERHEAD_EFFECT_DURATION_MS, overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -48,7 +49,7 @@ export class BorrowedGracePops {
         revealed: boolean;
     }[] = [];
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -107,8 +108,8 @@ export class BorrowedGracePops {
         icon?.anchor.set(0.5);
         enemy.addChild(hand);
         if (icon) monk.addChild(icon);
-        this.attach(enemy, 5520);
-        this.attach(monk, 5520);
+        this.attach(enemy, 5520, () => source() ?? from);
+        this.attach(monk, 5520, recipient);
         this.pops.push({
             enemy,
             monk,

@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Assets, Container, GlProgram, Mesh, MeshGeometry, Shader, type Texture } from "pixi.js";
 import { images } from "../../imageAssets";
@@ -110,7 +111,7 @@ export class TerrifyingGazePops {
     private readonly pending = new Set<string>();
     private generation = 0;
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
         private readonly load: () => Promise<Texture> = () => Assets.load<Texture>(images.terrifying_gaze_256),
     ) {}
@@ -134,7 +135,7 @@ export class TerrifyingGazePops {
             container.scale.set(1, -1);
             const offset = cell * 0.07;
             container.position.set(position.x, position.y + offset);
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow);
             this.pops.set(id, { container, mesh, shader: mesh.shader!, started, follow, offset });
             this.update();
         } finally {
