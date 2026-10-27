@@ -335,18 +335,18 @@ const PagedPortraitCanvas = ({
 }) => {
     const canvas = React.useRef<HTMLCanvasElement>(null);
     const ready = React.useRef(onLoaded);
+    const { src, meta, pages } = config;
     React.useLayoutEffect(() => {
         ready.current = onLoaded;
     }, [onLoaded]);
     React.useLayoutEffect(() => {
-        if (!canvas.current || !config.pages) return;
-        const { meta } = config;
+        if (!canvas.current || !pages) return;
         const timing =
             playback === "ping-pong"
                 ? buildAtlasPingPongTiming(meta)
                 : { frameForElapsed: (elapsed: number) => Math.floor(elapsed / (1000 / meta.fps)) % meta.frameCount };
-        const sourceFile = sidebarPortraitSourceFile(config.src);
-        const frameForElapsed = isRefinedPortrait(config.src)
+        const sourceFile = sidebarPortraitSourceFile(src);
+        const frameForElapsed = isRefinedPortrait(src)
             ? (sourceFile === "hydra_left_screen_idle_atlas.webp"
                   ? createHydraPortraitIdleClock
                   : createPortraitIdleClock)(
@@ -360,11 +360,11 @@ const PagedPortraitCanvas = ({
         frameForElapsed(0);
         return playPagedSidebarAtlas(
             canvas.current,
-            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages: config.pages },
+            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages },
             { frameForElapsed },
             () => ready.current(),
         );
-    }, [config, playback]);
+    }, [src, meta, pages, playback]);
     return (
         <Box
             component="canvas"

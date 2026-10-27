@@ -11,16 +11,17 @@ export interface SidebarPortraitPage {
 type Entry = {
     src: string;
     owners: Set<object>;
+    currentOwners: Set<object>;
     image?: PortraitImageStub;
     loading?: PortraitImageStub;
     used: number;
     retryAt: number;
 };
 
-/** Only current/lookahead pages stay live. One decoder and a small return-to-unit cache are shared. */
+/** Current/lookahead pages share three download slots and a small return-to-unit cache. */
 export class SidebarPortraitPagePool {
     private readonly entries = new Map<string, Entry>();
-    private active?: Entry;
+    private readonly active = new Set<Entry>();
     private timer?: ReturnType<typeof setTimeout>;
     public constructor(
         private readonly createImage: () => PortraitImageStub = () => new Image() as unknown as PortraitImageStub,
@@ -34,19 +35,25 @@ export class SidebarPortraitPagePool {
         for (const src of wanted) {
             let entry = this.entries.get(src);
             if (!entry) {
-                entry = { src, owners: new Set(), used: this.now(), retryAt: 0 };
+                entry = { src, owners: new Set(), currentOwners: new Set(), used: this.now(), retryAt: 0 };
                 this.entries.set(src, entry);
             }
             entry.owners.add(owner);
         }
         for (const entry of this.entries.values()) {
             if (!wanted.has(entry.src)) entry.owners.delete(owner);
+            if (entry.src === pages[0]?.src) entry.currentOwners.add(owner);
+            else entry.currentOwners.delete(owner);
+            if (entry.loading) entry.loading.fetchPriority = entry.currentOwners.size ? "high" : "low";
         }
         this.trim();
         this.pump();
     }
     public release(owner: object): void {
-        for (const entry of this.entries.values()) entry.owners.delete(owner);
+        for (const entry of this.entries.values()) {
+            entry.owners.delete(owner);
+            entry.currentOwners.delete(owner);
+        }
         this.trim();
         this.pump();
     }
@@ -69,9 +76,12 @@ export class SidebarPortraitPagePool {
         for (const entry of this.entries.values()) {
             if (entry.owners.size) continue;
             if (entry.loading) {
-                // decode() rejects when the source changes. Keep the decoder slot until it settles.
+                // Chromium can leave decode() pending after an in-flight request is cancelled.
+                // Release our slot now; a late completion cannot reclaim this removed entry.
                 this.entries.delete(entry.src);
+                this.active.delete(entry);
                 entry.loading.src = "";
+                entry.loading = undefined;
             } else if (entry.image) idle.push(entry);
             else this.entries.delete(entry.src);
         }
@@ -100,21 +110,24 @@ export class SidebarPortraitPagePool {
             this.timer = undefined;
             return;
         }
-        if (this.active) return;
+        if (this.active.size >= 3) return;
         if (!this.canDecode()) {
             this.schedule(40);
             return;
         }
-        const next = waiting.find((entry) => entry.retryAt <= this.now());
+        // A visible frame must not wait behind speculative pages from a held portrait.
+        const next = waiting
+            .sort((a, b) => Number(b.currentOwners.size > 0) - Number(a.currentOwners.size > 0))
+            .find((entry) => entry.retryAt <= this.now());
         if (!next) {
             this.schedule(Math.max(40, Math.min(...waiting.map((entry) => entry.retryAt - this.now()))));
             return;
         }
         const image = this.createImage();
-        this.active = next;
+        this.active.add(next);
         next.loading = image;
         image.decoding = "async";
-        image.fetchPriority = "low";
+        image.fetchPriority = next.currentOwners.size ? "high" : "low";
         image.src = next.src;
         const loaded =
             typeof image.decode === "function"
@@ -127,9 +140,12 @@ export class SidebarPortraitPagePool {
             () => this.finish(next, image, image.naturalWidth > 0),
             () => this.finish(next, image, false),
         );
+        // Network latency used to serialize every multi-megabyte page with its predecessor.
+        // Overlap the bounded lookahead window; decoded memory still follows the same page budget.
+        this.pump();
     }
     private finish(entry: Entry, image: PortraitImageStub, ready: boolean): void {
-        if (this.active === entry) this.active = undefined;
+        this.active.delete(entry);
         entry.loading = undefined;
         if (this.entries.get(entry.src) === entry && entry.owners.size) {
             if (ready) {
