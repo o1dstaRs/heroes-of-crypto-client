@@ -4,6 +4,11 @@ import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises"
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
+import {
+    applySidebarPortraitRepair,
+    decodeSidebarPortraitRepair,
+    type SidebarPortraitRepair,
+} from "../src/build/sidebarPortraitRepair";
 import catalog from "../src/ui/sidebarPortraitPages.json";
 
 const root = path.resolve(process.argv[2] ?? "");
@@ -19,6 +24,15 @@ sharp.concurrency(1);
 sharp.cache(false);
 for (const [name, animation] of Object.entries(catalog.animations)) {
     const source = inside(animation.sourcePath);
+    const repairDescriptor = (animation as typeof animation & { repair?: SidebarPortraitRepair }).repair;
+    const repairPixels = repairDescriptor
+        ? decodeSidebarPortraitRepair(
+              await readFile(inside(repairDescriptor.path)),
+              repairDescriptor,
+              animation.frameWidth,
+              animation.frameHeight,
+          )
+        : undefined;
     const sourceHash = createHash("sha256");
     for await (const chunk of createReadStream(source)) sourceHash.update(chunk);
     if (sourceHash.digest("hex") !== animation.sourceSha256) throw new Error(`Unapproved portrait master: ${name}`);
@@ -64,6 +78,15 @@ for (const [name, animation] of Object.entries(catalog.animations)) {
                 for (let row = 0; row < animation.frameHeight; row++) {
                     band.copy(pixels, row * width * 4, row * stride + left, row * stride + left + width * 4);
                 }
+                if (repairPixels)
+                    applySidebarPortraitRepair(
+                        pixels,
+                        repairPixels,
+                        animation.frameWidth,
+                        animation.frameHeight,
+                        page.firstFrame,
+                        page.frameCount,
+                    );
                 const bytes = await sharp(pixels, { raw: { width, height: animation.frameHeight, channels: 4 } })
                     .webp(catalog.recipe)
                     .toBuffer();

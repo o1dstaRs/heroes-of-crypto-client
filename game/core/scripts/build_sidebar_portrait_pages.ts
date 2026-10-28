@@ -4,6 +4,13 @@ import path from "node:path";
 import sharp from "sharp";
 
 import release from "../animation-release.json";
+import {
+    applySidebarPortraitRepair,
+    decodeSidebarPortraitRepair,
+    type SidebarPortraitRepair,
+} from "../src/build/sidebarPortraitRepair";
+
+import pageCatalog from "../src/ui/sidebarPortraitPages.json";
 
 import {
     SIDEBAR_PAGE_RECIPE,
@@ -25,7 +32,7 @@ const writeNew = async (filename: string, bytes: Buffer | string) => {
     }
 };
 
-async function buildPages(sourceDirectory: string, outputDirectory: string, catalogFile: string) {
+async function buildPages(sourceDirectory: string, outputDirectory: string, catalogFile: string, assetsRoot?: string) {
     // This can be a local mirror, but every source must match the approved master, never a build encoding.
     const [{ UNIT_ID_TO_NAME }, { resolveLeftSidebarPortraitAnimation }, { resolveIntegratedArbalesterPortrait }] =
         await Promise.all([
@@ -50,6 +57,16 @@ async function buildPages(sourceDirectory: string, outputDirectory: string, cata
             throw new Error(`Source is not the approved master: ${sourceFile}`);
         }
         const { frameWidth, frameHeight, frameCount, layout } = animation.meta;
+        const repair = (pageCatalog.animations as Record<string, { repair?: SidebarPortraitRepair }>)[sourceFile]
+            ?.repair;
+        if (repair && !assetsRoot) throw new Error("Repaired portraits require --assets-root=DIR");
+        const repairPath = repair && assetsRoot ? path.resolve(assetsRoot, repair.path) : undefined;
+        if (repairPath && !repairPath.startsWith(path.resolve(assetsRoot!) + path.sep))
+            throw new Error("Unsafe portrait repair path");
+        const repairPixels =
+            repair && repairPath
+                ? decodeSidebarPortraitRepair(await readFile(repairPath), repair, frameWidth, frameHeight)
+                : undefined;
         const stem = sourceFile.replace(/_atlas\.webp$/, "");
         const relativeFolder = `sidebar_portraits_paged_v1/${stem}/atlas`;
         const metadataFile = path.join(outputDirectory, relativeFolder, `${stem}_paged_v1_meta.json`);
@@ -61,7 +78,8 @@ async function buildPages(sourceDirectory: string, outputDirectory: string, cata
         if (
             previous &&
             (previous.sourceSha256 !== entry[1].sha256 ||
-                JSON.stringify(previous.recipe) !== JSON.stringify(SIDEBAR_PAGE_RECIPE))
+                JSON.stringify(previous.recipe) !== JSON.stringify(SIDEBAR_PAGE_RECIPE) ||
+                JSON.stringify(previous.repair ?? null) !== JSON.stringify(repair ?? null))
         ) {
             throw new Error(`Cached export has a different source or recipe: ${sourceFile}`);
         }
@@ -79,6 +97,15 @@ async function buildPages(sourceDirectory: string, outputDirectory: string, cata
                 height: frameHeight,
             };
             const pixels = await sharp(decoded.data, { raw: decoded.info }).extract(crop).raw().toBuffer();
+            if (repairPixels)
+                applySidebarPortraitRepair(
+                    pixels,
+                    repairPixels,
+                    frameWidth,
+                    frameHeight,
+                    page.firstFrame,
+                    page.frameCount,
+                );
             const key = `${stem}_page_${String(index).padStart(2, "0")}_atlas`;
             const releasePath = `animations/output/${relativeFolder}/${key}.webp`;
             const pageFile = path.join(outputDirectory, relativeFolder, `${key}.webp`);
@@ -124,6 +151,7 @@ async function buildPages(sourceDirectory: string, outputDirectory: string, cata
             sourceFile,
             sourcePath: entry[0],
             sourceSha256: entry[1].sha256,
+            ...(repair ? { repair } : {}),
             frameWidth,
             frameHeight,
             frameCount,
@@ -133,7 +161,7 @@ async function buildPages(sourceDirectory: string, outputDirectory: string, cata
             surface: "left-sidebar-paged",
             recipe: SIDEBAR_PAGE_RECIPE,
             ...manifest,
-            meta: { ...animation.meta, encoding: "webp-rgba-q93", pages },
+            meta: { ...animation.meta, encoding: "webp-rgba-lossless", pages },
         };
         const metadataText = JSON.stringify(metadata, null, 2) + "\n";
         if (previousText && !previous.surface) {
@@ -187,5 +215,5 @@ if (import.meta.main) {
     const output = args.get("--output");
     const catalog = args.get("--catalog");
     if (!source || !output || !catalog) throw new Error("Required: --source-images=DIR --output=DIR --catalog=FILE");
-    await buildPages(path.resolve(source), path.resolve(output), path.resolve(catalog));
+    await buildPages(path.resolve(source), path.resolve(output), path.resolve(catalog), args.get("--assets-root"));
 }

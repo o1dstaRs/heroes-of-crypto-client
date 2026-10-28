@@ -1,4 +1,4 @@
-export const SIDEBAR_PAGE_RECIPE = { quality: 93, alphaQuality: 100, effort: 6, smartSubsample: true } as const;
+export const SIDEBAR_PAGE_RECIPE = { lossless: true, effort: 3 } as const;
 
 export interface SidebarPageDescriptor {
     key: string;
