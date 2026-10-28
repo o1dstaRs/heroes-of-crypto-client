@@ -92,9 +92,8 @@ import { PickExitFightControl } from "./PickExitFightControl";
 const fightMatchupPreviewTransport: SceneGameActionTransport = () => ({ handled: false });
 
 const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
-// Every dev editor is lazy so the production entry chunk never carries them: their routes below are
-// mounted only under import.meta.env.DEV, and a literal DEV guard + dynamic import lets Rollup drop
-// the whole subtree from a production build instead of shipping guarded-but-present code.
+// Editors are lazy and gated by build mode. Only the animation lab also ships in the test build;
+// production builds drop these routes and their unused chunks.
 const PortraitFramingEditor = React.lazy(() =>
     import("./PortraitFramingEditor").then((m) => ({ default: m.PortraitFramingEditor })),
 );
@@ -1676,18 +1675,21 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                             </React.Suspense>
                         }
                     />
-                    <Route
-                        path="/dev/creature-animation-lab"
-                        element={
-                            <>
-                                <Heroes windowSize={windowSize} />
-                                <React.Suspense fallback={null}>
-                                    <CreatureAnimationLabPanel />
-                                </React.Suspense>
-                            </>
-                        }
-                    />
                 </>
+            )}
+            {/* The animation lab is also available in the test build for visual acceptance. */}
+            {(import.meta.env.DEV || import.meta.env.MODE === "test") && (
+                <Route
+                    path="/dev/creature-animation-lab"
+                    element={
+                        <>
+                            <Heroes windowSize={windowSize} />
+                            <React.Suspense fallback={null}>
+                                <CreatureAnimationLabPanel />
+                            </React.Suspense>
+                        </>
+                    }
+                />
             )}
             {/* Online routes require authentication */}
             <Route
