@@ -18058,6 +18058,8 @@ export class Sandbox extends PixiScene {
         this.releaseSpellBookBackground();
         this.releaseSpellBookBlurFilter();
         this.fireWallLayer?.destroy();
+        // The roster is attached to the persistent app stage. Retire its chips before releasing their textures.
+        if (this.unitsOverlay && !this.unitsOverlay.container.destroyed) this.unitsOverlay.destroy();
         super.Destroy();
         // Floating damage numbers are parented to the shared worldRoot; destroy them so
         // they don't linger after the scene is replaced (e.g. on "New Battle").

@@ -1,5 +1,5 @@
-import { expect, spyOn, test } from "bun:test";
-import { Assets, Container, Texture } from "pixi.js";
+import { expect, mock, spyOn, test } from "bun:test";
+import { Assets, Container, ImageSource, Texture } from "pixi.js";
 import { PixiScene } from "./PixiScene";
 import { images } from "../imageAssets";
 
@@ -10,6 +10,49 @@ const Scene = PixiScene as unknown as new (context: object) => {
     waitForTexture(key: string): Promise<Texture | undefined>;
     Destroy(): void;
 };
+
+test("animation and portrait pixels are released only after their last scene leaves", async () => {
+    const keys = ["orc_idle_atlas", "portrait_aaa_front_v1_orc"] as const;
+    const bitmap = { width: 3072, height: 4608, close: mock(() => undefined) };
+    const texture = new Texture({ source: new ImageSource({ resource: bitmap }) });
+    texture.source.once("destroy", () => bitmap.close());
+    const roots: Container[] = [];
+    const create = () => {
+        const scene = new Scene({});
+        const sceneRoots = Array.from({ length: 4 }, () => new Container());
+        roots.push(...sceneRoots);
+        scene.textures = Object.fromEntries(keys.map((key) => [key, texture]));
+        scene.pixiApp = {
+            getWorldRoot: () => sceneRoots[0],
+            getCamera: () => sceneRoots[1],
+            getUIContainer: () => sceneRoots[2],
+            getCursorOverlayRoot: () => sceneRoots[3],
+        };
+        for (const key of keys) expect(scene.texAny(key)).toBe(texture);
+        return scene;
+    };
+    const first = create();
+    const second = create();
+    const unload = spyOn(Assets, "unload").mockImplementation(async () => {
+        if (!texture.destroyed) texture.destroy(true);
+    });
+    try {
+        first.Destroy();
+        await Promise.resolve();
+        expect(unload).not.toHaveBeenCalled();
+        second.Destroy();
+        await Promise.resolve();
+        expect(unload).toHaveBeenCalledTimes(2);
+        for (const key of keys) expect(unload).toHaveBeenCalledWith(images[key]);
+        expect(bitmap.close).toHaveBeenCalledTimes(1);
+    } finally {
+        first.Destroy();
+        second.Destroy();
+        roots.forEach((root) => root.destroy());
+        if (!texture.destroyed) texture.destroy(true);
+        unload.mockRestore();
+    }
+});
 
 test("a first attack bypasses queued background atlases while their downloads are still pending", async () => {
     const scene = new Scene({});

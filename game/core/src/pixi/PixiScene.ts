@@ -61,7 +61,11 @@ import {
     isLazyMapTextureAssetKey,
     isDeferredEnvironmentAssetKey,
     isLazySpellAssetKey,
+    isLazyRosterAssetKey,
+    isDeferredUnitCardAssetKey,
 } from "./imageAssetTiers";
+import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 import {
     boardFirstTextureLoads,
     boardImageRetryDelayMs,
@@ -493,6 +497,11 @@ export abstract class PixiScene {
         if (this.sc_destroyed) return undefined;
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
         const isSceneLeasedTexture =
+            isUnitAnimationAtlasKey(key) ||
+            isNamedUnitStateSheetKey(key) ||
+            isDeferredUnitCardAssetKey(key) ||
+            key.startsWith("portrait_aaa_front_") ||
+            isLazyRosterAssetKey(key) ||
             isLazyBattlefieldCreatureAssetKey(key) ||
             isLazyCombatEffectAssetKey(key) ||
             isLazyMapTextureAssetKey(key) ||
