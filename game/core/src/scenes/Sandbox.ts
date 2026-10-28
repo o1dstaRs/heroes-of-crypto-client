@@ -5198,6 +5198,13 @@ export class Sandbox extends PixiScene {
             });
             // Prepare this strike’s textures before it starts so loading cannot interrupt its reaction.
             await Promise.all([
+                ...[
+                    ...new Set(
+                        (this.pendingEffectPops ?? [])
+                            .filter((entry) => prepared.some(({ strike }) => strike.targetId === entry.unit.getId()))
+                            .flatMap((entry) => entry.debuffs.filter(isBeholderDebuff)),
+                    ),
+                ].map((name) => this.waitForTexture(beholderDebuffTextureName(name)!)),
                 ...(melee &&
                 prepared.some(
                     ({ source, strike }) =>
@@ -10288,7 +10295,7 @@ export class Sandbox extends PixiScene {
             : undefined;
         return resolveLineTeamFlag(line, this.sceneLogTeamByName, active);
     }
-    protected reconcileEffectVisuals(): void {
+    protected reconcileEffectVisuals(holdForImpact = false): void {
         const seen = new Set<string>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const id = unit.getId();
@@ -10317,15 +10324,18 @@ export class Sandbox extends PixiScene {
             if (renderable.isDead()) {
                 continue;
             }
-            this.queueOrPlayEffectPops({
-                unit: renderable,
-                flash: diff.flash,
-                debuffs: [...diff.newDebuffs],
-                // Armor Rune / Weapon Rune render their own attempt->resolve flourish from the cast's
-                // authoritative outcome (renderCastOutcomes), so skip the generic buff-applied pop here —
-                // otherwise the rune bubbles up a second time on a successful enchant.
-                buffs: [...diff.newBuffs].filter((name) => name !== "Armor Rune" && name !== "Weapon Rune"),
-            });
+            this.queueOrPlayEffectPops(
+                {
+                    unit: renderable,
+                    flash: diff.flash,
+                    debuffs: [...diff.newDebuffs],
+                    // Armor Rune / Weapon Rune render their own attempt->resolve flourish from the cast's
+                    // authoritative outcome (renderCastOutcomes), so skip the generic buff-applied pop here —
+                    // otherwise the rune bubbles up a second time on a successful enchant.
+                    buffs: [...diff.newBuffs].filter((name) => name !== "Armor Rune" && name !== "Weapon Rune"),
+                },
+                holdForImpact,
+            );
         }
         for (const id of [...this.shownDebuffsByUnit.keys()]) {
             if (!seen.has(id)) {
@@ -11100,22 +11110,23 @@ export class Sandbox extends PixiScene {
         }
     }
     protected isStrikeInFlight(): boolean {
-        return this.replayPlaybackActive || this.isPlayingActionAnimation();
+        // An attack also owns its queue while textures load, before any sprite starts moving.
+        return this.sc_moveBlocked || this.replayPlaybackActive || this.isPlayingActionAnimation();
     }
-    protected queueOrPlayEffectPops(entry: IPendingEffectPop): void {
+    protected queueOrPlayEffectPops(entry: IPendingEffectPop, holdForImpact = false): void {
         if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
             return;
         }
         for (const name of entry.debuffs.filter(isBeholderDebuff)) {
             void this.waitForTexture(beholderDebuffTextureName(name)!);
         }
-        if (this.isStrikeInFlight()) {
+        if (holdForImpact || this.isStrikeInFlight()) {
             this.pendingEffectPops.push(entry);
             return;
         }
         this.playEffectPops(entry);
     }
-    /** Queue this projectile victim's Spit Ball motifs at contact; the visual layer waits for damage numbers. */
+    /** Reveal this projectile victim's Spit Ball motifs at contact, above the damage numbers. */
     protected flushBeholderEffectPops(unitId: string): void {
         if (!this.pendingEffectPops?.length) return;
         const ready: IPendingEffectPop[] = [];
@@ -11220,7 +11231,6 @@ export class Sandbox extends PixiScene {
         const iconTextureName =
             (kind === "debuff" ? beholderDebuffTextureName(effectName) : undefined) ??
             SpellHelper.spellToTextureName(effectName);
-        const startedAtMs = performance.now();
         const visuals = this.combatVisuals;
         const id = unit.getId();
         void this.waitForTexture(iconTextureName).then((iconTexture) => {
@@ -11234,7 +11244,8 @@ export class Sandbox extends PixiScene {
             )
                 return;
             const position = current.getFlagEffectAnchor(this.sc_sceneSettings.getGridSettings());
-            visuals?.spawnDebuffPop(position, iconTexture, effectName, stackIndex, kind, current, startedAtMs);
+            // A cold texture must not consume the entire 650 ms presentation before it can be drawn.
+            visuals?.spawnDebuffPop(position, iconTexture, effectName, stackIndex, kind, current, performance.now());
         });
     }
     protected onAiToggleChanged(_active: boolean): void {}
@@ -12925,6 +12936,8 @@ export class Sandbox extends PixiScene {
         // ("X received (N) from Fire Shield") afterwards. The HP-snapshot deltas below lump the burn
         // in with the retaliation on the same unit, so we split them back out into a separate number.
         const logSizeBeforeAttack = this.sc_sceneLog.getLogSize();
+        // Seed the pre-hit effects before the engine mutates them, including the first attack.
+        if (!this.sc_gameActionTransport && !this.replayPlaybackActive) this.reconcileEffectVisuals();
         const actionEventSnapshot = this.snapshotRenderableUnits();
         let attackActionEvents: GameEvent[] | undefined;
         let attackTurnEventsApplied = false;
@@ -13033,6 +13046,9 @@ export class Sandbox extends PixiScene {
                 const shown = this.shownBuffsByUnit.get(id);
                 for (const name of names) shown?.add(name);
             }
+            // The engine has already applied Spit Ball. Queue its effects before projectile playback;
+            // waiting for turn cleanup would miss contact and can silently seed the first application.
+            if (!this.sc_gameActionTransport && !this.replayPlaybackActive) this.reconcileEffectVisuals(true);
             scheduleAttackCleanupWatchdog();
             this.sc_damageStatsUpdateNeeded = true;
             return true;

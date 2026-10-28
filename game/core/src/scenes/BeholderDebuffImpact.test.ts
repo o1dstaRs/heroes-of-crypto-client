@@ -21,6 +21,10 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     const finish: (() => void)[] = [];
     let contact!: () => void;
     let land!: () => void;
+    let readyTextures!: () => void;
+    const textures = new Promise<void>((resolve) => {
+        readyTextures = resolve;
+    });
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         oneInTheFieldTriggers: new OneInTheFieldTriggers(),
         sc_sceneSettings: { getGridSettings: () => ({}) },
@@ -37,6 +41,7 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
         ],
         isSceneDestroyed: () => false,
         prepareDirectionalAttackState: () => "attack",
+        waitForTexture: () => textures,
         offsetReplayDamagePosition: (to: unknown) => to,
         combatVisuals: { showFloatingDamage: () => undefined },
         popEffectOnUnit: (u: typeof a, name: string) => popped.push(`${u.getId()}:${name}`),
@@ -57,6 +62,9 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     );
     for (let i = 0; i < 20; i++) await Promise.resolve();
     expect(popped).toEqual([]);
+    expect(contact).toBeUndefined();
+    readyTextures();
+    for (let i = 0; i < 20; i++) await Promise.resolve();
     contact();
     expect(popped).toEqual(["B:Curse", "B:Weakness"]);
     contact();
@@ -121,4 +129,84 @@ test("the battle visual layer shows motifs immediately above the moving damage r
         expect(atlas.source.destroyed).toBe(false);
         atlas.destroy(true);
     }
+});
+
+test("first local application is queued before contact and cleanup does not replay it", async () => {
+    let debuffs: string[] = [];
+    const popped: string[] = [];
+    const unit = {
+        getId: () => "victim",
+        getDebuffs: () => debuffs.map((name) => ({ getName: () => name })),
+        getEffects: () => [],
+        getBuffs: () => [],
+        isDead: () => false,
+        flashDebuffDarken: () => {},
+    };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        shownDebuffsByUnit: new Map(),
+        shownBuffsByUnit: new Map(),
+        pendingEffectPops: [],
+        unitsHolder: { getAllUnits: () => new Map([["victim", unit]]) },
+        waitForTexture: async () => ({}),
+        isStrikeInFlight: () => false,
+        popEffectOnUnit: (_unit: unknown, name: string) => popped.push(name),
+    });
+    scene.reconcileEffectVisuals();
+    debuffs = ["Weakening Beam", "Rangebane", "Cowardice", "Quagmire"];
+    scene.reconcileEffectVisuals(true);
+    expect(popped).toEqual([]);
+    expect(scene.pendingEffectPops).toHaveLength(1);
+    scene.flushBeholderEffectPops("other-victim");
+    expect(popped).toEqual([]);
+    scene.flushBeholderEffectPops("victim");
+    expect(popped).toEqual(debuffs);
+    scene.reconcileEffectVisuals();
+    scene.flushEffectPops();
+    expect(popped).toEqual(debuffs);
+});
+
+test("cold debuff textures start their full presentation when ready and never target a retired scene", async () => {
+    let now = 1000;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    let ready!: (texture: object) => void;
+    const calls: unknown[][] = [];
+    const unit = { getId: () => "victim", isDead: () => false, getFlagEffectAnchor: () => ({ x: 10, y: 20 }) };
+    const visuals = { spawnDebuffPop: (...args: unknown[]) => calls.push(args) };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        unitsHolder: { getAllUnits: () => new Map([["victim", unit]]) },
+        sc_sceneSettings: { getGridSettings: () => ({}) },
+        combatVisuals: visuals,
+        isSceneDestroyed: () => false,
+        waitForTexture: () =>
+            new Promise((resolve) => {
+                ready = resolve;
+            }),
+    });
+    try {
+        scene.popEffectOnUnit(unit, "Quagmire", 0, "debuff");
+        now = 2500;
+        ready({});
+        await Promise.resolve();
+        expect(calls).toHaveLength(1);
+        expect(calls[0][6]).toBe(2500);
+        expect(calls[0][5]).toBe(unit);
+        scene.popEffectOnUnit(unit, "Rangebane", 1, "debuff");
+        scene.combatVisuals = {};
+        ready({});
+        await Promise.resolve();
+        expect(calls).toHaveLength(1);
+    } finally {
+        clock.mockRestore();
+    }
+});
+
+test("committed attack keeps effect pops held while textures are loading", () => {
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        sc_moveBlocked: true,
+        replayPlaybackActive: false,
+        isPlayingActionAnimation: () => false,
+    });
+    expect(scene.isStrikeInFlight()).toBe(true);
+    scene.sc_moveBlocked = false;
+    expect(scene.isStrikeInFlight()).toBe(false);
 });

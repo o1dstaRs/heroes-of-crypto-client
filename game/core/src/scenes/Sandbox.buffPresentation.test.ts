@@ -57,6 +57,7 @@ for (const [school, name, generic] of [
         scene.reconcileEffectVisuals();
         expect(pop).toHaveBeenCalledWith(
             expect.objectContaining({ unit, flash: generic ? "buff" : "none", buffs: generic ? [name] : [] }),
+            false,
         );
         scene.reconcileEffectVisuals();
         expect(pop.mock.calls.filter(([entry]) => entry.buffs.includes(name))).toHaveLength(generic ? 1 : 0);

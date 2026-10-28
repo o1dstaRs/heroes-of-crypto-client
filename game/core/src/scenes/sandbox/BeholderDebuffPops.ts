@@ -40,7 +40,7 @@ export function beholderDebuffSlot(index: number, count: number): Anchor {
     return { x: (index - (count - 1) / 2) * 1.04, y: -0.69 };
 }
 
-/** Authored motion plays only after the damage/loss numbers finish, without delaying combat. */
+/** Authored motifs share the flag overlay row above the live damage/loss numbers. */
 export class BeholderDebuffPops {
     private groups: Group[] = [];
     private readonly frameCache = new Map<Texture, Texture[]>();
