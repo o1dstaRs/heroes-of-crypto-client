@@ -105,6 +105,21 @@ export class BeholderDebuffPops {
         sprite.width = sprite.height = cell;
         group.container.addChild(sprite);
         group.motifs.push({ name, sprite, frames });
+        // Reserve a fixed, symmetric envelope for the complete sequence. Measuring each changing
+        // frame would move the entire row and undo the authored landmark registration.
+        let halfWidth = 0;
+        let top = Infinity;
+        let bottom = -Infinity;
+        group.motifs.forEach((motif, index) => {
+            const slot = beholderDebuffSlot(index, group.motifs.length);
+            for (let frame = 0; frame < FRAME_COUNT; frame++) {
+                const [dx, dy, scale] = beholderDebuffFramePose(motif.name, frame);
+                halfWidth = Math.max(halfWidth, (Math.abs(slot.x + dx / 256) + scale / 2) * cell);
+                top = Math.min(top, (slot.y + dy / 256 - scale / 2) * cell);
+                bottom = Math.max(bottom, (slot.y + dy / 256 + scale / 2) * cell);
+            }
+        });
+        group.container.boundsArea = new Rectangle(-halfWidth, top, halfWidth * 2, bottom - top);
         this.update();
     }
     public update(): void {

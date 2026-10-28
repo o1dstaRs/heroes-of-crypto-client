@@ -102,7 +102,7 @@ describe("floating received damage", () => {
         clock = spyOn(performance, "now").mockImplementation(() => now);
     });
     afterEach(() => clock.mockRestore());
-    test("uses the hover kill icon and rises vertically from the stack flag", () => {
+    test("uses the hover kill icon and holds a fixed position above the stack flag", () => {
         const { visuals, attached } = makeVisuals();
         const skullTexture = new Texture({ source: new TextureSource({ width: 256, height: 256 }) });
         const textureFrom = spyOn(Texture, "from").mockReturnValue(skullTexture);
@@ -125,14 +125,17 @@ describe("floating received damage", () => {
         expect(floating.y).toBe(flagTop.y + 80 + 6);
 
         const startY = floating.y;
-        now += 325;
-        visuals.update(0.325);
-        expect(floating.x).toBe(flagTop.x);
-        // Halfway through easeOutCubic, 87.5% of the reduced 50.4px rise is complete.
-        expect(floating.y - startY).toBeCloseTo(72 * 0.7 * 0.875);
+        for (const age of [20, 65, 125, 325, 600]) {
+            now = 1000 + age;
+            visuals.update(0);
+            expect(floating.x).toBe(flagTop.x);
+            expect(floating.y).toBe(startY);
+            expect(Math.abs(floating.scale.x)).toBe(1);
+            expect(floating.scale.y).toBe(-1);
+        }
     });
 
-    test("keeps consecutive hits above the same flag throughout their rise", () => {
+    test("keeps consecutive hits in separate fixed positions above the same flag", () => {
         const { visuals } = makeVisuals();
         const flagTop = { x: 120, y: 200 };
         for (const direction of [
@@ -143,17 +146,16 @@ describe("floating received damage", () => {
             visuals.showFloatingDamage({ x: 900, y: 10 }, 52, direction, 0, undefined, undefined, flagTop);
         }
         const labels = internals(visuals).floatingTexts.map(({ container }) => container);
-        let previousY = labels.map((label) => label.y);
+        const previousY = labels.map((label) => label.y);
         expect(new Set(previousY).size).toBe(3);
         for (let frame = 0; frame < 7; frame++) {
             now += 50;
             visuals.update(0.05);
             labels.forEach((label, index) => {
                 expect(label.x).toBe(flagTop.x);
-                expect(label.y).toBeGreaterThan(previousY[index]);
+                expect(label.y).toBe(previousY[index]);
                 expect(label.y).toBeGreaterThan(flagTop.y);
             });
-            previousY = labels.map((label) => label.y);
         }
     });
 

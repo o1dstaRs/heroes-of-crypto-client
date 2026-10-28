@@ -82,7 +82,7 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     expect(popped).toContain("B:Blessing");
 });
 
-test("the battle visual layer shows motifs immediately above the moving damage row", async () => {
+test("the battle visual layer holds damage and every debuff at fixed positions", async () => {
     const { Container, Rectangle, Texture, TextureSource } = await import("pixi.js");
     const { CombatVisuals } = await import("./sandbox/CombatVisuals");
     const root = new Container();
@@ -111,14 +111,20 @@ test("the battle visual layer shows motifs immediately above the moving damage r
         visuals.showFloatingDamage(flag, 25, undefined, 0, undefined, undefined, flag);
         const damage = root.children[0];
         damage.boundsArea = new Rectangle(-40, -36, 80, 72);
-        visuals.spawnDebuffPop(flag, atlas, "Curse", 0, "debuff", unit);
+        for (const name of ["Curse", "Sadness", "Quagmire", "Weakening Beam", "Weakness", "Rangebane", "Cowardice"])
+            visuals.spawnDebuffPop(flag, atlas, name, 0, "debuff", unit);
         const motif = root.children[1];
         expect(motif.visible).toBe(true);
-        for (const age of [125, 350, 600]) {
+        visuals.update(0);
+        const initialDamage = { x: damage.x, y: damage.y };
+        const initialMotif = { x: motif.x, y: motif.y };
+        for (const age of [20, 65, 125, 350, 600]) {
             now = 1000 + age;
             visuals.update(0);
             expect(damage.destroyed).toBe(false);
             expect(motif.visible).toBe(true);
+            expect({ x: damage.x, y: damage.y }).toEqual(initialDamage);
+            expect({ x: motif.x, y: motif.y }).toEqual(initialMotif);
             const bounds = motif.getBounds();
             expect((bounds.minX + bounds.maxX) / 2).toBeCloseTo(100);
             expect(motif.getBounds().maxY).toBeLessThan(damage.getBounds().minY);
