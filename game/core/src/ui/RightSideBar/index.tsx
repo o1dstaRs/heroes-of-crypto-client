@@ -530,7 +530,7 @@ export default function RightSideBar({
                     sidebarWidth={barSize}
                     rightStack
                     centerInRow={Boolean(rankedFooter && footerLeading)}
-                    centerMinWidth={premiumFightVisible ? 132 : undefined}
+                    centerMinWidth={(rankedFooter && !rankedPanel) || premiumFightVisible ? 132 : undefined}
                     center={
                         premiumFightVisible ? (
                             <>

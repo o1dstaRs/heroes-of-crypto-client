@@ -58,7 +58,7 @@ interface PremiumSearchPrompt {
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * Search is available from menus, draft, setup, placement and the bottom-right fight footer.
+ * Search is available from menus, draft, ranked placement and the bottom-right fight footer.
  * The fight's suggested-moves preference controls board drawings independently of chat.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -67,6 +67,9 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     const [visible, setVisible] = useState(false);
     const [prompt, setPrompt] = useState<PremiumSearchPrompt>();
     const { pathname } = useLocation();
+    // Sandbox setup reserves its footer for Play Ranked and Invite a Friend. Combat still supplies
+    // an explicit inline anchor; do not fall back to the social dock when that anchor is absent.
+    const dockAvailable = pathname !== "/" && !pathname.startsWith("/dev/") && !pathname.startsWith("/sandbox/");
     const { user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const prefill = useCallback(
@@ -82,12 +85,12 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
                         <SearchVisibleContext.Provider value={visible}>
                             <PremiumSearchMatchProvider>
                                 <SetDockAnchorContext.Provider value={setDockAnchor}>
-                                    <DockVisibleContext.Provider value={visible && !anchor}>
+                                    <DockVisibleContext.Provider value={visible && !anchor && dockAvailable}>
                                         <PremiumSearchPromptContext.Provider
                                             value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
                                         >
                                             <PremiumSearch
-                                                anchor={anchor ?? dockAnchor}
+                                                anchor={anchor ?? (dockAvailable ? dockAnchor : null)}
                                                 compact={Boolean(anchor) || pathname.startsWith("/game/")}
                                                 prompt={prompt}
                                             />
@@ -104,7 +107,7 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
-/** Inline placement panels reserve space for search; the sandbox row anchors it beside Invite. */
+/** Placement and combat panels reserve an explicit inline anchor for search. */
 export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = false }) => {
     const setAnchor = useContext(SetAnchorContext);
     const visible = usePremiumSearchVisible();

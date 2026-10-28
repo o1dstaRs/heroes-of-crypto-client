@@ -1,4 +1,4 @@
-import { PremiumSearchProvider, PremiumSearchSlot, usePremiumSearchVisible } from "./premium/PremiumSearch";
+import { PremiumSearchProvider } from "./premium/PremiumSearch";
 import { PremiumSandboxGuidance } from "./premium/PremiumSandboxGuidance";
 import {
     createPickSimState,
@@ -223,7 +223,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const manager = usePixiManager();
     const navigate = useNavigate();
     const { authenticated, user } = useAuthContext();
-    const premiumSearchVisible = usePremiumSearchVisible();
     const { setSandboxInviteAvailable } = useCurrentLobby();
     const showFightMatchupPreview =
         Boolean(import.meta.env.DEV) && new URLSearchParams(window.location.search).get("matchupPreview") === "fight";
@@ -390,11 +389,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                             gameStarted={started}
                             windowSize={windowSize}
                             showPremiumFightControls={!replayPlaybackActive && !showFightMatchupPreview}
-                            footerLeading={
-                                !replayPlaybackActive && !started && premiumSearchVisible
-                                    ? { content: <PremiumSearchSlot inline />, width: 126 }
-                                    : undefined
-                            }
                             rankedFooter={
                                 // Setup only; combat has its own Premium chat and suggested-moves controls.
                                 !replayPlaybackActive && !started ? (
