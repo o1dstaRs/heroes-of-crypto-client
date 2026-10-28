@@ -578,7 +578,10 @@ export abstract class PixiScene {
         }
         return undefined;
     };
-    protected async waitForTexture(key: string, options?: TextureLoadOptions): Promise<Texture | undefined> {
+    protected async waitForTexture(
+        key: string,
+        options: TextureLoadOptions = { priority: "visible" },
+    ): Promise<Texture | undefined> {
         const immediate = this.texAny(key, options);
         if (immediate || this.sc_destroyed) return immediate;
 

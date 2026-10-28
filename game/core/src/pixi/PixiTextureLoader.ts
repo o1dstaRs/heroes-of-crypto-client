@@ -1,4 +1,5 @@
-import { Assets, Texture, loadTextures } from "pixi.js";
+import { Assets, Texture, extensions, loadTextures } from "pixi.js";
+import { createDecodedSceneTextureParser } from "./decodedSceneTextures";
 import { images as rawImages } from "../imageAssets";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import {
@@ -51,6 +52,22 @@ if (loadTextures.config) {
     loadTextures.config.preferWorkers = false;
     loadTextures.config.preferCreateImageBitmap = false;
 }
+
+extensions.add(
+    createDecodedSceneTextureParser(
+        Object.entries(rawImages)
+            .filter(
+                ([key]) =>
+                    isUnitAnimationAtlasKey(key) ||
+                    isNamedUnitStateSheetKey(key) ||
+                    isLazyBattlefieldCreatureAssetKey(key) ||
+                    isDeferredUnitCardAssetKey(key) ||
+                    key.startsWith("portrait_aaa_front_") ||
+                    isLazyRosterAssetKey(key),
+            )
+            .map(([, url]) => url),
+    ),
+);
 
 // Pixi's default load strategy is "throw", under which the retry loop never retries: one
 // transient network error across the 1000+ parallel core-bundle requests aborts the whole
