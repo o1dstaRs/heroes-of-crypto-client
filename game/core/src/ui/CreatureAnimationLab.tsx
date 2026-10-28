@@ -95,42 +95,42 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
     {
         state: "beholder_debuff_all",
         label: "ВСЕ ДЕБАФЫ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_curse",
         label: "ПРОКЛЯТИЕ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_sadness",
         label: "ПЕЧАЛЬ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_quagmire",
         label: "ТРЯСИНА",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_weakening_beam",
         label: "ЛУЧ ОСЛАБЛЕНИЯ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_weakness",
         label: "СЛАБОСТЬ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_rangebane",
         label: "ПОМЕХА СТРЕЛЬБЕ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "beholder_debuff_cowardice",
         label: "ТРУСОСТЬ",
-        hint: "Сразу проиграть анимацию · 0,65 с. Над флагом противника, а без него — над своим",
+        hint: "Дебаф и тестовый урон одновременно · 0,65 с. Над флагом противника, а без него — над своим",
     },
     {
         state: "petrifying_gaze",
@@ -438,6 +438,9 @@ export const CreatureAnimationLabPanel: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [magicOpen, setMagicOpen] = useState(false);
     const [rapidCharge, setRapidCharge] = useState(false);
+    const [debuffMode, setDebuffMode] = useState<"damage" | "losses" | "none">("damage");
+    const [repeatDebuffs, setRepeatDebuffs] = useState(false);
+    const [lastDebuff, setLastDebuff] = useState<CreatureAnimationLabState>("beholder_debuff_all");
     const [cyclopsImpactMode, setCyclopsImpactMode] = useState<CyclopsImpactMode>(readCyclopsImpactMode);
     const [fireMode, setFireMode] = useState<FireSpellRenderMode>(readFireSpellRenderMode);
     const [stunOrbit, setStunOrbit] = useState(readStunOrbitSettings);
@@ -464,9 +467,26 @@ export const CreatureAnimationLabPanel: React.FC = () => {
     }, []);
 
     const play = useCallback(
-        (state: CreatureAnimationLabState) => showResult(manager.PlayCreatureAnimationLabState(state)),
-        [manager, showResult],
+        (state: CreatureAnimationLabState) => {
+            if (state.startsWith("beholder_debuff_")) {
+                setLastDebuff(state);
+                const suffix = debuffMode === "none" ? "_no_damage" : debuffMode === "losses" ? "_losses" : "";
+                showResult(manager.PlayCreatureAnimationLabState(`${state}${suffix}` as CreatureAnimationLabState));
+            } else {
+                setRepeatDebuffs(false);
+                showResult(manager.PlayCreatureAnimationLabState(state));
+            }
+        },
+        [manager, showResult, debuffMode],
     );
+    const canPreviewDebuffs = canPreviewCreatureLabState(selected, "beholder_debuff_all");
+    useEffect(() => setRepeatDebuffs(false), [selected?.id]);
+    useEffect(() => {
+        if (!repeatDebuffs || !canPreviewDebuffs) return;
+        const timer = window.setInterval(() => play(lastDebuff), 1500);
+        return () => window.clearInterval(timer);
+    }, [repeatDebuffs, canPreviewDebuffs, lastDebuff, play]);
+
     const move = useCallback(
         (dx: number, dy: number) => {
             if (!dx && !dy) {
@@ -943,6 +963,54 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                             <div style={{ color: "#a99c84", fontSize: 9, marginBottom: 6, letterSpacing: ".12em" }}>
                                 ЭФФЕКТЫ И СПОСОБНОСТИ
                             </div>
+                            {canPreviewCreatureLabState(selected, "beholder_debuff_all") && (
+                                <div
+                                    role="group"
+                                    aria-label="Тест дебафов над флагом"
+                                    style={{ display: "grid", gap: 7, marginBottom: 12, fontSize: 11 }}
+                                >
+                                    <strong style={{ color: "#e6c470" }}>ДЕБАФЫ НАД ФЛАГОМ</strong>
+                                    <label style={{ display: "grid", gap: 5 }}>
+                                        Режим показа
+                                        <select
+                                            aria-label="Режим показа дебафов"
+                                            value={debuffMode}
+                                            onChange={(event) => setDebuffMode(event.target.value as typeof debuffMode)}
+                                            style={{ ...buttonStyle, background: "#30271f" }}
+                                        >
+                                            <option value="damage">С уроном −140</option>
+                                            <option value="losses">С уроном −140 и потерями 3</option>
+                                            <option value="none">Без цифр</option>
+                                        </select>
+                                    </label>
+                                    <div style={{ display: "flex", gap: 7 }}>
+                                        <button
+                                            type="button"
+                                            style={{ ...buttonStyle, flex: 1 }}
+                                            onClick={() => play(lastDebuff)}
+                                        >
+                                            ПОКАЗАТЬ ДЕБАФЫ
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-pressed={repeatDebuffs}
+                                            onClick={() => {
+                                                if (!repeatDebuffs) play(lastDebuff);
+                                                setRepeatDebuffs(!repeatDebuffs);
+                                            }}
+                                            style={{
+                                                ...buttonStyle,
+                                                borderColor: repeatDebuffs ? "#e6c470" : buttonStyle.borderColor,
+                                            }}
+                                        >
+                                            {repeatDebuffs ? "СТОП ПОВТОР" : "ПОВТОР · 1,5 С"}
+                                        </button>
+                                    </div>
+                                    <span style={{ color: "#bdb3a0", lineHeight: 1.4 }}>
+                                        Все дебафы или один — кнопками ниже. Цифры только для превью.
+                                    </span>
+                                </div>
+                            )}
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                                 {effectButtons
                                     .filter(({ state }) => canPreviewCreatureLabState(selected, state))
@@ -1011,7 +1079,7 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                             )}
                             {selected?.name === "Beholder" && (
                                 <div style={{ marginTop: 7, color: "#bdb3a0", fontSize: 10 }}>
-                                    Дебафы: сразу анимация · 0,65 с. Без противника — над своим флагом.
+                                    Дебафы и урон одновременно · 0,65 с. Без противника — над своим флагом.
                                 </div>
                             )}
                             {selected?.name === "Behemoth" && (

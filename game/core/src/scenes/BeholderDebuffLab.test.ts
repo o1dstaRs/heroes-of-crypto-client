@@ -15,6 +15,7 @@ function fixture(withVictim = false) {
     const source = unit("Beholder"),
         victim = withVictim ? unit("Peasant") : source;
     const calls: string[] = [];
+    const damageCalls: unknown[][] = [];
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         angelLabActionRequest: 0,
         moveAnimManager: { isMoving: () => false },
@@ -34,27 +35,42 @@ function fixture(withVictim = false) {
             calls.push("projectile");
         },
         combatVisuals: {
-            showFloatingDamage: () => calls.push("damage"),
+            showFloatingDamage: (...args: unknown[]) => {
+                calls.push("damage");
+                damageCalls.push(args);
+            },
             spawnDebuffPop: (_p: unknown, _t: unknown, name: string) => calls.push(name),
         },
     });
-    return { scene, calls };
+    return { scene, calls, damageCalls };
 }
 
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-test("lab immediately previews all seven without damage or a projectile", async () => {
+test("lab previews all seven simultaneously with damage at the same flag", async () => {
     const f = fixture();
     expect(f.scene.playCreatureAnimationLabState("beholder_debuff_all").ok).toBe(true);
     await settle();
-    expect(f.calls).toEqual(["Curse", "Sadness", "Quagmire", "Weakening Beam", "Weakness", "Rangebane", "Cowardice"]);
+    expect(f.calls).toEqual([
+        "damage",
+        "Curse",
+        "Sadness",
+        "Quagmire",
+        "Weakening Beam",
+        "Weakness",
+        "Rangebane",
+        "Cowardice",
+    ]);
+    expect(f.damageCalls[0][6]).toEqual({ x: 64, y: 110, unitId: "Beholder" });
+    expect(f.damageCalls[0][7]).toBeUndefined();
 });
 
 test("individual preview is immediate even when an opponent exists", async () => {
     const f = fixture(true);
     f.scene.playCreatureAnimationLabState("beholder_debuff_sadness");
     await settle();
-    expect(f.calls).toEqual(["Sadness"]);
+    expect(f.calls).toEqual(["damage", "Sadness"]);
+    expect(f.damageCalls[0][6]).toEqual({ x: 64, y: 110, unitId: "Peasant" });
 });
 
 test("superseded lab action cannot start a pending preview", async () => {
@@ -69,4 +85,19 @@ test("superseded lab action cannot start a pending preview", async () => {
     expect(canPreviewCreatureLabState({ name: "Peasant", abilities: [], spells: [] }, "beholder_debuff_all")).toBe(
         false,
     );
+});
+
+test("lab can compare debuffs without numbers and with damage plus casualties", async () => {
+    const f = fixture(true);
+    f.scene.playCreatureAnimationLabState("beholder_debuff_cowardice_no_damage");
+    await settle();
+    expect(f.calls).toEqual(["Cowardice"]);
+    expect(f.damageCalls).toHaveLength(0);
+    f.calls.length = 0;
+    f.scene.playCreatureAnimationLabState("beholder_debuff_rangebane_losses");
+    await settle();
+    expect(f.calls).toEqual(["damage", "Rangebane"]);
+    expect(f.damageCalls[0][1]).toBe(140);
+    expect(f.damageCalls[0][3]).toBe(3);
+    expect(f.damageCalls[0][7]).toBeUndefined(); // No live unit/casualty mutation or hurt sound.
 });

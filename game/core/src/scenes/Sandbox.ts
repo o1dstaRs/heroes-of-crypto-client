@@ -14449,7 +14449,9 @@ export class Sandbox extends PixiScene {
         if (!selected.ok || !unit) return selected;
         if (state.startsWith("beholder_debuff_")) {
             if (!unit.hasAbilityActive("Spit Ball")) return { ok: false, message: "Выберите бехолдера" };
-            const slug = state.slice("beholder_debuff_".length);
+            const withDamage = !state.endsWith("_no_damage");
+            const withLosses = state.endsWith("_losses");
+            const slug = state.slice("beholder_debuff_".length).replace(/_(no_damage|losses)$/, "");
             const names = BEHOLDER_DEBUFFS.filter(
                 (name) => slug === "all" || name.toLowerCase().replaceAll(" ", "_") === slug,
             );
@@ -14461,30 +14463,42 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals === visuals &&
                 this.unitsHolder.getAllUnits().get(victim.getId()) === victim &&
                 !victim.isDead();
-            void Promise.all(names.map((name) => this.waitForTexture(beholderDebuffTextureName(name)!))).then(
-                (atlases) => {
-                    if (!valid()) return;
-                    const gs = this.sc_sceneSettings.getGridSettings();
-                    const started = performance.now();
-                    names.forEach((name, index) => {
-                        const atlas = atlases[index];
-                        if (atlas)
-                            visuals.spawnDebuffPop(
-                                victim.getFlagEffectAnchor(gs),
-                                atlas,
-                                name,
-                                index,
-                                "debuff",
-                                victim,
-                                started,
-                                true,
-                            );
-                    });
-                },
-            );
+            void Promise.all([
+                ...names.map((name) => this.waitForTexture(beholderDebuffTextureName(name)!)),
+                ...(withLosses ? [this.waitForTexture("combat_kills_skull_icon_v1")] : []),
+            ]).then((atlases) => {
+                if (!valid()) return;
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const started = performance.now();
+                if (withDamage) {
+                    visuals.showFloatingDamage(
+                        victim.getVisualCenter(gs),
+                        140,
+                        undefined,
+                        withLosses ? 3 : undefined,
+                        undefined,
+                        undefined,
+                        { ...victim.getFlagEffectAnchor(gs), unitId: victim.getId() },
+                    );
+                }
+                names.forEach((name, index) => {
+                    const atlas = atlases[index];
+                    if (atlas)
+                        visuals.spawnDebuffPop(
+                            victim.getFlagEffectAnchor(gs),
+                            atlas,
+                            name,
+                            index,
+                            "debuff",
+                            victim,
+                            started,
+                            true,
+                        );
+                });
+            });
             return {
                 ok: true,
-                message: `${victim.getName()}: ${slug === "all" ? "все 7 дебафов" : names[0]} · 0,65 с`,
+                message: `${victim.getName()}: ${slug === "all" ? "все 7 дебафов" : names[0]}${withDamage ? " + урон −140" : " без цифр"}${withLosses ? " + потери 3" : ""} · 0,65 с`,
             };
         }
         if (state === "infest_hatch" || state === "infest_hatch_queen") {

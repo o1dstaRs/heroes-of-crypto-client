@@ -137,7 +137,7 @@ export type CreatureAnimationLabState =
     | "dodge"
     | "small_specie"
     | "backstab"
-    | `beholder_debuff_${"all" | "curse" | "sadness" | "quagmire" | "weakening_beam" | "weakness" | "rangebane" | "cowardice"}`
+    | `beholder_debuff_${"all" | "curse" | "sadness" | "quagmire" | "weakening_beam" | "weakness" | "rangebane" | "cowardice"}${"" | "_no_damage" | "_losses"}`
     | "idle"
     | "attack_up"
     | "attack_down"
