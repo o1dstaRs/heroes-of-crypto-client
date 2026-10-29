@@ -49,6 +49,7 @@ import { isInfestHatchSummon } from "./sandbox/InfestHatchPops";
 import { CHAMPION_ARROW_ATLAS_KEY, resetChampionArrowAuras } from "./ChampionArrowAura";
 import { hamstringRecipients } from "./hamstringFlagEffects";
 import { resetDryadWindAuras } from "./DryadWindAura";
+import { resetWhiteTigerPawAuras } from "./WhiteTigerPawAura";
 import { resetLeprechaunCloverAuras } from "./LeprechaunCloverAura";
 import { resetValkyrieBloodAuras } from "./ValkyrieBloodAura";
 import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
@@ -71,6 +72,7 @@ import {
     hoveredShotRangeColor,
     movementCellsOutsideUnitFootprint,
     visibleAuraRanges,
+    hasVisiblePersistentAura,
     type IAltInspectFootprint,
     type IFootprintExtent,
     type ShotRangeCornerSpritePool,
@@ -15649,10 +15651,12 @@ export class Sandbox extends PixiScene {
                 // SandboxDrawer paints it on the same persistent layer (z=55) as the active/selected
                 // unit's aura. The old hoverManager.drawAuraArea layer (z=51) gets wiped mid-frame by the
                 // placement-hover path (updateHoverPlacementCell -> clearAuraVisuals), which is why the
-                // hover aura "never showed". Skip when the aura is ALREADY drawn for this unit (it's the
-                // active or selected board unit) so we don't stack a second, darker ring on top.
+                // hover aura "never showed". Active units are drawn separately; sidebar selection
+                // supplies auras only before combat, so a selected combat unit still needs hover.
                 const auraAlreadyVisualized =
-                    hoverTargetUnit === this.currentActiveUnit || hoverTargetUnit === this.selectedBoardUnit;
+                    hoverTargetUnit === this.currentActiveUnit ||
+                    (!FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
+                        hoverTargetUnit === this.selectedBoardUnit);
                 const auraRanges = hoverTargetUnit.getAuraRanges();
                 if (!auraAlreadyVisualized && auraRanges && auraRanges.length > 0) {
                     const finalAuras = visibleAuraRanges(
@@ -18472,6 +18476,7 @@ export class Sandbox extends PixiScene {
     }
     private drawGameplayVisuals(g: Graphics): void {
         this.auraFloorGraphics?.clear();
+        resetWhiteTigerPawAuras(this.arachnaWebAuraContainer);
         resetArachnaQueenWebAuras(this.arachnaWebAuraContainer);
         resetChampionArrowAuras(this.arachnaWebAuraContainer);
         resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
@@ -18599,6 +18604,8 @@ export class Sandbox extends PixiScene {
 
         SandboxDrawer.drawGameplayVisuals(g, {
             fightProps,
+            auraUnits: this.unitsHolder.getAllUnits().values(),
+            viewerTeam: this.getViewerTeam(),
             currentActiveShotRange,
             shiftSelectedShotRange,
             hoveredShotRange: this.sc_hoveredShotRange,
@@ -18712,6 +18719,11 @@ export class Sandbox extends PixiScene {
         }
     }
     private hasGameplayVisuals(): boolean {
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            for (const unit of this.unitsHolder.getAllUnits().values()) {
+                if (hasVisiblePersistentAura(unit, this.getViewerTeam())) return true;
+            }
+        }
         if (isMovementAreaEditorActive()) return true;
         if (this.sc_placementMoveRange?.length || this.sc_hoveredMoveRange?.length) return true;
         if (this.sc_hoveredShotRange || this.sc_hoveredAuraRanges || this.sc_currentActiveShotRange) return true;
@@ -18720,7 +18732,7 @@ export class Sandbox extends PixiScene {
         if (this.currentActiveSpell) return true;
 
         const activeUnit = this.currentActiveUnit;
-        if (!activeUnit || (this.isActiveUnitMoving && activeUnit.getName() !== "Wyvern")) return false;
+        if (!activeUnit) return false;
         return activeUnit.getAuraRanges().some((range) => range > 0);
     }
     private throwTransparency(spellName: string, caster: Unit): TransparencyPredicate | undefined {
@@ -20548,6 +20560,7 @@ export class Sandbox extends PixiScene {
         this.sc_hoveredShotRange = undefined;
         this.hoverManager.clear();
 
+        resetWhiteTigerPawAuras(this.arachnaWebAuraContainer);
         resetArachnaQueenWebAuras(this.arachnaWebAuraContainer);
         resetChampionArrowAuras(this.arachnaWebAuraContainer);
         resetValkyrieBloodAuras(this.arachnaWebAuraContainer);

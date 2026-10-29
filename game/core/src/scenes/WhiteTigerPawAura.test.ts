@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
-import { Container, DOMAdapter, Mesh } from "pixi.js";
+import { Container, DOMAdapter, Graphics, Mesh } from "pixi.js";
+import { Sandbox } from "./Sandbox";
 import { arachnaWebBounds } from "./ArachnaQueenWebAura";
 import { drawWhiteTigerPawAura, resetWhiteTigerPawAuras, whiteTigerPawProjection } from "./WhiteTigerPawAura";
 
@@ -21,6 +22,26 @@ const gs = new GridSettings(
 const cell = gs.getCellSize();
 const center = { x: gs.getMinX() + 8 * cell, y: gs.getMinY() + 8 * cell };
 const footprint = { width: 2, height: 1 };
+
+test("scene clears the tiger aura when the last interactive overlay disappears", () => {
+    const root = new Container();
+    const graphics = new Graphics();
+    drawWhiteTigerPawAura(root, center, footprint, 2, gs, "tiger", 1);
+    expect(root.children.some((child) => child.visible)).toBe(true);
+    const draw = (Sandbox.prototype as unknown as { drawGameplayVisuals(g: Graphics): void }).drawGameplayVisuals;
+    draw.call(
+        {
+            arachnaWebAuraContainer: root,
+            hasGameplayVisuals: () => false,
+            updateFireWallRotateHint: () => {},
+            clearShotRangeCornerSprites: () => {},
+        },
+        graphics,
+    );
+    expect(root.children.every((child) => !child.visible)).toBe(true);
+    root.destroy({ children: true });
+    graphics.destroy();
+});
 
 test("tiger paw border preserves rectangular range and board narrowing", () => {
     for (const point of [center, { x: gs.getMinX(), y: gs.getMinY() }])

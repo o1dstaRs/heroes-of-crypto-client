@@ -17,14 +17,16 @@ import {
 } from "./AbominationSandAura";
 import { drawZenaChakramAura, resetZenaChakramAuras, ZENA_AURA_PALETTE } from "./ZenaChakramAura";
 import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
-import {
-    FightProperties,
-    FightStateManager,
-    GridSettings,
-    HoCConstants,
-    HoCMath,
-    TeamType,
-} from "@heroesofcrypto/common";
+import { FightProperties, GridSettings, HoCConstants, HoCMath, TeamType, type Unit } from "@heroesofcrypto/common";
+
+export const isAlwaysVisibleCombatAura = (name: string): boolean =>
+    name === "Griffin" || name === "Arachna Queen" || name === "Abomination" || name === "Wyvern";
+
+export const hasVisiblePersistentAura = (unit: Unit, viewerTeam?: TeamType): boolean =>
+    isAlwaysVisibleCombatAura(unit.getName()) &&
+    !unit.isDead() &&
+    !(viewerTeam !== undefined && unit.getTeam() !== viewerTeam && unit.hasBuffActive("Hidden")) &&
+    unit.getAuraRanges().some((range) => range > 0);
 
 /**
  * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
@@ -308,6 +310,8 @@ export interface IGameplayDrawContext {
     currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     sc_isAnimating: boolean;
     currentActiveUnit?: RenderableUnit;
+    auraUnits?: Iterable<Unit>;
+    viewerTeam?: TeamType;
     hoverManager: HoverManager;
     sidebarUnitRanges?: {
         xy: HoCMath.XY;
@@ -532,7 +536,7 @@ export class SandboxDrawer {
                 g,
                 xy,
                 attackRange,
-                previewAuraOwner && auraOwner?.id === previewAuraOwner ? [] : auraRanges,
+                fightStarted || (previewAuraOwner && auraOwner?.id === previewAuraOwner) ? [] : auraRanges,
                 footprint,
                 gs,
                 hoverGlowPhase,
@@ -544,7 +548,12 @@ export class SandboxDrawer {
         }
 
         // 0.51 Hovered Aura Ranges
-        if (hoveredAuraRanges && !(previewAuraOwner && hoveredAuraRanges.auraOwner?.id === previewAuraOwner)) {
+        if (
+            hoveredAuraRanges &&
+            !(fightStarted && isAlwaysVisibleCombatAura(hoveredAuraRanges.auraOwner?.name ?? "")) &&
+            hoveredAuraRanges.auraOwner?.id !== currentActiveUnit?.getId() &&
+            !(previewAuraOwner && hoveredAuraRanges.auraOwner?.id === previewAuraOwner)
+        ) {
             const { xy, auraRanges, footprint, auraOwner } = hoveredAuraRanges;
             SandboxDrawer.drawAuraAndAttackRanges(
                 g,
@@ -561,19 +570,40 @@ export class SandboxDrawer {
             );
         }
 
-        // 0.6 Active Unit Aura Range (Requested Feature)
+        if (fightStarted && ctx.auraUnits) {
+            for (const unit of ctx.auraUnits) {
+                if (!hasVisiblePersistentAura(unit, ctx.viewerTeam)) continue;
+                const auraRanges = visibleAuraRanges(
+                    unit.getAuraRanges(),
+                    unit.getAuraIsBuff(),
+                    fightProps.getAdditionalAuraRangePerTeam(unit.getTeam()),
+                    ctx.activeAuraRangesScratch,
+                );
+                SandboxDrawer.drawAuraAndAttackRanges(
+                    g,
+                    unit.getPosition(),
+                    0,
+                    auraRanges,
+                    { width: unit.getFootprintWidth(), height: unit.getFootprintHeight() },
+                    gs,
+                    hoverGlowPhase,
+                    0.7,
+                    { name: unit.getName(), id: unit.getId() },
+                    narrowingLayers,
+                    ctx,
+                );
+            }
+        }
+
+        // Turn-only auras follow the active creature, including its movement and landing preview.
         if (
             currentActiveUnit &&
-            (!isActiveUnitMoving ||
-                currentActiveUnit.getName() === "Abomination" ||
-                currentActiveUnit.getName() === "Wyvern")
+            !(fightStarted && ctx.auraUnits && isAlwaysVisibleCombatAura(currentActiveUnit.getName()))
         ) {
             const auraRanges = visibleAuraRanges(
                 currentActiveUnit.getAuraRanges(),
                 currentActiveUnit.getAuraIsBuff(),
-                FightStateManager.getInstance()
-                    .getFightProperties()
-                    .getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
+                fightProps.getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
                 ctx.activeAuraRangesScratch,
             );
             if (auraRanges.length > 0) {
