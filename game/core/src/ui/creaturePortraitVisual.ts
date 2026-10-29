@@ -1,10 +1,7 @@
 import { CreatureVals } from "@heroesofcrypto/common";
+import { PORTRAIT_CARD_STYLE } from "./portraitCardStyle";
 
-import {
-    creaturePortraitBackgroundOpacity,
-    creaturePortraitBackgroundShadeAlpha,
-    resolveCreaturePortraitBackground,
-} from "./creaturePortraitBackground";
+import { creaturePortraitBackgroundOpacity, resolveCreaturePortraitBackground } from "./creaturePortraitBackground";
 import { resolvePortraitFraming, type PortraitFraming } from "./portraitFraming";
 import {
     frontFacingPortraitBackgroundShadeSource,
@@ -118,7 +115,7 @@ export const resolveCreaturePortraitVisual = (
             source: previewSource,
             background: hasSeparateBackground ? resolveCreaturePortraitBackground(creatureId) : undefined,
             backgroundOpacity: hasSeparateBackground ? creaturePortraitBackgroundOpacity(creatureId) : 0,
-            backgroundShadeAlpha: leftSidebarPortraitBackgroundShadeAlpha(creatureId),
+            backgroundShadeAlpha: PORTRAIT_CARD_STYLE.backgroundShadeAlpha,
             backgroundShadeSource: hasSeparateBackground
                 ? undefined
                 : frontFacingPortraitBackgroundShadeSource(previewSource),
@@ -141,7 +138,7 @@ export const resolveCreaturePortraitVisual = (
         backgroundShadeAlpha:
             surface === "sidebar"
                 ? leftSidebarPortraitBackgroundShadeAlpha(creatureId)
-                : creaturePortraitBackgroundShadeAlpha(creatureId),
+                : PORTRAIT_CARD_STYLE.backgroundShadeAlpha,
         framing,
         mirrored: isCreaturePortraitMirrored(creatureId),
     };

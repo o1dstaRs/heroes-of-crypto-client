@@ -55,11 +55,8 @@ const PORTRAIT_SLUGS: Readonly<Partial<Record<number, string>>> = {
     [CreatureVals.MANTICORE]: "manticore",
 };
 
-/** Approved portraits on sandbox and draft previews in every build; framing editors retain their own sources. */
-export const usesLocalFrontFacingPortraits = (pathname: string): boolean =>
-    pathname === "/" ||
-    pathname.startsWith("/sandbox/") ||
-    /^\/preview\/(?:picks\/(?:bundle|local|level[1-4]|map|artifact2)|augments|placement)$/.test(pathname);
+/** All game surfaces use approved portraits; artwork editors retain their own source selection. */
+export const usesLocalFrontFacingPortraits = (pathname: string): boolean => !pathname.startsWith("/dev/");
 
 export const frontFacingPortraitPreviewSource = (creatureId: number): string | undefined => {
     if (typeof window === "undefined" || !usesLocalFrontFacingPortraits(window.location.pathname)) {
