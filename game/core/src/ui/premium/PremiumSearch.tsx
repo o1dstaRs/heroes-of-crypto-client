@@ -203,6 +203,7 @@ export const PremiumSearch: React.FC<{
     const gameId = premiumSearchGameId(location.pathname);
     const matchVersion = usePremiumSearchMatch(gameId);
     const suggestions = premiumQuestions(Boolean(gameId), matchVersion?.stage);
+    const hideDraftLauncher = matchVersion?.stage === "draft";
     const reduceMotion = useReducedMotion();
     const searchId = useId();
     const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -418,10 +419,10 @@ export const PremiumSearch: React.FC<{
     );
     const ui = (
         <>
-            {button}
+            {!hideDraftLauncher && button}
             <Popper
                 open={open}
-                anchorEl={buttonRef.current}
+                anchorEl={hideDraftLauncher ? anchor : buttonRef.current}
                 placement="top-start"
                 transition
                 modifiers={[

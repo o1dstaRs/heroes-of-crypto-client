@@ -1,6 +1,6 @@
 import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
-import { PremiumContext, PremiumDraftBanner, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
+import { PremiumContext, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
 import { usePremiumCapability } from "../premium/usePremiumPreference";
 import {
     AllAbilities,
@@ -62,7 +62,7 @@ import {
     type CursorSample,
 } from "./draftHoverIntent";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
-import { GameCornerSlot } from "../GameCornerExit";
+import { GAME_CORNER_SLOT_TOP, GameCornerSlot } from "../GameCornerExit";
 import {
     GAME_SYSTEM_CONTROL_SIZE_PX,
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
@@ -3566,10 +3566,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         target="_blank"
                         rel="noopener noreferrer"
                         level="body-sm"
+                        aria-label={t("Rules")}
                         sx={{
                             position: "fixed",
-                            top: "1rem",
+                            top: GAME_CORNER_SLOT_TOP,
                             left: "1rem",
+                            width: GAME_SYSTEM_CONTROL_SIZE_PX,
+                            height: GAME_SYSTEM_CONTROL_SIZE_PX,
+                            justifyContent: "center",
+                            fontSize: `${GAME_SYSTEM_CONTROL_SIZE_PX}px`,
+                            lineHeight: 1,
                             zIndex: 60,
                             color: "#9fd0ff",
                             textDecoration: "none",
@@ -3580,16 +3586,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             "&:hover": { textDecoration: "underline" },
                         }}
                     >
-                        📖 {t("Rules")}
+                        <span aria-hidden="true">📖</span>
                     </Typography>
                 </Tooltip>
                 {/* The corner the Rules link used to own: the draft's only destructive action, kept small and
                 far away from the cards it would otherwise sit under. */}
                 {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
-                <PremiumDraftBanner
-                    advice={premium.advice}
-                    draft={{ gameId, picked, opponentPicked, artifactTier1, artifactTier2, isYourTurn }}
-                />
             </Sheet>
         </PremiumContext.Provider>
     );
