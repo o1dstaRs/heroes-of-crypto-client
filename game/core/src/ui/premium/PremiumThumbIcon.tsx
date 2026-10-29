@@ -20,6 +20,7 @@ export const PremiumThumbIcon: React.FC<{
         medal === "gold"
             ? { light: "#fff0bd", face: "#d3a24c", mid: "#a5752c", dark: "#533012", edge: "#2a190c" }
             : { light: "#f6f1dc", face: "#b9c0c1", mid: "#7c8993", dark: "#3d4851", edge: "#1c232b" };
+    const classicTones = medal === "gold" ? ["#fff3b0", "#d7a637", "#805319"] : ["#f3f5f5", "#b4bec9", "#626f7d"];
     const fill = `url(#${metal})`;
     return (
         <SvgIcon
@@ -30,12 +31,22 @@ export const PremiumThumbIcon: React.FC<{
             sx={{ fontSize: size, overflow: "visible" }}
         >
             <defs>
-                <linearGradient id={metal} x1="0" y1="0" x2="0.85" y2="1">
-                    <stop offset="0" stopColor={palette.light} />
-                    <stop offset=".28" stopColor={palette.face} />
-                    <stop offset=".49" stopColor={palette.light} />
-                    <stop offset=".53" stopColor={palette.face} />
-                    <stop offset="1" stopColor={palette.dark} />
+                <linearGradient id={metal} x1="0" y1="0" x2={variant === "classic" ? "0.8" : "0.85"} y2="1">
+                    {variant === "classic" ? (
+                        <>
+                            <stop offset="0%" stopColor={classicTones[0]} />
+                            <stop offset="48%" stopColor={classicTones[1]} />
+                            <stop offset="100%" stopColor={classicTones[2]} />
+                        </>
+                    ) : (
+                        <>
+                            <stop offset="0" stopColor={palette.light} />
+                            <stop offset=".28" stopColor={palette.face} />
+                            <stop offset=".49" stopColor={palette.light} />
+                            <stop offset=".53" stopColor={palette.face} />
+                            <stop offset="1" stopColor={palette.dark} />
+                        </>
+                    )}
                 </linearGradient>
                 <linearGradient id={rim} x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0" stopColor={palette.light} />
@@ -46,7 +57,7 @@ export const PremiumThumbIcon: React.FC<{
             </defs>
             <g transform="translate(64 0) scale(-1 1)" strokeLinejoin="round">
                 {variant === "classic" && (
-                    <g transform="scale(2.6666667)" fill={fill} stroke={palette.dark} strokeWidth=".65">
+                    <g transform="scale(2.6666667)" fill={fill} stroke={classicTones[2]} strokeWidth=".65">
                         <path d="M1 21h4V9H1v12zm21-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 6.59 7.59C6.22 7.95 6 8.45 6 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
                     </g>
                 )}
