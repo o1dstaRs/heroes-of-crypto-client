@@ -3,14 +3,15 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
-import Typography from "@mui/joy/Typography";
 import Slider from "@mui/joy/Slider";
 import Button from "@mui/joy/Button";
 import Tooltip from "@mui/joy/Tooltip";
-import { hocDisplayFontFamily, hocSidebarImageButtonSx, hocSplitterSliderSx } from "../hocTheme";
+import { hocSidebarImageButtonSx, hocSplitterSliderSx } from "../hocTheme";
 
 interface IUnitSplitterProps {
     totalUnits: number;
+    splitValue: number;
+    onSplitValueChange: (value: number) => void;
     onSplit: (split1: number, split2: number) => void;
 }
 
@@ -33,18 +34,12 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
     return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
-const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
+const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: IUnitSplitterProps) => {
     const manager = usePixiManager();
-    const [splitValue, setSplitValue] = React.useState(1); // Start with minimum value
     const hasSelectedUnit = totalUnits > 0;
 
-    // Reset slider value whenever totalUnits changes
-    useEffect(() => {
-        setSplitValue(1); // Reset to minimum value when a new unit is selected
-    }, [totalUnits]);
-
     const handleSliderChange = (event: Event, newValue: number | number[]) => {
-        setSplitValue(newValue as number);
+        onSplitValueChange(newValue as number);
     };
 
     const handleAcceptSplit = React.useCallback(() => {
@@ -81,32 +76,8 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
     }, [handleAcceptSplit, manager, totalUnits]);
 
     return (
-        <Box sx={{ width: "100%", marginTop: 3 }}>
-            <Stack
-                spacing={2}
-                alignItems="center"
-                sx={{
-                    // The thumb is 24px and centres on its value, so at either end half of it hangs past the
-                    // rail. Flush against the panel edge that half was being clipped - the slider read as a
-                    // half-circle stuck to the wall. Inset the whole block by more than half a thumb so both
-                    // ends, and the counts sitting above them, stay inside the panel.
-                    paddingX: `${SLIDER_INSET_PX}px`,
-                    "& .MuiTypography-root": {
-                        color: "rgba(216,194,156,.7)",
-                        fontFamily: hocDisplayFontFamily,
-                        fontSynthesis: "none",
-                        transition: "all 0.2s ease",
-                    },
-                    "&:hover .MuiTypography-root": {
-                        color: "#FF8F00",
-                    },
-                }}
-            >
-                <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                    <Typography level="body-sm">{hasSelectedUnit ? splitValue : 0}</Typography>
-                    <Typography level="body-sm">{hasSelectedUnit ? totalUnits - splitValue : 1}</Typography>
-                </Box>
-
+        <Box sx={{ width: "100%", marginTop: 0.5 }}>
+            <Stack alignItems="center" sx={{ paddingX: `${SLIDER_INSET_PX}px` }}>
                 <Slider
                     sx={hocSplitterSliderSx}
                     value={hasSelectedUnit ? splitValue : 0}
@@ -114,17 +85,18 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                     min={hasSelectedUnit ? 1 : 0}
                     max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
                     track={hasSelectedUnit ? "normal" : false}
-                    disabled={!hasSelectedUnit}
+                    disabled={totalUnits < 2}
                     step={1}
                     aria-label="Unit Split Slider"
                 />
             </Stack>
-            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 2, marginBottom: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 0.5, marginBottom: 2 }}>
                 <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
                         size="sm"
                         onClick={handleAcceptSplit}
+                        disabled={totalUnits < 2}
                         sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
                     >
                         Split
