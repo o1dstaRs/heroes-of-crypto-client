@@ -550,8 +550,8 @@ export class SandboxDrawer {
         // 0.51 Hovered Aura Ranges
         if (
             hoveredAuraRanges &&
-            !(fightStarted && isAlwaysVisibleCombatAura(hoveredAuraRanges.auraOwner?.name ?? "")) &&
-            hoveredAuraRanges.auraOwner?.id !== currentActiveUnit?.getId() &&
+            !(fightStarted && ctx.auraUnits && isAlwaysVisibleCombatAura(hoveredAuraRanges.auraOwner?.name ?? "")) &&
+            !(currentActiveUnit && hoveredAuraRanges.auraOwner?.id === currentActiveUnit.getId()) &&
             !(previewAuraOwner && hoveredAuraRanges.auraOwner?.id === previewAuraOwner)
         ) {
             const { xy, auraRanges, footprint, auraOwner } = hoveredAuraRanges;
