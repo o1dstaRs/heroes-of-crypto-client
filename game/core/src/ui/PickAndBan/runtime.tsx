@@ -52,6 +52,7 @@ import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftShellSx } from "./draftShell";
 import { DraftBanSummary } from "./DraftBanSummary";
+import { DraftBanSidebar } from "./DraftBanSidebar";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -3466,7 +3467,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </>
                     )}
 
-                    {pickPhase !== PickPhaseVals.DOCTRINE && <DraftBanSummary banned={banned} />}
+                    {pickPhase !== PickPhaseVals.DOCTRINE &&
+                        (import.meta.env.MODE === "test" ? (
+                            <DraftBanSidebar banned={banned} />
+                        ) : (
+                            <DraftBanSummary banned={banned} />
+                        ))}
 
                     <Box
                         data-testid="draft-choice-action-zone"
