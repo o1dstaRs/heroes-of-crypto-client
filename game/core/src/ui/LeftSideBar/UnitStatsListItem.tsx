@@ -1685,6 +1685,8 @@ const UnitStatsLayout: React.FC<{
     // so long lists never drift between wheel steps; the final padding lets the last row align too.
     const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
     const effectWellHeight = effectRowStep;
+    // Use the spare space below Debuffs for a second complete row of buffs.
+    const buffWellHeight = effectRowStep * 2;
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
@@ -1932,7 +1934,7 @@ const UnitStatsLayout: React.FC<{
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     <IconScrollWell
-                        height={effectWellHeight}
+                        height={buffWellHeight}
                         offsetY={-Math.round(metrics.gapPx)}
                         vertical
                         rowStepPx={effectRowStep}
@@ -1971,12 +1973,7 @@ const UnitStatsLayout: React.FC<{
                     </IconScrollWell>
                 </PanelSection>
 
-                <PanelSection
-                    title="Debuffs"
-                    metrics={metrics}
-                    offsetY={-Math.round(metrics.gapPx * 3)}
-                    titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
-                >
+                <PanelSection title="Debuffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     <Box
                         sx={{
                             position: "relative",
