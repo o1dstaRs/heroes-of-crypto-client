@@ -31,6 +31,14 @@ class MaskReconstructionTests(unittest.TestCase):
         b, _ = reconstruct_matte(a, "troll")
         self.assertFalse(np.any(b[:, :, 3][a[:, :, 3] == 0]))
 
+    def test_troll_detached_rectangular_key_remnant_is_removed(self):
+        a = np.zeros((808, 572, 4), np.uint8)
+        a[110:250, 200:360] = [65, 50, 35, 255]
+        a[94:103, 312:316] = [18, 18, 18, 255]
+        b, _ = reconstruct_matte(a, "troll")
+        self.assertEqual(int(b[94:103, 312:316, 3].sum()), 0)
+        np.testing.assert_array_equal(b[130:230, 230:330], a[130:230, 230:330])
+
     def test_reviewed_bow_cavity_clears_without_erasing_bow_string(self):
         a = np.zeros((808, 572, 4), np.uint8)
         a[280:410, 140:250] = [0, 0, 0, 255]

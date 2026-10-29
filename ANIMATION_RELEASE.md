@@ -26,7 +26,7 @@ folders with their directory structure intact. The old compact archive and sourc
 | `resources-07.zip`                 | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
 | `resources-08.zip`                 | `798e6fbde8c660133ad06968501ceb9f91f8a79b350aa9ee1c4eea8a19b548f7` |
 | `resources-09-portrait-mattes.zip` | `4701c0ceef023d1358df560a6b575024f4cac66a85339f54ee9dff8e50ec483e` |
-| `resources-10-troll-contours.zip`  | `c5ca173f13c1491c04bb2ae3b4936e4bdef4b96f26668541485c9c311dcf8f32` |
+| `resources-10-troll-contours.zip`  | `776e8d249f1801dc88dc10a263c65b7c405676be4ad00b90aa9e5c89ef5c1ddd` |
 
 Archive 08 adds the two approved frontal portrait backgrounds used by the release UI.
 

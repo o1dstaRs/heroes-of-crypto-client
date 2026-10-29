@@ -153,9 +153,11 @@ def reconstruct_matte(frame: np.ndarray, slug: str, raw: np.ndarray | None = Non
     if slug == "troll":
         # No emitted particles belong to this portrait: disconnected remnants
         # of the keyed mane are debris, including bright gray chroma fragments.
-        hair_debris = (stats[:, 4] <= 32) & (stats[:, 0] > 65) & (stats[:, 0] < 425) & (stats[:, 1] < 280)
-        hair_debris[0] = False
-        alpha[hair_debris[labels]] = 0
+        hair_region = (stats[:, 0] > 65) & (stats[:, 0] < 425) & (stats[:, 1] < 280)
+        club_air_region = (stats[:, 0] > 400) & (stats[:, 0] < 500) & (stats[:, 1] > 200) & (stats[:, 1] < 320)
+        keyed_debris = (stats[:, 4] <= 128) & (stats[:, 2] < 30) & (stats[:, 3] < 30) & (hair_region | club_air_region)
+        keyed_debris[0] = False
+        alpha[keyed_debris[labels]] = 0
     alpha[alpha < 1 / 255] = 0
     out[:, :, :3] = np.uint8(np.clip(np.rint(rgb), 0, 255))
     out[:, :, 3] = np.uint8(np.clip(np.rint(alpha * 255), 0, 255))
