@@ -66,6 +66,8 @@ import {
 import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
+import { useSidebarEffectSpace } from "./useSidebarEffectSpace";
+
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
@@ -937,6 +939,11 @@ export const SectionTitle: React.FC<{
             <Typography
                 level="title-sm"
                 sx={{
+                    // Keep the plaque on the same axis as its two lifted divider rules.
+                    transform:
+                        leftRuleLiftPx === rightRuleLiftPx && leftRuleLiftPx
+                            ? `translateY(-${leftRuleLiftPx}px)`
+                            : "none",
                     // The three unit-card plaques are deliberately 10% larger than the shared Up next title.
                     // This is local to displayFont; the common font metrics remain unchanged everywhere else.
                     fontSize: `${fontSizeRem}rem`,
@@ -1685,8 +1692,11 @@ const UnitStatsLayout: React.FC<{
     // so long lists never drift between wheel steps; the final padding lets the last row align too.
     const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
     const effectWellHeight = effectRowStep;
-    // Use the spare space below Debuffs for a second complete row of buffs.
-    const buffWellHeight = effectRowStep * 2;
+    const {
+        effectsRef,
+        debuffEndRef,
+        buffHeight: buffWellHeight,
+    } = useSidebarEffectSpace(effectRowStep, metrics.gapPx, unitProperties.name);
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
@@ -1924,10 +1934,13 @@ const UnitStatsLayout: React.FC<{
                 the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
                 above them. Keeping both sections in this wrapper preserves their authored relationship. */}
             <Box
+                ref={effectsRef}
                 sx={{
                     width: "100%",
                     display: "flex",
                     flexDirection: "column",
+                    flexShrink: 0,
+                    "& > *": { flexShrink: 0 },
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
                     transform: `translateY(${-Math.round(metrics.gapPx * 1.2)}px)`,
                 }}
@@ -1975,6 +1988,7 @@ const UnitStatsLayout: React.FC<{
 
                 <PanelSection title="Debuffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     <Box
+                        ref={debuffEndRef}
                         sx={{
                             position: "relative",
                             width: "100%",
