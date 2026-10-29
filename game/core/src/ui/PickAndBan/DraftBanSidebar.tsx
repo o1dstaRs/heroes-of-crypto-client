@@ -7,6 +7,12 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { DraftBanSlash } from "./DraftBanSlash";
 
+// The full ban list previously rendered 51.6px portraits inside its fixed-height rail.
+const BAN_ICON_HEIGHT = Number((51.6 * 1.15).toFixed(2));
+const BAN_ICON_WIDTH = BAN_ICON_HEIGHT * 0.8;
+const BAN_ICON_GAP = 2;
+const BAN_FRAME_WIDTH = BAN_ICON_WIDTH * 2 + BAN_ICON_GAP * 3 + 2;
+
 /** Only group identities already authorized by the private draft stream. */
 export const DraftBanSidebar: React.FC<{
     banned: readonly number[];
@@ -26,9 +32,9 @@ export const DraftBanSidebar: React.FC<{
                 position: "absolute",
                 zIndex: 6,
                 top: "96px",
-                [side]: "-174px",
-                width: "156px",
-                height: "740px",
+                [side]: `${-BAN_FRAME_WIDTH - 18}px`,
+                width: `${BAN_FRAME_WIDTH}px`,
+                height: "auto",
                 // Keep the standard creature grid when the window has no side gutter.
                 "@media (max-aspect-ratio: 3/2)": {
                     left: "22px",
@@ -66,12 +72,12 @@ export const DraftBanSidebar: React.FC<{
                 data-testid="draft-ban-summary"
                 sx={{
                     display: "grid",
-                    gridTemplateRows: "auto minmax(0, 1fr)",
+                    gridTemplateRows: "auto auto",
                     gap: "8px",
                     width: "100%",
                     height: "100%",
                     minHeight: 0,
-                    p: "10px",
+                    p: `${BAN_ICON_GAP}px`,
                     bgcolor: "rgba(20,13,7,.9)",
                     color: "#efe4cc",
                     border: "1px solid rgba(211,166,91,.35)",
@@ -108,12 +114,11 @@ export const DraftBanSidebar: React.FC<{
                                 aria-label={tf("Level {level}", { level })}
                                 data-ban-level={level}
                                 sx={{
-                                    flex: `${Math.ceil(ids.length / 2)} 1 0`,
+                                    flex: "0 0 auto",
                                     minHeight: 0,
                                     minWidth: 0,
-                                    maxHeight: `${Math.ceil(ids.length / 2) * 68 + 24}px`,
                                     display: "grid",
-                                    gridTemplateRows: "14px minmax(0, 1fr)",
+                                    gridTemplateRows: "14px auto",
                                     gap: "4px",
                                     borderTop: "1px solid #b28a4d55",
                                     pt: "5px",
@@ -138,10 +143,10 @@ export const DraftBanSidebar: React.FC<{
                                     component="ul"
                                     sx={{
                                         display: "grid",
-                                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                                        gridTemplateRows: `repeat(${Math.ceil(ids.length / 2)}, minmax(0, 1fr))`,
+                                        gridTemplateColumns: `repeat(2, ${BAN_ICON_WIDTH}px)`,
+                                        gridTemplateRows: `repeat(${Math.ceil(ids.length / 2)}, ${BAN_ICON_HEIGHT}px)`,
                                         justifyItems: "end",
-                                        gap: "2px",
+                                        gap: `${BAN_ICON_GAP}px`,
                                         "& > li:nth-of-type(even)": { justifySelf: "start" },
                                         minHeight: 0,
                                         m: 0,
@@ -162,9 +167,8 @@ export const DraftBanSidebar: React.FC<{
                                                 tabIndex={0}
                                                 sx={{
                                                     position: "relative",
-                                                    width: "auto",
-                                                    height: "100%",
-                                                    maxHeight: "64px",
+                                                    width: `${BAN_ICON_WIDTH}px`,
+                                                    height: `${BAN_ICON_HEIGHT}px`,
                                                     aspectRatio: "4 / 5",
                                                     maxWidth: "100%",
                                                     boxSizing: "border-box",
