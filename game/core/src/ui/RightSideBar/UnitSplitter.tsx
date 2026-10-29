@@ -15,8 +15,8 @@ interface IUnitSplitterProps {
     onSplit: (split1: number, split2: number) => void;
 }
 
-// Half the 24px thumb, plus a little air so it never touches the panel wall.
-const SLIDER_INSET_PX = 16;
+// Keep the 18px thumb inside the same bounds as the amount input at either end.
+const SLIDER_INSET_PX = 9;
 
 const shortcutTooltipSx = {
     backgroundColor: "#2d1606",
@@ -76,10 +76,27 @@ const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: I
     }, [handleAcceptSplit, manager, totalUnits]);
 
     return (
-        <Box sx={{ width: "100%", marginTop: 0.5 }}>
-            <Stack alignItems="center" sx={{ paddingX: `${SLIDER_INSET_PX}px` }}>
+        <Box sx={{ width: "100%", marginTop: 2 }}>
+            <Stack
+                alignItems="center"
+                sx={{
+                    width: "93%",
+                    mx: 0,
+                    boxSizing: "border-box",
+                    paddingX: `${SLIDER_INSET_PX}px`,
+                    transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
+                }}
+            >
                 <Slider
-                    sx={hocSplitterSliderSx}
+                    sx={{
+                        ...hocSplitterSliderSx,
+                        "--Slider-thumbSize": "18px",
+                        "& .MuiSlider-thumb": {
+                            ...hocSplitterSliderSx["& .MuiSlider-thumb"],
+                            width: 18,
+                            height: 18,
+                        },
+                    }}
                     value={hasSelectedUnit ? splitValue : 0}
                     onChange={handleSliderChange}
                     min={hasSelectedUnit ? 1 : 0}
@@ -90,7 +107,7 @@ const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: I
                     aria-label="Unit Split Slider"
                 />
             </Stack>
-            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 0.5, marginBottom: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 2, marginBottom: 2 }}>
                 <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
