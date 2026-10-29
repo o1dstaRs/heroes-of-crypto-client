@@ -17,7 +17,8 @@ mock.module("../auth/context/auth_context", () => ({
     ...authModule,
     useAuthContext: () => ({ authenticated }),
 }));
-mock.module("../premium/PremiumAccess", () => ({ usePremiumAccess: () => ({ active }) }));
+const accessModule = await import("../premium/PremiumAccess");
+mock.module("../premium/PremiumAccess", () => ({ ...accessModule, usePremiumAccess: () => ({ active }) }));
 mock.module("../premium/usePremiumPreference", () => ({
     usePremiumPreference: () => true,
     usePremiumCapability: () => true,
@@ -64,7 +65,7 @@ test("sandbox fight keeps exactly one exit beside Premium controls for signed-in
             await stream.allReady;
             const html = await new Response(stream).text();
             expect(html.match(/aria-label="Exit fight"/g)).toHaveLength(1);
-            expect(html.match(/aria-label="Start over"/g)).toHaveLength(1);
+            expect(html).not.toContain('aria-label="Start over"');
             expect(html.includes("data-premium-controls")).toBe(enabled);
         }
     }

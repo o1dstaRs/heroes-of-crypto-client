@@ -5,11 +5,10 @@ import { setPremiumSuggestedMoves } from "../../settings/premiumSuggestedMoves";
 import { useTranslation } from "../../i18n/i18n";
 import { hocFontFamily } from "../hocTheme";
 import { PremiumIcon } from "../PremiumIcon";
-import { PremiumSearchSlot } from "./PremiumSearch";
 import { PremiumFightMoves } from "./PremiumFightMoves";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 
-/** Fight footer: chat stays available whether or not the player wants board suggestions. */
+/** Fight footer: suggested-moves controls only, leaving the spare height to the battle log. */
 export const PremiumFightControls: React.FC = () => {
     const suggestedMoves = usePremiumSuggestedMoves();
     const { t } = useTranslation();
@@ -26,7 +25,6 @@ export const PremiumFightControls: React.FC = () => {
                 rowGap: 0.75,
             }}
         >
-            <PremiumSearchSlot inline />
             <Switch
                 size="sm"
                 checked={suggestedMoves}

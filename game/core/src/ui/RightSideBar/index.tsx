@@ -1,5 +1,6 @@
 import { useContext, useMemo } from "react";
 import { PremiumFightControls } from "../premium/PremiumFightControls";
+import { useHidePremiumSearchDuringFight } from "../premium/PremiumSearch";
 import { usePremiumAccess } from "../premium/PremiumAccess";
 import { usePremiumPreference } from "../premium/usePremiumPreference";
 import { IDamageStatistic } from "@heroesofcrypto/common";
@@ -29,8 +30,12 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
-import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
+import { GameCornerExitButton, GameCornerSlot } from "../GameCornerExit";
+import {
+    GAME_SYSTEM_CONTROL_SIZE_PX,
+    GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX,
+    GameSystemControls,
+} from "../GameSystemControls";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
@@ -81,6 +86,7 @@ export default function RightSideBar({
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
     const manager = usePixiManager();
+    useHidePremiumSearchDuringFight(gameStarted);
     const premiumAccess = usePremiumAccess();
     const premiumEnabled = usePremiumPreference("enabled");
     const premiumFightVisible = gameStarted && showPremiumFightControls && premiumAccess?.active && premiumEnabled;
@@ -329,7 +335,6 @@ export default function RightSideBar({
                 the sandbox used to spend its own gothic button on this in the bar's title row. */}
             {onClose && (
                 <GameCornerSlot>
-                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                     <GameCornerExitButton onClick={onClose} label="Back" />
                 </GameCornerSlot>
             )}
@@ -519,9 +524,17 @@ export default function RightSideBar({
                 </List>
             </Box>
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
-            {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
+            {/* Combat reserves the measured controls only; the log takes the removed chat row's height. */}
             {showSystemControls && (
-                <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
+                <Box
+                    sx={{
+                        height: Math.max(
+                            gameStarted ? GAME_SYSTEM_CONTROL_SIZE_PX : GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX,
+                            footerHeight,
+                        ),
+                        flexShrink: 0,
+                    }}
+                />
             )}
             {showSystemControls && (
                 <GameSystemControls
@@ -551,7 +564,6 @@ export default function RightSideBar({
                 // (start over). A signed-in player keeps the trip to the play hub. The control
                 // itself paints in the shared top-right corner, not in this centre slot.
                 <GameCornerSlot>
-                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                     <GameCornerExitButton
                         onClick={() => {
                             if (authenticated) {

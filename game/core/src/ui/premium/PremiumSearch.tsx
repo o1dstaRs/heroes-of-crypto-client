@@ -46,6 +46,16 @@ const SetDockAnchorContext = createContext<(node: HTMLDivElement | null) => void
 const DockVisibleContext = createContext(false);
 const SearchVisibleContext = createContext(false);
 const SetSearchVisibleContext = createContext<(visible: boolean) => void>(() => {});
+const SetFightActiveContext = createContext<(active: boolean) => void>(() => {});
+
+/** Shared by every battle sidebar, including replays and cooperative sandboxes. */
+export const useHidePremiumSearchDuringFight = (active: boolean): void => {
+    const setFightActive = useContext(SetFightActiveContext);
+    useLayoutEffect(() => {
+        setFightActive(active);
+        return () => setFightActive(false);
+    }, [active, setFightActive]);
+};
 
 interface PremiumSearchPrompt {
     question: string;
@@ -58,17 +68,17 @@ interface PremiumSearchPrompt {
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * Search is available from menus, draft, ranked placement and the bottom-right fight footer.
+ * Search is available from menus, draft and ranked placement.
  * The fight's suggested-moves preference controls board drawings independently of chat.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
     const [dockAnchor, setDockAnchor] = useState<HTMLDivElement | null>(null);
     const [visible, setVisible] = useState(false);
+    const [fightActive, setFightActive] = useState(false);
     const [prompt, setPrompt] = useState<PremiumSearchPrompt>();
     const { pathname } = useLocation();
-    // Sandbox setup reserves its footer for Play Ranked and Invite a Friend. Combat still supplies
-    // an explicit inline anchor; do not fall back to the social dock when that anchor is absent.
+    // Sandbox setup reserves its footer for Play Ranked and Invite a Friend.
     const dockAvailable = pathname !== "/" && !pathname.startsWith("/dev/") && !pathname.startsWith("/sandbox/");
     const { user } = useAuthContext();
     const accountKey = user?.email || user?.username;
@@ -82,19 +92,29 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
             <PremiumTurnPreviewProvider scope={JSON.stringify([pathname, accountKey])}>
                 <SetAnchorContext.Provider value={setAnchor}>
                     <SetSearchVisibleContext.Provider value={setVisible}>
-                        <SearchVisibleContext.Provider value={visible}>
+                        <SearchVisibleContext.Provider value={visible && !fightActive}>
                             <PremiumSearchMatchProvider>
                                 <SetDockAnchorContext.Provider value={setDockAnchor}>
-                                    <DockVisibleContext.Provider value={visible && !anchor && dockAvailable}>
+                                    <DockVisibleContext.Provider
+                                        value={visible && !fightActive && !anchor && dockAvailable}
+                                    >
                                         <PremiumSearchPromptContext.Provider
-                                            value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
+                                            value={
+                                                visible && !fightActive && premiumSearchGameId(pathname)
+                                                    ? prefill
+                                                    : undefined
+                                            }
                                         >
                                             <PremiumSearch
-                                                anchor={anchor ?? (dockAvailable ? dockAnchor : null)}
+                                                anchor={
+                                                    fightActive ? null : (anchor ?? (dockAvailable ? dockAnchor : null))
+                                                }
                                                 compact={Boolean(anchor) || pathname.startsWith("/game/")}
                                                 prompt={prompt}
                                             />
-                                            {children}
+                                            <SetFightActiveContext.Provider value={setFightActive}>
+                                                {children}
+                                            </SetFightActiveContext.Provider>
                                         </PremiumSearchPromptContext.Provider>
                                     </DockVisibleContext.Provider>
                                 </SetDockAnchorContext.Provider>
@@ -107,7 +127,7 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
-/** Placement and combat panels reserve an explicit inline anchor for search. */
+/** Placement panels reserve an explicit inline anchor for search. */
 export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = false }) => {
     const setAnchor = useContext(SetAnchorContext);
     const visible = usePremiumSearchVisible();
