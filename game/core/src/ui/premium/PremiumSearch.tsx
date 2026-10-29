@@ -41,7 +41,6 @@ import { PremiumIcon } from "../PremiumIcon";
 import { PremiumButton } from "./PremiumButton";
 
 const SetAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
-const PREMIUM_SEARCH_HEIGHT_PX = 44;
 const SetDockAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
 const DockVisibleContext = createContext(false);
 const SearchVisibleContext = createContext(false);
@@ -64,11 +63,11 @@ interface PremiumSearchPrompt {
     accountKey?: string;
 }
 
-/** True once Ask Premium has an answer surface. */
+/** True once contextual Premium answers are available. */
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * Search is available from menus, draft and ranked placement.
+ * Contextual answers open from inspection prompts without a standalone launcher.
  * The fight's suggested-moves preference controls board drawings independently of chat.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -109,7 +108,6 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
                                                 anchor={
                                                     fightActive ? null : (anchor ?? (dockAvailable ? dockAnchor : null))
                                                 }
-                                                compact={Boolean(anchor) || pathname.startsWith("/game/")}
                                                 prompt={prompt}
                                             />
                                             <SetFightActiveContext.Provider value={setFightActive}>
@@ -127,7 +125,7 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
-/** Placement panels reserve an explicit inline anchor for search. */
+/** Contextual answers keep a zero-height anchor without reserving a button row. */
 export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = false }) => {
     const setAnchor = useContext(SetAnchorContext);
     const visible = usePremiumSearchVisible();
@@ -140,17 +138,17 @@ export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = fal
         <div
             ref={ref}
             style={{
-                position: inline ? "relative" : "absolute",
-                right: inline ? undefined : "calc(100% + 12px)",
-                bottom: inline ? undefined : 0,
+                position: "absolute",
+                right: inline ? 0 : "calc(100% + 12px)",
+                bottom: 0,
                 width: inline ? "min(8.25rem, 100%)" : "7.875rem",
-                height: "max(36px, 2.25rem)",
+                height: 0,
                 containerType: "inline-size",
                 display: inline && !visible ? "none" : "flex",
                 flexShrink: 0,
                 alignSelf: inline ? "flex-start" : undefined,
                 alignItems: "flex-end",
-                pointerEvents: "auto",
+                pointerEvents: "none",
                 zIndex: 2,
             }}
         />
@@ -172,16 +170,17 @@ export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boole
         <Box
             ref={ref}
             sx={{
-                position: inline ? "relative" : "absolute",
-                right: inline ? undefined : "calc(100% + 10px)",
+                position: "absolute",
+                right: inline ? 0 : "calc(100% + 10px)",
                 top: inline ? undefined : "50%",
+                bottom: inline ? 0 : undefined,
                 transform: inline ? undefined : "translateY(-50%)",
                 width: compact ? "8.25rem" : 168,
-                height: compact ? "max(36px, 2.25rem)" : PREMIUM_SEARCH_HEIGHT_PX,
+                height: 0,
                 containerType: "inline-size",
                 display: visible ? "flex" : "none",
                 alignItems: "center",
-                pointerEvents: "auto",
+                pointerEvents: "none",
                 zIndex: 1400,
             }}
         />
@@ -190,9 +189,8 @@ export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boole
 
 export const PremiumSearch: React.FC<{
     anchor: HTMLDivElement | null;
-    compact: boolean;
     prompt?: PremiumSearchPrompt;
-}> = ({ anchor, compact, prompt }) => {
+}> = ({ anchor, prompt }) => {
     const setVisible = useContext(SetSearchVisibleContext);
     const access = usePremiumAccess();
     const chatEnabled = usePremiumCapability("chat");
@@ -203,10 +201,9 @@ export const PremiumSearch: React.FC<{
     const gameId = premiumSearchGameId(location.pathname);
     const matchVersion = usePremiumSearchMatch(gameId);
     const suggestions = premiumQuestions(Boolean(gameId), matchVersion?.stage);
-    const hideDraftLauncher = matchVersion?.stage === "draft";
     const reduceMotion = useReducedMotion();
     const searchId = useId();
-    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    const returnFocusRef = useRef<HTMLElement | null>(null);
     const panelRef = useRef<HTMLDivElement | null>(null);
     const [open, setOpen] = useState(false);
     const [question, setQuestion] = useState("");
@@ -271,20 +268,21 @@ export const PremiumSearch: React.FC<{
         clearConversation();
         setQuestion(prompt.question);
         setFocus(prompt.focus);
+        returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setOpen(true);
     }, [prompt, available, anchor, location.pathname, accountKey, clearConversation]);
     useEffect(() => {
         if (!open || !available) return;
         const onPointerDown = (event: PointerEvent) => {
             const target = event.target as Node | null;
-            if (target && !panelRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false);
+            if (target && !panelRef.current?.contains(target)) setOpen(false);
         };
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return;
             event.preventDefault();
             event.stopPropagation();
             setOpen(false);
-            buttonRef.current?.focus();
+            returnFocusRef.current?.focus();
         };
         document.addEventListener("pointerdown", onPointerDown);
         document.addEventListener("keydown", onKeyDown, true);
@@ -386,43 +384,11 @@ export const PremiumSearch: React.FC<{
             if (controller.current === abort) setBusy(false);
         }
     };
-    const button = (
-        <PremiumButton
-            ref={buttonRef}
-            aria-label="Open Premium AI Search"
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-controls={open ? searchId : undefined}
-            variant="solid"
-            size={compact ? "sm" : "lg"}
-            startDecorator={<PremiumIcon size={compact ? 16 : 20} />}
-            onClick={() => setOpen((previous) => !previous)}
-            sx={{
-                fontFamily: hocFontFamily,
-                fontSize: compact ? "0.8125rem" : "0.95rem",
-                position: "relative",
-                width: "100%",
-                minWidth: 0,
-                flexShrink: 0,
-                zIndex: 1100,
-                height: compact ? "max(36px, 2.25rem)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
-                minHeight: compact ? "max(36px, 2.25rem)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
-                lineHeight: 1,
-                "--Button-gap": compact ? "4px" : "8px",
-                px: compact ? "8px" : 1.5,
-                whiteSpace: "nowrap",
-                cursor: "var(--hoc-cursor-interactive), pointer",
-            }}
-        >
-            Ask Premium
-        </PremiumButton>
-    );
     const ui = (
         <>
-            {!hideDraftLauncher && button}
             <Popper
                 open={open}
-                anchorEl={hideDraftLauncher ? anchor : buttonRef.current}
+                anchorEl={anchor}
                 placement="top-start"
                 transition
                 modifiers={[
@@ -497,7 +463,7 @@ export const PremiumSearch: React.FC<{
                                 variant="plain"
                                 onClick={() => {
                                     setOpen(false);
-                                    buttonRef.current?.focus();
+                                    returnFocusRef.current?.focus();
                                 }}
                                 sx={{ color: "#d5b698", "&:hover": { bgcolor: "#3b2417", color: "#ffe0bf" } }}
                             >
