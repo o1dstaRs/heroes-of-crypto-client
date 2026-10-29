@@ -2,12 +2,26 @@
 import { Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle, Point } from "pixi.js";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
-import { CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA } from "../ui/creaturePortraitBackground";
+import { PORTRAIT_CARD_STYLE } from "../ui/portraitCardStyle";
+import { acquirePortraitContour, type PortraitContourLease } from "../pixi/portraitContourTexture";
 import type { PortraitFraming } from "../ui/portraitFraming";
 
 // --- Atlas helpers (Pixi version of your React helpers) ---
 
 type AtlasMeta = AnimationAtlasMeta;
+
+function prepareRosterPortraitTexture(texture?: Texture): void {
+    if (!texture || texture === Texture.EMPTY || texture === Texture.WHITE || texture.destroyed) return;
+    const source = texture.source;
+    if (source.destroyed || source.autoGenerateMipmaps) return;
+    // Average fine hair, armour and background detail before minification instead of sampling a few
+    // full-resolution pixels. Trilinear sampling also keeps the hover zoom from shimmering.
+    source.autoGenerateMipmaps = true;
+    source.scaleMode = "linear";
+    // A cached portrait may already have been uploaded by another surface. Reallocate its GPU copy
+    // with mip levels on the next draw; retain the decoded source and all shared Texture wrappers.
+    source.unload();
+}
 
 // These creatures now have dedicated waist-up portraits generated from the approved full-body set.
 // Their breathing atlas belongs on the battlefield; using its distant full-body frame inside the
@@ -229,6 +243,9 @@ export class UnitChip extends Container {
     private portraitBackgroundShade?: Graphics;
     private portraitComposedBackgroundShade?: Sprite;
     private portraitMask?: Graphics;
+    private portraitContour?: Sprite;
+    private portraitContourSource?: Texture;
+    private portraitContourLease?: PortraitContourLease;
     private portraitFrame: Graphics;
     private typeOverlay: Container;
     private typeOverlayBackground: Graphics;
@@ -237,7 +254,7 @@ export class UnitChip extends Container {
     private movementTypeIconScale = 1;
     private portraitFraming?: PortraitFraming;
     private portraitBackgroundOpacity = 1;
-    private portraitBackgroundShadeAlpha = CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
+    private portraitBackgroundShadeAlpha = PORTRAIT_CARD_STYLE.backgroundShadeAlpha;
     private mirrorPortraitX = false;
     private sprite: Sprite;
     private badgeCont: Container;
@@ -285,8 +302,6 @@ export class UnitChip extends Container {
         this.idleTexture = opts.portrait?.texture ?? opts.texture ?? Texture.EMPTY;
         this.portraitFraming = opts.portrait?.framing;
         this.portraitBackgroundOpacity = opts.portrait?.backgroundOpacity ?? 1;
-        this.portraitBackgroundShadeAlpha =
-            opts.portrait?.backgroundShadeAlpha ?? CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
         this.mirrorPortraitX = opts.portrait?.mirrorX ?? false;
 
         this.portraitContainer = new Container();
@@ -313,6 +328,9 @@ export class UnitChip extends Container {
             this.portraitContainer.addChild(this.portraitComposedBackgroundShade);
         }
         if (this.portraitMask) {
+            this.portraitContour = new Sprite(Texture.EMPTY);
+            this.portraitContour.anchor.set(0.5);
+            this.portraitContainer.addChild(this.portraitContour);
             this.portraitContainer.addChild(this.portraitMask);
             this.portraitContainer.mask = this.portraitMask;
         }
@@ -620,6 +638,12 @@ export class UnitChip extends Container {
         const framedX = (cardWidth * framing.offsetX) / 100;
         this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
+        if (this.portraitContour) {
+            this.portraitContour.width = this.sprite.width;
+            this.portraitContour.height = this.sprite.height;
+            this.portraitContour.scale.x = Math.abs(this.portraitContour.scale.x) * (this.mirrorPortraitX ? -1 : 1);
+            this.portraitContour.position.copyFrom(this.sprite.position);
+        }
         if (this.portraitComposedBackgroundShade) {
             this.portraitComposedBackgroundShade.width = this.sprite.width;
             this.portraitComposedBackgroundShade.height = this.sprite.height;
@@ -675,6 +699,9 @@ export class UnitChip extends Container {
         }
         this.tweenStepFn = undefined;
         this.isTweening = false;
+        if (this.portraitContour) this.portraitContour.texture = Texture.EMPTY;
+        this.portraitContourLease?.release();
+        this.portraitContourLease = undefined;
         super.destroy(options);
     }
     private stopAtlasAnimation(): void {
@@ -877,12 +904,26 @@ export class UnitChip extends Container {
     }
     private updatePortraitReadiness(): void {
         if (!this.portraitFraming) return;
+        prepareRosterPortraitTexture(this.idleTexture);
+        prepareRosterPortraitTexture(this.portraitBackground?.texture);
+        prepareRosterPortraitTexture(this.portraitComposedBackgroundShade?.texture);
         const ready = (texture: Texture): boolean =>
             texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
         const portraitReady =
             ready(this.idleTexture) &&
             (!this.portraitBackground || ready(this.portraitBackground.texture)) &&
             (!this.portraitComposedBackgroundShade || ready(this.portraitComposedBackgroundShade.texture));
+        if (portraitReady && this.portraitContour) {
+            const source = this.portraitComposedBackgroundShade?.texture ?? this.idleTexture;
+            if (source !== this.portraitContourSource) {
+                this.portraitContour.texture = Texture.EMPTY;
+                this.portraitContourLease?.release();
+                this.portraitContourLease = acquirePortraitContour(source, !!this.portraitComposedBackgroundShade);
+                this.portraitContourSource = this.portraitContourLease ? source : undefined;
+                this.portraitContour.texture = this.portraitContourLease?.texture ?? Texture.EMPTY;
+            }
+        }
+        if (this.portraitContour) this.portraitContour.visible = portraitReady && !!this.portraitContourLease;
         this.sprite.visible = portraitReady;
         if (this.portraitBackground) this.portraitBackground.visible = portraitReady;
         if (this.portraitBackgroundShade) this.portraitBackgroundShade.visible = portraitReady;
