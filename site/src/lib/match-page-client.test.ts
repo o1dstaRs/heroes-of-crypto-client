@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 test("the shipped match page renders damage portraits from a public API response", async () => {
     const components = resolve(import.meta.dir, "../components");
     const source = readFileSync(resolve(components, "MatchPage.astro"), "utf8");
-    const script = source.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
+    const script = source.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
     expect(script).toBeDefined();
     const temporaryRoot = resolve(import.meta.dir, "../../tmp");
     mkdirSync(temporaryRoot, { recursive: true });
