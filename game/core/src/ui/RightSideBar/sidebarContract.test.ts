@@ -34,12 +34,12 @@ describe("sandbox right-sidebar contract", () => {
         expect(splitter).toContain("isEditableShortcutTarget");
     });
 
-    test("Clone precedes Accept and shares its plate treatment with Split", () => {
+    test("the Clone/Accept row is hidden and Split uses the primary action plate", () => {
         const actions = read("UnitInputAndActions.tsx");
         const splitter = read("UnitSplitter.tsx");
-        expect(actions.indexOf('title={t("Clone (C)")}')).toBeLessThan(actions.indexOf('title={t("Accept (A)")}'));
-        expect(actions).toContain("hocSidebarCloneSplitButtonSx");
-        expect(splitter).toContain("hocSidebarCloneSplitButtonSx");
+        expect(actions).not.toContain('title={t("Clone (C)")}');
+        expect(actions).not.toContain('title={t("Accept (A)")}');
+        expect(splitter).toContain('...hocSidebarImageButtonSx("primary")');
     });
 
     test("the split slider suppresses the default focus halo around its thumb", () => {

@@ -1,29 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Box from "@mui/joy/Box";
-import Button from "@mui/joy/Button";
 import Input from "@mui/joy/Input";
 import Stack from "@mui/joy/Stack";
-import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
 import { t, useTranslation } from "../../i18n/i18n";
-import { hocDisplayFontFamily, hocSidebarCloneSplitButtonSx, hocSidebarImageButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily } from "../hocTheme";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
-
-const shortcutTooltipSx = {
-    backgroundColor: "#2d1606",
-    border: "2px solid #dcb158",
-    color: "#efe4cc",
-    borderRadius: "8px",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
-    fontSize: "0.85rem",
-    fontWeight: 700,
-    zIndex: 10000,
-};
 
 function isEditableShortcutTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false;
@@ -377,40 +364,6 @@ const UnitInputAndActions = ({
                         },
                     }}
                 />
-                <Stack
-                    direction="row"
-                    spacing={2}
-                    sx={{
-                        width: "93%",
-                        mx: "auto",
-                        transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
-                    }}
-                >
-                    <Tooltip title={t("Clone (C)")} placement="top" sx={shortcutTooltipSx}>
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            onClick={() => {
-                                manager.Clone();
-                            }}
-                            sx={{ ...hocSidebarCloneSplitButtonSx, flex: 1, minWidth: 0 }}
-                        >
-                            {t("Clone")}
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title={t("Accept (A)")} placement="top" sx={shortcutTooltipSx}>
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            onClick={() => {
-                                handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
-                            }}
-                            sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
-                        >
-                            {t("Accept")}
-                        </Button>
-                    </Tooltip>
-                </Stack>
             </Stack>
         </Box>
     );
