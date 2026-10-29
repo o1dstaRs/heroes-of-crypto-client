@@ -345,6 +345,12 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             "Колчан вмещает лишь полный запас × сила стека / 5 стрел с округлением вниз — 2/4/6/8/10 из 10 у Arbalester при силе стека 1–5, — плюс стрелы от Rallying Volley Blessing; стрелы сверх сниженного предела пропадают навсегда.",
     },
+    "Luck Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} luck. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к удаче. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
     "Luck Aura": {
         en: () =>
             "Allies within 2 cells, the Leprechaun included, have their luck fixed at +10 instead of the lap roll; Misfortune drops them to 0. +10 luck means about 10% less attack damage taken and +10 points on the stack's ability chances. The aura doesn't depend on stack power, so a split Leprechaun projects it at full strength around both halves (the same aura doesn't add up on a cell), though its own Lucky Strike weakens with the split.",

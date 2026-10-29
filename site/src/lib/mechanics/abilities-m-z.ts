@@ -67,6 +67,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             `Каждое попадание в ближнем бою, включая ответы, помечает врага Pegasus Light на 1 круг (пока метка есть, она не обновляется). Каждый юнит, попавший по помеченному врагу, получает +${effectPower("Pegasus Light")} морали плюс 1 за очко удачи Pegasus; юниты с зафиксированной моралью (Madness, Mechanism, Courage, Sadness, Morale, Dismorale) ничего не получают. Сила стека на это не влияет.`,
     },
+    "Pegasus Might Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} base attack and armor. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к базовой атаке и броне. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
     "Pegasus Might Aura": {
         en: ({ p }) => `Allies within 2 cells, the Pegasus included, get +${p} base attack and +${p} base armor.`,
         ru: ({ p }) =>
@@ -172,6 +178,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: ({ p, n }) =>
             `Каждое попадание — атака, ответ, выстрел, ответный выстрел или второй удар — с шансом ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе) плюс 1% за очко удачи, ×1,5 против Mechanism и с учётом сопротивления статусам, оглушает: цель пропускает следующий ход и до него не может отвечать. Действующее оглушение не продлевается. В ближнем бою цель уже успела ответить на оглушающий удар.`,
     },
+    "Sylvan Focus Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p}% magic damage. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
     "Sylvan Focus Aura": {
         en: ({ p }) =>
             `Allies within 2 cells of the Satyr, itself included, deal +${p}% magic damage, ±1% per point of the Satyr's luck (never below 0); stack size doesn't change it. It adds to Empower, the augment and the Mage's rings as one sum and raises spells, Fire Breath, Fire Shield, Chain Lightning and Fire Wall. Fireforged Sword is not raised. Several Satyrs don't stack.`,
@@ -189,6 +201,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
             `The shot flies on to the edge of the board and hits every enemy on the line — allies are passed over unharmed — each for (${p} + luck)% of a normal hit, not scaled by stack power, with its own dodge roll and distance falloff; everything past a Smoke cloud is halved. The mountain stops it, and so does an Angel's Arrows Wingshield. Its shots are never answered, and the Tsar Cannon never returns fire.`,
         ru: ({ p }) =>
             `Выстрел летит до края поля и поражает каждого врага на линии — союзников пролетает, не раня, — каждого на (${p} + удача)% обычного удара, без масштаба силой стека, со своим броском уклонения и своим штрафом дальности; всё за облаком Smoke получает половину. Гора его останавливает, как и Arrows Wingshield у Angel. На его выстрелы никогда не отвечают, и сама Tsar Cannon никогда не отвечает выстрелом.`,
+    },
+    "Tie up the Horses Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} movement for non-flying allies. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к движению нелетающих союзников. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
     },
     "Tie up the Horses Aura": {
         en: ({ p }) => `Allied non-flying units within 2 cells, the Champion included, get +${p} movement.`,
@@ -283,6 +301,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
             `Once per fight, and only at full stack (stack power 5, measured against the strongest stack on the board — an enemy stack grown by Life's Supply synergy at level 3 can take it away): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it. With Tome of Amplification in the Valkyrie's army its own flyers get ×${n(1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100)} of the armor — +${n(p * (1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100))} — while every flyer still loses ${p} movement and enemy flyers get +${p} armor.`,
         ru: ({ p, n }) =>
             `Раз за бой и только при полной силе стека (5; она считается от сильнейшего стека на поле — вражеский стек, выросший от синергии Жизни «Запас» 3 уровня, может её отнять): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться. С Tome of Amplification в армии Valkyrie её собственные летающие получают броню ×${n(1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100)} — +${n(p * (1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100))}, — а движения каждый летающий по-прежнему теряет ${p}, и вражеские получают +${p} к броне.`,
+    },
+    "Wolf Trail Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} movement. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
     },
     "Wolf Trail Aura": {
         en: ({ p, n }) =>

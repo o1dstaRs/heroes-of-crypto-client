@@ -250,6 +250,11 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
 
 /** Spells that are the ability of the same (or a related) name — the ability's note is the right one. */
 const SPELL_TO_ABILITY: Readonly<Record<string, string>> = {
+    "Luck Blessing": "Luck Blessing",
+    "Sylvan Focus Blessing": "Sylvan Focus Blessing",
+    "Wolf Trail Blessing": "Wolf Trail Blessing",
+    "Pegasus Might Blessing": "Pegasus Might Blessing",
+    "Tie up the Horses Blessing": "Tie up the Horses Blessing",
     "Ember Covenant Blessing": "Ember Covenant Blessing",
     "Angelic Host Blessing": "Angelic Host Blessing",
     "Arcane Ward Blessing": "Arcane Ward Blessing",

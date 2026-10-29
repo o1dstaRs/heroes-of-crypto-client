@@ -50,6 +50,11 @@ const slug = (name: string) =>
         .replace(/^_|_$/g, "");
 
 const abilityIconOverrides: Readonly<Record<string, string>> = {
+    "Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
+    "Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
+    "Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
+    "Pegasus Might Blessing": "/assets/images/units/abilities/pegasus_might_aura_256.webp",
+    "Tie up the Horses Blessing": "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
     "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "Angelic Host Blessing": "/assets/images/units/abilities/angelic_host_256.webp",
@@ -115,6 +120,21 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
 const notStackScaled = new Set(["Dulling Defense", "Pegasus Light"]);
 
 const abilityDescriptionRuTemplates: Record<string, string[]> = {
+    "Luck Blessing": [
+        "Все союзники на поле получают +{} к удаче. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
+    "Sylvan Focus Blessing": [
+        "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
+    "Wolf Trail Blessing": [
+        "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
+    "Pegasus Might Blessing": [
+        "Все союзники на поле получают +{} к базовой атаке и броне. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
+    "Tie up the Horses Blessing": [
+        "Все союзники на поле получают +{} к движению нелетающих союзников. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
     "Ember Covenant Blessing": [
         "В начале боя окружает каждый союзный стек общим кольцом огня.",
         "Огненный урон блокируется и не разрушает кольца. Первое другое попадание поглощается, после чего все союзные кольца исчезают.",
