@@ -24,6 +24,13 @@ RGB bytes. Frame order, count, dimensions and playback timing remain unchanged.
 Representative poses are also inspected on light and dark backgrounds. Original
 masters and previous page bytes remain available for selective rollback.
 
+The Troll follow-up clears the reviewed air pocket under the club spike in 36
+poses. Its mane uses the same pose's source chroma to remove keyed black fragments
+and a narrow antialiased contour, preserving opaque inner strands. Small detached
+chroma remnants are removed only in the reviewed mane region. The portrait has no
+emitted particles. The second repair is distributed in archive 10; archive 09
+remains available for selective rollback to the earlier matte.
+
 Mask regression tests require Python, NumPy, SciPy, OpenCV and Pillow:
 
 ```sh

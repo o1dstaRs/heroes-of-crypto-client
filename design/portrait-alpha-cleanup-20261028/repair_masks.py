@@ -24,7 +24,7 @@ SOFT_SUBJECTS = {"fairy", "monk", "nightmare", "tsar_cannon"}
 GREEN_MATTE_SUBJECTS = {
     "angel", "arbalester", "battle_mage", "blacksmith", "centaur", "champion",
     "crusader", "elf", "healer", "nomad", "peasant", "pikeman", "squire",
-    "valkyrie", "wolf_rider", "zena",
+    "valkyrie", "wolf_rider", "zena", "troll",
 }
 
 def reviewed_cavity(slug: str, box, centre, area: int) -> bool:
@@ -42,6 +42,10 @@ def reviewed_cavity(slug: str, box, centre, area: int) -> bool:
     if slug == "elf":
         # Chroma netting trapped between the far cheek and collar, not blond hair.
         return area >= 100 and 330 < cx < 425 and 270 < cy < 405 and h > 20
+    if slug == "troll":
+        # The triangular air pocket beneath the upper club spike, beside the hair.
+        # The club's dark bands and the beard are outside this reviewed region.
+        return area >= 300 and 420 < x < 480 and 230 < y < 280 and 240 < cy < 295 and w > 20 and 20 < h < 65
     return False
 
 def reconstruct_matte(frame: np.ndarray, slug: str, raw: np.ndarray | None = None):
@@ -61,6 +65,13 @@ def reconstruct_matte(frame: np.ndarray, slug: str, raw: np.ndarray | None = Non
         near = distance(~removed_cavities) <= 2
         removed_cavities |= near & (peak < 14)
         alpha[removed_cavities] = 0
+        if slug == "troll":
+            # Video compression leaves dark, nonzero crumbs around the flat key.
+            # Recover coverage in that narrow fringe instead of punching a jagged hole.
+            rim = (distance(~removed_cavities) <= 4) & (alpha > 0) & (peak < 45)
+            coverage = np.clip((peak - 8) / 37, 0, 1)
+            alpha[rim] *= coverage[rim]
+            rgb[rim] = np.clip(rgb[rim] / np.maximum(coverage[rim, None], .08), 0, 255)
 
     solid = alpha > .5
     outer_depth = distance(solid)
@@ -71,9 +82,28 @@ def reconstruct_matte(frame: np.ndarray, slug: str, raw: np.ndarray | None = Non
             yy, xx = np.indices(alpha.shape)
             face_margin = (xx > 320) & (xx < 430) & (yy > 200) & (yy < 420)
             green |= face_margin & (rr[:, :, 1] > 20) & (rr[:, :, 1] > np.maximum(rr[:, :, 0], rr[:, :, 2]) * 1.25 + 8)
+        if slug == "troll":
+            # The source video has chroma-coloured flyaway hair; the old key turned
+            # those pixels into opaque black blocks. Restrict recovery to the hair.
+            yy, xx = np.indices(alpha.shape)
+            hair_margin = (yy < 280) & (xx > 65) & (xx < 425)
+            green |= hair_margin & (rr[:, :, 1] > 18) & (rr[:, :, 1] > np.maximum(rr[:, :, 0], rr[:, :, 2]) * 1.1 + 4)
         # Saturated chroma threads at the silhouette are not dark hair after despill.
-        spill = green & (outer_depth <= 3) & (alpha > 0)
+        spill_depth = np.where(hair_margin, 8, 3) if slug == "troll" else 3
+        spill = green & (outer_depth <= spill_depth) & (alpha > 0)
         alpha[spill] = 0
+
+    if slug == "troll":
+        yy, xx = np.indices(alpha.shape)
+        hair_margin = (yy < 280) & (xx > 65) & (xx < 425)
+        depth = distance(alpha > .5)
+        # Remove only the unpainted black matte at the existing silhouette.
+        # Real dark strands deeper inside the mane remain fully opaque.
+        black_edge = hair_margin & (peak <= 14) & (depth <= 3)
+        alpha[black_edge] = 0
+        smooth = cv2.GaussianBlur(alpha, (3, 3), .45)
+        boundary = hair_margin & (alpha > 0) & (distance(alpha > .5) < 1.5) & (distance(alpha <= .5) < 1.5)
+        alpha[boundary] = smooth[boundary]
 
     # Fill only tiny enclosed punctures with this same source pose's colour.
     # Real anatomical openings and spaces between limbs remain open.
@@ -120,6 +150,12 @@ def reconstruct_matte(frame: np.ndarray, slug: str, raw: np.ndarray | None = Non
     debris = (stats[:, 4] <= 12) & (max_peak < 35) & (min_distance > 3)
     debris[0] = False
     alpha[debris[labels]] = 0
+    if slug == "troll":
+        # No emitted particles belong to this portrait: disconnected remnants
+        # of the keyed mane are debris, including bright gray chroma fragments.
+        hair_debris = (stats[:, 4] <= 32) & (stats[:, 0] > 65) & (stats[:, 0] < 425) & (stats[:, 1] < 280)
+        hair_debris[0] = False
+        alpha[hair_debris[labels]] = 0
     alpha[alpha < 1 / 255] = 0
     out[:, :, :3] = np.uint8(np.clip(np.rint(rgb), 0, 255))
     out[:, :, 3] = np.uint8(np.clip(np.rint(alpha * 255), 0, 255))

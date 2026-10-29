@@ -3,6 +3,34 @@ import numpy as np
 from repair_masks import reconstruct_matte
 
 class MaskReconstructionTests(unittest.TestCase):
+    def test_troll_club_air_pocket_clears_but_dark_weapon_survives(self):
+        a = np.zeros((808, 572, 4), np.uint8)
+        a[250:280, 435:470] = [0, 0, 0, 255]
+        a[245:250, 430:480] = [95, 75, 55, 255]
+        a[330:370, 460:510] = [0, 0, 0, 255]
+        b, report = reconstruct_matte(a, "troll")
+        self.assertGreater(report['removedCavityPixels'], 900)
+        self.assertEqual(b[265, 450, 3], 0)
+        np.testing.assert_array_equal(b[245:250, 430:480], a[245:250, 430:480])
+        self.assertEqual(b[350, 480, 3], 255)
+
+    def test_troll_keyed_hair_edge_preserves_dark_inner_strands(self):
+        a = np.zeros((808, 572, 4), np.uint8)
+        a[100:200, 100:200] = [65, 52, 40, 255]
+        a[100:102, 110:180] = [0, 0, 0, 255]
+        a[120:180, 120:180, :3] = 0
+        raw = a[:, :, :3].copy()
+        raw[100:103, 110:180] = [10, 85, 15]
+        b, _ = reconstruct_matte(a, "troll", raw)
+        self.assertEqual(b[100, 140, 3], 0)
+        np.testing.assert_array_equal(b[135:165, 135:165], a[135:165, 135:165])
+
+    def test_troll_edge_smoothing_never_reveals_hidden_transparent_rgb(self):
+        a = np.full((808, 572, 4), [255, 0, 255, 0], np.uint8)
+        a[100:200, 100:200] = [90, 65, 40, 255]
+        b, _ = reconstruct_matte(a, "troll")
+        self.assertFalse(np.any(b[:, :, 3][a[:, :, 3] == 0]))
+
     def test_reviewed_bow_cavity_clears_without_erasing_bow_string(self):
         a = np.zeros((808, 572, 4), np.uint8)
         a[280:410, 140:250] = [0, 0, 0, 255]

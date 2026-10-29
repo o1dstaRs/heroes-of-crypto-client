@@ -1,4 +1,4 @@
-# Local parity release — 2026-10-28 update
+# Local parity release — 2026-10-29 update
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
@@ -13,7 +13,7 @@ The release also reuses exact, unchanged files from the [shared heroesofcrypto f
 Keep that folder available locally through Google Drive, or download its images and animations/output
 folders with their directory structure intact. The old compact archive and source.zip are not required.
 
-**Download all nine archives. The restore tools verify every archive and shared source revision before a build.**
+**Download all ten archives. The restore tools verify every archive and shared source revision before a build.**
 
 | Archive                            | SHA-256                                                            |
 | ---------------------------------- | ------------------------------------------------------------------ |
@@ -26,10 +26,11 @@ folders with their directory structure intact. The old compact archive and sourc
 | `resources-07.zip`                 | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
 | `resources-08.zip`                 | `798e6fbde8c660133ad06968501ceb9f91f8a79b350aa9ee1c4eea8a19b548f7` |
 | `resources-09-portrait-mattes.zip` | `4701c0ceef023d1358df560a6b575024f4cac66a85339f54ee9dff8e50ec483e` |
+| `resources-10-troll-contours.zip`  | `c5ca173f13c1491c04bb2ae3b4936e4bdef4b96f26668541485c9c311dcf8f32` |
 
 Archive 08 adds the two approved frontal portrait backgrounds used by the release UI.
 
-Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The nine archives
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The ten archives
 and the verified shared files contain the required runtime assets, settings reference and site exports.
 No older compact archive, source ZIP or superseded patch ZIP is required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.
 
@@ -110,3 +111,12 @@ The repair removes reviewed trapped black background around Dryad’s bow, Centa
 Crusader’s plume and Elf’s face; repairs genuine alpha punctures and matte contamination
 along contours; and preserves dark materials and deliberate smoke or magic transparency.
 All 5,392 played frames are checked against accepted RGBA pixels before lossless export.
+
+## Troll contour follow-up — 2026-10-29
+
+Archive 10 adds the corrected Troll matte and page metadata. Download archives 01–10
+with the current manifest. It clears the trapped black air pocket under the club spike
+and keyed fragments around the mane across all 100 original poses. Timing, framing,
+opaque inner hair and weapon materials are preserved. The 20 replacement pages are
+verified against accepted RGBA pixels and reproduced by the normal restore command.
+Archive 09 and the original masters retain the previous correction for selective rollback.
