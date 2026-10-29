@@ -52,6 +52,7 @@ import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftShellSx } from "./draftShell";
 import { DraftBanSummary } from "./DraftBanSummary";
+import { DraftBanSlash } from "./DraftBanSlash";
 import { DraftBanSidebar } from "./DraftBanSidebar";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
@@ -944,13 +945,6 @@ const MOVEMENT_TYPE_ICON_IMAGE: Record<string, string> = {
 const FLY_ICON_DISPLAY_SCALE = 220 / 170;
 const CREATURE_TILE_DISPLAY_SCALE = 0.99;
 const CREATURE_PORTRAIT_FILL_SCALE = 1.019;
-const BAN_SLASH_FRAME_COUNT = 14;
-// Extend the authored cut only along its bottom-left -> top-right axis. Scaling the complete overlay
-// uniformly made the wound itself thicker; this directional transform keeps its approved width while
-// carrying both tips just beyond the portrait frame.
-const BAN_SLASH_AXIS_DEGREES = -53.4;
-const BAN_SLASH_LENGTH_SCALE = 1.28;
-const BAN_SLASH_LENGTH_TRANSFORM = `rotate(${BAN_SLASH_AXIS_DEGREES}deg) scaleX(${BAN_SLASH_LENGTH_SCALE}) rotate(${-BAN_SLASH_AXIS_DEGREES}deg)`;
 
 // Attack and movement use the same matching silver pictogram set. Muted cards carry the same visual
 // weight as their dimmed captions, so a banned creature cannot keep a bright class icon.
@@ -1101,10 +1095,6 @@ const CreaturePortrait: React.FC<{
                     "0%": { boxShadow: `0 0 0 0 ${mine.label(0.9)}` },
                     "100%": { boxShadow: `0 0 0 26px ${mine.label(0)}` },
                 },
-                "@keyframes hocBanSlashCut": {
-                    "0%": { backgroundPosition: "0% 0" },
-                    "100%": { backgroundPosition: "100% 0" },
-                },
                 "@keyframes hocPendingGlow": {
                     "0%, 100%": { boxShadow: `0 0 0 0 ${mine.ring(0.55)}, 0 0 10px ${mine.ring(0.35)}` },
                     "50%": { boxShadow: `0 0 0 6px ${mine.ring(0)}, 0 0 22px ${mine.ring(0.75)}` },
@@ -1200,33 +1190,7 @@ const CreaturePortrait: React.FC<{
                     )}
                 </Box>
             )}
-            {(state === "banned" || state === "taken") && (
-                // Variant 2 is authored as fourteen top-to-bottom sprite frames. The same overlay mounts
-                // for initial bans and for a newly learned 409 collision, so both events visibly cut the
-                // portrait open instead of fading in a static paint mark.
-                <Box
-                    aria-hidden
-                    sx={{
-                        position: "absolute",
-                        inset: 0,
-                        zIndex: 4,
-                        pointerEvents: "none",
-                        borderRadius: "8px",
-                        backgroundImage: `url(${images.pick_ban_slash_variant2_atlas})`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundSize: `${BAN_SLASH_FRAME_COUNT * 100}% 100%`,
-                        backgroundPosition: "0% 0",
-                        animation: `hocBanSlashCut 580ms steps(${BAN_SLASH_FRAME_COUNT - 1}, end) forwards`,
-                        transform: BAN_SLASH_LENGTH_TRANSFORM,
-                        transformOrigin: "center",
-                        willChange: "background-position",
-                        "@media (prefers-reduced-motion: reduce)": {
-                            animation: "none",
-                            backgroundPosition: "100% 0",
-                        },
-                    }}
-                />
-            )}
+            {unavailable && <DraftBanSlash />}
             {(state === "picked" || pending) && (
                 <Box
                     sx={{

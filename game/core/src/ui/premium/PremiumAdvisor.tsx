@@ -1,19 +1,10 @@
 import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
-import SvgIcon from "@mui/joy/SvgIcon";
-import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useLayoutEffect,
-    useRef,
-    useState,
-    useId,
-} from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
 import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
+import { PremiumThumbIcon, PremiumThumbStyleContext, type PremiumThumbMedal } from "./PremiumThumbIcon";
 
 import {
     applyPremium,
@@ -155,19 +146,18 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
     const askQuestion = useAskPremiumQuestion();
-    const gradientId = useId();
-    const choices =
-        kind === "creature" ? advice?.choices?.filter((item) => item.kind === kind).slice(0, 3) : advice?.choices;
-    const index = choices?.findIndex((choice) => choice.kind === kind && choice.value === value) ?? -1;
-    const choice = index >= 0 ? choices?.[index] : undefined;
-    const creature = kind === "creature";
-    const medal = ["gold", "silver", "bronze"][index];
-    const tones = [
-        ["#fff3b0", "#d7a637", "#805319"],
-        ["#f3f5f5", "#b4bec9", "#626f7d"],
-        ["#f1bf8d", "#b57540", "#654023"],
-    ][index];
-    if (creature && !choice) return null;
+    const thumbStyle = useContext(PremiumThumbStyleContext);
+    const ranked = advice?.choices?.filter((item) => item.kind === kind) ?? [];
+    const available = new Set([
+        ...ranked.map((item) => item.value),
+        ...(advice?.offers?.filter((item) => item.kind === kind).map((item) => item.value) ?? []),
+    ]);
+    const thumb = kind === "creature" || kind === "bundle";
+    const choices = thumb ? ranked.slice(0, available.size <= 2 ? 1 : 2) : ranked;
+    const index = choices.findIndex((choice) => choice.value === value);
+    const choice = index >= 0 ? choices[index] : undefined;
+    const medal: PremiumThumbMedal = index === 0 ? "gold" : "silver";
+    if (thumb && !choice) return null;
     if (!choice) {
         const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
         if (!offer || !askQuestion) return null;
@@ -189,15 +179,15 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
     return (
         <Box
             data-testid={`premium-${kind}-${value}`}
-            data-recommendation-medal={creature ? medal : undefined}
+            data-recommendation-medal={thumb ? medal : undefined}
             sx={{
                 position: "absolute",
                 inset: 0,
                 zIndex: 9,
                 pointerEvents: "none",
-                border: creature ? undefined : `${index === 0 ? 3 : 2}px solid ${index === 0 ? orange : "#a95825"}`,
+                border: thumb ? undefined : `${index === 0 ? 3 : 2}px solid ${index === 0 ? orange : "#a95825"}`,
                 borderRadius: "inherit",
-                boxShadow: !creature && index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
+                boxShadow: !thumb && index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
             }}
         >
             <Tooltip
@@ -217,7 +207,7 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                 <Box
                     component="button"
                     type="button"
-                    aria-label={`Premium: ${creature ? `${medal}, #${index + 1}` : index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
+                    aria-label={`Premium: ${thumb ? `${medal}, #${index + 1}` : index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
                     onClick={(event) => event.stopPropagation()}
                     sx={{
                         pointerEvents: "auto",
@@ -233,7 +223,7 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                         fontSize: 11,
                         fontWeight: 700,
                         cursor: "help",
-                        ...(creature
+                        ...(thumb
                             ? {
                                   width: 30,
                                   height: 30,
@@ -255,21 +245,8 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                             : {}),
                     }}
                 >
-                    {creature ? (
-                        <SvgIcon
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            sx={{ fontSize: 25, fill: `url(#${gradientId})`, stroke: tones[2], strokeWidth: 0.65 }}
-                        >
-                            <defs>
-                                <linearGradient id={gradientId} x1="0" y1="0" x2="0.8" y2="1">
-                                    <stop offset="0%" stopColor={tones[0]} />
-                                    <stop offset="48%" stopColor={tones[1]} />
-                                    <stop offset="100%" stopColor={tones[2]} />
-                                </linearGradient>
-                            </defs>
-                            <path d="M1 21h4V9H1v12zm21-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 6.59 7.59C6.22 7.95 6 8.45 6 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
-                        </SvgIcon>
+                    {thumb ? (
+                        <PremiumThumbIcon medal={medal} variant={thumbStyle} />
                     ) : (
                         <>
                             <PremiumIcon size={14} style={{ marginRight: 4 }} />

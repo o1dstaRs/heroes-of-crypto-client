@@ -5,6 +5,7 @@ import React from "react";
 import { tf, useTranslation } from "../../i18n/i18n";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { DraftBanSlash } from "./DraftBanSlash";
 
 /** Only group identities already authorized by the private draft stream. */
 export const DraftBanSidebar: React.FC<{
@@ -17,7 +18,6 @@ export const DraftBanSidebar: React.FC<{
         const ids = visible.filter((id) => getCreatureLevel(id) === level);
         return ids.length ? [{ level, ids }] : [];
     });
-    const count = groups.reduce((total, group) => total + group.ids.length, 0);
     return (
         <Box
             data-testid="draft-ban-placement"
@@ -93,12 +93,7 @@ export const DraftBanSidebar: React.FC<{
                         lineHeight: 1.25,
                     }}
                 >
-                    {t("Banned creatures")}
-                    {count > 0 && (
-                        <Box component="span" sx={{ color: "#a99a82", fontSize: "10px" }}>
-                            {count}
-                        </Box>
-                    )}
+                    BANS
                 </Typography>
                 {groups.length ? (
                     <Box
@@ -129,7 +124,7 @@ export const DraftBanSidebar: React.FC<{
                                     component="h3"
                                     sx={{
                                         display: "flex",
-                                        justifyContent: "space-between",
+                                        justifyContent: "center",
                                         alignItems: "center",
                                         color: "#d4bb8e",
                                         fontSize: "10px",
@@ -138,9 +133,6 @@ export const DraftBanSidebar: React.FC<{
                                     }}
                                 >
                                     <span>L{level}</span>
-                                    <Box component="span" sx={{ color: "#92816a", fontSize: "9px", letterSpacing: 0 }}>
-                                        {ids.length}
-                                    </Box>
                                 </Typography>
                                 <Box
                                     component="ul"
@@ -148,8 +140,9 @@ export const DraftBanSidebar: React.FC<{
                                         display: "grid",
                                         gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                                         gridTemplateRows: `repeat(${Math.ceil(ids.length / 2)}, minmax(0, 1fr))`,
-                                        justifyItems: "center",
-                                        gap: "4px",
+                                        justifyItems: "end",
+                                        gap: "2px",
+                                        "& > li:nth-of-type(even)": { justifySelf: "start" },
                                         minHeight: 0,
                                         m: 0,
                                         p: 0,
@@ -176,17 +169,9 @@ export const DraftBanSidebar: React.FC<{
                                                     maxWidth: "100%",
                                                     boxSizing: "border-box",
                                                     flexShrink: 0,
-                                                    overflow: "hidden",
+                                                    overflow: "visible",
                                                     border: "1px solid rgba(187,83,70,.65)",
                                                     borderRadius: "4px",
-                                                    "&::after": {
-                                                        content: '""',
-                                                        position: "absolute",
-                                                        inset: 0,
-                                                        pointerEvents: "none",
-                                                        background:
-                                                            "linear-gradient(135deg, transparent 47%, #c76b58 49%, #c76b58 51%, transparent 53%)",
-                                                    },
                                                     "&:hover, &:focus-visible": {
                                                         outline: "1px solid #d3a65b",
                                                         outlineOffset: "1px",
@@ -196,8 +181,16 @@ export const DraftBanSidebar: React.FC<{
                                                 <CreaturePortraitImage
                                                     creatureId={id}
                                                     alt=""
-                                                    sx={{ width: "100%", height: "100%", opacity: 0.75 }}
+                                                    sx={{
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        opacity: 0.75,
+                                                        borderRadius: "3px",
+                                                        zIndex: 1,
+                                                        isolation: "isolate",
+                                                    }}
                                                 />
+                                                <DraftBanSlash />
                                             </Box>
                                         </Tooltip>
                                     ))}
