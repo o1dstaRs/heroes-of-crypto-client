@@ -68,10 +68,25 @@ for (const mode of ["test", "production"]) {
         const roster = [1, 2, 3, 4].flatMap((level) => [...getCreaturesByLevel(level)]);
         expect(roster.length).toBeGreaterThan(50);
 
-        for (const pathname of ["/", "/sandbox/shared-game", "/preview/picks/level2"]) {
+        for (const pathname of [
+            "/",
+            "/sandbox/shared-game",
+            "/preview/picks/level2",
+            "/game/ranked",
+            "/game/ranked/replay",
+            "/play",
+            "/portal",
+        ]) {
             window.location.pathname = pathname;
             for (const creatureId of roster) {
-                expect(portraits.frontFacingPortraitPreviewSource(creatureId), `${pathname}: ${creatureId}`).toMatch(
+                const portrait = portraits.frontFacingPortraitPreviewSource(creatureId)!;
+                if (!portrait.includes("nature_cutout_v2")) {
+                    expect(
+                        portraits.frontFacingPortraitBackgroundShadeSource(portrait),
+                        `mask: ${creatureId}`,
+                    ).toBeDefined();
+                }
+                expect(portrait, `${pathname}: ${creatureId}`).toMatch(
                     /^\/assets\/portrait_aaa_front_(?:v1|nature_cutout_v2)_.*\.webp$/,
                 );
             }

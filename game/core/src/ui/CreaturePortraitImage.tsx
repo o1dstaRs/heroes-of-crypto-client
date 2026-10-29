@@ -1,6 +1,8 @@
 import { DecodedPortraitLayers } from "./DecodedPortraitLayers";
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
+import { PORTRAIT_CARD_STYLE } from "./portraitCardStyle";
+import { PortraitContourPreview } from "./PortraitContourPreview";
 
 import {
     CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES,
@@ -71,7 +73,9 @@ const CreaturePortraitImageBase = ({
 }: CreaturePortraitImageProps & { forwardedRef?: React.Ref<HTMLDivElement> }) => {
     const visual = resolveCreaturePortraitVisual(creatureId, portraitSurface);
     if (!visual) return null;
-    const { framing, background: portraitBackground, backgroundOpacity, backgroundShadeAlpha, source } = visual;
+    const { framing, background: portraitBackground, backgroundOpacity, source } = visual;
+    const contourVariant = portraitSurface === "card" ? PORTRAIT_CARD_STYLE : undefined;
+    const backgroundShadeAlpha = contourVariant?.backgroundShadeAlpha ?? visual.backgroundShadeAlpha;
     const backgroundMotion = animateBackground ? resolveCreaturePortraitBackgroundMotion(creatureId) : null;
     const creatureSource = artSource ?? source;
     const creatureFit = artFit ?? framing.fit;
@@ -99,6 +103,7 @@ const CreaturePortraitImageBase = ({
         backgroundMotion?.glowSrc,
         animatedArtSource,
         visual.backgroundShadeSource,
+        contourVariant?.blur,
     ]);
     const art = (
         <img
@@ -142,6 +147,8 @@ const CreaturePortraitImageBase = ({
                 position: "relative",
                 overflow: "hidden",
                 bgcolor: "#090806",
+                // Match the roster's quieter minification without softening labels or card borders.
+                ...(portraitSurface === "card" ? { "& [data-portrait-layers]": { filter: "blur(0.4px)" } } : {}),
                 ...(backgroundMotion ? CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES : {}),
                 ...sx,
             }}
@@ -262,6 +269,14 @@ const CreaturePortraitImageBase = ({
                         alt=""
                         aria-hidden
                         style={{ ...art.props.style, zIndex: 4, opacity: backgroundShadeAlpha, pointerEvents: "none" }}
+                    />
+                )}
+                {contourVariant && (
+                    <PortraitContourPreview
+                        source={visual.backgroundShadeSource ?? creatureSource}
+                        inverse={!!visual.backgroundShadeSource}
+                        style={art.props.style}
+                        variant={contourVariant}
                     />
                 )}
             </DecodedPortraitLayers>

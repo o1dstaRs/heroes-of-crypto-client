@@ -84,7 +84,7 @@ describe("UnitChip portrait layer readiness", () => {
         chip.setPortraitTextures(Texture.WHITE, undefined, Texture.WHITE);
         expect(parts.sprite.visible).toBe(true);
         expect(parts.portraitComposedBackgroundShade.visible).toBe(true);
-        expect(parts.portraitComposedBackgroundShade.alpha).toBeCloseTo(0.15);
+        expect(parts.portraitComposedBackgroundShade.alpha).toBeCloseTo(0.08);
         expect(parts.portraitComposedBackgroundShade.width).toBeCloseTo(parts.sprite.width);
         expect(parts.portraitComposedBackgroundShade.height).toBeCloseTo(parts.sprite.height);
         expect(parts.portraitComposedBackgroundShade.scale.x).toBeLessThan(0);
@@ -755,10 +755,10 @@ describe("UnitsOverlay chip visibility", () => {
         expect(chaos.portraitBackgroundOpacity).toBe(1);
         expect(nature.portraitBackgroundOpacity).toBe(1);
         expect(might.portraitBackgroundOpacity).toBe(1);
-        expect(life.portraitBackgroundShadeAlpha).toBeCloseTo(0.33139, 6);
-        expect(chaos.portraitBackgroundShadeAlpha).toBeCloseTo(0.33139, 6);
-        expect(nature.portraitBackgroundShadeAlpha).toBeCloseTo(0.2571, 6);
-        expect(might.portraitBackgroundShadeAlpha).toBeCloseTo(0.2571, 6);
+        expect(life.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
+        expect(chaos.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
+        expect(nature.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
+        expect(might.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
         for (const portrait of [life, chaos, nature, might]) {
             expect(portrait.portraitContainer.getChildIndex(portrait.portraitBackgroundShade!)).toBeLessThan(
                 portrait.portraitContainer.getChildIndex(portrait.sprite),
