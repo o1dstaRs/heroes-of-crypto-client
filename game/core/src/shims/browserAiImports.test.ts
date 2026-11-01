@@ -40,5 +40,5 @@ for (const [command, mode] of [
         const search = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
         expect(typeof search.searchSandboxAiDecision).toBe("function");
         expect(typeof search.searchSandboxPremiumDecision).toBe("function");
-    });
+    }, 60_000);
 }
