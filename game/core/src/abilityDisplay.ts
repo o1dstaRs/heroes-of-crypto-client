@@ -25,7 +25,11 @@ export const getAbilityDisplayMetadata = (
         let description: string;
 
         if (abilityName === AllAbilities.CHAKRAM_ABILITY_NAME) {
-            description = AllAbilities.chakramDescription(descriptionTemplate, stackPower);
+            description = AllAbilities.chakramDescription(
+                descriptionTemplate,
+                stackPower,
+                (ability.power * AllAbilities.chakramMaxTargets(stackPower)) / HoCConstants.MAX_UNIT_STACK_POWER,
+            );
         } else if (abilityName === "Chain Lightning") {
             const power = ability.power;
             description = descriptionTemplate

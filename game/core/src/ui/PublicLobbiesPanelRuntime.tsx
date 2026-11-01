@@ -69,8 +69,7 @@ export interface PublicLobbiesPanelProps {
  * the ranked queue can see there is a human waiting without navigating away) and by the standalone
  * browse screen. One component so the two can never drift into showing different things.
  *
- * Creating is NOT free: the host is charged ceil(season human gold / 1000) and never refunded, so the
- * price is quoted on the button and inside the dialog rather than sprung as an error after the click.
+ * The host pays the quoted fee, which is returned if the lobby expires without starting.
  */
 export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     dense = false,
@@ -85,13 +84,12 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
         isMockPortalEnabled() &&
         typeof window !== "undefined" &&
         new URL(window.location.href).searchParams.get("mockLobbies") === "1";
-    // The purse, so the button can refuse before the server has to. Null while it loads (or if the
-    // call fails), which simply means no client-side guard — the server still rejects with its price.
     const purse = useRankedStanding()?.gold;
     const [lobbies, setLobbies] = useState<LobbyObject[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [quote, setQuote] = useState<LobbyPriceBreakdown | undefined>(undefined);
+    const [priceError, setPriceError] = useState("");
     const [friendPlayerIds, setFriendPlayerIds] = useState<Set<string>>(
         () => new Set(mockPreview ? MOCK_FRIEND_PLAYER_IDS : []),
     );
@@ -143,9 +141,13 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
             const next = await fetchLobbyPriceBreakdown();
             if (mountedRef.current) {
                 setQuote(next);
+                setPriceError("");
             }
         } catch {
-            // Leave it undefined: the dialog then simply omits the quote rather than claiming "free".
+            if (mountedRef.current) {
+                setQuote(undefined);
+                setPriceError(t("Unable to load the lobby price. Please try again shortly."));
+            }
         }
     }, [mockPreview]);
 
@@ -220,7 +222,10 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     useEffect(() => {
         mountedRef.current = true;
         void refreshPrice();
-        const stopPolling = startVisibleInterval(() => void refresh(), POLL_INTERVAL_MS);
+        const stopPolling = startVisibleInterval(() => {
+            void refresh();
+            void refreshPrice();
+        }, POLL_INTERVAL_MS);
         return () => {
             mountedRef.current = false;
             stopPolling();
@@ -229,6 +234,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
 
     const price = quote?.price;
     const tooPoor = price !== undefined && purse !== undefined && purse < price;
+    const canCreate = authenticated && price !== undefined && price > 0 && purse !== undefined && purse >= price;
 
     // The charge moves on its own as the season mints gold and calibrates players, so state the
     // arithmetic rather than a bare number — an unexplained price that changes reads as arbitrary.
@@ -236,13 +242,15 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
         if (!quote) {
             return "";
         }
-        if (quote.price <= 0) {
-            return t("Lobbies are free until the season has minted gold and calibrated its first players.");
+        if (quote.seasonGold <= 0 || quote.calibratedPlayers <= 0) {
+            return t(
+                "Opening a lobby costs at least 1 G. If it expires after 24 hours without starting, its opening fee is returned. Cancelling it yourself does not return the fee.",
+            );
         }
         // One sentence with slots rather than five fragments glued around the numbers: a translation has
         // to be free to put the figures where its own grammar wants them.
         return tf(
-            "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.",
+            "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price, with a minimum of 1 G. If the lobby expires after 24 hours without starting, its opening fee is returned. Cancelling it yourself does not return the fee; game wagers are separate.",
             {
                 gold: quote.seasonGold.toLocaleString(),
                 players: quote.calibratedPlayers.toLocaleString(),
@@ -252,6 +260,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     })();
 
     const handleCreate = useCallback(async () => {
+        if (!canCreate || creating) return;
         if (isPrivate && !/^\d{4}$/.test(pin)) {
             setError(t("A private lobby needs a 4-digit PIN"));
             return;
@@ -267,14 +276,9 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
             setCreating(false);
             void refreshPrice();
         }
-    }, [name, isPrivate, pin, navigate, refreshPrice]);
+    }, [name, isPrivate, pin, navigate, refreshPrice, canCreate, creating]);
 
-    const priceNote =
-        price === undefined
-            ? ""
-            : price <= 0
-              ? t("Free while the season has minted no gold")
-              : `${price} G · ${t("non-refundable")}`;
+    const priceNote = price === undefined ? "" : `${price} G`;
 
     const prioritized = useMemo(() => prioritizeLobbies(lobbies, friendPlayerIds), [friendPlayerIds, lobbies]);
     const friendLobbies = prioritized.filter((entry) => entry.isFriendLobby);
@@ -318,7 +322,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                         <Button
                             size="sm"
                             sx={{ ...hocPrimaryButtonSx, flexShrink: 0 }}
-                            disabled={tooPoor}
+                            disabled={!canCreate || creating}
                             onClick={() => setCreateOpen(true)}
                         >
                             {t("Create lobby")}
@@ -348,9 +352,9 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                 </Typography>
             ) : null}
 
-            {error ? (
+            {error || priceError ? (
                 <Alert size={dense ? "sm" : "md"} sx={hocDangerAlertSx}>
-                    {error}
+                    {error || priceError}
                 </Alert>
             ) : null}
 
@@ -481,7 +485,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                                 <Button
                                     sx={hocPrimaryButtonSx}
                                     loading={creating}
-                                    disabled={tooPoor}
+                                    disabled={!canCreate}
                                     onClick={() => void handleCreate()}
                                 >
                                     {price !== undefined && price > 0 ? `${t("Create")} · ${price} G` : t("Create")}

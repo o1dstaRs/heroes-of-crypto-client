@@ -23,7 +23,7 @@ The offer is one board decision a player can use in the next fight. The game is 
 - $HOCAI, a contract address, Dexscreener, Uniswap, "to the moon", airdrop, giveaway, follow-and-repost.
 - Hashtags, emoji, a thread of twelve, "link in bio".
 - Invented win rates, player counts, damage numbers, screenshots, or "the meta".
-- Token graphics: pool_lock_event_upd.webp, rocket.webp, its_coming.webp.
+- Token graphics.
 - A fake fight clip. If the calendar names a still, use that still.
 
 ## Facts you may use
