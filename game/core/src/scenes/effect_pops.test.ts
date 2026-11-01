@@ -64,7 +64,7 @@ describe("isAuraEffectName / animatableEffectNames", () => {
                 "Luck Blessing",
                 "Sylvan Focus Blessing",
                 "Tie up the Horses Blessing",
-                "Pegasus Might Blessing",
+
                 "Wolf Trail Blessing",
             ]).size,
         ).toBe(0);

@@ -56,6 +56,7 @@ import { draftShellSx } from "./draftShell";
 import { DraftBanSummary } from "./DraftBanSummary";
 import { DraftBanSlash } from "./DraftBanSlash";
 import { DraftBanSidebar } from "./DraftBanSidebar";
+import { draftBanLayout } from "./draftBanLayout";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -2879,7 +2880,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const [selection, setSelection] = useState<{ phaseIdentity: string; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
-    const { touch } = useGameLayout();
+    const viewport = useGameLayout();
+    const { touch } = viewport;
+    const banLayout = draftBanLayout(viewport, draftScale, { width: DRAFT_BOARD_WIDTH, height: DRAFT_BOARD_HEIGHT });
     const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
     // the reserved header. Clearing on a short delay lets the cursor pass between nearby draft elements
@@ -3467,8 +3470,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
                     {pickPhase !== PickPhaseVals.DOCTRINE &&
                         (import.meta.env.MODE === "test" &&
+                        banLayout.docked &&
                         (doctrine === Doctrine.Doctrine.THREE_REVEALS || doctrine === Doctrine.Doctrine.SEE_ALL) ? (
-                            <DraftBanSidebar banned={banned} />
+                            <DraftBanSidebar banned={banned} maxHeight={banLayout.maxHeight} />
                         ) : (
                             <DraftBanSummary banned={banned} doctrine={doctrine} />
                         ))}

@@ -660,6 +660,27 @@ body[data-hoc-touch-game="true"] {
             top: 122px;
             width: calc(100% - 16px);
             min-height: 54px;
+            max-height: max(54px, calc(var(--hoc-game-height) - 196px - var(--hoc-safe-top) - var(--hoc-safe-bottom)));
+            grid-template-rows: minmax(0, 1fr);
+            overflow: hidden;
+
+            h2 {
+                font-size: 13px !important;
+                line-height: 1.2 !important;
+            }
+
+            > ul {
+                min-height: 0;
+                max-height: max(
+                    36px,
+                    calc(var(--hoc-game-height) - 214px - var(--hoc-safe-top) - var(--hoc-safe-bottom))
+                );
+                overflow: auto;
+                overscroll-behavior: contain;
+                scrollbar-width: thin;
+                scrollbar-color: #b28a4d #140d07;
+                touch-action: pan-y;
+            }
         }
 
         &[data-touch-draft-roster-open="false"] [data-testid="draft-ban-summary"] {

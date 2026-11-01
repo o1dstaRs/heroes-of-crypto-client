@@ -106,7 +106,6 @@ const spellIconOverrides: Readonly<Record<string, string>> = {
     "System:Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
     "System:Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
     "System:Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
-    "System:Pegasus Might Blessing": "/assets/images/units/abilities/pegasus_might_aura_256.webp",
     "System:Tie up the Horses Blessing": "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
     "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
     "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
@@ -166,7 +165,6 @@ const appliedBySources: Record<string, string[]> = {
     "Luck Blessing": ["Luck Blessing"],
     "Sylvan Focus Blessing": ["Sylvan Focus Blessing"],
     "Wolf Trail Blessing": ["Wolf Trail Blessing"],
-    "Pegasus Might Blessing": ["Pegasus Might Blessing"],
     "Tie up the Horses Blessing": ["Tie up the Horses Blessing"],
     "Ember Covenant Blessing": ["Ember Covenant Blessing"],
     "Dulling Defense": ["Dulling Defense"],
@@ -250,8 +248,6 @@ const descriptionsRu: Record<string, string> = {
         "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "System:Wolf Trail Blessing":
         "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
-    "System:Pegasus Might Blessing":
-        "Все союзники на поле получают +{} к базовой атаке и броне. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "System:Tie up the Horses Blessing":
         "Все союзники на поле получают +{} к движению нелетающих союзников. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "Nature:Whirlpool":

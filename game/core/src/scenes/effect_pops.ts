@@ -39,7 +39,7 @@ const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Tie up the Horses Blessing",
     "Luck Blessing",
     "Sylvan Focus Blessing",
-    "Pegasus Might Blessing",
+
     "Wolf Trail Blessing",
 ]);
 const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([

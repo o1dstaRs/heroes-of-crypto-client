@@ -53,7 +53,6 @@ const abilityIconOverrides: Readonly<Record<string, string>> = {
     "Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
     "Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
     "Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
-    "Pegasus Might Blessing": "/assets/images/units/abilities/pegasus_might_aura_256.webp",
     "Tie up the Horses Blessing": "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
     "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
@@ -128,9 +127,6 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     ],
     "Wolf Trail Blessing": [
         "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
-    ],
-    "Pegasus Might Blessing": [
-        "Все союзники на поле получают +{} к базовой атаке и броне. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     ],
     "Tie up the Horses Blessing": [
         "Все союзники на поле получают +{} к движению нелетающих союзников. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",

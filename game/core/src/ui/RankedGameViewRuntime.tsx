@@ -122,6 +122,8 @@ import {
 } from "./PickAndBan/runtime";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
+import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
+import { SynergySlots } from "./RightSideBar/SynergySlots";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
@@ -178,6 +180,7 @@ import {
     observerPlacementRosterIds,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
+    shouldShowRankedAugmentPicker,
     shouldShowRankedPlacementRosters,
 } from "./rankedPlacementStage";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
@@ -2943,7 +2946,7 @@ const augmentEffectText = (label: string, level: number): string => {
     }
 };
 
-// Read-only recap of the build selected before board placement.
+// Recap the authoritative build, including while the placement editor is available.
 // Augment levels come from the authoritative snapshot; faction synergies come from FightProperties.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
@@ -3515,6 +3518,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             snapshot.rightAugmentMovement,
         ],
     );
+    // The server permits build changes until this player's board-ready; Setup retains its own picker.
+    const augmentsEditableInSidebar = shouldShowRankedAugmentPicker(snapshot, augmentOverlayOpen, isObserver, ready);
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
     const augmentInspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const cancelAugmentInspectEnd = useCallback(() => {
@@ -3704,10 +3709,46 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 disabled={ready || (snapshot.placementSplit === true && snapshot.placementStage === 0)}
                             />
                         )}
-                        {!augmentOverlayOpen && (
+                        {augmentsEditableInSidebar ? (
+                            // The SIDEBAR uses the compact sandbox shape: one row of augment icons with only
+                            // the chosen augment's options underneath. SideToggleContainer expands every
+                            // augment card at once, which is right on the full-screen Setup step but in this
+                            // narrow column stacks three tall radio groups and pushes the artifacts and the
+                            // rest of the panel off the bottom. Same picker underneath — both route their
+                            // choice through the pixi manager — so this is layout only.
+                            <>
+                                <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                                {/* Co-op sandbox: the offline sandbox's synergy slots, for the viewer's own
+                                    army — click an unlocked one to field it instead of the game's default. */}
+                                {skipAugmentStep && (
+                                    <Box
+                                        sx={{
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            px: 1.25,
+                                            pt: 0.75,
+                                            pb: 0.9,
+                                            borderBottom: "1px solid rgba(112, 75, 42, .42)",
+                                        }}
+                                    >
+                                        <SynergySlots teamType={userTeam} size="clamp(22px, 1.75vw, 34px)" />
+                                    </Box>
+                                )}
+                                {skipAugmentStep && <CoopMapPicker disabled={ready} />}
+                                <SandboxToggleContainer
+                                    side={userTeam === TeamVals.LEFT ? "green" : "red"}
+                                    teamType={userTeam}
+                                    showArtifactPicker={skipAugmentStep}
+                                    budgetPoints={augmentBudget}
+                                    authoritativeSelections={augmentAuthoritativeSelections}
+                                    onReadyChange={setAugmentReady}
+                                />
+                            </>
+                        ) : (
                             <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
                         )}
-                        {skipAugmentStep && <CoopMapPicker disabled={ready} />}
                         {/* The augment step is its own full screen, built like every draft phase before it:
                             same gradient, same 1340px column, army rails on top and the progress rail at the
                             bottom — not a dialog floating over the placement board. */}
