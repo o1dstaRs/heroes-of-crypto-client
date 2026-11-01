@@ -9644,7 +9644,7 @@ export class Sandbox extends PixiScene {
                         break;
                     case "enchanted":
                     case "failed":
-                        this.showEnchantResult(unit, event.spellName, entry.outcome === "enchanted", entry.amount);
+                        this.showEnchantResult(unit, event.spellName, entry.outcome === "enchanted");
                         break;
                     default:
                         break;
@@ -9652,7 +9652,7 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean, total?: number): void {
+    private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean): void {
         const isArmor = spellName === "Armor Rune";
         const iconTexture = this.texAny(isArmor ? "armor_rune_256" : "weapon_rune_256");
         if (!iconTexture) {
@@ -9667,7 +9667,7 @@ export class Sandbox extends PixiScene {
             {
                 tint: isArmor ? 0x59b6ff : 0xff7a3c,
                 iconTexture,
-                label: success ? `+${total ?? 1} ${isArmor ? "armor" : "attack"}` : "Failed",
+                label: `+${success ? 1 : 0} ${isArmor ? "armor" : "attack"}`,
                 success,
             },
         );

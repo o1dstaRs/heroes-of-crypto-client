@@ -220,8 +220,10 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Dulling Defense":
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
     "System:Miner": "Base armor permanently reduced: every hit from a unit with Miner takes some of it, never below 1.",
-    "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
-    "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
+    "System:Armor Rune":
+        "50% chance per cast to add +1 armor to the target. Otherwise +0: existing bonuses are kept. The bonus stacks.",
+    "System:Weapon Rune":
+        "50% chance per cast to add +1 attack to the target. Otherwise +0: existing bonuses are kept. The bonus stacks.",
     "System:Armor Augment":
         "Boosts the entire team's base armor by a percentage and adds the same number of points straight onto its magic armor. Level 1: +6% armor, +6 magic armor. Level 2: +13% and +13. Level 3: +21% and +21.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
@@ -281,8 +283,10 @@ const descriptionsRu: Record<string, string> = {
     "System:Angelic Host": "Дает +1 к атаке, +1 к защите и +1 к дистанции перемещения.",
     "System:Craft":
         "Обрабатывает союзников в области 2x2: каждый может получить вторую атаку, замороженное оружие, оглушение или ничего.",
-    "System:Armor Rune": "50% шанс за каждое применение дать цели +1 брони. Бонус складывается.",
-    "System:Weapon Rune": "50% шанс за каждое применение дать цели +1 атаки. Бонус складывается.",
+    "System:Armor Rune":
+        "50% шанс за каждое применение дать цели +1 брони. Иначе +0: накопленные бонусы сохраняются. Бонус складывается.",
+    "System:Weapon Rune":
+        "50% шанс за каждое применение дать цели +1 атаки. Иначе +0: накопленные бонусы сохраняются. Бонус складывается.",
     "System:Made of Fire": "Существо получает +10% ко всем характеристикам, включая способности.",
     "System:Ember Covenant Blessing":
         "Огненные атаки блокируются, не расходуя благословение.\nПервое другое попадание полностью поглощается, после чего все союзные кольца исчезают. Атаки Water Element и магия воды игнорируют поглощение, наносят урон и также снимают все кольца. Действует до разрушения.",
