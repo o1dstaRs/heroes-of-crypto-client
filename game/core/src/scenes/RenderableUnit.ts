@@ -13635,12 +13635,16 @@ export class RenderableUnit extends Unit {
         }
 
         // Chakram's TOTAL target limit is the holder's stack power: one pip hits only the chosen target,
-        // while five pips may hit it plus four bounces. The hover and engine use the same shared resolver.
+        // while five pips may hit it plus four bounces. Damage uses the same live multiplier as the shot.
         const chakramAbility = this.getAbility(AllAbilities.CHAKRAM_ABILITY_NAME);
         if (chakramAbility) {
             this.refreshAbiltyDescription(
                 chakramAbility.getName(),
-                AllAbilities.chakramDescription(chakramAbility.getDesc().join("\n"), this.getStackPower()),
+                AllAbilities.chakramDescription(
+                    chakramAbility.getDesc().join("\n"),
+                    this.getStackPower(),
+                    this.calculateAbilityMultiplier(chakramAbility, _synergyAbilityPowerIncrease) * 100,
+                ),
             );
         }
 

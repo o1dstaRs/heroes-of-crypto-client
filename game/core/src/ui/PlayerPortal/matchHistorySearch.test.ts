@@ -48,6 +48,30 @@ describe("match history search preview", () => {
         }
     });
 
+    test("keeps complete artifact names together across combined searches", () => {
+        const real = match({ game_id: "real", player_setup: { artifact_tier_1: Artifact.Tier1Artifact.IRON_PLATE } });
+        const decoy = match({
+            game_id: "decoy",
+            opponent_username: "Iron_Warden",
+            player_setup: { artifact_tier_2: Artifact.Tier2Artifact.TITAN_PLATE },
+        });
+        expect(searchPortalMatches([real, decoy], "Iron Plate Berserker").map((game) => game.game_id)).toEqual([
+            "real",
+        ]);
+    });
+
+    test("an exact creature name does not match an artifact bearing that creature's name", () => {
+        const decoy = match({
+            creature_ids: [CreatureVals.SQUIRE],
+            player_setup: {
+                artifact_tier_1: Artifact.Tier1Artifact.DUAL_STRIKE_CHARM,
+                artifact_tier_2: Artifact.Tier2Artifact.BERSERKERS_BOND,
+            },
+        });
+        expect(searchPortalMatches([decoy], "Dual Strike Berserker")).toHaveLength(0);
+        expect(searchPortalMatches([decoy], "Dual Strike berserk")).toHaveLength(1);
+    });
+
     test("searches opponents without inventing metadata for missing historical setups", () => {
         const games = [match({ player_setup: undefined, opponent_setup: undefined, creature_ids: [9999] })];
         expect(searchPortalMatches(games, "mixedcaseRIVAL")).toHaveLength(1);

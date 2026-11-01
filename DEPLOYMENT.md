@@ -73,7 +73,9 @@ HOC_KNOWLEDGE_CORS_ORIGINS=https://heroesofcrypto.io,https://app.heroesofcrypto.
 
 The coordinator checks the public assistant health route and an authenticated-request CORS preflight for every origin immediately after deploying it. These checks do not ask the model a question or consume generation credits. A missing proxy or allowlist entry stops the release before the game/API phases. It does not overwrite private host environment files.
 
-Premium statistical evidence also requires the assistant's existing `HOC_PREMIUM_ENABLED`, evidence snapshot and `HOC_PREMIUM_AUTH_URL` configuration. The entitlement URL must validate the environment that issued the token. The current shared service has one entitlement URL; separate test/prod token issuers require separate assistants or server-side issuer routing for evidence in both environments. A public health/CORS check verifies transport, not a paid entitlement or answer quality.
+Production gameplay guidance requires `HOC_PREMIUM_ENABLED=true` on the game service and `HOC_PREMIUM_TEST_ALL=false` to preserve account/calibration eligibility. The shared assistant uses `HOC_PREMIUM_AUTH_URLS` to validate each browser origin against its own environment's game service; production origins map to `https://game.heroesofcrypto.io/v1/premium/account`, and the test origin maps to the test game service. Private host environment files are provisioned separately from application code.
+
+Statistical evidence additionally requires a provenance-checked snapshot or catalog. Development batches are restricted to explicit `HOC_PREMIUM_DEVELOPMENT_ORIGINS` on the assistant, normally only `https://test.heroesofcrypto.io`; they are not promoted by enabling production access. Missing released evidence retains policy/mechanics guidance. The server deployer verifies Premium configuration after service reloads; public health/CORS alone cannot establish entitlement, evidence release status or answer quality.
 
 The existing host ecosystem and nginx configuration must already be installed. The coordinator updates application releases, not host provisioning, certificates, secrets or databases.
 

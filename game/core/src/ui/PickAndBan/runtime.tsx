@@ -1,3 +1,5 @@
+import { useGameLayout } from "../mobile/GameViewport";
+import { readGameViewport } from "../../viewport/gameViewport";
 import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
 import { PremiumContext, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
@@ -127,7 +129,7 @@ const abilityDescription = (abilityName: string): string => {
         const cfg = HoCConfig.getAbilityConfig(abilityName);
         const template = (cfg.desc ?? []).join(" ");
         if (abilityName === AllAbilities.CHAKRAM_ABILITY_NAME) {
-            return AllAbilities.chakramDescription(template, HoCConstants.MAX_UNIT_STACK_POWER).trim();
+            return AllAbilities.chakramDescription(template, HoCConstants.MAX_UNIT_STACK_POWER, cfg.power).trim();
         }
         return template.replace(/\{\}/g, String(cfg.power ?? "")).trim();
     } catch {
@@ -507,14 +509,10 @@ export { draftShellSx } from "./draftShell";
 export const useDraftScale = (): number => {
     const [scale, setScale] = useState(DRAFT_MAX_SCALE);
     useEffect(() => {
-        const fit = () =>
-            setScale(
-                Math.min(
-                    DRAFT_MAX_SCALE,
-                    (window.innerWidth - 48) / DRAFT_BOARD_WIDTH,
-                    (window.innerHeight - 40) / DRAFT_BOARD_HEIGHT,
-                ),
-            );
+        const fit = () => {
+            const { width, height } = readGameViewport();
+            setScale(Math.min(DRAFT_MAX_SCALE, (width - 48) / DRAFT_BOARD_WIDTH, (height - 40) / DRAFT_BOARD_HEIGHT));
+        };
         fit();
         // resize alone is not enough: entering fullscreen resizes the viewport without always firing it, so
         // observe the document element too and re-fit on the fullscreen transition itself.
@@ -576,6 +574,7 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
             own size, so a phase (or turn) change is impossible to miss. Keyed on the text so the animation
             replays on every change instead of only on the first mount. */}
         <Typography
+            data-draft-title
             key={typeof children === "string" ? children : undefined}
             sx={{
                 fontSize: "46px",
@@ -899,26 +898,39 @@ export const DraftBottomControls: React.FC<{
     draftScale: number;
     centerControl?: React.ReactNode;
 }> = ({ step, userTeam, draftScale, centerControl }) => {
+    const { touch } = useGameLayout();
     return (
         <>
-            <Box
-                sx={{
-                    position: "fixed",
-                    left: "50%",
-                    bottom: draftStepperBottom(draftScale),
-                    zIndex: 55,
-                    width: "1040px",
-                    height: `${DRAFT_STEPPER_ROW_HEIGHT_PX}px`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                    transform: `translateX(-50%) scale(${draftScale})`,
-                    transformOrigin: "center bottom",
-                }}
-            >
-                <DraftStepper step={step} userTeam={userTeam} />
-            </Box>
+            {touch ? (
+                <div
+                    className="hoc-touch-draft-progress"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={STEP_LABELS.length}
+                    aria-valuenow={step + 1}
+                >
+                    {t("Draft")} {step + 1} / {STEP_LABELS.length} · {t(STEP_LABELS[step] ?? "Placement")}
+                </div>
+            ) : (
+                <Box
+                    sx={{
+                        position: "fixed",
+                        left: "50%",
+                        bottom: draftStepperBottom(draftScale),
+                        zIndex: 55,
+                        width: "1040px",
+                        height: `${DRAFT_STEPPER_ROW_HEIGHT_PX}px`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        pointerEvents: "none",
+                        transform: `translateX(-50%) scale(${draftScale})`,
+                        transformOrigin: "center bottom",
+                    }}
+                >
+                    <DraftStepper step={step} userTeam={userTeam} />
+                </Box>
+            )}
             <GameSystemControls
                 center={centerControl}
                 priority={VOLUME_SLOT_PRIORITY.draftControls}
@@ -1056,6 +1068,7 @@ const CreaturePortrait: React.FC<{
                       }
                     : undefined
             }
+            data-touch-draft-choice
             onClick={selectable ? onClick : undefined}
             onMouseEnter={() => onInspect?.(creatureId)}
             onMouseLeave={() => onInspectEnd?.()}
@@ -1680,6 +1693,7 @@ const BundlePanel: React.FC<{
                 return (
                     <Card
                         key={index}
+                        data-touch-draft-choice
                         variant="outlined"
                         color="neutral"
                         onClick={disabled ? undefined : () => onSelect(index)}
@@ -2043,6 +2057,7 @@ const ArtifactPanel: React.FC<{
                     return (
                         <Card
                             key={a.id}
+                            data-touch-draft-choice
                             variant="outlined"
                             color="neutral"
                             onClick={disabled ? undefined : () => onSelect(id)}
@@ -2864,6 +2879,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const [selection, setSelection] = useState<{ phaseIdentity: string; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
+    const { touch } = useGameLayout();
+    const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
     // the reserved header. Clearing on a short delay lets the cursor pass between nearby draft elements
     // without flashing the readout, while still closing it once the cursor is elsewhere.
@@ -3269,20 +3286,37 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     return (
         <PremiumContext.Provider value={premium.advice}>
-            <Sheet variant="solid" sx={draftShellSx}>
-                <PickLanternFire slot={0} />
-                <PickLanternFire slot={1} />
+            <Sheet variant="solid" sx={draftShellSx} data-touch-draft-shell={touch || undefined}>
+                {!touch && <PickLanternFire slot={0} />}
+                {!touch && <PickLanternFire slot={1} />}
                 {/* While a card is being read, the stats own the header band: the strip drops behind the board
                 instead of sitting on top of the readout. */}
-                <PickMatchupOverlay
-                    gameId={gameId}
-                    userTeam={userTeam}
-                    opponentLabel={opponentLabel}
-                    demoted={!!(inspectedId || inspectedArtifact)}
-                />
+                {!touch && (
+                    <PickMatchupOverlay
+                        gameId={gameId}
+                        userTeam={userTeam}
+                        opponentLabel={opponentLabel}
+                        demoted={!!(inspectedId || inspectedArtifact)}
+                    />
+                )}
                 {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
-                <Box sx={draftBoardSx(draftScale)} onMouseMove={trackCursor} onMouseLeave={endInspect}>
+                <Box
+                    sx={draftBoardSx(draftScale)}
+                    onMouseMove={trackCursor}
+                    onMouseLeave={endInspect}
+                    data-touch-draft-board={touch || undefined}
+                    data-touch-draft-roster-open={touchRosterOpen}
+                >
+                    {touch && (
+                        <button
+                            className="hoc-touch-draft-army-toggle"
+                            aria-expanded={touchRosterOpen}
+                            onClick={() => setTouchRosterOpen(!touchRosterOpen)}
+                        >
+                            {t("Armies")}
+                        </button>
+                    )}
                     {/* The header reserves the inspector's height even when no unit is hovered. That keeps the
                 cards stable under the cursor, and the readout replaces the draft title instead of covering it. */}
                     <Box
@@ -3432,10 +3466,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     )}
 
                     {pickPhase !== PickPhaseVals.DOCTRINE &&
-                        (import.meta.env.MODE === "test" ? (
+                        (import.meta.env.MODE === "test" &&
+                        (doctrine === Doctrine.Doctrine.THREE_REVEALS || doctrine === Doctrine.Doctrine.SEE_ALL) ? (
                             <DraftBanSidebar banned={banned} />
                         ) : (
-                            <DraftBanSummary banned={banned} />
+                            <DraftBanSummary banned={banned} doctrine={doctrine} />
                         ))}
 
                     <Box
@@ -3469,41 +3504,43 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </Box>
 
                         {userTeam && isCommitPhase && pickPhase >= 0 && (
-                            <PickCommitButton
-                                key={phaseIdentity}
-                                label={commitLabel}
-                                tone="green"
-                                armed={
-                                    !!isYourTurn &&
-                                    !busy &&
-                                    (pickPhase === PickPhaseVals.ARTIFACT_2
-                                        ? pendingArtifact > 0
-                                        : pickPhase === PickPhaseVals.INITIAL_PICK
-                                          ? pendingBundle >= 0 && !bundleLocked
-                                          : pendingPick > 0)
-                                }
-                                isYourTurn={!!isYourTurn}
-                                blockedHint={
-                                    !isYourTurn
-                                        ? undefined
-                                        : pickPhase === PickPhaseVals.ARTIFACT_2
-                                          ? t("Choose one of the three artifacts first.")
-                                          : pickPhase === PickPhaseVals.INITIAL_PICK
-                                            ? t("Choose one of the two bundles first.")
-                                            : "Choose a creature first — click a portrait, then confirm."
-                                }
-                                seconds={secondsRemaining}
-                                submissionKey={phaseIdentity}
-                                onCommit={() => {
-                                    if (pickPhase === PickPhaseVals.ARTIFACT_2) {
-                                        return commitArtifact(pendingArtifact);
+                            <Box data-touch-draft-commit sx={{ display: "contents" }}>
+                                <PickCommitButton
+                                    key={phaseIdentity}
+                                    label={commitLabel}
+                                    tone="green"
+                                    armed={
+                                        !!isYourTurn &&
+                                        !busy &&
+                                        (pickPhase === PickPhaseVals.ARTIFACT_2
+                                            ? pendingArtifact > 0
+                                            : pickPhase === PickPhaseVals.INITIAL_PICK
+                                              ? pendingBundle >= 0 && !bundleLocked
+                                              : pendingPick > 0)
                                     }
-                                    if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-                                        return commitBundle(pendingBundle);
+                                    isYourTurn={!!isYourTurn}
+                                    blockedHint={
+                                        !isYourTurn
+                                            ? undefined
+                                            : pickPhase === PickPhaseVals.ARTIFACT_2
+                                              ? t("Choose one of the three artifacts first.")
+                                              : pickPhase === PickPhaseVals.INITIAL_PICK
+                                                ? t("Choose one of the two bundles first.")
+                                                : "Choose a creature first — click a portrait, then confirm."
                                     }
-                                    return commitCreature(pendingPick);
-                                }}
-                            />
+                                    seconds={secondsRemaining}
+                                    submissionKey={phaseIdentity}
+                                    onCommit={() => {
+                                        if (pickPhase === PickPhaseVals.ARTIFACT_2) {
+                                            return commitArtifact(pendingArtifact);
+                                        }
+                                        if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+                                            return commitBundle(pendingBundle);
+                                        }
+                                        return commitCreature(pendingPick);
+                                    }}
+                                />
+                            </Box>
                         )}
 
                         {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}

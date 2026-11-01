@@ -15,6 +15,7 @@ import { BEHOLDER_DEBUFFS, isBeholderDebuff, beholderDebuffTextureName } from ".
 import { resetWyvernPoisonAuras } from "./WyvernPoisonAura";
 import { shatterArmorRecipients } from "./shatterArmorFlagEffects";
 import { isBackstabImpact } from "./backstabFlagEffects";
+import { isTouchGameActive } from "../viewport/gameViewport";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -1424,6 +1425,9 @@ export class Sandbox extends PixiScene {
         );
         const fightAlreadyStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         if (!this.sc_gameActionTransport && !fightAlreadyStarted) {
+            // Touch uses the React roster from the first frame. Build its creature choices without
+            // briefly displaying the desktop canvas tray before a later placement/fight refresh.
+            this.unitsOverlay.setVisible(!isTouchGameActive());
             this.ensureUnitsOverlayBuilt();
         } else {
             this.unitsOverlay.setVisible(false);
@@ -7507,6 +7511,9 @@ export class Sandbox extends PixiScene {
         const fightStarted = fightProps.hasFightStarted();
         if (!fightStarted && this.unitsOverlay) {
             this.unitsOverlay.onResize(w, h);
+            // Touch has its own scrollable Army drawer. Re-evaluate on layout changes too, otherwise
+            // a tray created in desktop mode stays visible underneath the newly mounted touch bar.
+            this.updateUnitsOverlayVisibility();
             // Placement graphics only used pre-fight
             this.attachPlacementLayers(100);
         } else if (fightStarted && this.unitsOverlay) {
@@ -8868,6 +8875,57 @@ export class Sandbox extends PixiScene {
             // console.log("Shift+Click Shifted Unit:", unit.getName());
         }
     }
+    public override getTouchConfirmationLabel(_point: HoCMath.XY): string | null {
+        if (this.sc_renderSpellBookOverlay) return null;
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return this.currentActiveSpell ? "Cast spell" : "Confirm action";
+        }
+        return this.hasActiveSelection || this.pendingBarrelPlacement ? "Place here" : null;
+    }
+    public override InspectTouchUnit(point: HoCMath.XY): void {
+        const unit = this.getInspectableUnitAtPosition(this.getLogicalBattlefieldPoint(point));
+        if (!(unit instanceof RenderableUnit)) return;
+        if (this.hasActiveSelection || this.pendingBarrelPlacement) this.Deselect(false, true);
+        if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) this.selectedBoardUnit.setBoardSelected(false);
+        this.currentShiftedUnit = unit;
+        this.selectedBoardUnit = unit;
+        unit.setBoardSelected(true);
+        this.sc_selectedUnitProperties = unit.getUnitProperties();
+        this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+        this.sc_unitPropertiesUpdateNeeded = true;
+        this.hasActiveSelection = false;
+        this.selectionFromOverlay = false;
+    }
+    public override isTouchInspectionOnly(): boolean {
+        const viewer = this.getViewerTeam();
+        if (this.replayPlaybackActive || (this.sc_gameActionTransport && viewer === undefined)) return true;
+        const fight = FightStateManager.getInstance().getFightProperties();
+        return (
+            fight.hasFightStarted() &&
+            (fight.hasFightFinished() ||
+                this.isBoardInputLockedByAI() ||
+                (!!this.sc_gameActionTransport && this.currentActiveUnit?.getTeam() !== viewer))
+        );
+    }
+    public override getTouchInteractionKey(): string {
+        const fight = FightStateManager.getInstance().getFightProperties();
+        return JSON.stringify([
+            fight.hasFightStarted(),
+            fight.hasFightFinished(),
+            fight.getCurrentLap(),
+            fight.getAlreadyMadeTurnSize(),
+            this.currentActiveUnit?.getId(),
+            this.currentActiveUnit?.getAmountAlive(),
+            this.currentActiveUnit?.getCumulativeHp(),
+            this.currentActiveUnit?.getBaseCell().x,
+            this.currentActiveUnit?.getBaseCell().y,
+            this.sc_selectedUnitProperties?.id,
+            this.sc_selectedUnitProperties?.amount_alive,
+            this.currentActiveSpell?.getName(),
+            this.pendingBarrelPlacement?.team,
+            this.pendingBarrelPlacement?.index,
+        ]);
+    }
     public override MouseDown(p: HoCMath.XY): void {
         this.pointerVisualWorld = p;
         const logicalPoint = this.getLogicalBattlefieldPoint(p);
@@ -9891,12 +9949,25 @@ export class Sandbox extends PixiScene {
     private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean): void {
         const kind = blacksmithRuneFlagKind(spellName);
         if (!kind) return;
-        if (!success) {
-            this.combatVisuals?.showCraftFail(target.getFlagEffectAnchor(this.sc_sceneSettings.getGridSettings()));
+        if (success) {
+            target.flashBuffApplied();
+            this.combatVisuals?.spawnCommonFlagPop(target, kind);
+        } else this.combatVisuals?.showCraftFail(target.getFlagEffectAnchor(this.sc_sceneSettings.getGridSettings()));
+        const isArmor = spellName === "Armor Rune";
+        const iconTexture = this.texAny(isArmor ? "armor_rune_256" : "weapon_rune_256");
+        if (!iconTexture) {
             return;
         }
-        target.flashBuffApplied();
-        this.combatVisuals?.spawnCommonFlagPop(target, kind);
+        this.combatVisuals?.spawnEnchantResult(
+            target.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+            this.sc_sceneSettings.getGridSettings().getCellSize(),
+            {
+                tint: isArmor ? 0x59b6ff : 0xff7a3c,
+                iconTexture,
+                label: `+${success ? 1 : 0} ${isArmor ? "armor" : "attack"}`,
+                success,
+            },
+        );
     }
     private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
         return spell?.getName() === "Fire Wall";
@@ -17962,7 +18033,7 @@ export class Sandbox extends PixiScene {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const started = fightProps.hasFightStarted();
         if (this.unitsOverlay?.container) {
-            this.unitsOverlay.container.visible = !started && !this.sc_gameActionTransport;
+            this.unitsOverlay.setVisible(!started && !this.sc_gameActionTransport && !isTouchGameActive());
         }
         if (started) {
             this.unitsOverlay.clearSelection(true);

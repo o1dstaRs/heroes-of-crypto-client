@@ -298,7 +298,7 @@ const copy = isRu
           eyebrow: "Правила игры",
           title: "Как играть в Heroes of Crypto",
           description:
-              "Соберите небольшой отряд, расставьте его на поле 16x16 и выиграйте бой через позиционирование, синергии, мораль, магию и сужающуюся карту. Этот раздел описывает реальные правила из общего TypeScript-движка игры.",
+              "Выберите шесть существ, усильте армию и расставьте её на поле 16×16. Затем ходите стеками по очереди и уничтожьте армию соперника. Начните с короткого маршрута первого матча; подробности и числа найдёте ниже.",
           primaryCta: "Играть",
           secondaryCta: "Открыть юнитов",
           heroLabel: "Примеры боевых юнитов",
@@ -307,25 +307,33 @@ const copy = isRu
               { value: String(factionUnits.length), label: "игровые фракции" },
               { value: String(abilityCount), label: "способностей" },
           ],
-          loopTitle: "Партия в одну минуту",
+          loopTitle: "Первый матч: от выбора режима до победы",
           loopIntro:
-              "Думайте о матче как о цепочке понятных решений. Вы не смотрите симуляцию в черном ящике: выборы игрока проходят через общий движок, а клиент показывает события на доске.",
+              "Стек — это отряд одинаковых существ, который занимает одно место на поле и действует вместе. Число на нём показывает, сколько существ осталось. Ниже — путь полного матча; в песочнице можно сразу собрать обе армии и попробовать бой.",
           phases: [
               {
-                  title: "1. Драфт",
-                  text: "Вы берете компактный состав по уровням: два юнита 1 уровня, два 2 уровня, один 3 уровня и один 4 уровня. Баны и инструменты раскрытия помогают контролировать скрытую информацию.",
+                  title: "1. Выберите режим",
+                  text: "Откройте «Играть». Песочница подходит, чтобы изучить управление и проверить существ. Для полного матча войдите в аккаунт и откройте рейтинговую арену: там можно найти соперника или сыграть против ИИ.",
               },
               {
-                  title: "2. Апгрейды и синергии",
-                  text: "После драфта вы тратите бюджет доктрины на апгрейды. Бонус каждой фракции уже определён идентификатором матча и автоматически достигает уровня 1/2/3 при 2/4/6 юнитах этой фракции — выбирать синергию отдельно не нужно.",
+                  title: "2. Настройте разведку и начните",
+                  text: "Выберите Scout (частичный обзор, 6 очков апгрейдов), Spymaster (полный обзор существ, 5 очков) или Battle Trance (без разведки, 7 очков). При желании сохраните рейтинговое предпочтение бана. Найдите рейтингового соперника и примите матч; кнопка практики с ИИ запускает матч сразу.",
               },
               {
-                  title: "3. Расстановка",
-                  text: "Вы выставляете стеки в своей зоне. След крупного существа может быть 2x1 или 2x2, дальники хотят линии огня, а ауры работают только там, где их зона реально достаёт.",
+                  title: "3. Соберите шесть существ",
+                  text: "Выберите стартовый бандл: существо 1 уровня, существо 2 уровня и артефакт 1 тира. Затем возьмите ещё по одному существу уровней 1, 2, 3 и 4 и один артефакт 2 тира. Итоговый состав — 2/2/1/1. После выбора 2 уровня карта известна всем.",
               },
               {
-                  title: "4. Бой",
-                  text: "За ход активный стек делает одно действие: перемещение, ближнюю атаку (подойдя к цели, если нужно), выстрел, заклинание, ожидание через Hourglass, защиту Luck Shield или пропуск. Перемещение завершает ход, поэтому стрелок или маг действует с того места, где уже стоит.",
+                  title: "4. Потратьте очки апгрейдов",
+                  text: "На этапе Setup потратьте все 5, 6 или 7 очков и нажмите «Подтвердить усиления» (Lock in augments). Синергии включаются автоматически за 2/4/6 разных существ одной фракции; отдельного выбора бонусов нет. Артефакты и апгрейды усиливают всю армию.",
+              },
+              {
+                  title: "5. Расставьте армию и подтвердите",
+                  text: "Армия уже стоит в вашей зоне — переставьте стеки под свой план. Прикройте стрелков и проверьте радиусы аур; при необходимости разделите стеки или измените апгрейды. Завершите всё до нажатия Ready Placement: эта кнопка блокирует расстановку и апгрейды. Бой начинается, когда готовы оба игрока или истечёт таймер.",
+              },
+              {
+                  title: "6. Играйте активным стеком",
+                  text: "Следите за подсвеченным стеком и очередью. За ход выберите одно действие: атаку, заклинание, перемещение, ожидание или защиту. Ближняя атака может включать подход; отдельное перемещение завершает ход. Побеждает армия, уничтожившая все живые стеки соперника.",
               },
           ],
           winTitle: "Цель простая: оставить на доске свою армию",
@@ -348,8 +356,8 @@ const copy = isRu
           ],
           draftSteps: [
               {
-                  title: "До драфта: бан · 1. Доктрина",
-                  text: "В рейтинговом лобби каждый игрок может сохранить одного нежелательного юнита. При создании матча одна указанная сторона гарантирует этот дополнительный бан, одинаковые предпочтения гарантируют общий бан, а из двух разных выбирается одно детерминированным 50/50 по ID матча. Затем оба игрока одновременно фиксируют доктрину разведки.",
+                  title: "1. Доктрина из лобби",
+                  text: "Доктрина из лобби применяется при старте драфта — обычно вы сразу увидите бандлы. Предпочтения бана дают не больше одного общего дополнительного бана: одно предпочтение выбирает этого юнита, совпадающие — того же общего юнита, а у двух разных равные шансы.",
               },
               {
                   title: "2. Бандл",
@@ -357,7 +365,7 @@ const copy = isRu
               },
               {
                   title: "3–4. Пики 1–2 уровней",
-                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровне 1, верхний/красный — на уровне 2. Серые портреты забанены. Если доктрина скрыла пик соперника, попытка взять того же юнита раскрывает конфликт и возвращает вас к выбору.",
+                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровне 1, верхний/красный — на уровне 2. Забаненные существа и уже раскрытые пики соперника недоступны. Если доктрина скрыла пик соперника, попытка взять того же юнита раскрывает конфликт и возвращает вас к выбору.",
               },
               {
                   title: "Раскрытие карты · перед этапом 5",
@@ -377,7 +385,7 @@ const copy = isRu
               },
           ],
           draftNotes: [
-              "Scout и Spymaster заранее видят все баны драфта. Battle Trance узнаёт баны только при открытии выбора существ соответствующего уровня. Публичный режим наблюдения всегда раскрывает баны постепенно по уровням, независимо от доктрин игроков.",
+              "Только Scout и Spymaster видят над выбором существ сводку всех банов. У Battle Trance этой полосы нет: забаненные портреты становятся недоступны лишь при открытии соответствующего уровня. Публичный режим наблюдения раскрывает баны постепенно по уровням, независимо от доктрин игроков.",
               "Квота состава по уровням — 2/2/1/1; выбранный бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
               "Игра автоматически убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Рейтинговое предпочтение добавляет сверху не более одного общего бана на матч; оно не заменяет автобан.",
               "Дополнительный бан применяется только к драфтовому юниту и только если после него на этом уровне остаётся минимум два доступных небандловых варианта. Если выбранный юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт (бандлы, предложения артефактов и автобаны); после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
@@ -414,7 +422,7 @@ const copy = isRu
           ],
           upgradesTitle: "Апгрейды команды: 5-7 очков, настоящие компромиссы",
           upgradesIntro:
-              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет задаёт доктрина: 5 очков за Spymaster, 6 за Scout, 7 за Battle Trance. Чем меньше видите в драфте соперника, тем больше очков получаете. Каждый уровень стоит столько очков, каков его номер (уровень 3 — 3 очка; первый уровень «Расстановки» бесплатный, следующие стоят 1 и 2), каждый апгрейд действует на всю армию с первого круга, а очки, не потраченные к концу Setup, тратятся за вас. Менять апгрейды можно и во время расстановки — пока вы не нажмёте «Готово».",
+              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет задаёт доктрина: 5 очков за Spymaster, 6 за Scout, 7 за Battle Trance. Меньше разведки — больше очков на усиления; число существ в драфте остаётся тем же. Каждый уровень стоит столько очков, каков его номер (уровень 3 — 3 очка; первый уровень «Расстановки» бесплатный, следующие стоят 1 и 2), каждый апгрейд действует на всю армию с первого круга, а очки, не потраченные к концу Setup, тратятся за вас. Менять апгрейды можно и во время расстановки — пока вы не нажмёте «Готово».",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -449,7 +457,7 @@ const copy = isRu
           ],
           doctrinesTitle: "Доктрины: обзор стоит очков",
           doctrinesIntro:
-              "Доктрина — самый первый выбор в драфте, и она действует весь драфт. Она определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртой доктрины нет, и поменять её позже нельзя.",
+              "Выберите доктрину в лобби до начала поиска. Она фиксируется при старте матча и действует весь драфт: чем меньше вы видите состава соперника, тем больше очков получаете на апгрейды. Поменять её по ходу матча нельзя.",
           doctrinesTableCaption: "Доктрины: обзор против очков апгрейдов",
           doctrinesColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
           doctrines: [
@@ -457,7 +465,7 @@ const copy = isRu
                   name: "Spymaster",
                   sees: "Все выборы существ противника, по мере того как он их делает, и все баны заранее. Карта известна уже при выборе стартового бандла. Артефакты остаются скрытыми.",
                   points: 5,
-                  note: "Полная информация, наименьший бюджет армии.",
+                  note: "Весь состав соперника, бюджет апгрейдов — 5 очков.",
               },
               {
                   name: "Scout",
@@ -467,16 +475,16 @@ const copy = isRu
               },
               {
                   name: "Battle Trance",
-                  sees: "Не отмечает ни одного слота заранее. Столкновение со скрытым пиком всё равно раскрывает именно этот слот. Баны открываются при появлении выбора существ соответствующего уровня.",
+                  sees: "Заранее ни один слот не открыт, сводки банов нет. Забаненные варианты недоступны при открытии их уровня. Попытка взять скрытого юнита соперника всё равно раскрывает именно этот слот.",
                   points: 7,
                   note: "Драфт вслепую — зато самая сильная армия.",
               },
           ],
           doctrinesOutro:
-              "Эти очки и есть весь бюджет апгрейдов на бой, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете скрытое существо, которое противник уже забрал, сервер раскроет конфликт и вернёт вас к выбору; уже видимый дубликат выбрать нельзя.",
+              "Доктрина меняет обзор и бюджет усилений; каждая армия по-прежнему драфтит шесть существ. Если вы выберете скрытое существо, которое противник уже забрал, этот слот откроется, и вам придётся выбрать другое. Уже видимый дубликат недоступен сразу.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
-              "Когда вы задрафтили 2/4/6 разных юнитов одной фракции, эта фракция получает уровень синергии 1/2/3 (3 юнита — всё ещё уровень 1, 5 — уровень 2); разделение одного юнита на несколько стеков счётчик не увеличивает. У каждой фракции есть пара возможных бонусов, а ID матча детерминированно выбирает один вариант из каждой пары. Набор вариантов одинаков для обеих сторон и виден с первого экрана драфта; только в песочнице вариант можно выбрать вручную. Синергия усиливает каждого юнита вашей армии, какой бы фракции он ни был. Её уровень фиксируется в начале боя, поэтому потери его не снижают; призывы есть только у Природы, и новое для армии призванное существо может поднять её уровень посреди боя. Драфт даёт ровно шесть существ, поэтому 3 уровень означает армию одной фракции.",
+              "Когда вы задрафтили 2/4/6 разных юнитов одной фракции, эта фракция получает уровень синергии 1/2/3 (3 юнита — всё ещё уровень 1, 5 — уровень 2); разделение одного юнита на несколько стеков счётчик не увеличивает. Для матча из каждой пары фракционных бонусов выбирается один вариант. Набор вариантов одинаков для обеих сторон и виден с первого экрана драфта; только в песочнице вариант можно выбрать вручную. Синергия усиливает каждого юнита вашей армии, какой бы фракции он ни был. Её уровень фиксируется в начале боя, поэтому потери его не снижают; призывы есть только у Природы, и новое для армии призванное существо может поднять её уровень посреди боя. Драфт даёт ровно шесть существ, поэтому 3 уровень означает армию одной фракции.",
           synergyLevels: "Уровни силы",
           synergies: [
               {
@@ -513,10 +521,12 @@ const copy = isRu
           placementParagraphs: [
               "Вы выбираете юнита из списка, задаёте количество существ в стеке и ставите его в разрешённую зону. Задрафтованный отряд можно разделить на несколько стеков без создания новых существ, а затем двигать, перераспределять или убирать эти стеки до фиксации расстановки.",
               "Размер следа зависит от юнита: обычные фигуры занимают 1x1, крупные могут быть 2x1 или 2x2. Большому следу нужно больше свободных клеток для маршрута и спасения при сужении.",
-              "Перед стартом проверьте три вещи: кто получает ауру, кого можно достать первым ходом, и где окажутся ваши стрелки, если враг ворвется в ближний бой.",
+              "Перед Ready Placement проверьте три вещи: кто получает ауру, кого можно достать первым ходом и где окажутся ваши стрелки, если враг ворвётся в ближний бой. После подтверждения вы больше не можете двигать или делить стеки и менять апгрейды.",
               "Setup (апгрейды) длится 60 с, расстановка на поле — 80 с. Армия начинает этап расстановки уже распределённой по вашей зоне; стеки, оставшиеся в запасе, когда 80 с истекут, расставляются автоматически, и начинается бой. Позиции и разделения соперника до этого скрыты. Повторная трата апгрейда «Расстановка» во время расстановки ничего не уничтожает: стеки сверх нового предела сливаются со стеком того же существа или возвращаются в запас, а стеки вне уменьшившейся зоны переносятся внутрь неё.",
           ],
           turnsTitle: "Ход — это одно действие",
+          turnsIntro:
+              "Действовать может только подсвеченный активный стек. Сначала наведите курсор на клетку или цель, а на сенсорном экране коснитесь её, чтобы увидеть прогноз. На компьютере действие выполняется щелчком, на сенсорном экране — после подтверждения. Для заклинания сначала откройте книгу, выберите доступное заклинание и затем цель.",
           turnActions: [
               {
                   title: "Движение",
@@ -632,7 +642,7 @@ const copy = isRu
           eyebrow: "Game rules",
           title: "How to play Heroes of Crypto",
           description:
-              "Build a compact army, place it on a 16x16 battlefield, then win through positioning, faction synergies, morale, spells, and a map that keeps closing in. This guide follows the real shared TypeScript fight engine used by the browser client.",
+              "Draft six creatures, upgrade your army, and deploy it on a 16×16 battlefield. Then take turns with your stacks and destroy the opposing army. Start with the first-match walkthrough; use the sections below for details and exact numbers.",
           primaryCta: "Play",
           secondaryCta: "Browse units",
           heroLabel: "Example combat units",
@@ -641,25 +651,33 @@ const copy = isRu
               { value: String(factionUnits.length), label: "playable factions" },
               { value: String(abilityCount), label: "unit abilities" },
           ],
-          loopTitle: "The match in one minute",
+          loopTitle: "Your first match, from choosing a mode to winning",
           loopIntro:
-              "Read a match as a chain of visible decisions. You are not watching a black-box simulation: player actions go through the shared rules engine, then the browser client renders the events on the board.",
+              "A stack is a group of identical creatures that occupies one place on the board and acts together. Its number tells you how many creatures remain. These steps describe a full match; Sandbox lets you build both armies and jump straight into a practice fight.",
           phases: [
               {
-                  title: "1. Draft",
-                  text: "Build a tight roster by level: two level-1 units, two level-2 units, one level-3 unit, and one level-4 unit. Bans and reveals help manage hidden information.",
+                  title: "1. Choose a mode",
+                  text: "Open Play. Use Sandbox to learn the controls and try creatures. For a full match, sign in and open Ranked Arena, where you can find an opponent or play against the AI.",
               },
               {
-                  title: "2. Upgrade and synergize",
-                  text: "After the draft, spend your doctrine budget on augments. Each faction bonus is already fixed by the match ID and automatically reaches level 1/2/3 at 2/4/6 units of that faction—there is no separate synergy choice.",
+                  title: "2. Choose your scouting and start",
+                  text: "Choose Scout (partial scouting, 6 augment points), Spymaster (full creature scouting, 5 points), or Battle Trance (no scouting, 7 points). Optionally save a ranked ban preference. For Ranked, press Find ranked opponent and accept the match; the AI practice button starts a match directly.",
               },
               {
-                  title: "3. Place",
-                  text: "Put stacks inside your deployment zone. A large creature may use a 2x1 or 2x2 footprint, ranged units need lanes, and aura units need friends inside their real range.",
+                  title: "3. Draft six creatures",
+                  text: "Choose a starting bundle: one level-1 creature, one level-2 creature, and a Tier-1 artifact. Then pick one more creature at each level from 1 to 4, plus one Tier-2 artifact. Your final roster is 2/2/1/1. Everyone knows the map after the level-2 picks.",
               },
               {
-                  title: "4. Fight",
-                  text: "Each turn the active stack takes one action: move, melee attack (walking in first if it needs to), shoot, cast, wait on the Hourglass, defend with Luck Shield or skip. Moving ends the turn, so a shooter or caster acts from where it already stands.",
+                  title: "4. Spend your augment points",
+                  text: "In Setup, spend all 5, 6, or 7 points and press Lock in augments. Synergies activate automatically at 2/4/6 distinct creatures of a faction; there is no separate bonus selection. Artifacts and augments benefit your whole army.",
+              },
+              {
+                  title: "5. Deploy and confirm",
+                  text: "Your army is already placed inside your zone: rearrange it to suit your plan. Protect shooters and check aura ranges; split stacks or revise augments if needed. Finish editing before pressing Ready Placement: it locks both deployment and augments. The fight starts when both players are ready or the timer expires.",
+              },
+              {
+                  title: "6. Play the active stack",
+                  text: "Follow the highlighted stack and turn queue. Choose one action per turn: attack, cast, move, wait, or defend. A melee attack can include walking in; a separate move ends the turn. Destroy every living enemy stack to win.",
               },
           ],
           winTitle: "The goal is simple: keep your army on the board",
@@ -682,8 +700,8 @@ const copy = isRu
           ],
           draftSteps: [
               {
-                  title: "Before draft: ban · 1. Doctrine",
-                  text: "In the ranked lobby, each player may save one unwanted unit. At match creation, one preference guarantees that extra ban, matching preferences guarantee their shared ban, and two different preferences resolve by a deterministic 50/50 choice from the match ID. Both players then lock their scouting doctrine simultaneously.",
+                  title: "1. Your saved doctrine",
+                  text: "Your lobby doctrine is applied when the draft starts, so you normally go straight to the bundle choices. Ban preferences add at most one shared extra ban: a single preference selects that unit, matching preferences select the same unit, and two different preferences have an equal chance.",
               },
               {
                   title: "2. Bundle",
@@ -691,7 +709,7 @@ const copy = isRu
               },
               {
                   title: "3–4. Level 1–2 picks",
-                  text: "Take one creature at each level. The Lower/green seat picks first at Level 1; the Upper/red seat picks first at Level 2. Greyed portraits are banned. If your doctrine hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
+                  text: "Take one creature at each level. The Lower/green seat picks first at Level 1; the Upper/red seat picks first at Level 2. Banned creatures and already revealed opponent picks cannot be selected. If your doctrine hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
               },
               {
                   title: "Map reveal · before stage 5",
@@ -712,7 +730,7 @@ const copy = isRu
           ],
           draftNotes: [
               "The roster quota by level is 2/2/1/1; your selected bundle already supplies one level-1 and one level-2 creature.",
-              "Scout and Spymaster see all draft bans in advance. Battle Trance learns bans only as each creature level opens. Public observers always receive bans level by level, regardless of the players' doctrines.",
+              "Only Scout and Spymaster get the complete ban summary above the creature choices. Battle Trance has no ban strip: banned portraits become unavailable only when their creature level opens. Public observers receive bans level by level, regardless of the players' doctrines.",
               "The game automatically removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. Ranked ban preferences add at most one shared extra ban per match; they do not replace an auto-ban.",
               "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft (bundles, artifact offers and automatic bans); after 25 tries the ban is skipped for that match. If the automatic bans already removed the unit, nothing further is banned.",
               "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. If the opponent's level-4 pick ends the draft, Scout watches level 3 instead. A watched slot shows the opponent's pick as it happens, and that creature is then unavailable to you — no creature is drafted twice. Under any doctrine, attempting an opponent's hidden pick reveals that collision and sends you back to pick again.",
@@ -748,7 +766,7 @@ const copy = isRu
           ],
           upgradesTitle: "Team upgrades: 5-7 points, real tradeoffs",
           upgradesIntro:
-              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft doctrine paid you: 5 points for Spymaster, 6 for Scout, 7 for Battle Trance. Seeing less of the opponent\u2019s draft is what buys the bigger army. Each level costs its number in points (level 3 = 3 points; Placement's first tier is free, the next two cost 1 and 2), every augment applies to your whole army from the first lap, and points still unspent when Setup ends are spent for you. You can still change augments while placing, until you press Ready.",
+              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft doctrine paid you: 5 points for Spymaster, 6 for Scout, 7 for Battle Trance. Less scouting buys more points for team upgrades; every player still drafts six creatures. Each level costs its number in points (level 3 = 3 points; Placement's first tier is free, the next two cost 1 and 2), every augment applies to your whole army from the first lap, and points still unspent when Setup ends are spent for you. You can still change augments while placing, until you press Ready.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -783,7 +801,7 @@ const copy = isRu
           ],
           doctrinesTitle: "Doctrines: what you see costs you points",
           doctrinesIntro:
-              "Your doctrine is the very first pick of the draft, and it lasts the whole draft. It decides how much of the opponent's roster you watch — and it pays you for looking away: the less you see, the larger your augment budget. There is no fourth option and you cannot change it later.",
+              "Choose your doctrine in the lobby before starting a search. It locks when the match starts and lasts for the whole draft: the less you see of the opponent's creatures, the more augment points you receive. You cannot change it during the match.",
           doctrinesTableCaption: "Doctrines: reveal versus augment points",
           doctrinesColumns: ["Doctrine", "What you see", "Augment points"],
           doctrines: [
@@ -791,7 +809,7 @@ const copy = isRu
                   name: "Spymaster",
                   sees: "Every one of the opponent's creature picks, as they happen, and all draft bans in advance. The map is known from the starting bundle choice. Artifacts stay hidden.",
                   points: 5,
-                  note: "Full information, smallest army budget.",
+                  note: "Full creature scouting, 5-point augment budget.",
               },
               {
                   name: "Scout",
@@ -801,16 +819,16 @@ const copy = isRu
               },
               {
                   name: "Battle Trance",
-                  sees: "No slots are watched in advance. Colliding with a hidden opponent pick still reveals that specific slot. Bans are revealed as each creature level opens.",
+                  sees: "No slots are watched in advance and no ban summary is shown. Banned choices are unavailable when their level opens. Colliding with a hidden opponent pick still reveals that specific slot.",
                   points: 7,
                   note: "Draft blind, field the strongest army.",
               },
           ],
           doctrinesOutro:
-              "Those points are your whole augment budget for the fight, so doctrine is an army-size decision as much as an information one. If you select a hidden creature already taken by the opponent, the server reveals the collision and sends you back; a duplicate in an already watched slot is unavailable up front.",
+              "Doctrine changes scouting and upgrade strength; every army still drafts six creatures. If you choose a hidden creature already taken by the opponent, that slot is revealed and you must choose again. A duplicate in an already watched slot is unavailable up front.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
-              "Drafting 2/4/6 distinct roster units from one faction gives that faction synergy level 1/2/3 (3 units still give level 1, 5 give level 2); splitting one unit into several stacks does not raise the count. Each faction has a pair of possible bonuses, and the match ID deterministically selects one from every pair. Both sides get the same variant set, visible from the first draft screen; only the sandbox lets you pick either variant by hand. A synergy powers every unit in your army, whatever its faction. Its level is locked when the fight starts, so losses never lower it; only Nature has summons, and one new to your army can raise Nature's level mid-fight. A draft brings exactly six creatures, so level 3 means a single-faction army.",
+              "Drafting 2/4/6 distinct roster units from one faction gives that faction synergy level 1/2/3 (3 units still give level 1, 5 give level 2); splitting one unit into several stacks does not raise the count. One bonus from each faction's pair is drawn for the match. Both sides get the same variant set, visible from the first draft screen; only the sandbox lets you pick either variant by hand. A synergy powers every unit in your army, whatever its faction. Its level is locked when the fight starts, so losses never lower it; only Nature has summons, and one new to your army can raise Nature's level mid-fight. A draft brings exactly six creatures, so level 3 means a single-faction army.",
           synergyLevels: "Power by level",
           synergies: [
               {
@@ -847,10 +865,12 @@ const copy = isRu
           placementParagraphs: [
               "Choose a roster unit, set its stack amount, and place it in your deployment zone. A drafted unit may be split into several stacks without creating extra bodies; you can then move, rebalance, or remove those stacks before locking placement.",
               "Footprints are unit-specific: ordinary pieces use 1x1, while large creatures can use 2x1 or 2x2. Larger footprints need more legal cells for routing and for escaping a narrowing edge.",
-              "Before pressing start, check three things: who is inside your auras, who can be reached on the first turn, and where your ranged units will stand if the enemy dives them.",
+              "Before pressing Ready Placement, check three things: who is inside your auras, who can be reached on the first turn, and where your ranged units will stand if the enemy dives them. After confirming, you can no longer move or split stacks or change augments.",
               "Setup (augments) lasts 60 s and Board placement 80 s. Your army starts the Board stage already spread across your zone; stacks still on the bench when the 80 s run out are placed automatically, and the fight starts. The opponent's positions and splits stay hidden until then. Re-spending the Placement augment while placing never destroys anything: stacks over the new cap merge back into a stack of the same creature or return to the bench, and stacks left outside a smaller zone move inside it.",
           ],
           turnsTitle: "Turns: one action per turn",
+          turnsIntro:
+              "Only the highlighted active stack can act. Hover over a destination or target on desktop, or tap it on touch, to preview the action. Click to commit on desktop; use the confirmation control on touch. To cast, open the spellbook, choose an available spell, and then choose its target.",
           turnActions: [
               {
                   title: "Move",
@@ -979,11 +999,11 @@ const guideNavigation = isRu
           {
               label: "Соберите армию",
               items: [
+                  { href: "#rule-doctrines", label: "Доктрины" },
                   { href: "#rule-draft", label: "Драфт" },
                   { href: "#rule-unit-stats", label: "Характеристики" },
-                  { href: "#rule-augments", label: "Апгрейды" },
-                  { href: "#rule-doctrines", label: "Доктрины" },
                   { href: "#rule-synergies", label: "Синергии" },
+                  { href: "#rule-augments", label: "Апгрейды" },
                   { href: "#rule-placement", label: "Расстановка" },
               ],
           },
@@ -1008,11 +1028,11 @@ const guideNavigation = isRu
           {
               label: "Build your army",
               items: [
+                  { href: "#rule-doctrines", label: "Doctrines" },
                   { href: "#rule-draft", label: "Draft" },
                   { href: "#rule-unit-stats", label: "Unit statistics" },
-                  { href: "#rule-augments", label: "Augments" },
-                  { href: "#rule-doctrines", label: "Doctrines" },
                   { href: "#rule-synergies", label: "Synergies" },
+                  { href: "#rule-augments", label: "Augments" },
                   { href: "#rule-placement", label: "Placement" },
               ],
           },
@@ -1118,17 +1138,10 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     <section class="section rules-section" id="rule-loop" tabindex="-1">
         <div class="page-shell">
             <div class="section-heading rules-reading-width">
-                <p class="eyebrow">{isRu ? "Цикл боя" : "Fight loop"}</p>
+                <p class="eyebrow">{isRu ? "Ход матча" : "Match flow"}</p>
                 <SectionTitle class="rules-section-title">{copy.loopTitle}</SectionTitle>
                 <p>{copy.loopIntro}</p>
             </div>
-            {embedded && <figure class="rules-game-capture rules-game-capture-wide">
-                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="lazy" />
-                <figcaption class="rules-capture-caption">
-                    <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
-                    <span>{rulesVisuals.combatCaption}</span>
-                </figcaption>
-            </figure>}
             <ol class="rules-phase-grid">
                 {copy.phases.map((phase, index) => (
                     <li class="rules-card rules-step">
@@ -1139,11 +1152,18 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 ))}
             </ol>
 
-            <section class="rules-reference" aria-labelledby="rules-reference-title">
-                <div class="rules-reference-heading">
-                    <p class="eyebrow">{isRu ? "Краткий справочник" : "Quick reference"}</p>
-                    <ItemTitle id="rules-reference-title">{isRu ? "Ключевые числа и их смысл" : "Key numbers and why they matter"}</ItemTitle>
-                </div>
+            {embedded && <figure class="rules-game-capture rules-game-capture-wide">
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="lazy" />
+                <figcaption class="rules-capture-caption">
+                    <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
+                    <span>{rulesVisuals.combatCaption}</span>
+                </figcaption>
+            </figure>}
+
+            <details class="rules-reference">
+                <summary class="rules-reference-heading" id="rules-reference-title">
+                    {isRu ? "Ключевые числа и их смысл — открыть справочник" : "Key numbers and why they matter — open reference"}
+                </summary>
                 <dl class="rules-facts">
                     {quickFacts.map((fact) => (
                         <div class="rules-fact">
@@ -1152,7 +1172,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                         </div>
                     ))}
                 </dl>
-            </section>
+            </details>
         </div>
     </section>
 
@@ -1166,6 +1186,41 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <ul class="rules-note-list" aria-label={isRu ? "На что смотреть" : "What to watch"}>
                 {copy.readBoard.map((item) => <li>{item}</li>)}
             </ul>
+        </div>
+    </section>
+
+    <section class="section rules-section" id="rule-doctrines" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Доктрины" : "Doctrines"}</p>
+                <SectionTitle class="rules-section-title">{copy.doctrinesTitle}</SectionTitle>
+                <p>{copy.doctrinesIntro}</p>
+            </div>
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-doctrine-table-title" tabindex="0">
+                <table class="rules-aug-table">
+                    <caption id="rules-doctrine-table-title">{copy.doctrinesTableCaption}</caption>
+                    <thead>
+                        <tr>
+                            {copy.doctrinesColumns.map((column) => <th scope="col">{column}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {copy.doctrines.map((doctrine) => (
+                            <tr>
+                                <th scope="row" class="rules-aug-name">
+                                    <div>
+                                        <strong>{doctrine.name}</strong>
+                                        <em>{doctrine.note}</em>
+                                    </div>
+                                </th>
+                                <td>{doctrine.sees}</td>
+                                <td>{doctrine.points}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p class="rules-reading-width">{copy.doctrinesOutro}</p>
         </div>
     </section>
 
@@ -1281,6 +1336,30 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
     </section>
 
+    <section class="section rules-band" id="rule-synergies" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Синергии" : "Synergies"}</p>
+                <SectionTitle class="rules-section-title">{copy.synergiesTitle}</SectionTitle>
+                <p>{copy.synergiesIntro}</p>
+            </div>
+            <div class="rules-synergy-grid">
+                {copy.synergies.map((synergy) => (
+                    <article class="rules-synergy" style={`--faction: ${factionColors[synergy.faction as FactionName]}`}>
+                        <div class="rules-synergy-head">
+                            <img src={synergy.icon} alt="" width="128" height="128" loading="lazy" />
+                            <div>
+                                <ItemTitle>{factionLabel(synergy.faction)}</ItemTitle>
+                                <span>{copy.synergyLevels}: 2 / 4 / 6</span>
+                            </div>
+                        </div>
+                        <ul>{synergy.options.map((option) => <li>{option}</li>)}</ul>
+                    </article>
+                ))}
+            </div>
+        </div>
+    </section>
+
     <section class="section rules-section" id="rule-augments" tabindex="-1">
         <div class="page-shell">
             <div class="section-heading rules-reading-width">
@@ -1354,64 +1433,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
     </section>
 
-    <section class="section rules-section" id="rule-doctrines" tabindex="-1">
-        <div class="page-shell">
-            <div class="section-heading rules-reading-width">
-                <p class="eyebrow">{isRu ? "Доктрины" : "Doctrines"}</p>
-                <SectionTitle class="rules-section-title">{copy.doctrinesTitle}</SectionTitle>
-                <p>{copy.doctrinesIntro}</p>
-            </div>
-            <div class="rules-table-scroll" role="region" aria-labelledby="rules-doctrine-table-title" tabindex="0">
-                <table class="rules-aug-table">
-                    <caption id="rules-doctrine-table-title">{copy.doctrinesTableCaption}</caption>
-                    <thead>
-                        <tr>
-                            {copy.doctrinesColumns.map((column) => <th scope="col">{column}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {copy.doctrines.map((doctrine) => (
-                            <tr>
-                                <th scope="row" class="rules-aug-name">
-                                    <div>
-                                        <strong>{doctrine.name}</strong>
-                                        <em>{doctrine.note}</em>
-                                    </div>
-                                </th>
-                                <td>{doctrine.sees}</td>
-                                <td>{doctrine.points}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            <p class="rules-reading-width">{copy.doctrinesOutro}</p>
-        </div>
-    </section>
 
-    <section class="section rules-band" id="rule-synergies" tabindex="-1">
-        <div class="page-shell">
-            <div class="section-heading rules-reading-width">
-                <p class="eyebrow">{isRu ? "Синергии" : "Synergies"}</p>
-                <SectionTitle class="rules-section-title">{copy.synergiesTitle}</SectionTitle>
-                <p>{copy.synergiesIntro}</p>
-            </div>
-            <div class="rules-synergy-grid">
-                {copy.synergies.map((synergy) => (
-                    <article class="rules-synergy" style={`--faction: ${factionColors[synergy.faction as FactionName]}`}>
-                        <div class="rules-synergy-head">
-                            <img src={synergy.icon} alt="" width="128" height="128" loading="lazy" />
-                            <div>
-                                <ItemTitle>{factionLabel(synergy.faction)}</ItemTitle>
-                                <span>{copy.synergyLevels}: 2 / 4 / 6</span>
-                            </div>
-                        </div>
-                        <ul>{synergy.options.map((option) => <li>{option}</li>)}</ul>
-                    </article>
-                ))}
-            </div>
-        </div>
-    </section>
 
     <section class="section rules-section" id="rule-placement" tabindex="-1">
         <div class="page-shell rules-two-col">
@@ -1436,6 +1458,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <p class="eyebrow">{isRu ? "Бой" : "Fight"}</p>
                 <SectionTitle class="rules-section-title">{isRu ? "Ходы и атаки" : "Turns and attacks"}</SectionTitle>
                 <p>{copy.turnsTitle}</p>
+                <p>{copy.turnsIntro}</p>
             </div>
             <div class="rules-mechanics-block">
                 <ItemTitle>{isRu ? "Что можно сделать в ход" : "What you can do on a turn"}</ItemTitle>
@@ -2091,7 +2114,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     }
 
     .rules-phase-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         list-style: none;
     }
 
@@ -2133,7 +2156,6 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     .rules-card :is(h3, h4),
     .rules-synergy :is(h3, h4),
     .rules-mechanics-block > :is(h3, h4),
-    .rules-reference-heading :is(h3, h4),
     .rules-morale-breakdown > :is(h3, h4),
     .rules-final-list > :is(h3, h4) {
         margin-bottom: 9px;
@@ -2175,7 +2197,17 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
     .rules-reference-heading {
         max-width: 72ch;
+        min-height: 44px;
         margin-bottom: 12px;
+        padding-block: 8px;
+        color: var(--gold);
+        cursor: pointer;
+        font-size: 1.06rem;
+    }
+
+    .rules-reference-heading:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 4px;
     }
 
     .rules-facts {

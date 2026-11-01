@@ -1,3 +1,4 @@
+import { useGameLayout } from "../mobile/GameViewport";
 import { useContext, useMemo } from "react";
 import { PremiumFightControls } from "../premium/PremiumFightControls";
 import { useHidePremiumSearchDuringFight } from "../premium/PremiumSearch";
@@ -37,6 +38,7 @@ import {
     GameSystemControls,
 } from "../GameSystemControls";
 
+const TouchArmyRoster = React.lazy(() => import("../mobile/TouchArmyRoster"));
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
 
@@ -93,9 +95,13 @@ export default function RightSideBar({
     const [footerHeight, setFooterHeight] = useState(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX);
     const [sandboxSetupRevision, setSandboxSetupRevision] = useState(0);
     const handleStartOver = () => {
-        if (onStartOver) onStartOver();
-        else manager.StartOver();
-        setSandboxSetupRevision((revision) => revision + 1);
+        const run = () => {
+            if (onStartOver) onStartOver();
+            else manager.StartOver();
+            setSandboxSetupRevision((revision) => revision + 1);
+        };
+        if (touch) manager.RequestTouchConfirmation("Start a new battle?", run);
+        else run();
     };
     const [unitDamageStatistics, setUnitDamageStatistics] = useState<IDamageStatistic[]>(() =>
         gameStarted ? manager.GetCurrentDamageStatistics() : [],
@@ -154,7 +160,8 @@ export default function RightSideBar({
         }
     }, [unitDamageStatistics, gameStarted, damageListViewportHeight]);
 
-    const barSize = battleSidebarWidth(windowSize.width, windowSize.height);
+    const { touch, panel } = useGameLayout();
+    const barSize = touch ? 320 : battleSidebarWidth(windowSize.width, windowSize.height);
 
     useEffect(() => {
         manager.HomeCamera();
@@ -279,6 +286,8 @@ export default function RightSideBar({
         <Sheet
             className="Sidebar"
             data-right-sidebar
+            data-touch-panel={touch ? "army" : undefined}
+            data-touch-panel-open={touch ? panel === "army" : undefined}
             sx={{
                 position: "fixed",
                 zIndex: 1, // Lower z-index to allow overlays on top
@@ -359,6 +368,11 @@ export default function RightSideBar({
                         "--ListItem-radius": (t) => t.vars.radius.sm,
                     }}
                 >
+                    {touch && !gameStarted && (!rankedPanel || manager.GetTouchCreatureChoices().length > 0) && (
+                        <React.Suspense fallback={null}>
+                            <TouchArmyRoster />
+                        </React.Suspense>
+                    )}
                     {/* The ranked sheet is placement-only; during the fight the same slot ships just the
                         forfeit control, which is parked at the bottom of the bar instead (see below). */}
                     {rankedPanel && !gameStarted && (
@@ -396,9 +410,7 @@ export default function RightSideBar({
                                 gap: "6px",
                             }}
                         >
-                            <React.Suspense fallback={null}>
-                                <DraggableToolbar />
-                            </React.Suspense>
+                            <React.Suspense fallback={null}>{!touch && <DraggableToolbar />}</React.Suspense>
                             {/* Shown from the first turn, not from the first hit: the table keeps its place
                                 and simply lists nothing until damage is dealt, instead of appearing out of
                                 nowhere mid-fight and pushing everything below it. */}
@@ -523,9 +535,10 @@ export default function RightSideBar({
                     {showWallet && <WalletLinker />}
                 </List>
             </Box>
+            {touch && <div id="hoc-touch-panel-system-slot" />}
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
             {/* Combat reserves the measured controls only; the log takes the removed chat row's height. */}
-            {showSystemControls && (
+            {showSystemControls && !touch && (
                 <Box
                     sx={{
                         height: Math.max(
@@ -538,6 +551,7 @@ export default function RightSideBar({
             )}
             {showSystemControls && (
                 <GameSystemControls
+                    mobileBattleStarted={gameStarted}
                     leading={footerLeading}
                     onHeightChange={setFooterHeight}
                     sidebarWidth={barSize}

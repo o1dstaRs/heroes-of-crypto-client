@@ -12,7 +12,12 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
     const isRu = language === "ru";
     const topics = isRu
         ? [
-              ["Цикл матча", "Драфт, апгрейды, расстановка и бой — четыре этапа матча.", "rules-loop", "фазы начало"],
+              [
+                  "Первый матч",
+                  "От выбора режима и доктрины до драфта, апгрейдов, подтверждения расстановки и первого боя.",
+                  "rules-loop",
+                  "цикл ход матча фазы начало как играть практика",
+              ],
               [
                   "Как победить",
                   "Уничтожьте все вражеские стеки; сужение и Армагеддон разрешают затяжной бой, а одновременная гибель обеих армий даёт ничью.",
@@ -76,10 +81,10 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
           ]
         : [
               [
-                  "Match flow",
-                  "Draft, augments, placement, and combat—the four stages of every match.",
+                  "Your first match",
+                  "Choose a mode and doctrine, draft, upgrade, confirm deployment, and play your first battle.",
                   "rules-loop",
-                  "phases start",
+                  "phases match flow start how to play practice",
               ],
               [
                   "How to win",

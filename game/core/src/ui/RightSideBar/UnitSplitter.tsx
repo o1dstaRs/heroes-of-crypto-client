@@ -1,3 +1,5 @@
+import { useGameLayout } from "../mobile/GameViewport";
+import { TouchSplitAmount } from "../mobile/TouchSplitAmount";
 import React, { useEffect } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
@@ -36,6 +38,7 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
 
 const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: IUnitSplitterProps) => {
     const manager = usePixiManager();
+    const { touch } = useGameLayout();
     const hasSelectedUnit = totalUnits > 0;
 
     const handleSliderChange = (event: Event, newValue: number | number[]) => {
@@ -87,25 +90,34 @@ const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: I
                     transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
                 }}
             >
-                <Slider
-                    sx={{
-                        ...hocSplitterSliderSx,
-                        "--Slider-thumbSize": "18px",
-                        "& .MuiSlider-thumb": {
-                            ...hocSplitterSliderSx["& .MuiSlider-thumb"],
-                            width: 18,
-                            height: 18,
-                        },
-                    }}
-                    value={hasSelectedUnit ? splitValue : 0}
-                    onChange={handleSliderChange}
-                    min={hasSelectedUnit ? 1 : 0}
-                    max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
-                    track={hasSelectedUnit ? "normal" : false}
-                    disabled={totalUnits < 2}
-                    step={1}
-                    aria-label="Unit Split Slider"
-                />
+                {touch ? (
+                    <TouchSplitAmount
+                        value={splitValue}
+                        max={Math.max(1, totalUnits - 1)}
+                        disabled={!hasSelectedUnit || totalUnits < 2}
+                        onChange={onSplitValueChange}
+                    />
+                ) : (
+                    <Slider
+                        sx={{
+                            ...hocSplitterSliderSx,
+                            "--Slider-thumbSize": "18px",
+                            "& .MuiSlider-thumb": {
+                                ...hocSplitterSliderSx["& .MuiSlider-thumb"],
+                                width: 18,
+                                height: 18,
+                            },
+                        }}
+                        value={hasSelectedUnit ? splitValue : 0}
+                        onChange={handleSliderChange}
+                        min={hasSelectedUnit ? 1 : 0}
+                        max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
+                        track={hasSelectedUnit ? "normal" : false}
+                        disabled={totalUnits < 2}
+                        step={1}
+                        aria-label="Unit Split Slider"
+                    />
+                )}
             </Stack>
             <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 2, marginBottom: 2 }}>
                 <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>

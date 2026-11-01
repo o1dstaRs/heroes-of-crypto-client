@@ -192,8 +192,15 @@ describe("knowledge graph builder", () => {
         expect(byId.get("doctrine:spymaster")?.text).toContain("all draft bans in advance");
         expect(byId.get("doctrine:spymaster")?.text).toContain("Know the map from the starting bundle choice");
         expect(byId.get("doctrine:spymaster")?.textRu).toContain("Карта известна уже при выборе стартового бандла");
-        expect(byId.get("doctrine:battle-trance")?.text).toContain("Bans are revealed as each creature level opens");
+        expect(byId.get("doctrine:battle-trance")?.summary).toContain("no draft-ban summary");
+        expect(byId.get("doctrine:battle-trance")?.text).toContain(
+            "Banned choices become unavailable only when their level opens",
+        );
+        expect(byId.get("doctrine:battle-trance")?.textRu).toContain("сводки банов нет");
         const bans = graph.nodes.find((node) => node.name === "Draft bans");
+        expect(bans?.text).toContain("Only Scout and Spymaster see the complete draft-ban summary");
+        expect(bans?.text).toContain("Battle Trance has no ban strip");
+        expect(bans?.textRu).toContain("У Battle Trance нет полосы банов");
         expect(bans?.text).toContain("Public observers always receive only bans for levels already opened");
         expect(bans?.text).toContain("hidden bans are omitted by the server");
         expect(bans?.textRu).toContain("скрытые баны сервер не отправляет");

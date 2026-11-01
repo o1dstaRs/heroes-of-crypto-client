@@ -1,3 +1,4 @@
+import { isTouchGameActive } from "../viewport/gameViewport";
 import { borrowedGraceBuffsByThief } from "./sandbox/borrowedGraceTransfers";
 import { chainLightningRecipients } from "./sandbox/chainLightningRecipients";
 import {
@@ -996,7 +997,13 @@ const getUnitPropertiesFromAuthoritativeState = (
                             if (ability.name === AllAbilities.CHAKRAM_ABILITY_NAME) {
                                 return {
                                     ...ability,
-                                    description: AllAbilities.chakramDescription(template, liveStackPower),
+                                    description: AllAbilities.chakramDescription(
+                                        template,
+                                        liveStackPower,
+                                        ((HoCConfig.getAbilityConfig(ability.name).power + unitState.luck) *
+                                            liveStackPower) /
+                                            HoCConstants.MAX_UNIT_STACK_POWER,
+                                    ),
                                 };
                             }
                             // Magic Reflection scales with the stack and the holder's luck, but the config
@@ -1689,7 +1696,7 @@ export class RankedPlayScene extends Sandbox {
         const started = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         if (this.sandboxCoop && !started && this.viewerTeam !== undefined) {
             this.ensureUnitsOverlayBuilt();
-            this.unitsOverlay?.setVisible(true);
+            this.unitsOverlay?.setVisible(!isTouchGameActive());
             return;
         }
         this.unitsOverlay?.setVisible(false);

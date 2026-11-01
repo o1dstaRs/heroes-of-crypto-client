@@ -34,8 +34,10 @@ import {
     VisibleButtonState,
 } from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
-import { boardFitPadding } from "./boardFit";
+import { boardBottomInset, boardFitHeight, boardFitPadding } from "./boardFit";
 import { resizeBoard } from "./boardResize";
+import { GAME_VIEWPORT_CHANGED, pointInGameElement, readGameViewport } from "../viewport/gameViewport";
+import { TouchBoardInput } from "./TouchBoardInput";
 import { observeElementBox } from "./observeElementBox";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
@@ -131,6 +133,9 @@ export class PixiGameManager {
     }
     private activateScene: (entry: SceneEntry) => void = () => {};
     private started = false;
+    public get hasStarted(): boolean {
+        return this.started;
+    }
     private lastSentEmptyHoverInfo = false;
     private amountOfSelectedObjects = 1;
     private pixiApp: PixiApp | null = null;
@@ -151,6 +156,12 @@ export class PixiGameManager {
     };
     private lifecycleId = 0;
     private initEventCleanups: Array<() => void> = [];
+    private touchBoardInput?: TouchBoardInput;
+    private touchAction?: { scene: PixiScene; key: string; label: string; run: () => void };
+    private confirmingTouchAction = false;
+    private touchSnapshotKey = "";
+    public readonly onTouchActionChanged = new Signal<(label: string | null) => void>();
+    public readonly onTouchInspection = new Signal<() => void>();
     private static readonly OVERLAY_MOUSE_SUPPRESSION_MS = 350;
     private static readonly OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX = 8;
     public constructor() {
@@ -236,8 +247,11 @@ export class PixiGameManager {
             if (!(e instanceof KeyboardEvent)) return;
             if (e.key === "Shift") this.m_scene?.ShiftKey(false);
         });
-        this.addInitEventListener(debugCanvas, "mouseenter", () => (this.m_hoveringCanvas = true));
+        this.addInitEventListener(debugCanvas, "mouseenter", () => {
+            if (!this.touchBoardInput?.ignoreMouse()) this.m_hoveringCanvas = true;
+        });
         this.addInitEventListener(debugCanvas, "mouseleave", () => {
+            if (this.touchBoardInput?.ignoreMouse()) return;
             this.m_hoveringCanvas = false;
             this.m_scene?.clearLocalAimTarget();
         });
@@ -256,8 +270,8 @@ export class PixiGameManager {
         const initialRect = wrapper.getBoundingClientRect();
         await pixiApp.init(
             glCanvas,
-            Math.max(1, Math.floor(initialRect.width)),
-            Math.max(1, Math.floor(initialRect.height)),
+            Math.max(1, Math.floor(readGameViewport().touch ? wrapper.clientWidth : initialRect.width)),
+            Math.max(1, Math.floor(readGameViewport().touch ? wrapper.clientHeight : initialRect.height)),
         ); // async init, safe to await here
         if (!isCurrentLifecycle()) {
             pixiApp.destroy();
@@ -280,8 +294,8 @@ export class PixiGameManager {
         // Only resize via Pixi + notify scene.
         const onResize = () => {
             const rect = wrapper.getBoundingClientRect();
-            const w = Math.max(1, Math.floor(rect.width));
-            const h = Math.max(1, Math.floor(rect.height));
+            const w = Math.max(1, Math.floor(readGameViewport().touch ? wrapper.clientWidth : rect.width));
+            const h = Math.max(1, Math.floor(readGameViewport().touch ? wrapper.clientHeight : rect.height));
 
             // keep debugCanvas in CSS pixels for overlays if you use it
             if (debugCanvas.width !== w || debugCanvas.height !== h) {
@@ -300,6 +314,7 @@ export class PixiGameManager {
 
         this.addInitEventListener(window, "resize", onResize);
         this.addInitEventListener(window, "orientationchange", onResize);
+        this.addInitEventListener(window, GAME_VIEWPORT_CHANGED, onResize);
         // The window is not the only thing that resizes the board. Its wrapper is a flex item sitting next
         // to the sidebars, so a panel that mounts or grows mid-match — ranked placement mounts several —
         // re-lays the board out while the window never changes. The canvas then kept the pixel size it was
@@ -509,12 +524,16 @@ export class PixiGameManager {
 
                 // Use debugCanvas for bounds (assuming it overlays the Pixi canvas perfectly)
                 const canvas = debugCanvas;
-                const cr = canvas.getBoundingClientRect();
-                // Scale for high-DPI: convert CSS pixels to canvas logical pixels
-                const scaleX = canvas.width / cr.width;
-                const scaleY = canvas.height / cr.height;
-                const gx = (e.clientX - cr.left) * scaleX;
-                const gy = (e.clientY - cr.top) * scaleY;
+                const point = pointInGameElement(
+                    e.clientX,
+                    e.clientY,
+                    canvas.getBoundingClientRect(),
+                    canvas.width,
+                    canvas.height,
+                    readGameViewport().rotated,
+                );
+                const gx = point.x;
+                const gy = point.y;
                 const overlay = getUnitsOverlayFromScene(this.m_scene);
                 if (overlay && overlay.handlePointerDown(gx, gy)) {
                     this.overlayMouseSuppression = {
@@ -533,11 +552,14 @@ export class PixiGameManager {
                 debugCanvas.removeEventListener("pointerdown", forwardOverlayInteraction),
             );
             const canvasPoint = (clientX: number, clientY: number) => {
-                const cr = debugCanvas.getBoundingClientRect();
-                return {
-                    x: (clientX - cr.left) * (debugCanvas.width / cr.width),
-                    y: (clientY - cr.top) * (debugCanvas.height / cr.height),
-                };
+                return pointInGameElement(
+                    clientX,
+                    clientY,
+                    debugCanvas.getBoundingClientRect(),
+                    debugCanvas.width,
+                    debugCanvas.height,
+                    readGameViewport().rotated,
+                );
             };
             this.addInitEventListener(
                 debugCanvas,
@@ -575,6 +597,9 @@ export class PixiGameManager {
         this._pixiApp.getTicker().addOnce(() => this.fitViewToWindow());
 
         this.isInitialized = true;
+        // Keep the handler ready for a later coarse-pointer layout without recreating the live Pixi
+        // renderer. Each contact below still checks the current layout before owning a touch event.
+        this.installTouchBoardInput(glCanvas, debugCanvas, wrapper);
         // Signal readiness only after LoadGame() has created m_scene. Ranked routes apply the
         // authoritative snapshot as soon as this flips; emitting earlier can drop the first PLAY
         // snapshot and leave a direct fight link with an empty board until another SSE event arrives.
@@ -621,6 +646,9 @@ export class PixiGameManager {
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
     ): void {
+        const touchKey = `${snapshot.gameId}:${snapshot.latestSequence}:${snapshot.phase}:${snapshot.currentUnitId}`;
+        if (touchKey !== this.touchSnapshotKey) this.CancelTouchAction();
+        this.touchSnapshotKey = touchKey;
         this.m_scene?.applyAuthoritativeSnapshot(snapshot, options);
         const wasStarted = this.started;
         this.started = snapshot.fightStarted && !snapshot.fightFinished;
@@ -690,12 +718,193 @@ export class PixiGameManager {
         return shouldFit;
     }
     public HomeCamera(): void {
+        this.touchBoardInput?.reset();
         this.fitViewToWindow();
     }
+    public ZoomTouchBoard(factor: number): void {
+        this.touchBoardInput?.zoomBy(factor);
+    }
+    public GetTouchCreatureChoices(): { name: string; creatureId: number; level: number }[] {
+        return getUnitsOverlayFromScene(this.m_scene)?.getCreatureChoices() ?? [];
+    }
+    public SelectTouchCreature(name: string): boolean {
+        this.CancelTouchAction();
+        const selected = getUnitsOverlayFromScene(this.m_scene)?.selectCreatureByName(name) ?? false;
+        this.UpdateHoverInfo();
+        return selected;
+    }
+    public RotateTouchSpell(): void {
+        this.CancelTouchAction();
+        this.m_scene?.ShiftKey(true);
+    }
+    public GetTouchActionLabel(): string | null {
+        return this.touchAction?.label ?? null;
+    }
+    public RequestTouchConfirmation(label: string, run: () => void): void {
+        const scene = this.m_scene;
+        if (!scene) return;
+        this.touchInspectMode = false;
+        this.touchAction = { scene, key: scene.getTouchInteractionKey(), label, run };
+        this.onTouchActionChanged.emit(label);
+    }
+    public CancelTouchAction(): void {
+        if (!this.touchAction) return;
+        this.touchAction = undefined;
+        this.m_hoveringCanvas = false;
+        this.m_scene?.clearLocalAimTarget?.();
+        this.onTouchActionChanged.emit(null);
+    }
+    public ConfirmTouchAction(): void {
+        const pending = this.touchAction;
+        this.CancelTouchAction();
+        if (!pending || pending.scene !== this.m_scene || pending.key !== this.m_scene.getTouchInteractionKey()) return;
+        this.confirmingTouchAction = true;
+        try {
+            pending.run();
+        } finally {
+            this.confirmingTouchAction = false;
+        }
+    }
+    private deferTouchAction(label: string, run: () => void): boolean {
+        if (!readGameViewport().touch || this.confirmingTouchAction) return false;
+        this.RequestTouchConfirmation(label, run);
+        return true;
+    }
+    private installTouchBoardInput(
+        glCanvas: HTMLCanvasElement,
+        canvas: HTMLCanvasElement,
+        wrapper: HTMLDivElement,
+    ): void {
+        const canvasPoint = (clientX: number, clientY: number) =>
+            pointInGameElement(
+                clientX,
+                clientY,
+                canvas.getBoundingClientRect(),
+                canvas.width,
+                canvas.height,
+                readGameViewport().rotated,
+            );
+        const input = new TouchBoardInput({
+            size: () => ({ width: wrapper.clientWidth, height: wrapper.clientHeight }),
+            zoomAnchor: () => {
+                const width = wrapper.clientWidth;
+                const height = wrapper.clientHeight;
+                // The wall and the two docks are outside the playing field. Zoom toward the cells,
+                // rather than the canvas centre, so repeated + presses keep the battlefield centred.
+                return { x: width / 2, y: height - boardBottomInset() - boardFitHeight(width, height) / 2 };
+            },
+            toPoint: ({ x, y }) =>
+                pointInGameElement(
+                    x,
+                    y,
+                    wrapper.getBoundingClientRect(),
+                    wrapper.clientWidth,
+                    wrapper.clientHeight,
+                    readGameViewport().rotated,
+                ),
+            onGesture: () => {
+                this.CancelTouchAction();
+                this.m_hoveringCanvas = false;
+                this.m_scene?.clearLocalAimTarget();
+            },
+            onView: ({ zoom, x, y }) => {
+                for (const surface of [glCanvas, canvas]) {
+                    surface.style.transformOrigin = "center";
+                    surface.style.transform = zoom === 1 ? "" : `translate(${x}px, ${y}px) scale(${zoom})`;
+                }
+            },
+            onScroll: (client, delta) => {
+                const point = canvasPoint(client.x, client.y);
+                const overlay = !this.started ? getUnitsOverlayFromScene(this.m_scene) : undefined;
+                return !!overlay?.container.visible && overlay.handleWheel(point.x, point.y, -delta.x, -delta.y);
+            },
+            onTap: (client, inspect) => {
+                const scene = this.m_scene;
+                if (!scene || scene.isMapLoading?.()) return;
+                this.CancelTouchAction();
+                this.m_hoveringCanvas = true;
+                const point = canvasPoint(client.x, client.y);
+                const overlay = !this.started ? getUnitsOverlayFromScene(scene) : undefined;
+                if (overlay?.container.visible && overlay.handlePointerDown(point.x, point.y)) {
+                    overlay.handlePointerUp();
+                    this.UpdateHoverInfo();
+                    return;
+                }
+                const world = this.screenToWorld(point.x, point.y);
+                if (inspect || this.touchInspectMode || scene.isTouchInspectionOnly()) {
+                    scene.InspectTouchUnit(world);
+                    this.onTouchInspection.emit();
+                    this.UpdateHoverInfo();
+                    return;
+                }
+                scene.MouseMove(world, false);
+                this.UpdateHoverInfo();
+                const run = () => {
+                    scene.MouseMove(world, false);
+                    scene.MouseDown(world);
+                    scene.MouseUp();
+                    this.UpdateHoverInfo();
+                };
+                const label = scene.getTouchConfirmationLabel(world);
+                if (label) this.RequestTouchConfirmation(label, run);
+                else run();
+            },
+        });
+        this.touchBoardInput = input;
+        canvas.style.touchAction = "none";
+        for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"] as const) {
+            this.addInitEventListener(
+                canvas,
+                type,
+                (event) => {
+                    const e = event as PointerEvent;
+                    if (e.pointerType === "mouse") {
+                        input.allowMouse();
+                        this.m_hoveringCanvas = true;
+                        return;
+                    }
+                    if ((e.pointerType !== "touch" && e.pointerType !== "pen") || !readGameViewport().touch) return;
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    if (type === "pointerdown") {
+                        canvas.setPointerCapture(e.pointerId);
+                        input.down(e.pointerId, { x: e.clientX, y: e.clientY }, e.timeStamp);
+                    } else if (type === "pointermove") input.move(e.pointerId, { x: e.clientX, y: e.clientY });
+                    else if (type === "pointerup") {
+                        input.move(e.pointerId, { x: e.clientX, y: e.clientY });
+                        input.up(e.pointerId, e.timeStamp);
+                    } else input.cancel();
+                },
+                { capture: true, passive: false },
+            );
+        }
+        this.addInitEventListener(window, "resize", () => input.reset(false));
+        this.addInitEventListener(window, GAME_VIEWPORT_CHANGED, () => {
+            const touch = readGameViewport().touch;
+            input.reset(!touch);
+            if (!touch) input.allowMouse();
+        });
+        this.addInitEventListener(window, "blur", () => input.cancel());
+        this.addInitEventListener(document, "visibilitychange", () => {
+            if (document.hidden) input.cancel();
+        });
+        this.initEventCleanups.push(() => {
+            input.reset();
+            this.touchBoardInput = undefined;
+            canvas.style.touchAction = "";
+        });
+    }
+    private touchInspectMode = false;
+    public SetTouchInspectMode(enabled: boolean): void {
+        this.touchInspectMode = enabled;
+        this.CancelTouchAction();
+    }
     public HandleEscapeKey(down: boolean): void {
+        if (down) this.CancelTouchAction();
         if (down && this.m_scene) this.m_scene.Deselect(true);
     }
     public HandleMouseMove(e: MouseEvent): void {
+        if (this.touchBoardInput?.ignoreMouse()) return;
         this.m_mouse.x = e.offsetX;
         this.m_mouse.y = e.offsetY;
 
@@ -712,6 +921,7 @@ export class PixiGameManager {
         // }
     }
     public HandleMouseDown(e: MouseEvent): void {
+        if (this.touchBoardInput?.ignoreMouse()) return;
         if (this.m_scene?.isMapLoading?.()) return;
         if (this.shouldSuppressOverlayMouseEvent(e, "down")) {
             e.preventDefault();
@@ -742,6 +952,7 @@ export class PixiGameManager {
         }
     }
     public HandleMouseUp(e: MouseEvent): void {
+        if (this.touchBoardInput?.ignoreMouse()) return;
         if (this.shouldSuppressOverlayMouseEvent(e, "up")) {
             this.m_lMouseDown = false;
             e.preventDefault();
@@ -787,6 +998,7 @@ export class PixiGameManager {
         else this.activateScene(this.flatScenes[index]);
     }
     public StartGame(): void {
+        if (this.deferTouchAction("Start battle?", () => this.StartGame())) return;
         if (this.m_scene?.isMapLoading?.()) return;
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.emitHasStarted(this.started);
@@ -895,6 +1107,9 @@ export class PixiGameManager {
         this.fitViewToWindow();
     }
     public Uninitialize(): void {
+        this.CancelTouchAction();
+        this.touchSnapshotKey = "";
+        this.touchInspectMode = false;
         this.lifecycleId++;
         this.removeInitEventListeners();
         this.disconnectSceneStartListeners();
@@ -947,9 +1162,24 @@ export class PixiGameManager {
         return this.m_scene?.sc_visibleButtonGroup ?? [];
     }
     public PropagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
+        const labels: Record<string, string> = {
+            Next: "End turn?",
+            Hourglass: "Wait this turn?",
+            TimeDenial: "Wait this turn?",
+            LuckShield: "Use Luck Shield and end turn?",
+            AI: "Switch automatic play?",
+        };
+        if (
+            labels[buttonName] &&
+            !(buttonName === "AI" && buttonState === VisibleButtonState.SECOND) &&
+            this.deferTouchAction(labels[buttonName], () => this.PropagateButtonClicked(buttonName, buttonState))
+        )
+            return;
+        this.CancelTouchAction();
         this.m_scene?.propagateButtonClicked(buttonName, buttonState);
     }
     public LoadGame(_restartScene = false): void {
+        this.CancelTouchAction();
         const SceneClass = this.sceneConstructor;
         if (!SceneClass) return;
 
@@ -1046,9 +1276,11 @@ export class PixiGameManager {
         }
     }
     public Delete(): void {
+        if (this.deferTouchAction("Remove selected stack?", () => this.Delete())) return;
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) this.m_scene.deleteObject();
     }
     public Split(newAmount: number): void {
+        if (this.deferTouchAction("Split selected stack?", () => this.Split(newAmount))) return;
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
             const isCloned = this.m_scene.cloneObject(newAmount);
             if (isCloned) {
@@ -1288,6 +1520,11 @@ export class PixiGameManager {
         );
     }
     public UpdateHoverInfo(): void {
+        if (
+            this.touchAction &&
+            (this.touchAction.scene !== this.m_scene || this.touchAction.key !== this.m_scene?.getTouchInteractionKey())
+        )
+            this.CancelTouchAction();
         if (this.sceneHasHoverInfo() && this.m_scene) {
             this.onHoverInfoUpdated.emit({
                 attackType: this.m_scene.sc_selectedAttackType,

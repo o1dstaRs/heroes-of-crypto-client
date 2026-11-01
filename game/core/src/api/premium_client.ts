@@ -56,8 +56,28 @@ export interface PremiumTurnAssessment {
 
 export interface PremiumTurnPreview extends PremiumTurnAdvice {
     gameId: string;
+    adviceId?: string;
+}
+export interface PremiumSetupComparison {
+    budget: number;
+    selected: { spent: number; remaining: number };
+    recommended: { spent: number; remaining: number };
+    changes: {
+        kind: string;
+        selectedLevel: number;
+        recommendedLevel: number;
+        pointChange: number;
+        selectedEffect: string;
+        recommendedEffect: string;
+        beneficiaries: string[];
+    }[];
+    publicOpponentArtifacts: { tier: number; id: number; name: string; effect: string }[];
+    caveat: string;
 }
 export interface PremiumAdvice {
+    gameId?: string;
+    adviceId?: string;
+    setupComparison?: PremiumSetupComparison;
     entitlement: { active: boolean; reason: string };
     stage?: "draft" | "setup" | "board" | "fight";
     revision: string;
@@ -88,3 +108,11 @@ export const applyPremium = async (
     operation: PremiumOperation,
 ): Promise<PremiumAdvice> =>
     (await axiosGameInstance.post<PremiumAdvice>(premiumUrl(gameId), { revision, operation })).data;
+
+export const reportPremiumAdviceView = async (
+    gameId: string,
+    adviceId: string,
+    signal?: AbortSignal,
+): Promise<void> => {
+    await axiosGameInstance.post(premiumUrl(gameId), { operation: "view", adviceId }, { signal });
+};

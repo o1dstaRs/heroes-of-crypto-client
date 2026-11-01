@@ -79,8 +79,8 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
         iconImage: images.doctrine_blind_fury,
         tagline: "Draft blind, field the strongest army",
         detail:
-            "You see none of the opponent's picks at any point. You draft entirely on your own plan and " +
-            "meet whatever they built on the board. Bans are revealed only as each creature level opens.",
+            "You see none of the opponent's picks in advance. You draft entirely on your own plan, " +
+            "without a draft-ban summary. Banned choices become unavailable only as each creature level opens.",
         budget: "All 7 upgrade points — the full budget, enough for two level-3 augments plus a level-1.",
         why:
             "Trades every scrap of information for raw army strength. Take it when you have a composition " +

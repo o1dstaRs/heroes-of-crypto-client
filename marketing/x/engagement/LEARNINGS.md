@@ -129,3 +129,81 @@ No new handles above the 1,000-follower floor appeared in this week’s Next Fes
 - What didn't work: the "player-facing change on a named unit" combination (Water Shield) did not beat plain dev-diaries: 13 views, no like. Posting stalled: Fri 11:48 missed, Fri 4:48 PM and Sat 6:48 AM blocked by X's phone-number check in the box browser, so tweet_count is still 172 and the account has been silent for ~27h.
 - What worked: nothing new; pick-your-side (16 views / 1 like / ER 0.0625) is still this week's best ER and Castling (25 views) the best non-pin reach.
 - Lesson: at ~13 views per post, single-post format tweaks (named unit, player-facing) don't move ER measurably; the account needs reach first (outreach replies, the still-empty outreach.csv) before format tests can be read. A posting outage costs more than any format choice, so clearing the X phone check is the top priority. Proposal for Stepan, not an edit.
+
+## 2026-10-25 (daily)
+
+- No new 24h windows because of the posting outage (5 slots missed Fri 23 to Sat 24). 7d snapshots for the Sun 18 posts and the Mon 19 question: Nature 18, Sun 18 question 15, plan unit 12, wounded-stack question 10 views, all 0 outside engagement, and each within 0 to 1 view of its 24h number. Followers 92 (flat, +1 over the week). Tactics replies 0, token replies 0; mentions since 23 Oct returned 0.
+- What didn't work: plain tactics and question posts have no long tail at all; 7d reach equals 24h reach. The outage meant a full day with no posts and the make-up post went out at 10 PM, when it has 9 views at ~12h.
+- What worked: Castling kept growing (25 to 28 views), the only non-pin post still adding views after day one. Pick-your-side (16 views / 1 like / ER 0.0625) stays the week's best ER.
+- Lesson: posts that name units and admit an error (Castling) keep collecting views after day one where plain lines stop; but at ~10 to 18 views per post, nothing has earned an outside reply in 11 days, so reach (outreach replies, still none posted) remains the blocker. Proposal for Stepan, not an edit.
+
+## 2026-10-26 (weekly)
+
+Weekly X research refresh (19–26 Oct 2026 PT). Read-only. About 27 public X API reads. Full report: research/2026-10-26-weekly.md (+ .html).
+
+### Market findings
+
+- Case studies: @Lavapotion's best was again video (swamp march 107 likes / 4,714 views https://x.com/Lavapotion/status/2113279271099597273), 3x to 4x its photo and link posts. @OverhypeStudios posted no originals since 15 Oct. @TeamWoodGames still dormant.
+- Small accounts broke out on format, not size: @SynthWave6666 (1,554, +14% in a week) character color-study + either/or question 2,483 / 16,620 views https://x.com/SynthWave6666/status/2112729249354248498 (their text-only wishlist asks got 25–31 likes); @WickedNightGame (1,940) combat pixel animation 654 / 17,074 https://x.com/WickedNightGame/status/2113993752394264762; @NextaleGames (1,228) "It's not Triangle Strategy, it's not FFT A2…" comparison video 199 / 6,174 https://x.com/NextaleGames/status/2112574563124920496, 10x their normal reach.
+- @Blindspot_Games hosted #TurnBasedThursday on 22 Oct: 52 replies https://x.com/Blindspot_Games/status/2113238941969330520. The host thread is the best weekly reply venue; @TurnBasedThurs (7,494) names the host on Wednesdays.
+- Quiet: @MightMagicGame (last original 15 Oct), @Unfrozen_Studio, @Wartales_Game, @shirogames, @Klukva_Games, @TerraRandoma.
+- Events: Next Fest 19–26 Oct (ends 26 Oct 10 AM PT) with an AI-demo-flood backlash; Final Fantasy Resonance launched 22 Oct (turn-based chatter, mostly personal/creator accounts); Culdcept BEGINS on Steam 28 Oct. US trends had no games. Astra + game: 929 posts in ~7 days (broader query than last week; still thin).
+- Caution: @AresRPG is pitched by creators as "browser-based, turn-based tactical" with AI agents and a token whitelist, our exact description with a token. Stay out of that conversation.
+
+### Our comparison
+
+- Followers 91 (92 most of the week, 91 on 19 Oct): flat. Pin 116 views / 2 likes. 17 of 21 slots posted (5 lost to X's phone check on 23–24 Oct), all text-only. 2 outside likes (Morale, pick-your-side), 0 outside replies, 0 tactics, 0 token. Castling (midday, named units, admitted error) is the best non-pin post at 29 views and still growing. outreach.csv empty two weeks running; no EXPERIMENTS.md arm has run.
+- Lesson: every peer breakout this week had an image or motion, and we posted no media at all after 17 Oct. Text dev-diaries earn the occasional like, but at 10–20 views there is nobody to reply. Reach (outreach + media) is the bottleneck, not slot or wording.
+
+### Proposed changes for Stepan (proposals only, no edits to XCOM.md / CALENDAR.md / IMAGES.md)
+
+1. Outreach: at least one posted outreach reply a day, logged in outreach.csv; first fixed target is the Thu 29 Oct #TurnBasedThursday host thread, with one real board image.
+2. Media: (a) a real recorded clip/GIF of one mechanic we already dev-diaried (Castling swap, Through Shot, shrinking board); (b) unit-portrait card + either/or question about that unit (SynthWave shape). Each as a 3-post EXPERIMENTS.md arm vs text-only.
+3. Calendar (current one ends 28 Oct): keep 3 slots, no question-only posts, midday = named-unit "we got it wrong" dev-diary, plus one true "If you played Heroes III…" comparison post a week (Nextale shape).
+4. Reply targets: prioritize @SynthWave6666, @WickedNightGame, @NextaleGames (board/mechanic posts only) and the weekly #TurnBasedThursday host; skip @AresRPG talk, FF Resonance personal accounts, @Conviction_SRPG non-SRPG promos, @secretdoor_dh giveaways.
+5. Profile (open since 14 Oct): drop "(HOCAI)", drop the 🟦, add the final period.
+6. Posting runs should ping Stepan right away when X shows a contact-confirmation prompt.
+
+### Routine target list additions
+
+- No new official game/studio accounts above 1,000 followers this week. Rejected: @IdleSloth84_ (40,783, creator), @turnbasedlovers and @ControlledPairs (curators), @solvictusig (226), @yokozunagames (23), @Still_Pulsing (85).
+- Priority while active: @SynthWave6666 (1,554), @WickedNightGame (1,940), @NextaleGames (1,228), the weekly #TurnBasedThursday host (this week @Blindspot_Games, 7,433).
+- Watch-only source (not a reply target): @TurnBasedThurs (7,494), for the Wednesday host announcement.
+
+## 2026-10-26 daily review
+
+- Worked: nothing new earned an outside reaction. The only ER above 0 among new snapshots is still the Morale "our own guide got it wrong" dev-diary (7d: 10 views, 1 like, ER 0.10); admitted-error posts remain the only text format with likes (Morale, pick-your-side were the two likes).
+- Didn't work: the three v0.1.7 patch-note dev-diaries (split-spellbook, Last Fuse, Farsight Quiver) all scored 13–17 views and ER 0 at 24h. "New in v0.1.7: <artifact>" reads like patch notes and draws no reply even with a direct play instruction.
+- Followers slipped 92 -> 91. With 0 outside replies in 12 days, this supports Monday's proposals (outreach replies and media) over more text-post wording changes.
+
+## 2026-10-27 daily review
+
+- Worked: Monday's three posts (barrels rule 17, area-shots dev-diary 20, plus Sunday's augment-draft 20 at 24h) were the best set of 24h reach since the Castling day, after moving away from "New in v0.1.7: <artifact>" posts. Today's anti-stall morale rule post has an outside like within 3 hours (8 views), the third text post with a like and the second about morale.
+- Didn't work: still 0 outside replies and 0 tactics replies (13 days running); every 24h ER in this batch is 0. Followers flat at 91.
+- Lesson: rule posts tied to a concrete board mechanic (barrels, area splash on big bodies, morale-as-movement) reach a bit more than artifact patch notes and morale keeps earning the only likes, but at ~20 views there's still nobody to reply. Reach (outreach replies and media, per the 26 Oct proposals) remains the blocker. Proposal for Stepan, not an edit.
+
+## 2026-10-28 daily review
+
+- Worked: the anti-stall morale rule post (Tue 27, morning) is the best new 24h snapshot: 16 views, 1 outside like, ER 0.0625. Morale is now the topic behind 2 of the 3 outside likes on non-pin posts since 14 Oct (Morale's admitted error and this one; the third is pick-your-side). The pick-your-side dev-diary held its like at 7d (18 views, ER 0.056).
+- Didn't work: the two "we got it wrong" dev-diaries from 26–27 Oct (stack-count 14 views, Wandering Mage 19 views) both scored ER 0 at 24h. Admitting an error no longer earns a like on its own; the earlier likes came from Morale's topic, not the framing.
+- Still 0 outside replies, 0 tactics replies, 0 token replies (14 days running); 7d tails on 21–22 Oct posts grew only +1 to +2 views. Followers flat at 91.
+- Lesson: morale-as-movement is the one topic that keeps drawing a like, so a follow-up morale angle is worth a slot; but at 14–21 views reach, not wording, is still the blocker. Outreach replies and media (26 Oct proposals) remain open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-10-29 daily review
+
+- Worked: the FIRE PIT lava map rule (Tue 27, evening) was the best new 24h snapshot at 18 views, and Castling's 7d reached 30 views, still the best non-pin post. The Water Shield fire-change post (Fri 23) grew 13 -> 19 by 7d, the biggest tail this batch.
+- Didn't work: the retaliation rule post (Wed 28, morning) got 9 views at 24h, the lowest since 19 Oct, and no like, even though it was a counterintuitive combat rule. The Tsar Cannon design call got 17 and ER 0. No new post earned a like; 0 outside replies and 0 tactics replies for 15 days running.
+- Lesson: topic, not framing, explains the few likes (morale), and a generic combat rule with no named unit or faction draws the weakest reach. Named units and map mechanics hold 17–30 views, but reach is still the blocker; the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-10-30 daily review
+
+- Worked: nothing new broke out. The Armageddon clock rule (Wed 28, evening) was the best new 24h snapshot at 15 views; the Satyr Helping Hand named-unit post got 14. Both ER 0.
+- Didn't work: the morale-from-movement follow-up (Thu 29, morning) got 9 views and no like, tying the lowest 24h since 19 Oct. The one-topic-draws-likes idea from 28 Oct didn't repeat; the two morning rule posts in a row (retaliation, morale follow-up) both sit at 9 views. 0 outside replies, 0 tactics replies for 16 days running. Followers flat at 91.
+- Lesson: morale alone doesn't carry a post; the morning slot has now posted the two lowest 24h numbers this week, while evening and midday posts hold 14–18. With reach at 9–20 views, wording tweaks can't be told apart from noise; the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-10-31 daily review
+
+- Worked: the Gravechain cursed-artifact trade-off post (Fri 30, midday) was the best new 24h snapshot at 20 views, matching the top midday numbers this week. Framing an artifact as a cost-vs-payoff choice instead of "New in v0.1.7" held midday reach, but still ER 0.
+- Didn't work: the doctrines draft rule (Fri 30, morning make-up) got 12 views and ER 0. 7d tails were flat: Sat 24 make-up 13 -> 14, Sun 25 Last Fuse 17 -> 18.
+- 0 outside replies, 0 tactics replies, 0 token replies for 17 days running; no mentions since 29 Oct. Followers flat at 91.
+- Lesson: the morning slot has now posted the lowest 24h number three days running (9, 9, 12) while midday holds 14–20, so the morning gap is starting to look like slot, not topic. Keep collecting through next week before proposing a slot move; reach (not wording) is still the blocker and the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.

@@ -472,6 +472,12 @@ export class UnitsOverlay {
         }
         return ordered;
     }
+    public selectCreatureByName(name: string): boolean {
+        const chip = this.allChips.find((candidate) => candidate.nameKey === name);
+        if (!chip) return false;
+        this.selectChip(chip);
+        return true;
+    }
     private selectChip(chip: UnitChip): void {
         const unitName = chip.nameKey;
         const next = this.selectedName === unitName ? null : unitName;

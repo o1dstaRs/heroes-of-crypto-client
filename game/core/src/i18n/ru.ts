@@ -4,7 +4,44 @@
  * here — v1 localizes the pick-phase and in-game interface chrome.
  */
 export const RU_TRANSLATIONS: Record<string, string> = {
+    "Start a new battle?": "Начать новый бой?",
+    "Use Luck Shield and end turn?": "Сбросить удачу и завершить ход?",
     "Split amount": "Размер отделяемого отряда",
+    "Decrease split amount": "Уменьшить отделяемый отряд",
+    "Increase split amount": "Увеличить отделяемый отряд",
+    "Swipe to wipe away the blood": "Смахните кровь пальцем",
+    "Battle controls": "Управление боем",
+    Unit: "Отряд",
+    "Army & log": "Армия и журнал",
+    Inspect: "Осмотр",
+    "Zoom out": "Уменьшить",
+    "Zoom in": "Увеличить",
+    "Fit battlefield": "Всё поле",
+    Fit: "Поле",
+    "Confirm battle action": "Подтверждение действия",
+    "Turn actions": "Действия хода",
+    "Army & placement": "Армия и расстановка",
+    "Tap a stack, then its destination. Pinch to zoom.": "Выберите отряд, затем клетку. Масштаб — двумя пальцами.",
+    "Rotate spell": "Повернуть заклинание",
+    Rotate: "Поворот",
+    Deselect: "Снять выбор",
+    "Prepare your army": "Подготовьте армию",
+    "Confirm action": "Подтвердить действие",
+    "Cast spell": "Применить заклинание",
+    "Place here": "Разместить здесь",
+    "Start battle?": "Начать бой?",
+    "End turn?": "Завершить ход?",
+    "Wait this turn?": "Подождать в этом ходу?",
+    "Defend this turn?": "Защищаться в этом ходу?",
+    "Switch automatic play?": "Переключить автобой?",
+    "Remove selected stack?": "Удалить выбранный отряд?",
+    "Split selected stack?": "Разделить выбранный отряд?",
+    "Ready placement?": "Завершить расстановку?",
+    "Auto: on": "Авто: вкл.",
+    "Auto: off": "Авто: выкл.",
+    Armies: "Армии",
+    "Creature level": "Уровень существа",
+
     Normal: "Обычная",
     Barrels: "Бочки",
     "Temporary: {duration} total, {time} remaining. Automatically ends {date}.":
@@ -586,8 +623,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются. Все баны драфта видны заранее.",
     "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance. The map is revealed with your starting bundle choices.":
         "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее. Карта открывается вместе с вариантами стартового бандла.",
-    "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board. Bans are revealed only as each creature level opens.":
-        "Вы не видите ни одного выбора противника. Стройте драфт только вокруг своего плана и узнайте его состав уже на поле. Баны открываются только по мере появления выбора каждого уровня существ.",
+    "You see none of the opponent's picks in advance. You draft entirely on your own plan, without a draft-ban summary. Banned choices become unavailable only as each creature level opens.":
+        "Вы заранее не видите выборов противника и строите драфт вокруг своего плана. Сводки банов нет; забаненные варианты становятся недоступны лишь при открытии соответствующего уровня существ.",
     "Only revealed bans are shown.": "Показаны только уже раскрытые баны.",
     "Bans are revealed when each creature level opens.":
         "Баны открываются по мере появления выбора каждого уровня существ.",

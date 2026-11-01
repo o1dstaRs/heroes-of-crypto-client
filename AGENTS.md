@@ -59,6 +59,13 @@ Use **`bun fmt`**, not a separate Prettier invocation, for formatting. Run it on
 formatting stays targeted. Use `bun fmt --no-script --check <paths>` for a read-only formatting check;
 the repository's lint/check commands remain the validation gate. Do not format a peer's in-flight files.
 
+Core tests run in isolated worker processes: up to 12 locally and 2 on CI. Run `bun run test:core` for
+the full suite; its timing profile schedules slow files first without limiting test discovery. To collect
+fresh per-file timings, use `bun run test:core --timings tmp/core-test-timings.json --update-timings`.
+Keep profiling output in `game/core/tmp`; only deliberately update `game/core/scripts/test_timings.json`
+when changing the scheduling profile. Animation tests should advance a controlled clock instead
+of sleeping through real animation time.
+
 ## Before you push
 
 ### Sync with the remote first — always

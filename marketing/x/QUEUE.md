@@ -5,7 +5,7 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 ## Next up
 
 - **Story arc:** pin (#1), queue tactics (#2), origin (#3), edge (#4), board-flash fix (#7) and Through Shot (#8, Sat 6:56 AM) done. Next story is STORY.md #5 why the board shrinks (waiting on Stepan to confirm narrowing's origin); #6, #9, #10 also need his facts — skip crypto chapter (#9) and then-and-now (#6) until Stepan answers open questions.
-- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Wed 28 No Melee went out Tue 11:52 AM. The calendar is used up: fill slots with dev-diary / story beats from git (LEARNINGS: only story posts earn likes so far) and tactics questions. Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Replay board fix (6add5ffe) went out Tue 4:53 PM. Replay log/stats fix (166ae50f) went out Wed 11:55 AM. Tsar Cannon free-aim fix (22146dfa) went out Wed 4:54 PM. Pick-your-side mirrored board (135277b4) went out Thu 22 6:57 AM. Castling dev-diary (64837a49/bce205b7/45d149fb) went out Thu 22 11:59 AM. Live-aim dev-diary (v0.1.7, a4301daf/458fcaea/eaa4248e) went out Thu 22 4:50 PM. Water Shield fire change (ffc59ba2) went out Fri 23 6:53 AM. Split-spellbook change (bc03c968) went out Sat 24 10:03 PM as make-up after X's phone modal blocked 5 slots (Fri 11:48 AM to Sat 4:48 PM). Next dev-diary candidates: other v0.1.7 items (split copies spellbook/quiver, Last Fuse artifact) are also usable. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
+- **Calendar:** Chaos (Fri 16) went out Thu 4:48 PM slot; the edge (Sat 17 / STORY #4) went out Fri 6:57 AM. Life (Mon 19) went out Fri 4:58 PM slot. Crowd (Tue 20) went out Sat 11:59 AM. Might (Wed 21) went out Sat 4:52 PM. Plan unit (Thu 22) went out Sun 11:51 AM. Nature (Fri 23) went out Sun 4:55 PM. Sun 25 question went out Mon 6:54 AM. Mon 26 first turn went out Mon 11:56 AM. Tue 27 second attacker went out Tue 6:55 AM. Wed 28 No Melee went out Tue 11:52 AM. The calendar is used up: fill slots with dev-diary / story beats from git (LEARNINGS: only story posts earn likes so far) and tactics questions. Mon 19 evening slot went to a Morale dev-diary (commit e8e47f7c). Replay board fix (6add5ffe) went out Tue 4:53 PM. Replay log/stats fix (166ae50f) went out Wed 11:55 AM. Tsar Cannon free-aim fix (22146dfa) went out Wed 4:54 PM. Pick-your-side mirrored board (135277b4) went out Thu 22 6:57 AM. Castling dev-diary (64837a49/bce205b7/45d149fb) went out Thu 22 11:59 AM. Live-aim dev-diary (v0.1.7, a4301daf/458fcaea/eaa4248e) went out Thu 22 4:50 PM. Water Shield fire change (ffc59ba2) went out Fri 23 6:53 AM. Split-spellbook change (bc03c968) went out Sat 24 10:03 PM. Last Fuse artifact (v0.1.7) went out Sun 25 6:57 AM as make-up after X's phone modal blocked 5 slots (Fri 11:48 AM to Sat 4:48 PM). Farsight Quiver artifact (v0.1.7) went out Sun 25 11:53 AM. Augment-draft visibility (v0.1.7, see opponent's drafted artifacts) went out Sun 25 4:52 PM; vary away from artifact posts next. Barrels tactics post (rules page: shots stop at barrels, Cyclops/Gargantuan fly over) went out Mon 26 6:59 AM. Area shots / large bodies dev-diary (v0.1.7, f7e82e9c/30e6fef0) went out Mon 26 11:57 AM; Stack-count "we got it wrong" dev-diary (a0faaf59/d7f7a586) went out Mon 26 4:51 PM. Anti-stall morale-into-movement rule (rules page) went out Tue 27 7:02 AM. Wandering Mage empty-spellbook dev-diary (e91334ec/3b83c298) went out Tue 27 11:57 AM; Wandering Mage/Fireball is now used. FIRE PIT lava map rule went out Tue 27 5:00 PM; lava/Efreet/Lava Striders now used. Retaliation/counter-shot rule went out Wed 28 6:58 AM; retaliation and counter-shot now used. Tsar Cannon can't-be-resurrected design call (abbf9644) went out Wed 28 11:51 AM; Mechanism/resurrection now used. Armageddon waves clock went out Wed 28 4:58 PM; Armageddon now used. Satyr Helping Hand (04545dbd) went out Thu 29 11:57 AM; Helping Hand now used. Gravechain cursed artifact went out Fri 30 11:50 AM; Gravechain now used. Angel corpse-pose fix (4addc6ac) went out Sat 31 11:56 AM; Angel self-resurrection now used. Unused rules-page topics: map reveal timing by scouting choice (Scout/Spymaster/Battle Trance), Hourglass/Defend costs (turn-order went out Fri 30 4:53 PM; ranked turn clock went out Sat 31 6:51 AM, turn timer now used). Next dev-diary candidates: other v0.1.7 items (remaining v0.1.7 artifacts: Aegis of the Arcane, Tome of Amplification, Rime Charm; Quiver of Echoes went out Sat 31 4:58 PM) are usable; unreleased post-v0.1.7 commits (Petrifying Gaze preview 7d5f8423, Fireball first-cell fix c88a7742) wait until they reach patch notes. Sun 18 question went out on its own Sun 6:58 AM (STORY #5 will need a new reply line).
 
 ## Today 2026-10-15 (Thu)
 
@@ -54,6 +54,12 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 2026-10-22 16:50 | evening | story-devdiary | https://x.com/Heroes0fcrypto/status/2113417759832838360 | Live-aim dev-diary (a4301daf/458fcaea/eaa4248e), text-only. Reply https://x.com/Heroes0fcrypto/status/2113417854838030429 |
 | 2026-10-23 06:53 | morning | story-devdiary | https://x.com/Heroes0fcrypto/status/2113629959646503249 | Water Shield fire dev-diary (ffc59ba2), text-only. Reply https://x.com/Heroes0fcrypto/status/2113630011953647671 |
 | 2026-10-24 22:03 | late/make-up | story-devdiary | https://x.com/Heroes0fcrypto/status/2114221184820949464 | Split-spellbook dev-diary (bc03c968, v0.1.7), text-only; make-up for 5 missed slots. Reply https://x.com/Heroes0fcrypto/status/2114221234204655790 |
+| 2026-10-25 06:57 | morning | story-devdiary | https://x.com/Heroes0fcrypto/status/2114355783316234718 | Last Fuse artifact dev-diary (v0.1.7), text-only. Reply https://x.com/Heroes0fcrypto/status/2114355969702690993 |
+| 2026-10-25 11:53 | midday | story-devdiary | https://x.com/Heroes0fcrypto/status/2114430258531491882 | Farsight Quiver artifact dev-diary (v0.1.7), text-only. Reply https://x.com/Heroes0fcrypto/status/2114430323241234683 |
+| 2026-10-25 16:52 | evening | story-devdiary | https://x.com/Heroes0fcrypto/status/2114505340717052321 | Augment draft shows opponent's artifacts (v0.1.7), text-only. Reply https://x.com/Heroes0fcrypto/status/2114505421713244429 |
+| 2026-10-26 06:59 | morning | tactics-rule | https://x.com/Heroes0fcrypto/status/2114718534668542221 | Barrels and blocked lanes (rules page), text-only. Reply https://x.com/Heroes0fcrypto/status/2114718707692052879 |
+| 2026-10-26 11:57 | midday | story-devdiary | https://x.com/Heroes0fcrypto/status/2114793490165190817 | Area shots and large bodies (v0.1.7, f7e82e9c/30e6fef0), text-only. Reply https://x.com/Heroes0fcrypto/status/2114793676715311456 |
+| 2026-10-26 16:51 | evening | story-devdiary | https://x.com/Heroes0fcrypto/status/2114867543634801055 | Stack count held until damage numbers land (v0.1.7, a0faaf59/d7f7a586), text-only. Reply https://x.com/Heroes0fcrypto/status/2114867582968996102 |
 
 ## Today 2026-10-22 (Thu)
 
@@ -119,3 +125,59 @@ Updated by xcom. Slot times (PT): 6:48 AM, 11:48 AM, 4:48 PM.
 | 11:48 AM | Carry over: split stacks keep a full spellbook (bc03c968), still sitting in the compose box. | missed — blocked 11:56 AM by "Review your phone" modal; post published later as make-up Sat 10:03 PM |
 | 4:48 PM | Carry over: split stacks keep a full spellbook (bc03c968), still in the compose box. | missed — blocked 4:53 PM by "Review your phone" modal; post published later as make-up Sat 10:03 PM |
 | 10:03 PM (make-up) | Split stacks keep a full spellbook (bc03c968, v0.1.7), text-only, reply with stack-power caveat + question + play link. Published after Stepan approved clearing X's phone modal (5 slots missed: Fri 11:48 AM through Sat 4:48 PM). | done — https://x.com/Heroes0fcrypto/status/2114221184820949464 |
+
+## Today 2026-10-25 (Sun)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Dev-diary: Last Fuse artifact (v0.1.7 patch notes), text-only. Reply with chain + caveats + question + play link. | done — https://x.com/Heroes0fcrypto/status/2114355783316234718 |
+| 11:48 AM | Dev-diary: Farsight Quiver artifact (v0.1.7 patch notes), text-only. Reply with Longbow/Sniper note + question + play link. | done — https://x.com/Heroes0fcrypto/status/2114430258531491882 |
+| 4:48 PM | Dev-diary: augment draft now shows the other player's drafted artifacts (v0.1.7 patch notes), text-only. Reply with question + play link. | done — https://x.com/Heroes0fcrypto/status/2114505340717052321 |
+
+## Today 2026-10-26 (Mon)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Tactics rule: barrels block ordinary shots; Cyclops and Gargantuan fly over and smash them (rules page), text-only. Reply with question + play link. | done — https://x.com/Heroes0fcrypto/status/2114718534668542221 |
+| 11:48 AM | Dev-diary (not an artifact): v0.1.7 area shots land on first cell of a large body, Area Throw damage at impact, Cyclops multi-kill burst (30e6fef0, f7e82e9c), text-only. Reply with question + play link. | done — https://x.com/Heroes0fcrypto/status/2114793490165190817 |
+| 4:48 PM | "We got it wrong" dev-diary: stack count dropped before its damage number showed; fixed in v0.1.7 (a0faaf59, d7f7a586), text-only. Reply with queued-hits follow-up + play link. | done — https://x.com/Heroes0fcrypto/status/2114867543634801055 |
+
+## Today 2026-10-27 (Tue)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Tactics rule: in a stalled fight morale turns into movement (rules page), text-only. Reply with faction morale + Chaos question + play link. | done — https://x.com/Heroes0fcrypto/status/2115081431747879374 |
+| 11:48 AM | Admitted-error / named-unit dev-diary: Wandering Mage (ex-Ash Moth) once shipped with an empty spellbook; Fireball has its own icon now (e91334ec, 90fe4617, 3b83c298), text-only. Reply with aimed-stack note + question + play link. | done — https://x.com/Heroes0fcrypto/status/2115155404854645007 |
+| 4:48 PM | Map rule: FIRE PIT lava (walkers blocked, flyers over, Efreet/Lava Striders walk through for Made of Fire +10% 2 laps; map known before Level-3 pick), text-only. Reply with full bonus list + question + play link. | done — https://x.com/Heroes0fcrypto/status/2115231716768198781 |
+
+## Today 2026-10-28 (Wed)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Combat rule: retaliation lands before your blow; once per lap, spent on a miss; Stunned/Blinded/Frozen can't answer (rules page), text-only. Reply with shooter counter-shot rule + question + play link. | done — https://x.com/Heroes0fcrypto/status/2115443065137832283 |
+| 11:48 AM | Design-call dev-diary: Tsar Cannon / Mechanism units can't be resurrected (abbf9644, fa6dc6f4), text-only. Reply with Mechanism trade-offs + question + play link. | done — https://x.com/Heroes0fcrypto/status/2115516730055512440 |
+| 4:48 PM | Rules topic: Armageddon waves clock (laps 12-15, 25/50/75/100%, lap 15 draw), text-only. Reply with dead-bodies + Water Shield note + question + play link. | done — https://x.com/Heroes0fcrypto/status/2115594068449546381 |
+
+## Today 2026-10-29 (Thu)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Morale follow-up rule: moving closer to the enemy centre +3, farther -3, sideways counts (rules page), text-only. Reply with roll/kill/Wait/Defend costs + question + play link. Move-morale and the Exact morale changes table are now used. | done — https://x.com/Heroes0fcrypto/status/2115803360863617425 |
+| 11:48 AM | Named-unit dev-diary: Satyr's Helping Hand (30% max health and base armor for 3 laps, Satyr pays the same; golden link since v0.1.7, either death ends it; 04545dbd), text-only. Reply with can't-target + Tome note + question + play link. Helping Hand now used. | done — https://x.com/Heroes0fcrypto/status/2115880761203249344 |
+| 4:48 PM | Rules topic: doctrines trade scouting for augment points (Spymaster 5 / Scout 6 / Battle Trance 7; map reveal timing in reply; RulesPage.astro doctrines + map lines), text-only. Reply with map timing + ban summary + question + play link. Text in box /workspace/post_1648_thu29.txt and reply_1648_thu29.txt. Doctrines/map reveal now used. | missed — handoff never published; went out as Fri 30 6:52 AM make-up |
+
+## Today 2026-10-30 (Fri)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Make-up for Thu 4:48 PM: doctrines trade scouting for augment points (Spymaster 5 / Scout 6 / Battle Trance 7), text-only. Reply with map timing + ban summary + question + play link. Doctrines/map reveal now used. | done — https://x.com/Heroes0fcrypto/status/2116166252981100727 |
+| 11:48 AM | Design trade-off: Gravechain cursed artifact (own army -1 movement step; each landed hit rolls 50% per enemy along up to 3 touching links, -25% movement 3 laps; v0.1.7 patch notes + artifacts.ts), text-only. Reply with retaliation/luck + Tier 2 exclusivity + question + play link. Gravechain now used. | done — https://x.com/Heroes0fcrypto/status/2116241343542649135 |
+| 4:48 PM | Turn-order rule (armies alternate one stack at a time by initiative; extra stacks go back to back), text-only. Reply with Morale/Dismorale/Hourglass order + lap-one starter + split question + play link. Turn order now used. | done — https://x.com/Heroes0fcrypto/status/2116317576951431634 |
+
+## Today 2026-10-31 (Sat)
+
+| Slot (PT) | Plan | Status |
+| --- | --- | --- |
+| 6:48 AM | Rules topic: ranked turn clock (4-minute army budget per lap, 60 s per turn, 12 s kept per stack, extra time once per lap), text-only. Reply with first-miss Hourglass/Luck Shield + morale + question + play link. Turn timer now used. | done — https://x.com/Heroes0fcrypto/status/2116528530863665247 |
+| 11:48 AM | Named-unit dev-diary: Angel self-resurrection could leave risen Angels frozen in their death pose; fixed in v0.1.7 (4addc6ac), text-only. Reply with no-rise exceptions + casting spends self-rise + kill-order question + play link. Corpse-pose fix and Angel self-resurrection now used. | done — https://x.com/Heroes0fcrypto/status/2116605160042705365 |
+| 4:48 PM | Design trade-off: Quiver of Echoes (40% + luck extra full-strength volley; Gargantuan throws three times; one Tier 2 artifact per army), text-only. Reply with luck 47% + Tier 2 exclusivity + question + play link. Quiver of Echoes now used. | done — https://x.com/Heroes0fcrypto/status/2116681340733263965 (reply 2116681463664198041 went out garbled; delete/repost awaits Stepan) |

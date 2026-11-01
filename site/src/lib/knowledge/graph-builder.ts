@@ -1289,13 +1289,13 @@ function formulaSpecs(): FormulaSpec[] {
             summaryRu: "Какие существа банятся перед драфтом и как работает ваше одно предпочтение бана в рейтинге.",
             text: bullet([
                 "Before every draft the game automatically bans 6 level-1, 6 level-2, 3 level-3 and 5 level-4 creatures; bundle creatures are never auto-banned.",
-                "Scout and Spymaster see all draft bans as soon as their doctrine is chosen. Battle Trance sees bans only as each creature level opens. Public observers always receive only bans for levels already opened, regardless of either player's doctrine; hidden bans are omitted by the server.",
+                "Only Scout and Spymaster see the complete draft-ban summary above the choices as soon as their doctrine is chosen. Battle Trance has no ban strip; banned choices become unavailable only when their creature level opens. Public observers always receive only bans for levels already opened, regardless of either player's doctrine; hidden bans are omitted by the server.",
                 "In the ranked lobby you can save one ban preference beforehand. It adds at most one shared extra ban per match (the same unit from both players is one ban; two different ones are settled by the match) and never replaces an auto-ban. You can't ban during the draft itself.",
                 "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft; after 25 tries the ban is skipped for that match. If the auto-bans already removed it, nothing further is banned.",
             ]),
             textRu: bullet([
                 "Перед каждым драфтом игра автоматически банит 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня; существ из бандлов автобан не трогает.",
-                "Scout и Spymaster видят все баны сразу после выбора доктрины. Battle Trance видит баны по мере открытия выбора каждого уровня существ. Публичные наблюдатели всегда получают только баны уже открытых уровней независимо от доктрин игроков; скрытые баны сервер не отправляет.",
+                "Только Scout и Spymaster видят полную сводку банов над вариантами выбора сразу после выбора доктрины. У Battle Trance нет полосы банов; забаненные варианты недоступны лишь при открытии соответствующего уровня. Публичные наблюдатели всегда получают только баны уже открытых уровней независимо от доктрин игроков; скрытые баны сервер не отправляет.",
                 "В рейтинговом лобби можно заранее сохранить одно предпочтение бана. Оно добавляет не больше одного общего дополнительного бана на матч (один и тот же юнит у обоих игроков — один бан; два разных решает матч) и не заменяет автобан. Во время самого драфта банить нельзя.",
                 "Дополнительный бан применяется только к драфтовому юниту и только если на его уровне остаются минимум два небандловых варианта. Если этот юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт; после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
             ]),
@@ -1967,12 +1967,16 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     for (const doctrine of DOCTRINE_LIST) {
         // common's doctrine descriptions are English only; the Russian is built from the same data.
         const points = `${doctrine.upgradePoints} ${pluralRu(doctrine.upgradePoints, ["очко", "очка", "очков"])} апгрейдов`;
+        const description =
+            doctrine.revealMode === "none"
+                ? `See none of the opponent's picks in advance and no draft-ban summary. Banned choices become unavailable only when their level opens. Grants ${doctrine.upgradePoints} upgrade points.`
+                : doctrine.description;
         const descriptionRu =
             doctrine.revealMode === "all"
                 ? `Показывает все выборы соперника во время драфта и заранее все баны. Карта известна уже при выборе стартового бандла. Даёт ${points}.`
                 : doctrine.revealMode === "random3"
                   ? `Открывает выборы соперника в 3 случайных слотах его армии и заранее все баны. Даёт ${points}.`
-                  : `Не показывает ни одного выбора соперника. Баны открываются по мере появления выбора каждого уровня существ. Даёт ${points}.`;
+                  : `Не показывает выборы соперника заранее, сводки банов нет. Забаненные варианты недоступны лишь при открытии соответствующего уровня. Даёт ${points}.`;
         const revealDetail =
             doctrine.revealMode === "all"
                 ? {
@@ -1997,20 +2001,20 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             aliases: [`${doctrine.name} doctrine`],
             href: knowledgePath("en", { section: "rules", entry: "rules-doctrines" }),
             hrefRu: knowledgePath("ru", { section: "rules", entry: "rules-doctrines" }),
-            summary: doctrine.description,
+            summary: description,
             summaryRu: descriptionRu,
             text: [
-                `**${doctrine.name}** is a draft doctrine, the first pick-phase choice made simultaneously by both players.`,
-                doctrine.description,
-                `Reveal mode: ${doctrine.revealMode === "all" ? "see all of the opponent's picks" : doctrine.revealMode === "random3" ? "3 random opponent slots are revealed" : "nothing is revealed"}. Augment points: ${doctrine.upgradePoints}.`,
+                `**${doctrine.name}** is a draft doctrine chosen in the lobby before starting a match. It locks when the draft begins.`,
+                description,
+                `Reveal mode: ${doctrine.revealMode === "all" ? "see all of the opponent's picks" : doctrine.revealMode === "random3" ? "3 random opponent slots are revealed" : "no opponent slots are watched in advance"}. Augment points: ${doctrine.upgradePoints}.`,
                 revealDetail.en,
                 "A creature you see in a watched slot is unavailable to you — no creature is drafted twice — and under any doctrine, trying an opponent's hidden pick is refused, reveals that slot and sends you back to pick again.",
                 "More vision costs points: the less you see of the opponent's draft, the larger your augment budget.",
             ].join("\n\n"),
             textRu: [
-                `**${ruLabel(doctrine.name)}** — доктрина драфта, первый выбор фазы пиков, который оба игрока делают одновременно.`,
+                `**${ruLabel(doctrine.name)}** — доктрина драфта. Выберите её в лобби до начала матча; при старте драфта выбор фиксируется.`,
                 descriptionRu,
-                `Режим раскрытия: ${doctrine.revealMode === "all" ? "видны все пики соперника" : doctrine.revealMode === "random3" ? "раскрываются 3 случайных слота соперника" : "ничего не раскрывается"}. Очки апгрейдов: ${doctrine.upgradePoints}.`,
+                `Режим раскрытия: ${doctrine.revealMode === "all" ? "видны все пики соперника" : doctrine.revealMode === "random3" ? "раскрываются 3 случайных слота соперника" : "заранее не отслеживается ни один слот"}. Очки апгрейдов: ${doctrine.upgradePoints}.`,
                 revealDetail.ru,
                 "Существо, которое вы видите в отслеживаемом слоте, для вас недоступно — дважды существо не драфтится, — а при любой доктрине попытка взять скрытый пик соперника отклоняется, раскрывает этот слот и возвращает вас к выбору.",
                 "Обзор стоит очков: чем меньше вы видите драфт соперника, тем больше бюджет апгрейдов.",

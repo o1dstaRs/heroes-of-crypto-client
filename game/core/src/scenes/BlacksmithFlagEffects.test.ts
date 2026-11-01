@@ -28,6 +28,7 @@ function fixture() {
                 ]),
         },
         sc_sceneSettings: { getGridSettings: () => ({}) },
+        texAny: () => undefined,
         scheduleSceneTimeout: (callback: () => void, delay: number) => scheduled.push({ callback, delay }),
         combatVisuals: {
             prepareCommonFlagPop: (kind: string) => prepared.push(kind),

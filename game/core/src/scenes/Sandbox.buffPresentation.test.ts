@@ -64,14 +64,22 @@ for (const [school, name, generic] of [
     });
 }
 
-test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confirmed enchantment", (name) => {
+test.each([
+    ["Armor Rune", true],
+    ["Armor Rune", false],
+    ["Weapon Rune", true],
+    ["Weapon Rune", false],
+] as const)("AI and Premium %s casts show the confirmed increment (success: %s)", (name, success) => {
     const unit = {
         isDead: () => false,
         getVisualCenter: () => ({ x: 128, y: 64 }),
+        getFlagEffectAnchor: () => ({ x: 128, y: 96 }),
         flashBuffApplied: mock(() => undefined),
     };
     const units = new Map([["ally", unit]]);
     const spawnCommonFlagPop = mock(() => undefined);
+    const spawnEnchantResult = mock(() => undefined);
+    const showCraftFail = mock(() => undefined);
     const events: GameEvent[] = [
         {
             type: "spell_cast",
@@ -79,7 +87,9 @@ test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confi
             spellName: name,
             unitIdsDied: [],
             animations: [],
-            outcomes: [{ unitId: "ally", outcome: "enchanted", amount: 2 }],
+            outcomes: [
+                { unitId: "ally", outcome: success ? "enchanted" : "failed", ...(success ? { amount: 3 } : {}) },
+            ],
         },
     ];
     const scene = Object.assign(Object.create(Sandbox.prototype), {
@@ -90,14 +100,25 @@ test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confi
         shouldDeferActionToAuthoritativeReplay: () => false,
         sc_sceneSettings: { getGridSettings: () => gridSettings },
         texAny: () => Texture.WHITE,
-        combatVisuals: { spawnCommonFlagPop },
+        combatVisuals: { spawnCommonFlagPop, spawnEnchantResult, showCraftFail },
     }) as { applyGameAction(action: GameAction): boolean };
     expect(scene.applyGameAction({ type: "cast_spell", casterId: "caster", targetId: "ally", spellName: name })).toBe(
         true,
     );
-    expect(spawnCommonFlagPop).toHaveBeenCalledWith(
-        unit,
-        name === "Armor Rune" ? "blacksmith_armor" : "blacksmith_weapon",
+    expect(spawnEnchantResult).toHaveBeenCalledWith(
+        { x: 128, y: 64 },
+        gridSettings.getCellSize(),
+        expect.objectContaining({
+            success,
+            label: `+${success ? 1 : 0} ${name === "Armor Rune" ? "armor" : "attack"}`,
+        }),
     );
-    expect(unit.flashBuffApplied).toHaveBeenCalledTimes(1);
+    expect(unit.flashBuffApplied).toHaveBeenCalledTimes(success ? 1 : 0);
+    expect(spawnCommonFlagPop).toHaveBeenCalledTimes(success ? 1 : 0);
+    if (success)
+        expect(spawnCommonFlagPop).toHaveBeenCalledWith(
+            unit,
+            name === "Armor Rune" ? "blacksmith_armor" : "blacksmith_weapon",
+        );
+    expect(showCraftFail).toHaveBeenCalledTimes(success ? 0 : 1);
 });
