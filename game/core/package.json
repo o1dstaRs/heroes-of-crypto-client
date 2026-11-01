@@ -49,7 +49,7 @@
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "react-is": "^19.3.0",
-        "react-router": "8.4.0",
+        "react-router": "8.5.0",
         "sass": "^1.105.1",
         "sort-package-json": "4.0.0",
         "typed-signals": "^3.0.0",
