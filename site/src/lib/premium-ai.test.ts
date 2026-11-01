@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { premiumAiBody, readPremiumLibrarySearch, type PremiumAiSelection } from "./premium-ai";
+import { premiumAiBody, readPremiumLibrarySearch, samePremiumSelection, type PremiumAiSelection } from "./premium-ai";
 import { renderPremiumAiEvidence } from "./premium-ai-panel";
 import { renderMarkdown } from "./markdown-lite";
 
@@ -23,6 +23,45 @@ const response = (events: [string, unknown][]) => {
 };
 const meta = { mode: "premium", evidenceAvailable: true, library: selection };
 describe("Premium website AI data boundary", () => {
+    test("supports general Premium advice without inventing a dataset selection", async () => {
+        expect(premiumAiBody(" Explain Blacksmith ", "en", undefined, [])).toEqual({
+            mode: "premium",
+            question: "Explain Blacksmith",
+            lang: "en",
+            history: [],
+        });
+        expect(samePremiumSelection(undefined, undefined)).toBe(true);
+        expect(samePremiumSelection(undefined, selection)).toBe(false);
+        expect(
+            await readPremiumLibrarySearch(
+                response([
+                    ["meta", { mode: "premium", context: "general", evidenceAvailable: false }],
+                    ["done", { answer: "Rules-based advice.", sources: [] }],
+                ]),
+                undefined,
+                () => {},
+            ),
+        ).toBe("Rules-based advice.");
+    });
+    test.each([
+        { mode: "public", context: "general" },
+        { mode: "premium", context: "match" },
+        { mode: "premium" },
+        { mode: "premium", context: "general", library: selection },
+    ])("rejects a different advice scope in general mode %#", async (bad) => {
+        let emitted = false;
+        await expect(
+            readPremiumLibrarySearch(
+                response([
+                    ["meta", bad],
+                    ["done", { answer: "Wrong scope." }],
+                ]),
+                undefined,
+                () => (emitted = true),
+            ),
+        ).rejects.toThrow();
+        expect(emitted).toBe(false);
+    });
     test("sends only selected scope and bounded follow-up history", () => {
         const body = premiumAiBody(
             "  Why this pair? ",
