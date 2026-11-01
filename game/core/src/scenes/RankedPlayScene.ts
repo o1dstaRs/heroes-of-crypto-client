@@ -997,7 +997,13 @@ const getUnitPropertiesFromAuthoritativeState = (
                             if (ability.name === AllAbilities.CHAKRAM_ABILITY_NAME) {
                                 return {
                                     ...ability,
-                                    description: AllAbilities.chakramDescription(template, liveStackPower),
+                                    description: AllAbilities.chakramDescription(
+                                        template,
+                                        liveStackPower,
+                                        ((HoCConfig.getAbilityConfig(ability.name).power + unitState.luck) *
+                                            liveStackPower) /
+                                            HoCConstants.MAX_UNIT_STACK_POWER,
+                                    ),
                                 };
                             }
                             // Magic Reflection scales with the stack and the holder's luck, but the config

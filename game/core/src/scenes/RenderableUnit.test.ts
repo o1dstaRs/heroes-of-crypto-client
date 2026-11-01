@@ -7991,11 +7991,11 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         );
     });
 
-    test("replaces Chakram's total-target limit at every stack tier", () => {
+    test("replaces Chakram's target limit and damage percentages at every stack tier", () => {
         for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
             const effectFactory = new EffectFactory();
             const base = Unit.createUnit(
-                HoCConfig.getCreatureConfig(TeamVals.LEFT, "Might", "Zena", "zena_512", 1),
+                { ...HoCConfig.getCreatureConfig(TeamVals.LEFT, "Might", "Zena", "zena_512", 1), luck: 0 },
                 gridSettings,
                 TeamVals.LEFT,
                 UnitVals.CREATURE,
@@ -8010,6 +8010,12 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
             const properties = unit.getUnitProperties();
             const index = properties.abilities.indexOf("Chakram");
             expect(properties.abilities_descriptions[index]).toContain(`Maximum targets: ${stackPower}.`);
+            expect(properties.abilities_descriptions[index]).toContain(
+                `deal ${stackPower * 20}% of normal ranged damage`,
+            );
+            expect(properties.abilities_descriptions[index]).toContain(
+                `deals ${stackPower * 10}% of normal ranged damage`,
+            );
         }
     });
 });

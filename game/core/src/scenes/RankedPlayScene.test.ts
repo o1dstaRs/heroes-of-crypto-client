@@ -877,8 +877,8 @@ describe("ranked placement scene state", () => {
         expect(descriptionFor(2, 5)).toContain("caster takes 35%");
     });
 
-    test("prints Chakram's live total-target limit for native and stolen cards", () => {
-        const descriptionFor = (stackPower: number, native: boolean): string => {
+    test("prints Chakram's live target and damage limits for native and stolen cards", () => {
+        const descriptionFor = (stackPower: number, native: boolean, luck = 0): string => {
             const state = authoritativeSnapshotToSandboxSceneState(
                 placementSnapshot([
                     unitState({
@@ -887,6 +887,7 @@ describe("ranked placement scene state", () => {
                         creatureId: native ? CreatureVals.ZENA : CreatureVals.PEASANT,
                         abilities: ["Chakram"],
                         stackPower,
+                        luck,
                     }),
                 ]),
             );
@@ -899,7 +900,17 @@ describe("ranked placement scene state", () => {
         for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
             expect(descriptionFor(stackPower, true)).toContain(`Maximum targets: ${stackPower}.`);
             expect(descriptionFor(stackPower, false)).toContain(`Maximum targets: ${stackPower}.`);
+            for (const native of [true, false]) {
+                expect(descriptionFor(stackPower, native)).toContain(
+                    `deal ${stackPower * 20}% of normal ranged damage`,
+                );
+                expect(descriptionFor(stackPower, native)).toContain(
+                    `deals ${stackPower * 10}% of normal ranged damage`,
+                );
+            }
         }
+        expect(descriptionFor(2, true, 10)).toContain("deal 44% of normal ranged damage");
+        expect(descriptionFor(2, false, 10)).toContain("deals 22% of normal ranged damage");
     });
 
     test("reconstructs runtime-granted aura mechanics and removes stolen native aura mechanics", () => {

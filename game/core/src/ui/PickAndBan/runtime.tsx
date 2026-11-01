@@ -118,7 +118,7 @@ const abilityDescription = (abilityName: string): string => {
         const cfg = HoCConfig.getAbilityConfig(abilityName);
         const template = (cfg.desc ?? []).join(" ");
         if (abilityName === AllAbilities.CHAKRAM_ABILITY_NAME) {
-            return AllAbilities.chakramDescription(template, HoCConstants.MAX_UNIT_STACK_POWER).trim();
+            return AllAbilities.chakramDescription(template, HoCConstants.MAX_UNIT_STACK_POWER, cfg.power).trim();
         }
         return template.replace(/\{\}/g, String(cfg.power ?? "")).trim();
     } catch {
