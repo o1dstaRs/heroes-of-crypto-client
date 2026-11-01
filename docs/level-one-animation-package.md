@@ -8,7 +8,7 @@ Run the normal common build, then `NODE_ENV=production bun run --cwd game/core b
 
 Update assets and their hash manifest together when approving a new revision. Upload files with their manifest-relative directory layout; do not flatten the authoring checkout. Deploy all hashed assets before switching index.html, retain the previous index and assets for rollback, and verify /play and battle routes from a fresh browser.
 
-Checks: LevelOnePackage.test covers every level-one creature after authoritative reconstruction, idle availability, walking frames, melee directions, ranged directions and casts where applicable. Existing legacy renderer tests exercise the unapproved renderer separately. DungeonVisuals and lava tests cover scene teardown, extinguishing and narrowing.
+Checks: LevelOnePackage.test covers every level-one creature on the production renderer after authoritative reconstruction, idle availability, walking frames, melee directions, ranged directions and casts where applicable. DungeonVisuals and lava tests cover scene teardown, extinguishing and narrowing.
 
 Production loads each visible creature's approved sheets only after its base texture is available. Do not re-enable a whole-roster background preload: it competes with placement textures on slow connections. Arbalester idle pages remain bounded and demand-loaded. `approvedAnimationLoading.test` and the slow-portrait regression in `LevelOnePackage.test` protect this order.
 
@@ -17,11 +17,12 @@ The approved aim components are pinned separately in `game/core/src/pixi/shotTra
 ## Combat order and sprite-only motion
 
 Both sandbox actions and authoritative battle replays use the same resolved-strike queue.
-A melee strike and its victim's hit reaction start together; the next response or repeated
-strike waits for both clips. Ranged reactions start on projectile contact. A defender with
-a recorded response that dies from the first blow responds before its fatal blow. Later
-blows cannot hit an already presented corpse, and mutually lethal opening blows finish
-before either figure can interrupt its own death animation. This changes presentation only.
+The opening attack and its recorded response start in the same frame for melee and ranged
+attacks. Repeated blows wait for that exchange to finish. Ranged hit reactions start on
+projectile contact. A defender killed in the opening exchange still completes its recorded
+response. Later blows cannot hit an already presented corpse, and mutually lethal opening
+blows finish before either figure can interrupt its own death animation. This changes
+presentation only. `RankedCombatTiming.test.ts` and `CombatExchangePlayback.test.ts` cover it.
 
 Levels one and two suppress procedural cutout sway, bounce, recoil, attack windup and dodge.
 Approved sprite clips remain enabled; unfinished actions have no invented motion or death

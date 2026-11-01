@@ -12,6 +12,15 @@ function clampProgress(value: number): number {
     return Math.max(0, Math.min(1, value));
 }
 
+/** Ease real loading updates in frame time; a stalled frame must not teleport the slider. */
+export function advanceLoadingProgress(current: number, target: number, deltaMs: number): number {
+    const from = clampProgress(current);
+    const to = Math.max(from, clampProgress(target));
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0 || from === to) return from;
+    const next = from + (to - from) * -Math.expm1(-Math.min(deltaMs, 50) / 120);
+    return to - next < 0.0001 ? to : next;
+}
+
 /**
  * Keep the loading screen visible for at least the minimum duration without letting its indicator
  * get ahead of the work that has actually completed.

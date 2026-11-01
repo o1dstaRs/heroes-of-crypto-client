@@ -13497,12 +13497,16 @@ export class RenderableUnit extends Unit {
         }
 
         // Chakram's TOTAL target limit is the holder's stack power: one pip hits only the chosen target,
-        // while five pips may hit it plus four bounces. The hover and engine use the same shared resolver.
+        // while five pips may hit it plus four bounces. Damage uses the same live multiplier as the shot.
         const chakramAbility = this.getAbility(AllAbilities.CHAKRAM_ABILITY_NAME);
         if (chakramAbility) {
             this.refreshAbiltyDescription(
                 chakramAbility.getName(),
-                AllAbilities.chakramDescription(chakramAbility.getDesc().join("\n"), this.getStackPower()),
+                AllAbilities.chakramDescription(
+                    chakramAbility.getDesc().join("\n"),
+                    this.getStackPower(),
+                    this.calculateAbilityMultiplier(chakramAbility, _synergyAbilityPowerIncrease) * 100,
+                ),
             );
         }
 
@@ -13580,18 +13584,13 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Sharpened Weapons Aura
-        const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
-        if (sharpenedWeaponsAuraAbility) {
-            const percentage = Number(
-                (
-                    this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility, _synergyAbilityPowerIncrease) * 100 -
-                    100
-                ).toFixed(2),
-            );
+        // Sharpened Weapons Blessing
+        const sharpenedWeaponsBlessing = this.getAbility("Sharpened Weapons Blessing");
+        if (sharpenedWeaponsBlessing) {
+            const percentage = this.calculateSharpenedWeaponsBlessingPower(_synergyAbilityPowerIncrease);
             this.refreshAbiltyDescription(
-                sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsBlessing.getName(),
+                sharpenedWeaponsBlessing.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 

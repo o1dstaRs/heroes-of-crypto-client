@@ -29,9 +29,8 @@ describe("Cemetery barrel danger highlights", () => {
         const blockerHelper = sliceFrom(source, "private hasStandingShotBlockingObstacle(", 800);
         expect(blockerHelper).toContain("this.grid.getScatteredMountainsStanding().length > 0");
 
-        const rangedAim = sliceFrom(source, "let blockedByObstacle: IAttackObstacle | undefined;", 3_500);
-        expect(rangedAim).toContain("if (this.hasStandingShotBlockingObstacle())");
-        expect(rangedAim).toContain("this.attackHandler.evaluateRangeAttack(");
+        expect(source).toContain("this.rangedObstaclePreview(this.currentActiveUnit, arrowEndPos, shotEvaluation)");
+        expect(source).toContain("const projectedObstacleHits = obstaclePreview?.hits");
     });
 
     test("uses the attack engine's obstacle intersections for every trajectory preview", () => {
@@ -50,7 +49,7 @@ describe("Cemetery barrel danger highlights", () => {
         expect(blastHelper).toContain(".filter((cell) => this.isStandingAttackObstacleCell(cell))");
         expect(blastHelper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
         expect(sliceFrom(source, "protected renderIncomingThreatPreview(", 6_500)).toContain(
-            "this.highlightScatteredObstaclesAlongTrajectory(shooterLogical, impactLogical)",
+            "this.rangedObstaclePreview(shooter, aimPos, evaluation)",
         );
         expect(sliceFrom(source, "// --- SPELL TARGETING HOVER", 14_000)).toContain(
             "this.highlightScatteredObstaclesAlongTrajectory(caster.getPosition(), trajectoryEnd)",

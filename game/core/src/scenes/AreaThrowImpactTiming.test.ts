@@ -264,10 +264,33 @@ test.each(["targeted", "free"])(
         f.advance(0.02);
         expect(shown).toEqual([47, 53]);
         await pending;
-        f.scene.showShieldAbsorbs(secondary, { x: 0, y: 0 }, 180);
+        f.scene.showShieldAbsorbs(secondary, { x: 0, y: 0 });
         expect(shown).toEqual([47, 53]);
     },
 );
+
+test.each(["targeted", "free"])("%s Water Shield absorption appears at the first rock impact", async (mode) => {
+    const f = fixture();
+    const shown: number[] = [];
+    const secondary = [
+        { source: "water_shield", unitId: "near", position: f.near.getPosition(), amount: 47, unitsDied: 0 },
+    ];
+    Object.assign(f.damage, { secondary });
+    Object.assign(f.damage.splash[0], { amount: 0, unitsDied: 0 });
+    f.scene.showShieldAbsorbs = Sandbox.prototype["showShieldAbsorbs"];
+    f.scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
+    const pending = mode === "targeted" ? f.playTargeted() : f.playFree();
+    await flush();
+    f.advance(0.99);
+    expect(shown).toEqual([]);
+    f.advance(0.02);
+    expect(shown).toEqual([47]);
+    await flush();
+    f.advance(1.01);
+    await pending;
+    f.scene.showShieldAbsorbs(secondary, { x: 0, y: 0 });
+    expect(shown).toEqual([47]);
+});
 
 test("live free throws resolve once and retain first-wave victims until their impact", async () => {
     const f = fixture();

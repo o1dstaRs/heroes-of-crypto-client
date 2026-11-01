@@ -23,6 +23,8 @@ interface RawCreature {
     movement_type: string;
     exp: number;
     size: number;
+    footprint_width?: number;
+    footprint_height?: number;
     level: number;
     spells: string[];
     abilities: string[];
@@ -48,11 +50,14 @@ const slug = (name: string) =>
         .replace(/^_|_$/g, "");
 
 const abilityIconOverrides: Readonly<Record<string, string>> = {
+    "Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
+    "Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
     "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "Angelic Host Blessing": "/assets/images/units/abilities/angelic_host_256.webp",
     "Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
     "Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
+    "Sharpened Weapons Blessing": "/assets/images/units/abilities/sharpened_weapons_aura_256.webp",
 };
 
 const abilityIcon = (name: string): string =>
@@ -112,6 +117,12 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
 const notStackScaled = new Set(["Dulling Defense", "Pegasus Light"]);
 
 const abilityDescriptionRuTemplates: Record<string, string[]> = {
+    "Sylvan Focus Blessing": [
+        "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
+    "Wolf Trail Blessing": [
+        "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    ],
     "Ember Covenant Blessing": [
         "В начале боя окружает каждый союзный стек общим кольцом огня.",
         "Огненный урон блокируется и не разрушает кольца. Первое другое попадание поглощается, после чего все союзные кольца исчезают.",
@@ -195,7 +206,10 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Имеет +{}% базовой брони, но получает на {}% больше магического урона — от заклинаний, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield.",
     ],
     "No Melee": ["У юнита нет ближней атаки."],
-    "Sharpened Weapons Aura": ["Союзники ближнего боя под эффектом получают +{}% к базовой силе атаки."],
+    "Sharpened Weapons Blessing": [
+        "Пока этот юнит жив, все союзные юниты ближнего боя и магии на поле боя получают +{}% к базовой атаке.",
+        "Не складывается с другими благословениями заточенного оружия.",
+    ],
     "Range Null Field Aura": ["Вражеские юниты под эффектом не могут использовать дальние атаки."],
     "Luck Aura": ["Союзники в радиусе получают максимальную удачу."],
     "Arrows Wingshield Aura": [
@@ -405,6 +419,8 @@ export interface Unit {
     faction: FactionName;
     level: number;
     size: number;
+    footprintWidth: number;
+    footprintHeight: number;
     experience: number;
     hp: number;
     armor: number;
@@ -487,6 +503,8 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         faction,
         level: raw.level,
         size: raw.size,
+        footprintWidth: raw.footprint_width ?? raw.size,
+        footprintHeight: raw.footprint_height ?? raw.size,
         experience: raw.exp,
         hp: raw.hp,
         armor: raw.armor,

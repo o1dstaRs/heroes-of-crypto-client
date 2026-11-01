@@ -39,3 +39,15 @@
 3. Перенести все шесть значений существа в канонический пресет без округления и пересчётов.
 4. Поднять версию `BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY`, иначе старый локальный черновик может перекрыть новый пресет.
 5. Обновить точные ожидания в `battlefieldCreatureFraming.test.ts` и запустить тесты.
+
+## Ручной эталон теней
+
+Утверждённый профиль редактора от 2026-09-03 сохранён в
+[`battlefield-shadow-tuning-last-editor-save-v8.json`](../game/core/design/battlefield-shadow-tuning-last-editor-save-v8.json).
+SHA-256: `510f184587d986ab7e198b6829a943841e44dbd5912282945d7e9e046d682010`.
+Он содержит 56 ручных настроек существ и общий профиль `*`.
+
+Текущая нормализация и параметры теней находятся в `game/core/src/ui/battlefieldShadowTuning.ts`,
+привязка к фигуре — в `game/core/src/scenes/RenderableUnit.ts`. При ручной сверке используйте этот
+JSON и текущий код; прежние версии кода доступны в Git. Локальный рабочий профиль редактора
+находится в `game/core/tmp/dev/battlefield-shadow-tuning-v8.json`.

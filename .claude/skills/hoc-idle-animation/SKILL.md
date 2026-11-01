@@ -49,7 +49,7 @@ Keep the primary action readable at actual game scale. Secondary and tertiary mo
 
 ## Workflow
 
-1. Create a unique versioned work folder under `/Users/pro/Workplace/heroesofcrypto-assets/design`; never reuse an earlier calibration folder destructively.
+1. Create a unique versioned work folder under `game/core/tmp/imagegen`; never reuse an earlier calibration folder destructively. Resolve canonical art and animation roots from `HOC_IMAGES_LOC` and `HOC_ANIMATIONS_LOC`.
 2. Inventory and hash the highest-quality unclipped canonical creature art. If `<creature>_idle` already exists, save its atlas/meta, preview, hashes, dimensions, timing, anchor, and visible behavior as `runtime-before`.
 3. Create or import the low-resolution idle draft when useful. Preserve raw Sprite AI GIF, atlas, JSON, settings, prompt, timing, and hashes. Compare all exported representations and reject corrupted or contradictory ones.
 4. Approve or select a motion map: primary action, secondary responses, fixed contacts, stable anchor, extrema, duration, holds, and loop seam. Do not generate a full high-resolution sequence from an unapproved or visibly broken draft during calibration.
@@ -59,7 +59,7 @@ Keep the primary action readable at actual game scale. Secondary and tertiary mo
 8. Build a numbered contact sheet, dark-background preview, light/checker alpha preview, neutral-versus-extreme comparison, and full loop at actual runtime display size. Inspect the loop seam and fragile details frame by frame.
 9. During calibration, obtain approval for the motion concept, the neutral/extreme high-resolution pair, and the complete loop. In production, stop only for a material deviation or after three meaningfully different attempts fail the same gate.
 10. Stage approved atlas/meta/preview outputs outside runtime. Back up the installed idle, request explicit replacement approval, promote safely, regenerate imports, and verify the board animation. Roll back the complete prior set if validation or scene playback fails.
-11. Save a production record with source hashes, idle concept, motion hierarchy, fixed contacts, amplitudes, timing, prompts, transforms, corrections, approval evidence, QA results, and before/after runtime hashes.
+11. Save a production record with source hashes, idle concept, motion hierarchy, fixed contacts, amplitudes, timing, prompts, transforms, corrections, approval evidence, QA results, and before/after runtime hashes. Synchronize approved runtime files and the complete source package to the shared Google Drive destinations in the runtime contract, then verify the copied files by SHA-256.
 
 ## Quality gates
 

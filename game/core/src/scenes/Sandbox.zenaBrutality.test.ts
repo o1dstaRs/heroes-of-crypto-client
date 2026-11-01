@@ -28,6 +28,22 @@ const gs = new GridSettings(
 const flush = async () => {
     for (let i = 0; i < 24; i++) await Promise.resolve();
 };
+const expectStraightApproach = (points: HoCMath.XY[]) => {
+    const from = points[0];
+    const to = points[points.length - 1];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.hypot(dx, dy);
+    let previousProgress = -1;
+    for (const point of points) {
+        const x = point.x - from.x;
+        const y = point.y - from.y;
+        expect(Math.abs(x * dy - y * dx) / length).toBeLessThan(0.000001);
+        const progress = (x * dx + y * dy) / (length * length);
+        expect(progress).toBeGreaterThan(previousProgress);
+        previousProgress = progress;
+    }
+};
 
 const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") => {
     const texture = new Texture({ source: new TextureSource({ width: 512, height: 512 }) });
@@ -288,7 +304,13 @@ describe("Zena lethal impact routing", () => {
                 amount: 100,
                 unitsDied: 5,
             }));
-            const arcs = [{ targetUnitId: "C", hitUnitIds: ["C"], cells: [...f.b.getCells(), ...f.c.getCells()] }];
+            const arcs = [
+                {
+                    targetUnitId: "C",
+                    hitUnitIds: ["C"],
+                    cells: [...f.b.getCells(), { x: 7, y: 4 }, { x: 8, y: 4 }, ...f.c.getCells()],
+                },
+            ];
             const damage = {
                 unitId: "B",
                 splash,
@@ -319,6 +341,10 @@ describe("Zena lethal impact routing", () => {
             expect(f.c.destroyVisuals).not.toHaveBeenCalled();
             expect(f.paths[0][0]).toEqual(firstCut.point);
             expect(f.paths[0].at(-1)).toEqual(bounceCut.point);
+            // The neck is chosen before flight: every separating waypoint must already lie on
+            // that approach, rather than staying on the floor until the disc enters the victim.
+            expect(f.paths[0]).toHaveLength(4);
+            expectStraightApproach(f.paths[0]);
             f.hops.shift()!();
             await flush();
             expect(f.roots()).toHaveLength(2);
@@ -327,6 +353,48 @@ describe("Zena lethal impact routing", () => {
             f.hops.shift()!();
             await pending;
             expect(f.roots()).toHaveLength(2);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test("single-projectile playback chooses the same complete neck approach before launch", async () => {
+        const f = fixture();
+        try {
+            const primaryCut = prepareBrutalityTarget(f.b.getStaticBattlefieldPreviewAt()!, f.b.getName())!;
+            const bounceCut = prepareBrutalityTarget(f.c.getStaticBattlefieldPreviewAt()!, f.c.getName())!;
+            const cells = [...f.b.getCells(), { x: 7, y: 4 }, { x: 8, y: 4 }, ...f.c.getCells()];
+            const onImpact = mock();
+            const pending = f.scene.playChakramArcs(
+                f.a,
+                {
+                    unitId: "B",
+                    chakramArcs: [{ targetUnitId: "C", hitUnitIds: ["C"], cells }],
+                    splash: [f.b, f.c].map((unit) => ({
+                        unitId: unit.getId(),
+                        position: unit.getPosition(),
+                        amount: 100,
+                        unitsDied: 5,
+                    })),
+                },
+                f.b,
+                f.units,
+                true,
+                undefined,
+                { from: f.a.getPosition(), to: primaryCut.point, onImpact },
+                new Map([
+                    ["B", primaryCut],
+                    ["C", bounceCut],
+                ]),
+            );
+            await flush();
+            expect(onImpact).not.toHaveBeenCalled();
+            expect(f.paths[0]).toHaveLength(6);
+            expect(f.paths[0][1]).toEqual(primaryCut.point);
+            expect(f.paths[0][4]).toEqual(bounceCut.point);
+            expectStraightApproach(f.paths[0].slice(1, -1));
+            f.hops.shift()!();
+            await pending;
         } finally {
             f.cleanup();
         }

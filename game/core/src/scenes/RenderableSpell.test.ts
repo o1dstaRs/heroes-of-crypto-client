@@ -36,6 +36,12 @@ describe("PixiRenderableSpell stack-requirement line", () => {
     test("a trivial minimum of 1 stays silent", () => {
         expect(cardLines("Nature", "Lightning Strike", 5)).not.toContain("Requires stack power");
     });
+
+    test.each(["Armor Rune", "Weapon Rune"])("%s explains that failed casts keep existing bonuses", (name) => {
+        const lines = cardLines("System", name, 1);
+        expect(lines).toContain("50% chance per cast to add +1");
+        expect(lines).toContain("Failed casts add +0 and keep existing bonuses.");
+    });
 });
 
 describe("PixiRenderableSpell magic-damage hover", () => {
