@@ -7948,14 +7948,20 @@ describe("RenderableUnit runtime spell synchronization", () => {
 
 describe("RenderableUnit runtime aura and reflection descriptions", () => {
     const descriptionFor = (
-        creatureName: "Dryad" | "Satyr" | "Magic Dragon",
+        creatureName: "Dryad" | "Satyr" | "Magic Dragon" | "Wolf Rider",
         textureName: string,
         abilityName: string,
         stackPower: number,
         luck: number,
     ): string => {
         const effectFactory = new EffectFactory();
-        const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Nature", creatureName, textureName, 1);
+        const properties = HoCConfig.getCreatureConfig(
+            TeamVals.LEFT,
+            creatureName === "Wolf Rider" ? "Might" : "Nature",
+            creatureName,
+            textureName,
+            1,
+        );
         properties.luck = luck;
         const base = Unit.createUnit(
             properties,
@@ -7977,9 +7983,7 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
 
     test("replaces live Guiding Winds, Sylvan Focus and Magic Mirror values", () => {
         expect(descriptionFor("Dryad", "dryad_512", "Guiding Winds Aura", 2, 10)).toContain("shoot 20% further");
-        expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Aura", 1, 10)).toContain(
-            "deal 25% more magic damage",
-        );
+        expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Blessing", 1, 10)).toContain("deal +3% magic damage");
         // Magic Reflection is stack-scaled now: at power 75 that is 15/30/45/60/75 across the stack, then
         // shifted by luck. One pip of stack with 10 luck returns 25% of landed damage, not the configured
         // full-stack 75 — and the share is an amount, returned every cast, never a rate to roll.
@@ -7991,11 +7995,24 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         );
     });
 
-    test("replaces Chakram's total-target limit at every stack tier", () => {
+    test("prints the Satyr and Wolf Rider blessing power at every tier without adding luck", () => {
+        for (let tier = 1; tier <= 5; tier++) {
+            for (const luck of [-10, 10]) {
+                expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Blessing", tier, luck)).toContain(
+                    `deal +${tier * 3}% magic damage`,
+                );
+                expect(descriptionFor("Wolf Rider", "wolf_rider_512", "Wolf Trail Blessing", tier, luck)).toContain(
+                    `gain +${tier / 5} movement distance`,
+                );
+            }
+        }
+    });
+
+    test("replaces Chakram's target limit and damage percentages at every stack tier", () => {
         for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
             const effectFactory = new EffectFactory();
             const base = Unit.createUnit(
-                HoCConfig.getCreatureConfig(TeamVals.LEFT, "Might", "Zena", "zena_512", 1),
+                { ...HoCConfig.getCreatureConfig(TeamVals.LEFT, "Might", "Zena", "zena_512", 1), luck: 0 },
                 gridSettings,
                 TeamVals.LEFT,
                 UnitVals.CREATURE,
@@ -8010,6 +8027,12 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
             const properties = unit.getUnitProperties();
             const index = properties.abilities.indexOf("Chakram");
             expect(properties.abilities_descriptions[index]).toContain(`Maximum targets: ${stackPower}.`);
+            expect(properties.abilities_descriptions[index]).toContain(
+                `deal ${stackPower * 20}% of normal ranged damage`,
+            );
+            expect(properties.abilities_descriptions[index]).toContain(
+                `deals ${stackPower * 10}% of normal ranged damage`,
+            );
         }
     });
 });
@@ -8863,15 +8886,12 @@ describe("RenderableUnit applied buff/debuff display de-duplication", () => {
 });
 
 describe("RenderableUnit dodge animation", () => {
-    const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
     // In-grid position (x ∈ (-1024, 1024), y ∈ (0, 2048)) so ensureVisual builds the sprite.
     const pos = { x: 0, y: 1024 };
 
     function createVisualUnit(): { unit: RenderableUnit; worldRoot: Container } {
         const effectFactory = new EffectFactory();
-        // Satyr is level 2, which suppresses the generic sidestep. Efreet is a level-3 figure
-        // with no approved sprite package, so this covers the dodge that higher tiers still use.
+        // Authored creatures suppress the procedural sidestep, including higher-level figures.
         const base = Unit.createUnit(
             HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Chaos", "Efreet", "Efreet_512", 1),
             gridSettings,
@@ -8894,48 +8914,36 @@ describe("RenderableUnit dodge animation", () => {
         expect(unit.isDodging()).toBe(false);
     });
 
-    test("keeps an authored figure stationary without procedural dodge ghosts", async () => {
-        const { unit, worldRoot } = createVisualUnit();
-        const childrenBefore = worldRoot.children.length;
-        const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        const restX = spriteBefore!.x;
-        const restY = spriteBefore!.y;
+    test("keeps an authored figure stationary without dodge ghosts during and after the old envelope", () => {
+        let now = 10_000;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        let visual: ReturnType<typeof createVisualUnit> | undefined;
+        try {
+            visual = createVisualUnit();
+            const { unit, worldRoot } = visual;
+            const childrenBefore = worldRoot.children.length;
+            const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y)!;
+            const restX = spriteBefore.x;
+            const restY = spriteBefore.y;
 
-        unit.playDodgeAnimation(40, -20);
-        expect(unit.isDodging()).toBe(false);
-        unit.ensureVisual(worldRoot, gridSettings);
-
-        // 250ms sits inside the hold phase (22%..55% of the 640ms dodge) where the envelope is exactly 1.
-        await sleep(250);
-        unit.ensureVisual(worldRoot, gridSettings);
-        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        expect(sprite).toBeDefined();
-        expect(sprite!.x).toBeCloseTo(restX, 5);
-        expect(sprite!.y).toBeCloseTo(restY, 5);
-        expect(sprite!.rotation).toBe(0);
-        // Afterimage ghosts joined the world root behind the sprite.
-        expect(worldRoot.children.length).toBe(childrenBefore);
-    });
-
-    test("springs back to rest and cleans up its ghosts after the dodge completes", async () => {
-        const { unit, worldRoot } = createVisualUnit();
-        const childrenBefore = worldRoot.children.length;
-        const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        const restX = spriteBefore!.x;
-        const restY = spriteBefore!.y;
-
-        unit.playDodgeAnimation(40, -20);
-        unit.ensureVisual(worldRoot, gridSettings);
-        // 640ms dodge + 300ms ghost life, with margin.
-        await sleep(1100);
-        unit.ensureVisual(worldRoot, gridSettings);
-
-        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
-        expect(sprite!.x).toBeCloseTo(restX, 5);
-        expect(sprite!.y).toBeCloseTo(restY, 5);
-        expect(sprite!.rotation).toBe(0);
-        expect(unit.isDodging()).toBe(false);
-        expect(worldRoot.children.length).toBe(childrenBefore);
+            unit.playDodgeAnimation(40, -20);
+            // The old hold phase and the full 640ms + 300ms ghost lifetime remain covered.
+            for (const elapsed of [0, 250, 1100]) {
+                now = 10_000 + elapsed;
+                unit.ensureVisual(worldRoot, gridSettings);
+                const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
+                expect(sprite).toBeDefined();
+                expect(sprite!.x).toBeCloseTo(restX, 5);
+                expect(sprite!.y).toBeCloseTo(restY, 5);
+                expect(sprite!.rotation).toBe(0);
+                expect(unit.isDodging()).toBe(false);
+                expect(worldRoot.children.length).toBe(childrenBefore);
+            }
+        } finally {
+            visual?.unit.destroyVisuals();
+            visual?.worldRoot.destroy({ children: true });
+            clock.mockRestore();
+        }
     });
 });
 

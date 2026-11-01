@@ -6,6 +6,9 @@
 // Usage: bun run scripts/generate_ci_stubs.js   (CI only)
 const fs = require("fs");
 const path = require("path");
+const retiredImageKeys = new Set(
+    require("../src/build/retiredImageAssets.json").map((file) => path.basename(file, ".webp")),
+);
 
 const generatedDir = path.resolve(__dirname, "../src/generated");
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
@@ -138,22 +141,24 @@ for (const columns of [3, 4, 5, 6]) {
         imageKeys.add(`placement_gold_outer_border_green_continuous_${columns}col_${rows}row_v23`);
     }
 }
-const knownImageKeys = fs.existsSync(path.join(generatedDir, "image_keys.json"))
-    ? // The committed catalog is the exact universe the real generator derives from the art Drive;
-      // using it verbatim keeps CI's enumerable manifest (and every bundle-split bucket size)
-      // identical to local runs. The scans and derivations above remain the fallback when a
-      // checkout somehow lacks the catalog, approximating it from source instead.
-      [
-          ...new Set([
-              ...JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8")),
-              ...require("../src/animations/levelOneAssets.json").map((asset) => asset.key),
-              ...require("../src/pixi/shotTrajectoryAssets.json").map((asset) => asset.key),
-              ...require("../src/animations/battlefieldEnvironmentAssets.json").map((asset) => asset.key),
-              ...Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES),
-              ...require("../src/pixi/creaturePortraitAssetKeys.ts").CREATURE_PORTRAIT_ASSET_KEYS,
-          ]),
-      ].sort()
-    : [...imageKeys].sort();
+const knownImageKeys = (
+    fs.existsSync(path.join(generatedDir, "image_keys.json"))
+        ? // The committed catalog is the exact universe the real generator derives from the art Drive;
+          // using it verbatim keeps CI's enumerable manifest (and every bundle-split bucket size)
+          // identical to local runs. The scans and derivations above remain the fallback when a
+          // checkout somehow lacks the catalog, approximating it from source instead.
+          [
+              ...new Set([
+                  ...JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8")),
+                  ...require("../src/animations/levelOneAssets.json").map((asset) => asset.key),
+                  ...require("../src/pixi/shotTrajectoryAssets.json").map((asset) => asset.key),
+                  ...require("../src/animations/battlefieldEnvironmentAssets.json").map((asset) => asset.key),
+                  ...Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES),
+                  ...require("../src/pixi/creaturePortraitAssetKeys.ts").CREATURE_PORTRAIT_ASSET_KEYS,
+              ]),
+          ].sort()
+        : [...imageKeys].sort()
+).filter((key) => !retiredImageKeys.has(key));
 
 // Keep the real revision contract even when CI substitutes the private pixel data.
 const releaseRevisions = Object.fromEntries(

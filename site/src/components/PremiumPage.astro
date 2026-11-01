@@ -43,7 +43,7 @@ const catalog = premiumCatalog(lang);
         <nav class="premium-section-nav" aria-label={t("Premium sections", "Разделы Premium")}>
             <span class="premium-nav-brand"><PremiumIcon size="20px" /> PREMIUM</span>
             <a class="premium-nav-ai" href="#premium-search"><PremiumIcon size="16px" />{t("Ask Premium AI", "Спросить AI")}</a>
-            {premiumSections.map(([id, en, ru], index) => <a href={`#premium-${id}`}><small>{String(index + 1).padStart(2, "0")}</small>{t(en, ru)}</a>)}
+            {premiumSections.map(([id, en, ru], index) => <a data-premium-library-nav href={`#premium-${id}`}><small>{String(index + 1).padStart(2, "0")}</small>{t(en, ru)}</a>)}
             <a class="premium-nav-play" href={`${home}/play/`}>{t("Take it to battle", "Перейти к игре")} ↗</a>
         </nav>
         <div class="premium-main">

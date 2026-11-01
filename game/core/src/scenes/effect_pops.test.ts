@@ -55,8 +55,16 @@ describe("isAuraEffectName / animatableEffectNames", () => {
         expect([...names]).toEqual(["Sadness", "Quagmire"]);
     });
 
-    test("a unit carrying only aura effects yields an empty animatable set", () => {
-        expect(animatableEffectNames(["Luck", "Sharpened Weapons", "Pegasus Might"]).size).toBe(0);
+    test("continuous aura and army attack bonuses yield an empty animatable set", () => {
+        expect(
+            animatableEffectNames([
+                "Luck",
+                "Sharpened Weapons Blessing",
+                "Sylvan Focus Blessing",
+                "Wolf Trail Blessing",
+                "Pegasus Might",
+            ]).size,
+        ).toBe(0);
     });
 
     test("the passive 'Pegasus Light' team mark is never animated (not an aura, but still excluded)", () => {

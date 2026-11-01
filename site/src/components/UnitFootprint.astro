@@ -1,0 +1,62 @@
+---
+import type { Language } from "../lib/site-data";
+
+interface Props {
+    width: number;
+    height: number;
+    lang: Language;
+}
+
+const { width, height, lang } = Astro.props;
+const dimensions = `${width}×${height}`;
+const label = lang === "ru" ? `Размер юнита: ${dimensions} кл.` : `Unit size: ${dimensions} cells`;
+---
+
+<span class="unit-footprint" data-unit-footprint role="img" aria-label={label} title={label}>
+    <span
+        class="unit-footprint-grid"
+        aria-hidden="true"
+        style={`--footprint-width: ${width}; --footprint-height: ${height}`}
+    >
+        {Array.from({ length: width * height }, () => <span class="unit-footprint-cell" />)}
+    </span>
+    <span aria-hidden="true">{dimensions}</span>
+</span>
+
+<style>
+    .unit-footprint {
+        --footprint-cell: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex: 0 0 auto;
+        color: #e4c88f;
+        font-size: 0.72rem;
+        font-weight: 750;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .unit-footprint-grid {
+        display: grid;
+        grid-template-columns: repeat(var(--footprint-width), var(--footprint-cell));
+        grid-template-rows: repeat(var(--footprint-height), var(--footprint-cell));
+        place-content: center;
+        gap: 2px;
+        width: calc(var(--footprint-cell) * 2 + 2px);
+        height: calc(var(--footprint-cell) * 2 + 2px);
+    }
+
+    .unit-footprint-cell {
+        box-sizing: border-box;
+        border: 1px solid #c7a66c;
+        border-radius: 2px;
+        background: linear-gradient(135deg, #ad8c5359, #71572d73);
+        box-shadow: inset 0 1px 0 #f4d59c33;
+    }
+
+    .unit-footprint--detail {
+        --footprint-cell: 13px;
+        font-size: 0.9rem;
+    }
+</style>

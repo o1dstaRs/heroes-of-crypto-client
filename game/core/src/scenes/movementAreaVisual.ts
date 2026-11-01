@@ -17,10 +17,10 @@ export const ENEMY_MOVEMENT_HIGHLIGHT_COLOR = 0xff3b3b;
 /** Leave the floor artwork's grout visible between independently highlighted movement cells. */
 export const MOVEMENT_TILE_INSET_CELLS = 0.028;
 
-/** A restrained breathing wash ranging from 6.5% to 8% opacity. */
-export const movementFillAlphaForPhase = (phase: number): number => {
+/** Enemy red needs a stronger wash to stay readable against the dark battlefield. */
+export const movementFillAlphaForPhase = (phase: number, color = 0xffffff): number => {
     const pulse = (Math.sin(phase * 0.65) + 1) * 0.5;
-    return 0.065 + pulse * 0.015;
+    return (0.065 + pulse * 0.015) * (color === ENEMY_MOVEMENT_HIGHLIGHT_COLOR ? 2 : 1);
 };
 
 type TunedCellGeometryCache = {
@@ -150,7 +150,7 @@ export function drawMovementArea(
     opacityScale = 1,
 ): void {
     if (!cells.length) return;
-    const alpha = movementFillAlphaForPhase(phase) * opacityScale;
+    const alpha = movementFillAlphaForPhase(phase, color) * opacityScale;
     const tuning = resolveMovementAreaTuning();
 
     for (const cell of cells) {
@@ -159,6 +159,9 @@ export function drawMovementArea(
     // Separate polygons keep the grout and overlap order; one shared fill avoids a new graphics
     // instruction, style conversion and path clone for every tile on every pulse frame.
     g.fill({ color, alpha });
+    if (color === ENEMY_MOVEMENT_HIGHLIGHT_COLOR) {
+        g.stroke({ color: 0xff8c82, alpha: 0.42 * opacityScale, width: 1.1 });
+    }
 }
 
 /** Exact two-row calibration overlay used only by /dev/movement-area-editor. */

@@ -19,7 +19,11 @@ export const startPremiumTurnPreview = (
             if (controller.signal.aborted) return;
             const turn = currentPremiumTurn(advice, snapshot);
             if (turn?.status === "ready") {
-                publish({ ...turn, gameId: snapshot.gameId });
+                publish({
+                    ...turn,
+                    gameId: snapshot.gameId,
+                    ...(advice.adviceId ? { adviceId: advice.adviceId } : {}),
+                });
                 return;
             }
             if (!advice.entitlement.active || turn?.status === "automatic") return;

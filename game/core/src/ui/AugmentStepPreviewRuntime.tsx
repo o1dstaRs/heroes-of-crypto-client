@@ -1,3 +1,5 @@
+import { useGameLayout } from "./mobile/GameViewport";
+import { t } from "../i18n/i18n";
 import { hocJoyTheme } from "./hocTheme";
 /*
  * BACKEND-FREE AUGMENT STEP.
@@ -88,6 +90,8 @@ export const AugmentStepPreview: React.FC = () => {
     const mapType = PREVIEW_MAP_TYPES[params.get("map")?.toLowerCase() ?? ""] ?? GridVals.NORMAL;
 
     const draftScale = useDraftScale();
+    const { touch } = useGameLayout();
+    const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     const [ready, setReady] = useState(false);
     const [inspectedCreatureId, setInspectedCreatureId] = useState(0);
     const [pointsRemaining, setPointsRemaining] = useState(budgetPoints);
@@ -128,10 +132,25 @@ export const AugmentStepPreview: React.FC = () => {
             <CssVarsProvider theme={hocJoyTheme}>
                 <CssBaseline />
                 <Box sx={draftShellSx}>
-                    <PickLanternFire slot={0} />
-                    <PickLanternFire slot={1} />
-                    <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>
+                    {!touch && <PickLanternFire slot={0} />}
+                    {!touch && <PickLanternFire slot={1} />}
+                    <Box
+                        sx={draftBoardSx(draftScale)}
+                        onMouseLeave={endInspect}
+                        data-touch-draft-board={touch || undefined}
+                        data-touch-draft-roster-open={touchRosterOpen}
+                    >
+                        {touch && (
+                            <button
+                                className="hoc-touch-draft-army-toggle"
+                                aria-expanded={touchRosterOpen}
+                                onClick={() => setTouchRosterOpen(!touchRosterOpen)}
+                            >
+                                {t("Armies")}
+                            </button>
+                        )}
                         <Box
+                            data-testid="draft-header-zone"
                             sx={{
                                 width: "100%",
                                 height: DRAFT_HEADER_HEIGHT,
@@ -153,6 +172,7 @@ export const AugmentStepPreview: React.FC = () => {
                             )}
                         </Box>
                         <Stack
+                            data-testid="draft-armies-zone"
                             direction="row"
                             spacing={1.5}
                             sx={{
@@ -190,6 +210,7 @@ export const AugmentStepPreview: React.FC = () => {
                             />
                         </Stack>
                         <Box
+                            data-testid="draft-choice-action-zone"
                             sx={{
                                 display: "flex",
                                 flexDirection: "column",
@@ -201,6 +222,7 @@ export const AugmentStepPreview: React.FC = () => {
                             }}
                         >
                             <Box
+                                data-testid="draft-choice-zone"
                                 sx={{
                                     position: "relative",
                                     display: "flex",
@@ -238,16 +260,18 @@ export const AugmentStepPreview: React.FC = () => {
                                     </Box>
                                 </PhasePanel>
                             </Box>
-                            <PickCommitButton
-                                label={ready ? "Waiting for opponent…" : "Lock in augments"}
-                                armed={complete && !ready}
-                                isYourTurn={!ready}
-                                seconds={90}
-                                extra={`${spent} / ${budgetPoints}`}
-                                tone={complete ? "green" : "gold"}
-                                blockedHint="Spend every upgrade point first."
-                                onCommit={() => setReady(true)}
-                            />
+                            <Box data-touch-draft-commit sx={{ display: "contents" }}>
+                                <PickCommitButton
+                                    label={ready ? "Waiting for opponent…" : "Lock in augments"}
+                                    armed={complete && !ready}
+                                    isYourTurn={!ready}
+                                    seconds={90}
+                                    extra={`${spent} / ${budgetPoints}`}
+                                    tone={complete ? "green" : "gold"}
+                                    blockedHint="Spend every upgrade point first."
+                                    onCommit={() => setReady(true)}
+                                />
+                            </Box>
                         </Box>
                     </Box>
                     <DraftBottomControls step={7} userTeam={userTeam} draftScale={draftScale} />

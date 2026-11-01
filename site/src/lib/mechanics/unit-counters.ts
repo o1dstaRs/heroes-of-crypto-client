@@ -27,6 +27,8 @@ const NO_ABILITY_POWER_SYNERGY = new Set([
     "Magic Reflection",
     "Guiding Winds Aura",
     "Sylvan Focus Aura",
+    "Sylvan Focus Blessing",
+    "Wolf Trail Blessing",
     "Battle Roar",
     "Crusade",
     "Wolf Trail Aura",
