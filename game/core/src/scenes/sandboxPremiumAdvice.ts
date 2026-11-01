@@ -73,8 +73,9 @@ export const sandboxPremiumAdvice = (
             singleton.setFightProperties(fight);
             // A separate seeded stream keeps merely looking at advice from consuming combat randomness.
             HoCLib.setDeterministicRandomSource(makeRng(fight.getCurrentLap() * 65537 + revision));
-            const native = createAIStrategy(DEFAULT_AI_VERSION).decideTurn(unit, context);
-            const incumbent = searchSandboxPremiumDecision(host, unit, native, context);
+            const searchContext = { ...context, decisionStartedAtMs: performance.now() };
+            const native = createAIStrategy(DEFAULT_AI_VERSION).decideTurn(unit, searchContext);
+            const incumbent = searchSandboxPremiumDecision(host, unit, native, searchContext);
             const { candidates } = enumerateCandidates(unit, context, incumbent, {
                 maxMoveDestinations: 12,
                 maxMeleePairs: 24,
