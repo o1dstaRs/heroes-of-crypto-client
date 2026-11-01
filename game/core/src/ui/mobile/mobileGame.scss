@@ -490,8 +490,7 @@ body[data-hoc-touch-game="true"] {
     }
 
     .hoc-touch-confirm {
-        // Confirm in the space already reserved for actions. A second floating row used to hide the
-        // lower deployment cells precisely when the player needed to review the chosen destination.
+        // Toolbar confirmations use the reserved dock; battlefield actions have their own anchored bubble.
         display: flex;
         flex: 1 1 auto;
         align-items: center;
@@ -508,6 +507,105 @@ body[data-hoc-touch-game="true"] {
             font-size: 13px;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+    }
+
+    .hoc-touch-confirm-bubble {
+        @include touch-frame;
+
+        position: fixed;
+        z-index: 55;
+        width: 220px;
+        max-width: calc(var(--hoc-game-width) - 16px - var(--hoc-safe-left) - var(--hoc-safe-right));
+        padding: 4px 8px 6px;
+        filter: drop-shadow(0 4px 9px rgb(0 0 0 / 40%));
+        animation: hoc-touch-confirm-appear 120ms ease-out;
+
+        &::after {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #21180f;
+            border-right: 2px solid #ac7a3d;
+            border-bottom: 2px solid #ac7a3d;
+            content: "";
+            pointer-events: none;
+        }
+
+        &[data-placement="above"]::after {
+            left: calc(var(--hoc-touch-confirm-arrow) - 13px);
+            bottom: -10px;
+            transform: rotate(45deg);
+        }
+
+        &[data-placement="below"]::after {
+            left: calc(var(--hoc-touch-confirm-arrow) - 13px);
+            top: -10px;
+            transform: rotate(225deg);
+        }
+
+        &[data-placement="left"]::after {
+            top: calc(var(--hoc-touch-confirm-arrow) - 13px);
+            right: -10px;
+            transform: rotate(-45deg);
+        }
+
+        &[data-placement="right"]::after {
+            top: calc(var(--hoc-touch-confirm-arrow) - 13px);
+            left: -10px;
+            transform: rotate(135deg);
+        }
+
+        .hoc-touch-confirm-caption {
+            display: block;
+            overflow: hidden;
+            margin: 0 4px 4px;
+            color: #edcf99;
+            font-size: 13px;
+            line-height: 18px;
+            text-align: center;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .hoc-touch-confirm-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button {
+            @include touch-plate;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .hoc-touch-primary {
+            flex: 1;
+            color: #efc490;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+        }
+
+        .hoc-touch-confirm-cancel {
+            flex: 0 0 44px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+
+            img {
+                width: 44px;
+                height: 44px;
+                pointer-events: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
         }
     }
 
@@ -663,6 +761,18 @@ body[data-hoc-touch-game="true"] {
             font-size: 12px;
             letter-spacing: 0;
         }
+    }
+}
+
+@keyframes hoc-touch-confirm-appear {
+    from {
+        opacity: 0;
+        translate: 0 4px;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
     }
 }
 

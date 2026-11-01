@@ -27,7 +27,7 @@ import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audi
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { glyphScaleX } from "../pixi/boardMirror";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
-import { replayTextureKeys } from "../replay/replayTextureKeys";
+import { replayActionTextureKeys, replayStateTextureKeys } from "../replay/replayTextureKeys";
 import { dullingDefenseRecipientIds } from "./effect_pops";
 import { teamColor } from "./teamColors";
 import {
@@ -3463,12 +3463,13 @@ export class Sandbox extends PixiScene {
             // A replay shows the match as it WAS: green against red. Whatever personal tint the person
             // watching prefers is dropped for the duration.
             clearPersonalArmyTint();
-            await this.preloadTextureKeys(replayTextureKeys(replay, sequence));
+            await this.preloadTextureKeys(replayStateTextureKeys(replay.initialState), { priority: "visible" });
             if (this.isSceneDestroyed()) return false;
             this.resetStatusApplicationOrder();
             this.hydrateSceneState(cloneReplayData(replay.initialState));
-            // Hydration requests map, terrain and placement textures as well as creature art.
-            await this.waitForPendingTextures();
+            // Hydration also warms every creature's later combat sheets. Only the visible map belongs
+            // on the startup path; each exchange prepares its participants before it is animated.
+            await this.prepareMapTextures();
             if (this.isSceneDestroyed()) return false;
             this.onSupplementaryTexturesLoaded();
             this.sc_sceneLog.clear();
@@ -3487,6 +3488,8 @@ export class Sandbox extends PixiScene {
                 const previousState = index > 0 ? records[index - 1]?.stateAfter : replay.initialState;
 
                 if (this.shouldApplyReplayRecordAsCheckpoint(record, index, startFightIndex)) {
+                    await this.preloadTextureKeys(replayStateTextureKeys(record.stateAfter), { priority: "visible" });
+                    if (this.isSceneDestroyed()) return false;
                     this.rememberStatusApplications(record.events);
                     this.hydrateSceneState(cloneReplayData(record.stateAfter));
                     this.onReplayRecordPresented(record);
@@ -3494,9 +3497,20 @@ export class Sandbox extends PixiScene {
                 }
 
                 if (previousState) {
+                    await this.preloadTextureKeys(replayActionTextureKeys(previousState, record), {
+                        priority: "visible",
+                    });
+                    if (this.isSceneDestroyed()) return false;
                     this.hydrateSceneState(cloneReplayData(previousState));
                 }
 
+                const next = records[index + 1];
+                if (next) {
+                    // Use the bounded optional lane for lookahead; the current action always goes first.
+                    void this.preloadTextureKeys(replayActionTextureKeys(record.stateAfter, next)).catch(
+                        () => undefined,
+                    );
+                }
                 const played = await this.playSandboxReplayRecord(record);
                 if (this.isSceneDestroyed()) {
                     return false;
@@ -8880,7 +8894,8 @@ export class Sandbox extends PixiScene {
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return this.currentActiveSpell ? "Cast spell" : "Confirm action";
         }
-        return this.hasActiveSelection || this.pendingBarrelPlacement ? "Place here" : null;
+        // Placement drops commit immediately; combat alone previews a board action before confirmation.
+        return null;
     }
     public override InspectTouchUnit(point: HoCMath.XY): void {
         const unit = this.getInspectableUnitAtPosition(this.getLogicalBattlefieldPoint(point));

@@ -80,6 +80,11 @@ function getUnitsOverlayFromScene(scene: PixiScene | null): UnitsOverlay | undef
     return s?.getUnitsOverlay?.();
 }
 
+export interface TouchActionPreview {
+    label: string;
+    anchor?: HoCMath.XY;
+}
+
 export class PixiGameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);
     public m_scene: PixiScene | null = null;
@@ -157,7 +162,7 @@ export class PixiGameManager {
     private lifecycleId = 0;
     private initEventCleanups: Array<() => void> = [];
     private touchBoardInput?: TouchBoardInput;
-    private touchAction?: { scene: PixiScene; key: string; label: string; run: () => void };
+    private touchAction?: TouchActionPreview & { scene: PixiScene; key: string; run: () => void };
     private confirmingTouchAction = false;
     private touchSnapshotKey = "";
     public readonly onTouchActionChanged = new Signal<(label: string | null) => void>();
@@ -740,11 +745,15 @@ export class PixiGameManager {
     public GetTouchActionLabel(): string | null {
         return this.touchAction?.label ?? null;
     }
-    public RequestTouchConfirmation(label: string, run: () => void): void {
+    public GetTouchActionPreview(): TouchActionPreview | null {
+        const action = this.touchAction;
+        return action ? { label: action.label, ...(action.anchor ? { anchor: { ...action.anchor } } : {}) } : null;
+    }
+    public RequestTouchConfirmation(label: string, run: () => void, anchor?: HoCMath.XY): void {
         const scene = this.m_scene;
         if (!scene) return;
         this.touchInspectMode = false;
-        this.touchAction = { scene, key: scene.getTouchInteractionKey(), label, run };
+        this.touchAction = { scene, key: scene.getTouchInteractionKey(), label, run, anchor: anchor && { ...anchor } };
         this.onTouchActionChanged.emit(label);
     }
     public CancelTouchAction(): void {
@@ -846,8 +855,19 @@ export class PixiGameManager {
                     this.UpdateHoverInfo();
                 };
                 const label = scene.getTouchConfirmationLabel(world);
-                if (label) this.RequestTouchConfirmation(label, run);
-                else run();
+                if (label) {
+                    const viewport = readGameViewport();
+                    // The bubble lives on the landscape page, outside the independently zoomed canvas.
+                    const anchor = pointInGameElement(
+                        client.x,
+                        client.y,
+                        document.body.getBoundingClientRect(),
+                        viewport.width,
+                        viewport.height,
+                        viewport.rotated,
+                    );
+                    this.RequestTouchConfirmation(label, run, anchor);
+                } else run();
             },
         });
         this.touchBoardInput = input;
@@ -878,8 +898,12 @@ export class PixiGameManager {
                 { capture: true, passive: false },
             );
         }
-        this.addInitEventListener(window, "resize", () => input.reset(false));
+        this.addInitEventListener(window, "resize", () => {
+            this.CancelTouchAction();
+            input.reset(false);
+        });
         this.addInitEventListener(window, GAME_VIEWPORT_CHANGED, () => {
+            this.CancelTouchAction();
             const touch = readGameViewport().touch;
             input.reset(!touch);
             if (!touch) input.allowMouse();

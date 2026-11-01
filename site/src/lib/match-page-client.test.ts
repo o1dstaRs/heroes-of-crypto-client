@@ -7,6 +7,8 @@ test("the shipped match page renders damage portraits from a public API response
     const source = readFileSync(resolve(components, "MatchPage.astro"), "utf8");
     const script = source.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
     expect(script).toBeDefined();
+    // Bun.build tolerates duplicate bindings that the production Astro bundler rejects.
+    expect(() => new Bun.Transpiler({ loader: "ts" }).transformSync(script!)).not.toThrow();
     const temporaryRoot = resolve(import.meta.dir, "../../tmp");
     mkdirSync(temporaryRoot, { recursive: true });
     const temporary = mkdtempSync(resolve(temporaryRoot, "match-page-client-"));

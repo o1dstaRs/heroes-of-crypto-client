@@ -61,6 +61,8 @@ export const GameViewport: React.FC<{ children: (size: Viewport) => React.ReactN
         setTouchGameInsets({
             top: parseFloat(style.getPropertyValue("--hoc-safe-top")) || 0,
             bottom: parseFloat(style.getPropertyValue("--hoc-safe-bottom")) || 0,
+            left: parseFloat(style.getPropertyValue("--hoc-safe-left")) || 0,
+            right: parseFloat(style.getPropertyValue("--hoc-safe-right")) || 0,
         });
         // A pointer/orientation change can keep the same canvas dimensions. Notify Pixi after the
         // touch state and safe areas are current; a ResizeObserver alone misses that transition.
