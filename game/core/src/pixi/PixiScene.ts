@@ -1111,11 +1111,6 @@ export abstract class PixiScene {
                 }),
         );
     }
-    protected async waitForPendingTextures(): Promise<void> {
-        while (!this.sc_destroyed && this.sc_pendingLazyTextureKeys.size) {
-            await this.preloadTextureKeys([...this.sc_pendingLazyTextureKeys]);
-        }
-    }
     private scheduleBoardImageRetry(url: string): void {
         const delayMs = Math.max(0, (boardImageRetries.get(url)?.retryAt ?? 0) - Date.now());
         const timer = setTimeout(() => {
