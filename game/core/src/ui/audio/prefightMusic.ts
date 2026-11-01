@@ -1,6 +1,6 @@
 /**
- * Whether the match track ("Iron and Silk") should be playing: true from the moment a ranked match is
- * found until the player leaves it — the match-found check, picks and augments, placement, and the fight.
+ * Whether the match playlist ("Iron and Silk" → "The Last Stand") should be playing: true on the game
+ * route through checking, picks and augments, placement, and the fight, until the player leaves it.
  *
  * A tiny store rather than context because ThemeMusic is mounted ABOVE the router (one long-lived <audio>
  * that survives navigation), so it sits outside every provider the game screens render inside. The screens
@@ -58,8 +58,8 @@ export const draftRoutePrefightMusic = ({
 
 /**
  * What the ranked board view does with the flag: on through placement and the fight. Stopping at the first
- * turn used to drop the room into silence; the same track just keeps going. A replay stays off. While the
- * first snapshot is still loading it leaves the flag as the draft left it (`undefined`), so the track plays
+ * turn used to drop the room into silence; the match playlist just keeps going. A replay stays off. While the
+ * first snapshot is still loading it leaves the flag as the draft left it (`undefined`), so the playlist plays
  * straight through the handoff instead of cutting out and starting again.
  */
 export const boardViewPrefightMusic = ({

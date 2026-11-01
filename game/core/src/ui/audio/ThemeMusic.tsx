@@ -10,67 +10,32 @@ import {
 } from "../../settings/audioLevels";
 import { AudioControl } from "./AudioControl";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
-import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
+import { parseThemePlaybackMemory } from "./themeMusicMemory";
+import { createThemeMusicPlayer, type ThemeMusicPlayer, type ThemePlaybackMemory } from "./themeMusicPlayer";
+import { ARENA_MUSIC_PLAYLIST as PLAYLIST, MATCH_MUSIC_PLAYLIST } from "./themeMusicTracks";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
 
 /**
  * The arena theme ("The Besieged Town") and the shared sound control.
  *
  * Mounted ONCE, above the router, rather than inside each screen: a single long-lived <audio> element means
- * walking from matchmaking to the lobby list and on to the portal does not restart the track, which is
- * exactly what re-mounting per route would do.
+ * moving from the ranked arena into a match does not restart the track.
  *
- * Which menu screens sing is decided here (see SINGING_ROUTES). A ranked match is not one of those routes:
- * it plays "Iron and Silk" from the moment it is found until the player leaves, fight included. The offline
- * sandbox at "/" stays quiet.
- *
- * The site (heroesofcrypto.io) plays the same track on mode select and profile through its own copy of this,
- * site/src/components/ThemeMusic.astro. It is a DIFFERENT ORIGIN and cannot see this localStorage, so the
- * redirect pages under /play hand the setting over in the query string; the keys and the parameter names
- * used by settings/audioLevels have to match on both sides.
+ * The ranked arena carries the menu playlist. Matches alternate "Iron and Silk" and "The Last Stand"
+ * throughout the draft, placement and fight. The offline sandbox at "/" stays quiet.
  *
  * All levels live in settings/audioLevels. The medallion controls master sound and offers the music
  * checkbox on every route; music and effects keep their separate balances in player settings.
  */
 const FADE_MS = 900;
-/** How long two songs overlap. Shared with the home page so the arena and the game menus change the same way. */
+/** How long two songs overlap. */
 const CROSSFADE_MS = 2200;
 
-/**
- * The menu playlist, in order. The arena theme plays first, then the older menu songs, and the list wraps
- * so the music never stops while a player sits in the menus — a single looping track gets old fast at the
- * matchmaking screen, where the wait can be minutes.
- *
- * Each entry ships as Opus/WebM and MP3; the browser picks. Adding a track is a matter of dropping both
- * encodes into public/audio and appending here (and to the site's copy, which keeps its own list).
- */
-const PLAYLIST = [
-    { webm: "/audio/the_besieged_town.webm", mp3: "/audio/the_besieged_town.mp3" },
-    { webm: "/audio/the_last_stand.webm", mp3: "/audio/the_last_stand.mp3" },
-    { webm: "/audio/the_stone_lullaby.webm", mp3: "/audio/the_stone_lullaby.mp3" },
-] as const;
 const PLAYBACK_KEY = "hoc:themePlayback";
 
-const readThemeMemory = (): { index: number; time: number; matchTime?: number } | null => {
+const readThemeMemory = (): ThemePlaybackMemory | null => {
     try {
-        const raw = sessionStorage.getItem(PLAYBACK_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw) as { index?: unknown; time?: unknown; matchTime?: unknown };
-        if (typeof parsed.index !== "number" || !Number.isInteger(parsed.index)) return null;
-        if (parsed.index < 0 || parsed.index >= PLAYLIST.length) return null;
-        if (typeof parsed.time !== "number" || !Number.isFinite(parsed.time) || parsed.time < 0) return null;
-        const memory: { index: number; time: number; matchTime?: number } = {
-            index: parsed.index,
-            time: parsed.time,
-        };
-        // Absent means the menu was playing. Zero is a real position: the match track had just started.
-        if (parsed.matchTime !== undefined) {
-            if (typeof parsed.matchTime !== "number" || !Number.isFinite(parsed.matchTime) || parsed.matchTime < 0) {
-                return memory;
-            }
-            memory.matchTime = parsed.matchTime;
-        }
-        return memory;
+        return parseThemePlaybackMemory(sessionStorage.getItem(PLAYBACK_KEY));
     } catch {
         return null;
     }
@@ -79,26 +44,14 @@ const readThemeMemory = (): { index: number; time: number; matchTime?: number } 
 /** A ranked match lives at /game/:id. The replay is /game/:id/replay and stays quiet. */
 const isLiveGamePath = (pathname: string): boolean => /^\/game\/[^/]+\/?$/.test(pathname);
 
-/**
- * The match track. It replaces the menu playlist from the moment a ranked match is found and stays there
- * through the fight — match check, picks, augments, placement, combat — until the player leaves. A single
- * track rather than a list: the match wants one continuous mood, and a fight can run long enough that
- * swapping tracks at the first turn is the thing that used to make the room go quiet.
- */
-const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_and_silk.mp3" } as const;
+const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
-/** Route prefixes that carry the menu theme. A ranked match sings via the match-track flag instead, and
- * the offline sandbox stays quiet.
+/** The ranked arena carries the menu theme. A ranked match sings via the match-track flag instead.
  *
  * Note this governs what PLAYS, not where the speaker is offered: the control sits in the bottom-right
  * corner on every screen, the silent ones included. It is a setting, not a now-playing indicator — muting
  * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored. */
-const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
-
-const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
-
-const shouldSing = (pathname: string): boolean =>
-    SINGING_ROUTES.some((route) => pathname === route || pathname.startsWith(route));
+const shouldSing = (pathname: string): boolean => /^\/play\/?$/.test(pathname);
 
 export const ThemeMusic: React.FC = () => {
     const { pathname } = useLocation();
@@ -112,7 +65,7 @@ export const ThemeMusic: React.FC = () => {
     const outputRef = useRef<HTMLAudioElement | null>(null);
     const playerRef = useRef<ThemeMusicPlayer | null>(null);
     const fadeRef = useRef<number | null>(null);
-    // Reloaded inside a match: stay on Iron and Silk until the ranked screen reports, instead of
+    // Reloaded inside a match: keep its saved song until the ranked screen reports, instead of
     // starting the menu song in the gap before that flag turns on.
     const holdMatchRef = useRef(false);
     // The error overlay turns the match flag off while the URL is still /game/:id. That is a real stop.
@@ -201,7 +154,7 @@ export const ThemeMusic: React.FC = () => {
         }
         outputRef.current = audio;
         const opening = readThemeMemory();
-        // Only a reload of the match itself reopens Iron and Silk. A menu reload must not.
+        // Only a reload of the match itself reopens the saved match song. A menu reload must not.
         const resumeMatch = isLiveGamePath(window.location.pathname) && opening?.matchTime !== undefined;
         holdMatchRef.current = resumeMatch;
         const player = createThemeMusicPlayer({
@@ -218,7 +171,13 @@ export const ThemeMusic: React.FC = () => {
             onPlaybackBlocked: () => setNeedsUnlock(true),
             initialIndex: opening?.index ?? 0,
             initialTime: opening?.time ?? 0,
-            initialMatch: resumeMatch ? { track: PREFIGHT_TRACK, time: opening?.matchTime ?? 0 } : undefined,
+            initialMatch: resumeMatch
+                ? {
+                      track: MATCH_MUSIC_PLAYLIST[opening?.matchIndex ?? 0],
+                      playlist: MATCH_MUSIC_PLAYLIST,
+                      time: opening?.matchTime ?? 0,
+                  }
+                : undefined,
             onProgress: () => remember(),
             onOutputChange: (element) => {
                 outputRef.current = element as HTMLAudioElement;
@@ -229,7 +188,7 @@ export const ThemeMusic: React.FC = () => {
         let lastWrite = 0;
         function remember(force = false): void {
             // Menu index and time stay in the record while the match is on, and the match clock is stored
-            // beside them. Skipping the write here used to make a reload start Iron and Silk from bar 0.
+            // beside them. Skipping the write here used to make a reload restart the match music from bar 0.
             const now = Date.now();
             if (!force && now - lastWrite < 1000) return;
             const memory = player.playbackMemory();
@@ -239,11 +198,7 @@ export const ThemeMusic: React.FC = () => {
             }
             lastWrite = now;
             try {
-                const payload =
-                    memory.matchTime === undefined
-                        ? { index: memory.index, time: memory.time }
-                        : { index: memory.index, time: memory.time, matchTime: memory.matchTime };
-                sessionStorage.setItem(PLAYBACK_KEY, JSON.stringify(payload));
+                sessionStorage.setItem(PLAYBACK_KEY, JSON.stringify(memory));
             } catch {
                 // Private mode still plays; a reload just starts the theme again.
             }
@@ -259,7 +214,7 @@ export const ThemeMusic: React.FC = () => {
         };
     }, [fadeTo, getTargetVolume, stopFade]);
 
-    // Switching into the ranked preparation sequence selects its one-track loop; leaving restores the menu
+    // Switching into the ranked preparation sequence selects its match playlist; leaving restores the menu
     // playlist at the same index it had before. If playback was already unlocked, the hand-off starts now.
     useEffect(() => {
         const player = playerRef.current;
@@ -269,11 +224,11 @@ export const ThemeMusic: React.FC = () => {
         if (prefight) {
             holdMatchRef.current = false;
             silencedMatchRef.current = false;
-            void player.playSingle(PREFIGHT_TRACK);
+            void player.playMatchPlaylist(MATCH_MUSIC_PLAYLIST);
             return;
         }
         // Still inside a match URL and the screen has not started the fight music yet: do not pull the
-        // menu song in over a resumed Iron and Silk, and do not load the menu just to throw it away.
+        // menu song in over the resumed match song, and do not load the menu just to throw it away.
         if (isLiveGamePath(window.location.pathname) && (holdMatchRef.current || !player.hasStarted())) {
             return;
         }
@@ -305,7 +260,7 @@ export const ThemeMusic: React.FC = () => {
     // next ordinary click/touch without requiring the player to jiggle the volume toggle.
     useEffect(() => {
         // A reloaded match is audible before the ranked screen mounts, so the unlock has to cover that
-        // URL too. Otherwise the click that would have started Iron and Silk is ignored.
+        // URL too. Otherwise the click that would have started the match music is ignored.
         const canHear = singing || (isLiveGamePath(pathname) && !silencedMatchRef.current);
         if (!needsUnlock || !canHear || effectiveVolume === 0) {
             return undefined;

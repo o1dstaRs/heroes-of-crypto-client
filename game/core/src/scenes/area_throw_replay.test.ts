@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { FIGHT_EVENT_VFX } from "./fight_vfx_catalog";
+import { FIGHT_EVENT_VFX } from "./testSupport/fightVfxCatalog";
 
 /**
  * The area throw was the LAST replay path still driving its visuals off a local engine re-run instead of

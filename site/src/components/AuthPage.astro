@@ -1,5 +1,6 @@
 ---
 import { content, links, localPath, type Language } from "../lib/site-data";
+import SandboxLink from "./SandboxLink.astro";
 import "../styles/auth-google.css";
 
 export type AuthMode = "login" | "register" | "verify" | "forgot-password" | "reset-password" | "new-password";
@@ -38,7 +39,6 @@ const successMessages = {
 const passwordId = `${normalizedMode}-password`;
 const confirmPasswordId = `${normalizedMode}-confirm-password`;
 const rankedHref = links.rankedApp;
-const sandboxHref = links.sandboxApp;
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
 const supportsGoogle = normalizedMode === "login" || normalizedMode === "register";
 ---
@@ -61,13 +61,13 @@ const supportsGoogle = normalizedMode === "login" || normalizedMode === "registe
                     </span>
                     <em>{copy.play.rankedHint}</em>
                 </a>
-                <a class="auth-mode-card is-beta" href={sandboxHref}>
+                <SandboxLink class="auth-mode-card is-beta">
                     <span>
                         <img src="/assets/icons/navbar/settings.svg" alt="" width="22" height="22" />
                         <strong>{copy.play.sandboxLabel}</strong>
                     </span>
                     <em>{copy.play.sandboxHint}</em>
-                </a>
+                </SandboxLink>
             </div>
         </div>
 

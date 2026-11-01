@@ -200,6 +200,7 @@ export const endpoints = {
     auth: {
         me: IS_PROD ? "/v1/me" : "/v1/auth/me",
         portal: IS_PROD ? "/v1/portal" : "/v1/auth/portal",
+        portalHistory: IS_PROD ? "/v1/portal-history" : "/v1/auth/portal-history",
         login: IS_PROD ? "/v1/login" : "/v1/auth/login",
         logout: IS_PROD ? "/v1/logout" : "/v1/auth/logout",
         register: IS_PROD ? "/v1/register" : "/v1/auth/register",

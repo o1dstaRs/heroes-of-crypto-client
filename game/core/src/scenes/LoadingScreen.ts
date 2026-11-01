@@ -9,9 +9,11 @@ import {
     Text,
     TextStyle,
     Texture,
+    Ticker,
 } from "pixi.js";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
+import { advanceLoadingProgress } from "../pixi/loadingProgress";
 import {
     normalizeLoadingScreenFireTuning,
     readStoredLoadingScreenFireTuning,
@@ -115,6 +117,8 @@ export class LoadingScreen extends Container {
     private firePlaybackPaused = false;
     private fireScrubFrame = 0;
     private progress = 0;
+    private progressTarget = 0;
+    private progressAnimating = false;
     private constructor(
         screenWidth: number,
         screenHeight: number,
@@ -315,6 +319,7 @@ export class LoadingScreen extends Container {
     /** Stop animated children and release screen-owned GPU resources before the next battle loads. */
     public override destroy(): void {
         if (this.destroyed) return;
+        this.stopProgressAnimation();
         this.unloadedBarLayer.filters = null;
         this.unloadedBarFilter.destroy();
         // Container.destroy() does not recurse unless explicitly requested. The fire sprites are registered
@@ -604,8 +609,25 @@ export class LoadingScreen extends Container {
         }
         this.drawCircleClippedAtX(mask, rightPocketCenterX, pocketCenterY, TRACK_START_POCKET_RADIUS, revealX);
     }
+    public animateProgress(value: number): void {
+        if (this.destroyed || !Number.isFinite(value)) return;
+        this.progressTarget = Math.max(this.progress, this.progressTarget, Math.min(1, value));
+        if (this.progressAnimating || this.progressTarget === this.progress) return;
+        this.progressAnimating = true;
+        Ticker.shared.add(this.advanceProgress, this);
+    }
+    private advanceProgress(ticker: Ticker): void {
+        const next = advanceLoadingProgress(this.progress, this.progressTarget, ticker.deltaMS);
+        if (next !== this.progress) this.setProgress(next);
+        if (next >= this.progressTarget) this.stopProgressAnimation();
+    }
+    private stopProgressAnimation(): void {
+        if (!this.progressAnimating) return;
+        Ticker.shared.remove(this.advanceProgress, this);
+        this.progressAnimating = false;
+    }
     public setProgress(value: number): void {
-        this.progress = Math.max(0, Math.min(1, value));
+        this.progress = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
         const travelProgress = Math.min(1, this.progress / FINAL_SLIDER_POSITION_PROGRESS);
         const fillWidth = TRACK_WIDTH * travelProgress;
         const medallionStartX = TRACK_X + this.fireTuning.medallionStartOffsetX;

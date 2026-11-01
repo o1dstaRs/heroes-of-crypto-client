@@ -70,6 +70,20 @@ const doubleField = (field: number, value: number): number[] => {
 };
 
 describe("play protobuf decoder", () => {
+    test.each([0, 1, 7])("decodes %i Bitter Experience stacks without losing zero", (stacks) => {
+        const snapshot = new Uint8Array([
+            ...messageField(12, [...stringField(1, "peasant"), ...intField(49, stacks + 1)]),
+        ]);
+        expect(decodePlaySnapshot(snapshot).units[0]?.bitterExperienceStacks).toBe(stacks);
+    });
+
+    test("keeps Bitter Experience stacks absent for an older server", () => {
+        const snapshot = new Uint8Array([...messageField(12, stringField(1, "peasant"))]);
+        const unit = decodePlaySnapshot(snapshot).units[0]!;
+        expect(unit.id).toBe("peasant");
+        expect(unit.bitterExperienceStacks).toBeUndefined();
+    });
+
     test("encodes semantic aim ordering, board sequence, and piercing direction without losing zero cells", () => {
         const bytes = [
             ...encodePlayAction({
