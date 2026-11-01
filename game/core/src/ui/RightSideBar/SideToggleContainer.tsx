@@ -132,6 +132,7 @@ const AugmentCard = ({
 
     return (
         <Sheet
+            data-touch-augment-card
             variant="outlined"
             sx={{
                 p: "9px 12px",
@@ -256,6 +257,7 @@ const AugmentCard = ({
                                     ? "Premium recommended level for your army and visible opponent roster"
                                     : undefined
                             }
+                            data-touch-augment-option
                             data-premium-recommended={option.value === recommended || undefined}
                             sx={{
                                 outline: option.value === recommended ? "2px solid #d77429" : undefined,
@@ -540,6 +542,7 @@ const SideToggleContainer = ({
         >
             {/* Every category on screen at once: 4 columns, one card per augment, levels priced inline. */}
             <Box
+                data-touch-augment-grid
                 sx={{
                     display: "grid",
                     gridTemplateColumns: draftLayout

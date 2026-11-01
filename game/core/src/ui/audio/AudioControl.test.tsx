@@ -64,6 +64,37 @@ test("keeps the same controls when docked into the ranked or arena footer", asyn
     expect(await readControls(html)).toEqual({ volume: "100", music: true, musicLabel: "Music", soundButtons: 1 });
 });
 
+test("touch sound settings expose reachable volume, master mute and separate effects and music switches", () => {
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+    Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: {
+            innerWidth: 1133,
+            innerHeight: 744,
+            matchMedia: () => ({ matches: true }),
+            location: { pathname: "/" },
+        },
+    });
+    Object.defineProperty(globalThis, "document", {
+        configurable: true,
+        value: { documentElement: { clientWidth: 1133, clientHeight: 744 } },
+    });
+    try {
+        const html = renderToStaticMarkup(<AudioControl docked onSettingsChange={() => undefined} />);
+        expect(html).toContain('aria-label="Sound settings"');
+        expect(html).toContain('aria-label="Decrease sound volume"');
+        expect(html).toContain('aria-label="Increase sound volume"');
+        expect(html).toContain("Sound effects");
+        expect(html.match(/type="checkbox"/g)).toHaveLength(2);
+    } finally {
+        if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+        else Reflect.deleteProperty(globalThis, "window");
+        if (originalDocument) Object.defineProperty(globalThis, "document", originalDocument);
+        else Reflect.deleteProperty(globalThis, "document");
+    }
+});
+
 test("shared sound reaches creature, spell and interface effects with music disabled", async () => {
     const previous = getAudioLevels();
     const audible: number[] = [];

@@ -1,0 +1,27 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import { sandboxLinkHref } from "../lib/sandbox-link";
+
+type Props = Omit<HTMLAttributes<"a">, "href">;
+const href = sandboxLinkHref({
+    development: import.meta.env.DEV,
+    sandbox: import.meta.env.VITE_GAME_CLIENT_SANDBOX,
+    host: import.meta.env.VITE_HOST_GAME_CLIENT,
+    client: import.meta.env.VITE_GAME_CLIENT,
+});
+---
+<a {...Astro.props} href={href} data-sandbox-target={href.startsWith("/") ? undefined : href}><slot /></a>
+
+<script>
+    import { withGameAuthToken } from "../lib/auth-handoff";
+    import { onAuthStateChange } from "../lib/auth-state";
+
+    document.querySelectorAll<HTMLAnchorElement>("a[data-sandbox-target]").forEach(link => {
+        const update = () => {
+            link.href = withGameAuthToken(new URL(link.dataset.sandboxTarget!)).href;
+        };
+        onAuthStateChange(update);
+        link.addEventListener("click", update);
+        link.addEventListener("auxclick", update);
+    });
+</script>

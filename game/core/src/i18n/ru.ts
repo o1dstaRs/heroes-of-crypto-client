@@ -4,6 +4,44 @@
  * here — v1 localizes the pick-phase and in-game interface chrome.
  */
 export const RU_TRANSLATIONS: Record<string, string> = {
+    "Start a new battle?": "Начать новый бой?",
+    "Use Luck Shield and end turn?": "Сбросить удачу и завершить ход?",
+    "Split amount": "Размер отделяемого отряда",
+    "Decrease split amount": "Уменьшить отделяемый отряд",
+    "Increase split amount": "Увеличить отделяемый отряд",
+    "Swipe to wipe away the blood": "Смахните кровь пальцем",
+    "Battle controls": "Управление боем",
+    Unit: "Отряд",
+    "Army & log": "Армия и журнал",
+    Inspect: "Осмотр",
+    "Zoom out": "Уменьшить",
+    "Zoom in": "Увеличить",
+    "Fit battlefield": "Всё поле",
+    Fit: "Поле",
+    "Confirm battle action": "Подтверждение действия",
+    "Turn actions": "Действия хода",
+    "Army & placement": "Армия и расстановка",
+    "Tap a stack, then its destination. Pinch to zoom.": "Выберите отряд, затем клетку. Масштаб — двумя пальцами.",
+    "Rotate spell": "Повернуть заклинание",
+    Rotate: "Поворот",
+    Deselect: "Снять выбор",
+    "Prepare your army": "Подготовьте армию",
+    "Confirm action": "Подтвердить действие",
+    "Cast spell": "Применить заклинание",
+    "Place here": "Разместить здесь",
+    "Start battle?": "Начать бой?",
+    "End turn?": "Завершить ход?",
+    "Wait this turn?": "Подождать в этом ходу?",
+    "Defend this turn?": "Защищаться в этом ходу?",
+    "Switch automatic play?": "Переключить автобой?",
+    "Remove selected stack?": "Удалить выбранный отряд?",
+    "Split selected stack?": "Разделить выбранный отряд?",
+    "Ready placement?": "Завершить расстановку?",
+    "Auto: on": "Авто: вкл.",
+    "Auto: off": "Авто: выкл.",
+    Armies: "Армии",
+    "Creature level": "Уровень существа",
+
     Normal: "Обычная",
     Barrels: "Бочки",
     "Temporary: {duration} total, {time} remaining. Automatically ends {date}.":
@@ -307,6 +345,25 @@ export const RU_TRANSLATIONS: Record<string, string> = {
 
     // ~~~ Match history ~~~
     "Match history": "История матчей",
+    All: "Все",
+    "Find past matches by artifacts, creatures or opponents.":
+        "Ищите прошлые матчи по артефактам, существам или соперникам.",
+    "Search artifacts, creatures or opponents…": "Артефакт, существо или соперник…",
+    "Search match history": "Поиск в истории матчей",
+    "Clear history search": "Очистить поиск по истории",
+    "Searching match history": "Поиск матчей",
+    "Searching match history…": "Ищем матчи…",
+    "Search army": "Армия для поиска",
+    "Either army": "Любая армия",
+    "Opponent's army": "Армия соперника",
+    "Try:": "Например:",
+    "Combine names to narrow your search.": "Укажите несколько названий, чтобы уточнить поиск.",
+    "{count} matches shown": "Показано матчей: {count}",
+    "Unable to search match history.": "Не удалось выполнить поиск по истории матчей.",
+    "No matches found.": "Матчи не найдены.",
+    "Try another name or search either army.": "Попробуйте другое название или поиск по обеим армиям.",
+    "Clear filters": "Сбросить фильтры",
+    "Load more matches": "Загрузить ещё матчи",
     "{count} most recent finished matches": "последние завершённые матчи: {count}",
     Victory: "Победа",
     Defeat: "Поражение",
@@ -553,8 +610,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Blind Fury": "Слепая ярость",
     "Reveal the opponent's picks in 3 random slots and see all draft bans in advance. Grants 6 upgrade points.":
         "Открывает выборы противника в 3 случайных слотах и заранее показывает все баны драфта. Даёт 6 очков усилений.",
-    "See all of the opponent's picks during the draft and all draft bans in advance. Grants 5 upgrade points.":
-        "Показывает все выборы противника во время драфта и заранее все баны. Даёт 5 очков усилений.",
+    "See all of the opponent's picks during the draft and all draft bans in advance. Know the map from the starting bundle choice. Grants 5 upgrade points.":
+        "Показывает все выборы противника во время драфта и заранее все баны. Карта известна уже при выборе стартового бандла. Даёт 5 очков усилений.",
     "See none of the opponent's picks. Bans are revealed as each creature level opens. Grants 7 upgrade points.":
         "Не показывает выборы противника. Баны открываются по мере появления выбора каждого уровня существ. Даёт 7 очков усилений.",
     "{count} upgrade points": "очков усилений: {count}",
@@ -564,10 +621,10 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Draft blind, field the strongest army": "Драфт вслепую, зато сильнейшая армия",
     "Opens three of the opponent's six army slots — one per tier block, not three at random: one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. The slots are rolled the moment the draft opens and stay open as those picks fill in. The other three never open. All draft bans are visible in advance.":
         "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются. Все баны драфта видны заранее.",
-    "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance.":
-        "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее.",
-    "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board. Bans are revealed only as each creature level opens.":
-        "Вы не видите ни одного выбора противника. Стройте драфт только вокруг своего плана и узнайте его состав уже на поле. Баны открываются только по мере появления выбора каждого уровня существ.",
+    "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick. All draft bans are visible in advance. The map is revealed with your starting bundle choices.":
+        "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором. Все баны драфта видны заранее. Карта открывается вместе с вариантами стартового бандла.",
+    "You see none of the opponent's picks in advance. You draft entirely on your own plan, without a draft-ban summary. Banned choices become unavailable only as each creature level opens.":
+        "Вы заранее не видите выборов противника и строите драфт вокруг своего плана. Сводки банов нет; забаненные варианты становятся недоступны лишь при открытии соответствующего уровня существ.",
     "Only revealed bans are shown.": "Показаны только уже раскрытые баны.",
     "Bans are revealed when each creature level opens.":
         "Баны открываются по мере появления выбора каждого уровня существ.",
@@ -1090,12 +1147,12 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "A private lobby needs a 4-digit PIN": "Для приватного лобби нужен 4-значный PIN",
     "Failed to load lobbies": "Не удалось загрузить лобби",
     "Failed to create lobby": "Не удалось создать лобби",
-    "non-refundable": "без возврата",
-    "Free while the season has minted no gold": "Бесплатно, пока в сезоне не отчеканено золото",
-    "Lobbies are free until the season has minted gold and calibrated its first players.":
-        "Лобби бесплатны, пока сезон не отчеканит золото и не откалибрует первых игроков.",
-    "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.":
-        "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, и задаёт цену. Она списывается с создателя и не возвращается; то, что вы ставите на саму игру, — отдельно.",
+    "Unable to load the lobby price. Please try again shortly.":
+        "Не удалось загрузить стоимость лобби. Попробуйте ещё раз чуть позже.",
+    "Opening a lobby costs at least 1 G. If it expires after 24 hours without starting, its opening fee is returned. Cancelling it yourself does not return the fee.":
+        "Открытие лобби стоит не меньше 1 G. Если через 24 часа игра не начнётся, лобби закроется, а плата за открытие вернётся. При самостоятельной отмене плата не возвращается.",
+    "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price, with a minimum of 1 G. If the lobby expires after 24 hours without starting, its opening fee is returned. Cancelling it yourself does not return the fee; game wagers are separate.":
+        "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, задаёт цену, не меньше 1 G. Если через 24 часа игра не начнётся, лобби закроется, а плата за открытие вернётся. При самостоятельной отмене плата не возвращается; ставки на игру — отдельно.",
     "Opening a lobby costs {price} G.": "Открытие лобби стоит {price} G.",
     "Opening a lobby costs {price} G — you have {purse} G available":
         "Открытие лобби стоит {price} G — вам доступно {purse} G",

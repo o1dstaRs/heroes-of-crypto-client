@@ -4,7 +4,7 @@ Use this process for the first end-to-end standing animation or whenever the tar
 
 ## Create the record
 
-Create `/Users/pro/Workplace/heroesofcrypto-assets/design/<creature>_idle_calibration_vN`, choosing the next unused version. Keep the actual folders needed for:
+Create `game/core/tmp/imagegen/<creature>_idle_calibration_vN`, choosing the next unused version. Keep the actual folders needed for:
 
 - canonical identity source and hashes;
 - untouched motion draft and Sprite AI export metadata;
@@ -37,7 +37,7 @@ If Sprite AI is used, show its 256x256 loop for motion approval only. Compare GI
 
 When using Sprite AI for the motion draft, enter through `https://www.sprite-ai.art/studio/animate`, not the character generator. Select `Idle`, then use `Pick a sprite` and upload a prepared motion-reference copy of the authoritative full-body battlefield source. Resolve the canonical source from the client runtime mapping for the named creature rather than choosing by a plausible filename or portrait appearance; record the mapping file, asset key, absolute source path, dimensions, alpha status, and SHA-256.
 
-Sprite AI imports one still image in PNG, JPEG, or WebP format and requires every side to be between 16 and 256 pixels. Never resize or replace the canonical art in place. When either source dimension exceeds 256, create a separate lossless PNG motion reference with the longest side reduced to 256, uniform aspect-preserving scale, unchanged full canvas framing, no crop, no padding shift, no sharpening, and intact alpha. Use `scripts/prepare_sprite_ai_input.sh` and record the canonical-to-reference scale and offset. The 256px image is disposable motion input; reconstructing final identity detail from it is forbidden. All high-resolution redraws must refer back to the canonical source while borrowing only pose and motion coordinates from the draft.
+Sprite AI imports one still image in PNG, JPEG, or WebP format and requires every side to be between 16 and 256 pixels. Never resize or replace the canonical art in place. When either source dimension exceeds 256, create a separate lossless PNG motion reference with the longest side reduced to 256, uniform aspect-preserving scale, unchanged full canvas framing, no crop, no padding shift, no sharpening, and intact alpha. Use `.claude/skills/hoc-idle-animation/scripts/prepare_sprite_ai_input.sh` from the repository root and record the canonical-to-reference scale and offset. The 256px image is disposable motion input; reconstructing final identity detail from it is forbidden. All high-resolution redraws must refer back to the canonical source while borrowing only pose and motion coordinates from the draft.
 
 After upload, capture the visible framing preview and all selected controls before changing them. Record the frame count, credit quote, prompt, framing anchor, and any automatic crop or scale. Treat credit counts and defaults as observed values, not permanent project rules. Do not press `Animate` during calibration until the uploaded identity, `Idle` mode, frame count, framing, and prompt have been reviewed.
 
@@ -76,10 +76,10 @@ Record each correction with an observable reason. Keep creature-specific correct
 
 ## Known project evidence
 
-Use these local examples as evidence, not as automatic production templates:
+Look up these production-record names in the available source packages; use them as evidence rather than automatic production templates:
 
-- `/Users/pro/Workplace/heroesofcrypto-assets/design/squire_idle_breathing_v1` — rejected layered puppet treatment with visible cut seams and disconnected vertical motion.
-- `/Users/pro/Workplace/heroesofcrypto-assets/design/squire_idle_breathing_v2_redrawn` — complete-frame redraw approach with planted boots and a connected body/equipment redraw.
+- `squire_idle_breathing_v1` — rejected layered puppet treatment with visible cut seams and disconnected vertical motion.
+- `squire_idle_breathing_v2_redrawn` — complete-frame redraw approach with planted boots and a connected body/equipment redraw.
 
 The Squire's frame count, 1.92-second duration, motion angles, breathing amplitude, and locked lower legs are creature-specific calibration results, not defaults for every creature.
 

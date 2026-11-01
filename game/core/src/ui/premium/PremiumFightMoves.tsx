@@ -11,6 +11,7 @@ import { usePremiumSearchMatch } from "./PremiumSearchMatchContext";
 import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
 import { currentPremiumTurnReview, usePremiumTurnReview, type PremiumTurnReview } from "./PremiumTurnPreviewContext";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
+import { usePremiumAdviceView } from "./usePremiumAdviceView";
 
 const purposeLabels = {
     attack: "Attack option",
@@ -25,8 +26,10 @@ const purposeLabels = {
 
 export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn }) => {
     const askQuestion = useAskPremiumQuestion();
+    const impression = usePremiumAdviceView(turn.gameId, turn.adviceId);
     return (
         <Box
+            ref={impression}
             component="details"
             sx={{
                 width: "100%",

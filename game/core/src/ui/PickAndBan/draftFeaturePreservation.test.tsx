@@ -1,11 +1,12 @@
 import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
-import { Artifact, CreatureLevelList, GridVals, PickPhaseVals, TeamVals } from "@heroesofcrypto/common";
+import { Artifact, CreatureLevelList, Doctrine, GridVals, PickPhaseVals, TeamVals } from "@heroesofcrypto/common";
 import { expect, mock, test } from "bun:test";
 import React, { createContext, useContext } from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
 import { PickBanContext, type PickBanContextType } from "../context/PickBanContextDefs";
+import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 
 const advice = { recommendation: "preserved" };
 const premiumContext = createContext<typeof advice | undefined>(undefined);
@@ -24,7 +25,8 @@ mock.module("../MatchupOverlay", () => ({ PickMatchupOverlay: () => null }));
 mock.module("../CreaturePortraitImage", () => ({ CreaturePortraitImage: () => null }));
 mock.module("./PickLanternFire", () => ({ PickLanternFire: () => null }));
 mock.module("./MapReveal", () => ({
-    MapBadge: () => null,
+    MapBadge: ({ mapType }: { mapType: number }) => <div data-map-badge={mapType} />,
+    StartingMapPreview: ({ mapType }: { mapType: number }) => (mapType ? <div data-starting-map={mapType} /> : null),
     MapRevealModal: ({ mapType }: { mapType: number }) => <div data-map-reveal={mapType} />,
 }));
 mock.module("../GameSystemControls", () => ({
@@ -85,16 +87,30 @@ test("waiting for the opponent keeps a single disabled commit action", () => {
 });
 
 test("the live draft exposes the server's authorized future-level bans through its ban summary", () => {
-    const html = render({ ...draft, doctrine: 2, banned: [CreatureLevelList[1][0], CreatureLevelList[4][0]] });
+    const banned = [CreatureLevelList[1][0], CreatureLevelList[4][0]];
+    const html = render({ ...draft, doctrine: Doctrine.Doctrine.SEE_ALL, banned });
     expect(html).toContain('data-testid="draft-ban-summary"');
-    expect(html).toContain("Level 4");
+    for (const id of banned) expect(html).toContain(`aria-label="${UNIT_ID_TO_NAME[id]}"`);
     expect(html.match(/<button /g)).toHaveLength(1);
 });
 
-test("the live draft cannot invent future bans absent from its private stream", () => {
-    const html = render({ ...draft, doctrine: 3, banned: [CreatureLevelList[1][0]] });
+test("the live draft hides the ban summary for Battle Trance throughout picks and artifacts", () => {
+    for (const pickPhase of [PickPhaseVals.INITIAL_PICK, PickPhaseVals.PICK, PickPhaseVals.ARTIFACT_2]) {
+        const html = render({
+            ...draft,
+            doctrine: Doctrine.Doctrine.SEE_NONE,
+            pickPhase,
+            requiredLevel: 4,
+            banned: [CreatureLevelList[1][0], CreatureLevelList[4][0]],
+        });
+        expect(html).not.toContain('data-testid="draft-ban-summary"');
+    }
+});
+
+test("scouting summaries never invent bans absent from the private stream", () => {
+    const html = render({ ...draft, doctrine: Doctrine.Doctrine.THREE_REVEALS, banned: [CreatureLevelList[1][0]] });
     expect(html).toContain('data-testid="draft-ban-summary"');
-    expect(html).not.toContain("Level 4</");
+    expect(html).not.toContain(`aria-label="${UNIT_ID_TO_NAME[CreatureLevelList[4][0]]}"`);
 });
 
 const renderOpponent = (artifacts: { artifactTier1?: number; artifactTier2?: number }): string =>
@@ -139,5 +155,39 @@ test("scouting bans stay between the armies and the choices throughout picks", (
             expect(bans).toBeLessThan(html.indexOf('data-testid="draft-choice-action-zone"'));
             expect(html).not.toContain("<details");
         }
+    }
+});
+
+test("Spymaster sees the map alongside the first bundle choices, with no blocking reveal", () => {
+    for (const mapType of [GridVals.NORMAL, GridVals.BLOCK_CENTER, GridVals.LAVA_CENTER]) {
+        const html = render({
+            ...draft,
+            doctrine: Doctrine.Doctrine.SEE_ALL,
+            pickPhase: PickPhaseVals.INITIAL_PICK,
+            mapType,
+        });
+        expect(html).toContain(`data-starting-map="${mapType}"`);
+        expect(html.indexOf("data-starting-map")).toBeGreaterThan(html.indexOf('data-testid="draft-armies-zone"'));
+        expect(html.indexOf("data-starting-map")).toBeLessThan(html.indexOf('data-testid="draft-choice-zone"'));
+        expect(html).not.toContain("data-map-badge");
+        expect(html).toContain('data-map-reveal="0"');
+    }
+});
+
+test("hidden maps are never invented; other doctrines retain their usual reveal", () => {
+    const spymaster = render({
+        ...draft,
+        doctrine: Doctrine.Doctrine.SEE_ALL,
+        pickPhase: PickPhaseVals.INITIAL_PICK,
+        mapType: 0,
+    });
+    expect(spymaster).not.toContain("data-starting-map");
+    for (const doctrine of [Doctrine.Doctrine.THREE_REVEALS, Doctrine.Doctrine.SEE_NONE]) {
+        const early = render({ ...draft, doctrine, pickPhase: PickPhaseVals.INITIAL_PICK, mapType: 0 });
+        expect(early).not.toContain("data-starting-map");
+        expect(early).toContain('data-map-badge="0"');
+        const late = render({ ...draft, doctrine, pickPhase: PickPhaseVals.PICK, requiredLevel: 3 });
+        expect(late).not.toContain("data-starting-map");
+        expect(late).toContain(`data-map-reveal="${draft.mapType}"`);
     }
 });

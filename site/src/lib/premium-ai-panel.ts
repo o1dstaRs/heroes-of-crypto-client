@@ -95,10 +95,11 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
     const status = panel.querySelector<HTMLElement>("[data-ai-status]")!;
     const scope = panel.querySelector<HTMLElement>("[data-ai-scope]")!;
     let selection: PremiumAiSelection | undefined;
+    let enabled = false;
     let history: PremiumSearchMessage[] = [];
     let controller: AbortController | undefined;
     const setBusy = (busy: boolean) => {
-        submit.disabled = busy || !selection;
+        submit.disabled = busy || !enabled;
         stop.hidden = !busy;
         panel.querySelectorAll<HTMLButtonElement>("[data-ai-prompt]").forEach((button) => (button.disabled = busy));
         form.setAttribute("aria-busy", String(busy));
@@ -112,16 +113,17 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         status.textContent = "";
         setBusy(false);
     };
-    const setSelection = (next?: PremiumAiSelection, label = "") => {
-        if (!samePremiumSelection(selection, next)) clear();
+    const setAccess = (active: boolean, next?: PremiumAiSelection, label = "") => {
+        if (!active || !samePremiumSelection(selection, next)) clear();
+        enabled = active;
         selection = next;
-        panel.hidden = !next;
+        panel.hidden = !active;
         scope.textContent = label;
         scope.title = next?.snapshotId ?? "";
         setBusy(Boolean(controller));
     };
     const ask = async () => {
-        if (controller || !selection || !input.value.trim()) return;
+        if (controller || !enabled || !input.value.trim()) return;
         const token = getAuthToken();
         if (!token) {
             clear();
@@ -130,12 +132,14 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         }
         const question = input.value.trim();
         if (question.length > 2000) return;
-        const selected = { ...selection };
+        const selected = selection ? { ...selection } : undefined;
         const pending = new AbortController();
         controller = pending;
         setBusy(true);
         input.value = "";
-        status.textContent = t("Reading your selected data…", "Изучаем выбранные данные…");
+        status.textContent = selected
+            ? t("Reading your selected data…", "Изучаем выбранные данные…")
+            : t("Checking game rules and strategy…", "Проверяем правила игры и стратегии…");
         const turn = document.createElement("article");
         turn.className = "premium-ai-turn";
         turn.innerHTML =
@@ -166,6 +170,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                 .join("");
         };
         const active = () =>
+            enabled &&
             controller === pending &&
             !pending.signal.aborted &&
             getAuthToken() === token &&
@@ -220,10 +225,12 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                 { role: "user", content: question },
                 { role: "assistant", content: completed },
             ].slice(-6) as PremiumSearchMessage[];
-            status.textContent = t(
-                "Answer ready. Ask a follow-up or explore the evidence below.",
-                "Ответ готов. Задайте уточнение или изучите данные ниже.",
-            );
+            status.textContent = selected
+                ? t(
+                      "Answer ready. Ask a follow-up or explore the evidence below.",
+                      "Ответ готов. Задайте уточнение или изучите данные ниже.",
+                  )
+                : t("Answer ready. Ask a follow-up to explore further.", "Ответ готов. Задайте уточняющий вопрос.");
         } catch (error) {
             if (controller !== pending) return;
             const stopped = pending.signal.aborted;
@@ -271,5 +278,5 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         input.focus();
     });
     window.addEventListener("pagehide", () => clear());
-    return { setSelection };
+    return { setAccess };
 }

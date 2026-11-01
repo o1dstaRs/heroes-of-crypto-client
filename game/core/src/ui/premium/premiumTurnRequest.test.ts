@@ -84,3 +84,15 @@ test("advice for a stale revision or revoked entitlement cannot paint the board"
         stop();
     }
 });
+
+test("the visible preview retains the server-issued measurement identity", async () => {
+    const published: (PremiumTurnPreview | undefined)[] = [];
+    const stop = startPremiumTurnPreview(
+        snapshot,
+        (turn) => published.push(turn),
+        async () => ({ ...advice, adviceId: "issued-advice" }),
+    );
+    await flush();
+    expect(published.at(-1)?.adviceId).toBe("issued-advice");
+    stop();
+});

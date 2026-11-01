@@ -47,22 +47,30 @@ export function initPremiumPage(): void {
     const updateAi = () => {
         const snapshot = data?.snapshot;
         const library = data?.library;
-        ai.setSelection(
+        form.hidden = !library;
+        root.querySelectorAll<HTMLElement>("[data-premium-library-nav]").forEach((link) => (link.hidden = !library));
+        ai.setAccess(
+            entitlement?.active === true,
             snapshot && library
                 ? { snapshotId: snapshot.snapshotId, ...library.scope, minimumFamilies: view.minimum }
                 : undefined,
-            [
-                snapshot?.studyProfile.replace("premium-", ""),
-                select("cohort").selectedOptions[0]?.text,
-                select("map").selectedOptions[0]?.text,
-                view.minimum + "+ " + t("families", "семейств"),
-            ]
-                .filter(Boolean)
-                .join(" · "),
+            snapshot && library
+                ? [
+                      snapshot?.studyProfile.replace("premium-", ""),
+                      select("cohort").selectedOptions[0]?.text,
+                      select("map").selectedOptions[0]?.text,
+                      view.minimum + "+ " + t("families", "семейств"),
+                  ]
+                      .filter(Boolean)
+                      .join(" · ")
+                : t(
+                      "Game rules and strategy · statistical library not yet available",
+                      "Правила игры и стратегии · статистическая библиотека пока недоступна",
+                  ),
         );
     };
     const clear = () => {
-        ai.setSelection();
+        ai.setAccess(false);
         workspace.hidden = true;
         content.replaceChildren();
         data = undefined;
@@ -75,8 +83,8 @@ export function initPremiumPage(): void {
         status.textContent = signedIn
             ? t("Premium is not active on this account.", "На этом аккаунте Premium не активен.")
             : t(
-                  "Sign in to check Premium or calibration access.",
-                  "Войдите для проверки Premium или доступа на калибровке.",
+                  "Sign in on this website to check Premium or calibration access. Your game login is separate.",
+                  "Войдите на этом сайте для проверки Premium или доступа на калибровке. Вход в игру выполняется отдельно.",
               );
     };
     const activeStatus = () =>
@@ -84,7 +92,7 @@ export function initPremiumPage(): void {
             ? t("Premium included · calibration access", "Premium включён · доступ на калибровке")
             : entitlement?.reason === "test"
               ? t("Premium active · test access", "Premium активен · тестовый доступ")
-              : t("Premium active · your strategy library", "Premium активен · ваша библиотека стратегий");
+              : t("Premium active · strategy guidance", "Premium активен · стратегические подсказки");
     const request = async (endpoint: string, token: string, signal: AbortSignal) => {
         const response = await fetch(endpoint, {
             signal,
@@ -128,7 +136,7 @@ export function initPremiumPage(): void {
                 locked(true);
                 return;
             }
-            if (recheckOnly && !sessionChanged && data?.library) {
+            if (recheckOnly && !sessionChanged && data) {
                 status.textContent = activeStatus();
                 return;
             }

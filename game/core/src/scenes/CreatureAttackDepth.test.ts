@@ -14,7 +14,6 @@ import { BufferImageSource, Container, Sprite, Texture } from "pixi.js";
 import { releaseBoardMirror, setBoardMirror } from "../pixi/boardMirror";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS } from "../pixi/creatureAnimationSettings";
 import { resolveCreatureHeadPriorityDepths } from "./battlefieldCreatureDepthSort";
-import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 import { CREATURE_ATTACK_FOREGROUND_Z_INDEX, RenderableUnit } from "./RenderableUnit";
 
 const grid = new GridSettings(
@@ -61,7 +60,7 @@ afterEach(() => {
 });
 
 function createPair(
-    renderer: typeof RenderableUnit | typeof LevelOneRenderableUnit,
+    renderer: typeof RenderableUnit,
     facing: -1 | 1,
     mirrored: boolean,
     attackerName: "Medusa" | "Orc",
@@ -152,7 +151,7 @@ function expectNormalDepthBeforeNextLayout(pair: ReturnType<typeof createPair>):
 
 for (const [name, renderer, attackerName] of [
     ["production Medusa", RenderableUnit, "Medusa"],
-    ["LevelOne Orc", LevelOneRenderableUnit, "Orc"],
+    ["production Orc", RenderableUnit, "Orc"],
 ] as const) {
     for (const facing of [-1, 1] as const) {
         for (const mirrored of [false, true]) {

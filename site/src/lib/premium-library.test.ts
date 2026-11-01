@@ -29,6 +29,19 @@ const view: PremiumView = {
     tier: 1,
 };
 describe("Premium library presentation", () => {
+    test("explains available guidance when statistics have not been released", () => {
+        const data: PremiumLibraryResponse = {
+            entitlement: { active: true, reason: "calibration" },
+            snapshots: [],
+            library: null,
+        };
+        for (const lang of ["en", "ru"] as const) {
+            const html = renderPremiumDashboard(data, premiumCatalog(lang), { ...view, lang });
+            expect(html).toContain("Premium AI");
+            expect(html).not.toContain("0.0%");
+            expect(html).not.toContain("temporarily unavailable");
+        }
+    });
     test("does not promote a one-family 100% result over supported evidence", () => {
         const rows = [row("1", 1, 1, 0), row("2", 0.6, 100, 0.48), row("3", 0.65, 55, 0.4)];
         expect(rankPremiumRows(rows, 50).map((row) => row.key)).toEqual(["2", "3"]);

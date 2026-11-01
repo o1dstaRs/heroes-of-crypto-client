@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import SandboxLink from "../components/SandboxLink.astro";
 import { content, links } from "../lib/site-data";
 
 const lang = "en";
@@ -49,7 +50,7 @@ const copy = content[lang];
                     <strong>{copy.play.rankedCta}</strong>
                     <span>{copy.play.rankedHint}</span>
                 </a>
-                <a class="mode-card mode-card-sandbox" href={links.sandboxApp}>
+                <SandboxLink class="mode-card mode-card-sandbox">
                     <span class="mode-card-top">
                         <span class="mode-card-icon">
                             <img src="/assets/icons/navbar/settings.svg" alt="" width="28" height="28" />
@@ -58,7 +59,7 @@ const copy = content[lang];
                     </span>
                     <strong>{copy.play.sandboxCta}</strong>
                     <span>{copy.play.sandboxHint}</span>
-                </a>
+                </SandboxLink>
                 <a class="mode-card mode-card-lobbies" href={links.lobbiesApp}>
                     <span class="mode-card-top">
                         <span class="mode-card-icon">
@@ -695,13 +696,78 @@ const copy = content[lang];
     }
 
     @media (max-width: 720px) {
+        .mode-select-layout {
+            gap: 18px;
+            padding: 24px 0;
+        }
+
+        .mode-select-copy h1 {
+            margin-bottom: 12px;
+            font-size: clamp(1.7rem, 7vw, 2.2rem);
+            letter-spacing: 0.015em;
+            line-height: 1.12;
+        }
+
+        .mode-select-copy .eyebrow {
+            margin-bottom: 10px;
+            font-size: 0.65rem;
+        }
+
+        .play-account-guest {
+            margin-top: 12px;
+            padding: 8px 10px;
+        }
+
         .mode-card-grid,
         .open-lobbies {
             grid-template-columns: 1fr;
         }
 
         .mode-card {
+            grid-template-columns: 30px minmax(0, 1fr) auto;
+            gap: 5px 10px;
             min-height: 0;
+            padding: 12px;
+        }
+
+        .mode-card-top {
+            display: contents;
+        }
+
+        .mode-card-icon {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            align-self: center;
+            width: 30px;
+            height: 30px;
+        }
+
+        .mode-card-icon img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .mode-card em {
+            grid-column: 3;
+            grid-row: 1;
+            align-self: start;
+            padding: 4px 5px;
+            font-size: 0.55rem;
+        }
+
+        .mode-card strong {
+            grid-column: 2;
+            grid-row: 1;
+            align-self: center;
+            font-size: 0.95rem;
+            letter-spacing: 0.04em;
+        }
+
+        .mode-card > span:last-child {
+            grid-column: 2 / 4;
+            grid-row: 2;
+            font-size: 0.77rem;
+            line-height: 1.35;
         }
     }
 
@@ -717,25 +783,15 @@ const copy = content[lang];
                 linear-gradient(90deg, rgba(7, 5, 4, 0.9), rgba(7, 5, 4, 0.54));
         }
 
-        .mode-select-layout {
-            gap: 26px;
-            padding: 38px 0 28px;
-        }
-
-        .mode-select-copy h1 {
-            margin-bottom: 16px;
-            font-size: clamp(2.35rem, 14vw, 3.3rem);
-            letter-spacing: 0.045em;
-        }
-
         .mode-select-copy p:not(.eyebrow) {
             font-size: 0.93rem;
             line-height: 1.55;
         }
 
         .play-account {
-            margin-top: 20px;
-            padding: 14px;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 10px;
         }
 
         .play-account-stats {
@@ -770,18 +826,6 @@ const copy = content[lang];
             padding: 6px;
             border-width: 12px;
             border-image-width: 15px;
-        }
-
-        .mode-card {
-            padding: 13px 14px 14px;
-        }
-
-        .mode-card strong {
-            font-size: 1.08rem;
-        }
-
-        .mode-card span:last-child {
-            font-size: 0.79rem;
         }
 
         .lobbies-section {
