@@ -257,9 +257,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     Enchants: {
         en: () =>
-            "Spell book: 5 Armor Rune and 5 Weapon Rune casts per fight, on any ally or on itself. Each cast has a 50% chance to add a permanent +1 armor or +1 attack; a failed cast still uses the turn.",
+            "Spell book: 5 Armor Rune and 5 Weapon Rune casts per fight, on any ally or on itself. Each cast has a 50% chance to add a permanent +1 armor or +1 attack; a failed cast adds +0 and keeps all existing bonuses, but still uses the scroll and turn.",
         ru: () =>
-            "Книга заклинаний: 5 Armor Rune и 5 Weapon Rune на бой, на любого союзника или на себя. Каждое применение с шансом 50% навсегда добавляет +1 к броне или +1 к атаке; неудачная попытка всё равно тратит ход.",
+            "Книга заклинаний: 5 Armor Rune и 5 Weapon Rune на бой, на любого союзника или на себя. Каждое применение с шансом 50% навсегда добавляет +1 к броне или +1 к атаке; неудачная попытка даёт +0 и сохраняет все накопленные бонусы, но всё равно тратит свиток и ход.",
     },
     "Endless Quiver": {
         en: () => "Never runs out of arrows.",

@@ -1,3 +1,4 @@
+import { isTouchGameActive } from "../viewport/gameViewport";
 import { borrowedGraceBuffsByThief } from "./sandbox/borrowedGraceTransfers";
 import { chainLightningRecipients } from "./sandbox/chainLightningRecipients";
 import {
@@ -658,6 +659,13 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     let changed = false;
     const liveProperties = unit.getUnitProperties() as UnitProperties;
     if (
+        properties.bitter_experience_stacks !== undefined &&
+        liveProperties.bitter_experience_stacks !== properties.bitter_experience_stacks
+    ) {
+        liveProperties.bitter_experience_stacks = properties.bitter_experience_stacks;
+        changed = true;
+    }
+    if (
         properties.max_hp_authoritative &&
         (!liveProperties.max_hp_authoritative || liveProperties.max_hp !== properties.max_hp)
     ) {
@@ -989,7 +997,13 @@ const getUnitPropertiesFromAuthoritativeState = (
                             if (ability.name === AllAbilities.CHAKRAM_ABILITY_NAME) {
                                 return {
                                     ...ability,
-                                    description: AllAbilities.chakramDescription(template, liveStackPower),
+                                    description: AllAbilities.chakramDescription(
+                                        template,
+                                        liveStackPower,
+                                        ((HoCConfig.getAbilityConfig(ability.name).power + unitState.luck) *
+                                            liveStackPower) /
+                                            HoCConstants.MAX_UNIT_STACK_POWER,
+                                    ),
                                 };
                             }
                             // Magic Reflection scales with the stack and the holder's luck, but the config
@@ -1092,6 +1106,7 @@ const getUnitPropertiesFromAuthoritativeState = (
                 max_hp: unitState.maxHp || baseProperties.max_hp,
                 amount_alive: Math.max(0, Math.floor(unitState.amountAlive)),
                 amount_died: Math.max(0, Math.floor(unitState.amountDied)),
+                bitter_experience_stacks: unitState.bitterExperienceStacks,
                 attack_type_selected:
                     unitState.attackType > 0
                         ? (unitState.attackType as AttackType)
@@ -1681,7 +1696,7 @@ export class RankedPlayScene extends Sandbox {
         const started = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         if (this.sandboxCoop && !started && this.viewerTeam !== undefined) {
             this.ensureUnitsOverlayBuilt();
-            this.unitsOverlay?.setVisible(true);
+            this.unitsOverlay?.setVisible(!isTouchGameActive());
             return;
         }
         this.unitsOverlay?.setVisible(false);
@@ -2150,6 +2165,7 @@ export class RankedPlayScene extends Sandbox {
         if (this.fullReplayPlaybackActive) {
             return;
         }
+        const priorTurnActivationKey = this.rankedTurnActivationKey;
         this.rememberStatusSnapshot(snapshot);
         this.premiumSnapshot = snapshot;
         if (
@@ -2433,6 +2449,8 @@ export class RankedPlayScene extends Sandbox {
         // rebuilt board re-activates the same unit (mirrors the attack-type restore in activation).
         const armedSpellName = this.currentActiveSpell?.getName();
         const armedUnitId = armedSpellName ? this.getCurrentActiveUnit()?.getId() : undefined;
+        const selectedAttackUnit = this.getCurrentActiveUnit();
+        const selectedAttackType = selectedAttackUnit?.getAttackTypeSelection();
         this.hydrateSceneState(state);
         // hydrateSceneState -> refreshWithNewType just re-carved the CLASSIC mountain pair, so the seeded
         // scattered layout must be re-stamped from scratch (standing stones only) before anything below
@@ -2458,6 +2476,21 @@ export class RankedPlayScene extends Sandbox {
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
         this.syncRankedVisibleTurnState(snapshot);
+        // A rebuilt instance is a fresh activation to Sandbox. Keep a human's chosen stance on the
+        // SAME authoritative turn; a new turn receives the normal default instead.
+        const activeAfterRebuild = this.getCurrentActiveUnit();
+        if (
+            priorTurnActivationKey &&
+            priorTurnActivationKey === this.rankedTurnActivationKey &&
+            activeAfterRebuild?.getId() === selectedAttackUnit?.getId() &&
+            selectedAttackType !== undefined &&
+            this.canControlCurrentActiveUnit()
+        ) {
+            if (activeAfterRebuild?.selectAttackType(selectedAttackType)) {
+                this.sc_selectedAttackType = activeAfterRebuild.getAttackTypeSelection();
+                this.buttonManager.refreshButtons(true);
+            }
+        }
         // Re-arm the spell the hydrate wiped, when the SAME unit is still active, still ours to control,
         // and its rebuilt book still holds usable charges of that spell. See the capture above the hydrate.
         if (armedSpellName && armedUnitId) {
@@ -2466,6 +2499,9 @@ export class RankedPlayScene extends Sandbox {
                 const bookSpell = active.getBookSpellByName(armedSpellName);
                 if (bookSpell && bookSpell.canUse(active.getStackPower())) {
                     this.currentActiveSpell = bookSpell;
+                    if (this.selectArmedSpellAttackType(active)) {
+                        this.sc_selectedAttackType = active.getAttackTypeSelection();
+                    }
                 }
             }
         }
@@ -2834,6 +2870,15 @@ export class RankedPlayScene extends Sandbox {
         transport({ type: "split_unit", unitId: source.getId(), amount, cells: targetCells });
         this.playSceneGameSound("place_unit");
         return true;
+    }
+    protected override selectArmedSpellAttackType(caster: RenderableUnit): boolean {
+        if (!this.sc_gameActionTransport) return super.selectArmedSpellAttackType(caster);
+        if (caster !== this.getCurrentActiveUnit() || !this.canControlCurrentActiveUnit()) return false;
+        // Arming is local targeting state. CAST_SPELL carries the spell and target and is validated
+        // independently of the server's selected attack mode. Sending SELECT_ATTACK_TYPE here creates
+        // a second authoritative snapshot/rebuild between choosing the card and clicking its target.
+        // The existing spell-intent channel already shows the opponent which spell is being aimed.
+        return caster.getAttackTypeSelection() === AttackVals.MAGIC || caster.selectAttackType(AttackVals.MAGIC);
     }
     protected override canShowHoverForActiveUnit(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();

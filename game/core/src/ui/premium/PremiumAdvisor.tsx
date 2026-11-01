@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
+import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
 
 import {
     applyPremium,
@@ -18,6 +19,8 @@ import { PremiumIcon } from "../PremiumIcon";
 import { PremiumButton } from "./PremiumButton";
 import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
 import { premiumChoiceQuestion } from "./premiumQuestions";
+import { PremiumSetupComparison } from "./PremiumSetupComparison";
+import { usePremiumAdviceView } from "./usePremiumAdviceView";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -87,7 +90,17 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
             try {
                 const next = await applyPremium(gameId, advice.revision, operation);
                 if (requests.current.isCurrent(request))
-                    setAdvice(next.entitlement.active ? { ...advice, ...next, evidence: next.evidence } : undefined);
+                    setAdvice(
+                        next.entitlement.active
+                            ? {
+                                  ...advice,
+                                  ...next,
+                                  adviceId: next.adviceId,
+                                  setupComparison: next.setupComparison,
+                                  evidence: next.evidence,
+                              }
+                            : undefined,
+                    );
             } catch (failure) {
                 if (requests.current.isCurrent(request)) {
                     setError(
@@ -255,8 +268,9 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
     advice,
     draft,
 }) => {
+    const impression = usePremiumAdviceView(advice?.gameId, advice?.adviceId);
     if (!advice?.entitlement.active) return null;
-    const assessment = premiumDraftAssessment(draft);
+    const assessment = premiumDraftAssessment({ ...draft, scouting: advice.scouting });
     const preferred = draft.isYourTurn ? advice.choices?.[0] : undefined;
     return (
         <Tooltip
@@ -269,8 +283,14 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                         Draft so far · {assessment.roster}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
-                        {assessment.headline}. {assessment.focus}
+                        {assessment.headline}.
+                        {assessment.focus !== assessment.routeWarning ? ` ${assessment.focus}` : ""}
                     </Typography>
+                    <PremiumDraftRoutes
+                        routes={assessment.routes}
+                        remaining={assessment.remaining}
+                        routeWarning={assessment.routeWarning}
+                    />
                     {assessment.notes.map((note) => (
                         <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
                             <strong>{note.label}:</strong> {note.text}
@@ -298,6 +318,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
             <Box
                 tabIndex={0}
                 role="region"
+                ref={impression}
                 aria-label="Premium draft assessment"
                 sx={{
                     position: "fixed",
@@ -325,6 +346,9 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                 </strong>
                 <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
                 <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
+                {assessment.scouting && (
+                    <Box sx={{ mt: 0.5, color: "#e7bc83", fontSize: 11 }}>{assessment.scouting}</Box>
+                )}
             </Box>
         </Tooltip>
     );
@@ -339,6 +363,7 @@ export const PremiumSetupPanel: React.FC<{
 }> = ({ gameId, stageKey, auto = false, setupView = false, children }) => {
     const enabled = usePremiumCapability("setup");
     const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
+    const impression = usePremiumAdviceView(gameId, advice?.adviceId);
     const askQuestion = useAskPremiumQuestion();
     const autoAttempt = useRef<string | undefined>(undefined);
     useEffect(() => {
@@ -367,6 +392,7 @@ export const PremiumSetupPanel: React.FC<{
                 }
             >
                 <Sheet
+                    ref={impression}
                     data-testid="premium-setup-panel"
                     sx={{
                         background: "linear-gradient(135deg,#302017,#1b120e)",
@@ -466,6 +492,7 @@ export const PremiumSetupPanel: React.FC<{
                             </PremiumButton>
                         )}
                     </Box>
+                    <PremiumSetupComparison comparison={advice.setupComparison} />
                     {advice.stage === "board" && !setupView && (
                         <Typography level="body-xs" sx={{ mt: 0.5 }}>
                             Review or edit the formation, then press Ready. Undo is available until you edit your build

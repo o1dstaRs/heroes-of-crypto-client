@@ -12,6 +12,7 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from "react";
 
+import { useGameLayout } from "../mobile/GameViewport";
 import { MessageBox } from "./MessageBox";
 import { images } from "../../generated/image_imports";
 import { battleSidebarWidth } from "../../pixi/boardFit";
@@ -87,6 +88,7 @@ export const sidebarBackgroundSize = (barSize: number): string => {
 import { DeferredUnitStatsListItem, preloadUnitStatsListItem } from "./DeferredUnitStatsListItem";
 import {
     computeBattleSidebarMetrics,
+    computeSidebarMetrics,
     SIDEBAR_FRAME_RIGHT_INSET_PX,
     SidebarMetricsContext,
     sidebarFrameBottomInsetPx,
@@ -118,6 +120,7 @@ type LeftSideBarProps = {
 };
 
 export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProps) {
+    const { touch, panel } = useGameLayout();
     const [barSize, setBarSize] = useState(280);
     // Height actually left for the unit card once the turn panel and the up-next queue have taken theirs.
     // Measured rather than derived, because those blocks resize with the content.
@@ -144,9 +147,9 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
     const manager = usePixiManager();
 
     const adjustBarSize = useCallback(() => {
-        const nextBarSize = battleSidebarWidth(windowSize.width, windowSize.height);
+        const nextBarSize = touch ? 320 : battleSidebarWidth(windowSize.width, windowSize.height);
         setBarSize((currentBarSize) => (currentBarSize === nextBarSize ? currentBarSize : nextBarSize));
-    }, [windowSize.width, windowSize.height]);
+    }, [windowSize.width, windowSize.height, touch]);
 
     useEffect(() => {
         adjustBarSize();
@@ -235,8 +238,10 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
     }, [selection.overallImpact]);
 
     const metrics = useMemo(() => {
-        return computeBattleSidebarMetrics(barSize, windowSize.width, windowSize.height, cardHeight, contentLoad);
-    }, [barSize, cardHeight, contentLoad, windowSize.width, windowSize.height]);
+        return touch
+            ? computeSidebarMetrics(barSize, cardHeight, contentLoad)
+            : computeBattleSidebarMetrics(barSize, windowSize.width, windowSize.height, cardHeight, contentLoad);
+    }, [barSize, cardHeight, contentLoad, windowSize.width, windowSize.height, touch]);
 
     const unitProperties = selection.unit || ({} as UnitProperties);
     // Keep the usable width unchanged while centring the whole inner column between the two outer rails.
@@ -274,6 +279,8 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
         <SidebarMetricsContext.Provider value={metrics}>
             <Sheet
                 className="Sidebar"
+                data-touch-panel={touch ? "unit" : undefined}
+                data-touch-panel-open={touch ? panel === "unit" : undefined}
                 sx={{
                     position: "fixed",
                     zIndex: 1,
@@ -360,8 +367,8 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                 <Box
                     ref={attachViewport}
                     sx={{
-                        minHeight: `${MIN_CARD_HEIGHT}px`,
-                        flex: "1 1 0",
+                        minHeight: `${touch ? 480 : MIN_CARD_HEIGHT}px`,
+                        flex: touch ? "0 0 auto" : "1 1 0",
                         position: "relative",
                         zIndex: 2,
                         // The portrait already grows upward using --sidebar-card-top-extension. Let that
@@ -378,9 +385,9 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                             // The selected portrait card cancels only this horizontal part of the emergency
                             // fit scale, so it can still meet the sidebar rails while its vertical layout
                             // continues to shrink enough to fit the available height.
-                            "--sidebar-card-fit-scale": `${scale}`,
-                            "--sidebar-card-inverse-fit-scale": `${1 / scale}`,
-                            transform: scale === 1 ? "none" : `scale(${scale})`,
+                            "--sidebar-card-fit-scale": `${touch ? 1 : scale}`,
+                            "--sidebar-card-inverse-fit-scale": `${touch ? 1 : 1 / scale}`,
+                            transform: touch || scale === 1 ? "none" : `scale(${scale})`,
                             transformOrigin: "top center",
                             transition: "transform 160ms ease-out",
                         }}

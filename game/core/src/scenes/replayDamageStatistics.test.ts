@@ -63,7 +63,7 @@ const createScene = (): DamageScene => {
         RunStep: () => undefined,
         isSceneDestroyed: () => false,
         preloadTextureKeys: async () => undefined,
-        waitForPendingTextures: async () => undefined,
+        prepareMapTextures: async () => undefined,
         onSupplementaryTexturesLoaded: () => undefined,
         hydrateSceneState: () => undefined,
         setReplayPlaybackActive: () => undefined,

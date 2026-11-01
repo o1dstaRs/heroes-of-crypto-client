@@ -39,7 +39,6 @@ import type { ISandboxAiSearchHost } from "./sandboxAiSearch";
 import { premiumMoveDrawing } from "./PremiumTurnOverlay";
 import { premiumHumanActions, sandboxPremiumAdvice } from "./sandboxPremiumAdvice";
 import { RenderableUnit } from "./RenderableUnit";
-import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 import { searchSandboxAiDecision } from "./sandboxAiSearch";
 
 const testGridSettings = new GridSettings(
@@ -123,7 +122,6 @@ test("human advice merges move-and-melee and rejects follow-ups a move would end
 const renderers = [
     ["engine", (unit: Unit) => unit],
     ["battlefield", (unit: Unit) => RenderableUnit.fromBase(unit, () => undefined)],
-    ["level one", (unit: Unit) => LevelOneRenderableUnit.fromBase(unit, () => undefined)],
 ] as const;
 
 const scenarios = renderers.flatMap(([renderer, render]) =>

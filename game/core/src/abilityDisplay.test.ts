@@ -7,13 +7,18 @@ describe("Chakram ability display metadata", () => {
         for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
             const description = getAbilityDisplayMetadata("Chakram", stackPower)?.description ?? "";
             expect(description).toContain(`Maximum targets: ${stackPower}.`);
-            expect(description).not.toContain("{}");
+            expect(description).toContain(`deal ${stackPower * 20}% of normal ranged damage`);
+            expect(description).toContain(`deals ${stackPower * 10}% of normal ranged damage`);
+            expect(description).not.toMatch(/\{.*\}/);
             expect(description).not.toContain("100 targets");
         }
     });
 
     test("uses the full-stack maximum when no live unit exists", () => {
-        expect(getAbilityDisplayMetadata("Chakram")?.description).toContain("Maximum targets: 5.");
+        const description = getAbilityDisplayMetadata("Chakram")?.description;
+        expect(description).toContain("Maximum targets: 5.");
+        expect(description).toContain("deal 100% of normal ranged damage");
+        expect(description).toContain("deals 50% of normal ranged damage");
     });
 });
 

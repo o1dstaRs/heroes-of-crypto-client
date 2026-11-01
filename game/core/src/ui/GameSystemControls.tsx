@@ -1,7 +1,8 @@
 import Box from "@mui/joy/Box";
-import React, { useCallback, useLayoutEffect, useRef } from "react";
+import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useGameLayout } from "./mobile/GameViewport";
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "./audio/volumeSlot";
 import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { FullscreenToggle } from "./RightSideBar/FullscreenToggle";
@@ -147,6 +148,7 @@ export const GameSystemControls: React.FC<{
     centerMinWidth?: number;
     /** Keep sidebar content clear when the footer wraps after a resize or fullscreen change. */
     onHeightChange?: (height: number) => void;
+    mobileBattleStarted?: boolean;
 }> = ({
     center,
     leading,
@@ -157,7 +159,28 @@ export const GameSystemControls: React.FC<{
     centerInRow = false,
     centerMinWidth = GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX,
     onHeightChange,
+    mobileBattleStarted,
 }) => {
+    const { touch } = useGameLayout();
+    const [touchTargets, setTouchTargets] = useState<{ primary: HTMLElement; audio: HTMLElement } | null>(null);
+    useLayoutEffect(() => {
+        if (!touch || mobileBattleStarted === undefined) return;
+        const observer = new MutationObserver(update);
+        function update() {
+            const primary = document.getElementById(
+                mobileBattleStarted ? "hoc-touch-panel-system-slot" : "hoc-touch-primary-slot",
+            );
+            const audio = document.getElementById("hoc-touch-audio-slot");
+            if (!primary || !audio) return;
+            setTouchTargets((previous) =>
+                previous?.primary === primary && previous.audio === audio ? previous : { primary, audio },
+            );
+            observer.disconnect();
+        }
+        observer.observe(document.body, { childList: true, subtree: true });
+        update();
+        return () => observer.disconnect();
+    }, [touch, mobileBattleStarted]);
     const controlsRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         const controls = controlsRef.current;
@@ -387,6 +410,23 @@ export const GameSystemControls: React.FC<{
         </Box>
     );
 
+    if (touch && touchTargets && mobileBattleStarted !== undefined) {
+        return (
+            <>
+                {createPortal(
+                    <div className="hoc-touch-primary-content">
+                        {center}
+                        {leading?.content}
+                    </div>,
+                    touchTargets.primary,
+                )}
+                {createPortal(
+                    <Box ref={volumeSlotRef} sx={{ ...volumeSlotSx, pointerEvents: "auto" }} />,
+                    touchTargets.audio,
+                )}
+            </>
+        );
+    }
     return typeof document === "undefined" ? controls : createPortal(controls, document.body);
 };
 

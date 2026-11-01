@@ -16066,10 +16066,6 @@
             "sha256": "f28d1191abbdc167f8dbd9d8b0c262f1e71b6988f1ef8f0366a62bdd8696d2d4",
             "bytes": 1805
         },
-        "images/abomination_256.webp": {
-            "sha256": "27777916767959227f8012f11a891d51922e016971f4a608053a492d22958d19",
-            "bytes": 52860
-        },
         "images/abomination_512.webp": {
             "sha256": "eef2b1b89e4fad6c68b983751e0450ba2aa7605746825b15d4c2d266b109f22a",
             "bytes": 244918
@@ -16110,10 +16106,6 @@
             "sha256": "527dc071e664db3c12e1706b0cfb155d9bf46156f1dd4eb73f85e0a67a5c1f82",
             "bytes": 36890
         },
-        "images/accept_text.webp": {
-            "sha256": "57faa8896212ad29777fb00b6bdb6ef08ff22b0727e60d11fe1cc687dca3bc1f",
-            "bytes": 4820
-        },
         "images/active_turn_ancient_runes_ring_oval_v1.webp": {
             "sha256": "a4986ac49116d5e4127e8e42bd66eb93494b6d31ed6a1e89ecc9d850881a2d94",
             "bytes": 62094
@@ -16129,10 +16121,6 @@
         "images/active_turn_ancient_runes_ring_v3.webp": {
             "sha256": "0d5b54421045680a04a779d7ab2fe220bd222f74c063b7adebcc54e1a0220120",
             "bytes": 112342
-        },
-        "images/active_turn_blue_fire_atlas.webp": {
-            "sha256": "9f27b36982e1e45b8d40cbb142403ad4b2fc549ba9e1b0ed90a28de19ba1e433",
-            "bytes": 518044
         },
         "images/aggr_256.webp": {
             "sha256": "f46120914140c6b30f30ed3118b9c49e1ecf5f02ba51f28b81e510eea0d0bd5e",
@@ -16150,37 +16138,13 @@
             "sha256": "bc8c8fc7e446ca2e90cd0e664815c5ed717f8658e729c9bf64c967fa20390e57",
             "bytes": 161958
         },
-        "images/ambient_fire_right_brazier_atlas.webp": {
-            "sha256": "416eceb8580ab97f1ca707afcd62ac903a9217087f22814264d27b5e29dc90b8",
-            "bytes": 85756
-        },
-        "images/ambient_fire_video_torch_left_64_atlas.webp": {
-            "sha256": "0c4db34315be73dcdbf67d08c72d88bee108c61566c7df01bd3bba0995c19425",
-            "bytes": 4014612
-        },
         "images/ambient_fire_video_torch_left_natural_v4_64_atlas.webp": {
             "sha256": "43c8b4bb5b610756276aabff2f762253b76cc6e48ea71e2b650a9c80bfff1568",
             "bytes": 1804494
         },
-        "images/ambient_fire_video_torch_left_seamless_v2_64_atlas.webp": {
-            "sha256": "e72008a9356ba63e32dfc8c1a4f00fcc1b84ecac88e2ce48b9c7ca843fbb4eba",
-            "bytes": 4107476
-        },
-        "images/ambient_fire_video_torch_right_64_atlas.webp": {
-            "sha256": "a416a31135b199194de2f31f77d1ab2ffd154f5d58ad46935468cbcaf35018cd",
-            "bytes": 4011910
-        },
         "images/ambient_fire_video_torch_right_natural_v4_64_atlas.webp": {
             "sha256": "120d4ecc85adbf4acd89a669a61ce3a13b30efdb98394a089462258c73584887",
             "bytes": 1802430
-        },
-        "images/ambient_fire_video_torch_right_seamless_v2_64_atlas.webp": {
-            "sha256": "e52f3f26d8d7c168796470ef50f7d525d1030f83dd77bb5c0f4d44d4a7082abf",
-            "bytes": 4095724
-        },
-        "images/angel_256.webp": {
-            "sha256": "bd5a56d36e109099a53cdc1e42bc058a26daa75d518e66011004e80265e4d82b",
-            "bytes": 63626
         },
         "images/angel_512.webp": {
             "sha256": "0044131f456ec909de12a6b53f1d0a7b11c145e9eed70443e783d7d419e619b8",
@@ -16217,10 +16181,6 @@
         "images/angelic_host_256.webp": {
             "sha256": "0260e898e12eb4cb95ba4fea679afa7c4ab93706532f57fb768eab140b46c0f0",
             "bytes": 13456
-        },
-        "images/arachna_queen_256.webp": {
-            "sha256": "4084895436a8e91361ce93622b4830f73a502cee38d1dfc759bbcf4ea8cce854",
-            "bytes": 36792
         },
         "images/arachna_queen_512.webp": {
             "sha256": "26f40565558de6b61e23341a6366f6f6609ee206d62a441ca84de011c30221dd",
@@ -16262,14 +16222,6 @@
             "sha256": "0b2628855789f1e350dc03064f46d5bae2fb4b2231865fecfca1ec17624d05cc",
             "bytes": 670514
         },
-        "images/arachna_spider_128.webp": {
-            "sha256": "9f1500d9f448506a7f94fbb676de3e91770f3fe79816310a07501ca767212711",
-            "bytes": 13962
-        },
-        "images/arachna_spider_256.webp": {
-            "sha256": "d29f88d9a5a4dfcaca9110181eaebe3326270595b82be201c9e1ac47d846f40d",
-            "bytes": 43246
-        },
         "images/arachna_spider_512.webp": {
             "sha256": "59ba72cff5760815946170da040a0c46582ba02b5c5f48f8d6f36a9247ba458e",
             "bytes": 48336
@@ -16297,10 +16249,6 @@
         "images/arachna_spider_portrait_full.webp": {
             "sha256": "80faa7acd73274dfc675a5add4be54523f68a62e2b66549518c1b49e62f49078",
             "bytes": 190102
-        },
-        "images/arbalester_128.webp": {
-            "sha256": "ca24d02fd226b5267fec7a1264e533ed85eb4752360e6230cbab3af1a653d41a",
-            "bytes": 10592
         },
         "images/arbalester_512.webp": {
             "sha256": "58a1493af2ca877b6e87f876f97f9f69c031009d333b77d7a12b2fe93febbc00",
@@ -16394,10 +16342,6 @@
             "sha256": "19725c16a7bce19410732211ca375f850ec22edfa074d473487cd7030b024a89",
             "bytes": 102850
         },
-        "images/artifact_t1_helm_of_focus_256.webp": {
-            "sha256": "9603738cfe9187b026042ca4377142f1710f6ffa9c42e119fd2efe317d2d0441",
-            "bytes": 77150
-        },
         "images/artifact_t1_hunters_longbow_256.webp": {
             "sha256": "07fdc6688f89694a20d154ec8b5c211db536562cc39482a9366d601b19cf079d",
             "bytes": 88558
@@ -16414,10 +16358,6 @@
             "sha256": "300d1c3178687d0459dd16cc8814e18efdb5cb3a31981dddc22ec01e52bdc6c4",
             "bytes": 19944
         },
-        "images/artifact_t1_runed_staff_256.webp": {
-            "sha256": "b275a032a87227a76a79115030daa38cc0212c87f6d310276d5e4501b568ac05",
-            "bytes": 1562
-        },
         "images/artifact_t1_swift_boots_256.webp": {
             "sha256": "89f2c0c04cc5586122a596b9cd0316b1b4f50828beb927b405a01358dcb0dc64",
             "bytes": 106670
@@ -16425,10 +16365,6 @@
         "images/artifact_t1_veteran_helm_256.webp": {
             "sha256": "977eb745e60d3cc5c575d9c68e1e5219a46e5f75eeedf311a0b23434d5706e68",
             "bytes": 90706
-        },
-        "images/artifact_t1_warding_sigil_256.webp": {
-            "sha256": "b275a032a87227a76a79115030daa38cc0212c87f6d310276d5e4501b568ac05",
-            "bytes": 1562
         },
         "images/artifact_t1_winged_boots_256.webp": {
             "sha256": "99ad9278476e87d737b3857fed4499a66f47872e2e59ebc348e6e7fe3a9c6a73",
@@ -16441,10 +16377,6 @@
         "images/artifact_t2_aegis_of_the_arcane_256.webp": {
             "sha256": "b086d11758a1f21151ab301496f20421f8d9b7fa7d94e83a841fc0ab0abbddc4",
             "bytes": 26792
-        },
-        "images/artifact_t2_archmage_staff_256.webp": {
-            "sha256": "b275a032a87227a76a79115030daa38cc0212c87f6d310276d5e4501b568ac05",
-            "bytes": 1562
         },
         "images/artifact_t2_archmages_ring_256.webp": {
             "sha256": "d483ad8b80d4ba9925e933568e0d751363033d21c0c46b425be1622a6b263c41",
@@ -16498,10 +16430,6 @@
             "sha256": "4be8520e0f6f6c5d1cc48ad9bbdfc61cebb2c5526481a2784624a2b3bd4780f3",
             "bytes": 110300
         },
-        "images/artifact_t2_runeward_mantle_256.webp": {
-            "sha256": "b275a032a87227a76a79115030daa38cc0212c87f6d310276d5e4501b568ac05",
-            "bytes": 1562
-        },
         "images/artifact_t2_titan_plate_256.webp": {
             "sha256": "60e37fefd47357885c0aa037a70415b6d5313cdd00ee2a97df4bc8879da5f6b5",
             "bytes": 118482
@@ -16522,97 +16450,13 @@
             "sha256": "9c072a24e5330f69844ec4885f703eb286e04ad47be12da9bf294ad850a7cc09",
             "bytes": 143496
         },
-        "images/background_stone_tiles.webp": {
-            "sha256": "3f175a2eb2f6d344f970feface7fd8fb8437683876ebac736a2001e7c7e570ac",
-            "bytes": 654264
-        },
-        "images/background_stone_tiles_lava.webp": {
-            "sha256": "ce79f77507366c81043e3455cd4af3df0ecded3335703017a6d174d42506832d",
-            "bytes": 809246
-        },
-        "images/background_stone_tiles_pre.webp": {
-            "sha256": "9a5eeb1cea43368497dbff1ca324a69eed254262577fdc16df47da4fc1e9f6d3",
-            "bytes": 345244
-        },
-        "images/background_stone_tiles_sinister.webp": {
-            "sha256": "d69974fe36620af2dc2819259023832f2df4363a175261e502e47ebfb26ba962",
-            "bytes": 1048918
-        },
-        "images/background_stone_tiles_sinister_16x16.webp": {
-            "sha256": "b288c27af5c723482f1650a7e2c0f990a0cc3d2133364e9c2e7a60c01184c2ac",
-            "bytes": 500090
-        },
-        "images/background_stone_tiles_sinister_16x16_curb_overlay_v1.webp": {
-            "sha256": "5b928beb70891d7187a5589efbf94848f2e7dc98a0cbd2217e5b349502ec53cd",
-            "bytes": 36358
-        },
-        "images/background_stone_tiles_sinister_16x16_curb_straight_v1.webp": {
-            "sha256": "f29b8b4dfbc6e724a27391cfc8783ba7314d119559626ed5ff1fa54b0aae05f6",
-            "bytes": 538752
-        },
-        "images/background_stone_tiles_sinister_16x16_curbfix_v2.webp": {
-            "sha256": "98ec7c4068054205ac340b20ef31ca205cb35e32c6edb0cb051c078e433f9def",
-            "bytes": 500930
-        },
-        "images/background_stone_tiles_sinister_16x16_curbfix_v3.webp": {
-            "sha256": "0e3c241a816241f9f72ca83e58ca821c7769054bed22711389ea6ae91cfacc85",
-            "bytes": 501432
-        },
-        "images/background_stone_tiles_sinister_16x16_curbfix_v6.webp": {
-            "sha256": "484a7f83a5f7c5acc5eb521e46f54f4a10c6b192ac3abe1eebba1d5d3f827da0",
-            "bytes": 501502
-        },
-        "images/background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v1.webp": {
-            "sha256": "cc57c9ea29b160a5efdfb74ba5c8507948d425f472bdbf67725bb0cf6ff2dd04",
-            "bytes": 673244
-        },
-        "images/background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v2.webp": {
-            "sha256": "3c7202d1d4aa34d50e14d029aa3162a72cfd8b9e2d22991ebadd64025b65cdaf",
-            "bytes": 597836
-        },
         "images/background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3.webp": {
             "sha256": "cc8ad326c779e38993fe90e958c95fca6209efcf4f69d6f6a20596cdecc9c8b5",
             "bytes": 605306
         },
-        "images/background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v1.webp": {
-            "sha256": "c8f53a0ec1e63bd267ee8811842184f82baf994d496b4994e54f266df8501444",
-            "bytes": 650304
-        },
-        "images/background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v2.webp": {
-            "sha256": "764f9baa47dfb5fb15f508645fad62b4f82d048b174ef71cc4b03e31675a0469",
-            "bytes": 661008
-        },
-        "images/background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v3.webp": {
-            "sha256": "8b1b301da049df83887aef4e0d4d7437aa4381cef5b902a445ec635555b2fb6d",
-            "bytes": 658598
-        },
         "images/background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v4.webp": {
             "sha256": "7753c3672ddb05f38588ce27976b08f1f0ded343a704c66b83d4df06616df7ba",
             "bytes": 545620
-        },
-        "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v1.webp": {
-            "sha256": "4f529b89eebc1c7f69c29b29ccb2e590073e5a6ae9ecb36abf3a4c083c803f80",
-            "bytes": 664394
-        },
-        "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v2.webp": {
-            "sha256": "058cfa3e2da12564320b37f979735369274af9859792bfa022640d49321aac36",
-            "bytes": 665136
-        },
-        "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v3.webp": {
-            "sha256": "ecc29aeefcad3a623a8044ddcb87ef603100e5a02a16f2e54986bfc52840dab1",
-            "bytes": 674522
-        },
-        "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v4.webp": {
-            "sha256": "f06915ce29153d27454fb5d716303af5113ef49e6eef91043571b15ea60e0436",
-            "bytes": 651770
-        },
-        "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v5.webp": {
-            "sha256": "226de4b194ca3c1854873c1922dcab5d928b832aa75ccd82e7f481641cb2fbd3",
-            "bytes": 652132
-        },
-        "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v6.webp": {
-            "sha256": "2248c58318e217639fae992dee75aafa1647dbc4334a9ac6fa85f65aae087d34",
-            "bytes": 642752
         },
         "images/background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v7.webp": {
             "sha256": "38b11ebf0547a1fe21d98fce0bc286cc8258d47e00122ca95551d9f7185e48e2",
@@ -16622,89 +16466,21 @@
             "sha256": "b288c27af5c723482f1650a7e2c0f990a0cc3d2133364e9c2e7a60c01184c2ac",
             "bytes": 500090
         },
-        "images/background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v1.webp": {
-            "sha256": "41f94e0e6218c171e8070e0aa6aeeae663d461663dc0a41fa59bde5b53635abd",
-            "bytes": 652152
-        },
-        "images/background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v2.webp": {
-            "sha256": "f0376d36bd466505119bf3559a6c83d3bf8ea6f9e569b5182764e7b736ce2790",
-            "bytes": 654954
-        },
         "images/background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v3.webp": {
             "sha256": "7eaf726759fdcc1c9c240cab9cf33140416634d0118949d9b7eea4bb42a0a0d7",
             "bytes": 653796
-        },
-        "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v1.webp": {
-            "sha256": "c06897cd9d9a8e55015216504be779a2a966f217ef4b0f3a3810afcf26ee1297",
-            "bytes": 640306
-        },
-        "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v2.webp": {
-            "sha256": "3ab6d32f9d4ef4c97afb8b10e5ca91d8107b1e18466ebef1c2c8538eaa10ceb0",
-            "bytes": 652394
-        },
-        "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v3.webp": {
-            "sha256": "84851283b3519afd86047cb90acbb581b76706eaf18badeceb7da7794ed06458",
-            "bytes": 642850
-        },
-        "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v4.webp": {
-            "sha256": "f94fcc5b641aec2cca2e1bb331ac94bf5466ee216684f903c216154552a424c2",
-            "bytes": 638092
-        },
-        "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v5.webp": {
-            "sha256": "fce520b2edcba01aec36d571d3c55dd3b25ff1849f876911a07c6c7bf29d40d4",
-            "bytes": 659342
-        },
-        "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v6.webp": {
-            "sha256": "02f81aacfbc2fc51c9127ff048cbdfd8ad34b3bbb6fc3d6d85cc3dd3b203df1d",
-            "bytes": 658142
         },
         "images/background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v7.webp": {
             "sha256": "417dd32f01db743a30fddb4e71ffa0709414665df20cf4dfffd185f9d2351ca0",
             "bytes": 646156
         },
-        "images/background_test_abyss_underlay.webp": {
-            "sha256": "13ab5649807ed3376ea8a779b791daba23a888c0b225eb796692da7e8a10411f",
-            "bytes": 112502
-        },
-        "images/background_test_abyss_underlay_v2.webp": {
-            "sha256": "d689dc8877875f3222aa5dae2bfcdd5ba92e196df9ee72a076d47561f982a427",
-            "bytes": 210194
-        },
-        "images/background_test_abyss_underlay_v3.webp": {
-            "sha256": "15c6e478dcecec1ed78e9ee14cc0fcf3f67bf1bc94189245fca8b2ca164abef5",
-            "bytes": 445856
-        },
-        "images/background_test_abyss_underlay_v4.webp": {
-            "sha256": "4e6e7e233b02f5eb4466cfe9f944854879cfc040d4d7dfaafdd943f965d1b3b4",
-            "bytes": 315216
-        },
         "images/backstab_256.webp": {
             "sha256": "95e50d56ee4e4f0c816abd4a0af2adeb8e5f02e13ae937ad5d583b9cb6516527",
             "bytes": 15698
         },
-        "images/banner_border_round_c.webp": {
-            "sha256": "8245dd7453952db40e00077ebdf661bb89f681602d6eb711683e802b8f44c0e0",
-            "bytes": 141252
-        },
-        "images/banner_green.webp": {
-            "sha256": "2aa8c62310c4eda402182d473e1d5fe8a38211364ad8bab3077f22a9d28f1f20",
-            "bytes": 44648
-        },
-        "images/banner_red.webp": {
-            "sha256": "9f06c2bc375761854cc678d7ec4e13c5a1f9d61ab4772783deddaff5fa768d99",
-            "bytes": 36162
-        },
-        "images/banner_riveted_ornaments.webp": {
-            "sha256": "3e08c81cc9b0ceb0a0e4ef058166bbab814433cbd97477d249568ce807eb52d3",
-            "bytes": 174958
-        },
         "images/basic_tome_of_battle_magic_256.webp": {
             "sha256": "8f2b7b05b69a6a0540d7006c8f0407ddd86accca03668570fb18a1b625b0b414",
             "bytes": 23650
-        },
-        "images/battle_mage_128.webp": {
-            "sha256": "81b5c537457c1850f28053bc60aa9bff8b1838ed0d9d63b4f167fae6d1c1b664",
-            "bytes": 18642
         },
         "images/battle_mage_512.webp": {
             "sha256": "78b4656b39863ef67b9377b90452189aacca377a838ecd331af77196c0fd9fb0",
@@ -16738,10 +16514,6 @@
             "sha256": "5b1bc027ceb9067f32cdd7ae16412be5bcbbd73bfa2e441ceddc881cf42b6e17",
             "bytes": 16722
         },
-        "images/behemoth_256.webp": {
-            "sha256": "1b5fa91d443dd877b1b5cb5d5ff460703f50435fd70f78c424d24987c5a99021",
-            "bytes": 54678
-        },
         "images/behemoth_512.webp": {
             "sha256": "ada78e3f6f55facf98276bcbcaee6cd9972b7038ad9994e819120d353f8f0067",
             "bytes": 124032
@@ -16765,10 +16537,6 @@
         "images/behemoth_portrait_full.webp": {
             "sha256": "2d6b9af33bc9ec2f17a6da0440457a8b89a0264028678d8abc47d2ce073711db",
             "bytes": 935040
-        },
-        "images/beholder_128.webp": {
-            "sha256": "0ca8fb709adb29d1439c7dc4b4db7b7faac0ed9dd91e533481ad9c74959792cf",
-            "bytes": 24952
         },
         "images/beholder_512.webp": {
             "sha256": "a3ead9c77ea38eb2b44866708e4e3e0641740dfd69857f665fa0beee175480d1",
@@ -16797,10 +16565,6 @@
         "images/beholder_purple_eye_orb.webp": {
             "sha256": "b7d3e85cf66a3a52bbb621a327993274d8bca6be2faeaec3d8c3133aa93f56c9",
             "bytes": 570442
-        },
-        "images/berserker_128.webp": {
-            "sha256": "f52aa1a6f931de2996a5b9d7fb4be83cd6157d932a447d661a0c8d6aa4dc9e04",
-            "bytes": 10008
         },
         "images/berserker_512.webp": {
             "sha256": "6b75c6f3e4ec42b506c11838af6313bbd4ab4f0b48e06fb134a6573d3fcc3523",
@@ -16833,10 +16597,6 @@
         "images/bitter_experience_256.webp": {
             "sha256": "15c80f27db55803b03b2b88e5eb64e3f872f36e4bf31cbf6a1852792a99392b4",
             "bytes": 16318
-        },
-        "images/black_dragon_256.webp": {
-            "sha256": "2c238d449b775007d69d456cb81d32be37c698f4767a2050bf8c7363fe21f9e5",
-            "bytes": 33956
         },
         "images/black_dragon_512.webp": {
             "sha256": "ab7b23c142cf822384106bd514bf3e78593e707fdd8dc7f4f7cdb89fc8a6e742",
@@ -16889,10 +16649,6 @@
         "images/black_dragon_portrait_full.webp": {
             "sha256": "162b2af4850aac103e18e46a2054c7990c633de65d8c1e5489f82490d3e7b5c4",
             "bytes": 574434
-        },
-        "images/blacksmith_128.webp": {
-            "sha256": "24a2c25a2cfb9a01a9f57add3e1aac184dd437d6047de24ed9e899c34f8103ba",
-            "bytes": 9328
         },
         "images/blacksmith_512.webp": {
             "sha256": "29245d372cbcdc5c25c6d81fcce4f96deb03908a30422a778cf87f19ec268a37",
@@ -16974,21 +16730,9 @@
             "sha256": "143dfc6fa1aa63c6b7b749b89bc3d8caba80f83f21f1822a4632885637a32266",
             "bytes": 28268
         },
-        "images/book_1024.webp": {
-            "sha256": "62ffdbc20c416a452721e776ddeb309fa2caaeb74a09ebb5a3fd630953c6d7f4",
-            "bytes": 581668
-        },
         "images/book_1024_clean_pages_v1.webp": {
             "sha256": "d0b36ecde89d079654101a11f6eb6b55bcee2c3daa0b9e3a039e439451ba5831",
             "bytes": 524436
-        },
-        "images/book_1024_pre.webp": {
-            "sha256": "f6e8bd6289593f8d439e0d73e6317b6c8c6047840478850a62ba9d4f5fe53c76",
-            "bytes": 489270
-        },
-        "images/book_1024_previous.webp": {
-            "sha256": "56ff317e3cbc92a3fafa95eb73f3c8a2f6f4d87a91f3be3fa36fd7d102369e74",
-            "bytes": 72634
         },
         "images/book_of_chaos_256.webp": {
             "sha256": "1d51fb2ce59786f5207abb9b15c9598942a784d8eb40c60d86329a5b9edd88ea",
@@ -17022,17 +16766,9 @@
             "sha256": "e28bd9497388748b75173dedd9b5a2bad13f5c70d303f0c4bab1d19b1b939e6b",
             "bytes": 229628
         },
-        "images/cemetery_obstacles_9x_256_atlas.webp": {
-            "sha256": "74efb0fc29a1aee77163ddb56719cd059d255e609d0a784805ea8e8459a6476d",
-            "bytes": 271482
-        },
         "images/cemetery_obstacles_9x_256_hp.webp": {
             "sha256": "70fa9b66abb5d7723dd4bb4a3e26c219131ed6999a50741359b1e3c08b0e700d",
             "bytes": 224686
-        },
-        "images/centaur_128.webp": {
-            "sha256": "f1242e55f6b04dc1127adb44f5d7a3e30d807f04fa5269829b6454938a96c408",
-            "bytes": 9934
         },
         "images/centaur_512.webp": {
             "sha256": "1477811aff92be27a806576807ed7f54cbf4c1dce5ae14a8fccb40167aca22a5",
@@ -17074,10 +16810,6 @@
             "sha256": "c786f7479cdb9a110653023de509dd43a94534f4d3154f29e67afef1769578b9",
             "bytes": 28938
         },
-        "images/champion_256.webp": {
-            "sha256": "c19ef8088e8001f1631e996166feb1f47d2f96ee2095537907f1051b0448e6d9",
-            "bytes": 41814
-        },
         "images/champion_512.webp": {
             "sha256": "29455d862e73c76b80b0b1873e3eebac090daef571f9b382aa7f31ef4cdee2cb",
             "bytes": 140934
@@ -17114,10 +16846,6 @@
             "sha256": "3fc7155d14d31239b7cd7a67f8f7fedc87398e42ab86c59a6dc4d8732aa1c8ed",
             "bytes": 1077684
         },
-        "images/chaos_128.webp": {
-            "sha256": "75a584c4207120da73c26c14f554424883c6379dd69cdfa3378fde3658b2084d",
-            "bytes": 8002
-        },
         "images/chaos_512.webp": {
             "sha256": "0ea70e7ec719626fda2555a71db19dff581ab6a21a7f32abea74caf0d0a9a2b0",
             "bytes": 54648
@@ -17130,30 +16858,6 @@
             "sha256": "423c348a261747772add57b594061d60a9b9734f3c6f4bf0fb7db7b2858b946c",
             "bytes": 261622
         },
-        "images/chaos_portrait_bg_obsidian_fissure_v1.webp": {
-            "sha256": "7e3eb03f8b86c0f6263ab42c036513e56583bb7cc49190b6094f12f51c279ff1",
-            "bytes": 254528
-        },
-        "images/combat_damage_magic_icon_v1.webp": {
-            "sha256": "43b44686e70e2172f0fe0ec9376cc89c1ac2778eb26f815f2f7b86f5d925a7c3",
-            "bytes": 21104
-        },
-        "images/combat_damage_melee_icon_v1.webp": {
-            "sha256": "ea8868c00234d12f6c8379e3c1a6e5025569bf28f91c8a232de6f7898b257dac",
-            "bytes": 23996
-        },
-        "images/combat_damage_ranged_icon_v1.webp": {
-            "sha256": "1e2597b290b25b5d0575ae31fe1f46c7f15b22ee2047cd833229418e42e5a667",
-            "bytes": 23604
-        },
-        "images/combat_heart_arrow_icon_v1.webp": {
-            "sha256": "1eae18eeb551734f8e5f2a14666bcc9011bd9fcf4c9ea2ef07e7834380c45852",
-            "bytes": 23626
-        },
-        "images/combat_heart_icon_v1.webp": {
-            "sha256": "f15efa1a48aa852cfac766c5bcedac7458a101098196b87ee637f684ae3149a6",
-            "bytes": 22582
-        },
         "images/combat_kills_skull_icon_v1.webp": {
             "sha256": "ff7e32095e2bf78a6d4c6facaff4f92cb54dc0055ac738e3ad84b15baca0e613",
             "bytes": 48900
@@ -17165,10 +16869,6 @@
         "images/combat_range_half_broken_arrow_icon_v1.webp": {
             "sha256": "ce2b01899a802ef8c9181928a954d7352d0cc6313d1790546393b45bb680e7cb",
             "bytes": 40778
-        },
-        "images/combat_toolbar_button.webp": {
-            "sha256": "ce24f4b78bb823bea10ce9a74197c4d878b8fd779988ea7e9b7164a73511abda",
-            "bytes": 92132
         },
         "images/combat_toolbar_ember_ai.webp": {
             "sha256": "71a4916fbe220e615f61546d99404c65ba1ac2c3ec31f707ac8c2d8666e258d8",
@@ -17201,14 +16901,6 @@
         "images/combat_toolbar_ember_sword.webp": {
             "sha256": "1043bd1dab12de83b6d5b59b811429731182729c4ce9912241c358bccb43c2f7",
             "bytes": 56674
-        },
-        "images/combat_toolbar_hourglass.webp": {
-            "sha256": "0a913f2305872e50c26af4da3e7adcde444e343ee5e9db38cf0822b824bbd3f5",
-            "bytes": 57420
-        },
-        "images/combat_toolbar_panel.webp": {
-            "sha256": "4cdbb6c541fd822c692ef99aa36f2dc972f1db1063a702ad048c9c45b7d98ec4",
-            "bytes": 27878
         },
         "images/courage_256.webp": {
             "sha256": "cf6b56a494a25d565f5fa324a818922a311575a6084e5bda511543381f74e821",
@@ -17249,10 +16941,6 @@
         "images/crusade_256.webp": {
             "sha256": "8c418829780fd7b558717a6232c7575119bf659f0c528a3f1b4ed4151eb0c9aa",
             "bytes": 19446
-        },
-        "images/crusader_128.webp": {
-            "sha256": "a64b351abf2d42abd0ab92824a06cbc7923816892f7d725af21eb9857cf683b7",
-            "bytes": 10026
         },
         "images/crusader_512.webp": {
             "sha256": "0534ad937c7e007f704ad239de1feb782ee2fea9c282e2c3cddd73a5edaaeb3e",
@@ -17302,10 +16990,6 @@
             "sha256": "767de03b88bb377da6c0885dbdef85f6741273982ced43ecd1502f9257e73698",
             "bytes": 932
         },
-        "images/cursor_interactive.webp": {
-            "sha256": "4c87c325535201bc0139b4a28845aaf8a9dcd248f26653e7f17e9ac8f7ffdcfc",
-            "bytes": 1106
-        },
         "images/cursor_interactive.webp.bak": {
             "sha256": "829e38c09832c9630b2a82c805fad137366e0394272ebc574d78d05648497869",
             "bytes": 746
@@ -17329,10 +17013,6 @@
         "images/cursor_ranged.webp": {
             "sha256": "e11720d6e46563426bcbeb002dd77c17b2b53b0e52490b9c26d23def99d80f44",
             "bytes": 914
-        },
-        "images/cyclops_128.webp": {
-            "sha256": "7170c6f3c3f00b73ebd3416750de8a3f9ed0363884e0f9679e3fe3f9d60cdbdd",
-            "bytes": 9484
         },
         "images/cyclops_512.webp": {
             "sha256": "ff555b90c9a84264d037317193c1daebe1c23b8c81c5127a7c66810f157c5477",
@@ -17382,17 +17062,9 @@
             "sha256": "2a75724d0d10de7ebf6af93b60ebfd5d08ed960f0a29ef5ec8c07d8462833d85",
             "bytes": 75372
         },
-        "images/damage.webp": {
-            "sha256": "066ead0d9a02acb072c2a567dbb0533a162bd66b2a0962b8ff5ae7a30727d0b0",
-            "bytes": 114
-        },
         "images/damage_analytics_icon.webp": {
             "sha256": "0264da67a1aac49f91418e1ea0464d2d065538adee4fd072fbe4e1bf1ff1ca29",
             "bytes": 12182
-        },
-        "images/damage_icon.webp": {
-            "sha256": "a3472d2c162bb47a76c61cead91f9333951c7536557285ef2349f4da7261c7c6",
-            "bytes": 2602
         },
         "images/dark_champion_256.webp": {
             "sha256": "444271c4a8f89426a20e2d2da0a0ee0e7478c5b28df2510f55935455ba5cd9d0",
@@ -17402,17 +17074,9 @@
             "sha256": "7ee92a87c84d72fc17812fd28036e53f5932296a4c0bc336e8bae973d43f864c",
             "bytes": 74768
         },
-        "images/death_128.webp": {
-            "sha256": "16974064cc41e121af33f152a2e3b13f12477e06a47140ecc2fcf49ca4a7fe14",
-            "bytes": 7078
-        },
         "images/death_512.webp": {
             "sha256": "02dadeb1df524e3a100a39ca6ed5c63a9ea558a8038ac4fab3cab0ee32a17ca8",
             "bytes": 62292
-        },
-        "images/death_locked_128.webp": {
-            "sha256": "1d351db0149c9e138ddb17458e4da1a3c874d5db01fee4b08d6c863d0d513b86",
-            "bytes": 7374
         },
         "images/deep_wounds_256.webp": {
             "sha256": "1c5f63da3c6fa41a26093b39d822eebcbe8468fbdaa5abff69591c078efdaaf7",
@@ -17486,26 +17150,6 @@
             "sha256": "21597a17441c592e3aaada88b54fcd58b8a419d81258dfc5b37201dd4cc81d30",
             "bytes": 14194
         },
-        "images/deployment_frame_reference_green.webp": {
-            "sha256": "092e37629f9d62a1138d7df1caefd31a8232cd3300854261171f1ff01af41803",
-            "bytes": 32194
-        },
-        "images/deployment_frame_reference_red.webp": {
-            "sha256": "b3eaf01db0d7423f2a3c3b3cfea09be06a05c6d5fa173e4936828c36187aaf99",
-            "bytes": 17166
-        },
-        "images/deployment_grid_glow_master_16x6.webp": {
-            "sha256": "e5bdc2b309f79c08956d2b4cbc6741f8c5ff404f322657cd9a17c842334fa5b5",
-            "bytes": 2908
-        },
-        "images/deployment_perimeter_spectral_fire.webp": {
-            "sha256": "b81aad7d16b3bd46f6b754466a049bf4a3e96b31283a7c82ceb026898bab079d",
-            "bytes": 345462
-        },
-        "images/deployment_perimeter_spectral_fire_red.webp": {
-            "sha256": "c620119bc28b7a595951afb2c7e3f746bc3d0f24c4f7f6cb66f68ddc84adc284",
-            "bytes": 335062
-        },
         "images/devour_essence_256.webp": {
             "sha256": "ac970e9d3b256f26430c6ee644a13e0287420fdc50bd113130f5b78e149a3ec2",
             "bytes": 15998
@@ -17517,10 +17161,6 @@
         "images/dismorale_256.webp": {
             "sha256": "36f56fa0dc923cae091cc21327be67673e7b07851578328a24cf208e9091e0c3",
             "bytes": 21792
-        },
-        "images/dismorale_font.webp": {
-            "sha256": "42202a3a5bb2deb2520f739b84e65178faaf4ae53030361322d314e9c8ffcf8b",
-            "bytes": 1082
         },
         "images/doctrine_blind_fury.webp": {
             "sha256": "f10907985d152cac310cfe6e8cb9010bed9fbfc8ed1e2e8bbd7df3777066c7a3",
@@ -17549,10 +17189,6 @@
         "images/double_throw_256.webp": {
             "sha256": "f39f843850c51715ff657c059e8c7c9a45f76969abc687889ace6dd30d08388b",
             "bytes": 17614
-        },
-        "images/dryad_128.webp": {
-            "sha256": "06b6b58582d7c70b135e5d5aff0086a7615fad132952c0718baa35c04e6345a1",
-            "bytes": 13462
         },
         "images/dryad_512.webp": {
             "sha256": "3f49100dc58e6bb69503c8243db6c386c3cdccff63d76da7e75f8545474a1f7a",
@@ -17598,25 +17234,13 @@
             "sha256": "100cf5bdfa49e9edc047308126bdaddb805e0c0d6ffbc8866774790c0de5eef9",
             "bytes": 184062
         },
-        "images/dungeon_god_rays_v2.webp": {
-            "sha256": "37a89074189671849bd37380395443ed3d02d5d2a82283c53ddc36a757ef05cc",
-            "bytes": 832620
-        },
         "images/dungeon_volumetric_fog_v1.webp": {
             "sha256": "74fbd4777ead50529977d3ff9a647c668761413911bdc3547af0aec70879d643",
             "bytes": 394190
         },
-        "images/dungeon_volumetric_fog_v2.webp": {
-            "sha256": "3cc0d476601c84802463d325faf72d25bd3d9ee403d37e4f569350980fc01595",
-            "bytes": 1766026
-        },
         "images/earth_element_256.webp": {
             "sha256": "224cc9e7086c78e0904ce4ced32cafa05bb617e9f894bd3c62553bdaf814eefd",
             "bytes": 92662
-        },
-        "images/efreet_128.webp": {
-            "sha256": "e57e44478e1ebfd6b78947dfeb54e7585ba1f03dfee7fc73dc68c32672d44dd4",
-            "bytes": 13486
         },
         "images/efreet_512.webp": {
             "sha256": "2b43b81d1eed06d813d022718ea475fb5ef4ae72bb46502110ef7ee9857351d6",
@@ -17674,10 +17298,6 @@
             "sha256": "0a38c9346764c30ce016c38b254ed147e6c7b5a95c58ae7452dddde993f8efae",
             "bytes": 249902
         },
-        "images/efreet_portrait_full.webp": {
-            "sha256": "8a51809caf89e199a025b34d82c0ead1da0a9f695da75a5f7f641607571ab61a",
-            "bytes": 405204
-        },
         "images/efreet_portrait_full_v5.webp": {
             "sha256": "24b99d662d77a56fdd8888eabe967d3d3dec307778dbe43dae1de68a1a23ada9",
             "bytes": 141754
@@ -17689,10 +17309,6 @@
         "images/efreet_portrait_full_v7.webp": {
             "sha256": "b98dbcd55826badb255c47bb6c452aaf63a18c63c80b5ad2694f7840453033ff",
             "bytes": 162648
-        },
-        "images/elf_128.webp": {
-            "sha256": "bb8cb23ef332da1b6b8accbf3ac9716087c39b1f4bd1721ee3658a73a5e2c64c",
-            "bytes": 19660
         },
         "images/elf_512.webp": {
             "sha256": "b3c19a12a3ad9563fde44c18148f2cb1118948b5b5d1c228ecbc19ae52177f07",
@@ -17766,10 +17382,6 @@
             "sha256": "47083457ba4ba4d24919418f91708cb61a81c8d1004d7ba567cb5869bd00b2f9",
             "bytes": 91742
         },
-        "images/fairy_128.webp": {
-            "sha256": "9a07019f9059206427c558d9ee9a06a3c6e364e922d2dea8f90f2dea4e85ace2",
-            "bytes": 12988
-        },
         "images/fairy_512.webp": {
             "sha256": "98fed838cd2819b61dc69c60db5c16e40024741d8dbe99760cbbdcd2e6c8fd31",
             "bytes": 63150
@@ -17798,10 +17410,6 @@
             "sha256": "b086b371053b8795267771e8a88f42a571de35ae6cab35fabff2da0ab27a9314",
             "bytes": 227970
         },
-        "images/fight_log_scrollbar_rail_gothic_v1.webp": {
-            "sha256": "ef3fe03c7dff1b4d3cb48c871b7e7e8ed6d73c16a45b8ee727fae51fcaf710d0",
-            "bytes": 21712
-        },
         "images/fight_log_scrollbar_thumb_gothic_v1.webp": {
             "sha256": "3664958033cae98889c01cd96e44bfb7680709ddfd706dd90096d9d85b2c1cb1",
             "bytes": 29248
@@ -17810,117 +17418,13 @@
             "sha256": "7e6093b826415af58b591e04283c17255424ad6aa0eeaa2387c5faf0155a944e",
             "bytes": 121920
         },
-        "images/fight_results_chart_frame_v3.webp": {
-            "sha256": "9e7c77a8efe4e150122df73f7adee874303917afc42d2399900b28d93df2f5cb",
-            "bytes": 30820
-        },
-        "images/fight_results_chart_frame_v4.webp": {
-            "sha256": "f3632e4e268e1afd55c3a19b752d97642e4941186eeac0ae0085e7f23bd88b50",
-            "bytes": 19598
-        },
-        "images/fight_results_close_button_v1.webp": {
-            "sha256": "bb589abf81d92c68235764aa472b7d4b7bcd83e25ce1200a16295017e31061c6",
-            "bytes": 99278
-        },
-        "images/fight_results_dragonfire_button_frame.webp": {
-            "sha256": "167143abd6145e6ec239d6538ebc97853168cfdbfab6c733c16dfdb637f7e171",
-            "bytes": 1578
-        },
-        "images/fight_results_dragonfire_chart_frame.webp": {
-            "sha256": "ede594faeb97bed2653130008e8ebd91d87c5eb53bb1fff406e6af5a8103755d",
-            "bytes": 10452
-        },
-        "images/fight_results_dragonfire_fallen_frame.webp": {
-            "sha256": "ca5cfe36facfd1b4a6e5d123d99ce797134eb61825db1f478ad3167cb6f311dd",
-            "bytes": 7784
-        },
-        "images/fight_results_dragonfire_header.webp": {
-            "sha256": "051733c37d0b8e8cca31348e2615dce30ccea404e2481889d7f9a11c726978bd",
-            "bytes": 103610
-        },
-        "images/fight_results_dragonfire_outer_frame.webp": {
-            "sha256": "3cfeea347cde9f1b9f19cfa51b78c89d4c162dadefe041ef2783829c3b589653",
-            "bytes": 62646
-        },
-        "images/fight_results_dragonfire_panel_texture.webp": {
-            "sha256": "13a007c1825e54b1af929389ab27311b66503c01abfb9ddd1580a50db0dcfe3c",
-            "bytes": 546
-        },
-        "images/fight_results_dragonfire_primary_button_frame.webp": {
-            "sha256": "e29c53e371a816f95c0986542a8879198fabea5143061a161be5897351cacc31",
-            "bytes": 2912
-        },
-        "images/fight_results_fallen_green_frame_v3.webp": {
-            "sha256": "14e6d088b48f4dcd36d2b2fd6f2907fc54a42afd8b5750fc98f252d9ec68bc36",
-            "bytes": 29636
-        },
-        "images/fight_results_fallen_green_frame_v4.webp": {
-            "sha256": "c2ead98ff4311ee4cbcc65bf93a29d4d3cf0d0c175b28e4d3a3f7b52e4848e5c",
-            "bytes": 20248
-        },
-        "images/fight_results_fallen_red_frame_v3.webp": {
-            "sha256": "f23e8f26178bdea7d2fe9e64e431420db0cbb327e0da8379868e75efda7a16a9",
-            "bytes": 48948
-        },
-        "images/fight_results_fallen_red_frame_v4.webp": {
-            "sha256": "c4d69856767f7380162004d95d5b399c8a6d900487c640b4f4c0e43e229fa88c",
-            "bytes": 18292
-        },
         "images/fight_results_moonlit_castle_background.webp": {
             "sha256": "ccd84715523f038f511803d2c6f756b9c254a52b16075f7eed5bb478190a647b",
             "bytes": 40492
         },
-        "images/fight_results_moonlit_fire_overlay_v1.webp": {
-            "sha256": "34021a948c1feea934bf5717c9400306cb5e0eee10791618af1130f7cf879a30",
-            "bytes": 64984
-        },
-        "images/fight_results_moonlit_fire_overlay_v2.webp": {
-            "sha256": "34021a948c1feea934bf5717c9400306cb5e0eee10791618af1130f7cf879a30",
-            "bytes": 64984
-        },
-        "images/fight_results_moonlit_fire_overlay_v3.webp": {
-            "sha256": "55856545b9e0dc14054dae6b7419ae97390873872092b73984b63f1e3a09d2fb",
-            "bytes": 64816
-        },
-        "images/fight_results_moonlit_fire_overlay_v4.webp": {
-            "sha256": "8c1cbc9a33f04060037d7c0e2da552ab9915db0266b38744130f5dd2bc45bf9b",
-            "bytes": 64816
-        },
-        "images/fight_results_moonlit_fire_overlay_v5.webp": {
-            "sha256": "7bbbfec7db5ea196d2c3ed4cf8dbebd082707cb626d996e4d77201c7d4097852",
-            "bytes": 64912
-        },
-        "images/fight_results_moonlit_fire_overlay_v6.webp": {
-            "sha256": "b1aa438430a52cb22ee4633401146027510e52ba27024fc471c0300346491ed1",
-            "bytes": 64892
-        },
-        "images/fight_results_moonlit_fire_overlay_v7.webp": {
-            "sha256": "e8877f2cb659f8695096c5f72b981741cfe8913eb5cd3421b797f4340a5b310a",
-            "bytes": 64866
-        },
-        "images/fight_results_moonlit_fire_overlay_v8.webp": {
-            "sha256": "e06a9745ba7a044ed5487295162f2867ace6d7701d139d0c74c3ad6257feef9c",
-            "bytes": 64878
-        },
         "images/fight_results_moonlit_fire_overlay_v9.webp": {
             "sha256": "520a4843d62d36abc95fbc11e124dfa13a99096e397be3ce1c317960986f5277",
             "bytes": 77132
-        },
-        "images/fight_results_obsidian_ember_background.webp": {
-            "sha256": "4ecddd5f7e1506ec5062f28eab60b2aca8b921c9ab78e8e8d6e8362c075fecd1",
-            "bytes": 118608
-        },
-        "images/fight_results_outer_style_chart_frame_v2.webp": {
-            "sha256": "0b23e051df10171dc91405775aea7de02dfe294ea578acf4230cc54061eaff93",
-            "bytes": 120968
-        },
-        "images/fight_results_outer_style_fallen_frame_v2.webp": {
-            "sha256": "aa6d61e8c87971cf11df0a4801d0d5567b61675b549d48bb6fe66cefb51ce797",
-            "bytes": 117022
-        },
-        "images/fight_results_simple_frame_v1.webp": {
-            "sha256": "b466432250e4317ad3875bc92496ba9c0085c01fea8f980c74594d6060b18196",
-            "bytes": 49342
         },
         "images/fight_results_trophy_v1.webp": {
             "sha256": "59eaff2b4d449646e18ffa21ec0ac6c35872e23627be93b182572dd3ca081f08",
@@ -17934,97 +17438,21 @@
             "sha256": "129ab478a6f557e27ba7a00a721f795accb2b62c4a78939f9ebdc489f03ec070",
             "bytes": 101228
         },
-        "images/fire_pit_center_512.webp": {
-            "sha256": "2dbf7563ad769737ae703a98c07b900ae2539076a20726ed44f0e6ae79581b16",
-            "bytes": 67144
-        },
         "images/fire_pit_center_clean_fire_v2_512.webp": {
             "sha256": "93442d02ebcc6d5f663bc280b06ba62eb8f9237f294ec3f5de9577ea40884245",
             "bytes": 286866
-        },
-        "images/fire_pit_center_clean_static_512.webp": {
-            "sha256": "d54824b2d18dd97bb4b45e69cda4f9db0ba67828ea71f085577add428bd9bb78",
-            "bytes": 269984
-        },
-        "images/fire_pit_center_restored_bright_512.webp": {
-            "sha256": "85bdbdd2226a0a1614a616684595791f3c31b1b2783549db745253fc2083ca4c",
-            "bytes": 281964
-        },
-        "images/fire_pit_center_static_512.webp": {
-            "sha256": "894879ffaf0df70aa27668027d9b94a3c281b9316ff7856f1817856d44f174c2",
-            "bytes": 69862
         },
         "images/fire_pit_dark_bowl_v1_512.webp": {
             "sha256": "36dec923ca79e02387966d2e717e64d4d6147e71de0237fb9328c5a4b857d6e9",
             "bytes": 305108
         },
-        "images/fire_pit_extinguished_bronze_curb_dark10_v5_512.webp": {
-            "sha256": "b3b8e82884c8203d19cc67ba09d6b761dfc8b1899282323f02256c99498a007e",
-            "bytes": 95608
-        },
-        "images/fire_pit_extinguished_bronze_curb_dark25_v6_512.webp": {
-            "sha256": "5b02a5a9f8ee64b9285320648732c0651e365c208fcb0083a441ac00ee1e8128",
-            "bytes": 89394
-        },
-        "images/fire_pit_extinguished_bronze_curb_v4_512.webp": {
-            "sha256": "ee7a7a197ae888deb22b07de7402a6f4e0c498c53bf3c8e2c0b24ad71a2d33e9",
-            "bytes": 99016
-        },
-        "images/fire_pit_extinguished_burned_remains_v11_512.webp": {
-            "sha256": "fb5ae2e64504ca4bf12ea4c73dcbed2124202c473b8e3edd69768aae1c91d0a7",
-            "bytes": 91414
-        },
-        "images/fire_pit_extinguished_coal_heap_v10_512.webp": {
-            "sha256": "e1fc4a46746699279d9fc0da62b86aaffd2142fd558335dfb478ad6a4c0818e2",
-            "bytes": 89932
-        },
-        "images/fire_pit_extinguished_cold_ash_v1_512.webp": {
-            "sha256": "37cedcb61535f5861e11cfc68738457907e621f78ebe0d97c0049a1512a174af",
-            "bytes": 85828
-        },
-        "images/fire_pit_extinguished_cold_ash_v2_512.webp": {
-            "sha256": "e38d040ed045e48dfe1538d5a7f07506ff530624ca6d359a10d92901e1767b78",
-            "bytes": 94236
-        },
-        "images/fire_pit_extinguished_continuous_3d_v14_512.webp": {
-            "sha256": "fcc9de46bc920aa7a27dbe9f186eb6f4db43dce06c1ae3faf983b9b74e776a53",
-            "bytes": 80108
-        },
-        "images/fire_pit_extinguished_continuous_background_v13_512.webp": {
-            "sha256": "5f327db0a5b4c542559d64d14f5ba39dee87e97b612d39d67d1caf6d9e7e5e01",
-            "bytes": 72522
-        },
         "images/fire_pit_extinguished_deep_background_v16_512.webp": {
             "sha256": "fcdf0091d63a2dca7e42f605a11d521ae7216cffb419c1696cff8c4555fa475e",
             "bytes": 83042
         },
-        "images/fire_pit_extinguished_grid_map_palette_v9_512.webp": {
-            "sha256": "89dfd47b83bee1d7b1af86043fb7b92b63013c8b24bc058d12ba68eb95ddba42",
-            "bytes": 77330
-        },
-        "images/fire_pit_extinguished_map_integrated_v12_512.webp": {
-            "sha256": "44f1ea0c998c3f9e205f750c2ad497aa39d93d0924106c282d6f3cfedba3754d",
-            "bytes": 70470
-        },
-        "images/fire_pit_extinguished_original_grate_v15_512.webp": {
-            "sha256": "c5e476cf9911d7c15da3afd8b168095feb904c87e2a71166dcec4f5325dcfaac",
-            "bytes": 84078
-        },
-        "images/fire_pit_extinguished_redrawn_v3_512.webp": {
-            "sha256": "a9c88c2292ebc6dd34ac1c7043c63509477f726195e41f397b6d954b7d631ed9",
-            "bytes": 100992
-        },
-        "images/fire_pit_extinguished_stone_tone_curb_v7_512.webp": {
-            "sha256": "aadac860e25ef613f3c01330d7776aa5312b54556b2d97970a8c6724397a9150",
-            "bytes": 81248
-        },
         "images/fire_pit_grate_burning_charred_v18_512.webp": {
             "sha256": "4f1e3d3176134998434a8f7b0f7d6817d570d70d9fc96b74f54c5c723d5ea802",
             "bytes": 189214
-        },
-        "images/fire_pit_grate_burning_clean_v19_512.webp": {
-            "sha256": "3b15cfc623b688da16e6974f6c29e3deecbe44e10a64e74e1faab2ea1d588e9b",
-            "bytes": 70120
         },
         "images/fire_pit_grate_burning_exact_v17_512.webp": {
             "sha256": "4a0b37c7fe5a693088e0d7ec15ca906adb59bfa75a679671028d48510a32de68",
@@ -18034,173 +17462,21 @@
             "sha256": "674ec47abb976eb6b808f6b20d7d4ece35a03bb77890a720dd5264191c58931f",
             "bytes": 102776
         },
-        "images/fire_pit_grate_original_bronze_v16_512.webp": {
-            "sha256": "22b8262a8b5f580c8983662f99bf4c827ebae4171832f5e00ae03ce6bb374d2a",
-            "bytes": 161216
-        },
-        "images/fire_pit_grate_overlay_v1_512.webp": {
-            "sha256": "1fd573f32940e46389c648ced8278031a7e87b8212e195e597f373b2394edef8",
-            "bytes": 309460
-        },
-        "images/fire_pit_grid_baked_seams_v7_512.webp": {
-            "sha256": "e5be104e9a04f374b1a1448ad99eeef835460af4e8d3151b53014f168324eed9",
-            "bytes": 88858
-        },
-        "images/fire_pit_grid_integrated_frame_v5_512.webp": {
-            "sha256": "936843ab933b649100aa329ac90b015b86cd63e99f8bc61c41e3139908125342",
-            "bytes": 93054
-        },
         "images/fire_pit_grid_map_palette_v8_512.webp": {
             "sha256": "ba71c265df70fdd4d633603b90e588087a5e9c1f10cc39f9923a485822f3757e",
             "bytes": 87252
-        },
-        "images/fire_pit_grid_seam_aligned_static_v4_512.webp": {
-            "sha256": "6840f1c8d1b53edeb2636babd537b44e20fabee075c1edf18200e35e7e698a8e",
-            "bytes": 100440
-        },
-        "images/fire_pit_grid_warm_seams_v6_512.webp": {
-            "sha256": "e5d150c3f54e7292fb73ae0eac61efd5b005343bc8465f52b6d9dd7e1ef65fad",
-            "bytes": 93226
-        },
-        "images/fire_pit_grok_video_3s_6s_seamless_v1_64_atlas.webp": {
-            "sha256": "532fdb50a990e306ea3e7ee55ee6fbf6a9c4efac22fe7173dbf614f33ed83ce6",
-            "bytes": 3266536
-        },
-        "images/fire_pit_grok_video_bottom_glow_ring_soft_smooth_v13_64_atlas.webp": {
-            "sha256": "c201688ef9c286ddb6781361ccd63385688bb77e5f0d31679b77de6a4400aa46",
-            "bytes": 943502
-        },
-        "images/fire_pit_grok_video_bottom_glow_ring_v9_64_atlas.webp": {
-            "sha256": "23a4d27df7d19d627246458d44dd6df416af81aaa609164909ac61a9400572ba",
-            "bytes": 1135338
-        },
-        "images/fire_pit_grok_video_center_fire_only_v15_64_atlas.webp": {
-            "sha256": "d3e392f3dff3a70eae4efa414021882047c0d09a18f25e784aaf0af742e5c32f",
-            "bytes": 1138966
         },
         "images/fire_pit_grok_video_fire_actual_extent_v4_64_atlas.webp": {
             "sha256": "3fc95e6655e13d8a36e935c8b78b2569ecdda3ee4ee634c657e35bb2bd8d9c2f",
             "bytes": 1421202
         },
-        "images/fire_pit_grok_video_fire_center_clean_outer_restored_v13_64_atlas.webp": {
-            "sha256": "27d72b05f3fc1f5b6bf5b2a1ced64b023ab355f2cc1016bcbb114a9c15228775",
-            "bytes": 8743320
-        },
-        "images/fire_pit_grok_video_fire_center_hot_v14_64_atlas.webp": {
-            "sha256": "63356a2b3fac76eea57e0c29c20f44d309536bfc643ec4560fec8b825a0e5ef8",
-            "bytes": 8428020
-        },
-        "images/fire_pit_grok_video_fire_edges_clean_v20_64_atlas.webp": {
-            "sha256": "7e5f1c60014b070278be91285556a9b537fd0a554a6da333c4c9edd970a684e6",
-            "bytes": 9522092
-        },
-        "images/fire_pit_grok_video_fire_only_v11_64_atlas.webp": {
-            "sha256": "a9c7b5ac23ab053a658965967ff55a23671ba1eb167dc0956a60d3f1d93c6609",
-            "bytes": 9149616
-        },
-        "images/fire_pit_grok_video_fire_only_v12_64_atlas.webp": {
-            "sha256": "d90596b72b671c48d96589aac5d4468c3421bd9918e1add97e16967e1c20181f",
-            "bytes": 5872804
-        },
-        "images/fire_pit_grok_video_fire_over_perimeter_v8_64_atlas.webp": {
-            "sha256": "d342aa338a69c42a3248a7b424eb8f11770952ac816b15f1692360b6c2bc29ca",
-            "bytes": 1191902
-        },
-        "images/fire_pit_grok_video_fire_over_purified_v9_64_atlas.webp": {
-            "sha256": "151837de79e80fa1ae0c463ecee2e2b64cc047246bd5f44d68cc146a3afc6e79",
-            "bytes": 1050228
-        },
-        "images/fire_pit_grok_video_fire_over_rounded_smooth_v7_64_atlas.webp": {
-            "sha256": "3fdd3131c767ca51aa28fb6573a3368b46bd0dfc6bfcd15e69d3d68a3c663835",
-            "bytes": 1770474
-        },
-        "images/fire_pit_grok_video_fire_over_rounded_v4_64_atlas.webp": {
-            "sha256": "d3de1c53694eb68007ea815a22a59f2255af96366ee07ea5a0a8273062a90f55",
-            "bytes": 1675026
-        },
-        "images/fire_pit_grok_video_fire_over_tapered_v3_64_atlas.webp": {
-            "sha256": "edfcb10b60b7c687dd32041d70e17a208efb144952b937aeb4513bb016555906",
-            "bytes": 2057068
-        },
         "images/fire_pit_grok_video_fire_over_v2_64_atlas.webp": {
             "sha256": "a69063ddb90b17df2800b93d65dee5a332ebb7413ffa73a3302cb03d9551a22b",
             "bytes": 1909608
         },
-        "images/fire_pit_grok_video_fire_perimeter_v20_64_atlas.webp": {
-            "sha256": "6261cc800edc613eb6a805e53a12d0406f18eb8e259ee297464d15489dc37a33",
-            "bytes": 1597804
-        },
-        "images/fire_pit_grok_video_fire_purified_v16_64_atlas.webp": {
-            "sha256": "a69c758eb5035cf01803f23d5d211803a028197398a1d4cebf8eb11e06915aa3",
-            "bytes": 4764436
-        },
-        "images/fire_pit_grok_video_fire_seams_clean_background_v15_64_atlas.webp": {
-            "sha256": "47d2fa8c242f85b0ab9a28809d1df8f7af50ac17a0bfc2757090f17fde8f88c4",
-            "bytes": 8009176
-        },
-        "images/fire_pit_grok_video_fire_spill_full_extent_v3_64_atlas.webp": {
-            "sha256": "0a9c16ad4203b9f2f1a58d8df0f2b3ab4e76790067113b1d5db78842b02dd46b",
-            "bytes": 1672488
-        },
-        "images/fire_pit_grok_video_fire_spill_rounded_v8_64_atlas.webp": {
-            "sha256": "80c22c061a56b3cf24ba9b575ea0105157fa2cf99005a9236e0154e8c3c29a85",
-            "bytes": 1023394
-        },
-        "images/fire_pit_grok_video_fire_spill_tapered_v1_64_atlas.webp": {
-            "sha256": "5436337a7d59d1f8428662d137675eaed73dbdd1a24301d9d47378542e1e98cb",
-            "bytes": 766702
-        },
-        "images/fire_pit_grok_video_fire_spill_tapered_v2_64_atlas.webp": {
-            "sha256": "47c617549bb9076b8a1c6a1ce83fa6bae714852fe1b62016fa42aa367dca48d2",
-            "bytes": 1090464
-        },
-        "images/fire_pit_grok_video_fire_spill_tapered_v6_64_atlas.webp": {
-            "sha256": "7daa2a4414a795ff2a3da963033feb3d527c07313abb8fe17eeba23250cd9f86",
-            "bytes": 1090746
-        },
-        "images/fire_pit_grok_video_fire_target_cleanup_v17_64_atlas.webp": {
-            "sha256": "9fc6112cded3b9323bf8511939fb771586eac97ff40114ac88041fa4ca596494",
-            "bytes": 8153476
-        },
-        "images/fire_pit_grok_video_fire_under_clean_v8_64_atlas.webp": {
-            "sha256": "2c10dd076a22497d5c63d37d5c76e5a6d906d291b9a809e8ddec8ac19b3dd809",
-            "bytes": 8039816
-        },
-        "images/fire_pit_grok_video_fire_under_inpainted_v10_64_atlas.webp": {
-            "sha256": "b7c24d80cce4ccc4551eb7cbf03de1a4534cee89f3ff2442a9759697d6275f3b",
-            "bytes": 9324940
-        },
-        "images/fire_pit_grok_video_fire_under_inpainted_v9_64_atlas.webp": {
-            "sha256": "23a5c534fa5497b27c0c1cbfc484d323d2c8a3c85692922b7b11e83445db73bf",
-            "bytes": 9315030
-        },
-        "images/fire_pit_grok_video_fire_under_rounded_smooth_v7_64_atlas.webp": {
-            "sha256": "fff408c5532ee175139c6222b8b98ebe6eb28c2a08945db1d9b5a984b8867454",
-            "bytes": 9365548
-        },
-        "images/fire_pit_grok_video_fire_under_rounded_v4_64_atlas.webp": {
-            "sha256": "733b53adb0ca003a541ff4db0e698f1f255b12cac519bacb292b41337962d9fd",
-            "bytes": 9353544
-        },
         "images/fire_pit_grok_video_fire_under_v2_64_atlas.webp": {
             "sha256": "6bf6c41d8c5a3eae86b6ac4a3674ee3bc39cdb98389ae7d62a1e89f63aebf673",
             "bytes": 9693568
-        },
-        "images/fire_pit_grok_video_marked_corner_patch_v24_64_atlas.webp": {
-            "sha256": "f5a8d61fd6acae038b71bde9d0a69834aa9302c2c8d4f9b390e2885bc3a01537",
-            "bytes": 605644
-        },
-        "images/fire_pit_grok_video_marked_corner_patch_v25_64_atlas.webp": {
-            "sha256": "1896a735fcd1de76813076a06c8be9a869044022b6b7d0ed0b2a9cfd5c6a64c3",
-            "bytes": 486490
-        },
-        "images/fire_pit_variant_1_low_front_fire_overlay_64_atlas.webp": {
-            "sha256": "abaef129a551496215b3e1bd2ed1b7499dbc65c8db8450ec4dc34683abe2dc4d",
-            "bytes": 7172228
-        },
-        "images/fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas.webp": {
-            "sha256": "df538936a52e834c7268023dfca04e1b02121f2bc69affc9ac22adf7e9cf6a9c",
-            "bytes": 7017260
         },
         "images/fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half.webp": {
             "sha256": "0a2ca9fea90f3a9d823b9c0048a5daa63ddca9f02eb3abf2f1c51c82396a157f",
@@ -18217,10 +17493,6 @@
         "images/fire_strike_chaos_256_v1.webp": {
             "sha256": "21649db07e7d2dba101e75164eea350e61db4b986941dbd1c3645e881b11351a",
             "bytes": 37986
-        },
-        "images/fire_vulnerability_256.webp": {
-            "sha256": "8633f7290fd551d3e8f31edbc1066ff7e0e1c57a501fc03c80d7c6cd5eeea2a2",
-            "bytes": 16240
         },
         "images/fire_wall_256.webp": {
             "sha256": "39bc220a61e10595d92a14f6b69b9c070dc5056bab8016c399364ce56b58e289",
@@ -18254,10 +17526,6 @@
             "sha256": "07b45c73659b6c9f01c0b95b497da9b147a5510ab18833b9aab990ecea17d059",
             "bytes": 21818
         },
-        "images/frenzied_boar_256.webp": {
-            "sha256": "1166643064f474a1c76e18e48231b42aeafa7de212d67d1bc155d8063b140f1d",
-            "bytes": 28814
-        },
         "images/frenzied_boar_512.webp": {
             "sha256": "96fef2333df043b144f1656879757d6db7fd35fc60715402f5cdd4ade057874c",
             "bytes": 100884
@@ -18281,10 +17549,6 @@
         "images/frenzied_boar_portrait_full.webp": {
             "sha256": "4e37674ea158f2649c733fc01cc32dee5381828ba86f9f7b92883963e02ffc7b",
             "bytes": 787256
-        },
-        "images/gargantuan_256.webp": {
-            "sha256": "db50b017e3ff535f9b1648487d557817928b97821ce71fe25a7578bd38d08de9",
-            "bytes": 38840
         },
         "images/gargantuan_512.webp": {
             "sha256": "42374a3a968447d1f79879fee066332f39c76b382d7be788224121ed270d6d15",
@@ -18325,10 +17589,6 @@
         "images/gargantuan_walk_source_comparison.webp": {
             "sha256": "da6d334da71e933232d465d6633f351ad6940165fb050400a0f6e9a83ad928a8",
             "bytes": 53910
-        },
-        "images/goblin_knight_128.webp": {
-            "sha256": "f301803b75fcf72bbaf1cc82b4c13b0b117c46198e1bacbef06192eea2a67043",
-            "bytes": 13968
         },
         "images/goblin_knight_512.webp": {
             "sha256": "0f497ccce79ccbbc498b8481e712d51940e4315b1ea37a097695a2d37a9311d3",
@@ -18390,10 +17650,6 @@
             "sha256": "1f1f818b871e4b521ab33b1a8e7f524f383520d8ec10ad07bc7fb8e9a1670344",
             "bytes": 94192
         },
-        "images/griffin_128.webp": {
-            "sha256": "e88d8efa612d37ecc51836275c72b6f191e561fd497305d3a52571da0c7777d7",
-            "bytes": 10668
-        },
         "images/griffin_512.webp": {
             "sha256": "bf69bce94f0ebc1d52d75715713e1bd9918a8c453d4d518ed56d420b8c517812",
             "bytes": 49066
@@ -18450,10 +17706,6 @@
             "sha256": "5e6b3366e0844e53cba63303e89876e1489934d4b33401f7f22c1c63d2d23e00",
             "bytes": 16046
         },
-        "images/harpy_128.webp": {
-            "sha256": "64ef46c196103a2851b9ec8c5d32760dc719d51faa3e0d323384a9632781a4a2",
-            "bytes": 26888
-        },
         "images/harpy_512.webp": {
             "sha256": "0079508e5cb328a1b3cc2e7e12066fde8b4b913e493e276c75e4821373b8eeb9",
             "bytes": 278760
@@ -18482,21 +17734,9 @@
             "sha256": "a200ac8ae6be25ea2438bd78231705e9180ba4f6da3c937fd26a13d3bdec43fc",
             "bytes": 40270
         },
-        "images/heal_font.webp": {
-            "sha256": "e21a5efc850a42e12bded2268863e9d90175d5c56bb934baef7f2319a4fb38d2",
-            "bytes": 774
-        },
-        "images/healer_128.webp": {
-            "sha256": "58071ecc7d6d2aa0b93d1cff2189af5fe14ea8a4db007979a2d2223f2e3e3dcc",
-            "bytes": 16248
-        },
         "images/healer_512.webp": {
             "sha256": "2bc08f73311f72f147845bd47abeb48d418a775b4f6a6ab4ea63aac524830b7f",
             "bytes": 139572
-        },
-        "images/healer_512_head_turn_v2.webp": {
-            "sha256": "69250c0c458136ea4285a9bd994f2dbb3dd9ccdde8253f19f1f649a5414b608b",
-            "bytes": 154672
         },
         "images/healer_battlefield_side_right_distance_readable_v1.webp": {
             "sha256": "717edfbae2e275f8fbc919e19992145efce4157e31219be967e2536440f2f6ed",
@@ -18542,10 +17782,6 @@
             "sha256": "f2a80616b1139db37c4b69b98cfb6dd7af244e99dc15f3b00404ed5ed10af8f9",
             "bytes": 4776
         },
-        "images/hydra_256.webp": {
-            "sha256": "1fe42b5c4ad09d5b21cc1ddf28fa2aed2e86d3dc2de9e1cb51d27f10064fd87c",
-            "bytes": 34804
-        },
         "images/hydra_512.webp": {
             "sha256": "db167403d00cef644476bc374864cf7e48d51582e94fbf9ddf025be96e970b9e",
             "bytes": 124104
@@ -18577,10 +17813,6 @@
         "images/hydra_portrait_full.webp": {
             "sha256": "0dd629e48483d04b4b409bd101db1e1144a7d72f67a467897838e1292abd6439",
             "bytes": 843286
-        },
-        "images/hyena_128.webp": {
-            "sha256": "ff3cf8e822c574552f5f37c15277ab97ddf21632ac8412a7598825bcc23fc0aa",
-            "bytes": 13678
         },
         "images/hyena_512.webp": {
             "sha256": "344d446fe3d03b525636bcd3ba47313f8deac5e03df336fe000035cd22ac87bb",
@@ -18702,22 +17934,6 @@
             "sha256": "3c99f2c14208fb186ad3246758d5f2c1c9b62ddf7c15653b47b4e080ab64859f",
             "bytes": 10736
         },
-        "images/label_level_1.webp": {
-            "sha256": "e7e545264a69f6bc2767f65e1cbed8efdc865cc33da2812d1b680fea19224ec9",
-            "bytes": 4928
-        },
-        "images/label_level_2.webp": {
-            "sha256": "c88ce9dd0ef1a86631175a9b74309b728e6a7c6cb340df090e8838cd6a619e04",
-            "bytes": 5492
-        },
-        "images/label_level_3.webp": {
-            "sha256": "90795b99e5a486cc185ee8d299977e8d77aac69232929f6a2bad7622cd9a7ae9",
-            "bytes": 5178
-        },
-        "images/label_level_4.webp": {
-            "sha256": "4d2de1f454553c29354fc65d47f0c5970bee3a95132d0f0b166a4e0a1bdce331",
-            "bytes": 5396
-        },
         "images/large_caliber_256.webp": {
             "sha256": "d2dca00bbc8893e4192f4d2fcfc7616c3a9eda7eac4e2e2ebbe098c041aee646",
             "bytes": 20686
@@ -18766,118 +17982,6 @@
             "sha256": "55e64f16648e1e936c349d0b147c0313fdf3fc940b948b3f69fd7fb2cae5cd87",
             "bytes": 18986
         },
-        "images/left_sidebar_abomination.webp": {
-            "sha256": "f2cfc8212100c80ee948ae0efa37ffc4212ae76244e1d528fa9f1e4190a4181e",
-            "bytes": 994852
-        },
-        "images/left_sidebar_arachna_queen.webp": {
-            "sha256": "a41ff033bee24f4887cbff9cd665f61bbe465c7a2c43783238ab4bdf12bff9cb",
-            "bytes": 606196
-        },
-        "images/left_sidebar_arbalester_hd.webp": {
-            "sha256": "06c8d6dad917d9317a65c559f068f250e320012e183176c6470ad8c6c081d7b6",
-            "bytes": 631036
-        },
-        "images/left_sidebar_battle_mage_hd.webp": {
-            "sha256": "b3ce19fa33bad50f790e3eee307fb0b565f1b581dc8b6b5f0d3723f3d77f22a8",
-            "bytes": 632826
-        },
-        "images/left_sidebar_behemoth.webp": {
-            "sha256": "13a35b22b65cf2e468149d8a087c9521fa19cf63ad842b287f551e9ee349d33d",
-            "bytes": 904718
-        },
-        "images/left_sidebar_beholder_full.webp": {
-            "sha256": "2b4e38f98c26a0d50d2fba4b3f83c45eca67665c07585e9e905fee32da857103",
-            "bytes": 771522
-        },
-        "images/left_sidebar_berserker_hd.webp": {
-            "sha256": "2adae81faa94f84eecee3b466a0a76d3fa585aa74d09a1fa79c4ebfeaf1845df",
-            "bytes": 840758
-        },
-        "images/left_sidebar_blacksmith_hd.webp": {
-            "sha256": "38d30a8e8b7dc8480114a04a8a671289492ad50d9154d2ab86d42256f52d29d9",
-            "bytes": 584694
-        },
-        "images/left_sidebar_centaur_hd.webp": {
-            "sha256": "2a10709436d7b5f42c9dd941211a815c56f3bfede20fb5c96e62d87913784a61",
-            "bytes": 419634
-        },
-        "images/left_sidebar_dryad_hd.webp": {
-            "sha256": "247862c6d7443d0f61affca1b7e8c301e01dc8c78f37a53b372bb94480e8c0d7",
-            "bytes": 574588
-        },
-        "images/left_sidebar_elf_hd.webp": {
-            "sha256": "6b31c19fe330c5dac2e95608f91afda5351497f4c81ef5fa8ee0f1c3ff7e824e",
-            "bytes": 541748
-        },
-        "images/left_sidebar_fairy_hd.webp": {
-            "sha256": "ec3face1dcdc3dcaaebc60b14640e3a68036407241db428e8807a812fd9f6e10",
-            "bytes": 469610
-        },
-        "images/left_sidebar_healer_hd.webp": {
-            "sha256": "6c27d4f2b59e5a300dac10fba6f02e31818964144bf959fbef5e76bcce463641",
-            "bytes": 489900
-        },
-        "images/left_sidebar_leprechaun.webp": {
-            "sha256": "348303842416201a2bc922672cfcada7cc585f023636b974145f6bf612f8c74a",
-            "bytes": 701072
-        },
-        "images/left_sidebar_mermaid_hd.webp": {
-            "sha256": "8305abd48581a378e13436d211f2199d618dcee10a773c1c937520dffc8c9c40",
-            "bytes": 576568
-        },
-        "images/left_sidebar_nomad_hd.webp": {
-            "sha256": "52bad5599699822b26cd74e7394524f284dbe1ca49fec80745020860572fd5ce",
-            "bytes": 629422
-        },
-        "images/left_sidebar_peasant_hd.webp": {
-            "sha256": "8c5e91defff5750634d1c0f43dde107660580c14803124a0cf60c3a4813b9d66",
-            "bytes": 514252
-        },
-        "images/left_sidebar_pikeman_hd.webp": {
-            "sha256": "238275d95d3289676a47fa5b98597de114dc062a90f4ff7e576addcfdea5583e",
-            "bytes": 349162
-        },
-        "images/left_sidebar_squire_hd.webp": {
-            "sha256": "3a4797df735fdf2e0bcc36c6dd535553a42444756be63e8de92346eaa76750da",
-            "bytes": 694162
-        },
-        "images/left_sidebar_troglodyte_hd.webp": {
-            "sha256": "9056c470fe45ab04e1850a89a12f2ac74f493afb1ef6854c4a0e0315b42d09af",
-            "bytes": 573668
-        },
-        "images/left_sidebar_tsar_cannon.webp": {
-            "sha256": "62d2546ef5d687122d323267fe91b5027063c4b387f159505e0de1fe817b1ee7",
-            "bytes": 1139576
-        },
-        "images/left_sidebar_valkyrie_hd.webp": {
-            "sha256": "73b3feaaabc98f6a380ed8e391a67cd3f48d4e85011d05e28ed678f4645d02c4",
-            "bytes": 198276
-        },
-        "images/left_sidebar_wandering_mage_hd.webp": {
-            "sha256": "cdd00927caef4f22c4c53139bf17d9edd2f887df737a04028639570ad9277794",
-            "bytes": 615478
-        },
-        "images/left_sidebar_white_tiger.webp": {
-            "sha256": "96e2aa1c34240c95fd16c09f474124f2bc0e818e77584c65ac4673d733738b68",
-            "bytes": 1102642
-        },
-        "images/left_sidebar_wolf_rider_hd.webp": {
-            "sha256": "8c58b0d06fdeeb8212598327ed22c2aca68effd18d9f478eaf696e1dd16fe767",
-            "bytes": 799986
-        },
-        "images/left_sidebar_wyvern.webp": {
-            "sha256": "5719041eb6fd86d83164248d17f9edf733a08577eb0050b8be289fb0e1e5c47c",
-            "bytes": 1146860
-        },
-        "images/left_sidebar_wyvern_legacy_full_hd.webp": {
-            "sha256": "03ba25594b3e39d10fe00186b92c7afad6e1c357c66ab6cb92679f60c00e82b4",
-            "bytes": 989790
-        },
-        "images/leprechaun_128.webp": {
-            "sha256": "d15abe971371c12b066c0769e8fc2f0eab20a659b8a49cda2e0746d911467086",
-            "bytes": 13356
-        },
         "images/leprechaun_512.webp": {
             "sha256": "b447f5c7dc81d4396a1c44ba510900747ad7ec3360d898fcbd60318b5cda5824",
             "bytes": 78800
@@ -18910,29 +18014,13 @@
             "sha256": "29bc589c0c17d85bfa0062e110f1325a09bedd0bb994484642e39a6bee69b20d",
             "bytes": 244970
         },
-        "images/life_128.webp": {
-            "sha256": "735d62a6f2df183753928cdf9dbb27577cc93a0b331db547b449a05a20eb72f2",
-            "bytes": 7984
-        },
         "images/life_512.webp": {
             "sha256": "958fd1a62524f3ca0d54eb814ac4aba4b124f89d57b6c46e6ad316d047b2366c",
             "bytes": 71868
         },
-        "images/life_portrait_bg_crowned_shield_v1.webp": {
-            "sha256": "215277b48dd1a8a211ef8ccad47bf494cb226231fc1171e9013d8537f798acc5",
-            "bytes": 391092
-        },
         "images/life_portrait_bg_emissive_glow_v1.webp": {
             "sha256": "2538c5ef36f745240435794d14b63d63aa6602aca99c422f214eb014f01e0efe",
             "bytes": 186378
-        },
-        "images/life_portrait_bg_fallen_standard_more_light_v1.webp": {
-            "sha256": "2560411cc41d236e25586637a26038b6254d97aca7fbd72dfed90a90c17fcf65",
-            "bytes": 238450
-        },
-        "images/life_portrait_bg_fallen_standard_v1.webp": {
-            "sha256": "0e37669648cf7ed21dbe9e724203c518ec300823f3a1f4a0ba97310064d3d3ac",
-            "bytes": 222306
         },
         "images/life_portrait_bg_golden_dawn_four_corner_haze_v1.webp": {
             "sha256": "773155ff83e5e7fe5b61423e01f3bea558da74a3f05753a1f35b4171431ebe1a",
@@ -18978,10 +18066,6 @@
             "sha256": "b51719cad65fde6a8da944d453bf0fdf8b2fa92b2a013573c861aff1969e7554",
             "bytes": 13036
         },
-        "images/made_of_bones_256.webp": {
-            "sha256": "69c5cf24dc167e015e23f25ca59f0556d85b85b2d6591b04e87b1acfe58f3386",
-            "bytes": 23726
-        },
         "images/made_of_fire_256.webp": {
             "sha256": "b9a35424bf9634e1d110f66d1c1a9291210989c0b84179440a1353a1ae3b9a0b",
             "bytes": 18716
@@ -18989,10 +18073,6 @@
         "images/madness_256.webp": {
             "sha256": "d2a5a8f5a7bda1b366f2d94bebed10882b7ddec99c58251abb9736a027ed9f7f",
             "bytes": 21680
-        },
-        "images/magic_dragon_256.webp": {
-            "sha256": "fb98d42dc63d9f9ffa50b3266c6749c7a8f2245c8169cde928e89520b7756e61",
-            "bytes": 62162
         },
         "images/magic_dragon_512.webp": {
             "sha256": "1adef11530c2d5c60ffcd765543471068dc82ac00b6ea8f4ec4d0f95f209f434",
@@ -19034,10 +18114,6 @@
             "sha256": "25e457271c7d186c7a29d21a3ab5aba3529add67c587a47b5535c28603a6ce4f",
             "bytes": 114234
         },
-        "images/manticore_128.webp": {
-            "sha256": "d4caf66e003b25b6dd5363bb161ea59b37995319a0a2985f7103de397efded59",
-            "bytes": 11178
-        },
         "images/manticore_512.webp": {
             "sha256": "2625c49589ca28e9fd7a87f217a58f4763256204bc88d2ffd390284e6972ded9",
             "bytes": 114376
@@ -19065,10 +18141,6 @@
         "images/manticore_portrait_full.webp": {
             "sha256": "d7c032c22db823a476c73978171d2e1cf665ff678d0a1958391ac3e200318066",
             "bytes": 123702
-        },
-        "images/mantis_128.webp": {
-            "sha256": "2a0267b32eb9b4521e23244aecbd008008bbcb154eb9d84e7398da3a4910efc7",
-            "bytes": 14092
         },
         "images/mantis_512.webp": {
             "sha256": "038bf3d822d5a628e0e05b7ba36f5c3d653b457bda6e072a0063c2f95cca7054",
@@ -19106,10 +18178,6 @@
             "sha256": "75af832d82b9cca6f1d7595c040345c2559221a227e60802da2786c546ae0274",
             "bytes": 178642
         },
-        "images/mantis_portrait_full.webp": {
-            "sha256": "b77b91e22b60669c2f8238610133e45b29555602bf556d465b9038b61b1bee97",
-            "bytes": 270004
-        },
         "images/mantis_portrait_full_v2.webp": {
             "sha256": "856d7ec3708243466e831b8b62e62cd7f17b721469cee0b4641f244dda198f02",
             "bytes": 119394
@@ -19122,33 +18190,13 @@
             "sha256": "4f6862e2e8a34619315abd3b430fa5a87eeae656cdda9bd081b06e4a365171e3",
             "bytes": 21424
         },
-        "images/map_badge_barrels_medallion_v1.webp": {
-            "sha256": "e24774675f629676884990ba8da9375a0c899eb32b0f021a0935e17ed99ddd06",
-            "bytes": 24644
-        },
         "images/map_badge_lava_frameless_v2.webp": {
             "sha256": "8ce63f993df0dfd35d730d928eca4a8bb4746f8418ec70549c3d171f74c02554",
             "bytes": 42470
         },
-        "images/map_badge_lava_medallion_v1.webp": {
-            "sha256": "8f4fa034b88a81e04cfa4f7415784c665a988db5886332501b8b1e33da6cbed1",
-            "bytes": 30262
-        },
         "images/map_badge_normal_4x4_actual_style_v4.webp": {
             "sha256": "2b289fc12c28b047e7a716b4a38e6aff4284697af23921ddb842aab780354ac5",
             "bytes": 114896
-        },
-        "images/map_badge_normal_4x4_frameless_v3.webp": {
-            "sha256": "ee2d271dd5b95568757fb5b65df18a6afb321ba58720e858242bdc6ba9204dd1",
-            "bytes": 62090
-        },
-        "images/map_badge_normal_frameless_v2.webp": {
-            "sha256": "f725582e4eba2fda5bc3c4c1bacc1b37d625062ec0207804a50147eb28fbc8ee",
-            "bytes": 13490
-        },
-        "images/map_badge_normal_medallion_v1.webp": {
-            "sha256": "67ca98a70c976dded2781dc7844d7059227d5a473d447cbccab6993bc51de99a",
-            "bytes": 20036
         },
         "images/mass_heal_256.webp": {
             "sha256": "95520dbc8d0e85dbc88deb46851a4794ea7bf9601b68bbed5c91eda56e350b12",
@@ -19165,10 +18213,6 @@
         "images/mechanism_256.webp": {
             "sha256": "10be23f1cf415000ff96f5be39c1fb0a11a611cf7ff124ecb0d49478c621a180",
             "bytes": 18890
-        },
-        "images/medusa_128.webp": {
-            "sha256": "b12da92f3eb46ac7a39dac5bfb54f9172510107ed952e164cd041aae15a81470",
-            "bytes": 16240
         },
         "images/medusa_512.webp": {
             "sha256": "b185c4c12d3b6f171cf52ea2bcffc2f607313add2ab331e8a8082b1f54565781",
@@ -19197,10 +18241,6 @@
         "images/medusa_spectral_serpent.webp": {
             "sha256": "f7d6c7da689ea71b5f949685f4f46ccded1f7f0c0babf6ce076fcba3b319ef7d",
             "bytes": 375632
-        },
-        "images/mermaid_128.webp": {
-            "sha256": "732d87e045f2427b714cf4cf9dd8535f27238ddb906584189d0bb511efabde27",
-            "bytes": 11098
         },
         "images/mermaid_512.webp": {
             "sha256": "137251f93155c784cb212c2e88c3b1b3caa4b341e45359fc8f545282986314c7",
@@ -19242,10 +18282,6 @@
             "sha256": "4d1e786d80fdabe1f973f0cc6f7aa7f8ca33ea8081e480d00b8f5797da127f71",
             "bytes": 38508
         },
-        "images/might_128.webp": {
-            "sha256": "4725aa7af299b2a322cce0fda5ec539401041863293b949e7c57b7ddf6afe9d3",
-            "bytes": 6244
-        },
         "images/might_512.webp": {
             "sha256": "d7512c8c85d20f0096c828cbac597a26410eeccd81b39098e50da231e2ec218e",
             "bytes": 43792
@@ -19253,10 +18289,6 @@
         "images/might_augment_256.webp": {
             "sha256": "432f272b3feac58eddfd8c5ddc9dabb9fc541b85b052c7b342ea271add2813d8",
             "bytes": 14334
-        },
-        "images/might_portrait_bg_blood_claw_strong_red_corners_hd_v1.webp": {
-            "sha256": "92816d1ee4423e3164aeaf905e9da7ae35ca139ce7080f37bf7cdd80dde831e9",
-            "bytes": 1432586
         },
         "images/might_portrait_bg_blood_claw_strong_red_corners_v1.webp": {
             "sha256": "92816d1ee4423e3164aeaf905e9da7ae35ca139ce7080f37bf7cdd80dde831e9",
@@ -19266,10 +18298,6 @@
             "sha256": "8baa240d13e1d9835404b6b1574ef8a3b6258407b77ae2381cc2d5cc0ac88724",
             "bytes": 264644
         },
-        "images/might_portrait_bg_shattered_fortress_v1.webp": {
-            "sha256": "03be0e2d6848a6b28cbb9f050d16cd9dfb604cd9ebd54e9d8bb9e9417e7f2d9c",
-            "bytes": 333372
-        },
         "images/miner_256.webp": {
             "sha256": "2bfd8edd7e47480c77466d02a8acf4b25de038c4d764cd9cdadea9b1de635288",
             "bytes": 23448
@@ -19277,10 +18305,6 @@
         "images/misfortune_256.webp": {
             "sha256": "27842bf1842f6f9466a89d7436191aca9fd57b0a57ca2a9b53882cdd085ae77e",
             "bytes": 37360
-        },
-        "images/monk_128.webp": {
-            "sha256": "e542e490c6f8d6b0c233a0be21f5825beeec5f1840c9a0246443ecef9b2277ed",
-            "bytes": 10896
         },
         "images/monk_512.webp": {
             "sha256": "ded02af5f3549e86a959b5ccb5dab9d2e00b7efcb2006d098ecd315fad3a67ed",
@@ -19338,61 +18362,17 @@
             "sha256": "6095f946415d922fe7b41c2f6f2cf4300514842fda33d9f2fd4ce5d2ed15e27e",
             "bytes": 17322
         },
-        "images/nature_128.webp": {
-            "sha256": "28326faffd8ab289fcaa4f6fbe420b622ee0c71cbf9b96e425971509c87eced0",
-            "bytes": 6772
-        },
         "images/nature_512.webp": {
             "sha256": "a50e740bcba26cc2843c8312cd983ef41fcfbc127673d29c54fc88185862d961",
             "bytes": 63516
-        },
-        "images/nature_mage_male_1_128.webp": {
-            "sha256": "c7cd11d8e84aca9bf2b6655d9050cba7ee41ac276ee3fd6c0d96033b1ab61357",
-            "bytes": 5886
-        },
-        "images/nature_mage_male_1_512.webp": {
-            "sha256": "56ab406fb9b17b687d57e9b1346e522656c21a3a966fbee6f6d1e79fc8c55efa",
-            "bytes": 53582
-        },
-        "images/nature_mage_male_2_128.webp": {
-            "sha256": "b3bf925a326fb71d8ff522239154d3e7326684e85060db3bf912fa07771fd41f",
-            "bytes": 6030
-        },
-        "images/nature_mage_male_2_512.webp": {
-            "sha256": "e962eede751e77c34b4925fd3717632cf785ad4c29492fb1dedc474e5d6f0bd2",
-            "bytes": 57640
-        },
-        "images/nature_mage_male_3_128.webp": {
-            "sha256": "2b6cbed012a76614ed54bcaac8c244b5780ec963d109375a844bf18a3c668687",
-            "bytes": 6220
-        },
-        "images/nature_mage_male_3_512.webp": {
-            "sha256": "45faa7d800a19224b655084ff7967b0d5497b21fe22f9b145162faf25c9d0e4b",
-            "bytes": 60480
-        },
-        "images/nature_portrait_bg_claw_scratch_v1.webp": {
-            "sha256": "9f0ec9ba95ce5579d6b5bac6bf267b722dca1411a15b0619e6f54d2d4a62f3c4",
-            "bytes": 343674
         },
         "images/nature_portrait_bg_emissive_glow_v1.webp": {
             "sha256": "6ed9a32ac6cec2b8b53385f2c57f09a961821037e1cf73844688d16f5da1c490",
             "bytes": 190518
         },
-        "images/nature_portrait_bg_tier_1_2.webp": {
-            "sha256": "8f1dc2acf37d3b8209cb3cb4cea41e9d58b2d13e163abce34527bfac1befc1b5",
-            "bytes": 117690
-        },
-        "images/nature_portrait_bg_tier_3_4.webp": {
-            "sha256": "7c67c61dfbd1d357e8807a75e4458ee0efd0addfb08c682e156b1e047a2fa3d6",
-            "bytes": 201196
-        },
         "images/nature_portrait_bg_xray_leaf_corner_glow_v2_soft.webp": {
             "sha256": "74d7cf33579f505be69b8962951b958c10108f0e92eeebd8921a827286eb4d2d",
             "bytes": 57870
-        },
-        "images/nightmare_128.webp": {
-            "sha256": "d54b8e77f556739b33387a63994a29ecdb64e9b9834dccaeecbddfb427fcbcf7",
-            "bytes": 13316
         },
         "images/nightmare_512.webp": {
             "sha256": "eeee9f078397aeefd0b7e1a2706eea03e21d1ee5f85661c2b66cc79449245eae",
@@ -19458,10 +18438,6 @@
             "sha256": "feeda8d30a99348e9de9e2ccb0d32bb77ecd7c3ab851824610efb68b85cf0ac7",
             "bytes": 16990
         },
-        "images/nomad_128.webp": {
-            "sha256": "5120e8ae9630d8e59f4776d1575d13b457a4d55d09ea921756500601f2124945",
-            "bytes": 16998
-        },
         "images/nomad_512.webp": {
             "sha256": "e77374179b36231f8df20f7f86a765b9403ceaa2065eb6f8b2fb4ca8559b934f",
             "bytes": 171204
@@ -19485,10 +18461,6 @@
         "images/nomad_portrait_full.webp": {
             "sha256": "fad9af42c699cec7f0b6a7140a066d5c0ffbab3cfb25494fda4565b136cd1eb2",
             "bytes": 115650
-        },
-        "images/ogre_mage_128.webp": {
-            "sha256": "0003e40328ede48caf071e21a7c182cd45d8f9e533677d2a5d173f94190d67e2",
-            "bytes": 10820
         },
         "images/ogre_mage_512.webp": {
             "sha256": "b63a5271b0b128c105509ac0dfaa4fc54877556684cef0932103e840b20635a6",
@@ -19534,10 +18506,6 @@
             "sha256": "f28e5fe3ffc6bf5cf5b451a733ccf5a25a217e4d362dde6e55da9760a3253bb6",
             "bytes": 35758
         },
-        "images/orc_128.webp": {
-            "sha256": "7a3110440f2101f4093337aff2e4153e8bd0351cda19d1565eacc4cef2ac2472",
-            "bytes": 12164
-        },
         "images/orc_512.webp": {
             "sha256": "964d6267107f1901752a72fc5cea6d6cc8e7957a53c8af360d2d7d2d98d61c21",
             "bytes": 117802
@@ -19574,10 +18542,6 @@
             "sha256": "15a1f7ac4697f48453bab91c98101687ab22fc24a397f51a1a38df5f11cf7315",
             "bytes": 283060
         },
-        "images/order_128.webp": {
-            "sha256": "2d14d833b56153bb9f9425d9f27fc4d25f811dddb7547cbfae58219e829c5ee2",
-            "bytes": 7142
-        },
         "images/order_512.webp": {
             "sha256": "9adc9848fa5e988851eac3f6a2ac37171aa64d886dba6fc12803a9f3ded32e43",
             "bytes": 61998
@@ -19598,17 +18562,9 @@
             "sha256": "92b9b72f72f05b3a0533e812b55576aab826a0dab6e68ad692081c040a2e564f",
             "bytes": 690966
         },
-        "images/panel_toggle_medallion.webp": {
-            "sha256": "dc09d5a08833ffeacfecaf757bededa4436ece02b0c621302e1772974b293207",
-            "bytes": 54186
-        },
         "images/paralysis_256.webp": {
             "sha256": "312a73c9b956830be2fcb115ee005707a8aeef3da0714ba9fc6b86b89d13f499",
             "bytes": 17198
-        },
-        "images/peasant_128.webp": {
-            "sha256": "0d789c3b20030ede85c0d18eb28a2f3e1a1ee82c09c1becee688985736172173",
-            "bytes": 8818
         },
         "images/peasant_512.webp": {
             "sha256": "0f911ef155a2b3326815e46184cc5962fe970ece68225fe982a5a5e4f49d7eb2",
@@ -19686,14 +18642,6 @@
             "sha256": "a8addb867f84d1b0632b339b243220d66e0065d54911537a6aaf39321c1b19d8",
             "bytes": 167692
         },
-        "images/pegasus_128.webp": {
-            "sha256": "5a05ba1b8c843ec2abbe09ec14f0094385386104d02b8b62a5403ddd8c7533cf",
-            "bytes": 16062
-        },
-        "images/pegasus_256.webp": {
-            "sha256": "b7f14b2932d6768b2cde2886180d1ba03c487052c2e297095b9f5a650bff48da",
-            "bytes": 42846
-        },
         "images/pegasus_512.webp": {
             "sha256": "cbbc7d5a1cf716027e72420e15a6667f08b2dafc11763d2b9a42c3cf4b9cd505",
             "bytes": 69930
@@ -19746,18 +18694,6 @@
             "sha256": "1a9d478469135b7523fe5c4b84f46702849641085993b6be5ad006052aa788bf",
             "bytes": 14172
         },
-        "images/perk_blind_fury.webp": {
-            "sha256": "f10907985d152cac310cfe6e8cb9010bed9fbfc8ed1e2e8bbd7df3777066c7a3",
-            "bytes": 67352
-        },
-        "images/perk_scout.webp": {
-            "sha256": "08c238b69c6c8c24d80ab27487a634c9c58723cffd8de28b8298d481ad3d0769",
-            "bytes": 41900
-        },
-        "images/perk_spymaster.webp": {
-            "sha256": "1d39f93754b737e5dd96764c35bdd2d0bedce873750f2d27185bceff89b717b5",
-            "bytes": 89280
-        },
         "images/petrifying_gaze_256.webp": {
             "sha256": "07bab933a0c110ede8451b27fb19363d01249a70709f68c5d9d8e61fb907a37c",
             "bytes": 23270
@@ -19781,10 +18717,6 @@
         "images/pick_attack_ranged_silver.webp": {
             "sha256": "2ba05f89bbc380989fc39211035c72d9d7aacd81aa14ee646626fe73e689069d",
             "bytes": 21860
-        },
-        "images/pick_bundle_background_guardians_v1.webp": {
-            "sha256": "3eca7ff5815d2074b7bea5bc2fcd176138673b8fa8fd77b4108dfdb7d5b0b4cf",
-            "bytes": 369534
         },
         "images/pick_l2_legacy_battle_mage_512.webp": {
             "sha256": "5c65a49e1f6c700d3c27f7cc7289934c2207c6554f4abad4f41a1c403725df7d",
@@ -19858,141 +18790,17 @@
             "sha256": "4a413231db769f33581471254960ab0d7e18fb0385be0a912a9288a806b36037",
             "bytes": 14720
         },
-        "images/pick_phase_bundle_divider.webp": {
-            "sha256": "98b70c456354dcba14c5e32d22fa50f26b13d40a1c0a5166731a235cc8914d8b",
-            "bytes": 139892
-        },
-        "images/pick_phase_buried_shields_background_v1.webp": {
-            "sha256": "2ff7039024e3bb80a6cd5b8a2fd07e27cf42257c171a4786d974bc498b15481b",
-            "bytes": 123376
-        },
-        "images/pick_phase_buried_shields_background_v1_center.webp": {
-            "sha256": "cc5ba8430eec5c20719feb09dedec02fdf7af91cd05eb506d519f6a3f94f651e",
-            "bytes": 74206
-        },
-        "images/pick_phase_buried_shields_background_v1_left.webp": {
-            "sha256": "00a9ef7f15536c645ce5f087a07315de5d8bc05ee77940b48940c2992529e165",
-            "bytes": 26312
-        },
-        "images/pick_phase_buried_shields_background_v1_right.webp": {
-            "sha256": "65123d81af6a4302a0e17c864504608690c4ef4cd674689da8651f2925118903",
-            "bytes": 21472
-        },
-        "images/pick_phase_dragon_main_frame_9slice.webp": {
-            "sha256": "c562b8dea19f58c801ef3e3141248802ed011236a30b3060ddcf17c51efda56c",
-            "bytes": 87912
-        },
         "images/pick_phase_ember_background_v2.webp": {
             "sha256": "57c302214a91c9b7542fab477e01468014a54090b1cdc9000c25ee33c3f26747",
             "bytes": 395606
-        },
-        "images/pick_phase_ember_panel_frame_9slice.webp": {
-            "sha256": "604778e9dbbd1bb6d41612296908251ad8324e980b3d702aa5e6653965eaccda",
-            "bytes": 55052
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v1.webp": {
-            "sha256": "8c23b78baf677bef1cb0ee2e590f345dc7d5fbf48f3222b168594f06daea2ddd",
-            "bytes": 86724
         },
         "images/pick_phase_heroic_hearth_tavern_background_v10.webp": {
             "sha256": "403db2b53b3d2c0e6872a44d45c9b3d76619e66fd8160476e2be63403e8b630b",
             "bytes": 455330
         },
-        "images/pick_phase_heroic_hearth_tavern_background_v2.webp": {
-            "sha256": "8c23b78baf677bef1cb0ee2e590f345dc7d5fbf48f3222b168594f06daea2ddd",
-            "bytes": 86724
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v3.webp": {
-            "sha256": "74dc0ac7b10e8f3eee471aba7d76406eb2938963bc8692a06cdbc42b59faadb3",
-            "bytes": 72944
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v4.webp": {
-            "sha256": "5c09848267d3f5375525c0bd0e97c7545d0e48d5670d99d45c19c097855c940b",
-            "bytes": 37026
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v5.webp": {
-            "sha256": "8a039ad6784bc9fcb00489fcced42a2b94c4632ff5f94ab294a24a594eb1455d",
-            "bytes": 35614
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v6.webp": {
-            "sha256": "d652ea693ad525a1cbb02e19270572f8e8a771ac45feef0e8fbf1fe3d71726e6",
-            "bytes": 112006
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v7.webp": {
-            "sha256": "3295c010bdb8b61ad768b0b79d5c6c689e8e304de55b966c6ec259dc551bb1d4",
-            "bytes": 117086
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v8.webp": {
-            "sha256": "c8165e5a05e2357b2407a544934c6f8ab064be6003a576205add1e0382169c7c",
-            "bytes": 458100
-        },
-        "images/pick_phase_heroic_hearth_tavern_background_v9.webp": {
-            "sha256": "8b1362e7f59a6254da7f7b2fabc4db1a1f66fda28f92bafc2e6abf6823258f3f",
-            "bytes": 462710
-        },
-        "images/pick_phase_imperial_marble_hall_background_v1.webp": {
-            "sha256": "bc0974d5d8193302353636892ae46de9bf7fbffe171d78830a5311157b3a03c9",
-            "bytes": 205090
-        },
         "images/pick_phase_obsidian_background.webp": {
             "sha256": "c8542cd700f58c93d9b35df24dafb6748257751157eacb6a4bd09838fea3d5bf",
             "bytes": 54142
-        },
-        "images/pick_phase_roster_frame_9slice.webp": {
-            "sha256": "27c9ab54fdb2a9b8022915d805b0ea826dcec08cc1da4a95313f410db691c3eb",
-            "bytes": 132976
-        },
-        "images/pick_phase_silent_war_banner_wind_atlas_v1.webp": {
-            "sha256": "c492e80a775370e82b60832fd387cf6a8fe6f53cca21322c2b66cfb9e21cbc21",
-            "bytes": 321130
-        },
-        "images/pick_phase_silent_war_banners_background_v1.webp": {
-            "sha256": "abb87ca3f3bc811cbfbf3d75f63905bce196c5d76571a27327cc7366761bf05a",
-            "bytes": 46320
-        },
-        "images/pick_phase_silent_war_banners_background_v1_center.webp": {
-            "sha256": "abc30cfc7ab3db2c893ceaaa1d79e9d0ad49e17dc2b5d0fcd841156c1591e62c",
-            "bytes": 14766
-        },
-        "images/pick_phase_silent_war_banners_background_v1_left.webp": {
-            "sha256": "3813e9f9b4f68000dedddec88b1f0ba7d800c9a27dd3f6b432e13dfc461c6d54",
-            "bytes": 16512
-        },
-        "images/pick_phase_silent_war_banners_background_v1_right.webp": {
-            "sha256": "10786194c2e9d0c4922fc6177b3834067c4bc632dd094dec0258b77dbb5f8ec7",
-            "bytes": 15024
-        },
-        "images/pick_phase_silent_war_banners_background_v2_clean.webp": {
-            "sha256": "15e3a1272ca41da430b9d3805b6afb4b52fcb51d3239b89c14518549466bd1c6",
-            "bytes": 37548
-        },
-        "images/pick_phase_silent_war_banners_background_v2_clean_center.webp": {
-            "sha256": "6308a29feec337c9329cd2918854f6b434e3ac0bd9b01219294335bf51f5e70a",
-            "bytes": 12228
-        },
-        "images/pick_phase_silent_war_banners_background_v2_clean_left.webp": {
-            "sha256": "8b783d9241a00734bd82e52314b55826aa7b6702299aa52169b912d129769007",
-            "bytes": 11670
-        },
-        "images/pick_phase_silent_war_banners_background_v2_clean_right.webp": {
-            "sha256": "322ef4faffc5d6c9e16eb8c9a60518d39948c9b0a55eab1da9e304b70fcc8ab7",
-            "bytes": 12146
-        },
-        "images/pick_phase_silent_war_banners_background_v3_floor_center.webp": {
-            "sha256": "2b721be34b0e1a2e04bba2fed9b9f3b1090d28a22a6578de1fa0206b209d1385",
-            "bytes": 144196
-        },
-        "images/pick_phase_step_badge_frame_9slice.webp": {
-            "sha256": "ef1d4cff492d8b91df2174f341c24399ac56b46daa656a2ea7cd1f180a566263",
-            "bytes": 427006
-        },
-        "images/pick_phase_variant1_main_frame_9slice.webp": {
-            "sha256": "68d0e86c5d25bc34ab3b3397754ed137a78b24ba49fc2d792bb9e41dff2cd913",
-            "bytes": 32524
-        },
-        "images/pick_phase_variant1_panel_frame_9slice.webp": {
-            "sha256": "ca1a78854425a9aeb55e40b933973b28793e4164fad317dfd031caaf4fd589a3",
-            "bytes": 29478
         },
         "images/pick_phase_watched_eye.webp": {
             "sha256": "806f263fa50882c49161421dc3c54c5efb15b2711aea0296079575839ae8f1b8",
@@ -20001,10 +18809,6 @@
         "images/piercing_spear_256.webp": {
             "sha256": "1376a1f725fd185a586aa9e3789eedd122aac902df6f7992aa5b7e6f1bf9ec03",
             "bytes": 13104
-        },
-        "images/pikeman_128.webp": {
-            "sha256": "2331bf63b4cfa56ac73d2fb608a4cea13997225fdc9696fca878881fa5c9e230",
-            "bytes": 11288
         },
         "images/pikeman_512.webp": {
             "sha256": "ebd7e08bf0129f7905905c233959a7fd2a4c6b14fb666c00d72d843f9a1355c4",
@@ -20454,10 +19258,6 @@
             "sha256": "54cb6df948ab51ff691392af283f02a462b19f79edb5461ac9979b05bbeaf2ec",
             "bytes": 30156
         },
-        "images/poison_cloud_aura_256.webp": {
-            "sha256": "8c74716659ba4b8835f0c07a812e42f45ced4e8380837b225b77451ed4ef0242",
-            "bytes": 22244
-        },
         "images/predatory_assimilation_256.webp": {
             "sha256": "af844f63c1eeeec062148f0124956e5ee4c443b28a52b51be1dba1279c58d8bd",
             "bytes": 25228
@@ -20482,45 +19282,9 @@
             "sha256": "a562e4701e33740751fe5f0e480edebd3ed7b832dd97772b3eec9a79ff5fa43c",
             "bytes": 21802
         },
-        "images/range_target_arrow_v3_balanced.webp": {
-            "sha256": "aae560c11020ca053d2445d38941a1b83be081ee8073656fa01a78ef51729aa7",
-            "bytes": 16776
-        },
-        "images/range_target_arrow_v3_broad.webp": {
-            "sha256": "27d666def8c75a6393efb4b99688401858b0340cddfe91496c9adc43b950001d",
-            "bytes": 7728
-        },
-        "images/range_target_arrow_v3_piercing.webp": {
-            "sha256": "a6999294829e033445bab58e0a981617f7e0c12091ec0594d112fbc48494e111",
-            "bytes": 15506
-        },
-        "images/range_target_arrow_v3_top_runic.webp": {
-            "sha256": "180b4c404ef2604b8bcabb754ec9c9c82d00c366334ce1ed22a6aede63222c78",
-            "bytes": 6970
-        },
-        "images/range_target_arrow_v4_silver_crisp.webp": {
-            "sha256": "198a482ef7af8a439fd174d36841a89c34fa30c45159094959f1f52c42706045",
-            "bytes": 9644
-        },
-        "images/range_target_arrow_v5_monochrome_crisp.webp": {
-            "sha256": "3aa116005c00476ebbf5df302c4ff577bcc636a44a6e7b03fce0436d911eca69",
-            "bytes": 9004
-        },
-        "images/range_target_arrow_v6_gold_hq.webp": {
-            "sha256": "e22b583d08abbe13b78ac9d3fd3b46abe558242f40bf3782bf433e1957b3622e",
-            "bytes": 89880
-        },
         "images/range_target_arrow_v7_gold_wide_crisp.webp": {
             "sha256": "15c6acb5f000c3b1574627490eed7243a6ef02efeb787c336fe9a9a07e61cbd5",
             "bytes": 103922
-        },
-        "images/range_target_arrowhead_forged_steel_v1.webp": {
-            "sha256": "378e334b51753077fb32715cb36f8b9e2a75e385eb8251603aa6a65741ae71ed",
-            "bytes": 35500
-        },
-        "images/range_target_full_arrow_gold_v2.webp": {
-            "sha256": "75f3844a70664b42a222a12082af13bb291832a59720b7153629179fc5be1f2e",
-            "bytes": 33426
         },
         "images/rangebane_256.webp": {
             "sha256": "ccb2fe42dfb773f9f3ba8e9830cbefd56c1ba55cd2e9b9698d90a0054fc90df0",
@@ -20542,21 +19306,9 @@
             "sha256": "4eb4f6026e7efcd9030611697bcfdc9e2e3a52037db303de4cef43308fcf794a",
             "bytes": 36480
         },
-        "images/riot_font.webp": {
-            "sha256": "5875ef8ec7aa5466a400fef82613f7dabf663abc7f70dfba68da4b6d9ecf2411",
-            "bytes": 780
-        },
         "images/sadness_256.webp": {
             "sha256": "eba2232742286a2594a31800962f2e5d8e659aaa1b85c9b08f22c69731d91659",
             "bytes": 20698
-        },
-        "images/sadness_font.webp": {
-            "sha256": "8ee0c02d33b4f2c8e7002dc8c8e4ee1cb7b0acc97046930789c3412c6e4ae518",
-            "bytes": 986
-        },
-        "images/satyr_128.webp": {
-            "sha256": "b1d650c2dd4341c9886479d78813ef7a1d4bd4e79e17da722f4efe647058b801",
-            "bytes": 23362
         },
         "images/satyr_512.webp": {
             "sha256": "d538b6eb3f6e0b1983b32294597624e35f8fe74e613cd100c3d770e47a9e779d",
@@ -20590,10 +19342,6 @@
             "sha256": "23b8739cd7dcf6f4bc0445c8aea89d69837f0de9ac11d6d0af65f2a84d77bc24",
             "bytes": 98426
         },
-        "images/scavenger_128.webp": {
-            "sha256": "611d9f5864d3cd24bea3d76797ad8dc477b7faedce14470d0884b9935347e657",
-            "bytes": 13352
-        },
         "images/scavenger_512.webp": {
             "sha256": "78aa982a13d9734be3c0bdd3687948a8edbd434e2593b9a218dca4d2c7fd4a7d",
             "bytes": 137130
@@ -20618,10 +19366,6 @@
             "sha256": "0151eea85f80a7fd53b536092871f9ec9e7e5a58b00ac0b00d8f0bb6714a3379",
             "bytes": 183024
         },
-        "images/serene_mind_256.webp": {
-            "sha256": "58b0f2fa4e664a7908a37976733e426098f66d1d82136f64f85dcb2c21457466",
-            "bytes": 25372
-        },
         "images/shadow_touch_256.webp": {
             "sha256": "5df8ce7e8a483bbaf0fce20b4b86935f94592df870f40d7eb711c582c04e0199",
             "bytes": 15122
@@ -20638,22 +19382,6 @@
             "sha256": "1c1a443fda7faf0b767a62006adf6f654dd24120626b008184b6e0106dd3bdcd",
             "bytes": 51624
         },
-        "images/shot_range_corner_aaa_v2_green.webp": {
-            "sha256": "7147836bd73b0382110a4c7fbf4cbe969039f4de529b2d07ce9fc7f65ec66351",
-            "bytes": 40010
-        },
-        "images/shot_range_corner_aaa_v2_red.webp": {
-            "sha256": "b82f875f4775a8a23d8d61aa08dede33239e1b9a629b98371b3f347f6201d306",
-            "bytes": 35730
-        },
-        "images/shot_range_corner_aaa_v3_green.webp": {
-            "sha256": "703414292b96159746c3a77b2774edb190ca90f98efcc4a682882751a0383815",
-            "bytes": 80770
-        },
-        "images/shot_range_corner_aaa_v3_red.webp": {
-            "sha256": "2a74f633ce17ac584d7521923eca6d6b77f082ba604fae4babd052a99aceed81",
-            "bytes": 76822
-        },
         "images/shot_range_corner_aaa_v4_green.webp": {
             "sha256": "8dc0d6dd9bb9632e5ef5ce2314f91f60a1b6a3d052498196fc9395cc7afbf621",
             "bytes": 86072
@@ -20662,89 +19390,9 @@
             "sha256": "f72e20d07a353a1f63ec05d8357f945492583d5a6ed7028a22b16c84ea975986",
             "bytes": 65308
         },
-        "images/shot_range_dash_gold_v1.webp": {
-            "sha256": "e9e59bf84cfd40a33dad29a691df0d639b5e8d6b7998c34b24690e98021e366b",
-            "bytes": 880
-        },
-        "images/shot_range_dash_horizontal_ingot_v1.webp": {
-            "sha256": "0375f32ef5c2230906f21047077a9dd48d065eb19566153e5d22fb6e0afe914e",
-            "bytes": 20780
-        },
-        "images/shot_range_dash_vertical_bracket_v1.webp": {
-            "sha256": "40d9934b7fcb4f6d9d335072dabffa30a7949281f36e99edf59d7d2ca24e105f",
-            "bytes": 29178
-        },
-        "images/shot_range_marker_aaa_v1.webp": {
-            "sha256": "10b8d55636e5cc577f18a8191efca9222b99c1006dc0d0790097236e71999330",
-            "bytes": 40918
-        },
-        "images/shot_trajectory_arrow_fletching_start_v1.webp": {
-            "sha256": "81fe7dedf2178c416b2384e5c07ee892f56e82d3911d85f386b6682df0b27443",
-            "bytes": 40218
-        },
-        "images/shot_trajectory_arrow_fletching_start_v2.webp": {
-            "sha256": "a9458597c397035a7f53aa1b7d4aba1855120e54001099ad63cc6fa9f11c84c4",
-            "bytes": 108836
-        },
-        "images/shot_trajectory_arrow_fletching_start_v3.webp": {
-            "sha256": "00d66bf7268182597d82e326966d96ecf137cd5c8ba6bc4708d9fbf206112245",
-            "bytes": 9080
-        },
-        "images/shot_trajectory_arrow_fletching_start_v4.webp": {
-            "sha256": "c67dba38dde3243fa251102b5bebe957af12e3511440a7830034a897d4588f84",
-            "bytes": 1924
-        },
-        "images/shot_trajectory_arrow_shaft_segment_distant_v4.webp": {
-            "sha256": "550f38b24b5a867d3c08f99441f363da430149968bcae55a5269d7985649e8d2",
-            "bytes": 552
-        },
-        "images/shot_trajectory_arrow_shaft_segment_orthographic_v2.webp": {
-            "sha256": "e94b37003f833b3756aed2224d77b3199181464d9a61f1483f3768dcacc23bc7",
-            "bytes": 38800
-        },
-        "images/shot_trajectory_arrow_shaft_segment_orthographic_v3.webp": {
-            "sha256": "22e3aa6f5a10fc056d6b8d0debcd034047003f5cbec2c0f7e23113f343a341d9",
-            "bytes": 2550
-        },
-        "images/shot_trajectory_arrow_shaft_segment_perspective_v1.webp": {
-            "sha256": "4524d7b86d2b947500f73b8e415efaa7be2ae9d0293552e6f9535b5a36dedee5",
-            "bytes": 19954
-        },
-        "images/shot_trajectory_arrowhead_target_v1.webp": {
-            "sha256": "2367edea96aae7ad7a3030cc9ca3d6063cd5f91e3da65fb6b79228304624a01b",
-            "bytes": 32784
-        },
-        "images/shot_trajectory_arrowhead_target_v2.webp": {
-            "sha256": "cf46a08132c9b3577d0d54c15dcd70b0e5a896124c78067f300eff165d9843c4",
-            "bytes": 75200
-        },
-        "images/shot_trajectory_arrowhead_target_v3.webp": {
-            "sha256": "11dbcdb4af116f79c4cfec48b9fc8a58d9b2e758b1ec7b329140cf3c505adca3",
-            "bytes": 8194
-        },
-        "images/shot_trajectory_arrowhead_target_v4.webp": {
-            "sha256": "120ee9c0ed23d6b70058073c72b65f7f7b676278a9fb554e34571dcd8a9b2702",
-            "bytes": 2140
-        },
-        "images/shot_trajectory_dark_iron_bands_casing_sprite_v5.webp": {
-            "sha256": "d38704a716bd7b285989bcf2cf57c5341581c1ea2e2992e7f80e2f43466b1b41",
-            "bytes": 7700
-        },
-        "images/shot_trajectory_engraved_bronze_casing_sprite_v3.webp": {
-            "sha256": "665931c8f63426c41843902f721d1dd26e00622f2f47c83fec1a1de01952c26a",
-            "bytes": 9148
-        },
         "images/shot_trajectory_gold_arrowhead_wide_socket_v6.webp": {
             "sha256": "180dd2e52330e392066f19fec40b4264564e3d0bd43df0bbef2a2a4b44551837",
             "bytes": 13172
-        },
-        "images/shot_trajectory_gold_casing_base_visible_sprite_v2.webp": {
-            "sha256": "f9b5f0d055edb82fcc73987293260460c0ab73854db35ce3a534b18b2f876acb",
-            "bytes": 5598
-        },
-        "images/shot_trajectory_gold_casing_sprite_v1.webp": {
-            "sha256": "f8df4a53216cda01ea6a680fafe773e28d90b695d1e4407b8ee646a9a5b9d02c",
-            "bytes": 5066
         },
         "images/shot_trajectory_gold_casing_sprite_v6.webp": {
             "sha256": "0d65ead14ed5f70d62147ae368c9ad9cd85716fa28dd78efe2c7ba2bc2d4b68e",
@@ -20762,33 +19410,9 @@
             "sha256": "a5b00ee8c73ffc7936846bfc2b776192f74c42472101807b840adbc41a095ad9",
             "bytes": 13410
         },
-        "images/shot_trajectory_orc_bronze_arrowhead_geometry_match_v7.webp": {
-            "sha256": "c5cadcb014f1f23df4c4493e8beaf507d0497b477dd0f838e07b0d22dcc1a6f8",
-            "bytes": 13108
-        },
-        "images/shot_trajectory_orc_bronze_arrowhead_target_v5.webp": {
-            "sha256": "5f1b866fed6d221ea51656f42767a1290ec8c9eda29531d2e386e88b44bb84bf",
-            "bytes": 12906
-        },
-        "images/shot_trajectory_orc_bronze_arrowhead_wide_socket_v6.webp": {
-            "sha256": "5645de1a6ff8f91333290e956eaa5a747902a4c198e1d9ffe4dec0a317a9bf4d",
-            "bytes": 12682
-        },
         "images/shot_trajectory_orc_bronze_fletching_distant_match_v8.webp": {
             "sha256": "a619fffee33e1750f7cd6d13f2f07944c1ec020596b71e59444d1ae11ef01670",
             "bytes": 13316
-        },
-        "images/shot_trajectory_orc_bronze_fletching_geometry_match_v7.webp": {
-            "sha256": "07b0384e5c50efeb5fda1b22c7b11da317c6b58b9f46b06fbe6489a64035c051",
-            "bytes": 14926
-        },
-        "images/shot_trajectory_orc_bronze_fletching_start_v5.webp": {
-            "sha256": "b5b5a24ab8e8ccb4cc89ba3e3e19b07fdb56c7088b07abafa327881a6ac04cf3",
-            "bytes": 9216
-        },
-        "images/shot_trajectory_orc_bronze_fletching_wide_socket_v6.webp": {
-            "sha256": "11195a3ed42ec5798d05cd5d6dd3c317ab3dc5c1e23ab4b98df308748cecd1c1",
-            "bytes": 7754
         },
         "images/sidebar-background-concepts/sidebar-bg-pair-v1-emberstone.png": {
             "sha256": "504c73be5de73c777d60027138857c0b77f3bbeb7fd94e6555847d73955f7378",
@@ -20934,18 +19558,6 @@
             "sha256": "56a6d9795537ccf50a31a5f40dc4cff7abf75cc566a3454fc2ea610d1ded78d7",
             "bytes": 255556
         },
-        "images/sidebar_leather_plain.webp": {
-            "sha256": "2ee370ff8e1b155017f5acd34024d70b88b7f7744f535ac05ab16691ff611397",
-            "bytes": 116872
-        },
-        "images/sidebar_overlay.webp": {
-            "sha256": "2001788396a9c4767d71b7ccb14f2e32b2fbec33bd55c6442f473c3f153b8b63",
-            "bytes": 35916
-        },
-        "images/sidebar_section_frame.webp": {
-            "sha256": "6f72ecf82df7a7d69b455325c1cfc2d109d4ce576695638954dbccb5a5b99249",
-            "bytes": 42348
-        },
         "images/site/crusader_berserker_red_accents_axe120_v1.png": {
             "sha256": "736472a0b5dc642afebae90869f7bb8cfef986034a189a98a98c750f6e1351c4",
             "bytes": 2152843
@@ -21086,14 +19698,6 @@
             "sha256": "2212a43e2833a445162b7c0394fefe20543aa93b1e17be38a942f629c30a8593",
             "bytes": 13610
         },
-        "images/skull.webp": {
-            "sha256": "cb41e5dd83c7e5463b58c6301d7ab6ed02c04ef5ed5476b324d46ed82b25d425",
-            "bytes": 878
-        },
-        "images/skull_white.webp": {
-            "sha256": "f7bb6bb430308c5b4c0aef1bba8a0cb243daffae8bc2178fd40db9d3b538871d",
-            "bytes": 1222
-        },
         "images/sky_runner_256.webp": {
             "sha256": "99ea6e8be5a50d3bd7a5b1fd3bb934b6cb85b31a24e92fdde33b78b307b85887",
             "bytes": 21398
@@ -21118,14 +19722,6 @@
             "sha256": "dbe234efefd054f34728a4fc361babf23674efc15466aa613fb265f6243520b2",
             "bytes": 8614
         },
-        "images/spell_cast_scroll_plain_v1.webp": {
-            "sha256": "b27fd4a1e0694869c2a91bb60c252afb20550a482a8fd567cbd0472a7c7d7d5a",
-            "bytes": 16110
-        },
-        "images/spell_cast_scroll_variant2.webp": {
-            "sha256": "f6b3e8cb16737d2d7c42c869ed914cf765d59889cbacd6f9b99c36360f084114",
-            "bytes": 58794
-        },
         "images/spell_cast_wax_seal_blank_v1.webp": {
             "sha256": "17ed8269d36c14f0c7fba987fe8f07a12f26179ddcaf8c2f36f3014fbc646e5d",
             "bytes": 24870
@@ -21134,29 +19730,9 @@
             "sha256": "741dd4444be49160e7a6f19547291cf64598242eddb1b89b8670244cbe70c2c5",
             "bytes": 2796
         },
-        "images/spell_corner_chaos_a.webp": {
-            "sha256": "37593354165ee1dd20a5be7b3bf6f361c7b56ec38020664378c114de8ab0a7a1",
-            "bytes": 82670
-        },
-        "images/spell_corner_life_b.webp": {
-            "sha256": "e266c13221e8edb1b0d7e0670c273360530f460ba14d22734d3da42925a318ee",
-            "bytes": 72328
-        },
-        "images/spell_corner_nature_b.webp": {
-            "sha256": "455c7feb3f3b6d9b362729715977cd42a310f33ca9a127fffae429f8ef89f14a",
-            "bytes": 73776
-        },
         "images/spell_inner_frame_linework_v2.webp": {
             "sha256": "f3a6e9d6e665fa278d98b577d38ba28a8c951efa3df7bbeb3034f053c82dabd4",
             "bytes": 16926
-        },
-        "images/spell_inner_frame_option4.webp": {
-            "sha256": "9b561a388e3466ccf74492492a4e2d90f25f12262dc7e565ddc87ffc47f0691e",
-            "bytes": 23662
-        },
-        "images/spell_scroll_badge.webp": {
-            "sha256": "62be8f7f75ccd6319f037fa44cc366772de6bab6c26eb853bbd456472eddbd42",
-            "bytes": 29650
         },
         "images/spell_stack_fill_green_variant2.webp": {
             "sha256": "9093e1cc87388213271ae613dfe4d74100a272c7b0a3e7aa9c6ef600e1f3c9b4",
@@ -21178,10 +19754,6 @@
             "sha256": "1d82a552d5d07b0df67af9febddd8da3ea196c9f05e7248d7db5f17c6c262ba6",
             "bytes": 28724
         },
-        "images/spider_512.webp": {
-            "sha256": "8bb11d41299e43319b9434fb45ac6e844e4251997686f2231df510adfa89f99b",
-            "bytes": 94272
-        },
         "images/spiritual_armor_256.webp": {
             "sha256": "70788f13c1773849856e67d3da36112723b0a4be76ec7afaea89a0fd5fefb7a6",
             "bytes": 42326
@@ -21189,14 +19761,6 @@
         "images/spit_ball_256.webp": {
             "sha256": "6d1fb6247efdf6aa6a243b0ab4fc661e38afafd4479a91307e35b62dd25ec9e1",
             "bytes": 13530
-        },
-        "images/split_text.webp": {
-            "sha256": "b049dacb311d1b92a72109b065654e6e3a496167503d396bbb616dcd00b490bd",
-            "bytes": 3456
-        },
-        "images/squire_128.webp": {
-            "sha256": "a5b9fbb28089ce2705371576821e3e167c0b592c217f6d00193732fbac4a5669",
-            "bytes": 9046
         },
         "images/squire_512.webp": {
             "sha256": "37a1946f46b47d1faf68d7ab54d0ab02b5a9e039c39cb1933e3e50a9098a5170",
@@ -21230,197 +19794,65 @@
             "sha256": "09bbb28e1603583afff8e15835a163ae0adb8c50afc49b956efe43882e9e92e8",
             "bytes": 254482
         },
-        "images/stack_green.webp": {
-            "sha256": "32e62acc5dc6f8e98afbb3144b0b11762ca4efbd41350a96ecf5deb8d99f35ac",
-            "bytes": 232
-        },
-        "images/stack_red.webp": {
-            "sha256": "e90c5bff994e7f02184670e5a550ba26a9a893bf49aa6e4e4b0615bd4aa045dd",
-            "bytes": 264
-        },
-        "images/stat_ammo_gold_v1.webp": {
-            "sha256": "02ac7688d01676d7f4b0de7ac98ceae0da7dffa51cef84652df104dfd761b766",
-            "bytes": 25660
-        },
         "images/stat_ammo_gold_v2.webp": {
             "sha256": "6bdba0b962551d9dbe254f10bb415a1ec2a272d609cb51580f395ce03b39ba5f",
             "bytes": 21978
-        },
-        "images/stat_ammo_silver_v1.webp": {
-            "sha256": "4c66d187233b02ae58cad895e1c9e7a87c842a285b9372214c3c4b9ea95af737",
-            "bytes": 21746
-        },
-        "images/stat_armor_gold_v1.webp": {
-            "sha256": "36b8e7893e5b0f79bd132bd99f845dad2a51173090f188ce9b4e2ae96ae13d8c",
-            "bytes": 28678
         },
         "images/stat_armor_gold_v2.webp": {
             "sha256": "c03c45b77c4c55cf9b008ed568923d0b933e76e73d0aa702779fc24cc93cb189",
             "bytes": 34000
         },
-        "images/stat_armor_silver_v1.webp": {
-            "sha256": "9397a552aeab4ea1b5e55ea8e7f6295daed622e9e747812777ca926fd1e2f80d",
-            "bytes": 24902
-        },
-        "images/stat_damage_gold_v1.webp": {
-            "sha256": "a9393811f87a15839d8a6c0384c93187d9cbecb6e375e6f71bf94e8ad6c0687d",
-            "bytes": 31956
-        },
         "images/stat_damage_gold_v2.webp": {
             "sha256": "c24a76335825f9bf29114cf6793235dae36dee34ac28e8068958b3559975bd6c",
             "bytes": 43210
-        },
-        "images/stat_damage_silver_v1.webp": {
-            "sha256": "3fd365a59fba58685ffdb47dc99f08faa6501dc454d90ca65b51dc6b7e6e0abb",
-            "bytes": 26776
-        },
-        "images/stat_fly_gold_v1.webp": {
-            "sha256": "04f60ceb8bcf8b3b565f52035ef5bd4234109ce1fe92960b07149aaaf67c94c1",
-            "bytes": 25366
         },
         "images/stat_fly_gold_v2.webp": {
             "sha256": "63189637d1e25106bcfb85bfc9f694593a9d0c2e655b22dbe29142df529f256c",
             "bytes": 23310
         },
-        "images/stat_fly_silver_v1.webp": {
-            "sha256": "121af6a3a589b3ae47a767e08dbf075279b59f72463e47a3b2613aa6d91cf71f",
-            "bytes": 20202
-        },
-        "images/stat_health_gold_v1.webp": {
-            "sha256": "b2c82140d92d425a483f900a9c500167d2bfff83ec6ae5f339e066854073ec0b",
-            "bytes": 26436
-        },
         "images/stat_health_gold_v2.webp": {
             "sha256": "644740a879960705f0fa19ee4beaa8fa987f21b61fa8795b24096a3cc0d7ffe8",
             "bytes": 39498
-        },
-        "images/stat_health_silver_v1.webp": {
-            "sha256": "cec1100941fe7b9831eb0ffad9be1ca94ca1c36572a50b45c8a28e33f7b788eb",
-            "bytes": 22712
-        },
-        "images/stat_initiative_gold_v1.webp": {
-            "sha256": "53d115e5bc704b06773f5c1c5e81186e68f8b63876baccdfc7eefdc69d98ec74",
-            "bytes": 20674
         },
         "images/stat_initiative_gold_v2.webp": {
             "sha256": "42683cc9ec33112dfeafe91ebb20d02c8807dd0b3e1f9b440dde35611f04d7c3",
             "bytes": 20108
         },
-        "images/stat_initiative_silver_v1.webp": {
-            "sha256": "0f817bb7e8c4efddf82e309b9eef0c7c802e189a59a93e6f5bee97b1ace0cdf5",
-            "bytes": 16164
-        },
-        "images/stat_luck_gold_v1.webp": {
-            "sha256": "650174a41cd2cfcd87ff3a1088db22bb5effb7d3472b84d674873b456022de0c",
-            "bytes": 33114
-        },
         "images/stat_luck_gold_v2.webp": {
             "sha256": "aa504ede91293c4f54eefe629a3c4895ffbb4809f23f3e62aae529a2beb1541f",
             "bytes": 46814
-        },
-        "images/stat_luck_silver_v1.webp": {
-            "sha256": "2ae3c1e0955ecc9b2c77ce31174cd9d2157633ef085891572f8f66aa48696388",
-            "bytes": 26688
-        },
-        "images/stat_magic_resist_gold_v1.webp": {
-            "sha256": "d3731e73d646011f2d2488d8534aaf19a7edb57998a21f4aebc0c64f5520c60b",
-            "bytes": 26580
         },
         "images/stat_magic_resist_gold_v2.webp": {
             "sha256": "20f8b34f55b6932474ee50f087fded4858c86da53b2e3d2ec53967a032ced33c",
             "bytes": 43124
         },
-        "images/stat_magic_resist_silver_v1.webp": {
-            "sha256": "3e4da2dff64d293abc0e8b3d31e60b5ae8f481bca713871f14dbcfb534a179a2",
-            "bytes": 26324
-        },
-        "images/stat_melee_attack_gold_v1.webp": {
-            "sha256": "cd74102ac6f15aebcd85d1c8c74d397860a9aa57286d3907dfbc59f8be3363da",
-            "bytes": 23088
-        },
         "images/stat_melee_attack_gold_v2.webp": {
             "sha256": "7842fa0d386467c157a8bb94ae2b5e9fe686ce70f8f891f8a827176258c8f299",
             "bytes": 27052
-        },
-        "images/stat_melee_attack_silver_v1.webp": {
-            "sha256": "eaabeee623d5d47480d38a712be8341cce6836b757ed0628b7454969845557c5",
-            "bytes": 17638
-        },
-        "images/stat_morale_gold_v1.webp": {
-            "sha256": "52bba42b8504164338807b16293bbb7f1a02a0be50b5fd86c7a8a06e4eb3d200",
-            "bytes": 32494
         },
         "images/stat_morale_gold_v2.webp": {
             "sha256": "0556cc83236ef096614b66f818c062feba3f683f4750c7a2e59eaf43d00c3542",
             "bytes": 49544
         },
-        "images/stat_morale_silver_v1.webp": {
-            "sha256": "eaa9413e32117d76bafa124453758fa36ace9fb13b4ad2b4372f869faf659a49",
-            "bytes": 28762
-        },
-        "images/stat_ranged_armor_gold_v1.webp": {
-            "sha256": "07bb6394993916c35a1bfc5b4d6078ea14d3e0d93b0c529935a7a8e1dd040b8c",
-            "bytes": 30274
-        },
         "images/stat_ranged_armor_gold_v2.webp": {
             "sha256": "cef528e582ce33398fed77ba394266c5a91ef69e4094261e2a917d59b2a4d82f",
             "bytes": 51340
-        },
-        "images/stat_ranged_armor_silver_v1.webp": {
-            "sha256": "fc7f5d87ea77a405d6e9eb0bcdd5efe42cb2a15ec595396d4512439cdcb6e220",
-            "bytes": 25196
-        },
-        "images/stat_ranged_attack_gold_v1.webp": {
-            "sha256": "51a18e42552fdc6a54c3455c0ec68257879691bc94c9b39fc6d0684512a7830b",
-            "bytes": 22180
         },
         "images/stat_ranged_attack_gold_v2.webp": {
             "sha256": "7ec6401f03b40a153074e3ad2c25af37b46f10a7c1732b552a7febc1eb0e5de2",
             "bytes": 28660
         },
-        "images/stat_ranged_attack_silver_v1.webp": {
-            "sha256": "ed40acfdc0012b2cd0da6adf0893629f1b3771a7c17c821de830d6213a307c65",
-            "bytes": 19330
-        },
-        "images/stat_scroll_gold_v1.webp": {
-            "sha256": "6d0bd74fff1416b8769b125165ebdeef3e175eb614c8f46ce5bb7d353783f7c7",
-            "bytes": 27446
-        },
         "images/stat_scroll_gold_v2.webp": {
             "sha256": "d02a11972fa9822da360eb191cda290875bd6deb2f6c4061fc4d3572cec16d21",
             "bytes": 49588
-        },
-        "images/stat_scroll_silver_v1.webp": {
-            "sha256": "f36acfab5659b0c8731115dbea19c4c013062592bad1b3c54956f68607fdcbd8",
-            "bytes": 26976
-        },
-        "images/stat_shot_range_gold_v1.webp": {
-            "sha256": "611f5dfc8d0d4c4d90b7693510f473d3eba7e3fbd2943115274afbdd8964841d",
-            "bytes": 11818
-        },
-        "images/stat_shot_range_gold_v2.webp": {
-            "sha256": "defb0ce46550c22b0ab29c732508485d3d04cb60bb8529d1b2096a3d9da0683e",
-            "bytes": 11456
         },
         "images/stat_shot_range_gold_v2_arc.webp": {
             "sha256": "dc14a01b67f943bf786906fc12141a2d54902f3b6e88d252cf1664dce3bbc1bb",
             "bytes": 18866
         },
-        "images/stat_shot_range_silver_v1.webp": {
-            "sha256": "e3c8dda70e77cd1e6d10b1549a9e8d83c8e960ff3374b9dc057c643e20e114ee",
-            "bytes": 8102
-        },
-        "images/stat_walk_gold_v1.webp": {
-            "sha256": "6965058b4e606d48c0d6724391fddfd412854c2842770343bb78e99685a3fd88",
-            "bytes": 30438
-        },
         "images/stat_walk_gold_v2.webp": {
             "sha256": "96f7f30d74530a251caf14c451e40d2978c8fdd4f1b3be50368af2b04c447a67",
             "bytes": 37444
-        },
-        "images/stat_walk_silver_v1.webp": {
-            "sha256": "442bba0bef514778a8f671c9cfdba6e809e46c370fddc1c8dd7f9cefd5dc91a8",
-            "bytes": 24730
         },
         "images/stop.webp": {
             "sha256": "20bc5e7a45281c4537f6eb892fe1ad0ddae67539ca5a5b668ed76aae623b51d3",
@@ -21437,10 +19869,6 @@
         "images/stun_hand_forged.webp": {
             "sha256": "0aeb1066e18fd04deab059e413a2d39d329ef5839e8e13607c2f653698c40015",
             "bytes": 29124
-        },
-        "images/stun_status_gold.webp": {
-            "sha256": "7b3343eedc45a17d4f98ad13d39b35f869b9b7f3827a3a00903220b08b3e8ab4",
-            "bytes": 35618
         },
         "images/summon_wolves_256.webp": {
             "sha256": "d21dcbaa3e6946878ff5cd7a83f4d592e344277ab86f07575a268133f2b7e9af",
@@ -21493,10 +19921,6 @@
         "images/tag.webp": {
             "sha256": "6238c9593c3a8028f6f6ba2f537e84d8c74fc70c0aa572e16337068f293594fb",
             "bytes": 18818
-        },
-        "images/taxpayer_256.webp": {
-            "sha256": "8585bd34415e97524e330b1b3e15364066ea8e1060b0e4ede506676fcdf0f787",
-            "bytes": 23746
         },
         "images/terrifying_gaze_256.webp": {
             "sha256": "3c8a273f3213120343c638c58aeacd50613241d3cfa8f8efb68fba5b2e1c78c5",
@@ -21586,10 +20010,6 @@
             "sha256": "7a6cd670c38c2366e2aefa259514f03533cadff4a89acc45b8a656de894e9835",
             "bytes": 12206
         },
-        "images/thunderbird_256.webp": {
-            "sha256": "da34579cc81672b38ea0da10439ede06aa72a75a11c1512f4b1ab634357dfcb4",
-            "bytes": 50322
-        },
         "images/thunderbird_256_v2.webp": {
             "sha256": "0a23e8645d513a3b3e34d22d9ffcbf4e8d915203df766959ab38ea565de988cf",
             "bytes": 23414
@@ -21622,10 +20042,6 @@
             "sha256": "7ac2ad00bc25406b40d5eb2750ee1d9633e8bb42ff9edd1cca6457835360827b",
             "bytes": 197810
         },
-        "images/thunderbird_portrait_full.webp": {
-            "sha256": "5609989e4157f9fcaeba4d491943f7ae34883071b7d3affd633ecb5a44cce4a0",
-            "bytes": 635714
-        },
         "images/thunderbird_portrait_full_v2.webp": {
             "sha256": "394a3ee6b743088d5b1b9409998ec99614cb3984d400eb82b2cce6007d40ea74",
             "bytes": 218778
@@ -21637,10 +20053,6 @@
         "images/time_denial_256.webp": {
             "sha256": "612368c7f8d5d710328e383473d764536bda1243642349ef3b3213ca90d0373d",
             "bytes": 25292
-        },
-        "images/tombstone_tiles_256_atlas.webp": {
-            "sha256": "74efb0fc29a1aee77163ddb56719cd059d255e609d0a784805ea8e8459a6476d",
-            "bytes": 271482
         },
         "images/tombstone_tiles_64_atlas.webp": {
             "sha256": "9f6bb51d4706d5afd1c65c76ca1a13c319c3a6a003a1c02e0ed1fb8125be43e7",
@@ -21657,10 +20069,6 @@
         "images/tr_up.webp": {
             "sha256": "6bbdcddd18ab3d619a7c41e8d7b2bd0d798fce426e308729b6e90102ef383060",
             "bytes": 1358
-        },
-        "images/trent_128.webp": {
-            "sha256": "d3a60231083dd942af85b86ece58ebe48978f2305c3fe9520e8340bd9a22833b",
-            "bytes": 14056
         },
         "images/trent_512.webp": {
             "sha256": "9e52a1da56fa9a5ba42b6b6d00de65ddcd0a513664d5be4cc3b0812b858d5f52",
@@ -21702,10 +20110,6 @@
             "sha256": "d4f90410e7cbfc34c9dc7e94aea41351b6accb3ad065302cda82f91505f3804d",
             "bytes": 251840
         },
-        "images/troglodyte_128.webp": {
-            "sha256": "3fc659b414ef691d6e52ce1abb428a497971591d4fa5164c3d5b290902e9ab0c",
-            "bytes": 12836
-        },
         "images/troglodyte_512.webp": {
             "sha256": "d33fec9f1d52c44cb9f5e7fc679ce073dee0601ceecf87ea399eaf869f053a25",
             "bytes": 84778
@@ -21734,10 +20138,6 @@
             "sha256": "abb246aba7b04436d7c9145369ea81263395f6141584a36fdbfa029cc206fd2e",
             "bytes": 239800
         },
-        "images/troll_128.webp": {
-            "sha256": "8b0abc59e442797c4aa577dfe5f80780b458bc07868dedb6883d132f9a2683f5",
-            "bytes": 18222
-        },
         "images/troll_512.webp": {
             "sha256": "645e3bccc23a987055b0eb5111db7e61b66bd9b933acf4b383eb85f7e8b12edc",
             "bytes": 180556
@@ -21765,10 +20165,6 @@
         "images/troll_portrait_full.webp": {
             "sha256": "303990b7b464acda13e1b45612fc1da63710be3e366003dbf24339b526163760",
             "bytes": 110868
-        },
-        "images/tsar_cannon_256.webp": {
-            "sha256": "5135adf20b3929070260de00952b6e814330fb0634c75acfda600f0f6087c35c",
-            "bytes": 49344
         },
         "images/tsar_cannon_512.webp": {
             "sha256": "9372abe12691402a7d235b43f69c35f0e80aa8ec103d7030b12c71577c03987c",
@@ -21886,14 +20282,6 @@
             "sha256": "8c3cd75833c91bd8d43342f2d2b34d5dcecaa9410fad07e6300ec3f6446d592c",
             "bytes": 40704
         },
-        "images/ui_banner_green_soft_wide.webp": {
-            "sha256": "437b95cef90f88f396fa24a5fabf88725e02741f15922ea6a99d95e68e9c5abd",
-            "bytes": 1550154
-        },
-        "images/ui_banner_red_soft_wide.webp": {
-            "sha256": "5f7eeb176b5a9376f21b227540fa7b00d9fae1a229cd9f20e4b88c3ae55bc631",
-            "bytes": 1626064
-        },
         "images/ui_close_button_sidebar_title_x_v2.webp": {
             "sha256": "5e1083874ab3d9f6f20f9cb03be29273efad52e003d3f1b4d293a8330fa7e7db",
             "bytes": 43752
@@ -21946,10 +20334,6 @@
             "sha256": "ccafa5b4a5a91ebc8e3e47a5e0d1deee76a7738e977a7e80e82af2887632b702",
             "bytes": 40502
         },
-        "images/ui_more_time_button_forged_exact.webp": {
-            "sha256": "b02a352a10803cc88bcac8691315228b58d5dbd833765318bc0f8f74c119aed8",
-            "bytes": 132106
-        },
         "images/ui_more_time_button_forged_label_plus4_v2.webp": {
             "sha256": "5ecd4d124668deb52f4c881cb9fbdc72808c9b2f2658c38acf6856323422a0b8",
             "bytes": 128088
@@ -21957,18 +20341,6 @@
         "images/ui_outer_frame_3_9slice.webp": {
             "sha256": "c2e15a9e05a0092bc69b522ab45c0c0336a401dff557dccd1415e30eab84d000",
             "bytes": 110164
-        },
-        "images/ui_selected_creature_frame_1_9slice_v1.webp": {
-            "sha256": "90bb0b0329960b55ca7df2f1ec7e2ae8a2c5624e2ad4052a424d5f20ab0945b4",
-            "bytes": 49198
-        },
-        "images/ui_sidebar_bg_left_emberstone.webp": {
-            "sha256": "06db182516b7851f31ef93dd35549f80cfd30d8d9ec26c296b7a59cd7d6fa718",
-            "bytes": 299786
-        },
-        "images/ui_sidebar_bg_left_emberstone_mirrored.webp": {
-            "sha256": "954fe4464d26c8f375a315d7eebe4e908d34bdc32e9d689c91e6d8590a9a7819",
-            "bytes": 1080286
         },
         "images/ui_sidebar_bg_left_smoked_bronze_center_v11.webp": {
             "sha256": "01e82c77b2cd92e381dc91ead41b4ca52edeb65b333d6aeedd2f354f3361761f",
@@ -21990,10 +20362,6 @@
             "sha256": "a9c06cacd58aa76f54c4596c26d760bada77fc94c9090c4d53aeeea12b1ebbf1",
             "bytes": 48830
         },
-        "images/ui_sidebar_bg_right_runic.webp": {
-            "sha256": "b8d9e0c65aa8f1dd620a561032f45ce69fd629c03d038dc33c8286aecac2041f",
-            "bytes": 385332
-        },
         "images/ui_sidebar_bg_right_smoked_bronze_center_v11.webp": {
             "sha256": "8b0d009c005d3874631d413b08dddc6b7adae48134c98445b815ebc991ba9d82",
             "bytes": 107642
@@ -22014,25 +20382,13 @@
             "sha256": "27253b5d6b09c170145fa3a9b0dbe3b68149c8bf0baf2ff5ccbecbf892b13ac1",
             "bytes": 49226
         },
-        "images/ui_social_friends_forged_bronze_v1.webp": {
-            "sha256": "0487ef4cfbc1c4b44b97fef097b5cf00e5d43de4f8ef9b0780607b3349c8860d",
-            "bytes": 60760
-        },
         "images/ui_social_friends_redrawn_complete_frame_v2.webp": {
             "sha256": "999fc1a7fa40ee365306823fd65ffd79e598e01d0a1cf0bee256407dd0f7fa57",
             "bytes": 534724
         },
-        "images/ui_social_notifications_forged_bronze_v1.webp": {
-            "sha256": "db031f75c8f902549cef9b43426365c16a1a57e76404491a90129d125930e33c",
-            "bytes": 60286
-        },
         "images/ui_social_notifications_redrawn_complete_frame_v2.webp": {
             "sha256": "f7b6f51c596845ec473685ef5aa379017fdba7cea55edb81902910b1fc756c65",
             "bytes": 478760
-        },
-        "images/ui_social_predictions_forged_bronze_v1.webp": {
-            "sha256": "860c4c49b031b59003c4d5e88e425bacae70ccabdfd610cdbb5193442a9802ae",
-            "bytes": 60376
         },
         "images/ui_social_predictions_redrawn_complete_frame_v2.webp": {
             "sha256": "79422c6ebf2e3b9e29da92f7b51b7b010ad7e38ca51f69244a4c6158534dae43",
@@ -22042,97 +20398,21 @@
             "sha256": "fdaf3e7d918fd68baec4f43a19cfd679c0d7f13918aa742f4822c894d5cb4bf6",
             "bytes": 483162
         },
-        "images/ui_social_system_menu_segmented_bronze_v1.webp": {
-            "sha256": "e14c7409ed397648e1f70e08cd01a514ac448ed1a347ac6321fccba909d6925a",
-            "bytes": 90076
-        },
-        "images/ui_social_system_menu_segmented_bronze_v2.webp": {
-            "sha256": "b9edf7ed9d79630232f48b7fe0b8b7feea32268f0c3e909ced1f842e47face18",
-            "bytes": 63722
-        },
-        "images/ui_start_button_plate_gray_50.webp": {
-            "sha256": "e52da5f078e69760174a100217947c8223e440dec5d4364bfce1beb7785a9406",
-            "bytes": 232128
-        },
         "images/ui_start_button_plate_trimmed.webp": {
             "sha256": "ba5535f524750205114ef229ef51420429be266d6fe90c95ab9a8aa2f4c9ebe2",
             "bytes": 299118
-        },
-        "images/ui_up_next_current_marker_minimal_bracket_v1.webp": {
-            "sha256": "babc89e2ac000bae0b4fbb39c050e5963de2dce02e48f686aa3d91c47901c9f9",
-            "bytes": 18372
-        },
-        "images/ui_up_next_current_marker_winged_bronze_v1.webp": {
-            "sha256": "b539faa653b55cfb75330378fd8ccc724a0ff304446d307a071f10653a386bb1",
-            "bytes": 49024
-        },
-        "images/ui_up_next_smoky_chains_bg_80pct_v4.webp": {
-            "sha256": "4c9bc88fefdcec8e6920980f2ae4268a243127b6b6abc2ef310180d5d3940a84",
-            "bytes": 9426
         },
         "images/ui_up_next_smoky_chains_bg_85pct_v5.webp": {
             "sha256": "c546024dc6a49b9846421e87d5647d28176155f2c09a362a65d8e1e35eab0850",
             "bytes": 9426
         },
-        "images/ui_up_next_smoky_chains_bg_90pct_v3.webp": {
-            "sha256": "320eb2eae85f1912d29196383b2043b4381ade0518d14dd66762c180096ad042",
-            "bytes": 9426
-        },
-        "images/ui_up_next_smoky_chains_bg_95pct_v2.webp": {
-            "sha256": "30e3061e78732326ac3f4e66c0be42c31857c00766148b15488094d41243dd8a",
-            "bytes": 9426
-        },
-        "images/ui_up_next_smoky_chains_bg_v1.webp": {
-            "sha256": "f18a35ae417af85dcae1394e788628a8022ae3de5ad90c881505e30561a9214a",
-            "bytes": 8130
-        },
         "images/ui_up_next_smoky_chains_bg_wide_73pct_v4.webp": {
             "sha256": "4d81cfab2dc7f69b32ad8398a3e6f7e53e9fda6fe759e91710061930b0c797b5",
             "bytes": 24014
         },
-        "images/ui_up_next_smoky_chains_bg_wide_80pct_v3.webp": {
-            "sha256": "5ac933f318de1852fdc5ebb8b801be4c55b3b2cd5416020541f03e1edae7a34b",
-            "bytes": 24014
-        },
-        "images/ui_up_next_smoky_chains_bg_wide_90pct_v2.webp": {
-            "sha256": "b8e27df1ca32b1b8bfc85d603327bbfbd13f7882da335fc921c85c0019da0ed6",
-            "bytes": 24014
-        },
-        "images/ui_up_next_smoky_chains_bg_wide_95pct_v1.webp": {
-            "sha256": "f7dfbb7708296f1a33bb489a6370439829dc3d97696d2a3a7efc34ea99779266",
-            "bytes": 24014
-        },
-        "images/ui_up_next_turn_order_bottom_chain_redrawn_crisp_v6.webp": {
-            "sha256": "8d893e77eb2bf5c5fcd7b1b6655fa626581c5f03d4dc304120455f3bca772ea7",
-            "bytes": 47478
-        },
-        "images/ui_up_next_turn_order_bottom_chain_redrawn_full_look_v5.webp": {
-            "sha256": "0b58479fe126b72624071db04481b67a4375384ce06745ff6b7b0da0c2810fdc",
-            "bytes": 46592
-        },
-        "images/ui_up_next_turn_order_bottom_chain_straight_half_height_v2.webp": {
-            "sha256": "dc9b4664fae6687c64057c143ffbe253c077020d37596551024489c8ed628c65",
-            "bytes": 50710
-        },
-        "images/ui_up_next_turn_order_bottom_chain_straight_quarter_height_v3.webp": {
-            "sha256": "793a974adffa4aba769c90b7c26eac4b559b2aea062bccee3d173a150963a814",
-            "bytes": 34634
-        },
-        "images/ui_up_next_turn_order_bottom_chain_straight_ultrathin_redrawn_v4.webp": {
-            "sha256": "f3e2b14074cc9478fe88ab84142f44fe161e187db5106136a1b6e31449f5d799",
-            "bytes": 18578
-        },
-        "images/ui_up_next_turn_order_bottom_chain_straight_v1.webp": {
-            "sha256": "7616db3634b61590a6d41fe05f3ba3a6663a9af71309a74892e14dffba99e9e6",
-            "bytes": 49090
-        },
         "images/undead_256.webp": {
             "sha256": "dae323f5b7df5b91961e684fdef6ebcc5822eb35f8d7c13bc4496ab9f21b1be9",
             "bytes": 23708
-        },
-        "images/unicorn_128.webp": {
-            "sha256": "9ffb0b07e2e1f6e142160c23828a5b680bfaab9caa2957f8f8b23f6f1267800e",
-            "bytes": 13132
         },
         "images/unicorn_512.webp": {
             "sha256": "bbccf3ab6eec1565ceac2ce1b2fb941597a9542508850cc94c0e61e73d06c734",
@@ -22197,10 +20477,6 @@
         "images/unyielding_power_256.webp": {
             "sha256": "0a6ace41b39dc58f75e1d57ea30b3c92bba8bee4486ace38f7b1b1568b3f1eaf",
             "bytes": 16610
-        },
-        "images/valkyrie_128.webp": {
-            "sha256": "f7f69f3322aba62c273009eef574185cf031f5a6a04beffc203511b34112e85f",
-            "bytes": 17014
         },
         "images/valkyrie_512.webp": {
             "sha256": "d20490b4cb60dfefdcb8b986982750145947686d33e4cefcf5f4bd98b2c43c7d",
@@ -22301,10 +20577,6 @@
         "images/visible_256.webp": {
             "sha256": "e068b66aac81c0f9879283f9223300b244c0b079f114aad2e64b01baf187e82c",
             "bytes": 17268
-        },
-        "images/visible_font.webp": {
-            "sha256": "634dbe2f5cca8b104ac2eed46a2b7258782b6e2ce23751d64bc0f13b2a1b21cc",
-            "bytes": 170
         },
         "images/wandering_mage_512.webp": {
             "sha256": "270b4ea2041fa5b256d3baefa68a4b244441e7a5dfd7fb00019e167a6ce42596",
@@ -22438,10 +20710,6 @@
             "sha256": "8e528a4de762a6a25be66cf842d3e75e4ea7603519b6e30ff157c31e8315b258",
             "bytes": 27970
         },
-        "images/weapon_rune_font.webp": {
-            "sha256": "64132ca8803939614c71284ccfe7efb015f3f8cbf07bc2bb7c4b1c52317007f9",
-            "bytes": 1232
-        },
         "images/web_aura_256.webp": {
             "sha256": "8637d68e000027c9fb9c8713b66adc03482dde12d660ffbd27978f3b6a193451",
             "bytes": 26914
@@ -22449,10 +20717,6 @@
         "images/whirlpool_256.webp": {
             "sha256": "a668e69519997139e05fe07bb1147e24c23023cc1ddd97df3cddd12a9a2328f9",
             "bytes": 44048
-        },
-        "images/white_tiger_128.webp": {
-            "sha256": "4287880b4aa390e6481c0e33abf5d7f43f155f8a03892998a76dbc051b272045",
-            "bytes": 9212
         },
         "images/white_tiger_512.webp": {
             "sha256": "d5d0ca7fd1b9950a550ce7cce372024f1fdcfac045bbd0d1bc403642f108e002",
@@ -22486,10 +20750,6 @@
             "sha256": "24b853838822b8d4b62e3cc16c1f5c9a06e8b725b6ee9e17d8312f989920f814",
             "bytes": 22080
         },
-        "images/wild_regeneration_font.webp": {
-            "sha256": "a1e9ca32c7bdfa19f9fa5dd7ac00a774e6277439620b3711851e2e9d6adfef22",
-            "bytes": 1532
-        },
         "images/wind_element_256.webp": {
             "sha256": "ceb8f5c4eadaf556a6c572015bedc7dfe6183380d6fbf94ec0ef0fc907b21b63",
             "bytes": 95160
@@ -22497,14 +20757,6 @@
         "images/wind_flow_256.webp": {
             "sha256": "5d85b7c4a8fc3e19055c4fd8fb81b2a511a757f894d0a75c7dc843e0c2da57c4",
             "bytes": 10780
-        },
-        "images/wind_flow_font.webp": {
-            "sha256": "ca476f6fca002d2892561426547f6043779667c9d6cac1ff5218e7bddd59c772",
-            "bytes": 1528
-        },
-        "images/wolf_128.webp": {
-            "sha256": "8cb35bda554bc756449a48c800f3352dd06bdc3639ecd6e3e4b5cda43d94df2e",
-            "bytes": 12976
         },
         "images/wolf_512.webp": {
             "sha256": "bfb0dee3a48fa05f8762e39d27d90293815c8d72f8f1f67192064a8dcdc0f242",
@@ -22538,10 +20790,6 @@
             "sha256": "1041a457fe3c06be4f09797774215c6e9b9393cfd3600e1c9d9fd04beee2364a",
             "bytes": 376998
         },
-        "images/wolf_rider_128.webp": {
-            "sha256": "969e33d23364eb98680bc9973a95279b5f6ad24a13926211b6c4901bbf83e0de",
-            "bytes": 10134
-        },
         "images/wolf_rider_512.webp": {
             "sha256": "887fba8e39c5a6470d8d6620ba768a9524e0fb7570dd35207baebd788028eb13",
             "bytes": 106936
@@ -22574,10 +20822,6 @@
             "sha256": "af5a443d4fa8f2fa573707a4ed3ca817d00641d1a263687d648d5f22fe316172",
             "bytes": 30350
         },
-        "images/wyvern_128.webp": {
-            "sha256": "81fa27d12253edc20d9e2f512173ce8f8dacf3dde1a59539a68d295527894057",
-            "bytes": 14874
-        },
         "images/wyvern_512.webp": {
             "sha256": "3804f04d60183faf267c7b0ec1b6e546141b1fb67f9389e227c2673aa17336b2",
             "bytes": 149692
@@ -22602,17 +20846,9 @@
             "sha256": "92af954e6e116ac09aadc39673f28bdf269ccb865ee43aa6fb47f0e7f8ea43af",
             "bytes": 144082
         },
-        "images/x_mark_1_512.webp": {
-            "sha256": "9ac8c0893cb05973b134fbaefcc6def6d6fcfbfbb8ff5d4a10b311816213590c",
-            "bytes": 34824
-        },
         "images/x_mark_2_512.webp": {
             "sha256": "0d5065b77c389b1d2a5b097fb85a35f96b012fc801a4a2e723b87bf1125f56db",
             "bytes": 18698
-        },
-        "images/zena_128.webp": {
-            "sha256": "925df19ecf5ed942ce970c1f37ca298cf85842df9fcc621805d0cbcc9ebffc3b",
-            "bytes": 10400
         },
         "images/zena_512.webp": {
             "sha256": "67712bd756c9ce587b6fce74fcf10db1ef0a3064fd508db3aba074eee511acaa",

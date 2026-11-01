@@ -1,5 +1,6 @@
 ---
 import CreaturePortrait from "./CreaturePortrait.astro";
+import UnitFootprint from "./UnitFootprint.astro";
 import recipes from "../lib/generated/portrait-recipes.json";
 import { content, type Language } from "../lib/site-data";
 import { knowledgeEntryId } from "../lib/knowledge-base";
@@ -224,7 +225,7 @@ function unitSearchText(unit: Unit) {
                             data-search={searchText}
                             type="button"
                             style={`--faction: ${factionColors[unit.faction]}`}
-                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}, ${ui.level} ${unit.level}${unit.summonedOnly ? `, ${labels.summonedOnly}` : ""}`}
+                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}, ${ui.level} ${unit.level}, ${s.size} ${unit.footprintWidth}×${unit.footprintHeight}${unit.summonedOnly ? `, ${labels.summonedOnly}` : ""}`}
                         >
                             <span class="unit-portrait">
                                 <CreaturePortrait slug={unit.slug} name="" />
@@ -238,10 +239,13 @@ function unitSearchText(unit: Unit) {
                                     <span><b>{labels.atk}</b>{unit.attack}</span>
                                     <span><b>{labels.dmg}</b>{unit.damageMin}-{unit.damageMax}</span>
                                 </span>
-                                <span class="unit-tags">
-                                    <span class="unit-faction" data-faction={unit.faction}>{factionLabel(unit.faction)}</span>
-                                    <span>{movementType}</span>
-                                    {unit.summonedOnly && <span class="unit-summoned-only">{labels.summonedOnly}</span>}
+                                <span class="unit-card-meta">
+                                    <span class="unit-tags">
+                                        <span class="unit-faction" data-faction={unit.faction}>{factionLabel(unit.faction)}</span>
+                                        <span>{movementType}</span>
+                                        {unit.summonedOnly && <span class="unit-summoned-only">{labels.summonedOnly}</span>}
+                                    </span>
+                                    <UnitFootprint width={unit.footprintWidth} height={unit.footprintHeight} lang={lang} />
                                 </span>
                                 <span class="unit-ability-line">{abilityLine(unit)}</span>
                             </span>
@@ -290,7 +294,7 @@ function unitSearchText(unit: Unit) {
                 <div><dt>{s.magicResist}</dt><dd data-stat="magicResist"></dd></div>
                 <div><dt>{s.attackType}</dt><dd data-stat="attackType"></dd></div>
                 <div><dt>{s.movement}</dt><dd data-stat="movement"></dd></div>
-                <div><dt>{s.size}</dt><dd data-stat="size"></dd></div>
+                <div class="unit-size-stat"><dt>{s.size}</dt><dd data-stat="size"></dd></div>
             </dl>
 
             <div class="unit-abilities">
@@ -326,6 +330,8 @@ function unitSearchText(unit: Unit) {
         factionLabel?: string;
         level: number;
         size: number;
+        footprintWidth: number;
+        footprintHeight: number;
         experience: number;
         draftedAmount: number;
         hp: number;
@@ -487,7 +493,15 @@ function unitSearchText(unit: Unit) {
             statEls.magicResist.textContent = unit.magicResist > 0 ? `${unit.magicResist}%` : "—";
             statEls.attackType.textContent = ATTACK_LABEL[unit.attackType] ?? unit.attackType;
             statEls.movement.textContent = MOVE_LABEL[unit.movementType] ?? unit.movementType;
-            statEls.size.textContent = String(unit.size);
+            const footprint = catalog?.querySelector<HTMLElement>(
+                `[data-unit-name="${CSS.escape(unit.name)}"] [data-unit-footprint]`,
+            )?.cloneNode(true) as HTMLElement | undefined;
+            if (footprint) {
+                footprint.classList.add("unit-footprint--detail");
+                statEls.size.replaceChildren(footprint);
+            } else {
+                statEls.size.textContent = `${unit.footprintWidth}×${unit.footprintHeight}`;
+            }
 
             abilityList.innerHTML = "";
             if (unit.abilities.length === 0) {
@@ -964,6 +978,13 @@ function unitSearchText(unit: Unit) {
         text-shadow: 0 2px 18px rgba(0, 0, 0, 0.72);
     }
 
+    .unit-card-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
     .unit-stat-row {
         display: flex;
         flex-wrap: wrap;
@@ -1152,6 +1173,10 @@ function unitSearchText(unit: Unit) {
     /* The drafted stack reads "200 · 1,600 HP": a full row, so it doesn't wrap inside a half-width cell. */
     .unit-stats > .unit-stat-wide {
         grid-column: 1 / -1;
+    }
+
+    .unit-stats > .unit-size-stat {
+        align-items: center;
     }
 
     .unit-stats dt {

@@ -164,7 +164,7 @@ export function renderPremiumDashboard(
     const t = translate(view);
     const lib = data.library;
     if (!lib || !data.snapshot)
-        return `<div class="premium-empty"><h2>${t("Your Premium is active.", "Ваш Premium активен.")}</h2><p>${t("The snapshot library is temporarily unavailable. Your in-game access is unchanged. Try loading the library again shortly.", "Библиотека данных временно недоступна. Доступ в игре сохранён. Попробуйте обновить страницу позже.")}</p></div>`;
+        return `<div class="premium-empty"><h2>${t("Your Premium is active.", "Ваш Premium активен.")}</h2><p>${t("Ask Premium AI above about game rules, artifacts, army combinations and upgrade choices. Statistical rankings and charts will appear here when a released dataset is available.", "Спросите Premium AI выше о правилах игры, артефактах, сочетаниях юнитов и усилениях. Статистические рейтинги и графики появятся здесь после публикации набора данных.")}</p></div>`;
     const snapshot = data.snapshots.find((item) => item.snapshotId === data.snapshot!.snapshotId) ?? data.snapshot;
     const leaders = rankPremiumRows(lib.units, view.minimum);
     const pair = rankPremiumRows(lib.pairs, view.minimum)[0];

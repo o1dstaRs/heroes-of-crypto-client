@@ -103,12 +103,15 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
+    "System:Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
+    "System:Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
     "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
     "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "System:Angelic Host Blessing": "/assets/images/spells/angelic_host_256.webp",
     "System:Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
     "System:Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
+    "System:Sharpened Weapons Blessing": "/assets/images/units/abilities/sharpened_weapons_aura_256.webp",
 };
 
 const damageSpells = new Set([
@@ -157,6 +160,8 @@ const abilityCastSpells = new Set([
 
 // Sources of non-castable buffs/debuffs. These links live in ability and artifact code rather than data.
 const appliedBySources: Record<string, string[]> = {
+    "Sylvan Focus Blessing": ["Sylvan Focus Blessing"],
+    "Wolf Trail Blessing": ["Wolf Trail Blessing"],
     "Ember Covenant Blessing": ["Ember Covenant Blessing"],
     "Dulling Defense": ["Dulling Defense"],
     Miner: ["Miner"],
@@ -164,6 +169,7 @@ const appliedBySources: Record<string, string[]> = {
     "Arcane Ward Blessing": ["Arcane Ward Blessing"],
     "Arrows Wingshield Blessing": ["Arrows Wingshield Blessing"],
     "Rallying Volley Blessing": ["Rallying Volley Blessing"],
+    "Sharpened Weapons Blessing": ["Sharpened Weapons Blessing"],
     "Warding Mane Blessing": ["Warding Mane Blessing"],
     "Made of Fire": ["Made of Fire"],
     "Water Shield": ["Water Shield"],
@@ -218,8 +224,10 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Dulling Defense":
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
     "System:Miner": "Base armor permanently reduced: every hit from a unit with Miner takes some of it, never below 1.",
-    "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
-    "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
+    "System:Armor Rune":
+        "50% chance per cast to add +1 armor to the target. Otherwise +0: existing bonuses are kept. The bonus stacks.",
+    "System:Weapon Rune":
+        "50% chance per cast to add +1 attack to the target. Otherwise +0: existing bonuses are kept. The bonus stacks.",
     "System:Armor Augment":
         "Boosts the entire team's base armor by a percentage and adds the same number of points straight onto its magic armor. Level 1: +6% armor, +6 magic armor. Level 2: +13% and +13. Level 3: +21% and +21.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
@@ -230,6 +238,10 @@ const resolvedDescriptions: Record<string, string> = {
 };
 
 const descriptionsRu: Record<string, string> = {
+    "System:Sylvan Focus Blessing":
+        "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    "System:Wolf Trail Blessing":
+        "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "Nature:Whirlpool":
         "Открывает под врагом бурлящий водоворот и приковывает его к месту.\nСущество пропускает следующий ход, пока заперто в водовороте.\nМагия воды: юнита с Water Element водоворот не удержит.",
     // Keyed by the data file's book (Chaos); the page files Empower under Order.
@@ -252,6 +264,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner, но не ниже 1.",
     "System:Warding Mane Blessing":
         "Warding Mane Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Warding Mane Blessing.",
+    "System:Sharpened Weapons Blessing":
+        "Sharpened Weapons Blessing даёт +{}% к базовой атаке на всём поле боя.\nДействует, пока жив союзный юнит с Sharpened Weapons Blessing.",
     "System:Morale": "Юнит достигает максимальной морали, повышая множитель атаки до 1.25.",
     "System:Dismorale": "Мораль юнита падает до минимума, снижая множитель атаки до 0.8.",
     "System:Dulling Defense":
@@ -277,8 +291,10 @@ const descriptionsRu: Record<string, string> = {
     "System:Angelic Host": "Дает +1 к атаке, +1 к защите и +1 к дистанции перемещения.",
     "System:Craft":
         "Обрабатывает союзников в области 2x2: каждый может получить вторую атаку, замороженное оружие, оглушение или ничего.",
-    "System:Armor Rune": "50% шанс за каждое применение дать цели +1 брони. Бонус складывается.",
-    "System:Weapon Rune": "50% шанс за каждое применение дать цели +1 атаки. Бонус складывается.",
+    "System:Armor Rune":
+        "50% шанс за каждое применение дать цели +1 брони. Иначе +0: накопленные бонусы сохраняются. Бонус складывается.",
+    "System:Weapon Rune":
+        "50% шанс за каждое применение дать цели +1 атаки. Иначе +0: накопленные бонусы сохраняются. Бонус складывается.",
     "System:Made of Fire": "Существо получает +10% ко всем характеристикам, включая способности.",
     "System:Ember Covenant Blessing":
         "Огненные атаки блокируются, не расходуя благословение.\nПервое другое попадание полностью поглощается, после чего все союзные кольца исчезают. Атаки Water Element и магия воды игнорируют поглощение, наносят урон и также снимают все кольца. Действует до разрушения.",
