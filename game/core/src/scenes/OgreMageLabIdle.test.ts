@@ -78,13 +78,15 @@ test("Ogre Mage lab idle runs at 85% speed using native sprite frames", () => {
     expect(state.selectionAnimFrames).toHaveLength(15);
     expect(state.selectionAnimFrames[0].width).toBe(768);
 
-    const start = state.selectionAnimationStartedAtMs;
+    const start = 10_000;
+    state.selectionAnimationStartedAtMs = start;
     const at = (elapsedMs: number) => {
         unit.stepSelectionAnimation(start + elapsedMs);
         expect(state.sprite.texture).toBe(state.selectionAnimFrames[state.selectionAnimFrameIndex]);
         return state.selectionAnimFrameIndex;
     };
     expect(at(0)).toBe(0);
+    expect(at(528)).toBe(0);
     expect(at(529)).toBe(1);
     expect(at(3800)).toBe(9); // free hand rises
     expect(at(4100)).toBe(10); // fingers meet the beard
