@@ -207,3 +207,10 @@ Weekly X research refresh (19–26 Oct 2026 PT). Read-only. About 27 public X AP
 - Didn't work: the doctrines draft rule (Fri 30, morning make-up) got 12 views and ER 0. 7d tails were flat: Sat 24 make-up 13 -> 14, Sun 25 Last Fuse 17 -> 18.
 - 0 outside replies, 0 tactics replies, 0 token replies for 17 days running; no mentions since 29 Oct. Followers flat at 91.
 - Lesson: the morning slot has now posted the lowest 24h number three days running (9, 9, 12) while midday holds 14–20, so the morning gap is starting to look like slot, not topic. Keep collecting through next week before proposing a slot move; reach (not wording) is still the blocker and the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-11-01 daily review
+
+- Worked: the Quiver of Echoes shooter-army trade-off (Sat 31, evening) reached 26 views at ~17.7h, before its 24h snapshot, the best early number since Castling (30 at 7d). A named-unit payoff (Gargantuan throws three times) on an artifact choice held the most reach this week. The turn-order rule (Fri 30, evening) was the best new 24h snapshot at 15.
+- Didn't work: the Angel "we got one wrong" dev-diary (Sat 31, midday) got 9 views at 22.7h, the lowest midday number so far, while the morning turn-clock rule got 13. 7d tails stayed +0 to +2 (Farsight 16 -> 17, augment draft 20 -> 20, barrels 17 -> 19).
+- 0 outside replies, 0 tactics replies, 0 token replies for 18 days running; no mentions since 30 Oct. Followers flat at 91.
+- Lesson: the "morning is the weak slot" pattern broke the first time midday dipped to 9, so slot differences at 9-26 views are noise; artifact trade-offs with a named unit are the one framing that keeps landing at the top. Reach is still the blocker; the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.

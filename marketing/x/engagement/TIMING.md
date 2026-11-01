@@ -522,3 +522,9 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - Fri 30 4:53 PM evening turn-order already 15 views at ~15.8h, on pace with this week's evening posts. Today's 6:51 AM post had 8 views at ~2.8h.
 - 7d tails: Sat 24 10:03 PM late make-up 13 -> 14 (155.6h); Sun 25 6:57 AM Last Fuse 17 -> 18 (146.7h). Tails stay +1 to +2 for every slot.
 - Morning has been the weakest 24h slot three days running (9, 9, 12 vs midday 14–20). Still n=3; one more week before proposing a slot change to Stepan.
+
+## 2026-11-01 daily engagement review (own posts)
+- 24h snapshots: Fri 30 4:53 PM evening turn-order 15 views (41.8h); Sat 31 6:51 AM morning turn-clock 13 (27.8h); Sat 31 11:56 AM midday Angel 9 (22.7h). All ER 0.
+- Sat 31 4:58 PM evening Quiver of Echoes 26 views at ~17.7h, the best early reach this week. Today's 6:50 AM post had 6 views at ~2.9h.
+- 7d tails: Sun 25 11:53 AM Farsight 16 -> 17; Sun 25 4:52 PM augment draft 20 -> 20; Mon 26 6:59 AM barrels 17 -> 19.
+- The morning-weakest pattern (three days) broke: midday posted the lowest 24h today (9) and morning beat it (13). Evening has the best numbers this week (15, 26 early). No slot change proposed. DST ended 1 Nov; slot times stay 6:48 / 11:48 / 4:48 PT (now PST, UTC-8).
