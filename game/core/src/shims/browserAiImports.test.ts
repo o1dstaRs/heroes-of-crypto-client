@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import path from "node:path";
-import { statSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
 import { loadConfigFromFile } from "vite";
 
 const core = path.resolve(import.meta.dir, "../..");
@@ -37,8 +39,15 @@ for (const [command, mode] of [
         });
         expect(result.success).toBe(true);
         const source = await result.outputs[0].text();
-        const search = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
-        expect(typeof search.searchSandboxAiDecision).toBe("function");
-        expect(typeof search.searchSandboxPremiumDecision).toBe("function");
+        const directory = mkdtempSync(path.join(tmpdir(), "hoc-browser-ai-imports-"));
+        try {
+            const filename = path.join(directory, "search.mjs");
+            writeFileSync(filename, source);
+            const search = await import(pathToFileURL(filename).href);
+            expect(typeof search.searchSandboxAiDecision).toBe("function");
+            expect(typeof search.searchSandboxPremiumDecision).toBe("function");
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
     }, 60_000);
 }
