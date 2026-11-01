@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { FIGHT_EVENT_VFX } from "./fight_vfx_catalog";
+import { FIGHT_EVENT_VFX } from "./testSupport/fightVfxCatalog";
 
 describe("FIGHT_EVENT_VFX catalog", () => {
     // The `Record<GameEvent["type"], ...>` type already forces every event type to be classified at COMPILE

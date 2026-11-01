@@ -9,7 +9,6 @@ import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/uni
 import HeroLeaderboard from "./HeroLeaderboard.astro";
 import MetaSnapshot from "./MetaSnapshot.astro";
 import RankedArena from "./RankedArena.astro";
-import ThemeMusic from "./ThemeMusic.astro";
 import SwordFire from "./SwordFire.astro";
 import AxeGlow from "./AxeGlow.astro";
 import PlumeWind from "./PlumeWind.astro";
@@ -220,7 +219,6 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
     </div>
 </section>
 
-<ThemeMusic />
 <RankedArena lang={lang} />
 
 <MetaSnapshot lang={lang} />

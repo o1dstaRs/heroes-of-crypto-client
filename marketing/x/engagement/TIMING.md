@@ -466,3 +466,59 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - 20 scored own posts since 15 Oct (pin excluded): midday 12.9 avg views (n=7), evening 12.8 (n=6), morning 12.7 (n=7). The spread is now 0.2 views, so posting slot makes no measurable difference at this reach.
 - The one early-like signal this week came on a morning post (pick-your-side, 6:57 AM PT, 1 like within ~3h), but n=1.
 - No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-23 daily engagement review (own posts, 24h views by slot)
+
+- 23 scored own posts since 15 Oct (pin excluded): midday 14.4 avg views (n=8), evening 13.4 (n=7), morning 13.1 (n=8). Midday pulled ahead by ~1 view after Castling (Thu 11:59 AM PT, 25 views).
+- The three best non-pin 24h reaches were all midday story posts (Castling 25, origin 20, replay part two 20). That is a format-plus-slot overlap, not a slot result on its own (n is small and tactics posts filled most mornings).
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-24 daily review (9:41 AM PT pull)
+- 24h snapshots: Thu 22 4:50 PM evening 13 views (40.8h); Fri 23 6:53 AM morning 13 views (26.8h). Evening and morning tie at this reach.
+- 7d tails: Sat 17 4:52 PM evening 13 -> 17 (+4, largest non-pin tail so far); Sun 18 6:58 AM morning 14 -> 15; Sat 17 6:56 AM 10 -> 10; Sat 17 11:59 AM midday 9 -> 9. Weekend posts keep showing the weakest reach and almost no tail.
+- No posts went out from Fri 23 11:48 AM through Sat 24 morning (missed / blocked by X phone check), so no new slot data for Fri midday, Fri evening or Sat morning.
+
+## 2026-10-25 daily engagement review (own posts)
+
+- 7d snapshots for Sun 18 morning question (15), Sun 18 midday plan unit (12), Sun 18 evening Nature (18) and Mon 19 morning question (10): Sunday's evening post again beat morning and midday, but the spread is still within a few views and n=1 per slot for that day.
+- Late make-up post (Sat 24, 10:03 PM PT) had 9 views at ~11.6h; its 24h number tomorrow will show whether a late-night post does worse than the regular slots. No change to the posting schedule recommended.
+
+## 2026-10-26 daily engagement review (own posts)
+
+- Late make-up post (Sat 24, 10:03 PM PT) reached 13 views at ~35.6h, the same as the regular-slot weekday posts of 22–23 Oct (13). A late-night post did not underperform here (n=1).
+- Sunday 25 Oct: morning Last Fuse 17 views (26.7h), midday Farsight Quiver 16 (21.8h); evening augment-draft already 19 at ~16.8h. Sunday reach matched weekdays this week, unlike the weak Sat/Sun 17–18 posts.
+- 7d tail: Mon 19 midday first-move post went 8 -> 20 views, the largest non-pin tail so far; Mon 19 evening 9 -> 10, Tue 20 morning 13 -> 16. Tails stay small and don't favor one slot.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-27 daily engagement review (own posts)
+
+- 24h: Sun 25 evening augment-draft 20 views (40.9h), Mon 26 morning barrels 17 (26.8h), Mon 26 midday area-shots 20 (21.8h). Midday and evening edged morning again, by 3 views (n=1 each).
+- 7d tails: Tue 20 midday No Melee 12 -> 19 (+7), the second Monday/Tuesday midday post to grow most after day one (Mon 19 midday first-move was 8 -> 20); Tue 20 evening 10 -> 12; Wed 21 morning 12 -> 13. Midday posts keep the biggest tails (n=3 incl. Castling).
+- Today's 7:02 AM morning post had 1 like at ~2.8h, so an early-morning post can still pick up a like quickly.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-28 daily engagement review (own posts)
+
+- 24h: Mon 26 4:51 PM evening stack-count 14 views (40.9h); Tue 27 7:02 AM morning anti-stall 16 views + 1 like (26.7h); Tue 27 11:57 AM midday Wandering Mage 19 views (21.8h). Midday led on views again (n=1), morning got the only like.
+- Tue 27 5:00 PM evening FIRE PIT already 16 views at ~16.8h, on pace with the regular slots.
+- 7d tails: Wed 21 midday replay part two 20 -> 21; Wed 21 evening Through Shot 17 -> 18; Thu 22 morning pick-your-side 16 -> 18. This week's tails are small in every slot; the midday tail advantage seen 19–20 Oct did not repeat.
+- Today's 6:58 AM post had 7 views at ~2.8h.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-29 daily engagement review (own posts)
+
+- 24h: Tue 27 5:00 PM evening FIRE PIT 18 views (40.8h); Wed 28 6:58 AM morning retaliation 9 views (26.8h); Wed 28 11:51 AM midday Tsar Cannon 17 views (21.9h). Morning was the weakest slot this day by a wide margin (n=1), but Tue 27's morning post had the only like, so topic swings more than slot.
+- 7d tails: Thu 22 midday Castling 25 -> 30 (+5); Fri 23 morning Water Shield 13 -> 19 (+6); Thu 22 evening live-aim 13 -> 15; Thu 22 morning pick-your-side 16 -> 18. Tails don't favor one slot this week.
+- Wed 28 4:58 PM Armageddon had 14 views at ~15.8h; today's 6:50 AM post 6 views at ~2.9h.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-30 daily engagement review (own posts)
+- 24h snapshots: Wed 28 4:58 PM evening Armageddon 15 views; Thu 29 11:57 AM midday Satyr 14; Thu 29 6:50 AM morning morale follow-up 9. All ER 0.
+- Morning slot (6:48 AM) gave the two lowest 24h views this week (Wed 28 retaliation 9, Thu 29 morale 9); midday and evening this week ranged 14–19. Still within noise at this reach; one more week of morning data before proposing a slot move.
+- 0 tactics replies (16 days running). Followers flat at 91. Thu 29 4:48 PM slot missed, made up Fri 30 6:52 AM.
+
+## 2026-10-31 daily engagement review (own posts)
+- 24h snapshots: Fri 30 6:52 AM morning doctrines 12 views (26.8h); Fri 30 11:50 AM midday Gravechain 20 views (21.8h). Both ER 0.
+- Fri 30 4:53 PM evening turn-order already 15 views at ~15.8h, on pace with this week's evening posts. Today's 6:51 AM post had 8 views at ~2.8h.
+- 7d tails: Sat 24 10:03 PM late make-up 13 -> 14 (155.6h); Sun 25 6:57 AM Last Fuse 17 -> 18 (146.7h). Tails stay +1 to +2 for every slot.
+- Morning has been the weakest 24h slot three days running (9, 9, 12 vs midday 14–20). Still n=3; one more week before proposing a slot change to Stepan.

@@ -1,6 +1,6 @@
 ---
 name: heroes-e2e
-description: Start a local end-to-end Heroes of Crypto match and generate browser join links. Supports human-vs-human multiplayer (real pick/ban -> play, two links GREEN/LOWER + RED/UPPER) and single-human "Play vs AI" (one link, AI opponent drives picks/placement/fight). Use when the user asks to start an e2e game, test multiplayer, or play/test against the AI.
+description: Start a local end-to-end Heroes of Crypto match and generate browser join links. Supports human-vs-human multiplayer (real pick/ban through play, two links GREEN/LOWER + RED/UPPER) and single-human "Play vs AI" (one link, AI opponent drives picks/placement/fight). Use when the user asks to start an e2e game, test multiplayer, or play/test against the AI.
 ---
 
 # Heroes of Crypto — Local E2E Multiplayer (pick-phase)
@@ -17,8 +17,8 @@ ArangoDB + Redis (Docker)  ->  server :3001  ->  game client :5174
 
 - **ArangoDB** (`hoc-arangodb`, :8529, root/`ChangeMe`) — persistence. Server creates
   the `cryptopulse` db + all `*Test1` collections on first boot.
-- **Redis** (`hoc-redis`, :6379) — sessions/queues/SSE pub-sub. **Required**: without it,
-  `/v1/auth/login` hangs and times out (408).
+- **Redis** (`hoc-redis`, :6379) — started by the helper for configured session, queue, and
+  SSE pub/sub features.
 - **server** — `bun index.ts` in `heroes-of-crypto-server`.
 - **client** — vite dev server, started with `--port 5174 --strictPort`.
 
@@ -28,12 +28,15 @@ ArangoDB + Redis (Docker)  ->  server :3001  ->  game client :5174
 1. Seeds two **active** players directly in the DB (bcrypt password via the server's
    `hashPassword`) — Green=LOWER, Red=UPPER — each with `inGameId` set.
 2. Inserts a `CONFIRMING` game linking them.
-3. Logs both in over HTTP and POSTs `/v1/game/confirm/<gameId>` for each. The **running
-   server** promotes the game to `PICK` (GameStatus.PICK=2) and its daemon initializes
-   the Pick document. (Confirm MUST go through the live server — promotion enqueues to
-   that process's in-memory `confirmedGamesQueue`.)
+3. Logs both in over HTTP and POSTs `/v1/game/confirm/<gameId>` for each. Final confirmation
+   promotes the game to `PICK` (GameStatus.PICK=2) and creates its Pick document. The ranked
+   matchmaking stream also reconciles readiness from persisted game state; a combined local
+   server alone does not verify the separate-process, Redis-disabled handoff. See the server
+   README's **Matchmaking handoff** section and the acceptance requirements in `AGENTS.md`.
 4. Prints two links of the form:
-   `http://localhost:5174/game/<gameId>?e2eEmail=<email>&e2ePassword=Password1!`
+   `http://localhost:5174/game/<gameId>?e2eEmail=<email>&e2ePassword=<encoded-password>`
+
+Use the links printed by the helper; the seeded password differs between launch modes.
 
 The `?e2eEmail=&e2ePassword=` dev auto-login (`auth_provider.tsx`, enabled when not PROD)
 authenticates the browser so `getCurrentGame()` returns the PICK game → the client renders
@@ -57,7 +60,7 @@ One-command "Play vs AI": brings up the stack, seeds a single active player, **c
 server-side**, and prints a **reliable auto-login link** straight into pick & ban:
 
 ```
-http://localhost:5174/game/<gameId>?e2eEmail=<email>&e2ePassword=Password1!
+http://localhost:5174/game/<gameId>?e2eEmail=<email>&e2ePassword=<encoded-password>
 ```
 
 Open it in one browser. It uses the same `/game/<gameId>?e2eEmail=&e2ePassword=` auto-login form as the
@@ -72,23 +75,31 @@ own side.
 > lose a race with the route's sign-in gate (link "just shows the login screen"). The helper prints it as
 > a secondary `(alt, client-driven start)` line, but hand out the `/game/<gameId>` link — it's stable.
 
-**AI version = difficulty tier** (server `api/game/v1/ai_seat.ts`): `easy`=v0.4, `normal`=v0.6,
-`hard`=**v0.7**, `brutal`=v0.7 + per-match rollout search. Choose it with `HOC_VS_AI_DIFFICULTY`, or
-`HOC_VS_AI_VERSION` (mapped v0.4→easy, v0.6→normal, v0.7→hard); unset keeps the server's default seat. e.g.
-`HOC_VS_AI_DIFFICULTY=hard .../hoc-e2e.sh vs-ai` for a v0.7 opponent. Run `cleanup` before changing it if
-the server is already up. Helper: `heroes-of-crypto-server/simple_client/create_vs_ai_match.ts`. Each run
+Difficulty tiers are defined by the server's `src/api/game/v1/ai_seat.ts`: `easy`=v0.4,
+`normal`=v0.6, `hard`=v0.7 without rollout search, and `brutal`=v0.8 with per-match rollout search.
+Check that table when choosing a version. `HOC_VS_AI_DIFFICULTY` is passed per game and works with an
+already-running server. For example:
+
+```bash
+HOC_VS_AI_DIFFICULTY=brutal .claude/skills/heroes-e2e/scripts/hoc-e2e.sh vs-ai
+```
+
+The older `HOC_VS_AI_VERSION` path maps v0.4→easy, v0.6→normal, and v0.7→hard in the helper;
+other supported versions use the server's configured default seat. That override requires `cleanup`
+before starting a fresh server. With neither override, the server chooses its default seat.
+Helper: `heroes-of-crypto-server/simple_client/create_vs_ai_match.ts`. Each run
 seeds a fresh player + game — re-run for a new match. The entire vs-AI feature (client button + deep link
 + server ingress + bot driving) is shipped product code; this mode is just a convenience launcher.
 
 ### Server-log monitoring (always-on)
 
-`match` and `placement` auto-start a detached **watchdog** (`scripts/hoc-monitor.sh`) that keeps watching the
+`match`, `vs-ai`, and `placement` auto-start a detached **watchdog** (`.claude/skills/heroes-e2e/scripts/hoc-monitor.sh`) that keeps watching the
 server for the whole session. It **self-discovers** the running server's log file via `lsof` on the listening
 pid (robust to whichever launcher started the server, and to different log paths), scans new lines for FATAL
 anomalies (`uncaught_exception`, `RangeError`, `must be safe integers`, …), and detects crashes (port gone
 for ~9s). Findings are appended, timestamped, to `$HOC_ANOMALY_LOG` (default `/private/tmp/hoc-anomalies.log`);
 known-benign noise (`Game not found`, journal dedup) is ignored, and intentional SIGTERM restarts are not
-flagged. **Check it any time** with `hoc-e2e.sh monitor` (or `tail -f /private/tmp/hoc-anomalies.log`). This
+flagged. **Check it any time** with `.claude/skills/heroes-e2e/scripts/hoc-e2e.sh monitor` (or `tail -f /private/tmp/hoc-anomalies.log`). This
 exists because a server that dies on an uncaught exception otherwise fails silently — every in-flight game
 just "gets stuck" with no board updates.
 
@@ -110,14 +121,10 @@ Each `match` run creates a fresh game + fresh players; re-run for a new match.
 
 ## Requirements / gotchas
 
-- Repos side by side under `~/Workplace/` (`heroes-of-crypto-client`, `heroes-of-crypto-server`).
+- Repos side by side under `"$HOME/Workplace"` (`heroes-of-crypto-client`, `heroes-of-crypto-server`).
   Override with `HOC_CLIENT_DIR` / `HOC_SERVER_DIR`.
-- A working **container runtime** (Docker Desktop). If its VM is corrupted (writes fail with
-  `input/output error`), reset it: quit Docker, delete
-  `~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw`, relaunch (wipes all
-  Docker data — the DB rebuilds from scratch, which is fine here).
-- Apple `container` is **not** an option on macOS 15 (needs macOS 26 + has no host port
-  forwarding the server can use).
+- A working Docker-compatible CLI and runtime, such as Docker Desktop, with host port forwarding
+  for ArangoDB (:8529) and Redis (:6379).
 - `timeout` is not installed on macOS by default — don't rely on it in probes.
 - Team colors: **LOWER = Green (team 2)**, **UPPER = Red (team 1)**.
 

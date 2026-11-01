@@ -430,7 +430,12 @@ export class PixiRenderableSpell extends Spell {
         if (this.getName() === "Armor Rune" || this.getName() === "Weapon Rune") {
             const stat = this.getName() === "Armor Rune" ? "armor" : "attack";
             return {
-                information: [...lines, `50% chance per cast to add +1 ${stat}.`, "The bonus stacks on the target."],
+                information: [
+                    ...lines,
+                    `50% chance per cast to add +1 ${stat}.`,
+                    "The bonus stacks on the target.",
+                    "Failed casts add +0 and keep existing bonuses.",
+                ],
                 effectSummary: {
                     kind: "buff",
                     label: `${stat} rune`,

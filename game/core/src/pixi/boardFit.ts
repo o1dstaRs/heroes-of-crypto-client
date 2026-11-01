@@ -10,6 +10,15 @@
  */
 
 /** Sidebars keep 85% of their former width, handing the remaining 15% to the battlefield. */
+import {
+    getTouchGameInsets,
+    isTouchGameActive,
+    TOUCH_TOPBAR_HEIGHT,
+    TOUCH_ACTIONBAR_HEIGHT,
+    TOUCH_BOARD_GAP,
+} from "../viewport/gameViewport";
+import { BATTLEFIELD_ARTWORK, BATTLEFIELD_HORIZONTAL_OVERSCAN } from "./battlefieldArtwork";
+
 export const BATTLE_SIDEBAR_WIDTH_RATIO = 0.85;
 /** Keep desktop controls readable on 4:3 and scaled laptop viewports. */
 export const BATTLE_SIDEBAR_MIN_WIDTH_PX = 256;
@@ -24,6 +33,8 @@ export const BATTLEFIELD_HEIGHT_RATIO = (1013 / 1342) * BATTLEFIELD_VERTICAL_BLE
 
 /** Padding remains zero: the new top band comes from the shorter rows, not from cropping the board. */
 export const BOARD_FIT_PADDING_RATIO = 0;
+export const boardBottomInset = (): number =>
+    isTouchGameActive() ? TOUCH_ACTIONBAR_HEIGHT + TOUCH_BOARD_GAP + getTouchGameInsets().bottom : 0;
 
 export const boardFitPadding = (width: number, height: number): number =>
     Math.round(Math.min(width, height) * BOARD_FIT_PADDING_RATIO);
@@ -38,19 +49,39 @@ export const legacyBattleSidebarWidth = (width: number, height: number): number 
 
 /** Preserve the narrower rails where they fit, with a control-width floor capped at a quarter screen. */
 export const battleSidebarWidth = (width: number, height: number): number =>
-    Math.max(
-        0,
-        Math.round(legacyBattleSidebarWidth(width, height) * BATTLE_SIDEBAR_WIDTH_RATIO),
-        Math.min(BATTLE_SIDEBAR_MIN_WIDTH_PX, Math.floor(width / 4)),
-    );
+    isTouchGameActive()
+        ? 0
+        : Math.max(
+              0,
+              Math.round(legacyBattleSidebarWidth(width, height) * BATTLE_SIDEBAR_WIDTH_RATIO),
+              Math.min(BATTLE_SIDEBAR_MIN_WIDTH_PX, Math.floor(width / 4)),
+          );
+
+/** Fit one uniformly scaled painting; spare tablet width must never stretch the floor on X. */
+const touchBoardFit = (width: number, height: number): { width: number; height: number } => {
+    const field = BATTLEFIELD_ARTWORK.field;
+    const fieldWidth = field.bottomRight.x - field.bottomLeft.x;
+    const fieldHeight = field.bottomLeft.y - field.topLeft.y;
+    const insets = getTouchGameInsets();
+    const maxWidth = Math.max(0, width - 24);
+    // Fit the wall as well as the floor below the top controls. Fitting only the floor let the
+    // first-row creatures (and the desktop roster during a layout switch) extend behind the bar.
+    const maxHeight = Math.max(0, height - TOUCH_TOPBAR_HEIGHT - insets.top - TOUCH_BOARD_GAP - boardBottomInset());
+    const scale = Math.min((maxWidth * BATTLEFIELD_HORIZONTAL_OVERSCAN) / fieldWidth, maxHeight / field.bottomLeft.y);
+    return { width: (fieldWidth * scale) / BATTLEFIELD_HORIZONTAL_OVERSCAN, height: fieldHeight * scale };
+};
 
 /** Battlefield width between the two equally sized sidebars. */
 export const boardFitWidth = (width: number, height: number): number =>
-    Math.max(0, width - 2 * battleSidebarWidth(width, height));
+    isTouchGameActive()
+        ? touchBoardFit(width, height).width
+        : Math.max(0, width - 2 * battleSidebarWidth(width, height));
 
 /** Battlefield height matched to the painted 16-row floor. */
 export const boardFitHeight = (width: number, height: number): number =>
-    Math.max(0, legacyBoardFitSize(width, height) * BATTLEFIELD_HEIGHT_RATIO);
+    isTouchGameActive()
+        ? touchBoardFit(width, height).height
+        : Math.max(0, legacyBoardFitSize(width, height) * BATTLEFIELD_HEIGHT_RATIO);
 
 export type BoardChildScaleCompensation = Readonly<{ x: number; y: number }>;
 
@@ -136,4 +167,4 @@ export const boardFitSize = legacyBoardFitSize;
  * bottom edge remains flush with the window and all freed vertical space becomes a black band above it.
  */
 export const boardFitVerticalShift = (width: number, height: number): number =>
-    (boardFitHeight(width, height) - height) / 2;
+    (boardFitHeight(width, height) - height) / 2 + boardBottomInset();
