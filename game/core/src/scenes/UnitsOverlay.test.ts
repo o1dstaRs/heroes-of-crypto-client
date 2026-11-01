@@ -16,6 +16,7 @@ import {
     warmLeftSidebarPortrait,
 } from "../ui/leftSidebarPortraitWarm";
 import { UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
+import approvedPickCardOrder from "../settings/approvedPickCardOrder.json";
 
 import { UnitChip } from "./UnitChip";
 import {
@@ -66,6 +67,32 @@ type PortraitParts = {
 };
 
 describe("UnitChip portrait layer readiness", () => {
+    test("waits for the composed background mask and keeps it aligned with a mirrored portrait", () => {
+        const chip = new UnitChip({
+            unitName: "Champion",
+            portrait: {
+                texture: Texture.WHITE,
+                backgroundShadeTexture: Texture.EMPTY,
+                backgroundShadeAlpha: 0.15,
+                framing: { source: "portrait", fit: "cover", scale: 1.2, offsetX: 10, offsetY: -5, background: "none" },
+                mirrorX: true,
+            },
+        });
+        chip.layout(190, 256);
+        const parts = chip as unknown as { sprite: Sprite; portraitComposedBackgroundShade: Sprite };
+        expect(parts.sprite.visible).toBe(false);
+        chip.setPortraitTextures(Texture.WHITE, undefined, Texture.WHITE);
+        expect(parts.sprite.visible).toBe(true);
+        expect(parts.portraitComposedBackgroundShade.visible).toBe(true);
+        expect(parts.portraitComposedBackgroundShade.alpha).toBeCloseTo(0.08);
+        expect(parts.portraitComposedBackgroundShade.width).toBeCloseTo(parts.sprite.width);
+        expect(parts.portraitComposedBackgroundShade.height).toBeCloseTo(parts.sprite.height);
+        expect(parts.portraitComposedBackgroundShade.scale.x).toBeLessThan(0);
+        expect(parts.portraitComposedBackgroundShade.x).toBeCloseTo(parts.sprite.x);
+        expect(parts.portraitComposedBackgroundShade.y).toBeCloseTo(parts.sprite.y);
+        chip.destroy({ children: true });
+    });
+
     for (const first of ["art", "background"] as const) {
         test(`reveals both layers together when ${first} loads first`, () => {
             const chip = new UnitChip({
@@ -164,6 +191,38 @@ describe("UnitChip portrait layer readiness", () => {
 });
 
 describe("UnitsOverlay chip visibility", () => {
+    test("expanded, scrolling and touch rosters preserve the approved pick order at every level", () => {
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+        overlay.build();
+        const state = overlay as unknown as OverlayInternals;
+        try {
+            for (const [level, ids] of Object.entries(approvedPickCardOrder)) {
+                state.setSelectedLevel(Number(level));
+                expect(
+                    overlay
+                        .getCreatureChoices()
+                        .filter((choice) => choice.level === Number(level))
+                        .map((choice) => choice.creatureId),
+                ).toEqual(ids);
+                for (const expanded of [true, false]) {
+                    state.isListExpanded = expanded;
+                    overlay.onResize(1600, 900);
+                    const row = state.rowsContainer.children[Number(level) - 1] as Container;
+                    const chips = row.children.flatMap((bucket) => (bucket as Container).children as UnitChip[]);
+                    chips.sort((a, b) => a.y - b.y || a.x - b.x);
+                    expect(chips.map((chip) => UNIT_NAME_TO_ID[chip.nameKey])).toEqual(ids);
+                }
+            }
+        } finally {
+            overlay.destroy();
+        }
+    });
+
     test("uses the chosen larger image-backed collapse control", () => {
         expect(TOGGLE_BUTTON_CELL_FRACTION).toBeCloseTo(0.88);
         const requestedKeys: string[] = [];
@@ -696,10 +755,10 @@ describe("UnitsOverlay chip visibility", () => {
         expect(chaos.portraitBackgroundOpacity).toBe(1);
         expect(nature.portraitBackgroundOpacity).toBe(1);
         expect(might.portraitBackgroundOpacity).toBe(1);
-        expect(life.portraitBackgroundShadeAlpha).toBeCloseTo(0.2134, 6);
-        expect(chaos.portraitBackgroundShadeAlpha).toBeCloseTo(0.2134, 6);
-        expect(nature.portraitBackgroundShadeAlpha).toBeCloseTo(0.126, 6);
-        expect(might.portraitBackgroundShadeAlpha).toBeCloseTo(0.126, 6);
+        expect(life.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
+        expect(chaos.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
+        expect(nature.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
+        expect(might.portraitBackgroundShadeAlpha).toBeCloseTo(0.08, 6);
         for (const portrait of [life, chaos, nature, might]) {
             expect(portrait.portraitContainer.getChildIndex(portrait.portraitBackgroundShade!)).toBeLessThan(
                 portrait.portraitContainer.getChildIndex(portrait.sprite),

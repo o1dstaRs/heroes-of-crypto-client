@@ -92,6 +92,12 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
     const [unitProperties, setUnitProperties] = useState(
         () => ({ ...manager.m_scene?.sc_selectedUnitProperties }) as UnitProperties,
     );
+    const [splitAmount, setSplitAmount] = useState(1);
+    const totalUnits = unitProperties.amount_alive || 0;
+    const splitValue = Math.max(1, Math.min(Math.max(1, totalUnits - 1), splitAmount));
+    useLayoutEffect(() => {
+        setSplitAmount(1);
+    }, [unitProperties.id, totalUnits]);
     const scrollViewportRef = useRef<HTMLDivElement>(null);
     // The parent reserves this inset for the ornamental right rail. Extend only the scrolling shell into
     // that empty strip; the section cards below retain their original width.
@@ -241,10 +247,18 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                     >
                         <List>
                             <UnitInputAndActions
-                                selectedUnitCount={unitProperties.amount_alive || 0}
+                                selectedUnitCount={totalUnits}
+                                selectedUnitId={unitProperties.id}
                                 selectedTeamType={unitProperties.team}
+                                splitValue={splitValue}
+                                onSplitValueChange={setSplitAmount}
                             />
-                            <UnitSplitter totalUnits={unitProperties.amount_alive || 0} onSplit={handleSplit} />
+                            <UnitSplitter
+                                totalUnits={totalUnits}
+                                splitValue={splitValue}
+                                onSplitValueChange={setSplitAmount}
+                                onSplit={handleSplit}
+                            />
                         </List>
                     </Toggler>
                 </Box>

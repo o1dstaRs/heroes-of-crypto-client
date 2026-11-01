@@ -1,7 +1,8 @@
-import { TexturePool } from "pixi.js";
+import { Texture, TexturePool, type BindGroup, type TextureSource } from "pixi.js";
 
 interface IPooledTexture {
     readonly uid: number;
+    readonly source?: TextureSource | null;
     destroy(destroySource?: boolean): void;
 }
 
@@ -20,7 +21,11 @@ interface IFilterStackSlot {
 }
 
 interface IFilterStackOwner {
-    filter?: { _filterStack?: IFilterStackSlot[]; _filterStackIndex?: number };
+    filter?: {
+        _filterStack?: IFilterStackSlot[];
+        _filterStackIndex?: number;
+        _globalFilterBindGroup?: BindGroup;
+    };
 }
 
 /**
@@ -39,11 +44,25 @@ interface IFilterStackOwner {
  */
 export const releaseIdlePooledTextures = (renderer?: unknown, texturePool: unknown = TexturePool): void => {
     const pool = texturePool as ITexturePool;
+    const filterSystem = (renderer as IFilterStackOwner | undefined)?.filter;
+    const bindings = filterSystem?._globalFilterBindGroup;
     const buckets = pool._buckets?.values() ?? Object.values(pool._texturePool ?? {});
     for (const textures of buckets) {
         if (!textures) continue;
         let texture: IPooledTexture | undefined;
         while ((texture = textures.pop())) {
+            // A completed filter pass retains its last input/backdrop bindings after returning the target.
+            // Detach only this idle target; another renderer or active pass may still own other resources.
+            if (bindings && texture.source) {
+                for (const binding of [1, 3]) {
+                    if (bindings.getResource(binding) === texture.source) {
+                        bindings.setResource(Texture.EMPTY.source, binding);
+                    }
+                }
+                if (bindings.getResource(2) === texture.source.style) {
+                    bindings.setResource(Texture.EMPTY.source.style, 2);
+                }
+            }
             // Remove from the idle bucket before destruction callbacks can request another target.
             if (pool._poolKeyHash) delete pool._poolKeyHash[texture.uid];
             if (pool._poolKey) delete pool._poolKey[texture.uid];
@@ -52,7 +71,6 @@ export const releaseIdlePooledTextures = (renderer?: unknown, texturePool: unkno
         }
     }
 
-    const filterSystem = (renderer as IFilterStackOwner | undefined)?.filter;
     const slots = filterSystem?._filterStack;
     if (!slots) {
         return;

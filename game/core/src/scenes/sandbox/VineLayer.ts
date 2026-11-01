@@ -1,6 +1,9 @@
-import { Container, Graphics, Mesh, RopeGeometry, Texture } from "pixi.js";
+import { Container, Graphics, Mesh, RopeGeometry, Texture, type Shader } from "pixi.js";
 
 import type { HoCMath } from "@heroesofcrypto/common";
+
+import { VineGrowthVfx } from "./VineGrowthVfx";
+import { createVineMaterialShader } from "./VineMaterialShader";
 
 /**
  * Vines laid down by Vine Throw (Trent's own ability).
@@ -25,8 +28,8 @@ import type { HoCMath } from "@heroesofcrypto/common";
  *   4. dresses the length with thorns and leaves that flutter on the shared wind, and withers to a dry
  *      yellow-brown on its last lap so the player can read "this is about to let go" off the board.
  *
- * No shader: the smoke layer needs one because a cloud has no silhouette worth preserving. A vine's
- * silhouette IS the effect, and warping it would only fuzz the cell boundaries that carry the movement rule.
+ * The authored ribbon uses a local bark shader for light in painted cracks. Detached growth dust,
+ * earth chips and spores use a bounded presentation-only pool; neither changes terrain geometry.
  */
 
 /** One vined cell as the engine reports it: board cell + laps of life left. */
@@ -116,6 +119,7 @@ const hash = (a: number, b: number): number => {
 export class VineLayer {
     private readonly container = new Container();
     private readonly graphics = new Graphics();
+    private readonly growthVfx = new VineGrowthVfx();
     private time = 0;
     /**
      * Breeze shared by every vine so the whole board stirs as one air mass rather than each cell inventing
@@ -137,7 +141,7 @@ export class VineLayer {
     private readonly ribbons = new Map<
         number,
         {
-            mesh: Mesh<RopeGeometry>;
+            mesh: Mesh<RopeGeometry, Shader>;
             revealMask: Graphics;
             reveal: number;
             samples: ISamplePoint[];
@@ -150,7 +154,7 @@ export class VineLayer {
     private readonly projectedOrigins = new Map<number, HoCMath.XY>();
     private readonly previews = new Map<number, { cell: IVineCell; expires: number }>();
     public constructor(private readonly textureLookup?: (key: string) => Texture | undefined) {
-        this.container.addChild(this.graphics);
+        this.container.addChild(this.graphics, this.growthVfx.container);
     }
     public getContainer(): Container {
         return this.container;
@@ -191,7 +195,8 @@ export class VineLayer {
         }
         if (this.previews.size) cells = [...cells, ...Array.from(this.previews.values(), (entry) => entry.cell)];
         // Vines are uncommon. Leave the idle layer completely dormant until one exists or is withering.
-        if (!cells.length && !this.vines.size) return;
+        if (!cells.length && !this.vines.size && !this.growthVfx.active) return;
+        this.growthVfx.begin(dt);
         this.time += dt;
         const windAngle = Math.sin(this.time * 0.037) * 0.8 + Math.sin(this.time * 0.017 + 1.7) * 0.45;
         const windSpeed = 0.55 + 0.25 * Math.sin(this.time * 0.09 + 0.4);
@@ -284,6 +289,8 @@ export class VineLayer {
             if (world) this.projectedOrigins.set(key, world);
         }
         this.draw(cellSize);
+        this.growthVfx.end();
+        this.container.setChildIndex(this.growthVfx.container, this.container.children.length - 1);
     }
     /**
      * Re-link the loose cells into chains of 8-adjacent neighbours.
@@ -497,12 +504,17 @@ export class VineLayer {
             let ribbon = this.ribbons.get(key);
             if (!ribbon || ribbon.points.length !== count || Math.abs(ribbon.width - width) > 0.01) {
                 if (ribbon) {
-                    ribbon.mesh.geometry.destroy();
+                    ribbon.mesh.geometry.destroy(true);
+                    ribbon.mesh.shader?.destroy();
                     ribbon.mesh.destroy();
                     ribbon.revealMask.destroy();
                 }
                 const points = Array.from({ length: count }, () => ({ x: 0, y: 0 }));
-                const mesh = new Mesh({ texture, geometry: new RopeGeometry({ points, width, textureScale: 0 }) });
+                const mesh = new Mesh({
+                    texture,
+                    geometry: new RopeGeometry({ points, width, textureScale: 0 }),
+                    shader: createVineMaterialShader(texture),
+                });
                 // The world uses y-up, whereas the source image uses y-down.
                 const uv = mesh.geometry.getBuffer("aUV");
                 for (let i = 1; i < uv.data.length; i += 2) uv.data[i] = 1 - uv.data[i];
@@ -550,6 +562,11 @@ export class VineLayer {
                 ? Math.max(0, Math.min(1, elapsed / duration))
                 : Math.min(ribbon.reveal, Math.max(...chain.map((cell) => cell.presence)));
             ribbon.reveal = reveal;
+            const dry = chain.every((cell) => cell.lapsRemaining <= 1);
+            const uniforms = ribbon.mesh.shader!.resources.vine.uniforms;
+            uniforms.uTime = this.time;
+            uniforms.uLife = dry ? 0.18 : 1;
+            this.growthVfx.path(key, points, reveal, cellSize, alive, dry);
             const distances = [0];
             for (let i = 1; i < count; i++)
                 distances.push(
@@ -591,7 +608,8 @@ export class VineLayer {
         }
         for (const [key, ribbon] of this.ribbons)
             if (!live.has(key)) {
-                ribbon.mesh.geometry.destroy();
+                ribbon.mesh.geometry.destroy(true);
+                ribbon.mesh.shader?.destroy();
                 ribbon.mesh.destroy();
                 ribbon.revealMask.destroy();
                 this.ribbons.delete(key);
@@ -624,6 +642,14 @@ export class VineLayer {
                 chain.reduce((sum, vine) => sum + (vine.cellSize || cellSize), 0) / Math.max(1, chain.length);
             const samples = this.sampleChain(chain, localCellSize, this.sampleScratch);
             const dry = samples[0]?.dry ?? false;
+            this.growthVfx.path(
+                VineLayer.key(chain[0].cell),
+                samples,
+                Math.max(...chain.map((cell) => cell.presence)),
+                localCellSize,
+                chain.some((cell) => cell.alive),
+                dry,
+            );
             const darkColour = dry ? DRY_DARK : BARK_DARK;
             const midColour = dry ? DRY_MID : BARK_MID;
             const rimColour = dry ? DRY_RIM : BARK_RIM;
@@ -869,7 +895,11 @@ export class VineLayer {
         this.pendingGrowth.clear();
         this.castOrigins.clear();
         this.projectedOrigins.clear();
-        for (const ribbon of this.ribbons.values()) ribbon.mesh.geometry.destroy();
+        this.growthVfx.destroy();
+        for (const ribbon of this.ribbons.values()) {
+            ribbon.mesh.shader?.destroy();
+            ribbon.mesh.geometry.destroy(true);
+        }
         this.ribbons.clear();
         this.container.destroy({ children: true });
     }

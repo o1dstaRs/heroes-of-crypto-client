@@ -1,3 +1,5 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
+import { OVERHEAD_EFFECT_DURATION_MS, overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
@@ -5,7 +7,8 @@ import { images } from "../../imageAssets";
 type Anchor = Readonly<{ x: number; y: number }>;
 const atlasUrl = images.vfx_borrowed_grace_pop_atlas;
 const meta = animationAtlases["Vfx Borrowed Grace"].pop;
-export const BORROWED_GRACE_REVEAL_MS = 1000;
+export const BORROWED_GRACE_REVEAL_MS = OVERHEAD_EFFECT_DURATION_MS;
+const AUTHORED_REVEAL_MS = 1000;
 const LIFE_MS = 2000;
 let leases = 0;
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -17,10 +20,10 @@ export function borrowedGracePose(age: number) {
         end += duration;
         return Math.max(0, age) < end;
     });
-    const revealAge = age - BORROWED_GRACE_REVEAL_MS;
+    const revealAge = age - AUTHORED_REVEAL_MS;
     return {
         frame,
-        reveal: age >= BORROWED_GRACE_REVEAL_MS,
+        reveal: age >= AUTHORED_REVEAL_MS,
         iconAlpha: clamp(revealAge / 120) * clamp((LIFE_MS - age) / 240),
         iconScale: 0.9 + 0.1 * clamp(revealAge / 160),
         finished: age >= LIFE_MS,
@@ -36,7 +39,7 @@ export class BorrowedGracePops {
         enemy: Container;
         monk: Container;
         hand: Sprite;
-        icon: Sprite;
+        icon?: Sprite;
         from: Anchor;
         cell: number;
         started: number;
@@ -46,7 +49,7 @@ export class BorrowedGracePops {
         revealed: boolean;
     }[] = [];
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -88,7 +91,7 @@ export class BorrowedGracePops {
     public async spawn(
         from: Anchor,
         cell: number,
-        texture: Texture,
+        texture: Texture | undefined,
         source: () => Anchor | undefined,
         recipient: () => Anchor | undefined,
         onReveal?: () => void,
@@ -99,14 +102,14 @@ export class BorrowedGracePops {
         const enemy = new Container(),
             monk = new Container();
         const hand = new Sprite(frames[0]),
-            icon = new Sprite(texture);
+            icon = texture ? new Sprite(texture) : undefined;
         hand.anchor.set(0.5, 1);
         hand.width = hand.height = cell * 1.45 * 0.9;
-        icon.anchor.set(0.5);
+        icon?.anchor.set(0.5);
         enemy.addChild(hand);
-        monk.addChild(icon);
-        this.attach(enemy, 5520);
-        this.attach(monk, 5520);
+        if (icon) monk.addChild(icon);
+        this.attach(enemy, 5520, () => source() ?? from);
+        this.attach(monk, 5520, recipient);
         this.pops.push({
             enemy,
             monk,
@@ -125,10 +128,15 @@ export class BorrowedGracePops {
     public update(_dt: number): void {
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const age = Math.max(0, this.now() - pop.started),
+            // Each head gets its own full 650 ms cue: victim first, recipient second.
+            const age = overheadEffectElapsedMs(this.now() - pop.started, AUTHORED_REVEAL_MS),
                 pose = borrowedGracePose(age);
             const to = pop.recipient();
-            if (pose.finished || !to) {
+            if (to && pose.reveal && !pop.revealed) {
+                pop.revealed = true;
+                pop.onReveal?.();
+            }
+            if (pose.finished || !to || (pose.reveal && !pop.icon)) {
                 pop.enemy.destroy({ children: true });
                 pop.monk.destroy({ children: true });
                 this.pops.splice(i, 1);
@@ -141,11 +149,9 @@ export class BorrowedGracePops {
             pop.enemy.visible = !pose.reveal;
             pop.monk.visible = pose.reveal;
             if (pose.frame >= 0) pop.hand.texture = this.frames![pose.frame];
-            pop.icon.alpha = pose.iconAlpha;
-            pop.icon.width = pop.icon.height = pop.cell * 0.65 * pose.iconScale;
-            if (pose.reveal && !pop.revealed) {
-                pop.revealed = true;
-                pop.onReveal?.();
+            if (pop.icon) {
+                pop.icon.alpha = pose.iconAlpha;
+                pop.icon.width = pop.icon.height = pop.cell * 0.65 * pose.iconScale;
             }
             for (const root of [pop.enemy, pop.monk]) {
                 const transform = root.parent?.getGlobalTransform();

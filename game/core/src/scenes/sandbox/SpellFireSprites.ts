@@ -7,8 +7,9 @@ import { FIRE_SPELL_PLAYBACK_SPEED, METEOR_FLIGHT_SCALE } from "../../settings/f
 import type { WhirlpoolFootprint } from "./WhirlpoolSprites";
 
 type Footprint = WhirlpoolFootprint;
-type Kind = "ring" | "meteor";
+type Kind = "ring" | "hollow" | "meteor";
 const SOURCES = {
+    hollow: { url: images.vfx_ring_fire_hollow_burst_atlas, meta: animationAtlases["Vfx Ring Fire Hollow"].burst },
     ring: { url: images.vfx_ring_fire_burst_atlas, meta: animationAtlases["Vfx Ring Fire"].burst },
     meteor: { url: images.vfx_meteor_shower_impact_atlas, meta: animationAtlases["Vfx Meteor Shower"].impact },
 };
@@ -96,9 +97,9 @@ export class SpellFireSprites {
                 console.error("Fire spell atlas failed to load", kind, error);
             }));
     }
-    public async ring(target: Footprint, area: Footprint): Promise<void> {
+    public async ring(target: Footprint, area: Footprint, hollow = false): Promise<void> {
         if (!valid(target) || !valid(area)) return;
-        await this.spawn("ring", [{ footprint: copy(area), target: copy(target), delay: 0 }]);
+        await this.spawn(hollow ? "hollow" : "ring", [{ footprint: copy(area), target: copy(target), delay: 0 }]);
     }
     public async meteors(cells: readonly Footprint[]): Promise<void> {
         await this.spawn(
@@ -132,7 +133,7 @@ export class SpellFireSprites {
         for (let i = this.casts.length - 1; i >= 0; i--) {
             const cast = this.casts[i];
             const age = (now - cast.startedAt) * FIRE_SPELL_PLAYBACK_SPEED - cast.delay;
-            const life = cast.kind === "ring" ? FIRE_RING_LIFE_MS : METEOR_FALL_MS + METEOR_IMPACT_MS;
+            const life = cast.kind !== "meteor" ? FIRE_RING_LIFE_MS : METEOR_FALL_MS + METEOR_IMPACT_MS;
             if (age >= life) {
                 cast.container.destroy({ children: true });
                 this.casts.splice(i, 1);
@@ -142,7 +143,14 @@ export class SpellFireSprites {
             if (age < 0) continue;
             const { sprite, container, footprint: area, target } = cast;
             emitFireAtmosphere(this.emitAtmosphere, cast.kind, age, target, area);
-            if (cast.kind === "ring") {
+            if (cast.kind === "hollow") {
+                const frames = this.frames.hollow!;
+                sprite.texture = frames[Math.min(frames.length - 1, Math.floor((age / life) * frames.length))];
+                sprite.width = area.width / 0.94;
+                sprite.height = area.height / 0.87;
+                container.position.set(area.center.x, area.center.y);
+                container.alpha = Math.min(1, age / 120, (life - age) / 260);
+            } else if (cast.kind === "ring") {
                 // Hold the growing orb inside the target footprint, then burst into the surrounding cells.
                 const frame = Math.min(11, Math.floor(age / (FIRE_RING_LIFE_MS / 12)));
                 sprite.texture = this.frames.ring![frame];

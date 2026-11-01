@@ -1,0 +1,48 @@
+---
+import FactionArtwork from '../../components/FactionArtwork.astro';
+import roster from '../../data/feature-roster.json';
+import config from '../../data/feature-art.json';
+import '../../styles/feature-editor.css';
+export function getStaticPaths() {
+    return import.meta.env.DEV ? [{ params: { tool: 'feature-cards' } }] : [];
+}
+const variants = ['Оригинал', 'Феникс и метеор', 'Волна и огненное копьё', 'Три стихии', 'Крылья и вихрь', 'Удар над руинами', 'Метеоритный дождь'];
+---
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content="noindex,nofollow"/><title>Редактор карточек — Heroes of Crypto</title></head>
+<body>
+<header><div><p class="kicker">HEROES OF CRYPTO · DEV TOOL</p><h1>Карточки главной страницы</h1></div><a href="/#features" target="_blank">Открыть сайт ↗</a></header>
+<main>
+<section class="workspace" aria-label="Редактор фракций">
+ <div class="canvas-column">
+  <div class="section-title"><h2>Четыре фракции</h2><span>Выбери слот и двигай существо мышью</span></div>
+  <div id="editor-stage"><FactionArtwork editable /></div>
+  <p class="hint">Колесо мыши — масштаб · Стрелки — сдвиг · Shift + стрелки — точный сдвиг</p>
+  <div class="small-preview"><div class="preview-label">Как в карточке сайта</div><div class="actual-card"><div class="actual-art"><FactionArtwork /></div><div class="card-copy"><h3>Pick your faction style</h3><p>Chaos, Life, Might, and Nature bring distinct combat roles, counters, and stacking bonuses for different play styles.</p></div></div></div>
+ </div>
+ <aside>
+  <div class="slot-tabs" aria-label="Фракция">{roster.map((g,i)=><button type="button" data-select-slot={i} aria-pressed={i===0}>{g.faction}</button>)}</div>
+  <h2 id="slot-title">Chaos</h2>
+  <label>Существо<select id="creature"></select></label>
+  <label>Масштаб <output id="scale-value"></output><input id="scale" type="range" min="25" max="400" step="1" /></label>
+  <div class="coordinates"><label>По горизонтали, %<input id="position-x" type="number" min="-150" max="150" step="0.5" /></label><label>По вертикали, %<input id="position-y" type="number" min="-150" max="150" step="0.5" /></label></div>
+  <label class="check"><input id="flip" type="checkbox"/> Отразить по горизонтали</label>
+  <button id="reset-slot" type="button">Сбросить положение</button>
+  <hr/><button class="primary" id="save" type="button">Сохранить на главной</button>
+  <p id="status" role="status">Изменения появятся на сайте после сохранения.</p>
+  <button id="export" type="button">Скачать настройки JSON</button>
+ </aside>
+</section>
+<section id="spell-variants">
+ <div class="section-title"><div><p class="kicker">ВАРИАНТЫ МАГИИ</p><h2>Магия с крупными элементами</h2></div><p>Нажми на изображение, чтобы рассмотреть.<br/>Выбранный вариант применяется кнопкой «Сохранить на главной».</p></div>
+ <div class="variant-grid">{variants.map((name,i)=><article class="variant" data-variant={i}>
+  <button type="button" class="enlarge" data-enlarge={i} aria-label={`Увеличить: ${name}`}><img src={i ? `/assets/images/home/features/spells_variant_${i}.webp` : '/assets/images/home/features/spells_cinematic.webp'} alt={name} loading="lazy"/></button>
+  <div class="card-copy"><h3>Swing the fight</h3><p>100+ spells, abilities, and aura effects can flip the board when you read the moment correctly.</p><label class="variant-choice"><input type="radio" name="spell" value={i} checked={config.spellVariant===i}/>{i===0 ? name : `${i}. ${name}`}</label></div>
+ </article>)}</div>
+</section>
+</main>
+<dialog id="image-dialog"><button id="close-dialog" autofocus type="button">Закрыть ×</button><img alt="Вариант магии крупным планом"/></dialog>
+<script type="application/json" id="editor-data" set:html={JSON.stringify({roster,config})} />
+<script>import '../../scripts/feature-card-editor';</script>
+</body></html>

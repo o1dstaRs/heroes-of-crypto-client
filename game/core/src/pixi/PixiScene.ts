@@ -61,7 +61,11 @@ import {
     isLazyMapTextureAssetKey,
     isDeferredEnvironmentAssetKey,
     isLazySpellAssetKey,
+    isLazyRosterAssetKey,
+    isDeferredUnitCardAssetKey,
 } from "./imageAssetTiers";
+import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 import {
     boardFirstTextureLoads,
     boardImageRetryDelayMs,
@@ -130,9 +134,14 @@ export interface SceneEntry {
 }
 
 export type CreatureAnimationLabSpell =
-    "Lightning Strike" | "Whirlpool" | "Ring of Fire" | "Meteor Shower" | "Fire Wall";
+    "Lightning Strike" | "Whirlpool" | "Ring of Fire" | "Fireball" | "Smoke" | "Meteor Shower" | "Fire Wall";
 
 export type CreatureAnimationLabState =
+    | "water_shield_break"
+    | "dodge"
+    | "small_specie"
+    | "backstab"
+    | `beholder_debuff_${"all" | "curse" | "sadness" | "quagmire" | "weakening_beam" | "weakness" | "rangebane" | "cowardice"}${"" | "_no_damage" | "_losses"}`
     | "idle"
     | "attack_up"
     | "attack_down"
@@ -146,8 +155,18 @@ export type CreatureAnimationLabState =
     | "infest_hatch_queen"
     | "battle_roar_short"
     | "battle_roar_long"
+    | "stun"
+    | "flag_stun"
     | "paralysis"
     | "boar_saliva"
+    | "penetrating_bite"
+    | "piercing_spear"
+    | "petrifying_gaze"
+    | "aggr"
+    | "terrifying_gaze"
+    | "wild_regeneration_engine"
+    | "wild_regeneration"
+    | "shadow_touch"
     | "devour_essence"
     | "ai_brain"
     | "unyielding_power"
@@ -161,12 +180,34 @@ export type CreatureAnimationLabState =
     | "absolving_arrow"
     | "empower"
     | "dulling_defense"
+    | "hamstring"
+    | "bitter_experience"
+    | "lucky_strike"
+    | "shatter_armor"
+    | "leather_armor"
+    | "blind_fury"
+    | "miner"
+    | "madness"
     | "ogre_riot"
+    | "blacksmith_double_punch"
+    | "blacksmith_double_shot"
+    | "blacksmith_frozen_sword"
+    | "blacksmith_frozen_bow"
+    | "blacksmith_craft"
+    | "blacksmith_armor"
+    | "blacksmith_weapon"
+    | "mage_misfortune"
+    | "mage_fireforged"
+    | "satyr_courage"
+    | "wind_flow"
+    | "satyr_helping_hand"
     | "ogre_magic_mirror"
     | "common_lucky"
+    | "multi_attack"
     | "common_miss"
     | "common_resist"
     | "common_heal"
+    | "single_heal"
     | "common_absorb"
     | "angel_resurrection"
     | "deep_wounds_1"
@@ -316,6 +357,7 @@ export abstract class PixiScene {
     public setCreatureAnimationLabEnabled(_enabled: boolean): void {}
     public setCreatureAnimationLabCyclopsImpactMode(_mode: CyclopsImpactMode): void {}
     public setCreatureAnimationLabFireMode(_mode: FireSpellRenderMode): void {}
+    public setCreatureAnimationLabRapidCharge(_enabled: boolean): void {}
     public setCreatureAnimationLabSpell(_spell?: CreatureAnimationLabSpell): void {}
     public castCreatureAnimationLabSpell(): CreatureAnimationLabResult {
         return { ok: false, message: "Animation Lab недоступен в этой сцене" };
@@ -465,6 +507,11 @@ export abstract class PixiScene {
         if (this.sc_destroyed) return undefined;
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
         const isSceneLeasedTexture =
+            isUnitAnimationAtlasKey(key) ||
+            isNamedUnitStateSheetKey(key) ||
+            isDeferredUnitCardAssetKey(key) ||
+            key.startsWith("portrait_aaa_front_") ||
+            isLazyRosterAssetKey(key) ||
             isLazyBattlefieldCreatureAssetKey(key) ||
             isLazyCombatEffectAssetKey(key) ||
             isLazyMapTextureAssetKey(key) ||
@@ -550,7 +597,10 @@ export abstract class PixiScene {
         }
         return undefined;
     };
-    protected async waitForTexture(key: string, options?: TextureLoadOptions): Promise<Texture | undefined> {
+    protected async waitForTexture(
+        key: string,
+        options: TextureLoadOptions = { priority: "visible" },
+    ): Promise<Texture | undefined> {
         const immediate = this.texAny(key, options);
         if (immediate || this.sc_destroyed) return immediate;
 

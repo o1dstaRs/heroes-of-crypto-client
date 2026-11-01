@@ -139,6 +139,8 @@ describe("Arbalester lab projectile timing", () => {
             const makeUnit = (id: string, team: number, y: number, placed = true) => ({
                 getId: () => id,
                 getName: () => unitName,
+                isDead: () => false,
+                hasAbilityActive: () => false,
                 getTeam: () => team,
                 getPosition: () => ({ x: 0, y }),
                 getVisualCenter: () => ({ x: 0, y }),

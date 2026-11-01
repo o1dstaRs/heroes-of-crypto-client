@@ -1,5 +1,5 @@
 import { Box, Button, Input, Sheet, Typography } from "@mui/joy";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import { hocColors, hocDisplayFontFamily } from "./hocTheme";
 import {
@@ -51,15 +51,6 @@ export const PickLanternFireEditor: React.FC<React.PropsWithChildren> = ({ child
     const [dock, setDock] = useState<"left" | "right">("right");
     const [collapsed, setCollapsed] = useState(false);
     const [status, setStatus] = useState("Настройки сохраняются автоматически");
-
-    useEffect(() => {
-        // The editor is a two-layer calibration surface: every fresh launch starts with both flames visible.
-        // This only restores a development localStorage override that may have been switched off manually;
-        // both approved game defaults are enabled independently outside the editor as well.
-        if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") return;
-        const second = readPickLanternFireTuning(1);
-        if (!second.enabled) writePickLanternFireTuning({ ...second, enabled: true }, 1);
-    }, []);
 
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
         return <Typography sx={{ p: 4 }}>Lantern fire editor is available only in development builds.</Typography>;
@@ -155,6 +146,15 @@ export const PickLanternFireEditor: React.FC<React.PropsWithChildren> = ({ child
                         Источник огня {selectedSlot + 1}
                     </Typography>
                     <Box sx={{ mt: 0.75, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0.75 }}>
+                        <Button
+                            size="sm"
+                            sx={{ gridColumn: "1 / -1" }}
+                            variant={tuning.source === "engine" ? "solid" : "outlined"}
+                            color="warning"
+                            onClick={() => update({ source: "engine" })}
+                        >
+                            Движок · живое пламя
+                        </Button>
                         <Button
                             size="sm"
                             variant={tuning.source === "natural-atlas" ? "solid" : "outlined"}
@@ -255,31 +255,35 @@ export const PickLanternFireEditor: React.FC<React.PropsWithChildren> = ({ child
                             step={0.01}
                             onChange={(brightness) => update({ brightness })}
                         />
-                        <ValueControl
-                            label="Контраст"
-                            value={tuning.contrast}
-                            min={0.2}
-                            max={3}
-                            step={0.01}
-                            onChange={(contrast) => update({ contrast })}
-                        />
-                        <ValueControl
-                            label="Насыщ."
-                            value={tuning.saturation}
-                            min={0}
-                            max={3}
-                            step={0.01}
-                            onChange={(saturation) => update({ saturation })}
-                        />
-                        <ValueControl
-                            label="Оттенок"
-                            value={tuning.hue}
-                            min={-90}
-                            max={90}
-                            step={1}
-                            suffix="°"
-                            onChange={(hue) => update({ hue })}
-                        />
+                        {tuning.source !== "engine" && (
+                            <>
+                                <ValueControl
+                                    label="Контраст"
+                                    value={tuning.contrast}
+                                    min={0.2}
+                                    max={3}
+                                    step={0.01}
+                                    onChange={(contrast) => update({ contrast })}
+                                />
+                                <ValueControl
+                                    label="Насыщ."
+                                    value={tuning.saturation}
+                                    min={0}
+                                    max={3}
+                                    step={0.01}
+                                    onChange={(saturation) => update({ saturation })}
+                                />
+                                <ValueControl
+                                    label="Оттенок"
+                                    value={tuning.hue}
+                                    min={-90}
+                                    max={90}
+                                    step={1}
+                                    suffix="°"
+                                    onChange={(hue) => update({ hue })}
+                                />
+                            </>
+                        )}
                         {tuning.source === "natural-atlas" && (
                             <>
                                 <ValueControl
@@ -317,15 +321,19 @@ export const PickLanternFireEditor: React.FC<React.PropsWithChildren> = ({ child
                             suffix="×"
                             onChange={(glowSize) => update({ glowSize })}
                         />
-                        <ValueControl
-                            label="Маска"
-                            value={tuning.maskInset}
-                            min={0}
-                            max={40}
-                            step={0.5}
-                            suffix="%"
-                            onChange={(maskInset) => update({ maskInset })}
-                        />
+                        {tuning.source !== "engine" && (
+                            <>
+                                <ValueControl
+                                    label="Маска"
+                                    value={tuning.maskInset}
+                                    min={0}
+                                    max={40}
+                                    step={0.5}
+                                    suffix="%"
+                                    onChange={(maskInset) => update({ maskInset })}
+                                />
+                            </>
+                        )}
                     </Box>
 
                     <Box sx={{ mt: 1.5, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0.75 }}>

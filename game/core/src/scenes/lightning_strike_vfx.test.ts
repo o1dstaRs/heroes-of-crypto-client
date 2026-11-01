@@ -2,6 +2,7 @@ import { expect, mock, test } from "bun:test";
 import type { GameEvent } from "@heroesofcrypto/common";
 import { Sandbox } from "./Sandbox";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { spellFootprint } from "./sandbox/SpellFootprint";
 
 function fixture(alive: boolean) {
     const visuals = {
@@ -11,6 +12,8 @@ function fixture(alive: boolean) {
             () => undefined,
         ),
         spawnFireRing: mock(() => undefined),
+        spawnFireball: mock((..._args: unknown[]) => undefined),
+        spawnFireStrikeArrow: mock((..._args: unknown[]) => 600),
         showFloatingDamage: mock(() => undefined),
         spawnMagicMirrorRebound: mock(() => undefined),
     };
@@ -88,24 +91,37 @@ test("a zero-damage strike still flashes; another spell retains its existing fir
 });
 
 for (const spellName of ["Fire Strike", "Fireball"]) {
-    test(`${spellName} playback uses the recorded clear flight even after its victim is removed`, () => {
+    test(`${spellName} retains its approved renderer at the recorded impact after its victim is removed`, () => {
         const { scene, visuals, gs } = fixture(false);
-        const flight = { fromPosition: { x: 100, y: 200 }, toPosition: { x: 290, y: 470 }, affectedUnitId: "target" };
+        const cell = { x: 4, y: 6 };
+        const flight = { fromPosition: { x: 100, y: 200 }, toPosition: { x: 290, y: 430 }, affectedUnitId: "target" };
         scene.renderSpellDamageVfx([
             {
                 ...cast(),
                 spellName,
-                targetCell: { x: 4, y: 6 },
+                targetCell: cell,
                 animations: [flight],
                 damaged: [{ unitId: "target", position: { x: 300, y: 400 }, amount: 90, unitsDied: 0 }],
             },
         ]);
-        expect(visuals.spawnFireSweep.mock.calls).toEqual([
-            [
+        if (spellName === "Fire Strike") {
+            const call = visuals.spawnFireStrikeArrow.mock.calls[0];
+            expect(call.slice(0, 4)).toEqual([
                 projectBattlefieldPoint(flight.fromPosition, gs as never),
                 projectBattlefieldPoint(flight.toPosition, gs as never),
+                projectBattlefieldPoint({ x: 300, y: 400 }, gs as never),
                 64,
-            ],
-        ]);
+            ]);
+            expect(visuals.showFloatingDamage).not.toHaveBeenCalled();
+            (call[5] as () => void)();
+            expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(1);
+        } else {
+            expect(visuals.spawnFireball.mock.calls).toEqual([
+                [spellFootprint([cell], gs as never), spellFootprint([cell], gs as never, 1)],
+            ]);
+            expect(visuals.spawnFireRing).not.toHaveBeenCalled();
+        }
+        expect(visuals.spawnFireSweep).not.toHaveBeenCalled();
+        expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
     });
 }

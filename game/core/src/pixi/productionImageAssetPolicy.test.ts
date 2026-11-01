@@ -152,7 +152,7 @@ describe("production environment image policy", () => {
             "ui_up_next_smoky_chains_bg_85pct_v5",
             "ui_up_next_smoky_chains_bg_wide_73pct_v4",
             "life_portrait_bg_golden_dawn_four_corner_haze_v1",
-            "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+            "nature_portrait_bg_emerald_forest_v1",
             "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
             "might_portrait_bg_blood_claw_strong_red_corners_v1",
             "map_badge_normal_4x4_actual_style_v4",

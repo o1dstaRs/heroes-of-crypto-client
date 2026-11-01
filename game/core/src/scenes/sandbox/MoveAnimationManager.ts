@@ -3,6 +3,8 @@ import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
 import { Container, Sprite } from "pixi.js";
+import { NomadChargeDust } from "./NomadChargeDust";
+import { NOMAD_CHARGE_GAIT_MULTIPLIER, nomadHoofDistance } from "./NomadChargeEarthPhysics";
 import {
     projectBattlefieldPoint,
     projectedBattlefieldMetricsAtPoint,
@@ -49,6 +51,7 @@ interface IMoveAnimationState {
     waitingForLanding: boolean;
     // Rapid Charge: accelerate toward the destination + leave a blurred afterimage trail.
     rapidCharge: boolean;
+    groundCharge: boolean;
     totalSegments: number;
     lastAfterimageWorld: HoCMath.XY;
     nextFootstepDistance: number;
@@ -101,6 +104,7 @@ export class MoveAnimationManager {
     private moveTrackProgress = 0;
     private lingeringTracks: ILingeringTrack[] = [];
     private afterimages: IAfterimage[] = [];
+    private rapidChargeDust?: NomadChargeDust;
     private lastTrackDropIndex: number = -1;
     private isActiveUnitMoving = false;
     private readonly projectedMetricsScratch: MutableProjectedBattlefieldMetrics = {
@@ -165,6 +169,8 @@ export class MoveAnimationManager {
             if (!ghost.sprite.destroyed) ghost.sprite.destroy();
         }
         this.afterimages.length = 0;
+        this.rapidChargeDust?.destroy();
+        this.rapidChargeDust = undefined;
         this.lingeringTracks.length = 0;
         this.moveTrackPath = undefined;
         this.moveTrackProgress = 0;
@@ -218,14 +224,8 @@ export class MoveAnimationManager {
         // Rapid Charge dash (accelerate + motion blur) ONLY when this move leads into a melee attack —
         // the caller passes rapidCharge=true for a move+attack approach, never for a plain reposition —
         // AND the unit actually has the ability. Same gate for sandbox (live) and ranked (replay).
-        // Scavenger's authored six-pose run must remain readable as one coherent figure. The generic
-        // Rapid Charge trail cloned the full-body sprite several times across the map and also changed
-        // the travel duration, so its frames could not stay synchronized to distance. Preserve the
-        // ability mechanically, but use the normal single-sprite movement presentation for Scavenger.
-        const useRapidCharge =
-            rapidCharge &&
-            unit.hasAbilityActive("Rapid Charge") &&
-            unit.getUnitProperties().name.trim() !== "Scavenger";
+        // Every active Rapid Charge owner shares grounded dust/debris, without sprite clones.
+        const useRapidCharge = rapidCharge && unit.hasAbilityActive("Rapid Charge");
         const baseVisualSpeed = unit.canFly() ? speed * 1.2 : speed;
         this.moveAnimation = {
             unit,
@@ -243,6 +243,7 @@ export class MoveAnimationManager {
             chainsIntoMeleeAttack: rapidCharge,
             waitingForLanding: false,
             rapidCharge: useRapidCharge,
+            groundCharge: useRapidCharge && !unit.canFly(),
             totalSegments: Math.max(1, worldPath.length - 1),
             lastAfterimageWorld: { x: start.x, y: start.y },
             // Frame 0 is an authored support pose. Emit its contact on the first moving tick, then
@@ -312,6 +313,7 @@ export class MoveAnimationManager {
         };
     }
     public update(dt: number) {
+        this.rapidChargeDust?.update(dt);
         this.stepMoveAnimation(dt);
         this.stepSwapAnimation(dt);
         this.updateLingeringTracks(dt);
@@ -455,7 +457,7 @@ export class MoveAnimationManager {
             const progress = Math.min(1, (anim.currentSegment + anim.t) / anim.totalSegments);
             const accel = RC_MIN_SPEED_MULT + (RC_MAX_SPEED_MULT - RC_MIN_SPEED_MULT) * progress * progress;
             effSpeed = speed * accel;
-            unit.setMotionBlur(RC_BLUR_BASE + RC_BLUR_RANGE * progress);
+            unit.setMotionBlur(anim.groundCharge ? 0 : RC_BLUR_BASE + RC_BLUR_RANGE * progress);
         }
 
         let remaining = effSpeed * dt;
@@ -481,6 +483,8 @@ export class MoveAnimationManager {
             const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
             const segRemaining = (1 - a.t) * segLen;
             const segmentStartProgress = segIndex + a.t;
+            const distanceBefore = a.walkedDistanceCells;
+            const segmentStartT = a.t;
 
             a.walkedDistanceCells += Math.min(remaining, segRemaining) / cellSize;
             let newPos: HoCMath.XY;
@@ -526,7 +530,39 @@ export class MoveAnimationManager {
 
             this.moveTrackProgress = a.currentSegment + a.t;
             // Keep sprite cadence independent of path segmentation, direction and movement speed.
-            unit.setBoardWalkDistanceCells(a.walkedDistanceCells);
+            unit.setBoardWalkDistanceCells(
+                a.walkedDistanceCells *
+                    (a.groundCharge && unit.getName() === "Nomad" ? NOMAD_CHARGE_GAIT_MULTIPLIER : 1),
+            );
+
+            if (a.groundCharge) {
+                // Sample every crossed support pose, even when a frame crosses a path corner.
+                // Preserve each creature's cadence; Nomad retains its authorized doubled gait.
+                const ground = unit.getProjectileGroundPoint(gs);
+                const projectedEnd = projectBattlefieldPoint(newPos, gs);
+                const contactCadence = unit.getName() === "Nomad" ? 1 : NOMAD_CHARGE_GAIT_MULTIPLIER;
+                while (nomadHoofDistance(a.footstepIndex) * contactCadence <= a.walkedDistanceCells + 1e-9) {
+                    const contactDistance = nomadHoofDistance(a.footstepIndex) * contactCadence;
+                    const t = segmentStartT + (Math.max(0, contactDistance - distanceBefore) * cellSize) / segLen;
+                    const logical = { x: p0.x + dx * t, y: p0.y + dy * t };
+                    const metrics = projectedBattlefieldMetricsAtPoint(logical, gs, this.projectedMetricsScratch);
+                    const direction = this.projectDirection(logical, dx / segLen, dy / segLen, gs);
+                    const fore = a.footstepIndex % 2 === 1;
+                    const facing = unit.getBoardFacingDirection();
+                    const x =
+                        metrics.center.x + ground.x - projectedEnd.x + facing * metrics.cellSize * (fore ? 0.3 : -0.3);
+                    const y =
+                        metrics.center.y +
+                        ground.y -
+                        projectedEnd.y +
+                        (a.footstepIndex % 4 < 2 ? -0.025 : 0.025) * metrics.cellSize;
+                    this.rapidChargeDust ??= new NomadChargeDust(this.context.getWorldRoot());
+                    this.rapidChargeDust.contact(x, y, metrics.cellSize, direction.x, direction.y);
+                    a.footstepIndex++;
+                }
+                // Start on the arrival frame even when this step consumes remaining exactly.
+                if (a.currentSegment >= a.worldPath.length - 1) this.rapidChargeDust?.finish();
+            }
 
             if (MOVEMENT_PARTICLES_ENABLED && !isFlying) {
                 this.dropWalkDustAtCellCenters(
@@ -544,7 +580,7 @@ export class MoveAnimationManager {
 
             // Rapid Charge: spill a fading afterimage every ~0.4 cells travelled — the trail of ghosts
             // behind the dashing unit is the "motion blur" of a fast charge.
-            if (a.rapidCharge) {
+            if (a.rapidCharge && !a.groundCharge) {
                 const adx = newPos.x - a.lastAfterimageWorld.x;
                 const ady = newPos.y - a.lastAfterimageWorld.y;
                 const spacing = cellSize * RC_AFTERIMAGE_SPACING_CELLS;
@@ -599,6 +635,7 @@ export class MoveAnimationManager {
         const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
 
         unit.setPosition(end.x, end.y);
+        if (anim.groundCharge) this.rapidChargeDust?.finish();
 
         if (force) {
             unit.stopBoardWalkAnimation();

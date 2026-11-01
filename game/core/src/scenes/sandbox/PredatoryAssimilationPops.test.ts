@@ -33,17 +33,17 @@ test("the claw captures before travel and releases before the stolen icon appear
             [captured, claw, acquired] = root.children as Sprite[];
         expect(captured.texture).toBe(icon);
         expect(acquired.texture).toBe(icon);
-        now = 380;
+        now = 380 * (650 / 2200);
         layer.update(0);
         expect(root.x).toBe(100);
         expect(captured.alpha).toBe(1);
         expect(acquired.alpha).toBe(0);
-        now = 700;
+        now = 700 * (650 / 2200);
         layer.update(0);
         expect(root.x).toBeGreaterThan(100);
         expect(root.x).toBeLessThan(300);
         expect(acquired.alpha).toBe(0);
-        now = 1100;
+        now = 1100 * (650 / 2200);
         layer.update(0);
         expect(root.x).toBe(300);
         expect(claw.alpha).toBeGreaterThan(0);
@@ -51,7 +51,7 @@ test("the claw captures before travel and releases before the stolen icon appear
         expect(arrivals).toBe(0);
         // A rebuilt recipient uses a new flag position; the running overlay follows it.
         flag = { x: 350, y: 250 };
-        now = 1400;
+        now = 1400 * (650 / 2200);
         layer.update(0);
         expect(root.x).toBe(350);
         expect(root.y).toBeCloseTo(250 + 64 * 0.85);
@@ -59,10 +59,10 @@ test("the claw captures before travel and releases before the stolen icon appear
         expect(claw.alpha).toBe(0);
         expect(acquired.alpha).toBe(1);
         expect(arrivals).toBe(1);
-        now = 1600;
+        now = 1600 * (650 / 2200);
         layer.update(0);
         expect(arrivals).toBe(1);
-        now = 2200;
+        now = 2200 * (650 / 2200);
         layer.update(0);
         expect(layer.active).toBe(false);
         expect(root.destroyed).toBe(true);

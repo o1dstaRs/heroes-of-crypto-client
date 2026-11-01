@@ -171,11 +171,16 @@ test("a piercing cannonball presents each hit and lethal casualty while it is st
 
 test("a second volley owns its own contact and does not hit the first volley's dead victim again", async () => {
     const f = fixture(true);
+    const pops: string[] = [];
+    f.scene.combatVisuals.spawnCommonFlagPop = (unit: typeof f.cannon, kind: string) =>
+        pops.push(`${unit.getId()}:${kind}`);
     const pending = f.play();
     await flush();
+    expect(pops).toEqual([]);
     f.advance(1);
     await flush();
     expect(f.shots).toHaveLength(2);
+    expect(pops).toEqual(["cannon:multi_attack"]);
     expect(f.near.displayed).toBe(2);
     f.advance(0.4);
     expect(f.events.slice(-3)).toEqual(["near:hurt", "damage:7", "near:hit"]);
@@ -184,6 +189,7 @@ test("a second volley owns its own contact and does not hit the first volley's d
     await pending;
     expect(f.events.filter((entry) => entry === "far:death")).toHaveLength(1);
     expect(f.events.filter((entry) => entry.startsWith("damage:"))).toHaveLength(3);
+    expect(pops).toHaveLength(1);
 });
 
 test("cancelling a scene after the first contact suppresses all later impacts and volleys", async () => {

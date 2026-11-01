@@ -1,3 +1,4 @@
+import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { TouchSplitAmount } from "./mobile/TouchSplitAmount";
 import { useGameLayout } from "./mobile/GameViewport";
 import { readGameViewport } from "../viewport/gameViewport";
@@ -98,7 +99,6 @@ import { exitStandingFromSnapshot, type IExitStanding } from "./exitRules/exitRu
 import { useLeaveGuard } from "./exitRules/useLeaveGuard";
 import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
-import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
@@ -121,9 +121,9 @@ import {
     useDraftScale,
 } from "./PickAndBan/runtime";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
+import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import { SynergySlots } from "./RightSideBar/SynergySlots";
-import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
@@ -2249,7 +2249,7 @@ export const RankedGameView: React.FC<Props> = ({
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             gameId={gameId}
                             exit={snapshot.exit}
-                            mode="ranked"
+                            mode={sandboxCoop ? "sandbox" : isVsAiMatch ? "vs-ai" : "ranked"}
                             players={snapshot.players.map((player) => ({
                                 playerId: player.playerId,
                                 team: player.team as TeamType,
@@ -2946,7 +2946,7 @@ const augmentEffectText = (label: string, level: number): string => {
     }
 };
 
-// Recap the selected build throughout placement, including while the sidebar editor is available.
+// Recap the authoritative build, including while the placement editor is available.
 // Augment levels come from the authoritative snapshot; faction synergies come from FightProperties.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
@@ -3235,16 +3235,15 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     );
 };
 
-// The READY action occupies the same bottom-centre footer slot as EXIT FIGHT. Unlike the compact exit
-// control it stretches across the complete centre column, while the green halo makes the positive lock-in
-// action unmistakable against the dark sidebar material.
+// The READY action fills the sidebar footer from its left inset to the corner controls.
 const rankedReadyPlacementButtonSx = {
     ...hocSidebarImageButtonSx("neutral"),
     width: "100%",
     minWidth: 0,
     maxWidth: "360px",
-    height: "max(44px, calc(2.2em + 8px))",
-    minHeight: "max(44px, calc(2.2em + 8px))",
+    height: "35.2px",
+    minHeight: "35.2px",
+    maxHeight: "35.2px",
     flexShrink: 0,
     justifySelf: "center",
     py: 0,
@@ -3451,7 +3450,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine;
     const augmentBudget = Doctrine.getUpgradePoints(userDoctrineId);
     // Ranked placement opens the augment step as its own screen; the player picks there, locks in, and
-    // the chosen upgrades collapse to a read-only sidebar summary. null = not yet interacted -> open by
+    // board placement then shows the committed build without editing. null = not yet interacted -> open by
     // default at placement start.
     const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     const [augmentOverlayOpenState, setAugmentOverlayOpen] = useState<boolean | null>(null);
@@ -3492,7 +3491,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         allSynergiesSelected: false,
     });
     // The committed augment build, straight from the authoritative snapshot. Shared by the Setup step's
-    // full-screen picker and the sidebar picker below so the two can never describe different builds.
+    // full-screen picker, where all upgrade choices are made before board placement.
     const augmentAuthoritativeSelections = useMemo(
         () => ({
             placement:
@@ -3519,20 +3518,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             snapshot.rightAugmentMovement,
         ],
     );
-    /**
-     * Augments stay adjustable in the sidebar while you position the board.
-     *
-     * The SERVER has always allowed this — validateAction gates AUGMENT only on team ownership, and
-     * play_session says so outright: "Setup choices (augments/synergies) stay EDITABLE through the board
-     * stage — a player may re-spend their points while positioning, right up until their own board-ready",
-     * noting that "the client hides those controls after ready, so only the UI was holding the rule up".
-     * When the augment step became its own screen the sidebar was left with a read-only recap, which took
-     * that ability away for no reason on the server's side. This puts the picker back beside the board.
-     *
-     * Not shown while the Setup step's own full-screen picker is up (that would be two live pickers on one
-     * build), and it collapses to the read-only recap once you lock in — which is exactly where the server
-     * stops accepting changes.
-     */
+    // The server permits build changes until this player's board-ready; Setup retains its own picker.
     const augmentsEditableInSidebar = shouldShowRankedAugmentPicker(snapshot, augmentOverlayOpen, isObserver, ready);
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
     const augmentInspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3723,17 +3709,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 disabled={ready || (snapshot.placementSplit === true && snapshot.placementStage === 0)}
                             />
                         )}
-                        {/* The augment/synergy picker lives HERE in the sidebar — the pre-#129 home,
-                            restored by owner request: pick augments beside the board instead of inside a
-                            fullscreen draft step. Interactive while augments are still editable (the split
-                            Setup stage before lock-in, or the whole legacy combined window), a read-only
-                            recap afterwards. The picker routes to the authoritative server via
-                            RankedPlayScene.propagateAugmentation (the AUGMENT play-action); artifacts are
-                            drafted in pick/ban (read-only above), so the sandbox-only artifact picker
-                            stays hidden. */}
-                        {/* The Setup step picks augments on its own screen, but they stay EDITABLE while you
-                            position — so the sidebar carries the live picker until you lock in, then the
-                            read-only recap. See augmentsEditableInSidebar for why the server allows it. */}
                         {augmentsEditableInSidebar ? (
                             // The SIDEBAR uses the compact sandbox shape: one row of augment icons with only
                             // the chosen augment's options underneath. SideToggleContainer expands every

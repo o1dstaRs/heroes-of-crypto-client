@@ -33,7 +33,7 @@ export const SIDEBAR_PORTRAIT_PREFETCH_LIMIT = 2;
 /** The cutout, the faction plate behind it, and the optional idle sheet. These are separate files. */
 export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortraitSources => {
     const art = resolveLeftSidebarPortraitArt(creatureId);
-    const visual = resolveCreaturePortraitVisual(creatureId);
+    const visual = resolveCreaturePortraitVisual(creatureId, "sidebar");
     const animation = resolveIntegratedArbalesterPortrait(creatureId, resolveLeftSidebarPortraitAnimation(creatureId));
     return {
         creature: art.source ?? visual?.source,

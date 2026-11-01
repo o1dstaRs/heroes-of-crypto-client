@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 
 import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 import { LEFT_SIDEBAR_PORTRAIT_ATLASES } from "./leftSidebarPortraitAnimationSources";
+import { REFINED_PORTRAIT_FRAMES } from "./leftSidebarPortraitPlayback";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 
 describe("left sidebar portrait animation", () => {
@@ -30,7 +31,18 @@ describe("left sidebar portrait animation", () => {
             if (name === "Peasant") continue;
             if (slug in LEFT_SIDEBAR_PORTRAIT_ATLASES) {
                 expect(animation?.src).toContain(`${slug}_left_screen_idle_atlas.webp`);
-                if (slug === "squire") {
+                if (slug in REFINED_PORTRAIT_FRAMES) {
+                    const count = REFINED_PORTRAIT_FRAMES[slug];
+                    expect(animation?.meta).toMatchObject({
+                        frameCount: count,
+                        layout: { cols: 10, rows: Math.ceil(count / 10) },
+                        encoding: "webp-rgba-lossless",
+                    });
+                    expect(count).toBe(100);
+                    expect(animation?.meta.totalDurationSec).toBeCloseTo(241 / 24);
+                    expect(animation?.meta.loopDurationMs).toBe(10042);
+                    expect(animation?.meta.fps).toBeCloseTo((100 * 24) / 241);
+                } else if (slug === "squire") {
                     expect(animation?.meta).toMatchObject({
                         frameCount: 60,
                         totalDurationSec: 145 / 24,

@@ -54,7 +54,7 @@ test.each([
     { attackerName: "Wolf", defenderName: "Manticore", attackType: "melee" },
     { attackerName: "Orc", defenderName: "Medusa", attackType: "melee" },
 ])(
-    "$attackerName / $defenderName $attackType preserve both authored attacks before reactions or deaths",
+    "$attackerName / $defenderName $attackType finish each authored attack and reaction before the response",
     async ({ attackerName, defenderName, attackType }) => {
         // Test pre-action replay figures and the already-resolved, mutually lethal local-engine state.
         for (const lethal of [false, true])
@@ -101,8 +101,8 @@ test.each([
                 const projectiles: IFireProjectileOptions[] = [];
                 const deaths: RenderableUnit[] = [];
                 const damage: number[] = [];
-                let prepareCount = 0;
-                let loadCounterProjectile!: () => void;
+                const displayedCounts: number[][] = [];
+
                 const scene = Object.assign(Object.create(Sandbox.prototype), {
                     sc_sceneSettings: { getGridSettings: () => gs },
                     unitsHolder: { getAllUnits: () => current },
@@ -115,17 +115,16 @@ test.each([
                     playUnitCombatSound: () => {},
                     popRecordedDullingDefense: () => {},
                     combatVisuals: {
-                        showFloatingDamage: (_position: unknown, amount: number) => damage.push(amount),
+                        spawnCommonFlagPop: () => {},
+                        showFloatingDamage: (_position: unknown, amount: number) => {
+                            damage.push(amount);
+                            displayedCounts.push(actors.map((actor) => actor.getDisplayedAmount()));
+                        },
                         spawnBloodSpray: () => {},
                         spawnSlash: () => {},
                     },
                     rangedProjectiles: {
-                        prepare: () =>
-                            ++prepareCount === 2
-                                ? new Promise<void>((resolve) => {
-                                      loadCounterProjectile = resolve;
-                                  })
-                                : Promise.resolve(),
+                        prepare: async () => {},
                         fire: async (opts: IFireProjectileOptions) => {
                             projectiles.push(opts);
                             // Immediate contact stresses an incoming hit while the opponent is still winding up.
@@ -139,7 +138,7 @@ test.each([
                     attackerId: source.getId(),
                     targetId: victim.getId(),
                     amount: 10,
-                    unitsDied: lethal ? 10 : 0,
+                    unitsDied: lethal ? 10 : 1,
                     lethal,
                     response,
                     hitIndex: 0,
@@ -171,15 +170,9 @@ test.each([
                     });
                 try {
                     await flush();
-                    if (attackType === "range") {
-                        expect(starts).toEqual([]);
-                        loadCounterProjectile();
-                        await flush();
-                    }
-                    const attacks = starts.filter((entry) => entry.state.includes("attack"));
-                    expect(new Set(attacks.map((entry) => entry.actor))).toEqual(new Set(actors));
-                    expect(attacks.map((entry) => entry.frame)).toEqual([0, 0]);
-                    expect(starts.some((entry) => entry.state === "hit" || entry.state === "death")).toBe(false);
+                    expect(
+                        starts.filter((entry) => entry.state.includes("attack")).map((entry) => entry.actor.getId()),
+                    ).toEqual([attacker.getId()]);
                     for (frame = 1; frame <= 400 && !completed; frame++) {
                         for (const actor of actors) actor.stepOneShotAnimation(16);
                         sleeps.splice(0).forEach((resolve) => resolve());
@@ -192,9 +185,19 @@ test.each([
                     expect(starts.filter((entry) => entry.state.includes("attack"))).toHaveLength(2);
                     expect(
                         new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.actor.getName())),
-                    ).toEqual(new Set(lethal ? [] : actors.map((actor) => actor.getName())));
-                    expect(new Set(deaths)).toEqual(new Set(lethal ? actors : []));
+                    ).toEqual(new Set(lethal ? [defender.getName()] : actors.map((actor) => actor.getName())));
+                    expect(deaths.map((actor) => actor.getId()).sort()).toEqual(
+                        lethal ? actors.map((actor) => actor.getId()).sort() : [],
+                    );
                     expect(damage).toEqual([10, 10]);
+                    expect(displayedCounts).toEqual([
+                        [10, lethal ? 0 : 9],
+                        [lethal ? 0 : 9, lethal ? 0 : 9],
+                    ]);
+                    const attackStarts = starts.filter((entry) => entry.state.includes("attack"));
+                    const firstReaction = starts.find((entry) => entry.actor === defender && entry.state === "hit");
+                    expect(firstReaction).toBeDefined();
+                    expect(attackStarts[1].frame).toBeGreaterThan(firstReaction!.frame);
                 } finally {
                     for (const actor of actors) actor.destroyVisuals();
                     world.destroy({ children: true });

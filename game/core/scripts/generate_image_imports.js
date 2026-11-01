@@ -93,43 +93,11 @@ for (const file of files) {
     }
 }
 
-// Use the existing portrait WebP recipe for reachable production atlases too. Encode before hashing
-// the URLs, retain exact alpha/canvas geometry, and never recompress an already-lossy sheet.
+// Publish the same approved animation bytes used by the local renderer.
 if (productionBuild && !testAssets) {
     await require("../src/build/verifySidebarPortraitPages.ts").verifySidebarPortraitPages(imageDir);
     require("./verify_animation_release.ts").verifyProductionImageSources(
         entries.filter((entry) => !entry.productionOmitted).map((entry) => entry.file),
-    );
-    const { optimizeAnimationBuildCopies } = require("../src/build/portraitBuildCopyEncoding.ts");
-    const { isUnitAnimationAtlasKey } = require("../src/pixi/unitAtlasKeys.ts");
-    const pinnedBuildAssets = new Set(
-        [
-            "../src/animations/levelOneAssets.json",
-            "../src/animations/battlefieldEnvironmentAssets.json",
-            "../src/pixi/shotTrajectoryAssets.json",
-        ].flatMap((filename) => {
-            const assets = require(filename);
-            return (assets.default ?? assets).map((asset) => asset.key);
-        }),
-    );
-    const encoding = await optimizeAnimationBuildCopies(
-        imageDir,
-        process.env.HOC_IMAGES_LOC,
-        new Set(
-            entries
-                .filter(
-                    (entry) =>
-                        !entry.productionOmitted &&
-                        !pinnedBuildAssets.has(entry.key) &&
-                        (isUnitAnimationAtlasKey(entry.key) ||
-                            /^(arbalester|abomination_lab)_idle_page_\d{2}_atlas$/.test(entry.key)),
-                )
-                .map((entry) => entry.file),
-        ),
-    );
-    if (encoding.skippedReason) throw new Error(`Animation build-copy encoding refused: ${encoding.skippedReason}`);
-    console.log(
-        `Animation build copies encoded: ${encoding.optimized} sheets, ${encoding.bytesBefore - encoding.bytesAfter} bytes saved (${encoding.cached} cached).`,
     );
 }
 
@@ -147,10 +115,11 @@ lines.push("export const images = {");
 for (const { key, file, productionOmitted } of entries) {
     if (productionOmitted) continue;
     // IMPORTANT: path is relative to THIS .ts file location (src/generated)
-    // Atlas names stay constant when artists replace their pixels/layout. A content revision keeps
-    // browser and Pixi caches from serving an older sheet with the newly generated frame metadata.
+    // Atlas and sidebar portrait names stay constant when artists replace their pixels/layout.
+    // A content revision keeps browser and Pixi caches from serving the previous artwork.
     const revision =
         /_atlas(?:_half|_quarter)?$/.test(key) ||
+        /_left_screen_x2$/.test(key) ||
         /^(fire|earth|water|wind)_element_256$/.test(key) ||
         key === "champion_lab_plume"
             ? `?v=${createHash("sha256")

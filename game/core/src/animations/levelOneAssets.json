@@ -345,13 +345,13 @@
         "key": "ash_moth_walk_atlas",
         "kind": "animation",
         "path": "ash_moth_walk/atlas/ash_moth_walk_atlas.webp",
-        "sha256": "10d565740837b00cdf351ae4de17d3e6057af9c87c2739e428485da33834c42b"
+        "sha256": "907fb47dc006c1c70d37fe0b471001533e907b8b93987dabe68f78519ab20c7f"
     },
     {
         "key": "ash_moth_walk_atlas_quarter",
         "kind": "animation",
         "path": "ash_moth_walk/atlas/ash_moth_walk_atlas_quarter.webp",
-        "sha256": "acf4c84c73600bd3288605a8eb43d6b6a46946be7f915b3428685eaffe24ddfc"
+        "sha256": "25889955c25244ef714cd7404a6df4697663f8f1d4dd80b34d1018b929832554"
     },
     {
         "key": "ash_moth_walk_left_atlas",

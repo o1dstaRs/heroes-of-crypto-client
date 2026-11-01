@@ -4,6 +4,7 @@ import {
     EffectFactory,
     GridSettings,
     HoCConfig,
+    Spell,
     TeamVals,
     Unit,
     UnitVals,
@@ -69,6 +70,10 @@ const fixture = ({ fairy = false, noMelee = false, ranged = false } = {}) => {
         sc_sceneSettings: { getGridSettings: () => grid },
         sc_sceneLog: { getLogSize: () => 0 },
         shownBuffsByUnit: new Map(),
+        shownDebuffsByUnit: new Map(),
+        pendingEffectPops: [],
+        isStrikeInFlight: () => false,
+        waitForTexture: async () => ({}),
         clearCommittedBoardActionPreview: () => undefined,
         snapshotRenderableUnits: () => units,
         noteDeathBlowsFromAttackEvent: () => undefined,
@@ -228,4 +233,21 @@ describe("live attack presentation", () => {
         ];
         expect(await h.run()).toEqual({ amount: 12, unitsDied: 1 });
     });
+});
+
+test("live first attack queues newly applied debuffs before exchange playback", async () => {
+    const h = fixture({ ranged: true });
+    h.scene.createActionEngine = () => ({
+        apply: () => {
+            h.target.applyDebuff(
+                new Spell({ spellProperties: HoCConfig.getSpellConfig("Death", "Quagmire"), amount: 1 }),
+            );
+            return { completed: true, events: h.events };
+        },
+    });
+    await h.run();
+    expect(h.scene.pendingEffectPops).toHaveLength(1);
+    expect(h.scene.pendingEffectPops[0].unit).toBe(h.target);
+    expect(h.scene.pendingEffectPops[0].debuffs).toEqual(["Quagmire"]);
+    expect(h.scene.shownDebuffsByUnit.get(h.target.getId())).toEqual(new Set(["Quagmire"]));
 });

@@ -46,7 +46,7 @@ test.each([
     { names: ["Elf", "Zena"], factions: ["Nature", "Might"], attackType: "range", blows: 2 },
     { names: ["Arbalester", "Medusa"], factions: ["Life", "Chaos"], attackType: "range", blows: 1 },
 ] as const)(
-    "ranked $names $attackType starts the response in the same frame, including $blows blows",
+    "ranked $names $attackType finishes each hit reaction before the response, including $blows blows",
     async ({ names, factions, attackType, blows }) => {
         const texture = new Texture({
             source: new BufferImageSource({ resource: new Uint8Array(4), width: 16384, height: 16384 }),
@@ -226,12 +226,12 @@ test.each([
         try {
             await flush();
             const opening = starts.filter((entry) => entry.state.includes("attack"));
-            expect(opening.map((entry) => entry.unit.getId())).toEqual(actors.map((unit) => unit.getId()));
-            expect(opening.map((entry) => entry.frame)).toEqual([0, 0]);
-            expect(actors.map((unit) => unit.isPlayingForegroundAttackAnimation())).toEqual([true, true]);
+            expect(opening.map((entry) => entry.unit.getId())).toEqual([attacker.getId()]);
+            expect(opening.map((entry) => entry.frame)).toEqual([0]);
+            expect(actors.map((unit) => unit.isPlayingForegroundAttackAnimation())).toEqual([true, false]);
             expect(starts.every((entry) => entry.state !== "hit")).toBe(true);
             expect(settled).toBe(false);
-            for (frame = 1; frame < 600 && !completed; frame++) {
+            for (frame = 1; frame < 2400 && !completed; frame++) {
                 for (const unit of actors) unit.stepSpawnAnimation(1 / 240);
                 for (const sleep of sleeps.filter((sleep) => sleep.due <= frame)) {
                     sleeps.splice(sleeps.indexOf(sleep), 1);
@@ -247,6 +247,12 @@ test.each([
             expect(new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.unit.getId()))).toEqual(
                 new Set(actors.map((unit) => unit.getId())),
             );
+            const responseStart = starts.find((entry) => entry.unit === defender && entry.state.includes("attack"))!;
+            expect(
+                finished.some(
+                    (entry) => entry.unit === defender && entry.state === "hit" && entry.frame <= responseStart.frame,
+                ),
+            ).toBe(true);
             if (blows === 2) {
                 const second = starts.filter((entry) => entry.unit === attacker && entry.state.includes("attack"))[1];
                 expect(

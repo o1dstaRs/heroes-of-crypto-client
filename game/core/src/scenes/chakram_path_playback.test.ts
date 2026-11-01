@@ -836,7 +836,7 @@ describe("Each recorded Chakram throw owns its damage and path", () => {
             [defender.getId(), true, 0],
             [attacker.getId(), false, 1],
         ]);
-        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 12, 8, 6, 5, 3]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 8, 12, 6, 5, 3]);
         expect(harness.paths).toHaveLength(6);
         expect(harness.paths[3].at(-1)).toEqual(defender.getRangedProjectileOrigin());
     });
@@ -1160,18 +1160,18 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.paths).toEqual([
             [defender.getProjectileImpactPoint(), projectedCell({ x: 7, y: 10 }), redBounce.getProjectileImpactPoint()],
+            [redBounce.getProjectileImpactPoint(), attacker.getRangedProjectileOrigin()],
             [
                 attacker.getProjectileImpactPoint(),
                 projectedCell({ x: 7, y: 5 }),
                 greenBounce.getProjectileImpactPoint(),
             ],
-            [redBounce.getProjectileImpactPoint(), attacker.getRangedProjectileOrigin()],
             [greenBounce.getProjectileImpactPoint(), defender.getRangedProjectileOrigin()],
         ]);
-        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 12, 8, 9]);
+        expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 8, 12, 9]);
     });
 
-    test("the counter starts with the initiating disc; the next throw waits for its return", async () => {
+    test("the counter waits for the initiating disc to return before the next throw", async () => {
         const attacker = unit("Attacker", { x: 6, y: 5 }, 1, 1, TeamVals.LEFT);
         const defender = unit("Defender", { x: 6, y: 10 }, 1, 1, TeamVals.RIGHT, false);
         const harness = exchangeFor([attacker, defender]);
@@ -1194,7 +1194,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         );
 
         await flush();
-        expect(harness.shots).toEqual(["Attacker", "Defender"]);
+        expect(harness.shots).toEqual(["Attacker"]);
         caught();
         await flush();
         expect(harness.shots).toEqual(["Attacker", "Defender", "Attacker"]);

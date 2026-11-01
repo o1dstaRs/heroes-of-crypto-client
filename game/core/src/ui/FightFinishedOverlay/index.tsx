@@ -1021,7 +1021,7 @@ interface FightResultPlayerRef {
 }
 
 interface FightFinishedOverlayProps {
-    mode?: "sandbox" | "ranked";
+    mode?: "sandbox" | "ranked" | "vs-ai";
     canReplay?: boolean;
     /** Ranked game id used to load the authoritative post-match MMR and gold settlement. */
     gameId?: string;
@@ -1510,8 +1510,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 lineHeight: 1,
                             }}
                         >
-                            {mode === "ranked" || previewMode ? "RANKED" : "BATTLE"} · {Math.max(0, stats.totalLaps)}{" "}
-                            LAPS
+                            {mode === "ranked" || previewMode ? "RANKED" : mode === "vs-ai" ? "VS AI" : "BATTLE"} ·{" "}
+                            {Math.max(0, stats.totalLaps)} LAPS
                         </Typography>
                     </Box>
                     <ResultParticipantCard

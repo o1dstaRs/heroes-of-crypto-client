@@ -19,6 +19,7 @@ const searchLabel = lang === "ru" ? "Поиск" : "Search";
 const languageMenuLabel = lang === "ru" ? "Выбрать язык" : "Choose language";
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
+    { label: copy.nav.top, href: localPath(lang, "top") },
     { label: copy.nav.seasons, href: `${localPath(lang, "home")}seasons/` },
     { label: "Premium", href: `${localPath(lang, "home")}premium/` },
     { label: copy.nav.news, href: `${localPath(lang, "home")}news/` },
@@ -168,18 +169,6 @@ const legacyKnowledgePaths = new Set(
 </script>
 
 <style>
-    .main-nav .nav-premium,
-    .main-nav .nav-link.nav-premium.active {
-        color: var(--hoc-premium-accent);
-        text-shadow: 0 0 18px rgba(255, 130, 45, 0.25);
-    }
-
-    .main-nav .nav-premium {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-
     .nav-link {
         font-size: 1.0465rem;
     }

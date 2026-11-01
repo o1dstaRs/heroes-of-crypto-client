@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
-import { Container, Mesh, Texture } from "pixi.js";
+import { Container, DOMAdapter, Mesh, Texture } from "pixi.js";
 import { arachnaWebBounds } from "./ArachnaQueenWebAura";
 import {
     championArrowFrames,
@@ -11,6 +11,12 @@ import {
     CHAMPION_ARROW_ATLAS_KEY,
 } from "./ChampionArrowAura";
 import { isLazyCombatEffectAssetKey } from "../pixi/imageAssetTiers";
+
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 const gs = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -78,9 +84,11 @@ test("64-frame forward loop stays continuous through the seam and slow render ti
         draw(now);
     }
     expect(
-        container.children.filter((child) => child instanceof Mesh).reduce((sum, child) => sum + child.alpha, 0),
-    ).toBeCloseTo(0.91 * 0.8);
-    const meshes = container.children.filter((child) => child instanceof Mesh) as Mesh[];
+        container.children
+            .filter((child) => child.label === "champion-arrow-aura")
+            .reduce((sum, child) => sum + child.alpha, 0),
+    ).toBeCloseTo(0.91 * 0.459);
+    const meshes = container.children.filter((child) => child.label === "champion-arrow-aura") as Mesh[];
     expect(meshes.every((mesh) => mesh.blendMode === "add")).toBe(true);
     expect(meshes[0].tint).toBe(meshes[1].tint);
     expect(meshes[1].alpha / (meshes[0].alpha + meshes[1].alpha)).toBeCloseTo(0.5);
@@ -114,4 +122,84 @@ test("missing arrow art and zero reach produce no placeholder; atlas loads lazil
     expect(container.children).toHaveLength(0);
     expect(isLazyCombatEffectAssetKey(CHAMPION_ARROW_ATLAS_KEY)).toBe(true);
     container.destroy();
+});
+
+test("Wolf Rider shares the arrow clock and texture while preserving its rectangular range and resource ownership", () => {
+    const container = new Container();
+    const wolfFootprint = { width: 2, height: 1 };
+    const draw = (now: number, facing: -1 | 1) =>
+        drawChampionArrowAura(
+            container,
+            Texture.WHITE,
+            center,
+            wolfFootprint,
+            2,
+            gs,
+            "wolf",
+            0.7,
+            0,
+            now,
+            facing,
+            true,
+        );
+    draw(0, 1);
+    resetChampionArrowAuras(container, 1625);
+    draw(1625, -1);
+    const meshes = container.children.filter((child) => child.label === "wolf-rider-arrow-aura") as Mesh[];
+    expect(meshes).toHaveLength(2);
+    expect(meshes.every((mesh) => mesh.label === "wolf-rider-arrow-aura")).toBe(true);
+    expect([...meshes[0].geometry.positions]).toEqual([
+        ...championArrowProjection(center, wolfFootprint, 2, gs)!.positions,
+    ]);
+    expect(meshes.reduce((sum, mesh) => sum + mesh.alpha, 0)).toBeCloseTo(0.91 * 0.459);
+    const shaders = meshes.map((mesh) => mesh.shader!);
+    expect(shaders.every((shader) => shader.resources.uArrows === Texture.WHITE.source)).toBe(true);
+    for (const shader of shaders) {
+        // Rectangular Wolf Rider reach has five rows, not six squeezed into five cells.
+        expect([...shader.resources.arrowGrid.uniforms.uFieldCells]).toEqual([6, 5]);
+    }
+    resetChampionArrowAuras(container, 8000);
+    expect(container.children).toHaveLength(0);
+    expect(shaders.every((shader) => shader._destroyed)).toBe(true);
+    expect(Texture.WHITE.source.destroyed).toBe(false);
+    container.destroy();
+});
+
+test("both ordinary aura fields remain synchronized without separate central signs", () => {
+    const container = new Container();
+    const draw = (id: string, single: boolean, now: number) =>
+        drawChampionArrowAura(
+            container,
+            Texture.WHITE,
+            center,
+            single ? { width: 2, height: 1 } : footprint,
+            2,
+            gs,
+            id,
+            0.7,
+            0,
+            now,
+            1,
+            single,
+        );
+    draw("champion", false, 0);
+    draw("wolf", true, 700);
+    expect(container.children).toHaveLength(4);
+    const champion = container.children[0] as Mesh;
+    const wolf = container.children[2] as Mesh;
+    const originalUvs = [...champion.geometry.uvs];
+    for (const now of [1700, 3175, 3200, 4900]) {
+        resetChampionArrowAuras(container, now);
+        draw("champion", false, now);
+        draw("wolf", true, now);
+        expect(champion.tint).toBe(wolf.tint);
+        expect(champion.alpha).toBeCloseTo(wolf.alpha);
+        expect(container.children).toHaveLength(4);
+        expect(container.children.every((mesh) => !mesh.label.includes("central"))).toBe(true);
+    }
+    expect([...champion.geometry.uvs]).not.toEqual(originalUvs);
+    const shaders = (container.children as Mesh[]).map((mesh) => mesh.shader!);
+    container.destroy({ children: true });
+    expect(shaders.every((shader) => shader._destroyed)).toBe(true);
+    expect(Texture.WHITE.source.destroyed).toBe(false);
 });

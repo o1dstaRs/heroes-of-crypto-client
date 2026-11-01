@@ -40,7 +40,7 @@ const MOTION_BY_FACTION: Readonly<Partial<Record<number, Readonly<CreaturePortra
     }),
     [FactionVals.NATURE]: Object.freeze({
         kind: "nature",
-        glowSrc: images.nature_portrait_bg_emissive_glow_v1,
+        glowSrc: images.nature_portrait_bg_emerald_forest_glow_v1,
         primaryAnimation: "hocPortraitNatureVeins 5.8s ease-in-out infinite",
         primaryFilter: "brightness(1.48) saturate(1.42) contrast(1.08)",
         secondaryAnimation: "hocPortraitNatureMist 8.7s ease-in-out -2.8s infinite",

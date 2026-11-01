@@ -3,6 +3,7 @@ import { CreatureVals } from "@heroesofcrypto/common";
 import type { AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images } from "../generated/image_imports";
 import { LEFT_SIDEBAR_PORTRAIT_ATLASES } from "./leftSidebarPortraitAnimationSources";
+import { REFINED_PORTRAIT_FRAMES } from "./leftSidebarPortraitPlayback";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { resolveSidebarPortraitPages } from "./sidebarPortraitPageSources";
 import type { SidebarPortraitPage } from "./sidebarPortraitPagePool";
@@ -28,7 +29,7 @@ const PEASANT_LEFT_SCREEN_IDLE: Readonly<LeftSidebarPortraitAnimation> = Object.
         loopDurationMs: Math.round((34 / 9.936) * 1000),
         pauseMs: 0,
         geometry: "left-sidebar-portrait-572x808",
-        encoding: "webp-rgba-q90",
+        encoding: "webp-rgba-lossless",
     }),
 });
 
@@ -67,6 +68,16 @@ const BLACKSMITH_LEFT_SCREEN_IDLE_META: AnimationAtlasMeta = {
 const FULL_VIDEO_META_BY_SLUG: Readonly<Record<string, AnimationAtlasMeta>> = Object.freeze({
     blacksmith: BLACKSMITH_LEFT_SCREEN_IDLE_META,
     squire: fullVideoMeta(60, 145),
+    ...Object.fromEntries(
+        Object.entries(REFINED_PORTRAIT_FRAMES).map(([slug, frameCount]) => [
+            slug,
+            {
+                ...fullVideoMeta(frameCount, (frameCount * 241) / 100),
+                loopDurationMs: VIDEO_LEFT_SCREEN_IDLE_META.loopDurationMs,
+                encoding: "webp-rgba-lossless",
+            },
+        ]),
+    ),
 });
 
 const animatedPortraitBySlug: Readonly<Record<string, Readonly<LeftSidebarPortraitAnimation>>> = Object.freeze(

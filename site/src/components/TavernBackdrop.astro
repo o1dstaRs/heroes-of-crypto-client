@@ -1,0 +1,236 @@
+---
+import type { Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+const { lang } = Astro.props;
+const ru = lang === "ru";
+const variants: { file: string; label: string; boardY?: number; logoY?: number; logoWidth?: number; logoBaked?: boolean }[] = [
+    { file: "01-hearth", label: ru ? "Уютный трактир" : "Cozy inn" },
+    { file: "02-grand-hall", label: ru ? "Замковый зал" : "Castle hall" },
+    { file: "03-enchanted-forest", label: ru ? "Лесная таверна" : "Forest tavern" },
+    { file: "04-hearthstone", label: ru ? "Карточная таверна" : "Card tavern" },
+    { file: "05-night-inn", label: ru ? "Ночной трактир" : "Night inn" },
+    { file: "06-moonlit-lodge", label: ru ? "Лунный зал" : "Moonlit lodge" },
+    { file: "07-rainy-harbor", label: ru ? "Дождливый порт" : "Rainy harbor" },
+    { file: "08-stone-cellar", label: ru ? "Каменный погреб" : "Stone cellar" },
+    { file: "09-twilight-grove", label: ru ? "Сумеречная роща" : "Twilight grove" },
+    { file: "10-snowbound-inn", label: ru ? "Заснеженный приют" : "Snowbound inn" },
+    { file: "11-roundhouse-teams-v2", label: ru ? "Сумрачный трактир" : "Gloomy roundhouse" },
+    { file: "12-harbor-teams-v2", label: ru ? "Штормовой порт" : "Stormbound harbor" },
+    { file: "13-brewery-teams-v2", label: ru ? "Медная пивоварня" : "Copper brewery" },
+    { file: "14-canopy-teams-v2", label: ru ? "Тёмная роща" : "Dark canopy" },
+    { file: "15-astral-teams-v2", label: ru ? "Астральная таверна" : "Astral tavern" },
+    { file: "16-timber-guildhall", label: ru ? "Старый гильдейский трактир" : "Old guildhall" },
+    { file: "17-vaulted-main-v3", label: ru ? "Таверна под сводами" : "Vaulted tavern" },
+    { file: "18-northern-hearth", label: ru ? "Северный трактир" : "Northern hearth" },
+    { file: "19-small-hearth", label: ru ? "У малого очага" : "Small hearth", boardY: 3.1, logoY: 5.07, logoWidth: 15 },
+    { file: "20-small-cellar", label: ru ? "Тесный винный погреб" : "Small wine cellar", boardY: 2.706, logoY: 5.86, logoWidth: 14 },
+    { file: "21-rainy-window-nook", label: ru ? "У дождливого окна" : "Rainy window nook", boardY: 3.38, logoY: 5.07, logoWidth: 14 },
+    { file: "22-mountain-snug", label: ru ? "Горный приют" : "Mountain snug", boardY: 3.66, logoY: 5.07, logoWidth: 14 },
+    { file: "23-dockside-snug", label: ru ? "Портовый закуток" : "Dockside snug", boardY: 2.03, logoY: 4, logoWidth: 15 },
+    { file: "24-mossroot-oil", label: ru ? "Корни и свечи · живопись" : "Mossroot · painted", boardY: 1.8, logoBaked: true },
+    { file: "25-blackstone-cinema", label: ru ? "Чёрный камень · кинореализм" : "Blackstone · cinematic", boardY: 1.3, logoBaked: true },
+    { file: "26-ironbrew-stylized", label: ru ? "Железная кружка · объёмная стилизация" : "Ironbrew · stylized 3D", boardY: 1.7, logoBaked: true },
+    { file: "27-candlecrypt-gothic", label: ru ? "Приют под часовней · готика" : "Chapel refuge · gothic", boardY: 0.85, logoBaked: true },
+    { file: "28-saffron-caravan", label: ru ? "Караванный привал · восточное фэнтези" : "Caravan stop · desert fantasy", boardY: 1.35, logoBaked: true },
+    { file: "29-tidepool-moon", label: ru ? "Лунная бухта · морская живопись" : "Moonlit cove · marine painting", boardY: 0.9, logoBaked: true },
+    { file: "30-frostfang-nordic", label: ru ? "Ледяной клык · северный реализм" : "Frostfang · Nordic realism", boardY: 0, logoBaked: true },
+    { file: "31-mushroom-story", label: ru ? "Грибной погреб · сказочная живопись" : "Mushroom cellar · storybook", boardY: 2, logoBaked: true },
+    { file: "32-webbed-velvet", label: ru ? "Паучий бархат · барокко" : "Webbed velvet · baroque", boardY: 0.4, logoBaked: true },
+    { file: "33-thunder-roost", label: ru ? "Грозовой насест · эпическая живопись" : "Thunder roost · epic painting", boardY: 2.8, logoBaked: true },
+    { file: "34-emberforge-cinema", label: ru ? "Угли кузницы · тёмный кинематограф" : "Emberforge · dark cinematic", boardY: 1.2, logoBaked: true },
+    { file: "35-wyvern-cliff", label: ru ? "Утёс виверны · приключенческий стиль" : "Wyvern cliff · adventure", boardY: 2.2, logoBaked: true },
+    { file: "36-silverleaf-artnouveau", label: ru ? "Серебряный лист · ар-нуво" : "Silverleaf · art nouveau", boardY: 0.7, logoBaked: true },
+    { file: "37-oneeye-hideout", label: ru ? "Привал Одноглазого · суровое фэнтези" : "One-eye hideout · gritty fantasy", boardY: 2.1, logoBaked: true },
+    { file: "38-dragon-embers", label: ru ? "Драконий угол · фэнтези-кинокадр" : "Dragon nook · fantasy film", boardY: 1.7, logoBaked: true },
+    { file: "39-forge-frost-cliff", label: ru ? "Ифрит, берсерк и валькирия · сборка" : "Efreet, berserker & valkyrie", boardY: 2.5, logoBaked: true },
+];
+const primary = variants[16];
+const imagePath = (file: string) => `/assets/images/home/hero/taverns/${file}.webp${file === "39-forge-frost-cliff" ? "?v=eye-18" : ""}`;
+---
+
+<tavern-backdrop data-error={ru ? "Не удалось загрузить фон" : "Could not load background"}>
+    <img class="hero-bg" data-board-layout="true" src={imagePath(primary.file)} alt="" width="1774" height="887" fetchpriority="high" />
+    <div class="tavern-logo-plane" aria-hidden="true">
+        <img class="tavern-board-logo" src="/assets/images/home/logo/logo_forged.webp" alt="" width="1477" height="705" />
+    </div>
+    <details class="tavern-picker-shell">
+    <summary>{ru ? "Таверны" : "Taverns"} · <span data-current-variant>17</span></summary>
+    <div class="tavern-picker" role="group" aria-label={ru ? "Выбор таверны" : "Choose a tavern"}>
+        <span class="tavern-picker-label">{ru ? "Таверна" : "Tavern"}</span>
+        <div class="tavern-options">
+            {variants.map((variant, index) => (
+                <button
+                    type="button"
+                    data-tavern={variant.file}
+                    data-src={imagePath(variant.file)}
+                    data-label={variant.label}
+                    data-primary={variant === primary ? "true" : undefined}
+                    data-board-layout={variant === primary || index >= 18 ? "true" : undefined}
+                    data-logo-baked={variant.logoBaked ? "true" : undefined}
+                    data-board-y={variant.boardY ?? 6.426}
+                    data-logo-y={variant.logoY ?? 7.776}
+                    data-logo-width={variant.logoWidth ?? 18}
+                    aria-label={`${index + 1}. ${variant.label}`}
+                    aria-pressed={variant === primary ? "true" : "false"}
+                    title={variant === primary ? `${variant.label} · ${ru ? "Основной фон" : "Main background"}` : variant.label}
+                >{index + 1}</button>
+            ))}
+        </div>
+        <span class="tavern-selection" aria-live="polite" aria-atomic="true">{primary.label}</span>
+    </div>
+    </details>
+</tavern-backdrop>
+
+<style>
+    tavern-backdrop { display: contents; }
+    .tavern-logo-plane {
+        display: none;
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        container-type: size;
+        overflow: hidden;
+    }
+    .hero-bg[data-board-layout="true"]:not([data-logo-baked="true"]) + .tavern-logo-plane { display: block; }
+    .tavern-board-logo {
+        position: absolute;
+        left: 50%;
+        top: calc(50cqh - max(25cqw, 50cqh) + max(var(--tavern-logo-y) * 1cqw, var(--tavern-logo-y) * 2cqh));
+        width: max(calc(var(--tavern-logo-width) * 1cqw), calc(var(--tavern-logo-width) * 2cqh));
+        max-width: none;
+        height: auto;
+        transform: translateX(-50%);
+        filter: drop-shadow(0 3px 3px #000a);
+    }
+    @media (min-width: 1081px) {
+        .tavern-board-logo {
+            top: calc(6px + (var(--tavern-logo-y) - var(--tavern-board-y)) * 1vw);
+            width: calc(var(--tavern-logo-width) * 1vw);
+        }
+    }
+    .tavern-picker-shell {
+        position: absolute;
+        z-index: 3;
+        top: 14px;
+        right: 16px;
+        max-width: calc(100% - 24px);
+        color: #f4e3c4;
+        font-size: 13px;
+    }
+    summary {
+        width: fit-content;
+        margin-left: auto;
+        padding: 8px 12px;
+        border: 1px solid #8e693d;
+        border-radius: 8px;
+        background: rgba(19, 12, 7, 0.92);
+        cursor: pointer;
+    }
+    summary:focus-visible { outline: 2px solid #fff0d2; outline-offset: 3px; }
+    .tavern-picker-shell[open] summary { margin-bottom: 8px; }
+    .tavern-picker {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 8px 12px;
+        width: 288px;
+        max-width: 100%;
+        padding: 8px 14px;
+        border: 1px solid #8e693d;
+        border-radius: 12px;
+        background: rgba(19, 12, 7, 0.92);
+        color: #f4e3c4;
+        box-shadow: 0 4px 20px #0008;
+        font-size: 13px;
+    }
+    .tavern-picker-label { color: #dcb158; }
+    .tavern-options { display: grid; grid-template-columns: repeat(6, 36px); gap: 6px; }
+    button {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border: 1px solid #866039;
+        border-radius: 6px;
+        background: #25190e;
+        color: #ecd5ae;
+        font: inherit;
+        font-size: 15px;
+        cursor: pointer;
+    }
+    button:hover { border-color: #ffd58a; background: #4a2e16; }
+    button[aria-pressed="true"] { background: #d8aa5e; color: #211207; border-color: #ffe0a6; }
+    button[data-primary="true"] { background: #193d34; color: #96f0c5; border-color: #63bb99; box-shadow: inset 0 0 0 1px #63bb9955; }
+    button[data-primary="true"][aria-pressed="true"] { background: #397e65; color: #fff7dd; border-color: #a0f2cf; }
+    button:focus-visible { outline: 2px solid #fff0d2; outline-offset: 3px; }
+    .tavern-selection { flex-basis: 100%; min-width: 108px; text-align: center; }
+    @media (max-width: 600px) {
+        .tavern-picker { gap: 6px 10px; }
+        .tavern-selection { flex-basis: 100%; font-size: 12px; }
+    }
+</style>
+
+<script>
+    class TavernBackdrop extends HTMLElement {
+        private controller?: AbortController;
+        private request = 0;
+
+        connectedCallback() {
+            if (this.controller) return;
+            this.controller = new AbortController();
+            const background = this.querySelector<HTMLImageElement>(".hero-bg");
+            const status = this.querySelector<HTMLElement>(".tavern-selection");
+            const picker = this.querySelector<HTMLElement>(".tavern-picker");
+            const buttons = [...this.querySelectorAll<HTMLButtonElement>("button[data-tavern]")];
+            if (!background || !status || !picker) return;
+
+            const select = async (button: HTMLButtonElement) => {
+                const request = ++this.request;
+                picker.setAttribute("aria-busy", "true");
+                try {
+                    const next = new Image();
+                    next.src = button.dataset.src!;
+                    await next.decode();
+                    if (request !== this.request || !this.isConnected) return;
+                    background.src = next.src;
+                    background.width = next.naturalWidth;
+                    background.height = next.naturalHeight;
+                    background.dataset.boardLayout = String(button.dataset.boardLayout === "true");
+                    background.dataset.logoBaked = String(button.dataset.logoBaked === "true");
+                    const hero = this.closest<HTMLElement>(".hero");
+                    hero?.style.setProperty("--tavern-board-y", button.dataset.boardY!);
+                    hero?.style.setProperty("--tavern-logo-y", button.dataset.logoY!);
+                    hero?.style.setProperty("--tavern-logo-width", button.dataset.logoWidth!);
+                    buttons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+                    status.textContent = button.dataset.label!;
+                    const current = this.querySelector<HTMLElement>("[data-current-variant]");
+                    if (current) current.textContent = String(buttons.indexOf(button) + 1);
+                    const selector = this.querySelector<HTMLDetailsElement>("details");
+                    if (selector) selector.open = false;
+                    try { localStorage.setItem("hoc-home-tavern-v2", button.dataset.tavern!); } catch { /* Storage is optional. */ }
+                } catch {
+                    if (request === this.request) status.textContent = this.dataset.error!;
+                } finally {
+                    if (request === this.request) picker.removeAttribute("aria-busy");
+                }
+            };
+            buttons.forEach((button) => button.addEventListener("click", () => void select(button), { signal: this.controller!.signal }));
+            try {
+                const saved = localStorage.getItem("hoc-home-tavern-v2");
+                const button = buttons.find((item) => item.dataset.tavern === saved);
+                if (button && button.dataset.primary !== "true") void select(button);
+            } catch { /* Keep the main background when storage is unavailable. */ }
+        }
+
+        disconnectedCallback() {
+            this.request++;
+            this.controller?.abort();
+            this.controller = undefined;
+        }
+    }
+    if (!customElements.get("tavern-backdrop")) customElements.define("tavern-backdrop", TavernBackdrop);
+</script>

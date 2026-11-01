@@ -5,14 +5,15 @@ import { images } from "../imageAssets";
 const PREVIOUS_PORTRAIT_BACKGROUND_SHADE_ALPHA = 0.08;
 const ALL_BACKGROUNDS_ADDITIONAL_SHADE_ALPHA = 0.05;
 const LIFE_CHAOS_ADDITIONAL_SHADE_ALPHA = 0.1;
+export const PORTRAIT_ADDITIONAL_BACKGROUND_SHADE_ALPHA = 0.15;
 
-const compositeBlackShadeAlpha = (baseAlpha: number, additionalAlpha: number): number =>
+export const compositeBlackShadeAlpha = (baseAlpha: number, additionalAlpha: number): number =>
     1 - (1 - baseAlpha) * (1 - additionalAlpha);
 
-/** The previous eight-percent background veil with the requested additional five-percent layer. */
+/** Preserve the previous grading and reduce the remaining background light by another fifteen percent. */
 export const CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA = compositeBlackShadeAlpha(
-    PREVIOUS_PORTRAIT_BACKGROUND_SHADE_ALPHA,
-    ALL_BACKGROUNDS_ADDITIONAL_SHADE_ALPHA,
+    compositeBlackShadeAlpha(PREVIOUS_PORTRAIT_BACKGROUND_SHADE_ALPHA, ALL_BACKGROUNDS_ADDITIONAL_SHADE_ALPHA),
+    PORTRAIT_ADDITIONAL_BACKGROUND_SHADE_ALPHA,
 );
 
 /** Life and Chaos receive another ten-percent layer; creature artwork is never shaded. */
@@ -33,13 +34,13 @@ export type CreaturePortraitBackgroundKey =
     | "chaos_portrait_bg_obsidian_fissure_corner_fire_v1"
     | "life_portrait_bg_golden_dawn_four_corner_haze_v1"
     | "might_portrait_bg_blood_claw_strong_red_corners_v1"
-    | "nature_portrait_bg_xray_leaf_corner_glow_v2_soft";
+    | "nature_portrait_bg_emerald_forest_v1";
 
 /** Resolve the shared race environment used behind a creature's approved full-body portrait. */
 export const creaturePortraitBackgroundKey = (creatureId: number): CreaturePortraitBackgroundKey | undefined => {
     const faction = CreatureFactionsMap[creatureId];
     if (faction === FactionVals.LIFE) return "life_portrait_bg_golden_dawn_four_corner_haze_v1";
-    if (faction === FactionVals.NATURE) return "nature_portrait_bg_xray_leaf_corner_glow_v2_soft";
+    if (faction === FactionVals.NATURE) return "nature_portrait_bg_emerald_forest_v1";
     if (faction === FactionVals.CHAOS) return "chaos_portrait_bg_obsidian_fissure_corner_fire_v1";
     if (faction === FactionVals.MIGHT) return "might_portrait_bg_blood_claw_strong_red_corners_v1";
     return undefined;
@@ -54,7 +55,7 @@ const FACTION_PORTRAIT_BACKGROUND_KEYS = [
     "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
     "life_portrait_bg_golden_dawn_four_corner_haze_v1",
     "might_portrait_bg_blood_claw_strong_red_corners_v1",
-    "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+    "nature_portrait_bg_emerald_forest_v1",
 ] as const satisfies readonly CreaturePortraitBackgroundKey[];
 
 /** The four faction plates. Every left-sidebar card shares one of these. */

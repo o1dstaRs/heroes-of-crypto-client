@@ -1,0 +1,350 @@
+---
+import { links, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = {
+    en: {
+        eyebrow: "Game modes",
+        title: "Choose your battlefield",
+        body: "Chase the next rank, test a bold idea, or challenge a friend. Every battle starts your way.",
+        modes: [
+            {
+                id: "ranked",
+                name: "Ranked",
+                label: "Fight for glory",
+                description:
+                    "Draft your army, outplay your opponent, and climb the leagues. Every decision counts on your way to the top.",
+                tags: ["Matchmaking", "Rating & leagues"],
+                cta: "Enter ranked",
+                href: links.rankedApp,
+            },
+            {
+                id: "sandbox",
+                name: "Sandbox",
+                label: "Master your strategy",
+                description:
+                    "Build armies, explore spells, and experiment with positioning. A battlefield of your own to turn ideas into winning tactics.",
+                tags: ["Free experimentation", "No rating at stake"],
+                cta: "Open sandbox",
+                href: links.sandboxApp,
+            },
+            {
+                id: "lobby",
+                name: "Lobby",
+                label: "Bring your rivals",
+                description:
+                    "Create a room and invite a friend, or join an open lobby. Set up a friendly battle and find out whose strategy wins.",
+                tags: ["Public & private", "Invite by link"],
+                cta: "Find a lobby",
+                href: links.lobbiesApp,
+            },
+        ],
+    },
+    ru: {
+        eyebrow: "Режимы игры",
+        title: "Выбери своё поле битвы",
+        body: "Покоряй рейтинг, проверяй смелые идеи или бросай вызов друзьям. Здесь каждый найдёт свой бой.",
+        modes: [
+            {
+                id: "ranked",
+                name: "Ранкед",
+                label: "Сражайся за славу",
+                description:
+                    "Собери армию на драфте, переиграй соперника и поднимайся по лигам. На пути к вершине каждое решение имеет значение.",
+                tags: ["Подбор соперника", "Рейтинг и лиги"],
+                cta: "Войти в рейтинг",
+                href: links.rankedApp,
+            },
+            {
+                id: "sandbox",
+                name: "Песочница",
+                label: "Оттачивай тактику",
+                description:
+                    "Собирай армии, изучай заклинания и пробуй новые расстановки. Твоё поле для экспериментов, где идеи становятся тактикой.",
+                tags: ["Свобода экспериментов", "Без риска для рейтинга"],
+                cta: "Открыть песочницу",
+                href: "/ru/sandbox/",
+            },
+            {
+                id: "lobby",
+                name: "Лобби",
+                label: "Бросай вызов друзьям",
+                description:
+                    "Создай комнату и пригласи друга или присоединись к открытому лобби. Устройте дружеский бой и узнайте, чья стратегия сильнее.",
+                tags: ["Открытые и приватные", "Приглашение по ссылке"],
+                cta: "Найти лобби",
+                href: links.lobbiesApp,
+            },
+        ],
+    },
+}[lang];
+---
+
+<section class="game-modes section" id="game-modes" aria-labelledby="game-modes-title">
+    <div class="page-shell">
+        <header class="game-modes__heading">
+            <p class="eyebrow">{copy.eyebrow}</p>
+            <h2 id="game-modes-title">{copy.title}</h2>
+            <p class="game-modes__intro">{copy.body}</p>
+        </header>
+        <div class="game-modes__grid">
+            {copy.modes.map((mode, index) => (
+                <article class={`game-mode game-mode--${mode.id}`}>
+                    <div class="game-mode__art" aria-hidden="true">
+                        <span class="game-mode__number">0{index + 1}</span>
+                        <svg class="game-mode__emblem" viewBox="0 0 240 180" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <g class="game-mode__orbit" stroke-width="0.7">
+                                <circle cx="120" cy="90" r="69" />
+                                <circle cx="120" cy="90" r="60" stroke-dasharray="2 7" />
+                                <path d="M120 13v14m0 126v14M43 90h14m126 0h14M66 36l10 10m88 88 10 10M66 144l10-10m88-88 10-10" />
+                                <path d="m120 25 65 65-65 65-65-65Z" />
+                            </g>
+                            {mode.id === "ranked" && (
+                                <g stroke-width="2">
+                                    <path d="m83 126 70-77 7-3-2 12-68 75m67-7L87 49l-7-3 2 12 68 75M78 119l18 16m48 0 18-16M79 138l7-8m75 8-7-8" />
+                                    <path class="game-mode__solid" d="M120 45c11 10 24 13 38 14v32c0 24-20 41-38 49-18-8-38-25-38-49V59c14-1 27-4 38-14Z" />
+                                    <path opacity=".5" d="M120 55c9 7 19 10 29 12v24c0 17-14 31-29 39-15-8-29-22-29-39V67c10-2 20-5 29-12Z" />
+                                    <path class="game-mode__shine" d="m102 82 7 7 11-17 11 17 7-7-4 22h-28Z" />
+                                    <path d="M108 111h24" />
+                                </g>
+                            )}
+                            {mode.id === "sandbox" && (
+                                <g stroke-width="2">
+                                    <path class="game-mode__solid" d="M106 49h28m-24 0v30l-26 43c-5 9 0 17 10 17h52c10 0 15-8 10-17l-26-43V49" />
+                                    <path class="game-mode__shine" d="M101 105c13-8 25 9 38 0l12 21c2 4 0 7-6 7H95c-6 0-8-3-6-7Z" />
+                                    <circle cx="117" cy="97" r="3" />
+                                    <circle cx="126" cy="118" r="4" />
+                                    <path d="m148 56 4-10 4 10 10 4-10 4-4 10-4-10-10-4ZM91 76v12m-6-6h12M121 27v10m-5-5h10" />
+                                </g>
+                            )}
+                            {mode.id === "lobby" && (
+                                <g stroke-width="2">
+                                    <path class="game-mode__solid" d="M84 137V77a36 36 0 0 1 72 0v60Zm10 0V77a26 26 0 0 1 52 0v60" />
+                                    <path opacity=".5" d="M79 137h82M120 41v10M95 51l7 8m43-8-7 8M84 77h10m52 0h10M84 102h10m52 0h10" />
+                                    <path class="game-mode__shine" d="m120 74 5 12 13 5-13 5-5 12-5-12-13-5 13-5Z" />
+                                    <path d="m108 141 12-17 12 17m-29 9h34M68 100v12m-6-6h12m95-41v10m-5-5h10" />
+                                </g>
+                            )}
+                            <path d="M54 161h48m36 0h48m-66-4 4 4-4 4-4-4Z" stroke-width=".8" opacity=".5" />
+                        </svg>
+                    </div>
+                    <div class="game-mode__content">
+                        <p class="game-mode__label">{mode.label}</p>
+                        <h3>{mode.name}</h3>
+                        <p class="game-mode__description">{mode.description}</p>
+                        <ul class="game-mode__tags">
+                            {mode.tags.map((tag) => <li>{tag}</li>)}
+                        </ul>
+                        <a class="game-mode__link" href={mode.href}>
+                            {mode.cta}
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg>
+                        </a>
+                    </div>
+                </article>
+            ))}
+        </div>
+    </div>
+</section>
+
+<style>
+    .game-modes {
+        position: relative;
+        background: radial-gradient(ellipse at 50% 0, #b77a2710, transparent 65%);
+    }
+    .game-modes__heading {
+        max-width: 740px;
+        margin: 0 auto 42px;
+        text-align: center;
+    }
+    .game-modes__heading h2 {
+        margin-bottom: 18px;
+        text-wrap: balance;
+    }
+    .game-modes__intro {
+        max-width: 600px;
+        margin: 0 auto;
+        text-wrap: balance;
+    }
+    .game-modes__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+    }
+    .game-mode {
+        --mode-accent: #e2b96b;
+        --mode-rgb: 226, 185, 107;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid rgba(var(--mode-rgb), 0.25);
+        border-radius: 12px;
+        background: linear-gradient(160deg, rgba(var(--mode-rgb), 0.055), transparent 65%), #100d0b;
+        box-shadow: 0 16px 35px #0003;
+        transition:
+            border-color 0.25s,
+            transform 0.25s,
+            box-shadow 0.25s;
+    }
+    .game-mode--sandbox {
+        --mode-accent: #82c6bb;
+        --mode-rgb: 130, 198, 187;
+    }
+    .game-mode--lobby {
+        --mode-accent: #b6a0dc;
+        --mode-rgb: 182, 160, 220;
+    }
+    .game-mode::before {
+        content: "";
+        position: absolute;
+        z-index: 1;
+        top: 0;
+        left: 20%;
+        right: 20%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--mode-accent), transparent);
+    }
+    .game-mode:hover,
+    .game-mode:focus-within {
+        transform: translateY(-5px);
+        border-color: rgba(var(--mode-rgb), 0.6);
+        box-shadow: 0 22px 45px #0005;
+    }
+    .game-mode__art {
+        position: relative;
+        display: grid;
+        place-items: center;
+        height: 190px;
+        color: var(--mode-accent);
+        background: radial-gradient(ellipse at 50% 55%, rgba(var(--mode-rgb), 0.13), transparent 65%);
+    }
+    .game-mode__number {
+        position: absolute;
+        top: 20px;
+        left: 24px;
+        font-size: 0.75rem;
+        letter-spacing: 0.16em;
+        opacity: 0.5;
+    }
+    .game-mode__emblem {
+        width: 240px;
+        height: 180px;
+        filter: drop-shadow(0 0 12px rgba(var(--mode-rgb), 0.16));
+    }
+    .game-mode__orbit {
+        opacity: 0.3;
+    }
+    .game-mode__solid {
+        fill: #151412;
+    }
+    .game-mode__shine {
+        fill: rgba(var(--mode-rgb), 0.2);
+    }
+    .game-mode__content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 10px 28px 26px;
+    }
+    .game-mode__label {
+        margin: 0 0 12px;
+        color: var(--mode-accent);
+        font-size: 0.68rem;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+    }
+    .game-mode h3 {
+        margin-bottom: 18px;
+        color: var(--ink-strong);
+        font-size: clamp(1.8rem, 2.7vw, 2.3rem);
+    }
+    .game-mode__description {
+        flex: 1;
+        margin: 0 0 24px;
+        font-size: 0.94rem;
+        line-height: 1.7;
+        color: #c0b6a6;
+    }
+    .game-mode__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px 16px;
+        padding: 0;
+        margin: 0 0 24px;
+        list-style: none;
+        font-size: 0.67rem;
+        color: #a89f91;
+    }
+    .game-mode__tags li::before {
+        content: "◆";
+        margin-right: 7px;
+        font-size: 0.45rem;
+        color: var(--mode-accent);
+        vertical-align: middle;
+    }
+    .game-mode__link {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        min-height: 48px;
+        border-top: 1px solid rgba(var(--mode-rgb), 0.2);
+        padding-top: 18px;
+        color: var(--mode-accent);
+        font-size: 0.88rem;
+    }
+    .game-mode__link svg {
+        flex-shrink: 0;
+        transition: transform 0.2s;
+    }
+    .game-mode__link:hover svg {
+        transform: translateX(4px);
+    }
+    .game-mode__link:focus-visible {
+        outline-color: var(--mode-accent);
+        outline-offset: 7px;
+    }
+    @media (max-width: 1000px) and (min-width: 761px) {
+        .game-modes__grid {
+            gap: 14px;
+        }
+        .game-mode__content {
+            padding-inline: 20px;
+        }
+    }
+    @media (max-width: 760px) {
+        .game-modes__grid {
+            grid-template-columns: 1fr;
+            max-width: 480px;
+            margin-inline: auto;
+            gap: 20px;
+        }
+        .game-modes__heading {
+            margin-bottom: 30px;
+        }
+        .game-mode__art {
+            height: 170px;
+        }
+        .game-mode__emblem {
+            height: 160px;
+        }
+        .game-mode__content {
+            padding: 12px 24px 24px;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .game-mode,
+        .game-mode__link svg {
+            transition: none;
+        }
+        .game-mode:hover,
+        .game-mode:focus-within,
+        .game-mode__link:hover svg {
+            transform: none;
+        }
+    }
+</style>

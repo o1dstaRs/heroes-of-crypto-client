@@ -1,29 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Box from "@mui/joy/Box";
-import Button from "@mui/joy/Button";
 import Input from "@mui/joy/Input";
 import Stack from "@mui/joy/Stack";
-import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
 import { t, useTranslation } from "../../i18n/i18n";
-import { hocDisplayFontFamily, hocSidebarCloneSplitButtonSx, hocSidebarImageButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily } from "../hocTheme";
 
-const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
-
-const shortcutTooltipSx = {
-    backgroundColor: "#2d1606",
-    border: "2px solid #dcb158",
-    color: "#efe4cc",
-    borderRadius: "8px",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
-    fontSize: "0.85rem",
-    fontWeight: 700,
-    zIndex: 10000,
-};
+const DEFAULT_SPLIT_AMOUNT = 1;
 
 function isEditableShortcutTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false;
@@ -33,12 +20,17 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
 const UnitInputAndActions = ({
     selectedUnitCount,
     selectedTeamType,
+    selectedUnitId,
+    splitValue,
+    onSplitValueChange,
 }: {
     selectedUnitCount: number;
     selectedTeamType: TeamType;
+    selectedUnitId: string;
+    splitValue: number;
+    onSplitValueChange: (value: number) => void;
 }) => {
     useTranslation();
-    const changedRef = useRef(false);
     const [unitCount, setUnitCount] = useState("");
 
     // Remaining placement slots for the active team, shown during army setup. `null` hides the row.
@@ -96,41 +88,23 @@ const UnitInputAndActions = ({
         return () => connections.forEach((connection) => connection.disconnect());
     }, [manager, selectedTeamType]);
 
+    useEffect(() => {
+        setUnitCount(selectedUnitCount > 0 ? splitValue.toString() : "");
+    }, [selectedUnitId, selectedUnitCount, splitValue]);
+
     const changeUnitCount = (value: string) => {
-        changedRef.current = !!selectedUnitCount;
-        setUnitCount(value);
-    };
-
-    const adjustUnitCount = (delta: 1 | -1) => {
-        const current = Number.parseInt(unitCount, 10);
-        const next = Number.isNaN(current)
-            ? DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT
-            : Math.max(DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT, current + delta);
-        changeUnitCount(next.toString());
-    };
-
-    if (selectedUnitCount > 0) {
-        if (!changedRef.current) {
-            const selectedUnitCountString = selectedUnitCount.toString();
-            if (selectedUnitCountString !== unitCount) {
-                setUnitCount(selectedUnitCount.toString());
-            }
+        if (value === "") {
+            setUnitCount("");
+            return;
         }
-    } else if (unitCount !== "") {
-        setUnitCount("");
-    }
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return;
+        const next = Math.max(DEFAULT_SPLIT_AMOUNT, Math.min(Math.max(1, selectedUnitCount - 1), Math.floor(parsed)));
+        setUnitCount(next.toString());
+        onSplitValueChange(next);
+    };
 
-    const handleAccept = useCallback(
-        (count: number) => {
-            if (!Number.isNaN(count) && count > 0) {
-                manager.setAmountOfSelectedObjects(Math.floor(count));
-                manager.Accept();
-                setUnitCount(count.toString());
-                changedRef.current = false;
-            }
-        },
-        [manager],
-    );
+    const adjustUnitCount = (delta: 1 | -1) => changeUnitCount((splitValue + delta).toString());
 
     useEffect(() => {
         const handleActionShortcut = (event: KeyboardEvent) => {
@@ -146,7 +120,7 @@ const UnitInputAndActions = ({
             event.stopImmediatePropagation();
 
             if (key === "a") {
-                handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
+                manager.Accept();
             } else {
                 manager.Clone();
             }
@@ -154,7 +128,7 @@ const UnitInputAndActions = ({
 
         window.addEventListener("keydown", handleActionShortcut, { capture: true });
         return () => window.removeEventListener("keydown", handleActionShortcut, { capture: true });
-    }, [handleAccept, manager, selectedUnitCount, unitCount]);
+    }, [manager, selectedUnitCount]);
 
     return (
         <Box sx={{ width: "100%", marginTop: 2 }}>
@@ -250,6 +224,8 @@ const UnitInputAndActions = ({
                     type="number"
                     value={unitCount}
                     onChange={(e) => changeUnitCount(e.target.value)}
+                    onBlur={() => setUnitCount(selectedUnitCount > 0 ? splitValue.toString() : "")}
+                    disabled={selectedUnitCount < 2}
                     placeholder={t("# of units")}
                     variant="outlined"
                     endDecorator={
@@ -277,6 +253,7 @@ const UnitInputAndActions = ({
                                     component="button"
                                     type="button"
                                     aria-label={t(delta === 1 ? "Increase unit count" : "Decrease unit count")}
+                                    disabled={selectedUnitCount < 2}
                                     onMouseDown={(event) => event.preventDefault()}
                                     onClick={() => adjustUnitCount(delta)}
                                     sx={{
@@ -373,44 +350,13 @@ const UnitInputAndActions = ({
                     }}
                     slotProps={{
                         input: {
-                            min: DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT,
+                            min: DEFAULT_SPLIT_AMOUNT,
+                            max: Math.max(1, selectedUnitCount - 1),
+                            step: 1,
+                            "aria-label": t("Split amount"),
                         },
                     }}
                 />
-                <Stack
-                    direction="row"
-                    spacing={2}
-                    sx={{
-                        width: "93%",
-                        mx: "auto",
-                        transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
-                    }}
-                >
-                    <Tooltip title={t("Clone (C)")} placement="top" sx={shortcutTooltipSx}>
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            onClick={() => {
-                                manager.Clone();
-                            }}
-                            sx={{ ...hocSidebarCloneSplitButtonSx, flex: 1, minWidth: 0 }}
-                        >
-                            {t("Clone")}
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title={t("Accept (A)")} placement="top" sx={shortcutTooltipSx}>
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            onClick={() => {
-                                handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
-                            }}
-                            sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
-                        >
-                            {t("Accept")}
-                        </Button>
-                    </Tooltip>
-                </Stack>
             </Stack>
         </Box>
     );

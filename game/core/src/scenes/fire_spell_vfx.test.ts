@@ -26,6 +26,8 @@ const event = (spellName: string): GameEvent => ({
 });
 function fixture(cells = [{ x: 4, y: 5 }]) {
     const visuals = {
+        spawnFireball: mock<CombatVisuals["spawnFireball"]>(() => undefined),
+        spawnFireSweep: mock(() => undefined),
         spawnFireRing: mock<CombatVisuals["spawnFireRing"]>(() => undefined),
         spawnMeteorShower: mock<CombatVisuals["spawnMeteorShower"]>(() => undefined),
         spawnWhirlpool: mock<CombatVisuals["spawnWhirlpool"]>(() => undefined),
@@ -128,4 +130,74 @@ test("switching fire render modes routes new casts without clearing effects alre
         expect(layer.meteors).toHaveBeenCalledTimes(1);
         expect(layer.clear).not.toHaveBeenCalled();
     }
+});
+
+test("Battle Mage meteor uses the identical shower renderer, with only its authoritative four cells", () => {
+    const { scene, visuals } = fixture();
+    scene.renderSpellDamageVfx([
+        {
+            ...event("Meteorite"),
+            damaged: [{ unitId: "victim", position: { x: 300, y: 300 }, amount: 17, unitsDied: 0 }],
+        },
+    ]);
+    expect(visuals.spawnMeteorShower.mock.calls).toEqual([
+        [
+            [
+                { x: 4, y: 5 },
+                { x: 4, y: 6 },
+                { x: 5, y: 5 },
+                { x: 5, y: 6 },
+            ].map((cell) => spellFootprint([cell], gs)),
+            "particles",
+        ],
+    ]);
+    expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
+    expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(1);
+});
+
+test("Fire Strike emits one book-anchored arrow and no premature legacy burn", () => {
+    const { scene, visuals } = fixture();
+    const arrow = mock(() => 600),
+        sweep = mock(() => undefined);
+    Object.assign(visuals, { spawnFireStrikeArrow: arrow, spawnFireSweep: sweep });
+    const origin = { x: 40, y: 80 },
+        body = { x: 300, y: 240 };
+    scene.unitsHolder.getAllUnits = () =>
+        new Map([
+            ["caster", { getSpells: () => [], getSpellProjectileOrigin: () => origin }],
+            [
+                "target",
+                {
+                    getProjectileImpactPoint: () => body,
+                    getDamagePredictionAnchor: () => body,
+                    hasAbilityActive: () => false,
+                },
+            ],
+        ]);
+    scene.renderSpellDamageVfx(
+        [
+            {
+                ...event("Fire Strike"),
+                damaged: [{ unitId: "target", position: { x: 300, y: 200 }, amount: 0, unitsDied: 0 }],
+            },
+        ],
+        { x: 0, y: 0 },
+    );
+    expect(arrow).toHaveBeenCalledTimes(1);
+    expect((arrow.mock.calls as unknown[][])[0].slice(0, 2)).toEqual([origin, body]);
+    expect(sweep).not.toHaveBeenCalled();
+    expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
+});
+
+test("Fireball routes the old ring sequence without extra sweep or burn layers", () => {
+    const { scene, visuals } = fixture();
+    scene.renderSpellDamageVfx([
+        { ...event("Fireball"), damaged: [{ unitId: "other", position: { x: 288, y: 352 }, amount: 7, unitsDied: 0 }] },
+    ]);
+    expect(visuals.spawnFireball.mock.calls).toEqual([
+        [spellFootprint([{ x: 4, y: 5 }], gs), spellFootprint([{ x: 4, y: 5 }], gs, 1)],
+    ]);
+    expect(visuals.spawnFireRing).not.toHaveBeenCalled();
+    expect(visuals.spawnFireSweep).not.toHaveBeenCalled();
+    expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
 });
