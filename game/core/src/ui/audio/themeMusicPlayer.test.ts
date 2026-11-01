@@ -438,3 +438,249 @@ describe("client theme music player", () => {
         player.destroy();
     });
 });
+
+describe("two-song match playlist", () => {
+    test("plays Iron and Silk then The Last Stand, wraps, and restores the Arena's own position", async () => {
+        const { ARENA_MUSIC_PLAYLIST, MATCH_MUSIC_PLAYLIST } = await import("./themeMusicTracks");
+        const audio = new FakeAudio();
+        const webmSource = { src: ARENA_MUSIC_PLAYLIST[0].webm };
+        const mp3Source = { src: ARENA_MUSIC_PLAYLIST[0].mp3 };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist: ARENA_MUSIC_PLAYLIST,
+            initialIndex: 2,
+            initialTime: 43,
+            getTargetVolume: () => 0.2,
+            fadeTo: () => undefined,
+            onPlaybackStarted: () => undefined,
+            onPlaybackBlocked: () => undefined,
+        });
+        try {
+            audio.dispatchEvent(new Event("loadedmetadata"));
+            await player.playMatchPlaylist(MATCH_MUSIC_PLAYLIST, true);
+            expect(webmSource.src).toBe("/audio/iron_and_silk.webm");
+            for (const expected of ["the_last_stand", "iron_and_silk", "the_last_stand"]) {
+                audio.currentTime = 0;
+                audio.dispatchEvent(new Event("ended"));
+                await settle();
+                expect(webmSource.src).toBe(`/audio/${expected}.webm`);
+                expect(mp3Source.src).toBe(`/audio/${expected}.mp3`);
+                expect(player.isPlaylist()).toBe(false);
+                expect(audio.paused).toBe(false);
+            }
+            audio.currentTime = 27;
+            const loads = audio.loadCalls;
+            await player.playMatchPlaylist(MATCH_MUSIC_PLAYLIST, true);
+            expect(audio.loadCalls).toBe(loads);
+            expect(player.playbackMemory()).toEqual({ index: 2, time: 43, matchIndex: 1, matchTime: 27 });
+            await player.resumePlaylist(true);
+            audio.dispatchEvent(new Event("loadedmetadata"));
+            expect(webmSource.src).toBe("/audio/the_stone_lullaby.webm");
+            expect(audio.currentTime).toBe(43);
+            expect(player.playbackMemory()).toEqual({ index: 2, time: 43 });
+            await player.playMatchPlaylist(MATCH_MUSIC_PLAYLIST, true);
+            expect(webmSource.src).toBe("/audio/iron_and_silk.webm");
+        } finally {
+            player.destroy();
+        }
+    });
+
+    test("reload resumes the second match song and its bar before and after the board reports", async () => {
+        const { parseThemePlaybackMemory } = await import("./themeMusicMemory");
+        const { MATCH_MUSIC_PLAYLIST } = await import("./themeMusicTracks");
+        const saved = parseThemePlaybackMemory(JSON.stringify({ index: 1, time: 19, matchIndex: 1, matchTime: 61 }))!;
+        const audio = new FakeAudio();
+        const webmSource = { src: "" };
+        const mp3Source = { src: "" };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            initialIndex: saved.index,
+            initialTime: saved.time,
+            initialMatch: {
+                track: MATCH_MUSIC_PLAYLIST[saved.matchIndex ?? 0],
+                time: saved.matchTime!,
+                playlist: MATCH_MUSIC_PLAYLIST,
+            },
+            getTargetVolume: () => 0.2,
+            fadeTo: () => undefined,
+            onPlaybackStarted: () => undefined,
+            onPlaybackBlocked: () => undefined,
+        });
+        try {
+            expect(player.playbackMemory()).toEqual(saved);
+            audio.dispatchEvent(new Event("loadedmetadata"));
+            expect(webmSource.src).toBe("/audio/the_last_stand.webm");
+            expect(audio.currentTime).toBe(61);
+            const loads = audio.loadCalls;
+            await player.playMatchPlaylist(MATCH_MUSIC_PLAYLIST, true);
+            expect(audio.loadCalls).toBe(loads);
+            expect(player.playbackMemory()).toEqual(saved);
+            audio.dispatchEvent(new Event("ended"));
+            await settle();
+            expect(webmSource.src).toBe("/audio/iron_and_silk.webm");
+            await player.resumePlaylist(true);
+            audio.dispatchEvent(new Event("loadedmetadata"));
+            expect(audio.currentTime).toBe(19);
+        } finally {
+            player.destroy();
+        }
+    });
+
+    test("crossfades both match songs without skipping on ended, and preserves the menu underneath", async () => {
+        const { MATCH_MUSIC_PLAYLIST } = await import("./themeMusicTracks");
+        const first = new FakeAudio();
+        const second = new FakeAudio();
+        const webmSource = { src: "" };
+        const mp3Source = { src: "" };
+        const nextWebm = { src: "" };
+        const nextMp3 = { src: "" };
+        const animation: { frame?: FrameRequestCallback } = {};
+        const previous = globalThis.requestAnimationFrame;
+        globalThis.requestAnimationFrame = (frame) => {
+            animation.frame = frame;
+            return 1;
+        };
+        const player = createThemeMusicPlayer({
+            audio: first,
+            webmSource,
+            mp3Source,
+            playlist,
+            initialIndex: 1,
+            initialTime: 15,
+            initialMatch: { track: MATCH_MUSIC_PLAYLIST[0], time: 0, playlist: MATCH_MUSIC_PLAYLIST },
+            crossfade: { ms: 2200, audio: second, webmSource: nextWebm, mp3Source: nextMp3 },
+            getTargetVolume: () => 0.2,
+            fadeTo: () => undefined,
+            onPlaybackStarted: () => undefined,
+            onPlaybackBlocked: () => undefined,
+        });
+        try {
+            await player.start();
+            for (const [outgoing, incoming, source, expected, index] of [
+                [first, second, nextWebm, "/audio/the_last_stand.webm", 1],
+                [second, first, webmSource, "/audio/iron_and_silk.webm", 0],
+            ] as const) {
+                incoming.currentTime = 0;
+                outgoing.duration = 100;
+                outgoing.currentTime = 98;
+                outgoing.dispatchEvent(new Event("timeupdate"));
+                expect(source.src).toBe(expected);
+                outgoing.dispatchEvent(new Event("ended"));
+                await settle();
+                animation.frame?.(performance.now() + 10_000);
+                expect(player.playbackMemory()).toEqual({ index: 1, time: 15, matchIndex: index, matchTime: 0 });
+                expect(incoming.paused).toBe(false);
+                expect(incoming.volume).toBeCloseTo(0.2);
+                expect(outgoing.paused).toBe(true);
+            }
+        } finally {
+            globalThis.requestAnimationFrame = previous;
+            player.destroy();
+        }
+    });
+
+    test("muting and restoring the second song keeps the current song and position", async () => {
+        const { MATCH_MUSIC_PLAYLIST } = await import("./themeMusicTracks");
+        const audio = new FakeAudio();
+        const webmSource = { src: "" };
+        let volume = 0.2;
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source: { src: "" },
+            playlist,
+            initialMatch: { track: MATCH_MUSIC_PLAYLIST[1], time: 52, playlist: MATCH_MUSIC_PLAYLIST },
+            getTargetVolume: () => volume,
+            fadeTo: () => undefined,
+            onPlaybackStarted: () => undefined,
+            onPlaybackBlocked: () => undefined,
+        });
+        try {
+            audio.dispatchEvent(new Event("loadedmetadata"));
+            await player.start();
+            volume = 0;
+            player.setTargetVolume(volume);
+            player.releaseMedia();
+            expect(audio.paused).toBe(true);
+            expect(await player.playMatchPlaylist(MATCH_MUSIC_PLAYLIST, true)).toBe(false);
+            volume = 0.2;
+            player.setTargetVolume(volume);
+            await player.start();
+            audio.dispatchEvent(new Event("loadedmetadata"));
+            expect(webmSource.src).toBe("/audio/the_last_stand.webm");
+            expect(audio.currentTime).toBe(52);
+            expect(player.playbackMemory()).toMatchObject({ matchIndex: 1, matchTime: 52 });
+        } finally {
+            player.destroy();
+        }
+    });
+
+    test("blocked crossfade falls back to the correct next match song", async () => {
+        const { MATCH_MUSIC_PLAYLIST } = await import("./themeMusicTracks");
+        const audio = new FakeAudio();
+        const incoming = new FakeAudio();
+        const webmSource = { src: "" };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source: { src: "" },
+            playlist,
+            initialMatch: { track: MATCH_MUSIC_PLAYLIST[0], time: 0, playlist: MATCH_MUSIC_PLAYLIST },
+            crossfade: { ms: 2200, audio: incoming, webmSource: { src: "" }, mp3Source: { src: "" } },
+            getTargetVolume: () => 0.2,
+            fadeTo: () => undefined,
+            onPlaybackStarted: () => undefined,
+            onPlaybackBlocked: () => undefined,
+        });
+        try {
+            await player.start();
+            incoming.playResults.push(false);
+            audio.duration = 100;
+            audio.currentTime = 98;
+            audio.dispatchEvent(new Event("timeupdate"));
+            await settle();
+            expect(webmSource.src).toBe("/audio/the_last_stand.webm");
+            expect(player.playbackMemory()).toMatchObject({ matchIndex: 1 });
+            expect(audio.paused).toBe(false);
+        } finally {
+            player.destroy();
+        }
+    });
+});
+
+test("The Last Stand keeps distinct Arena and match clocks despite using the same audio file", async () => {
+    const { ARENA_MUSIC_PLAYLIST, MATCH_MUSIC_PLAYLIST } = await import("./themeMusicTracks");
+    const audio = new FakeAudio();
+    const webmSource = { src: "" };
+    const player = createThemeMusicPlayer({
+        audio,
+        webmSource,
+        mp3Source: { src: "" },
+        playlist: ARENA_MUSIC_PLAYLIST,
+        initialIndex: 1,
+        initialTime: 21,
+        initialMatch: { track: MATCH_MUSIC_PLAYLIST[1], time: 87, playlist: MATCH_MUSIC_PLAYLIST },
+        getTargetVolume: () => 0.2,
+        fadeTo: () => undefined,
+        onPlaybackStarted: () => undefined,
+        onPlaybackBlocked: () => undefined,
+    });
+    try {
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(audio.currentTime).toBe(87);
+        await player.start();
+        await player.resumePlaylist(true);
+        audio.dispatchEvent(new Event("loadedmetadata"));
+        expect(webmSource.src).toBe("/audio/the_last_stand.webm");
+        expect(audio.currentTime).toBe(21);
+        expect(player.isPlaylist()).toBe(true);
+        expect(player.playbackMemory()).toEqual({ index: 1, time: 21 });
+    } finally {
+        player.destroy();
+    }
+});
