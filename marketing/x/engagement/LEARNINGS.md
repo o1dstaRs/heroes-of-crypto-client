@@ -175,3 +175,35 @@ Weekly X research refresh (19–26 Oct 2026 PT). Read-only. About 27 public X AP
 - Worked: nothing new earned an outside reaction. The only ER above 0 among new snapshots is still the Morale "our own guide got it wrong" dev-diary (7d: 10 views, 1 like, ER 0.10); admitted-error posts remain the only text format with likes (Morale, pick-your-side were the two likes).
 - Didn't work: the three v0.1.7 patch-note dev-diaries (split-spellbook, Last Fuse, Farsight Quiver) all scored 13–17 views and ER 0 at 24h. "New in v0.1.7: <artifact>" reads like patch notes and draws no reply even with a direct play instruction.
 - Followers slipped 92 -> 91. With 0 outside replies in 12 days, this supports Monday's proposals (outreach replies and media) over more text-post wording changes.
+
+## 2026-10-27 daily review
+
+- Worked: Monday's three posts (barrels rule 17, area-shots dev-diary 20, plus Sunday's augment-draft 20 at 24h) were the best set of 24h reach since the Castling day, after moving away from "New in v0.1.7: <artifact>" posts. Today's anti-stall morale rule post has an outside like within 3 hours (8 views), the third text post with a like and the second about morale.
+- Didn't work: still 0 outside replies and 0 tactics replies (13 days running); every 24h ER in this batch is 0. Followers flat at 91.
+- Lesson: rule posts tied to a concrete board mechanic (barrels, area splash on big bodies, morale-as-movement) reach a bit more than artifact patch notes and morale keeps earning the only likes, but at ~20 views there's still nobody to reply. Reach (outreach replies and media, per the 26 Oct proposals) remains the blocker. Proposal for Stepan, not an edit.
+
+## 2026-10-28 daily review
+
+- Worked: the anti-stall morale rule post (Tue 27, morning) is the best new 24h snapshot: 16 views, 1 outside like, ER 0.0625. Morale is now the topic behind 2 of the 3 outside likes on non-pin posts since 14 Oct (Morale's admitted error and this one; the third is pick-your-side). The pick-your-side dev-diary held its like at 7d (18 views, ER 0.056).
+- Didn't work: the two "we got it wrong" dev-diaries from 26–27 Oct (stack-count 14 views, Wandering Mage 19 views) both scored ER 0 at 24h. Admitting an error no longer earns a like on its own; the earlier likes came from Morale's topic, not the framing.
+- Still 0 outside replies, 0 tactics replies, 0 token replies (14 days running); 7d tails on 21–22 Oct posts grew only +1 to +2 views. Followers flat at 91.
+- Lesson: morale-as-movement is the one topic that keeps drawing a like, so a follow-up morale angle is worth a slot; but at 14–21 views reach, not wording, is still the blocker. Outreach replies and media (26 Oct proposals) remain open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-10-29 daily review
+
+- Worked: the FIRE PIT lava map rule (Tue 27, evening) was the best new 24h snapshot at 18 views, and Castling's 7d reached 30 views, still the best non-pin post. The Water Shield fire-change post (Fri 23) grew 13 -> 19 by 7d, the biggest tail this batch.
+- Didn't work: the retaliation rule post (Wed 28, morning) got 9 views at 24h, the lowest since 19 Oct, and no like, even though it was a counterintuitive combat rule. The Tsar Cannon design call got 17 and ER 0. No new post earned a like; 0 outside replies and 0 tactics replies for 15 days running.
+- Lesson: topic, not framing, explains the few likes (morale), and a generic combat rule with no named unit or faction draws the weakest reach. Named units and map mechanics hold 17–30 views, but reach is still the blocker; the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-10-30 daily review
+
+- Worked: nothing new broke out. The Armageddon clock rule (Wed 28, evening) was the best new 24h snapshot at 15 views; the Satyr Helping Hand named-unit post got 14. Both ER 0.
+- Didn't work: the morale-from-movement follow-up (Thu 29, morning) got 9 views and no like, tying the lowest 24h since 19 Oct. The one-topic-draws-likes idea from 28 Oct didn't repeat; the two morning rule posts in a row (retaliation, morale follow-up) both sit at 9 views. 0 outside replies, 0 tactics replies for 16 days running. Followers flat at 91.
+- Lesson: morale alone doesn't carry a post; the morning slot has now posted the two lowest 24h numbers this week, while evening and midday posts hold 14–18. With reach at 9–20 views, wording tweaks can't be told apart from noise; the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-10-31 daily review
+
+- Worked: the Gravechain cursed-artifact trade-off post (Fri 30, midday) was the best new 24h snapshot at 20 views, matching the top midday numbers this week. Framing an artifact as a cost-vs-payoff choice instead of "New in v0.1.7" held midday reach, but still ER 0.
+- Didn't work: the doctrines draft rule (Fri 30, morning make-up) got 12 views and ER 0. 7d tails were flat: Sat 24 make-up 13 -> 14, Sun 25 Last Fuse 17 -> 18.
+- 0 outside replies, 0 tactics replies, 0 token replies for 17 days running; no mentions since 29 Oct. Followers flat at 91.
+- Lesson: the morning slot has now posted the lowest 24h number three days running (9, 9, 12) while midday holds 14–20, so the morning gap is starting to look like slot, not topic. Keep collecting through next week before proposing a slot move; reach (not wording) is still the blocker and the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.

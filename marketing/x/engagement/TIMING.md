@@ -489,3 +489,36 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - Sunday 25 Oct: morning Last Fuse 17 views (26.7h), midday Farsight Quiver 16 (21.8h); evening augment-draft already 19 at ~16.8h. Sunday reach matched weekdays this week, unlike the weak Sat/Sun 17–18 posts.
 - 7d tail: Mon 19 midday first-move post went 8 -> 20 views, the largest non-pin tail so far; Mon 19 evening 9 -> 10, Tue 20 morning 13 -> 16. Tails stay small and don't favor one slot.
 - No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-27 daily engagement review (own posts)
+
+- 24h: Sun 25 evening augment-draft 20 views (40.9h), Mon 26 morning barrels 17 (26.8h), Mon 26 midday area-shots 20 (21.8h). Midday and evening edged morning again, by 3 views (n=1 each).
+- 7d tails: Tue 20 midday No Melee 12 -> 19 (+7), the second Monday/Tuesday midday post to grow most after day one (Mon 19 midday first-move was 8 -> 20); Tue 20 evening 10 -> 12; Wed 21 morning 12 -> 13. Midday posts keep the biggest tails (n=3 incl. Castling).
+- Today's 7:02 AM morning post had 1 like at ~2.8h, so an early-morning post can still pick up a like quickly.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-28 daily engagement review (own posts)
+
+- 24h: Mon 26 4:51 PM evening stack-count 14 views (40.9h); Tue 27 7:02 AM morning anti-stall 16 views + 1 like (26.7h); Tue 27 11:57 AM midday Wandering Mage 19 views (21.8h). Midday led on views again (n=1), morning got the only like.
+- Tue 27 5:00 PM evening FIRE PIT already 16 views at ~16.8h, on pace with the regular slots.
+- 7d tails: Wed 21 midday replay part two 20 -> 21; Wed 21 evening Through Shot 17 -> 18; Thu 22 morning pick-your-side 16 -> 18. This week's tails are small in every slot; the midday tail advantage seen 19–20 Oct did not repeat.
+- Today's 6:58 AM post had 7 views at ~2.8h.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-29 daily engagement review (own posts)
+
+- 24h: Tue 27 5:00 PM evening FIRE PIT 18 views (40.8h); Wed 28 6:58 AM morning retaliation 9 views (26.8h); Wed 28 11:51 AM midday Tsar Cannon 17 views (21.9h). Morning was the weakest slot this day by a wide margin (n=1), but Tue 27's morning post had the only like, so topic swings more than slot.
+- 7d tails: Thu 22 midday Castling 25 -> 30 (+5); Fri 23 morning Water Shield 13 -> 19 (+6); Thu 22 evening live-aim 13 -> 15; Thu 22 morning pick-your-side 16 -> 18. Tails don't favor one slot this week.
+- Wed 28 4:58 PM Armageddon had 14 views at ~15.8h; today's 6:50 AM post 6 views at ~2.9h.
+- No change proposed to the 6:48 / 11:48 / 4:48 slots.
+
+## 2026-10-30 daily engagement review (own posts)
+- 24h snapshots: Wed 28 4:58 PM evening Armageddon 15 views; Thu 29 11:57 AM midday Satyr 14; Thu 29 6:50 AM morning morale follow-up 9. All ER 0.
+- Morning slot (6:48 AM) gave the two lowest 24h views this week (Wed 28 retaliation 9, Thu 29 morale 9); midday and evening this week ranged 14–19. Still within noise at this reach; one more week of morning data before proposing a slot move.
+- 0 tactics replies (16 days running). Followers flat at 91. Thu 29 4:48 PM slot missed, made up Fri 30 6:52 AM.
+
+## 2026-10-31 daily engagement review (own posts)
+- 24h snapshots: Fri 30 6:52 AM morning doctrines 12 views (26.8h); Fri 30 11:50 AM midday Gravechain 20 views (21.8h). Both ER 0.
+- Fri 30 4:53 PM evening turn-order already 15 views at ~15.8h, on pace with this week's evening posts. Today's 6:51 AM post had 8 views at ~2.8h.
+- 7d tails: Sat 24 10:03 PM late make-up 13 -> 14 (155.6h); Sun 25 6:57 AM Last Fuse 17 -> 18 (146.7h). Tails stay +1 to +2 for every slot.
+- Morning has been the weakest 24h slot three days running (9, 9, 12 vs midday 14–20). Still n=3; one more week before proposing a slot change to Stepan.
