@@ -35,6 +35,8 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
 const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Pegasus Light",
     "Sharpened Weapons Blessing",
+    "Sylvan Focus Blessing",
+    "Wolf Trail Blessing",
 ]);
 const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Gravebound",

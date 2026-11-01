@@ -103,6 +103,8 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
+    "System:Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
+    "System:Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
     "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
     "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
@@ -158,6 +160,8 @@ const abilityCastSpells = new Set([
 
 // Sources of non-castable buffs/debuffs. These links live in ability and artifact code rather than data.
 const appliedBySources: Record<string, string[]> = {
+    "Sylvan Focus Blessing": ["Sylvan Focus Blessing"],
+    "Wolf Trail Blessing": ["Wolf Trail Blessing"],
     "Ember Covenant Blessing": ["Ember Covenant Blessing"],
     "Dulling Defense": ["Dulling Defense"],
     Miner: ["Miner"],
@@ -234,6 +238,10 @@ const resolvedDescriptions: Record<string, string> = {
 };
 
 const descriptionsRu: Record<string, string> = {
+    "System:Sylvan Focus Blessing":
+        "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    "System:Wolf Trail Blessing":
+        "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "Nature:Whirlpool":
         "Открывает под врагом бурлящий водоворот и приковывает его к месту.\nСущество пропускает следующий ход, пока заперто в водовороте.\nМагия воды: юнита с Water Element водоворот не удержит.",
     // Keyed by the data file's book (Chaos); the page files Empower under Order.

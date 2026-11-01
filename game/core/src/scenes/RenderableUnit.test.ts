@@ -7948,14 +7948,20 @@ describe("RenderableUnit runtime spell synchronization", () => {
 
 describe("RenderableUnit runtime aura and reflection descriptions", () => {
     const descriptionFor = (
-        creatureName: "Dryad" | "Satyr" | "Magic Dragon",
+        creatureName: "Dryad" | "Satyr" | "Magic Dragon" | "Wolf Rider",
         textureName: string,
         abilityName: string,
         stackPower: number,
         luck: number,
     ): string => {
         const effectFactory = new EffectFactory();
-        const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Nature", creatureName, textureName, 1);
+        const properties = HoCConfig.getCreatureConfig(
+            TeamVals.LEFT,
+            creatureName === "Wolf Rider" ? "Might" : "Nature",
+            creatureName,
+            textureName,
+            1,
+        );
         properties.luck = luck;
         const base = Unit.createUnit(
             properties,
@@ -7977,9 +7983,7 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
 
     test("replaces live Guiding Winds, Sylvan Focus and Magic Mirror values", () => {
         expect(descriptionFor("Dryad", "dryad_512", "Guiding Winds Aura", 2, 10)).toContain("shoot 20% further");
-        expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Aura", 1, 10)).toContain(
-            "deal 25% more magic damage",
-        );
+        expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Blessing", 1, 10)).toContain("deal +3% magic damage");
         // Magic Reflection is stack-scaled now: at power 75 that is 15/30/45/60/75 across the stack, then
         // shifted by luck. One pip of stack with 10 luck returns 25% of landed damage, not the configured
         // full-stack 75 — and the share is an amount, returned every cast, never a rate to roll.
@@ -7989,6 +7993,19 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         expect(descriptionFor("Magic Dragon", "magic_dragon_512", "Magic Reflection", 5, 10)).toContain(
             "caster takes 85%",
         );
+    });
+
+    test("prints the Satyr and Wolf Rider blessing power at every tier without adding luck", () => {
+        for (let tier = 1; tier <= 5; tier++) {
+            for (const luck of [-10, 10]) {
+                expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Blessing", tier, luck)).toContain(
+                    `deal +${tier * 3}% magic damage`,
+                );
+                expect(descriptionFor("Wolf Rider", "wolf_rider_512", "Wolf Trail Blessing", tier, luck)).toContain(
+                    `gain +${tier / 5} movement distance`,
+                );
+            }
+        }
     });
 
     test("replaces Chakram's target limit and damage percentages at every stack tier", () => {

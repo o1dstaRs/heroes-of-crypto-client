@@ -7,6 +7,18 @@ const effectPower = (name: string): number =>
     (effectsJson as unknown as Record<string, { power?: number }>)[name]?.power ?? 0;
 
 export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
+    "Sylvan Focus Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p}% magic damage. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
+    "Wolf Trail Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} movement. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
     "Made of Fire": {
         en: () =>
             "On the FIRE PIT map this creature may cross and stand in the central lava (other walkers can't enter it; other flyers can fly over it but can't end a move there, and gain nothing from it). Any move whose path touches lava — starting in it, crossing it or ending in it — gives Made of Fire for 2 laps: +10% max health, attack, armor, movement, initiative, shot range and magic resistance, and its abilities work at 110% of their power. It isn't refreshed while active, standing still in lava does nothing, and the pool dries into normal ground at the start of lap 10 (earlier when stalled laps add extra rings).",
