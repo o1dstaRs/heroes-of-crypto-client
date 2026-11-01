@@ -27,12 +27,14 @@ interface ThemeChannel {
 }
 
 export interface ThemePlaybackMemory {
-    /** Menu playlist index. Kept while Iron and Silk is playing so leaving the match continues that song. */
+    /** Menu playlist index. Kept while match music plays so leaving the match continues that song. */
     index: number;
     /** Seconds into the menu song. */
     time: number;
     /** Present only while the match track is what was playing. Zero is the first bar, not "no match". */
     matchTime?: number;
+    /** Which match song owns matchTime. Older saved sessions omit this and start on the first song. */
+    matchIndex?: number;
 }
 
 interface ThemeMusicPlayerOptions {
@@ -52,7 +54,7 @@ interface ThemeMusicPlayerOptions {
      * Reload landed inside a ranked match. Open already on this track at this time so the later
      * playSingle of the same file does not load() it back to the first bar.
      */
-    initialMatch?: { track: ThemeTrack; time: number };
+    initialMatch?: { track: ThemeTrack; time: number; playlist?: readonly ThemeTrack[] };
     /** Fires on the element that is actually playing, including after a crossfade swaps elements. */
     onProgress?: () => void;
     /** The volume control has to follow the element a crossfade just handed playback to. */
@@ -70,6 +72,7 @@ export interface ThemeMusicPlayer {
     releaseMedia(): void;
     advance(): Promise<boolean>;
     playSingle(track: ThemeTrack, autoplay?: boolean): Promise<boolean>;
+    playMatchPlaylist(tracks: readonly ThemeTrack[], autoplay?: boolean): Promise<boolean>;
     resumePlaylist(autoplay?: boolean): Promise<boolean>;
     hasStarted(): boolean;
     currentIndex(): number;
@@ -136,6 +139,7 @@ export const createThemeMusicPlayer = ({
             : 0;
     let trackIndex = openingIndex;
     let currentTrack: ThemeTrack = playlist[openingIndex];
+    let matchTracks: readonly ThemeTrack[] = initialMatch?.playlist ?? (initialMatch ? [initialMatch.track] : []);
     let pendingTime = initialTime !== undefined && Number.isFinite(initialTime) && initialTime > 0 ? initialTime : 0;
     // The menu position underneath a match. A reload of the fight must not replace this with the match clock.
     let menuTime = pendingTime;
@@ -250,7 +254,19 @@ export const createThemeMusicPlayer = ({
 
     const playbackMemory = (): ThemePlaybackMemory => {
         if (!playlistMode) {
-            return { index: trackIndex, time: menuTime, matchTime: clock(active.audio) };
+            return {
+                index: trackIndex,
+                time: menuTime,
+                matchTime: pendingMatchTime > 0 ? pendingMatchTime : clock(active.audio),
+                ...(matchTracks.length > 1
+                    ? {
+                          matchIndex: Math.max(
+                              0,
+                              matchTracks.findIndex((track) => sameTrack(track, currentTrack)),
+                          ),
+                      }
+                    : {}),
+            };
         }
         return { index: trackIndex, time: playlistClock() };
     };
@@ -492,17 +508,27 @@ export const createThemeMusicPlayer = ({
         return loadTrack(playlist[trackIndex], true, true);
     };
 
-    const playSingle = (track: ThemeTrack, autoplay?: boolean): Promise<boolean> => {
+    const playMatchPlaylist = (tracks: readonly ThemeTrack[], autoplay?: boolean): Promise<boolean> => {
+        if (!tracks.length) throw new Error("Match music playlist must contain at least one track");
+        matchTracks = [...tracks];
         const shouldAutoplay = autoplay ?? (playbackHasStarted || currentAttempt !== null);
-        if (!playlistMode && !mediaReleased && sameTrack(currentTrack, track)) {
-            // Already on Iron and Silk. Loading again would restart the fight from the first bar,
-            // which is what a reload used to do when the screen reported the match a moment later.
+        if (!playlistMode && matchTracks.some((track) => sameTrack(currentTrack, track))) {
+            // Phase handoffs must keep the current match song, including the second song, at its saved bar.
+            if (mediaReleased) return loadTrack(currentTrack, false, autoplay);
             if (currentAttempt) return currentAttempt;
             if (!shouldAutoplay) return Promise.resolve(playbackHasStarted && !active.audio.paused);
             if (!active.audio.paused && playbackHasStarted) return Promise.resolve(true);
             return startPlayback(getTargetVolume(), true, true);
         }
-        return switchTo(track, false, autoplay);
+        return switchTo(matchTracks[0], false, autoplay);
+    };
+
+    const playSingle = (track: ThemeTrack, autoplay?: boolean): Promise<boolean> =>
+        playMatchPlaylist([track], autoplay);
+
+    const nextMatchTrack = (): ThemeTrack => {
+        const index = matchTracks.findIndex((track) => sameTrack(track, currentTrack));
+        return matchTracks[(index + 1) % matchTracks.length] ?? currentTrack;
     };
 
     const resumePlaylist = (autoplay?: boolean): Promise<boolean> => {
@@ -561,8 +587,7 @@ export const createThemeMusicPlayer = ({
             beginOverlap(playlist[nextIndex], true, nextIndex, 0);
             return;
         }
-        // The match track loops. Overlap it with itself instead of cutting back to the first bar.
-        beginOverlap(currentTrack, false, trackIndex, 0);
+        beginOverlap(nextMatchTrack(), false, trackIndex, 0);
     };
 
     const onTime: EventListener = () => {
@@ -575,7 +600,7 @@ export const createThemeMusicPlayer = ({
         if (playlistMode) {
             void advance();
         } else {
-            void loadTrack(currentTrack, false, true);
+            void loadTrack(nextMatchTrack(), false, true);
         }
     };
     const bind = (element: ThemeAudio): void => {
@@ -594,6 +619,7 @@ export const createThemeMusicPlayer = ({
         releaseMedia,
         advance,
         playSingle,
+        playMatchPlaylist,
         resumePlaylist,
         hasStarted: () => playbackHasStarted,
         currentIndex: () => trackIndex,

@@ -15,6 +15,7 @@ import { DrawableRectanglePlacement, DrawableSquarePlacement, IDrawablePlacement
 export class PlacementManager {
     private leftPlacements: [IDrawablePlacement?, IDrawablePlacement?] = [];
     private rightPlacements: [IDrawablePlacement?, IDrawablePlacement?] = [];
+    private placementKey = "";
     private allowedPlacementCellHashes = new Set<number>();
     private allowedPlacementCellHashesPerTeam = new Map<TeamType, Set<number>>([
         [TeamVals.LEFT, new Set<number>()],
@@ -27,6 +28,15 @@ export class PlacementManager {
         for (const placement of [...this.leftPlacements, ...this.rightPlacements]) {
             placement?.releaseVisuals();
         }
+    }
+    private currentPlacementKey(): string {
+        const fp = FightStateManager.getInstance().getFightProperties();
+        return `${fp.getPlacementType()}:${fp.isSideOrientedPlacement()}:${fp.getAugmentPlacement(TeamVals.LEFT).join(",")}:${fp.getAugmentPlacement(TeamVals.RIGHT).join(",")}`;
+    }
+    private syncFromFightProps(): void {
+        // Ranked setup can arrive after scene creation without a board rebuild or local augment pick.
+        // Keep the visible zone and drop validation on the same setup, including after reconnects.
+        if (this.placementKey !== this.currentPlacementKey()) this.rebuildFromFightProps();
     }
     /** Rebuild placements + allowed hashes from current FightProperties */
     public rebuildFromFightProps(): void {
@@ -109,6 +119,7 @@ export class PlacementManager {
         addHashes(TeamVals.LEFT, this.leftPlacements[1]);
         addHashes(TeamVals.RIGHT, this.rightPlacements[0]);
         addHashes(TeamVals.RIGHT, this.rightPlacements[1]);
+        this.placementKey = this.currentPlacementKey();
     }
     /** Hide cached washes and frames without destroying them. */
     public concealPersistentZones(): void {
@@ -118,6 +129,7 @@ export class PlacementManager {
     }
     /** Draw all placements or only for a specific team */
     public draw(gfx: Graphics, frameContainer: Container, team?: TeamType, washContainer?: Container): void {
+        this.syncFromFightProps();
         // An undrawn team must not keep last frame's wash. Drawn zones turn theirs back on.
         this.concealPersistentZones();
         const drawOne = (p?: IDrawablePlacement) => p && p.draw(gfx, frameContainer, washContainer);
@@ -136,13 +148,16 @@ export class PlacementManager {
         }
     }
     public getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
+        this.syncFromFightProps();
         const placements = teamType === TeamVals.LEFT ? this.leftPlacements : this.rightPlacements;
         return placementIndex in placements ? placements[placementIndex] : undefined;
     }
     public getAllowedPlacementCellHashes(): ReadonlySet<number> {
+        this.syncFromFightProps();
         return this.allowedPlacementCellHashes;
     }
     public getAllowedPlacementCellHashesForTeam(team: TeamType): ReadonlySet<number> | undefined {
+        this.syncFromFightProps();
         return this.allowedPlacementCellHashesPerTeam.get(team);
     }
 }

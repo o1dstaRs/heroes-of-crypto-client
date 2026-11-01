@@ -64,12 +64,6 @@ Assets.loader.loadOptions = {
     retryDelay: 500,
 };
 
-export interface PixiTextureInfo {
-    texture: Texture;
-    width: number;
-    height: number;
-}
-
 type ImagesMap = typeof rawImages;
 
 function hasStringProp<T extends string>(obj: Record<string, unknown>, prop: T): obj is Record<T, string> {
@@ -333,31 +327,4 @@ export async function preloadAnimationAssets(
     const loaded = await Assets.loadBundle(bundleName, onProgress);
     loadedTextures = { ...loadedTextures, ...loaded };
     return loadedTextures;
-}
-
-/** Legacy: Loads everything (Tier 1 + Tier 2) - Kept for compatibility if needed, but we should switch */
-export async function preloadPixiTextures(onProgress?: (p: number) => void): Promise<PreloadedPixiTextures> {
-    await preloadCoreAssets((p) => onProgress?.(p * 0.5));
-    await preloadIdleAtlasAssets((p) => onProgress?.(0.5 + p * 0.1));
-    await preloadAnimationAssets((p) => onProgress?.(0.6 + p * 0.4));
-    return loadedTextures as PreloadedPixiTextures;
-}
-
-/**
- * If you want width/height alongside each texture.
- */
-export async function preloadPixiTexturesWithInfo(
-    onProgress?: (progress01: number) => void,
-): Promise<Record<keyof typeof rawImages, PixiTextureInfo>> {
-    const raw = await preloadPixiTextures(onProgress);
-
-    // build dynamically
-    const out = {} as Record<keyof typeof rawImages, PixiTextureInfo>;
-
-    (Object.keys(raw) as Array<keyof typeof rawImages>).forEach((k) => {
-        const tex = raw[k];
-        out[k] = { texture: tex, width: tex.width, height: tex.height };
-    });
-
-    return out; // now satisfies the exact type
 }

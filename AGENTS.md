@@ -54,6 +54,18 @@ bun run check              # = lint + typecheck + test
 bun run lint:fix           # auto-fix eslint + bun fmt + scss + package order
 ```
 
+Use **`bun fmt`**, not a separate Prettier invocation, for formatting. Run it on the files you changed:
+`bun fmt --no-script <paths>`. The `--no-script` flag bypasses a package's `fmt` script so targeted
+formatting stays targeted. Use `bun fmt --no-script --check <paths>` for a read-only formatting check;
+the repository's lint/check commands remain the validation gate. Do not format a peer's in-flight files.
+
+Core tests run in isolated worker processes: up to 12 locally and 2 on CI. Run `bun run test:core` for
+the full suite; its timing profile schedules slow files first without limiting test discovery. To collect
+fresh per-file timings, use `bun run test:core --timings tmp/core-test-timings.json --update-timings`.
+Keep profiling output in `game/core/tmp`; only deliberately update `game/core/scripts/test_timings.json`
+when changing the scheduling profile. Animation tests should advance a controlled clock instead
+of sleeping through real animation time.
+
 ## Before you push
 
 ### Sync with the remote first — always
@@ -140,6 +152,21 @@ bun test src/api/game/v1
 A ranked-affecting common change only reaches the server after: commit + push `common` → bump the server's
 common pin (lockfile) → reinstall → restart the ranked server. Client-only fixes take effect on a browser
 refresh (vite serves common via the `src` alias).
+
+### Ranked acceptance and draft handoff
+
+An accepted match must reach the picking screen with matchmaking and game confirmation running in
+separate processes and Redis queues/pub/sub disabled. A successful `POST /confirm` acknowledges that
+player's acceptance; it does not mean the draft is ready. Keep the matchmaking stream mounted while
+waiting for the server's `c: 1` handoff, and preserve acceptance/error recovery in
+`game/core/src/ui/MatchmakingRoute.tsx`.
+
+The server reconciles open matchmaking streams against persisted game readiness. Never replace this
+with a process-local confirmation queue or assume a combined local server proves production works.
+Changes to acceptance, SSE, confirmation, or draft creation must preserve the server's
+`src/api/mm/v1/matchmaking_handoff.test.ts` and `matchmaking_handoff.integration.test.ts`, including the
+separate game process, disabled Redis, empty matchmaking queue, and automatic timer delivery. The
+server README's **Matchmaking handoff** section documents the invariant and regression command.
 
 ## Conventions
 

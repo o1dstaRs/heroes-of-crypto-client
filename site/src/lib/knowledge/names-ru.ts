@@ -9,6 +9,8 @@
  * exactly — graph-builder.test.ts fails on any entity that has no Russian name here.
  */
 export const RU_NAMES: Readonly<Record<string, string>> = {
+    "Sylvan Focus Blessing": "Благословение лесной силы",
+    "Wolf Trail Blessing": "Благословение волчьей тропы",
     // ---- Units: Chaos
     Orc: "Орк",
     Scavenger: "Падальщик",
@@ -153,7 +155,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Rapid Charge": "Стремительный натиск",
     Resurrection: "Воскрешение",
     "Shadow Touch": "Касание тени",
-    "Sharpened Weapons Aura": "Аура заточенного оружия",
+    "Sharpened Weapons Blessing": "Благословение заточенного оружия",
     "Shatter Armor": "Сокрушение брони",
     "Skewer Strike": "Удар насквозь",
     "Sky Runner": "Небесный бегун",

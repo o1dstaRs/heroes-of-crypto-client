@@ -354,6 +354,16 @@ export abstract class PixiScene {
     public setAimIntentSink(_sink?: (aim: PlayAim | undefined) => void): void {}
     public setOpponentAim(_intent?: OpponentAim): void {}
     public clearLocalAimTarget(): void {}
+    public getTouchConfirmationLabel(_point: HoCMath.XY): string | null {
+        return null;
+    }
+    public InspectTouchUnit(_point: HoCMath.XY): void {}
+    public isTouchInspectionOnly(): boolean {
+        return false;
+    }
+    public getTouchInteractionKey(): string {
+        return String(this.sc_isAnimating);
+    }
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],
@@ -789,10 +799,15 @@ export abstract class PixiScene {
 
             if (!abilityName || !abilityDescription) continue;
 
+            const stacks = abilityName === "Bitter Experience" ? unitProperties.bitter_experience_stacks : undefined;
             visibleAbilitiesImpact.push({
                 name: abilityName,
                 smallTextureName: AbilityHelper.abilityToTextureName(abilityName),
-                description: abilityDescription,
+                description:
+                    stacks === undefined
+                        ? abilityDescription
+                        : `${abilityDescription}\nCurrent stacks: ${stacks} (+${stacks} armor, +${stacks} movement).`,
+                stacks,
                 laps: Number.MAX_SAFE_INTEGER,
                 stackPower: unitProperties.stack_power,
                 isStackPowered,
@@ -1095,11 +1110,6 @@ export abstract class PixiScene {
                         throw new Error(`Scene texture failed to load: ${key}`);
                 }),
         );
-    }
-    protected async waitForPendingTextures(): Promise<void> {
-        while (!this.sc_destroyed && this.sc_pendingLazyTextureKeys.size) {
-            await this.preloadTextureKeys([...this.sc_pendingLazyTextureKeys]);
-        }
     }
     private scheduleBoardImageRetry(url: string): void {
         const delayMs = Math.max(0, (boardImageRetries.get(url)?.retryAt ?? 0) - Date.now());

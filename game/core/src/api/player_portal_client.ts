@@ -32,3 +32,38 @@ export const fetchPlayerPortal = async (): Promise<ResponsePlayerPortalObject> =
     });
     return ResponsePlayerPortal.deserializeBinary(toBytes(response.data)).toObject();
 };
+
+export type MatchHistoryScope = "either" | "player" | "opponent";
+
+export interface PlayerMatchHistoryQuery {
+    query: string;
+    scope: MatchHistoryScope;
+    result: "all" | "wins" | "losses";
+    before?: string | null;
+}
+
+export interface PlayerMatchHistoryPage {
+    matches: NonNullable<ResponsePlayerPortalObject["recent_matches"]>;
+    nextCursor: string | null;
+}
+
+export const fetchPlayerMatchHistory = async (
+    query: PlayerMatchHistoryQuery,
+    signal?: AbortSignal,
+): Promise<PlayerMatchHistoryPage> => {
+    const response = await axiosAuthInstance.get<PlayerMatchHistoryPage>(
+        buildApiUrl(HOST_AUTH_API, endpoints.auth.portalHistory),
+        {
+            headers: authHeaders(),
+            params: { q: query.query, scope: query.scope, result: query.result, before: query.before ?? undefined },
+            signal,
+        },
+    );
+    if (
+        !Array.isArray(response.data?.matches) ||
+        (response.data.nextCursor !== null && typeof response.data.nextCursor !== "string")
+    ) {
+        throw new Error("Invalid match history response");
+    }
+    return response.data;
+};

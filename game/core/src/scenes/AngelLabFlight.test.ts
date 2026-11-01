@@ -1,4 +1,3 @@
-import { AngelIdleFilter } from "./AngelLabIdleVisuals";
 import { beforeAll, expect, test } from "bun:test";
 import {
     AbilityFactory,
@@ -211,10 +210,8 @@ test("closing the lab keeps flight active and pressing idle restores the neutral
     root.destroy({ children: true });
 });
 
-test("redrawn Angel idle uses authored cels without stacking the former procedural filter", () => {
+test("redrawn Angel idle preserves authored cels and registration through flight", () => {
     const { unit, root, grid, view } = fixture();
-    const hasIdle = () => view.sprite.filters?.some((filter) => filter instanceof AngelIdleFilter) ?? false;
-    expect(hasIdle()).toBe(false);
     expect(view.selectionAnimFrames).toHaveLength(24);
     const width = view.sprite.width;
     const height = view.sprite.height;
@@ -233,17 +230,14 @@ test("redrawn Angel idle uses authored cels without stacking the former procedur
         expect(view.sprite.height).toBeCloseTo(height);
     }
     unit.startBoardWalkAnimation(1, 2);
-    expect(hasIdle()).toBe(false);
     unit.finishBoardWalkAnimationAfterFullCycle(() => {});
     unit.ensureVisual(root, grid);
-    expect(hasIdle()).toBe(false);
     unit.stopBoardWalkAnimation();
     unit.ensureVisual(root, grid);
-    expect(hasIdle()).toBe(false);
     expect(view.sprite.width).toBeCloseTo(width);
     expect(view.sprite.height).toBeCloseTo(height);
     unit.setCreatureAnimationLabPreviewEnabled(false);
-    expect(hasIdle()).toBe(false);
+    expect(view.selectionAnimFrames).toHaveLength(24);
     root.destroy({ children: true });
 });
 

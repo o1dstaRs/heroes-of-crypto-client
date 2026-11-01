@@ -5,6 +5,7 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -42,6 +43,7 @@ import {
     hocDisplayFontFamily,
     hocPanelSx,
     hocPrimaryButtonSx,
+    hocJoyTheme,
     hocReadoutChipSx,
     hocSoftButtonSx,
 } from "./hocTheme";
@@ -1017,987 +1019,1037 @@ export const MatchmakingRoute: React.FC = () => {
 
     // Switch surfaces on the click, before POST /confirm or the opponent's acceptance completes.
     // Keep the stream mounted so expiry, rejection and the c=1 draft handoff retain their recovery paths.
+    // The arena sits outside the fight and draft providers. Without the shared theme, portaled hover
+    // cards (a creature on a recent army, the queue readouts) open in Joy's stock light palette.
     if (state === "accepted" && pendingGameId) {
-        return <DraftAcceptanceWindow secondsRemaining={secondsRemaining} />;
+        return (
+            <CssVarsProvider theme={hocJoyTheme}>
+                <DraftAcceptanceWindow secondsRemaining={secondsRemaining} />
+            </CssVarsProvider>
+        );
     }
 
     return (
-        <Box
-            sx={{
-                position: "fixed",
-                inset: 0,
-                overflowY: "auto",
-                bgcolor: "#050504",
-                color: hocColors.parchment,
-                backgroundImage: `url(${arenaBackgroundUrl})`,
-                backgroundPosition: "center",
-                backgroundSize: "cover",
-                backgroundRepeat: "no-repeat",
-                "@keyframes arenaPulse": {
-                    "0%": { transform: "scale(0.7)", opacity: 0.58 },
-                    "70%, 100%": { transform: "scale(1.35)", opacity: 0 },
-                },
-                "@keyframes matchFoundGlow": {
-                    "0%, 100%": { opacity: 0.2 },
-                    "50%": { opacity: 0.75 },
-                },
-                "@keyframes acceptAttention": {
-                    "0%, 100%": { transform: "translateY(0)" },
-                    "50%": { transform: "translateY(-2px)" },
-                },
-            }}
-        >
+        <CssVarsProvider theme={hocJoyTheme}>
             <Box
-                aria-hidden="true"
                 sx={{
                     position: "fixed",
                     inset: 0,
-                    pointerEvents: "none",
-                    background: ARENA_IDLE_WASH,
-                }}
-            />
-            <Box
-                aria-hidden="true"
-                sx={{
-                    position: "fixed",
-                    inset: 0,
-                    pointerEvents: "none",
-                    background:
-                        "radial-gradient(circle at 34% 58%, rgba(255,209,102,0.2), transparent 38%), radial-gradient(circle at 78% 35%, rgba(255,143,0,0.12), transparent 32%)",
-                    opacity: state === "confirming" ? 1 : 0,
-                    transition: "opacity 320ms ease",
-                    "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-                }}
-            />
-
-            <ArenaNavBar
-                current="ranked"
-                locked={navigationLocked}
-                width={profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))"}
-            />
-
-            <Box
-                role="main"
-                sx={{
-                    position: "relative",
-                    zIndex: 1,
-                    width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
-                    mx: "auto",
-                    py: { xs: 2, md: 3 },
-                    // Clearance for the fixed fullscreen button in the bottom-left corner: without it the
-                    // page's last row (the arena chat header) comes to rest underneath the button and the
-                    // two overlap. The arena scrolls, unlike the pick and fight screens this control comes
-                    // from, so the corner has to be kept clear rather than assumed empty.
-                    pb: { xs: 8, md: 9 },
-                    display: "grid",
-                    gridTemplateColumns: {
-                        xs: "minmax(0, 1fr)",
-                        lg: profileSummaryOpen ? "minmax(560px, 1fr) minmax(370px, 420px)" : "minmax(0, 1fr)",
+                    overflowY: "auto",
+                    bgcolor: "#050504",
+                    color: hocColors.parchment,
+                    backgroundImage: `url(${arenaBackgroundUrl})`,
+                    backgroundPosition: "center",
+                    backgroundSize: "cover",
+                    backgroundRepeat: "no-repeat",
+                    "@keyframes arenaPulse": {
+                        "0%": { transform: "scale(0.7)", opacity: 0.58 },
+                        "70%, 100%": { transform: "scale(1.35)", opacity: 0 },
                     },
-                    gap: { xs: 2, md: 3 },
-                    alignItems: "start",
-                    transition: "width 220ms ease",
+                    "@keyframes matchFoundGlow": {
+                        "0%, 100%": { opacity: 0.2 },
+                        "50%": { opacity: 0.75 },
+                    },
+                    "@keyframes acceptAttention": {
+                        "0%, 100%": { transform: "translateY(0)" },
+                        "50%": { transform: "translateY(-2px)" },
+                    },
                 }}
             >
-                <Sheet
-                    component="section"
-                    aria-labelledby="ranked-heading"
-                    variant="outlined"
+                <Box
+                    aria-hidden="true"
+                    sx={{
+                        position: "fixed",
+                        inset: 0,
+                        pointerEvents: "none",
+                        background: ARENA_IDLE_WASH,
+                    }}
+                />
+                <Box
+                    aria-hidden="true"
+                    sx={{
+                        position: "fixed",
+                        inset: 0,
+                        pointerEvents: "none",
+                        background:
+                            "radial-gradient(circle at 34% 58%, rgba(255,209,102,0.2), transparent 38%), radial-gradient(circle at 78% 35%, rgba(255,143,0,0.12), transparent 32%)",
+                        opacity: state === "confirming" ? 1 : 0,
+                        transition: "opacity 320ms ease",
+                        "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+                    }}
+                />
+
+                <ArenaNavBar
+                    current="ranked"
+                    locked={navigationLocked}
+                    width={profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))"}
+                />
+
+                <Box
+                    role="main"
                     sx={{
                         position: "relative",
-                        minWidth: 0,
-                        minHeight: profileSummaryOpen ? { lg: 724 } : undefined,
-                        display: "flex",
-                        flexDirection: "column",
-                        overflow: "hidden",
-                        borderRadius: "10px",
-                        ...hocPanelSx,
-                        bgcolor: "rgba(12,8,5,0.91)",
-                        borderColor:
-                            state === "confirming"
-                                ? "rgba(255,209,102,0.9)"
-                                : state === "accepted"
-                                  ? "rgba(85,216,120,0.62)"
-                                  : "rgba(255,143,0,0.3)",
-                        boxShadow:
-                            state === "confirming"
-                                ? "0 28px 80px rgba(0,0,0,0.52), 0 0 46px rgba(255,183,0,0.2)"
-                                : state === "accepted"
-                                  ? "0 28px 80px rgba(0,0,0,0.52), 0 0 40px rgba(85,216,120,0.13)"
-                                  : "0 28px 80px rgba(0,0,0,0.52)",
-                        transition: "border-color 280ms ease, box-shadow 280ms ease, background-color 280ms ease",
-                        // Rasterize the glow once and pulse its opacity. Animating this large card's
-                        // shadow repainted the blurred panel and its contents on every frame.
-                        "&::after": {
-                            content: '""',
-                            position: "absolute",
-                            inset: 0,
-                            borderRadius: "inherit",
-                            pointerEvents: "none",
-                            border: "1px solid rgba(255,209,102,0.72)",
-                            boxShadow: "inset 0 0 54px rgba(255,183,0,0.24)",
-                            opacity: 0,
-                            animation: state === "confirming" ? "matchFoundGlow 1.65s ease-in-out infinite" : "none",
-                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                        zIndex: 1,
+                        width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
+                        mx: "auto",
+                        py: { xs: 2, md: 3 },
+                        // Clearance for the fixed fullscreen button in the bottom-left corner: without it the
+                        // page's last row (the arena chat header) comes to rest underneath the button and the
+                        // two overlap. The arena scrolls, unlike the pick and fight screens this control comes
+                        // from, so the corner has to be kept clear rather than assumed empty.
+                        pb: { xs: 8, md: 9 },
+                        display: "grid",
+                        gridTemplateColumns: {
+                            xs: "minmax(0, 1fr)",
+                            lg: profileSummaryOpen ? "minmax(560px, 1fr) minmax(370px, 420px)" : "minmax(0, 1fr)",
                         },
-                        "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-                        backdropFilter: "blur(16px)",
+                        gap: { xs: 2, md: 3 },
+                        alignItems: "start",
+                        transition: "width 220ms ease",
                     }}
                 >
-                    <Box
+                    <Sheet
+                        component="section"
+                        aria-labelledby="ranked-heading"
+                        variant="outlined"
                         sx={{
                             position: "relative",
-                            overflow: "hidden",
-                            px: { xs: 2.25, sm: 4, md: 5 },
-                            py: { xs: 2.5, md: 3 },
-                            borderBottom: "1px solid rgba(239,228,204,0.09)",
-                            background:
-                                state === "confirming"
-                                    ? "linear-gradient(112deg, rgba(255,209,102,0.2), rgba(255,143,0,0.07) 58%, transparent)"
-                                    : state === "accepted"
-                                      ? "linear-gradient(112deg, rgba(85,216,120,0.13), rgba(220,177,88,0.035) 58%, transparent)"
-                                      : "linear-gradient(112deg, rgba(255,143,0,0.12), rgba(220,177,88,0.035) 58%, transparent)",
-                            transition: "background 280ms ease",
-                        }}
-                    >
-                        <Typography
-                            level="body-xs"
-                            sx={{
-                                display: activeSeason || nextSeason || seasonSnapshot ? "block" : "none",
-                                color: hocColors.gold,
-                                fontWeight: 800,
-                                fontSize: { xs: "0.68rem", sm: "0.75rem" },
-                                lineHeight: 1.5,
-                                letterSpacing: { xs: "0.09em", sm: "0.13em" },
-                                mb: 1.1,
-                            }}
-                        >
-                            {activeSeason ? (
-                                <>
-                                    {activeSeason.name} · {t("ENDS")}{" "}
-                                    <time
-                                        dateTime={new Date(activeSeason.endsAt).toISOString()}
-                                        title={new Date(activeSeason.endsAt).toLocaleString(
-                                            language === "ru" ? "ru-RU" : "en-US",
-                                        )}
-                                    >
-                                        {seasonMilestoneLabel}
-                                    </time>
-                                </>
-                            ) : nextSeason ? (
-                                <>
-                                    {t("PRESEASON")} · {nextSeason.name} {t("STARTS")}{" "}
-                                    <time
-                                        dateTime={new Date(nextSeason.startsAt).toISOString()}
-                                        title={new Date(nextSeason.startsAt).toLocaleString(
-                                            language === "ru" ? "ru-RU" : "en-US",
-                                        )}
-                                    >
-                                        {seasonMilestoneLabel}
-                                    </time>
-                                </>
-                            ) : seasonSnapshot ? (
-                                `${t("PRESEASON")} · ${t("NO SCHEDULED END")}`
-                            ) : null}
-                        </Typography>
-                        <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={{ xs: 1.5, sm: 1 }}
-                            alignItems={{ xs: "flex-start", sm: "center" }}
-                            justifyContent="space-between"
-                        >
-                            <Typography
-                                id="ranked-heading"
-                                level="h1"
-                                sx={{
-                                    maxWidth: 700,
-                                    color: hocColors.parchment,
-                                    fontSize: { xs: "2rem", sm: "2.45rem", md: "2.75rem" },
-                                    lineHeight: 1.02,
-                                    letterSpacing: "-0.035em",
-                                }}
-                            >
-                                {t("Ranked Arena")}
-                            </Typography>
-                            <Stack direction="row" spacing={0.75} alignItems="center">
-                                <ArenaArtReadout />
-                                {displayedPopulation !== undefined && (
-                                    <Tooltip
-                                        title={tf("{online} online · {searching} searching · {playing} in battle", {
-                                            online: displayedPopulation.online,
-                                            searching: displayedPopulation.searching,
-                                            playing: displayedPopulation.playing,
-                                        })}
-                                        size="sm"
-                                        variant="soft"
-                                    >
-                                        <Stack
-                                            component="span"
-                                            direction="row"
-                                            spacing={0.7}
-                                            alignItems="center"
-                                            aria-label={tf("{count} players online", {
-                                                count: displayedPopulation.online,
-                                            })}
-                                            sx={hocReadoutChipSx}
-                                        >
-                                            <Box
-                                                aria-hidden="true"
-                                                sx={{
-                                                    width: 7,
-                                                    height: 7,
-                                                    flexShrink: 0,
-                                                    borderRadius: "50%",
-                                                    bgcolor: hocColors.green,
-                                                    boxShadow: `0 0 7px ${hocColors.green}`,
-                                                }}
-                                            />
-                                            <GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 19 }} />
-                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
-                                                {displayedPopulation.online}
-                                            </Typography>
-                                            <Typography
-                                                level="body-xs"
-                                                sx={{
-                                                    display: { xs: "none", sm: "block" },
-                                                    color: hocColors.muted,
-                                                    fontSize: "0.65rem",
-                                                    fontWeight: 700,
-                                                    letterSpacing: "0.08em",
-                                                    textTransform: "uppercase",
-                                                }}
-                                            >
-                                                {t("Online")}
-                                            </Typography>
-                                        </Stack>
-                                    </Tooltip>
-                                )}
-                                <Tooltip
-                                    title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
-                                    size="sm"
-                                    variant="soft"
-                                >
-                                    <Button
-                                        size="sm"
-                                        variant="soft"
-                                        aria-label={
-                                            profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
-                                        }
-                                        aria-expanded={profileSummaryOpen}
-                                        aria-controls="ranked-profile-summary"
-                                        onClick={() => setProfileSummaryOpen((open) => !open)}
-                                        startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
-                                        // The app's own button treatment, next to the deliberately flat readouts:
-                                        // the orange fill and border say this one is pressable without relying on
-                                        // a hover a touch screen never delivers.
-                                        sx={{
-                                            minHeight: 38,
-                                            px: 1.15,
-                                            borderRadius: "10px",
-                                            fontSize: "0.72rem",
-                                            fontWeight: 750,
-                                            ...hocSoftButtonSx,
-                                            ...(profileSummaryOpen
-                                                ? {
-                                                      color: hocColors.gold,
-                                                      bgcolor: "rgba(255, 143, 0, 0.3)",
-                                                      borderColor: hocColors.orange,
-                                                  }
-                                                : {}),
-                                        }}
-                                    >
-                                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                            {profileSummaryOpen ? t("Hide stats") : t("Show stats")}
-                                        </Box>
-                                    </Button>
-                                </Tooltip>
-                            </Stack>
-                        </Stack>
-                    </Box>
-
-                    <Box
-                        aria-live="polite"
-                        sx={{
-                            flex: 1,
+                            minWidth: 0,
+                            minHeight: profileSummaryOpen ? { lg: 724 } : undefined,
                             display: "flex",
                             flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            px: { xs: 2.25, sm: 3.5 },
-                            py: { xs: 3, md: showStatusPresentation ? 4 : 3 },
-                            textAlign: "center",
-                            background:
+                            overflow: "hidden",
+                            borderRadius: "10px",
+                            ...hocPanelSx,
+                            bgcolor: "rgba(12,8,5,0.91)",
+                            borderColor:
                                 state === "confirming"
-                                    ? "radial-gradient(circle at 50% 43%, rgba(255,209,102,0.16), transparent 47%)"
+                                    ? "rgba(255,209,102,0.9)"
                                     : state === "accepted"
-                                      ? "radial-gradient(circle at 50% 43%, rgba(85,216,120,0.11), transparent 47%)"
-                                      : "transparent",
-                            transition: "background 280ms ease",
+                                      ? "rgba(85,216,120,0.62)"
+                                      : "rgba(255,143,0,0.3)",
+                            boxShadow:
+                                state === "confirming"
+                                    ? "0 28px 80px rgba(0,0,0,0.52), 0 0 46px rgba(255,183,0,0.2)"
+                                    : state === "accepted"
+                                      ? "0 28px 80px rgba(0,0,0,0.52), 0 0 40px rgba(85,216,120,0.13)"
+                                      : "0 28px 80px rgba(0,0,0,0.52)",
+                            transition: "border-color 280ms ease, box-shadow 280ms ease, background-color 280ms ease",
+                            // Rasterize the glow once and pulse its opacity. Animating this large card's
+                            // shadow repainted the blurred panel and its contents on every frame.
+                            "&::after": {
+                                content: '""',
+                                position: "absolute",
+                                inset: 0,
+                                borderRadius: "inherit",
+                                pointerEvents: "none",
+                                border: "1px solid rgba(255,209,102,0.72)",
+                                boxShadow: "inset 0 0 54px rgba(255,183,0,0.24)",
+                                opacity: 0,
+                                animation:
+                                    state === "confirming" ? "matchFoundGlow 1.65s ease-in-out infinite" : "none",
+                                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                            },
+                            "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+                            backdropFilter: "blur(16px)",
                         }}
                     >
                         <Box
                             sx={{
                                 position: "relative",
-                                width: 126,
-                                height: 126,
-                                display: showStatusPresentation ? "grid" : "none",
-                                placeItems: "center",
-                                mb: 2.25,
+                                overflow: "hidden",
+                                px: { xs: 2.25, sm: 4, md: 5 },
+                                py: { xs: 2.5, md: 3 },
+                                borderBottom: "1px solid rgba(239,228,204,0.09)",
+                                background:
+                                    state === "confirming"
+                                        ? "linear-gradient(112deg, rgba(255,209,102,0.2), rgba(255,143,0,0.07) 58%, transparent)"
+                                        : state === "accepted"
+                                          ? "linear-gradient(112deg, rgba(85,216,120,0.13), rgba(220,177,88,0.035) 58%, transparent)"
+                                          : "linear-gradient(112deg, rgba(255,143,0,0.12), rgba(220,177,88,0.035) 58%, transparent)",
+                                transition: "background 280ms ease",
                             }}
                         >
-                            {(state === "searching" || state === "starting-ai" || state === "confirming") && (
-                                <>
-                                    <Box
-                                        sx={{
-                                            position: "absolute",
-                                            inset: 3,
-                                            borderRadius: "50%",
-                                            border: `1px solid ${presentation.accent}`,
-                                            animation:
-                                                state === "confirming"
-                                                    ? "arenaPulse 1.35s ease-out infinite"
-                                                    : "arenaPulse 2.1s ease-out infinite",
-                                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                                        }}
-                                    />
-                                    <Box
-                                        sx={{
-                                            position: "absolute",
-                                            inset: 3,
-                                            borderRadius: "50%",
-                                            border: `1px solid ${presentation.accent}`,
-                                            animation:
-                                                state === "confirming"
-                                                    ? "arenaPulse 1.35s 0.45s ease-out infinite"
-                                                    : "arenaPulse 2.1s 0.7s ease-out infinite",
-                                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                                        }}
-                                    />
-                                </>
-                            )}
-                            <Box
-                                title={queueElapsedLabel ? `Searching for ${queueElapsedLabel}` : undefined}
+                            <Typography
+                                level="body-xs"
                                 sx={{
-                                    position: "relative",
-                                    zIndex: 1,
-                                    width: 98,
-                                    height: 98,
-                                    borderRadius: "50%",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    color: presentation.accent,
-                                    bgcolor: "rgba(0,0,0,0.42)",
-                                    border: `1px solid ${presentation.accent}99`,
-                                    boxShadow: `0 0 0 8px ${presentation.accent}12, 0 0 38px ${presentation.accent}24`,
-                                    "& svg": { fontSize: 40 },
+                                    display: activeSeason || nextSeason || seasonSnapshot ? "block" : "none",
+                                    color: hocColors.gold,
+                                    fontWeight: 800,
+                                    fontSize: { xs: "0.68rem", sm: "0.75rem" },
+                                    lineHeight: 1.5,
+                                    letterSpacing: { xs: "0.09em", sm: "0.13em" },
+                                    mb: 1.1,
                                 }}
                             >
-                                {state === "confirming" ? (
-                                    <Stack spacing={0} alignItems="center">
-                                        <Typography
-                                            level="h2"
+                                {activeSeason ? (
+                                    <>
+                                        {activeSeason.name} · {t("ENDS")}{" "}
+                                        <time
+                                            dateTime={new Date(activeSeason.endsAt).toISOString()}
+                                            title={new Date(activeSeason.endsAt).toLocaleString(
+                                                language === "ru" ? "ru-RU" : "en-US",
+                                            )}
+                                        >
+                                            {seasonMilestoneLabel}
+                                        </time>
+                                    </>
+                                ) : nextSeason ? (
+                                    <>
+                                        {t("PRESEASON")} · {nextSeason.name} {t("STARTS")}{" "}
+                                        <time
+                                            dateTime={new Date(nextSeason.startsAt).toISOString()}
+                                            title={new Date(nextSeason.startsAt).toLocaleString(
+                                                language === "ru" ? "ru-RU" : "en-US",
+                                            )}
+                                        >
+                                            {seasonMilestoneLabel}
+                                        </time>
+                                    </>
+                                ) : seasonSnapshot ? (
+                                    `${t("PRESEASON")} · ${t("NO SCHEDULED END")}`
+                                ) : null}
+                            </Typography>
+                            <Stack
+                                direction={{ xs: "column", sm: "row" }}
+                                spacing={{ xs: 1.5, sm: 1 }}
+                                alignItems={{ xs: "flex-start", sm: "center" }}
+                                justifyContent="space-between"
+                            >
+                                <Typography
+                                    id="ranked-heading"
+                                    level="h1"
+                                    sx={{
+                                        maxWidth: 700,
+                                        color: hocColors.parchment,
+                                        fontSize: { xs: "2rem", sm: "2.45rem", md: "2.75rem" },
+                                        lineHeight: 1.02,
+                                        letterSpacing: "-0.035em",
+                                    }}
+                                >
+                                    {t("Ranked Arena")}
+                                </Typography>
+                                <Stack direction="row" spacing={0.75} alignItems="center">
+                                    <ArenaArtReadout />
+                                    {displayedPopulation !== undefined && (
+                                        <Tooltip
+                                            title={tf("{online} online · {searching} searching · {playing} in battle", {
+                                                online: displayedPopulation.online,
+                                                searching: displayedPopulation.searching,
+                                                playing: displayedPopulation.playing,
+                                            })}
+                                            size="sm"
+                                            variant="soft"
+                                        >
+                                            <Stack
+                                                component="span"
+                                                direction="row"
+                                                spacing={0.7}
+                                                alignItems="center"
+                                                aria-label={tf("{count} players online", {
+                                                    count: displayedPopulation.online,
+                                                })}
+                                                sx={hocReadoutChipSx}
+                                            >
+                                                <Box
+                                                    aria-hidden="true"
+                                                    sx={{
+                                                        width: 7,
+                                                        height: 7,
+                                                        flexShrink: 0,
+                                                        borderRadius: "50%",
+                                                        bgcolor: hocColors.green,
+                                                        boxShadow: `0 0 7px ${hocColors.green}`,
+                                                    }}
+                                                />
+                                                <GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 19 }} />
+                                                <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
+                                                    {displayedPopulation.online}
+                                                </Typography>
+                                                <Typography
+                                                    level="body-xs"
+                                                    sx={{
+                                                        display: { xs: "none", sm: "block" },
+                                                        color: hocColors.muted,
+                                                        fontSize: "0.65rem",
+                                                        fontWeight: 700,
+                                                        letterSpacing: "0.08em",
+                                                        textTransform: "uppercase",
+                                                    }}
+                                                >
+                                                    {t("Online")}
+                                                </Typography>
+                                            </Stack>
+                                        </Tooltip>
+                                    )}
+                                    <Tooltip
+                                        title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
+                                        size="sm"
+                                        variant="soft"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            variant="soft"
+                                            aria-label={
+                                                profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
+                                            }
+                                            aria-expanded={profileSummaryOpen}
+                                            aria-controls="ranked-profile-summary"
+                                            onClick={() => setProfileSummaryOpen((open) => !open)}
+                                            startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
+                                            // The app's own button treatment, next to the deliberately flat readouts:
+                                            // the orange fill and border say this one is pressable without relying on
+                                            // a hover a touch screen never delivers.
                                             sx={{
-                                                color: presentation.accent,
-                                                lineHeight: 0.95,
-                                                fontVariantNumeric: "tabular-nums",
+                                                minHeight: 38,
+                                                px: 1.15,
+                                                borderRadius: "10px",
+                                                fontSize: "0.72rem",
+                                                fontWeight: 750,
+                                                ...hocSoftButtonSx,
+                                                ...(profileSummaryOpen
+                                                    ? {
+                                                          color: hocColors.gold,
+                                                          bgcolor: "rgba(255, 143, 0, 0.3)",
+                                                          borderColor: hocColors.orange,
+                                                      }
+                                                    : {}),
                                             }}
                                         >
-                                            {secondsRemaining && secondsRemaining > 0 ? secondsRemaining : "!"}
-                                        </Typography>
-                                        <Typography
-                                            level="body-xs"
-                                            sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
-                                        >
-                                            {t("SECONDS")}
-                                        </Typography>
-                                    </Stack>
-                                ) : state === "accepted" ? (
-                                    <CheckCircleRoundedIcon />
-                                ) : state === "starting-ai" ? (
-                                    <PracticeAiIcon />
-                                ) : queueElapsedLabel ? (
-                                    // Ticking text is hidden from the aria-live region above so screen
-                                    // readers get the status line instead of a reading every second.
-                                    <Stack spacing={0} alignItems="center" aria-hidden="true">
-                                        <Typography
-                                            level="h3"
-                                            sx={{
-                                                color: presentation.accent,
-                                                lineHeight: 0.95,
-                                                fontVariantNumeric: "tabular-nums",
-                                            }}
-                                        >
-                                            {queueElapsedLabel}
-                                        </Typography>
-                                        <Typography
-                                            level="body-xs"
-                                            sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
-                                        >
-                                            {t("IN QUEUE")}
-                                        </Typography>
-                                    </Stack>
-                                ) : penalized || abandonCooling ? (
-                                    <TimerRoundedIcon />
-                                ) : needsActivation || state === "error" ? (
-                                    <ShieldRoundedIcon />
-                                ) : (
-                                    <RankedSearchIcon />
-                                )}
-                            </Box>
+                                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                                {profileSummaryOpen ? t("Hide stats") : t("Show stats")}
+                                            </Box>
+                                        </Button>
+                                    </Tooltip>
+                                </Stack>
+                            </Stack>
                         </Box>
 
-                        <Typography
-                            level="body-xs"
+                        <Box
+                            aria-live="polite"
                             sx={{
-                                display: showStatusPresentation ? "block" : "none",
-                                color: presentation.accent,
-                                fontWeight: 800,
-                                letterSpacing: "0.18em",
+                                flex: 1,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                px: { xs: 2.25, sm: 3.5 },
+                                py: { xs: 3, md: showStatusPresentation ? 4 : 3 },
+                                textAlign: "center",
+                                background:
+                                    state === "confirming"
+                                        ? "radial-gradient(circle at 50% 43%, rgba(255,209,102,0.16), transparent 47%)"
+                                        : state === "accepted"
+                                          ? "radial-gradient(circle at 50% 43%, rgba(85,216,120,0.11), transparent 47%)"
+                                          : "transparent",
+                                transition: "background 280ms ease",
                             }}
                         >
-                            {presentation.eyebrow}
-                        </Typography>
-                        <Typography
-                            level="h2"
-                            sx={{
-                                display: showStatusPresentation ? "block" : "none",
-                                color: hocColors.parchment,
-                                mt: 0.75,
-                                fontSize: { xs: "1.55rem", sm: "2rem" },
-                            }}
-                        >
-                            {presentation.headline}
-                        </Typography>
-                        {presentation.description ? (
-                            <Typography
-                                level="body-sm"
+                            <Box
                                 sx={{
-                                    display: showStatusPresentation ? "block" : "none",
-                                    color: hocColors.muted,
-                                    maxWidth: 540,
-                                    mt: 0.8,
-                                    // Leave room for wrapped hints without moving the Leave button.
-                                    ...(isSearching ? { minHeight: { xs: "4.5em", sm: "3em" }, lineHeight: 1.5 } : {}),
+                                    position: "relative",
+                                    width: 126,
+                                    height: 126,
+                                    display: showStatusPresentation ? "grid" : "none",
+                                    placeItems: "center",
+                                    mb: 2.25,
                                 }}
                             >
-                                {presentation.description}
-                            </Typography>
-                        ) : null}
-                        {statusText ? (
+                                {(state === "searching" || state === "starting-ai" || state === "confirming") && (
+                                    <>
+                                        <Box
+                                            sx={{
+                                                position: "absolute",
+                                                inset: 3,
+                                                borderRadius: "50%",
+                                                border: `1px solid ${presentation.accent}`,
+                                                animation:
+                                                    state === "confirming"
+                                                        ? "arenaPulse 1.35s ease-out infinite"
+                                                        : "arenaPulse 2.1s ease-out infinite",
+                                                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                            }}
+                                        />
+                                        <Box
+                                            sx={{
+                                                position: "absolute",
+                                                inset: 3,
+                                                borderRadius: "50%",
+                                                border: `1px solid ${presentation.accent}`,
+                                                animation:
+                                                    state === "confirming"
+                                                        ? "arenaPulse 1.35s 0.45s ease-out infinite"
+                                                        : "arenaPulse 2.1s 0.7s ease-out infinite",
+                                                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                            }}
+                                        />
+                                    </>
+                                )}
+                                <Box
+                                    title={queueElapsedLabel ? `Searching for ${queueElapsedLabel}` : undefined}
+                                    sx={{
+                                        position: "relative",
+                                        zIndex: 1,
+                                        width: 98,
+                                        height: 98,
+                                        borderRadius: "50%",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        color: presentation.accent,
+                                        bgcolor: "rgba(0,0,0,0.42)",
+                                        border: `1px solid ${presentation.accent}99`,
+                                        boxShadow: `0 0 0 8px ${presentation.accent}12, 0 0 38px ${presentation.accent}24`,
+                                        "& svg": { fontSize: 40 },
+                                    }}
+                                >
+                                    {state === "confirming" ? (
+                                        <Stack spacing={0} alignItems="center">
+                                            <Typography
+                                                level="h2"
+                                                sx={{
+                                                    color: presentation.accent,
+                                                    lineHeight: 0.95,
+                                                    fontVariantNumeric: "tabular-nums",
+                                                }}
+                                            >
+                                                {secondsRemaining && secondsRemaining > 0 ? secondsRemaining : "!"}
+                                            </Typography>
+                                            <Typography
+                                                level="body-xs"
+                                                sx={{
+                                                    color: hocColors.muted,
+                                                    fontSize: "0.62rem",
+                                                    letterSpacing: "0.1em",
+                                                }}
+                                            >
+                                                {t("SECONDS")}
+                                            </Typography>
+                                        </Stack>
+                                    ) : state === "accepted" ? (
+                                        <CheckCircleRoundedIcon />
+                                    ) : state === "starting-ai" ? (
+                                        <PracticeAiIcon />
+                                    ) : queueElapsedLabel ? (
+                                        // Ticking text is hidden from the aria-live region above so screen
+                                        // readers get the status line instead of a reading every second.
+                                        <Stack spacing={0} alignItems="center" aria-hidden="true">
+                                            <Typography
+                                                level="h3"
+                                                sx={{
+                                                    color: presentation.accent,
+                                                    lineHeight: 0.95,
+                                                    fontVariantNumeric: "tabular-nums",
+                                                }}
+                                            >
+                                                {queueElapsedLabel}
+                                            </Typography>
+                                            <Typography
+                                                level="body-xs"
+                                                sx={{
+                                                    color: hocColors.muted,
+                                                    fontSize: "0.62rem",
+                                                    letterSpacing: "0.1em",
+                                                }}
+                                            >
+                                                {t("IN QUEUE")}
+                                            </Typography>
+                                        </Stack>
+                                    ) : penalized || abandonCooling ? (
+                                        <TimerRoundedIcon />
+                                    ) : needsActivation || state === "error" ? (
+                                        <ShieldRoundedIcon />
+                                    ) : (
+                                        <RankedSearchIcon />
+                                    )}
+                                </Box>
+                            </Box>
+
                             <Typography
                                 level="body-xs"
                                 sx={{
                                     display: showStatusPresentation ? "block" : "none",
-                                    color: hocColors.muted,
-                                    mt: 1.25,
-                                    px: 1.2,
-                                    py: 0.55,
-                                    borderRadius: "999px",
-                                    bgcolor: "rgba(255,255,255,0.035)",
-                                    border: "1px solid rgba(255,255,255,0.07)",
+                                    color: presentation.accent,
+                                    fontWeight: 800,
+                                    letterSpacing: "0.18em",
                                 }}
                             >
-                                {statusText}
+                                {presentation.eyebrow}
                             </Typography>
-                        ) : null}
-
-                        {(state === "confirming" || state === "accepted") && pendingGameId ? (
-                            <MatchFoundOpponentPreview
-                                accepted={state === "accepted"}
-                                currency={currency}
-                                language={language}
-                                loading={opponentStatsLoading}
-                                stats={opponentStats}
-                            />
-                        ) : null}
-
-                        <Stack
-                            spacing={{ xs: 1.25, md: profileSummaryOpen && !showStatusPresentation ? 0 : 1.25 }}
-                            sx={{
-                                width: "100%",
-                                maxWidth: 860,
-                                mt: showStatusPresentation ? 2.75 : 0,
-                                flex: profileSummaryOpen && !showStatusPresentation ? 1 : undefined,
-                                justifyContent:
-                                    profileSummaryOpen && !showStatusPresentation ? "space-evenly" : "flex-start",
-                            }}
-                        >
-                            {needsActivation && (
-                                <>
-                                    <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                        {tf(
-                                            "Verify your email to play online. We sent a verification code to {email}.",
-                                            {
-                                                email: accountEmail || t("your email address"),
-                                            },
-                                        )}
-                                    </Alert>
-                                    <Button
-                                        fullWidth
-                                        variant="solid"
-                                        onClick={handleResend}
-                                        disabled={resendState === "sending" || !accountEmail}
-                                        sx={{ ...hocPrimaryButtonSx, minHeight: 50 }}
-                                    >
-                                        {resendState === "sending"
-                                            ? t("Sending…")
-                                            : resendState === "sent"
-                                              ? t("Email sent — check your inbox")
-                                              : t("Resend verification email")}
-                                    </Button>
-                                    <Typography level="body-xs" textColor={hocColors.muted}>
-                                        {t(
-                                            "Enter the code from the email to activate your account, then reload this page.",
-                                        )}
-                                    </Typography>
-                                </>
-                            )}
-
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <Box
+                            <Typography
+                                level="h2"
+                                sx={{
+                                    display: showStatusPresentation ? "block" : "none",
+                                    color: hocColors.parchment,
+                                    mt: 0.75,
+                                    fontSize: { xs: "1.55rem", sm: "2rem" },
+                                }}
+                            >
+                                {presentation.headline}
+                            </Typography>
+                            {presentation.description ? (
+                                <Typography
+                                    level="body-sm"
                                     sx={{
-                                        alignSelf: "stretch",
-                                        mt: showStatusPresentation || !profileSummaryOpen ? 2.5 : 0,
-                                        // The doctrine tiles are already outlined, so wrapping them in
-                                        // a second outlined, shadowed, gradient-filled card put three
-                                        // borders between the page and a radio button. The heading and
-                                        // the spacing group them; the frame was redundant.
-                                        px: 0,
-                                        py: { xs: 0.25, sm: 0.5 },
+                                        display: showStatusPresentation ? "block" : "none",
+                                        color: hocColors.muted,
+                                        maxWidth: 540,
+                                        mt: 0.8,
+                                        // Leave room for wrapped hints without moving the Leave button.
+                                        ...(isSearching
+                                            ? { minHeight: { xs: "4.5em", sm: "3em" }, lineHeight: 1.5 }
+                                            : {}),
                                     }}
                                 >
-                                    <Typography
-                                        level="title-sm"
-                                        sx={{
-                                            mb: 1.25,
-                                            color: hocColors.sidebarTitle,
-                                            fontFamily: hocDisplayFontFamily,
-                                            fontWeight: 400,
-                                            letterSpacing: "0.1em",
-                                            textAlign: "left",
-                                            textTransform: "uppercase",
-                                        }}
-                                    >
-                                        {t("Choose your doctrine")}
-                                    </Typography>
-                                    <Box
-                                        role="radiogroup"
-                                        aria-label={t("Choose your doctrine")}
-                                        sx={{
-                                            display: "grid",
-                                            gridTemplateColumns: {
-                                                xs: "minmax(0, 1fr)",
-                                                sm: "repeat(3, minmax(0, 1fr))",
-                                            },
-                                            gap: { xs: 1, sm: 1.25 },
-                                        }}
-                                    >
-                                        {[...Doctrine.DOCTRINE_LIST]
-                                            .sort((a, b) => a.upgradePoints - b.upgradePoints)
-                                            .map((p) => {
-                                                const isSelected = preGameDoctrine === p.id;
-                                                const copy = getDoctrineCopy(p.id);
-                                                // The doctrine is locked in before the draft and quietly sets the
-                                                // augment budget spent much later at placement, so the full
-                                                // what/costs/why lives on hover rather than only in the card.
-                                                const hover = copy ? (
-                                                    <Box sx={{ maxWidth: 320, p: 0.5, display: "grid", gap: 0.75 }}>
-                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                            <DoctrineIcon doctrineId={p.id} size={38} />
-                                                            <Typography level="title-sm" sx={{ color: "common.white" }}>
-                                                                {t(p.name)}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Typography level="body-xs" sx={{ color: "common.white" }}>
-                                                            {t(copy.detail)}
-                                                        </Typography>
-                                                        <Typography level="body-xs" sx={{ color: hocColors.gold }}>
-                                                            {t(copy.budget)}
-                                                        </Typography>
-                                                        <Typography
-                                                            level="body-xs"
-                                                            sx={{ color: "common.white", opacity: 0.85 }}
-                                                        >
-                                                            {t(copy.why)}
-                                                        </Typography>
-                                                    </Box>
-                                                ) : (
-                                                    t(p.description)
-                                                );
-                                                const selectDoctrine = (): void => {
-                                                    setPreGameDoctrineState(p.id);
-                                                    setPreGameDoctrine(p.id);
-                                                };
-                                                return (
-                                                    <Tooltip
-                                                        key={p.id}
-                                                        title={hover}
-                                                        variant="soft"
-                                                        placement="top"
-                                                        arrow
-                                                        enterDelay={150}
-                                                        enterTouchDelay={0}
-                                                        sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
-                                                    >
-                                                        <Sheet
-                                                            role="radio"
-                                                            aria-checked={isSelected}
-                                                            tabIndex={0}
-                                                            variant="outlined"
-                                                            onClick={selectDoctrine}
-                                                            onKeyDown={(event) => {
-                                                                if (event.key === "Enter" || event.key === " ") {
-                                                                    event.preventDefault();
-                                                                    selectDoctrine();
-                                                                }
-                                                            }}
-                                                            sx={{
-                                                                minWidth: 0,
-                                                                cursor: "pointer",
-                                                                position: "relative",
-                                                                borderColor: isSelected
-                                                                    ? hocColors.gold
-                                                                    : "rgba(112,75,42,0.68)",
-                                                                background: isSelected
-                                                                    ? "linear-gradient(180deg, rgba(122,68,5,0.96), rgba(47,25,4,0.98))"
-                                                                    : "linear-gradient(180deg, rgba(15,15,14,0.98), rgba(3,3,3,0.98))",
-                                                                boxShadow: isSelected
-                                                                    ? "0 0 0 1px rgba(220,177,88,0.34), 0 8px 22px rgba(0,0,0,0.56), inset 0 1px 0 rgba(255,227,166,0.12)"
-                                                                    : "0 7px 16px rgba(0,0,0,0.45), inset 0 0 14px rgba(0,0,0,0.5)",
-                                                                transition:
-                                                                    "border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease",
-                                                                borderRadius: "3px",
-                                                                p: { xs: 1.25, sm: 1.5 },
-                                                                minHeight: { xs: 132, sm: 160 },
-                                                                display: "flex",
-                                                                flexDirection: "column",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 0.55,
-                                                                textAlign: "center",
-                                                                "&:hover": {
-                                                                    borderColor: hocColors.gold,
-                                                                    transform: "translateY(-2px)",
-                                                                    boxShadow:
-                                                                        "0 10px 24px rgba(0,0,0,0.58), 0 0 16px rgba(220,177,88,0.12)",
-                                                                },
-                                                                "&:focus-visible": {
-                                                                    outline: `2px solid ${hocColors.orange}`,
-                                                                    outlineOffset: "2px",
-                                                                },
-                                                            }}
-                                                        >
-                                                            {isSelected && (
-                                                                <CheckCircleRoundedIcon
-                                                                    sx={{
-                                                                        position: "absolute",
-                                                                        top: 8,
-                                                                        right: 8,
-                                                                        fontSize: 19,
-                                                                        color: hocColors.gold,
-                                                                        filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.8))",
-                                                                    }}
-                                                                />
-                                                            )}
+                                    {presentation.description}
+                                </Typography>
+                            ) : null}
+                            {statusText ? (
+                                <Typography
+                                    level="body-xs"
+                                    sx={{
+                                        display: showStatusPresentation ? "block" : "none",
+                                        color: hocColors.muted,
+                                        mt: 1.25,
+                                        px: 1.2,
+                                        py: 0.55,
+                                        borderRadius: "999px",
+                                        bgcolor: "rgba(255,255,255,0.035)",
+                                        border: "1px solid rgba(255,255,255,0.07)",
+                                    }}
+                                >
+                                    {statusText}
+                                </Typography>
+                            ) : null}
+
+                            {(state === "confirming" || state === "accepted") && pendingGameId ? (
+                                <MatchFoundOpponentPreview
+                                    accepted={state === "accepted"}
+                                    currency={currency}
+                                    language={language}
+                                    loading={opponentStatsLoading}
+                                    stats={opponentStats}
+                                />
+                            ) : null}
+
+                            <Stack
+                                spacing={{ xs: 1.25, md: profileSummaryOpen && !showStatusPresentation ? 0 : 1.25 }}
+                                sx={{
+                                    width: "100%",
+                                    maxWidth: 860,
+                                    mt: showStatusPresentation ? 2.75 : 0,
+                                    flex: profileSummaryOpen && !showStatusPresentation ? 1 : undefined,
+                                    justifyContent:
+                                        profileSummaryOpen && !showStatusPresentation ? "space-evenly" : "flex-start",
+                                }}
+                            >
+                                {needsActivation && (
+                                    <>
+                                        <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                            {tf(
+                                                "Verify your email to play online. We sent a verification code to {email}.",
+                                                {
+                                                    email: accountEmail || t("your email address"),
+                                                },
+                                            )}
+                                        </Alert>
+                                        <Button
+                                            fullWidth
+                                            variant="solid"
+                                            onClick={handleResend}
+                                            disabled={resendState === "sending" || !accountEmail}
+                                            sx={{ ...hocPrimaryButtonSx, minHeight: 50 }}
+                                        >
+                                            {resendState === "sending"
+                                                ? t("Sending…")
+                                                : resendState === "sent"
+                                                  ? t("Email sent — check your inbox")
+                                                  : t("Resend verification email")}
+                                        </Button>
+                                        <Typography level="body-xs" textColor={hocColors.muted}>
+                                            {t(
+                                                "Enter the code from the email to activate your account, then reload this page.",
+                                            )}
+                                        </Typography>
+                                    </>
+                                )}
+
+                                {!needsActivation &&
+                                    (state === "idle" || state === "error" || state === "starting-ai") && (
+                                        <Box
+                                            sx={{
+                                                alignSelf: "stretch",
+                                                mt: showStatusPresentation || !profileSummaryOpen ? 2.5 : 0,
+                                                // The doctrine tiles are already outlined, so wrapping them in
+                                                // a second outlined, shadowed, gradient-filled card put three
+                                                // borders between the page and a radio button. The heading and
+                                                // the spacing group them; the frame was redundant.
+                                                px: 0,
+                                                py: { xs: 0.25, sm: 0.5 },
+                                            }}
+                                        >
+                                            <Typography
+                                                level="title-sm"
+                                                sx={{
+                                                    mb: 1.25,
+                                                    color: hocColors.sidebarTitle,
+                                                    fontFamily: hocDisplayFontFamily,
+                                                    fontWeight: 400,
+                                                    letterSpacing: "0.1em",
+                                                    textAlign: "left",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                {t("Choose your doctrine")}
+                                            </Typography>
+                                            <Box
+                                                role="radiogroup"
+                                                aria-label={t("Choose your doctrine")}
+                                                sx={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: {
+                                                        xs: "minmax(0, 1fr)",
+                                                        sm: "repeat(3, minmax(0, 1fr))",
+                                                    },
+                                                    gap: { xs: 1, sm: 1.25 },
+                                                }}
+                                            >
+                                                {[...Doctrine.DOCTRINE_LIST]
+                                                    .sort((a, b) => a.upgradePoints - b.upgradePoints)
+                                                    .map((p) => {
+                                                        const isSelected = preGameDoctrine === p.id;
+                                                        const copy = getDoctrineCopy(p.id);
+                                                        // The doctrine is locked in before the draft and quietly sets the
+                                                        // augment budget spent much later at placement, so the full
+                                                        // what/costs/why lives on hover rather than only in the card.
+                                                        const hover = copy ? (
                                                             <Box
                                                                 sx={{
-                                                                    width: 62,
-                                                                    height: 62,
-                                                                    borderRadius: "50%",
-                                                                    overflow: "hidden",
-                                                                    boxShadow: isSelected
-                                                                        ? "0 0 0 2px rgba(220,177,88,.68), 0 4px 14px rgba(0,0,0,.62)"
-                                                                        : "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
+                                                                    maxWidth: 320,
+                                                                    p: 0.5,
+                                                                    display: "grid",
+                                                                    gap: 0.75,
                                                                 }}
                                                             >
-                                                                <DoctrineIcon doctrineId={p.id} />
-                                                            </Box>
-                                                            <Typography
-                                                                level="title-md"
-                                                                sx={{
-                                                                    color: hocColors.parchment,
-                                                                    fontFamily: hocDisplayFontFamily,
-                                                                    fontWeight: 400,
-                                                                    letterSpacing: "0.035em",
-                                                                }}
-                                                            >
-                                                                {t(p.name)}
-                                                            </Typography>
-                                                            <Typography
-                                                                level="body-xs"
-                                                                sx={{ color: hocColors.gold, fontWeight: 700 }}
-                                                            >
-                                                                {tf("{count} upgrade pts", {
-                                                                    count: p.upgradePoints,
-                                                                })}
-                                                            </Typography>
-                                                            {copy && (
-                                                                <Typography
-                                                                    level="body-xs"
+                                                                <Box
                                                                     sx={{
-                                                                        color: hocColors.mutedStrong,
-                                                                        lineHeight: 1.3,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        gap: 1,
                                                                     }}
                                                                 >
-                                                                    {t(copy.tagline)}
+                                                                    <DoctrineIcon doctrineId={p.id} size={38} />
+                                                                    <Typography
+                                                                        level="title-sm"
+                                                                        sx={{ color: "common.white" }}
+                                                                    >
+                                                                        {t(p.name)}
+                                                                    </Typography>
+                                                                </Box>
+                                                                <Typography
+                                                                    level="body-xs"
+                                                                    sx={{ color: "common.white" }}
+                                                                >
+                                                                    {t(copy.detail)}
                                                                 </Typography>
-                                                            )}
-                                                        </Sheet>
-                                                    </Tooltip>
-                                                );
-                                            })}
-                                    </Box>
-                                </Box>
-                            )}
+                                                                <Typography
+                                                                    level="body-xs"
+                                                                    sx={{ color: hocColors.gold }}
+                                                                >
+                                                                    {t(copy.budget)}
+                                                                </Typography>
+                                                                <Typography
+                                                                    level="body-xs"
+                                                                    sx={{ color: "common.white", opacity: 0.85 }}
+                                                                >
+                                                                    {t(copy.why)}
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : (
+                                                            t(p.description)
+                                                        );
+                                                        const selectDoctrine = (): void => {
+                                                            setPreGameDoctrineState(p.id);
+                                                            setPreGameDoctrine(p.id);
+                                                        };
+                                                        return (
+                                                            <Tooltip
+                                                                key={p.id}
+                                                                title={hover}
+                                                                variant="soft"
+                                                                placement="top"
+                                                                arrow
+                                                                enterDelay={150}
+                                                                enterTouchDelay={0}
+                                                                sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
+                                                            >
+                                                                <Sheet
+                                                                    role="radio"
+                                                                    aria-checked={isSelected}
+                                                                    tabIndex={0}
+                                                                    variant="outlined"
+                                                                    onClick={selectDoctrine}
+                                                                    onKeyDown={(event) => {
+                                                                        if (
+                                                                            event.key === "Enter" ||
+                                                                            event.key === " "
+                                                                        ) {
+                                                                            event.preventDefault();
+                                                                            selectDoctrine();
+                                                                        }
+                                                                    }}
+                                                                    sx={{
+                                                                        minWidth: 0,
+                                                                        cursor: "pointer",
+                                                                        position: "relative",
+                                                                        borderColor: isSelected
+                                                                            ? hocColors.gold
+                                                                            : "rgba(112,75,42,0.68)",
+                                                                        background: isSelected
+                                                                            ? "linear-gradient(180deg, rgba(122,68,5,0.96), rgba(47,25,4,0.98))"
+                                                                            : "linear-gradient(180deg, rgba(15,15,14,0.98), rgba(3,3,3,0.98))",
+                                                                        boxShadow: isSelected
+                                                                            ? "0 0 0 1px rgba(220,177,88,0.34), 0 8px 22px rgba(0,0,0,0.56), inset 0 1px 0 rgba(255,227,166,0.12)"
+                                                                            : "0 7px 16px rgba(0,0,0,0.45), inset 0 0 14px rgba(0,0,0,0.5)",
+                                                                        transition:
+                                                                            "border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease",
+                                                                        borderRadius: "3px",
+                                                                        p: { xs: 1.25, sm: 1.5 },
+                                                                        minHeight: { xs: 132, sm: 160 },
+                                                                        display: "flex",
+                                                                        flexDirection: "column",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        gap: 0.55,
+                                                                        textAlign: "center",
+                                                                        "&:hover": {
+                                                                            borderColor: hocColors.gold,
+                                                                            transform: "translateY(-2px)",
+                                                                            boxShadow:
+                                                                                "0 10px 24px rgba(0,0,0,0.58), 0 0 16px rgba(220,177,88,0.12)",
+                                                                        },
+                                                                        "&:focus-visible": {
+                                                                            outline: `2px solid ${hocColors.orange}`,
+                                                                            outlineOffset: "2px",
+                                                                        },
+                                                                    }}
+                                                                >
+                                                                    {isSelected && (
+                                                                        <CheckCircleRoundedIcon
+                                                                            sx={{
+                                                                                position: "absolute",
+                                                                                top: 8,
+                                                                                right: 8,
+                                                                                fontSize: 19,
+                                                                                color: hocColors.gold,
+                                                                                filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.8))",
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                    <Box
+                                                                        sx={{
+                                                                            width: 62,
+                                                                            height: 62,
+                                                                            borderRadius: "50%",
+                                                                            overflow: "hidden",
+                                                                            boxShadow: isSelected
+                                                                                ? "0 0 0 2px rgba(220,177,88,.68), 0 4px 14px rgba(0,0,0,.62)"
+                                                                                : "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
+                                                                        }}
+                                                                    >
+                                                                        <DoctrineIcon doctrineId={p.id} />
+                                                                    </Box>
+                                                                    <Typography
+                                                                        level="title-md"
+                                                                        sx={{
+                                                                            color: hocColors.parchment,
+                                                                            fontFamily: hocDisplayFontFamily,
+                                                                            fontWeight: 400,
+                                                                            letterSpacing: "0.035em",
+                                                                        }}
+                                                                    >
+                                                                        {t(p.name)}
+                                                                    </Typography>
+                                                                    <Typography
+                                                                        level="body-xs"
+                                                                        sx={{ color: hocColors.gold, fontWeight: 700 }}
+                                                                    >
+                                                                        {tf("{count} upgrade pts", {
+                                                                            count: p.upgradePoints,
+                                                                        })}
+                                                                    </Typography>
+                                                                    {copy && (
+                                                                        <Typography
+                                                                            level="body-xs"
+                                                                            sx={{
+                                                                                color: hocColors.mutedStrong,
+                                                                                lineHeight: 1.3,
+                                                                            }}
+                                                                        >
+                                                                            {t(copy.tagline)}
+                                                                        </Typography>
+                                                                    )}
+                                                                </Sheet>
+                                                            </Tooltip>
+                                                        );
+                                                    })}
+                                            </Box>
+                                        </Box>
+                                    )}
 
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <Sheet
-                                    variant="outlined"
-                                    sx={{
-                                        alignSelf: "stretch",
-                                        overflow: "hidden",
-                                        borderRadius: "3px",
-                                        borderColor: "rgba(112,75,42,0.62)",
-                                        background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
-                                        boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
-                                    }}
-                                >
-                                    <RankedBanPicker />
-                                    {/* No stake against a bot: a wager only forms when BOTH seats hold an intent and
+                                {!needsActivation &&
+                                    (state === "idle" || state === "error" || state === "starting-ai") && (
+                                        <Sheet
+                                            variant="outlined"
+                                            sx={{
+                                                alignSelf: "stretch",
+                                                overflow: "hidden",
+                                                borderRadius: "3px",
+                                                borderColor: "rgba(112,75,42,0.62)",
+                                                background:
+                                                    "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
+                                                boxShadow:
+                                                    "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                                            }}
+                                        >
+                                            <RankedBanPicker />
+                                            {/* No stake against a bot: a wager only forms when BOTH seats hold an intent and
                                         the AI seat never sets one, so gold armed on the way into a vs-AI match can
                                         never ride it — it just sits escrowed until a human turns up. Hence "idle"
                                         and "error" but not "starting-ai". Calibration games never stake either: the
                                         server refuses the intent until the player is placed. */}
-                                    {(state === "idle" || state === "error") && canStake ? (
-                                        <WagerStakeBox currency={currency} />
-                                    ) : null}
-                                </Sheet>
-                            )}
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
-                                <Box
-                                    sx={{
-                                        display: "grid",
-                                        // Two thirds to the ranked queue, one third to practice. Equal halves
-                                        // read as equal offers; this screen exists for the ranked match, and
-                                        // the sizes should say which button is the point of it.
-                                        gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr" },
-                                        gap: 1.15,
-                                    }}
-                                >
+                                            {(state === "idle" || state === "error") && canStake ? (
+                                                <WagerStakeBox currency={currency} />
+                                            ) : null}
+                                        </Sheet>
+                                    )}
+                                {!needsActivation &&
+                                (state === "idle" || state === "error" || state === "starting-ai") ? (
+                                    <Box
+                                        sx={{
+                                            display: "grid",
+                                            // Two thirds to the ranked queue, one third to practice. Equal halves
+                                            // read as equal offers; this screen exists for the ranked match, and
+                                            // the sizes should say which button is the point of it.
+                                            gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr" },
+                                            gap: 1.15,
+                                        }}
+                                    >
+                                        <Button
+                                            fullWidth
+                                            variant="solid"
+                                            disabled={
+                                                state === "starting-ai" ||
+                                                penalized ||
+                                                abandonCooling ||
+                                                !!rankedLock ||
+                                                rankedSuspended
+                                            }
+                                            onClick={() => void handleStart()}
+                                            startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
+                                            endDecorator={
+                                                !penalized && !abandonCooling && !rankedLock && !rankedSuspended ? (
+                                                    <ArrowForwardRoundedIcon />
+                                                ) : undefined
+                                            }
+                                            sx={{
+                                                ...hocActionPrimaryButtonSx,
+                                                minHeight: 58,
+                                                fontFamily: hocDisplayFontFamily,
+                                                fontSize: "0.92rem",
+                                            }}
+                                        >
+                                            {rankedSuspended
+                                                ? t("Ranked suspended")
+                                                : rankedLock
+                                                  ? t("Ranked locked")
+                                                  : penalized
+                                                    ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
+                                                    : abandonCooling
+                                                      ? tf("Search again in {time}", {
+                                                            time: formatAwayClock(abandonCooldownMs),
+                                                        })
+                                                      : t("Find ranked opponent")}
+                                        </Button>
+                                        <PracticeVsAiButton loading={state === "starting-ai"} onClick={handlePlayAi} />
+                                    </Box>
+                                ) : null}
+
+                                {/* Open lobbies live right here rather than behind a separate browse screen: a
+                                player who does not want the ranked queue can see a human is already
+                                waiting without navigating away from the arena. */}
+                                {!needsActivation &&
+                                (state === "idle" || state === "error" || state === "starting-ai") ? (
+                                    <Box sx={{ pt: 0.5 }}>
+                                        {/* Its own box, and only when somebody is actually waiting: an empty
+                                        "no open lobbies" card is column space spent on absence. The browse
+                                        button above still reaches the full list and the create control. */}
+                                        <PublicLobbiesPanel dense boxed hideWhenEmpty hideCreate />
+                                    </Box>
+                                ) : null}
+
+                                {state === "searching" ? (
+                                    <Button
+                                        fullWidth
+                                        variant="soft"
+                                        onClick={handleCancel}
+                                        sx={{ ...hocSoftButtonSx, minHeight: 52 }}
+                                    >
+                                        {t("Leave ranked queue")}
+                                    </Button>
+                                ) : null}
+
+                                {state === "confirming" || (state === "accepted" && pendingGameId) ? (
                                     <Button
                                         fullWidth
                                         variant="solid"
-                                        disabled={
-                                            state === "starting-ai" ||
-                                            penalized ||
-                                            abandonCooling ||
-                                            !!rankedLock ||
-                                            rankedSuspended
-                                        }
-                                        onClick={() => void handleStart()}
-                                        startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
-                                        endDecorator={
-                                            !penalized && !abandonCooling && !rankedLock && !rankedSuspended ? (
-                                                <ArrowForwardRoundedIcon />
-                                            ) : undefined
-                                        }
+                                        disabled={state === "accepted"}
+                                        onClick={handleAccept}
+                                        startDecorator={state === "accepted" ? <CheckCircleRoundedIcon /> : undefined}
+                                        endDecorator={state === "confirming" ? <ArrowForwardRoundedIcon /> : undefined}
                                         sx={{
-                                            ...hocActionPrimaryButtonSx,
-                                            minHeight: 58,
-                                            fontFamily: hocDisplayFontFamily,
-                                            fontSize: "0.92rem",
+                                            ...(state === "confirming"
+                                                ? {
+                                                      bgcolor: "#55d878",
+                                                      color: "#07130a",
+                                                      border: "1px solid #b8ffc8",
+                                                      fontWeight: 900,
+                                                      boxShadow: "0 8px 26px rgba(85,216,120,0.3)",
+                                                      animation: "acceptAttention 1.4s ease-in-out infinite",
+                                                      "&:hover": {
+                                                          bgcolor: "#8aea9f",
+                                                          color: "#07130a",
+                                                          boxShadow: "0 12px 40px rgba(85,216,120,0.5)",
+                                                      },
+                                                      "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                                  }
+                                                : hocPrimaryButtonSx),
+                                            minHeight: 64,
+                                            fontSize: "1.06rem",
+                                            "&.Mui-disabled": {
+                                                bgcolor: "rgba(85,216,120,0.16)",
+                                                color: "rgba(210,255,220,0.68)",
+                                                border: "1px solid rgba(85,216,120,0.35)",
+                                            },
                                         }}
                                     >
-                                        {rankedSuspended
-                                            ? t("Ranked suspended")
-                                            : rankedLock
-                                              ? t("Ranked locked")
-                                              : penalized
-                                                ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
-                                                : abandonCooling
-                                                  ? tf("Search again in {time}", {
-                                                        time: formatAwayClock(abandonCooldownMs),
-                                                    })
-                                                  : t("Find ranked opponent")}
+                                        {state === "accepted" ? t("Match accepted") : t("Accept ranked match")}
                                     </Button>
-                                    <PracticeVsAiButton loading={state === "starting-ai"} onClick={handlePlayAi} />
-                                </Box>
-                            ) : null}
+                                ) : null}
 
-                            {/* Open lobbies live right here rather than behind a separate browse screen: a
-                                player who does not want the ranked queue can see a human is already
-                                waiting without navigating away from the arena. */}
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
-                                <Box sx={{ pt: 0.5 }}>
-                                    {/* Its own box, and only when somebody is actually waiting: an empty
-                                        "no open lobbies" card is column space spent on absence. The browse
-                                        button above still reaches the full list and the create control. */}
-                                    <PublicLobbiesPanel dense boxed hideWhenEmpty hideCreate />
-                                </Box>
-                            ) : null}
+                                {penalized && (
+                                    <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                        {tf("You didn't accept the last match. You can search again in {seconds}s.", {
+                                            seconds: penaltySeconds,
+                                        })}{" "}
+                                        {temporaryRestrictionText(cooldownTill, conductNowMs, language)}
+                                    </Alert>
+                                )}
 
-                            {state === "searching" ? (
-                                <Button
-                                    fullWidth
-                                    variant="soft"
-                                    onClick={handleCancel}
-                                    sx={{ ...hocSoftButtonSx, minHeight: 52 }}
-                                >
-                                    {t("Leave ranked queue")}
-                                </Button>
-                            ) : null}
+                                {rankedLock && conduct && (
+                                    <RankedLockPanel conduct={conduct} lock={rankedLock} onChange={refreshConduct} />
+                                )}
 
-                            {state === "confirming" || (state === "accepted" && pendingGameId) ? (
-                                <Button
-                                    fullWidth
-                                    variant="solid"
-                                    disabled={state === "accepted"}
-                                    onClick={handleAccept}
-                                    startDecorator={state === "accepted" ? <CheckCircleRoundedIcon /> : undefined}
-                                    endDecorator={state === "confirming" ? <ArrowForwardRoundedIcon /> : undefined}
-                                    sx={{
-                                        ...(state === "confirming"
-                                            ? {
-                                                  bgcolor: "#55d878",
-                                                  color: "#07130a",
-                                                  border: "1px solid #b8ffc8",
-                                                  fontWeight: 900,
-                                                  boxShadow: "0 8px 26px rgba(85,216,120,0.3)",
-                                                  animation: "acceptAttention 1.4s ease-in-out infinite",
-                                                  "&:hover": {
-                                                      bgcolor: "#8aea9f",
-                                                      color: "#07130a",
-                                                      boxShadow: "0 12px 40px rgba(85,216,120,0.5)",
-                                                  },
-                                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                                              }
-                                            : hocPrimaryButtonSx),
-                                        minHeight: 64,
-                                        fontSize: "1.06rem",
-                                        "&.Mui-disabled": {
-                                            bgcolor: "rgba(85,216,120,0.16)",
-                                            color: "rgba(210,255,220,0.68)",
-                                            border: "1px solid rgba(85,216,120,0.35)",
-                                        },
+                                {/* A lock outlasts the 5-minute cooldown, so "search again in 4:51" would be wrong while one is in force. */}
+                                {rankedSuspended && (
+                                    <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
+                                        {indefiniteSuspensionText()} {t("vs AI, sandbox and casual lobbies stay open.")}
+                                    </Alert>
+                                )}
+                                {abandonCooling && !rankedLock && !rankedSuspended && (
+                                    <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                        {tf("You abandoned your last ranked match. You can search again in {time}.", {
+                                            time: formatAwayClock(abandonCooldownMs),
+                                        })}{" "}
+                                        {temporaryRestrictionText(
+                                            abandonCooldownUntil,
+                                            conductNowMs,
+                                            language,
+                                            conduct?.rules.abandonCooldownMs,
+                                        )}
+                                    </Alert>
+                                )}
+
+                                <RankedRulesCard
+                                    open={rulesCardOpen}
+                                    rules={{
+                                        ranked: true,
+                                        enforced: conduct?.rules.enforced === true,
+                                        enforceAtMs: conduct?.rules.enforceAtMs ?? 0,
                                     }}
-                                >
-                                    {state === "accepted" ? t("Match accepted") : t("Accept ranked match")}
-                                </Button>
-                            ) : null}
+                                    busy={rulesCardBusy}
+                                    error={rulesCardError}
+                                    onClose={() => setRulesCardOpen(false)}
+                                    onAccept={async () => {
+                                        if (!conduct) {
+                                            setRulesCardOpen(false);
+                                            return;
+                                        }
+                                        setRulesCardBusy(true);
+                                        setRulesCardError("");
+                                        try {
+                                            await acceptRankedRules(conduct.rules.version);
+                                            setConduct({
+                                                ...conduct,
+                                                rules: { ...conduct.rules, acceptedVersion: conduct.rules.version },
+                                            });
+                                            setRulesCardOpen(false);
+                                            // The acknowledged state lands on the next render; start the search from here.
+                                            rulesAcknowledgedRef.current = true;
+                                            void handleStart();
+                                        } catch {
+                                            setRulesCardError(t("Couldn't save that. Please try again."));
+                                        } finally {
+                                            setRulesCardBusy(false);
+                                        }
+                                    }}
+                                />
 
-                            {penalized && (
-                                <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                    {tf("You didn't accept the last match. You can search again in {seconds}s.", {
-                                        seconds: penaltySeconds,
-                                    })}{" "}
-                                    {temporaryRestrictionText(cooldownTill, conductNowMs, language)}
-                                </Alert>
-                            )}
+                                {error && !penalized && !abandonCooling && !rankedLock && !rankedSuspended && (
+                                    <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
+                                        {error}
+                                    </Alert>
+                                )}
 
-                            {rankedLock && conduct && (
-                                <RankedLockPanel conduct={conduct} lock={rankedLock} onChange={refreshConduct} />
-                            )}
+                                {pendingGameId && (
+                                    <Typography
+                                        level="body-xs"
+                                        title={pendingGameId}
+                                        sx={{ color: "rgba(239,228,204,0.4)", letterSpacing: "0.08em" }}
+                                    >
+                                        {t("MATCH REF")} · {shortGameId}
+                                    </Typography>
+                                )}
+                            </Stack>
+                        </Box>
+                    </Sheet>
 
-                            {/* A lock outlasts the 5-minute cooldown, so "search again in 4:51" would be wrong while one is in force. */}
-                            {rankedSuspended && (
-                                <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
-                                    {indefiniteSuspensionText()} {t("vs AI, sandbox and casual lobbies stay open.")}
-                                </Alert>
-                            )}
-                            {abandonCooling && !rankedLock && !rankedSuspended && (
-                                <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                    {tf("You abandoned your last ranked match. You can search again in {time}.", {
-                                        time: formatAwayClock(abandonCooldownMs),
-                                    })}{" "}
-                                    {temporaryRestrictionText(
-                                        abandonCooldownUntil,
-                                        conductNowMs,
-                                        language,
-                                        conduct?.rules.abandonCooldownMs,
-                                    )}
-                                </Alert>
-                            )}
+                    {profileSummaryOpen && (
+                        <Box id="ranked-profile-summary" sx={{ minWidth: 0 }}>
+                            <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                        </Box>
+                    )}
 
-                            <RankedRulesCard
-                                open={rulesCardOpen}
-                                rules={{
-                                    ranked: true,
-                                    enforced: conduct?.rules.enforced === true,
-                                    enforceAtMs: conduct?.rules.enforceAtMs ?? 0,
-                                }}
-                                busy={rulesCardBusy}
-                                error={rulesCardError}
-                                onClose={() => setRulesCardOpen(false)}
-                                onAccept={async () => {
-                                    if (!conduct) {
-                                        setRulesCardOpen(false);
-                                        return;
-                                    }
-                                    setRulesCardBusy(true);
-                                    setRulesCardError("");
-                                    try {
-                                        await acceptRankedRules(conduct.rules.version);
-                                        setConduct({
-                                            ...conduct,
-                                            rules: { ...conduct.rules, acceptedVersion: conduct.rules.version },
-                                        });
-                                        setRulesCardOpen(false);
-                                        // The acknowledged state lands on the next render; start the search from here.
-                                        rulesAcknowledgedRef.current = true;
-                                        void handleStart();
-                                    } catch {
-                                        setRulesCardError(t("Couldn't save that. Please try again."));
-                                    } finally {
-                                        setRulesCardBusy(false);
-                                    }
-                                }}
-                            />
-
-                            {error && !penalized && !abandonCooling && !rankedLock && !rankedSuspended && (
-                                <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
-                                    {error}
-                                </Alert>
-                            )}
-
-                            {pendingGameId && (
-                                <Typography
-                                    level="body-xs"
-                                    title={pendingGameId}
-                                    sx={{ color: "rgba(239,228,204,0.4)", letterSpacing: "0.08em" }}
-                                >
-                                    {t("MATCH REF")} · {shortGameId}
-                                </Typography>
-                            )}
-                        </Stack>
-                    </Box>
-                </Sheet>
-
-                {profileSummaryOpen && (
-                    <Box id="ranked-profile-summary" sx={{ minWidth: 0 }}>
-                        <PlayerPortalSidebar navigationDisabled={navigationLocked} />
-                    </Box>
-                )}
-
-                {/* The room belongs to the arena, not to the queue card — nesting it inside the card made
+                    {/* The room belongs to the arena, not to the queue card — nesting it inside the card made
                     a conversation look like one more step of matchmaking, and it inherited the card's
                     narrow column. Spanning every grid column keeps it below both the card and the stats
                     sidebar whichever of them is open. Mounted through EVERY queue state on purpose:
                     waiting in the search queue is prime talking time, and a room that vanishes when you
                     press Find reads as a bug (it once did, via a state gate that hid it mid-search). */}
-                {!needsActivation ? (
-                    <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
-                        {/* The room reaches the screen's left edge whenever the stats sidebar widens the
+                    {!needsActivation ? (
+                        <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                            {/* The room reaches the screen's left edge whenever the stats sidebar widens the
                             page, which is exactly where the fullscreen button sits. Step the label clear of
                             it rather than moving either one: the button belongs in that corner and the room
                             belongs at full width. */}
-                        <ArenaChatPanel selfUsername={user?.username} headerStartInset={ARENA_CHAT_HEADER_INSET} />
-                    </Box>
-                ) : null}
-            </Box>
-            {/* Same button, same corner, same insets as the pick and fight screens — a player who went
+                            <ArenaChatPanel selfUsername={user?.username} headerStartInset={ARENA_CHAT_HEADER_INSET} />
+                        </Box>
+                    ) : null}
+                </Box>
+                {/* Same button, same corner, same insets as the pick and fight screens — a player who went
                 fullscreen for a match should not have to leave the arena to get back out of it, or hunt
                 for the control in a different place. The social dock owns the opposite corner here. */}
-            <FullscreenCorner />
-        </Box>
+                <FullscreenCorner />
+            </Box>
+        </CssVarsProvider>
     );
 };

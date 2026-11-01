@@ -5,6 +5,30 @@ import { Assets, Container, Texture } from "pixi.js";
 import { images } from "../../generated/image_imports";
 import { CombatVisuals } from "./CombatVisuals";
 
+test("ordinary ABSORBED labels are fully visible on the impact frame", () => {
+    const root = new Container();
+    const settings = new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06);
+    const visuals = new CombatVisuals({
+        getGridSettings: () => settings,
+        getUnitsHolder: () => ({ getAllUnits: () => new Map() }) as unknown as UnitsHolder,
+        attachToWorldRoot: (node) => {
+            root.addChild(node);
+        },
+        getSelectedUnitProperties: () => undefined,
+        updateSelectedUnitProperties: () => {},
+        setUnitPropertiesUpdateNeeded: () => {},
+    });
+    try {
+        visuals.showFloatingAbsorbed({ x: 320, y: 450 }, 47);
+        expect(root.children[0].alpha).toBe(1);
+        visuals.update(1 / 60);
+        expect(root.children[0].alpha).toBe(1);
+    } finally {
+        visuals.clear();
+        root.destroy({ children: true });
+    }
+});
+
 test("the dissolve and fully visible ABSORBED message start on the same impact frame", async () => {
     const root = new Container();
     const settings = new GridSettings(

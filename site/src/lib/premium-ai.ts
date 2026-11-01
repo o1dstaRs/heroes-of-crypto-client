@@ -17,19 +17,23 @@ export type { PremiumSearchMessage };
 export function premiumAiBody(
     question: string,
     lang: "en" | "ru",
-    library: PremiumAiSelection,
+    library: PremiumAiSelection | undefined,
     history: PremiumSearchMessage[],
 ) {
     const body = {
         mode: "premium",
         question: question.trim(),
         lang,
-        library: {
-            snapshotId: library.snapshotId,
-            cohort: library.cohort,
-            ...(library.map === undefined ? {} : { map: library.map }),
-            minimumFamilies: library.minimumFamilies,
-        },
+        ...(library
+            ? {
+                  library: {
+                      snapshotId: library.snapshotId,
+                      cohort: library.cohort,
+                      ...(library.map === undefined ? {} : { map: library.map }),
+                      minimumFamilies: library.minimumFamilies,
+                  },
+              }
+            : {}),
         history: history.slice(-6).map(({ role, content }) => ({ role, content: content.slice(0, 2000) })),
     };
     while (body.history.length && new TextEncoder().encode(JSON.stringify(body)).length > 15_000)
@@ -38,6 +42,7 @@ export function premiumAiBody(
 }
 
 export const samePremiumSelection = (a?: PremiumAiSelection, b?: PremiumAiSelection): boolean =>
+    a === b ||
     Boolean(
         a &&
         b &&
@@ -49,12 +54,17 @@ export const samePremiumSelection = (a?: PremiumAiSelection, b?: PremiumAiSelect
 
 export function readPremiumLibrarySearch(
     response: Response,
-    selection: PremiumAiSelection,
+    selection: PremiumAiSelection | undefined,
     onEvent: (kind: string, event: PremiumAiEvent) => void,
 ): Promise<string> {
     return readPremiumSearch(response, (kind, raw) => {
         const event = raw as PremiumAiEvent;
-        if (kind === "meta" && (event.evidenceAvailable !== true || !samePremiumSelection(event.library, selection))) {
+        if (
+            kind === "meta" &&
+            (selection
+                ? event.evidenceAvailable !== true || !samePremiumSelection(event.library, selection)
+                : event.context !== "general" || event.library !== undefined)
+        ) {
             throw new Error("AI could not verify the selected dataset. Reload the library and try again.");
         }
         onEvent(kind, event);

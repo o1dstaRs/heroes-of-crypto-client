@@ -11,7 +11,7 @@ afterEach(() => {
 const fixture = () => {
     const root = mkdtempSync(path.join(tmpdir(), "hoc-release-atlas-"));
     directories.push(root);
-    for (const folder of ["scripts", "src/generated", "art/output/example/atlas"]) {
+    for (const folder of ["scripts", "src/generated", "src/build", "art/output/example/atlas"]) {
         mkdirSync(path.join(root, folder), { recursive: true });
     }
     copyFileSync(
@@ -19,6 +19,10 @@ const fixture = () => {
         path.join(root, "scripts/generate_animation_atlases.js"),
     );
     copyFileSync(new URL("../assetLocations.ts", import.meta.url), path.join(root, "src/assetLocations.ts"));
+    copyFileSync(
+        new URL("./retiredImageAssets.json", import.meta.url),
+        path.join(root, "src/build/retiredImageAssets.json"),
+    );
     const index = path.join(root, "src/generated/animation_atlases.ts");
     const approved = "export const animationAtlases = { Example: { attack: { frameCount: 8, fps: 10 } } };\n";
     writeFileSync(index, approved);
@@ -64,6 +68,18 @@ test("explicit authoring regeneration still updates the animation index", () => 
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     expect(readFileSync(f.index, "utf8")).not.toBe(f.approved);
     expect(readFileSync(f.index, "utf8")).toContain('"frameCount": 2');
+});
+
+test("restoring an old animation package cannot copy retired sheets back into runtime images", () => {
+    const f = fixture();
+    const retired = "fire_pit_high_fire_overlay_48_atlas.webp";
+    const source = path.join(f.root, "art/output/example/atlas", retired);
+    writeFileSync(source, f.atlas);
+    const result = f.run(["--copy-only"]);
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    expect(existsSync(path.join(f.root, "images", retired))).toBe(false);
+    expect(readFileSync(source)).toEqual(f.atlas);
+    expect(readFileSync(path.join(f.root, "images/example_attack_atlas.webp"))).toEqual(f.atlas);
 });
 
 test("a release cannot silently replace a missing published index with authoring defaults", () => {

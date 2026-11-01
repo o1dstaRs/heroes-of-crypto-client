@@ -8,6 +8,8 @@ const UpNextOverlayRuntime = React.lazy(() =>
 
 export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exitStanding }) => (
     <Suspense fallback={null}>
-        <UpNextOverlayRuntime exitStanding={exitStanding} />
+        <div data-desktop-turn-overlay style={{ display: "contents" }}>
+            <UpNextOverlayRuntime exitStanding={exitStanding} />
+        </div>
     </Suspense>
 );

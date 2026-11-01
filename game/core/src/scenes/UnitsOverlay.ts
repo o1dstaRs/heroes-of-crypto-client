@@ -444,6 +444,19 @@ export class UnitsOverlay {
         this.isListExpanded = !this.isListExpanded;
         this.onResize(this.app.renderer.width, this.app.renderer.height);
     }
+    public getCreatureChoices(): { name: string; creatureId: number; level: number }[] {
+        return this.allChips.map((chip) => ({
+            name: chip.nameKey,
+            creatureId: UNIT_NAME_TO_ID[chip.nameKey],
+            level: this.chipLevels.get(chip) ?? 1,
+        }));
+    }
+    public selectCreatureByName(name: string): boolean {
+        const chip = this.allChips.find((candidate) => candidate.nameKey === name);
+        if (!chip) return false;
+        this.selectChip(chip);
+        return true;
+    }
     private selectChip(chip: UnitChip): void {
         const unitName = chip.nameKey;
         const next = this.selectedName === unitName ? null : unitName;

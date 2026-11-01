@@ -11,6 +11,7 @@ import "./CreatureAnimationLab.scss";
 
 import type { CreatureAnimationLabState, CreatureAnimationLabSpell } from "../pixi/PixiScene";
 import { usePixiManager } from "../pixi/PixiGameManager";
+import { shortcutLetter } from "../utils/shortcutLetter";
 import {
     canPreviewCreatureLabState,
     creatureLabHasSpell,
@@ -314,7 +315,7 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                 a: [-1, 0],
                 d: [1, 0],
             };
-            const delta = deltaByKey[event.key];
+            const delta = deltaByKey[event.key] ?? deltaByKey[shortcutLetter(event)];
             if (!delta) return;
             event.preventDefault();
             event.stopPropagation();

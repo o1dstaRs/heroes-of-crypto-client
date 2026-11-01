@@ -12,6 +12,9 @@ import type { SceneEntry } from "../../pixi/PixiScene"; // adjust the path if ne
 
 import { getSceneLink } from "../../utils/reactUtils";
 import { ScreenBloodOverlay } from "../ScreenBloodOverlay";
+import { useGameLayout } from "../mobile/GameViewport";
+
+const TouchBattleHud = React.lazy(() => import("../mobile/TouchBattleHud"));
 
 interface SceneComponentProps {
     entry: SceneEntry;
@@ -27,6 +30,7 @@ const noSelectStyle: React.CSSProperties = {
 
 const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass } }) => {
     const manager = usePixiManager();
+    const { touch } = useGameLayout();
     const initializedRef = useRef(false);
 
     // Canvases + wrapper
@@ -142,6 +146,11 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                 />
                 <ScreenBloodOverlay />
             </main>
+            {touch && (
+                <React.Suspense fallback={null}>
+                    <TouchBattleHud />
+                </React.Suspense>
+            )}
         </>
     );
 };
