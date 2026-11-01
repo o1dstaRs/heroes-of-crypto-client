@@ -68,7 +68,7 @@ describe("mechanics notes", () => {
         expect(abilityNote("Paralysis", "en")).toContain("20% per stack power (100% at full stack)");
         expect(abilityNote("Paralysis", "en")).toContain("8% per Mantis stack power (40% at full stack");
         // Decimals use a comma in Russian.
-        expect(abilityNote("Sharpened Weapons Aura", "ru")).toContain("3,6%");
+        expect(abilityNote("Sharpened Weapons Blessing", "ru")).toContain("3,6%");
     });
 
     test("shows Keen Blade's ranged and melee bonuses in the cards and both language notes", () => {

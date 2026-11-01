@@ -61,7 +61,12 @@ for (const [school, name] of [
     });
 }
 
-test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confirmed enchantment", (name) => {
+test.each([
+    ["Armor Rune", true],
+    ["Armor Rune", false],
+    ["Weapon Rune", true],
+    ["Weapon Rune", false],
+] as const)("AI and Premium %s casts show the confirmed increment (success: %s)", (name, success) => {
     const unit = {
         isDead: () => false,
         getVisualCenter: () => ({ x: 128, y: 64 }),
@@ -76,7 +81,9 @@ test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confi
             spellName: name,
             unitIdsDied: [],
             animations: [],
-            outcomes: [{ unitId: "ally", outcome: "enchanted", amount: 2 }],
+            outcomes: [
+                { unitId: "ally", outcome: success ? "enchanted" : "failed", ...(success ? { amount: 3 } : {}) },
+            ],
         },
     ];
     const scene = Object.assign(Object.create(Sandbox.prototype), {
@@ -95,7 +102,10 @@ test.each(["Armor Rune", "Weapon Rune"])("AI and Premium %s casts show the confi
     expect(spawnEnchantResult).toHaveBeenCalledWith(
         { x: 128, y: 64 },
         gridSettings.getCellSize(),
-        expect.objectContaining({ success: true, label: name === "Armor Rune" ? "+2 armor" : "+2 attack" }),
+        expect.objectContaining({
+            success,
+            label: `+${success ? 1 : 0} ${name === "Armor Rune" ? "armor" : "attack"}`,
+        }),
     );
-    expect(unit.flashBuffApplied).toHaveBeenCalledTimes(1);
+    expect(unit.flashBuffApplied).toHaveBeenCalledTimes(success ? 1 : 0);
 });

@@ -122,7 +122,7 @@ export const PickBanEventProvider: React.FC<{
             setArtifactTier1(artifacts.find((pair) => pair[0] === 1)?.[1] ?? 0);
             setArtifactTier2(artifacts.find((pair) => pair[0] === 2)?.[1] ?? 0);
             setRequiredLevel(event.lv ?? 0);
-            // The server reveals the map from the L3 picks onward and sends it on every frame after that.
+            // The server sends the map once this player's doctrine/phase permits it, on every later frame.
             // Latch it (never clear back to "?") so a stray/reordered frame can't un-reveal the map.
             if (event.mt) {
                 setMapType(event.mt);

@@ -17,7 +17,7 @@ import {
 /**
  * The arena's "gold on the line" box. Arms a wager for the NEXT ranked match: the gold escrows the
  * moment it is set (so it cannot be double-spent elsewhere) and rides the queue until an opponent
- * who also put gold in appears — then the poker moment happens in the draft (see WagerNegotiator).
+ * who also put gold in appears.
  *
  * The player-facing verb is PUT, never "stake": this is a web3 game, and "staking" already means locking
  * tokens for yield. The box reads in the same poker register as the CALL/RAISE/ALL-IN controls beside it.

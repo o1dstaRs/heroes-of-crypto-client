@@ -57,18 +57,17 @@ const nonNegativeInt = (value: unknown): number =>
 /**
  * What opening a lobby costs right now — ceil(season gold / (calibrated players x 10)) — together
  * with its inputs, so the lobbies screen can EXPLAIN the charge instead of asserting a number that
- * moves on its own. Charged to the host and never returned. Plain JSON rather than protobuf: none of
- * this belongs on a lobby message.
- *
- * Every field is floored at 0. The quote is only ever displayed — the server charges what it charges
- * — so a garbled body must render as "free", never as "costs NaN G" or as a negative the UI would
- * read as a credit.
+ * moves on its own. The fee is returned if the lobby expires after 24 hours without starting.
+ * Invalid prices fail closed so a missing quote cannot authorize a free lobby.
  */
 export const fetchLobbyPriceBreakdown = async (): Promise<LobbyPriceBreakdown> => {
     const response = await axiosMMInstance.get(buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.lobbyPrice));
     const body = (response.data ?? {}) as Record<string, unknown>;
+    if (typeof body.price !== "number" || !Number.isSafeInteger(body.price) || body.price < 1) {
+        throw new Error("Lobby price is unavailable");
+    }
     return {
-        price: nonNegativeInt(body.price),
+        price: body.price,
         seasonGold: nonNegativeInt(body.seasonGold),
         calibratedPlayers: nonNegativeInt(body.calibratedPlayers),
         perCalibratedPlayer: nonNegativeInt(body.perCalibratedPlayer) || 10,

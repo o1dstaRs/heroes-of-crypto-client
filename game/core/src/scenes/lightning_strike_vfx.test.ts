@@ -7,11 +7,23 @@ function fixture(alive: boolean) {
     const visuals = {
         spawnLightningStrike: mock<(target: { x: number; y: number }, cellSize: number) => void>(() => undefined),
         spawnFireBurn: mock(() => undefined),
-        spawnFireSweep: mock(() => undefined),
+        spawnFireSweep: mock<(from: { x: number; y: number }, to: { x: number; y: number }, cellSize: number) => void>(
+            () => undefined,
+        ),
+        spawnFireRing: mock(() => undefined),
         showFloatingDamage: mock(() => undefined),
         spawnMagicMirrorRebound: mock(() => undefined),
     };
-    const gs = { getCellSize: () => 64, getMinX: () => 0, getMaxX: () => 1024, getMinY: () => 0, getMaxY: () => 1024 };
+    const gs = {
+        getCellSize: () => 64,
+        getStep: () => 64,
+        getHalfStep: () => 32,
+        getGridSize: () => 16,
+        getMinX: () => 0,
+        getMaxX: () => 1024,
+        getMinY: () => 0,
+        getMaxY: () => 1024,
+    };
     const target = {
         getVisualCenter: () => ({ x: 350, y: 440 }),
         getDamagePredictionAnchor: () => undefined,
@@ -74,3 +86,26 @@ test("a zero-damage strike still flashes; another spell retains its existing fir
     expect(visuals.spawnLightningStrike).toHaveBeenCalledTimes(1);
     expect(visuals.spawnFireBurn).toHaveBeenCalledTimes(1);
 });
+
+for (const spellName of ["Fire Strike", "Fireball"]) {
+    test(`${spellName} playback uses the recorded clear flight even after its victim is removed`, () => {
+        const { scene, visuals, gs } = fixture(false);
+        const flight = { fromPosition: { x: 100, y: 200 }, toPosition: { x: 290, y: 470 }, affectedUnitId: "target" };
+        scene.renderSpellDamageVfx([
+            {
+                ...cast(),
+                spellName,
+                targetCell: { x: 4, y: 6 },
+                animations: [flight],
+                damaged: [{ unitId: "target", position: { x: 300, y: 400 }, amount: 90, unitsDied: 0 }],
+            },
+        ]);
+        expect(visuals.spawnFireSweep.mock.calls).toEqual([
+            [
+                projectBattlefieldPoint(flight.fromPosition, gs as never),
+                projectBattlefieldPoint(flight.toPosition, gs as never),
+                64,
+            ],
+        ]);
+    });
+}

@@ -1,0 +1,731 @@
+// Match hocSidebarSectionSx / hocSidebarImageButtonSx. Nine-slice rails keep the authored bronze
+// corners intact on both a 44px tap target and a wide confirmation plate; CSS never redraws the bezel.
+@mixin touch-frame {
+    box-sizing: border-box;
+    border: 6px solid transparent;
+    border-image: var(--hoc-touch-frame) 104 / 6px / 0 stretch;
+    border-radius: 0;
+    background:
+        linear-gradient(rgb(8 7 6 / 42%), rgb(8 7 6 / 64%)),
+        var(--hoc-touch-stone) center / 320px;
+    color: #d8c29c;
+    box-shadow: 0 5px 18px rgb(0 0 0 / 65%);
+}
+
+@mixin touch-plate {
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+    border: 5px solid transparent;
+    border-image: var(--hoc-touch-plate) 45 fill / 5px / 0 stretch;
+    border-radius: 0;
+    background: transparent;
+    color: #cda078;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.15;
+    letter-spacing: 0.045em;
+    text-shadow: 0 1px 1px #070504;
+    touch-action: manipulation;
+    transition:
+        filter 140ms ease,
+        transform 100ms ease;
+
+    &:active:not(:disabled) {
+        filter: brightness(1.2);
+        transform: translateY(1px);
+    }
+
+    &[aria-pressed="true"],
+    &[aria-expanded="true"] {
+        color: #f2d5a4;
+        filter: brightness(1.2);
+        box-shadow: inset 0 0 16px rgb(194 103 36 / 18%);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        filter: grayscale(0.65) brightness(0.7);
+    }
+
+    &:focus-visible {
+        outline: 2px solid #dcb158;
+        outline-offset: 2px;
+    }
+}
+
+html[data-hoc-touch-game="true"] {
+    overflow: hidden;
+    font-family: "HoC Forge", Georgia, "Times New Roman", serif;
+}
+
+body[data-hoc-touch-game="true"] {
+    --hoc-safe-top: env(safe-area-inset-top, 0px);
+    --hoc-safe-right: env(safe-area-inset-right, 0px);
+    --hoc-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --hoc-safe-left: env(safe-area-inset-left, 0px);
+
+    position: fixed;
+    inset: 0 auto auto 0;
+    width: var(--hoc-game-width);
+    height: var(--hoc-game-height);
+    overflow: hidden;
+
+    &[data-hoc-game-rotated="true"] {
+        --hoc-safe-top: env(safe-area-inset-right, 0px);
+        --hoc-safe-right: env(safe-area-inset-bottom, 0px);
+        --hoc-safe-bottom: env(safe-area-inset-left, 0px);
+        --hoc-safe-left: env(safe-area-inset-top, 0px);
+
+        transform: translateX(var(--hoc-physical-width)) rotate(90deg);
+        transform-origin: top left;
+    }
+
+    .MuiModal-root {
+        width: var(--hoc-game-width);
+        height: var(--hoc-game-height);
+    }
+
+    .MuiModalDialog-root {
+        max-width: calc(var(--hoc-game-width) - 24px);
+        max-height: calc(var(--hoc-game-height) - 24px);
+        overflow: auto;
+    }
+
+    .MuiModalDialog-layoutFullscreen {
+        max-width: var(--hoc-game-width);
+        max-height: var(--hoc-game-height);
+    }
+
+    [data-touch-panel] label,
+    [data-touch-draft-board] label {
+        min-height: 44px;
+    }
+
+    #root,
+    .container,
+    [data-game-screen] {
+        width: var(--hoc-game-width) !important;
+        height: var(--hoc-game-height) !important;
+        max-height: var(--hoc-game-height);
+    }
+
+    .hoc-board {
+        overflow: hidden;
+        touch-action: none;
+    }
+
+    [data-touch-panel] {
+        z-index: 30 !important;
+        top: calc(60px + var(--hoc-safe-top)) !important;
+        bottom: calc(84px + var(--hoc-safe-bottom)) !important;
+        width: min(340px, calc(var(--hoc-game-width) * 0.44)) !important;
+        height: auto !important;
+        max-height: calc(var(--hoc-game-height) - 144px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
+        overflow: hidden auto !important;
+        overscroll-behavior: contain;
+        box-shadow: 0 8px 36px rgb(0 0 0 / 65%);
+        // The sidebar already owns its smoked-bronze artwork. Keep that frame instead of adding a box.
+        border: 0;
+        border-radius: 0;
+
+        &[data-touch-panel-open="false"] {
+            display: none !important;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        button,
+        [role="button"],
+        [role="radio"] {
+            min-height: 44px;
+            touch-action: manipulation;
+        }
+
+        input {
+            font-size: 16px;
+        }
+    }
+
+    [data-touch-panel="unit"] {
+        left: calc(8px + var(--hoc-safe-left)) !important;
+    }
+
+    [data-touch-panel="army"] {
+        // Exit / start-over keep their own 44px row; no roster tab or scrolled placement control may
+        // slide behind them. The drawer remains scrollable on the shorter landscape phone surface.
+        top: calc(112px + var(--hoc-safe-top)) !important;
+        right: calc(8px + var(--hoc-safe-right)) !important;
+        max-height: calc(var(--hoc-game-height) - 196px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
+    }
+
+    [data-desktop-turn-overlay],
+    [data-desktop-matchup="true"],
+    [data-desktop-toolbar],
+    [data-touch-hide="true"] {
+        display: none !important;
+    }
+
+    .hoc-touch-topbar,
+    .hoc-touch-actionbar {
+        @include touch-frame;
+
+        position: fixed;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 6px;
+
+        button {
+            @include touch-plate;
+
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 3px 10px;
+        }
+
+        .hoc-touch-primary {
+            color: #efc490;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            box-shadow: inset 0 0 18px rgb(172 75 21 / 20%);
+        }
+
+        // Finished medallions carry their own face and frame, just like the desktop combat toolbar.
+        .hoc-touch-medallion,
+        .hoc-touch-combat-action,
+        .hoc-touch-icon-action,
+        .hoc-audio-control > button {
+            padding: 0;
+            border: 0;
+            background-color: transparent;
+            box-shadow: none;
+
+            img {
+                width: 44px;
+                height: 44px;
+                object-fit: contain;
+                pointer-events: none;
+            }
+        }
+    }
+
+    .hoc-touch-topbar {
+        top: var(--hoc-safe-top);
+        left: var(--hoc-safe-left);
+        right: var(--hoc-safe-right);
+        height: var(--hoc-touch-topbar-height);
+    }
+
+    .hoc-touch-turn {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-width: 0;
+        padding-inline: 8px;
+
+        strong,
+        span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        strong {
+            font-size: 13px;
+        }
+
+        span {
+            color: #b5a17e;
+            font-size: 11px;
+        }
+    }
+
+    .hoc-touch-actionbar {
+        bottom: var(--hoc-safe-bottom);
+        left: var(--hoc-safe-left);
+        right: var(--hoc-safe-right);
+        height: var(--hoc-touch-actionbar-height);
+        padding-block: 2px;
+        justify-content: center;
+        overflow: auto hidden;
+
+        .hoc-touch-primary-slot {
+            flex: 0 1 240px;
+            min-width: 140px;
+
+            &:empty,
+            &[hidden] {
+                display: none;
+            }
+        }
+
+        .hoc-touch-primary-content {
+            display: flex;
+            align-items: center;
+
+            > button {
+                width: 100%;
+            }
+        }
+
+        > button:not(.hoc-touch-primary) {
+            flex: 0 0 64px;
+            max-width: 72px;
+            flex-direction: column;
+            padding-inline: 4px;
+        }
+
+        &:has(.hoc-touch-primary-slot:not(:empty)) .hoc-touch-hint {
+            display: none;
+        }
+
+        .hoc-touch-combat-action,
+        .hoc-touch-icon-action {
+            min-width: 64px;
+            min-height: 62px;
+            padding: 0 4px;
+
+            span {
+                color: #d8c29c;
+                font-size: 11px;
+                letter-spacing: 0;
+            }
+
+            &[aria-pressed="true"] img {
+                filter: brightness(1.15) drop-shadow(0 0 4px rgb(230 161 62 / 35%));
+            }
+        }
+    }
+
+    #hoc-touch-audio-slot {
+        display: flex;
+        flex: 0 0 44px;
+        align-items: center;
+        justify-content: center;
+
+        button {
+            min-width: 44px;
+            min-height: 44px;
+        }
+    }
+
+    #hoc-touch-audio-slot .hoc-audio-control {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    .hoc-audio-control[data-touch-audio="true"] .hoc-audio-popup {
+        @include touch-frame;
+
+        z-index: 60;
+        min-width: 260px !important;
+        max-width: calc(var(--hoc-game-width) - 32px);
+        padding: 12px !important;
+        border: 6px solid transparent !important;
+        border-image: var(--hoc-touch-frame) 104 / 6px / 0 stretch !important;
+        border-radius: 0 !important;
+        background:
+            linear-gradient(rgb(8 7 6 / 42%), rgb(8 7 6 / 64%)),
+            var(--hoc-touch-stone) center / 320px !important;
+
+        .hoc-audio-heading {
+            color: #d8c29c !important;
+            font-size: 14px !important;
+            letter-spacing: 0.06em;
+        }
+
+        button {
+            @include touch-plate;
+        }
+
+        > button,
+        label {
+            min-height: 44px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        label input {
+            width: 28px !important;
+            height: 28px !important;
+            flex: 0 0 28px;
+            margin: 0;
+            appearance: none;
+            border: 0;
+            background: var(--hoc-touch-radio-off) center / contain no-repeat;
+
+            &:checked {
+                background-image: var(--hoc-touch-radio-on);
+            }
+
+            &:focus-visible {
+                outline: 2px solid #dcb158;
+                outline-offset: 2px;
+            }
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-inline: 10px;
+            box-sizing: border-box;
+            gap: 10px;
+            font-size: 13px;
+        }
+    }
+
+    #hoc-touch-audio-slot .hoc-audio-popup {
+        top: calc(100% + 10px);
+        bottom: auto !important;
+    }
+
+    .hoc-touch-volume-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+
+        input {
+            min-width: 0;
+            width: 128px;
+            flex: 1 1 auto;
+            height: 44px;
+            margin: 0;
+            appearance: none;
+            background: transparent;
+            touch-action: none;
+
+            &::-webkit-slider-runnable-track {
+                height: 8px;
+                border: 1px solid #704c2d;
+                border-radius: 3px;
+                background: linear-gradient(90deg, #9b5325 var(--hoc-touch-volume), #0b0806 var(--hoc-touch-volume));
+                box-shadow: inset 0 1px 2px #000;
+            }
+
+            &::-moz-range-track {
+                height: 8px;
+                border: 1px solid #704c2d;
+                border-radius: 3px;
+                background: #0b0806;
+                box-shadow: inset 0 1px 2px #000;
+            }
+
+            &::-moz-range-progress {
+                height: 6px;
+                background: #9b5325;
+            }
+
+            &::-webkit-slider-thumb {
+                width: 26px;
+                height: 26px;
+                margin-top: -10px;
+                appearance: none;
+                border: 0;
+                background: var(--hoc-touch-slider-thumb) center / contain no-repeat;
+            }
+
+            &::-moz-range-thumb {
+                width: 26px;
+                height: 26px;
+                border: 0;
+                background: var(--hoc-touch-slider-thumb) center / contain no-repeat;
+            }
+
+            &:focus-visible {
+                outline: 2px solid #dcb158;
+                outline-offset: 2px;
+            }
+        }
+    }
+
+    .hoc-touch-notice {
+        @include touch-frame;
+
+        position: fixed;
+        z-index: 60;
+        top: calc(62px + var(--hoc-safe-top));
+        left: 50%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: calc(var(--hoc-game-width) - 32px);
+        padding: 6px 12px;
+        font-size: 13px;
+        transform: translateX(-50%);
+
+        button {
+            min-width: 44px;
+            min-height: 44px;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            padding: 0;
+
+            img {
+                width: 44px;
+                height: 44px;
+                pointer-events: none;
+            }
+        }
+    }
+
+    [data-game-corner-slot] {
+        top: calc(62px + var(--hoc-safe-top)) !important;
+        right: calc(8px + var(--hoc-safe-right)) !important;
+    }
+
+    .hoc-touch-hint {
+        max-width: 260px;
+        padding-inline: 8px;
+        color: #c4b79c;
+        font-size: 12px;
+    }
+
+    .hoc-touch-confirm {
+        // Confirm in the space already reserved for actions. A second floating row used to hide the
+        // lower deployment cells precisely when the player needed to review the chosen destination.
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        min-width: 0;
+        max-width: 640px;
+
+        > span {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            padding-inline: 8px;
+            font-size: 13px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    [data-touch-draft-board] {
+        position: absolute !important;
+        top: calc(4px + var(--hoc-safe-top));
+        left: calc(8px + var(--hoc-safe-left));
+        width: calc(var(--hoc-game-width) - 16px - var(--hoc-safe-left) - var(--hoc-safe-right)) !important;
+        height: calc(var(--hoc-game-height) - 64px - var(--hoc-safe-top) - var(--hoc-safe-bottom)) !important;
+        padding: 4px 8px !important;
+        gap: 6px !important;
+        transform: none !important;
+
+        [data-testid="draft-header-zone"] {
+            height: 44px !important;
+            min-height: 44px !important;
+            max-height: 44px !important;
+            overflow: auto;
+            padding-right: 80px;
+
+            [data-draft-title] {
+                font-size: 20px !important;
+                line-height: 1.15 !important;
+            }
+
+            h1,
+            h2,
+            h3 {
+                font-size: 20px !important;
+                line-height: 1.15 !important;
+            }
+        }
+
+        [data-testid="draft-armies-zone"] {
+            position: absolute;
+            z-index: 20;
+            top: 50px;
+            left: 8px;
+            right: 8px;
+            width: auto !important;
+            padding: 6px;
+            @include touch-frame;
+        }
+
+        &[data-touch-draft-roster-open="false"] [data-testid="draft-armies-zone"] {
+            display: none !important;
+        }
+
+        [data-testid="draft-ban-summary"] {
+            position: absolute;
+            z-index: 20;
+            top: 122px;
+            width: calc(100% - 16px);
+            min-height: 54px;
+        }
+
+        &[data-touch-draft-roster-open="false"] [data-testid="draft-ban-summary"] {
+            display: none;
+        }
+
+        [data-testid="draft-choice-action-zone"] {
+            gap: 6px !important;
+        }
+
+        [data-testid="draft-choice-zone"] {
+            overflow: auto;
+        }
+
+        [data-touch-draft-choice] {
+            min-width: 44px;
+            min-height: 48px;
+            touch-action: manipulation;
+        }
+
+        [data-touch-draft-commit] {
+            display: flex !important;
+            flex: 0 0 48px;
+            justify-content: center;
+            width: 100%;
+
+            button {
+                min-height: 44px !important;
+                height: 44px !important;
+                font-size: 16px !important;
+                transform: none !important;
+            }
+        }
+    }
+
+    [data-game-corner-slot] button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    [data-touch-draft-board] button,
+    [data-touch-draft-board] [role="radio"] {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .hoc-touch-draft-army-toggle {
+        @include touch-plate;
+
+        position: absolute;
+        z-index: 30;
+        top: 4px;
+        right: 8px;
+        min-height: 44px;
+        padding: 6px 12px;
+        font-size: 14px;
+        touch-action: manipulation;
+    }
+
+    .hoc-touch-roster {
+        flex: 0 0 auto;
+        padding: 6px;
+
+        button {
+            @include touch-plate;
+
+            padding: 4px;
+            font-size: 12px;
+        }
+    }
+
+    .hoc-touch-roster-levels {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+
+        button {
+            flex: 1;
+        }
+    }
+
+    .hoc-touch-roster-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        max-height: max(150px, calc(var(--hoc-game-height) - 220px));
+        overflow: auto;
+        overscroll-behavior: contain;
+
+        button {
+            @include touch-frame;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 2px;
+            color: #d8c29c;
+            font-size: 12px;
+            letter-spacing: 0;
+        }
+    }
+}
+
+body[data-hoc-touch-game="true"] .hoc-touch-split-amount {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+
+    button {
+        @include touch-plate;
+
+        flex: 0 0 44px;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 20px;
+    }
+
+    input {
+        @include touch-frame;
+
+        min-width: 0;
+        width: 100%;
+        height: 44px;
+        padding: 4px;
+        box-sizing: border-box;
+        color: #efe4cc;
+        font-family: inherit;
+        font-size: 16px;
+        text-align: center;
+    }
+}
+
+body[data-hoc-touch-game="true"] {
+    [data-game-system-controls] button,
+    [data-fullscreen-corner] button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    [data-touch-draft-board] [data-touch-augment-grid] {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-auto-rows: minmax(276px, auto) !important;
+        height: auto !important;
+    }
+
+    [data-touch-draft-board] [data-touch-augment-card] {
+        min-height: 276px;
+    }
+
+    [data-touch-draft-board] [data-touch-augment-option] {
+        min-height: 44px;
+    }
+
+    .hoc-touch-draft-progress {
+        @include touch-frame;
+
+        position: fixed;
+        left: calc(16px + var(--hoc-safe-left));
+        bottom: calc(16px + var(--hoc-safe-bottom));
+        z-index: 55;
+        padding: 6px 10px;
+        color: #dcb158;
+        font-size: 12px;
+    }
+}

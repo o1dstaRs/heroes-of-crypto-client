@@ -415,7 +415,7 @@ test("repeated playback, partial playback and rewind never mutate shared checkpo
         isSceneDestroyed: () => false,
         setReplayPlaybackActive: mock(),
         preloadTextureKeys: async () => {},
-        waitForPendingTextures: async () => {},
+        prepareMapTextures: async () => {},
         onSupplementaryTexturesLoaded: () => {},
         sc_sceneLog: { clear: () => {} },
         shouldApplyReplayRecordAsCheckpoint: () => false,

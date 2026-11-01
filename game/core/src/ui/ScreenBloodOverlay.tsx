@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 
+import { pointInGameElement, readGameViewport } from "../viewport/gameViewport";
+import { useGameLayout } from "./mobile/GameViewport";
+import { t } from "../i18n/i18n";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { ScreenBloodCanvas } from "./screenBloodCanvas";
 
 /** Zena's screen splatter is personal to the struck seat and never takes input away from the board. */
 export const ScreenBloodOverlay: React.FC = () => {
     const manager = usePixiManager();
+    const { touch } = useGameLayout();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [active, setActive] = useState(false);
 
@@ -19,7 +23,10 @@ export const ScreenBloodOverlay: React.FC = () => {
         });
         const resize = () => {
             const { width, height } = canvas.getBoundingClientRect();
-            blood.resize(width, height);
+            blood.resize(
+                readGameViewport().touch ? canvas.clientWidth : width,
+                readGameViewport().touch ? canvas.clientHeight : height,
+            );
         };
         resize();
         const observer = new ResizeObserver(resize);
@@ -27,7 +34,15 @@ export const ScreenBloodOverlay: React.FC = () => {
         const wipe = (event: PointerEvent) => {
             if (!hasBlood) return;
             const bounds = canvas.getBoundingClientRect();
-            blood.wipe(event.clientX - bounds.left, event.clientY - bounds.top);
+            const point = pointInGameElement(
+                event.clientX,
+                event.clientY,
+                bounds,
+                canvas.clientWidth,
+                canvas.clientHeight,
+                readGameViewport().rotated,
+            );
+            blood.wipe(point.x, point.y);
         };
         const leave = () => blood.leave();
         // Hover wipes too. Passive window listeners preserve clicks, camera drags and unit selection.
@@ -67,7 +82,7 @@ export const ScreenBloodOverlay: React.FC = () => {
                     role="status"
                     style={{
                         position: "absolute",
-                        bottom: 28,
+                        bottom: touch ? 84 : 28,
                         left: "50%",
                         transform: "translateX(-50%)",
                         padding: "7px 14px",
@@ -80,7 +95,7 @@ export const ScreenBloodOverlay: React.FC = () => {
                         whiteSpace: "nowrap",
                     }}
                 >
-                    Move your mouse to wipe away the blood
+                    {touch ? t("Swipe to wipe away the blood") : "Move your mouse to wipe away the blood"}
                 </div>
             )}
         </div>

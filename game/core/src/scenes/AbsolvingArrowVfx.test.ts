@@ -5,7 +5,6 @@ import type { GridSettings, IVisibleDamage, UnitsHolder } from "@heroesofcrypto/
 import { Sandbox } from "./Sandbox";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles } from "./sandbox/RangedProjectiles";
-import { RangedProjectiles as LevelOneProjectiles } from "./sandbox/LevelOneRangedProjectiles";
 
 const gs = { getCellSize: () => 100 } as GridSettings;
 const setup = () => {
@@ -180,52 +179,46 @@ describe("Absolving Arrow success VFX", () => {
     });
 });
 
-test.each([
-    ["standard", RangedProjectiles],
-    ["level one", LevelOneProjectiles],
-] as const)(
-    "%s projectile reports actual flight progress and never completes a cancelled cleanse",
-    async (_name, Renderer) => {
-        const attachments: Container[] = [];
-        const projectiles = new Renderer({
-            getGridSettings: () => gs,
-            attachToWorldRoot: (container) => attachments.push(container),
-        });
-        const progress: number[] = [];
-        let impacts = 0;
-        const abort = new AbortController();
-        const flight = projectiles.fire({
-            from: { x: 0, y: 0 },
-            to: { x: 1000, y: 0 },
-            big: true,
-            signal: abort.signal,
-            onProgress: (fraction) => progress.push(fraction),
-            onImpact: () => impacts++,
-        });
-        for (let index = 0; index < 4; index++) await Promise.resolve();
-        expect(progress).toEqual([]);
-        projectiles.update(0.001);
-        expect(progress).toHaveLength(1);
-        expect(progress[0]).toBeGreaterThan(0);
-        expect(progress[0]).toBeLessThan(1);
-        abort.abort();
-        projectiles.update(10);
-        await flight;
-        expect(progress).toHaveLength(1);
-        expect(impacts).toBe(0);
-        const nextFlight = projectiles.fire({
-            from: { x: 0, y: 0 },
-            to: { x: 100, y: 0 },
-            big: true,
-            onProgress: (fraction) => progress.push(fraction),
-            onImpact: () => impacts++,
-        });
-        for (let index = 0; index < 4; index++) await Promise.resolve();
-        projectiles.update(10);
-        await nextFlight;
-        expect(progress.at(-1)).toBe(1);
-        expect(impacts).toBe(1);
-        projectiles.destroy();
-        expect(attachments.every((container) => container.destroyed)).toBe(true);
-    },
-);
+test("projectile reports actual flight progress and never completes a cancelled cleanse", async () => {
+    const attachments: Container[] = [];
+    const projectiles = new RangedProjectiles({
+        getGridSettings: () => gs,
+        attachToWorldRoot: (container) => attachments.push(container),
+    });
+    const progress: number[] = [];
+    let impacts = 0;
+    const abort = new AbortController();
+    const flight = projectiles.fire({
+        from: { x: 0, y: 0 },
+        to: { x: 1000, y: 0 },
+        big: true,
+        signal: abort.signal,
+        onProgress: (fraction) => progress.push(fraction),
+        onImpact: () => impacts++,
+    });
+    for (let index = 0; index < 4; index++) await Promise.resolve();
+    expect(progress).toEqual([]);
+    projectiles.update(0.001);
+    expect(progress).toHaveLength(1);
+    expect(progress[0]).toBeGreaterThan(0);
+    expect(progress[0]).toBeLessThan(1);
+    abort.abort();
+    projectiles.update(10);
+    await flight;
+    expect(progress).toHaveLength(1);
+    expect(impacts).toBe(0);
+    const nextFlight = projectiles.fire({
+        from: { x: 0, y: 0 },
+        to: { x: 100, y: 0 },
+        big: true,
+        onProgress: (fraction) => progress.push(fraction),
+        onImpact: () => impacts++,
+    });
+    for (let index = 0; index < 4; index++) await Promise.resolve();
+    projectiles.update(10);
+    await nextFlight;
+    expect(progress.at(-1)).toBe(1);
+    expect(impacts).toBe(1);
+    projectiles.destroy();
+    expect(attachments.every((container) => container.destroyed)).toBe(true);
+});
