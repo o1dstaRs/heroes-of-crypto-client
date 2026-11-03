@@ -90,9 +90,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Clover of Fortune": {
         en: ({ n }) =>
-            `+${n(A.CLOVER_LUCK)} luck for every unit. Luck is capped at +10, so most units sit at or near +10 every lap and other luck sources (Luck Aura, the Life synergy, Luck Shield) add little or nothing; Misfortune drops a Clover unit to 0 instead of −10.`,
+            `+${n(A.CLOVER_LUCK)} luck for every unit. Luck is capped at +10, so most units sit at or near +10 every lap and other luck sources (Luck Blessing, the Life synergy, Luck Shield) add little or nothing; Misfortune drops a Clover unit to 0 instead of −10.`,
         ru: ({ n }) =>
-            `+${n(A.CLOVER_LUCK)} к удаче каждому юниту. Удача ограничена +10, поэтому большинство юнитов каждый круг держатся на +10 или рядом, а другие источники удачи (Luck Aura, синергия Жизни, Luck Shield) почти ничего не добавляют; Misfortune опускает такого юнита до 0, а не до −10.`,
+            `+${n(A.CLOVER_LUCK)} к удаче каждому юниту. Удача ограничена +10, поэтому большинство юнитов каждый круг держатся на +10 или рядом, а другие источники удачи (Luck Blessing, синергия Жизни, Luck Shield) почти ничего не добавляют; Misfortune опускает такого юнита до 0, а не до −10.`,
     },
     "Crown of Command": {
         en: ({ n }) =>

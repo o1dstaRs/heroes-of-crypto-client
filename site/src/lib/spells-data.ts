@@ -103,6 +103,7 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
+    "System:Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
     "System:Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
     "System:Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
     "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
@@ -160,6 +161,7 @@ const abilityCastSpells = new Set([
 
 // Sources of non-castable buffs/debuffs. These links live in ability and artifact code rather than data.
 const appliedBySources: Record<string, string[]> = {
+    "Luck Blessing": ["Luck Blessing"],
     "Sylvan Focus Blessing": ["Sylvan Focus Blessing"],
     "Wolf Trail Blessing": ["Wolf Trail Blessing"],
     "Ember Covenant Blessing": ["Ember Covenant Blessing"],
@@ -238,6 +240,8 @@ const resolvedDescriptions: Record<string, string> = {
 };
 
 const descriptionsRu: Record<string, string> = {
+    "System:Luck Blessing":
+        "Все союзники на поле получают +{} к удаче (предел общей удачи: +10). При силе стека 1–5 бонус равен +2/4/6/8/10. Действует сильнейшее благословение живого носителя без Break.",
     "System:Sylvan Focus Blessing":
         "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "System:Wolf Trail Blessing":
@@ -319,7 +323,7 @@ const descriptionsRu: Record<string, string> = {
     "Chaos:Smoke":
         "Бросает облако дыма 3x3 на свободные клетки в любой точке поля боя.\nЛюбая дальняя атака (с обеих сторон), траектория которой пересекает задымленную клетку, наносит ВДВОЕ меньше урона (делитель дальности удваивается: полный → 1/2, 1/2 → 1/4).\nСущество, вставшее на задымленную клетку, рассеивает дым с этой клетки.",
     "Chaos:Misfortune":
-        "Снижает удачу пораженного юнита до минимума. Цель с бафом удачи (Luck Aura, Clover of Fortune) вместо этого обнуляется.",
+        "Снижает удачу пораженного юнита до минимума. Цель с бафом удачи (Luck Blessing, Clover of Fortune) вместо этого обнуляется.",
     "Chaos:Fireforged Sword":
         "Атаки союзника поджигают цель на {}% нанесённого урона.\nЭто огненный урон: броня его не останавливает, сопротивление магии снижает.\nПо водным существам — на 50% больше, огненные существа невосприимчивы.",
     "Chaos:Mass Magic Mirror":

@@ -59,6 +59,7 @@ describe("isAuraEffectName / animatableEffectNames", () => {
         expect(
             animatableEffectNames([
                 "Luck",
+                "Luck Blessing",
                 "Sharpened Weapons Blessing",
                 "Sylvan Focus Blessing",
                 "Wolf Trail Blessing",
