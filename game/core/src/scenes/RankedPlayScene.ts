@@ -2317,7 +2317,10 @@ export class RankedPlayScene extends Sandbox {
         // view disagrees with the server (e.g. a stale ghost unit), so the signature short-circuit
         // (which assumes "same server board => client already in sync") must NOT fire — fall through
         // to the full hydrate below to rebuild from authoritative truth.
-        if (boardSignature === this.lastBoardSignature && !forceRebuild) {
+        // Placement's reconciliation below owns optimistic drops. Combat occupancy repair would put
+        // a newer local drop back at the last server cell, even while its acknowledgement is pending.
+        const combatSnapshot = snapshot.fightStarted || snapshot.fightFinished;
+        if (combatSnapshot && boardSignature === this.lastBoardSignature && !forceRebuild) {
             if (this.syncRankedUnitMechanicalEffects(state.units)) {
                 this.unitsHolder.refreshStackPowerForAllUnits();
             }
