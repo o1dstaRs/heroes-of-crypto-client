@@ -77,7 +77,7 @@ describe("client theme music player", () => {
             setMusicVolume(0.4);
             setMusicMuted(false);
             expect(await player.start()).toBe(true);
-            expect(audio.volume).toBeCloseTo(0.2);
+            expect(audio.volume).toBeCloseTo(0.3);
 
             setMusicMuted(true);
             player.setTargetVolume(musicGain());
@@ -92,7 +92,7 @@ describe("client theme music player", () => {
             setMasterVolume(0.25);
             setMusicMuted(false);
             expect(await player.start()).toBe(true);
-            expect(audio.volume).toBeCloseTo(0.1);
+            expect(audio.volume).toBeCloseTo(0.15);
         } finally {
             player.destroy();
             setMasterVolume(previous.masterVolume);

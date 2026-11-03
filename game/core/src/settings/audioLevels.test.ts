@@ -137,7 +137,7 @@ describe("the live audio-levels store", () => {
         setMusicVolume(0.3);
         setEffectsVolume(0.8);
         setMasterVolume(0.5);
-        expect(musicGain()).toBeCloseTo(0.15);
+        expect(musicGain()).toBeCloseTo(0.225);
         expect(effectsGain()).toBeCloseTo(0.4);
         expect(getAudioLevels()).toMatchObject({ musicVolume: 0.3, effectsVolume: 0.8 });
         setMasterVolume(0);
@@ -157,7 +157,7 @@ describe("the live audio-levels store", () => {
         expect(effectsGain()).toBeCloseTo(DEFAULT_EFFECTS_VOLUME * 0.6);
         expect(getAudioLevels().musicMuted).toBe(true);
         setMusicMuted(false);
-        expect(musicGain()).toBeCloseTo(DEFAULT_MUSIC_VOLUME * 0.6);
+        expect(musicGain()).toBeCloseTo(DEFAULT_MUSIC_VOLUME * 0.6 * 1.5);
     });
 
     test("silencing the music leaves the sound effects alone, and the other way round", () => {
@@ -168,7 +168,7 @@ describe("the live audio-levels store", () => {
         setMusicMuted(false);
         setEffectsVolume(0);
         expect(effectsGain()).toBe(0);
-        expect(musicGain()).toBe(DEFAULT_MUSIC_VOLUME);
+        expect(musicGain()).toBeCloseTo(DEFAULT_MUSIC_VOLUME * 1.5);
 
         setEffectsVolume(0.7);
         setEffectsMuted(true);

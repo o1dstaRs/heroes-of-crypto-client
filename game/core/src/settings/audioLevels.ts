@@ -197,7 +197,8 @@ export const setEffectsMuted = (muted: boolean): void => update({ effectsMuted: 
 
 /** What the music should be playing at, ignoring where the player happens to be standing. */
 export const musicGain = (now: IAudioLevels = current()): number => {
-    return now.masterMuted || now.musicMuted ? 0 : now.masterVolume * now.musicVolume;
+    // Boost playback rather than stored levels so returning players hear the increase too.
+    return now.masterMuted || now.musicMuted ? 0 : clamp01(now.masterVolume * now.musicVolume * 1.5);
 };
 
 /** All combat, spell and interface effects follow master sound; the music checkbox never silences them. */
