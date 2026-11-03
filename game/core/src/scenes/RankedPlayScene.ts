@@ -2406,7 +2406,6 @@ export class RankedPlayScene extends Sandbox {
         }
         const ownPlacementShown =
             samePlacementContext &&
-            placementUnitIdsKey !== this.lastPlacementUnitIdsKey &&
             this.viewerTeam !== undefined &&
             viewerPlacementAlreadyShown(this.viewerTeam, livePlacement, snapshot.units);
         const canSkipPreFightHydrate =
@@ -2416,7 +2415,7 @@ export class RankedPlayScene extends Sandbox {
             this.viewerTeam !== undefined &&
             this.lastPlacementUnitIdsKey !== "" &&
             !this.hasVisibleOpponentPlacementChange(snapshot) &&
-            (placementUnitIdsKey === this.lastPlacementUnitIdsKey || ownPlacementShown);
+            ownPlacementShown;
         this.lastPlacementUnitIdsKey = placementUnitIdsKey;
         this.rememberPlacementStates(snapshot);
         if (canSkipPreFightHydrate) {

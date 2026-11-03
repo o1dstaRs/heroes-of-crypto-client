@@ -186,6 +186,18 @@ describe("ranked placement snapshots", () => {
         expect(scene.lastAuthoritativeSequence).toBe(1);
     });
 
+    test("an unchanged server board still repairs an unconfirmed drop after its hold expires", () => {
+        const { scene, moveTo, hydrates, occupancyRepairs } = boot();
+        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
+
+        moveTo([{ x: 4, y: 4 }]);
+        scene.optimisticPlacementHoldUntil = 0;
+        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2));
+
+        expect(hydrates()).toBe(2);
+        expect(occupancyRepairs()).toBe(0);
+    });
+
     test("a confirming drop does not rebuild, and an older drop of the same stack waits", () => {
         const { scene, moveTo, hydrates } = boot();
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
