@@ -6093,14 +6093,20 @@ export class Sandbox extends PixiScene {
         return secondaryDamageTextStyle(source);
     }
     protected showDevourEssenceHeals(secondary?: IVisibleDamage["secondary"]): void {
+        const heals = new Map<string, { amount: number; position: HoCMath.XY }>();
         for (const entry of secondary ?? []) {
-            if (entry.source !== "devour_essence" || entry.amount <= 0) {
+            if (entry.source !== "devour_essence" || !Number.isFinite(entry.amount) || entry.amount <= 0) {
                 continue;
             }
-            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const existing = heals.get(entry.unitId);
+            if (existing) existing.amount += entry.amount;
+            else heals.set(entry.unitId, { amount: entry.amount, position: entry.position });
+        }
+        for (const [unitId, heal] of heals) {
+            const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             const gs = this.sc_sceneSettings.getGridSettings();
-            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
-            this.combatVisuals?.showHealPop(pos, entry.amount, unit);
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(heal.position, gs);
+            this.combatVisuals?.showHealPop(pos, heal.amount, unit);
             if (unit) this.combatVisuals?.spawnDevourEssencePop(unit);
             unit?.flashBuffApplied();
         }

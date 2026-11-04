@@ -38,4 +38,27 @@ describe("Devour Essence healing and flag cue", () => {
         expect(scene.playCreatureAnimationLabState("devour_essence").ok).toBe(true);
         expect(spawnDevourEssencePop).toHaveBeenCalledWith(unit);
     });
+
+    test.each([false, true])(
+        "combines actual multi-hit rejuvenation into one readable HP total in ranked=%s",
+        (ranked) => {
+            const unit = { getVisualCenter: () => ({ x: 10, y: 20 }), flashBuffApplied: mock(() => undefined) };
+            const showHealPop = mock(() => undefined);
+            const spawnDevourEssencePop = mock(() => undefined);
+            const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
+                unitsHolder: { getAllUnits: () => new Map([["hydra", unit]]) },
+                sc_sceneSettings: { getGridSettings: () => ({}) },
+                combatVisuals: { showHealPop, spawnDevourEssencePop },
+            });
+            scene.showDevourEssenceHeals([
+                { source: "devour_essence", unitId: "hydra", amount: 12 },
+                { source: "devour_essence", unitId: "hydra", amount: 7 },
+                { source: "devour_essence", unitId: "hydra", amount: NaN },
+                { source: "devour_essence", unitId: "hydra", amount: -1 },
+            ]);
+            expect(showHealPop).toHaveBeenCalledTimes(1);
+            expect(showHealPop).toHaveBeenCalledWith({ x: 10, y: 20 }, 19, unit);
+            expect(spawnDevourEssencePop).toHaveBeenCalledTimes(1);
+        },
+    );
 });
