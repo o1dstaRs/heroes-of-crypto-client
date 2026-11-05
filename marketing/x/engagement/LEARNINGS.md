@@ -214,3 +214,73 @@ Weekly X research refresh (19–26 Oct 2026 PT). Read-only. About 27 public X AP
 - Didn't work: the Angel "we got one wrong" dev-diary (Sat 31, midday) got 9 views at 22.7h, the lowest midday number so far, while the morning turn-clock rule got 13. 7d tails stayed +0 to +2 (Farsight 16 -> 17, augment draft 20 -> 20, barrels 17 -> 19).
 - 0 outside replies, 0 tactics replies, 0 token replies for 18 days running; no mentions since 30 Oct. Followers flat at 91.
 - Lesson: the "morning is the weak slot" pattern broke the first time midday dipped to 9, so slot differences at 9-26 views are noise; artifact trade-offs with a named unit are the one framing that keeps landing at the top. Reach is still the blocker; the 26 Oct outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+
+## 2026-11-02 (weekly)
+
+Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public X API reads. Full report: research/2026-11-02-weekly.md (+ .html).
+
+### Market findings
+
+- HoMM had a busy week: Songs of Conquest passed 800,000 Steam copies (262 / 16 replies / 9,549 views https://x.com/Lavapotion/status/2115012773394399484) and was bundled with Olden Era (166 / 15 / 7,242 https://x.com/Lavapotion/status/2115393803914019040); @Unfrozen_Studio shipped Olden Era's biggest balance update, with Attack/Defense damage reworked (text-only, 117 / 8 replies / 4,209 https://x.com/Unfrozen_Studio/status/2115868220464742871); "Heroes Never Die" (HoMM meets Vampire Survivors) announced, IGN post 42,236 views https://x.com/IGN/status/2114733911221604505.
+- Human-made vs AI went mainstream: a poll gave Steam's human-made games 98.4% of 139K+ votes after Sweeney attacked Steam's AI-disclosure rule (https://x.com/i/trending/2114912575578366022). @vampiretactics' "We value human-made work" was its top post (382 / 9,972 https://x.com/vampiretactics/status/2116849257617789152); its "5,000 wishlists in 24h" drew the most replies (14).
+- Motion still wins for small accounts: @SynthWave6666 (1,776, +14% again) face-animation video 2,295 / 26,674 https://x.com/SynthWave6666/status/2116955462428168646, while its "Where would you move?" board video got 27 / 1,173. @WickedNightGame pixel GIF 508 / 11,601 https://x.com/WickedNightGame/status/2115906504175829288.
+- #TurnBasedThursday: @Mantis_GamesBE hosted 29 Oct, 40 replies https://x.com/Mantis_GamesBE/status/2115744485652988373. Next thread Thu 5 Nov.
+- Keep away: "Agent Dojo" (AI agents in turn-based duels, X news story) and @AresRPG ("turn-based tactics… on-chain… in your browser"). Astra + game: 1,909 posts in ~7 days (929 last week, same query), still thin.
+- Quiet: @OverhypeStudios (Kickstarter only), @TeamWoodGames, @MightMagicGame, @Wartales_Game, @Klukva_Games, @Midjiwan, @Blindspot_Games, @StudioDraconis.
+
+### Our comparison
+
+- Followers 91, flat for the third week. Pin 159 views (116 last week). 20 of 21 slots posted (Thu 29 4:48 PM never went out), all text-only. Avg 24h views 14.8 (n=16) vs 14.4 last week. 1 outside like (anti-stall morale), 0 outside replies for 19 days, 0 tactics, 0 token. outreach.csv still empty; no experiment has run.
+- Best: Quiver of Echoes 28 views (artifact trade-off with a named unit), Wandering Mage 24, FIRE PIT 23, area shots 21, Gravechain 21. Worst: generic rules with no named unit (morale follow-up 10, retaliation 13, Hourglass 11).
+- Slots, 24h avg: midday 16.5 (n=6), evening 15.5 (n=4), morning 12.7 (n=6). Morning has been last two weeks running (13.5 last week). Story/trade-off 16.1 vs rule posts 13.8.
+- Lesson: the wording is as good as it's going to get at this reach. Named-unit trade-offs reliably top the week, but averages haven't moved in two weeks. The levers left are outreach (0 posted) and motion (0 posted), and this week's market added two hooks: HoMM battle-math news and the human-made stance (only if Stepan confirms it's true).
+
+### Proposed changes for Stepan (proposals only, no edits to XCOM.md / CALENDAR.md / IMAGES.md)
+
+1. Unblock outreach: Stepan posts one drafted reply a day, or extends permission so xcom posts one text-only outreach reply a day under listed official accounts. Start with the Thu 5 Nov #TurnBasedThursday thread and the @Unfrozen_Studio balance thread.
+2. Media: a 3-post EXPERIMENTS.md arm of real recorded gameplay motion (5–10s clip/GIF of a mechanic we've posted about), recorded by Stepan; then a unit-portrait + either/or arm.
+3. Calendar: named-unit trade-offs and dev-diaries at midday and evening; drop generic rule posts that name no unit, faction or map; test the morning slot at ~9:30 AM PT for a week; one real-number post a week if Stepan supplies the number.
+4. One true post on our damage math while Olden Era's Attack/Defense change is being argued about (no claims about their game).
+5. "Made by people" dev-diary only if Stepan confirms it's true, including how Astra/AI tools were or weren't used; otherwise skip the topic.
+6. Reply targets: @Unfrozen_Studio balance threads, the #TurnBasedThursday host, @SynthWave6666 (character/board posts), @vampiretactics (milestone/dev posts, not the human-made post), @WickedNightGame. Keep skipping Agent Dojo, @AresRPG, Wielders posts, and Japanese-only Conviction posts.
+7. Profile (open since 14 Oct): drop "(HOCAI)", drop the 🟦, add the final period.
+8. Reliability: the posting run confirms the post URL in LOG.md within its slot, and makes up a missed post by the next slot.
+
+### Routine target list additions
+
+- Added @LudogramGames (1,238; indie studio, Heroes Never Die + Invokyr). Reply only on hero/army or HoMM-style posts, never survivors-horde clips.
+- Not added: @PlayWarSlice (370) and @warhounds_game (100), under floor (watch WarSlice, an Advance Wars-like PvP tactics game); @bedrettin_ortak (personal), @kumasnore (personal artist), @retreauxgames (retro RPG, not tactics); press/aggregators/deals (@nexindie, @NoisyPixelNews, @Keymailer, @danceman, @GGdeals, @IGN, @Wario64); @agentdojo/@AresRPG promoters (Web3).
+- Watch-only: @TurnBasedThurs (7,501) for Wednesday's host.
+
+## 2026-11-02 daily engagement review (own posts)
+- 24h snapshots: Sat 31 4:58 PM evening Quiver of Echoes 28 views (41.7h), the best 24h reach since Castling; Sun 1 11:59 AM midday Tome of Amplification 19 (21.7h); Sun 1 6:50 AM morning Hourglass rule 11 (26.9h). All ER 0.
+- Worked: artifact trade-offs that name a unit (Quiver/Gargantuan 28, Tome/Behemoth 19) out-reach generic rule posts. Since 26 Oct, story-devdiary averages 17.8 views at 24h (n=9) vs tactics-rule 13.5 (n=10).
+- Didn't work: rule posts with no named unit in the morning slot (Hourglass 11). Morning averages 12.4 at 24h (n=7) vs midday 16.9 (n=7) and evening 18.0 (n=5).
+- Lesson: reach follows named units, not rules. With the v0.1.7 artifacts used up, the next posts should still carry a named unit or faction.
+- 7d: Tue 27 anti-stall morale 16 -> 17, still the only post with an outside like this fortnight (ER 0.059). Morale stays the one topic that draws a like.
+
+## 2026-11-03 daily engagement review (own posts)
+- 24h snapshots: Sun 1 4:51 PM evening Aegis of the Arcane 11 views (40.9h); Mon 2 6:57 AM morning Rime Charm 14 (26.8h); Mon 2 11:55 AM midday co-op sandbox 14 (21.9h). All ER 0.
+- Worked: Rime Charm (named unit: Dryad / Black Dragon) matched midday sandbox reach at 14 from the morning slot, the strongest morning 24h since anti-stall morale (16). Story/dev-diary still leads tactics-rule since 26 Oct (16.6 vs 13.5 avg views).
+- Didn't work: Aegis of the Arcane, an artifact trade-off with no named unit payoff, got only 11 views at 24h — tying Hourglass as the weakest evening/late snapshot this stretch and undercutting the evening-strong pattern (evening avg now 16.8 with Quiver 28 still carrying it).
+- 7d: Tue 27 Wandering Mage 19 -> 26 (+7, biggest tail since Mon 19 first-move); FIRE PIT 18 -> 23; anti-stall morale 16 -> 17 (still the only outside like this fortnight, ER 0.0588). Retaliation 9 -> 13.
+- Early (not yet 24h): Mon 2 4:53 PM Arachna/Cyclops retune already 28 views + 1 outside like at ~16.9h — on pace with Quiver.
+- Lesson: named units still decide reach more than slot. Rime held morning; Aegis without a named unit did not hold evening. Keep putting a unit or faction in every post; the open outreach/media proposals stay the reach levers.
+- 0 outside replies, 0 tactics replies, 0 token replies for 20 days running. Followers flat at 91. Yesterday's three Mon 2 slots all posted; comment-reply last checked 8:22 AM PT with nothing to handle.
+
+## 2026-11-04 daily engagement review (own posts)
+- 24h snapshots: Mon 2 4:53 PM evening Arachna/Cyclops retune 30 views + 1 outside like / ER 0.0333 (40.8h); Tue 3 6:57 AM morning stack-size 7 (26.7h); Tue 3 11:51 AM midday Griffin Range Null Field 16 (21.8h).
+- Worked: Arachna/Cyclops named-unit retune was the best new 24h since Quiver (28) and the second outside like this fortnight (after anti-stall morale). Named-unit number trade-offs still top the board.
+- Didn't work: morning stack-size (Peasant 200 vs Black Dragon 1), despite naming units, got only 7 views — the lowest 24h since 19 Oct and the weakest morning in the Oct 26+ window. Named units do not reliably save the morning slot.
+- 7d: Wed 28 Tsar Cannon 17 -> 18; Armageddon 15 -> 17; Thu 29 morale-from-movement 9 -> 10; retaliation age refresh 13 at 171.7h (was 147.8h). Tails stay +1 to +2.
+- Early (not yet 24h): Tue 3 4:55 PM Unicorn One in the Field 11 views at ~16.7h; today's 6:55 AM Black Dragon/Angel 2x2 7 views at ~2.7h.
+- Lesson: named-unit retunes still earn the rare like and top reach, but a named-unit morning post can still land at 7 views — slot + format both matter, and reach (not wording) remains the blocker. Open outreach/media proposals stay the levers.
+- 0 outside replies, 0 tactics replies, 0 token replies for 21 days running. Followers flat at 91. Yesterday's three Tue 3 slots all posted; comment-reply last checked 8:18 AM PT with nothing to handle.
+
+## 2026-11-05 daily engagement review (own posts)
+- 24h snapshots: Tue 3 4:55 PM evening Unicorn One in the Field 13 views / ER 0 (40.8h, late snapshot); Wed 4 6:55 AM morning Black Dragon/Angel 2x2 12 / ER 0 (26.8h); Wed 4 11:53 AM midday Mantis Paralysis 14 / ER 0 (21.9h).
+- 7d: Thu 29 Satyr Helping Hand 16 (166.8h); Fri 30 doctrines make-up 12 -> 14 (147.9h); Thu 29 morale-from-movement age refresh 10 at 171.9h.
+- Worked: nothing stood out; Mantis (14) was the best new 24h, and Griffin kept growing (16 at 24h -> 19 now).
+- Didn't work: six named-unit ability posts in a row (stack-size, Griffin, Unicorn, 2x2, Mantis, Hydra so far) averaged ~13 views with no likes. Naming a unit is no longer enough on its own; the two likes this fortnight came from posts with concrete before/after numbers (Arachna/Cyclops retune) or a contested rule (anti-stall morale).
+- Lesson: favour posts that carry a real change or number (a retune, a patch before/after) over another single-ability explainer. Reach, not wording, is still the blocker; the outreach and media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+- 0 outside replies, 0 tactics replies, 0 token replies for 22 days running (mentions since 2 Nov = 0; every reply_count 1 is our own follow-up; quotes 0). Followers flat at 91. Yesterday's three Wed 4 slots all posted; comment-reply last checked 8:25 AM PT with nothing to handle.

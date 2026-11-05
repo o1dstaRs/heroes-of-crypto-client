@@ -528,3 +528,18 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - Sat 31 4:58 PM evening Quiver of Echoes 26 views at ~17.7h, the best early reach this week. Today's 6:50 AM post had 6 views at ~2.9h.
 - 7d tails: Sun 25 11:53 AM Farsight 16 -> 17; Sun 25 4:52 PM augment draft 20 -> 20; Mon 26 6:59 AM barrels 17 -> 19.
 - The morning-weakest pattern (three days) broke: midday posted the lowest 24h today (9) and morning beat it (13). Evening has the best numbers this week (15, 26 early). No slot change proposed. DST ended 1 Nov; slot times stay 6:48 / 11:48 / 4:48 PT (now PST, UTC-8).
+
+## 2026-11-02 daily engagement review (own posts, 24h views since 26 Oct)
+- Morning (6:48 slot) avg 12.4 (n=7: 17, 16, 9, 9, 12, 13, 11); midday avg 16.9 (n=7); evening avg 18.0 (n=5, incl. Quiver 28). Evening is now the strongest slot and morning the weakest across a full week; format is confounded (morning has carried most generic rule posts). Supports the weekly proposal to test the morning slot at ~9:30 AM PT; no change made.
+
+## 2026-11-03 daily engagement review (own posts, 24h views since 26 Oct)
+- Morning (6:48 slot) avg 12.6 (n=8: 17, 16, 9, 9, 12, 13, 11, 14); midday avg 16.5 (n=8); evening avg 16.8 (n=6: 14, 18, 15, 15, 28, 11). Morning rose on Rime Charm (14, named unit); evening fell on Aegis (11, no named unit). Slot gaps stay confounded by format. Supports the open weekly proposal to test morning ~9:30 AM PT; no schedule change made.
+- Mon 2 4:53 PM Arachna/Cyclops already 28 views + 1 like at ~16.9h (pre-24h). Today's 6:57 AM stack-size post had 5 views at ~2.9h.
+
+## 2026-11-04 daily engagement review (own posts, 24h views since 26 Oct)
+- Morning (6:48 slot) avg 12.0 (n=9: 17, 16, 9, 9, 12, 13, 11, 14, 7); midday avg 16.4 (n=9); evening avg 18.7 (n=7: 14, 18, 15, 15, 28, 11, 30). Morning fell on stack-size (7); evening rose on Arachna/Cyclops (30 + 1 like). Slot gaps stay confounded by format but morning is last across a full week-plus. Supports the open weekly proposal to test morning ~9:30 AM PT; no schedule change made.
+- Tue 3 4:55 PM Unicorn already 11 views at ~16.7h (pre-24h). Today's 6:55 AM Black Dragon/Angel 2x2 post had 7 views at ~2.7h.
+
+## 2026-11-05 daily engagement review (own posts, 24h views since 26 Oct)
+- Morning (6:48 slot) avg 12.0 (n=10: 17, 16, 9, 9, 12, 13, 11, 14, 7, 12); midday avg 16.2 (n=10); evening avg 18.0 (n=8: 14, 18, 15, 15, 28, 11, 30, 13). Order unchanged: evening > midday > morning, morning last for a second straight week. Still confounded by format. Supports the open weekly proposal to test morning ~9:30 AM PT; no schedule change made.
+- Wed 4 4:55 PM Hydra 14 views at ~16.8h (pre-24h). Today's 7:01 AM Pikeman Aggr post had 8 views at ~2.7h.
