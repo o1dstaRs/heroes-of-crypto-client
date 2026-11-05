@@ -1,5 +1,7 @@
 export const premiumSections = [
     ["overview", "Overview", "Обзор"],
+    ["insights", "Snapshot briefing", "Выводы по выборке"],
+    ["matchups", "Matchups", "Противостояния"],
     ["units", "Unit intelligence", "Аналитика юнитов"],
     ["combos", "Combinations", "Комбинации"],
     ["artifacts", "Artifacts", "Артефакты"],

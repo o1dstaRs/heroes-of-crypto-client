@@ -41,6 +41,7 @@ export interface PremiumSearchEvent {
     inspectedOptionId?: string;
     stage?: "draft" | "setup" | "board" | "fight";
     phase?: string;
+    detail?: string;
     items?: { id: string; name: string; href: string }[];
     sources?: { id: string; name: string; href: string }[];
     packet?: PremiumEvidence;
@@ -103,7 +104,11 @@ const validEvent = (kind: string, event: Record<string, unknown>): boolean => {
     if (kind === "sources") return isSources(event.items);
     if (kind === "premium_evidence") return isEvidence(event.packet);
     if (kind === "error") return event.message === undefined || typeof event.message === "string";
-    if (kind === "status") return event.phase === undefined || typeof event.phase === "string";
+    if (kind === "status")
+        return (
+            (event.phase === undefined || typeof event.phase === "string") &&
+            (event.detail === undefined || typeof event.detail === "string")
+        );
     return true;
 };
 

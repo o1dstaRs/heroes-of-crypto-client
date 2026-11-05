@@ -116,6 +116,24 @@ describe("knowledge graph builder", () => {
         expect(byId.get("spell:mass-magic-mirror")?.textRu).toContain("с Tome of Amplification — 43%");
     });
 
+    test("luck and combo guidance agree with the current army-wide Leprechaun blessing", () => {
+        const blessing = byId.get("ability:luck-blessing")!;
+        expect(blessing.text).toContain("+2/4/6/8/10");
+        expect(blessing.text).toContain("strongest living source");
+        expect(byId.get("unit:leprechaun")?.text).toContain("Luck Blessing");
+        for (const id of ["formula:luck", "formula:combos-and-anti-synergies"]) {
+            const node = byId.get(id)!;
+            expect(node.text).toContain("Luck Blessing");
+            expect(node.textRu).toContain("Luck Blessing");
+            expect(node.text).not.toContain("Luck Aura");
+            expect(node.textRu).not.toContain("Luck Aura");
+        }
+        const combos = byId.get("formula:combos-and-anti-synergies")!;
+        expect(combos.text).toContain("without standing next to their carriers");
+        expect(combos.text).not.toContain("Wandering Mages 164");
+        expect(combos.textRu).not.toContain("Wandering Mage 164");
+    });
+
     test("status effects link back from the abilities that apply them", () => {
         expect(byId.get("effect:stun")?.text).toMatch(/Applied by: Stun \([^)]*Squire[^)]*\)/);
         expect(

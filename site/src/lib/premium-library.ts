@@ -33,6 +33,7 @@ export interface PremiumLibrary {
     synergies: PremiumRow[];
     plans: PremiumRow[];
     doctrines: PremiumRow[];
+    matchups?: PremiumRow[];
 }
 export interface PremiumLibraryResponse {
     entitlement: PremiumEntitlement;

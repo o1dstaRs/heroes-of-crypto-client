@@ -1,4 +1,5 @@
 import { initPremiumAi } from "./premium-ai-panel";
+import { renderPremiumMatchups } from "./premium-insights";
 import { getAuthToken, onAuthStateChange } from "./auth-state";
 import {
     premiumApiUrl,
@@ -219,6 +220,16 @@ export function initPremiumPage(): void {
     });
     content.addEventListener("change", (event) => {
         const target = event.target as HTMLSelectElement;
+        if (target.matches("[data-matchup-unit]") && data?.library) {
+            view.matchupUnit = Number(target.value);
+            content.querySelector("[data-premium-matchups]")!.innerHTML = renderPremiumMatchups(
+                data.library,
+                catalog,
+                view,
+            );
+            content.querySelector<HTMLSelectElement>("[data-matchup-unit]")?.focus();
+            return;
+        }
         if (target.matches("[data-unit-level]")) view.level = target.value;
         if (target.matches("[data-unit-sort]")) view.sort = target.value;
         updateUnits();
@@ -226,6 +237,14 @@ export function initPremiumPage(): void {
     content.addEventListener("click", (event) => {
         const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
         if (!button || !data) return;
+        if (button.hasAttribute("data-snapshot-question")) {
+            ai.askQuestion(
+                t(
+                    "Use the selected snapshot to explain what works and what struggles: units within each draft level, unit pairs, artifacts within each tier, exact active synergies and complete augment plans. Cite actual sample sizes and uncertainty. Develop two or three practical strategies from those observations, explain their tradeoffs and distinguish current mechanics from historical associations. Do not claim a unique best choice when intervals overlap.",
+                    "По выбранному снимку объясни, что работает и что показывает слабые результаты: юниты внутри каждого уровня драфта, пары, артефакты внутри уровня, точные активные синергии и полные планы усилений. Укажи реальные размеры выборки и неопределённость. Предложи две-три практические стратегии, объясни компромиссы и отдели текущие механики от исторических связей. Не объявляй единственного победителя при пересекающихся интервалах.",
+                ),
+            );
+        }
         if (button.dataset.combo) {
             view.combo = button.dataset.combo === "triples" ? "triples" : "pairs";
             content.querySelector("[data-premium-combos]")!.innerHTML = renderPremiumCombos(data, catalog, view);
