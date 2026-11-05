@@ -199,9 +199,11 @@ server README's **Matchmaking handoff** section documents the invariant and regr
 ## AI tournament analyser
 
 For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
-`src/simulation/v0_9/checkpoints/`. Its exact weights and measured +2.28-point development gain are
-preserved for comparison. Read common's `AGENTS.md` and `docs/v0_9_doctrine_training.md` before
-changing this model; its scouting-specific confirmation gate remains unpassed.
+`src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
+confirmation measured **+3.34 match-score points (95% interval +2.20 to +4.49)** on the ranked A19
+profile. V4 failed to improve over it. Read common's `AGENTS.md` and `docs/v0_9_doctrine_training.md`
+before changing this model; its separate scouting-specific gate remains unpassed, and the measured
+gain does not transfer automatically to the literal v0.9 native-combat profile.
 
 Placement research has an explicit [promotion gate](game/heroes-of-crypto-common/docs/placement_research_promotion.md).
 Negative or inconclusive explorations stay outside shipped profiles. Extra early attacks, a favorable matchup,
