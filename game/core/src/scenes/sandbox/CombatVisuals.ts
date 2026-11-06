@@ -458,6 +458,7 @@ interface IAbilitySteal {
 // Tuning for the floating damage numbers.
 const FT_LIFE = OVERHEAD_EFFECT_DURATION_MS / 1000;
 const FT_RISE = 72; // world px the number floats up
+const FT_DAMAGE_RISE = FT_RISE * 0.7; // Received damage rises 30% less above the flag.
 const FT_DRIFT = 26; // world px horizontal drift in the hit direction
 const FT_POP_DUR = FT_LIFE * 0.2; // seconds of the spawn "pop"
 const FT_START_SCALE = 0.55; // scale the number pops in from
@@ -1004,7 +1005,7 @@ export class CombatVisuals {
         const startX = baseX;
         const startY = baseY + stack * FT_STACK_STEP;
 
-        // Flag-anchored results stay fixed for their entire lifetime. The
+        // Damage numbers anchored to a stack flag must leave that flag on one clean vertical line. The
         // attack direction still applies to free-floating labels (MISS, RESISTED, etc.), while repeated
         // flag-anchored hits separate only vertically through the stack offset above.
         let driftX = 0;
@@ -1018,8 +1019,7 @@ export class CombatVisuals {
         }
         if (stack > 0 && !flagTopAnchor) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
 
-        const initialScale = flagTopAnchor ? 1 : FT_START_SCALE;
-        container.scale.set(glyphScaleX(initialScale), -initialScale);
+        container.scale.set(glyphScaleX(FT_START_SCALE), -FT_START_SCALE);
         container.alpha = immediate ? 1 : 0;
         container.position.set(startX, startY);
         this.attachEffect(container, zIndex);
@@ -1034,7 +1034,7 @@ export class CombatVisuals {
             life: FT_LIFE,
             startX,
             startY,
-            riseY: flagTopAnchor ? 0 : FT_RISE,
+            riseY: flagTopAnchor ? FT_DAMAGE_RISE : FT_RISE,
             driftX,
             driftY,
         });
@@ -2152,14 +2152,14 @@ export class CombatVisuals {
                 continue;
             }
 
-            // Free labels drift; flag-anchored results retain their initial position.
+            // Decelerating rise; flag-anchored damage has zero drift on both axes.
             const e = easeOutCubic(t);
             ft.container.x = ft.startX + ft.driftX * e;
             ft.container.y = ft.startY + (ft.riseY + ft.driftY) * e;
 
             // Spawn "pop" (slight overshoot), preserving the Y-up flip (negative scale.y).
             let scale = 1;
-            if (!ft.flagAnchor && ft.age < FT_POP_DUR) {
+            if (ft.age < FT_POP_DUR) {
                 scale = FT_START_SCALE + (1 - FT_START_SCALE) * easeOutBack(ft.age / FT_POP_DUR);
             }
             ft.container.scale.set(glyphScaleX(scale), -scale);
@@ -2189,9 +2189,9 @@ export class CombatVisuals {
             dp.container.y = (anchor ? anchor.y + dp.offsetY : dp.startY) + dp.riseY * e;
 
             let scale = 1;
-            if (!dp.follow && dp.age < DP_POP_DUR) {
+            if (dp.age < DP_POP_DUR) {
                 scale = DP_START_SCALE + (1 - DP_START_SCALE) * easeOutBack(dp.age / DP_POP_DUR);
-            } else if (!dp.follow && t > DP_FADE_OUT_FROM) {
+            } else if (t > DP_FADE_OUT_FROM) {
                 // Evaporate: the icon + name swell slightly as they dissolve upward and fade out.
                 scale = 1 + 0.2 * ((t - DP_FADE_OUT_FROM) / (1 - DP_FADE_OUT_FROM));
             }

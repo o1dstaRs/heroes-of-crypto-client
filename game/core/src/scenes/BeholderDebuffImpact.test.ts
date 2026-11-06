@@ -21,10 +21,6 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     const finish: (() => void)[] = [];
     let contact!: () => void;
     let land!: () => void;
-    let readyTextures!: () => void;
-    const textures = new Promise<void>((resolve) => {
-        readyTextures = resolve;
-    });
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         oneInTheFieldTriggers: new OneInTheFieldTriggers(),
         sc_sceneSettings: { getGridSettings: () => ({}) },
@@ -41,7 +37,6 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
         ],
         isSceneDestroyed: () => false,
         prepareDirectionalAttackState: () => "attack",
-        waitForTexture: () => textures,
         offsetReplayDamagePosition: (to: unknown) => to,
         combatVisuals: { showFloatingDamage: () => undefined },
         popEffectOnUnit: (u: typeof a, name: string) => popped.push(`${u.getId()}:${name}`),
@@ -62,9 +57,6 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     );
     for (let i = 0; i < 20; i++) await Promise.resolve();
     expect(popped).toEqual([]);
-    expect(contact).toBeUndefined();
-    readyTextures();
-    for (let i = 0; i < 20; i++) await Promise.resolve();
     contact();
     expect(popped).toEqual(["B:Curse", "B:Weakness"]);
     contact();

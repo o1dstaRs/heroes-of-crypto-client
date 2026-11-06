@@ -1,15 +1,5 @@
 import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
-import SvgIcon from "@mui/joy/SvgIcon";
-import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useLayoutEffect,
-    useRef,
-    useState,
-    useId,
-} from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
@@ -200,7 +190,6 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
     }
     return (
         <Box
-            ref={impression}
             data-testid={`premium-${kind}-${value}`}
             data-recommendation-medal={thumb ? medal : undefined}
             sx={{

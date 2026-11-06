@@ -201,7 +201,6 @@ export const PremiumSearch: React.FC<{
     const gameId = premiumSearchGameId(location.pathname);
     const matchVersion = usePremiumSearchMatch(gameId);
     const suggestions = premiumQuestions(Boolean(gameId), matchVersion?.stage);
-    const hideDraftLauncher = matchVersion?.stage === "draft";
     const reduceMotion = useReducedMotion();
     const searchId = useId();
     const returnFocusRef = useRef<HTMLElement | null>(null);
