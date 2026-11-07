@@ -41,7 +41,7 @@ const setup = () => {
         isSceneDestroyed: () => false,
         prepareDirectionalAttackState: () => "attack",
         offsetReplayDamagePosition: (to: unknown) => to,
-        combatVisuals: { showFloatingDamage: () => events.push("damage") },
+        combatVisuals: { showFloatingDamage: () => events.push("damage"), spawnCommonFlagPop: () => undefined },
         playReplayOneShot: (unit: { getId(): string }, state: string) => {
             events.push(unit.getId() + ":" + state);
             return new Promise<void>((resolve) => finish.push(resolve));
@@ -542,6 +542,10 @@ test.each([
         events.push("gaze:ready");
     };
     scene.combatVisuals.spawnTerrifyingGazePop = (unit: typeof a) => events.push(`${unit.getId()}:gaze`);
+    const resists: string[] = [];
+    scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) => {
+        if (kind === "resist") resists.push(unit.getId());
+    };
     scene.showAttackMissedVfx = () => {};
     const applications = options.landed
         ? [
@@ -582,6 +586,7 @@ test.each([
     }
     await pending;
     expect(events.filter((event) => event === cue)).toHaveLength(options.expected ? 1 : 0);
+    expect(resists).toEqual(options.resisted ? [victim.getId()] : []);
 });
 
 test.each([false, true])("Covenant absorbs wait for their own contact, first shot missed=%s", async (firstMissed) => {

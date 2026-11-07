@@ -58,7 +58,7 @@ test("combat checkpoints and lab use the correct owner; misses, Break and dead r
     expect(pops).toEqual(["victim:miner"]);
     scene.popRecordedTroglodyteEffects(events);
     scene.popRecordedTroglodyteEffects(events);
-    expect(pops).toEqual(["victim:miner", "trog:madness"]);
+    expect(pops).toEqual(["victim:miner"]);
     scene.spawnBlindFuryOnImpact(trog, { amount: 20 });
     scene.spawnBlindFuryOnImpact(trog, { amount: 20, missed: true });
     scene.spawnBlindFuryOnImpact(trog, { amount: 0 });
@@ -68,11 +68,11 @@ test("combat checkpoints and lab use the correct owner; misses, Break and dead r
     active = true;
     scene.spawnBlindFuryOnImpact(trog, { amount: 20 });
     expect(pops.at(-1)).toBe("trog:blind_fury");
-    expect(pops).toHaveLength(3);
+    expect(pops).toHaveLength(2);
     dead = false;
     scene.beginDullingDefensePresentation();
     scene.popRecordedTroglodyteEffects(events);
-    expect(pops).toHaveLength(5);
+    expect(pops).toHaveLength(3);
     for (const state of ["blind_fury", "miner", "madness"] as const) {
         expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
         expect(
