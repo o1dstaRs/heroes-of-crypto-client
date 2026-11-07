@@ -6036,8 +6036,20 @@ export class Sandbox extends PixiScene {
             // primary victim, and its contacts are owned by the authoritative splash progress.
             opts.to = to;
             opts.cannonPiercing = true;
-            opts.cannonImpactPosition = undefined;
-            opts.cannonExplodeOnImpact = !!endpoint;
+            // Preserve the piercing flight and authoritative hit timing, but finish its painted blast
+            // on the last recorded victim (or the blocking obstacle), never beyond the visible board.
+            const lastHit = lastCannonHit(
+                attacker.getPosition(),
+                aim,
+                (waves[hitIndex] ?? []).map((hit) => ({
+                    getPosition: () => hit.position,
+                    impact:
+                        units.get(hit.unitId)?.getProjectileImpactPoint(gs) ??
+                        projectBattlefieldPoint(hit.position, gs),
+                })),
+            );
+            opts.cannonImpactPosition = endpoint ? to : lastHit?.impact;
+            opts.cannonExplodeOnImpact = !!opts.cannonImpactPosition;
             const from = opts.from;
             const dx = to.x - from.x;
             const dy = to.y - from.y;
@@ -18547,6 +18559,8 @@ export class Sandbox extends PixiScene {
             dyingUnit.stepSpawnAnimation(timeStep);
             depthSortableUnits.push(dyingUnit);
         }
+
+        this.hoverManager.syncTargetHighlights();
 
         const depthCandidates = this.depthSortCandidatesScratch;
         depthCandidates.length = 0;

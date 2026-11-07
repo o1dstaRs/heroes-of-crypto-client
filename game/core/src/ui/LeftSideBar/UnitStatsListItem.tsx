@@ -454,9 +454,9 @@ const threeAcrossTileSize = (metrics: ISidebarMetrics): number => {
 const baseAbilityTileSize = (metrics: ISidebarMetrics): number =>
     Math.min(Math.round(metrics.abilityCell * 1.4), threeAcrossTileSize(metrics));
 
-// Keep the responsive three-across calculation intact, then make only the rendered ability tiles 6% smaller.
+// Keep the responsive three-across calculation intact, then make only the rendered ability tiles 16% smaller.
 // Applying the reduction last also covers widths where the three-across cap, rather than abilityCell, wins.
-const ABILITY_TILE_SCALE = 0.94;
+const ABILITY_TILE_SCALE = 0.84;
 const abilityTileSize = (metrics: ISidebarMetrics): number =>
     Math.round(baseAbilityTileSize(metrics) * ABILITY_TILE_SCALE);
 
@@ -1729,11 +1729,9 @@ const UnitStatsLayout: React.FC<{
               ? effectRowStep * 2
               : effectRowStep;
     React.useLayoutEffect(() => {
-        const effects = effectsRef.current;
-        if (effects && orderedDebuffs.length > 0 && effects.scrollHeight > effects.clientHeight) {
-            effects.scrollTop = effects.scrollHeight - effects.clientHeight;
-        }
-    }, [orderedDebuffs.length, effectsHeight, buffWellHeight, unitProperties.name]);
+        // Start at the Buffs plaque instead of scrolling it underneath the ability row.
+        if (effectsRef.current) effectsRef.current.scrollTop = 0;
+    }, [unitProperties.name]);
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
@@ -1967,9 +1965,7 @@ const UnitStatsLayout: React.FC<{
                 </PanelSection>
             )}
 
-            {/* Move the complete lower pair together. At the approved scale, 1.2 of the shared gap closes
-                the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
-                above them. Keeping both sections in this wrapper preserves their authored relationship. */}
+            {/* Keep effects in normal flow so the Buffs plaque cannot overlap the ability tiles. */}
             <Box
                 ref={effectsRef}
                 aria-label="Creature effects"
@@ -1983,17 +1979,11 @@ const UnitStatsLayout: React.FC<{
                     overflowY: "auto",
                     ...hocScrollSx,
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
-                    transform: `translateY(${-Math.round(metrics.gapPx * 1.2)}px)`,
                 }}
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     {buffCount > 0 && (
-                        <IconScrollWell
-                            height={buffWellHeight}
-                            offsetY={-Math.round(metrics.gapPx)}
-                            vertical
-                            rowStepPx={effectRowStep}
-                        >
+                        <IconScrollWell height={buffWellHeight} offsetY={2} vertical rowStepPx={effectRowStep}>
                             {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
                             <Box
                                 sx={{

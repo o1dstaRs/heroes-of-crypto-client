@@ -24,7 +24,7 @@ export const DraftBanPlacementPreview: React.FC<{
     doctrine: number;
 }> = ({ placement, banned, doctrine }) => {
     const sidebar = placement === "left" || placement === "right";
-    if (sidebar) return <DraftBanSidebar banned={banned} side={placement} />;
+    if (sidebar) return <DraftBanSidebar banned={banned} doctrine={doctrine} side={placement} />;
     return (
         <Box
             data-testid="draft-ban-placement"
