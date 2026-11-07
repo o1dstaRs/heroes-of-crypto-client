@@ -2,9 +2,21 @@
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
-outside Git. Production builds and the deploy readiness check verify all 5,559 required runtime files
+outside Git. Production builds and the deploy readiness check verify all required runtime files
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
+
+## Portrait baseline — main retained
+
+PR #205 retains the portraits from client main `c8284894ac22e0049336a0e05de9ddc1b63a7995`. Roster and draft cards
+use main's existing artwork, mirroring, framing, faction backgrounds and shading. Animated sidebar
+portraits retain main's original master sheets, playback and 1,084 Q93 pages; the newer frontal card
+replacements, revised sidebar contours and Hydra palette are not selected.
+
+The restore manifest copies these exact portrait masters, metadata and pages from the verified shared
+Drive paths. It does not overwrite shared masters or apply later repair recipes. Keep the original
+`animations/output/sidebar_portraits_paged_v1` folder available. Every reused file is checked by size
+and SHA-256 before copying. Non-portrait combat animation and release-tooling changes remain in scope.
 
 ## Download and restore
 
@@ -29,7 +41,7 @@ folders with their directory structure intact. The old compact archive and sourc
 | `resources-10-troll-contours.zip`                | `776e8d249f1801dc88dc10a263c65b7c405676be4ad00b90aa9e5c89ef5c1ddd` |
 | `resources-11-portrait-contours-20261107-v3.zip` | `d6469e957c8ba13f42b0761f9dfd5b175e3b1f3538ef66aa9dbfaf335915e41f` |
 
-Archive 08 adds the two approved frontal portrait backgrounds used by the release UI.
+Archive 08 retains frontal portrait background alternatives for source history; the release UI uses main's existing faction backgrounds.
 
 Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The eleven archives
 and the verified shared files contain the required runtime assets, settings reference and site exports.
@@ -68,9 +80,9 @@ bun --cwd game/core build:test
 
 The restore script verifies archive sizes and SHA-256 and all reused Drive files before writing. It
 refuses a nonempty destination. Each restored file is verified again. Duplicate content is stored once.
-The 1,084 sidebar portrait pages are reproduced losslessly from 55 pinned master sheets using the
-versioned recipe; every generated page must match its pinned SHA-256 and size. An encoder mismatch
-stops restoration. This saves about 2.3 GB of duplicate pixels while preserving the original poses and accepted repaired pixels.
+The 1,084 sidebar portrait pages are copied from main's pinned shared Drive files. The verification
+command checks the existing pages against main's catalog; rebuilding a missing page uses main's Q93
+recipe and must reproduce its checksum. Later contour-repair pages are not part of the active catalog.
 Authored frame sequences, previews and unused source materials remain in the owner's local backup;
 they are not needed to build or run this release.
 
@@ -100,7 +112,9 @@ VMs cannot accumulate until the process exhausts workstation memory. Large game 
 and copied to the build output sequentially after bundling, preserving their bytes without retaining
 the complete art package in the bundler heap. The final real-art build peaked at about 1.43 GiB.
 
-## Portrait matte repair — 2026-10-28
+## Historical alternative: portrait matte repair — 2026-10-28
+
+The following describes the superseded test portrait package, not the portrait baseline selected above.
 
 Download `resources-09-portrait-mattes.zip` in addition to archives 01–08. It contains
 approved sparse pixel corrections and refreshed page metadata. Original portrait masters,
@@ -113,7 +127,7 @@ Crusader’s plume and Elf’s face; repairs genuine alpha punctures and matte c
 along contours; and preserves dark materials and deliberate smoke or magic transparency.
 All 5,392 played frames are checked against accepted RGBA pixels before lossless export.
 
-## Troll contour follow-up — 2026-10-29
+## Historical alternative: Troll contour follow-up — 2026-10-29
 
 Archive 10 adds the corrected Troll matte and page metadata. Download archives 01–10
 with the current manifest. It clears the trapped black air pocket under the club spike

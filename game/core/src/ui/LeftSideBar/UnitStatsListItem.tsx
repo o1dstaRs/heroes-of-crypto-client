@@ -1,5 +1,4 @@
 import { type LeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
-import { HydraPortraitPalette } from "../HydraPortraitPalette";
 import {
     displayedSidebarCreatureId,
     clearLeftSidebarPortraitSelection,
@@ -46,13 +45,6 @@ import {
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
 import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
-import {
-    createForwardPortraitClock,
-    createHydraPortraitIdleClock,
-    createPortraitIdleClock,
-    isRefinedPortrait,
-    sidebarPortraitSourceFile,
-} from "../leftSidebarPortraitPlayback";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
@@ -155,8 +147,6 @@ const AtlasAnimation: React.FC<{
         isAtlasReady(src) ? src : undefined,
     );
     const isImageLoaded = loadedSource === src;
-    const refinedPortrait = isRefinedPortrait(src);
-    const redrawnPeasant = sidebarPortraitSourceFile(src) === "peasant_left_screen_idle_atlas.webp";
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const onLoadedRef = React.useRef(onLoaded);
     React.useLayoutEffect(() => {
@@ -211,21 +201,10 @@ const AtlasAnimation: React.FC<{
         if (!isImageLoaded || !canvasRef.current) return;
         const image = getDecodedImage(src) as HTMLImageElement | undefined;
         if (!image) return;
-        const portraitFrame = refinedPortrait
-            ? (sidebarPortraitSourceFile(src) === "hydra_left_screen_idle_atlas.webp"
-                  ? createHydraPortraitIdleClock
-                  : createPortraitIdleClock)(
-                  meta.frameCount ?? 1,
-                  meta.fps || 4,
-                  meta.loopDurationMs === undefined ? undefined : meta.loopDurationMs * 2,
-              )
-            : redrawnPeasant
-              ? createForwardPortraitClock(meta.frameCount ?? 1, meta.fps || 4)
-              : timing.frameForElapsed;
-        const stop = playSidebarAtlas(canvasRef.current, image, { ...timing, frameForElapsed: portraitFrame });
+        const stop = playSidebarAtlas(canvasRef.current, image, timing);
         if (stop) onLoadedRef.current();
         return stop;
-    }, [src, timing, isImageLoaded, refinedPortrait, redrawnPeasant, meta.frameCount, meta.fps, meta.loopDurationMs]);
+    }, [src, timing, isImageLoaded]);
 
     const frameWidth = meta.frameWidth ?? 512;
     const frameHeight = meta.frameHeight ?? 512;
@@ -335,36 +314,23 @@ const PagedPortraitCanvas = ({
 }) => {
     const canvas = React.useRef<HTMLCanvasElement>(null);
     const ready = React.useRef(onLoaded);
-    const { src, meta, pages } = config;
     React.useLayoutEffect(() => {
         ready.current = onLoaded;
     }, [onLoaded]);
     React.useLayoutEffect(() => {
-        if (!canvas.current || !pages) return;
+        if (!canvas.current || !config.pages) return;
+        const { meta } = config;
         const timing =
             playback === "ping-pong"
                 ? buildAtlasPingPongTiming(meta)
                 : { frameForElapsed: (elapsed: number) => Math.floor(elapsed / (1000 / meta.fps)) % meta.frameCount };
-        const sourceFile = sidebarPortraitSourceFile(src);
-        const frameForElapsed = isRefinedPortrait(src)
-            ? (sourceFile === "hydra_left_screen_idle_atlas.webp"
-                  ? createHydraPortraitIdleClock
-                  : createPortraitIdleClock)(
-                  meta.frameCount,
-                  meta.fps,
-                  meta.loopDurationMs === undefined ? undefined : meta.loopDurationMs * 2,
-              )
-            : sourceFile === "peasant_left_screen_idle_atlas.webp"
-              ? createForwardPortraitClock(meta.frameCount, meta.fps)
-              : timing.frameForElapsed;
-        frameForElapsed(0);
         return playPagedSidebarAtlas(
             canvas.current,
-            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages },
-            { frameForElapsed },
+            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages: config.pages },
+            timing,
             () => ready.current(),
         );
-    }, [src, meta, pages, playback]);
+    }, [config, playback]);
     return (
         <Box
             component="canvas"
@@ -1449,7 +1415,6 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
             displayedCreatureId === undefined ? null : (
                 <CreaturePortraitImage
                     creatureId={displayedCreatureId}
-                    portraitSurface="sidebar"
                     alt={portraitAlt}
                     artScale={portraitArtScale * LEFT_SIDEBAR_ART_SCALE}
                     artScaleX={portraitArtScaleX}
@@ -1464,25 +1429,24 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
                     sx={{ width: "100%", height: "100%", bgcolor: "transparent" }}
                     imageStyle={{ transition: "none", imageRendering: "auto" }}
                     animatedArtSource={portraitAtlasSource}
-                    renderArt={(art) => {
-                        const content = portraitAtlasMeta ? (
-                            <SidebarPortraitAnimation
-                                key={portraitAtlasSource}
-                                art={art}
-                                config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta, pages: portraitPages }}
-                                onLoaded={onImageLoaded}
-                                maxHeight={portraitHeight}
-                                playback={portraitPlayback}
-                            />
-                        ) : (
-                            art
-                        );
-                        return portraitAlt === "Hydra" ? (
-                            <HydraPortraitPalette>{content}</HydraPortraitPalette>
-                        ) : (
-                            content
-                        );
-                    }}
+                    renderArt={
+                        portraitAtlasMeta
+                            ? (art) => (
+                                  <SidebarPortraitAnimation
+                                      key={portraitAtlasSource}
+                                      art={art}
+                                      config={{
+                                          src: portraitAtlasSource!,
+                                          meta: portraitAtlasMeta,
+                                          pages: portraitPages,
+                                      }}
+                                      onLoaded={onImageLoaded}
+                                      maxHeight={portraitHeight}
+                                      playback={portraitPlayback}
+                                  />
+                              )
+                            : undefined
+                    }
                 />
             ),
         [

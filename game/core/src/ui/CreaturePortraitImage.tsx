@@ -1,8 +1,6 @@
 import { DecodedPortraitLayers } from "./DecodedPortraitLayers";
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
-import { PORTRAIT_CARD_STYLE } from "./portraitCardStyle";
-import { PortraitContourPreview } from "./PortraitContourPreview";
 
 import {
     CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES,
@@ -13,8 +11,6 @@ import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 
 export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     creatureId: number;
-    /** Sidebar animations use their dedicated cutouts; roster cards use the approved static portraits. */
-    portraitSurface?: "card" | "sidebar";
     alt?: string;
     imageStyle?: React.CSSProperties;
     /** Multiplies only the creature art. The faction background keeps its approved framing. */
@@ -51,7 +47,6 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
  */
 const CreaturePortraitImageBase = ({
     creatureId,
-    portraitSurface = "card",
     alt,
     imageStyle,
     artScale = 1,
@@ -71,11 +66,9 @@ const CreaturePortraitImageBase = ({
     forwardedRef,
     ...boxProps
 }: CreaturePortraitImageProps & { forwardedRef?: React.Ref<HTMLDivElement> }) => {
-    const visual = resolveCreaturePortraitVisual(creatureId, portraitSurface);
+    const visual = resolveCreaturePortraitVisual(creatureId);
     if (!visual) return null;
-    const { framing, background: portraitBackground, backgroundOpacity, source } = visual;
-    const contourVariant = portraitSurface === "card" ? PORTRAIT_CARD_STYLE : undefined;
-    const backgroundShadeAlpha = contourVariant?.backgroundShadeAlpha ?? visual.backgroundShadeAlpha;
+    const { framing, background: portraitBackground, backgroundOpacity, backgroundShadeAlpha, source } = visual;
     const backgroundMotion = animateBackground ? resolveCreaturePortraitBackgroundMotion(creatureId) : null;
     const creatureSource = artSource ?? source;
     const creatureFit = artFit ?? framing.fit;
@@ -102,8 +95,6 @@ const CreaturePortraitImageBase = ({
         framing.background === "soft" ? source : undefined,
         backgroundMotion?.glowSrc,
         animatedArtSource,
-        visual.backgroundShadeSource,
-        contourVariant?.blur,
     ]);
     const art = (
         <img
@@ -147,8 +138,6 @@ const CreaturePortraitImageBase = ({
                 position: "relative",
                 overflow: "hidden",
                 bgcolor: "#090806",
-                // Match the roster's quieter minification without softening labels or card borders.
-                ...(portraitSurface === "card" ? { "& [data-portrait-layers]": { filter: "blur(0.4px)" } } : {}),
                 ...(backgroundMotion ? CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES : {}),
                 ...sx,
             }}
@@ -261,24 +250,6 @@ const CreaturePortraitImageBase = ({
                     />
                 )}
                 {renderArt ? renderArt(art) : art}
-                {visual.backgroundShadeSource && (
-                    <img
-                        data-portrait-critical
-                        data-creature-portrait-composed-background-shade={creatureId}
-                        src={visual.backgroundShadeSource}
-                        alt=""
-                        aria-hidden
-                        style={{ ...art.props.style, zIndex: 4, opacity: backgroundShadeAlpha, pointerEvents: "none" }}
-                    />
-                )}
-                {contourVariant && (
-                    <PortraitContourPreview
-                        source={visual.backgroundShadeSource ?? creatureSource}
-                        inverse={!!visual.backgroundShadeSource}
-                        style={art.props.style}
-                        variant={contourVariant}
-                    />
-                )}
             </DecodedPortraitLayers>
         </Box>
     );

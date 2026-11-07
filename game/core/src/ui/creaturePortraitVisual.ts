@@ -1,17 +1,11 @@
 import { CreatureVals } from "@heroesofcrypto/common";
-import { PORTRAIT_CARD_STYLE } from "./portraitCardStyle";
 
-import { creaturePortraitBackgroundOpacity, resolveCreaturePortraitBackground } from "./creaturePortraitBackground";
+import {
+    creaturePortraitBackgroundOpacity,
+    creaturePortraitBackgroundShadeAlpha,
+    resolveCreaturePortraitBackground,
+} from "./creaturePortraitBackground";
 import { resolvePortraitFraming, type PortraitFraming } from "./portraitFraming";
-import {
-    frontFacingPortraitBackgroundShadeSource,
-    frontFacingPortraitPreviewSource,
-} from "./frontFacingPortraitPreview";
-import { natureFrontFacingPortraitPreviewSource } from "./natureFrontFacingPortraitPreview";
-import {
-    leftSidebarPortraitBackgroundShadeAlpha,
-    resolveLeftSidebarPortraitBackground,
-} from "./leftSidebarPortraitBackground";
 import { fullBodyCreatureImage, UNIT_ID_TO_IMAGE } from "./unit_ui_constants";
 
 export interface CreaturePortraitVisual {
@@ -19,8 +13,6 @@ export interface CreaturePortraitVisual {
     background?: string;
     backgroundOpacity: number;
     backgroundShadeAlpha: number;
-    /** Transparent black background mask aligned with a composed frontal portrait. */
-    backgroundShadeSource?: string;
     framing: PortraitFraming;
     /** The creature artwork is drawn flipped horizontally; the faction background is never mirrored. */
     mirrored: boolean;
@@ -103,26 +95,7 @@ export const CREATURE_PORTRAIT_ASPECT = 190 / 256;
  * both consume this exact source/background/framing tuple, preserving the individually reviewed crop, scale
  * and offsets from the portrait-framing editor.
  */
-export const resolveCreaturePortraitVisual = (
-    creatureId: number,
-    surface: "card" | "sidebar" = "card",
-): CreaturePortraitVisual | undefined => {
-    // Animated sidebar cutouts keep their authored framing and separate faction background.
-    const previewSource = surface === "sidebar" ? undefined : frontFacingPortraitPreviewSource(creatureId);
-    if (previewSource) {
-        const hasSeparateBackground = previewSource === natureFrontFacingPortraitPreviewSource(creatureId);
-        return {
-            source: previewSource,
-            background: hasSeparateBackground ? resolveCreaturePortraitBackground(creatureId) : undefined,
-            backgroundOpacity: hasSeparateBackground ? creaturePortraitBackgroundOpacity(creatureId) : 0,
-            backgroundShadeAlpha: PORTRAIT_CARD_STYLE.backgroundShadeAlpha,
-            backgroundShadeSource: hasSeparateBackground
-                ? undefined
-                : frontFacingPortraitBackgroundShadeSource(previewSource),
-            framing: { source: "portrait", fit: "cover", scale: 1, offsetX: 0, offsetY: 0, background: "none" },
-            mirrored: false,
-        };
-    }
+export const resolveCreaturePortraitVisual = (creatureId: number): CreaturePortraitVisual | undefined => {
     const portraitSource = UNIT_ID_TO_IMAGE[creatureId];
     const framing = resolvePortraitFraming(creatureId);
     const source = framing.source === "full" ? (fullBodyCreatureImage(creatureId) ?? portraitSource) : portraitSource;
@@ -130,15 +103,9 @@ export const resolveCreaturePortraitVisual = (
 
     return {
         source,
-        background:
-            surface === "sidebar"
-                ? resolveLeftSidebarPortraitBackground(creatureId)
-                : resolveCreaturePortraitBackground(creatureId),
+        background: resolveCreaturePortraitBackground(creatureId),
         backgroundOpacity: creaturePortraitBackgroundOpacity(creatureId),
-        backgroundShadeAlpha:
-            surface === "sidebar"
-                ? leftSidebarPortraitBackgroundShadeAlpha(creatureId)
-                : PORTRAIT_CARD_STYLE.backgroundShadeAlpha,
+        backgroundShadeAlpha: creaturePortraitBackgroundShadeAlpha(creatureId),
         framing,
         mirrored: isCreaturePortraitMirrored(creatureId),
     };

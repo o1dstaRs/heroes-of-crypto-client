@@ -18,7 +18,6 @@ import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
 import { UnitChip } from "./UnitChip";
 
 import { images } from "../imageAssets";
-import { frontFacingPortraitPreviewSource } from "../ui/frontFacingPortraitPreview";
 import { resolveCreaturePortraitVisual } from "../ui/creaturePortraitVisual";
 import { getPickPreviewOrder, subscribePickPreviewOrder } from "../ui/pickPreviewOrder";
 import { creatureTypePresentation } from "../ui/creatureTypePresentation";
@@ -768,13 +767,6 @@ export class UnitsOverlay {
                         loadPortraitNow && backgroundTextureKey
                             ? this.getTex(backgroundTextureKey, this.visibleTextureOptions)
                             : undefined;
-                    const backgroundShadeKey = portraitVisual?.backgroundShadeSource
-                        ? IMAGE_URL_TO_KEY.get(portraitVisual.backgroundShadeSource)
-                        : undefined;
-                    const backgroundShadeTexture =
-                        loadPortraitNow && backgroundShadeKey
-                            ? this.getTex(backgroundShadeKey, this.visibleTextureOptions)
-                            : undefined;
                     const typePresentation = creatureTypePresentation(unitName);
                     const attackTypeIcon =
                         loadPortraitNow && typePresentation
@@ -796,8 +788,7 @@ export class UnitsOverlay {
                     if (
                         loadPortraitNow &&
                         (!isReadyTexture(portraitTexture ?? fallbackTexture) ||
-                            (portraitVisual?.background && !isReadyTexture(backgroundTexture)) ||
-                            (portraitVisual?.backgroundShadeSource && !isReadyTexture(backgroundShadeTexture)))
+                            (portraitVisual?.background && !isReadyTexture(backgroundTexture)))
                     ) {
                         this.visiblePortraitsReady = false;
                     }
@@ -809,15 +800,11 @@ export class UnitsOverlay {
                                   : undefined,
                               backgroundOpacity: portraitVisual.backgroundOpacity,
                               backgroundShadeAlpha: portraitVisual.backgroundShadeAlpha,
-                              backgroundShadeTexture: portraitVisual.backgroundShadeSource
-                                  ? (backgroundShadeTexture ?? Texture.EMPTY)
-                                  : undefined,
                               framing: portraitVisual.framing,
-                              mirrorX: frontFacingPortraitPreviewSource(creatureId!)
-                                  ? false
-                                  : (faction.type === FactionVals.NATURE &&
-                                        !UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES.has(unitName)) ||
-                                    MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
+                              mirrorX:
+                                  (faction.type === FactionVals.NATURE &&
+                                      !UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES.has(unitName)) ||
+                                  MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
                           }
                         : undefined;
 
@@ -873,20 +860,10 @@ export class UnitsOverlay {
             const backgroundTexture = backgroundKey
                 ? this.getTex(backgroundKey, this.visibleTextureOptions)
                 : undefined;
-            const backgroundShadeKey = visual.backgroundShadeSource
-                ? IMAGE_URL_TO_KEY.get(visual.backgroundShadeSource)
-                : undefined;
-            const backgroundShadeTexture = backgroundShadeKey
-                ? this.getTex(backgroundShadeKey, this.visibleTextureOptions)
-                : undefined;
-            if (
-                !isReadyTexture(texture) ||
-                (visual.background && !isReadyTexture(backgroundTexture)) ||
-                (visual.backgroundShadeSource && !isReadyTexture(backgroundShadeTexture))
-            ) {
+            if (!isReadyTexture(texture) || (visual.background && !isReadyTexture(backgroundTexture))) {
                 this.visiblePortraitsReady = false;
             }
-            chip.setPortraitTextures(texture ?? Texture.EMPTY, backgroundTexture, backgroundShadeTexture);
+            chip.setPortraitTextures(texture ?? Texture.EMPTY, backgroundTexture);
         }
         this.warmVisibleSidebarPortraits();
     }
