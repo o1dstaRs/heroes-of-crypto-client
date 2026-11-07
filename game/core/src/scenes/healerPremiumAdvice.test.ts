@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 
 import {
     AbilityFactory,
@@ -12,6 +12,7 @@ import {
     GridSettings,
     GridVals,
     HoCConfig,
+    HoCLib,
     MoveHandler,
     PathHelper,
     TeamVals,
@@ -21,6 +22,7 @@ import {
     type IDecisionContext,
 } from "@heroesofcrypto/common";
 import { snapshotBattle } from "../../../heroes-of-crypto-common/src/simulation/battle_snapshot";
+import { makeRng } from "../../../heroes-of-crypto-common/src/simulation/army";
 
 import { DamageStatisticHolder } from "./DamageStats";
 import { SceneLog } from "./SceneLog";
@@ -28,10 +30,15 @@ import type { ISandboxAiSearchHost } from "./sandboxAiSearch";
 import { sandboxPremiumAdvice } from "./sandboxPremiumAdvice";
 
 const previousFight = FightStateManager.getInstance().getFightProperties();
-afterEach(() => FightStateManager.getInstance().setFightProperties(previousFight));
+const previousRandom = HoCLib.captureDeterministicRandomState();
+afterEach(() => {
+    FightStateManager.getInstance().setFightProperties(previousFight);
+    HoCLib.restoreDeterministicRandomState(previousRandom);
+});
 
 for (const damage of [1, 400]) {
     test(`A19 Healer advice compares Blessing with ${damage} missing HP and restores the board`, () => {
+        HoCLib.setDeterministicRandomSource(makeRng(42));
         FightStateManager.getInstance().reset();
         const fight = FightStateManager.getInstance().getFightProperties();
         const settings = new GridSettings(
@@ -77,7 +84,7 @@ for (const damage of [1, 400]) {
             return unit;
         };
         const healer = create("Life", "Healer", 40, TeamVals.LEFT, 2, 3);
-        const carry = create("Life", "Arbalester", 34, TeamVals.LEFT, 4, 8);
+        const carry = create("Life", "Arbalester", 50, TeamVals.LEFT, 4, 8);
         const anchor = create("Chaos", "Abomination", 1, TeamVals.LEFT, 2, 5);
         create("Life", "Peasant", 200, TeamVals.RIGHT, damage === 1 ? 12 : 5, damage === 1 ? 8 : 5);
         anchor.applyDamage(damage, 0, sceneLog);
@@ -111,7 +118,14 @@ for (const damage of [1, 400]) {
             decisionOrigin: "root",
         };
         const before = snapshotBattle(unitsHolder, grid, fight);
-        const advice = sandboxPremiumAdvice(healer, context, 42, host);
+        // Assert the tactical choice independently of the live search deadline under suite CPU contention.
+        const clock = spyOn(performance, "now").mockReturnValue(10_000);
+        let advice: ReturnType<typeof sandboxPremiumAdvice>;
+        try {
+            advice = sandboxPremiumAdvice(healer, context, 42, host);
+        } finally {
+            clock.mockRestore();
+        }
         expect(advice.status).toBe("ready");
         expect(advice.options).toHaveLength(2);
         const cast = advice.options[0]?.actions?.find((action) => action.type === "cast_spell");

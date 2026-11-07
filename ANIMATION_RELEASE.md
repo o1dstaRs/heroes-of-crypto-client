@@ -136,7 +136,7 @@ opaque inner hair and weapon materials are preserved. The 20 replacement pages a
 verified against accepted RGBA pixels and reproduced by the normal restore command.
 Archive 09 and the original masters retain the previous correction for selective rollback.
 
-## Test deployment boundary — 2026-11-07
+## Original test deployment boundary — 2026-11-07
 
 This visual update retains the test API and its engine/AI revision
 `832a54e5b23fd8e1f47f7514ffb906291a6c5f2c`, Premium account state,
@@ -144,3 +144,9 @@ and the independently deployed recommendations service. Publish the client and
 static site only with the guarded test deployment. See LOCAL_VISUAL_RELEASE.md.
 The source snapshot v2 on Drive also contains local experimental gameplay; it is
 a reference snapshot and must not replace the live test API.
+
+## Current coordinated engine pin
+
+The current client #205 and server #70 candidates pin common `33f6441c8009d72e052de7601cdcc5bee2cb02e0` from common #114,
+retaining current main artifact catalogs and behavior. The original visual-only rollout above records the
+previously deployed engine; the current candidate requires the matching authoritative server revision.

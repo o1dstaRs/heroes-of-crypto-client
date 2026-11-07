@@ -1,5 +1,13 @@
 # Test visual release — 2026-11-07
 
+## Current coordinated candidate
+
+Client #205 and server #70 pin common `33f6441c8009d72e052de7601cdcc5bee2cb02e0` from common #114.
+Artifact IDs, tier lists, ordering, exclusions, power values and execution behavior follow current main.
+Adopt this candidate with the matching authoritative server engine through the guarded coordinated release.
+
+## Original visual-only rollout
+
 The test deployment keeps the existing API, account data, AI and recommendation service.
 The client pins common 832a54e5b23fd8e1f47f7514ffb906291a6c5f2c, the engine running on the test API.
 Local creature art, animation settings, portrait contours, sidebar effects, restored aiming graphics,
