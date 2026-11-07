@@ -29,7 +29,8 @@ export interface Artifact {
 }
 
 export const artifactIconUrl = (tier: ArtifactTier, slug: string): string => {
-    const url = `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
+    const iconTier = tier === 1 && slug === "berserkers_bond" ? 2 : tier;
+    const url = `/assets/images/artifacts/artifact_t${iconTier}_${slug}_256.webp`;
     if (tier === 2 && slug === "quiver_of_echoes") return `${url}?v=2d8b721f`;
     if (tier === 2 && slug === "gravechain") return `${url}?v=1f1f818b`;
     return tier === 1 && slug === "barrel_barricade" ? `${url}?v=1d307004` : url;

@@ -31,6 +31,11 @@ describe("artifact codex", () => {
 
         expect(codexSlugs).not.toContain("broken_aegis");
         expect(codexSlugs).not.toContain("holy_cross");
+        expect(codexSlugs).not.toContain("gravechain");
+        expect(codexSlugs).not.toContain("last_fuse");
+        expect(
+            artifacts.filter((artifact) => artifact.slug === "berserkers_bond").map((artifact) => artifact.tier),
+        ).toEqual([1]);
     });
 
     // The spell codex hides artifacts by comparing normalized names, so a codex name that drifts from the
@@ -109,7 +114,7 @@ describe("artifact codex", () => {
     test("tags exactly the artifacts whose effect declares a downside", () => {
         const cursed = artifacts.filter((artifact) => artifact.cursed).map((artifact) => artifact.slug);
 
-        expect(cursed).toEqual(["cursed_ward", "pendant_of_vitality", "berserkers_bond", "gravechain"]);
+        expect(cursed).toEqual(["cursed_ward", "berserkers_bond", "pendant_of_vitality"]);
     });
 
     test("has no duplicate entries", () => {
