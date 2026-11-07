@@ -1,11 +1,26 @@
-.pick-preview-stages {
+.pick-preview-tools {
     position: fixed;
     z-index: 1400;
-    bottom: max(10px, env(safe-area-inset-bottom));
+    top: 52px;
     left: max(10px, env(safe-area-inset-left));
+    color: #ead9b4;
+    font: 12px/1.4 sans-serif;
+}
+
+.pick-preview-tools > summary {
+    width: max-content;
+    padding: 5px 9px;
+    border: 1px solid #8b7147;
+    border-radius: 5px;
+    background: #17130ef5;
+    cursor: pointer;
+}
+
+.pick-preview-stages {
     display: flex;
-    width: 230px;
-    max-width: calc(100vw - 164px);
+    flex-wrap: wrap;
+    width: 300px;
+    max-width: calc(100vw - 24px);
     align-items: center;
     padding: 3px;
     border: 1px solid #8b7147;
@@ -20,7 +35,7 @@
 
 .pick-preview-stages select {
     min-width: 0;
-    width: 100%;
+    flex: 1 1 0;
     height: 30px;
     border: 0;
     padding: 0 4px;
@@ -60,13 +75,10 @@
 }
 
 .pick-preview-order {
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 8px);
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    width: max-content;
+    width: 100%;
     max-width: min(420px, calc(100vw - 24px));
     padding: 6px;
     border: 1px solid #8b7147;
@@ -77,6 +89,16 @@
 
 .pick-preview-order .pick-preview-order-help {
     flex: 0 0 100%;
+    padding: 3px 4px;
+    font: 12px/1.4 sans-serif;
+}
+
+.pick-preview-ban-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
     padding: 3px 4px;
     font: 12px/1.4 sans-serif;
 }

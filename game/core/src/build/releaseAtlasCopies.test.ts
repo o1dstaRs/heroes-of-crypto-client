@@ -11,7 +11,7 @@ afterEach(() => {
 const fixture = () => {
     const root = mkdtempSync(path.join(tmpdir(), "hoc-release-atlas-"));
     directories.push(root);
-    for (const folder of ["scripts", "src/generated", "src/build", "art/output/example/atlas"]) {
+    for (const folder of ["scripts", "src/generated", "src/build", "src/ui", "art/output/example/atlas"]) {
         mkdirSync(path.join(root, folder), { recursive: true });
     }
     copyFileSync(
@@ -23,6 +23,7 @@ const fixture = () => {
         new URL("./retiredImageAssets.json", import.meta.url),
         path.join(root, "src/build/retiredImageAssets.json"),
     );
+    writeFileSync(path.join(root, "src/ui/sidebarPortraitPages.json"), JSON.stringify({ animations: {} }));
     const index = path.join(root, "src/generated/animation_atlases.ts");
     const approved = "export const animationAtlases = { Example: { attack: { frameCount: 8, fps: 10 } } };\n";
     writeFileSync(index, approved);

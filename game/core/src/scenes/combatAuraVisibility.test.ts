@@ -1,9 +1,16 @@
 import { expect, spyOn, test } from "bun:test";
-import { FightProperties, GridConstants, GridSettings, TeamVals, type Unit } from "@heroesofcrypto/common";
+import {
+    FightProperties,
+    GridConstants,
+    GridSettings,
+    TeamVals,
+    type Unit,
+    type TeamType,
+} from "@heroesofcrypto/common";
 import { Graphics } from "pixi.js";
 import { SandboxDrawer, hasVisiblePersistentAura, type IGameplayDrawContext } from "./SandboxDrawer";
 
-const permanent = ["Griffin", "Arachna Queen", "Abomination", "Wyvern"];
+const permanent = ["Griffin", "Arachna Queen", "Abomination"];
 const interactive = ["Peasant", "Valkyrie", "Dryad", "White Tiger"];
 const gs = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -14,13 +21,13 @@ const gs = new GridSettings(
     GridConstants.MOVEMENT_DELTA,
     GridConstants.UNIT_SIZE_DELTA,
 );
-function creature(name: string, dead = false, hidden = false): Unit {
+function creature(name: string, dead = false, hidden = false, team: TeamType = TeamVals.LEFT): Unit {
     return {
         getId: () => name,
         getName: () => name,
         isDead: () => dead,
         hasBuffActive: () => hidden,
-        getTeam: () => TeamVals.LEFT,
+        getTeam: () => team,
         getPosition: () => ({ x: 128, y: 256 }),
         getFootprintWidth: () => 2,
         getFootprintHeight: () => 1,
@@ -55,7 +62,7 @@ const drawer = SandboxDrawer as unknown as {
     ) => void;
 };
 
-test("all four persistent auras remain visible without an active or hovered creature", () => {
+test("three persistent auras remain visible without an active or hovered creature", () => {
     const spy = spyOn(drawer, "drawAuraAndAttackRanges").mockImplementation(() => {});
     const g = new Graphics();
     try {
@@ -153,5 +160,77 @@ test("dead and concealed enemy sources do not reveal persistent auras", () => {
         expect(hasVisiblePersistentAura(creature(name, true))).toBe(false);
         expect(hasVisiblePersistentAura(creature(name, false, true), TeamVals.RIGHT)).toBe(false);
         expect(hasVisiblePersistentAura(creature(name, false, true), TeamVals.LEFT)).toBe(true);
+    }
+});
+
+test("Wyvern automatic aura follows ownership and the active player's team, including another allied creature's turn", () => {
+    const spy = spyOn(drawer, "drawAuraAndAttackRanges").mockImplementation(() => {});
+    const g = new Graphics();
+    try {
+        for (const owner of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            for (const viewer of [undefined, TeamVals.LEFT, TeamVals.RIGHT]) {
+                for (const active of [undefined, TeamVals.LEFT, TeamVals.RIGHT]) {
+                    const ctx = context();
+                    ctx.auraUnits = [creature("Wyvern", false, false, owner)];
+                    ctx.viewerTeam = viewer;
+                    ctx.currentActiveUnit =
+                        active === undefined
+                            ? undefined
+                            : (creature("Peasant", false, false, active) as IGameplayDrawContext["currentActiveUnit"]);
+                    spy.mockClear();
+                    SandboxDrawer.drawGameplayVisuals(g, ctx);
+                    const wyverns = spy.mock.calls.filter((call) => call[8]?.name === "Wyvern" && call[3].length);
+                    expect(wyverns).toHaveLength(viewer !== undefined && viewer === owner && active === owner ? 1 : 0);
+                }
+            }
+        }
+        // Its own active turn must not fall through to the generic active-unit aura path for an enemy viewer.
+        const ctx = context();
+        const wyvern = creature("Wyvern", false, false, TeamVals.RIGHT);
+        ctx.auraUnits = [wyvern];
+        ctx.viewerTeam = TeamVals.LEFT;
+        ctx.currentActiveUnit = wyvern as IGameplayDrawContext["currentActiveUnit"];
+        spy.mockClear();
+        SandboxDrawer.drawGameplayVisuals(g, ctx);
+        expect(spy).not.toHaveBeenCalled();
+    } finally {
+        spy.mockRestore();
+        g.destroy();
+    }
+});
+
+test("explicit Wyvern selection and hover work for either side and disappear when inspection ends", () => {
+    const spy = spyOn(drawer, "drawAuraAndAttackRanges").mockImplementation(() => {});
+    const g = new Graphics();
+    try {
+        for (const owner of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            const ctx = context();
+            const wyvern = creature("Wyvern", false, false, owner);
+            ctx.auraUnits = [wyvern];
+            ctx.viewerTeam = TeamVals.LEFT;
+            ctx.currentActiveUnit = wyvern as IGameplayDrawContext["currentActiveUnit"];
+            const inspection = {
+                xy: wyvern.getPosition(),
+                footprint: { width: 2, height: 1 },
+                auraOwner: { name: "Wyvern", id: "Wyvern", team: owner },
+                auraRanges: [{ range: 2, isBuff: false }],
+            };
+            for (const mode of ["selected", "hovered", "both"] as const) {
+                ctx.sidebarUnitRanges = mode === "hovered" ? undefined : { ...inspection, attackRange: 0 };
+                ctx.hoveredAuraRanges = mode === "selected" ? undefined : inspection;
+                spy.mockClear();
+                SandboxDrawer.drawGameplayVisuals(g, ctx);
+                expect(spy.mock.calls.filter((call) => call[3].length)).toHaveLength(1);
+            }
+            ctx.sidebarUnitRanges = undefined;
+            ctx.hoveredAuraRanges = undefined;
+            ctx.currentActiveUnit = undefined;
+            spy.mockClear();
+            SandboxDrawer.drawGameplayVisuals(g, ctx);
+            expect(spy).not.toHaveBeenCalled();
+        }
+    } finally {
+        spy.mockRestore();
+        g.destroy();
     }
 });

@@ -66,8 +66,6 @@ import {
 import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
-import { useSidebarEffectSpace } from "./useSidebarEffectSpace";
-
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
@@ -1024,6 +1022,7 @@ const PanelSection: React.FC<{
     children: React.ReactNode;
     overlayTitle?: boolean;
     offsetY?: number;
+    titleOffsetY?: number;
     titleHeightScale?: number;
     leftRuleLiftPx?: number;
     rightRuleLiftPx?: number;
@@ -1033,6 +1032,7 @@ const PanelSection: React.FC<{
     children,
     overlayTitle = false,
     offsetY = 0,
+    titleOffsetY = 0,
     titleHeightScale = 1,
     leftRuleLiftPx = 0,
     rightRuleLiftPx = 0,
@@ -1064,7 +1064,7 @@ const PanelSection: React.FC<{
                     : // The wells below are lifted into their plaque and carry transforms of their own, so
                       // they open a later stacking context and used to paint over the caption. The plaque
                       // owns that overlap: it stays legible and the tile that reaches it slides beneath.
-                      { position: "relative", zIndex: 7 }
+                      { position: "relative", zIndex: 7, top: titleOffsetY }
             }
         >
             <SectionTitle
@@ -1692,11 +1692,48 @@ const UnitStatsLayout: React.FC<{
     // so long lists never drift between wheel steps; the final padding lets the last row align too.
     const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
     const effectWellHeight = effectRowStep;
-    const {
-        effectsRef,
-        debuffEndRef,
-        buffHeight: buffWellHeight,
-    } = useSidebarEffectSpace(effectRowStep, metrics.gapPx, unitProperties.name);
+    const effectsRef = React.useRef<HTMLDivElement>(null);
+    const [effectsHeight, setEffectsHeight] = React.useState<number>();
+    React.useLayoutEffect(() => {
+        const effects = effectsRef.current;
+        const sidebar = effects?.closest(".Sidebar");
+        const footer = sidebar?.querySelector<HTMLElement>("[data-sidebar-footer]");
+        const card = effects?.closest(".SidebarCard");
+        if (!effects || !footer || !sidebar) return;
+
+        const measure = () => {
+            const rect = effects.getBoundingClientRect();
+            const scale = rect.width / effects.offsetWidth;
+            if (!(scale > 0)) return;
+            const next = Math.max(0, Math.floor((footer.getBoundingClientRect().top - rect.top) / scale) - 2);
+            setEffectsHeight((current) => (current === next ? current : next));
+        };
+        const observer = new ResizeObserver(measure);
+        observer.observe(sidebar);
+        observer.observe(footer);
+        if (card) observer.observe(card);
+        card?.addEventListener("transitionend", measure);
+        measure();
+        return () => {
+            observer.disconnect();
+            card?.removeEventListener("transitionend", measure);
+        };
+    }, [unitProperties.name, metrics.gapPx, effectRowStep]);
+
+    const buffCount = orderedBuffs.length + shownSynergies.length;
+    // The empty Buffs heading stays visible, but it must not reserve two rows above Debuffs.
+    const buffWellHeight =
+        buffCount === 0
+            ? 0
+            : buffCount > 4 && (effectsHeight ?? Infinity) >= effectRowStep * 3 + metrics.gapPx * 8
+              ? effectRowStep * 2
+              : effectRowStep;
+    React.useLayoutEffect(() => {
+        const effects = effectsRef.current;
+        if (effects && orderedDebuffs.length > 0 && effects.scrollHeight > effects.clientHeight) {
+            effects.scrollTop = effects.scrollHeight - effects.clientHeight;
+        }
+    }, [orderedDebuffs.length, effectsHeight, buffWellHeight, unitProperties.name]);
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
@@ -1935,60 +1972,70 @@ const UnitStatsLayout: React.FC<{
                 above them. Keeping both sections in this wrapper preserves their authored relationship. */}
             <Box
                 ref={effectsRef}
+                aria-label="Creature effects"
                 sx={{
                     width: "100%",
                     display: "flex",
                     flexDirection: "column",
                     flexShrink: 0,
                     "& > *": { flexShrink: 0 },
+                    maxHeight: effectsHeight === undefined ? undefined : `${effectsHeight}px`,
+                    overflowY: "auto",
+                    ...hocScrollSx,
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
                     transform: `translateY(${-Math.round(metrics.gapPx * 1.2)}px)`,
                 }}
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
-                    <IconScrollWell
-                        height={buffWellHeight}
-                        offsetY={-Math.round(metrics.gapPx)}
-                        vertical
-                        rowStepPx={effectRowStep}
-                    >
-                        {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
-                        <Box
-                            sx={{
-                                display: "flex",
-                                flexDirection: "row",
-                                flexWrap: "wrap",
-                                alignItems: "flex-start",
-                                alignContent: "flex-start",
-                                width: "100%",
-                                height: "max-content",
-                                minWidth: 0,
-                                gap: `${metrics.gapPx * 0.6}px`,
-                                pb: `${metrics.gapPx * 0.6}px`,
-                            }}
+                    {buffCount > 0 && (
+                        <IconScrollWell
+                            height={buffWellHeight}
+                            offsetY={-Math.round(metrics.gapPx)}
+                            vertical
+                            rowStepPx={effectRowStep}
                         >
-                            {orderedBuffs.length > 0 && (
-                                <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
-                            )}
-                            {/* Whole-fight synergy badges follow the status icons so newly applied
+                            {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    alignItems: "flex-start",
+                                    alignContent: "flex-start",
+                                    width: "100%",
+                                    height: "max-content",
+                                    minWidth: 0,
+                                    gap: `${metrics.gapPx * 0.6}px`,
+                                    pb: `${metrics.gapPx * 0.6}px`,
+                                }}
+                            >
+                                {orderedBuffs.length > 0 && (
+                                    <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                                )}
+                                {/* Whole-fight synergy badges follow the status icons so newly applied
                                 temporary buffs stay visible at the start of the well. */}
-                            {shownSynergies.length > 0 && (
-                                <SynergiesRow
-                                    synergies={shownSynergies}
-                                    // Use the same authored width/height as the neighbouring buff image.
-                                    // The synergy asset has no extra frame, so adding the buff border again
-                                    // made its visible footprint larger than every ordinary tile.
-                                    size={effectTileSize(metrics)}
-                                    inline
-                                />
-                            )}
-                        </Box>
-                    </IconScrollWell>
+                                {shownSynergies.length > 0 && (
+                                    <SynergiesRow
+                                        synergies={shownSynergies}
+                                        // Use the same authored width/height as the neighbouring buff image.
+                                        // The synergy asset has no extra frame, so adding the buff border again
+                                        // made its visible footprint larger than every ordinary tile.
+                                        size={effectTileSize(metrics)}
+                                        inline
+                                    />
+                                )}
+                            </Box>
+                        </IconScrollWell>
+                    )}
                 </PanelSection>
 
-                <PanelSection title="Debuffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
+                <PanelSection
+                    title="Debuffs"
+                    metrics={metrics}
+                    titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
+                    titleOffsetY={Math.round(metrics.gapPx * 0.5)}
+                >
                     <Box
-                        ref={debuffEndRef}
                         sx={{
                             position: "relative",
                             width: "100%",

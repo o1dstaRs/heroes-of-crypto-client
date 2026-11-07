@@ -89,7 +89,7 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
     {
         state: "wild_regeneration_engine",
         label: "РЕГЕНЕРАЦИЯ · ДВИЖОК",
-        hint: "Непрерывная волна исцеления, золотая печать и потоки света · 0,65 с",
+        hint: "Тест: ладонь восстанавливается в бирюзовом потоке, золотая печать проявляется и гаснет · 0,65 с",
     },
     { state: "wild_regeneration", label: "РЕГЕНЕРАЦИЯ", hint: "Восстановление здоровья в начале хода · 0,65 с" },
     {

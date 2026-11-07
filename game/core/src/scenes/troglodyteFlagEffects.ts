@@ -11,7 +11,7 @@ export function troglodyteFlagApplications(
         if (event.type !== "effects_applied") continue;
         for (const application of event.applications) {
             const kind =
-                application.resisted && application.resistedBy === "Madness"
+                application.resisted && "resistedBy" in application && application.resistedBy === "Madness"
                     ? "madness"
                     : application.name === "Miner" && application.kind === "debuff" && !application.resisted
                       ? "miner"

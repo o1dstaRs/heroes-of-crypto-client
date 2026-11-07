@@ -12,6 +12,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Luck Blessing": "Благословение удачи",
     "Sylvan Focus Blessing": "Благословение лесной силы",
     "Wolf Trail Blessing": "Благословение волчьей тропы",
+    "Pegasus Might Blessing": "Благословение мощи пегаса",
     "Tie up the Horses Blessing": "Благословение коней",
     // ---- Units: Chaos
     Orc: "Орк",

@@ -4,6 +4,10 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const retiredImageFiles = new Set(require("../src/build/retiredImageAssets.json"));
+const sidebarPortraitPages = Object.values(require("../src/ui/sidebarPortraitPages.json").animations).flatMap(
+    (animation) => animation.pages,
+);
+const sidebarPageByName = new Map(sidebarPortraitPages.map((page) => [`${page.key}.webp`, page]));
 
 // Approved animation art that must never be silently replaced by an older export. The Scavenger
 // walk uses the user-approved original eight-frame loop. Keep that selected version through
@@ -1340,10 +1344,18 @@ function main() {
     let copied = 0;
     for (const file of atlasWebps) {
         const basename = path.basename(file);
+        const sidebarPage = sidebarPageByName.get(basename);
+        // Previous matte exports remain available locally for rollback. Only the catalog's
+        // selected copy may supply a runtime page, regardless of directory sort order.
+        if (
+            sidebarPage &&
+            path.resolve(file) !== path.resolve(root, sidebarPage.releasePath.replace(/^animations\/output\//, ""))
+        )
+            continue;
         if (copyAtlas && !basename.startsWith(`${copyAtlas}_atlas`) && !basename.startsWith(`${copyAtlas}_page_`))
             continue;
         const dest = path.join(imagesDir, basename);
-        const pinnedHash = PINNED_ATLAS_SHA256[basename];
+        const pinnedHash = sidebarPage?.sha256 ?? PINNED_ATLAS_SHA256[basename];
         if (pinnedHash) {
             const actualHash = sha256(file);
             if (actualHash !== pinnedHash) {

@@ -9,7 +9,7 @@ import featureArt from "../data/feature-art.json";
 import GameModes from "./GameModes.astro";
 import TavernBackdrop from "./TavernBackdrop.astro";
 import HeroButtonPicker from "./HeroButtonPicker.astro";
-import CtaDesignPicker from "./CtaDesignPicker.astro";
+import "../styles/home-continuation.css";
 
 interface Props {
     lang: Language;
@@ -117,58 +117,61 @@ const playHref = lang === "ru" ? "/ru/play/" : links.play;
 
 </section>
 
-<GameModes lang={lang} />
+<div class="home-continuation">
+    <GameModes lang={lang} />
 
-<RankedArena lang={lang} />
+    <RankedArena lang={lang} />
 
-<section class="final-cta" id="cta-design">
-    {import.meta.env.DEV && <CtaDesignPicker />}
-    <div class="page-shell final-cta-inner">
-        <div>
-            <p class="eyebrow">{copy.hero.kicker}</p>
-            <h2>{copy.hero.tagline}</h2>
+    <section class="final-cta" id="cta-design">
+        <div class="page-shell final-cta-inner">
+            <div class="final-cta-ornament" aria-hidden="true">◆</div>
+            <div>
+                <p class="eyebrow">{copy.hero.kicker}</p>
+                <h2>{copy.hero.tagline.split(/(?<=[.!?])\s+/).map((phrase, index) => <>{index > 0 && " "}<span>{phrase}</span></>)}</h2>
+            </div>
+            <div class="final-cta-actions">
+                <a class="button primary" href={playHref}>
+                    {copy.hero.primaryCta}
+                </a>
+                <a class="button secondary" href={rulesHref}>
+                    {copy.hero.secondaryCta}
+                </a>
+            </div>
         </div>
-        <div class="final-cta-actions">
-            <a class="button primary" href={playHref}>
-                <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
-                {copy.hero.primaryCta}
-            </a>
-            <a class="button secondary" href={rulesHref}>
-                {copy.hero.secondaryCta}
-            </a>
-        </div>
-    </div>
-</section>
+    </section>
 
-<section class="feature-section hero-intro-section pre-roadmap-pitch" id="game-pitch">
-    <div class="hero-pitch-band">
+    <section class="feature-section hero-intro-section pre-roadmap-pitch" id="game-pitch">
+        <div class="hero-pitch-band">
+            <div class="page-shell">
+                <p class="hero-tagline hero-tagline-bottom">
+                    {heroPitchLines.map((line) => <span>{line}</span>)}
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section roadmap-section">
         <div class="page-shell">
-            <p class="hero-tagline hero-tagline-bottom">
-                {heroPitchLines.map((line) => <span>{line}</span>)}
-            </p>
+            <div class="section-heading centered">
+                <p class="eyebrow">{copy.roadmap.eyebrow}</p>
+                <h2>{copy.roadmap.title}</h2>
+            </div>
+            <div class="roadmap-grid">
+                {
+                    copy.roadmap.items.map((item, index) => (
+                        <article class="roadmap-item">
+                            <span class="roadmap-number" aria-hidden="true">0{index + 1}</span>
+                            <time>{item.time}</time>
+                            <h3>{item.title}</h3>
+                            <p>{item.description}</p>
+                        </article>
+                    ))
+                }
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="section roadmap-section">
-    <div class="page-shell">
-        <div class="section-heading centered">
-            <p class="eyebrow">{copy.roadmap.eyebrow}</p>
-            <h2>{copy.roadmap.title}</h2>
-        </div>
-        <div class="roadmap-grid">
-            {
-                copy.roadmap.items.map((item) => (
-                    <article class="roadmap-item">
-                        <time>{item.time}</time>
-                        <h3>{item.title}</h3>
-                        <p>{item.description}</p>
-                    </article>
-                ))
-            }
-        </div>
-    </div>
-</section>
+</div>
 
 <style>
     .pre-roadmap-pitch .hero-pitch-band {

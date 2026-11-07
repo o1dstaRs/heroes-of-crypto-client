@@ -62,6 +62,7 @@ import StainedGlassWindow from "./PickAndBan";
 import { AugmentStepPreview } from "./AugmentStepPreview";
 import { PlacementStepPreview } from "./PlacementStepPreview";
 import { PickPreviewStageSwitcher } from "./PickPreviewStageSwitcher";
+import { RankedCreaturePickPreview, RankedPickPreviewScope } from "./RankedPickPreview";
 import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import { DraftEndedNotice } from "./exitRules/DraftEndedNotice";
@@ -496,94 +497,17 @@ const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
     requiredLevel: 1,
 };
 
-/** Stable, backend-free canvas for the first creature-pick step. */
-const LevelOnePickPreview: React.FC = () => (
-    <PickBanContext.Provider value={LEVEL_ONE_PICK_PREVIEW_STATE}>
-        <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider theme={hocJoyTheme}>
-                <CssBaseline />
-            </CssVarsProvider>
-            <StainedGlassWindow
-                userTeam={TeamVals.LEFT as TeamType}
-                gameId="level-one-pick-preview"
-                opponentLabel="Opponent"
-                showOpponentRosterDuringAugmentHandoff={false}
-                systemControl={<PickExitFightControl gameId="level-one-pick-preview" />}
-            />
-        </div>
-    </PickBanContext.Provider>
-);
-
 const LEVEL_TWO_PICK_PREVIEW_STATE: PickBanContextType = {
     ...LEVEL_ONE_PICK_PREVIEW_STATE,
     picked: [12, 24, 31],
     requiredLevel: 2,
 };
 
-/** Stable, backend-free canvas for the second creature-pick step. */
-const LevelTwoPickPreview: React.FC = () => (
-    <PickBanContext.Provider value={LEVEL_TWO_PICK_PREVIEW_STATE}>
-        <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
-                <CssBaseline />
-            </CssVarsProvider>
-            <StainedGlassWindow
-                userTeam={TeamVals.LEFT as TeamType}
-                gameId="level-two-pick-preview"
-                opponentLabel="Opponent"
-                showOpponentRosterDuringAugmentHandoff={false}
-            />
-        </div>
-    </PickBanContext.Provider>
-);
-
 const LEVEL_THREE_PICK_PREVIEW_STATE: PickBanContextType = {
     ...LEVEL_TWO_PICK_PREVIEW_STATE,
     picked: [12, 24, 31, 25],
     requiredLevel: 3,
 };
-
-/** Stable, backend-free canvas for the third creature-pick step, after the map reveal. */
-const LevelThreePickPreview: React.FC = () => (
-    <PickBanContext.Provider value={LEVEL_THREE_PICK_PREVIEW_STATE}>
-        <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
-                <CssBaseline />
-            </CssVarsProvider>
-            <StainedGlassWindow
-                userTeam={TeamVals.LEFT as TeamType}
-                gameId="level-three-pick-preview"
-                opponentLabel="Opponent"
-                showOpponentRosterDuringAugmentHandoff={false}
-            />
-        </div>
-    </PickBanContext.Provider>
-);
-
-const LEVEL_FOUR_PICK_PREVIEW_STATE: PickBanContextType = {
-    ...LEVEL_THREE_PICK_PREVIEW_STATE,
-    picked: [12, 24, 31, 25, 37],
-    // The tier-2 artifact is answered between the third and the fourth creature pick.
-    artifactTier2: 1,
-    requiredLevel: 4,
-};
-
-/** Stable, backend-free canvas for the last creature-pick step. */
-const LevelFourPickPreview: React.FC = () => (
-    <PickBanContext.Provider value={LEVEL_FOUR_PICK_PREVIEW_STATE}>
-        <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
-                <CssBaseline />
-            </CssVarsProvider>
-            <StainedGlassWindow
-                userTeam={TeamVals.LEFT as TeamType}
-                gameId="level-four-pick-preview"
-                opponentLabel="Opponent"
-                showOpponentRosterDuringAugmentHandoff={false}
-            />
-        </div>
-    </PickBanContext.Provider>
-);
 
 /** Visual fixtures for the two interludes between creature picks. */
 const PickInterludePreview: React.FC<{ stage: "map" | "artifact2" }> = ({ stage }) => {
@@ -1516,7 +1440,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                         element={<PickInterludePreview key="artifact2" stage="artifact2" />}
                     />
                     {/* Backend-free visual fixture for the first creature-pick phase. */}
-                    <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
+                    <Route path="/preview/picks/level1" element={<RankedCreaturePickPreview />} />
                     {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
                     <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
                     {/* Backend-free augment step: the ranked "Choose your augments" screen with no game behind it. */}
@@ -1600,11 +1524,11 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                         }
                     />
                     {/* Backend-free visual fixture for the second creature-pick phase. */}
-                    <Route path="/preview/picks/level2" element={<LevelTwoPickPreview />} />
+                    <Route path="/preview/picks/level2" element={<RankedCreaturePickPreview />} />
                     {/* Backend-free visual fixture for the third creature-pick phase. */}
-                    <Route path="/preview/picks/level3" element={<LevelThreePickPreview />} />
+                    <Route path="/preview/picks/level3" element={<RankedCreaturePickPreview />} />
                     {/* Backend-free visual fixture for the fourth creature-pick phase. */}
-                    <Route path="/preview/picks/level4" element={<LevelFourPickPreview />} />
+                    <Route path="/preview/picks/level4" element={<RankedCreaturePickPreview />} />
                     {/* Four live trajectory treatments; the selected style persists locally and is used by combat. */}
                     <Route
                         path="/dev/shot-trajectories"
@@ -1784,12 +1708,14 @@ const App: React.FC = () => {
                             {(windowSize) => (
                                 <>
                                     <LiveMatchBanner />
-                                    <PremiumSearchProvider>
-                                        {/* Floating notifications, friends, and messages; compact during fights. */}
-                                        <SocialDock />
-                                        <AuthedRoutes windowSize={windowSize} />
-                                        {import.meta.env.DEV && <PickPreviewStageSwitcher />}
-                                    </PremiumSearchProvider>
+                                    <RankedPickPreviewScope>
+                                        <PremiumSearchProvider>
+                                            {/* Floating notifications, friends, and messages; compact during fights. */}
+                                            <SocialDock />
+                                            <AuthedRoutes windowSize={windowSize} />
+                                            {import.meta.env.DEV && <PickPreviewStageSwitcher />}
+                                        </PremiumSearchProvider>
+                                    </RankedPickPreviewScope>
                                 </>
                             )}
                         </GameViewport>

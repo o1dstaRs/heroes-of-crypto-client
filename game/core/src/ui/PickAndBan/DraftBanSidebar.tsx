@@ -7,21 +7,17 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { DraftBanSlash } from "./DraftBanSlash";
 
-import {
-    DRAFT_BAN_ICON_HEIGHT as BAN_ICON_HEIGHT,
-    DRAFT_BAN_ICON_WIDTH as BAN_ICON_WIDTH,
-    DRAFT_BAN_ICON_GAP as BAN_ICON_GAP,
-    DRAFT_BAN_FRAME_WIDTH as BAN_FRAME_WIDTH,
-    DRAFT_BAN_SIDE_OFFSET,
-    DRAFT_BAN_TOP,
-} from "./draftBanLayout";
+// The full ban list previously rendered 51.6px portraits inside its fixed-height rail.
+const BAN_ICON_HEIGHT = Number((51.6 * 1.15).toFixed(2));
+const BAN_ICON_WIDTH = BAN_ICON_HEIGHT * 0.8;
+const BAN_ICON_GAP = 2;
+const BAN_FRAME_WIDTH = BAN_ICON_WIDTH * 2 + BAN_ICON_GAP * 3 + 2;
 
 /** Only group identities already authorized by the private draft stream. */
 export const DraftBanSidebar: React.FC<{
     banned: readonly number[];
     side?: "left" | "right";
-    maxHeight?: number;
-}> = ({ banned, side = "right", maxHeight }) => {
+}> = ({ banned, side = "right" }) => {
     const { t } = useTranslation();
     const visible = [...new Set(banned)].filter((id) => !!UNIT_ID_TO_NAME[id]);
     const groups = [1, 2, 3, 4].flatMap((level) => {
@@ -35,10 +31,39 @@ export const DraftBanSidebar: React.FC<{
             sx={{
                 position: "absolute",
                 zIndex: 6,
-                top: `${DRAFT_BAN_TOP}px`,
-                [side]: `${-BAN_FRAME_WIDTH - DRAFT_BAN_SIDE_OFFSET}px`,
+                top: "96px",
+                [side]: `${-BAN_FRAME_WIDTH - 18}px`,
                 width: `${BAN_FRAME_WIDTH}px`,
                 height: "auto",
+                // Keep the standard creature grid when the window has no side gutter.
+                "@media (max-aspect-ratio: 3/2)": {
+                    left: "22px",
+                    right: "22px",
+                    top: { xs: "72px", md: "132px" },
+                    width: "auto",
+                    height: { xs: "40px", md: "58px" },
+                    "& > section": { gridTemplateColumns: "104px minmax(0, 1fr)", gridTemplateRows: "1fr", py: "5px" },
+                    "& .draft-ban-heading": { flexDirection: "column", gap: 0, fontSize: "11px" },
+                    "& .draft-ban-groups": { display: "flex", flexDirection: "row", gap: "8px" },
+                    "& .draft-ban-group": {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        borderTop: 0,
+                        borderLeft: "1px solid #b28a4d44",
+                        pl: "8px",
+                        pt: 0,
+                    },
+                    "& .draft-ban-level": {
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        gap: "2px",
+                    },
+                    "& ul": { display: "flex", justifyContent: "space-evenly", flex: 1, gap: "3px" },
+                    "& li": { width: { xs: "22.4px", md: "35.2px" }, height: { xs: "28px", md: "44px" } },
+                    "& .draft-ban-empty": { alignSelf: "center", fontSize: "11px" },
+                },
             }}
         >
             <Sheet
@@ -47,13 +72,11 @@ export const DraftBanSidebar: React.FC<{
                 data-testid="draft-ban-summary"
                 sx={{
                     display: "grid",
-                    gridTemplateRows: "auto minmax(0, 1fr)",
+                    gridTemplateRows: "auto auto",
                     gap: "8px",
                     width: "100%",
-                    height: "auto",
-                    maxHeight,
+                    height: "100%",
                     minHeight: 0,
-                    overflow: "hidden",
                     p: `${BAN_ICON_GAP}px`,
                     bgcolor: "rgba(20,13,7,.9)",
                     color: "#efe4cc",
@@ -81,18 +104,7 @@ export const DraftBanSidebar: React.FC<{
                 {groups.length ? (
                     <Box
                         className="draft-ban-groups"
-                        sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "8px",
-                            minHeight: 0,
-                            overflowY: "auto",
-                            overflowX: "hidden",
-                            overscrollBehavior: "contain",
-                            scrollbarWidth: "thin",
-                            scrollbarColor: "#b28a4d #140d07",
-                            "&::-webkit-scrollbar": { width: "6px" },
-                        }}
+                        sx={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: 0 }}
                     >
                         {groups.map(({ level, ids }) => (
                             <Box

@@ -7,14 +7,10 @@ import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
 import { HoverManager, type ISandboxHoverContext, type RangeTargetEdgeVisual } from "./HoverManager";
 import { CREATURE_ATTACK_FOREGROUND_Z_INDEX } from "./RenderableUnit";
 import { tunedCellFillPolygon } from "./movementAreaVisual";
-import {
-    projectBattlefieldPoint,
-    projectedRangeAttackCellSideCenter,
-    rangeAttackCellSideCenter,
-} from "./sandbox/BattlefieldVisualGrid";
+import { projectBattlefieldPoint, rangeAttackCellSideCenter } from "./sandbox/BattlefieldVisualGrid";
 
 type XY = HoCMath.XY;
-type Visuals = { hoverAttackOrigin?: Graphics; hoverShotGuide?: Graphics };
+type Visuals = { hoverAttackOrigin?: Graphics };
 const gs = new GridSettings(
     GridConstants.GRID_SIZE,
     GridConstants.MAX_Y,
@@ -138,71 +134,24 @@ describe("melee landing outlines", () => {
     });
 });
 
-describe("precise ranged contact", () => {
-    for (const mirrored of [false, true]) {
-        for (const side of [
-            GridMath.RangeAttackCellSide.LEFT,
-            GridMath.RangeAttackCellSide.RIGHT,
-            GridMath.RangeAttackCellSide.DOWN,
-            GridMath.RangeAttackCellSide.UP,
-        ]) {
-            test(`side ${side}, mirrored ${mirrored}: sightline ends at the selected cell seam`, () => {
-                const { root, hover, visuals, edge } = fixture(2, 1, mirrored);
-                const selected = edge({ x: 9, y: 10 }, side);
-                const from = projectBattlefieldPoint({ x: -700, y: 300 }, gs);
-                hover.drawRangeTargetEdge(selected, from);
-                const guide = visuals.hoverShotGuide!;
-                const contact = projectedRangeAttackCellSideCenter(selected.cell, side, gs);
-                const midpoint = { x: (from.x + contact.x) / 2, y: (from.y + contact.y) / 2 };
-                for (const point of [contact, midpoint]) {
-                    const screen = root.toGlobal(point);
-                    expect(guide.containsPoint(guide.toLocal(screen))).toBe(true);
-                }
-                expect(guide.containsPoint(selected.markerCenter)).toBe(false);
-                expect(guide.zIndex).toBeGreaterThan(CREATURE_ATTACK_FOREGROUND_Z_INDEX + 1);
-                expect(
-                    guide.context.instructions.filter((instruction) => instruction.action === "stroke"),
-                ).toHaveLength(4);
-                expect(guide.visible).toBe(true);
-            });
-        }
-    }
-
-    test("moves the endpoint to the actual obstacle and removes the previous edge cap", () => {
-        const { hover, visuals, edge } = fixture();
-        const from = { x: -700, y: 300 };
-        const selected = edge({ x: 11, y: 10 }, GridMath.RangeAttackCellSide.LEFT);
-        hover.drawRangeTargetEdge(selected, from);
-        const guide = visuals.hoverShotGuide!;
-        const blocker = { x: -200, y: 600 };
-        hover.drawRangeTerminalArrowhead(blocker, from);
-        expect(visuals.hoverShotGuide).toBe(guide);
-        expect(guide.containsPoint(blocker)).toBe(true);
-        expect(guide.containsPoint(projectedRangeAttackCellSideCenter(selected.cell, selected.side, gs))).toBe(false);
-        expect(guide.context.instructions.filter((instruction) => instruction.action === "stroke")).toHaveLength(2);
-    });
-
-    test("a melee preview removes the previous shot guide", () => {
-        const { hover, visuals, edge, melee } = fixture();
-        hover.drawRangeTargetEdge(edge({ x: 11, y: 10 }, GridMath.RangeAttackCellSide.LEFT), { x: -700, y: 300 });
-        const guide = visuals.hoverShotGuide!;
-        melee({ x: 8, y: 7 });
-        expect(guide.visible).toBe(false);
-        expect(guide.context.instructions).toHaveLength(0);
-    });
+test("ranged targeting does not add a graphics guide over the authored arrow", () => {
+    const { root, hover, edge } = fixture();
+    const selected = edge({ x: 9, y: 10 }, GridMath.RangeAttackCellSide.LEFT);
+    const from = { x: -700, y: 300 };
+    const childrenBefore = root.children.length;
+    hover.drawRangeTargetEdge(selected, from);
+    hover.drawRangeTerminalArrowhead({ x: -200, y: 600 }, from);
+    expect(root.children).toHaveLength(childrenBefore);
 });
 
 describe("attack preview cleanup", () => {
     for (const clear of ["clearAttackVisuals", "clearHoverSilhouette", "hideSilhouettesOnly", "clear"] as const) {
-        test(`${clear} removes the landing border and exact trajectory`, () => {
-            const { hover, visuals, melee, edge } = fixture();
+        test(`${clear} removes the landing border`, () => {
+            const { hover, melee } = fixture();
             const origin = melee({ x: 8, y: 7 });
-            hover.drawRangeTargetEdge(edge({ x: 11, y: 10 }, GridMath.RangeAttackCellSide.LEFT), { x: -700, y: 300 });
             hover[clear]();
-            for (const graphic of [origin, visuals.hoverShotGuide!]) {
-                expect(graphic.visible).toBe(false);
-                expect(graphic.context.instructions).toHaveLength(0);
-            }
+            expect(origin.visible).toBe(false);
+            expect(origin.context.instructions).toHaveLength(0);
         });
     }
 });

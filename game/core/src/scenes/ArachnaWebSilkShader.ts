@@ -2,7 +2,7 @@ import { GlProgram, Shader, type TextureSource } from "pixi.js";
 import { ARACHNA_WEB_MOTION_GLSL } from "./ArachnaWebMotion";
 
 // One persistent preset is used by both the lab and the normal battlefield.
-export const ARACHNA_WEB_PULSE_FINISH = Object.freeze({ opacity: 0.93, nodeGlint: 0.24, afterglow: 0.18 });
+export const ARACHNA_WEB_PULSE_FINISH = Object.freeze({ opacity: 0.31, nodeGlint: 0.24, afterglow: 0.18 });
 
 const vertex = /* glsl */ `#version 300 es
 in vec2 aPosition;
@@ -301,7 +301,7 @@ void main() {
     float litOpacity = opacity+pulseHalo*(1.-opacity);
     silk = (silk*opacity+sqrt(pulseColor)*pulseHalo*(1.-opacity))/max(.0001,litOpacity);
     opacity = litOpacity;
-    // Reduce the complete pulse contribution by exactly 7%, in premultiplied
+    // Keep one third of the previous pulse contribution, in premultiplied
     // space. The underlying transparent silk and its cast shadow stay intact.
     if (uShadow < .5) {
         float finalOpacity = mix(baseOpacity,opacity,uPulseFinish.x);

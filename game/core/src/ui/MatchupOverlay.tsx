@@ -1093,7 +1093,7 @@ export const PickMatchupOverlay: React.FC<{
 
     useEffect(() => {
         setPlayers(fallbackPlayers);
-        if (!gameId) {
+        if (!gameId || isBackendFreePreview) {
             return undefined;
         }
         let cancelled = false;
@@ -1115,7 +1115,7 @@ export const PickMatchupOverlay: React.FC<{
         return () => {
             cancelled = true;
         };
-    }, [fallbackPlayers, gameId]);
+    }, [fallbackPlayers, gameId, isBackendFreePreview]);
 
     const mirrored = shouldMirrorBoard({
         viewerTeam: normalizedUserTeam,

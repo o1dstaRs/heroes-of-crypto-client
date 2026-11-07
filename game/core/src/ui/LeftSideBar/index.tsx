@@ -452,16 +452,19 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     </Box>
                 </Box>
 
-                {/* Reserve the live footer's full height, including More Time and the turn queue, so
-                    the card can fit its effect rows above it on shorter windows. */}
+                {/* Before the fight, the Start panel keeps its normal place in the column. Once combat
+                    begins, the timer and queue become one bottom overlay instead of taking height away
+                    from the selected card. The card therefore keeps exactly its pre-fight fit scale. */}
                 <Box
                     data-sidebar-footer
                     sx={
                         gameStarted
                             ? {
-                                  position: "relative",
-                                  flexShrink: 0,
+                                  position: "absolute",
                                   zIndex: 31,
+                                  left: `${balancedLeftPadding}px`,
+                                  right: `${balancedOuterInset}px`,
+                                  bottom: 0,
                                   transform: `translateY(${combatFooterShiftPx}px)`,
                                   display: "flex",
                                   flexDirection: "column",

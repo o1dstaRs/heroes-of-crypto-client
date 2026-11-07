@@ -20,10 +20,20 @@ import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Tex
 import { FightProperties, GridSettings, HoCConstants, HoCMath, TeamType, type Unit } from "@heroesofcrypto/common";
 
 export const isAlwaysVisibleCombatAura = (name: string): boolean =>
-    name === "Griffin" || name === "Arachna Queen" || name === "Abomination" || name === "Wyvern";
+    name === "Griffin" || name === "Arachna Queen" || name === "Abomination";
 
-export const hasVisiblePersistentAura = (unit: Unit, viewerTeam?: TeamType): boolean =>
-    isAlwaysVisibleCombatAura(unit.getName()) &&
+/** Wyvern poison is automatic only for its seated owner during that owner's turn. */
+export const isAutomaticCombatAura = (
+    name: string,
+    ownerTeam?: TeamType,
+    viewerTeam?: TeamType,
+    activeTeam?: TeamType,
+): boolean =>
+    isAlwaysVisibleCombatAura(name) ||
+    (name === "Wyvern" && viewerTeam !== undefined && ownerTeam === viewerTeam && activeTeam === viewerTeam);
+
+export const hasVisiblePersistentAura = (unit: Unit, viewerTeam?: TeamType, activeTeam?: TeamType): boolean =>
+    isAutomaticCombatAura(unit.getName(), unit.getTeam(), viewerTeam, activeTeam) &&
     !unit.isDead() &&
     !(viewerTeam !== undefined && unit.getTeam() !== viewerTeam && unit.hasBuffActive("Hidden")) &&
     unit.getAuraRanges().some((range) => range > 0);
@@ -318,13 +328,13 @@ export interface IGameplayDrawContext {
         attackRange: number; // World distance radius
         auraRanges: { range: number; isBuff: boolean }[]; // Range in cells
         footprint: IFootprintExtent;
-        auraOwner?: { name: string; id: string };
+        auraOwner?: { name: string; id: string; team?: TeamType };
     };
     hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
         footprint: IFootprintExtent;
-        auraOwner?: { name: string; id: string };
+        auraOwner?: { name: string; id: string; team?: TeamType };
     };
     lingeringTracks: ILingeringTrack[];
     hoveredMoveRange?: HoCMath.XY[];
@@ -529,6 +539,13 @@ export class SandboxDrawer {
         // fill bounds visible while their top edges are dragged by hand.
         drawMovementAreaCalibration(movementGraphics, gs);
 
+        const automaticallyVisible = (owner?: { name: string; team?: TeamType }) =>
+            fightStarted &&
+            !!ctx.auraUnits &&
+            !!owner &&
+            isAutomaticCombatAura(owner.name, owner.team, ctx.viewerTeam, currentActiveUnit?.getTeam());
+        const selectedWyvern = sidebarUnitRanges?.auraOwner?.name === "Wyvern";
+
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
             const { xy, attackRange, auraRanges, footprint, auraOwner } = sidebarUnitRanges;
@@ -536,7 +553,10 @@ export class SandboxDrawer {
                 g,
                 xy,
                 attackRange,
-                fightStarted || (previewAuraOwner && auraOwner?.id === previewAuraOwner) ? [] : auraRanges,
+                (fightStarted && (!selectedWyvern || automaticallyVisible(auraOwner))) ||
+                    (!selectedWyvern && previewAuraOwner && auraOwner?.id === previewAuraOwner)
+                    ? []
+                    : auraRanges,
                 footprint,
                 gs,
                 hoverGlowPhase,
@@ -550,9 +570,13 @@ export class SandboxDrawer {
         // 0.51 Hovered Aura Ranges
         if (
             hoveredAuraRanges &&
-            !(fightStarted && ctx.auraUnits && isAlwaysVisibleCombatAura(hoveredAuraRanges.auraOwner?.name ?? "")) &&
-            !(currentActiveUnit && hoveredAuraRanges.auraOwner?.id === currentActiveUnit.getId()) &&
-            !(previewAuraOwner && hoveredAuraRanges.auraOwner?.id === previewAuraOwner)
+            !automaticallyVisible(hoveredAuraRanges.auraOwner) &&
+            !(selectedWyvern && sidebarUnitRanges?.auraOwner?.id === hoveredAuraRanges.auraOwner?.id) &&
+            !(
+                hoveredAuraRanges.auraOwner?.name !== "Wyvern" &&
+                ((currentActiveUnit && hoveredAuraRanges.auraOwner?.id === currentActiveUnit.getId()) ||
+                    (previewAuraOwner && hoveredAuraRanges.auraOwner?.id === previewAuraOwner))
+            )
         ) {
             const { xy, auraRanges, footprint, auraOwner } = hoveredAuraRanges;
             SandboxDrawer.drawAuraAndAttackRanges(
@@ -572,7 +596,7 @@ export class SandboxDrawer {
 
         if (fightStarted && ctx.auraUnits) {
             for (const unit of ctx.auraUnits) {
-                if (!hasVisiblePersistentAura(unit, ctx.viewerTeam)) continue;
+                if (!hasVisiblePersistentAura(unit, ctx.viewerTeam, currentActiveUnit?.getTeam())) continue;
                 const auraRanges = visibleAuraRanges(
                     unit.getAuraRanges(),
                     unit.getAuraIsBuff(),
@@ -598,6 +622,7 @@ export class SandboxDrawer {
         // Turn-only auras follow the active creature, including its movement and landing preview.
         if (
             currentActiveUnit &&
+            currentActiveUnit.getName() !== "Wyvern" &&
             !(fightStarted && ctx.auraUnits && isAlwaysVisibleCombatAura(currentActiveUnit.getName()))
         ) {
             const auraRanges = visibleAuraRanges(

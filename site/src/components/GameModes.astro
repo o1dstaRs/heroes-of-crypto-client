@@ -95,42 +95,15 @@ const copy = {
             {copy.modes.map((mode, index) => (
                 <article class={`game-mode game-mode--${mode.id}`}>
                     <div class="game-mode__art" aria-hidden="true">
+                        <img
+                            src={mode.id === "lobby" ? "/assets/images/home/hero/taverns/22-mountain-snug.webp" : `/assets/images/home/modes/${mode.id}.webp`}
+                            alt=""
+                            width="1200"
+                            height="800"
+                            loading="lazy"
+                            decoding="async"
+                        />
                         <span class="game-mode__number">0{index + 1}</span>
-                        <svg class="game-mode__emblem" viewBox="0 0 240 180" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                            <g class="game-mode__orbit" stroke-width="0.7">
-                                <circle cx="120" cy="90" r="69" />
-                                <circle cx="120" cy="90" r="60" stroke-dasharray="2 7" />
-                                <path d="M120 13v14m0 126v14M43 90h14m126 0h14M66 36l10 10m88 88 10 10M66 144l10-10m88-88 10-10" />
-                                <path d="m120 25 65 65-65 65-65-65Z" />
-                            </g>
-                            {mode.id === "ranked" && (
-                                <g stroke-width="2">
-                                    <path d="m83 126 70-77 7-3-2 12-68 75m67-7L87 49l-7-3 2 12 68 75M78 119l18 16m48 0 18-16M79 138l7-8m75 8-7-8" />
-                                    <path class="game-mode__solid" d="M120 45c11 10 24 13 38 14v32c0 24-20 41-38 49-18-8-38-25-38-49V59c14-1 27-4 38-14Z" />
-                                    <path opacity=".5" d="M120 55c9 7 19 10 29 12v24c0 17-14 31-29 39-15-8-29-22-29-39V67c10-2 20-5 29-12Z" />
-                                    <path class="game-mode__shine" d="m102 82 7 7 11-17 11 17 7-7-4 22h-28Z" />
-                                    <path d="M108 111h24" />
-                                </g>
-                            )}
-                            {mode.id === "sandbox" && (
-                                <g stroke-width="2">
-                                    <path class="game-mode__solid" d="M106 49h28m-24 0v30l-26 43c-5 9 0 17 10 17h52c10 0 15-8 10-17l-26-43V49" />
-                                    <path class="game-mode__shine" d="M101 105c13-8 25 9 38 0l12 21c2 4 0 7-6 7H95c-6 0-8-3-6-7Z" />
-                                    <circle cx="117" cy="97" r="3" />
-                                    <circle cx="126" cy="118" r="4" />
-                                    <path d="m148 56 4-10 4 10 10 4-10 4-4 10-4-10-10-4ZM91 76v12m-6-6h12M121 27v10m-5-5h10" />
-                                </g>
-                            )}
-                            {mode.id === "lobby" && (
-                                <g stroke-width="2">
-                                    <path class="game-mode__solid" d="M84 137V77a36 36 0 0 1 72 0v60Zm10 0V77a26 26 0 0 1 52 0v60" />
-                                    <path opacity=".5" d="M79 137h82M120 41v10M95 51l7 8m43-8-7 8M84 77h10m52 0h10M84 102h10m52 0h10" />
-                                    <path class="game-mode__shine" d="m120 74 5 12 13 5-13 5-5 12-5-12-13-5 13-5Z" />
-                                    <path d="m108 141 12-17 12 17m-29 9h34M68 100v12m-6-6h12m95-41v10m-5-5h10" />
-                                </g>
-                            )}
-                            <path d="M54 161h48m36 0h48m-66-4 4 4-4 4-4-4Z" stroke-width=".8" opacity=".5" />
-                        </svg>
                     </div>
                     <div class="game-mode__content">
                         <p class="game-mode__label">{mode.label}</p>
@@ -153,16 +126,14 @@ const copy = {
 <style>
     .game-modes {
         position: relative;
-        background: radial-gradient(ellipse at 50% 0, #b77a2710, transparent 65%);
     }
     .game-modes__heading {
-        max-width: 740px;
-        margin: 0 auto 42px;
+        max-width: 850px;
+        margin: 0 auto 36px;
         text-align: center;
     }
     .game-modes__heading h2 {
         margin-bottom: 18px;
-        text-wrap: balance;
     }
     .game-modes__intro {
         max-width: 600px;
@@ -172,178 +143,128 @@ const copy = {
     .game-modes__grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 22px;
+        gap: 16px;
     }
     .game-mode {
-        --mode-accent: #e2b96b;
-        --mode-rgb: 226, 185, 107;
         position: relative;
         display: flex;
         flex-direction: column;
+        min-width: 0;
         overflow: hidden;
-        border: 1px solid rgba(var(--mode-rgb), 0.25);
-        border-radius: 12px;
-        background: linear-gradient(160deg, rgba(var(--mode-rgb), 0.055), transparent 65%), #100d0b;
-        box-shadow: 0 16px 35px #0003;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        background: linear-gradient(180deg, #1b1109, #0a0704);
+        box-shadow:
+            inset 0 1px #efe4cc0b,
+            0 12px 30px #0003;
         transition:
-            border-color 0.25s,
-            transform 0.25s,
-            box-shadow 0.25s;
-    }
-    .game-mode--sandbox {
-        --mode-accent: #82c6bb;
-        --mode-rgb: 130, 198, 187;
-    }
-    .game-mode--lobby {
-        --mode-accent: #b6a0dc;
-        --mode-rgb: 182, 160, 220;
-    }
-    .game-mode::before {
-        content: "";
-        position: absolute;
-        z-index: 1;
-        top: 0;
-        left: 20%;
-        right: 20%;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, var(--mode-accent), transparent);
+            border-color 200ms ease,
+            transform 200ms ease;
     }
     .game-mode:hover,
     .game-mode:focus-within {
-        transform: translateY(-5px);
-        border-color: rgba(var(--mode-rgb), 0.6);
-        box-shadow: 0 22px 45px #0005;
+        border-color: var(--line-strong);
+        transform: translateY(-4px);
     }
     .game-mode__art {
         position: relative;
-        display: grid;
-        place-items: center;
-        height: 190px;
-        color: var(--mode-accent);
-        background: radial-gradient(ellipse at 50% 55%, rgba(var(--mode-rgb), 0.13), transparent 65%);
+        aspect-ratio: 1.64;
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background: #100b07;
+    }
+    .game-mode__art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .game-mode--lobby .game-mode__art img {
+        object-position: center 65%;
     }
     .game-mode__number {
         position: absolute;
-        top: 20px;
-        left: 24px;
-        font-size: 0.75rem;
-        letter-spacing: 0.16em;
-        opacity: 0.5;
-    }
-    .game-mode__emblem {
-        width: 240px;
-        height: 180px;
-        filter: drop-shadow(0 0 12px rgba(var(--mode-rgb), 0.16));
-    }
-    .game-mode__orbit {
-        opacity: 0.3;
-    }
-    .game-mode__solid {
-        fill: #151412;
-    }
-    .game-mode__shine {
-        fill: rgba(var(--mode-rgb), 0.2);
+        bottom: 12px;
+        left: 18px;
+        color: #e5c29a;
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        padding: 3px 10px;
+        border: 1px solid #b8884b66;
+        background: #100b08d9;
     }
     .game-mode__content {
-        flex: 1;
         display: flex;
         flex-direction: column;
-        padding: 10px 28px 26px;
+        flex: 1;
+        padding: 24px;
     }
     .game-mode__label {
-        margin: 0 0 12px;
-        color: var(--mode-accent);
-        font-size: 0.68rem;
+        margin: 0 0 10px;
+        color: #b1936e;
+        font-size: 0.7rem;
         letter-spacing: 0.13em;
         text-transform: uppercase;
     }
     .game-mode h3 {
-        margin-bottom: 18px;
-        color: var(--ink-strong);
-        font-size: clamp(1.8rem, 2.7vw, 2.3rem);
+        margin-bottom: 16px;
+        color: var(--hoc-bronze);
+        font-size: 1.65rem;
     }
     .game-mode__description {
         flex: 1;
-        margin: 0 0 24px;
-        font-size: 0.94rem;
-        line-height: 1.7;
-        color: #c0b6a6;
+        margin-bottom: 22px;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.75;
     }
     .game-mode__tags {
         display: flex;
         flex-wrap: wrap;
-        gap: 7px 16px;
+        gap: 7px 14px;
+        margin: 0 0 22px;
         padding: 0;
-        margin: 0 0 24px;
         list-style: none;
-        font-size: 0.67rem;
-        color: #a89f91;
+        color: #b2a18c;
+        font-size: 0.72rem;
     }
     .game-mode__tags li::before {
         content: "◆";
-        margin-right: 7px;
+        color: #a57a44;
         font-size: 0.45rem;
-        color: var(--mode-accent);
+        margin-right: 7px;
         vertical-align: middle;
     }
     .game-mode__link {
         display: flex;
-        justify-content: space-between;
+        gap: 12px;
         align-items: center;
-        gap: 10px;
+        justify-content: space-between;
         min-height: 48px;
-        border-top: 1px solid rgba(var(--mode-rgb), 0.2);
-        padding-top: 18px;
-        color: var(--mode-accent);
+        padding: 12px 16px;
         font-size: 0.88rem;
     }
     .game-mode__link svg {
-        flex-shrink: 0;
-        transition: transform 0.2s;
-    }
-    .game-mode__link:hover svg {
-        transform: translateX(4px);
-    }
-    .game-mode__link:focus-visible {
-        outline-color: var(--mode-accent);
-        outline-offset: 7px;
+        flex: 0 0 auto;
     }
     @media (max-width: 1000px) and (min-width: 761px) {
-        .game-modes__grid {
-            gap: 14px;
-        }
         .game-mode__content {
-            padding-inline: 20px;
+            padding: 20px;
         }
     }
     @media (max-width: 760px) {
         .game-modes__grid {
             grid-template-columns: 1fr;
-            max-width: 480px;
+            max-width: 520px;
             margin-inline: auto;
-            gap: 20px;
-        }
-        .game-modes__heading {
-            margin-bottom: 30px;
-        }
-        .game-mode__art {
-            height: 170px;
-        }
-        .game-mode__emblem {
-            height: 160px;
-        }
-        .game-mode__content {
-            padding: 12px 24px 24px;
+            gap: 24px;
         }
     }
     @media (prefers-reduced-motion: reduce) {
-        .game-mode,
-        .game-mode__link svg {
+        .game-mode {
             transition: none;
         }
         .game-mode:hover,
-        .game-mode:focus-within,
-        .game-mode__link:hover svg {
+        .game-mode:focus-within {
             transform: none;
         }
     }

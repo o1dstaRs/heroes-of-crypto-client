@@ -48,7 +48,7 @@ const variants: { file: string; label: string; boardY?: number; logoY?: number; 
     { file: "39-forge-frost-cliff", label: ru ? "Ифрит, берсерк и валькирия · сборка" : "Efreet, berserker & valkyrie", boardY: 2.5, logoBaked: true },
 ];
 const primary = variants[16];
-const imagePath = (file: string) => `/assets/images/home/hero/taverns/${file}.webp${file === "39-forge-frost-cliff" ? "?v=eye-18" : ""}`;
+const imagePath = (file: string) => `/assets/images/home/hero/taverns/${file === "39-forge-frost-cliff" ? "39-forge-frost-no-flags-20261107.webp?v=1" : `${file}.webp`}`;
 ---
 
 <tavern-backdrop data-error={ru ? "Не удалось загрузить фон" : "Could not load background"}>

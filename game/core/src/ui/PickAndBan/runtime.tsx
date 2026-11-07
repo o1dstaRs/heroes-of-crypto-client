@@ -55,8 +55,7 @@ import { Timer } from "./Timer";
 import { draftShellSx } from "./draftShell";
 import { DraftBanSummary } from "./DraftBanSummary";
 import { DraftBanSlash } from "./DraftBanSlash";
-import { DraftBanSidebar } from "./DraftBanSidebar";
-import { draftBanLayout } from "./draftBanLayout";
+import { DraftBanPlacementPreview, type DraftBanPlacement } from "./DraftBanPlacement";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -2630,6 +2629,8 @@ export const MyDraftBar: React.FC<{
 // ---- Root view ------------------------------------------------------------
 
 interface StainedGlassProps {
+    /** Local layout comparisons; live drafts retain their standard inline scouting summary. */
+    banPlacement?: DraftBanPlacement;
     userTeam: TeamType;
     /** This match's id — seeds the per-game synergy draw shown in the rails. */
     gameId?: string;
@@ -2819,6 +2820,7 @@ export const OpponentDraftBar: React.FC<{
 };
 
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({
+    banPlacement = import.meta.env.MODE === "test" ? "right" : "inline",
     userTeam,
     gameId,
     opponentLabel = t("Opponent"),
@@ -2882,7 +2884,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const draftScale = useDraftScale();
     const viewport = useGameLayout();
     const { touch } = viewport;
-    const banLayout = draftBanLayout(viewport, draftScale, { width: DRAFT_BOARD_WIDTH, height: DRAFT_BOARD_HEIGHT });
     const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
     // the reserved header. Clearing on a short delay lets the cursor pass between nearby draft elements
@@ -3469,12 +3470,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     )}
 
                     {pickPhase !== PickPhaseVals.DOCTRINE &&
-                        (import.meta.env.MODE === "test" &&
-                        banLayout.docked &&
-                        (doctrine === Doctrine.Doctrine.THREE_REVEALS || doctrine === Doctrine.Doctrine.SEE_ALL) ? (
-                            <DraftBanSidebar banned={banned} maxHeight={banLayout.maxHeight} />
-                        ) : (
+                        (banPlacement === "inline" ? (
                             <DraftBanSummary banned={banned} doctrine={doctrine} />
+                        ) : (
+                            <DraftBanPlacementPreview placement={banPlacement} banned={banned} doctrine={doctrine} />
                         ))}
 
                     <Box
@@ -3508,7 +3507,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </Box>
 
                         {userTeam && isCommitPhase && pickPhase >= 0 && (
-                            <Box data-touch-draft-commit sx={{ display: "contents" }}>
+                            <Box
+                                data-touch-draft-commit
+                                sx={{
+                                    display: "contents",
+                                    "& > button": banPlacement === "bottom" ? { top: "28px" } : undefined,
+                                }}
+                            >
                                 <PickCommitButton
                                     key={phaseIdentity}
                                     label={commitLabel}

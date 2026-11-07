@@ -19,9 +19,15 @@ export const resolveLeftSidebarPortraitBackground = (creatureId: number): string
     }
 };
 
-/** Add the shared fifteen-percent veil while preserving Nature's existing five-percent shade. */
-export const leftSidebarPortraitBackgroundShadeAlpha = (creatureId: number): number =>
-    compositeBlackShadeAlpha(
-        CreatureFactionsMap[creatureId] === FactionVals.NATURE ? 0.05 : 0,
+/** Grade only the background, including the faction's additional sidebar dimming. */
+export const leftSidebarPortraitBackgroundShadeAlpha = (creatureId: number): number => {
+    const faction = CreatureFactionsMap[creatureId];
+    const previous = compositeBlackShadeAlpha(
+        faction === FactionVals.NATURE ? 0.05 : 0,
         PORTRAIT_ADDITIONAL_BACKGROUND_SHADE_ALPHA,
     );
+    return compositeBlackShadeAlpha(
+        previous,
+        faction === FactionVals.CHAOS ? 0.15 : faction === FactionVals.LIFE ? 0.09 : 0,
+    );
+};

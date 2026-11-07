@@ -22,6 +22,7 @@ import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
 import { premiumChoiceQuestion } from "./premiumQuestions";
 import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
+import { PremiumPreviewContext } from "./PremiumPreviewContext";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -29,6 +30,7 @@ export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined
 const orange = "var(--hoc-premium-accent)";
 
 export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number, enabled = true) => {
+    const preview = useContext(PremiumPreviewContext);
     const { authenticated, user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
@@ -37,7 +39,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     const requests = useRef(createPremiumRequestGate());
     const refresh = useCallback(
         async (signal?: AbortSignal) => {
-            if (!enabled || !authenticated || gameId?.startsWith("preview")) return;
+            if (preview || !enabled || !authenticated || gameId?.startsWith("preview")) return;
             const request = requests.current.begin("read");
             if (!request) return;
             try {
@@ -56,7 +58,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 requests.current.finish(request);
             }
         },
-        [authenticated, gameId, enabled],
+        [authenticated, gameId, enabled, preview],
     );
     useLayoutEffect(() => {
         requests.current.reset();
@@ -66,7 +68,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
         return () => requests.current.reset();
     }, [authenticated, accountKey, gameId, refreshKey, enabled]);
     useEffect(() => {
-        if (!enabled || !authenticated) return;
+        if (preview || !enabled || !authenticated) return;
         const controller = new AbortController();
         void refresh(controller.signal);
         const timer = setInterval(
@@ -79,10 +81,10 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
             controller.abort();
             clearInterval(timer);
         };
-    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated]);
+    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated, preview]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
-            if (!enabled || !gameId || !advice || busy) return;
+            if (preview || !enabled || !gameId || !advice || busy) return;
             const request = requests.current.begin("apply");
             if (!request) return;
             let refreshAfterFailure = false;
@@ -118,9 +120,9 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 }
             }
         },
-        [gameId, advice, busy, refresh, enabled],
+        [gameId, advice, busy, refresh, enabled, preview],
     );
-    return { advice: enabled ? advice : undefined, apply, busy, error };
+    return { advice: enabled ? (preview ?? advice) : undefined, apply, busy, error };
 };
 
 const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {

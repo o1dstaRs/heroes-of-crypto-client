@@ -1091,7 +1091,7 @@ export class Sandbox extends PixiScene {
     private sc_synergyVariantChoicePerTeam: Map<TeamType, { [factionName: string]: SpecificSynergy }> = new Map();
     private sc_hoveredShotRange?: ShotRangeOverlay;
     private sc_hoveredAuraRanges?: {
-        auraOwner?: { name: string; id: string };
+        auraOwner?: { name: string; id: string; team?: TeamType };
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
         footprint: IFootprintExtent;
@@ -12737,8 +12737,8 @@ export class Sandbox extends PixiScene {
         const screened = !!interceptor && interceptor.getId() !== hoveredUnit.getId();
         const impactUnit = (interceptor ?? hoveredUnit) as RenderableUnit;
         const impactAim = screened ? this.resolveRangeAimForTarget(shooter, impactUnit, impactUnit.getPosition()) : aim;
-        const impactLogical = obstaclePreview.blocker?.position ?? impactAim?.position ?? impactUnit.getPosition();
-        const impactPos = obstaclePreview.blocker
+        const impactLogical = obstaclePreview.firstImpact?.position ?? impactAim?.position ?? impactUnit.getPosition();
+        const impactPos = obstaclePreview.firstImpact
             ? projectBattlefieldPoint(impactLogical, gs)
             : impactAim
               ? projectedRangeAttackCellSideCenter(impactAim.cell, impactAim.side, gs)
@@ -12753,7 +12753,9 @@ export class Sandbox extends PixiScene {
         const smokeLogical = this.resolveSmokeEntryPoint(shooterLogical, impactLogical);
         this.hoverManager.drawAttackArrow(
             shooterCenter,
-            impactPos,
+            obstaclePreview.firstImpact
+                ? this.hoverManager.drawRangeTerminalArrowhead(impactPos, shooterCenter)
+                : impactPos,
             undefined,
             smokeLogical ? projectBattlefieldPoint(smokeLogical, gs) : undefined,
         );
@@ -15738,9 +15740,9 @@ export class Sandbox extends PixiScene {
                 // unit's aura. The old hoverManager.drawAuraArea layer (z=51) gets wiped mid-frame by the
                 // placement-hover path (updateHoverPlacementCell -> clearAuraVisuals), which is why the
                 // hover aura "never showed". Active units are drawn separately; sidebar selection
-                // supplies auras only before combat, so a selected combat unit still needs hover.
+                // supplies auras only before combat, except Wyvern which also supports explicit combat selection.
                 const auraAlreadyVisualized =
-                    hoverTargetUnit === this.currentActiveUnit ||
+                    (hoverTargetUnit === this.currentActiveUnit && hoverTargetUnit.getName() !== "Wyvern") ||
                     (!FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
                         hoverTargetUnit === this.selectedBoardUnit);
                 const auraRanges = hoverTargetUnit.getAuraRanges();
@@ -15754,7 +15756,11 @@ export class Sandbox extends PixiScene {
                     );
                     if (finalAuras.length > 0) {
                         this.sc_hoveredAuraRanges = {
-                            auraOwner: { name: hoverTargetUnit.getName(), id: hoverTargetUnit.getId() },
+                            auraOwner: {
+                                name: hoverTargetUnit.getName(),
+                                id: hoverTargetUnit.getId(),
+                                team: hoverTargetUnit.getTeam(),
+                            },
                             xy: hoverTargetUnit.getPosition(),
                             auraRanges: finalAuras,
                             footprint: footprintExtentOf(hoverTargetUnit),
@@ -17262,26 +17268,25 @@ export class Sandbox extends PixiScene {
                         const blockedByObstacle = obstaclePreview?.blocker;
                         const projectedObstacleHits = obstaclePreview?.hits ?? [];
 
+                        const firstImpact = obstaclePreview?.firstImpact;
+                        const blockedVisual = firstImpact
+                            ? projectBattlefieldPoint(firstImpact.position, gs)
+                            : undefined;
+                        // End at the first projectile impact, even when a second projectile can reach farther.
+                        // The engine's blocker still owns click routing and the damage forecast.
+                        const blockedCasingJoint = blockedVisual
+                            ? this.hoverManager.drawRangeTerminalArrowhead(blockedVisual, arrowStartPos)
+                            : undefined;
+                        const blockedSmokeLogical = firstImpact
+                            ? this.resolveSmokeEntryPoint(arrowStartLogical, firstImpact.position)
+                            : undefined;
+
                         if (blockedByObstacle) {
                             this.hoverRangeAttackObstacle = blockedByObstacle;
-                            // Arrow to the mountain (what actually takes the hit), plus a faint dashed
-                            // continuation on to the intended unit so the whole projection still reads, and
-                            // a red glow on the mountain as the real target (the unit behind takes no damage).
-                            const blockedVisual = projectBattlefieldPoint(blockedByObstacle.position, gs);
-                            // The earlier edge marker belongs to the intended creature. Once the engine says
-                            // the projectile stops on an obstacle, replace it with a terminal broadhead at
-                            // that real endpoint and terminate the moving pieces at its socket.
-                            const blockedCasingJoint = this.hoverManager.drawRangeTerminalArrowhead(
-                                blockedVisual,
-                                arrowStartPos,
-                            );
-                            const blockedSmokeLogical = isRangeAttackContext
-                                ? this.resolveSmokeEntryPoint(arrowStartLogical, blockedByObstacle.position)
-                                : undefined;
                             this.hoverManager.drawAttackArrow(
                                 arrowStartPos,
-                                blockedCasingJoint,
-                                tVis,
+                                blockedCasingJoint ?? tVis,
+                                undefined,
                                 blockedSmokeLogical ? projectBattlefieldPoint(blockedSmokeLogical, gs) : undefined,
                             );
                             if (this.grid.hasScatteredMountains()) {
@@ -17329,12 +17334,14 @@ export class Sandbox extends PixiScene {
                                       }
                                     : undefined,
                             );
-                            const smokeLogical = isRangeAttackContext
-                                ? this.resolveSmokeEntryPoint(arrowStartLogical, finalArrowEndPos)
-                                : undefined;
+                            const smokeLogical = firstImpact
+                                ? blockedSmokeLogical
+                                : isRangeAttackContext
+                                  ? this.resolveSmokeEntryPoint(arrowStartLogical, finalArrowEndPos)
+                                  : undefined;
                             this.hoverManager.drawAttackArrow(
                                 arrowStartPos,
-                                tVis,
+                                blockedCasingJoint ?? tVis,
                                 undefined,
                                 smokeLogical ? projectBattlefieldPoint(smokeLogical, gs) : undefined,
                                 isRangeAttackContext ? "arrow" : "melee",
@@ -18603,7 +18610,7 @@ export class Sandbox extends PixiScene {
         let sidebarUnitRanges:
             | {
                   xy: HoCMath.XY;
-                  auraOwner?: { name: string; id: string };
+                  auraOwner?: { name: string; id: string; team?: TeamType };
                   attackRange: number;
                   auraRanges: { range: number; isBuff: boolean }[];
                   footprint: IFootprintExtent;
@@ -18612,7 +18619,7 @@ export class Sandbox extends PixiScene {
 
         if (this.selectedBoardUnit) {
             const u = this.selectedBoardUnit;
-            if (u === this.currentActiveUnit) {
+            if (u === this.currentActiveUnit && u.getName() !== "Wyvern") {
                 // If the selected board unit IS the current active unit, we rely on standard active unit visuals?
                 // Or maybe we want to force sidebar visuals too?
             } else {
@@ -18631,7 +18638,7 @@ export class Sandbox extends PixiScene {
                 );
 
                 sidebarUnitRanges = {
-                    auraOwner: { name: u.getName(), id: u.getId() },
+                    auraOwner: { name: u.getName(), id: u.getId(), team: u.getTeam() },
                     xy: u.getPosition(),
                     attackRange:
                         !isHovered && !isShifted && u.getAttackType() === AttackVals.RANGE && u.getRangeShots() > 0
@@ -18807,7 +18814,8 @@ export class Sandbox extends PixiScene {
     private hasGameplayVisuals(): boolean {
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             for (const unit of this.unitsHolder.getAllUnits().values()) {
-                if (hasVisiblePersistentAura(unit, this.getViewerTeam())) return true;
+                if (hasVisiblePersistentAura(unit, this.getViewerTeam(), this.currentActiveUnit?.getTeam()))
+                    return true;
             }
         }
         if (isMovementAreaEditorActive()) return true;

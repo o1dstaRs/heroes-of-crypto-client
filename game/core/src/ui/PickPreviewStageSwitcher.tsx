@@ -2,6 +2,7 @@ import React from "react";
 import { PickStatOrderEditor } from "./PickStatOrderEditor";
 import { useLocation, useNavigate } from "react-router";
 import { resetPickPreviewOrder, setPickPreviewOrderEditing, usePickPreviewOrder } from "./pickPreviewOrder";
+import { DRAFT_BAN_PREVIEW_OPTIONS, draftBanPreviewPlacement } from "./PickAndBan/DraftBanPlacement";
 
 import "./pickPreviewStageSwitcher.css";
 
@@ -28,80 +29,111 @@ export const PickPreviewStageSwitcher: React.FC = () => {
 
     const go = (path: string) => navigate({ pathname: path, search });
     return (
-        <nav className="pick-preview-stages" aria-label="Переключение стадий пика">
-            {index < STAGES.length - 1 && (
-                <div className="pick-preview-order" aria-label="Порядок карточек">
-                    {level > 0 && (
-                        <>
-                            <span className="pick-preview-order-help" role="status">
-                                {orderEditor.serverStatus === "saved"
-                                    ? "Порядок сохранён на локальном сервере"
-                                    : orderEditor.serverStatus === "saving"
-                                      ? "Сохранение на сервере…"
-                                      : orderEditor.serverStatus === "loading"
-                                        ? "Загрузка порядка…"
-                                        : orderEditor.serverStatus === "error"
-                                          ? "Не удалось сохранить на сервере; порядок остался в браузере"
-                                          : "Порядок пока хранится в этом браузере"}
-                            </span>
-                            {orderEditor.editing && (
+        <details
+            className="pick-preview-tools"
+            onToggle={(event) => {
+                if (!event.currentTarget.open) setPickPreviewOrderEditing(false);
+            }}
+        >
+            <summary>Dev · {STAGES[index].label}</summary>
+            <nav className="pick-preview-stages" aria-label="Переключение стадий пика">
+                {index < STAGES.length - 1 && (
+                    <div className="pick-preview-order" aria-label="Порядок карточек">
+                        {level > 0 && (
+                            <>
+                                <label className="pick-preview-ban-layout">
+                                    Расположение банов
+                                    <select
+                                        aria-label="Расположение банов"
+                                        value={draftBanPreviewPlacement(search)}
+                                        onChange={(event) => {
+                                            const params = new URLSearchParams(search);
+                                            params.set("bans", event.target.value);
+                                            navigate({ pathname, search: params.toString() });
+                                        }}
+                                    >
+                                        {DRAFT_BAN_PREVIEW_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
                                 <span className="pick-preview-order-help" role="status">
-                                    {orderEditor.saveError
-                                        ? "Не удалось сохранить порядок на сервере"
-                                        : orderEditor.selected?.level === level
-                                          ? "Выберите вторую карточку для обмена"
-                                          : "Выберите две карточки. Порядок сохраняется автоматически."}
+                                    {orderEditor.serverStatus === "saved"
+                                        ? "Порядок сохранён на локальном сервере"
+                                        : orderEditor.serverStatus === "saving"
+                                          ? "Сохранение на сервере…"
+                                          : orderEditor.serverStatus === "loading"
+                                            ? "Загрузка порядка…"
+                                            : orderEditor.serverStatus === "error"
+                                              ? "Не удалось сохранить на сервере; порядок остался в браузере"
+                                              : "Порядок пока хранится в этом браузере"}
                                 </span>
-                            )}
-                            <button
-                                type="button"
-                                aria-pressed={orderEditor.editing}
-                                disabled={
-                                    orderEditor.serverStatus === "loading" || orderEditor.serverStatus === "saving"
-                                }
-                                onClick={() => setPickPreviewOrderEditing(!orderEditor.editing)}
-                            >
-                                {orderEditor.editing ? "Готово" : "⇄ Переставить карточки"}
-                            </button>
-                            {orderEditor.editing && (
+                                {orderEditor.editing && (
+                                    <span className="pick-preview-order-help" role="status">
+                                        {orderEditor.saveError
+                                            ? "Не удалось сохранить порядок на сервере"
+                                            : orderEditor.selected?.level === level
+                                              ? "Выберите вторую карточку для обмена"
+                                              : "Выберите две карточки. Порядок сохраняется автоматически."}
+                                    </span>
+                                )}
                                 <button
                                     type="button"
-                                    disabled={!orderEditor.orders[level]}
-                                    onClick={() => resetPickPreviewOrder(level)}
+                                    aria-pressed={orderEditor.editing}
+                                    disabled={
+                                        orderEditor.serverStatus === "loading" || orderEditor.serverStatus === "saving"
+                                    }
+                                    onClick={() => setPickPreviewOrderEditing(!orderEditor.editing)}
                                 >
-                                    Сбросить L{level}
+                                    {orderEditor.editing ? "Готово" : "⇄ Переставить карточки"}
                                 </button>
-                            )}
-                        </>
-                    )}
-                    <PickStatOrderEditor />
-                </div>
-            )}
-            <button
-                type="button"
-                aria-label="Предыдущая стадия пика"
-                title="Предыдущая стадия"
-                disabled={index === 0}
-                onClick={() => go(STAGES[index - 1].path)}
-            >
-                ‹
-            </button>
-            <select aria-label="Стадия пика" value={pathname} onChange={(event) => go(event.target.value)}>
-                {STAGES.map((stage) => (
-                    <option key={stage.path} value={stage.path}>
-                        {stage.label}
-                    </option>
-                ))}
-            </select>
-            <button
-                type="button"
-                aria-label="Следующая стадия пика"
-                title="Следующая стадия"
-                disabled={index === STAGES.length - 1}
-                onClick={() => go(STAGES[index + 1].path)}
-            >
-                ›
-            </button>
-        </nav>
+                                {orderEditor.editing && (
+                                    <button
+                                        type="button"
+                                        disabled={!orderEditor.orders[level]}
+                                        onClick={() => resetPickPreviewOrder(level)}
+                                    >
+                                        Сбросить L{level}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                        <PickStatOrderEditor />
+                        {level > 0 && (
+                            <button type="button" onClick={() => window.location.reload()}>
+                                Сбросить тестовый пик
+                            </button>
+                        )}
+                    </div>
+                )}
+                <button
+                    type="button"
+                    aria-label="Предыдущая стадия пика"
+                    title="Предыдущая стадия"
+                    disabled={index === 0}
+                    onClick={() => go(STAGES[index - 1].path)}
+                >
+                    ‹
+                </button>
+                <select aria-label="Стадия пика" value={pathname} onChange={(event) => go(event.target.value)}>
+                    {STAGES.map((stage) => (
+                        <option key={stage.path} value={stage.path}>
+                            {stage.label}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type="button"
+                    aria-label="Следующая стадия пика"
+                    title="Следующая стадия"
+                    disabled={index === STAGES.length - 1}
+                    onClick={() => go(STAGES[index + 1].path)}
+                >
+                    ›
+                </button>
+            </nav>
+        </details>
     );
 };

@@ -138,6 +138,7 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
                 const preview = f.preview();
                 const expected = f.barrels.slice(0, ability ? 2 : 1);
                 expect(preview.hits.map((hit) => cell(hit.position))).toEqual(expected);
+                expect(cell(preview.firstImpact!.position)).toEqual(f.barrels[0]);
                 expect(f.grid.getScatteredMountainsStanding()).toEqual(before);
                 const actual = f.fire(
                     preview.blocker
@@ -172,6 +173,7 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
             ];
             f.grid.setScatteredMountains([f.barrels[0], ...blast]);
             expect(f.preview().hits.map((hit) => cell(hit.position))).toEqual(blast);
+            expect(f.preview().firstImpact).toBeUndefined();
             const actual = f.fire({ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() });
             expect(new Set(actual.map((point) => `${point.x}:${point.y}`))).toEqual(
                 new Set(blast.map((point) => `${point.x}:${point.y}`)),
@@ -191,6 +193,7 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
         f.grid.setScatteredMountains([f.barrels[0]]);
         const preview = f.preview();
         expect(preview.hits.map((hit) => cell(hit.position))).toEqual([f.barrels[0]]);
+        expect(cell(preview.firstImpact!.position)).toEqual(f.barrels[0]);
         expect(preview.blocker).toBeUndefined();
         const before = f.target.getCumulativeHp();
         expect(f.fire({ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() })).toEqual([

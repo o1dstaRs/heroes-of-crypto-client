@@ -67,6 +67,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             `Каждое попадание в ближнем бою, включая ответы, помечает врага Pegasus Light на 1 круг (пока метка есть, она не обновляется). Каждый юнит, попавший по помеченному врагу, получает +${effectPower("Pegasus Light")} морали плюс 1 за очко удачи Pegasus; юниты с зафиксированной моралью (Madness, Mechanism, Courage, Sadness, Morale, Dismorale) ничего не получают. Сила стека на это не влияет.`,
     },
+    "Pegasus Might Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} base attack and armor. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к базовой атаке и броне. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
     "Pegasus Might Aura": {
         en: ({ p }) => `Allies within 2 cells, the Pegasus included, get +${p} base attack and +${p} base armor.`,
         ru: ({ p }) =>
