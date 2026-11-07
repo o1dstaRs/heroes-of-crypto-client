@@ -137,6 +137,7 @@ export function initPremiumPage(): void {
         busy = true;
         retry.hidden = true;
         if (keepResults) {
+            crew.suspend();
             scopeUnsettled = true;
             refreshRetry.hidden = true;
             refreshStatus.textContent = t(
@@ -203,6 +204,7 @@ export function initPremiumPage(): void {
             gate.hidden = true;
             workspace.hidden = false;
             content.innerHTML = markup;
+            crew.refresh();
             updateAi();
             refreshStatus.textContent = keepResults ? t("Results updated.", "Результаты обновлены.") : "";
             status.textContent = activeStatus();

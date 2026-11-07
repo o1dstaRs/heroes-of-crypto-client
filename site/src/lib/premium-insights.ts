@@ -60,6 +60,8 @@ export function renderPremiumInsights(
         const item = catalog.units[id];
         return item ? `<a href="${kb(e(item.anchor), view)}">${e(item.name)}</a>` : `#${id}`;
     };
+    const addToCrew = (id: number) =>
+        `<button type="button" data-add-crew="${id}" class="premium-meta-add" aria-label="${e(t(`Add ${catalog.units[id].name} to crew`, `Добавить ${catalog.units[id].name} в армию`))}">+ ${t("Add to crew", "В армию")}</button>`;
     const missing = `<p class="premium-fine">${t("No result meets the sample threshold.", "Нет результатов с достаточной выборкой.")}</p>`;
     const card = (title: string, description: string, items: string[], noResult = missing) =>
         `<article class="premium-insight-card"><h3>${title}</h3><p>${description}</p>${items.length ? `<ul>${items.join("")}</ul>` : noResult}</article>`;
@@ -74,7 +76,11 @@ export function renderPremiumInsights(
                 "Наибольшая нижняя граница интервала внутри каждого уровня драфта.",
             ),
             rows.unitLeaders.map((row) =>
-                reading(`L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])}`, row, view),
+                reading(
+                    `L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])} ${addToCrew(row.ids[0])}`,
+                    row,
+                    view,
+                ),
             ),
         )}
         ${card(
