@@ -253,6 +253,7 @@ Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public
 - Watch-only: @TurnBasedThurs (7,501) for Wednesday's host.
 
 ## 2026-11-02 daily engagement review (own posts)
+
 - 24h snapshots: Sat 31 4:58 PM evening Quiver of Echoes 28 views (41.7h), the best 24h reach since Castling; Sun 1 11:59 AM midday Tome of Amplification 19 (21.7h); Sun 1 6:50 AM morning Hourglass rule 11 (26.9h). All ER 0.
 - Worked: artifact trade-offs that name a unit (Quiver/Gargantuan 28, Tome/Behemoth 19) out-reach generic rule posts. Since 26 Oct, story-devdiary averages 17.8 views at 24h (n=9) vs tactics-rule 13.5 (n=10).
 - Didn't work: rule posts with no named unit in the morning slot (Hourglass 11). Morning averages 12.4 at 24h (n=7) vs midday 16.9 (n=7) and evening 18.0 (n=5).
@@ -260,6 +261,7 @@ Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public
 - 7d: Tue 27 anti-stall morale 16 -> 17, still the only post with an outside like this fortnight (ER 0.059). Morale stays the one topic that draws a like.
 
 ## 2026-11-03 daily engagement review (own posts)
+
 - 24h snapshots: Sun 1 4:51 PM evening Aegis of the Arcane 11 views (40.9h); Mon 2 6:57 AM morning Rime Charm 14 (26.8h); Mon 2 11:55 AM midday co-op sandbox 14 (21.9h). All ER 0.
 - Worked: Rime Charm (named unit: Dryad / Black Dragon) matched midday sandbox reach at 14 from the morning slot, the strongest morning 24h since anti-stall morale (16). Story/dev-diary still leads tactics-rule since 26 Oct (16.6 vs 13.5 avg views).
 - Didn't work: Aegis of the Arcane, an artifact trade-off with no named unit payoff, got only 11 views at 24h — tying Hourglass as the weakest evening/late snapshot this stretch and undercutting the evening-strong pattern (evening avg now 16.8 with Quiver 28 still carrying it).
@@ -269,6 +271,7 @@ Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public
 - 0 outside replies, 0 tactics replies, 0 token replies for 20 days running. Followers flat at 91. Yesterday's three Mon 2 slots all posted; comment-reply last checked 8:22 AM PT with nothing to handle.
 
 ## 2026-11-04 daily engagement review (own posts)
+
 - 24h snapshots: Mon 2 4:53 PM evening Arachna/Cyclops retune 30 views + 1 outside like / ER 0.0333 (40.8h); Tue 3 6:57 AM morning stack-size 7 (26.7h); Tue 3 11:51 AM midday Griffin Range Null Field 16 (21.8h).
 - Worked: Arachna/Cyclops named-unit retune was the best new 24h since Quiver (28) and the second outside like this fortnight (after anti-stall morale). Named-unit number trade-offs still top the board.
 - Didn't work: morning stack-size (Peasant 200 vs Black Dragon 1), despite naming units, got only 7 views — the lowest 24h since 19 Oct and the weakest morning in the Oct 26+ window. Named units do not reliably save the morning slot.
@@ -278,6 +281,7 @@ Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public
 - 0 outside replies, 0 tactics replies, 0 token replies for 21 days running. Followers flat at 91. Yesterday's three Tue 3 slots all posted; comment-reply last checked 8:18 AM PT with nothing to handle.
 
 ## 2026-11-05 daily engagement review (own posts)
+
 - 24h snapshots: Tue 3 4:55 PM evening Unicorn One in the Field 13 views / ER 0 (40.8h, late snapshot); Wed 4 6:55 AM morning Black Dragon/Angel 2x2 12 / ER 0 (26.8h); Wed 4 11:53 AM midday Mantis Paralysis 14 / ER 0 (21.9h).
 - 7d: Thu 29 Satyr Helping Hand 16 (166.8h); Fri 30 doctrines make-up 12 -> 14 (147.9h); Thu 29 morale-from-movement age refresh 10 at 171.9h.
 - Worked: nothing stood out; Mantis (14) was the best new 24h, and Griffin kept growing (16 at 24h -> 19 now).
@@ -286,9 +290,19 @@ Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public
 - 0 outside replies, 0 tactics replies, 0 token replies for 22 days running (mentions since 2 Nov = 0; every reply_count 1 is our own follow-up; quotes 0). Followers flat at 91. Yesterday's three Wed 4 slots all posted; comment-reply last checked 8:25 AM PT with nothing to handle.
 
 ## 2026-11-06 daily engagement review (own posts)
+
 - 24h snapshots: Wed 4 4:55 PM evening Hydra Lightning Spin 15 views / ER 0 (40.9h, late snapshot); Thu 5 7:01 AM morning Pikeman Aggr 8 / ER 0 (26.8h); Thu 5 11:52 AM midday Medusa Petrifying Gaze 5 / ER 0 (21.9h).
 - 7d: Sat 31 ranked turn clock 13 -> 18 (147.9h); Fri 30 turn-order 15 -> 17 (161.9h); Fri 30 Gravechain 20 -> 22 (167.0h); Fri 30 doctrines make-up age refresh 14 -> 15 (171.9h).
 - Worked: evening Hydra (15) was the only new 24h above the recent named-unit average; evening still leads morning on pure reach.
 - Didn't work: Medusa at 5 views is the worst 24h since 19 Oct (ties nothing recent — stack-size's 7 was the previous floor). Midday named-unit explainers are no longer safe; Pikeman morning at 8 continues the weak-morning pattern.
 - Lesson: a single-ability explainer can now land at 5–8 views even with a named unit. Prefer posts that carry a concrete change, number trade-off, or contested rule (Arachna/Cyclops retune and anti-stall morale still hold the only outside likes this fortnight). Reach remains the blocker; outreach/media proposals stay open for Stepan. Proposal only — no edits to XCOM.md / CALENDAR.md / IMAGES.md.
 - 0 outside replies, 0 tactics replies, 0 token replies for 23 days running (comment-reply last checked 8:28 AM PT; every reply_count 1 is our own follow-up; quotes 0). Followers 90 (−1 vs 2026-11-05, flat vs baseline 90). Yesterday's three Thu 5 slots all posted; today's 6:48 AM Manticore also posted. Behemoth (~16.9h) still outside the 24h window.
+
+## 2026-11-07 daily engagement review (own posts)
+
+- 24h snapshots: Thu 5 4:51 PM evening Behemoth Battle Roar 15 views / ER 0 (40.8h, late snapshot); Fri 6 7:45 AM morning Manticore Terrifying Gaze 11 / ER 0 (25.9h); Fri 6 11:57 AM midday Scavenger Backstab 13 / ER 0 (21.7h).
+- 7d: Sat 31 Quiver of Echoes 28 -> 33 (161.7h); Sat 31 Angel resurrection fix 9 -> 17 (166.7h); Sun 1 Hourglass 11 -> 11 (146.8h); Sat 31 ranked turn clock age refresh 18 -> 19 (171.8h).
+- Worked: design trade-off posts with a cross-army choice keep growing after day one. Quiver of Echoes is now 33 at 7d, level with the Arachna/Cyclops retune (32), and Gravechain (22) and Tome (21) also beat every recent single-unit explainer. The Angel "we got one wrong" dev-diary nearly doubled from 24h to 7d (9 -> 17).
+- Didn't work: the named-unit ability streak keeps landing at 10 to 15 views with no likes (Behemoth 15, Scavenger 13, Manticore 11). Morning stays weakest. Fri 6 4:48 PM evening slot never posted, losing the slot that travels furthest.
+- Lesson: when picking the next posts, prefer trade-offs and admitted fixes (artifact choices, retunes, "we got one wrong") over another single-ability explainer; they earn more long-tail views. Reach remains the blocker; outreach/media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
+- 0 outside replies, 0 tactics replies, 0 token replies for 24 days running (mentions since 5 Nov = 0; every reply_count 1 is our own follow-up; quotes 0; comment-reply routine last checked 8:26 AM PT with nothing to handle). Followers 90 (flat vs 2026-11-06 and vs baseline 90).
