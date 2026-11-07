@@ -1,4 +1,4 @@
-# Local parity release — 2026-10-29 update
+# Local parity release — 2026-11-07 visual update
 
 This release publishes the approved creature animations, combat effects, grayscale turn presentation,
 flag/morale pops, shadows and editor defaults for both sandbox and ranked playback. Game art stays
@@ -13,24 +13,25 @@ The release also reuses exact, unchanged files from the [shared heroesofcrypto f
 Keep that folder available locally through Google Drive, or download its images and animations/output
 folders with their directory structure intact. The old compact archive and source.zip are not required.
 
-**Download all ten archives. The restore tools verify every archive and shared source revision before a build.**
+**Download all eleven archives. The restore tools verify every archive and shared source revision before a build.**
 
-| Archive                            | SHA-256                                                            |
-| ---------------------------------- | ------------------------------------------------------------------ |
-| `resources-01.zip`                 | `d59b0b55f096fd1d8e83569f1d32399833e9f8d806db8aa663331a370e065f11` |
-| `resources-02.zip`                 | `e7a5d5b4427698de0693175c6566a6bcee734993b9b402c246f210dc87c892ba` |
-| `resources-03.zip`                 | `8a8e6f8d355b58e01e9288b289c875ce687943c46d1ac12b6f106ca56f022a5f` |
-| `resources-04.zip`                 | `f2a65b2293f38337cc4039ad79bdddb47c5b5903d0dd93605ea2a869f76b271b` |
-| `resources-05.zip`                 | `3c7e436c479acb706bab1ffc5e7eea9f22d65a766eb97ffb65333f34fd48e0b6` |
-| `resources-06.zip`                 | `2e1942919d034d57cc2440c05608dcd10e112eeb8e574e8fc81dac19f5a42d7f` |
-| `resources-07.zip`                 | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
-| `resources-08.zip`                 | `798e6fbde8c660133ad06968501ceb9f91f8a79b350aa9ee1c4eea8a19b548f7` |
-| `resources-09-portrait-mattes.zip` | `4701c0ceef023d1358df560a6b575024f4cac66a85339f54ee9dff8e50ec483e` |
-| `resources-10-troll-contours.zip`  | `776e8d249f1801dc88dc10a263c65b7c405676be4ad00b90aa9e5c89ef5c1ddd` |
+| Archive                                          | SHA-256                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------ |
+| `resources-01.zip`                               | `d59b0b55f096fd1d8e83569f1d32399833e9f8d806db8aa663331a370e065f11` |
+| `resources-02.zip`                               | `e7a5d5b4427698de0693175c6566a6bcee734993b9b402c246f210dc87c892ba` |
+| `resources-03.zip`                               | `8a8e6f8d355b58e01e9288b289c875ce687943c46d1ac12b6f106ca56f022a5f` |
+| `resources-04.zip`                               | `f2a65b2293f38337cc4039ad79bdddb47c5b5903d0dd93605ea2a869f76b271b` |
+| `resources-05.zip`                               | `3c7e436c479acb706bab1ffc5e7eea9f22d65a766eb97ffb65333f34fd48e0b6` |
+| `resources-06.zip`                               | `2e1942919d034d57cc2440c05608dcd10e112eeb8e574e8fc81dac19f5a42d7f` |
+| `resources-07.zip`                               | `76b379568d29228a5288d4ed79833f25a3fafbd741a512bece998a32ca428e0e` |
+| `resources-08.zip`                               | `798e6fbde8c660133ad06968501ceb9f91f8a79b350aa9ee1c4eea8a19b548f7` |
+| `resources-09-portrait-mattes.zip`               | `4701c0ceef023d1358df560a6b575024f4cac66a85339f54ee9dff8e50ec483e` |
+| `resources-10-troll-contours.zip`                | `776e8d249f1801dc88dc10a263c65b7c405676be4ad00b90aa9e5c89ef5c1ddd` |
+| `resources-11-portrait-contours-20261107-v3.zip` | `d6469e957c8ba13f42b0761f9dfd5b175e3b1f3538ef66aa9dbfaf335915e41f` |
 
 Archive 08 adds the two approved frontal portrait backgrounds used by the release UI.
 
-Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The ten archives
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The eleven archives
 and the verified shared files contain the required runtime assets, settings reference and site exports.
 No older compact archive, source ZIP or superseded patch ZIP is required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.
 
@@ -120,3 +121,12 @@ and keyed fragments around the mane across all 100 original poses. Timing, frami
 opaque inner hair and weapon materials are preserved. The 20 replacement pages are
 verified against accepted RGBA pixels and reproduced by the normal restore command.
 Archive 09 and the original masters retain the previous correction for selective rollback.
+
+## Test deployment boundary — 2026-11-07
+
+This visual update retains the test API and its engine/AI revision
+`832a54e5b23fd8e1f47f7514ffb906291a6c5f2c`, Premium account state,
+and the independently deployed recommendations service. Publish the client and
+static site only with the guarded test deployment. See LOCAL_VISUAL_RELEASE.md.
+The source snapshot v2 on Drive also contains local experimental gameplay; it is
+a reference snapshot and must not replace the live test API.
