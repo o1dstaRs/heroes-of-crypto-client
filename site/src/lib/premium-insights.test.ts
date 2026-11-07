@@ -60,9 +60,9 @@ test("snapshot highlights compare units within level and never headline tiny sam
     expect(result.unitLaggards).toEqual([]);
     expect(JSON.stringify(data)).toBe(before);
     const html = renderPremiumInsights(data, catalog, view);
-    expect(html).toContain("Advantage unresolved");
-    expect(html).toContain("No clear below-50% unit result");
-    expect(html).toContain("selected snapshot, cohort and map");
+    expect(html).toContain("Snapshot results");
+    expect(html).toContain("Overlapping intervals do not establish a winner");
+    expect(html).toContain('data-add-crew="3"');
     expect(html).not.toContain("Wolf");
 });
 
@@ -91,7 +91,8 @@ test("matchup groups retain own/opponent direction, support and unresolved inter
     expect(html).toContain("Griffin");
     expect(html).toContain("65.0%");
     expect(html).toContain("35.0%");
-    expect(html).toContain("not one-on-one duels or proven counters");
+    expect(html).toContain("full armies that contained the two units on opposite sides");
+    expect(html).toContain("Other units and upgrades also affect the result.");
 });
 
 test("unavailable and insufficient matchup data never become a losing score", () => {
