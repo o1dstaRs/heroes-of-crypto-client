@@ -4475,6 +4475,7 @@ export class Sandbox extends PixiScene {
         );
         this.applyReplayEvents(replayEvents, record.stateAfter);
         this.popRecordedDullingDefense(record.events);
+        this.popRecordedResistances(record.events);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -5332,6 +5333,7 @@ export class Sandbox extends PixiScene {
                         // The unit this blow struck. The incoming hit lists both fighters too, and popping there
                         // showed Dulling Defense before the knight had answered.
                         this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
+                        this.popRecordedResistances(dullingEvents, new Set([strike.targetId]));
                         const remaining = consumeLoss(strike.targetId, strike.unitsDied);
                         renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
                         const from = source.getVisualCenter(gs);
@@ -5690,6 +5692,7 @@ export class Sandbox extends PixiScene {
             unit?.presentDamageCasualties(hit.unitsDied);
             if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
+            this.popRecordedResistances(context.events, new Set([hit.unitId]));
             this.showGravechainVfx(
                 context.damage,
                 { attackerId: attacker.getId(), response: context.response ?? false, hitIndex: context.hitIndex },
@@ -5824,6 +5827,7 @@ export class Sandbox extends PixiScene {
                     unit?.presentDamageCasualties(hit.unitsDied);
                     if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
+                    this.popRecordedResistances(events, new Set([hit.unitId]));
                     this.showGravechainVfx(
                         event.damage,
                         { attackerId: attacker.getId(), response: false, hitIndex },
@@ -6763,6 +6767,7 @@ export class Sandbox extends PixiScene {
             attacker,
         );
         this.popRecordedDullingDefense(record.events);
+        this.popRecordedResistances(record.events);
         spawnResponseAbilitySteal();
         onImpact?.();
 
@@ -9609,17 +9614,7 @@ export class Sandbox extends PixiScene {
         }
     }
     protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
-        const resistedUnits = new Set<string>();
-        for (const event of events ?? []) {
-            if (event.type !== "effects_applied") continue;
-            for (const application of event.applications) {
-                if (application.kind === "debuff" && application.resisted) resistedUnits.add(application.unitId);
-            }
-        }
-        for (const id of resistedUnits) {
-            const recipient = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (recipient && !recipient.isDead()) this.combatVisuals?.spawnCommonFlagPop(recipient, "resist");
-        }
+        this.popRecordedResistances(events);
         for (const unitId of empowerAppliedUnitIds(events)) {
             const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             if (!recipient || recipient.isDead()) continue;
@@ -13273,6 +13268,7 @@ export class Sandbox extends PixiScene {
         // A skewer or a spin dulls someone the exchange never drew. The blow itself already popped
         // the unit it struck.
         this.popRecordedDullingDefense(attackActionEvents);
+        this.popRecordedResistances(attackActionEvents);
 
         if (stackLost > 0 || hpLost > 0) {
             const maxHp = attacker.getMaxHp();
@@ -21243,9 +21239,46 @@ export class Sandbox extends PixiScene {
     }
     private beginDullingDefensePresentation(): void {
         this.dullingPopShownForAction = new Set();
+        this.resistancePopsShownForAction = new WeakMap();
+        this.resistanceLogsShownForAction = new WeakSet();
         this.shownAbsolutions = new WeakSet();
         this.shownGravechains = new WeakSet();
         this.legacyGraveboundShown = new Set();
+    }
+    private resistancePopsShownForAction?: WeakMap<GameEvent, Set<string>>;
+    private resistanceLogsShownForAction?: WeakSet<object>;
+    protected popRecordedResistances(
+        events: readonly GameEvent[] | undefined,
+        onlyUnitIds?: ReadonlySet<string>,
+    ): void {
+        const seenEvents = (this.resistancePopsShownForAction ??= new WeakMap());
+        const seenLogs = (this.resistanceLogsShownForAction ??= new WeakSet());
+        const recipients = new Map<string, RenderableUnit>();
+        for (const event of events ?? []) {
+            if (event.type !== "effects_applied") continue;
+            const shown = seenEvents.get(event) ?? new Set<string>();
+            seenEvents.set(event, shown);
+            for (const application of event.applications) {
+                if (
+                    !application.resisted ||
+                    application.kind === "buff" ||
+                    (onlyUnitIds && !onlyUnitIds.has(application.unitId))
+                )
+                    continue;
+                const unit = this.unitsHolder.getAllUnits().get(application.unitId) as RenderableUnit | undefined;
+                if (!unit || unit.isDead()) continue;
+                if (application.kind === "effect" && application.resistedBy && !seenLogs.has(application)) {
+                    seenLogs.add(application);
+                    this.sc_sceneLog?.updateLog(
+                        `${unit.getName()} resisted ${application.name} (${application.resistedBy})`,
+                    );
+                }
+                if (shown.has(application.unitId)) continue;
+                shown.add(application.unitId);
+                recipients.set(application.unitId, unit);
+            }
+        }
+        for (const unit of recipients.values()) this.combatVisuals?.spawnCommonFlagPop(unit, "resist");
     }
     protected popRecordedDullingDefense(
         events: readonly GameEvent[] | undefined,

@@ -7,6 +7,7 @@ import { Sandbox } from "./Sandbox";
 const fixture = (source: "skewer_strike" | "lightning_spin") => {
     const flashes: string[] = [];
     const pops: string[] = [];
+    const resists: string[] = [];
     const unit = (id: string) => {
         let properties = { id, amount_alive: 10, base_attack: 8 };
         return {
@@ -84,6 +85,10 @@ const fixture = (source: "skewer_strike" | "lightning_spin") => {
         combatVisuals: {
             showFloatingDamage: () => undefined,
             spawnCommonFlagPop: (recipient: { getId(): string }, kind: string) => {
+                if (kind === "resist") {
+                    resists.push(recipient.getId());
+                    return;
+                }
                 expect(kind).toBe("dulling_defense");
                 pops.push(recipient.getId());
             },
@@ -106,6 +111,7 @@ const fixture = (source: "skewer_strike" | "lightning_spin") => {
         scene,
         secondary,
         pops,
+        resists,
         flashes,
         setSelectedUnitProperties,
         run: () => scene.playReplayAttackRecord(record) as Promise<boolean>,
@@ -119,6 +125,7 @@ describe("recorded Dulling Defense presentation", () => {
             const h = fixture(source);
             expect(await h.run()).toBe(true);
             expect(h.pops).toEqual(["primary", "secondary"]);
+            expect(h.resists).toEqual(["resisted"]);
             expect(h.flashes).toEqual(["primary", "secondary"]);
         },
     );
@@ -136,6 +143,7 @@ describe("recorded Dulling Defense presentation", () => {
         expect(await h.run()).toBe(true);
         expect(await h.run()).toBe(true);
         expect(h.pops).toEqual(["primary", "secondary", "primary", "secondary"]);
+        expect(h.resists).toEqual(["resisted", "resisted"]);
         expect(h.setSelectedUnitProperties).toHaveBeenCalledTimes(2);
     });
 });

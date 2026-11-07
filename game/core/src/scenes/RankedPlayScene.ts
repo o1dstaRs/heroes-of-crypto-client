@@ -1300,14 +1300,14 @@ export const effectsAppliedSceneLogLines = (
     }
     const lines: string[] = [];
     for (const entry of event.applications) {
-        if (suppress.has(`${entry.unitId}|${entry.name}`)) {
+        if (!entry.resisted && suppress.has(`${entry.unitId}|${entry.name}`)) {
             continue;
         }
         const name = unitNames.get(entry.unitId) ?? "Unit";
         const flag = flagForUnit(entry.unitId);
         let text: string;
         if (entry.resisted) {
-            text = `${name} resisted ${entry.name}`;
+            text = `${name} resisted ${entry.name}${entry.resistedBy ? ` (${entry.resistedBy})` : ""}`;
         } else if (entry.kind === "buff" && entry.sourceUnitId) {
             text = `${name} copied ${entry.name} from ${unitNames.get(entry.sourceUnitId) ?? "Unit"}`;
         } else {

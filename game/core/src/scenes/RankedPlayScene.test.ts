@@ -2004,6 +2004,28 @@ describe("ranked effects_applied scene log", () => {
         >[0];
         expect(effectsAppliedSceneLogLines(other, names, flags)).toEqual([]);
     });
+
+    test("names Madness and keeps resisted spells visible after the cast is narrated", () => {
+        const event = {
+            type: "effects_applied",
+            applications: [
+                { unitId: "trog", name: "Blindness", kind: "effect", resisted: true, resistedBy: "Madness" },
+                { unitId: "trog", name: "Sadness", kind: "debuff", resisted: true, resistedBy: "Madness" },
+                { unitId: "hyena", name: "Misfortune", kind: "debuff", resisted: true },
+            ],
+        } as const;
+        const lines = effectsAppliedSceneLogLines(
+            { ...event, applications: [...event.applications] },
+            new Map([...names, ["trog", "Troglodyte"]]),
+            flags,
+            new Set(["trog|Sadness", "hyena|Misfortune"]),
+        );
+        expect(lines).toEqual([
+            "🟢 Troglodyte resisted Blindness (Madness)",
+            "🟢 Troglodyte resisted Sadness (Madness)",
+            "🔴 Hyena resisted Misfortune",
+        ]);
+    });
 });
 
 describe("ranked rolled-cast outcome lines", () => {

@@ -142,7 +142,10 @@ test("shared live/replay exchange shows the horn from the second incoming action
     expect(spawnCommonFlagPop.mock.calls).toEqual([[victim, "unicorn_blindness"]]);
     spawnCommonFlagPop.mockClear();
     await exchange(1, application(true));
-    expect(spawnCommonFlagPop.mock.calls).toEqual([[source, "unicorn_retaliation"]]);
+    expect(spawnCommonFlagPop.mock.calls).toEqual([
+        [source, "unicorn_retaliation"],
+        [victim, "resist"],
+    ]);
     spawnCommonFlagPop.mockClear();
     // Further incoming attacks show the horn even if there is no response strike.
     await exchange(1, [], true);
@@ -163,7 +166,8 @@ test("shared live/replay exchange shows the horn from the second incoming action
         undefined,
         2,
     );
-    expect(spawnCommonFlagPop).not.toHaveBeenCalled();
+    expect(spawnCommonFlagPop.mock.calls).toEqual([[victim, "resist"]]);
+    spawnCommonFlagPop.mockClear();
     await exchange(2);
     expect(spawnCommonFlagPop.mock.calls).toEqual([[source, "unicorn_retaliation"]]);
 });
