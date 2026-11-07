@@ -1,5 +1,6 @@
 ---
 import corePackage from "../../../game/core/package.json";
+import PremiumIcon from "./PremiumIcon.astro";
 import { content, languageSwitchPath, links, localPath, type Language } from "../lib/site-data";
 
 interface Props {
@@ -56,7 +57,8 @@ const legacyKnowledgePaths = new Set(
                     (item.href === localPath(lang, "game") && (normalizedPath === "" || normalizedPath === "/ru"));
 
                 return (
-                    <a class:list={["nav-link", { active: isActive }]} href={item.href}>
+                    <a class:list={["nav-link", { active: isActive, "nav-premium": item.label === "Premium" }]} href={item.href}>
+                        {item.label === "Premium" && <PremiumIcon size="18px" />}
                         {item.label}
                     </a>
                 );
@@ -169,6 +171,18 @@ const legacyKnowledgePaths = new Set(
 </script>
 
 <style>
+    .main-nav .nav-premium,
+    .main-nav .nav-link.nav-premium.active {
+        color: var(--hoc-premium-accent);
+        text-shadow: 0 0 18px rgba(255, 130, 45, 0.25);
+    }
+
+    .main-nav .nav-premium {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
     .nav-link {
         font-size: 1.0465rem;
     }

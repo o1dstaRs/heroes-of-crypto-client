@@ -7,6 +7,7 @@ import {
     premiumCrewFormation,
     premiumCrewSlots,
     premiumCrewSynergies,
+    renderPremiumCrew,
 } from "./premium-crew";
 import { premiumCrewEvidenceResponse } from "../../server/premium-crew-evidence";
 import type { PremiumEvidenceSnapshot } from "@heroesofcrypto/common/src/simulation/premium_evidence_snapshot";
@@ -21,6 +22,18 @@ const crew = (offset = 0) => {
     }
     return picked;
 };
+
+test("crew tools remain usable without offering unavailable statistical picks", () => {
+    const empty = renderPremiumCrew([], catalog, "en", "screen", 1, false);
+    expect(empty).toContain("data-crew-slot");
+    expect(empty).not.toContain("data-crew-sample");
+    expect(empty).not.toContain("rankings");
+    const built = renderPremiumCrew(crew(), catalog, "en", "screen", 1, false);
+    expect(built).toContain("Suggested formation");
+    expect(built).toContain("Artifacts for this crew");
+    expect(built).toContain("data-crew-share");
+    expect(built).not.toContain("data-crew-sample");
+});
 
 test("ranked crew limits survive replacement, removal and programmatic input", () => {
     const ids = crew();

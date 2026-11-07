@@ -181,7 +181,7 @@ export function renderPremiumDashboard(
     const t = translate(view);
     const lib = data.library;
     if (!lib || !data.snapshot)
-        return `<div class="premium-empty"><h2>${t("Battle statistics are unavailable", "Статистика боёв недоступна")}</h2><p>${t("You can still ask about game rules and strategy.", "Вы по-прежнему можете задавать вопросы о правилах и стратегии.")} <a href="#premium-search">${t("Ask Premium AI", "Спросить Premium AI")} ↓</a></p></div>`;
+        return `<div class="premium-empty"><h2>${t("Battle statistics have not been published yet", "Статистика боёв пока не опубликована")}</h2><p>${t("Build your crew below, explore its artifacts and faction bonuses, or ask about game rules and strategy.", "Соберите армию ниже, изучите её артефакты и бонусы фракций или задайте вопросы о правилах и стратегии.")} <a href="#premium-search">${t("Ask Premium AI", "Спросить Premium AI")} ↓</a></p></div>${premiumCrewShell(view.lang)}`;
     const snapshot = data.snapshots.find((item) => item.snapshotId === data.snapshot!.snapshotId) ?? data.snapshot;
     const plans = rankPremiumRows(lib.plans, view.minimum).slice(0, 8);
     return `${renderPremiumInsights(lib, catalog, view, snapshot)}

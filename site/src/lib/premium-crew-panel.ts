@@ -71,6 +71,12 @@ export function initPremiumCrew(
     };
     const choices = () => {
         const rows = new Map(getData()?.library?.units.map((row) => [row.ids[0], row]));
+        picker.querySelector(".premium-crew-sort")!.textContent = getData()?.library
+            ? t(
+                  "Strongest supported results first · hover for abilities",
+                  "Сначала лучшие подтверждённые результаты · способности при наведении",
+              )
+            : t("Units by name · hover for abilities", "Юниты по имени · способности при наведении");
         const visible = Object.entries(catalog.units)
             .filter(
                 ([id, item]) =>
@@ -179,7 +185,14 @@ export function initPremiumCrew(
         const target = root.querySelector<HTMLElement>("[data-crew-content]");
         if (!target) return;
         if (getData()?.library) battlefield = String(getData()!.library!.scope.map ?? "all") as CrewBattlefield;
-        target.innerHTML = renderPremiumCrew(ids, catalog, lang, layout, getData()?.library?.scope.map ?? 1);
+        target.innerHTML = renderPremiumCrew(
+            ids,
+            catalog,
+            lang,
+            layout,
+            battlefield === "all" ? 1 : Number(battlefield),
+            !!getData()?.library,
+        );
         persist();
         void checkEvidence();
     };

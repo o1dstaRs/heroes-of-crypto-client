@@ -9,3 +9,44 @@
     --hoc-premium-disabled: #2b1c13;
     --hoc-premium-muted: #b3a59a;
 }
+
+.premium-guide-label {
+    color: var(--hoc-premium-accent);
+}
+
+@supports (background-clip: text) {
+    .premium-guide-label {
+        background: linear-gradient(
+            110deg,
+            var(--hoc-premium-accent) 35%,
+            var(--hoc-premium-text) 47%,
+            #fff6e9 50%,
+            var(--hoc-premium-text) 53%,
+            var(--hoc-premium-accent) 65%
+        );
+        background-size: 300% 100%;
+        background-clip: text;
+        color: transparent;
+        animation: premium-guide-shine 5.5s ease-in-out infinite;
+    }
+}
+
+@keyframes premium-guide-shine {
+    0%,
+    55% {
+        background-position: 100% 50%;
+    }
+
+    85%,
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+    .premium-guide-label {
+        background: none;
+        color: var(--hoc-premium-accent);
+        animation: none;
+    }
+}

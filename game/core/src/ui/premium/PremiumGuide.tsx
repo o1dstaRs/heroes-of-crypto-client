@@ -17,6 +17,7 @@ import type { PremiumEvidence } from "../../api/premium_client";
 import { siteUrl } from "../../api/site_origin";
 import { useAuthContext } from "../auth/context/auth_context";
 import { hocFontFamily } from "../hocTheme";
+import { PremiumIcon } from "../PremiumIcon";
 import { usePremiumAccess } from "./PremiumAccess";
 import { PremiumAnswer } from "./PremiumAnswer";
 import { PremiumButton } from "./PremiumButton";
@@ -278,7 +279,11 @@ export const PremiumGuide: React.FC<{
                     px: 0.5,
                     minHeight: 36,
                     width: "100%",
-                    color: open ? "#ffe2b8" : "#dbb98f",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 0.75,
+                    color: "var(--hoc-premium-accent)",
                     fontFamily: hocFontFamily,
                     fontSize: compact ? "0.8125rem" : "0.875rem",
                     fontWeight: 500,
@@ -289,11 +294,16 @@ export const PremiumGuide: React.FC<{
                     textDecorationColor: "transparent",
                     textUnderlineOffset: 5,
                     transition: "color 140ms ease, text-decoration-color 140ms ease",
-                    "&:hover": { color: "#ffe2b8", textDecorationColor: "#ae845a" },
-                    "&:focus-visible": { outline: "1px solid #d5ad79", outlineOffset: 3, borderRadius: 3 },
+                    "&:hover": { textDecorationColor: "var(--hoc-premium-accent)" },
+                    "&:focus-visible": {
+                        outline: "1px solid var(--hoc-premium-accent)",
+                        outlineOffset: 3,
+                        borderRadius: 3,
+                    },
                 }}
             >
-                Premium guide
+                <PremiumIcon size={18} />
+                <span className="premium-guide-label">Premium guide</span>
             </Box>
             <Popper
                 open={open}
