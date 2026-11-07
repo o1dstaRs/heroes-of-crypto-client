@@ -113,6 +113,30 @@ test("server access rejection returns to the account gate", async () => {
     expect(panel.querySelector("[data-ai-transcript]").children).toEqual([]);
 });
 
+test("scope changes clear the old answer and pause questions without hiding the panel", async () => {
+    const { panel, ai, submit } = fixture();
+    let requests = 0;
+    let signal: AbortSignal | undefined;
+    globalThis.fetch = ((_url, init) => {
+        requests++;
+        signal = init!.signal as AbortSignal;
+        return new Promise((_resolve, reject) => signal!.addEventListener("abort", () => reject(new Error("Aborted"))));
+    }) as typeof fetch;
+    ai.setAccess(true);
+    submit();
+    ai.setAccess(true, undefined, "Updating battle results…", false);
+    await settled();
+    expect(signal?.aborted).toBe(true);
+    expect(panel.hidden).toBe(false);
+    expect(panel.querySelector("[data-ai-question]").disabled).toBe(true);
+    expect(panel.querySelector("[data-ai-transcript]").children).toEqual([]);
+    submit();
+    expect(requests).toBe(1);
+    ai.setAccess(true, { snapshotId: "snapshot", cohort: "ranked-draft", map: 3, minimumFamilies: 50 });
+    expect(panel.querySelector("[data-ai-question]").disabled).toBe(false);
+    expect(panel.querySelector("[data-ai-submit]").disabled).toBe(false);
+});
+
 test("shows progress before any tokens and keeps it through lookups and answer resets", async () => {
     const { panel, ai, submit } = fixture();
     let stream: ReadableStreamDefaultController<Uint8Array>;

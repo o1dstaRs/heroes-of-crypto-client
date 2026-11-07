@@ -39,7 +39,7 @@ const BAND_COLORS = {
  * scale. Other players never see this; they only see an Honorable badge on a public profile.
  *
  * The score is shown WITHOUT its itemization — no ledger of changes, no account bonuses (owner, 20 Sep). The server
- * does not send either any more, so there is nothing here to hide: what a match, an abandon or a linked wallet is
+ * does not send either any more, so there is nothing here to hide: what a match, an abandon or a verified email is
  * worth stays on the server, where knowing it cannot help anyone farm it.
  */
 export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0 }) => {

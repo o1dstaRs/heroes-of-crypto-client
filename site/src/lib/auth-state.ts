@@ -29,11 +29,11 @@ export function normalizeAuthToken(value: string | null | undefined): string | n
 }
 
 export function authTokenExpiration(value: string | null | undefined): number | null {
-    const normalized = normalizeAuthToken(value);
-    if (!normalized) return null;
-
     try {
-        const jwt = normalized.slice("Bearer ".length);
+        // Keep this parser self-contained: the static play page also runs it in its
+        // small, synchronous first-paint script before deferred modules arrive.
+        const jwt = (value?.trim() ?? "").replace(/^Bearer\s+/i, "").trim();
+        if (!jwt) return null;
         const payload = jwt.split(".")[1];
         if (!payload) return null;
 

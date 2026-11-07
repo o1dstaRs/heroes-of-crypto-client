@@ -33,8 +33,6 @@
         "@mui/joy": "^5.0.0-beta.52",
         "@mui/material": "^7.3.11",
         "@mui/system": "^7.3.11",
-        "@rainbow-me/rainbowkit": "^2.2.11",
-        "@tanstack/react-query": "5.104.5",
         "@types/node-schedule": "^2.1.8",
         "@types/randomcolor": "^0.5.9",
         "@types/react": "^19.3.0",
@@ -54,9 +52,7 @@
         "sort-package-json": "4.0.0",
         "typed-signals": "^3.0.0",
         "typeface-open-sans": "1.1.13",
-        "uuid": "^11.1.1",
-        "viem": "2.57.7",
-        "wagmi": "^2.19.5"
+        "uuid": "^11.1.1"
     },
     "devDependencies": {
         "@emotion/cache": "11.14.0",
