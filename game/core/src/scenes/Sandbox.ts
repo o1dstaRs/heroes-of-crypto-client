@@ -961,7 +961,7 @@ export class Sandbox extends PixiScene {
     private canAttackByMeleeTargets?: IAttackTargets;
     private canAttackMountainTargets?: IAttackTargets;
     private canAttackByRangeTargets?: Set<string>;
-    private readonly attackHandler: AttackHandler;
+    protected readonly attackHandler: AttackHandler;
     private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
     protected buttonManager: ButtonManager;
@@ -20269,6 +20269,7 @@ export class Sandbox extends PixiScene {
                     unit,
                     this.unitsHolder.getAllUnits(),
                     this.sc_sceneSettings.getGridSettings(),
+                    { grid: this.grid, unitsHolder: this.unitsHolder, attackHandler: this.attackHandler },
                 );
                 this.drawnSandboxPremiumAdviceKey = key;
             })

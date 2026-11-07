@@ -43,6 +43,10 @@ export interface PremiumTurnAssessment {
         crossesWater: boolean;
         touchingEnemies: { id: string; name: string }[];
     };
+    rangedInterception?: {
+        barrelCells: { x: number; y: number }[];
+        continuesAfterBarrels: boolean;
+    };
     damage?: {
         kind: "chance-weighted-shot-hp";
         enemyHpLoss: number;
