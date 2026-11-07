@@ -172,3 +172,24 @@ describe("live target highlights above battlefield figures", () => {
         });
     }
 });
+
+test("target tint follows changing idle frames and transforms, and pooled tints stop following old targets", () => {
+    const { unit, hover, textures } = fixture(shapes[0], 8, false);
+    const figure = figureOf(unit);
+    hover.addTargetHighlight(unit);
+    const highlight = hoverVisuals(hover).hoverTargetSilhouettes[0];
+    const nextFrame = new Texture({ source: new TextureSource({ width: 160, height: 224 }) });
+    textures.push(nextFrame);
+    figure.texture = nextFrame;
+    figure.anchor.set(0.4, 0.7);
+    figure.position.set(figure.x + 8, figure.y + 12);
+    figure.scale.set(-0.75, -0.9);
+    figure.rotation = 0.12;
+    hover.syncTargetHighlights();
+    expectLiveGeometry(highlight, figure);
+    hover.clearAttackVisuals();
+    figure.position.x += 20;
+    hover.syncTargetHighlights();
+    expect(highlight.visible).toBe(false);
+    expect(highlight.x).not.toBe(figure.x);
+});

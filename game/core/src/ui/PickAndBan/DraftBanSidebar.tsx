@@ -1,4 +1,4 @@
-import { getCreatureLevel } from "@heroesofcrypto/common";
+import { Doctrine, getCreatureLevel } from "@heroesofcrypto/common";
 import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
@@ -16,14 +16,17 @@ const BAN_FRAME_WIDTH = BAN_ICON_WIDTH * 2 + BAN_ICON_GAP * 3 + 2;
 /** Only group identities already authorized by the private draft stream. */
 export const DraftBanSidebar: React.FC<{
     banned: readonly number[];
+    doctrine: number;
     side?: "left" | "right";
-}> = ({ banned, side = "right" }) => {
+}> = ({ banned, doctrine, side = "right" }) => {
     const { t } = useTranslation();
+    if (doctrine !== Doctrine.Doctrine.THREE_REVEALS && doctrine !== Doctrine.Doctrine.SEE_ALL) return null;
     const visible = [...new Set(banned)].filter((id) => !!UNIT_ID_TO_NAME[id]);
     const groups = [1, 2, 3, 4].flatMap((level) => {
         const ids = visible.filter((id) => getCreatureLevel(id) === level);
         return ids.length ? [{ level, ids }] : [];
     });
+    if (!groups.length) return null;
     return (
         <Box
             data-testid="draft-ban-placement"
@@ -31,7 +34,10 @@ export const DraftBanSidebar: React.FC<{
             sx={{
                 position: "absolute",
                 zIndex: 6,
-                top: "96px",
+                top: "24px",
+                maxHeight: "calc(100% - 48px)",
+                overflowY: "auto",
+                scrollbarWidth: "thin",
                 [side]: `${-BAN_FRAME_WIDTH - 18}px`,
                 width: `${BAN_FRAME_WIDTH}px`,
                 height: "auto",
@@ -42,6 +48,7 @@ export const DraftBanSidebar: React.FC<{
                     top: { xs: "72px", md: "132px" },
                     width: "auto",
                     height: { xs: "40px", md: "58px" },
+                    maxHeight: "none",
                     "& > section": { gridTemplateColumns: "104px minmax(0, 1fr)", gridTemplateRows: "1fr", py: "5px" },
                     "& .draft-ban-heading": { flexDirection: "column", gap: 0, fontSize: "11px" },
                     "& .draft-ban-groups": { display: "flex", flexDirection: "row", gap: "8px" },
@@ -62,7 +69,6 @@ export const DraftBanSidebar: React.FC<{
                     },
                     "& ul": { display: "flex", justifyContent: "space-evenly", flex: 1, gap: "3px" },
                     "& li": { width: { xs: "22.4px", md: "35.2px" }, height: { xs: "28px", md: "44px" } },
-                    "& .draft-ban-empty": { alignSelf: "center", fontSize: "11px" },
                 },
             }}
         >
@@ -75,9 +81,10 @@ export const DraftBanSidebar: React.FC<{
                     gridTemplateRows: "auto auto",
                     gap: "8px",
                     width: "100%",
-                    height: "100%",
+                    height: "auto",
                     minHeight: 0,
                     p: `${BAN_ICON_GAP}px`,
+                    pb: "8px",
                     bgcolor: "rgba(20,13,7,.9)",
                     color: "#efe4cc",
                     border: "1px solid rgba(211,166,91,.35)",
@@ -101,116 +108,101 @@ export const DraftBanSidebar: React.FC<{
                 >
                     BANS
                 </Typography>
-                {groups.length ? (
-                    <Box
-                        className="draft-ban-groups"
-                        sx={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: 0 }}
-                    >
-                        {groups.map(({ level, ids }) => (
-                            <Box
-                                key={level}
-                                className="draft-ban-group"
-                                role="group"
-                                aria-label={tf("Level {level}", { level })}
-                                data-ban-level={level}
+                <Box
+                    className="draft-ban-groups"
+                    sx={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: 0 }}
+                >
+                    {groups.map(({ level, ids }) => (
+                        <Box
+                            key={level}
+                            className="draft-ban-group"
+                            role="group"
+                            aria-label={tf("Level {level}", { level })}
+                            data-ban-level={level}
+                            sx={{
+                                flex: "0 0 auto",
+                                minHeight: 0,
+                                minWidth: 0,
+                                display: "grid",
+                                gridTemplateRows: "14px auto",
+                                gap: "4px",
+                                borderTop: "1px solid #b28a4d55",
+                                pt: "5px",
+                            }}
+                        >
+                            <Typography
+                                className="draft-ban-level"
+                                component="h3"
                                 sx={{
-                                    flex: "0 0 auto",
-                                    minHeight: 0,
-                                    minWidth: 0,
-                                    display: "grid",
-                                    gridTemplateRows: "14px auto",
-                                    gap: "4px",
-                                    borderTop: "1px solid #b28a4d55",
-                                    pt: "5px",
+                                    display: "flex",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    color: "#d4bb8e",
+                                    fontSize: "10px",
+                                    letterSpacing: "1px",
+                                    lineHeight: 1,
                                 }}
                             >
-                                <Typography
-                                    className="draft-ban-level"
-                                    component="h3"
-                                    sx={{
-                                        display: "flex",
-                                        justifyContent: "center",
-                                        alignItems: "center",
-                                        color: "#d4bb8e",
-                                        fontSize: "10px",
-                                        letterSpacing: "1px",
-                                        lineHeight: 1,
-                                    }}
-                                >
-                                    <span>L{level}</span>
-                                </Typography>
-                                <Box
-                                    component="ul"
-                                    sx={{
-                                        display: "grid",
-                                        gridTemplateColumns: `repeat(2, ${BAN_ICON_WIDTH}px)`,
-                                        gridTemplateRows: `repeat(${Math.ceil(ids.length / 2)}, ${BAN_ICON_HEIGHT}px)`,
-                                        justifyItems: "end",
-                                        gap: `${BAN_ICON_GAP}px`,
-                                        "& > li:nth-of-type(even)": { justifySelf: "start" },
-                                        minHeight: 0,
-                                        m: 0,
-                                        p: 0,
-                                        listStyle: "none",
-                                    }}
-                                >
-                                    {ids.map((id) => (
-                                        <Tooltip
-                                            key={id}
-                                            title={t(UNIT_ID_TO_NAME[id])}
-                                            variant="soft"
-                                            placement="left"
+                                <span>L{level}</span>
+                            </Typography>
+                            <Box
+                                component="ul"
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: `repeat(2, ${BAN_ICON_WIDTH}px)`,
+                                    gridTemplateRows: `repeat(${Math.ceil(ids.length / 2)}, ${BAN_ICON_HEIGHT}px)`,
+                                    justifyItems: "end",
+                                    gap: `${BAN_ICON_GAP}px`,
+                                    "& > li:nth-of-type(even)": { justifySelf: "start" },
+                                    minHeight: 0,
+                                    m: 0,
+                                    p: 0,
+                                    listStyle: "none",
+                                }}
+                            >
+                                {ids.map((id) => (
+                                    <Tooltip key={id} title={t(UNIT_ID_TO_NAME[id])} variant="soft" placement="left">
+                                        <Box
+                                            component="li"
+                                            aria-label={t(UNIT_ID_TO_NAME[id])}
+                                            tabIndex={0}
+                                            sx={{
+                                                position: "relative",
+                                                width: `${BAN_ICON_WIDTH}px`,
+                                                height: `${BAN_ICON_HEIGHT}px`,
+                                                aspectRatio: "4 / 5",
+                                                maxWidth: "100%",
+                                                boxSizing: "border-box",
+                                                flexShrink: 0,
+                                                overflow: "visible",
+                                                border: "1px solid rgba(187,83,70,.65)",
+                                                borderRadius: "4px",
+                                                "&:hover, &:focus-visible": {
+                                                    outline: "1px solid #d3a65b",
+                                                    outlineOffset: "1px",
+                                                },
+                                            }}
                                         >
-                                            <Box
-                                                component="li"
-                                                aria-label={t(UNIT_ID_TO_NAME[id])}
-                                                tabIndex={0}
+                                            <CreaturePortraitImage
+                                                creatureId={id}
+                                                alt=""
                                                 sx={{
-                                                    position: "relative",
-                                                    width: `${BAN_ICON_WIDTH}px`,
-                                                    height: `${BAN_ICON_HEIGHT}px`,
-                                                    aspectRatio: "4 / 5",
-                                                    maxWidth: "100%",
-                                                    boxSizing: "border-box",
-                                                    flexShrink: 0,
-                                                    overflow: "visible",
-                                                    border: "1px solid rgba(187,83,70,.65)",
-                                                    borderRadius: "4px",
-                                                    "&:hover, &:focus-visible": {
-                                                        outline: "1px solid #d3a65b",
-                                                        outlineOffset: "1px",
-                                                    },
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    opacity: 0.75,
+                                                    borderRadius: "3px",
+                                                    zIndex: 1,
+                                                    isolation: "isolate",
                                                 }}
-                                            >
-                                                <CreaturePortraitImage
-                                                    creatureId={id}
-                                                    alt=""
-                                                    sx={{
-                                                        width: "100%",
-                                                        height: "100%",
-                                                        opacity: 0.75,
-                                                        borderRadius: "3px",
-                                                        zIndex: 1,
-                                                        isolation: "isolate",
-                                                    }}
-                                                />
-                                                <DraftBanSlash />
-                                            </Box>
-                                        </Tooltip>
-                                    ))}
-                                </Box>
+                                            />
+                                            <DraftBanSlash />
+                                        </Box>
+                                    </Tooltip>
+                                ))}
                             </Box>
-                        ))}
-                    </Box>
-                ) : (
-                    <Typography
-                        className="draft-ban-empty"
-                        level="body-sm"
-                        sx={{ color: "#c0b7a6", fontSize: "12px", alignSelf: "start", textAlign: "center" }}
-                    >
-                        {t("Bans are revealed when each creature level opens.")}
-                    </Typography>
-                )}
+                        </Box>
+                    ))}
+                </Box>
             </Sheet>
         </Box>
     );

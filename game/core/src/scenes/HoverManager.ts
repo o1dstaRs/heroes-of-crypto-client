@@ -1585,6 +1585,7 @@ export class HoverManager {
             this.silhouettePool.push(s);
         }
         this.hoverTargetSilhouettes = [];
+        this.targetHighlightUnits.clear();
 
         // Hide the per-unit AOE damage labels (Gargantuan Area Throw preview) and return them to the pool,
         // exactly like the silhouettes above. updateAreaThrowHover calls clearAttackVisuals() at the top of
@@ -1807,6 +1808,7 @@ export class HoverManager {
         }
     }
     private hoverTargetSilhouettes: Sprite[] = [];
+    private targetHighlightUnits = new Map<Sprite, Unit>();
     private silhouettePool: Sprite[] = [];
     private highlightedUnits: Unit[] = [];
     public addTargetHighlight(targetUnit: Unit, tint: number = 0xff3030): void {
@@ -1874,6 +1876,20 @@ export class HoverManager {
         silhouette.tint = tint;
 
         this.hoverTargetSilhouettes.push(silhouette);
+        this.targetHighlightUnits.set(silhouette, targetUnit);
+    }
+    /** Run after creature animation so the tint uses the exact frame rendered this tick. */
+    public syncTargetHighlights(): void {
+        for (const [silhouette, unit] of this.targetHighlightUnits) {
+            if (silhouette.destroyed) continue;
+            const preview = this.getLiveUnitPreview(unit.getUnitProperties(), unit.getPosition(), unit);
+            if (!preview) continue;
+            silhouette.texture = preview.texture;
+            silhouette.anchor.set(preview.anchorX, preview.anchorY);
+            silhouette.scale.set(preview.scaleX, preview.scaleY);
+            silhouette.position.set(preview.x, preview.y);
+            silhouette.rotation = preview.rotation;
+        }
     }
     private aoeDamageLabels: Text[] = [];
     private aoeDamageLabelPool: Text[] = [];

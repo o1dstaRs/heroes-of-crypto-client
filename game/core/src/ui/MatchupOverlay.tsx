@@ -635,11 +635,11 @@ const Side: React.FC<{
                         height: 56,
                         flex: "0 0 56px",
                         boxSizing: "border-box",
-                        p: "4px",
+                        p: "1px",
                         border: "1px solid #d8ad66",
                         borderRadius: "50%",
-                        background: "linear-gradient(145deg, #f0cf89, #93602e 30%, #392313 52%, #be8846 78%, #f1cb80)",
-                        boxShadow: "0 3px 7px #000b, inset 0 0 0 1px #382211, inset 0 0 0 3px #c09250",
+                        background: "#18120b",
+                        boxShadow: "0 3px 7px #000b",
                     }}
                 >
                     <Box
@@ -654,7 +654,7 @@ const Side: React.FC<{
                             boxShadow: "0 0 0 1px #18120b, inset 0 0 5px #000",
                         }}
                     >
-                        <PlayerAvatar player={player} profile={profile} size={46} text={text} tone={tone} />
+                        <PlayerAvatar player={player} profile={profile} size={52} text={text} tone={tone} />
                     </Box>
                 </Box>
                 <Box sx={{ minWidth: 0, flex: "1 1 auto" }}>

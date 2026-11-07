@@ -2302,7 +2302,7 @@ interface RankedOverlayProps {
 
 interface RankedPlacementStackActionsProps {
     canSubmit: boolean;
-    selectedUnit: PlayUnitState;
+    selectedUnit?: PlayUnitState;
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
     userTeam: TeamType;
@@ -2359,7 +2359,7 @@ const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
 };
 
 export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
-    canSubmit,
+    canSubmit: submissionEnabled,
     selectedUnit,
     snapshot,
     submitGameAction,
@@ -2367,8 +2367,11 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     immediateDelete = false,
 }) => {
     const manager = usePixiManager();
+    const canSubmit = submissionEnabled && !!selectedUnit;
+    const selectedUnitId = selectedUnit?.id ?? "";
     const requestStackAction = useCallback(
         (action: GameAction) => {
+            if (!canSubmit) return;
             const run = () => {
                 void submitGameAction(action);
             };
@@ -2379,9 +2382,9 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                 );
             else run();
         },
-        [manager, submitGameAction],
+        [canSubmit, manager, submitGameAction],
     );
-    const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
+    const amountAlive = Math.max(0, Math.floor(selectedUnit?.amountAlive ?? 0));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
     // Delete permanently destroys the stack — no bench, no undo — so one stray click must not be
     // enough. The first press arms the button; only a second press on the SAME unit commits, and
@@ -2389,7 +2392,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     const [deleteArmed, setDeleteArmed] = useState(false);
     useEffect(() => {
         setDeleteArmed(false);
-    }, [selectedUnit.id]);
+    }, [selectedUnitId]);
     useEffect(() => {
         if (!deleteArmed) {
             return undefined;
@@ -2405,16 +2408,16 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     const teamUnitCount = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead).length;
     const hasStackCapacity = teamUnitCount < effectiveMaxUnits;
     const canSplit = canSubmit && maxSplitAmount >= 1 && hasStackCapacity;
-    const sliderValue = Math.min(Math.max(1, splitAmount), Math.max(1, maxSplitAmount));
+    const sliderValue = selectedUnit ? Math.min(Math.max(1, splitAmount), Math.max(1, maxSplitAmount)) : 0;
 
     useEffect(() => {
         // Reset to a single-unit split (1 / N-1) whenever a different stack is selected — see above.
         setSplitAmount(1);
-    }, [amountAlive, selectedUnit.id]);
+    }, [amountAlive, selectedUnitId]);
 
     // A 1-unit stack cannot split, but it can still be DELETED — with auto-deploy there is no
     // bench, so hiding the whole panel here removed the only way to act on single-unit screens.
-    const canShowSplit = maxSplitAmount >= 1;
+    const canShowSplit = !selectedUnit || maxSplitAmount >= 1;
     // The sandbox's keyboard shortcuts here too: S splits the selected stack by the slider's amount, D
     // deletes it — at once in the co-op sandbox, arm-then-confirm (like the button) in ranked.
     useEffect(() => {
@@ -2433,7 +2436,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
             event.preventDefault();
             event.stopPropagation();
             if (key === "s") {
-                void requestStackAction({ type: "split_unit", unitId: selectedUnit.id, amount: sliderValue });
+                void requestStackAction({ type: "split_unit", unitId: selectedUnitId, amount: sliderValue });
                 return;
             }
             if (!immediateDelete && !deleteArmed) {
@@ -2441,11 +2444,11 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                 return;
             }
             setDeleteArmed(false);
-            void requestStackAction({ type: "delete_unit", unitId: selectedUnit.id });
+            void requestStackAction({ type: "delete_unit", unitId: selectedUnitId });
         };
         window.addEventListener("keydown", onKeyDown, { capture: true });
         return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnit.id, sliderValue, requestStackAction]);
+    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnitId, sliderValue, requestStackAction]);
 
     return (
         <Box
@@ -2488,14 +2491,14 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     (readGameViewport().touch ? (
                         <TouchSplitAmount
                             value={sliderValue}
-                            max={maxSplitAmount}
+                            max={Math.max(1, maxSplitAmount)}
                             disabled={!canSplit}
                             onChange={setSplitAmount}
                         />
                     ) : (
                         <Slider
                             sx={hocSplitterSliderSx}
-                            min={1}
+                            min={selectedUnit ? 1 : 0}
                             max={Math.max(1, maxSplitAmount)}
                             value={sliderValue}
                             disabled={!canSplit}
@@ -2514,7 +2517,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         onClick={() =>
                             void requestStackAction({
                                 type: "split_unit",
-                                unitId: selectedUnit.id,
+                                unitId: selectedUnitId,
                                 amount: sliderValue,
                             })
                         }
@@ -2538,7 +2541,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     disabled={!canSubmit}
                     onClick={() => {
                         if (readGameViewport().touch) {
-                            requestStackAction({ type: "delete_unit", unitId: selectedUnit.id });
+                            requestStackAction({ type: "delete_unit", unitId: selectedUnitId });
                             return;
                         }
                         if (!deleteArmed) {
@@ -2548,7 +2551,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         setDeleteArmed(false);
                         void requestStackAction({
                             type: "delete_unit",
-                            unitId: selectedUnit.id,
+                            unitId: selectedUnitId,
                         });
                     }}
                     sx={{
@@ -2566,7 +2569,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     {deleteArmed ? "Sure?" : "Delete"}
                 </Button>
             </Stack>
-            {!hasStackCapacity && maxUnits > 0 && (
+            {selectedUnit && !hasStackCapacity && maxUnits > 0 && (
                 <Typography level="body-xs" sx={{ mt: 0.75, px: 1.5, textAlign: "center", color: hocColors.muted }}>
                     Board stack limit reached ({teamUnitCount}/{maxUnits})
                 </Typography>
@@ -3697,6 +3700,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     gameId={snapshot.gameId}
                                     stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
                                     auto
+                                    hidePanel
                                 />
                                 {inBoardStage && <PremiumSearchSlot inline />}
                             </>
@@ -3994,11 +3998,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                         {/* The board-stage Ready (start the fight) + per-stack split/unplace controls are hidden
                             during the split Setup stage, when the board is locked. */}
-                        {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
+                        {inBoardStage && (
                             <RankedPlacementStackActions
                                 immediateDelete={skipAugmentStep}
                                 canSubmit={canSubmit && !ready}
-                                selectedUnit={selectedUnit}
+                                selectedUnit={
+                                    selectedUnit?.placed && selectedUnit.team === userTeam ? selectedUnit : undefined
+                                }
                                 snapshot={snapshot}
                                 submitGameAction={submitGameAction}
                                 userTeam={userTeam}
