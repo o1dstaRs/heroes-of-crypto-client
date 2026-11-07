@@ -20,6 +20,22 @@ export function premiumCatalog(lang: "en" | "ru"): PremiumCatalog {
                 anchor: knowledgeEntryId("units", unit.name),
                 level: unit.level,
                 faction: unit.faction,
+                kit: {
+                    role: info!.ranged ? "ranged" : info!.mage ? "support" : info!.canFly ? "flyer" : "melee",
+                    width: info!.footprintWidth,
+                    height: info!.footprintHeight,
+                    amount: unit.draftedAmount,
+                    hp: unit.hp,
+                    armor: unit.armor,
+                    damage: `${unit.damageMin}–${unit.damageMax}`,
+                    steps: unit.steps,
+                    initiative: unit.initiative,
+                    abilities: unit.abilities.map((ability) => ({
+                        name: ability.name,
+                        description: lang === "ru" ? ability.descriptionRu : ability.description,
+                        icon: ability.icon,
+                    })),
+                },
             };
     }
     return {

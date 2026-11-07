@@ -123,6 +123,7 @@ export const sandboxPremiumAdvice = (
                     unit,
                     context.unitsHolder.getAllUnits(),
                     context.grid.getSettings(),
+                    context,
                 );
                 if (!drawing) continue;
                 const identity = JSON.stringify([drawing.label, drawing.point, drawing.cells]);
