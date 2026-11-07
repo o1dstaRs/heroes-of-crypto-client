@@ -34,6 +34,25 @@ def save_json(path, data, indent=2):
     temporary.replace(path)
 
 
+def load_combat_report():
+    report_path = WORK / "mastering-report.json"
+    if report_path.is_file():
+        return json.loads(report_path.read_text())
+    # The standalone audition page retains the complete measured clips even when
+    # the separate temporary report has been removed. Decode its JSON, never JS.
+    page = (WORK / "review.html").read_text()
+    assignment = re.search(r"\blet\s+sounds\s*=\s*", page)
+    if not assignment:
+        raise ValueError("The audition page has no saved sound data")
+    clips, _ = json.JSONDecoder().raw_decode(page[assignment.end():])
+    if not isinstance(clips, list):
+        raise ValueError("The audition page has invalid sound data")
+    clips = [clip for clip in clips if clip.get("role") in ("attack", "hurt")]
+    if not clips:
+        raise ValueError("The audition page has no saved creature sounds")
+    return {"clips": clips}
+
+
 def design_entry(slug, role):
     if role not in ("attack", "hurt"):
         raise ValueError("Unknown combat sound role")
@@ -213,6 +232,7 @@ def apply_spell_candidate(job, index):
     staged_files = {codec: CORE / (candidate["asset_base"] + "." + codec) for codec in ("webm", "mp3")}
     if not all(path.is_file() for path in staged_files.values()):
         raise ValueError("Restore both mastered candidate files before applying")
+    combat = load_combat_report()["clips"]
     for codec in ("webm", "mp3"):
         shutil.copyfile(staged_files[codec], base.with_suffix("." + codec))
     revision = hashlib.sha256(base.with_suffix(".webm").read_bytes() + base.with_suffix(".mp3").read_bytes()).hexdigest()[:10]
@@ -227,8 +247,6 @@ def apply_spell_candidate(job, index):
     if not any(clip.get("slug") == slug for clip in report["clips"]):
         report["clips"].append(result)
     save_json(report_path, report)
-    combat_path = WORK / "mastering-report.json"
-    combat = json.loads(combat_path.read_text())["clips"] if combat_path.exists() else []
     write_review(WORK, combat)
     job["applied_index"] = index
     save_json(JOBS / job["id"] / "job.json", job)
@@ -247,6 +265,7 @@ def apply_candidate(job, index):
     staged_files = {codec: CORE / (candidate["asset_base"] + "." + codec) for codec in ("webm", "mp3")}
     if not all(path.is_file() for path in staged_files.values()):
         raise ValueError("Restore both mastered candidate files before applying")
+    report = load_combat_report()
     for codec in ("webm", "mp3"):
         shutil.copyfile(staged_files[codec], base.with_suffix("." + codec))
     result = candidate["result"]
@@ -274,7 +293,6 @@ def apply_candidate(job, index):
                               in ("library", "user-provided") for c in provenance["clips"]) else "ElevenLabs")
     save_json(provenance_path, provenance, 4)
     report_path = WORK / "mastering-report.json"
-    report = json.loads(report_path.read_text())
     report["clips"] = [result if c["slug"] == slug and c["role"] == role else c for c in report["clips"]]
     write_review(WORK, report["clips"])
     save_json(report_path, report)
@@ -437,7 +455,11 @@ class ReviewHandler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         service = self.server.service
         if parsed.path == "/api/audio/catalog":
-            report = json.loads((WORK / "mastering-report.json").read_text())
+            try:
+                report = load_combat_report()
+            except (OSError, ValueError):
+                return self.json_response(503, {"error": "Audio review data is unavailable. Restore tmp/audio/review.html "
+                                               "or tmp/audio/mastering-report.json, then reopen this dialog."})
             nodes_file = WORK / "nodes.json"
             flow_id = json.loads(nodes_file.read_text()).get("flow_id") if nodes_file.exists() else None
             combat = [clip for clip in report["clips"] if clip.get("role") != "cast"]

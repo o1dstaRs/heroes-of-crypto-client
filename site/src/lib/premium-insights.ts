@@ -2,7 +2,6 @@ import { portraitMarkup } from "./portrait";
 import {
     escapePremiumHtml as e,
     premiumPercent as pct,
-    premiumPlanLevels,
     rankPremiumRows,
     type PremiumCatalog,
     type PremiumLibrary,
@@ -11,16 +10,6 @@ import {
 } from "./premium-library";
 import type { PremiumView } from "./premium-render";
 
-const synergyNames: Record<string, [string, string]> = {
-    "1:1": ["Chaos · Movement", "Хаос · Движение"],
-    "1:2": ["Chaos · Break on Attack", "Хаос · Разлом при атаке"],
-    "2:1": ["Might · Aura Range", "Сила · Радиус аур"],
-    "2:2": ["Might · Ability Power", "Сила · Сила способностей"],
-    "3:1": ["Nature · Board Units", "Природа · Места на поле"],
-    "3:2": ["Nature · Flying Armor", "Природа · Броня летающих"],
-    "4:1": ["Life · Supply", "Жизнь · Запас"],
-    "4:2": ["Life · Morale and Luck", "Жизнь · Мораль и удача"],
-};
 const text = (view: PremiumView) => (en: string, ru: string) => (view.lang === "ru" ? ru : en);
 const support = (row: PremiumRow, view: PremiumView) =>
     `${row.families.toLocaleString(view.lang)} ${text(view)("families", "семейств")} · 95% ${pct(row.interval[0])}–${pct(row.interval[1])}`;
@@ -33,15 +22,6 @@ const signal = (row: PremiumRow, view: PremiumView) =>
           : text(view)("Advantage unresolved", "Преимущество не установлено");
 const reading = (name: string, row: PremiumRow, view: PremiumView) =>
     `<li><div><strong>${name}</strong><small>${e(support(row, view))}</small><small>${e(signal(row, view))}</small></div><b>${pct(row.score)}</b></li>`;
-const planName = (key: string, view: PremiumView) => {
-    const levels = premiumPlanLevels(key);
-    if (!levels) return e(key);
-    const names =
-        view.lang === "ru"
-            ? ["Расстановка", "Броня", "Сила", "Стрельба", "Движение", "Магия"]
-            : ["Placement", "Armor", "Might", "Sniper", "Movement", "Empower"];
-    return levels.flatMap((level, index) => (level ? [`${names[index]} ${level}`] : [])).join(" · ");
-};
 
 export function premiumInsightRows(library: PremiumLibrary, catalog: PremiumCatalog, minimum: number) {
     const threshold = Math.max(50, minimum);
@@ -80,11 +60,13 @@ export function renderPremiumInsights(
         const item = catalog.units[id];
         return item ? `<a href="${kb(e(item.anchor), view)}">${e(item.name)}</a>` : `#${id}`;
     };
+    const addToCrew = (id: number) =>
+        `<button type="button" data-add-crew="${id}" class="premium-meta-add" aria-label="${e(t(`Add ${catalog.units[id].name} to crew`, `Добавить ${catalog.units[id].name} в армию`))}">+ ${t("Add to crew", "В армию")}</button>`;
     const missing = `<p class="premium-fine">${t("No result meets the sample threshold.", "Нет результатов с достаточной выборкой.")}</p>`;
     const card = (title: string, description: string, items: string[], noResult = missing) =>
         `<article class="premium-insight-card"><h3>${title}</h3><p>${description}</p>${items.length ? `<ul>${items.join("")}</ul>` : noResult}</article>`;
     return `<section id="premium-insights" class="premium-section">
-        <header class="premium-section-heading"><span>02</span><div><h2>${t("What this snapshot tells us", "Что показывает эта выборка")}</h2><p>${t("Observed army outcomes, explained. Highlights need at least", "Наблюдаемые результаты армий. Для каждого вывода нужно минимум")} ${rows.threshold} ${t("independent families; each family contains both seat-swapped games.", "независимых семейств; каждое включает два боя со сменой сторон.")}</p></div></header>
+        <header class="premium-section-heading"><span>02</span><div><h2>${t("Snapshot results", "Результаты выборки")}</h2><p>${t("Each result shown uses at least", "Каждый результат рассчитан как минимум по")} ${rows.threshold} ${t("independent families. Each family has two battles with sides swapped.", "независимым семействам. В каждом семействе два боя со сменой сторон.")}</p></div></header>
         ${snapshot ? `<p class="premium-context-note">${e(snapshot.studyProfile)} · ${snapshot.fights.toLocaleString(view.lang)} ${t("recorded fights", "записанных боёв")} · ${snapshot.status === "development" ? t("Historical development evidence", "Исторические исследовательские данные") : t("Validated snapshot", "Проверенный снимок")} · <code>${e(snapshot.snapshotId)}</code>${(snapshot.caveats ?? []).map((note) => `<br>${e(note)}`).join("")}</p>` : ""}
         <div class="premium-insight-grid">
         ${card(
@@ -94,7 +76,11 @@ export function renderPremiumInsights(
                 "Наибольшая нижняя граница интервала внутри каждого уровня драфта.",
             ),
             rows.unitLeaders.map((row) =>
-                reading(`L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])}`, row, view),
+                reading(
+                    `L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])} ${addToCrew(row.ids[0])}`,
+                    row,
+                    view,
+                ),
             ),
         )}
         ${card(
@@ -176,13 +162,13 @@ export function renderPremiumMatchups(library: PremiumLibrary, catalog: PremiumC
     const units = rankPremiumRows(library.units, 1).filter((row) => catalog.units[row.ids[0]]);
     const selected = units.find((row) => row.ids[0] === view.matchupUnit) ?? units[0];
     const own = selected && catalog.units[selected.ids[0]];
-    const header = `<header class="premium-section-heading"><span>03</span><div><h2>${t("Who does this unit face well?", "Против кого юнит показывает себя лучше?")}</h2><p>${t("Armies containing your unit versus armies containing the opponent. These are full battles, not one-on-one duels or proven counters.", "Армии с вашим юнитом против армий с указанным противником. Это полные бои, а не дуэли один на один или доказанные контрпики.")}</p></div></header>`;
+    const header = `<header class="premium-section-heading"><span>03</span><div><h2>${t("Unit matchups", "Противостояния юнитов")}</h2><p>${t("These results compare full armies that contained the two units on opposite sides. Other units and upgrades also affect the result.", "Здесь сравниваются результаты армий, в которых эти юниты были по разные стороны. На результат также влияют другие юниты и усиления.")}</p></div></header>`;
     if (!own || !selected)
         return (
             header +
             `<p class="premium-empty">${t("No matching unit observations.", "Нет подходящих наблюдений по юнитам.")}</p>`
         );
-    const controls = `<label class="premium-matchup-select">${t("Explore a unit", "Выберите юнита")}<select data-matchup-unit>${[
+    const controls = `<label class="premium-matchup-select">${t("Choose a unit", "Выберите юнита")}<select data-matchup-unit>${[
         ...units,
     ]
         .sort(

@@ -4572,6 +4572,7 @@ export class RankedPlayScene extends Sandbox {
                 actor,
                 this.unitsHolder.getAllUnits(),
                 this.sc_sceneSettings.getGridSettings(),
+                { grid: this.grid, unitsHolder: this.unitsHolder, attackHandler: this.attackHandler },
             );
             this.drawnPremiumTurnPreview = turn;
         }

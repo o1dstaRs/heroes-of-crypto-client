@@ -369,7 +369,7 @@ describe("Sandbox Area Throw projectile landing", () => {
                 expect(launch.to).toEqual(projectBattlefieldPoint(point(f.aim), settings));
             }
         });
-        test(`team ${team}, Double Throw retains its second flight after the interceptor dies in wave one`, async () => {
+        test(`team ${team}, Double Throw stops after the interceptor dies in wave one`, async () => {
             const f = fixture(team);
             const target = f.enemy({ x: 7, y: 3 });
             Object.assign(target.getUnitProperties(), { amount_alive: 1, amount_died: 0, hp: 1 });
@@ -379,8 +379,9 @@ describe("Sandbox Area Throw projectile landing", () => {
             expect(event.targetCell).toEqual(impactCell);
             expect(event.unitIdsDied).toContain(target.getId());
             expect(event.damage.splash).toHaveLength(1);
-            expect(waveSizes).toEqual([1, 0]);
-            expect(launches).toHaveLength(2);
+            expect(event.animations).toHaveLength(1);
+            expect(waveSizes).toEqual([1]);
+            expect(launches).toHaveLength(1);
             for (const launch of launches) {
                 expect(launch.gargantuanRock).toBe(true);
                 expect(launch.to).toEqual(projectBattlefieldPoint(event.targetPosition, settings));
