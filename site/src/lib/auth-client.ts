@@ -299,6 +299,9 @@ function fillQueryDefaults(form: HTMLFormElement) {
 
 function bindAuthForm(form: HTMLFormElement) {
     fillQueryDefaults(form);
+    if (form.dataset.authAction === "login" && /^\/(?:ru\/)?premium\/?$/.test(safeRedirectTarget())) {
+        form.closest(".auth-section")?.classList.add("auth-section--premium");
+    }
 
     form.addEventListener("submit", (event) => {
         event.preventDefault();

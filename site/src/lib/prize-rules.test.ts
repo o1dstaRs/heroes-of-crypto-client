@@ -58,14 +58,14 @@ describe("season prize rules copy", () => {
         expect(english).toContain("Your rating (MMR) place doesn't decide prizes.");
         expect(english).toContain("Wins over the ranked bots count like any other win.");
         expect(english).toContain("finished your calibration matches");
-        expect(english).toContain("exactly one wallet linked to your account");
-        expect(english).toContain("never have been linked to another account");
+        expect(english).toContain("a verified email account");
+        expect(english).toContain("Signing in with Google also verifies your email.");
         expect(english).toContain("no minimum number of matches, opponents or account age");
         expect(english).toContain(`provisional for ${PRIZE_REVIEW_DAYS} days`);
         expect(english).toContain("stays empty; nobody moves up into it");
         expect(english).toContain("One named admin approves the final list");
-        expect(english).toContain("held by the season's smart contract");
-        expect(english).toContain("The game itself never sends tokens.");
+        expect(english).toContain("each award belongs to the verified email account");
+        expect(english).toContain("Wallet connections and on-chain claims are not supported.");
         // The review window is the same number in Russian, and every number is plain text in both languages.
         expect(text("ru")).toContain(`${PRIZE_REVIEW_DAYS} дня`);
         expect(`${english}\n${text("ru")}`).not.toMatch(/\{\w+\}/);

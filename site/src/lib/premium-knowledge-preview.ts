@@ -1,6 +1,7 @@
 import type { KnowledgeNode } from "./knowledge/graph-types";
 import { renderMarkdown } from "./markdown-lite";
-import { escapePremiumHtml as e } from "./premium-library";
+import { escapePremiumHtml as e, type PremiumCatalog } from "./premium-library";
+import { portraitMarkup } from "./portrait";
 
 type PreviewEntry = Pick<KnowledgeNode, "id" | "name" | "nameRu" | "type" | "href" | "hrefRu" | "text" | "textRu">;
 
@@ -57,9 +58,34 @@ const loadCatalog = (): Promise<PreviewEntry[]> => {
     return catalog;
 };
 
-export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru") {
+export function renderPremiumCatalogPreview(
+    reference: string,
+    catalog: PremiumCatalog,
+    lang: "en" | "ru",
+): string | undefined {
+    const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
+    const item = Object.values(catalog.units).find((item) => item.anchor === reference || item.name === reference);
+    if (item?.kit) {
+        const kit = item.kit;
+        return `<div class="premium-reference-unit">${portraitMarkup(item.slug, item.name, { className: "premium-portrait", eager: true })}<div><p class="premium-reference-kind">${e(item.faction)} · ${t("Level", "Уровень")} ${item.level}</p><h3>${e(item.name)}</h3></div></div><dl class="premium-reference-stats"><div><dt>${t("Health", "Здоровье")}</dt><dd>${kit.hp}</dd></div><div><dt>${t("Damage", "Урон")}</dt><dd>${e(kit.damage)}</dd></div><div><dt>${t("Armor", "Броня")}</dt><dd>${kit.armor}</dd></div><div><dt>${t("Movement", "Движение")}</dt><dd>${kit.steps}</dd></div><div><dt>${t("Initiative", "Инициатива")}</dt><dd>${kit.initiative}</dd></div><div><dt>${t("Draft stack", "В стеке")}</dt><dd>${kit.amount}</dd></div></dl><div class="premium-reference-abilities">${kit.abilities
+            .slice(0, 3)
+            .map(
+                (ability) =>
+                    `<div><img src="${e(ability.icon)}" alt="" width="30" height="30"/><span><strong>${e(ability.name)}</strong><p>${e(ability.description)}</p></span></div>`,
+            )
+            .join("")}</div>`;
+    }
+    const artifact = Object.values(catalog.artifacts).find(
+        (item) => item.anchor === reference || item.name === reference,
+    );
+    return artifact
+        ? `<div class="premium-reference-unit"><img src="${e(artifact.icon)}" alt="" width="60" height="60"/><h3>${e(artifact.name)}</h3></div><p>${e(artifact.description)}</p>`
+        : undefined;
+}
+
+export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru", localCatalog?: PremiumCatalog) {
     let card: HTMLElement | undefined;
-    let anchor: HTMLAnchorElement | undefined;
+    let anchor: HTMLElement | undefined;
     let closeTimer: ReturnType<typeof setTimeout> | undefined;
     let version = 0;
     const cancelClose = () => clearTimeout(closeTimer);
@@ -75,18 +101,24 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
         if (!anchor.isConnected) return hide();
         const rect = anchor.getBoundingClientRect();
         const width = card.offsetWidth;
-        const height = card.offsetHeight;
         const gap = 10;
-        const below = window.innerHeight - rect.bottom - gap;
+        const below = window.innerHeight - rect.bottom - gap - 12;
+        const above = rect.top - gap - 12;
+        const placeBelow = below >= Math.min(480, card.scrollHeight) || below >= above;
+        card.style.maxHeight = `${Math.max(80, Math.min(480, placeBelow ? below : above))}px`;
+        const height = card.offsetHeight;
         card.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
-        card.style.top = `${Math.max(12, below >= height || below >= rect.top ? Math.min(rect.bottom + gap, window.innerHeight - height - 12) : rect.top - height - gap)}px`;
+        card.style.top = `${Math.max(12, placeBelow ? rect.bottom + gap : rect.top - height - gap)}px`;
     };
     const scheduleClose = () => {
         cancelClose();
         closeTimer = setTimeout(hide, 160);
     };
-    const show = async (link: HTMLAnchorElement) => {
-        const reference = knowledgeReference(link.getAttribute("href") ?? "");
+    const show = async (link: HTMLElement) => {
+        const reference =
+            link.getAttribute("data-knowledge-reference") ||
+            knowledgeReference(link.getAttribute("href") ?? "") ||
+            (link.hasAttribute("data-premium-help") ? "help" : undefined);
         if (!reference) return;
         cancelClose();
         if (anchor === link && card && !card.hidden) return;
@@ -100,9 +132,19 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
             card.setAttribute("role", "tooltip");
             card.addEventListener("pointerenter", cancelClose);
             card.addEventListener("pointerleave", scheduleClose);
-            document.body.append(card);
         }
+        const parent = link.closest("dialog") ?? document.body;
+        if (card.parentElement !== parent) parent.append(card);
         link.setAttribute("aria-describedby", card.id);
+        const local = link.hasAttribute("data-premium-help")
+            ? `<h3>${e(link.getAttribute("data-premium-help-title"))}</h3><p>${e(link.getAttribute("data-premium-help"))}</p>`
+            : localCatalog && renderPremiumCatalogPreview(reference, localCatalog, lang);
+        if (local) {
+            card.innerHTML = local;
+            card.hidden = false;
+            position();
+            return;
+        }
         card.textContent = lang === "ru" ? "Загружаем описание…" : "Loading entry…";
         card.hidden = false;
         position();
@@ -125,7 +167,9 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
         }
     };
     const linkAt = (target: EventTarget | null) =>
-        target instanceof Element ? target.closest<HTMLAnchorElement>("a[href]") : null;
+        target instanceof Element
+            ? target.closest<HTMLElement>("a[href], [data-knowledge-reference], [data-premium-help]")
+            : null;
     root.addEventListener("pointerover", (event) => {
         if (event.pointerType === "touch" || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
         const link = linkAt(event.target);
@@ -153,5 +197,6 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
         true,
     );
     window.addEventListener("pagehide", hide);
+    root.addEventListener("close", hide, true);
     return { hide };
 }

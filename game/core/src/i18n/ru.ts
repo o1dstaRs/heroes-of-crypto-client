@@ -1401,7 +1401,6 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Account age (+1 a week, up to {max})": "Возраст аккаунта (+1 в неделю, до {max})",
     "Verified email": "Подтверждённая почта",
     "Google sign-in": "Вход через Google",
-    "A linked wallet with 90+ days of on-chain history": "Привязанный кошелёк с историей в сети 90+ дней",
     "Below {n}, wagers, prediction bets and arena chat are closed. Finished ranked matches raise your Reputation.":
         "Ниже {n} ставки, прогнозы и чат арены закрыты. Доигранные рейтинговые матчи повышают репутацию.",
     "Below {n}, wagers, prediction bets and arena chat will close once these limits start.":
