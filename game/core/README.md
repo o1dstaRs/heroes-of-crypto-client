@@ -23,7 +23,6 @@ src/
 ├── types/        # Ambient type declarations
 ├── ui/           # React UI shell (MUI Joy): sidebars, pick & ban, overlays, portal, audio
 ├── utils/        # Hotkeys, AI-opponent helpers, pre-game perks, React helpers
-├── wallet/       # Wallet connection (wagmi / viem / RainbowKit)
 └── statics.ts    # Static constants and shared values
 ```
 
