@@ -66,12 +66,10 @@ describe("knowledge base index", () => {
         expect(knowledgeAiSearchRank("Hydra", "Hydra Chaos", "tell me about medusa")).toBe(Number.POSITIVE_INFINITY);
     });
 
-    test("finds the new artifacts and Death slow by English or Russian names", () => {
+    test("finds active artifacts and retains historical Death slow knowledge", () => {
         for (const language of ["en", "ru"] as const) {
             const entries = buildKnowledgeEntries(language);
             for (const [query, name] of [
-                ["Gravechain", "Gravechain"],
-                ["Могильная цепь", "Gravechain"],
                 ["Могильные узы", "Gravebound"],
                 ["Колчан эха", "Quiver of Echoes"],
                 ["Эгида тайной магии", "Aegis of the Arcane"],
@@ -81,9 +79,7 @@ describe("knowledge base index", () => {
             expect(searchKnowledgeEntries(entries, "Gravechain", "spells").map((entry) => entry.name)).toContain(
                 "Gravebound",
             );
-            expect(entries.find((entry) => entry.name === "Gravechain")?.meta).toContain(
-                language === "ru" ? "Проклятый" : "Cursed",
-            );
+            expect(entries.some((entry) => entry.name === "Gravechain" || entry.name === "Last Fuse")).toBe(false);
         }
     });
 });

@@ -127,49 +127,22 @@ describe("knowledge graph builder", () => {
 
     test("artifact-applied spells have typed source edges for AI graph expansion", () => {
         for (const [source, target] of [
-            ["artifact:gravechain", "spell:gravebound"],
             ["artifact:rime-charm", "spell:quagmire"],
             ["ability:spit-ball", "spell:quagmire"],
         ]) {
             expect(graph.edges).toContainEqual({ from: source, to: target, rel: "APPLIES" });
         }
-        expect(byId.get("spell:gravebound")?.text).toContain("Applied by: Gravechain");
-        expect(byId.get("spell:gravebound")?.textRu).toContain("Источник: Могильная цепь (Gravechain)");
+        expect(graph.edges.some((edge) => edge.from === "artifact:gravechain")).toBe(false);
     });
 
-    test("Last Fuse is discoverable under its old name and dynamite art", () => {
-        const fuse = byId.get("artifact:last-fuse");
-        expect(fuse?.nameRu).toBe("Последний фитиль");
-        expect(fuse?.aliases).toContain("Pyre Oath");
-        expect(fuse?.aliases).toContain("sticky dynamite");
-        expect(fuse?.props).toMatchObject({ tier: 2, cursed: false });
-        expect(fuse?.text).toContain("Water Shield");
-        expect(fuse?.text).toContain("actual killing damage");
-        expect(fuse?.text).toContain("25/50/75/100/125");
-        expect(fuse?.text).toContain("power of the attacker");
-        expect(fuse?.text).toContain("The killed enemy\'s own power does not change the minimum");
-        expect(fuse?.text).toContain("overkill and health lost in earlier attacks do not increase");
-        expect(fuse?.text).toContain("recalculated minimum damage");
-        expect(fuse?.text).toContain("resurrects does not explode");
-        expect(fuse?.text).toContain("Armor, magic resistance and hit rolls do not reduce");
-        expect(fuse?.textRu).toContain("Water Shield");
-        expect(byId.has("spell:last-fuse")).toBe(false);
+    test("retired artifacts are absent and Berserker's Bond belongs to Tier 1", () => {
+        expect(byId.has("artifact:last-fuse")).toBe(false);
+        expect(byId.has("artifact:gravechain")).toBe(false);
         expect(byId.has("artifact:pyre-oath")).toBe(false);
+        expect(byId.get("artifact:berserker-s-bond")?.props).toMatchObject({ tier: 1, cursed: true });
     });
 
-    test("new artifact knowledge includes luck, repeated attacks, immunity and the army curse", () => {
-        const chain = byId.get("artifact:gravechain");
-        expect(chain?.props).toMatchObject({ tier: 2, cursed: true });
-        expect(chain?.text).toContain("Draft slot: Tier 2, one per army");
-        expect(chain?.text).toContain("Two artifacts of the same tier cannot be equipped together");
-        expect(chain?.text).toContain(`${A.GRAVECHAIN_CHANCE}%`);
-        expect(chain?.text).toContain(`with luck +7 it reads ${A.GRAVECHAIN_CHANCE + 7}%`);
-        expect(chain?.text).toContain("1×2 and 2×1 footprints");
-        expect(chain?.text).toContain("separate additional attacks can");
-        expect(chain?.text).toContain("Gravechain cannot be equipped together with Quiver of Echoes");
-        expect(chain?.text).toContain("before percentage slows");
-        expect(chain?.text).toContain("do not stop propagation");
-        expect(chain?.textRu).toContain(`при удаче +7 это ${A.GRAVECHAIN_CHANCE + 7}%`);
+    test("active artifact knowledge retains luck and repeated attacks alongside historical effect mechanics", () => {
         const slow = byId.get("spell:gravebound");
         expect(slow?.props).toMatchObject({ book: "Death", kind: "effect", polarity: "debuff" });
         expect(slow?.text).toContain("not a castable scroll");
