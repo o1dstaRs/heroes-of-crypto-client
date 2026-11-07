@@ -12161,7 +12161,9 @@ export class Sandbox extends PixiScene {
             }
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
             const cyclopsKills = cyclopsMultiKillTargets(unit, waves, remainingAmounts, deadIds, unitSnapshot);
-            const throwCount = areaEvent?.damage.rangedVolleyCount ?? Math.max(waves.length, isDoubleShot ? 2 : 1);
+            const throwCount =
+                areaEvent?.damage.rangedVolleyCount ??
+                (areaEvent?.animations.length || Math.max(waves.length, isDoubleShot ? 2 : 1));
             const shownDeaths = new Set<string>();
             let shownAnyWave = false;
             let fleshShieldDamageByUnit = new Map<string, { amount: number; unitsDied: number }>();
@@ -16167,7 +16169,7 @@ export class Sandbox extends PixiScene {
                                     });
                                     return dealt + fireforgedBurn(victim, dealt);
                                 };
-                                const laterBand = projectAttackDamageBand({
+                                const laterBandInput = {
                                     ...projectionBase,
                                     target: victim,
                                     priorHits: 1,
@@ -16177,7 +16179,8 @@ export class Sandbox extends PixiScene {
                                         abilityPower,
                                         aoeHoverAbility,
                                     ),
-                                });
+                                };
+                                const laterBand = projectAttackDamageBand(laterBandInput);
                                 const waves = (damage: number, laterDamage: number): number =>
                                     wave(damage, perUnitDamageFactor) +
                                     (aoeWaves === 2
@@ -16186,7 +16189,13 @@ export class Sandbox extends PixiScene {
                                 const bonusMax =
                                     aoeAttacker.getBonusRangedAttackChance() > 0 &&
                                     aoeAttacker.projectRangeShotsAfterVolleys(aoeVictims[0], aoeWaves) > 0
-                                        ? wave(withLuckyStrike(laterBand.max), perUnitDamageFactor)
+                                        ? wave(
+                                              withLuckyStrike(
+                                                  projectAttackDamageBand({ ...laterBandInput, priorHits: aoeWaves })
+                                                      .max,
+                                              ),
+                                              perUnitDamageFactor,
+                                          )
                                         : 0;
                                 addProjectedDamage(
                                     victim,
