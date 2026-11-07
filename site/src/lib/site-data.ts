@@ -8,7 +8,6 @@ export type Language = (typeof supportedLanguages)[number];
 
 export const pageSlugs = [
     "game",
-    "top",
     "knowledge-base",
     "patches",
     "faq",
@@ -76,7 +75,6 @@ export const content = {
         },
         nav: {
             game: "Game",
-            top: "Top",
             knowledgeBase: "Knowledge Base",
             rules: "Rules",
             news: "News",
@@ -415,11 +413,6 @@ export const content = {
                 description:
                     "Free-to-play tactical battles with factions, spells, abilities, and community-shaped development.",
             },
-            top: {
-                title: "Top Players",
-                eyebrow: "Ranked arena",
-                description: "Explore the live Heroes of Crypto leaderboard, ranked players, matches, and leagues.",
-            },
             "knowledge-base": {
                 title: "Heroes of Crypto Knowledge Base",
                 eyebrow: "Rules and game data",
@@ -494,7 +487,7 @@ export const content = {
             tagline: "Click play. Build an army. Win the board.",
             pitch: "The world's first turn-based strategy built around single‑session matches, where anyone can earn on skill alone.",
             claims: ["Turn-based strategy", "Free to play", "Earn rewards with no deposit"],
-            body: "A tactical battle game where positioning, faction synergies, and 100+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
+            body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
             primaryCta: "Play Now",
             secondaryCta: "Read rules",
             availability: "Ranked and sandbox beta",
@@ -529,7 +522,7 @@ export const content = {
                 {
                     title: "Swing the fight",
                     description:
-                        "100+ spells, abilities, and aura effects can flip the board when you read the moment correctly.",
+                        "75+ spells, abilities, and aura effects can flip the board when you read the moment correctly.",
                     icon: "/assets/icons/home/decentralized.svg",
                 },
             ],
@@ -1127,7 +1120,6 @@ export const content = {
         },
         nav: {
             game: "Игра",
-            top: "Top",
             knowledgeBase: "База знаний",
             rules: "Правила",
             news: "Новости",
@@ -1467,11 +1459,6 @@ export const content = {
                 description:
                     "Бесплатные тактические бои с фракциями, заклинаниями, способностями и развитием вместе с сообществом.",
             },
-            top: {
-                title: "Лучшие игроки",
-                eyebrow: "Рейтинговая арена",
-                description: "Актуальный рейтинг игроков Heroes of Crypto, матчи и лиги.",
-            },
             "knowledge-base": {
                 title: "База знаний Heroes of Crypto",
                 eyebrow: "Правила и игровые данные",
@@ -1549,7 +1536,7 @@ export const content = {
                 "Бесплатная игра",
                 "Возможность получать криптовалюту USDT/HOCAI без вложений",
             ],
-            body: "Тактические бои, где позиционирование, фракционные синергии и 100+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без привязки кошелька: нажмите «Играть» и выберите рейтинг или песочницу.",
+            body: "Тактические бои, где позиционирование, фракционные синергии и 75+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без привязки кошелька: нажмите «Играть» и выберите рейтинг или песочницу.",
             primaryCta: "Играть сейчас",
             secondaryCta: "Читать правила",
             availability: "Рейтинг и песочница",
@@ -1584,7 +1571,7 @@ export const content = {
                 {
                     title: "Переверните бой",
                     description:
-                        "100+ заклинаний, способностей и аур могут изменить всю партию, если вы правильно прочитали момент.",
+                        "75+ заклинаний, способностей и аур могут изменить всю партию, если вы правильно прочитали момент.",
                     icon: "/assets/icons/home/decentralized.svg",
                 },
             ],
