@@ -612,3 +612,46 @@ Own @Heroes0fcrypto 24h snapshots at pull (TZ_OFFSET=-8):
 Slot pattern since 26 Oct (24h views): evening still strongest on average; morning stays weak (Pikeman 8 continues stack-size 7 / Hourglass 11). Midday is no longer a floor — Medusa 5 broke it. Named-unit single-ability streak (stack-size through Medusa) now averages ~11 views with zero outside likes; the fortnight's only likes remain Arachna/Cyclops retune and anti-stall morale.
 
 Followers 90 (−1 day-over-day). No outside reply timing signal (0 outside replies). Recommendation unchanged: weekday reply window 9:30 AM–1 PM PT for outreach drafting; own posting slots keep evening > midday > morning on reach, but format (change/number vs ability explainer) now moves the needle more than slot.
+
+## Fri 6 Nov 2026, 11:41 AM PT run (window: ~11:41 PM Thu – 11:41 AM Fri PT; new posts since 7:44 AM)
+
+Official game/studio posts in window (posted time PT, public metrics at read ~11:42 AM PST). Surfaced three.
+- @wintersong_game, Dreamsend: Wintersong #PitchYaGame (boss battles / ability combos / transformations), 10:17 AM: 496 impressions, 28 likes, 3 replies, 8 reposts (surfaced).
+- @PlayHearthstone, Paladin or Warrior class/deck question, 10:03 AM: 5,173 impressions, 35 likes, 5 replies, 4 reposts (surfaced).
+- @MeltedGames, Caramon nat 20 / Crit Happens achievement clip, 7:59 AM: 253 impressions, 9 likes, 3 replies, 2 reposts (surfaced).
+- @StudioDaimon, FOOD DEVILS Steam review wait (25 days), 9:19 AM: 3,825 impressions, 243 likes, 10 replies, 22 reposts (added to list; not drafted — queue complaint, not a board decision).
+- @CompanyOfHeroes, 2027 roadmap sneak peek, 9:11 AM: 1,654 impressions, 51 likes, 5 replies, 10 reposts (held: RTS roadmap CTA).
+- @MightMagicGame, PGA Best Game thank-you, 9:00 AM: 10,998 impressions, 31 likes, 1 reply (skipped: celebration / already drafted this morning).
+- Skipped: @TheVowGame giveaway, @Lavapotion Wielders-adjacent, @MARVELSNAP finals watch CTA, @Wartales_Game lore (0 replies), @RisingSpire Kickstarter update, @Look_behindyou Instagram/giveaway, HOI/AOE_Mobile/Epic7/mechabellum as logged.
+
+Thread open vs peak (this run only): Friday mid-morning wave opened on the hour at ~10:00–10:17 AM PT (Hearthstone class question, Wintersong PitchYaGame). Hearthstone drew 5 replies inside ~1.5h; Wintersong 3 replies inside ~1.25h. MeltedGames' 7:59 AM dice-crit clip had 3 replies by late morning. StudioDaimon's 9:19 AM Steam-queue post was the reply volume leader (10) but was a shipping complaint, not a board thread. Overnight/early posts from the 7:44 AM run stayed thin on replies.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT; Friday's board/decision threads opened in that same mid-morning cluster. The 11:37 AM scan remains the main drafting run. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Fri 6 Nov 2026, 3:45 PM PT run (window: ~3:45 AM – 3:45 PM Fri PT; new posts checked since 11:41 AM)
+
+Official game/studio posts in window (posted time PT, public metrics at read ~3:47 PM PST). Surfaced one (missed morning combat pitch).
+- @gr8_rebellion, Dverghold "skeleton crew" grid blobber + tactical turn-based combat, 7:17 AM: 556 impressions, 42 likes, 4 replies, 4 reposts (surfaced). Combat/genre pitch with active replies; earlier soft-wishlist posts from the same account were skipped.
+- Afternoon-new since 11:41 AM: @TFT client bug fixes 1:55 PM (15,977–16,027 / 130 / 21; skipped ops), @PlayHearthstone Old Gods Card Back tray 11:46 AM (13,179+ / 72 / 7; skipped cosmetics), @Lavapotion watch-others-play 1:36 PM (482 / 16 / 0; Wielders), @mechabellum test-server stream 12:32 PM (119 / 0 / 0). @vivaladev Virtualord free-demo #PitchYaGame 2:30 PM (46 / 2 / 1; added to list, not drafted — thin). @Hypersect Never's End object-use 3:20 PM under floor (949).
+- Still held/skipped from morning: @CompanyOfHeroes 2027 roadmap (now 2,106 / 65 / 6), @StudioDaimon Steam-queue (6,593 / 407 / 16), giveaways/lore/Kickstarter/grand-strategy as logged.
+
+Thread open vs peak (this run only): No new English board/tactics thread opened in the early-afternoon Fri window after the 10:00–10:17 AM mid-morning cluster. Highest reply volume after 11:41 AM was the TFT client-ops post (21) and Hearthstone card-back note (7), neither a board decision. The morning Dverghold combat pitch (7:17 AM) still had 4 replies by mid-afternoon.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Friday afternoon (this 3:45 PM scan) again found no fresh board thread after the mid-morning cluster — matches the pattern that 11:37 AM is the main drafting run and 3:37/7:37 PM are thin on weekdays. Weekend drop of those evening scans still proposed for Stepan.
+
+## Fri 6 Nov 2026, 7:53 PM PT run (window: ~3:45–7:53 PM Fri PT; new posts since 3:45 PM)
+
+Official game/studio originals in window (posted time PT, public metrics at read ~7:55 PM PT). Surfaced none.
+- @FE_Heroes_EN, Arena Bonus Heroes next season, 7:00 PM: 5,197 impressions, 79 likes, 2 replies, 6 reposts (skipped: gacha/event train-up CTA)
+- @Rainbow6Game, new Team drop video, 6:26 PM: 33,526 impressions, 602 likes, 3 replies, 24 reposts (skipped: Siege FPS, not Tactics)
+- Edge / already logged earlier: @gr8_rebellion Dverghold combat pitch surfaced 3:45 PM; morning Wishseeker PitchYaGame (5:35 AM, now 3,369 / 134 / 4) found via evening curator quote — account added, not drafted (thin pitch / 1,013 followers)
+
+Thread open vs peak (this run only): Friday evening again quiet for English board/tactics. Only tracked originals after 3:45 PM were FE Heroes gacha (2 replies inside ~55 min) and Rainbow Six Siege team drop (3 replies, high impressions). No board/tactics official thread opened after the mid-morning cluster and the afternoon catch-up of Dverghold.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Friday 7:53 PM scan again found no fresh board thread — matches the pattern that 11:37 AM is the main drafting run and 3:37/7:37 PM are thin on weekdays. Weekend drop of those evening scans still proposed for Stepan.
