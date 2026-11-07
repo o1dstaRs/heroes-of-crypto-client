@@ -91,7 +91,8 @@ test("matchup groups retain own/opponent direction, support and unresolved inter
     expect(html).toContain("Griffin");
     expect(html).toContain("65.0%");
     expect(html).toContain("35.0%");
-    expect(html).toContain("not one-on-one duels or proven counters");
+    expect(html).toContain("full armies that contained the two units on opposite sides");
+    expect(html).toContain("Other units and upgrades also affect the result.");
 });
 
 test("unavailable and insufficient matchup data never become a losing score", () => {

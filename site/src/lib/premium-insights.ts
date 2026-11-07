@@ -84,7 +84,7 @@ export function renderPremiumInsights(
     const card = (title: string, description: string, items: string[], noResult = missing) =>
         `<article class="premium-insight-card"><h3>${title}</h3><p>${description}</p>${items.length ? `<ul>${items.join("")}</ul>` : noResult}</article>`;
     return `<section id="premium-insights" class="premium-section">
-        <header class="premium-section-heading"><span>02</span><div><h2>${t("What this snapshot tells us", "Что показывает эта выборка")}</h2><p>${t("Observed army outcomes, explained. Highlights need at least", "Наблюдаемые результаты армий. Для каждого вывода нужно минимум")} ${rows.threshold} ${t("independent families; each family contains both seat-swapped games.", "независимых семейств; каждое включает два боя со сменой сторон.")}</p></div></header>
+        <header class="premium-section-heading"><span>02</span><div><h2>${t("Snapshot results", "Результаты выборки")}</h2><p>${t("Each result shown uses at least", "Каждый результат рассчитан как минимум по")} ${rows.threshold} ${t("independent families. Each family has two battles with sides swapped.", "независимым семействам. В каждом семействе два боя со сменой сторон.")}</p></div></header>
         ${snapshot ? `<p class="premium-context-note">${e(snapshot.studyProfile)} · ${snapshot.fights.toLocaleString(view.lang)} ${t("recorded fights", "записанных боёв")} · ${snapshot.status === "development" ? t("Historical development evidence", "Исторические исследовательские данные") : t("Validated snapshot", "Проверенный снимок")} · <code>${e(snapshot.snapshotId)}</code>${(snapshot.caveats ?? []).map((note) => `<br>${e(note)}`).join("")}</p>` : ""}
         <div class="premium-insight-grid">
         ${card(
@@ -176,13 +176,13 @@ export function renderPremiumMatchups(library: PremiumLibrary, catalog: PremiumC
     const units = rankPremiumRows(library.units, 1).filter((row) => catalog.units[row.ids[0]]);
     const selected = units.find((row) => row.ids[0] === view.matchupUnit) ?? units[0];
     const own = selected && catalog.units[selected.ids[0]];
-    const header = `<header class="premium-section-heading"><span>03</span><div><h2>${t("Who does this unit face well?", "Против кого юнит показывает себя лучше?")}</h2><p>${t("Armies containing your unit versus armies containing the opponent. These are full battles, not one-on-one duels or proven counters.", "Армии с вашим юнитом против армий с указанным противником. Это полные бои, а не дуэли один на один или доказанные контрпики.")}</p></div></header>`;
+    const header = `<header class="premium-section-heading"><span>03</span><div><h2>${t("Unit matchups", "Противостояния юнитов")}</h2><p>${t("These results compare full armies that contained the two units on opposite sides. Other units and upgrades also affect the result.", "Здесь сравниваются результаты армий, в которых эти юниты были по разные стороны. На результат также влияют другие юниты и усиления.")}</p></div></header>`;
     if (!own || !selected)
         return (
             header +
             `<p class="premium-empty">${t("No matching unit observations.", "Нет подходящих наблюдений по юнитам.")}</p>`
         );
-    const controls = `<label class="premium-matchup-select">${t("Explore a unit", "Выберите юнита")}<select data-matchup-unit>${[
+    const controls = `<label class="premium-matchup-select">${t("Choose a unit", "Выберите юнита")}<select data-matchup-unit>${[
         ...units,
     ]
         .sort(

@@ -8,6 +8,7 @@ export interface PremiumSnapshot {
     status: string;
     studyProfile: string;
     fights: number;
+    createdAt?: string;
     caveats?: string[];
     default?: boolean;
 }

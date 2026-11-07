@@ -24,15 +24,20 @@ export function initPremiumPage(): void {
     const status = root.querySelector<HTMLElement>("[data-premium-status]")!;
     const retry = root.querySelector<HTMLButtonElement>("[data-premium-retry]")!;
     const gate = root.querySelector<HTMLElement>("[data-premium-gate]")!;
+    const login = root.querySelector<HTMLAnchorElement>("[data-premium-login]")!;
     const workspace = root.querySelector<HTMLElement>("[data-premium-workspace]")!;
     const content = root.querySelector<HTMLElement>("[data-premium-content]")!;
     const form = root.querySelector<HTMLFormElement>("[data-premium-filters]")!;
+    const refresh = root.querySelector<HTMLElement>("[data-premium-refresh]")!;
+    const refreshStatus = root.querySelector<HTMLElement>("[data-premium-refresh-status]")!;
+    const refreshRetry = root.querySelector<HTMLButtonElement>("[data-premium-refresh-retry]")!;
     const select = (name: string) => form.elements.namedItem(name) as HTMLSelectElement;
     const view: PremiumView = { lang, minimum: 50, search: "", level: "", sort: "confidence", combo: "pairs", tier: 1 };
     let data: PremiumLibraryResponse | undefined;
     let controller: AbortController | undefined;
     let currentToken: string | null = null;
     let busy = false;
+    let scopeUnsettled = false;
     let entitlement: PremiumEntitlement | undefined;
     const url = (resource: "account" | "library") =>
         premiumApiUrl(resource, {
@@ -49,6 +54,7 @@ export function initPremiumPage(): void {
         const snapshot = data?.snapshot;
         const library = data?.library;
         form.hidden = !library;
+        refresh.hidden = !library;
         root.querySelectorAll<HTMLElement>("[data-premium-library-nav]").forEach((link) => (link.hidden = !library));
         ai.setAccess(
             entitlement?.active === true,
@@ -74,13 +80,16 @@ export function initPremiumPage(): void {
         ai.setAccess(false);
         workspace.hidden = true;
         content.replaceChildren();
+        scopeUnsettled = false;
+        refreshStatus.textContent = "";
+        refreshRetry.hidden = true;
         data = undefined;
     };
     const locked = (signedIn: boolean) => {
         clear();
         gate.hidden = false;
         retry.hidden = true;
-        root.querySelector<HTMLElement>("[data-premium-login]")!.hidden = signedIn;
+        login.hidden = signedIn;
         status.textContent = signedIn
             ? t("Premium is not active on this account.", "На этом аккаунте Premium не активен.")
             : t(
@@ -113,44 +122,62 @@ export function initPremiumPage(): void {
         const controllerForRequest = controller;
         const timeout = setTimeout(() => controllerForRequest.abort(new Error("timeout")), 20000);
         const sessionChanged = token !== currentToken;
+        const keepResults = !recheckOnly && !sessionChanged && Boolean(data?.library);
+        const isCurrent = () => controller === controllerForRequest && getAuthToken() === token;
         currentToken = token;
         busy = true;
         retry.hidden = true;
-        if (sessionChanged || !recheckOnly) {
+        if (keepResults) {
+            scopeUnsettled = true;
+            refreshRetry.hidden = true;
+            refreshStatus.textContent = t(
+                "Updating filters. Showing previous results.",
+                "Обновляем фильтры. Пока показаны предыдущие результаты.",
+            );
+            ai.setAccess(true, undefined, t("Updating battle results…", "Обновляем результаты боёв…"), false);
+        } else if (sessionChanged || !recheckOnly) {
             clear();
             gate.hidden = true;
+            login.hidden = true;
         }
         if (!token) {
             locked(false);
             busy = false;
+            content.setAttribute("aria-busy", "false");
             clearTimeout(timeout);
             return;
         }
-        if (!recheckOnly) status.textContent = t("Loading your Premium library…", "Загружаем библиотеку Premium…");
-        content.setAttribute("aria-busy", "true");
+        if (!keepResults && !recheckOnly) {
+            status.textContent = t("Loading your Premium library…", "Загружаем библиотеку Premium…");
+        }
+        const params = new URLSearchParams({ cohort: select("cohort").value, map: select("map").value });
+        if (select("snapshot").value) params.set("snapshot", select("snapshot").value);
+        if (!recheckOnly || sessionChanged || !data) content.setAttribute("aria-busy", "true");
+        let accountVerified = false;
         try {
             const account = (await request(url("account"), token, signal)) as { entitlement: PremiumEntitlement };
-            if (signal.aborted || getAuthToken() !== token) return;
+            if (!isCurrent()) return;
+            signal.throwIfAborted();
             if (typeof account.entitlement?.active !== "boolean") throw new Error("invalid account response");
             entitlement = account.entitlement;
             if (!entitlement.active) {
                 locked(true);
                 return;
             }
+            accountVerified = true;
             if (recheckOnly && !sessionChanged && data) {
                 status.textContent = activeStatus();
                 return;
             }
-            const params = new URLSearchParams({ cohort: select("cohort").value, map: select("map").value });
-            if (select("snapshot").value) params.set("snapshot", select("snapshot").value);
             const result = (await request(`${url("library")}?${params}`, token, signal)) as PremiumLibraryResponse;
-            if (signal.aborted || getAuthToken() !== token) return;
+            if (!isCurrent()) return;
+            signal.throwIfAborted();
             if (!result.entitlement?.active) {
                 locked(true);
                 return;
             }
             if (!Array.isArray(result.snapshots) || !("library" in result)) throw new Error("invalid library response");
-            data = result;
+            const markup = renderPremiumDashboard(result, catalog, view);
             select("snapshot").replaceChildren(
                 ...result.snapshots.map(
                     (snapshot) =>
@@ -162,15 +189,17 @@ export function initPremiumPage(): void {
                         ),
                 ),
             );
+            data = result;
+            scopeUnsettled = false;
             gate.hidden = true;
             workspace.hidden = false;
-            content.innerHTML = renderPremiumDashboard(result, catalog, view);
+            content.innerHTML = markup;
             updateAi();
+            refreshStatus.textContent = keepResults ? t("Results updated.", "Результаты обновлены.") : "";
             status.textContent = activeStatus();
             if (!result.library) retry.hidden = false;
         } catch (error) {
-            if (controller !== controllerForRequest || getAuthToken() !== token) return;
-            clear();
+            if (!isCurrent()) return;
             if (error instanceof Error && error.message.startsWith("access:")) {
                 locked(error.message !== "access:401");
                 if (error.message === "access:401")
@@ -178,7 +207,23 @@ export function initPremiumPage(): void {
                         "Your session could not be verified. Sign in again.",
                         "Не удалось проверить сеанс. Войдите снова.",
                     );
+            } else if (keepResults && accountVerified) {
+                refreshStatus.textContent = t(
+                    "Couldn’t update filters. Showing previous results.",
+                    "Не удалось обновить фильтры. Показаны предыдущие результаты.",
+                );
+                refreshRetry.hidden = false;
+                ai.setAccess(
+                    true,
+                    undefined,
+                    t(
+                        "Refresh the results to ask about this selection.",
+                        "Обновите результаты, чтобы задать вопрос по этой выборке.",
+                    ),
+                    false,
+                );
             } else {
+                clear();
                 gate.hidden = true;
                 retry.hidden = false;
                 status.textContent = t(
@@ -195,10 +240,15 @@ export function initPremiumPage(): void {
         }
     };
     retry.addEventListener("click", () => void load());
+    refreshRetry.addEventListener("click", () => {
+        select("cohort").focus({ preventScroll: true });
+        void load();
+    });
     form.addEventListener("submit", (event) => event.preventDefault());
     form.addEventListener("change", (event) => {
         if ((event.target as HTMLSelectElement).name === "minimum") {
             view.minimum = Number(select("minimum").value);
+            if (scopeUnsettled) return;
             updateAi();
             if (data) content.innerHTML = renderPremiumDashboard(data, catalog, view);
         } else void load();
@@ -261,8 +311,9 @@ export function initPremiumPage(): void {
         }
         if (button.dataset.environment) {
             select("cohort").value = button.dataset.environment;
+            select("cohort").focus({ preventScroll: true });
+            form.scrollIntoView({ block: "start" });
             void load();
-            workspace.scrollIntoView({ block: "start" });
         }
     });
     onAuthStateChange(() => void load(true));

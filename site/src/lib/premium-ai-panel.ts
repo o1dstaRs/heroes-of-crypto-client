@@ -104,7 +104,9 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
     const setBusy = (busy: boolean) => {
         submit.disabled = busy || !enabled;
         stop.hidden = !busy;
-        panel.querySelectorAll<HTMLButtonElement>("[data-ai-prompt]").forEach((button) => (button.disabled = busy));
+        panel
+            .querySelectorAll<HTMLButtonElement>("[data-ai-prompt]")
+            .forEach((button) => (button.disabled = busy || !enabled));
         form.setAttribute("aria-busy", String(busy));
     };
     const clear = () => {
@@ -119,11 +121,12 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         status.textContent = "";
         setBusy(false);
     };
-    const setAccess = (active: boolean, next?: PremiumAiSelection, label = "") => {
-        if (!active || !samePremiumSelection(selection, next)) clear();
-        enabled = active;
+    const setAccess = (active: boolean, next?: PremiumAiSelection, label = "", scopeReady = true) => {
+        if (!active || !scopeReady || !samePremiumSelection(selection, next)) clear();
+        enabled = active && scopeReady;
         selection = next;
         panel.hidden = !active;
+        input.disabled = !enabled;
         scope.textContent = label;
         scope.title = next?.snapshotId ?? "";
         setBusy(Boolean(controller));
@@ -232,7 +235,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                               ? t("Reading game mechanics", "Изучаем механики игры")
                               : event.phase === "searching" || event.phase === "listing"
                                 ? t("Checking relevant rules", "Проверяем нужные правила")
-                                : t("Considering your strategy…", "Обдумываем стратегию…");
+                                : t("Preparing an answer…", "Готовим ответ…");
                     phase.textContent =
                         event.detail && event.phase !== "answering" && event.phase !== "thinking"
                             ? `${label}: ${event.detail.slice(0, 120)}`
@@ -242,7 +245,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                     packets.set(event.packet.evidenceId, event.packet);
                     evidence.innerHTML =
                         '<p class="premium-ai-evidence-label">' +
-                        t("Evidence consulted", "Использованные данные") +
+                        t("Supporting data", "Данные для ответа") +
                         "</p>" +
                         [...packets.values()]
                             .slice(0, 32)
@@ -259,12 +262,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                 { role: "user", content: question },
                 { role: "assistant", content: completed },
             ].slice(-6) as PremiumSearchMessage[];
-            status.textContent = selected
-                ? t(
-                      "Answer ready. Ask a follow-up or explore the evidence below.",
-                      "Ответ готов. Задайте уточнение или изучите данные ниже.",
-                  )
-                : t("Answer ready. Ask a follow-up to explore further.", "Ответ готов. Задайте уточняющий вопрос.");
+            status.textContent = t("Answer ready.", "Ответ готов.");
         } catch (error) {
             if (controller !== pending) return;
             const stopped = pending.signal.aborted;
