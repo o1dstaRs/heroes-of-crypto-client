@@ -117,7 +117,19 @@ describe("Premium library presentation", () => {
             },
         };
         const html = renderPremiumDashboard(data, premiumCatalog("en"), view);
-        for (const id of ["overview", "units", "combos", "artifacts", "synergies", "builds", "playbook", "evidence"])
+        for (const id of [
+            "overview",
+            "crew",
+            "insights",
+            "matchups",
+            "units",
+            "combos",
+            "artifacts",
+            "synergies",
+            "builds",
+            "playbook",
+            "evidence",
+        ])
             expect(html).toContain(`id="premium-${id}"`);
         expect(html).toContain("Historical defect disclosed.");
         expect(html).toContain("21,000");

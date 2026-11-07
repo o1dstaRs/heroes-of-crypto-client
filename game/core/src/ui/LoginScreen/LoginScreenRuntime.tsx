@@ -7,10 +7,6 @@ import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx 
 
 type Mode = "login" | "register" | "verify";
 
-const LoginWalletButton = React.lazy(() =>
-    import("./LoginWalletButton").then((module) => ({ default: module.LoginWalletButton })),
-);
-
 export const LoginScreen: React.FC = () => {
     const { login, register, loginWithGoogle, confirmCode, requestCode, logout, user } = useAuthContext();
 
@@ -258,20 +254,6 @@ export const LoginScreen: React.FC = () => {
                                     </Button>
                                 </Stack>
                             </form>
-
-                            <Divider sx={{ color: hocColors.muted, borderColor: hocColors.orangeBorder }}>
-                                or use a wallet
-                            </Divider>
-
-                            <React.Suspense
-                                fallback={
-                                    <Button fullWidth variant="soft" disabled sx={hocSoftButtonSx}>
-                                        Connect Wallet
-                                    </Button>
-                                }
-                            >
-                                <LoginWalletButton busy={busy} onBusyChange={setBusy} onError={setError} />
-                            </React.Suspense>
                         </>
                     )}
 
