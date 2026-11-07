@@ -1,5 +1,6 @@
 import { portraitMarkup } from "./portrait";
 import { premiumGuides } from "./premium-copy";
+import { premiumCrewShell } from "./premium-crew";
 import { renderPremiumInsights, renderPremiumMatchups } from "./premium-insights";
 import {
     escapePremiumHtml as e,

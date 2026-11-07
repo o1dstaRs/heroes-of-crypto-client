@@ -1,4 +1,5 @@
 import { initPremiumAi } from "./premium-ai-panel";
+import { initPremiumCrew } from "./premium-crew-panel";
 import { renderPremiumMatchups } from "./premium-insights";
 import { getAuthToken, onAuthStateChange } from "./auth-state";
 import {
@@ -39,7 +40,7 @@ export function initPremiumPage(): void {
     let busy = false;
     let scopeUnsettled = false;
     let entitlement: PremiumEntitlement | undefined;
-    const url = (resource: "account" | "library") =>
+    const url = (resource: "account" | "library" | "crew") =>
         premiumApiUrl(resource, {
             hostname: location.hostname,
             protocol: location.protocol,
@@ -49,7 +50,14 @@ export function initPremiumPage(): void {
                 import.meta.env.VITE_IS_PROD === "true" ||
                 (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true),
         });
-    const ai = initPremiumAi(root, lang, () => void load());
+    const ai = initPremiumAi(root, lang, () => void load(), catalog);
+    const crew = initPremiumCrew(
+        root,
+        catalog,
+        lang,
+        () => data,
+        () => url("crew"),
+    );
     const updateAi = () => {
         const snapshot = data?.snapshot;
         const library = data?.library;
@@ -77,6 +85,7 @@ export function initPremiumPage(): void {
         );
     };
     const clear = () => {
+        crew.suspend();
         ai.setAccess(false);
         workspace.hidden = true;
         content.replaceChildren();
@@ -182,7 +191,7 @@ export function initPremiumPage(): void {
                 ...result.snapshots.map(
                     (snapshot) =>
                         new Option(
-                            `${snapshot.studyProfile.replace("premium-", "")} · ${snapshot.fights.toLocaleString()} ${t("battles", "боёв")}${snapshot.default ? ` · ${t("default", "основной")}` : ""}`,
+                            `${snapshot.createdAt && Number.isFinite(Date.parse(snapshot.createdAt)) ? new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(snapshot.createdAt)) : snapshot.studyProfile.replace("premium-", "")} · ${snapshot.fights.toLocaleString()} ${t("battles", "боёв")}`,
                             snapshot.snapshotId,
                             false,
                             snapshot.snapshotId === result.snapshot?.snapshotId,
@@ -250,7 +259,10 @@ export function initPremiumPage(): void {
             view.minimum = Number(select("minimum").value);
             if (scopeUnsettled) return;
             updateAi();
-            if (data) content.innerHTML = renderPremiumDashboard(data, catalog, view);
+            if (data) {
+                content.innerHTML = renderPremiumDashboard(data, catalog, view);
+                crew.refresh();
+            }
         } else void load();
     });
     const updateUnits = () => {
