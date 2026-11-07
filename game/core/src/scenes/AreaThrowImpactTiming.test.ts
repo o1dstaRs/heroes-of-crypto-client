@@ -104,7 +104,7 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
         targetPosition: near.getPosition(),
         unitIdsDied: [redirect ? "near" : "far"],
         damage,
-        animations: [],
+        animations: [] as Extract<GameEvent, { type: "area_attacked" }>["animations"],
     };
     const record = {
         action: { type: "area_throw_attack", attackerId: "giant", targetCell: areaEvent.targetCell },
@@ -207,6 +207,25 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
         advance,
     };
 };
+
+test.each([false, true])("free Double Throw honors a single recorded projectile, replay=%s", async (replay) => {
+    const f = fixture();
+    Object.assign(f.damage, { rangedVolleyCount: undefined });
+    f.damage.splash = f.damage.splash.slice(0, 2);
+    f.areaEvent.animations.push({
+        fromPosition: f.giant.getPosition(),
+        toPosition: f.near.getPosition(),
+        affectedUnitId: f.near.getId(),
+    });
+    const pending = f.playFree(replay);
+    await flush();
+    expect(f.shots).toHaveLength(1);
+    f.advance(1.01);
+    await flush();
+    expect(f.shots).toHaveLength(1);
+    await pending;
+    expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual(["damage:11", "damage:22"]);
+});
 
 test.each(["targeted", "free", "replay"])(
     "%s Double Throw lands every victim's damage and reaction at each rock's impact",

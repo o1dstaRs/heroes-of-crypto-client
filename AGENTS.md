@@ -198,6 +198,17 @@ server README's **Matchmaking handoff** section documents the invariant and regr
 
 ## AI tournament analyser
 
+For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
+`src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
+confirmation measured **+3.34 match-score points (95% interval +2.20 to +4.49)** on the ranked A19
+profile. V4 failed to improve over it. Read common's `AGENTS.md` and `docs/v0_9_doctrine_training.md`
+before changing this model. The user subsequently activated it as the **default draft for v0.9 seats**.
+Separate native-profile qualification passed at **+1.76 points (+0.91 to +2.62)** on 1,512 fresh boards;
+its secondary early-information comparison was +0.347 points (+0.025 to +0.694). The original
+scouting study remains failed and unchanged. Preserve the native fixture, fixed candidate policy,
+legal visibility, and persisted one-override budget through collision retries and restarts. This
+draft activation does not change the global default AI version or promote a new combat artifact.
+
 Placement research has an explicit [promotion gate](game/heroes-of-crypto-common/docs/placement_research_promotion.md).
 Negative or inconclusive explorations stay outside shipped profiles. Extra early attacks, a favorable matchup,
 or a positive subgroup cannot replace a fully funded gain against both current behavior and a matched free

@@ -41,6 +41,7 @@ export interface PremiumSearchEvent {
     inspectedOptionId?: string;
     stage?: "draft" | "setup" | "board" | "fight";
     phase?: string;
+    detail?: string;
     items?: { id: string; name: string; href: string }[];
     sources?: { id: string; name: string; href: string }[];
     packet?: PremiumEvidence;
@@ -103,7 +104,11 @@ const validEvent = (kind: string, event: Record<string, unknown>): boolean => {
     if (kind === "sources") return isSources(event.items);
     if (kind === "premium_evidence") return isEvidence(event.packet);
     if (kind === "error") return event.message === undefined || typeof event.message === "string";
-    if (kind === "status") return event.phase === undefined || typeof event.phase === "string";
+    if (kind === "status")
+        return (
+            (event.phase === undefined || typeof event.phase === "string") &&
+            (event.detail === undefined || typeof event.detail === "string")
+        );
     return true;
 };
 
@@ -116,15 +121,15 @@ export const readPremiumSearch = async (
 ): Promise<string> => {
     if (!response.ok || !response.body) {
         const failure = (await response.json().catch(() => ({}))) as { code?: string };
-        if (response.status === 429) throw new Error("Please wait a moment before asking again.");
+        if (response.status === 429) throw new Error("Please wait a moment before trying again.");
         if (response.status === 401) throw new Error("Please sign in again to use Premium advice.");
         if (response.status === 403) throw new Error("Premium access could not be verified for this account or match.");
         if (failure?.code === "premium_context_unavailable")
             throw new Error("Your match could not be read. Try again for advice on its current state.");
         if (failure?.code === "premium_focus_unavailable")
-            throw new Error("This stack is no longer visible. Inspect a visible unit and ask again.");
+            throw new Error("This stack is no longer visible. Inspect a visible unit for its explanation.");
         if (failure?.code === "premium_option_unavailable")
-            throw new Error("This move is no longer offered. Review the current suggested moves and ask again.");
+            throw new Error("This move is no longer offered. Choose one of the current suggested moves to explain.");
         throw new Error("Premium advice is unavailable. Please try again shortly.");
     }
     const reader = response.body.getReader();
@@ -136,8 +141,7 @@ export const readPremiumSearch = async (
         for (;;) {
             const chunk = await reader.read();
             receivedBytes += chunk.value?.byteLength ?? 0;
-            if (receivedBytes > 512_000)
-                throw new Error("The answer was too large. Please ask a more specific question.");
+            if (receivedBytes > 512_000) throw new Error("The answer was too large. Please try again.");
             buffer = (buffer + decoder.decode(chunk.value, { stream: !chunk.done })).replaceAll("\r\n", "\n");
             let boundary: number;
             while ((boundary = buffer.indexOf("\n\n")) >= 0) {

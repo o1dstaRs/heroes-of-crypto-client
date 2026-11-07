@@ -1532,72 +1532,78 @@ assetTest("plays Wolf Rider hit and death with authored timing and a stable canv
 });
 
 assetTest("plays Troglodyte hit and death at authored timing and resumes the cloth idle without a size jump", () => {
-    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
-        for (const preview of [false, true]) {
-            for (const action of ["hit", "death"]) {
-                const resolved: string[] = [];
-                const unit = createRenderableUnit(team, "Chaos", "Troglodyte", "troglodyte_512", (key) => {
-                    resolved.push(key);
-                    return Texture.WHITE;
-                });
-                const world = new Container();
-                unit.setPosition(0, 1024);
-                unit.setBattlefieldVisualProjection(true);
-                unit.ensureVisual(world, gridSettings);
-                const state = unit as unknown as {
-                    sprite: Sprite;
-                    oneShotAnim?: { frames: Texture[]; frameIndex: number; frameDurationsMs?: readonly number[] };
-                    selectionAnimFrames: Texture[];
-                    troglodyteIdleResumeAtMs: number;
-                };
-                const scaleX = state.sprite.scale.x;
-                const scaleY = state.sprite.scale.y;
-                let completed = 0;
-                expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", action)).toBe(true);
-                expect(unit.playOneShotAnimation(action, () => completed++, preview)).toBe(true);
-                expect(resolved).toContain(`troglodyte_${action}_atlas_quarter`);
-                // Both reactions run another 15% faster while retaining their earlier speed adjustments.
-                const durations = (
-                    action === "hit" ? [15, 20, 25, 40, 30, 35, 25] : [20, 30, 40, 45, 45, 40, 50, 100]
-                ).map(
-                    (duration) => duration / 1.3 / (action === "hit" ? 1.4 : 1) / 1.15 / (action === "hit" ? 1.17 : 1),
-                );
-                expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
-                expect(state.oneShotAnim?.frames).toHaveLength(durations.length);
-                for (let frame = 0; frame < durations.length; frame++) {
+    const clock = spyOn(performance, "now").mockReturnValue(10000);
+    try {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            for (const preview of [false, true]) {
+                for (const action of ["hit", "death"]) {
+                    const resolved: string[] = [];
+                    const unit = createRenderableUnit(team, "Chaos", "Troglodyte", "troglodyte_512", (key) => {
+                        resolved.push(key);
+                        return Texture.WHITE;
+                    });
+                    const world = new Container();
+                    unit.setPosition(0, 1024);
+                    unit.setBattlefieldVisualProjection(true);
                     unit.ensureVisual(world, gridSettings);
-                    expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                    const state = unit as unknown as {
+                        sprite: Sprite;
+                        oneShotAnim?: { frames: Texture[]; frameIndex: number; frameDurationsMs?: readonly number[] };
+                        selectionAnimFrames: Texture[];
+                        troglodyteIdleResumeAtMs: number;
+                    };
+                    const scaleX = state.sprite.scale.x;
+                    const scaleY = state.sprite.scale.y;
+                    let completed = 0;
+                    expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", action)).toBe(true);
+                    expect(unit.playOneShotAnimation(action, () => completed++, preview)).toBe(true);
+                    expect(resolved).toContain(`troglodyte_${action}_atlas_quarter`);
+                    // Both reactions run another 15% faster while retaining their earlier speed adjustments.
+                    const durations = (
+                        action === "hit" ? [15, 20, 25, 40, 30, 35, 25] : [20, 30, 40, 45, 45, 40, 50, 100]
+                    ).map(
+                        (duration) =>
+                            duration / 1.3 / (action === "hit" ? 1.4 : 1) / 1.15 / (action === "hit" ? 1.17 : 1),
+                    );
+                    expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
+                    expect(state.oneShotAnim?.frames).toHaveLength(durations.length);
+                    for (let frame = 0; frame < durations.length; frame++) {
+                        unit.ensureVisual(world, gridSettings);
+                        expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                        expect(state.sprite.scale.x).toBeCloseTo(scaleX);
+                        expect(state.sprite.scale.y).toBeCloseTo(scaleY);
+                        expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
+                        unit.stepOneShotAnimation(durations[frame] - 1);
+                        expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                        expect(completed).toBe(0);
+                        unit.stepOneShotAnimation(1);
+                    }
+                    expect(completed).toBe(1);
+                    if (preview && action === "death") {
+                        expect(state.oneShotAnim?.frameIndex).toBe(7);
+                        const corpse = state.sprite.texture;
+                        unit.stepOneShotAnimation(10_000);
+                        expect(state.sprite.texture).toBe(corpse);
+                        expect(completed).toBe(1);
+                        unit.returnToIdleAnimation();
+                    } else {
+                        expect(unit.isPlayingOneShotAnimation()).toBe(false);
+                    }
+                    expect(state.sprite.texture).toBe(state.selectionAnimFrames[0]);
+                    unit.stepSelectionAnimation(state.troglodyteIdleResumeAtMs + 80);
+                    expect(state.sprite.texture).toBe(state.selectionAnimFrames[1]);
                     expect(state.sprite.scale.x).toBeCloseTo(scaleX);
                     expect(state.sprite.scale.y).toBeCloseTo(scaleY);
-                    expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
-                    unit.stepOneShotAnimation(durations[frame] - 1);
-                    expect(state.oneShotAnim?.frameIndex).toBe(frame);
-                    expect(completed).toBe(0);
-                    unit.stepOneShotAnimation(1);
-                }
-                expect(completed).toBe(1);
-                if (preview && action === "death") {
-                    expect(state.oneShotAnim?.frameIndex).toBe(7);
-                    const corpse = state.sprite.texture;
-                    unit.stepOneShotAnimation(10_000);
-                    expect(state.sprite.texture).toBe(corpse);
+                    unit.stepOneShotAnimation(1000);
                     expect(completed).toBe(1);
-                    unit.returnToIdleAnimation();
-                } else {
-                    expect(unit.isPlayingOneShotAnimation()).toBe(false);
                 }
-                expect(state.sprite.texture).toBe(state.selectionAnimFrames[0]);
-                unit.stepSelectionAnimation(state.troglodyteIdleResumeAtMs + 80);
-                expect(state.sprite.texture).toBe(state.selectionAnimFrames[1]);
-                expect(state.sprite.scale.x).toBeCloseTo(scaleX);
-                expect(state.sprite.scale.y).toBeCloseTo(scaleY);
-                unit.stepOneShotAnimation(1000);
-                expect(completed).toBe(1);
             }
         }
+        expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "attack")).toBe(true);
+    } finally {
+        clock.mockRestore();
     }
-    expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "attack")).toBe(true);
 });
 
 assetTest("plays all Troglodyte attacks with authored timing, stable padded canvas and seamless idle return", () => {
@@ -7947,14 +7953,20 @@ describe("RenderableUnit runtime spell synchronization", () => {
 
 describe("RenderableUnit runtime aura and reflection descriptions", () => {
     const descriptionFor = (
-        creatureName: "Dryad" | "Satyr" | "Magic Dragon",
+        creatureName: "Dryad" | "Satyr" | "Magic Dragon" | "Wolf Rider",
         textureName: string,
         abilityName: string,
         stackPower: number,
         luck: number,
     ): string => {
         const effectFactory = new EffectFactory();
-        const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Nature", creatureName, textureName, 1);
+        const properties = HoCConfig.getCreatureConfig(
+            TeamVals.LEFT,
+            creatureName === "Wolf Rider" ? "Might" : "Nature",
+            creatureName,
+            textureName,
+            1,
+        );
         properties.luck = luck;
         const base = Unit.createUnit(
             properties,
@@ -7986,6 +7998,19 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         expect(descriptionFor("Magic Dragon", "magic_dragon_512", "Magic Reflection", 5, 10)).toContain(
             "caster takes 85%",
         );
+    });
+
+    test("prints the Satyr and Wolf Rider blessing power at every tier without adding luck", () => {
+        for (let tier = 1; tier <= 5; tier++) {
+            for (const luck of [-10, 10]) {
+                expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Blessing", tier, luck)).toContain(
+                    `deal +${tier * 3}% magic damage`,
+                );
+                expect(descriptionFor("Wolf Rider", "wolf_rider_512", "Wolf Trail Blessing", tier, luck)).toContain(
+                    `gain +${tier / 5} movement distance`,
+                );
+            }
+        }
     });
 
     test("replaces Chakram's target limit and damage percentages at every stack tier", () => {

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { TeamVals } from "@heroesofcrypto/common";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import { RankedPlayScene } from "./RankedPlayScene";
@@ -82,6 +82,7 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
     const state: LivePlacement = { cells, amountAlive: 10 };
     const occupants = occupy(cells, "a");
     let hydrates = 0;
+    let occupancyRepairs = 0;
     const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
         fullReplayPlaybackActive: false,
         lastAuthoritativeSequence: -1,
@@ -117,6 +118,11 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         },
         applyScatteredMountainsFromSnapshot() {},
         refreshUnits() {},
+        syncRankedUnitMechanicalEffects: () => false,
+        healRankedGridOccupancy() {
+            occupancyRepairs += 1;
+        },
+        applyRankedUnitStats() {},
         reconcileAuraEffectsFromSnapshot() {},
         syncRankedVisibleTurnState() {},
         applyRankedFightStats() {},
@@ -141,10 +147,34 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         state,
         moveTo,
         hydrates: () => hydrates,
+        occupancyRepairs: () => occupancyRepairs,
     };
 };
 
 describe("ranked placement snapshots", () => {
+    test.each([false, true])(
+        "a duplicate server board cannot repair away a newer optimistic drop (skip rebuild: %s)",
+        (skipBoardRebuild) => {
+            const clock = spyOn(performance, "now").mockReturnValue(10_000);
+            try {
+                const { scene, moveTo, hydrates, occupancyRepairs } = boot();
+                scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
+
+                moveTo([{ x: 4, y: 4 }]);
+                scene.noteOptimisticPlacement();
+                scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2), {
+                    skipBoardRebuild,
+                });
+
+                expect(hydrates()).toBe(1);
+                expect(occupancyRepairs()).toBe(0);
+                expect(scene.lastAuthoritativeSequence).toBe(2);
+            } finally {
+                clock.mockRestore();
+            }
+        },
+    );
+
     test("the first board is built, and a repeat of it is not", () => {
         const { scene, hydrates } = boot();
         const opening = snapshot([unit("a", [{ x: 1, y: 1 }])], 1);
@@ -154,6 +184,18 @@ describe("ranked placement snapshots", () => {
 
         expect(hydrates()).toBe(1);
         expect(scene.lastAuthoritativeSequence).toBe(1);
+    });
+
+    test("an unchanged server board still repairs an unconfirmed drop after its hold expires", () => {
+        const { scene, moveTo, hydrates, occupancyRepairs } = boot();
+        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
+
+        moveTo([{ x: 4, y: 4 }]);
+        scene.optimisticPlacementHoldUntil = 0;
+        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2));
+
+        expect(hydrates()).toBe(2);
+        expect(occupancyRepairs()).toBe(0);
     });
 
     test("a confirming drop does not rebuild, and an older drop of the same stack waits", () => {

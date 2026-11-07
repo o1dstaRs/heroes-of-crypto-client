@@ -112,7 +112,7 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                                     );
                                 }}
                             >
-                                Ask about this move
+                                Explain this move
                             </PremiumButton>
                         )}
                     </Box>

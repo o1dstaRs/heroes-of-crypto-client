@@ -345,11 +345,11 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             "Колчан вмещает лишь полный запас × сила стека / 5 стрел с округлением вниз — 2/4/6/8/10 из 10 у Arbalester при силе стека 1–5, — плюс стрелы от Rallying Volley Blessing; стрелы сверх сниженного предела пропадают навсегда.",
     },
-    "Luck Aura": {
+    "Luck Blessing": {
         en: () =>
-            "Allies within 2 cells, the Leprechaun included, have their luck fixed at +10 instead of the lap roll; Misfortune drops them to 0. +10 luck means about 10% less attack damage taken and +10 points on the stack's ability chances. The aura doesn't depend on stack power, so a split Leprechaun projects it at full strength around both halves (the same aura doesn't add up on a cell), though its own Lucky Strike weakens with the split.",
+            "While a Leprechaun is alive and not Broken, every ally on the battlefield, including the Leprechaun, gains +2/4/6/8/10 luck at stack power 1–5. The bonus adds to existing luck, capped at +10 total. Only the strongest living source applies; splitting does not add the bonuses together. Misfortune sets a blessed unit's luck to 0. Each point of luck means about 1% less attack damage taken and +1 point on ability chances.",
         ru: () =>
-            "У союзников в радиусе 2 клеток, включая Leprechaun, удача зафиксирована на +10 вместо броска круга; Misfortune опускает её до 0. +10 удачи — это примерно на 10% меньше урона от атак и +10 пунктов к шансам способностей стека. Аура не зависит от силы стека, поэтому разделённый Leprechaun даёт её в полную силу вокруг обеих половин (одна и та же аура на клетке не складывается), хотя его собственный Lucky Strike после разделения слабеет.",
+            "Пока Leprechaun жив и без Break, каждый союзник на поле, включая самого Leprechaun, получает +2/4/6/8/10 к удаче при силе стека 1–5. Бонус прибавляется к текущей удаче с общим пределом +10. Действует только сильнейший живой источник; разделение не складывает бонусы. Misfortune устанавливает удачу благословлённого юнита в 0. Каждое очко удачи — это примерно на 1% меньше урона от атак и +1 пункт к шансам способностей.",
     },
     "Lucky Strike": {
         en: ({ p, n }) =>

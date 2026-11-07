@@ -40,6 +40,7 @@ import { premiumMoveDrawing } from "./PremiumTurnOverlay";
 import { premiumHumanActions, sandboxPremiumAdvice } from "./sandboxPremiumAdvice";
 import { RenderableUnit } from "./RenderableUnit";
 import { searchSandboxAiDecision } from "./sandboxAiSearch";
+import * as SandboxAiSearch from "./sandboxAiSearch";
 
 const testGridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -183,12 +184,14 @@ for (const { renderer, render, creatureId } of scenarios) {
             const randomBefore = HoCLib.captureDeterministicRandomState();
             const memoryBefore = captureAITargetMemory(context.unitsHolder);
             const search = spyOn(SearchDriver.prototype, "chooseDecision");
+            const selectedSearch = spyOn(SandboxAiSearch, "searchSandboxPremiumDecision");
             let advice;
             try {
                 advice = sandboxPremiumAdvice(actor, decision, 4, context.host);
                 expect(search).toHaveBeenCalledTimes(1);
+                expect(selectedSearch).toHaveBeenCalledTimes(1);
                 expect(search.mock.calls[0][1]).toBe("v0.8");
-                const searchedActions = premiumHumanActions(search.mock.results[0].value as GameAction[]);
+                const searchedActions = premiumHumanActions(selectedSearch.mock.results[0].value as GameAction[]);
                 if (
                     searchedActions &&
                     premiumMoveDrawing(
@@ -201,6 +204,7 @@ for (const { renderer, render, creatureId } of scenarios) {
                     expect(advice.options[0].actions).toEqual(searchedActions);
                 }
             } finally {
+                selectedSearch.mockRestore();
                 search.mockRestore();
             }
             expect(snapshotBattle(context.unitsHolder, context.grid, fight)).toEqual(before);

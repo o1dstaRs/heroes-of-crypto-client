@@ -2325,7 +2325,10 @@ export class RankedPlayScene extends Sandbox {
         // view disagrees with the server (e.g. a stale ghost unit), so the signature short-circuit
         // (which assumes "same server board => client already in sync") must NOT fire — fall through
         // to the full hydrate below to rebuild from authoritative truth.
-        if (boardSignature === this.lastBoardSignature && !forceRebuild) {
+        // Placement's reconciliation below owns optimistic drops. Combat occupancy repair would put
+        // a newer local drop back at the last server cell, even while its acknowledgement is pending.
+        const combatSnapshot = snapshot.fightStarted || snapshot.fightFinished;
+        if (combatSnapshot && boardSignature === this.lastBoardSignature && !forceRebuild) {
             if (this.syncRankedUnitMechanicalEffects(state.units)) {
                 this.unitsHolder.refreshStackPowerForAllUnits();
             }
@@ -2411,7 +2414,6 @@ export class RankedPlayScene extends Sandbox {
         }
         const ownPlacementShown =
             samePlacementContext &&
-            placementUnitIdsKey !== this.lastPlacementUnitIdsKey &&
             this.viewerTeam !== undefined &&
             viewerPlacementAlreadyShown(this.viewerTeam, livePlacement, snapshot.units);
         const canSkipPreFightHydrate =
@@ -2421,7 +2423,7 @@ export class RankedPlayScene extends Sandbox {
             this.viewerTeam !== undefined &&
             this.lastPlacementUnitIdsKey !== "" &&
             !this.hasVisibleOpponentPlacementChange(snapshot) &&
-            (placementUnitIdsKey === this.lastPlacementUnitIdsKey || ownPlacementShown);
+            ownPlacementShown;
         this.lastPlacementUnitIdsKey = placementUnitIdsKey;
         this.rememberPlacementStates(snapshot);
         if (canSkipPreFightHydrate) {
@@ -4578,6 +4580,7 @@ export class RankedPlayScene extends Sandbox {
                 actor,
                 this.unitsHolder.getAllUnits(),
                 this.sc_sceneSettings.getGridSettings(),
+                { grid: this.grid, unitsHolder: this.unitsHolder, attackHandler: this.attackHandler },
             );
             this.drawnPremiumTurnPreview = turn;
         }

@@ -150,7 +150,7 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
                     }}
                     sx={{ mt: 0.75, px: 0.5 }}
                 >
-                    Ask about this choice
+                    Explain this choice
                 </PremiumButton>
             )}
         </Box>
@@ -179,14 +179,14 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
             <PremiumButton
                 size="sm"
                 variant="outlined"
-                aria-label={`Ask Premium about ${offer.label}`}
+                aria-label={`Explain ${offer.label} with Premium`}
                 onClick={(event) => {
                     event.stopPropagation();
                     askQuestion(premiumChoiceQuestion(offer));
                 }}
                 sx={{ position: "absolute", zIndex: 9, top: 5, left: 5, minHeight: 24, px: 0.7, fontSize: 11 }}
             >
-                Ask Premium
+                Explain choice
             </PremiumButton>
         );
     }
@@ -514,7 +514,7 @@ export const PremiumSetupPanel: React.FC<{
                                 }
                                 sx={{ mt: 0.75, px: 0.5 }}
                             >
-                                Ask about this {advice.stage === "setup" ? "build" : "formation"}
+                                Explain this {advice.stage === "setup" ? "build" : "formation"}
                             </PremiumButton>
                         )}
                     </Box>

@@ -37,7 +37,6 @@ import { TextStyle } from "pixi.js";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
-import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
 import RightSideBar from "./RightSideBar";
@@ -1612,14 +1611,9 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
             {/* Online routes require authentication */}
             <Route
                 path="/play"
-                element={
-                    <WalletProvider>
-                        {activated || isMockPortalEnabled() ? <MatchmakingRoute /> : <LoginScreen />}
-                    </WalletProvider>
-                }
+                element={<>{activated || isMockPortalEnabled() ? <MatchmakingRoute /> : <LoginScreen />}</>}
             />
             {/* Custom-game lobbies: browse/create and the lobby room (ready-up + start).
-                LoginScreen uses wagmi hooks, so the unauthenticated fallback must sit inside WalletProvider.
                 The browser takes the same dev-only preview flag as the arena and the portal (?mockPortal=1),
                 so its chrome can be looked at without an account; the room still needs a real lobby. */}
             <Route
@@ -1628,9 +1622,9 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     activated || isMockPortalEnabled() ? (
                         <LobbiesBrowse />
                     ) : (
-                        <WalletProvider>
+                        <>
                             <LoginScreen />
-                        </WalletProvider>
+                        </>
                     )
                 }
             />
@@ -1640,9 +1634,9 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     activated ? (
                         <LobbyView />
                     ) : (
-                        <WalletProvider>
+                        <>
                             <LoginScreen />
-                        </WalletProvider>
+                        </>
                     )
                 }
             />
@@ -1653,36 +1647,32 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     activated || isMockPortalEnabled() ? (
                         <PlayerPortalPage />
                     ) : (
-                        <WalletProvider>
+                        <>
                             <LoginScreen />
-                        </WalletProvider>
+                        </>
                     )
                 }
             />
             <Route
                 path="/game/:gameId/replay"
                 element={
-                    <WalletProvider>
+                    <>
                         <RankedReplayRoute windowSize={windowSize} />
-                    </WalletProvider>
+                    </>
                 }
             />
             <Route
                 path="/game/:gameId"
                 element={
-                    <WalletProvider>
+                    <>
                         <KeyedGameRoute windowSize={windowSize} />
-                    </WalletProvider>
+                    </>
                 }
             />
             {/* Friend co-op sandbox: the invite's direct link. Host plays green, the invited friend red. */}
             <Route
                 path="/sandbox/:gameId"
-                element={
-                    <WalletProvider>
-                        {activated ? <SandboxCoopRoute windowSize={windowSize} /> : <LoginScreen />}
-                    </WalletProvider>
-                }
+                element={<>{activated ? <SandboxCoopRoute windowSize={windowSize} /> : <LoginScreen />}</>}
             />
             <Route path="*" element={<Heroes windowSize={windowSize} />} />
         </Routes>

@@ -10,54 +10,62 @@ const { lang } = Astro.props;
 const t = (en: string, ru: string) => lang === "ru" ? ru : en;
 const home = lang === "ru" ? "/ru" : "";
 const catalog = premiumCatalog(lang);
+const loginHref = `${home}/auth/login/?redirect=${encodeURIComponent(`${home}/premium/`)}`;
 ---
 <div class="premium-page" data-premium-page data-language={lang}>
     <script type="application/json" id="premium-catalog" set:html={JSON.stringify(catalog).replace(/</g, "\\u003c")} />
     <section class="premium-hero">
         <div class="premium-hero-grid" aria-hidden="true"></div>
         <div class="premium-hero-copy">
-            <p class="premium-eyebrow"><PremiumIcon size="20px" /> HEROES OF CRYPTO <span class="premium-eyebrow-suffix">/ PREMIUM</span></p>
-            <h1>{t("A sharper read.", "Видеть глубже.")}<br /><em>{t("A stronger army.", "Играть сильнее.")}</em></h1>
-            <p class="premium-intro">{t("Your field guide to the meta. Explore the armies, combinations and decisions behind the battles — with the evidence to make them your own.", "Ваш путеводитель по мете. Изучайте армии, комбинации и решения, которые стоят за боями, и находите свой путь к победе.")}</p>
-            <div class="premium-hero-tags"><span>{t("STRATEGY", "СТРАТЕГИИ")}</span><i></i><span>{t("SYNERGY", "СИНЕРГИИ")}</span><i></i><span>{t("INSIGHT", "АНАЛИТИКА")}</span></div>
+            <p class="premium-eyebrow">HEROES OF CRYPTO</p>
+            <h1>Premium</h1>
+            <p class="premium-intro">{t("Compare units, artifacts, and army builds using results from simulated battles. Get advice during draft, setup, and combat.", "Сравнивайте юнитов, артефакты и составы армий по результатам симуляций. Получайте подсказки во время драфта, расстановки и боя.")}</p>
+            <a class="premium-button premium-hero-login" data-premium-login href={loginHref} hidden>{t("Sign in to check access", "Войти и проверить доступ")} <span aria-hidden="true">→</span></a>
         </div>
-        <div class="premium-emblem" aria-hidden="true"><PremiumIcon size="216px" /><p>THE PREMIUM PLAYBOOK</p></div>
+        <div class="premium-emblem" aria-hidden="true"><PremiumIcon size="216px" /></div>
     </section>
 
-    <div class="premium-status" role="status" aria-live="polite"><span class="premium-status-dot"></span><span data-premium-status>{t("Checking your access…", "Проверяем доступ…")}</span><button class="premium-text-button" type="button" data-premium-retry hidden><PremiumIcon size="16px" /> {t("Try again", "Повторить")}</button></div>
+    <div class="premium-status" role="status" aria-live="polite"><span class="premium-status-dot"></span><span data-premium-status>{t("Checking your access…", "Проверяем доступ…")}</span><button class="premium-text-button" type="button" data-premium-retry hidden>{t("Try again", "Повторить")}</button></div>
 
     <section class="premium-gate" data-premium-gate hidden aria-labelledby="premium-gate-title">
-        <div class="premium-gate-heading"><div><p class="premium-eyebrow">{t("THE NEXT LAYER OF YOUR GAME", "НОВЫЙ УРОВЕНЬ ВАШЕЙ ИГРЫ")}</p><h2 id="premium-gate-title">{t("Turn information into an advantage.", "Превратите знания в преимущество.")}</h2></div><a class="premium-button" href="#premium-access"><PremiumIcon size="18px" /> {t("Get Premium", "Получить Premium")} <span>↗</span></a></div>
+        <h2 id="premium-gate-title">{t("What’s included", "Что входит в Premium")}</h2>
         <div class="premium-feature-grid">
             {[
-                ["01", "Read the meta", "Изучайте мету", "Unit rankings, sample sizes and uncertainty. Find promising picks within each level and army type.", "Рейтинги юнитов, объём выборки и интервалы. Находите перспективные пики для каждого уровня и типа армии."],
-                ["02", "Find your combinations", "Находите комбинации", "Explore pairs, trios and exact faction synergies. See which pieces have performed together.", "Пары, тройки и точные синергии фракций. Изучайте результаты юнитов, которые сражались вместе."],
-                ["03", "Build with intent", "Собирайте осмысленно", "Compare both artifact tiers, doctrines and complete augment plans in the same context.", "Сравнивайте оба уровня артефактов, доктрины и полные планы усилений в одном контексте."],
-                ["04", "Understand the why", "Понимайте причины", "Ask Premium AI about your selected data. Explore practical playbooks, interactive charts and evidence-backed answers.", "Спрашивайте Premium AI о выбранных данных. Изучайте стратегии, интерактивные графики и ответы с обоснованием."],
-            ].map(([number, en, ru, desc, descRu]) => <article class="premium-feature"><div><span>{number}</span><PremiumIcon size="28px" /></div><h3>{t(en, ru)}</h3><p>{t(desc, descRu)}</p></article>)}
+                ["01", "Unit rankings", "Рейтинги юнитов", "Compare results by draft level and army type. Each ranking shows sample sizes and confidence intervals.", "Сравнивайте результаты по уровню драфта и типу армии. В рейтингах указаны объём выборки и доверительные интервалы."],
+                ["02", "Unit combinations", "Комбинации юнитов", "See how armies performed with specific unit pairs, trios, and active faction synergies.", "Смотрите результаты армий с конкретными парами, тройками юнитов и активными синергиями фракций."],
+                ["03", "Artifacts and upgrades", "Артефакты и усиления", "Compare both artifact tiers, doctrines, and complete upgrade plans for the same army type and battlefield.", "Сравнивайте оба уровня артефактов, доктрины и планы усилений для одного типа армии и поля боя."],
+                ["04", "Ask Premium AI", "Вопросы к Premium AI", "Ask about game rules, strategy, or the results in the selected dataset.", "Задавайте вопросы о правилах игры, стратегии и результатах выбранной выборки."],
+            ].map(([number, en, ru, desc, descRu]) => <article class="premium-feature"><span aria-hidden="true">{number}</span><h3>{t(en, ru)}</h3><p>{t(desc, descRu)}</p></article>)}
         </div>
-        <div class="premium-access-panel" id="premium-access"><div class="premium-access-mark" aria-hidden="true"><PremiumIcon size="64px" /></div><div><p class="premium-eyebrow">{t("YOUR PREMIUM ACCESS", "ВАШ ДОСТУП К PREMIUM")}</p><h2>{t("Included while you calibrate.", "Доступно во время калибровки.")}</h2><p>{t("Sign in to use Premium during initial calibration or recalibration. After calibration, an active Premium account keeps the playbook and in-game guidance available.", "Войдите, чтобы пользоваться Premium во время первой или повторной калибровки. После неё активный Premium сохраняет доступ к стратегиям и подсказкам в игре.")}</p><div class="premium-cta-row"><a class="premium-button" data-premium-login href={`${home}/auth/login/?redirect=${encodeURIComponent(`${home}/premium/`)}`}><PremiumIcon size="18px" /> {t("Sign in to check access", "Войти и проверить доступ")} →</a><button class="premium-secondary" type="button" disabled aria-describedby="premium-coming-soon"><PremiumIcon size="18px" /> {t("Get Premium · Coming soon", "Получить Premium · Скоро")}</button></div><p class="premium-fine" id="premium-coming-soon">{t("Premium subscriptions are coming soon. This is a preview of the offer; purchasing is not available yet. Calibration access is already included.", "Подписка Premium скоро появится. Это предварительный вид предложения; покупка пока недоступна. Доступ во время калибровки уже включён.")}</p></div></div>
+        <div class="premium-access-panel" id="premium-access">
+            <h2>{t("Premium access", "Доступ к Premium")}</h2>
+            <p>{t("Premium is included during initial calibration and recalibration. After calibration, access requires an active Premium account.", "Premium доступен во время первой и повторной калибровки. После неё доступ сохраняется у аккаунтов с активным Premium.")}</p>
+            <p class="premium-fine">{t("Premium subscriptions are coming soon.", "Подписка Premium скоро появится.")}</p>
+        </div>
     </section>
 
     <section class="premium-workspace" data-premium-workspace hidden>
         <nav class="premium-section-nav" aria-label={t("Premium sections", "Разделы Premium")}>
-            <span class="premium-nav-brand"><PremiumIcon size="20px" /> PREMIUM</span>
-            <a class="premium-nav-ai" href="#premium-search"><PremiumIcon size="16px" />{t("Ask Premium AI", "Спросить AI")}</a>
+            <a class="premium-nav-ai" href="#premium-search">{t("Ask Premium AI", "Спросить AI")}</a>
             {premiumSections.map(([id, en, ru], index) => <a data-premium-library-nav href={`#premium-${id}`}><small>{String(index + 1).padStart(2, "0")}</small>{t(en, ru)}</a>)}
-            <a class="premium-nav-play" href={`${home}/play/`}>{t("Take it to battle", "Перейти к игре")} ↗</a>
+            <a class="premium-nav-play" href={`${home}/play/`}>{t("Play", "Перейти к игре")} ↗</a>
         </nav>
         <div class="premium-main">
             <form class="premium-filters" data-premium-filters>
-                <label>{t("Snapshot", "Снимок")}<select name="snapshot" aria-label={t("Snapshot", "Снимок")}></select></label>
-                <label>{t("Army environment", "Тип армий")}<select name="cohort"><option value="ranked-draft">{t("Ranked draft", "Рейтинговый драфт")}</option><option value="uniform-mixed">{t("Mixed armies", "Смешанные армии")}</option><option value="ranged-heavy">{t("Ranged heavy", "Стрелковые")}</option><option value="ground-melee">{t("Ground melee", "Наземный ближний бой")}</option><option value="flyer-heavy">{t("Flyer heavy", "Летающие")}</option><option value="caster-support">{t("Caster & support", "Магия и поддержка")}</option><option value="cross-archetype">{t("Cross-archetype", "Разные архетипы")}</option></select></label>
+                <label>{t("Battle data", "Данные боёв")}<select name="snapshot" aria-label={t("Battle data", "Данные боёв")}></select></label>
+                <label>{t("Army type", "Тип армии")}<select name="cohort"><option value="ranked-draft">{t("Ranked draft", "Рейтинговый драфт")}</option><option value="uniform-mixed">{t("Mixed armies", "Смешанные армии")}</option><option value="ranged-heavy">{t("Ranged heavy", "Стрелковые")}</option><option value="ground-melee">{t("Ground melee", "Наземный ближний бой")}</option><option value="flyer-heavy">{t("Flyer heavy", "Летающие")}</option><option value="caster-support">{t("Caster & support", "Магия и поддержка")}</option><option value="cross-archetype">{t("Cross-archetype", "Разные архетипы")}</option></select></label>
                 <label>{t("Battlefield", "Поле боя")}<select name="map"><option value="all">{t("All live maps", "Все активные карты")}</option><option value="1">{t("Normal", "Обычная")}</option><option value="3">{t("Lava Center", "Лава в центре")}</option><option value="4">{t("Block Center", "Блок в центре")}</option></select></label>
-                <label>{t("Min. families", "Мин. семейств")}<select name="minimum"><option value="50">50+</option><option value="20">20+</option><option value="1">1+</option></select></label>
+                <label>{t("Min. battle pairs", "Мин. пар боёв")}<select name="minimum"><option value="50">50+</option><option value="20">20+</option><option value="1">1+</option></select></label>
             </form>
-            <PremiumSearch lang={lang} />
+            <div class="premium-refresh" data-premium-refresh hidden>
+                <p data-premium-refresh-status role="status" aria-atomic="true"></p>
+                <button class="premium-text-button" type="button" data-premium-refresh-retry hidden>{t("Try again", "Повторить")}</button>
+            </div>
             <div data-premium-content aria-busy="false"></div>
+            <PremiumSearch lang={lang} />
         </div>
     </section>
-    <noscript><p class="premium-status">{t("Enable JavaScript to check Premium access and load the interactive playbook.", "Включите JavaScript для проверки доступа к Premium и загрузки графиков.")}</p></noscript>
+    <noscript><p class="premium-status">{t("Enable JavaScript to check Premium access and load the battle statistics.", "Включите JavaScript для проверки доступа к Premium и загрузки графиков.")}</p></noscript>
 </div>
 <script>
     import { initPremiumPage } from "../lib/premium-page";

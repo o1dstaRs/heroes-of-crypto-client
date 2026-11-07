@@ -249,6 +249,8 @@ const outcome = {
 };
 
 it.each([
+    ["status", { phase: "reading", detail: { name: "Griffin" } }],
+    ["status", { phase: ["reading"] }],
     ["sources", { items: {} }],
     ["sources", { items: [null] }],
     ["done", { answer: "Plan", sources: [{ id: "unit:angel", name: "Angel", href: {} }] }],

@@ -104,6 +104,6 @@ test("the review numbers all three board choices and retains late risk and share
     expect(html).toContain("planned path crosses lava");
     expect(html).toContain("own resurrection charge");
     expect(html).toContain("Material warning 16.");
-    expect(html.match(/Ask about this move/g)).toHaveLength(3);
-    expect(render(false)).not.toContain("Ask about this move");
+    expect(html.match(/Explain this move/g)).toHaveLength(3);
+    expect(render(false)).not.toContain("Explain this move");
 });

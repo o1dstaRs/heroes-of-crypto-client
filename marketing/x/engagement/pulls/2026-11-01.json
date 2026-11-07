@@ -1,0 +1,1128 @@
+{
+ "pulled_at": "2026-11-01T17:41:00Z",
+ "test": false,
+ "user": {
+  "data": {
+   "created_at": "2024-03-14T20:15:16.000Z",
+   "id": "1768370292353884160",
+   "name": "Heroes Of Crypto (HOCAI)",
+   "pinned_tweet_id": "2110567307013726582",
+   "public_metrics": {
+    "followers_count": 91,
+    "following_count": 8,
+    "like_count": 16,
+    "listed_count": 1,
+    "media_count": 52,
+    "tweet_count": 216
+   },
+   "username": "Heroes0fcrypto"
+  }
+ },
+ "posts": {
+  "data": [
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116905821338763569",
+    "created_at": "2026-11-01T14:51:47.000Z",
+    "edit_history_tweet_ids": [
+     "2116906052616933398"
+    ],
+    "id": "2116906052616933398",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 2,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116905821338763569",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The other way to hold is Luck Shield: luck set to +3 for the lap (capped at +10), 2 morale, and the turn ends. While any stack with Time Denial is alive, nobody can wait.\n\nWhat's worth giving up your place in the queue for?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2116906052616933398"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116905821338763569",
+    "created_at": "2026-11-01T14:50:52.000Z",
+    "edit_history_tweet_ids": [
+     "2116905821338763569"
+    ],
+    "id": "2116905821338763569",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 6,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Waiting isn't free. Hourglass sends your stack to the very end of the lap, after even the Dismorale stacks, and costs 3 morale. It works once per lap, and your last stack still to act can't wait at all.\n\nWait only when you know which better turn you're buying.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116905821338763569"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116681340733263965",
+    "created_at": "2026-10-31T23:59:21.000Z",
+    "edit_history_tweet_ids": [
+     "2116681463664198041"
+    ],
+    "id": "2116681463664198041",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 11,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116681340733263965",
+      "type": "replied_to"
+     }
+    ],
+    "text": "ttps://heroesofcrypto.io/playhThich one would you pick for a shooter army?\nWhe shooter's luck adds to the chance: at luck +7 the artifact card reads 47%. It can't be taken with Rime Charm or Gravechain, since each army gets one Tier 2 artifact.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116681463664198041"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116681340733263965",
+    "created_at": "2026-10-31T23:58:52.000Z",
+    "edit_history_tweet_ids": [
+     "2116681340733263965"
+    ],
+    "id": "2116681340733263965",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 26,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Quiver of Echoes gives every ranged attack a 40% chance to fire one more full-strength volley, splash and piercing included. Double Shot and Double Throw still work, so a Gargantuan can throw three times. The echo uses normal ammo, can't echo again and grants no extra counter.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116681340733263965"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116605160042705365",
+    "created_at": "2026-10-31T18:57:40.000Z",
+    "edit_history_tweet_ids": [
+     "2116605541883736401"
+    ],
+    "id": "2116605541883736401",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 2,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116605160042705365",
+      "type": "replied_to"
+     }
+    ],
+    "text": "No rise while Broken, or after a death to poison, the shrinking board or a later Armageddon wave. Casting Resurrection on another stack spends the self-rise too.\n\nDo you hit the Angels first, or leave them for last?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2116605541883736401"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116605160042705365",
+    "created_at": "2026-10-31T18:56:09.000Z",
+    "edit_history_tweet_ids": [
+     "2116605160042705365"
+    ],
+    "id": "2116605160042705365",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 9,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "We got one wrong. When an Angel stack is wiped out, half the fallen Angels rise again at full health, once per fight. The rules brought them back, but the board could leave them frozen in their death pose. Since v0.1.7 the risen Angels drop the corpse frame and stand up.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116605160042705365"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116528530863665247",
+    "created_at": "2026-10-31T13:52:29.000Z",
+    "edit_history_tweet_ids": [
+     "2116528741455450601"
+    ],
+    "id": "2116528741455450601",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 12,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116528530863665247",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Miss your first deadline of a ranked fight and the game plays Hourglass (or Luck Shield) for that stack. Both cost morale.\n\nDo you spend the budget early on your big stacks, or save it for the end of the lap?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2116528741455450601"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116528530863665247",
+    "created_at": "2026-10-31T13:51:39.000Z",
+    "edit_history_tweet_ids": [
+     "2116528530863665247"
+    ],
+    "id": "2116528530863665247",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 13,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Every ranked PvP turn runs on a clock. Your army gets a 4-minute budget for the lap, and one turn can take up to 60 seconds of it, but the game always keeps at least 12 seconds for each stack that still has to act. Once per lap you can ask for extra time.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116528530863665247"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116317576951431634",
+    "created_at": "2026-10-30T23:54:27.000Z",
+    "edit_history_tweet_ids": [
+     "2116317842220155327"
+    ],
+    "id": "2116317842220155327",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 7,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116317576951431634",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Morale rolls cut in first, Dismorale and Hourglass waiters go last. In lap one the army with higher average morale starts.\n\nA drafted unit can be split into stacks during placement. Would you split to win the tail of the lap?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2116317842220155327"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116317576951431634",
+    "created_at": "2026-10-30T23:53:24.000Z",
+    "edit_history_tweet_ids": [
+     "2116317576951431634"
+    ],
+    "id": "2116317576951431634",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Turn order in Heroes of Crypto isn't one speed list.\n\nArmies alternate one stack at a time, each sending its highest-initiative stack that hasn't acted. When one army runs out, the other's stacks go back to back.\n\nSo out-stack your opponent and you get moves in a row.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116317576951431634"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116241343542649135",
+    "created_at": "2026-10-30T18:52:19.000Z",
+    "edit_history_tweet_ids": [
+     "2116241807990472760"
+    ],
+    "id": "2116241807990472760",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116241343542649135",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Retaliation hits count too, and positive luck raises the 50%. It's a Tier 2 pick, so it can't go with Quiver of Echoes or Rime Charm.\n\nWould you slow your own army for it?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2116241807990472760"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116241343542649135",
+    "created_at": "2026-10-30T18:50:28.000Z",
+    "edit_history_tweet_ids": [
+     "2116241343542649135"
+    ],
+    "id": "2116241343542649135",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 20,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Gravechain is a cursed artifact. Every unit in your own army loses 1 movement step, flyers and shooters included. In return, every hit you land rolls 50% per enemy, along up to 3 links of touching cells, to bind them: 25% less movement for 3 laps.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116241343542649135"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116166252981100727",
+    "created_at": "2026-10-30T13:52:59.000Z",
+    "edit_history_tweet_ids": [
+     "2116166479062434159"
+    ],
+    "id": "2116166479062434159",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2116166252981100727",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The map is fixed when the draft is created. Spymaster sees it with the starting bundle; Scout and Battle Trance get it after the Level-2 picks, before Level 3. Battle Trance also gets no ban summary.\n\nWhich would you pick?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2116166479062434159"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2116166252981100727",
+    "created_at": "2026-10-30T13:52:05.000Z",
+    "edit_history_tweet_ids": [
+     "2116166252981100727"
+    ],
+    "id": "2116166252981100727",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 12,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Before a ranked PvP draft you choose how much of the other army you get to see. Spymaster watches every creature pick and knows the map from the start, for 5 augment points. Scout watches three slots, for 6. Battle Trance drafts blind, for 7. Less scouting buys a stronger army.",
+    "url": "https://x.com/Heroes0fcrypto/status/2116166252981100727"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115880761203249344",
+    "created_at": "2026-10-29T18:58:15.000Z",
+    "edit_history_tweet_ids": [
+     "2115880914052169847"
+    ],
+    "id": "2115880914052169847",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 5,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115880761203249344",
+      "type": "replied_to"
+     }
+    ],
+    "text": "It can't target the Satyr itself or another Satyr stack. With Tome of Amplification the ally gets more, while the Satyr still gives up 30%.\n\nWould you hit the weakened Satyr or the buffed ally first?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115880914052169847"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115880761203249344",
+    "created_at": "2026-10-29T18:57:39.000Z",
+    "edit_history_tweet_ids": [
+     "2115880761203249344"
+    ],
+    "id": "2115880761203249344",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Our Satyr can lend its own body. Helping Hand gives an ally's creatures 30% of one Satyr's max health and base armor for 3 laps, and the Satyr loses the same.\n\nSince v0.1.7 a golden link on the board joins the two stacks. If either stack dies, the bonus and the penalty both end.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115880761203249344"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115803360863617425",
+    "created_at": "2026-10-29T13:50:43.000Z",
+    "edit_history_tweet_ids": [
+     "2115803517797777569"
+    ],
+    "id": "2115803517797777569",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115803360863617425",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Morale rolls at lap start: at +20, a 20% chance to act ahead of the queue with 1.25x damage. A kill gives +4 to the stack that made it; a lost stack costs 4 to your other stacks of that unit. Waiting costs 3, Defend 2.\n\nChase their centre or hold?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115803517797777569"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115803360863617425",
+    "created_at": "2026-10-29T13:50:05.000Z",
+    "edit_history_tweet_ids": [
+     "2115803360863617425"
+    ],
+    "id": "2115803360863617425",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 9,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "There's almost no neutral step in our PvP fights. A move that ends closer to the centre of the enemy army gives that stack +3 morale; one that ends farther away costs 3. Even a sideways step counts one way or the other. Only ending at exactly the same distance is neutral.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115803360863617425"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115594068449546381",
+    "created_at": "2026-10-28T23:59:03.000Z",
+    "edit_history_tweet_ids": [
+     "2115594224020402307"
+    ],
+    "id": "2115594224020402307",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 7,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115594068449546381",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Dead bodies count toward a stack's health for the waves, so the first three add up to 150% and wave 3 finishes almost everything. A Water Shield absorbs one wave, but only ever wave 1.\n\nDo you play for the early kill or try to outlast them?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115594224020402307"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115594068449546381",
+    "created_at": "2026-10-28T23:58:26.000Z",
+    "edit_history_tweet_ids": [
+     "2115594068449546381"
+    ],
+    "id": "2115594068449546381",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 16,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Every PvP fight has a clock. From lap 12, each lap opens with an Armageddon wave on both armies: 25%, then 50%, 75% and 100% of each stack's starting health. Armor and luck don't reduce it. A fight that reaches lap 15 ends in a draw, so waiting it out wins nothing.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115594068449546381"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115516730055512440",
+    "created_at": "2026-10-28T18:51:40.000Z",
+    "edit_history_tweet_ids": [
+     "2115516868379426850"
+    ],
+    "id": "2115516868379426850",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115516730055512440",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The trade-off: its morale is always 0 and Mind spells and poison can't touch it, but Stun and Freeze land 1.5x as often and physical area and line attacks hit it 50% harder.\n\nDo you wall it in, or spend it early?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115516868379426850"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115516730055512440",
+    "created_at": "2026-10-28T18:51:07.000Z",
+    "edit_history_tweet_ids": [
+     "2115516730055512440"
+    ],
+    "id": "2115516730055512440",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 17,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Design call: our guide once said Resurrection worked on the Tsar Cannon. We decided it shouldn't. A Mechanism unit can't be healed or brought back, and an Angel's Resurrection never lands on one. Lose the cannon and it stays lost, so you guard it or trade it on purpose.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115516730055512440"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115443065137832283",
+    "created_at": "2026-10-28T13:59:09.000Z",
+    "edit_history_tweet_ids": [
+     "2115443254250574221"
+    ],
+    "id": "2115443254250574221",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 5,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115443065137832283",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Shooters answer shots too, if they could shoot now: arrows left, no enemy touching them. The counter-shot hits the first enemy stack on its line and costs an arrow. Spells never get answered.\n\nDo you pin their shooters first, or eat the counter-shot?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115443254250574221"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115443065137832283",
+    "created_at": "2026-10-28T13:58:24.000Z",
+    "edit_history_tweet_ids": [
+     "2115443065137832283"
+    ],
+    "id": "2115443065137832283",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 12,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "In Heroes of Crypto the counterattack lands before your blow, not after.\n\nSo a stack you're about to wipe out still strikes back at full strength.\n\nEach stack answers once per lap, and the answer is spent even if it misses. A Stunned, Blinded or Frozen stack can't answer.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115443065137832283"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "conversation_id": "2115231716768198781",
+    "created_at": "2026-10-27T23:58:59.000Z",
+    "edit_history_tweet_ids": [
+     "2115231818433929542"
+    ],
+    "id": "2115231818433929542",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115231716768198781",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Crossing also adds 10% to movement, initiative, shot range, magic resistance and ability power. The pool dries sooner in a stalled fight.\n\nWould you spend a pick on Efreet, or your Tier-2 artifact on Lava Striders for the whole army?\n\nhttps://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115231818433929542"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-27T23:58:35.000Z",
+    "edit_history_tweet_ids": [
+     "2115231716768198781"
+    ],
+    "id": "2115231716768198781",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 21,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "On the FIRE PIT map, lava fills the center of the board until lap 10.\n\nWalkers can't cross it. Flyers only pass over. Efreet, or an army with Lava Striders, walks through and gets +10% health, attack and armor for 2 laps.\n\nYou see the map before your Level-3 pick. Draft for it.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115231716768198781"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-27T18:55:38.000Z",
+    "edit_history_tweet_ids": [
+     "2115155478359720246"
+    ],
+    "id": "2115155478359720246",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 11,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115155404854645007",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Fireball also burns the stack you aim it at, not just its neighbors. With one scroll per Mage, which crowd would you spend it on?\n\nPlay: https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115155478359720246"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-27T18:55:20.000Z",
+    "edit_history_tweet_ids": [
+     "2115155404854645007"
+    ],
+    "id": "2115155404854645007",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 22,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "We once shipped the Wandering Mage, the unit that used to be the Ash Moth, with an empty spellbook. If a spell's icon art was missing, the client quietly dropped the spell from the book.\n\nFireball has its own icon now. One scroll, and the blast spreads to every touching cell.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115155404854645007"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-27T14:01:37.000Z",
+    "edit_history_tweet_ids": [
+     "2115081485183304146"
+    ],
+    "id": "2115081485183304146",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 6,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2115081431747879374",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Faction morale is where it starts: Life +4, Might +2, Nature +1, Chaos -1. In a long fight that gap turns into steps. Would you still sit back with Chaos? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2115081485183304146"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-27T14:01:24.000Z",
+    "edit_history_tweet_ids": [
+     "2115081431747879374"
+    ],
+    "id": "2115081431747879374",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 16,
+     "like_count": 1,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Waiting out the other player has a price. Every lap the map narrows, or no stack ends closer to its nearest enemy, each unit gains 0.05 steps per point of morale for the rest of the fight. Negative morale takes steps away. A stall hands the board to the army with morale.",
+    "url": "https://x.com/Heroes0fcrypto/status/2115081431747879374"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-26T23:51:38.000Z",
+    "edit_history_tweet_ids": [
+     "2114867582968996102"
+    ],
+    "id": "2114867582968996102",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 7,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114867543634801055",
+      "type": "replied_to"
+     }
+    ],
+    "text": "A follow-up fix two days later keeps the count steady when several hits queue up on the same stack. Play it: https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114867582968996102"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-26T23:51:29.000Z",
+    "edit_history_tweet_ids": [
+     "2114867543634801055"
+    ],
+    "id": "2114867543634801055",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 14,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Something we got wrong: a stack's count could drop before its damage number showed up. You saw the losses before you saw the hit.\n\nSince v0.1.7 the count holds while the damage numbers and absorbed hits play, then updates. The board shouldn't tell you the result first.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114867543634801055"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-26T18:57:58.000Z",
+    "edit_history_tweet_ids": [
+     "2114793676715311456"
+    ],
+    "id": "2114793676715311456",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 12,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114793490165190817",
+      "type": "replied_to"
+     }
+    ],
+    "text": "An area counterattack now records every unit it hits, too. Do you aim your splash at the big creature, or at the small stacks packed around it? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114793676715311456"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-26T18:57:13.000Z",
+    "edit_history_tweet_ids": [
+     "2114793490165190817"
+    ],
+    "id": "2114793490165190817",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 21,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "From v0.1.7: area shots and big creatures.\n\nAn Area Throw or other area shot now lands on the first cell of a large body it touches, and Area Throw damage applies when the projectile hits, not before.\n\nAnd when one Cyclops shot finishes several stacks, each gets its own burst.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114793490165190817"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-26T14:00:04.000Z",
+    "edit_history_tweet_ids": [
+     "2114718707692052879"
+    ],
+    "id": "2114718707692052879",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 11,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114718534668542221",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Any unit can also break a barrel itself, in melee or with a shot, and one hit is enough. Do you clear the lane first, or bring the shooter that ignores it? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114718707692052879"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-26T13:59:22.000Z",
+    "edit_history_tweet_ids": [
+     "2114718534668542221"
+    ],
+    "id": "2114718534668542221",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 19,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Barrels block shots. An ordinary ranged attack stops at the first barrel in its lane, and Double Shot spends up to two of its projectiles clearing barrels instead of the target.\n\nCyclops and Gargantuan don't care. Their shots fly over and smash the barrels caught in the blast.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114718534668542221"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T23:52:32.000Z",
+    "edit_history_tweet_ids": [
+     "2114505421713244429"
+    ],
+    "id": "2114505421713244429",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114505340717052321",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Which of their artifacts would change your augment pick the most? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114505421713244429"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T23:52:13.000Z",
+    "edit_history_tweet_ids": [
+     "2114505340717052321"
+    ],
+    "id": "2114505340717052321",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 20,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "New in v0.1.7: while you choose your augments, you can see the artifacts the other player drafted.\n\nSo the draft becomes a read. They took Last Fuse? Spread your army out. Farsight Quiver? Expect archers shooting from deep.\n\nYou get to answer before the first turn.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114505340717052321"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T18:54:07.000Z",
+    "edit_history_tweet_ids": [
+     "2114430323241234683"
+    ],
+    "id": "2114430323241234683",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114430258531491882",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Hunter's Longbow and the Sniper augment's attack bonus still apply on top. Would you rather have full damage at range, or Quiver of Echoes' 40% chance of an extra attack? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114430323241234683"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T18:53:52.000Z",
+    "edit_history_tweet_ids": [
+     "2114430258531491882"
+    ],
+    "id": "2114430258531491882",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 17,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "New in v0.1.7: Farsight Quiver.\n\nEvery allied archer's shot stays at full damage at any distance. No more range falloff.\n\nIt does not add range, and a shot that crosses Smoke is still halved.\n\nSo your archers can sit deep in the back line. Smoke is what you play around.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114430258531491882"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T13:58:40.000Z",
+    "edit_history_tweet_ids": [
+     "2114355969702690993"
+    ],
+    "id": "2114355969702690993",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 10,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114355783316234718",
+      "type": "replied_to"
+     }
+    ],
+    "text": "A blast that kills another stack sets off its own explosion, so a packed line can chain. Resurrection cancels the burst and a Water Shield absorbs one. Which stack would you light first? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114355969702690993"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T13:57:56.000Z",
+    "edit_history_tweet_ids": [
+     "2114355783316234718"
+    ],
+    "id": "2114355783316234718",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 18,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "New in v0.1.7: Last Fuse. When your army destroys an enemy stack, it explodes into every enemy touching it, for 25% of the killing blow or 25 damage per point of the attacker's stack power, whichever is higher.\n\nYour units are safe. Kill the stack in their crowd first.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114355783316234718"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T05:03:17.000Z",
+    "edit_history_tweet_ids": [
+     "2114221234204655790"
+    ],
+    "id": "2114221234204655790",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 8,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2114221184820949464",
+      "type": "replied_to"
+     }
+    ],
+    "text": "One catch: a smaller stack has less stack power, so a spell that needs more power can still be locked. Would you split a caster to cast the same spell twice? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2114221234204655790"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-25T05:03:05.000Z",
+    "edit_history_tweet_ids": [
+     "2114221184820949464"
+    ],
+    "id": "2114221184820949464",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 14,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: splitting a stack used to split its spell charges. The new stack's share was rounded down, so a lone Resurrection stayed with the original.\n\nSince v0.1.7, every split stack keeps a full copy of the spellbook, even a lone caster. Merging back keeps the larger count.",
+    "url": "https://x.com/Heroes0fcrypto/status/2114221184820949464"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-23T13:53:58.000Z",
+    "edit_history_tweet_ids": [
+     "2113630011953647671"
+    ],
+    "id": "2113630011953647671",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 3,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2113629959646503249",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Walking into a Fire Wall still spends the shield on one burn, and the weapon hit under a Fireforged burn can still break it. Do you pop it with a cheap stack, or burn around it? https://t.co/gdYw9HVfcS",
+    "url": "https://x.com/Heroes0fcrypto/status/2113630011953647671"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-23T13:53:46.000Z",
+    "edit_history_tweet_ids": [
+     "2113629959646503249"
+    ],
+    "id": "2113629959646503249",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 19,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: fire used to pop a Mermaid's Water Shield.\n\nThe shield zeroes the first damage she takes in a fight. Since v0.1.7, fire passes through and leaves it up: Fireball, Fire Breath, Fire Shield, a Fireforged burn.\n\nSo if you want it gone, spend a non-fire hit on it first.",
+    "url": "https://x.com/Heroes0fcrypto/status/2113629959646503249"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-22T23:50:56.000Z",
+    "edit_history_tweet_ids": [
+     "2113417854838030429"
+    ],
+    "id": "2113417854838030429",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 4,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2113417759832838360",
+      "type": "replied_to"
+     }
+    ],
+    "text": "Moving the pointer off the board clears their aimed cell, and a shot taken after a move is drawn from where the shooter lands. Does seeing their aim change how you play your turn? https://t.co/gdYw9HUHnk",
+    "url": "https://x.com/Heroes0fcrypto/status/2113417854838030429"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-22T23:50:34.000Z",
+    "edit_history_tweet_ids": [
+     "2113417759832838360"
+    ],
+    "id": "2113417759832838360",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 15,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Dev diary: until v0.1.7, you couldn't see what the other player was aiming at in a ranked fight.\n\nNow their aim shows on your board as they pick it: a move, a shot, a spell, even which way a Through Shot points.\n\nPvP should feel like someone is across the table.",
+    "url": "https://x.com/Heroes0fcrypto/status/2113417759832838360"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-22T18:59:49.000Z",
+    "edit_history_tweet_ids": [
+     "2113344594238693413"
+    ],
+    "id": "2113344594238693413",
+    "in_reply_to_user_id": "1768370292353884160",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 6,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 0,
+     "retweet_count": 0
+    },
+    "referenced_tweets": [
+     {
+      "id": "2113344487489765745",
+      "type": "replied_to"
+     }
+    ],
+    "text": "The Queen takes it with Predatory Assimilation. Which enemy would you pull into your Harpy's old cell first? Try a swap in the sandbox: https://t.co/OebqIMc6ws",
+    "url": "https://x.com/Heroes0fcrypto/status/2113344594238693413"
+   },
+   {
+    "author_id": "1768370292353884160",
+    "created_at": "2026-10-22T18:59:24.000Z",
+    "edit_history_tweet_ids": [
+     "2113344487489765745"
+    ],
+    "id": "2113344487489765745",
+    "public_metrics": {
+     "bookmark_count": 0,
+     "impression_count": 30,
+     "like_count": 0,
+     "quote_count": 0,
+     "reply_count": 1,
+     "retweet_count": 0
+    },
+    "text": "Castling lets a Harpy swap places with an enemy. When an Arachna Queen stole it, our spellbook lit up every enemy in reach and the engine refused each click.\n\nNow a swap trades bodies of the same size, 2x2 for 2x2, and since 2 Oct it reaches one cell past movement.",
+    "url": "https://x.com/Heroes0fcrypto/status/2113344487489765745"
+   }
+  ],
+  "meta": {
+   "result_count": 50
+  }
+ }
+}

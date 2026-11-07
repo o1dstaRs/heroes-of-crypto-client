@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import SandboxLink from "../components/SandboxLink.astro";
 import { content, links } from "../lib/site-data";
+import { playAccountFirstPaintScript } from "../lib/play-account-view";
 
 const lang = "en";
 const copy = content[lang];
@@ -34,9 +35,10 @@ const copy = content[lang];
                         <button type="button" class="play-account-logout" data-play-logout>{copy.nav.logout}</button>
                     </div>
                 </div>
-                <p class="play-account-guest" data-play-guest hidden>
+                <p class="play-account-guest" data-play-guest>
                     {copy.play.guestPrompt} <a href="/auth/login/">{copy.play.guestPromptCta}</a>
                 </p>
+                <script is:inline set:html={playAccountFirstPaintScript()} />
             </div>
 
             <div class="mode-card-grid" aria-label={copy.play.startLabel}>
@@ -83,32 +85,22 @@ const copy = content[lang];
 </BaseLayout>
 
 <script>
-    import { LobbyList } from "@heroesofcrypto/common/src/generated/protobuf/v1/messages_reexports";
     import { displayName, getAuthUser, isLoggedIn, logout, onAuthStateChange } from "../lib/auth-state";
+    import { renderPlayAccount } from "../lib/play-account-view";
 
-    // Reflect the signed-in account on the play hub: greet by name + show ranked record, or nudge a
-    // guest to log in. Both blocks ship hidden so neither flashes before we know the session state.
-    const accountPanel = document.querySelector<HTMLElement>("[data-play-account]");
-    const guestPrompt = document.querySelector<HTMLElement>("[data-play-guest]");
-    const playUsername = document.querySelector<HTMLElement>("[data-play-username]");
-    const playWins = document.querySelector<HTMLElement>("[data-play-wins]");
-    const playLosses = document.querySelector<HTMLElement>("[data-play-losses]");
-    const playGames = document.querySelector<HTMLElement>("[data-play-games]");
-
+    // Initial visibility is settled by the inline script before the first paint.
+    // Deferred code keeps it synchronized when this or another tab signs in/out.
     document.querySelector<HTMLButtonElement>("[data-play-logout]")?.addEventListener("click", () => logout("/"));
 
     onAuthStateChange(() => {
         const loggedIn = isLoggedIn();
-        if (loggedIn) {
-            const user = getAuthUser();
-            if (playUsername) playUsername.textContent = displayName(user);
-            if (playWins) playWins.textContent = String(user?.wins ?? 0);
-            if (playLosses) playLosses.textContent = String(user?.losses ?? 0);
-            if (playGames) playGames.textContent = String(user?.total_games_played ?? 0);
-        }
-        if (accountPanel) accountPanel.hidden = !loggedIn;
-        if (guestPrompt) guestPrompt.hidden = loggedIn;
+        const user = loggedIn ? getAuthUser() : null;
+        renderPlayAccount(document, loggedIn, user, displayName(user));
     });
+</script>
+
+<script>
+    import { LobbyList } from "@heroesofcrypto/common/src/generated/protobuf/v1/messages_reexports";
 
     const isProd =
         import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true" || import.meta.env.VITE_IS_PROD === true;

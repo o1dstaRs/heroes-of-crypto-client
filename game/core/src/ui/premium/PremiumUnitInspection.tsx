@@ -15,7 +15,7 @@ export const PremiumUnitQuestionButton: React.FC<{
     const focus = useContext(PremiumUnitInspectionContext);
     const askQuestion = useAskPremiumQuestion();
     if (!focus || !askQuestion) return null;
-    const label = `Ask Premium about ${topic ? `${topic.name} on ` : ""}${focus.name}`;
+    const label = `Explain ${topic ? `${topic.name} on ` : ""}${focus.name} with Premium`;
     const button = (
         <PremiumButton
             size="sm"
@@ -36,7 +36,7 @@ export const PremiumUnitQuestionButton: React.FC<{
                 flexShrink: 0,
             }}
         >
-            {iconOnly ? <PremiumIcon size={16} /> : topic ? "Ask Premium" : "Ask about this unit"}
+            {iconOnly ? <PremiumIcon size={16} /> : topic ? "Explain effect" : "Explain this unit"}
         </PremiumButton>
     );
     return iconOnly ? (

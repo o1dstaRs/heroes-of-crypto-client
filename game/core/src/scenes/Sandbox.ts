@@ -991,7 +991,7 @@ export class Sandbox extends PixiScene {
     private canAttackByMeleeTargets?: IAttackTargets;
     private canAttackMountainTargets?: IAttackTargets;
     private canAttackByRangeTargets?: Set<string>;
-    private readonly attackHandler: AttackHandler;
+    protected readonly attackHandler: AttackHandler;
     private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
     protected buttonManager: ButtonManager;
@@ -6359,14 +6359,20 @@ export class Sandbox extends PixiScene {
         return secondaryDamageTextStyle(source);
     }
     protected showDevourEssenceHeals(secondary?: IVisibleDamage["secondary"]): void {
+        const heals = new Map<string, { amount: number; position: HoCMath.XY }>();
         for (const entry of secondary ?? []) {
-            if (entry.source !== "devour_essence" || entry.amount <= 0) {
+            if (entry.source !== "devour_essence" || !Number.isFinite(entry.amount) || entry.amount <= 0) {
                 continue;
             }
-            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const existing = heals.get(entry.unitId);
+            if (existing) existing.amount += entry.amount;
+            else heals.set(entry.unitId, { amount: entry.amount, position: entry.position });
+        }
+        for (const [unitId, heal] of heals) {
+            const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             const gs = this.sc_sceneSettings.getGridSettings();
-            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
-            this.combatVisuals?.showHealPop(pos, entry.amount, unit);
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(heal.position, gs);
+            this.combatVisuals?.showHealPop(pos, heal.amount, unit);
             if (unit) this.combatVisuals?.spawnDevourEssencePop(unit);
             unit?.flashBuffApplied();
         }
@@ -12575,7 +12581,9 @@ export class Sandbox extends PixiScene {
             }
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
             const cyclopsKills = cyclopsMultiKillTargets(unit, waves, remainingAmounts, deadIds, unitSnapshot);
-            const throwCount = areaEvent?.damage.rangedVolleyCount ?? Math.max(waves.length, isDoubleShot ? 2 : 1);
+            const throwCount =
+                areaEvent?.damage.rangedVolleyCount ??
+                (areaEvent?.animations.length || Math.max(waves.length, isDoubleShot ? 2 : 1));
             if (throwCount > 1) this.combatVisuals?.prepareCommonFlagPop?.("multi_attack");
             const shownDeaths = new Set<string>();
             let shownAnyWave = false;
@@ -16959,7 +16967,7 @@ export class Sandbox extends PixiScene {
                                     });
                                     return dealt + fireforgedBurn(victim, dealt);
                                 };
-                                const laterBand = projectAttackDamageBand({
+                                const laterBandInput = {
                                     ...projectionBase,
                                     target: victim,
                                     priorHits: 1,
@@ -16969,7 +16977,8 @@ export class Sandbox extends PixiScene {
                                         abilityPower,
                                         aoeHoverAbility,
                                     ),
-                                });
+                                };
+                                const laterBand = projectAttackDamageBand(laterBandInput);
                                 const waves = (damage: number, laterDamage: number): number =>
                                     wave(damage, perUnitDamageFactor) +
                                     (aoeWaves === 2
@@ -16978,7 +16987,13 @@ export class Sandbox extends PixiScene {
                                 const bonusMax =
                                     aoeAttacker.getBonusRangedAttackChance() > 0 &&
                                     aoeAttacker.projectRangeShotsAfterVolleys(aoeVictims[0], aoeWaves) > 0
-                                        ? wave(withLuckyStrike(laterBand.max), perUnitDamageFactor)
+                                        ? wave(
+                                              withLuckyStrike(
+                                                  projectAttackDamageBand({ ...laterBandInput, priorHits: aoeWaves })
+                                                      .max,
+                                              ),
+                                              perUnitDamageFactor,
+                                          )
                                         : 0;
                                 addProjectedDamage(
                                     victim,
@@ -21096,6 +21111,7 @@ export class Sandbox extends PixiScene {
                     unit,
                     this.unitsHolder.getAllUnits(),
                     this.sc_sceneSettings.getGridSettings(),
+                    { grid: this.grid, unitsHolder: this.unitsHolder, attackHandler: this.attackHandler },
                 );
                 this.drawnSandboxPremiumAdviceKey = key;
             })

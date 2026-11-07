@@ -142,9 +142,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Misfortune: {
         en: () =>
-            "Sets the target's luck to −10 for 3 laps (to 0 if it has Luck Aura or Clover of Fortune); nothing raises it meanwhile, not even Luck Shield. Mind: Madness and Mechanism units are immune, and magic resistance can resist it. −10 luck means about 10% more attack damage taken and −10 points on the target's ability chances.",
+            "Sets the target's luck to −10 for 3 laps (to 0 if it has Luck Blessing or Clover of Fortune); nothing raises it meanwhile, not even Luck Shield. Mind: Madness and Mechanism units are immune, and magic resistance can resist it. −10 luck means about 10% more attack damage taken and −10 points on the target's ability chances.",
         ru: () =>
-            "Устанавливает удачу цели в −10 на 3 круга (в 0, если у неё Luck Aura или Clover of Fortune); ничто не поднимает её в это время, даже Luck Shield. Разум: у Madness и Mechanism иммунитет, а сопротивление магии может защитить. −10 удачи — это примерно на 10% больше урона от атак и −10 пунктов к шансам способностей цели.",
+            "Устанавливает удачу цели в −10 на 3 круга (в 0, если у неё Luck Blessing или Clover of Fortune); ничто не поднимает её в это время, даже Luck Shield. Разум: у Madness и Mechanism иммунитет, а сопротивление магии может защитить. −10 удачи — это примерно на 10% больше урона от атак и −10 пунктов к шансам способностей цели.",
     },
     Smoke: {
         en: () =>
@@ -250,6 +250,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
 
 /** Spells that are the ability of the same (or a related) name — the ability's note is the right one. */
 const SPELL_TO_ABILITY: Readonly<Record<string, string>> = {
+    "Luck Blessing": "Luck Blessing",
+    "Sylvan Focus Blessing": "Sylvan Focus Blessing",
+    "Wolf Trail Blessing": "Wolf Trail Blessing",
     "Ember Covenant Blessing": "Ember Covenant Blessing",
     "Angelic Host Blessing": "Angelic Host Blessing",
     "Arcane Ward Blessing": "Arcane Ward Blessing",

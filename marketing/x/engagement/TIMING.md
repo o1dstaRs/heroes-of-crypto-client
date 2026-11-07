@@ -5,6 +5,7 @@ Observations only from real X timestamps and public metrics read via public X se
 ## Wed 14 Oct 2026, 3:43 PM PT run (window: 9:43 AM - 3:43 PM PT)
 
 Tactics conversations seen (posted time PT, public metrics at read time):
+
 - @gkingofboston, browser tactics dev question post, 3:38 PM: 1 impression, 0 replies (minutes old)
 - @gkingofboston, mission briefing question, 2:39 PM: 8 impressions, 0 replies
 - @Negative2YK, reply listing Into the Breach / FFT-style picks, 2:43 PM: 12 impressions, 1 reply
@@ -24,6 +25,7 @@ Recommendation: not enough data yet. Keep logging each run; recommend a posting 
 ## Wed 14 Oct 2026, 7:45 PM PT run (window: 7:45 AM - 7:45 PM PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time). Skipped Lavapotion key-share + tag-a-friend post.
+
 - @PlayHearthstone, free Warlock deck challenge (quote), 4:55 PM: 4,913 impressions, 21 likes, 5 replies, 3 reposts
 - @PlayHearthstone, C'Thun / Old Gods memory lane, 2:00 PM: 11,377 impressions, 114 likes, 9 replies, 9 reposts
 - @MARVELSNAP, Grand Arena live (Zombie Nova Variant), 1:30 PM: 7,438 impressions, 88 likes, 4 replies, 6 reposts
@@ -41,6 +43,7 @@ Recommendation: still not enough data for a firm window (two runs, no own tactic
 ## Thu 15 Oct 2026, 7:46 AM PT run (window: 7:46 PM Wed – 7:46 AM Thu PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time). Skipped Lavapotion Spooktober lineup (0 replies) and FE Heroes inherit-skill chart (0 replies). FE Heroes Duo/Vista announce (8:00 PM Wed, 74 replies) noted for timing but not drafted (gacha banner, weak tactics angle).
+
 - @totalwar, Warhammer III Patch 9.0.4 / Nagash campaign, 6:59 AM Thu: 4,764 impressions, 93 likes, 10 replies, 5 reposts
 - @OverhypeStudios, MENACE balancing update live, 6:35 AM Thu: 902 impressions, 69 likes, 1 reply, 6 reposts
 - @MightMagicGame, HoMM III Remake Closed Playtest registrations, 1:00 AM Thu: 2,343 impressions, 64 likes, 2 replies, 9 reposts
@@ -57,6 +60,7 @@ Recommendation: still not enough data for a firm window (three runs). Early sign
 ## Thu 15 Oct 2026, 9:37 AM PT (daily engagement review)
 
 Own-account early metrics (not 24h snapshots; ages below the 20h floor):
+
 - Pin https://x.com/Heroes0fcrypto/status/2110567307013726582 posted Wed 8:03 PM PT (~13.5h old): 36 impressions, 2 likes, 1 reply (follow-back spam), 0 reposts/quotes. ER provisional (likes+replies+reposts+quotes)/views = 3/36 = 8.3% if counting the spam reply; 2/36 = 5.6% excluding it.
 - Queue tactics https://x.com/Heroes0fcrypto/status/2110730873159168376 posted Thu 6:48 AM PT (~2.7h old): 10 impressions, 0 likes, reply_count 1 = own link-reply only, 0 external replies.
 - Slot check: Wed 14 had only the evening pin (3-slot cadence starts Thu 15). Thu 6:48 AM posted; 11:48 AM and 4:48 PM still ahead today.
@@ -68,6 +72,7 @@ Recommendation: keep current slots; first comparable 24h numbers land after the 
 ## Thu 15 Oct 2026, 11:40 AM PT run (window: 11:40 PM Wed – 11:40 AM Thu PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~11:42 AM). Skipped TFT Sivir/BoxBox streamer joke (weak tactics angle) and Lavapotion Spooktober (0 replies).
+
 - @RisingSpire, #TurnBasedThursday wishlist post, 10:30 AM: 26 impressions, 3 likes, 0 replies
 - @PlayHearthstone, Assemble keyword question, 10:00 AM: 7,030 impressions, 25 likes, 5 replies, 2 reposts
 - @TFT, Sivir 3 / @BoxBox, 10:00 AM: 9,870 impressions, 37 likes, 2 replies (skipped)
@@ -85,6 +90,7 @@ Recommendation: still not enough data for a firm window (four runs, one weekday 
 ## Thu 15 Oct 2026, 3:46 PM PT run (window: 3:46 AM – 3:46 PM Thu PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~3:47 PM). Skipped Rainbow6Game Siege posts (FPS, not tactics), Lavapotion Spooktober (0 replies), OneManLeft Halloween art (0 replies), mechabellum battle-contract skin (0 replies), TFT Sivir/BoxBox (weak angle). #TurnBasedThursday search found no new official game accounts at or above 1,000 followers.
+
 - @MARVELSNAP, Oct 15 OTA balance changes, 2:12 PM: 14,348 impressions, 191 likes, 23 replies, 11 reposts, 11 quotes
 - @PlayHearthstone, Pre-Release Tavern Brawl question, 2:00 PM: 4,745 impressions, 32 likes, 4 replies, 3 reposts
 - @PlayHearthstone, Yogg-Saron ten years on, 12:00 PM: 10,042 impressions, 70 likes, 4 replies, 3 reposts
@@ -102,6 +108,7 @@ Recommendation: still not enough data for a firm window (five runs, two days). S
 ## Thu 15 Oct 2026, 7:42 PM PT run (window: 7:42 AM – 7:42 PM Thu PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:43 PM). Skipped Rainbow6Game Siege posts (FPS, not tactics), OneManLeft Halloween art (0 replies, not tactics), mechabellum battle-contract skin (0 replies), TFT Sivir/BoxBox (weak angle). No new root posts after ~2:12 PM PT from the tracked big accounts.
+
 - @PlayHearthstone, Pre-Release Tavern Brawl multitasking question, 2:00 PM: 7,491 impressions, 46 likes, 5 replies, 4 reposts, 1 quote
 - @MARVELSNAP, Oct 15 OTA (re-read, already surfaced), 2:12 PM: 22,917 impressions, 288 likes, 28 replies, 13 reposts, 12 quotes (was 23 replies at 3:46 PM)
 - @PlayHearthstone, Yogg-Saron (re-read, already surfaced), 12:00 PM: 14,167 impressions, 92 likes, 5 replies
@@ -120,6 +127,7 @@ Recommendation: still not enough data for a firm window (six runs, two weekdays)
 ## Fri 16 Oct 2026, 7:41 AM PT run (window: 7:41 PM Thu – 7:41 AM Fri PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:45 AM). Skipped: FE Heroes banner posts (gacha, weak tactics angle), @Lavapotion Wielders of the Essence devlog (survivors-style game, not tactics), @holoindie_ccmc and @micro_prose (publishers).
+
 - @MeltedGames, skeletons reanimate / Wight targets hardest hitter, 6:53 AM Fri: 19 impressions, 1 like, 0 replies, 1 repost
 - @Lavapotion, Wielders of the Essence spells devlog, 5:42 AM Fri: 606 impressions, 10 likes, 2 replies, 3 reposts (skipped)
 - @Conviction_SRPG, Langrisser-inspired tactical RPG UI/video update, 10:39 PM Thu: 589 impressions, 11 likes, 1 reply (own link), 1 repost
@@ -138,6 +146,7 @@ Recommendation: still not enough data for a firm window (seven runs, three days)
 ## Fri 16 Oct 2026, 11:41 AM PT run (window: 11:41 PM Thu – 11:41 AM Fri PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~11:42 AM). Skipped: @TFT Ivern meme (0 replies), FE Heroes midnight banner posts (gacha, weak angle; timing only), @Lavapotion Wielders devlog (not tactics), @PlayHearthstone deck-share prompt (second Hearthstone post today; held back so we don't stack two replies on one account), @BalorGamesGG and @SlitherineGames (publishers).
+
 - @PlayHearthstone, Ritual of Summoning banned from Pre-Release Tavern Brawl, 11:29 AM Fri: 2,136 impressions, 26 likes, 5 replies, 4 reposts, 2 quotes (about 12 minutes old)
 - @Nomadgames, HeroQuest coming to PC announcement, 10:32 AM Fri: 94 impressions, 2 likes, 1 reply, 1 quote
 - @PlayHearthstone, "share your deck" Tavern Brawl prompt, 10:00 AM Fri: 4,840 impressions, 23 likes, 4 replies, 1 repost (skipped)
@@ -155,6 +164,7 @@ Recommendation: still not enough data for a firm window (eight runs, three days)
 ## Sat 17 Oct 2026, 9:37 AM PT (daily engagement review)
 
 Own-account 24h snapshots filled today:
+
 - Chaos https://x.com/Heroes0fcrypto/status/2110882073452167680 posted Thu 4:54 PM PT (~40.7h): 14 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.0714
 - Edge https://x.com/Heroes0fcrypto/status/2111094220920643925 posted Fri 6:57 AM PT (~26.7h): 14 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.0714
 - Board-flash https://x.com/Heroes0fcrypto/status/2111168270522822947 posted Fri 11:51 AM PT (~21.8h): 10 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.10
@@ -169,6 +179,7 @@ Recommendation: keep current slots (6:48 / 11:48 / 4:48). First 7d window for th
 ## Sat 17 Oct 2026, 11:42 AM PT run (window: 11:42 PM Fri – 11:42 AM Sat PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~11:45 AM). Skipped: @TFT meme (0 replies), @AOE_Mobile anniversary and stat-share posts (already surfaced AOE_Mobile today), @Ubisoft_UK HoMM3 Remake playtest (publisher), @StellarisGame Ideologies video (one of its 3 replies is an anti-Paradox jab, the boycott pattern again).
+
 - @CompanyOfHeroes, Mignano map transforms in 3.0 Update, 10:00 AM Sat: 781 impressions, 27 likes, 0 replies, 3 reposts
 - @StudioDraconis, Zodiac Legion prisoner rescue gone wrong, 9:49 AM Sat: 32 impressions, 2 likes, 0 replies
 - @NextaleGames, Calame divided-army tactical RPG playtest, 9:00 AM Sat: 335 impressions, 19 likes, 1 reply, 3 reposts
@@ -186,6 +197,7 @@ Recommendation: still not a firm window, but a weekday/weekend split is emerging
 ## Sat 17 Oct 2026, 3:41 PM PT run (window: 3:41 AM – 3:41 PM Sat PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~3:45 PM). Nothing qualified as a fresh, unsurfaced reply target, so no drafts this run.
+
 - @StellarisGame, Ideologies video, 8:15 AM Sat: 3,220 impressions, 51 likes, 3 replies, 4 reposts, 2 quotes (held back again: replies are an anti-Paradox jab, a spam hashtag and a one-liner)
 - @AOE_Mobile, 2nd anniversary video, 6:00 AM Sat: 1,087 impressions, 7 likes, 1 reply (skipped: AOE_Mobile already surfaced today, weak tactics angle)
 - @AOE_Mobile, Fireside Chat stat share, 5:00 AM Sat: 934 impressions, 2 likes, 0 replies (skipped)
@@ -198,10 +210,10 @@ Thread open vs peak (this run only): Saturday afternoon was dead for official st
 
 Recommendation: still not a firm window, but the weekend pattern is now clear across two runs: official accounts post 5–10 AM PT on Saturday and go quiet by noon, and Saturday threads barely open. Weekday 10 AM–2:30 PM PT remains the best window for reply drafts; on weekends only the 7:37 and 11:37 AM runs are likely to find anything. Next check: Sunday, then Monday's Next Fest opening.
 
-
 ## Sat 17 Oct 2026, 7:40 PM PT run (window: 7:40 AM – 7:40 PM Sat PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:42 PM). Nothing qualified as a fresh, unsurfaced reply target, so no drafts this run.
+
 - @Rainbow6Game, Mid-Season Briefing, 12:00 PM Sat: 38,924 impressions, 142 likes, 15 replies, 7 reposts (skipped: Siege, an FPS, not Rainbow Six Tactics)
 - @StellarisGame, Ideologies video, 8:15 AM Sat: 3,594 impressions, 60 likes, 3 replies, 5 reposts, 2 quotes (still held back: same hostile/spam replies, no new ones)
 - @TFT, meme, 10:00 AM Sat: 32,859 impressions, 341 likes, 4 replies (skipped, no angle)
@@ -215,6 +227,7 @@ Recommendation: the weekend pattern now holds across three Saturday runs. Offici
 ## Sun 18 Oct 2026, 7:45 AM PT run (window: 7:45 PM Sat – 7:45 AM Sun PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:48 AM). Surfaced three; skipped the rest.
+
 - @StudioDraconis, Zodiac Legion room breaching clip, 7:00 AM Sun: 62 impressions, 4 likes, 1 reply, 1 repost (surfaced)
 - @MeltedGames, mimic/chest roll post, 6:48 AM Sun: 16 impressions, 0 likes, 0 replies (skipped: fourth MeltedGames post this week, no thread)
 - @mechabellum, Crucible Cup Group A VOD, 6:13 AM Sun: 118 impressions, 2 likes, 0 replies (surfaced: PvP tournament angle)
@@ -231,6 +244,7 @@ Recommendation: still no firm window. Weekend pattern now holds across four runs
 ## Sun 18 Oct 2026, 9:38 AM PT (daily engagement review)
 
 Own-account 24h snapshots filled today:
+
 - Life https://x.com/Heroes0fcrypto/status/2111245321292423194 posted Fri 4:58 PM PT (~40.7h): 13 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.0769
 - Through Shot https://x.com/Heroes0fcrypto/status/2111456161060815313 posted Sat 6:56 AM PT with the Tsar Cannon poster (~26.7h): 10 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.10
 - Crowd https://x.com/Heroes0fcrypto/status/2111532527114506733 posted Sat 11:59 AM PT (~21.6h): 9 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.1111
@@ -245,6 +259,7 @@ Recommendation: keep current slots (6:48 / 11:48 / 4:48). Compare slots on views
 ## Sun 18 Oct 2026, 11:44 AM PT run (window: 11:44 PM Sat – 11:44 AM Sun PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~11:48 AM). Surfaced one.
+
 - @MARVELSNAP, 4th anniversary with free variant code SNAP4EVER, 10:30 AM Sun: 14,568 impressions, 463 likes, 10 replies, 43 reposts, 100 bookmarks (skipped: free-code drop; ~20 replies in the thread within 70 minutes, all "got my variants" chatter)
 - @CompanyOfHeroes, Vire River Valley 2v2 map returning Nov 5 with 3.0, 10:00 AM Sun: 789 impressions, 32 likes, 1 reply, 4 reposts (surfaced)
 - Re-reads, already surfaced at 7:45 AM: @StudioDraconis room breaching, 7:00 AM: 173 impressions, 7 likes, 1 reply (was 62 / 4); @AOE_Mobile Fireside Chat Day 6, 6:00 AM: 1,025 impressions, 5 likes, 3 replies (was 610 / 2); @mechabellum Crucible Cup, 6:13 AM: 182 impressions, 3 likes, 0 replies; @MeltedGames, 6:48 AM: 76 impressions, 3 likes, 1 reply; @FE_Heroes_EN midnight posts: 7,811 and 6,902 impressions, 0 replies
@@ -257,6 +272,7 @@ Recommendation: unchanged. Weekend official posts cluster 6–10:30 AM PT; weekd
 ## Sun 18 Oct 2026, 3:44 PM PT run (window: 3:44 AM – 3:44 PM Sun PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~3:46 PM). Nothing qualified as a fresh, unsurfaced reply target, so no drafts this run.
+
 - @MARVELSNAP, 4th anniversary free-code post, 10:30 AM Sun: 34,476 impressions, 1,058 likes, 18 replies, 98 reposts, 236 bookmarks (skipped: free-code drop)
 - Re-reads, already surfaced: @CompanyOfHeroes Vire River Valley, 10:00 AM: 1,221 impressions, 48 likes, 3 replies (was 789 / 32 / 1 at 11:48 AM); @AOE_Mobile Fireside Chat Day 6, 6:00 AM: 1,228 impressions, 6 likes, 3 replies; @mechabellum Crucible Cup, 6:13 AM: 199 impressions, 3 likes, 0 replies; @StudioDraconis room breaching, 7:00 AM: 191 impressions, 7 likes, 1 reply
 - @MeltedGames mimic/chest post, 6:48 AM: 84 impressions, 3 likes, 2 replies (skipped again, fourth post this week)
@@ -270,6 +286,7 @@ Recommendation: the weekend pattern holds across five runs. Official accounts po
 ## Sun 18 Oct 2026, 7:40 PM PT run (window: 7:40 AM – 7:40 PM Sun PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:42 PM). Nothing qualified as a fresh, unsurfaced reply target, so no drafts this run.
+
 - @Conviction_SRPG, Japanese-language demo update (not in Next Fest), 6:07 PM Sun: 406 impressions, 13 likes, 1 reply, 3 reposts (skipped: Japanese post, account is English-only)
 - @MARVELSNAP, 4th anniversary free-code post, 10:30 AM Sun: 40,242 impressions, 1,207 likes, 19 replies, 121 reposts, 256 bookmarks (skipped: free-code drop; was 18 replies at 3:46 PM)
 - Re-read, already surfaced: @CompanyOfHeroes Vire River Valley, 10:00 AM: 1,361 impressions, 53 likes, 4 replies, 4 reposts (was 3 replies at 3:46 PM)
@@ -283,6 +300,7 @@ Recommendation: the weekend pattern now holds across six runs (three Saturday, t
 ## Mon 19 Oct 2026, 7:48 AM PT run (window: 7:48 PM Sun – 7:48 AM Mon PT)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:50 AM). Surfaced three; skipped the rest.
+
 - @SynthWave6666, Blightmarch armor sketch + wishlist, 7:45 AM Mon: 13 impressions, 0 likes, 0 replies (surfaced; new account, 1,367 followers)
 - @StellarisGame, YouTuber War 2026 Ep 3 premiere live, 7:00 AM Mon: 980 impressions, 5 likes, 0 replies (timing only; premiere/watch CTA, no tactics decision)
 - @MeltedGames, Moon Beam reward pick / Demo Monday, 6:47 AM Mon: 16 impressions, 0 likes, 0 replies (surfaced)
@@ -301,6 +319,7 @@ Recommendation: weekend quiet pattern carried into early Monday morning. The rea
 ## Mon 19 Oct 2026, 9:58 AM PT (daily engagement review)
 
 Own-account 24h snapshots filled today (outside replies only):
+
 - Sun 18 question https://x.com/Heroes0fcrypto/status/2111819309269835920 posted Sun 6:58 AM PT (~27.0h): 14 impressions, 0 likes, 0 outside replies, ER 0
 - Might https://x.com/Heroes0fcrypto/status/2111606394281500728 posted Sat 4:52 PM PT (~41.1h): 13 impressions, 0 likes, 0 outside replies, ER 0
 - Plan unit https://x.com/Heroes0fcrypto/status/2111892951626350973 posted Sun 11:51 AM PT (~22.1h): 11 impressions, 0 likes, 0 outside replies, ER 0
@@ -315,6 +334,7 @@ Recommendation: keep current slots (6:48 / 11:48 / 4:48). Slot differences are w
 ## Mon 19 Oct 2026, 11:43 AM PT run (window: 11:43 PM Sun – 11:43 AM Mon PT; Steam Next Fest day 1)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~11:45 AM). Surfaced three.
+
 - @Rainbow6Game, Siege artist appreciation (posted, then reposted 3 times with edits), 11:00–11:26 AM: 16,462 impressions, 77 likes, 4 replies on the 11:00 AM version (skipped: Siege, not Tactics)
 - @PlayHearthstone, event-card reminder, 10:00 AM: 5,750 impressions, 32 likes, 3 replies (skipped: collection reminder)
 - @AgeOfEmpires, AoE IV Longship (health and arrows scale with troops loaded), 9:50 AM: 2,552 impressions, 74 likes, 4 replies, 9 reposts (surfaced)
@@ -332,6 +352,7 @@ Recommendation: weekday reply window is 9:30 AM–1 PM PT, aimed at the first 1�
 ## Mon 19 Oct 2026, 3:41 PM PT run (window: 3:41 AM – 3:41 PM Mon PT; new posts checked since 11:40 AM; Steam Next Fest day 1)
 
 Official game/studio posts (posted time PT, public metrics at read time ~3:43 PM). Surfaced two.
+
 - @MARVELSNAP, infection event (log-in card backs/variants, winning strain keeps avatar border), 2:22 PM: 13,232 impressions, 223 likes, 14 replies, 10 reposts (skipped: log-in cosmetics drop)
 - @PlayHearthstone, "Who's still recovering from Barnes on turn 4?" Y'Shaarj memory ask, 2:00 PM: 5,562 impressions, 38 likes, 4 replies (surfaced)
 - @Rainbow6Game, quote post "You cooked with this one", 1:07 PM: 41,275 impressions, 377 likes, 9 replies (skipped: Siege)
@@ -347,6 +368,7 @@ Recommendation: unchanged from 11:43 AM. Weekday reply window is 9:30 AM–1 PM 
 ## Mon 19 Oct 2026, 7:38 PM PT run (window: 7:38 AM – 7:38 PM Mon PT; new posts checked since 3:41 PM; Steam Next Fest day 1)
 
 Official game/studio posts (posted time PT, public metrics at read time ~7:40 PM). Surfaced two.
+
 - @PlayHearthstone, "Reign of the Black Empire launches TOMORROW! How are you preparing?", 4:00 PM: 5,684 impressions, 57 likes, 12 replies, 9 reposts (surfaced). Replies at +3, +4, +5, +7, +8 min, then +25 min (brand answering, incl. "never too early to start theorycrafting"), +1h22, +1h29, +2h26, +3h29.
 - @DangersDen, dev YouTube interview link, 3:51 PM: 145 impressions, 3 likes, 0 replies (skipped: interview link, no board angle)
 - @MARVELSNAP, "In the event of an outbreak" infection rules, 3:46 PM: 15,309 impressions, 225 likes, 12 replies (skipped: log-in cosmetics event)
@@ -361,6 +383,7 @@ Recommendation: first full weekday (Mon) now logged across four scans. Indie/mid
 ## Tue 20 Oct 2026, 7:41 AM PT run (window: 7:41 PM Mon – 7:41 AM Tue PT; Steam Next Fest day 2)
 
 Official game/studio posts in window (posted time PT, public metrics at read time ~7:45 AM). Surfaced three.
+
 - @MeltedGames, Flint burns 4 Grit to reroll misses, gets a Goblin's Lucky Sock (video), 6:39 AM Tue: 52 impressions, 3 likes, 1 reply (surfaced; reply from @PIASKGames at +20 min)
 - @FE_Heroes_EN, Summoner Duels captain skills this week (Eminence, Turmoil, Mass Confusion), 12:00 AM Tue: 6,134 impressions, 27 likes, 0 replies, 2 reposts (surfaced; Summoner Duels is the PvP mode)
 - @FE_Heroes_EN, Celebratory summoning revival, 12:02 AM Tue: 7,464 impressions, 81 likes, 0 replies (skipped: gacha)
@@ -392,6 +415,7 @@ Recommendation: keep current slots (6:48 / 11:48 / 4:48). No slot or day shows a
 ## Tue 20 Oct 2026, 11:45 AM PT run (window: 11:45 PM Mon – 11:45 AM Tue PT; new posts checked since 7:41 AM; Steam Next Fest day 2)
 
 Official game/studio posts (posted time PT, public metrics at read time ~11:46 AM). Surfaced three.
+
 - @TFT, Patch 18.5 notes (follow-up adjustments, buffs to underperforming champions), 11:00 AM: 10,321 impressions, 65 likes, 14 replies, 13 reposts, 4 quotes (surfaced). First reply at +4 min; ~14 replies in ~45 min, mostly Azir / Kha'Zix balance takes and "is this the regionals / for-fun patch" questions.
 - @TFT, Patch 18.5 rundown video with @TheTruexy, 11:00 AM: 8,636 impressions, 51 likes, 2 replies (skipped: video link, the notes post is the live thread)
 - @WickedNightGame, "A magical clash!" pixel animation, 10:41 AM: 646 impressions, 35 likes, 1 reply, 9 reposts (skipped: animation clip, no board angle)
@@ -413,6 +437,7 @@ Recommendation: two weekdays now agree that indie and mid-size studios post 9:00
 ## Tue 20 Oct 2026, 3:41 PM PT run (window: 3:41 AM – 3:41 PM Tue PT; new posts checked since 11:45 AM; Steam Next Fest day 2)
 
 Official game/studio posts (posted time PT, public metrics at read time ~3:45 PM). Surfaced three.
+
 - @PlayHearthstone, queue-related issues investigation, 2:15 PM: 5,164 impressions, 22 likes, 7 replies (skipped: support notice)
 - @PlayHearthstone, Tavern Tender shop rewards, 2:00 PM: 4,868 impressions, 26 likes, 4 replies (skipped: shop promo)
 - @AgeOfEmpires, AoE IV Dynasties of the East / Raiders of the North Crucible missions get two-player co-op in the next update, 1:00 PM: 3,665 impressions, 108 likes, 4 replies, 9 reposts (surfaced). First reply ~+60 min (DLC discount question), then +72, +97, +127 min.
@@ -430,6 +455,7 @@ Recommendation: unchanged and now three runs on Tuesday agree. Weekday reply win
 ## Tue 20 Oct 2026, 7:42 PM PT run (window: 7:42 AM – 7:42 PM Tue PT; new posts checked since 3:41 PM; Steam Next Fest day 2)
 
 Official game/studio posts (posted time PT, public metrics at read time ~7:45 PM). Surfaced one.
+
 - @SynthWave6666 (1,369), Blightmarch character sketch, "Would you trust her with your back? ... What kind of role does her design suggest?", 7:14 PM: 324 impressions, 28 likes, 2 replies, 2 reposts, 6 bookmarks (surfaced). Replies at +7 min and +19 min.
 - @FE_Heroes_EN, "A Day in the Life" online manga, 7:30 PM: 3,222 impressions, 76 likes, 3 replies (skipped: comic, no board angle)
 - @PlayHearthstone, C'Thun Signature collection, 4:00 PM: 5,503 impressions, 24 likes, 5 replies (skipped: cosmetic promo)
@@ -444,6 +470,7 @@ Recommendation: unchanged, with three Tuesday runs plus this one agreeing. Weekd
 ## Wed 21 Oct 2026, 7:43 AM PT run (window: 7:43 PM Tue – 7:43 AM Wed PT; Steam Next Fest day 3)
 
 Official game/studio posts (posted time PT, public metrics at read time ~7:45 AM). Surfaced three.
+
 - @CivGame (170,244), Civilization VI 10th anniversary video, 7:00 AM: 8,520 impressions, 295 likes, 10 replies, 24 reposts (surfaced). First reply at +48 s; 13 replies visible by +37 min, mostly Civ IV vs V vs VI vs VII arguments plus a multiplayer-crash complaint.
 - @StellarisGame (77,278), Stellaris: Willpower expansion announce (Nov 23), 7:06 AM: 1,965 impressions, 54 likes, 2 replies, 10 reposts (surfaced). Replies at +4 min and +20 min, both mechanic questions; no #boycottparadox pile-on yet.
 - @Culdcept_NeosEN (3,987), Steam version new maps (X, Fortune Alley, Holy Hammer), 4:00 AM: 610 impressions, 11 likes, 1 reply (their own follow-up) (surfaced: map-design angle, thread still empty).
@@ -474,6 +501,7 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - No change proposed to the 6:48 / 11:48 / 4:48 slots.
 
 ## 2026-10-24 daily review (9:41 AM PT pull)
+
 - 24h snapshots: Thu 22 4:50 PM evening 13 views (40.8h); Fri 23 6:53 AM morning 13 views (26.8h). Evening and morning tie at this reach.
 - 7d tails: Sat 17 4:52 PM evening 13 -> 17 (+4, largest non-pin tail so far); Sun 18 6:58 AM morning 14 -> 15; Sat 17 6:56 AM 10 -> 10; Sat 17 11:59 AM midday 9 -> 9. Weekend posts keep showing the weakest reach and almost no tail.
 - No posts went out from Fri 23 11:48 AM through Sat 24 morning (missed / blocked by X phone check), so no new slot data for Fri midday, Fri evening or Sat morning.
@@ -513,12 +541,185 @@ Recommendation: unchanged, with Wednesday's first run consistent with Tuesday. W
 - No change proposed to the 6:48 / 11:48 / 4:48 slots.
 
 ## 2026-10-30 daily engagement review (own posts)
+
 - 24h snapshots: Wed 28 4:58 PM evening Armageddon 15 views; Thu 29 11:57 AM midday Satyr 14; Thu 29 6:50 AM morning morale follow-up 9. All ER 0.
 - Morning slot (6:48 AM) gave the two lowest 24h views this week (Wed 28 retaliation 9, Thu 29 morale 9); midday and evening this week ranged 14–19. Still within noise at this reach; one more week of morning data before proposing a slot move.
 - 0 tactics replies (16 days running). Followers flat at 91. Thu 29 4:48 PM slot missed, made up Fri 30 6:52 AM.
 
 ## 2026-10-31 daily engagement review (own posts)
+
 - 24h snapshots: Fri 30 6:52 AM morning doctrines 12 views (26.8h); Fri 30 11:50 AM midday Gravechain 20 views (21.8h). Both ER 0.
 - Fri 30 4:53 PM evening turn-order already 15 views at ~15.8h, on pace with this week's evening posts. Today's 6:51 AM post had 8 views at ~2.8h.
 - 7d tails: Sat 24 10:03 PM late make-up 13 -> 14 (155.6h); Sun 25 6:57 AM Last Fuse 17 -> 18 (146.7h). Tails stay +1 to +2 for every slot.
 - Morning has been the weakest 24h slot three days running (9, 9, 12 vs midday 14–20). Still n=3; one more week before proposing a slot change to Stepan.
+
+## 2026-11-01 daily engagement review (own posts)
+
+- 24h snapshots: Fri 30 4:53 PM evening turn-order 15 views (41.8h); Sat 31 6:51 AM morning turn-clock 13 (27.8h); Sat 31 11:56 AM midday Angel 9 (22.7h). All ER 0.
+- Sat 31 4:58 PM evening Quiver of Echoes 26 views at ~17.7h, the best early reach this week. Today's 6:50 AM post had 6 views at ~2.9h.
+- 7d tails: Sun 25 11:53 AM Farsight 16 -> 17; Sun 25 4:52 PM augment draft 20 -> 20; Mon 26 6:59 AM barrels 17 -> 19.
+- The morning-weakest pattern (three days) broke: midday posted the lowest 24h today (9) and morning beat it (13). Evening has the best numbers this week (15, 26 early). No slot change proposed. DST ended 1 Nov; slot times stay 6:48 / 11:48 / 4:48 PT (now PST, UTC-8).
+
+## 2026-11-02 daily engagement review (own posts, 24h views since 26 Oct)
+
+- Morning (6:48 slot) avg 12.4 (n=7: 17, 16, 9, 9, 12, 13, 11); midday avg 16.9 (n=7); evening avg 18.0 (n=5, incl. Quiver 28). Evening is now the strongest slot and morning the weakest across a full week; format is confounded (morning has carried most generic rule posts). Supports the weekly proposal to test the morning slot at ~9:30 AM PT; no change made.
+
+## 2026-11-03 daily engagement review (own posts, 24h views since 26 Oct)
+
+- Morning (6:48 slot) avg 12.6 (n=8: 17, 16, 9, 9, 12, 13, 11, 14); midday avg 16.5 (n=8); evening avg 16.8 (n=6: 14, 18, 15, 15, 28, 11). Morning rose on Rime Charm (14, named unit); evening fell on Aegis (11, no named unit). Slot gaps stay confounded by format. Supports the open weekly proposal to test morning ~9:30 AM PT; no schedule change made.
+- Mon 2 4:53 PM Arachna/Cyclops already 28 views + 1 like at ~16.9h (pre-24h). Today's 6:57 AM stack-size post had 5 views at ~2.9h.
+
+## 2026-11-04 daily engagement review (own posts, 24h views since 26 Oct)
+
+- Morning (6:48 slot) avg 12.0 (n=9: 17, 16, 9, 9, 12, 13, 11, 14, 7); midday avg 16.4 (n=9); evening avg 18.7 (n=7: 14, 18, 15, 15, 28, 11, 30). Morning fell on stack-size (7); evening rose on Arachna/Cyclops (30 + 1 like). Slot gaps stay confounded by format but morning is last across a full week-plus. Supports the open weekly proposal to test morning ~9:30 AM PT; no schedule change made.
+- Tue 3 4:55 PM Unicorn already 11 views at ~16.7h (pre-24h). Today's 6:55 AM Black Dragon/Angel 2x2 post had 7 views at ~2.7h.
+
+## 2026-11-05 daily engagement review (own posts, 24h views since 26 Oct)
+
+- Morning (6:48 slot) avg 12.0 (n=10: 17, 16, 9, 9, 12, 13, 11, 14, 7, 12); midday avg 16.2 (n=10); evening avg 18.0 (n=8: 14, 18, 15, 15, 28, 11, 30, 13). Order unchanged: evening > midday > morning, morning last for a second straight week. Still confounded by format. Supports the open weekly proposal to test morning ~9:30 AM PT; no schedule change made.
+- Wed 4 4:55 PM Hydra 14 views at ~16.8h (pre-24h). Today's 7:01 AM Pikeman Aggr post had 8 views at ~2.7h.
+
+## Thu 5 Nov 2026, 11:38 AM PT run (window: ~11:38 PM Wed – 11:38 AM Thu PT; new posts checked since 7:46 AM)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~11:40 AM PST). Surfaced three.
+
+- @vampiretactics, 10,000 Steam wishlists in a week, 10:07 AM: 815 impressions, 44 likes, 8 replies, 7 reposts (surfaced). Congrats replies from +3 min onward; studio answering.
+- @TheVowGame, demo major update (tutorial rework, mechanical changes, new cards/abilities, boss fights), 10:00 AM: 267 impressions, 10 likes, 2 replies (1 own Steam link + 1 HYPE), 4 reposts (surfaced).
+- @PlayHearthstone, Reign of the Black Empire flavor-text favorites question, 10:00 AM: 6,160 impressions, 61 likes, 7 replies (skipped: flavor text, not a board decision).
+- @CompanyOfHeroes, 3.0 Update LIVE, 8:53 AM: 1,128 impressions, 43 likes, 1 reply, 9 reposts (skipped: RTS launch CTA; patch-notes twin at 7:51 AM had 2,061 / 69 / 3).
+- @CyberKnightsRPG, mod support soon (XCOM 2 comparison) under #TurnBasedThursday host, 7:50 AM: 68 impressions, 9 likes, 1 reply, 2 reposts (surfaced).
+- @WickedNightGame, TBT fox animation quote under host, 8:55 AM: 110 impressions, 12 likes, 1 reply (held: animation share; CyberKnights had the clearer tactics angle).
+- Re-read already surfaced: @MuHaGames #TurnBasedThursday host, 4:00 AM: 1,273 impressions, 54 likes, 41 replies, 31 reposts (was 1,270 / 54 / 41 at 7:46 AM).
+- Already skipped overnight/morning: Lavapotion Wielders launch, Overhype Kickstarter, MeltedGames trailer, HOI/Stellaris/FE/Epic7/AOE_Mobile/Mantis as logged at 7:46 AM.
+
+Thread open vs peak (this run only): Thursday's mid-morning wave opened on the hour at 10:00 AM PT (@TheVowGame, @PlayHearthstone) plus @vampiretactics at 10:07 AM. Vampire Tactics drew 8 replies inside ~90 minutes, the fastest official tactics thread of the window. The #TurnBasedThursday host (4:00 AM PT) kept collecting overnight into late morning (41 replies). Indie tactics posts under the host opened slowly (CyberKnights 1 reply in ~4h).
+
+Recommendation: unchanged and consistent with prior Thursdays. Weekday reply window 9:30 AM–1 PM PT; on #TurnBasedThursday the host thread is live from early morning and mid-size studios land board/milestone posts around 10:00 AM PT. Keep the 11:37 AM scan as the main drafting run. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Thu 5 Nov 2026, 3:42 PM PT run (window: ~3:42 AM – 3:42 PM Thu PT; new posts checked since 11:38 AM)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~3:45 PM PST). Surfaced one (held from the 11:38 AM run once replies filled in).
+
+- @wintersong_game, skill activation + critical hit test (Helena hammer swing, Crit 45%, then Reflect/Barrier reaction), 10:29 AM: 2,434 impressions, 121 likes, 3 replies, 14 reposts, 2 quotes (surfaced). Account was added at 11:38 AM and held then; by afternoon the thread had outside replies and a studio follow-up about the hammer bonk.
+- @TheVowGame, Godfrey strategist demo clip, 3:00 PM: 49 impressions, 1 like, 0 replies (skipped: 0 replies; same account drafted this morning).
+- @Blindspot_Games, HexaDome Deluxe/Legendary bundle, 2:18 PM: 98 impressions, 0 likes, 0 replies, 1 repost (skipped: shop CTA).
+- @MARVELSNAP, National Donut Day web-shop variants, 1:02 PM: 10,577 impressions, 158 likes, 4 replies, 8 reposts (skipped: shop cosmetics).
+- @CompanyOfHeroes, 3.0 Balance Fireside YouTube catch-up, 12:37 PM: 673 impressions, 18 likes, 1 reply, 1 repost (skipped: watch CTA).
+- Re-read already surfaced: @vampiretactics 10k wishlists (10:07 AM) now 1,548 / 74 / 8; @TheVowGame demo major update (10:00 AM) now 321 / 11 / 2; @MuHaGames #TurnBasedThursday host (4:00 AM) now 1,554 / 59 / 45.
+
+Thread open vs peak (this run only): no new mid-afternoon board thread opened after the 11:38 AM run. The only English tactics clip with active replies in the afternoon check was the 10:29 AM @wintersong_game skill/crit post, which kept collecting through early afternoon (3 outside-facing replies by ~3:45 PM, studio still answering). Shop and watch CTAs at 12:37–2:18 PM drew likes or ops replies, not board talk. The #TurnBasedThursday host climbed from 41 replies at 11:38 AM to 45 by 3:45 PM and is past its peak influx.
+
+Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT; on #TurnBasedThursday mid-size studio board/milestone posts still land around 10:00–10:30 AM PT and keep collecting into early afternoon, so the 11:37 AM scan remains the main drafting run and a 3:37 PM pass mainly catches late replies on those morning threads. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Thu 5 Nov 2026, 7:43 PM PT run (window: ~3:30–7:45 PM PT)
+
+Official game/studio originals in window (posted time PT, public metrics at read ~7:45 PM PT). Surfaced none.
+
+- @CompanyOfHeroes, 20th Anniversary League 1v1 qualifier signup, 3:48 PM: 576 impressions, 13 likes, 0 replies, 0 reposts (skipped: esports signup CTA / RTS)
+- @FE_Heroes_EN, Alexandra Sterling/Silver Special Heroes ninja summon, 7:00 PM: 5,762 impressions, 125 likes, 6 replies, 13 reposts (skipped: gacha banner)
+- Edge of window / already logged earlier: @TheVowGame Godfrey demo clip 3:00 PM (103 / 1 / 0); @Blindspot_Games HexaDome bundles 2:18 PM (140 / 0 / 0); @wintersong_game skill/crit already surfaced 3:42 PM (now 3,630 / 167 / 3)
+
+Thread open vs peak (this run only): only reply activity in the evening window was the FE Heroes gacha banner at 7:00 PM (6 replies within ~45 min). No board/tactics official thread opened after 3:42 PM. Closest tracked tactics posts earlier today still holding: @vampiretactics 10k wishlists (11:07 AM, now 1,788 / 83 / 9), @wintersong_game SRPG clip (11:29 AM, 3 replies), @CyberKnightsRPG mod post (morning), @MuHaGames TBT host.
+
+Own account: no new timing pull this run.
+
+Recommendation: evening Wed still quiet for English board/tactics outreach; keep logging. Morning–midday TBT and wishlist celebrations carried the day's reply volume.
+
+## Fri 6 Nov 2026, 7:44 AM PT run (window: ~7:44 PM Thu – 7:44 AM Fri PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read ~7:46 AM PST). Surfaced three.
+
+- @Klukva_Games, Dead Weight 1.0.4.0 (Steam Deck focus + new playable character), 6:01 AM: 334 impressions, 4 likes, 1 reply, 0 reposts (surfaced). One Steam Deck reply.
+- @SynthWave6666, Ludovica axe attack animation + "Does her swing feel powerful enough?", 4:40 AM: 1,110 impressions, 57 likes, 0 replies, 1 repost (surfaced). Question invite; likes strong, replies still empty at read.
+- @MightMagicGame, Playstyles Dev Blog (Classic / Strategic / Immersive presets), 2:44 AM: 1,238 impressions, 51 likes, 1 reply, 4 reposts (surfaced). One "classic play style" reply.
+- Skipped overnight: @OfBladesNTails screenshots 5:57 AM (0 replies); @Lavapotion Wielders-adjacent; @oxymoron_games launch promo; @mechabellum cosmetics; @HOI_Game Romania DD; @AOE_Mobile / @Epic7_Global / @FE_Heroes_EN event/gacha; @LostPilgrims deals/location. No PlayHearthstone, TFT, MARVELSNAP, CivGame, CompanyOfHeroes, totalwar, AgeOfEmpires, OverhypeStudios, MeltedGames, TheVowGame, vampiretactics, RisingSpire, Wartales, or Unfrozen originals in the overnight window.
+
+Thread open vs peak (this run only): Friday overnight wave opened early (MightMagic 2:44 AM, SynthWave 4:40 AM, Klukva 6:01 AM PT). Reply volume stayed thin (1, 0, 1). No mid-morning board thread yet in this window; Thursday evening had already gone quiet for English tactics outreach.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Overnight/early-morning official posts open before the 7:37 AM scan and arrive with few replies; the 11:37 AM scan remains the better drafting run for threads that collect replies. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Fri 6 Nov 2026, ~9:48 AM PT — own-account daily pull
+
+Own @Heroes0fcrypto 24h snapshots at pull (TZ_OFFSET=-8):
+
+- Wed 4 4:55 PM evening Hydra Lightning Spin: 15 views / ER 0 at 40.9h
+- Thu 5 7:01 AM morning Pikeman Aggr: 8 views / ER 0 at 26.8h
+- Thu 5 11:52 AM midday Medusa Petrifying Gaze: 5 views / ER 0 at 21.9h (lowest 24h since 19 Oct)
+
+Slot pattern since 26 Oct (24h views): evening still strongest on average; morning stays weak (Pikeman 8 continues stack-size 7 / Hourglass 11). Midday is no longer a floor — Medusa 5 broke it. Named-unit single-ability streak (stack-size through Medusa) now averages ~11 views with zero outside likes; the fortnight's only likes remain Arachna/Cyclops retune and anti-stall morale.
+
+Followers 90 (−1 day-over-day). No outside reply timing signal (0 outside replies). Recommendation unchanged: weekday reply window 9:30 AM–1 PM PT for outreach drafting; own posting slots keep evening > midday > morning on reach, but format (change/number vs ability explainer) now moves the needle more than slot.
+
+## Fri 6 Nov 2026, 11:41 AM PT run (window: ~11:41 PM Thu – 11:41 AM Fri PT; new posts since 7:44 AM)
+
+Official game/studio posts in window (posted time PT, public metrics at read ~11:42 AM PST). Surfaced three.
+
+- @wintersong_game, Dreamsend: Wintersong #PitchYaGame (boss battles / ability combos / transformations), 10:17 AM: 496 impressions, 28 likes, 3 replies, 8 reposts (surfaced).
+- @PlayHearthstone, Paladin or Warrior class/deck question, 10:03 AM: 5,173 impressions, 35 likes, 5 replies, 4 reposts (surfaced).
+- @MeltedGames, Caramon nat 20 / Crit Happens achievement clip, 7:59 AM: 253 impressions, 9 likes, 3 replies, 2 reposts (surfaced).
+- @StudioDaimon, FOOD DEVILS Steam review wait (25 days), 9:19 AM: 3,825 impressions, 243 likes, 10 replies, 22 reposts (added to list; not drafted — queue complaint, not a board decision).
+- @CompanyOfHeroes, 2027 roadmap sneak peek, 9:11 AM: 1,654 impressions, 51 likes, 5 replies, 10 reposts (held: RTS roadmap CTA).
+- @MightMagicGame, PGA Best Game thank-you, 9:00 AM: 10,998 impressions, 31 likes, 1 reply (skipped: celebration / already drafted this morning).
+- Skipped: @TheVowGame giveaway, @Lavapotion Wielders-adjacent, @MARVELSNAP finals watch CTA, @Wartales_Game lore (0 replies), @RisingSpire Kickstarter update, @Look_behindyou Instagram/giveaway, HOI/AOE_Mobile/Epic7/mechabellum as logged.
+
+Thread open vs peak (this run only): Friday mid-morning wave opened on the hour at ~10:00–10:17 AM PT (Hearthstone class question, Wintersong PitchYaGame). Hearthstone drew 5 replies inside ~1.5h; Wintersong 3 replies inside ~1.25h. MeltedGames' 7:59 AM dice-crit clip had 3 replies by late morning. StudioDaimon's 9:19 AM Steam-queue post was the reply volume leader (10) but was a shipping complaint, not a board thread. Overnight/early posts from the 7:44 AM run stayed thin on replies.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT; Friday's board/decision threads opened in that same mid-morning cluster. The 11:37 AM scan remains the main drafting run. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Fri 6 Nov 2026, 3:45 PM PT run (window: ~3:45 AM – 3:45 PM Fri PT; new posts checked since 11:41 AM)
+
+Official game/studio posts in window (posted time PT, public metrics at read ~3:47 PM PST). Surfaced one (missed morning combat pitch).
+
+- @gr8_rebellion, Dverghold "skeleton crew" grid blobber + tactical turn-based combat, 7:17 AM: 556 impressions, 42 likes, 4 replies, 4 reposts (surfaced). Combat/genre pitch with active replies; earlier soft-wishlist posts from the same account were skipped.
+- Afternoon-new since 11:41 AM: @TFT client bug fixes 1:55 PM (15,977–16,027 / 130 / 21; skipped ops), @PlayHearthstone Old Gods Card Back tray 11:46 AM (13,179+ / 72 / 7; skipped cosmetics), @Lavapotion watch-others-play 1:36 PM (482 / 16 / 0; Wielders), @mechabellum test-server stream 12:32 PM (119 / 0 / 0). @vivaladev Virtualord free-demo #PitchYaGame 2:30 PM (46 / 2 / 1; added to list, not drafted — thin). @Hypersect Never's End object-use 3:20 PM under floor (949).
+- Still held/skipped from morning: @CompanyOfHeroes 2027 roadmap (now 2,106 / 65 / 6), @StudioDaimon Steam-queue (6,593 / 407 / 16), giveaways/lore/Kickstarter/grand-strategy as logged.
+
+Thread open vs peak (this run only): No new English board/tactics thread opened in the early-afternoon Fri window after the 10:00–10:17 AM mid-morning cluster. Highest reply volume after 11:41 AM was the TFT client-ops post (21) and Hearthstone card-back note (7), neither a board decision. The morning Dverghold combat pitch (7:17 AM) still had 4 replies by mid-afternoon.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Friday afternoon (this 3:45 PM scan) again found no fresh board thread after the mid-morning cluster — matches the pattern that 11:37 AM is the main drafting run and 3:37/7:37 PM are thin on weekdays. Weekend drop of those evening scans still proposed for Stepan.
+
+## Fri 6 Nov 2026, 7:53 PM PT run (window: ~3:45–7:53 PM Fri PT; new posts since 3:45 PM)
+
+Official game/studio originals in window (posted time PT, public metrics at read ~7:55 PM PT). Surfaced none.
+
+- @FE_Heroes_EN, Arena Bonus Heroes next season, 7:00 PM: 5,197 impressions, 79 likes, 2 replies, 6 reposts (skipped: gacha/event train-up CTA)
+- @Rainbow6Game, new Team drop video, 6:26 PM: 33,526 impressions, 602 likes, 3 replies, 24 reposts (skipped: Siege FPS, not Tactics)
+- Edge / already logged earlier: @gr8_rebellion Dverghold combat pitch surfaced 3:45 PM; morning Wishseeker PitchYaGame (5:35 AM, now 3,369 / 134 / 4) found via evening curator quote — account added, not drafted (thin pitch / 1,013 followers)
+
+Thread open vs peak (this run only): Friday evening again quiet for English board/tactics. Only tracked originals after 3:45 PM were FE Heroes gacha (2 replies inside ~55 min) and Rainbow Six Siege team drop (3 replies, high impressions). No board/tactics official thread opened after the mid-morning cluster and the afternoon catch-up of Dverghold.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Friday 7:53 PM scan again found no fresh board thread — matches the pattern that 11:37 AM is the main drafting run and 3:37/7:37 PM are thin on weekdays. Weekend drop of those evening scans still proposed for Stepan.
+
+## Sat 7 Nov 2026, 7:40 AM PT run (window: ~7:40 PM Fri – 7:40 AM Sat PT)
+
+Official game/studio originals in window (posted time PT, public metrics at read ~7:42 AM PST). Surfaced two.
+
+- @MeltedGames, Raistlin Summon Greater Demon scroll "burn it now or save it for the boss?" #ScreenshotSaturday, 6:25 AM: 19 impressions, 1 like, 1 reply (own demo link), 1 repost (surfaced).
+- @quasimorph, "simplest solution is the most explosive one" #ScreenshotSaturday, 4:00 AM: 467 impressions, 15 likes, 0 replies in metrics (one outside dev reply at 7:17 AM in conversation search), 4 reposts (surfaced).
+- Skipped: @Lavapotion 2k concurrent 7:20 AM (198 / 3 / 2; Wielders), @HOI_Game Wojtek 2:01 AM (4,456 / 51 / 2) and stream 6:04 AM, @mechabellum cup casts 1:39 / 4:48 AM, @AOE_Mobile memes 5:00 AM, @FE_Heroes_EN GHB 11:00 PM Fri, @Conviction_SRPG Japanese 2:00 AM.
+
+Thread open vs peak (this run only): Saturday #ScreenshotSaturday posts opened early (4:00–6:25 AM PT, i.e. European midday). Replies were thin by 7:40 AM (0–2 outside replies on every official post). Friday evening after 7:53 PM stayed quiet apart from FE Heroes event at 11 PM.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT. Weekend: Saturday threads open ~4–7 AM PT and are still thin at the 7:37 AM scan, so the 11:37 AM Saturday scan should show whether they collect replies. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Sat 7 Nov 2026, 9:39 AM PT daily engagement review (own account timing)
+
+24h snapshots from pulls/2026-11-07.json, by posting slot (PT):
+
+- Thu 5 4:51 PM evening, Behemoth Battle Roar: 15 views / ER 0 (40.8h, late snapshot)
+- Fri 6 7:45 AM morning, Manticore Terrifying Gaze: 11 views / ER 0 (25.9h)
+- Fri 6 11:57 AM midday, Scavenger Backstab: 13 views / ER 0 (21.7h)
+- Sat 7 6:57 AM morning, Black Dragon Fire Breath: 9 views at ~2.7h (not yet a snapshot)
+- Fri 6 4:48 PM evening slot never went out (QUEUE marked missed).
+
+Finding: evening is still the best own-post slot on reach (Behemoth 15, Hydra 17, Arachna/Cyclops 32, Quiver 33 at 7d all evening); morning stays weakest (Manticore 11, Pikeman 10, Fire Breath pacing ~9). Losing Friday's evening slot cost the slot that travels furthest. No outside replies in any slot, so reply timing is still not measurable from our own posts.

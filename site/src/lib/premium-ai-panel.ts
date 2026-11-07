@@ -1,6 +1,7 @@
 import { getAuthToken } from "./auth-state";
 import { renderMarkdown } from "./markdown-lite";
-import { escapePremiumHtml as e, premiumPercent as pct } from "./premium-library";
+import { initPremiumKnowledgePreview } from "./premium-knowledge-preview";
+import { escapePremiumHtml as e, premiumPercent as pct, type PremiumCatalog } from "./premium-library";
 import {
     fetchPremiumLibrarySearch,
     premiumAiBody,
@@ -84,7 +85,12 @@ export function renderPremiumAiEvidence(packet: Evidence, lang: "en" | "ru"): st
     );
 }
 
-export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost: () => void) {
+export function initPremiumAi(
+    root: HTMLElement,
+    lang: "en" | "ru",
+    onAccessLost: () => void,
+    catalog?: PremiumCatalog,
+) {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
     const panel = root.querySelector<HTMLElement>("[data-premium-ai]")!;
     const form = panel.querySelector<HTMLFormElement>("[data-ai-form]")!;
@@ -94,17 +100,24 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
     const transcript = panel.querySelector<HTMLElement>("[data-ai-transcript]")!;
     const status = panel.querySelector<HTMLElement>("[data-ai-status]")!;
     const scope = panel.querySelector<HTMLElement>("[data-ai-scope]")!;
+    const preview = initPremiumKnowledgePreview(root, lang, catalog);
     let selection: PremiumAiSelection | undefined;
     let enabled = false;
     let history: PremiumSearchMessage[] = [];
     let controller: AbortController | undefined;
+    let stopProgress: (() => void) | undefined;
     const setBusy = (busy: boolean) => {
         submit.disabled = busy || !enabled;
         stop.hidden = !busy;
-        panel.querySelectorAll<HTMLButtonElement>("[data-ai-prompt]").forEach((button) => (button.disabled = busy));
+        panel
+            .querySelectorAll<HTMLButtonElement>("[data-ai-prompt]")
+            .forEach((button) => (button.disabled = busy || !enabled));
         form.setAttribute("aria-busy", String(busy));
     };
     const clear = () => {
+        preview.hide();
+        stopProgress?.();
+        stopProgress = undefined;
         controller?.abort();
         controller = undefined;
         history = [];
@@ -113,11 +126,12 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         status.textContent = "";
         setBusy(false);
     };
-    const setAccess = (active: boolean, next?: PremiumAiSelection, label = "") => {
-        if (!active || !samePremiumSelection(selection, next)) clear();
-        enabled = active;
+    const setAccess = (active: boolean, next?: PremiumAiSelection, label = "", scopeReady = true) => {
+        if (!active || !scopeReady || !samePremiumSelection(selection, next)) clear();
+        enabled = active && scopeReady;
         selection = next;
         panel.hidden = !active;
+        input.disabled = !enabled;
         scope.textContent = label;
         scope.title = next?.snapshotId ?? "";
         setBusy(Boolean(controller));
@@ -132,6 +146,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         }
         const question = input.value.trim();
         if (question.length > 2000) return;
+        preview.hide();
         const selected = selection ? { ...selection } : undefined;
         const pending = new AbortController();
         controller = pending;
@@ -145,12 +160,29 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         turn.innerHTML =
             '<p class="premium-ai-question">' +
             e(question) +
-            '</p><div class="premium-ai-answer"></div><div class="premium-ai-sources"></div><div class="premium-ai-evidence"></div>';
+            '</p><div class="premium-ai-working" data-ai-working><div class="premium-ai-working-header"><span class="premium-ai-working-mark" aria-hidden="true">✦</span><p role="status" aria-live="polite" data-ai-phase></p><span class="premium-ai-elapsed" aria-hidden="true" data-ai-elapsed></span></div><div class="premium-ai-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div><div class="premium-ai-answer"></div><div class="premium-ai-sources"></div><div class="premium-ai-evidence"></div>';
         transcript.append(turn);
         while (transcript.children.length > 8) transcript.firstElementChild?.remove();
         const answer = turn.querySelector<HTMLElement>(".premium-ai-answer")!;
         const sources = turn.querySelector<HTMLElement>(".premium-ai-sources")!;
         const evidence = turn.querySelector<HTMLElement>(".premium-ai-evidence")!;
+        const working = turn.querySelector<HTMLElement>("[data-ai-working]")!;
+        working.hidden = false;
+        const phase = turn.querySelector<HTMLElement>("[data-ai-phase]")!;
+        const elapsed = turn.querySelector<HTMLElement>("[data-ai-elapsed]")!;
+        const started = Date.now();
+        const elapsedTimer = setInterval(() => {
+            elapsed.textContent = `${Math.floor((Date.now() - started) / 1000)}s`;
+        }, 1000);
+        phase.textContent = status.textContent;
+        status.textContent = "";
+        answer.setAttribute("aria-busy", "true");
+        const finishProgress = () => {
+            clearInterval(elapsedTimer);
+            working.hidden = true;
+            answer.setAttribute("aria-busy", "false");
+        };
+        stopProgress = finishProgress;
         const packets = new Map<string, Evidence>();
         let text = "";
         const showSources = (items: PremiumAiEvent["sources"]) => {
@@ -163,7 +195,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                                   e(href) +
                                   '" target="_blank" rel="noopener noreferrer">' +
                                   e(item.name) +
-                                  " ↗</a>",
+                                  "</a>",
                           ]
                         : [];
                 })
@@ -194,21 +226,31 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                 if (!active()) return;
                 if (kind === "delta") {
                     text += event.text ?? "";
+                    working.setAttribute("data-has-answer", String(Boolean(text.trim())));
                     answer.innerHTML = renderMarkdown(text);
                 } else if (kind === "reset") {
                     text = "";
+                    working.setAttribute("data-has-answer", "false");
                     answer.replaceChildren();
                 } else if (kind === "status") {
-                    status.textContent =
+                    const label =
                         event.phase === "answering"
                             ? t("Writing your answer…", "Готовим ответ…")
-                            : t("Checking evidence and game rules…", "Проверяем данные и правила игры…");
+                            : event.phase === "reading"
+                              ? t("Reading game mechanics", "Изучаем механики игры")
+                              : event.phase === "searching" || event.phase === "listing"
+                                ? t("Checking relevant rules", "Проверяем нужные правила")
+                                : t("Preparing an answer…", "Готовим ответ…");
+                    phase.textContent =
+                        event.detail && event.phase !== "answering" && event.phase !== "thinking"
+                            ? `${label}: ${event.detail.slice(0, 120)}`
+                            : label;
                 } else if (kind === "sources") showSources(event.items);
                 else if (kind === "premium_evidence" && event.packet) {
                     packets.set(event.packet.evidenceId, event.packet);
                     evidence.innerHTML =
                         '<p class="premium-ai-evidence-label">' +
-                        t("Evidence consulted", "Использованные данные") +
+                        t("Supporting data", "Данные для ответа") +
                         "</p>" +
                         [...packets.values()]
                             .slice(0, 32)
@@ -225,12 +267,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
                 { role: "user", content: question },
                 { role: "assistant", content: completed },
             ].slice(-6) as PremiumSearchMessage[];
-            status.textContent = selected
-                ? t(
-                      "Answer ready. Ask a follow-up or explore the evidence below.",
-                      "Ответ готов. Задайте уточнение или изучите данные ниже.",
-                  )
-                : t("Answer ready. Ask a follow-up to explore further.", "Ответ готов. Задайте уточняющий вопрос.");
+            status.textContent = t("Answer ready.", "Ответ готов.");
         } catch (error) {
             if (controller !== pending) return;
             const stopped = pending.signal.aborted;
@@ -250,7 +287,9 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
             status.textContent = message;
             input.value = question;
         } finally {
+            finishProgress();
             if (controller === pending) {
+                stopProgress = undefined;
                 controller = undefined;
                 setBusy(false);
             }
@@ -278,5 +317,13 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
         input.focus();
     });
     window.addEventListener("pagehide", () => clear());
-    return { setAccess };
+    return {
+        setAccess,
+        askQuestion(question: string) {
+            if (!enabled || controller) return;
+            input.value = question;
+            panel.scrollIntoView({ block: "start", behavior: "smooth" });
+            void ask();
+        },
+    };
 }

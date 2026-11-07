@@ -180,7 +180,7 @@
             root.dataset.silent = silent ? "true" : "false";
         };
 
-        const effectiveVolume = () => (muted ? 0 : volume);
+        const effectiveVolume = () => (muted ? 0 : clamp01(volume * 1.5));
 
         const stopFade = () => {
             if (fadeFrame !== null) {

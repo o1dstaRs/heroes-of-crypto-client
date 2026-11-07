@@ -646,6 +646,7 @@ export class AIController {
                 fightProperties: FightStateManager.getInstance().getFightProperties(),
                 decisionOrigin: "root",
             };
+            decisionContext.decisionStartedAtMs = performance.now();
             try {
                 strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, decisionContext);
                 strategyDecided = true;

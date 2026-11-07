@@ -18,5 +18,5 @@ for (const mode of ["development", "production"] as const) {
             mode,
             exports: ["searchSandboxAiDecision", "searchSandboxPremiumDecision"],
         });
-    });
+    }, 60_000);
 }

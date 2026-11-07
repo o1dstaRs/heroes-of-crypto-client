@@ -81,8 +81,56 @@ Technical selection does not establish artistic fit: the report keeps all takes
 available locally for listening and revision.
 
 Every creature row has **Regenerate**. It opens an editable sound description, a library search,
-and available mastered alternatives. **Generate 4 takes** uses the server's `ELEVENLABS_API_KEY`;
-the key stays in the server environment. Its API permissions must include sound generation.
+and available mastered alternatives. **ElevenLabs** is the default (four takes with an explicit
+duration parameter). **Suno** is optional (two takes for two generation credits, plus up to one
+separate download credit per take).
+**Regenerate** uses the description, with no existing
+audio. ElevenLabs uses prompt influence `0.3`, giving it more variation than the previous `0.7`.
+Change the description when the sound itself is wrong;
+rerolling an unchanged description does not establish a new artistic direction. Each batch shows
+its creation time, and each take retains its actual prompt and generation settings for inspection.
+
+Suno's `sounds-create` has no duration parameter: a request for one second can return several
+seconds. The Suno prompt requests one brief event, but this is not a duration guarantee. The page
+shows each original's reported duration alongside the batch's game limit. New generated takes
+must fit the sound design's duration, as well as the overall 1.6-second combat limit. Long Suno
+takes are edited locally: prefer a complete prominent event between quiet gaps, otherwise keep
+the main attack and end near a quiet dip within the budget. Apply a 3 ms fade-in and a 20–40 ms
+fade-out, then run the normal loudness/codec checks. No speed or pitch change is used.
+The raw source is preserved. `crop_to_duration`, `duration_limit_ms`, and `duration_edit` record
+the policy, source interval, and fades so later mastering reproduces the edit. The page shows the
+cut and lets the user audition before applying; waveform analysis alone cannot establish artistic
+fit. Unedited sources retain the length rejection. Existing shipped sounds are unchanged.
+
+**Regenerate similar** is reserved for generation conditioned on the actual current audio.
+It is disabled while no compatible short-SFX reference model is connected, and the server rejects
+that mode before making a paid request. The verified ElevenLabs SFX MCP model and Suno's
+`sounds-create` tool accept text only; Suno's song reference/cover tools are not a short-SFX
+replacement. Do not implement this button by silently reusing a prompt or applying audio filters.
+
+Suno uses the existing Codex OAuth connection through `codex app-server`. The ephemeral thread
+only hosts MCP tools; it does not start a model turn. Configure the `suno` MCP server at
+`https://api.suno.com/mcp`, enable it, and run `codex mcp login suno` if it is not already connected.
+Suno Sounds requires a signed-in Pro or Premier account. The page displays generation and download
+balances separately. It requires two of each before creating a batch so it does not spend generation
+credits on takes that cannot be downloaded. The `audio.download` entitlement alone is not enough:
+Suno can still return `requires_credit` and then `insufficient_credits` / `quota_exhausted` for a
+zero download balance. The server rechecks both balances before creation. It calls `sounds-create`,
+saves both clip IDs, waits for completion, downloads,
+and runs the same mastering checks as other sources. It records the authored and actual provider
+prompts, clip IDs, and file hashes; OAuth tokens and signed download URLs are never saved in jobs.
+
+An interrupted Suno batch has **Resume this Suno batch**. Known clip IDs resume downloads;
+an uncertain creation reuses the same provider idempotency key within 23 hours. It never starts
+a second batch automatically. Downloads are first requested without credit approval. If Suno
+requires a download credit, the page shows an explicit approval button for that take. An uncertain
+confirmed download is not repeated automatically. Explicit insufficient-download-credit refusals
+remain recoverable and are distinguished from unknown outcomes. **Check existing downloads** probes
+the saved clips without approving a charge or regenerating them. Completed clips link to Suno for
+listening while downloads are blocked. Existing mastered takes remain available.
+
+ElevenLabs uses the server's `ELEVENLABS_API_KEY`, which stays in the server environment.
+Its API permissions must include sound generation.
 The separate account-read permission is not required. A clean ElevenLabs editor link also works
 with the connected workspace login. Generation spends credits and is never automatically retried;
 request IDs prevent duplicate POSTs from charging twice. Jobs and successful partial results stay
