@@ -140,7 +140,12 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
             ? `<h3>${e(link.getAttribute("data-premium-help-title"))}</h3><p>${e(link.getAttribute("data-premium-help"))}</p>`
             : localCatalog && renderPremiumCatalogPreview(reference, localCatalog, lang);
         if (local) {
-            card.innerHTML = local;
+            const appliesTo = link.getAttribute("data-premium-applies-to");
+            card.innerHTML =
+                local +
+                (appliesTo
+                    ? `<p class="premium-reference-applies"><strong>${lang === "ru" ? "В вашей армии" : "In your crew"}</strong><br>${e(appliesTo)}</p>`
+                    : "");
             card.hidden = false;
             position();
             return;

@@ -6,13 +6,12 @@ import {
     type PremiumCatalog,
     type PremiumLibrary,
     type PremiumRow,
-    type PremiumSnapshot,
 } from "./premium-library";
 import type { PremiumView } from "./premium-render";
 
 const text = (view: PremiumView) => (en: string, ru: string) => (view.lang === "ru" ? ru : en);
 const support = (row: PremiumRow, view: PremiumView) =>
-    `${row.families.toLocaleString(view.lang)} ${text(view)("families", "семейств")} · 95% ${pct(row.interval[0])}–${pct(row.interval[1])}`;
+    `${row.families.toLocaleString(view.lang)} ${text(view)("battle pairs", "пар боёв")} · 95% ${pct(row.interval[0])}–${pct(row.interval[1])}`;
 const kb = (anchor: string, view: PremiumView) => `${view.lang === "ru" ? "/ru" : ""}/knowledge-base/#${anchor}`;
 const signal = (row: PremiumRow, view: PremiumView) =>
     row.interval[0] > 0.5
@@ -23,121 +22,7 @@ const signal = (row: PremiumRow, view: PremiumView) =>
 const reading = (name: string, row: PremiumRow, view: PremiumView) =>
     `<li><div><strong>${name}</strong><small>${e(support(row, view))}</small><small>${e(signal(row, view))}</small></div><b>${pct(row.score)}</b></li>`;
 
-export function premiumInsightRows(library: PremiumLibrary, catalog: PremiumCatalog, minimum: number) {
-    const threshold = Math.max(50, minimum);
-    const ranked = (rows: PremiumRow[]) => rankPremiumRows(rows, threshold);
-    const units = ranked(library.units).filter((row) => catalog.units[row.ids[0]]);
-    return {
-        threshold,
-        unitLeaders: [1, 2, 3, 4].flatMap(
-            (level) => units.find((row) => catalog.units[row.ids[0]].level === level) ?? [],
-        ),
-        unitLaggards: units
-            .filter((row) => row.interval[1] < 0.5)
-            .sort((a, b) => a.interval[1] - b.interval[1])
-            .slice(0, 4),
-        pairs: ranked(library.pairs).slice(0, 3),
-        artifacts: ([1, 2] as const).flatMap((tier) =>
-            ranked(tier === 1 ? library.artifactsTier1 : library.artifactsTier2)
-                .filter((row) => catalog.artifacts[`${tier}:${row.key}`])
-                .slice(0, 2)
-                .map((row) => ({ tier, row })),
-        ),
-        synergies: [1, 2, 3].flatMap((level) => ranked(library.synergies).find((row) => row.ids[2] === level) ?? []),
-        plans: ranked(library.plans).slice(0, 3),
-    };
-}
-
-export function renderPremiumInsights(
-    library: PremiumLibrary,
-    catalog: PremiumCatalog,
-    view: PremiumView,
-    snapshot?: PremiumSnapshot,
-): string {
-    const t = text(view);
-    const rows = premiumInsightRows(library, catalog, view.minimum);
-    const unitLink = (id: number) => {
-        const item = catalog.units[id];
-        return item ? `<a href="${kb(e(item.anchor), view)}">${e(item.name)}</a>` : `#${id}`;
-    };
-    const addToCrew = (id: number) =>
-        `<button type="button" data-add-crew="${id}" class="premium-meta-add" aria-label="${e(t(`Add ${catalog.units[id].name} to crew`, `Добавить ${catalog.units[id].name} в армию`))}">+ ${t("Add to crew", "В армию")}</button>`;
-    const missing = `<p class="premium-fine">${t("No result meets the sample threshold.", "Нет результатов с достаточной выборкой.")}</p>`;
-    const card = (title: string, description: string, items: string[], noResult = missing) =>
-        `<article class="premium-insight-card"><h3>${title}</h3><p>${description}</p>${items.length ? `<ul>${items.join("")}</ul>` : noResult}</article>`;
-    return `<section id="premium-insights" class="premium-section">
-        <header class="premium-section-heading"><span>02</span><div><h2>${t("Snapshot results", "Результаты выборки")}</h2><p>${t("Each result shown uses at least", "Каждый результат рассчитан как минимум по")} ${rows.threshold} ${t("independent families. Each family has two battles with sides swapped.", "независимым семействам. В каждом семействе два боя со сменой сторон.")}</p></div></header>
-        ${snapshot ? `<p class="premium-context-note">${e(snapshot.studyProfile)} · ${snapshot.fights.toLocaleString(view.lang)} ${t("recorded fights", "записанных боёв")} · ${snapshot.status === "development" ? t("Historical development evidence", "Исторические исследовательские данные") : t("Validated snapshot", "Проверенный снимок")} · <code>${e(snapshot.snapshotId)}</code>${(snapshot.caveats ?? []).map((note) => `<br>${e(note)}`).join("")}</p>` : ""}
-        <div class="premium-insight-grid">
-        ${card(
-            t("Unit leaders, by level", "Ведущие юниты по уровням"),
-            t(
-                "Highest lower confidence bound within each draft level.",
-                "Наибольшая нижняя граница интервала внутри каждого уровня драфта.",
-            ),
-            rows.unitLeaders.map((row) =>
-                reading(
-                    `L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])} ${addToCrew(row.ids[0])}`,
-                    row,
-                    view,
-                ),
-            ),
-        )}
-        ${card(
-            t("Lower observed outcomes", "Более низкие результаты"),
-            t(
-                "Only rows whose entire interval is below 50%. This does not isolate a unit's contribution.",
-                "Только результаты, у которых весь интервал ниже 50%. Это не измерение отдельного вклада юнита.",
-            ),
-            rows.unitLaggards.map((row) => reading(unitLink(row.ids[0]), row, view)),
-            `<p class="premium-fine">${t("No clear below-50% unit result at this sample threshold.", "При этом пороге нет результатов юнитов с интервалом целиком ниже 50%.")}</p>`,
-        )}
-        ${card(
-            t("Promising combinations", "Перспективные сочетания"),
-            t(
-                "Units observed in the same army, not an isolated combo test.",
-                "Юниты в одной армии, а не изолированный тест комбинации.",
-            ),
-            rows.pairs.map((row) => reading(row.ids.map(unitLink).join(" + "), row, view)),
-        )}
-        ${card(
-            t("Artifact watchlist", "Артефакты для изучения"),
-            t(
-                "Leading current choices within each tier. Their armies also differ.",
-                "Ведущие доступные варианты внутри каждого уровня. Составы их армий тоже отличаются.",
-            ),
-            rows.artifacts.map(({ tier, row }) => {
-                const item = catalog.artifacts[`${tier}:${row.key}`];
-                return reading(`T${tier} · <a href="${kb(e(item.anchor), view)}">${e(item.name)}</a>`, row, view);
-            }),
-        )}
-        ${card(
-            t("Active synergy signals", "Результаты активных синергий"),
-            t(
-                "Leading exact variants at each activation level; faction counts and armies still differ.",
-                "Ведущие точные варианты на каждом уровне активации; составы и число фракционных юнитов различаются.",
-            ),
-            rows.synergies.map((row) =>
-                reading(
-                    `${e(synergyNames[row.ids.slice(0, 2).join(":")]?.[view.lang === "ru" ? 1 : 0] ?? row.key)} · L${row.ids[2]}`,
-                    row,
-                    view,
-                ),
-            ),
-        )}
-        ${card(
-            t("Complete build signals", "Результаты полных билдов"),
-            t(
-                "Whole augment plans. Doctrine budgets and unit fit matter; this is not an isolated upgrade ranking.",
-                "Полные планы усилений. Важны бюджет доктрины и состав; это не рейтинг отдельных усилений.",
-            ),
-            rows.plans.map((row) => reading(planName(row.key, view), row, view)),
-        )}
-        </div>
-        <p class="premium-fine">${t("These are associations in the selected snapshot, cohort and map. Overlapping intervals do not establish a winner; selecting leaders among many candidates needs fresh confirmation. Historical balance changes can invalidate a current recommendation.", "Это связи в выбранном снимке, типе армий и карте. Пересекающиеся интервалы не определяют победителя; лидерам среди множества вариантов нужна новая проверка. Изменения баланса могут сделать исторический совет неактуальным.")}</p>
-        <button class="premium-secondary" type="button" data-snapshot-question>${t("Explain the strategies behind these results", "Объяснить стратегии за этими результатами")}</button>
-    </section>`;
-}
+export { premiumInsightRows, renderPremiumMeta as renderPremiumInsights } from "./premium-meta";
 
 export function premiumUnitMatchups(library: PremiumLibrary, ownUnit: number, minimum: number) {
     const rows = (library.matchups ?? []).filter((row) => row.ids[0] === ownUnit && row.families >= minimum);
@@ -162,7 +47,7 @@ export function renderPremiumMatchups(library: PremiumLibrary, catalog: PremiumC
     const units = rankPremiumRows(library.units, 1).filter((row) => catalog.units[row.ids[0]]);
     const selected = units.find((row) => row.ids[0] === view.matchupUnit) ?? units[0];
     const own = selected && catalog.units[selected.ids[0]];
-    const header = `<header class="premium-section-heading"><span>03</span><div><h2>${t("Unit matchups", "Противостояния юнитов")}</h2><p>${t("These results compare full armies that contained the two units on opposite sides. Other units and upgrades also affect the result.", "Здесь сравниваются результаты армий, в которых эти юниты были по разные стороны. На результат также влияют другие юниты и усиления.")}</p></div></header>`;
+    const header = `<header class="premium-section-heading"><span>04</span><div><h2>${t("Unit matchups", "Противостояния юнитов")}</h2><p>${t("These results compare full armies that contained the two units on opposite sides. Other units and upgrades also affect the result.", "Здесь сравниваются результаты армий, в которых эти юниты были по разные стороны. На результат также влияют другие юниты и усиления.")}</p></div></header>`;
     if (!own || !selected)
         return (
             header +

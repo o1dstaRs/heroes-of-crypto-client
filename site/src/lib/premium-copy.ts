@@ -1,7 +1,7 @@
 export const premiumSections = [
-    ["overview", "Overview", "Обзор"],
+    ["overview", "Current meta", "Текущая мета"],
     ["crew", "Your crew", "Ваша армия"],
-    ["insights", "Snapshot results", "Результаты выборки"],
+    ["insights", "Pick rates & results", "Частота выбора"],
     ["matchups", "Matchups", "Противостояния"],
     ["units", "Unit rankings", "Рейтинги юнитов"],
     ["combos", "Combinations", "Комбинации"],

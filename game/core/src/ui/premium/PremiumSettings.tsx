@@ -126,8 +126,8 @@ export const PremiumSettings: React.FC<{ reason: string }> = ({ reason }) => {
                     />
                     <PremiumSetting
                         preference="chat"
-                        label={t("Ask Premium")}
-                        description={t("Show the chat button for questions about the game and your match.")}
+                        label={t("Premium guide")}
+                        description={t("Show setup help and one-click strategy briefings for your fight.")}
                         disabled={!enabled}
                     />
                     <PremiumSetting

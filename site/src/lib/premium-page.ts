@@ -58,6 +58,7 @@ export function initPremiumPage(): void {
         () => data,
         () => url("crew"),
     );
+    select("map").value = crew.battlefield;
     const updateAi = () => {
         const snapshot = data?.snapshot;
         const library = data?.library;
@@ -74,7 +75,7 @@ export function initPremiumPage(): void {
                       snapshot?.studyProfile.replace("premium-", ""),
                       select("cohort").selectedOptions[0]?.text,
                       select("map").selectedOptions[0]?.text,
-                      view.minimum + "+ " + t("families", "семейств"),
+                      view.minimum + "+ " + t("battle pairs", "пар боёв"),
                   ]
                       .filter(Boolean)
                       .join(" · ")
