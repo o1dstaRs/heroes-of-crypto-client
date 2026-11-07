@@ -144,27 +144,39 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
                 aria-hidden={!expanded}
                 style={{
                     position: "absolute",
-                    right: -4,
-                    bottom: "100%",
-                    minWidth: 106,
-                    padding: "10px 8px",
+                    ...(touch
+                        ? {
+                              right: -4,
+                              bottom: "100%",
+                              minWidth: 106,
+                              padding: "10px 8px",
+                              background: "linear-gradient(180deg, #2d1b0d, #160d06)",
+                              border: "1px solid #8c602d",
+                              borderRadius: 6,
+                              boxShadow: "0 4px 14px rgba(0,0,0,0.7)",
+                          }
+                        : {
+                              bottom: "100%",
+                              left: "50%",
+                              width: 64,
+                              paddingBottom: 6,
+                              transform: "translateX(-50%)",
+                          }),
                     boxSizing: "border-box",
                     display: "flex",
-                    flexDirection: "column",
+                    flexDirection: touch ? "column" : "column-reverse",
                     alignItems: "center",
                     gap: 8,
-                    background: "linear-gradient(180deg, #2d1b0d, #160d06)",
-                    border: "1px solid #8c602d",
-                    borderRadius: 6,
-                    boxShadow: "0 4px 14px rgba(0,0,0,0.7)",
                     opacity: expanded ? 1 : 0,
                     pointerEvents: expanded ? "auto" : "none",
                     transition: "opacity 140ms ease",
                 }}
             >
-                <span className="hoc-audio-heading" style={{ fontSize: 12, color: "#efe4cc" }}>
-                    {t("Sound")} · {Math.round(masterVolume * 100)}%
-                </span>
+                {touch && (
+                    <span className="hoc-audio-heading" style={{ fontSize: 12, color: "#efe4cc" }}>
+                        {t("Sound")} · {Math.round(masterVolume * 100)}%
+                    </span>
+                )}
                 {touch ? (
                     <div
                         className="hoc-touch-volume-row"
@@ -200,9 +212,7 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
                 ) : (
                     <div
                         className="hoc-volume-slider-shell"
-                        style={
-                            { "--hoc-volume-level": `${Math.round(4 + masterVolume * 78)}px` } as React.CSSProperties
-                        }
+                        style={{ "--hoc-volume-level": masterVolume } as React.CSSProperties}
                     >
                         <input
                             type="range"
@@ -213,6 +223,8 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
                             value={Math.round(masterVolume * 100)}
                             aria-label={t("Sound volume")}
                             aria-orientation="vertical"
+                            aria-valuetext={`${Math.round(masterVolume * 100)}%`}
+                            title={`${Math.round(masterVolume * 100)}%`}
                             tabIndex={expanded ? 0 : -1}
                             onChange={(event) => {
                                 changeVolume(Number(event.target.value) / 100);
@@ -249,11 +261,13 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
                 )}
                 <label
                     style={{
+                        ...(touch ? {} : { height: 16 }),
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
-                        fontSize: 13,
+                        fontSize: touch ? 13 : 11,
                         color: "#efe4cc",
+                        textShadow: touch ? undefined : "0 1px 3px #000, 0 0 6px #000",
                         cursor: "pointer",
                         whiteSpace: "nowrap",
                     }}

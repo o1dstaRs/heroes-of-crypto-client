@@ -93,9 +93,71 @@ def trim_bounds(samples):
     return start, end
 
 
-def fade_edges(samples):
+def crop_one_shot(samples, start, end, duration_limit_ms):
+    """Prefer a complete prominent event; otherwise end the main event at a quiet dip.
+
+    This is an audition edit, not a claim that an energy envelope understands the
+    sound's character. Originals and exact crop bounds remain available for review.
+    """
+    if (end - start) / RATE * 1000 <= duration_limit_ms:
+        return start, end, None
+    window = 240
+    levels = envelope(samples[start:end], window)
+    peak = max(levels)
+    threshold = max(10 ** (-52 / 20), peak * 10 ** (-35 / 20))
+    active = [i for i, level in enumerate(levels) if level >= threshold]
+    groups = []
+    first = previous = active[0]
+    for index in active[1:]:
+        if index - previous > 16:  # at least 80 ms of quiet separates events
+            groups.append((first, previous + 1))
+            first = index
+        previous = index
+    groups.append((first, previous + 1))
+    budget = int(RATE * (duration_limit_ms - 8) / 1000)  # codec/rounding headroom
+    events = []
+    for first, last in groups:
+        left = max(start, start + first * window - int(RATE * 0.004))
+        right = min(end, start + last * window + int(RATE * 0.020))
+        if right - left < int(RATE * 0.075) or max(levels[first:last]) < peak * 0.25:
+            continue
+        energy = sum(level * level for level in levels[first:last])
+        events.append((energy, left, right, first, last))
+    if not events:
+        raise ValueError("No substantial event to crop")
+    complete = [event for event in events if event[2] - event[1] <= budget]
+    if complete:
+        _, left, right, _, _ = max(complete, key=lambda event: event[0])
+        natural = True
+    else:
+        _, left, right, first, last = max(events, key=lambda event: event[0])
+        peak_index = max(range(first, last), key=lambda i: levels[i])
+        peak_sample = start + peak_index * window
+        if peak_sample >= left + budget * 0.8:
+            # Retain the strongest attack when a long lead-in precedes it.
+            left = max(left, peak_sample - int(budget * 0.35))
+        earliest = max(left + int(budget * 0.6), peak_sample + int(RATE * 0.060))
+        latest = min(right, left + budget)
+        endpoints = range(earliest, latest + 1, window)
+        def endpoint_energy(position):
+            i = min(len(levels), max(1, (position - start) // window))
+            tail = levels[max(0, i - 4):i]
+            return sum(v * v for v in tail) / len(tail)
+        right = min(endpoints, key=lambda p: (endpoint_energy(p), -p), default=latest)
+        natural = endpoint_energy(right) <= (peak * 0.1) ** 2
+    # Re-trim only outer silence in the selected event, preserving internal pauses.
+    inner_start, inner_end = trim_bounds(samples[left:right])
+    left, right = left + inner_start, left + inner_end
+    edit = {"method": "event-crop-v1", "original_duration_ms": round(len(samples) / RATE * 1000),
+            "start_ms": round(left / RATE * 1000, 3), "end_ms": round(right / RATE * 1000, 3),
+            "natural_ending": natural, "fade_in_ms": 3, "fade_out_ms": 20 if natural else 40}
+    return left, right, edit
+
+
+def fade_edges(samples, fade_in_ms=3, fade_out_ms=20):
     samples = array.array("f", samples)
-    attack, release = min(144, len(samples)), min(960, len(samples))
+    attack = min(round(RATE * fade_in_ms / 1000), len(samples))
+    release = min(round(RATE * fade_out_ms / 1000), len(samples))
     for i in range(attack):
         samples[i] *= i / max(1, attack - 1)
     for i in range(release):
@@ -223,18 +285,32 @@ def master(key, records, work, output, max_duration_ms=1600):
     for record in records:
         try:
             samples, start, end, metrics = quality(record["path"])
-            candidates.append((metrics["score"], record, samples, start, end, metrics))
+            limit = record.get("source", {}).get("duration_limit_ms", max_duration_ms)
+            if not isinstance(limit, (int, float)) or not math.isfinite(limit) or limit < 75:
+                raise ValueError("Invalid sound duration limit")
+            limit = min(limit, max_duration_ms)
+            active_duration_ms = (end - start) / RATE * 1000
+            if active_duration_ms > limit:
+                if record.get("source", {}).get("crop_to_duration") is True:
+                    start, end, edit = crop_one_shot(samples, start, end, limit)
+                    metrics["duration_edit"] = edit
+                    metrics["leading_trim_ms"] = round(start / RATE * 1000)
+                    metrics["trailing_trim_ms"] = round((len(samples) - end) / RATE * 1000)
+                else:
+                    raise ValueError(f"{active_duration_ms:.0f} ms after silence trimming exceeds the {limit:g} ms limit; use a shorter take")
+            candidates.append((metrics["score"], record, samples, start, end, metrics, limit))
         except ValueError as error:
             rejected.append({"source_id": record_id(record), "reason": str(error)})
     if not candidates:
         raise ValueError(key + ": no usable takes: " + str(rejected))
     candidates.sort(key=lambda c: (-c[0], record_id(c[1])))
-    _, record, samples, start, end, metrics = candidates[0]
+    _, record, samples, start, end, metrics, duration_limit_ms = candidates[0]
     folder = work / "masters" / key
     folder.mkdir(parents=True, exist_ok=True)
     trimmed = folder / "trimmed.wav"
     mastered = folder / "master.wav"
-    write_wave(trimmed, fade_edges(samples[start:end]))
+    duration_edit = metrics.get("duration_edit")
+    write_wave(trimmed, fade_edges(samples[start:end], fade_out_ms=duration_edit["fade_out_ms"] if duration_edit else 20))
     measured = loudness(trimmed)
     gain_db = TARGET_LUFS - measured["lufs"]
     limit_db = -4.0  # initial extra headroom for codec overshoot
@@ -279,7 +355,7 @@ def master(key, records, work, output, max_duration_ms=1600):
     else:
         raise ValueError(key + ": loudness/peak target could not be met: " + str({"master": measurement, "encoded": encoded}))
     for codec, m in encoded.items():
-        if m["bytes"] > MAX_BYTES or m["duration_ms"] > max_duration_ms or m["leading_quiet_ms"] > 25 or m["trailing_quiet_ms"] > 65:
+        if m["bytes"] > MAX_BYTES or m["duration_ms"] > duration_limit_ms or m["leading_quiet_ms"] > 25 or m["trailing_quiet_ms"] > 65:
             raise ValueError(key + ": encoded QA failed: " + str(m))
     pcm = decode(destination.with_suffix(".webm"))
     step = max(1, len(pcm) // 120)
@@ -293,7 +369,11 @@ def master(key, records, work, output, max_duration_ms=1600):
     if "generation_id" in record:
         result["generation_id"] = record["generation_id"]
     else:
-        result.update({"source_id": record["source_id"], "source": record.get("source", {})})
+        source = dict(record.get("source", {}))
+        source.pop("duration_edit", None)
+        if duration_edit:
+            source["duration_edit"] = duration_edit
+        result.update({"source_id": record["source_id"], "source": source})
     (folder / "qa.json").write_text(json.dumps(result, indent=2) + "\n")
     print(key + ": " + str(encoded["webm"]["duration_ms"]) + " ms, " + str(encoded["webm"]["lufs"]) + " LUFS", flush=True)
     return result
@@ -410,7 +490,7 @@ def main():
                       "mastering": {k: v for k, v in report.items() if k != "clips"},
                       "clips": [{k: c[k] for k in ("unit", "slug", "role", "generation_id", "source_id", "source", "encoded") if k in c}
                                 for c in results]}
-        if any(c.get("source", {}).get("kind") == "library" for c in results):
+        if any(c.get("source", {}).get("kind") in ("library", "user-provided", "suno-mcp") for c in results):
             provenance["provider"] = "Mixed: see individual clip sources"
         (CORE / "audio/combat-sound-provenance.json").write_text(json.dumps(provenance, indent=4) + "\n")
         manifest = {u["name"]: {"slug": u["slug"],
