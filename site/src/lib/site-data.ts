@@ -343,7 +343,7 @@ export const content = {
             prizePoolNote: "Prize pool",
             prizePlacesTitle: "Prize places",
             prizeClaimNote:
-                "Prizes are held by the season's smart contract and claimed to the wallet on the winner's account.",
+                "Season prizes are awarded to eligible verified email accounts after the results are approved.",
             prizeRulesLink: "How season prizes work",
             podiumTitle: "Podium",
             tableTitle: "Final standings",
@@ -494,7 +494,7 @@ export const content = {
             tagline: "Click play. Build an army. Win the board.",
             pitch: "The world's first turn-based strategy built around single‑session matches, where anyone can earn on skill alone.",
             claims: ["Turn-based strategy", "Free to play", "Earn rewards with no deposit"],
-            body: "A tactical battle game where positioning, faction synergies, and 100+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
+            body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download - click play and choose ranked or the sandbox beta.",
             primaryCta: "Play Now",
             secondaryCta: "Read rules",
             availability: "Ranked and sandbox beta",
@@ -652,11 +652,11 @@ export const content = {
             },
             {
                 question: "Do I need a crypto wallet?",
-                answer: "No. The game is free, and you can sign in with email and password or with Google. A wallet is optional: link one to claim season prizes (it must be the only wallet on your account and never linked to another account) or to use token features. A wallet with at least 90 days of on-chain history also raises your reputation.",
+                answer: "No. Wallet sign-in and linking are no longer supported. The game is free; use email and password or Google to sign in. Season prize eligibility uses your verified email account.",
             },
             {
-                question: "How do I link or unlink a wallet?",
-                answer: "Press Connect Wallet on the game's sign-in screen to sign in with a wallet — you only sign a message, no transaction is sent. Already signed in? Press Connect Wallet in the account panel on the right of the game screen to add a wallet to your account. The same panel adds email, password or Google sign-in, and has an Unlink button next to Google and each linked wallet. Unlinking is refused while it would leave the account with no way to sign in, so a wallet-only account has to add another wallet, a password or Google sign-in before it can drop its wallet.",
+                question: "How do I manage my sign-in methods?",
+                answer: "Use email and password or Google to sign in. Account settings let you add password login and link or unlink Google. Set up email/password login before unlinking Google so you retain access to your account.",
             },
             {
                 question: "How do I contact the team?",
@@ -829,7 +829,6 @@ export const content = {
                         "Each week your account exists, for its first weeks.",
                         "A confirmed email address.",
                         "Signing in with Google.",
-                        "A linked wallet with at least 90 days of on-chain history.",
                     ],
                 },
                 {
@@ -905,7 +904,7 @@ export const content = {
                     body: [],
                     items: [
                         "You must have finished your calibration matches.",
-                        "You must have exactly one wallet linked to your account, and it must never have been linked to another account.",
+                        "You must have a verified email account. Signing in with Google also verifies your email.",
                         "There is no minimum number of matches, opponents or account age.",
                     ],
                 },
@@ -922,8 +921,8 @@ export const content = {
                     title: "Getting your prize",
                     body: [],
                     items: [
-                        "Prizes are held by the season's smart contract. Once the list is approved, a winner claims their prize to the wallet on their account.",
-                        "The game itself never sends tokens.",
+                        "Once the prize list is approved, each award belongs to the verified email account on that list.",
+                        "Wallet connections and on-chain claims are not supported.",
                     ],
                 },
             ],
@@ -1040,7 +1039,6 @@ export const content = {
                             "Gameplay data: the matches you play, in-game actions, results, ratings, and related statistics needed to run the game and matchmaking.",
                             "Technical data: basic device and browser details, server logs, and three anti-cheat signals: a random identifier your browser creates for our game, your IP address with its network range, and — to spot one person using several accounts — a one-way hash of your email address in a simplified form (for example, dots and anything after a plus sign are ignored). We store every one of these only as keyed hashes, never the raw values, and we do not store the address itself for this purpose; IP hashes are kept for 120 days, device and email hashes for 400 days, and all of them expire automatically. We use them for security, troubleshooting, and anti-cheat, for example to notice several ranked accounts played from one device or reaching one inbox.",
                             "Communications: messages you send us for support or feedback.",
-                            "Optional wallet data: only if you choose to connect a crypto wallet for token features do we process your public wallet address. This is never required to play.",
                         ],
                     },
                     {
@@ -1374,7 +1372,7 @@ export const content = {
             eyebrow: "Рейтинговые сезоны",
             title: "Итоги сезонов",
             subtitle:
-                "Итоговые таблицы всех завершённых сезонов. Когда сезон заканчивается, незавершённые ставки возвращаются, итоговый баланс и место каждого игрока сохраняются, а кошельки обнуляются к новому сезону.",
+                "Итоговые таблицы всех завершённых сезонов. Когда сезон заканчивается, незавершённые ставки возвращаются, итоговый баланс и место каждого игрока сохраняются, а игровые балансы обнуляются к новому сезону.",
             loading: "Загружаем итоги сезонов…",
             errorTitle: "Итоги сезонов недоступны",
             errorBody: "Сейчас не удалось загрузить итоги. Попробуйте ещё раз чуть позже.",
@@ -1395,7 +1393,7 @@ export const content = {
             prizePoolNote: "Призовой фонд",
             prizePlacesTitle: "Призовые места",
             prizeClaimNote:
-                "Призы хранит смарт-контракт сезона; победитель забирает приз на кошелёк, привязанный к аккаунту.",
+                "После утверждения результатов призы сезона закрепляются за аккаунтами с подтверждённой почтой.",
             prizeRulesLink: "Как устроены призы сезона",
             podiumTitle: "Пьедестал",
             tableTitle: "Итоговая таблица",
@@ -1549,7 +1547,7 @@ export const content = {
                 "Бесплатная игра",
                 "Возможность получать криптовалюту USDT/HOCAI без вложений",
             ],
-            body: "Тактические бои, где позиционирование, фракционные синергии и 100+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без привязки кошелька: нажмите «Играть» и выберите рейтинг или песочницу.",
+            body: "Тактические бои, где позиционирование, фракционные синергии и 75+ заклинаний и способностей решают исход каждой схватки. Без скачивания: нажмите «Играть» и выберите рейтинг или песочницу.",
             primaryCta: "Играть сейчас",
             secondaryCta: "Читать правила",
             availability: "Рейтинг и песочница",
@@ -1706,11 +1704,11 @@ export const content = {
             },
             {
                 question: "Нужен ли криптокошелёк?",
-                answer: "Нет. Игра бесплатная, войти можно по почте и паролю или через Google. Кошелёк нужен по желанию: чтобы получать призы сезона (на аккаунте должен быть ровно один кошелёк, который никогда не был привязан к другому аккаунту) или пользоваться функциями токена. Кошелёк с историей в блокчейне от 90 дней также повышает репутацию.",
+                answer: "Нет. Вход и привязка через криптокошелёк больше не поддерживаются. Игра бесплатная; используйте почту и пароль или Google. Для призов сезона нужен аккаунт с подтверждённой почтой.",
             },
             {
-                question: "Как привязать или отвязать кошелёк?",
-                answer: "Нажмите Connect Wallet на экране входа в игру, чтобы войти через кошелёк, — вы только подписываете сообщение, транзакция не отправляется. Уже вошли? Нажмите Connect Wallet в панели аккаунта справа на игровом экране, чтобы добавить кошелёк к аккаунту. В той же панели можно добавить вход по почте, паролю или через Google, а рядом с Google и каждым привязанным кошельком есть кнопка Unlink. Отвязать последний способ входа нельзя: аккаунт, который входит только через кошелёк, сначала должен добавить другой кошелёк, пароль или вход через Google.",
+                question: "Как управлять способами входа?",
+                answer: "Входите по почте и паролю или через Google. В настройках аккаунта можно добавить пароль, привязать или отвязать Google. Перед отключением Google настройте вход по почте и паролю, чтобы сохранить доступ к аккаунту.",
             },
             {
                 question: "Как связаться с командой?",
@@ -1886,7 +1884,6 @@ export const content = {
                         "Каждая неделя существования аккаунта — в первые недели.",
                         "Подтверждённая почта.",
                         "Вход через Google.",
-                        "Привязанный кошелёк, у которого не меньше 90 дней истории в блокчейне.",
                     ],
                 },
                 {
@@ -1962,7 +1959,7 @@ export const content = {
                     body: [],
                     items: [
                         "Вы должны завершить калибровочные матчи.",
-                        "К вашему аккаунту должен быть привязан ровно один кошелёк, и он никогда не должен был быть привязан к другому аккаунту.",
+                        "У аккаунта должна быть подтверждённая почта. Вход через Google также подтверждает почту.",
                         "Минимального числа матчей, соперников или срока существования аккаунта нет.",
                     ],
                 },
@@ -1979,7 +1976,7 @@ export const content = {
                     title: "Как получить приз",
                     body: [],
                     items: [
-                        "Призы хранятся в смарт-контракте сезона. После утверждения списка победитель забирает свой приз на кошелёк, привязанный к его аккаунту.",
+                        "После утверждения списка каждый приз закрепляется за указанным аккаунтом с подтверждённой почтой.",
                         "Сама игра никогда не отправляет токены.",
                     ],
                 },
@@ -2097,7 +2094,6 @@ export const content = {
                             "Игровые данные: сыгранные матчи, внутриигровые действия, результаты, рейтинги и связанная статистика, необходимые для работы игры и подбора соперников.",
                             "Технические данные: базовые сведения об устройстве и браузере, серверные логи и три сигнала для защиты от читов: случайный идентификатор, который ваш браузер создаёт для нашей игры, ваш IP-адрес с его сетевым диапазоном и — чтобы замечать одного человека с несколькими аккаунтами — односторонний хэш вашего адреса электронной почты в упрощённом виде (например, точки и всё после знака «плюс» игнорируются). Все эти сигналы мы храним только в виде ключевых хэшей, никогда в исходном виде, и сам адрес для этой цели не храним: хэши IP — 120 дней, хэши устройства и почты — 400 дней, и все они удаляются автоматически. Мы используем их для безопасности, диагностики и защиты от читов, например чтобы заметить несколько рейтинговых аккаунтов с одного устройства или с одним почтовым ящиком.",
                             "Обращения: сообщения, которые вы отправляете нам в поддержку или как обратную связь.",
-                            "Необязательные данные кошелька: только если вы решите подключить криптокошелёк для функций токена, мы обрабатываем ваш публичный адрес кошелька. Это никогда не требуется для игры.",
                         ],
                     },
                     {

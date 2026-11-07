@@ -2,7 +2,6 @@ import { portraitMarkup } from "./portrait";
 import {
     escapePremiumHtml as e,
     premiumPercent as pct,
-    premiumPlanLevels,
     rankPremiumRows,
     type PremiumCatalog,
     type PremiumLibrary,
@@ -11,16 +10,6 @@ import {
 } from "./premium-library";
 import type { PremiumView } from "./premium-render";
 
-const synergyNames: Record<string, [string, string]> = {
-    "1:1": ["Chaos · Movement", "Хаос · Движение"],
-    "1:2": ["Chaos · Break on Attack", "Хаос · Разлом при атаке"],
-    "2:1": ["Might · Aura Range", "Сила · Радиус аур"],
-    "2:2": ["Might · Ability Power", "Сила · Сила способностей"],
-    "3:1": ["Nature · Board Units", "Природа · Места на поле"],
-    "3:2": ["Nature · Flying Armor", "Природа · Броня летающих"],
-    "4:1": ["Life · Supply", "Жизнь · Запас"],
-    "4:2": ["Life · Morale and Luck", "Жизнь · Мораль и удача"],
-};
 const text = (view: PremiumView) => (en: string, ru: string) => (view.lang === "ru" ? ru : en);
 const support = (row: PremiumRow, view: PremiumView) =>
     `${row.families.toLocaleString(view.lang)} ${text(view)("families", "семейств")} · 95% ${pct(row.interval[0])}–${pct(row.interval[1])}`;
@@ -33,15 +22,6 @@ const signal = (row: PremiumRow, view: PremiumView) =>
           : text(view)("Advantage unresolved", "Преимущество не установлено");
 const reading = (name: string, row: PremiumRow, view: PremiumView) =>
     `<li><div><strong>${name}</strong><small>${e(support(row, view))}</small><small>${e(signal(row, view))}</small></div><b>${pct(row.score)}</b></li>`;
-const planName = (key: string, view: PremiumView) => {
-    const levels = premiumPlanLevels(key);
-    if (!levels) return e(key);
-    const names =
-        view.lang === "ru"
-            ? ["Расстановка", "Броня", "Сила", "Стрельба", "Движение", "Магия"]
-            : ["Placement", "Armor", "Might", "Sniper", "Movement", "Empower"];
-    return levels.flatMap((level, index) => (level ? [`${names[index]} ${level}`] : [])).join(" · ");
-};
 
 export function premiumInsightRows(library: PremiumLibrary, catalog: PremiumCatalog, minimum: number) {
     const threshold = Math.max(50, minimum);
@@ -80,6 +60,8 @@ export function renderPremiumInsights(
         const item = catalog.units[id];
         return item ? `<a href="${kb(e(item.anchor), view)}">${e(item.name)}</a>` : `#${id}`;
     };
+    const addToCrew = (id: number) =>
+        `<button type="button" data-add-crew="${id}" class="premium-meta-add" aria-label="${e(t(`Add ${catalog.units[id].name} to crew`, `Добавить ${catalog.units[id].name} в армию`))}">+ ${t("Add to crew", "В армию")}</button>`;
     const missing = `<p class="premium-fine">${t("No result meets the sample threshold.", "Нет результатов с достаточной выборкой.")}</p>`;
     const card = (title: string, description: string, items: string[], noResult = missing) =>
         `<article class="premium-insight-card"><h3>${title}</h3><p>${description}</p>${items.length ? `<ul>${items.join("")}</ul>` : noResult}</article>`;
@@ -94,7 +76,11 @@ export function renderPremiumInsights(
                 "Наибольшая нижняя граница интервала внутри каждого уровня драфта.",
             ),
             rows.unitLeaders.map((row) =>
-                reading(`L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])}`, row, view),
+                reading(
+                    `L${catalog.units[row.ids[0]].level} · ${unitLink(row.ids[0])} ${addToCrew(row.ids[0])}`,
+                    row,
+                    view,
+                ),
             ),
         )}
         ${card(

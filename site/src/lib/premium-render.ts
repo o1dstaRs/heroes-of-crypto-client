@@ -1,5 +1,6 @@
 import { portraitMarkup } from "./portrait";
 import { premiumGuides } from "./premium-copy";
+import { premiumCrewShell } from "./premium-crew";
 import { renderPremiumInsights, renderPremiumMatchups } from "./premium-insights";
 import {
     escapePremiumHtml as e,
@@ -203,6 +204,7 @@ export function renderPremiumDashboard(
     <div class="premium-signals">${signal(t("UNIT", "ЮНИТ"), leaders[0] ? unitName(catalog, leaders[0]) : t("No supported pick", "Недостаточно данных"), leaders[0], leaders[0] ? portraits(catalog, leaders[0]) : "")}${signal(t("UNIT PAIR", "ПАРА ЮНИТОВ"), pair ? unitName(catalog, pair) : t("No supported pair", "Недостаточно данных"), pair, pair ? portraits(catalog, pair) : "")}${signal(t("TIER 2 ARTIFACT", "АРТЕФАКТ II УРОВНЯ"), artifact ? (catalog.artifacts[`2:${artifact.key}`]?.name ?? artifact.key) : t("No supported artifact", "Недостаточно данных"), artifact)}</div>
     <div class="premium-chart-panel"><div class="premium-subheading"><div><h3>${t("Unit frequency and battle score", "Частота появления и результат юнита")}</h3><p>${t("Each dot represents a unit. Hover or focus for its statistics. Select it to open the unit guide.", "Каждая точка соответствует юниту. Наведите курсор или переведите фокус, чтобы увидеть статистику. Выберите точку, чтобы открыть описание юнита.")}</p></div><span>● ${t("Units", "Юниты")}</span></div>${scatter(lib.units, catalog, view)}</div></section>
 
+    ${premiumCrewShell(view.lang)}
     ${renderPremiumInsights(lib, catalog, view, data.snapshot)}
     <section id="premium-matchups" class="premium-section"><div data-premium-matchups>${renderPremiumMatchups(lib, catalog, view)}</div></section>
     <section id="premium-units" class="premium-section">${title("04", t("Unit rankings", "Рейтинги юнитов"), t("Compare units within the same draft level. Scores are based on battles involving the entire army.", "Сравнивайте юнитов одного уровня драфта. Счёт отражает результат всей армии."))}<div class="premium-unit-filters"><label class="premium-search"><span class="sr-only">${t("Search units", "Поиск юнитов")}</span><input type="search" data-unit-search placeholder="${t("Search a unit or faction…", "Юнит или фракция…")}" value="${e(view.search)}" /></label><label><span class="sr-only">${t("Unit level", "Уровень юнита")}</span><select data-unit-level><option value="">${t("All levels", "Все уровни")}</option>${[1, 2, 3, 4].map((level) => `<option value="${level}" ${view.level === String(level) ? "selected" : ""}>${t("Level", "Уровень")} ${level}</option>`).join("")}</select></label><label><span class="sr-only">${t("Sort units", "Сортировка")}</span><select data-unit-sort>${[

@@ -25,6 +25,7 @@ import {
 
 import { Sandbox } from "./Sandbox";
 import { projectRangedObstacles } from "./rangedObstaclePreview";
+import { premiumMoveDrawing } from "./PremiumTurnOverlay";
 import { PlayAimKind } from "../api/play_protocol";
 import { resolveOpponentAimGeometry } from "./opponentAimGeometry";
 
@@ -48,8 +49,8 @@ const rotate = (point: XY, turns: number): XY => {
 
 beforeEach(() => FightStateManager.getInstance().reset());
 
-function fixture(abilities: string[] = [], turns = 0, owned = false) {
-    const grid = new Grid(settings, GridVals.NORMAL);
+function fixture(abilities: string[] = [], turns = 0, owned = false, classic = false) {
+    const grid = new Grid(settings, classic ? GridVals.BLOCK_CENTER : GridVals.NORMAL);
     const holder = new UnitsHolder(grid);
     const effects = new EffectFactory();
     const create = (team: TeamType, base: XY, ranged: boolean) => {
@@ -96,7 +97,7 @@ function fixture(abilities: string[] = [], turns = 0, owned = false) {
     if (owned) {
         expect(grid.placeArtifactBarrel(TeamVals.LEFT, 0, barrels[0])).toBe(true);
         expect(grid.placeArtifactBarrel(TeamVals.RIGHT, 0, barrels[1])).toBe(true);
-    } else grid.setScatteredMountains(barrels);
+    } else if (!classic) grid.setScatteredMountains(barrels);
     const fight = FightStateManager.getInstance().getFightProperties();
     fight.startFight();
     fight.startTurn(attacker.getTeam(), 1000);
@@ -130,6 +131,85 @@ function fixture(abilities: string[] = [], turns = 0, owned = false) {
 }
 
 describe("ranged barrel projection agrees with accepted attacks", () => {
+    for (const abilities of [["Double Shot"], ["Through Shot", "Double Shot"]]) {
+        test(`Premium marks the actual barrel impacts for ${abilities.join(" + ") || "a single shot"}`, () => {
+            const f = fixture(abilities);
+            const action = {
+                type: "range_attack" as const,
+                attackerId: f.attacker.getId(),
+                targetId: f.target.getId(),
+            };
+            const drawing = premiumMoveDrawing(
+                { id: "barrel-regression", label: "Shoot the target", reasons: [], actions: [action] },
+                f.attacker,
+                f.holder.getAllUnits(),
+                settings,
+                { grid: f.grid, unitsHolder: f.holder, attackHandler: f.handler },
+            )!;
+            expect(drawing.cells).toEqual(f.barrels.slice(0, abilities.includes("Double Shot") ? 2 : 1));
+            expect(drawing.label).toBe("Shoot barrel");
+            expect(cell(drawing.point)).toEqual(drawing.cells.at(-1)!);
+            expect(f.fire(action)).toEqual(drawing.cells);
+        });
+    }
+
+    test("Premium rejects a blocked single unit-shot instead of marking the unhittable unit", () => {
+        const f = fixture();
+        const drawing = premiumMoveDrawing(
+            {
+                id: "blocked-unit-shot",
+                label: "Shoot the target",
+                reasons: [],
+                actions: [{ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() }],
+            },
+            f.attacker,
+            f.holder.getAllUnits(),
+            settings,
+            { grid: f.grid, unitsHolder: f.holder, attackHandler: f.handler },
+        );
+        expect(drawing).toBeUndefined();
+        expect(
+            f.fire({ type: "obstacle_attack", attackerId: f.attacker.getId(), targetPosition: position(f.barrels[0]) }),
+        ).toEqual([f.barrels[0]]);
+    });
+
+    test("Premium shows a Double Shot continuing after its only blocking barrel", () => {
+        const f = fixture(["Double Shot"]);
+        f.grid.setScatteredMountains([f.barrels[0]]);
+        const action = { type: "range_attack" as const, attackerId: f.attacker.getId(), targetId: f.target.getId() };
+        const drawing = premiumMoveDrawing(
+            { id: "double-shot-regression", label: "Shoot the target", reasons: [], actions: [action] },
+            f.attacker,
+            f.holder.getAllUnits(),
+            settings,
+            { grid: f.grid, unitsHolder: f.holder, attackHandler: f.handler },
+        )!;
+        expect(drawing.cells).toContainEqual(f.barrels[0]);
+        expect(drawing.cells).toContainEqual(f.target.getBaseCell());
+        expect(drawing.label).toBe("Shoot through barrel");
+        const hp = f.target.getCumulativeHp();
+        expect(f.fire(action)).toEqual([f.barrels[0]]);
+        expect(f.target.getCumulativeHp()).toBeLessThan(hp);
+    });
+
+    test("Premium does not apply barrel-clearing rules to a fixed mountain", () => {
+        const f = fixture(["Double Shot"], 0, false, true);
+        expect(f.preview().evaluation.attackObstacle).toBeDefined();
+        const drawing = premiumMoveDrawing(
+            {
+                id: "fixed-mountain",
+                label: "Shoot",
+                reasons: [],
+                actions: [{ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() }],
+            },
+            f.attacker,
+            f.holder.getAllUnits(),
+            settings,
+            { grid: f.grid, unitsHolder: f.holder, attackHandler: f.handler },
+        );
+        expect(drawing).toBeUndefined();
+    });
+
     for (const turns of [0, 1, 2, 3])
         for (const ability of [undefined, "Double Shot", "Crafted Double Shot"]) {
             test(`${ability ?? "single shot"}, rotation ${turns}: only projected barrels are struck`, () => {
@@ -156,6 +236,20 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
         const f = fixture(["Double Shot"], 0, true);
         const expected = f.preview().hits.map((hit) => cell(hit.position));
         expect(expected).toEqual(f.barrels.slice(0, 2));
+        const drawing = premiumMoveDrawing(
+            {
+                id: "owned-barrels",
+                label: "Shoot",
+                reasons: [],
+                actions: [{ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() }],
+            },
+            f.attacker,
+            f.holder.getAllUnits(),
+            settings,
+            { grid: f.grid, unitsHolder: f.holder, attackHandler: f.handler },
+        )!;
+        expect(drawing.cells).toEqual(expected);
+        expect(drawing.label).toBe("Shoot barrel");
         expect(f.fire({ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() })).toEqual(
             expected,
         );
@@ -172,6 +266,22 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
             ];
             f.grid.setScatteredMountains([f.barrels[0], ...blast]);
             expect(f.preview().hits.map((hit) => cell(hit.position))).toEqual(blast);
+            const drawing = premiumMoveDrawing(
+                {
+                    id: "splash",
+                    label: "Shoot",
+                    reasons: [],
+                    actions: [{ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() }],
+                },
+                f.attacker,
+                f.holder.getAllUnits(),
+                settings,
+                { grid: f.grid, unitsHolder: f.holder, attackHandler: f.handler },
+            )!;
+            expect(drawing.label).toBe("Shoot");
+            expect(drawing.cells).not.toContainEqual(f.barrels[0]);
+            expect(drawing.cells).toContainEqual(f.target.getBaseCell());
+            for (const barrel of blast) expect(drawing.cells).toContainEqual(barrel);
             const actual = f.fire({ type: "range_attack", attackerId: f.attacker.getId(), targetId: f.target.getId() });
             expect(new Set(actual.map((point) => `${point.x}:${point.y}`))).toEqual(
                 new Set(blast.map((point) => `${point.x}:${point.y}`)),

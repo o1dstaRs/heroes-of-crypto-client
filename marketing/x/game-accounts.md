@@ -81,6 +81,10 @@ Excluded on purpose:
 | @Look_behindyou | 8,585 | none | 2026-11-06 | Official Soverain account (Tentacule Mauve); solo-dev tactical RPG. Skip Instagram/giveaway CTAs; draft only on board/combat posts (added 6 Nov 2026) |
 | @gr8_rebellion | 8,053 | none | 2026-11-06 | Kvltgames studio account (Dverghold grid-based dungeon crawler with tactical turn-based combat; Serene Estates). Soft wishlist posts OK to skip; prefer combat/board posts (added 6 Nov 2026) |
 
+| @vivaladev | 1,588 | none | 2026-11-06 | Solo indie developer of Virtualord (TBS + TD + RPG); free demo dropped 6 Nov. Prefer combat/demo posts with replies; thin PitchYaGame drops can wait (added 6 Nov 2026) |
+
+| @WishseekerGame | 1,013 | blue | 2026-11-06 | Official Wishseeker account — turn-based tactical roguelite (party of four, dungeon runs). Barely over the 1,000 floor; prefer combat/board posts over thin #PitchYaGame wishlist drops (added 6 Nov 2026) |
+
 Notes for the routine:
 - Dormant: @XCOM (2024-07), @KingsBountyGame (2022-06), @EugenSystems (2024-06), @DuneSpiceWars (2024-12), @subsetgames (2025-06), @TeamWoodGames (2025-05), @LegionTD2 (2025-08). Check them, but expect nothing.
 - Most active and on-genre: @OverhypeStudios, @Lavapotion, @Wartales_Game, @shirogames, @MightMagicGame, @Unfrozen_Studio, @mechabellum, @Midjiwan, @FE_Heroes_EN (Summoner Duels is its PvP mode), @TFT, @MARVELSNAP, @PlayHearthstone, @totalwar, @TerraRandoma, @WickedNightGame, @StudioDraconis, @DangersDen.
@@ -154,3 +158,7 @@ Notes for the routine:
 - Seen 5 Nov 2026 (7:46 AM run): added @MuHaGames as this week's #TurnBasedThursday host (2,108). Reply only into the host showcase thread.
 
 - Seen 5 Nov 2026 (11:38 AM run): added @wintersong_game (1,289). Not added: @manafinder (3,270, turn-based RPG pitch under TBT; classic RPG framing, not grid tactics — same call as @retreauxgames), @Flatline_Studio (1,217, cyberpunk deckbuilder, not tactics board).
+
+| @StudioDaimon | 5,885 | none | 2026-11-06 | Italian indie team behind FOOD DEVILS, anime tactical RPG/roguelite ("Fried Emblem"); free demo on Steam. Steam review-wait post 6 Nov had strong replies but was not a board decision — draft when they post combat/systems (added 6 Nov 2026) |
+
+- Seen 6 Nov 2026 (7:53 PM run): added @WishseekerGame (1,013). Not added: @SEAGamethetic (12,583, curator), @yokozunagames (26, under floor), @HeroArenaGame (2,014, Web3 USDT tournament), @PENGDIDI_STUDIO (1), @JacobIndieAdv / SoftpaleGames hub (curator).

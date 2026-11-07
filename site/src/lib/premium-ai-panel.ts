@@ -1,7 +1,7 @@
 import { getAuthToken } from "./auth-state";
 import { renderMarkdown } from "./markdown-lite";
 import { initPremiumKnowledgePreview } from "./premium-knowledge-preview";
-import { escapePremiumHtml as e, premiumPercent as pct } from "./premium-library";
+import { escapePremiumHtml as e, premiumPercent as pct, type PremiumCatalog } from "./premium-library";
 import {
     fetchPremiumLibrarySearch,
     premiumAiBody,
@@ -85,7 +85,12 @@ export function renderPremiumAiEvidence(packet: Evidence, lang: "en" | "ru"): st
     );
 }
 
-export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost: () => void) {
+export function initPremiumAi(
+    root: HTMLElement,
+    lang: "en" | "ru",
+    onAccessLost: () => void,
+    catalog?: PremiumCatalog,
+) {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
     const panel = root.querySelector<HTMLElement>("[data-premium-ai]")!;
     const form = panel.querySelector<HTMLFormElement>("[data-ai-form]")!;
@@ -95,7 +100,7 @@ export function initPremiumAi(root: HTMLElement, lang: "en" | "ru", onAccessLost
     const transcript = panel.querySelector<HTMLElement>("[data-ai-transcript]")!;
     const status = panel.querySelector<HTMLElement>("[data-ai-status]")!;
     const scope = panel.querySelector<HTMLElement>("[data-ai-scope]")!;
-    const preview = initPremiumKnowledgePreview(root, lang);
+    const preview = initPremiumKnowledgePreview(root, lang, catalog);
     let selection: PremiumAiSelection | undefined;
     let enabled = false;
     let history: PremiumSearchMessage[] = [];
