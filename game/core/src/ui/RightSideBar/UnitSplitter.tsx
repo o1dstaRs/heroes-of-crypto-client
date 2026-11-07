@@ -5,20 +5,24 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
+import Typography from "@mui/joy/Typography";
 import Slider from "@mui/joy/Slider";
 import Button from "@mui/joy/Button";
 import Tooltip from "@mui/joy/Tooltip";
-import { hocSidebarImageButtonSx, hocSplitterSliderSx } from "../hocTheme";
+import {
+    hocDisplayFontFamily,
+    hocSidebarCloneSplitButtonSx,
+    hocSidebarImageButtonSx,
+    hocSplitterSliderSx,
+} from "../hocTheme";
 
 interface IUnitSplitterProps {
     totalUnits: number;
-    splitValue: number;
-    onSplitValueChange: (value: number) => void;
     onSplit: (split1: number, split2: number) => void;
 }
 
-// Keep the 18px thumb inside the same bounds as the amount input at either end.
-const SLIDER_INSET_PX = 9;
+// Half the 24px thumb, plus a little air so it never touches the panel wall.
+const SLIDER_INSET_PX = 16;
 
 const shortcutTooltipSx = {
     backgroundColor: "#2d1606",
@@ -36,13 +40,19 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
     return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
-const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: IUnitSplitterProps) => {
+const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
     const manager = usePixiManager();
     const { touch } = useGameLayout();
+    const [splitValue, setSplitValue] = React.useState(1); // Start with minimum value
     const hasSelectedUnit = totalUnits > 0;
 
+    // Reset slider value whenever totalUnits changes
+    useEffect(() => {
+        setSplitValue(1); // Reset to minimum value when a new unit is selected
+    }, [totalUnits]);
+
     const handleSliderChange = (event: Event, newValue: number | number[]) => {
-        onSplitValueChange(newValue as number);
+        setSplitValue(newValue as number);
     };
 
     const handleAcceptSplit = React.useCallback(() => {
@@ -79,41 +89,48 @@ const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: I
     }, [handleAcceptSplit, manager, totalUnits]);
 
     return (
-        <Box sx={{ width: "100%", marginTop: 2 }}>
+        <Box sx={{ width: "100%", marginTop: 3 }}>
             <Stack
+                spacing={2}
                 alignItems="center"
                 sx={{
-                    width: "93%",
-                    mx: 0,
-                    boxSizing: "border-box",
+                    // The thumb is 24px and centres on its value, so at either end half of it hangs past the
+                    // rail. Flush against the panel edge that half was being clipped - the slider read as a
+                    // half-circle stuck to the wall. Inset the whole block by more than half a thumb so both
+                    // ends, and the counts sitting above them, stay inside the panel.
                     paddingX: `${SLIDER_INSET_PX}px`,
-                    transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
+                    "& .MuiTypography-root": {
+                        color: "rgba(216,194,156,.7)",
+                        fontFamily: hocDisplayFontFamily,
+                        fontSynthesis: "none",
+                        transition: "all 0.2s ease",
+                    },
+                    "&:hover .MuiTypography-root": {
+                        color: "#FF8F00",
+                    },
                 }}
             >
+                <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                    <Typography level="body-sm">{hasSelectedUnit ? splitValue : 0}</Typography>
+                    <Typography level="body-sm">{hasSelectedUnit ? totalUnits - splitValue : 1}</Typography>
+                </Box>
+
                 {touch ? (
                     <TouchSplitAmount
                         value={splitValue}
                         max={Math.max(1, totalUnits - 1)}
                         disabled={!hasSelectedUnit || totalUnits < 2}
-                        onChange={onSplitValueChange}
+                        onChange={setSplitValue}
                     />
                 ) : (
                     <Slider
-                        sx={{
-                            ...hocSplitterSliderSx,
-                            "--Slider-thumbSize": "18px",
-                            "& .MuiSlider-thumb": {
-                                ...hocSplitterSliderSx["& .MuiSlider-thumb"],
-                                width: 18,
-                                height: 18,
-                            },
-                        }}
+                        sx={hocSplitterSliderSx}
                         value={hasSelectedUnit ? splitValue : 0}
                         onChange={handleSliderChange}
                         min={hasSelectedUnit ? 1 : 0}
                         max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
                         track={hasSelectedUnit ? "normal" : false}
-                        disabled={totalUnits < 2}
+                        disabled={!hasSelectedUnit}
                         step={1}
                         aria-label="Unit Split Slider"
                     />
@@ -125,8 +142,7 @@ const UnitSplitter = ({ totalUnits, splitValue, onSplitValueChange, onSplit }: I
                         variant="plain"
                         size="sm"
                         onClick={handleAcceptSplit}
-                        disabled={totalUnits < 2}
-                        sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
+                        sx={{ ...hocSidebarCloneSplitButtonSx, flex: 1, minWidth: 0 }}
                     >
                         Split
                     </Button>
