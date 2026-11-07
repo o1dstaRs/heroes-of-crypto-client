@@ -8,6 +8,7 @@ export interface PremiumSnapshot {
     status: string;
     studyProfile: string;
     fights: number;
+    createdAt?: string;
     caveats?: string[];
     default?: boolean;
 }
@@ -42,7 +43,28 @@ export interface PremiumLibraryResponse {
     library: PremiumLibrary | null;
 }
 export interface PremiumCatalog {
-    units: Record<string, { name: string; slug: string; anchor: string; level: number; faction: string }>;
+    units: Record<
+        string,
+        {
+            name: string;
+            slug: string;
+            anchor: string;
+            level: number;
+            faction: string;
+            kit?: {
+                role: "ranged" | "support" | "flyer" | "melee";
+                width: number;
+                height: number;
+                amount: number;
+                hp: number;
+                armor: number;
+                damage: string;
+                steps: number;
+                initiative: number;
+                abilities: { name: string; description: string; icon: string }[];
+            };
+        }
+    >;
     artifacts: Record<string, { name: string; icon: string; description: string; slug: string; anchor: string }>;
     doctrines: Record<string, { name: string; points: number; description: string }>;
 }
@@ -79,7 +101,7 @@ export function premiumPlanLevels(key: string): number[] | null {
     return match ? match.slice(1).map((value) => Number(value ?? 0)) : null;
 }
 export function premiumApiUrl(
-    resource: "account" | "library",
+    resource: "account" | "library" | "crew",
     options: { hostname: string; protocol: string; api?: string; port?: string; production: boolean },
 ): string {
     const production =

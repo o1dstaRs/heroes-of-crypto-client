@@ -1,6 +1,5 @@
 ---
 import corePackage from "../../../game/core/package.json";
-import PremiumIcon from "./PremiumIcon.astro";
 import { content, languageSwitchPath, links, localPath, type Language } from "../lib/site-data";
 
 interface Props {
@@ -29,6 +28,9 @@ const navItems = [
 
 const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? currentPath.slice(0, -1) : currentPath;
 const localePrefix = lang === "ru" ? "/ru" : "";
+const loginPath = `${localePrefix}/auth/login/`;
+const loginHref =
+    normalizedPath === `${localePrefix}/premium` ? `${loginPath}?redirect=${encodeURIComponent(currentPath)}` : loginPath;
 const legacyKnowledgePaths = new Set(
     ["rules", "units", "abilities", "spells", "artifacts"].map((slug) => `${localePrefix}/${slug}`),
 );
@@ -54,8 +56,7 @@ const legacyKnowledgePaths = new Set(
                     (item.href === localPath(lang, "game") && (normalizedPath === "" || normalizedPath === "/ru"));
 
                 return (
-                    <a class:list={["nav-link", { active: isActive, "nav-premium": item.label === "Premium" }]} href={item.href}>
-                        {item.label === "Premium" && <PremiumIcon size="18px" />}
+                    <a class:list={["nav-link", { active: isActive }]} href={item.href}>
                         {item.label}
                     </a>
                 );
@@ -76,7 +77,7 @@ const legacyKnowledgePaths = new Set(
         <a
             class="header-icon-button header-login-link"
             data-auth-login
-            href={`${localPath(lang, "home")}auth/login/`}
+            href={loginHref}
             aria-label={copy.nav.login}
             title={copy.nav.login}
         >
@@ -168,18 +169,6 @@ const legacyKnowledgePaths = new Set(
 </script>
 
 <style>
-    .main-nav .nav-premium,
-    .main-nav .nav-link.nav-premium.active {
-        color: var(--hoc-premium-accent);
-        text-shadow: 0 0 18px rgba(255, 130, 45, 0.25);
-    }
-
-    .main-nav .nav-premium {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-
     .nav-link {
         font-size: 1.0465rem;
     }
