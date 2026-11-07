@@ -256,3 +256,30 @@ const supportsGoogle = normalizedMode === "login" || normalizedMode === "registe
 <script>
     import "../lib/auth-client";
 </script>
+
+<style>
+    .auth-section--premium {
+        background: radial-gradient(ellipse at 14% 20%, #37201466, transparent 55%), #0c0a09;
+    }
+    .auth-section--premium .auth-shell {
+        gap: clamp(24px, 6vw, 80px);
+    }
+    .auth-section--premium .auth-copy h1 {
+        font: 400 clamp(42px, 6vw, 70px)/1.05 Georgia, serif;
+    }
+    .auth-section--premium .auth-copy .eyebrow,
+    .auth-section--premium .auth-mode-preview,
+    .auth-section--premium .auth-form-head,
+    .auth-section--premium .auth-game-link {
+        display: none;
+    }
+    .auth-section--premium .auth-form {
+        max-width: 540px;
+        overflow: visible;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+    }
+</style>

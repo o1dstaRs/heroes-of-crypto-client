@@ -40,7 +40,7 @@ describe("reputation model", () => {
             restricted: false,
             scoredMatches: 31,
             ceiling: 20,
-            parts: { ledger: 61, accountAge: 8, email: 4, google: 3, wallet: 0 },
+            parts: { ledger: 61, accountAge: 8, email: 4, google: 3 },
             log: [{ at: 5, kind: "abandon", points: -12, gameId: "g2", opponentUsername: "Karsk" }],
             rules: { points: { abandon: -12 }, identityPoints: { email: 4 }, matchDailyCap: 5 },
         });

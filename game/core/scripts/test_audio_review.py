@@ -25,7 +25,7 @@ class AudioReviewTests(unittest.TestCase):
         self.jobs = self.work / "revisions"
         (self.root / "audio").mkdir()
         shutil.copyfile(REAL_CORE / "audio/combat-sound-design.json", self.root / "audio/combat-sound-design.json")
-        (self.root / "audio/combat-sound-review.html").write_text("__COMBAT_AUDIO_DATA__")
+        shutil.copyfile(REAL_CORE / "audio/combat-sound-review.html", self.root / "audio/combat-sound-review.html")
         self.patches = [patch.object(review, "CORE", self.root), patch.object(review, "WORK", self.work),
                         patch.object(review, "JOBS", self.jobs), patch.object(mastering, "CORE", self.root)]
         for p in self.patches:
@@ -100,6 +100,69 @@ class AudioReviewTests(unittest.TestCase):
                      "asset_base": str((staged / "abomination_attack").relative_to(self.root))}
         job = {"id": "test-job", "slug": "abomination", "role": "attack", "candidates": [candidate]}
         return assets, job
+
+    def test_catalog_recovers_saved_page_when_temporary_report_is_missing(self):
+        self.fixture()
+        report_path = self.work / "mastering-report.json"
+        clips = json.loads(report_path.read_text())["clips"]
+        clips[0].update({"waveform": [0.1, 0.5, 0.2], "source_file": "tmp/audio/raw/old.mp3",
+                         "alternates": [{"source_id": "old-attack", "score": 0.8}]})
+        mastering.write_review(self.work, clips)
+        report_path.unlink()
+        service = review.ReviewService(api_key="test-private-key-never-sent-to-browser")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), review.ReviewHandler)
+        server.service = service
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        url = f"http://127.0.0.1:{server.server_port}/api/audio/catalog"
+        try:
+            with urllib.request.urlopen(url) as response:
+                catalog = json.loads(response.read())
+            self.assertTrue(catalog["can_generate"])
+            combat = [c for c in catalog["sounds"] if c["role"] in ("attack", "hurt")]
+            self.assertEqual(combat, clips)
+            self.assertEqual(len([c for c in catalog["sounds"] if c["role"] == "cast"]),
+                             len(mastering.spell_placeholders()))
+            self.assertTrue(combat[0]["design_prompt"])
+            self.assertNotIn(service.api_key, json.dumps(catalog))
+            self.assertFalse(report_path.exists())
+            # A missing page too must yield a usable error, not drop the HTTP connection.
+            (self.work / "review.html").unlink()
+            with self.assertRaises(urllib.error.HTTPError) as unavailable:
+                urllib.request.urlopen(url)
+            with unavailable.exception as response:
+                self.assertEqual(response.code, 503)
+                self.assertIn("Restore", json.loads(response.read())["error"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join()
+
+    def test_applying_a_take_recovers_report_without_losing_other_saved_clips(self):
+        assets, job = self.fixture()
+        report_path = self.work / "mastering-report.json"
+        clips = json.loads(report_path.read_text())["clips"]
+        mastering.write_review(self.work, clips)
+        report_path.unlink()
+        review.apply_candidate(job, 0)
+        restored = json.loads(report_path.read_text())["clips"]
+        self.assertEqual(len(restored), 2)
+        self.assertEqual(restored[0]["source_id"], "selected-file")
+        self.assertEqual(restored[1], clips[1])
+        self.assertEqual((assets / "abomination_attack.webm").read_bytes(), b"mastered opus")
+        self.assertEqual((assets / "abomination_attack.mp3").read_bytes(), b"mastered mp3")
+        self.assertEqual((assets / "abomination_hurt.webm").read_bytes(), b"keep hurt")
+
+    def test_missing_report_and_page_does_not_partially_apply_a_take(self):
+        assets, job = self.fixture()
+        (self.work / "mastering-report.json").unlink()
+        with self.assertRaises(FileNotFoundError):
+            review.apply_candidate(job, 0)
+        self.assertEqual((assets / "abomination_attack.webm").read_bytes(), b"previous attack")
+        self.assertEqual((assets / "abomination_attack.mp3").read_bytes(), b"previous attack")
+        manifest = json.loads((self.root / "src/ui/audio/combatSoundManifest.json").read_text())
+        self.assertEqual(manifest["Abomination"]["attack"]["revision"], "old")
+        self.assertFalse((self.root / "audio/combat-sound-overrides.json").exists())
 
     def test_applying_a_take_updates_both_codecs_and_catalogs_while_preserving_hurt(self):
         assets, job = self.fixture()

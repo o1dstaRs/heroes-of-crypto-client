@@ -1,10 +1,12 @@
 import {
+    AbilityHelper,
     AttackVals,
     FireWallHelper,
     GridMath,
     SpellHelper,
     type GridSettings,
     type HoCMath,
+    type IDecisionContext,
     type Unit,
 } from "@heroesofcrypto/common";
 import { Container, Graphics, Text } from "pixi.js";
@@ -14,6 +16,9 @@ import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { glyphScaleX } from "../pixi/boardMirror";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { projectBattlefieldPoint, projectedCellPoints, projectedPolyline } from "./sandbox/BattlefieldVisualGrid";
+import { projectRangedObstacles } from "./rangedObstaclePreview";
+
+type PremiumRangeContext = Pick<IDecisionContext, "grid" | "unitsHolder" | "attackHandler">;
 
 type PreviewUnit = Pick<
     Unit,
@@ -40,6 +45,7 @@ export const premiumMoveDrawing = (
     actor: PreviewUnit,
     units: ReadonlyMap<string, PreviewUnit>,
     gs: GridSettings,
+    rangeContext?: PremiumRangeContext,
 ): PremiumMoveDrawing | undefined => {
     if (!option.actions?.length || actor.isDead()) return undefined;
     const width = actor.getFootprintWidth();
@@ -105,9 +111,73 @@ export const premiumMoveDrawing = (
                 if (!move(action.path?.length ? action.path : [action.attackFrom])) return undefined;
                 aim(target.getPosition(), target.getCells(), magicMelee ? "Magic melee" : "Attack");
                 break;
-            case "range_attack":
+            case "range_attack": {
                 if (!target && !action.targetPosition) return undefined;
                 if (action.aimCell && !validCell(action.aimCell)) return undefined;
+                if (rangeContext) {
+                    const shooter = rangeContext.unitsHolder.getAllUnits().get(actor.getId());
+                    const handler = rangeContext.attackHandler;
+                    if (!shooter || !handler) return undefined;
+                    const through = shooter.hasAbilityActive("Through Shot");
+                    const area = shooter.hasAbilityActive("Large Caliber") || shooter.hasAbilityActive("Area Throw");
+                    const endpoint = target
+                        ? GridMath.resolveRangeAttackAimEdge(
+                              rangeContext.grid.getMatrix(),
+                              gs,
+                              target.getCells(),
+                              position,
+                              shooter.getTeam(),
+                              through,
+                              action.aimCell,
+                              action.aimSide,
+                              area,
+                          )?.position
+                        : action.targetPosition;
+                    if (!endpoint) return undefined;
+                    const projection = projectRangedObstacles({
+                        attacker: shooter,
+                        grid: rangeContext.grid,
+                        units: rangeContext.unitsHolder.getAllUnits(),
+                        handler,
+                        aim: endpoint,
+                        from: position,
+                    });
+                    const singleBlocked =
+                        Boolean(projection.evaluation.attackObstacle) &&
+                        !area &&
+                        !(rangeContext.grid.hasScatteredMountains() && AbilityHelper.getDoubleShotAbility(shooter));
+                    if (singleBlocked && !projection.evaluation.affectedUnits.some((group) => group.length))
+                        return undefined;
+                    const obstacles = singleBlocked
+                        ? []
+                        : projection.hits.map((hit) => GridMath.getCellForPosition(gs, hit.position));
+                    const victim = projection.evaluation.affectedUnits[0]?.[0];
+                    let cells = projection.evaluation.affectedCells.flat();
+                    let point = endpoint;
+                    let label = "Shoot";
+                    if (projection.blocker && !singleBlocked) {
+                        point = projection.blocker.position;
+                        cells = [];
+                        const blockerCell = GridMath.getCellForPosition(gs, point);
+                        if (!obstacles.some((cell) => cell.x === blockerCell.x && cell.y === blockerCell.y))
+                            obstacles.push(blockerCell);
+                        label = rangeContext.grid.hasScatteredMountains() ? "Shoot barrel" : "Shoot obstacle";
+                    } else if (obstacles.length && !area) {
+                        if (!through && !cells.length) cells = target?.getCells() ?? [];
+                        label = "Shoot through barrel";
+                    } else if (victim && !through && !area) {
+                        cells = victim.getCells();
+                        if (target && victim.getId() !== target.getId()) point = victim.getPosition();
+                    } else if (singleBlocked && projection.blocker) {
+                        point = projection.blocker.position;
+                    }
+                    aim(
+                        point,
+                        [...new Map([...cells, ...obstacles].map((cell) => [`${cell.x}:${cell.y}`, cell])).values()],
+                        label,
+                    );
+                    break;
+                }
                 aim(
                     action.targetPosition ??
                         (action.aimCell
@@ -119,6 +189,7 @@ export const premiumMoveDrawing = (
                     "Shoot",
                 );
                 break;
+            }
             case "area_throw_attack":
                 if (!validCell(action.targetCell)) return undefined;
                 aim(cellCenter(action.targetCell), [action.targetCell], "Throw");
@@ -181,13 +252,14 @@ export class PremiumTurnOverlay {
         actor: PreviewUnit,
         units: ReadonlyMap<string, PreviewUnit>,
         gs: GridSettings,
+        rangeContext?: PremiumRangeContext,
     ): void {
         this.floor.clear();
         for (const child of this.labels.removeChildren()) child.destroy({ children: true });
         const step = gs.getStep();
         // Paint the preferred path last so a shared approach remains gold and legible.
         for (let index = Math.min(COLORS.length, turn.options.length) - 1; index >= 0; index -= 1) {
-            const drawing = premiumMoveDrawing(turn.options[index], actor, units, gs);
+            const drawing = premiumMoveDrawing(turn.options[index], actor, units, gs, rangeContext);
             if (!drawing) continue;
             const color = COLORS[index];
             const alpha = index === 0 ? 0.95 : 0.7;
