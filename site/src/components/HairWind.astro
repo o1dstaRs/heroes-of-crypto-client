@@ -1,0 +1,172 @@
+<hair-wind aria-hidden="true">
+    <canvas width="380" height="235"></canvas>
+    <canvas width="235" height="300"></canvas>
+</hair-wind>
+
+<style>
+    hair-wind {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    canvas {
+        position: absolute;
+        display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        canvas {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 1081px) {
+        hair-wind {
+            top: -68px;
+        }
+    }
+</style>
+
+<script>
+    const HAIR_PARTS = [
+        { name: "crown", x: 1285, y: 115, width: 380, height: 235 },
+        { name: "trailing", x: 1510, y: 177.5, width: 235, height: 300 },
+    ] as const;
+    const FRAME_COUNT = 72;
+    const COLUMNS = 12;
+    const FPS = 24;
+
+    class HairWind extends HTMLElement {
+        private dispose?: () => void;
+
+        connectedCallback() {
+            if (this.dispose) return;
+            const background = this.parentElement?.querySelector<HTMLImageElement>(".hero-bg");
+            const canvases = [...this.querySelectorAll("canvas")];
+            if (!background || canvases.length !== HAIR_PARTS.length) return;
+            const parts = HAIR_PARTS.map((part, i) => ({
+                ...part,
+                canvas: canvases[i],
+                context: canvases[i].getContext("2d"),
+                atlas: new Image(),
+            }));
+            if (parts.some((part) => !part.context)) return;
+
+            const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+            let loaded = 0;
+            let visible = false;
+            let disposed = false;
+            let failed = false;
+            let request = 0;
+            let phase = 0;
+            let lastTime = 0;
+
+            const layout = () => {
+                const imageBox = background.getBoundingClientRect();
+                const box = this.getBoundingClientRect();
+                const scale = Math.max(imageBox.width / 1750, imageBox.height / 899);
+                const position = getComputedStyle(background).objectPosition.split(" ").map(parseFloat);
+                for (const part of parts) {
+                    part.canvas.style.width = `${part.width / 2 * scale}px`;
+                    part.canvas.style.height = `${part.height / 2 * scale}px`;
+                    part.canvas.style.left = `${imageBox.left - box.left + (imageBox.width - 1750 * scale) * position[0] / 100 + part.x * scale}px`;
+                    part.canvas.style.top = `${imageBox.top - box.top + (imageBox.height - 899 * scale) * position[1] / 100 + part.y * scale}px`;
+                }
+            };
+
+            const hide = () => {
+                for (const part of parts) part.canvas.style.display = "none";
+            };
+
+            const draw = (time: number) => {
+                request = 0;
+                if (disposed || failed || loaded !== parts.length || !visible || document.hidden || reducedMotion.matches) return;
+                if (lastTime) phase = (phase + Math.min(time - lastTime, 80) * FPS / 1000) % FRAME_COUNT;
+                lastTime = time;
+                const frame = Math.floor(phase);
+                const mix = phase - frame;
+                for (const part of parts) {
+                    const context = part.context!;
+                    context.clearRect(0, 0, part.width, part.height);
+                    // Premultiplied frame interpolation keeps the fixed clean plate opaque.
+                    context.globalCompositeOperation = "lighter";
+                    for (const [index, alpha] of [[frame, 1 - mix], [(frame + 1) % FRAME_COUNT, mix]]) {
+                        context.globalAlpha = alpha;
+                        context.drawImage(
+                            part.atlas,
+                            index % COLUMNS * part.width,
+                            Math.floor(index / COLUMNS) * part.height,
+                            part.width, part.height, 0, 0, part.width, part.height,
+                        );
+                    }
+                    context.globalAlpha = 1;
+                    part.canvas.style.display = "block";
+                }
+                this.dataset.frame = String(frame);
+                request = requestAnimationFrame(draw);
+            };
+
+            const sync = () => {
+                cancelAnimationFrame(request);
+                lastTime = 0;
+                if (reducedMotion.matches || failed) hide();
+                if (!disposed && !failed && loaded === parts.length && visible && !document.hidden && !reducedMotion.matches) {
+                    request = requestAnimationFrame(draw);
+                }
+            };
+            const load = () => {
+                if (reducedMotion.matches || disposed) return;
+                for (const part of parts) {
+                    if (!part.atlas.src) part.atlas.src = `/assets/images/home/hero/generated/hair-${part.name}-atlas.webp`;
+                }
+                sync();
+            };
+            for (const part of parts) {
+                part.atlas.onload = () => {
+                    if (disposed) return;
+                    loaded++;
+                    layout();
+                    sync();
+                };
+                part.atlas.onerror = () => {
+                    failed = true;
+                    sync();
+                };
+            }
+            const resize = new ResizeObserver(layout);
+            resize.observe(background);
+            const intersection = new IntersectionObserver(([entry]) => {
+                visible = entry.isIntersecting;
+                sync();
+            });
+            intersection.observe(this);
+            document.addEventListener("visibilitychange", sync);
+            reducedMotion.addEventListener("change", load);
+            reducedMotion.addEventListener("change", sync);
+            load();
+            this.dispose = () => {
+                disposed = true;
+                cancelAnimationFrame(request);
+                hide();
+                resize.disconnect();
+                intersection.disconnect();
+                document.removeEventListener("visibilitychange", sync);
+                reducedMotion.removeEventListener("change", load);
+                reducedMotion.removeEventListener("change", sync);
+                for (const part of parts) {
+                    part.atlas.onload = null;
+                    part.atlas.onerror = null;
+                }
+            };
+        }
+
+        disconnectedCallback() {
+            this.dispose?.();
+            this.dispose = undefined;
+        }
+    }
+
+    if (!customElements.get("hair-wind")) customElements.define("hair-wind", HairWind);
+</script>

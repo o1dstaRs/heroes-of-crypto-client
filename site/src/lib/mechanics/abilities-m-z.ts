@@ -79,6 +79,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             `Каждое попадание в ближнем бою, включая ответы, помечает врага Pegasus Light на 1 круг (пока метка есть, она не обновляется). Каждый юнит, попавший по помеченному врагу, получает +${effectPower("Pegasus Light")} морали плюс 1 за очко удачи Pegasus; юниты с зафиксированной моралью (Madness, Mechanism, Courage, Sadness, Morale, Dismorale) ничего не получают. Сила стека на это не влияет.`,
     },
+    "Pegasus Might Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} base attack and armor. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к базовой атаке и броне. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
+    },
     "Pegasus Might Aura": {
         en: ({ p }) => `Allies within 2 cells, the Pegasus included, get +${p} base attack and +${p} base armor.`,
         ru: ({ p }) =>
@@ -201,6 +207,12 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
             `The shot flies on to the edge of the board and hits every enemy on the line — allies are passed over unharmed — each for (${p} + luck)% of a normal hit, not scaled by stack power, with its own dodge roll and distance falloff; everything past a Smoke cloud is halved. The mountain stops it, and so does an Angel's Arrows Wingshield. Its shots are never answered, and the Tsar Cannon never returns fire.`,
         ru: ({ p }) =>
             `Выстрел летит до края поля и поражает каждого врага на линии — союзников пролетает, не раня, — каждого на (${p} + удача)% обычного удара, без масштаба силой стека, со своим броском уклонения и своим штрафом дальности; всё за облаком Smoke получает половину. Гора его останавливает, как и Arrows Wingshield у Angel. На его выстрелы никогда не отвечают, и сама Tsar Cannon никогда не отвечает выстрелом.`,
+    },
+    "Tie up the Horses Blessing": {
+        en: ({ p }) =>
+            `All allies across the battlefield receive +${p} movement for non-flying allies. Stack power 1–5 grants 20/40/60/80/100% of this base value. Only the strongest living source without Break applies.`,
+        ru: ({ p }) =>
+            `Все союзники на поле получают +${p} к движению нелетающих союзников. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.`,
     },
     "Tie up the Horses Aura": {
         en: ({ p }) => `Allied non-flying units within 2 cells, the Champion included, get +${p} movement.`,
