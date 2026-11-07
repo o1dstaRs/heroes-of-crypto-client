@@ -27,7 +27,7 @@ import { battleSidebarWidth } from "../../pixi/boardFit";
 import { images } from "../../generated/image_imports";
 import { hocColors, hocDisplayFontFamily, hocSidebarSectionSx } from "../hocTheme";
 import FightControlToggler from "./FightControlToggler";
-import { WalletLinker } from "../WalletLinker";
+import { AccountSignInMethods } from "../AccountSignInMethods";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
 import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
@@ -63,7 +63,7 @@ export default function RightSideBar({
     rankedPanel,
     rankedFooter,
     footerLeading,
-    showWallet = false,
+    showAccount = false,
     showSystemControls = true,
     showPremiumFightControls = false,
     onClose,
@@ -74,7 +74,7 @@ export default function RightSideBar({
     rankedPanel?: React.ReactNode;
     rankedFooter?: React.ReactNode;
     footerLeading?: React.ComponentProps<typeof GameSystemControls>["leading"];
-    showWallet?: boolean;
+    showAccount?: boolean;
     showSystemControls?: boolean;
     showPremiumFightControls?: boolean;
     onClose?: () => void;
@@ -527,7 +527,7 @@ export default function RightSideBar({
                     {/* Combat's former divider is now the log's own lower frame: removing the extra item
                         lets the flexible log grow exactly into its old position. Setup keeps its separator. */}
                     {!rankedPanel && !gameStarted && <Divider />}
-                    {showWallet && <WalletLinker />}
+                    {showAccount && <AccountSignInMethods />}
                 </List>
             </Box>
             {touch && <div id="hoc-touch-panel-system-slot" />}
