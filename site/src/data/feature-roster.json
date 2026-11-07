@@ -1,0 +1,50 @@
+[
+  {
+    "faction": "Chaos",
+    "color": "#f28c28",
+    "background": "/assets/images/home/features/portraits/chaos_bg.webp",
+    "units": [
+      {
+        "name": "Orc",
+        "slug": "orc",
+        "src": "/assets/images/home/features/portraits/orc_left_screen_x2.webp"
+      }
+    ]
+  },
+  {
+    "faction": "Life",
+    "color": "#e0b04a",
+    "background": "/assets/images/home/features/portraits/life_bg.webp",
+    "units": [
+      {
+        "name": "Squire",
+        "slug": "squire",
+        "src": "/assets/images/home/features/portraits/squire_left_screen_x2.webp"
+      }
+    ]
+  },
+  {
+    "faction": "Might",
+    "color": "#e24b43",
+    "background": "/assets/images/home/features/portraits/might_bg.webp",
+    "units": [
+      {
+        "name": "Hyena",
+        "slug": "hyena",
+        "src": "/assets/images/home/features/portraits/hyena_left_screen_x2.webp"
+      }
+    ]
+  },
+  {
+    "faction": "Nature",
+    "color": "#59b875",
+    "background": "/assets/images/home/features/portraits/nature_bg.webp",
+    "units": [
+      {
+        "name": "Trent",
+        "slug": "trent",
+        "src": "/assets/images/home/features/portraits/trent_left_screen_x2.webp"
+      }
+    ]
+  }
+]

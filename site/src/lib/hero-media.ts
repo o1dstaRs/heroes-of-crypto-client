@@ -1,4 +1,4 @@
-export const HOME_HERO_IMAGE = "/assets/images/home/hero/generated/crusader_berserker_legs_redrawn_20260922.webp";
+export const HOME_HERO_IMAGE = "/assets/images/home/hero/taverns/39-forge-frost-no-flags-20261107.webp";
 
 /**
  * A low fetch priority is only a hint: decorative downloads can still share bandwidth with the hero.

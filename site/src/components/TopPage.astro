@@ -1,0 +1,21 @@
+---
+import type { Language } from "../lib/site-data";
+import HeroLeaderboard from "./HeroLeaderboard.astro";
+import RankedArena from "./RankedArena.astro";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+---
+
+<h1 class="sr-only">{lang === "ru" ? "Лучшие игроки" : "Top Players"}</h1>
+
+<section class="section hero-ladder-band">
+    <div class="page-shell">
+        <HeroLeaderboard lang={lang} topN={10} />
+    </div>
+</section>
+
+<RankedArena lang={lang} />
