@@ -85,6 +85,20 @@ describe("live projectile trace position", () => {
 });
 
 describe("authoritative ranged projectile plan", () => {
+    it("does not invent a double-shot or echo after the only recorded shot kills its target", () => {
+        const attack = event({
+            damageUnitId: "requested",
+            animations: [outgoing("requested")],
+            hits: [{ amount: 10, unitsDied: 1 }],
+        });
+        attack.unitIdsDied = ["requested"];
+        for (const through of [false, true]) {
+            expect(
+                resolveRangeProjectileImpactPlan(attack, "requested", ATTACKER_POSITION, through, true),
+            ).toHaveLength(1);
+        }
+    });
+
     it("keeps a direct single shot aimed at the requested visible edge", () => {
         const plan = resolveRangeProjectileImpactPlan(
             event({

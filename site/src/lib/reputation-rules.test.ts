@@ -43,7 +43,7 @@ describe("reputation rules parsing", () => {
             matchDailyCap: 5,
             points: { match_completed: 1, abandon: -12 },
             ageWeeksMax: 8,
-            identityPoints: { email: 4, google: 3, wallet: 4 },
+            identityPoints: { email: 4, google: 3 },
             ceilings: { ai_assistance: 20, win_trading: 0 },
         };
         expect(normalizeReputationRules(withItemization)).toEqual(SERVER_RESPONSE);
@@ -188,7 +188,7 @@ describe("reputation rules copy", () => {
 
     /**
      * Owner, 19 Sep: the itemization is not public, only the final slider. The page may print the scale, the bands and
-     * the thresholds a player has to know (60% of their turns, 3 reports in 30 days, 90 days of wallet history); it
+     * the thresholds a player has to know (60% of their turns, 3 reports in 30 days); it
      * may not print what any event is worth, so no line carries a signed number.
      */
     test("neither language prints what an event is worth", () => {
