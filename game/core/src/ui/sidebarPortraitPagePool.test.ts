@@ -1,7 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 
 import { SidebarPortraitPagePool, type SidebarPortraitPage } from "./sidebarPortraitPagePool";
-import type { PortraitImageStub } from "./decodedImageCache";
+import {
+    installPortraitImageFactoryForTests,
+    isDecodedImageReady,
+    resetPortraitImageCacheForTests,
+    warmDecodedImage,
+    type PortraitImageStub,
+} from "./decodedImageCache";
 
 const cleanups: Array<() => void> = [];
 const flush = async () => {
@@ -10,6 +16,7 @@ const flush = async () => {
 afterEach(async () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
     await flush();
+    resetPortraitImageCacheForTests();
 });
 
 const fixture = (idleBytes = 16 * 1024 * 1024, rejectCancelled = true) => {
@@ -214,4 +221,30 @@ test("failed pages retry with a delay without flooding decode requests", async (
     expect(f.images).toHaveLength(2);
     await f.finish(1);
     expect(f.pool.get("page-0")).toBeDefined();
+});
+
+test("playback borrows the decoded first-frame poster without another decode or clearing its source", async () => {
+    const image: PortraitImageStub = {
+        src: "",
+        decoding: "",
+        naturalWidth: 2860,
+        naturalHeight: 808,
+        onload: null,
+        onerror: null,
+        decode: () => Promise.resolve(),
+    };
+    installPortraitImageFactoryForTests(() => image);
+    expect(await warmDecodedImage("poster-page")).toBe(true);
+    const f = fixture(0);
+    const page = { src: "poster-page", firstFrame: 0, frameCount: 5, cols: 5, rows: 1 };
+    f.pool.update(f.owners[0], [page]);
+    expect(f.images).toHaveLength(0);
+    expect(f.pool.get(page.src)).toBe(image as HTMLImageElement);
+    f.pool.release(f.owners[0]);
+    expect(f.pool.decodedBytes).toBe(0);
+    expect(image.src).toBe("poster-page");
+    expect(isDecodedImageReady("poster-page")).toBe(true);
+    f.pool.update(f.owners[0], [page]);
+    expect(f.images).toHaveLength(0);
+    expect(f.pool.get(page.src)).toBe(image as HTMLImageElement);
 });

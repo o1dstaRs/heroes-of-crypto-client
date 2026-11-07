@@ -12,7 +12,7 @@ import {
     type PortraitImagePrefetch,
 } from "./decodedImageCache";
 import { resolveIntegratedArbalesterPortrait } from "./integratedArbalesterPortrait";
-import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
+import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "./leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "./leftSidebarPortraitArt";
 
 export interface LeftSidebarPortraitSources {
@@ -30,13 +30,13 @@ let selectedRetention: { creatureId: number; release: () => void; readiness?: Pr
 /** Each full-size cutout is over a megabyte; only speculate on the next likely inspections. */
 export const SIDEBAR_PORTRAIT_PREFETCH_LIMIT = 2;
 
-/** The cutout, the faction plate behind it, and the optional idle sheet. These are separate files. */
-export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortraitSources => {
+/** Animated selections warm frame zero; static inspections keep their existing cutout. */
+export const leftSidebarPortraitSources = (creatureId: number, animate = true): LeftSidebarPortraitSources => {
     const art = resolveLeftSidebarPortraitArt(creatureId);
     const visual = resolveCreaturePortraitVisual(creatureId);
     const animation = resolveIntegratedArbalesterPortrait(creatureId, resolveLeftSidebarPortraitAnimation(creatureId));
     return {
-        creature: art.source ?? visual?.source,
+        creature: animate && animation ? sidebarPortraitFirstFrame(animation).src : (art.source ?? visual?.source),
         background: visual?.background,
         glow: resolveCreaturePortraitBackgroundMotion(creatureId)?.glowSrc,
         atlas: animation?.pages?.[0]?.src ?? animation?.src,
@@ -44,18 +44,18 @@ export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortr
 };
 
 /**
- * True once the cutout and its faction background are both decoded. The glow is warmed too, but it is
+ * True once the first-frame poster (or static cutout) and its faction background are decoded. The glow is
  * only a tint over the plate, so it must not hold the swap.
  */
-export const isLeftSidebarPortraitReady = (creatureId: number): boolean => {
-    const sources = leftSidebarPortraitSources(creatureId);
+export const isLeftSidebarPortraitReady = (creatureId: number, animate = true): boolean => {
+    const sources = leftSidebarPortraitSources(creatureId, animate);
     return !!sources.creature && isDecodedImageReady(sources.creature) && isDecodedImageReady(sources.background);
 };
 
 /** Decode the required pair now; optional layers must not delay or release the selection handoff. */
 export const warmLeftSidebarPortrait = (creatureId: number, animate = true): Promise<boolean> => {
     clearDecodedImagePrefetch(selectedOptionalPrefetchOwner);
-    const sources = leftSidebarPortraitSources(creatureId);
+    const sources = leftSidebarPortraitSources(creatureId, animate);
     // Acquire first: duplicate overlay/React warming must not leave a trim gap for the same pair.
     const release = retainDecodedImages([sources.creature, sources.background]);
     selectedRetention?.release();
@@ -72,7 +72,7 @@ export const warmLeftSidebarPortrait = (creatureId: number, animate = true): Pro
               })
             : Promise.resolve(true),
     ]).then(([creatureReady, backgroundReady]) => {
-        const ready = creatureReady && backgroundReady && isLeftSidebarPortraitReady(creatureId);
+        const ready = creatureReady && backgroundReady && isLeftSidebarPortraitReady(creatureId, animate);
         if (selectedRetention === selection) {
             clearDecodedImageForeground(selectedForegroundOwner);
             if (ready) {
@@ -91,7 +91,7 @@ export const warmLeftSidebarPortrait = (creatureId: number, animate = true): Pro
 
 /**
  * Warm only the next likely inspections from the open roster or the active-first turn queue.
- * The larger optional atlas is requested after an actual selection, once its still pair is ready.
+ * Only frame zero's small page is needed before selection; playback owns the remaining page budget.
  */
 export const enqueueLeftSidebarPortraits = (
     creatureIds: readonly number[],
@@ -118,7 +118,7 @@ export const clearLeftSidebarPortraitSelection = (creatureId: number, readiness:
 
 /** The portrait on screen is not eligible for eviction. */
 export const pinLeftSidebarPortrait = (creatureId: number, animate = true): void => {
-    const sources = leftSidebarPortraitSources(creatureId);
+    const sources = leftSidebarPortraitSources(creatureId, animate);
     pinDecodedImages([sources.creature, sources.background, sources.glow, animate ? sources.atlas : undefined]);
     // The displayed pins are installed before handing back the selected pair's temporary hold.
     if (selectedRetention?.creatureId === creatureId) selectedRetention.release();

@@ -66,7 +66,7 @@ const controlledDecodes = () => {
     return { jobs, settle };
 };
 
-test("the selected cutout and background finish without waiting for optional atlas or glow", async () => {
+test("the selected first-frame page and background finish without waiting for glow", async () => {
     const controlled = controlledDecodes();
     const sources = leftSidebarPortraitSources(CreatureVals.PEASANT);
     expect(sources.atlas).toBeTruthy();
@@ -86,9 +86,9 @@ test("the selected cutout and background finish without waiting for optional atl
 
     expect(await pair).toBe(true);
     expect(isLeftSidebarPortraitReady(CreatureVals.PEASANT)).toBe(true);
-    expect(isAtlasReady(sources.atlas!)).toBe(false);
+    expect(isAtlasReady(sources.atlas!)).toBe(true);
     expect(isDecodedImageReady(sources.glow)).toBe(false);
-    expect(controlled.jobs.find((job) => job.image.src === sources.atlas)).toBeUndefined();
+    expect(controlled.jobs.filter((job) => job.image.src === sources.atlas)).toHaveLength(1);
 });
 
 for (const failedLayer of ["creature", "background"] as const) {
@@ -119,7 +119,7 @@ test("optional image failures do not block an otherwise ready portrait", async (
     expect(await pair).toBe(true);
     controlled.settle(sources.glow, false);
     await Promise.resolve();
-    expect(isAtlasReady(sources.atlas!)).toBe(false);
+    expect(isAtlasReady(sources.atlas!)).toBe(true);
     expect(isLeftSidebarPortraitReady(CreatureVals.PEASANT)).toBe(true);
 });
 

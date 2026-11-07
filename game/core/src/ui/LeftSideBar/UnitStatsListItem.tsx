@@ -44,7 +44,7 @@ import {
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
-import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "../leftSidebarPortraitAnimation";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
@@ -153,8 +153,7 @@ const AtlasAnimation: React.FC<{
         onLoadedRef.current = onLoaded;
     }, [onLoaded]);
 
-    // Reuse the shared asynchronous decode. The still stays visible until the canvas paints its
-    // first cel; cached sheets resume immediately at the current authored clock phase.
+    // Reuse the shared asynchronous decode. Frame zero stays visible until the canvas paints it too.
     React.useLayoutEffect(() => {
         let cancelled = false;
         setLoadedSource(isAtlasReady(src) ? src : undefined);
@@ -201,8 +200,7 @@ const AtlasAnimation: React.FC<{
         if (!isImageLoaded || !canvasRef.current) return;
         const image = getDecodedImage(src) as HTMLImageElement | undefined;
         if (!image) return;
-        const stop = playSidebarAtlas(canvasRef.current, image, timing);
-        if (stop) onLoadedRef.current();
+        const stop = playSidebarAtlas(canvasRef.current, image, timing, () => onLoadedRef.current());
         return stop;
     }, [src, timing, isImageLoaded]);
 
@@ -250,7 +248,7 @@ const AtlasAnimation: React.FC<{
     );
 };
 
-/** The still and atlas share local readiness, including while this complete portrait is held on screen. */
+/** The loading poster and playback use the same atlas pixels and portrait placement. */
 const SidebarPortraitAnimation = ({
     art,
     config,
@@ -264,18 +262,27 @@ const SidebarPortraitAnimation = ({
     onLoaded: () => void;
     playback: "ping-pong" | "loop";
 }) => {
-    const [ready, setReady] = useState(() => !config.pages && isAtlasReady(config.src));
+    const [ready, setReady] = useState(false);
+    const poster = sidebarPortraitFirstFrame(config);
     const markLoaded = useCallback(() => {
         setReady(true);
         onLoaded();
     }, [onLoaded]);
     return (
         <>
-            {React.cloneElement(art, { style: { ...art.props.style, opacity: ready ? 0 : 1 } })}
+            {React.cloneElement(art, { style: { ...art.props.style, opacity: 0 } })}
+            <svg
+                aria-hidden
+                data-sidebar-first-frame={poster.src}
+                viewBox={`0 0 ${poster.frameWidth} ${poster.frameHeight}`}
+                preserveAspectRatio="xMidYMid meet"
+                style={{ ...art.props.style, overflow: "hidden", opacity: ready ? 0 : 1 }}
+            >
+                <image href={poster.src} width={poster.atlasWidth} height={poster.atlasHeight} />
+            </svg>
             <Box
                 aria-label={`${art.props.alt} animated portrait`}
-                // Both sources were authored on the same portrait canvas. Reuse the still's complete
-                // placement so the first animated frame cannot change facing, crop, size or offsets.
+                // Reuse the poster's complete placement at the first painted animation frame.
                 style={{
                     ...art.props.style,
                     zIndex: 4,
@@ -1337,13 +1344,13 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
     // synchronous decode lets the background paint first. Keep the previous pair on screen until both
     // new files have decoded, then swap them on the same frame. The name and the stats still follow the
     // live unit.
-    const portraitReady = isLeftSidebarPortraitReady(creatureId);
+    const portraitReady = isLeftSidebarPortraitReady(creatureId, animatePortrait);
     const [heldPortraitId, setHeldPortraitId] = useState<number | undefined>(undefined);
     useEffect(() => {
         let cancelled = false;
         // A cached selection must become the held picture immediately too; otherwise the next cold
         // selection falls back to an older creature while an optional atlas is still loading.
-        if (isLeftSidebarPortraitReady(creatureId)) setHeldPortraitId(creatureId);
+        if (isLeftSidebarPortraitReady(creatureId, animatePortrait)) setHeldPortraitId(creatureId);
         const portraitWarm = warmLeftSidebarPortrait(creatureId, animatePortrait);
         void portraitWarm.then((ready) => {
             if (ready && !cancelled) setHeldPortraitId(creatureId);
@@ -1400,10 +1407,12 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
         artOffsetY: portraitOffsetY,
     } = sidebarPortraitTuning;
     const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
-    const portraitSource = sidebarPortraitArt.source;
-    const portraitUsesFraming = sidebarPortraitArt.usesFraming !== false;
-    const portraitFit = sidebarPortraitArt.fit;
-    const portraitBaseScale = sidebarPortraitArt.baseScale;
+    const portraitSource = portraitAnimationConfig
+        ? sidebarPortraitFirstFrame(portraitAnimationConfig).src
+        : sidebarPortraitArt.source;
+    const portraitUsesFraming = !portraitAnimationConfig && sidebarPortraitArt.usesFraming !== false;
+    const portraitFit = portraitAnimationConfig ? "contain" : sidebarPortraitArt.fit;
+    const portraitBaseScale = portraitAnimationConfig ? 1 : sidebarPortraitArt.baseScale;
     const portraitAtlasSource = portraitAnimationConfig?.src;
     const portraitAtlasMeta = portraitAnimationConfig?.meta;
     const portraitPages = portraitAnimationConfig?.pages;

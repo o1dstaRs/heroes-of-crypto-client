@@ -1,4 +1,4 @@
-import { isPortraitForegroundDecodePending, type PortraitImageStub } from "./decodedImageCache";
+import { getDecodedImage, isPortraitForegroundDecodePending, type PortraitImageStub } from "./decodedImageCache";
 
 export interface SidebarPortraitPage {
     src: string;
@@ -13,6 +13,7 @@ type Entry = {
     owners: Set<object>;
     currentOwners: Set<object>;
     image?: PortraitImageStub;
+    sharedImage?: boolean;
     loading?: PortraitImageStub;
     used: number;
     retryAt: number;
@@ -36,6 +37,9 @@ export class SidebarPortraitPagePool {
             let entry = this.entries.get(src);
             if (!entry) {
                 entry = { src, owners: new Set(), currentOwners: new Set(), used: this.now(), retryAt: 0 };
+                // Frame zero was decoded as the poster before this canvas mounted. Reuse its bitmap.
+                entry.image = getDecodedImage(src);
+                entry.sharedImage = !!entry.image;
                 this.entries.set(src, entry);
             }
             entry.owners.add(owner);
@@ -90,7 +94,7 @@ export class SidebarPortraitPagePool {
             if (bytes <= this.idleBytes) break;
             bytes -= this.bytes(entry);
             this.entries.delete(entry.src);
-            entry.image!.src = "";
+            if (!entry.sharedImage) entry.image!.src = "";
             entry.image = undefined;
         }
     }

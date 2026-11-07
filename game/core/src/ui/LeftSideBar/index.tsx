@@ -167,15 +167,17 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
     // ✅ Subscribe to combined selection event
     useEffect(() => {
         let preparedName: string | undefined;
+        let preparedAnimation: boolean | undefined;
         let preparedPortrait: { creatureId: number; readiness: Promise<boolean> } | undefined;
-        const preparePortrait = (unit: UnitProperties | null | undefined) => {
-            if (unit?.name === preparedName) return;
+        const preparePortrait = (unit: UnitProperties | null | undefined, animate: boolean) => {
+            if (unit?.name === preparedName && animate === preparedAnimation) return;
             preparedName = unit?.name;
+            preparedAnimation = animate;
             const creatureId = unit?.name ? UNIT_NAME_TO_ID[unit.name.trim()] : undefined;
             // Overlap the critical pair with the card render/module load. Its own effect hands off the
             // same retained pair; optional motion still waits for an actual animated card to mount.
             if (creatureId !== undefined) {
-                preparedPortrait = { creatureId, readiness: warmLeftSidebarPortrait(creatureId, false) };
+                preparedPortrait = { creatureId, readiness: warmLeftSidebarPortrait(creatureId, animate) };
             } else if (preparedPortrait) {
                 clearLeftSidebarPortraitSelection(preparedPortrait.creatureId, preparedPortrait.readiness);
                 preparedPortrait = undefined;
@@ -190,7 +192,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
             const impact = (payload.impact ?? emptyImpact) as IVisibleOverallImpact;
             const factionType = (payload.faction ?? (FactionVals.NO_FACTION as FactionType)) as FactionType;
 
-            preparePortrait(payload.unit);
+            preparePortrait(payload.unit, true);
 
             setSelection((previousSelection) => {
                 if (
@@ -211,7 +213,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
 
         const conn = manager.onSelectionCombined.connect(handleCombined);
         const inspectionConn = manager.onUnitInspectionUpdated.connect((nextInspection) => {
-            if (nextInspection) preparePortrait(nextInspection.unit);
+            if (nextInspection) preparePortrait(nextInspection.unit, false);
             setInspection(nextInspection);
         });
         return () => {
