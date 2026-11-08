@@ -177,7 +177,9 @@ a reference snapshot and must not replace the live test API.
 
 ## Current coordinated engine pin
 
-Client #205 pins common `28716f982b0dd6fab1b3f1df86bc3ec2c6ce9e48`, including merged common #114 and
-main's confirmed-resistance events. The authoritative server package and lockfile must be checked
-against that exact client pin before the coordinated rollout. The original visual-only rollout above records the
-previously deployed engine; the current candidate requires the matching authoritative server revision.
+Client #205 pins published main common `f4c1f2f7b47d4de015fa4dc26e8dbecfe2df67b2`, matching the
+authoritative server main package and lockfile. This includes merged common #114, main's confirmed-resistance
+events and the current main roster. The user approved deploying the matching test API and client on
+2026-11-08; the earlier visual-only API boundary records a historical rollout. Recheck all three pins and
+fresh published revisions before upload. Keep the website and independent knowledge service outside this
+coordinated test rollout, as described in `LOCAL_VISUAL_RELEASE.md`.
