@@ -1,4 +1,4 @@
-import { beforeAll, expect, test } from "bun:test";
+import { beforeAll, expect, spyOn, test } from "bun:test";
 import {
     AbilityFactory,
     EffectFactory,
@@ -10,7 +10,8 @@ import {
     UnitVals,
 } from "@heroesofcrypto/common";
 import { BufferImageSource, Container, Text, Texture } from "pixi.js";
-import { RenderableUnit } from "./RenderableUnit";
+import { RenderableUnit, type TexResolver } from "./RenderableUnit";
+import { createBoardFirstLoads, MAX_CONCURRENT_EXTRA_TEXTURE_LOADS } from "../pixi/boardFirstTextureLoads";
 import { Sandbox } from "./Sandbox";
 import { images } from "../generated/image_imports";
 import { usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
@@ -258,7 +259,7 @@ test("a slow base portrait does not enqueue combat sheets before the creature ca
 });
 
 const tokensOn = (root: Container) => root.children.filter((child) => child.label === "unit-loading-placeholder");
-const approvedWolf = (resolveTexture: (key: string) => Texture | undefined) => {
+const approvedWolf = (resolveTexture: TexResolver) => {
     const effects = new EffectFactory();
     const properties = HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", 10);
     return RenderableUnit.fromBase(
@@ -274,6 +275,118 @@ const approvedWolf = (resolveTexture: (key: string) => Texture | undefined) => {
         resolveTexture,
     );
 };
+
+test.each(roster)("%s/%s requests a visible idle while its placement cutout is still cold", (faction, name) => {
+    const effects = new EffectFactory();
+    const requested: { key: string; visible: boolean }[] = [];
+    const unit = RenderableUnit.fromBase(
+        Unit.createUnit(
+            HoCConfig.getCreatureConfig(
+                TeamVals.LEFT,
+                faction,
+                name,
+                name.toLowerCase().replaceAll(" ", "_") + "_512",
+                10,
+            ),
+            grid,
+            TeamVals.LEFT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            false,
+        ),
+        (key, options) => {
+            requested.push({ key, visible: options?.priority === "visible" });
+            return undefined;
+        },
+    );
+    const root = new Container();
+    try {
+        unit.ensureVisual(root, grid);
+        const visible = requested.filter((request) => request.visible);
+        expect(
+            visible.some(({ key }) => (name === "Arbalester" ? key.includes("_hit_") : /_(idle|default)_/.test(key))),
+            name,
+        ).toBe(true);
+        expect(
+            requested.some(({ key }) => key.includes("_attack_") || key.includes("_death_")),
+            name,
+        ).toBe(false);
+        if (name === "Arbalester") expect(visible.some(({ key }) => key.includes("_hit_"))).toBe(true);
+    } finally {
+        unit.destroyVisuals();
+        root.destroy({ children: true });
+    }
+});
+
+test("a placed idle bypasses stalled combat sheets and advances without waiting for them", async () => {
+    const flush = async () => {
+        for (let i = 0; i < 30; i++) await Promise.resolve();
+    };
+    let finishBackground!: (value: Texture) => void;
+    let finishIdle!: (value: Texture) => void;
+    const background = new Promise<Texture>((resolve) => {
+        finishBackground = resolve;
+    });
+    const idle = new Promise<Texture>((resolve) => {
+        finishIdle = resolve;
+    });
+    const queue = createBoardFirstLoads();
+    const started: string[] = [];
+    const backgroundLoads = Array.from({ length: MAX_CONCURRENT_EXTRA_TEXTURE_LOADS }, (_, i) =>
+        queue.load(`old_attack_${i}`, () => {
+            started.push(`background:${i}`);
+            return background;
+        }),
+    );
+    await flush();
+    const idleKey = "wolf_idle_atlas_half";
+    // Another warmup may already have queued this same URL as optional work.
+    const idleLoad = queue.load(idleKey, () => {
+        started.push("idle");
+        return idle;
+    });
+    let idleTexture: Texture | undefined;
+    void idleLoad.then((loaded) => {
+        idleTexture = loaded;
+    });
+    let now = 10_000;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    const root = new Container();
+    const unit = approvedWolf((key, options) => {
+        if (key === idleKey) {
+            if (options) queue.promote(idleLoad, options);
+            return idleTexture;
+        }
+        return key.includes("atlas") ? undefined : texture;
+    });
+    try {
+        unit.ensureVisual(root, grid);
+        await flush();
+        expect(started).toEqual(["background:0", "background:1", "idle"]);
+        finishIdle(texture);
+        await idleLoad;
+        await flush();
+        const scale = unit.ensureVisual(root, grid);
+        expect(scale).toBeGreaterThan(0);
+        unit.startSpawnAnimation(scale!);
+        const frames = new Set<number>();
+        for (let i = 0; i < 12; i++) {
+            now += 100;
+            unit.stepSelectionAnimation(now);
+            frames.add((unit as unknown as { selectionAnimFrameIndex: number }).selectionAnimFrameIndex);
+        }
+        expect(frames.size).toBeGreaterThan(1);
+        expect(started).toHaveLength(MAX_CONCURRENT_EXTRA_TEXTURE_LOADS + 1);
+    } finally {
+        finishBackground(texture);
+        finishIdle(texture);
+        await Promise.all([...backgroundLoads, idleLoad]);
+        clock.mockRestore();
+        unit.destroyVisuals();
+        root.destroy({ children: true });
+    }
+});
 
 test("an approved creature shows its team token with the stack count until its board image lands", () => {
     let baseAvailable = false;

@@ -2,6 +2,7 @@ import { PIKEMAN_SPEAR_TIPS, PIKEMAN_SPEAR_BUTTS, PIKEMAN_SPEAR_EXTENSION_RATIO 
 import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
+import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
 import { isAiSearchSimulating } from "./aiSearchGuard";
 import { initializeUnitPresentationFields } from "./unitPresentationFields";
 import {
@@ -322,7 +323,7 @@ import {
 import { StunStars } from "./StunStars";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
-export type TexResolver = (name: string) => Texture | undefined;
+export type TexResolver = (name: string, options?: TextureLoadOptions) => Texture | undefined;
 
 interface CreatureBoundsCacheState {
     texture: Texture;
@@ -3566,6 +3567,20 @@ export class RenderableUnit extends Unit {
         if (texture) this.baseTexture = texture;
         return texture;
     }
+    private requestVisibleIdleTextures(): void {
+        const name = this.getName();
+        const width = this.getFootprintWidth();
+        const height = this.getFootprintHeight();
+        const keys = approvedAnimationAssetKeysForUnit(name).filter((key) => /_(idle|default)_/.test(key));
+        const resting = getDefaultAnimationConfig(name, width, height);
+        if (resting) keys.push(resting.imageKey);
+        // The native idle pager waits for this independently resident neutral pose before it starts.
+        if (this.arbalesterLabIdleEnabled && name === ARBALESTER_UNIT_NAME) {
+            const neutral = getAnimationStateConfig(name, "hit", width, height);
+            if (neutral) keys.push(neutral.imageKey);
+        }
+        for (const key of new Set(keys)) this.texResolver(key, { priority: "visible", group: this });
+    }
     public ensureVisual(worldRoot: Container, gs: GridSettings, now = performance.now()): number | undefined {
         if (this.isDestroyed) return;
         this.duplicateIdleOrdinal = duplicateIdleOrdinal(
@@ -3589,6 +3604,9 @@ export class RenderableUnit extends Unit {
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.resolveBaseTexture();
+        // A placement preview is already visible work. Start/promote its idle before returning for a
+        // cold cutout, rather than queueing it behind other units' optional attack and death sheets.
+        if (hasAuthoredIdle && !this.selectionAnimFrames?.length) this.requestVisibleIdleTextures();
         if (!baseTex) {
             // No board image yet: a team token and the stack count stand in until the cutout arrives.
             const inheritedScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
