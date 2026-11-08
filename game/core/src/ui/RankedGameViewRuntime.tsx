@@ -3561,6 +3561,19 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         }
     }, [augmentOverlayOpen, cancelAugmentInspectEnd]);
 
+    if (replayOnly) {
+        if (error) return <Alert sx={hocDangerAlertSx}>{error}</Alert>;
+        if (gameStarted) return null;
+        return (
+            <Stack direction="row" spacing={1} alignItems="center" role="status" sx={{ p: 1.25 }}>
+                <CircularProgress size="sm" sx={hocSpinnerSx} />
+                <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                    {t("Preparing replay")}
+                </Typography>
+            </Stack>
+        );
+    }
+
     const confirmExitModal = (
         <ExitMatchDialog
             open={confirmExitOpen}

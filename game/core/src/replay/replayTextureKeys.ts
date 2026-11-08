@@ -34,14 +34,18 @@ export function replayActionTextureKeys(previous: SandboxSceneState, record: San
         else if (value && typeof value === "object") Object.values(value).forEach(visit);
     };
     visit(record.action);
-    visit(record.events);
+    for (const event of record.events) {
+        if (event.type !== "next_unit_selected") visit(event);
+    }
     const previousIds = new Set(previous.units.map((unit) => unit.properties.id));
     for (const unit of record.stateAfter.units) {
         if (!previousIds.has(unit.properties.id)) names.add(unit.properties.name);
     }
     for (const name of names) {
         keys.add(unitToTextureName(name, TextureType.SMALL));
-        for (const key of approvedAnimationAssetKeysForUnit(name)) keys.add(key);
+        for (const key of approvedAnimationAssetKeysForUnit(name)) {
+            if (!/_(idle|default)_/.test(key)) keys.add(key);
+        }
     }
     // Projectiles and effect pops already await their own exact assets, as in live battles. Loading every
     // spell, ability card and effect here would put unrelated artwork back in front of the first turn.
