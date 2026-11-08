@@ -1,7 +1,7 @@
 import { effectsGain, subscribeAudioLevels } from "../../settings/audioLevels";
 import manifest from "./combatSoundManifest.json";
 
-export type CombatSoundRole = "attack" | "hurt";
+export type CombatSoundRole = "attack" | "hurt" | "move";
 export interface ICombatSoundSource {
     key: string;
     webm: string;
@@ -13,6 +13,7 @@ interface ICombatSoundEntry {
     slug: string;
     attack: { durationMs: number; revision: string };
     hurt: { durationMs: number; revision: string };
+    move?: { durationMs: number; revision: string };
 }
 
 const catalog: Readonly<Record<string, ICombatSoundEntry>> = manifest;
@@ -41,6 +42,7 @@ export const resolveCombatSound = (
     if (!Object.hasOwn(catalog, sourceName)) return undefined;
     const entry = catalog[sourceName];
     const sound = entry[role];
+    if (!sound) return undefined;
     const base = `/audio/combat/${entry.slug}_${role}`;
     return {
         key: `${base}:${sound.revision}`,
@@ -53,7 +55,7 @@ export const resolveCombatSound = (
 export interface ICombatSoundPlayerDeps {
     /** Loads and decodes once; a failed Opus decode must fall back to MP3. */
     load(source: ICombatSoundSource): Promise<unknown>;
-    start(buffer: unknown): boolean | void;
+    start(buffer: unknown, options?: { loop: boolean; gain: number }): boolean | void | (() => void);
     gain(): number;
     now(): number;
     available(): boolean;
@@ -63,6 +65,7 @@ export interface ICombatSoundPlayerDeps {
 export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
     const buffers = new Map<string, Promise<unknown>>();
     const requests = new Map<string, number>();
+    const loops = new Map<string, () => void>();
     let epoch = 0;
     const load = (source: ICombatSoundSource): Promise<unknown> => {
         let pending = buffers.get(source.key);
@@ -111,11 +114,47 @@ export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
         stop(): void {
             epoch += 1;
             requests.clear();
+            for (const stop of loops.values()) stop();
+        },
+        loop(name: string, identity: string, alive = () => true): () => void {
+            loops.get(identity)?.();
+            let stopped = false;
+            let stopVoice: (() => void) | undefined;
+            const stop = () => {
+                if (stopped) return;
+                stopped = true;
+                stopVoice?.();
+                if (loops.get(identity) === stop) loops.delete(identity);
+            };
+            const source = resolveCombatSound(name, "move");
+            if (!source || deps.gain() <= 0 || !deps.available() || !alive()) return stop;
+            const at = deps.now();
+            const startedEpoch = epoch;
+            loops.set(identity, stop);
+            void load(source)
+                .then((buffer) => {
+                    if (
+                        stopped ||
+                        epoch !== startedEpoch ||
+                        deps.now() - at > 150 ||
+                        deps.gain() <= 0 ||
+                        !deps.available() ||
+                        !alive()
+                    ) {
+                        stop();
+                        return;
+                    }
+                    const result = deps.start(buffer, { loop: true, gain: 0.65 });
+                    if (typeof result === "function") stopVoice = result;
+                    else stop();
+                })
+                .catch(stop);
+            return stop;
         },
         preload(names: Iterable<string>): void {
             if (deps.gain() <= 0 || !deps.available()) return;
             for (const name of new Set(names)) {
-                for (const role of ["attack", "hurt"] as const) {
+                for (const role of ["attack", "hurt", "move"] as const) {
                     for (const melee of role === "attack" ? [false, true] : [false]) {
                         const source = resolveCombatSound(name, role, melee);
                         if (source) void load(source).catch(() => undefined);
@@ -192,23 +231,44 @@ const player = createCombatSoundPlayer({
         }
         throw new Error("Combat sound unavailable");
     },
-    start(buffer) {
+    start(buffer, options) {
         if (!context || !bus || context.state !== "running" || voices.size >= 6) return false;
         const voice = context.createBufferSource();
         voice.buffer = buffer as AudioBuffer;
-        voice.connect(bus);
+        voice.loop = options?.loop ?? false;
+        const envelope = options?.loop ? context.createGain() : undefined;
+        if (envelope) {
+            envelope.gain.setValueAtTime(0, context.currentTime);
+            envelope.gain.linearRampToValueAtTime(options?.gain ?? 1, context.currentTime + 0.02);
+            voice.connect(envelope).connect(bus);
+        } else voice.connect(bus);
         voices.add(voice);
         voice.onended = () => {
             voices.delete(voice);
             voice.disconnect();
+            envelope?.disconnect();
         };
         voice.start();
+        if (envelope) {
+            let stopped = false;
+            return () => {
+                if (stopped || !context) return;
+                stopped = true;
+                envelope.gain.cancelAndHoldAtTime(context.currentTime);
+                envelope.gain.linearRampToValueAtTime(0, context.currentTime + 0.03);
+                voice.stop(context.currentTime + 0.035);
+            };
+        }
         return true;
     },
 });
 
 /** Preload only the units in this battle, keeping the rest of the library off the network. */
 export const preloadCombatSounds = (names: Iterable<string>): void => player.preload(names);
+
+/** The move animation owns this handle, including cancellation before decoding completes. */
+export const startMovementSound = (name: string, identity: string, alive?: () => boolean): (() => void) =>
+    player.loop(name, identity, alive);
 
 /** Provided game effects share the same decoded cache, effects bus, and scene cancellation. */
 export const preloadEffectSounds = (sources: Iterable<ICombatSoundSource>): void => player.preloadSources(sources);

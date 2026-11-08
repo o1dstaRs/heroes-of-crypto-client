@@ -146,16 +146,18 @@
     </style>
     <h1>Combat sound audition</h1>
     <p>
-        Original short attack and damage reactions for every creature. Mono Opus at 64 kbps, MP3 fallback at 96 kbps.
-        Mastered to −20 LUFS using a consistent repeated one-shot measurement, with encoded true peaks below −3 dBTP.
-        Waveforms show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or
-        artistic fit: compare the sounds at the same volume here.
+        Attack, damage, and movement sounds for every creature. Movement recordings loop while the unit travels. Empty
+        movement slots are ready for your selected recordings. Mono Opus at 64 kbps, MP3 fallback at 96 kbps. Mastered
+        to −20 LUFS using a consistent repeated one-shot measurement, with encoded true peaks below −3 dBTP. Waveforms
+        show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or artistic fit:
+        compare the sounds at the same volume here.
     </p>
     <input id="search" placeholder="Find a unit or spell…" aria-label="Find a unit or spell" />
     <select id="role" aria-label="Sound role">
         <option value="">All sounds</option>
         <option value="attack">Attacks</option>
         <option value="hurt">Damage received</option>
+        <option value="move">Movement</option>
         <option value="cast">Spell casts</option>
     </select>
     <select id="codec" aria-label="Codec">
@@ -284,7 +286,8 @@
             const visible = filtered();
             const bytes = (codec) =>
                 sounds.reduce((n, c) => n + ((c.encoded && c.encoded[codec] && c.encoded[codec].bytes) || 0), 0);
-            const waiting = sounds.filter((c) => !c.encoded).length;
+            const waiting = sounds.filter((c) => !c.encoded && c.role === "cast").length;
+            const emptyMovement = sounds.filter((c) => !c.encoded && c.role === "move").length;
             $("totals").textContent =
                 sounds.filter((c) => c.encoded).length +
                 " sounds · Opus " +
@@ -293,11 +296,19 @@
                 (bytes("mp3") / 1048576).toFixed(2) +
                 " MiB" +
                 (waiting ? " · " + waiting + " spell placeholders" : "") +
+                (emptyMovement ? " · " + emptyMovement + " empty movement slots" : "") +
                 " · " +
                 visible.length +
                 " shown";
             $("rows").innerHTML = visible
                 .map((c) => {
+                    if (!c.encoded && c.role === "move") {
+                        return (
+                            "<tr><td>" +
+                            escape(c.unit) +
+                            '</td><td>movement</td><td><span class="muted">No sound selected</span></td><td></td><td>—</td><td>—</td><td></td></tr>'
+                        );
+                    }
                     if (!c.encoded) {
                         return (
                             "<tr><td>" +
@@ -321,7 +332,7 @@
                         "<tr><td>" +
                         escape(c.unit) +
                         "</td><td>" +
-                        c.role +
+                        (c.role === "move" ? "movement" : c.role) +
                         '</td><td><div class="row-actions"><button data-play="' +
                         c.slug +
                         "/" +
@@ -331,7 +342,7 @@
                         "/" +
                         c.role +
                         '">Original</button>' +
-                        (c.role === "event"
+                        (c.role === "event" || c.role === "move"
                             ? ""
                             : c.role === "cast"
                               ? '<button data-regenerate="' + c.slug + '/cast">Next sound</button>'

@@ -24,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from prepare_combat_audio import CORE, master, spell_placeholders, spell_rows_for_review, write_review
+from prepare_combat_audio import CORE, master, movement_rows_for_review, spell_placeholders, spell_rows_for_review, write_review
 from suno_mcp import SunoMcp, SunoToolError
 from sound_prompt_director import SoundPromptDirector, sound_context, validate_direction
 
@@ -70,20 +70,21 @@ def load_combat_report():
     if not isinstance(clips, list):
         raise ValueError("The audition page has invalid sound data")
     active = {unit["slug"] for unit in json.loads((CORE / "audio/combat-sound-design.json").read_text())["units"]}
-    clips = [clip for clip in clips if clip.get("role") in ("attack", "hurt") and clip.get("slug") in active]
+    clips = [clip for clip in clips if clip.get("role") in ("attack", "hurt", "move") and clip.get("slug") in active
+             and (clip.get("role") != "move" or clip.get("encoded"))]
     if not clips:
         raise ValueError("The audition page has no saved creature sounds")
     return {**report, "clips": clips}
 
 
 def design_entry(slug, role):
-    if role not in ("attack", "hurt"):
+    if role not in ("attack", "hurt", "move"):
         raise ValueError("Unknown combat sound role")
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     unit = next((u for u in design["units"] if u["slug"] == slug), None)
     if not unit:
         raise ValueError("Unknown creature")
-    return unit, unit[role]
+    return unit, unit.get(role, {"duration_seconds": 1.6})
 
 
 FREESOUND_CREDENTIALS = Path.home() / ".config/freesound/credentials.json"
@@ -327,11 +328,15 @@ def apply_candidate(job, index):
     provenance = json.loads(provenance_path.read_text())
     clip = {k: result[k] for k in ("unit", "slug", "role", "source_id", "source", "encoded")}
     provenance["clips"] = [clip if c["slug"] == slug and c["role"] == role else c for c in provenance["clips"]]
+    if not any(c["slug"] == slug and c["role"] == role for c in provenance["clips"]):
+        provenance["clips"].append(clip)
     provenance["provider"] = ("Mixed: see individual clip sources" if any(c.get("source", {}).get("kind")
                               in ("library", "user-provided", "suno-mcp") for c in provenance["clips"]) else "ElevenLabs")
     save_json(provenance_path, provenance, 4)
     report_path = WORK / "mastering-report.json"
     report["clips"] = [result if c["slug"] == slug and c["role"] == role else c for c in report["clips"]]
+    if not any(c["slug"] == slug and c["role"] == role for c in report["clips"]):
+        report["clips"].append(result)
     write_review(WORK, report["clips"])
     save_json(report_path, report)
     job["applied_index"] = index
@@ -431,6 +436,8 @@ class ReviewService:
             raise ValueError("Unknown regeneration mode")
         if role == "cast":
             return self.regenerate_spell(slug, request_id)
+        if role == "move":
+            raise ValueError("Movement sounds use selected recordings; generation is not enabled")
         if provider not in ("elevenlabs", "suno"):
             raise ValueError("Unknown sound provider")
         unit, defaults = design_entry(slug, role)
@@ -784,7 +791,9 @@ class ReviewHandler(SimpleHTTPRequestHandler):
                                                "or tmp/audio/mastering-report.json, then reopen this dialog."})
             nodes_file = WORK / "nodes.json"
             flow_id = json.loads(nodes_file.read_text()).get("flow_id") if nodes_file.exists() else None
-            combat = [clip for clip in report["clips"] if clip.get("role") != "cast"]
+            combat = [clip for clip in report["clips"] if clip.get("role") in ("attack", "hurt")]
+            combat += movement_rows_for_review(report["clips"])
+            combat.sort(key=lambda clip: (clip["unit"], clip["role"]))
             return self.json_response(200, {"sounds": combat + spell_rows_for_review(WORK),
                                       "can_generate": bool(service.api_key),
                                       "providers": service.providers(),

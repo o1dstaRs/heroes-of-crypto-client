@@ -732,6 +732,53 @@ class AudioReviewTests(unittest.TestCase):
         self.assertEqual((assets / "abomination_attack.webm").read_bytes(), b"previous attack")
         self.assertEqual((assets / "abomination_attack.mp3").read_bytes(), b"previous attack")
 
+    def test_selected_movement_survives_apply_recovery_and_remaster_source_collection(self):
+        assets, job = self.fixture()
+        job["role"] = "move"
+        candidate = job["candidates"][0]
+        candidate["result"]["role"] = "move"
+        original = self.root / candidate["path"]
+        original.parent.mkdir(parents=True)
+        original.write_bytes(b"selected movement recording")
+        # Adding a previously empty role must preserve both existing combat cues.
+        review.apply_candidate(job, 0)
+        review.apply_candidate(job, 0)
+        manifest = json.loads((self.root / "src/ui/audio/combatSoundManifest.json").read_text())
+        self.assertEqual(manifest["Abomination"]["attack"]["revision"], "old")
+        self.assertEqual(manifest["Abomination"]["hurt"]["revision"], "keep")
+        self.assertEqual(manifest["Abomination"]["move"]["durationMs"], 350)
+        for codec, data in (("webm", b"mastered opus"), ("mp3", b"mastered mp3")):
+            self.assertEqual((assets / ("abomination_move." + codec)).read_bytes(), data)
+            self.assertEqual((assets / ("abomination_attack." + codec)).read_bytes(), b"previous attack")
+            self.assertEqual((assets / ("abomination_hurt." + codec)).read_bytes(), b"keep hurt")
+        for path in (self.root / "audio/combat-sound-provenance.json", self.work / "mastering-report.json"):
+            clips = json.loads(path.read_text())["clips"]
+            self.assertEqual([c["role"] for c in clips], ["attack", "hurt", "move"])
+        (self.work / "mastering-report.json").unlink()
+        recovered = review.load_combat_report()["clips"]
+        self.assertEqual([c["role"] for c in recovered], ["attack", "hurt", "move"])
+        units = json.loads((self.root / "audio/combat-sound-design.json").read_text())["units"]
+        groups = mastering.collect_sources(self.work / "receipts", units, self.work / "raw")
+        self.assertEqual(set(groups), {"abomination/move"})
+        self.assertEqual(groups["abomination/move"][0]["path"], original.resolve())
+        self.assertEqual(groups["abomination/move"][0]["source"], candidate["source"])
+
+    def test_movement_slots_cover_current_roster_without_generating_missing_sounds(self):
+        selected = {"unit": "Champion", "slug": "champion", "role": "move", "encoded": {"webm": {}}}
+        retired = {"unit": "Zombie", "slug": "zombie", "role": "move", "encoded": {"webm": {}}}
+        rows = mastering.movement_rows_for_review([selected, retired])
+        units = json.loads((self.root / "audio/combat-sound-design.json").read_text())["units"]
+        self.assertEqual({r["slug"] for r in rows}, {u["slug"] for u in units})
+        self.assertEqual([r for r in rows if r.get("encoded")], [selected])
+        self.assertTrue(all(r.get("placeholder") and "encoded" not in r for r in rows if r != selected))
+        suno = FakeSuno()
+        service = review.ReviewService(api_key="test", suno=suno)
+        with self.assertRaisesRegex(ValueError, "generation is not enabled"):
+            service.regenerate("champion", "move", "Horse galloping", "movement-0000000000000001",
+                               provider="suno")
+        self.assertEqual(suno.calls, [])
+        self.assertFalse(self.jobs.exists())
+
     def test_selected_generated_prompt_becomes_the_default_for_later_regeneration(self):
         _, job = self.fixture()
         prompt = "One sharp dry heavy steel sword slash through the air"

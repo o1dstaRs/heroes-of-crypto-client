@@ -228,5 +228,181 @@
             "duration_limit_ms": 800,
             "source_site": "https://uppbeat.io/"
         }
+    },
+    "white-tiger/attack": {
+        "source_id": "provided-c5d761a0e37f3717af95-4080-5500",
+        "path": "tmp/audio/raw/provided/c5d761a0e37f3717/excerpt-4080-5500.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "lion-attacking-growl-gfx-sounds-2-2-00-05.mp3",
+            "title": "Lion - attacking growl",
+            "author": "GFX Sounds",
+            "sha256": "c5d761a0e37f3717af95b0bf78a57b9c32425546bad3fece255ad42f0a41ecd9",
+            "label": "Final growl",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 4080,
+                "end_ms": 5500,
+                "original_duration_ms": 5975,
+                "original_path": "tmp/audio/raw/provided/c5d761a0e37f3717/lion-attacking-growl-gfx-sounds-2-2-00-05.mp3",
+                "sha256": "9d326e4698a0f752ce68c05d8d6dd24e9a372792e61ef046b85957c419f4e0c2",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-c5d761a0e37f3717af95-4080-5500"
+        }
+    },
+    "thunderbird/hurt": {
+        "source_id": "provided-a137fc38a3ddb00c683c-0-1050",
+        "path": "tmp/audio/raw/provided/a137fc38a3ddb00c/excerpt-0-1050.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "tropical-bird-squawk-ra-music-1-00-03.mp3",
+            "title": "Tropical bird squawk",
+            "author": "RA Music",
+            "sha256": "a137fc38a3ddb00c683c3d5cd721df62ed956a2d27010b833c2aa8430f6995b1",
+            "label": "Opening squawk",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 1050,
+                "original_duration_ms": 3000,
+                "original_path": "tmp/audio/raw/provided/a137fc38a3ddb00c/tropical-bird-squawk-ra-music-1-00-03.mp3",
+                "sha256": "838b84e6314f00ca9c2191571da72c34d341589da5749837d136762bbecb9f47",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-a137fc38a3ddb00c683c-0-1050"
+        }
+    },
+    "unicorn/hurt": {
+        "source_id": "provided-25b8bf6edeb3e1fd4039",
+        "path": "tmp/audio/raw/provided/25b8bf6edeb3e1fd/horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3",
+            "title": "Horse whinny - cartoon squeal",
+            "author": "Epic Stock Media",
+            "sha256": "25b8bf6edeb3e1fd4039c2c67c559c0d6fce7fa3a873be3f5808649224363580",
+            "label": "Complete whinny",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-25b8bf6edeb3e1fd4039"
+        }
+    },
+    "hydra/attack": {
+        "source_id": "provided-a8cbc9c50d4aaa4ed9e5-50-1400",
+        "path": "tmp/audio/raw/provided/a8cbc9c50d4aaa4e/excerpt-50-1400.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3",
+            "title": "Snake hissing - long",
+            "author": "SmartSound FX",
+            "sha256": "a8cbc9c50d4aaa4ed9e5e95f9df20ba092dd3cdd85c23f0096d822b7206f9564",
+            "label": "Opening hiss",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 50,
+                "end_ms": 1400,
+                "original_duration_ms": 2643,
+                "original_path": "tmp/audio/raw/provided/a8cbc9c50d4aaa4e/snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3",
+                "sha256": "b8218c91958e15bb0e1bd7ab8e45a8e394a38b99c6c8c4cb16996c5698818f85",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-a8cbc9c50d4aaa4ed9e5-50-1400"
+        }
+    },
+    "champion/move": {
+        "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+        "path": "tmp/audio/raw/provided/3f8e33cad85e9656/excerpt-1350-2820.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+            "title": "Horse galloping - ambient loop",
+            "author": "Bosnow",
+            "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+            "label": "Three-stride gallop loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1350,
+                "end_ms": 2820,
+                "original_duration_ms": 16331,
+                "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+        }
+    },
+    "unicorn/move": {
+        "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+        "path": "tmp/audio/raw/provided/3f8e33cad85e9656/excerpt-1350-2820.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+            "title": "Horse galloping - ambient loop",
+            "author": "Bosnow",
+            "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+            "label": "Three-stride gallop loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1350,
+                "end_ms": 2820,
+                "original_duration_ms": 16331,
+                "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+        }
+    },
+    "nightmare/move": {
+        "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+        "path": "tmp/audio/raw/provided/3f8e33cad85e9656/excerpt-1350-2820.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+            "title": "Horse galloping - ambient loop",
+            "author": "Bosnow",
+            "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+            "label": "Three-stride gallop loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1350,
+                "end_ms": 2820,
+                "original_duration_ms": 16331,
+                "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+        }
     }
 }

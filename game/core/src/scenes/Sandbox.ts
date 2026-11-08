@@ -5,7 +5,13 @@ import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } f
 import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 import { chakramContactPath } from "./sandbox/chakramContactPath";
 import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
-import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
+import {
+    playCombatSound,
+    preloadCombatSounds,
+    startMovementSound,
+    stopCombatSounds,
+    type CombatSoundRole,
+} from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { glyphScaleX } from "../pixi/boardMirror";
@@ -1225,6 +1231,8 @@ export class Sandbox extends PixiScene {
         this.rollScatteredMountains();
 
         this.moveAnimManager = new MoveAnimationManager({
+            startMovementSound: (unit) =>
+                startMovementSound(unit.getName(), unit.getId(), () => !this.isSceneDestroyed()),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             updateSceneLog: (msg) => this.sc_sceneLog.updateLog(msg),
             finishTurn: () => this.finishTurn(),

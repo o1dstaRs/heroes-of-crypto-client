@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import creatures from "../../../../heroes-of-crypto-common/src/configuration/creatures.json";
-import { createCombatSoundPlayer, resolveCombatSound } from "./combatSounds";
+import { createCombatSoundPlayer, resolveCombatSound, type CombatSoundRole } from "./combatSounds";
 import manifest from "./combatSoundManifest.json";
 import provenance from "../../../audio/combat-sound-provenance.json";
 
@@ -52,7 +52,9 @@ describe("combat sounds", () => {
     });
 
     test("ships both valid containers for every clip within the measured loudness and size budget", () => {
-        expect(provenance.clips).toHaveLength(Object.keys(manifest).length * 2);
+        expect(provenance.clips).toHaveLength(
+            Object.values(manifest).reduce((count, entry) => count + Object.keys(entry).length - 1, 0),
+        );
         for (const clip of provenance.clips) {
             const webm = readFileSync(
                 new URL(`../../../public/audio/combat/${clip.slug}_${clip.role}.webm`, import.meta.url),
@@ -75,7 +77,7 @@ describe("combat sounds", () => {
                 expect(measured.duration_ms).toBeLessThanOrEqual(1600);
             }
             const revision = new Bun.CryptoHasher("sha256").update(webm).update(mp3).digest("hex").slice(0, 10);
-            const source = resolveCombatSound(clip.unit, clip.role as "attack" | "hurt");
+            const source = resolveCombatSound(clip.unit, clip.role as CombatSoundRole);
             expect(source?.webm).toEndWith(`?v=${revision}`);
         }
     });

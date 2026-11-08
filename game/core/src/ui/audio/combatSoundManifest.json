@@ -151,6 +151,10 @@
         "hurt": {
             "durationMs": 429,
             "revision": "49716d2ab1"
+        },
+        "move": {
+            "durationMs": 1470,
+            "revision": "e61d6bbbd7"
         }
     },
     "Fairy": {
@@ -200,8 +204,8 @@
     "White Tiger": {
         "slug": "white-tiger",
         "attack": {
-            "durationMs": 735,
-            "revision": "ae61b57b37"
+            "durationMs": 1355,
+            "revision": "d0373a41d1"
         },
         "hurt": {
             "durationMs": 550,
@@ -248,8 +252,12 @@
             "revision": "55e4dcb866"
         },
         "hurt": {
-            "durationMs": 820,
-            "revision": "5c61fed14e"
+            "durationMs": 939,
+            "revision": "0a856c9b42"
+        },
+        "move": {
+            "durationMs": 1470,
+            "revision": "37a977c3fa"
         }
     },
     "Mantis": {
@@ -442,8 +450,8 @@
     "Hydra": {
         "slug": "hydra",
         "attack": {
-            "durationMs": 955,
-            "revision": "4fbb057c0f"
+            "durationMs": 1350,
+            "revision": "fad46cb24c"
         },
         "hurt": {
             "durationMs": 780,
@@ -492,6 +500,10 @@
         "hurt": {
             "durationMs": 940,
             "revision": "e5bff924a9"
+        },
+        "move": {
+            "durationMs": 1470,
+            "revision": "c25cad967b"
         }
     },
     "Mermaid": {
@@ -622,8 +634,8 @@
             "revision": "8f0f09df49"
         },
         "hurt": {
-            "durationMs": 595,
-            "revision": "998b351611"
+            "durationMs": 1039,
+            "revision": "8bedb7f8f5"
         }
     },
     "Behemoth": {
