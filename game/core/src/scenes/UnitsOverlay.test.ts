@@ -1,5 +1,5 @@
-import { describe, expect, spyOn, test } from "bun:test";
-import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { Assets, Container, DOMAdapter, Graphics, Sprite, Texture } from "pixi.js";
 
 import type { UnitProperties } from "@heroesofcrypto/common";
 import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
@@ -30,6 +30,12 @@ import {
     unitsOverlayTopBandLayout,
     UnitsOverlay,
 } from "./UnitsOverlay";
+
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 type OverlayInternals = {
     allChips: UnitChip[];
@@ -697,7 +703,8 @@ describe("UnitsOverlay chip visibility", () => {
         expect(nature.portraitBackgroundOpacity).toBe(1);
         expect(might.portraitBackgroundOpacity).toBe(1);
         expect(life.portraitBackgroundShadeAlpha).toBeCloseTo(0.2134, 6);
-        expect(chaos.portraitBackgroundShadeAlpha).toBeCloseTo(0.2134, 6);
+        expect(chaos.portraitBackgroundShadeAlpha).toBeCloseTo(0.126, 6);
+        expect(chaos.portraitBackground?.filters).toHaveLength(1);
         expect(nature.portraitBackgroundShadeAlpha).toBeCloseTo(0.126, 6);
         expect(might.portraitBackgroundShadeAlpha).toBeCloseTo(0.126, 6);
         for (const portrait of [life, chaos, nature, might]) {

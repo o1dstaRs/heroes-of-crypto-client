@@ -4,7 +4,7 @@ import { images } from "../imageAssets";
 
 const PREVIOUS_PORTRAIT_BACKGROUND_SHADE_ALPHA = 0.08;
 const ALL_BACKGROUNDS_ADDITIONAL_SHADE_ALPHA = 0.05;
-const LIFE_CHAOS_ADDITIONAL_SHADE_ALPHA = 0.1;
+const LIFE_ADDITIONAL_SHADE_ALPHA = 0.1;
 
 const compositeBlackShadeAlpha = (baseAlpha: number, additionalAlpha: number): number =>
     1 - (1 - baseAlpha) * (1 - additionalAlpha);
@@ -15,11 +15,11 @@ export const CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA = compositeBlackShadeAlpha
     ALL_BACKGROUNDS_ADDITIONAL_SHADE_ALPHA,
 );
 
-/** Life and Chaos receive another ten-percent layer; creature artwork is never shaded. */
+/** Chaos keeps the lighter base veil so dark scales stand apart from its lifted obsidian plate. */
 export const creaturePortraitBackgroundShadeAlpha = (creatureId: number): number => {
     const faction = CreatureFactionsMap[creatureId];
-    return faction === FactionVals.LIFE || faction === FactionVals.CHAOS
-        ? compositeBlackShadeAlpha(CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA, LIFE_CHAOS_ADDITIONAL_SHADE_ALPHA)
+    return faction === FactionVals.LIFE
+        ? compositeBlackShadeAlpha(CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA, LIFE_ADDITIONAL_SHADE_ALPHA)
         : CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
 };
 

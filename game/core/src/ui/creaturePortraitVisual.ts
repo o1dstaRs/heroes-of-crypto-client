@@ -1,4 +1,4 @@
-import { CreatureVals } from "@heroesofcrypto/common";
+import { CreatureFactionsMap, CreatureVals, FactionVals } from "@heroesofcrypto/common";
 
 import {
     creaturePortraitBackgroundOpacity,
@@ -7,12 +7,15 @@ import {
 } from "./creaturePortraitBackground";
 import { resolvePortraitFraming, type PortraitFraming } from "./portraitFraming";
 import { fullBodyCreatureImage, UNIT_ID_TO_IMAGE } from "./unit_ui_constants";
+import type { CreaturePortraitArtPalette, CreaturePortraitBackgroundTone } from "./creaturePortraitPalette";
 
 export interface CreaturePortraitVisual {
     source: string;
     background?: string;
     backgroundOpacity: number;
     backgroundShadeAlpha: number;
+    backgroundTone?: CreaturePortraitBackgroundTone;
+    artPalette?: CreaturePortraitArtPalette;
     framing: PortraitFraming;
     /** The creature artwork is drawn flipped horizontally; the faction background is never mirrored. */
     mirrored: boolean;
@@ -106,6 +109,8 @@ export const resolveCreaturePortraitVisual = (creatureId: number): CreaturePortr
         background: resolveCreaturePortraitBackground(creatureId),
         backgroundOpacity: creaturePortraitBackgroundOpacity(creatureId),
         backgroundShadeAlpha: creaturePortraitBackgroundShadeAlpha(creatureId),
+        backgroundTone: CreatureFactionsMap[creatureId] === FactionVals.CHAOS ? "chaos" : undefined,
+        artPalette: creatureId === CreatureVals.HYDRA ? "hydra" : undefined,
         framing,
         mirrored: isCreaturePortraitMirrored(creatureId),
     };
