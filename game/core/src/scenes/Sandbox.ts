@@ -5572,6 +5572,10 @@ export class Sandbox extends PixiScene {
                                 absolvingProgress,
                             );
                             await Promise.all([attack, chakramFlight]);
+                            // The exchange owns the ricochets and final return. Restore the held weapon
+                            // only after that flight finishes, before waiting for Zena's recovery cels.
+                            if (isChakramFlight && source.getName() === "Zena" && !this.isSceneDestroyed())
+                                source.catchZenaChakram?.();
                             // Projectile arrival can precede the authored shooter's recovery frames.
                             if (usesAuthoredRangedRelease(source.getName()))
                                 await this.waitForProjectileHitReaction(source);
@@ -5943,13 +5947,21 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
-        chakram?: boolean,
+        exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): Promise<void> {
         await this.fireUnitProjectile(
             attacker,
-            this.getReplayProjectileOptions(attacker, target, toPosition, onImpact, chakram, onProgress, damage),
+            this.getReplayProjectileOptions(
+                attacker,
+                target,
+                toPosition,
+                onImpact,
+                exchangeChakram,
+                onProgress,
+                damage,
+            ),
         );
     }
     private getReplayProjectileOptions(
@@ -5957,7 +5969,7 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
-        chakram?: boolean,
+        exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): IFireProjectileOptions {
@@ -5984,7 +5996,10 @@ export class Sandbox extends PixiScene {
             cannonImpactPosition: cannon ? targetPosition : undefined,
             cannonballDiameter: cannon ? gs.getCellSize() : undefined,
             big: bigProjectile,
-            chakram: chakram ?? attacker.hasAbilityActive("Chakram"),
+            chakram: exchangeChakram ?? attacker.hasAbilityActive("Chakram"),
+            // An exchange starts its continuation at primary contact. Auto-returning this first leg
+            // as well would leave two discs alive. Standalone throws still return and catch themselves.
+            chakramDeferReturn: exchangeChakram === true,
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
             arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
             centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
