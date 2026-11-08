@@ -260,7 +260,7 @@ export function premiumCrewArtifactBenefit(slug: string, ids: readonly number[],
 
 export function premiumCrewShell(lang: Lang): string {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
-    return `<section id="premium-crew" class="premium-section premium-crew"><header class="premium-section-heading"><span>02</span><div><h2>${t("Build your crew", "Соберите армию")}</h2><p>${t("Six units are already placed. Click a unit to swap it and update the formation, artifacts and faction bonuses.", "Шесть юнитов уже на поле. Нажмите на юнита, чтобы заменить его и обновить расстановку, артефакты и бонусы фракций.")}</p></div></header><div data-crew-content></div></section>`;
+    return `<section id="premium-crew" class="premium-section premium-crew"><header class="premium-section-heading"><span>02</span><div><h2>${t("Build your crew", "Соберите армию")}</h2><p>${t("Start with six units on the board. Click a unit to swap it and update the formation, artifacts and faction bonuses.", "Начните с шести юнитов на поле. Нажмите на юнита, чтобы заменить его и обновить расстановку, артефакты и бонусы фракций.")}</p></div></header><div data-crew-content></div></section>`;
 }
 
 export function renderPremiumCrew(
