@@ -12,6 +12,7 @@ import { fetchPublicRankedMatch, type PublicRankedMatch } from "../../api/ranked
 import type { PlayExitResolution } from "../../api/play_protocol";
 import { ExitResultBanner } from "../exitRules/ExitResultBanner";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
+import { PlayerRankedRecord } from "../PlayerRankedRecord";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -236,7 +237,7 @@ const CasualtyColumn: React.FC<{
         Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)),
     );
     return (
-        <Box sx={{ flex: 1, minWidth: 220 }}>
+        <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 220 } }}>
             <Stack
                 direction="row"
                 spacing={1}
@@ -687,7 +688,7 @@ const participantStanding = (participant: ResultParticipant): string => {
     );
 };
 
-const ResultParticipantCard: React.FC<{
+export const ResultParticipantCard: React.FC<{
     participant: ResultParticipant;
     reversed?: boolean;
     showRankedDetails?: boolean;
@@ -759,11 +760,13 @@ const ResultParticipantCard: React.FC<{
 
     return (
         <Box
+            data-result-player-card={participant.team}
             sx={{
                 position: "relative",
                 flex: "1 1 0",
                 minWidth: 0,
-                height: 118,
+                minHeight: 118,
+                py: 1,
                 px: 1.5,
                 display: "flex",
                 flexDirection: reversed ? "row-reverse" : "row",
@@ -882,6 +885,14 @@ const ResultParticipantCard: React.FC<{
                                     : "MMR —"}
                         </Typography>
                     </>
+                )}
+                {!participant.isAi && (
+                    <PlayerRankedRecord
+                        profile={participant.profile}
+                        color={color}
+                        reversed={reversed}
+                        compact={false}
+                    />
                 )}
                 <Stack
                     direction={reversed ? "row-reverse" : "row"}
@@ -1021,7 +1032,7 @@ interface FightResultPlayerRef {
 }
 
 interface FightFinishedOverlayProps {
-    mode?: "sandbox" | "ranked";
+    mode?: "sandbox" | "ranked" | "vs-ai";
     canReplay?: boolean;
     /** Ranked game id used to load the authoritative post-match MMR and gold settlement. */
     gameId?: string;
@@ -1146,7 +1157,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             setProfiles(RESULTS_PREVIEW_PROFILES);
             return undefined;
         }
-        if (mode !== "ranked") {
+        if (mode === "sandbox") {
             setProfiles({});
             return undefined;
         }
@@ -1172,7 +1183,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             cancelled = true;
         };
         // profileKey represents the stable seat identities; profileCandidates itself is rebuilt while rendering.
-    }, [mode, previewMode, profileKey]);
+    }, [mode, previewMode, profileKey, liveState.hasFinished, rankedMatch]);
 
     // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
     // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
@@ -1351,7 +1362,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     maxHeight: "97.5vh",
                     display: "flex",
                     flexDirection: "column",
-                    overflow: "hidden",
+                    overflow: { xs: "auto", sm: "hidden" },
+                    overscrollBehavior: "contain",
                     isolation: "isolate",
                     textTransform: "uppercase",
                     borderRadius: "11px",
@@ -1441,7 +1453,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
                 {/* The fight is framed as two players, not two abstract team colours. Rank emblems
                     double as avatars; exact settlement numbers arrive from the public ranked result. */}
-                <Stack direction="row" spacing={0.9} sx={{ flexShrink: 0, mb: 0.8, px: 0.25 }}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={0.9} sx={{ flexShrink: 0, mb: 0.8, px: 0.25 }}>
                     <ResultParticipantCard
                         participant={resultParticipants[0]}
                         showRankedDetails={mode === "ranked" || !!previewMode}
@@ -1449,8 +1461,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     />
                     <Box
                         sx={{
-                            width: 126,
+                            width: { xs: "100%", sm: 126 },
                             height: 118,
+                            order: { xs: -1, sm: 0 },
                             flexShrink: 0,
                             display: "flex",
                             flexDirection: "column",
@@ -1510,8 +1523,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 lineHeight: 1,
                             }}
                         >
-                            {mode === "ranked" || previewMode ? "RANKED" : "BATTLE"} · {Math.max(0, stats.totalLaps)}{" "}
-                            LAPS
+                            {mode === "ranked" || previewMode ? "RANKED" : mode === "vs-ai" ? "VS AI" : "BATTLE"} ·{" "}
+                            {Math.max(0, stats.totalLaps)} LAPS
                         </Typography>
                     </Box>
                     <ResultParticipantCard
@@ -1527,7 +1540,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <ExitResultBanner exit={matchExit} ranked={exit?.ranked} viewerPlayerId={viewerPlayerId} />
                     </Box>
                 )}
-                <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0, mb: 1.25, px: 0.25 }}>
+                <Box
+                    sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" },
+                        gap: 0.75,
+                        flexShrink: 0,
+                        mb: 1.25,
+                        px: 0.25,
+                    }}
+                >
                     <CompactBattleStat label="LENGTH" value={`${Math.max(0, stats.totalLaps)} LAPS`} />
                     <CompactBattleStat
                         label="GREEN LOST"
@@ -1540,17 +1562,17 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         value={Math.round(topDamage).toLocaleString("en-US")}
                         valueColor="#d5ad61"
                     />
-                </Stack>
+                </Box>
 
                 {/* Only the damage list shrinks and scrolls when the card reaches the viewport limit.
                     Keep the chart, casualty rosters and action buttons visible. */}
                 <Box
                     sx={{
-                        flex: "1 1 auto",
-                        minHeight: 0,
+                        flex: { xs: "0 0 auto", sm: "1 1 auto" },
+                        minHeight: { xs: "auto", sm: 0 },
                         display: "flex",
                         flexDirection: "column",
-                        overflow: "hidden",
+                        overflow: { xs: "visible", sm: "hidden" },
                         pb: 1.5,
                     }}
                 >
@@ -1584,7 +1606,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
                     {/* Casualty rosters remain pinned to the bottom. */}
                     <Box sx={{ flexShrink: 0 }}>
-                        <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={3} sx={{ px: 1, pt: 2 }}>
                             <CasualtyColumn
                                 team={LOWER_TEAM}
                                 deaths={stats.leftDeaths}
@@ -1604,7 +1626,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 </Box>
 
                 <Stack
-                    direction="row"
+                    direction={{ xs: "column", sm: "row" }}
                     spacing={2}
                     sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
                 >
