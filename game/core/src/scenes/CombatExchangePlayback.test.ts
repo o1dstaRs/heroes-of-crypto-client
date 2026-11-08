@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import { createCombatSoundPlayer, type ICombatSoundSource } from "../ui/audio/combatSounds";
 
 const strike = (response = false, hitIndex = 0, lethal = false): CombatExchangeStrike => ({
     attackerId: response ? "B" : "A",
@@ -394,6 +395,67 @@ test("a miss has an attack sound but no hurt reaction", async () => {
     finish.splice(0).forEach((fn) => fn());
     await pending;
 });
+
+test.each([false, true])(
+    "Berserker's two recorded strikes both reach the audio player, first missed=%s",
+    async (missed) => {
+        const { scene, a, b, finish } = setup();
+        a.getName = () => "Berserker";
+        b.getName = () => "Squire";
+        scene.showAttackMissedVfx = () => {};
+        let now = 100;
+        const audible: { key: string; at: number }[] = [];
+        const loads: string[] = [];
+        const requests: Promise<boolean>[] = [];
+        const player = createCombatSoundPlayer({
+            now: () => now,
+            gain: () => 1,
+            available: () => true,
+            load: async (source) => {
+                loads.push(source.key);
+                return source;
+            },
+            start: (buffer) => {
+                audible.push({ key: (buffer as ICombatSoundSource).key, at: now });
+            },
+        });
+        scene.playUnitCombatSound = (unit: typeof a, role: "attack" | "hurt", melee = false) => {
+            requests.push(player.play(unit.getName(), role, unit.getId(), melee));
+        };
+        const event = {
+            attackType: "melee",
+            damage: {
+                amount: missed ? 10 : 20,
+                hits: [
+                    { amount: missed ? 0 : 10, unitsDied: 0, missed },
+                    { amount: 10, unitsDied: 0 },
+                ],
+            },
+        };
+        const plan = scene.buildCombatExchange(a, b, event, new Map(), new Set(), { amount: 5, unitsDied: 0 });
+        expect(plan.map((hit: CombatExchangeStrike) => [hit.attackerId, hit.hitIndex])).toEqual([
+            ["A", 0],
+            ["B", 0],
+            ["A", 1],
+        ]);
+        const pending = scene.playCombatExchange(a, b, event, plan, () => {});
+        await flush();
+        const berserkerAttacks = () => audible.filter((sound) => sound.key.includes("/berserker_attack:"));
+        expect(berserkerAttacks()).toHaveLength(1);
+        for (let phase = 0; phase < 4; phase++) {
+            now += 250;
+            finish.splice(0).forEach((done) => done());
+            await flush();
+        }
+        await pending;
+        expect((await Promise.all(requests)).every(Boolean)).toBe(true);
+        expect(berserkerAttacks()).toHaveLength(2);
+        expect(berserkerAttacks()[1].at).toBeGreaterThan(berserkerAttacks()[0].at);
+        expect(loads.filter((key) => key.includes("/berserker_attack:"))).toHaveLength(1);
+        expect(audible.filter((sound) => sound.key.includes("/squire_attack:"))).toHaveLength(1);
+        expect(audible.filter((sound) => sound.key.includes("/squire_hurt:"))).toHaveLength(missed ? 1 : 2);
+    },
+);
 
 test("ranged hurt audio waits for projectile contact", async () => {
     const { scene, a, b, finish } = setup();
