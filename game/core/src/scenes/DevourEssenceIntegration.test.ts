@@ -36,7 +36,7 @@ describe("Devour Essence healing and flag cue", () => {
             combatVisuals: { spawnDevourEssencePop },
         }) as Sandbox;
         expect(scene.playCreatureAnimationLabState("devour_essence").ok).toBe(true);
-        expect(spawnDevourEssencePop).toHaveBeenCalledWith(unit);
+        expect(spawnDevourEssencePop).toHaveBeenCalledWith(unit, "preview");
     });
 
     test.each([false, true])(

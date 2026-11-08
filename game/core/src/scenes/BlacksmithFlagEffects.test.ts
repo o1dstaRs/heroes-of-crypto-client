@@ -50,18 +50,13 @@ const cast = (spellName: string, outcome: string, unitId = "ally") =>
         },
     ] as GameEvent[];
 
-test("Craft announces the actual smith; successful recorded runes announce their recipient", () => {
+test("only successful recorded runes announce their recipient, without a smith badge", () => {
     const f = fixture();
-    expect(f.scene.showBlacksmithCraft(f.caster)).toBe(650);
+    expect(f.scene.showBlacksmithCraft(f.caster)).toBe(0);
     f.scene.renderCastOutcomes(cast("Armor Rune", "enchanted"));
     f.scene.renderCastOutcomes(cast("Weapon Rune", "enchanted"));
     f.scene.renderCastOutcomes(cast("Armor Rune", "enchanted", "smith"));
-    expect(f.pops).toEqual([
-        "smith:blacksmith_craft",
-        "ally:blacksmith_armor",
-        "ally:blacksmith_weapon",
-        "smith:blacksmith_armor",
-    ]);
+    expect(f.pops).toEqual(["ally:blacksmith_armor", "ally:blacksmith_weapon", "smith:blacksmith_armor"]);
     expect(f.flashes).toEqual(["ally", "ally", "smith"]);
 });
 
@@ -92,37 +87,33 @@ test("the lab exposes every smith craft result and rune", () => {
     }
 });
 
-test.each(Object.entries(BLACKSMITH_CRAFT_FLAGS))("Craft delivers %s only after the forge", (ability, kind) => {
-    const f = fixture();
-    const events = cast("Craft", ability.includes("Frozen") ? "frozen" : "double");
-    (events[0] as Extract<GameEvent, { type: "spell_cast" }>).outcomes![0].grantedAbility = ability;
-    expect(f.scene.renderSpellCastSequence(f.caster, "Craft", events)).toBe(1380);
-    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
-    expect(f.flashes).toEqual([]);
-    expect(f.prepared).toContain(kind);
-    expect(f.scheduled[0].delay).toBe(730);
-    f.scheduled[0].callback();
-    expect(f.pops).toEqual(["smith:blacksmith_craft", `ally:${kind}`]);
-    expect(f.flashes).toEqual(["ally"]);
-});
+test.each(Object.entries(BLACKSMITH_CRAFT_FLAGS))(
+    "Craft presents a confirmed %s grant without a forge pause",
+    (ability, kind) => {
+        const f = fixture();
+        const events = cast("Craft", ability.includes("Frozen") ? "frozen" : "double");
+        (events[0] as Extract<GameEvent, { type: "spell_cast" }>).outcomes![0].grantedAbility = ability;
+        expect(f.scene.renderSpellCastSequence(f.caster, "Craft", events)).toBe(0);
+        expect(f.pops).toEqual([`ally:${kind}`]);
+        expect(f.flashes).toEqual(["ally"]);
+        expect(f.scheduled).toEqual([]);
+    },
+);
 
-test.each(["Armor Rune", "Weapon Rune"])("%s always forges first, even on a failed roll", (spellName) => {
+test.each(["Armor Rune", "Weapon Rune"])("failed %s has no successful buff or caster badge", (spellName) => {
     const f = fixture();
     f.scene.renderSpellCastSequence(f.caster, spellName, cast(spellName, "failed"));
-    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
-    expect(f.failures).toEqual([]);
-    f.scheduled[0].callback();
-    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
+    expect(f.pops).toEqual([]);
+    expect(f.scheduled).toEqual([]);
     expect(f.failures).toEqual([{ x: 100, y: 200 }]);
 });
 
-test("Craft backfire and nothing announce their actual recipients after forging", () => {
+test("Craft backfire presents confirmed stun while an empty result keeps its text", () => {
     const f = fixture();
     const events = [...cast("Craft", "stun", "smith"), ...cast("Craft", "nothing")];
     f.scene.renderSpellCastSequence(f.caster, "Craft", events);
-    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
-    f.scheduled[0].callback();
-    expect(f.pops).toEqual(["smith:blacksmith_craft", "smith:stun"]);
+    expect(f.pops).toEqual(["smith:stun"]);
+    expect(f.scheduled).toEqual([]);
     expect(f.failures).toEqual([{ x: 100, y: 200 }]);
     expect(f.flashes).toEqual([]);
 });
@@ -133,4 +124,13 @@ test("unknown craft abilities and unrelated spells do not invent successful buff
     f.scene.renderSpellCastSequence(f.caster, "Heal", []);
     expect(f.pops).toEqual([]);
     expect(f.scheduled).toEqual([]);
+});
+
+test("the explicit lab sequence retains the source-art preview and its authored pause", () => {
+    const f = fixture();
+    expect(f.scene.renderSpellCastSequence(f.caster, "Armor Rune", cast("Armor Rune", "enchanted"), true)).toBe(1380);
+    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
+    expect(f.scheduled[0].delay).toBe(730);
+    f.scheduled[0].callback();
+    expect(f.pops).toEqual(["smith:blacksmith_craft", "ally:blacksmith_armor"]);
 });

@@ -57,7 +57,7 @@ describe("Wandering Mage spell buff cels", () => {
             scene.renderCastOutcomes(events);
             expect(spawnCommonFlagPop).toHaveBeenCalledTimes(2);
             expect(scene.playCreatureAnimationLabState(kind).ok).toBe(true);
-            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(ally, kind);
+            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(ally, kind, "preview");
             expect(animatableEffectNames([name])).toEqual(new Set());
             expect(
                 canPreviewCreatureLabState({ name: "Wandering Mage", abilities: [], spells: [`Nature:${name}`] }, kind),

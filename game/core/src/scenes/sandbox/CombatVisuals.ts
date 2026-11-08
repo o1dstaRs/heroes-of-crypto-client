@@ -50,6 +50,7 @@ import { CrusadePops } from "./CrusadePops";
 import { UnyieldingPowerPops } from "./UnyieldingPowerPops";
 import { showsEnchantedSkinShield } from "../enchantedSkinVisual";
 import { CommonFlagPops, type FlagPopKind } from "./CommonFlagPops";
+import { shouldShowStatusFlagPop, type FlagPopPresentation } from "./combatStatusPopups";
 import { MagicReflectionPops } from "./MagicReflectionPops";
 import { InfestHatchPops } from "./InfestHatchPops";
 import { PredatoryAssimilationPops } from "./PredatoryAssimilationPops";
@@ -1235,10 +1236,12 @@ export class CombatVisuals {
         }
         return layer;
     }
-    public prepareCommonFlagPop(kind: FlagPopKind): void {
+    public prepareCommonFlagPop(kind: FlagPopKind, presentation: FlagPopPresentation = "combat"): void {
+        if (!shouldShowStatusFlagPop(kind, presentation)) return;
         this.getCommonFlagPopLayer(kind).preload();
     }
-    public spawnHealCross(unit: RenderableUnit): void {
+    public spawnHealCross(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         if (unit.isDead()) return;
         this.healCrossPops ??= new HealCrossPops(this.attachFlagOverlay);
         const id = unit.getId(),
@@ -1257,7 +1260,12 @@ export class CombatVisuals {
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public spawnCommonFlagPop(unit: RenderableUnit, kind: FlagPopKind): void {
+    public spawnCommonFlagPop(
+        unit: RenderableUnit,
+        kind: FlagPopKind,
+        presentation: FlagPopPresentation = "combat",
+    ): void {
+        if (!shouldShowStatusFlagPop(kind, presentation)) return;
         if (kind === "resist" && showsEnchantedSkinShield(unit)) kind = "enchanted_skin";
         const gs = this.context.getGridSettings();
         const id = unit.getId();
@@ -1282,7 +1290,8 @@ export class CombatVisuals {
             stackIndex,
         );
     }
-    public spawnUnyieldingPowerPop(unit: RenderableUnit): void {
+    public spawnUnyieldingPowerPop(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
@@ -1292,7 +1301,8 @@ export class CombatVisuals {
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public spawnCrusadePop(unit: RenderableUnit): void {
+    public spawnCrusadePop(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
@@ -1302,7 +1312,8 @@ export class CombatVisuals {
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public spawnMagicReflectionPop(unit: RenderableUnit): void {
+    public spawnMagicReflectionPop(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
         this.magicReflectionPops ??= new MagicReflectionPops(this.attachFlagOverlay);
@@ -1311,7 +1322,8 @@ export class CombatVisuals {
             return current ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public spawnAngelResurrectionPop(unit: RenderableUnit): void {
+    public spawnAngelResurrectionPop(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
         this.angelResurrectionPops ??= new AngelResurrectionPops(this.attachFlagOverlay);
@@ -1349,7 +1361,8 @@ export class CombatVisuals {
             },
         });
     }
-    public spawnDevourEssencePop(unit: RenderableUnit): void {
+    public spawnDevourEssencePop(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
@@ -1369,10 +1382,15 @@ export class CombatVisuals {
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public preparePetrifyingGazePop(): void {
+    public preparePetrifyingGazePop(presentation: FlagPopPresentation = "combat"): void {
+        if (presentation !== "preview") return;
         void Assets.load<Texture>(images.vfx_petrifying_gaze_pop_atlas).catch(() => undefined);
     }
-    public async spawnPetrifyingGazePop(unit: RenderableUnit): Promise<() => void> {
+    public async spawnPetrifyingGazePop(
+        unit: RenderableUnit,
+        presentation: FlagPopPresentation = "combat",
+    ): Promise<() => void> {
+        if (presentation !== "preview") return () => undefined;
         const gs = this.context.getGridSettings();
         const damageAnchor = unit.getDamagePredictionAnchor(gs);
         const primaryNumbers = new Set(
@@ -4343,13 +4361,14 @@ export class CombatVisuals {
         amount: number,
         unit?: RenderableUnit,
         kind: "heal" | "wild_regeneration" | "single_heal" = "heal",
+        presentation: FlagPopPresentation = "combat",
     ): void {
         if (amount <= 0) {
             return;
         }
-        if (unit) {
-            if (kind === "single_heal") this.spawnHealCross(unit);
-            else this.spawnCommonFlagPop(unit, kind);
+        if (unit && presentation === "preview") {
+            if (kind === "single_heal") this.spawnHealCross(unit, presentation);
+            else this.spawnCommonFlagPop(unit, kind, presentation);
         }
         const container = new Container();
         const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#66ff99", "#0b3d1e") });

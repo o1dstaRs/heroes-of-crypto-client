@@ -51,10 +51,10 @@ test("single Heal lab preview uses the combat renderer with +125 on the selected
         combatVisuals: { showFloatingHeal: (...args: unknown[]) => calls.push(args) },
     });
     expect(scene.playCreatureAnimationLabState("single_heal").ok).toBe(true);
-    expect(calls).toEqual([[position, 125, unit, "single_heal"]]);
+    expect(calls).toEqual([[position, 125, unit, "single_heal", "preview"]]);
 });
 
-test("combat Heal retains its amount and flag anchor without also spawning the generic heal icon", () => {
+test("combat healing retains its amount and flag anchor without an extra healing icon", () => {
     const flag = { x: 120, y: 280 };
     const unit = { getId: () => "healed", getFlagEffectAnchor: () => flag };
     const cross: unknown[] = [];
@@ -76,12 +76,12 @@ test("combat Heal retains its amount and flag anchor without also spawning the g
     const position = { x: 120, y: 200 };
     visuals.showFloatingHeal(position, 17, unit, "single_heal");
     visuals.showFloatingHeal(position, 0, unit, "single_heal");
-    expect(cross).toEqual([unit]);
+    expect(cross).toEqual([]);
     expect(common).toHaveLength(0);
     expect(numbers).toEqual([["+17", position, undefined, { ...flag, unitId: "healed" }, 36]]);
     expect(bursts).toHaveLength(0);
     visuals.showFloatingHeal(position, 31, unit);
-    expect(cross).toHaveLength(1);
-    expect(common).toEqual([[unit, "heal"]]);
+    expect(cross).toHaveLength(0);
+    expect(common).toEqual([]);
     expect(bursts).toHaveLength(0);
 });

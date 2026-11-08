@@ -78,7 +78,7 @@ test("lab controls expose each symbol only to ability owners and preview it on t
         expect(canPreviewCreatureLabState(selected, state)).toBe(true);
         expect(canPreviewCreatureLabState({ name: "Pikeman", abilities: [], spells: [] }, state)).toBe(false);
         expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
-        expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, state);
+        expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, state, "preview");
     }
 });
 

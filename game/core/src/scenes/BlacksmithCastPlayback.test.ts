@@ -90,17 +90,18 @@ const fixture = (spellName: string, completed = true, authoritative = false) => 
     return { scene, caster, target, apply, submit, sound, record, pending, pops, outcomes, delay, localEvents };
 };
 
-test.each(["Craft", "Armor Rune", "Weapon Rune"])("local %s forges before showing its outcomes", (spellName) => {
-    const f = fixture(spellName);
-    const run = () =>
-        spellName === "Craft" ? f.scene.castAreaSpellAtCell({ x: 2, y: 2 }) : f.scene.castSpellOnTarget(f.target);
-    expect(run()).toBe(true);
-    expect(f.pops).toHaveBeenCalledWith(f.caster, "blacksmith_craft");
-    expect(f.outcomes).not.toHaveBeenCalled();
-    expect(f.pending[0].ms).toBe(730);
-    f.pending[0].callback();
-    expect(f.outcomes).toHaveBeenCalledWith(f.localEvents);
-});
+test.each(["Craft", "Armor Rune", "Weapon Rune"])(
+    "local %s presents its recorded outcomes without a caster badge",
+    (spellName) => {
+        const f = fixture(spellName);
+        const run = () =>
+            spellName === "Craft" ? f.scene.castAreaSpellAtCell({ x: 2, y: 2 }) : f.scene.castSpellOnTarget(f.target);
+        expect(run()).toBe(true);
+        expect(f.pops).not.toHaveBeenCalled();
+        expect(f.pending).toEqual([]);
+        expect(f.outcomes).toHaveBeenCalledWith(f.localEvents);
+    },
+);
 
 test.each(["Craft", "Armor Rune", "Weapon Rune"])("rejected local %s does not forge", (spellName) => {
     const f = fixture(spellName, false);
@@ -113,16 +114,15 @@ test.each(["Craft", "Armor Rune", "Weapon Rune"])("rejected local %s does not fo
 
 for (const completed of [true, false]) {
     test.each(["Craft", "Armor Rune", "Weapon Rune"])(
-        `recorded %s forges and keeps authoritative outcomes with reapply=${completed}`,
+        `recorded %s keeps authoritative outcomes without a caster badge with reapply=${completed}`,
         async (spellName) => {
             const f = fixture(spellName, completed);
             expect(await f.scene.playReplayCastSpellAction(f.record)).toBe(true);
-            expect(f.pops).toHaveBeenCalledTimes(1);
-            expect(f.pops).toHaveBeenCalledWith(f.caster, "blacksmith_craft");
-            expect(f.outcomes).not.toHaveBeenCalled();
-            expect(f.delay).toHaveBeenCalledWith(1380);
-            f.pending[0].callback();
+            expect(f.pops).not.toHaveBeenCalled();
+            expect(f.pending).toEqual([]);
+            expect(f.delay).toHaveBeenCalledWith(150);
             expect(f.outcomes).toHaveBeenCalledWith(f.record.events);
+            expect(f.outcomes).not.toHaveBeenCalledWith(f.localEvents);
         },
     );
 }

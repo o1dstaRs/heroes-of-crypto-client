@@ -123,7 +123,7 @@ test("each common lab button uses the same above-flag runtime", () => {
             expect(f.calls.at(-1)?.kind).toBe("miss");
             expect(f.calls.at(-1)?.args.at(-1)).toBe(f.unit);
         } else {
-            expect(f.calls.at(-1)).toEqual({ kind: "pop", args: [f.unit, kind] });
+            expect(f.calls.at(-1)).toEqual({ kind: "pop", args: [f.unit, kind, "preview"] });
         }
     }
 });
@@ -131,7 +131,7 @@ test("each common lab button uses the same above-flag runtime", () => {
 test("repeat attack preview uses the same shared sprite for a creature without native double attack", () => {
     const f = fixture();
     expect(f.scene.playCreatureAnimationLabState("multi_attack").ok).toBe(true);
-    expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "multi_attack"] }]);
+    expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "multi_attack", "preview"] }]);
 });
 
 function addBiteVictim(f: ReturnType<typeof fixture>) {
@@ -157,13 +157,13 @@ test("Penetrating Bite lab preview uses the victim's flag and requires an oppone
     expect(f.calls).toHaveLength(0);
     const victim = addBiteVictim(f);
     expect(f.scene.playCreatureAnimationLabState("penetrating_bite").ok).toBe(true);
-    expect(f.calls).toEqual([{ kind: "pop", args: [victim, "penetrating_bite"] }]);
+    expect(f.calls).toEqual([{ kind: "pop", args: [victim, "penetrating_bite", "preview"] }]);
 });
 
 test("Shadow Touch lab preview uses the combat flag renderer", () => {
     const f = fixture();
     expect(f.scene.playCreatureAnimationLabState("shadow_touch").ok).toBe(true);
-    expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "shadow_touch"] }]);
+    expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "shadow_touch", "preview"] }]);
 });
 
 test.each(["melee_attack", "melee_attack_up", "melee_attack_down"])(
@@ -184,6 +184,6 @@ test.each(["melee_attack", "melee_attack_up", "melee_attack_down"])(
         expect(f.calls).toHaveLength(0);
         const victim = addBiteVictim(f);
         expect(f.scene.playCreatureAnimationLabState(state).ok).toBe(true);
-        expect(f.calls).toEqual([{ kind: "pop", args: [victim, "penetrating_bite"] }]);
+        expect(f.calls).toEqual([{ kind: "pop", args: [victim, "penetrating_bite", "preview"] }]);
     },
 );

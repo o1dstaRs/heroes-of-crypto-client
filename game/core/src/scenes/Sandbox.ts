@@ -3979,6 +3979,9 @@ export class Sandbox extends PixiScene {
      *      playReplayAttackRecord (ranked replay) — AT IMPACT, next to showReplayAttackDamage, so the
      *      effect and its damage numbers land in sync. (A VFX fired before the attack one-shot flashes
      *      ~360ms early; the sole exception is a deliberate WIND-UP effect like Fire Breath.)
+     *      Above-flag popups require a confirmed status application/removal. Passive ownership, damage
+     *      modifiers and extra attacks do not announce an effect; CombatVisuals enforces this for both
+     *      live combat and replay. The animation lab explicitly opts into archived art previews.
      *   3. SNAPSHOT-DRIVEN effects (debuff/buff icon pops, death shatter, board-wide waves) are NOT part
      *      of the attack replay — wire them into RankedPlayScene's snapshot path (processDebuffPops /
      *      shatterNewlyDeadUnits / renderNewlyAppliedArmageddon), diffed BEFORE the board-rebuild guards
@@ -4250,18 +4253,12 @@ export class Sandbox extends PixiScene {
         });
         this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
     }
-    protected showAttackMissedVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+    protected showAttackMissedVfx(_attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
         if (!damage?.missed) return;
         const gs = this.sc_sceneSettings.getGridSettings();
         const victimId = damage.unitId ?? target.getId();
         const victim = (this.unitsHolder.getAllUnits().get(victimId) as RenderableUnit | undefined) ?? target;
         const rVictim = victim as RenderableUnit;
-        // Small Specie only participates against level-four attackers. Other miss sources keep MISS.
-        if (attacker.getLevel?.() === 4 && rVictim.hasAbilityActive?.("Small Specie") && !rVictim.isDead()) {
-            if (rVictim.hasAnimationState?.("dodge")) rVictim.playDodgeAnimation(0, 0);
-            this.combatVisuals.spawnCommonFlagPop(attacker, "small_specie");
-            return;
-        }
         const center =
             typeof rVictim.getVisualCenter === "function"
                 ? rVictim.getVisualCenter(gs)
@@ -5007,6 +5004,7 @@ export class Sandbox extends PixiScene {
         unit?: RenderableUnit,
         primaryReaction: Promise<void> = Promise.resolve(),
         onDeath?: () => void,
+        preview = false,
     ): Promise<void> {
         if (entry.source !== "petrifying_gaze" || (entry.amount <= 0 && entry.unitsDied <= 0)) return;
         const shown = (this.presentedPetrifyingGaze ??= new WeakSet());
@@ -5015,10 +5013,11 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
         const direction = { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y };
-        // The head appears at the flag after contact. The secondary hit waits for the entire
-        // authored head animation and completion of the first hit reaction.
-        const finishPrimaryNumbers = unit ? await this.combatVisuals.spawnPetrifyingGazePop?.(unit) : undefined;
-        await Promise.all([primaryReaction, this.delayReplay(PETRIFYING_GAZE_DURATION_MS)]);
+        // Combat keeps the recorded secondary hit and first reaction, without a passive badge or its delay.
+        // The animation lab can still inspect the archived badge and its original timing.
+        const finishPrimaryNumbers =
+            preview && unit ? await this.combatVisuals.spawnPetrifyingGazePop?.(unit, "preview") : undefined;
+        await Promise.all([primaryReaction, ...(preview ? [this.delayReplay(PETRIFYING_GAZE_DURATION_MS)] : [])]);
         if (this.isSceneDestroyed()) return;
         finishPrimaryNumbers?.();
         unit?.presentDamageCasualties?.(entry.unitsDied);
@@ -9926,32 +9925,34 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private prepareBlacksmithCast(spellName: string): void {
+    private prepareBlacksmithCast(spellName: string, preview = false): void {
         if (!isBlacksmithSpell(spellName)) return;
-        this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft");
+        if (preview) this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft", "preview");
         const rune = blacksmithRuneFlagKind(spellName);
         for (const kind of rune ? [rune] : Object.values(BLACKSMITH_CRAFT_FLAGS)) {
             this.combatVisuals?.prepareCommonFlagPop(kind);
         }
         if (spellName === "Craft") this.combatVisuals?.prepareCommonFlagPop("stun");
     }
-    /** Every completed smith cast announces the smith first, then its recorded recipients. */
+    /** Combat announces recorded recipients; source art and its delay remain available in the lab. */
     private renderSpellCastSequence(
         caster: RenderableUnit,
         spellName: string,
         events: readonly GameEvent[] | undefined,
+        preview = false,
     ): number {
-        if (!isBlacksmithSpell(spellName)) {
+        if (!preview || !isBlacksmithSpell(spellName)) {
             this.renderCastOutcomes(events);
             return 0;
         }
-        this.prepareBlacksmithCast(spellName);
-        const forgeMs = this.showBlacksmithCraft(caster);
+        this.prepareBlacksmithCast(spellName, true);
+        const forgeMs = this.showBlacksmithCraft(caster, true);
         this.scheduleSceneTimeout(() => this.renderCastOutcomes(events), forgeMs + 80);
         return forgeMs + 80 + OVERHEAD_EFFECT_DURATION_MS;
     }
-    private showBlacksmithCraft(caster: RenderableUnit): number {
-        this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft");
+    private showBlacksmithCraft(caster: RenderableUnit, preview = false): number {
+        if (!preview) return 0;
+        this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft", "preview");
         return OVERHEAD_EFFECT_DURATION_MS;
     }
     private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean): void {
@@ -14712,7 +14713,7 @@ export class Sandbox extends PixiScene {
             return { ok: true, message: "Водяной щит лопнул · IDLE восстанавливает пузырь" };
         }
         if (state === "devour_essence") {
-            this.combatVisuals?.spawnDevourEssencePop(unit);
+            this.combatVisuals?.spawnDevourEssencePop(unit, "preview");
             return { ok: true, message: `${unit.getName()}: Поглощение сущности · 0,65 с` };
         }
         if (state === "stun" || state === "flag_stun") {
@@ -14724,7 +14725,7 @@ export class Sandbox extends PixiScene {
             }
             const effect = new EffectFactory().makeEffect("Stun");
             if (!effect || !victim.applyEffect(effect)) return { ok: false, message: "Не удалось наложить стан" };
-            this.combatVisuals?.spawnCommonFlagPop(victim, "stun");
+            this.combatVisuals?.spawnCommonFlagPop(victim, "stun", "preview");
             return { ok: true, message: `${victim.getName()}: стан · повторное нажатие снимает эффект` };
         }
         if (state === "paralysis") {
@@ -14748,28 +14749,28 @@ export class Sandbox extends PixiScene {
         if (state === "penetrating_bite") {
             const victim = this.penetratingBiteLabVictim(unit);
             if (!victim) return { ok: false, message: "Поставьте противника на поле для превью укуса" };
-            this.combatVisuals?.spawnCommonFlagPop(victim, "penetrating_bite");
+            this.combatVisuals?.spawnCommonFlagPop(victim, "penetrating_bite", "preview");
             return { ok: true, message: `${unit.getName()} → ${victim.getName()}: Проникающий укус · 0,65 с` };
         }
         if (state === "blind_fury" || state === "madness") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, state);
+            this.combatVisuals?.spawnCommonFlagPop(unit, state, "preview");
             return {
                 ok: true,
                 message: `${unit.getName()}: ${state === "blind_fury" ? "Blind Fury" : "Madness"} · 0,65 с`,
             };
         }
         if (state === "miner") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "miner");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "miner", "preview");
             return { ok: true, message: `${unit.getName()}: Miner · 0,65 с` };
         }
         if (state === "piercing_spear") {
             const victim = this.penetratingBiteLabVictim(unit);
             if (!victim) return { ok: false, message: "Поставьте противника на поле для превью копья" };
-            this.combatVisuals?.spawnCommonFlagPop(victim, "piercing_spear");
+            this.combatVisuals?.spawnCommonFlagPop(victim, "piercing_spear", "preview");
             return { ok: true, message: `${unit.getName()} → ${victim.getName()}: Пробивающее копьё · 0,65 с` };
         }
         if (state === "backstab") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "backstab");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "backstab", "preview");
             return { ok: true, message: `${unit.getName()}: Удар в спину над своим флагом · 0,65 с` };
         }
         if (state === "dodge") {
@@ -14780,7 +14781,7 @@ export class Sandbox extends PixiScene {
             const attacker = this.penetratingBiteLabVictim(unit);
             if (!attacker) return { ok: false, message: "Поставьте противника для превью уворота феи" };
             if (unit.hasAnimationState?.("dodge")) unit.playDodgeAnimation(0, 0);
-            this.combatVisuals?.spawnCommonFlagPop(attacker, "small_specie");
+            this.combatVisuals?.spawnCommonFlagPop(attacker, "small_specie", "preview");
             return {
                 ok: true,
                 message: `${unit.getName()}: Small Specie · над флагом атакующего ${attacker.getName()} · 0,65 с`,
@@ -14811,6 +14812,8 @@ export class Sandbox extends PixiScene {
                 unit.getVisualCenter(gs),
                 victim,
                 this.playReplayOneShot(victim, "hit", 3000, true),
+                undefined,
+                true,
             );
             return {
                 ok: true,
@@ -14818,7 +14821,7 @@ export class Sandbox extends PixiScene {
             };
         }
         if (state === "aggr") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "aggr");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "aggr", "preview");
             return { ok: true, message: `${unit.getName()}: Агр · появление и крик · 0,65 с над флагом` };
         }
         if (state === "terrifying_gaze") {
@@ -14829,11 +14832,11 @@ export class Sandbox extends PixiScene {
             };
         }
         if (state === "shadow_touch") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "shadow_touch");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "shadow_touch", "preview");
             return { ok: true, message: `${unit.getName()}: Shadow Touch · 0,65 с · отдельное превью` };
         }
         if (state === "wind_flow") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "wind_flow");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "wind_flow", "preview");
             return { ok: true, message: `${unit.getName()}: Wind Flow · серебристый вихрь · 0,65 с над флагом` };
         }
         if (state === "deep_wounds_1" || state === "deep_wounds_2" || state === "deep_wounds_3") {
@@ -14842,13 +14845,13 @@ export class Sandbox extends PixiScene {
             return { ok: true, message: `${unit.getName()}: Глубокие раны ${level} · 0,65 с` };
         }
         if (state === "angel_resurrection") {
-            this.combatVisuals?.spawnAngelResurrectionPop(unit);
+            this.combatVisuals?.spawnAngelResurrectionPop(unit, "preview");
             return { ok: true, message: `${unit.getName()}: Воскрешение · 0,65 с` };
         }
         if (BLACKSMITH_FLAG_KINDS.includes(state as BlacksmithFlagKind)) {
             if (state === "blacksmith_craft") {
-                this.prepareBlacksmithCast("Craft");
-                this.showBlacksmithCraft(unit);
+                this.prepareBlacksmithCast("Craft", true);
+                this.showBlacksmithCraft(unit, true);
                 return { ok: true, message: "Craft · ковка над флагом кузнеца · 0,65 с" };
             }
             const recipient =
@@ -14862,42 +14865,47 @@ export class Sandbox extends PixiScene {
             const grantedAbility = Object.entries(BLACKSMITH_CRAFT_FLAGS).find(([, kind]) => kind === state)?.[0];
             const spellName =
                 state === "blacksmith_armor" ? "Armor Rune" : state === "blacksmith_weapon" ? "Weapon Rune" : "Craft";
-            this.renderSpellCastSequence(unit, spellName, [
-                {
-                    type: "spell_cast",
-                    casterId: unit.getId(),
-                    spellName,
-                    unitIdsDied: [],
-                    animations: [],
-                    outcomes: [
-                        {
-                            unitId: recipient.getId(),
-                            outcome: grantedAbility
-                                ? grantedAbility.includes("Frozen")
-                                    ? "frozen"
-                                    : "double"
-                                : "enchanted",
-                            grantedAbility,
-                        },
-                    ],
-                },
-            ]);
+            this.renderSpellCastSequence(
+                unit,
+                spellName,
+                [
+                    {
+                        type: "spell_cast",
+                        casterId: unit.getId(),
+                        spellName,
+                        unitIdsDied: [],
+                        animations: [],
+                        outcomes: [
+                            {
+                                unitId: recipient.getId(),
+                                outcome: grantedAbility
+                                    ? grantedAbility.includes("Frozen")
+                                        ? "frozen"
+                                        : "double"
+                                    : "enchanted",
+                                grantedAbility,
+                            },
+                        ],
+                    },
+                ],
+                true,
+            );
             return {
                 ok: true,
                 message: `Ковка: ${unit.getName()} → ${grantedAbility ?? spellName}: ${recipient.getName()}`,
             };
         }
         if (Object.values(OGRE_SPELL_FLAG_EFFECTS).includes(state as OgreSpellFlagKind)) {
-            this.combatVisuals?.spawnCommonFlagPop(unit, state as OgreSpellFlagKind);
+            this.combatVisuals?.spawnCommonFlagPop(unit, state as OgreSpellFlagKind, "preview");
             const name = Object.entries(OGRE_SPELL_FLAG_EFFECTS).find(([, kind]) => kind === state)?.[0];
             return { ok: true, message: `${unit.getName()}: ${name} · 0,65 с над флагом` };
         }
         if (Object.values(MAGE_SPELL_FLAG_EFFECTS).includes(state as MageSpellFlagKind)) {
-            this.combatVisuals?.spawnCommonFlagPop(unit, state as MageSpellFlagKind);
+            this.combatVisuals?.spawnCommonFlagPop(unit, state as MageSpellFlagKind, "preview");
             return { ok: true, message: `${unit.getName()}: ${state} · 0,65 с над флагом получателя` };
         }
         if (Object.values(SATYR_SPELL_FLAG_EFFECTS).includes(state as SatyrSpellFlagKind)) {
-            this.combatVisuals?.spawnCommonFlagPop(unit, state as SatyrSpellFlagKind);
+            this.combatVisuals?.spawnCommonFlagPop(unit, state as SatyrSpellFlagKind, "preview");
             const name = Object.entries(SATYR_SPELL_FLAG_EFFECTS).find(([, kind]) => kind === state)?.[0];
             return { ok: true, message: `${unit.getName()}: ${name} · 0,65 с над флагом получателя` };
         }
@@ -14921,40 +14929,40 @@ export class Sandbox extends PixiScene {
             };
         }
         if (state === "absolving_arrow") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "absolving_arrow");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "absolving_arrow", "preview");
             return { ok: true, message: `${unit.getName()}: Absolving Arrow · 0,65 с над флагом` };
         }
         if (state === "multi_attack") {
-            this.showRepeatedAttackFlag(unit, 1);
+            this.combatVisuals?.spawnCommonFlagPop(unit, "multi_attack", "preview");
             return { ok: true, message: `${unit.getName()}: повторный удар · 0,65 с над флагом` };
         }
         if (state === "empower") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "empower");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "empower", "preview");
             return { ok: true, message: `${unit.getName()}: Empower · 0,65 с над флагом` };
         }
         if (state === "lucky_strike") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "lucky_strike");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "lucky_strike", "preview");
             return { ok: true, message: "Lucky Strike · кубик над флагом лепрекона · 0,65 с" };
         }
         if (state === "bitter_experience") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "bitter_experience");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "bitter_experience", "preview");
             return { ok: true, message: `${unit.getName()}: Bitter Experience · 0,65 с` };
         }
         if (state === "hamstring") {
             const victim = this.penetratingBiteLabVictim(unit) ?? unit;
-            this.combatVisuals?.spawnCommonFlagPop(victim, "hamstring");
+            this.combatVisuals?.spawnCommonFlagPop(victim, "hamstring", "preview");
             return { ok: true, message: `Hamstring → ${victim.getName()} · 0,65 с над флагом` };
         }
         if (state === "shatter_armor") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "shatter_armor");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "shatter_armor", "preview");
             return { ok: true, message: `${unit.getName()}: Shatter Armor · 0,65 с над флагом` };
         }
         if (state === "leather_armor") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "leather_armor");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "leather_armor", "preview");
             return { ok: true, message: "Кожаная броня: уязвимость к выстрелам над своим флагом" };
         }
         if (state === "dulling_defense") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "dulling_defense");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "dulling_defense", "preview");
             return { ok: true, message: `${unit.getName()}: Dulling Defense · 0,65 с над флагом` };
         }
         if (state === "common_miss") {
@@ -14969,7 +14977,7 @@ export class Sandbox extends PixiScene {
             state === "common_absorb"
         ) {
             const kind = state.replace("common_", "") as "lucky" | "resist" | "heal" | "absorb";
-            this.combatVisuals?.spawnCommonFlagPop(unit, kind);
+            this.combatVisuals?.spawnCommonFlagPop(unit, kind, "preview");
             const labels = {
                 lucky: "Удача",
                 resist: "Сопротивление",
@@ -14984,6 +14992,7 @@ export class Sandbox extends PixiScene {
                 125,
                 unit,
                 "single_heal",
+                "preview",
             );
             return { ok: true, message: "Heal: +125 над изумрудным крестом · 0,65 с (превью)" };
         }
@@ -14995,37 +15004,37 @@ export class Sandbox extends PixiScene {
         if (state === "wild_regeneration") {
             if (!unit.hasAbilityActive("Wild Regeneration"))
                 return { ok: false, message: "Нужно существо с активной Wild Regeneration" };
-            this.combatVisuals?.spawnCommonFlagPop(unit, "wild_regeneration");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "wild_regeneration", "preview");
             return { ok: true, message: `${unit.getName()}: Регенерация над флагом · 0,65 с` };
         }
         if (state === "enchanted_skin") {
             if (!showsEnchantedSkinShield(unit))
                 return { ok: false, message: "Нужен чёрный дракон с активной Enchanted Skin" };
-            this.combatVisuals?.spawnCommonFlagPop(unit, "enchanted_skin");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "enchanted_skin", "preview");
             return { ok: true, message: `${unit.getName()}: Enchanted Skin над флагом · 0,65 с` };
         }
         if (state === "made_of_fire") {
             if (!unit.canTraverseLava())
                 return { ok: false, message: "Нужно существо с Made of Fire или Lava Striders" };
-            this.combatVisuals?.spawnCommonFlagPop(unit, "made_of_fire");
+            this.combatVisuals?.spawnCommonFlagPop(unit, "made_of_fire", "preview");
             return { ok: true, message: `${unit.getName()}: Made of Fire над флагом · 0,65 с` };
         }
         if (state === "unicorn_retaliation" || state === "unicorn_blindness") {
             const ability = state === "unicorn_retaliation" ? "One in the Field" : "Blindness";
             if (!unit.hasAbilityActive(ability)) return { ok: false, message: `Нужно существо с ${ability}` };
-            this.combatVisuals?.spawnCommonFlagPop(unit, state);
+            this.combatVisuals?.spawnCommonFlagPop(unit, state, "preview");
             return { ok: true, message: `${unit.getName()}: ${ability} над флагом · 0,65 с` };
         }
         if (state === "magic_reflection") {
-            this.combatVisuals?.spawnMagicReflectionPop(unit);
+            this.combatVisuals?.spawnMagicReflectionPop(unit, "preview");
             return { ok: true, message: `${unit.getName()}: Магическое отражение · 0,65 с` };
         }
         if (state === "crusade") {
-            this.combatVisuals?.spawnCrusadePop(unit);
+            this.combatVisuals?.spawnCrusadePop(unit, "preview");
             return { ok: true, message: `${unit.getName()}: Крестовый поход · 0,65 с` };
         }
         if (state === "unyielding_power") {
-            this.combatVisuals?.spawnUnyieldingPowerPop(unit);
+            this.combatVisuals?.spawnUnyieldingPowerPop(unit, "preview");
             return { ok: true, message: `${unit.getName()}: Unyielding Power 0,65 с` };
         }
         if (state === "battle_roar_short" || state === "battle_roar_long") {
@@ -15328,10 +15337,10 @@ export class Sandbox extends PixiScene {
                               target.playOneShotAnimation("hit", undefined, true);
                               this.spawnLeatherArmorOnImpact(target, { amount: 1 }, "range");
                               if (centaur && unit.hasAbilityActive?.("Piercing Spear"))
-                                  this.combatVisuals?.spawnCommonFlagPop(target, "piercing_spear");
+                                  this.combatVisuals?.spawnCommonFlagPop(target, "piercing_spear", "preview");
                               // Forced lab preview; real combat only presents successful Hamstrung events.
                               if (unit.hasAbilityActive?.("Hamstring") && target.canFly())
-                                  this.combatVisuals?.spawnCommonFlagPop(target, "hamstring");
+                                  this.combatVisuals?.spawnCommonFlagPop(target, "hamstring", "preview");
                           }
                         : undefined,
                 },
@@ -15398,7 +15407,7 @@ export class Sandbox extends PixiScene {
             unit.hasAbilityActive?.("Piercing Spear")
         ) {
             const victim = this.penetratingBiteLabVictim(unit);
-            if (victim) this.combatVisuals?.spawnCommonFlagPop(victim, "piercing_spear");
+            if (victim) this.combatVisuals?.spawnCommonFlagPop(victim, "piercing_spear", "preview");
         }
         if (
             started &&
@@ -15406,14 +15415,14 @@ export class Sandbox extends PixiScene {
             unit.hasAbilityActive?.("Penetrating Bite")
         ) {
             const victim = this.penetratingBiteLabVictim(unit);
-            if (victim) this.combatVisuals?.spawnCommonFlagPop(victim, "penetrating_bite");
+            if (victim) this.combatVisuals?.spawnCommonFlagPop(victim, "penetrating_bite", "preview");
         }
         if (started && state === "cast" && unit.getName() === "Behemoth") {
             this.combatVisuals?.spawnBattleRoarPop(unit);
         }
         if (started && state === "cast" && unit.getName() === "Blacksmith") {
-            this.prepareBlacksmithCast("Craft");
-            this.showBlacksmithCraft(unit);
+            this.prepareBlacksmithCast("Craft", true);
+            this.showBlacksmithCraft(unit, true);
         }
         return started
             ? { ok: true, message: `${unit.getName()}: ${state}` }

@@ -6,7 +6,7 @@ import { canPreviewCreatureLabState } from "../ui/creatureAnimationLabCapabiliti
 import { Sandbox } from "./Sandbox";
 import { CommonFlagPops } from "./sandbox/CommonFlagPops";
 
-test("Small Specie appears on the attacker when its level-four strike misses the actual living fairy", () => {
+test("Fairy misses keep MISS labels; Small Specie badges require an explicit lab preview", () => {
     const pops: string[] = [];
     const labels: string[] = [];
     let level = 4;
@@ -43,8 +43,8 @@ test("Small Specie appears on the attacker when its level-four strike misses the
     scene.showAttackMissedVfx(attacker, fairy, { missed: false });
     expect(pops).toEqual([]);
     scene.showAttackMissedVfx(attacker, other, { unitId: "fairy", missed: true });
-    expect(pops).toEqual(["attacker:small_specie"]);
-    expect(labels).toEqual([]);
+    expect(pops).toEqual([]);
+    expect(labels).toEqual(["fairy"]);
     scene.showAttackMissedVfx(attacker, fairy, { unitId: "other", missed: true });
     level = 3;
     scene.showAttackMissedVfx(attacker, fairy, { missed: true });
@@ -54,16 +54,17 @@ test("Small Specie appears on the attacker when its level-four strike misses the
     enabled = true;
     dead = true;
     scene.showAttackMissedVfx(attacker, fairy, { missed: true });
-    expect(pops).toHaveLength(1);
-    expect(labels).toEqual(["other", "fairy", "fairy", "fairy"]);
+    expect(pops).toHaveLength(0);
+    expect(labels).toEqual(["fairy", "other", "fairy", "fairy", "fairy"]);
     dead = false;
     expect(scene.playCreatureAnimationLabState("small_specie").ok).toBe(false);
-    expect(pops).toHaveLength(1);
+    expect(pops).toHaveLength(0);
     previewAttacker = attacker;
     expect(scene.playCreatureAnimationLabState("small_specie").ok).toBe(true);
-    expect(pops).toEqual(["attacker:small_specie", "attacker:small_specie"]);
+    expect(pops).toEqual(["attacker:small_specie"]);
     scene.showAttackMissedVfx({ ...attacker, getId: () => "second-attacker" }, fairy, { missed: true });
-    expect(pops.at(-1)).toBe("second-attacker:small_specie");
+    expect(pops).toEqual(["attacker:small_specie"]);
+    expect(labels.at(-1)).toBe("fairy");
     expect(canPreviewCreatureLabState({ name: "Fairy", abilities: ["Small Specie"], spells: [] }, "small_specie")).toBe(
         true,
     );
