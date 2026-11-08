@@ -1,136 +1,63 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
-import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { PETRIFYING_GAZE_DURATION_MS } from "./sandbox/PetrifyingGazePops";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
-
 const flush = async () => {
     for (let i = 0; i < 30; i++) await Promise.resolve();
 };
-test.each([false, true])(
-    "gaze damage waits for contact and first reaction without a badge pause, lethal=%s",
-    async (lethal) => {
-        const log: string[] = [];
-        const unit = (id: string) => ({
-            getId: () => id,
-            getName: () => "Orc",
-            hasAbilityActive: () => false,
-            isDead: () => lethal && id === "B",
-            isPlayingOneShotAnimation: () => false,
-            getAnimationTextureKey: () => undefined,
-            getVisualCenter: () => ({ x: id === "A" ? 0 : 100, y: 0 }),
-            getDamagePredictionAnchor: () => ({ x: 100, y: 100 }),
-            presentDamageCasualties: (n: number) => log.push(`loss:${n}`),
-        });
-        const a = unit("A"),
-            b = unit("B");
-        let contact!: () => void, land!: () => void, firstHit!: () => void;
-        let hits = 0;
-        const scene = Object.assign(Object.create(Sandbox.prototype), {
-            oneInTheFieldTriggers: new OneInTheFieldTriggers(),
-            sc_sceneSettings: { getGridSettings: () => ({}) },
-            unitsHolder: {
-                getAllUnits: () =>
-                    new Map([
-                        ["A", a],
-                        ["B", b],
-                    ]),
-            },
-            isSceneDestroyed: () => false,
-            prepareDirectionalAttackState: () => "attack",
-            offsetReplayDamagePosition: (p: unknown) => p,
-            delayReplay: () => {
-                throw new Error("Combat must not wait for a removed passive badge");
-            },
-            combatVisuals: {
-                showFloatingDamage: (
-                    _p: unknown,
-                    n: number,
-                    _d: unknown,
-                    _k: unknown,
-                    _f: unknown,
-                    _s: unknown,
-                    anchor: unknown,
-                ) => {
-                    if (n === 45) expect(anchor).toEqual(b.getDamagePredictionAnchor());
-                    log.push(`damage:${n}`);
-                },
-                spawnPetrifyingGazePop: () => {
-                    log.push("gaze");
-                    return Promise.resolve(() => log.push("finish-primary-numbers"));
-                },
-            },
-            playReplayOneShot: (_unit: unknown, state: string) => {
-                log.push(state);
-                if (state === "hit" && ++hits === 1)
-                    return new Promise<void>((resolve) => {
-                        firstHit = resolve;
-                    });
-                return Promise.resolve();
-            },
-            playReplayProjectile: (_a: unknown, _b: unknown, _p: unknown, impact: () => void) => {
-                contact = impact;
-                return new Promise<void>((resolve) => {
-                    land = resolve;
-                });
-            },
-        });
-        const entry = { source: "petrifying_gaze", unitId: "B", position: { x: 100, y: 0 }, amount: 45, unitsDied: 1 };
-        const pending = scene.playCombatExchange(
-            a,
-            b,
-            { attackType: "range", damage: { secondary: [entry] } },
-            [{ attackerId: "A", targetId: "B", response: false, hitIndex: 0, lethal, amount: 120, unitsDied: 2 }],
-            () => log.push("death"),
-        );
-        await flush();
-        expect(log).not.toContain("gaze");
-        contact();
-        await flush();
-        expect(log.filter((s) => s === "gaze" || s.startsWith("damage"))).toEqual(["damage:120"]);
-        expect(log).not.toContain("death");
-        expect(log).not.toContain("damage:45");
-        firstHit();
-        land();
-        await pending;
-        expect(log.filter((s) => s.startsWith("damage"))).toEqual(["damage:120", "damage:45"]);
-        expect(log.filter((s) => s === "hit")).toHaveLength(lethal ? 1 : 2);
-        expect(log).not.toContain("gaze");
-        expect(log).not.toContain("finish-primary-numbers");
-        if (lethal) expect(log.indexOf("death")).toBeGreaterThan(log.indexOf("damage:45"));
-        // Replay/ranked fallback sees the same authoritative entry and must not duplicate the number.
-        await scene.presentPetrifyingGaze(entry, { x: 0, y: 0 }, b);
-        expect(log.filter((s) => s === "damage:45")).toHaveLength(1);
-    },
-);
-
-test("cancelled scene cannot show the delayed gaze hit", async () => {
-    let finish!: () => void;
-    let destroyed = false;
-    const log: string[] = [];
-    const scene = Object.assign(Object.create(Sandbox.prototype), {
-        sc_sceneSettings: { getGridSettings: () => ({}) },
-        combatVisuals: { spawnPetrifyingGazePop: async () => {}, showFloatingDamage: () => log.push("damage") },
-        delayReplay: () => {
-            throw new Error("Combat must not wait for a removed passive badge");
-        },
-        isSceneDestroyed: () => destroyed,
+// INTENDED: actual secondary damage is not another attack/hit sequence. The archived head
+// animation and its pause belong only to the explicit lab preview below.
+test.each([false, true])("recorded gaze damage adds no attack, hit, or popup delay; lethal=%s", async (lethal) => {
+    const numbers = mock((_position: unknown, _amount: number, ..._rest: unknown[]) => undefined);
+    const extraHit = mock(() => {
+        throw new Error("Gaze must not add a second hit animation");
     });
-    const pending = scene.presentPetrifyingGaze(
-        { source: "petrifying_gaze", amount: 12, unitsDied: 1 },
-        { x: 0, y: 0 },
-        { getVisualCenter: () => ({ x: 1, y: 1 }) },
-        new Promise<void>((resolve) => {
-            finish = resolve;
-        }),
-    );
-    await flush();
-    destroyed = true;
-    finish();
-    await pending;
-    expect(log).toEqual([]);
+    const pop = mock(() => {
+        throw new Error("A passive popup must not retime combat");
+    });
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        isSceneDestroyed: () => false,
+        sc_sceneSettings: { getGridSettings: () => ({}) },
+        combatVisuals: { showFloatingDamage: numbers, spawnPetrifyingGazePop: pop },
+        playReplayOneShot: extraHit,
+        delayReplay: () => {
+            throw new Error("Recorded damage cannot wait on a cosmetic timer");
+        },
+    });
+    const casualties = mock((_n: number) => undefined),
+        death = mock(() => undefined);
+    const unit = {
+        getVisualCenter: () => ({ x: 100, y: 0 }),
+        getDamagePredictionAnchor: () => ({ x: 100, y: 100 }),
+        presentDamageCasualties: casualties,
+    };
+    // An unresolved first reaction must not postpone an already-recorded damage result.
+    const entry = {
+        source: "petrifying_gaze",
+        unitId: "B",
+        position: { x: 100, y: 0 },
+        amount: 45,
+        unitsDied: lethal ? 1 : 0,
+    };
+    await scene.presentPetrifyingGaze(entry, { x: 0, y: 0 }, unit, new Promise(() => {}), lethal ? death : undefined);
+    // Replaying the same recorded entry must not add a second number or another loss.
+    await scene.presentPetrifyingGaze(entry, { x: 0, y: 0 }, unit);
+    expect(numbers).toHaveBeenCalledTimes(1);
+    expect(numbers.mock.calls[0]?.[1]).toBe(45);
+    expect(casualties).toHaveBeenCalledWith(lethal ? 1 : 0);
+    expect(death).toHaveBeenCalledTimes(lethal ? 1 : 0);
+    expect(extraHit).not.toHaveBeenCalled();
+    expect(pop).not.toHaveBeenCalled();
 });
-
+test("retired scenes cannot emit a new gaze result", async () => {
+    const numbers = mock(() => undefined);
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        isSceneDestroyed: () => true,
+        combatVisuals: { showFloatingDamage: numbers },
+    });
+    await scene.presentPetrifyingGaze({ source: "petrifying_gaze", amount: 45, unitsDied: 1 }, { x: 0, y: 0 });
+    expect(numbers).not.toHaveBeenCalled();
+});
 test("lab gaze preview uses the luck flag anchor and removes its head before secondary damage", async () => {
     const flag = { x: 120, y: 230 };
     let follow!: () => { x: number; y: number; unitId?: string };

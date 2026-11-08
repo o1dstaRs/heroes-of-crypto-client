@@ -225,7 +225,7 @@ test.each([false, true])(
                 const previousFrameMs =
                     ((hit.loopDurationMs / hit.frameCount) * oneShotAnimationDurationMultiplier("Pegasus", "hit")) /
                     HIT_REACTION_ADDITIONAL_SPEED;
-                expect(anim.durationPerFrame).toBeCloseTo(previousFrameMs / 1.4);
+                expect(anim.durationPerFrame).toBeCloseTo(previousFrameMs);
             }
             expect(anim.frames).toHaveLength(8);
             expect(anim.frames[0].width).toBe(PEGASUS_COMBAT_CANVAS_SIZE);

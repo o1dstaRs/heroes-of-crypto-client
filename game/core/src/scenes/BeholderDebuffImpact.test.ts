@@ -62,7 +62,8 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     );
     for (let i = 0; i < 20; i++) await Promise.resolve();
     expect(popped).toEqual([]);
-    expect(contact).toBeUndefined();
+    // Optional debuff art cannot hold the attack behind a cold status-atlas download.
+    expect(contact).toBeDefined();
     readyTextures();
     for (let i = 0; i < 20; i++) await Promise.resolve();
     contact();

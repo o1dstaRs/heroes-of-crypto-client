@@ -1607,74 +1607,80 @@ assetTest("plays Troglodyte hit and death at authored timing and resumes the clo
 });
 
 assetTest("plays all Troglodyte attacks with authored timing, stable padded canvas and seamless idle return", () => {
-    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    const durations = [40, 55, 65, 35, 45, 55, 70, 35];
-    for (const action of ["attack", "attack_up", "attack_down"]) {
-        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
-            for (const preview of [false, true]) {
-                const resolved: string[] = [];
-                const unit = createRenderableUnit(team, "Chaos", "Troglodyte", "troglodyte_512", (key) => {
-                    resolved.push(key);
-                    return Texture.WHITE;
-                });
-                const world = new Container();
-                unit.setPosition(0, 1024);
-                unit.setBattlefieldVisualProjection(true);
-                unit.ensureVisual(world, gridSettings);
-                const state = unit as unknown as {
-                    sprite: Sprite;
-                    oneShotAnim?: { frames: Texture[]; frameIndex: number; frameDurationsMs?: readonly number[] };
-                    selectionAnimFrames: Texture[];
-                    troglodyteIdleResumeAtMs: number;
-                };
-                const idleScale = { x: state.sprite.scale.x, y: state.sprite.scale.y };
-                let completed = 0;
-                expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", action)).toBe(true);
-                expect(unit.playOneShotAnimation(action, () => completed++, preview)).toBe(true);
-                expect(resolved).toContain(`troglodyte_${action}_atlas_quarter`);
-                expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
-                expect(state.oneShotAnim?.frames).toHaveLength(8);
-                const targetY = action === "attack_up" ? 2048 : action === "attack_down" ? 0 : 1024;
-                expect(unit.getAttackAnimationStateForTarget({ x: 100, y: targetY }, "melee")).toBe(action);
-                // Padding changes texture size and anchor together; the toe stays on the same ground plane.
-                expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
-                expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
-                expect((1143 / 4 - state.sprite.anchor.y * 320) * state.sprite.scale.y).toBeCloseTo(
-                    (759 / 4 - (730 / 768) * 192) * idleScale.y,
-                    6,
-                );
-                for (let frame = 0; frame < durations.length; frame++) {
+    // Animation boundaries must not depend on wall-clock scheduling under parallel CI load.
+    const clock = spyOn(performance, "now").mockReturnValue(10000);
+    try {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const durations = [40, 55, 65, 35, 45, 55, 70, 35];
+        for (const action of ["attack", "attack_up", "attack_down"]) {
+            for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+                for (const preview of [false, true]) {
+                    const resolved: string[] = [];
+                    const unit = createRenderableUnit(team, "Chaos", "Troglodyte", "troglodyte_512", (key) => {
+                        resolved.push(key);
+                        return Texture.WHITE;
+                    });
+                    const world = new Container();
+                    unit.setPosition(0, 1024);
+                    unit.setBattlefieldVisualProjection(true);
                     unit.ensureVisual(world, gridSettings);
-                    expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                    const state = unit as unknown as {
+                        sprite: Sprite;
+                        oneShotAnim?: { frames: Texture[]; frameIndex: number; frameDurationsMs?: readonly number[] };
+                        selectionAnimFrames: Texture[];
+                        troglodyteIdleResumeAtMs: number;
+                    };
+                    const idleScale = { x: state.sprite.scale.x, y: state.sprite.scale.y };
+                    let completed = 0;
+                    expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", action)).toBe(true);
+                    expect(unit.playOneShotAnimation(action, () => completed++, preview)).toBe(true);
+                    expect(resolved).toContain(`troglodyte_${action}_atlas_quarter`);
+                    expect(state.oneShotAnim?.frameDurationsMs).toEqual(durations);
+                    expect(state.oneShotAnim?.frames).toHaveLength(8);
+                    const targetY = action === "attack_up" ? 2048 : action === "attack_down" ? 0 : 1024;
+                    expect(unit.getAttackAnimationStateForTarget({ x: 100, y: targetY }, "melee")).toBe(action);
+                    // Padding changes texture size and anchor together; the toe stays on the same ground plane.
                     expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
                     expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
-                    expect(state.sprite.anchor.y).toBeCloseTo(1114 / 1280, 6);
-                    unit.stepOneShotAnimation(durations[frame] - 1);
-                    expect(state.oneShotAnim?.frameIndex).toBe(frame);
-                    expect(completed).toBe(0);
-                    unit.stepOneShotAnimation(1);
+                    expect((1143 / 4 - state.sprite.anchor.y * 320) * state.sprite.scale.y).toBeCloseTo(
+                        (759 / 4 - (730 / 768) * 192) * idleScale.y,
+                        6,
+                    );
+                    for (let frame = 0; frame < durations.length; frame++) {
+                        unit.ensureVisual(world, gridSettings);
+                        expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                        expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
+                        expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
+                        expect(state.sprite.anchor.y).toBeCloseTo(1114 / 1280, 6);
+                        unit.stepOneShotAnimation(durations[frame] - 1);
+                        expect(state.oneShotAnim?.frameIndex).toBe(frame);
+                        expect(completed).toBe(0);
+                        unit.stepOneShotAnimation(1);
+                    }
+                    expect(completed).toBe(1);
+                    expect(unit.isPlayingOneShotAnimation()).toBe(false);
+                    expect(state.sprite.texture).toBe(state.selectionAnimFrames[0]);
+                    expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
+                    expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
+                    expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
+                    unit.stepSelectionAnimation(state.troglodyteIdleResumeAtMs + 80);
+                    expect(state.sprite.texture).toBe(state.selectionAnimFrames[1]);
+                    unit.playOneShotAnimation(action, undefined, true);
+                    unit.stepOneShotAnimation(200);
+                    unit.returnToIdleAnimation();
+                    expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
+                    expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
+                    unit.playOneShotAnimation(action, undefined, true);
+                    unit.playOneShotAnimation("hit", undefined, true);
+                    expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
+                    expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
                 }
-                expect(completed).toBe(1);
-                expect(unit.isPlayingOneShotAnimation()).toBe(false);
-                expect(state.sprite.texture).toBe(state.selectionAnimFrames[0]);
-                expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
-                expect(state.sprite.scale.x).toBeCloseTo(idleScale.x, 6);
-                expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
-                unit.stepSelectionAnimation(state.troglodyteIdleResumeAtMs + 80);
-                expect(state.sprite.texture).toBe(state.selectionAnimFrames[1]);
-                unit.playOneShotAnimation(action, undefined, true);
-                unit.stepOneShotAnimation(200);
-                unit.returnToIdleAnimation();
-                expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
-                expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
-                unit.playOneShotAnimation(action, undefined, true);
-                unit.playOneShotAnimation("hit", undefined, true);
-                expect(state.sprite.scale.y).toBeCloseTo(idleScale.y, 6);
-                expect(state.sprite.anchor.y).toBeCloseTo(730 / 768);
             }
         }
+        expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "cast")).toBe(false);
+    } finally {
+        clock.mockRestore();
     }
-    expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "cast")).toBe(false);
 });
 
 assetTest("Troglodyte attacks use 400 real milliseconds in the fixed simulation loop", () => {
@@ -5151,7 +5157,7 @@ describe("Wandering Mage board animation states", () => {
             const durations =
                 state === "cast"
                     ? [80, 140, 160, 220, 200, 160, 140, 100].map((duration) => duration / 1.15 / 1.2)
-                    : [50, 110, 130, 60, 70, 90, 140, 70].map((duration) => duration / 1.2);
+                    : [50, 110, 130, 60, 70, 90, 140, 70];
             for (const direction of [-1, 1]) {
                 const unit = createWanderingMage();
                 unit.setBoardFacing(direction);
@@ -5163,7 +5169,9 @@ describe("Wandering Mage board animation states", () => {
                 let completions = 0;
                 expect(unit.playOneShotAnimation(state, () => completions++)).toBe(true);
                 expect(internals.oneShotAnim?.frames).toHaveLength(8);
-                expect(internals.oneShotAnim?.frameDurationsMs).toEqual(durations);
+                // Main's intentional 720 ms melee keeps each cel's authored share.
+                for (const [index, expected] of durations.entries())
+                    expect(internals.oneShotAnim?.frameDurationsMs?.[index]).toBeCloseTo(expected, 5);
                 expect(sprite.texture.width).toBe(256);
                 expect(sprite.scale.x).toBeCloseTo(scale.x, 8);
                 expect(sprite.scale.y).toBeCloseTo(scale.y, 8);
@@ -5172,7 +5180,7 @@ describe("Wandering Mage board animation states", () => {
                     expect(internals.oneShotAnim?.frameIndex).toBe(index);
                     expect(sprite.scale.x).toBeCloseTo(scale.x, 8);
                     expect(sprite.scale.y).toBeCloseTo(scale.y, 8);
-                    unit.stepOneShotAnimation(durations[index]);
+                    unit.stepOneShotAnimation(durations[index] + 1e-7);
                 }
                 expect(completions).toBe(1);
                 expect(internals.oneShotAnim).toBeUndefined();
@@ -5202,7 +5210,8 @@ describe("Wandering Mage board animation states", () => {
                 completed = true;
             }),
         ).toBe(true);
-        for (let i = 0; i < 35; i++) unit.stepSpawnAnimation(1 / 240);
+        // Main's 720 ms authored melee runs for 180 ms at the existing 4x combat rate.
+        for (let i = 0; i < 43; i++) unit.stepSpawnAnimation(1 / 240);
         expect(completed).toBe(false);
         unit.stepSpawnAnimation(1 / 240);
         expect(completed).toBe(true);

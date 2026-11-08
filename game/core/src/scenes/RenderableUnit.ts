@@ -11386,11 +11386,25 @@ export class RenderableUnit extends Unit {
                     props.name === MERMAID_UNIT_NAME),
         };
 
+        // INTENDED main parity: all three Wandering Mage melee clips take 720 ms. The
+        // generated registry has shipped differing loop durations; preserve the approved runtime
+        // duration without replacing artwork, dropping cels, or changing their relative holds.
+        if (props.name === WANDERING_MAGE_UNIT_NAME && /^melee_attack(?:_up|_down)?$/.test(stateName)) {
+            const duration =
+                this.oneShotAnim.frameDurationsMs?.reduce((sum, ms) => sum + ms, 0) ??
+                this.oneShotAnim.durationPerFrame * frames.length;
+            const scale = 720 / duration;
+            this.oneShotAnim.durationPerFrame *= scale;
+            this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map((ms) => ms * scale);
+        }
         if (stateName === "hit") {
             // Apply after all creature-specific timing, including authored uneven frame durations.
-            const hitSpeed = HIT_REACTION_ADDITIONAL_SPEED * (props.name === "Pegasus" ? 1.4 : 1);
-            this.oneShotAnim.durationPerFrame /= hitSpeed;
-            this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map((ms) => ms / hitSpeed);
+            // Intentional main parity: Pegasus uses the same final hit-reaction multiplier as
+            // every other creature. Creature-specific authored timings above remain authoritative.
+            this.oneShotAnim.durationPerFrame /= HIT_REACTION_ADDITIONAL_SPEED;
+            this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map(
+                (ms) => ms / HIT_REACTION_ADDITIONAL_SPEED,
+            );
         }
 
         // Set the first frame immediately. A differently sized atlas would otherwise keep the old

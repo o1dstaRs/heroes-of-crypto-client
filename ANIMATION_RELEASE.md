@@ -6,6 +6,36 @@ outside Git. Production builds and the deploy readiness check verify all require
 against `game/core/animation-release.json` before copying assets. A stale shared Drive folder fails
 with the missing or mismatched filenames instead of silently building old animations.
 
+## Intended combat timing — retain main behavior
+
+The opening attack and its recorded retaliation start in the same presentation frame, including
+lethal exchanges. Melee damage is shown at the opening impact; ranged damage is shown at each
+projectile's own contact. Never move damage behind completion of the attack clip or serialize the
+opening counterattack. A unit's incoming hit animation waits only for its own outgoing animation,
+so it cannot cancel an authored shot. Extra blows wait for both opening attacks and their reactions.
+
+These are intentional presentation rules for already-authoritative results, not changes to damage,
+retaliation eligibility, ammunition or turn order. Optional status/popup art cannot hold up an attack.
+Secondary Petrifying Gaze damage does not create a new hit sequence or cosmetic pause in combat;
+the archived preview remains available in the animation lab. Pegasus keeps main's final hit multiplier,
+and Wandering Mage keeps main's 720 ms authored melee duration in all three directions.
+
+`combat_exchange.test.ts`, `CombatExchangePlayback.test.ts`, `CombatExchangeAuthoredTiming.test.ts`,
+`RankedCombatTiming.test.ts`, the frozen 57-creature `MainCombatTimingParity.test.ts` fixture, and the
+Chakram and Fire Shield regressions lock this behavior with controlled
+completion gates and clocks. Preserve these assertions during synchronization or conflict resolution.
+
+## Drive image verification — 2026-11-08
+
+All 5,504 pinned runtime files (4,907,751,704 bytes) were verified by size and SHA-256 from the mounted
+shared Drive sources and the required members of all eleven resource archives. The archive files were
+also checked against their pinned sizes and hashes. No approved artwork was changed.
+
+The restored floor image uses `images/background_stone_tiles_sinister_16x16_original_restored.webp` as
+its existing shared source. Its former `background_stone_tiles_sinister_16x16.webp` alias was retired;
+the portable restore manifest now points to the surviving filename with the exact same approved hash.
+The release-verifier regression also requires every runtime pin to have a matching reproducible source.
+
 ## Portrait baseline — main retained
 
 PR #205 retains the portraits from client main `c8284894ac22e0049336a0e05de9ddc1b63a7995`. Roster and draft cards
@@ -147,6 +177,7 @@ a reference snapshot and must not replace the live test API.
 
 ## Current coordinated engine pin
 
-The current client #205 and server #70 candidates pin common `33f6441c8009d72e052de7601cdcc5bee2cb02e0` from common #114,
-retaining current main artifact catalogs and behavior. The original visual-only rollout above records the
+Client #205 pins common `28716f982b0dd6fab1b3f1df86bc3ec2c6ce9e48`, including merged common #114 and
+main's confirmed-resistance events. The authoritative server package and lockfile must be checked
+against that exact client pin before the coordinated rollout. The original visual-only rollout above records the
 previously deployed engine; the current candidate requires the matching authoritative server revision.

@@ -273,17 +273,17 @@ describe("Zena lethal impact routing", () => {
             );
             await flush();
             expect(f.flights[0].to).toEqual(f.b.getProjectileImpactPoint());
-            expect(f.flights).toHaveLength(1);
-            f.flights[0].impact();
-            f.flights[0].finish();
-            await flush();
             expect(f.flights[1].to).toEqual(
                 prepareBrutalityTarget(f.a.getStaticBattlefieldPreviewAt()!, f.a.getName())!.point,
             );
             f.flights[1].impact();
             f.flights[1].finish();
             await flush();
-            expect(f.roots()).toHaveLength(1);
+            expect(f.roots()).toHaveLength(0);
+            // A recorded opening shot survives even when the concurrent counter is lethal.
+            f.flights[0].impact();
+            f.flights[0].finish();
+            await flush();
             f.hops.splice(0).forEach((finish) => finish());
             await pending;
             expect(f.roots()).toHaveLength(1);
