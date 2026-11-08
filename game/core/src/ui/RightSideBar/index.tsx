@@ -31,11 +31,7 @@ import { AccountSignInMethods } from "../AccountSignInMethods";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
 import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
-import {
-    GAME_SYSTEM_CONTROL_SIZE_PX,
-    GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX,
-    GameSystemControls,
-} from "../GameSystemControls";
+import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
 
 const TouchArmyRoster = React.lazy(() => import("../mobile/TouchArmyRoster"));
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
@@ -536,17 +532,10 @@ export default function RightSideBar({
             </Box>
             {touch && <div id="hoc-touch-panel-system-slot" />}
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
-            {/* Combat reserves the measured controls only; the log takes the removed chat row's height. */}
+            {/* INTENDED main parity: keep the full wrapped-footer clearance in setup and combat,
+                even while the measured row is temporarily only one line tall. */}
             {showSystemControls && !touch && (
-                <Box
-                    sx={{
-                        height: Math.max(
-                            gameStarted ? GAME_SYSTEM_CONTROL_SIZE_PX : GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX,
-                            footerHeight,
-                        ),
-                        flexShrink: 0,
-                    }}
-                />
+                <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
             )}
             {showSystemControls && (
                 <GameSystemControls
@@ -555,8 +544,9 @@ export default function RightSideBar({
                     onHeightChange={setFooterHeight}
                     sidebarWidth={barSize}
                     rightStack
-                    centerInRow={Boolean(rankedFooter && footerLeading)}
-                    centerMinWidth={(rankedFooter && !rankedPanel) || premiumFightVisible ? 132 : undefined}
+                    // Main centres every placement plate, including Ready without a leading guide.
+                    centerInRow={Boolean(rankedFooter)}
+                    centerMinWidth={rankedFooter ? 224 : premiumFightVisible ? 176 : undefined}
                     center={
                         premiumFightVisible ? (
                             <>

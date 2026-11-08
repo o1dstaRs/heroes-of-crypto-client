@@ -3238,15 +3238,15 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     );
 };
 
-// The READY action fills the sidebar footer from its left inset to the corner controls.
+// INTENDED main parity: Ready fills the centred footer slot and stays at least 44px tall,
+// growing with text scaling. Do not shrink it to the smaller corner-medallion plate height.
 const rankedReadyPlacementButtonSx = {
     ...hocSidebarImageButtonSx("neutral"),
     width: "100%",
     minWidth: 0,
     maxWidth: "360px",
-    height: "35.2px",
-    minHeight: "35.2px",
-    maxHeight: "35.2px",
+    height: "max(44px, calc(2.2em + 8px))",
+    minHeight: "max(44px, calc(2.2em + 8px))",
     flexShrink: 0,
     justifySelf: "center",
     py: 0,
