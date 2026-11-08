@@ -2175,6 +2175,9 @@ body:has(.premium-page) .site-header {
     z-index: 2;
     min-width: 0;
     min-height: 0;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
     border: 1px solid #c0be8d88;
     border-radius: 3px;
     background: #2c3928;

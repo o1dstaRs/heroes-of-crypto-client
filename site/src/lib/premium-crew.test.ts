@@ -8,7 +8,9 @@ import {
     premiumCrewSlots,
     premiumCrewSynergies,
     renderPremiumCrew,
+    samplePremiumCrew,
 } from "./premium-crew";
+import type { PremiumLibrary } from "./premium-library";
 import { premiumCrewEvidenceResponse } from "../../server/premium-crew-evidence";
 import type { PremiumEvidenceSnapshot } from "@heroesofcrypto/common/src/simulation/premium_evidence_snapshot";
 
@@ -22,6 +24,43 @@ const crew = (offset = 0) => {
     }
     return picked;
 };
+
+test("the starting crew fills all six legal board positions without requiring battle statistics", () => {
+    const ids = samplePremiumCrew(null, catalog);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
+    expect(ids.map((id) => catalog.units[id].level)).toEqual(CREW_LEVELS);
+    const formation = premiumCrewFormation(ids, catalog);
+    expect(valid(formation.input, formation.positions)).toBe(true);
+    const html = renderPremiumCrew(ids, catalog, "en", "screen", 1, false);
+    expect(html.match(/class="premium-crew-token"/g)).toHaveLength(6);
+    expect(html).not.toContain("Add unit");
+    expect(html).not.toContain("data-crew-sample");
+    for (const id of ids) expect(html).toContain(`data-knowledge-reference="${catalog.units[id].anchor}"`);
+});
+
+test("starting crews retain saved units and fill missing tiers when the evidence only covers one choice", () => {
+    const existing = crew(1);
+    const observed = eligible.find(([id, item]) => item.level === 3 && Number(id) !== existing[4])!;
+    const library = {
+        units: [{ key: observed[0], ids: [Number(observed[0])], families: 80, interval: [0.45, 0.7] }],
+    } as PremiumLibrary;
+    expect(samplePremiumCrew(library, catalog, existing)).toEqual(existing);
+    const partial = [existing[0], existing[2]];
+    const filled = samplePremiumCrew(library, catalog, partial);
+    expect(filled).toHaveLength(6);
+    expect(filled).toContain(partial[0]);
+    expect(filled).toContain(partial[1]);
+    expect(filled).toContain(Number(observed[0]));
+    expect(filled.map((id) => catalog.units[id].level)).toEqual(CREW_LEVELS);
+    const html = renderPremiumCrew(filled, catalog, "en", "screen", 1);
+    const boardButtons = html.match(/<button[^>]*class="premium-crew-token"[^>]*>/g)!;
+    expect(boardButtons).toHaveLength(6);
+    boardButtons.forEach((button, index) => {
+        expect(button).toContain(`data-crew-slot="${index}"`);
+        expect(button).toContain('aria-label="Replace ');
+    });
+});
 
 test("crew tools remain usable without offering unavailable statistical picks", () => {
     const empty = renderPremiumCrew([], catalog, "en", "screen", 1, false);

@@ -42,7 +42,8 @@ export function initPremiumCrew(
         battlefield: CrewBattlefield = saved.battlefield,
         slot = 0;
     let advance = false;
-    let focusAfterClose: "slot" | "board" | "none" = "slot";
+    let initialized = false;
+    let focusAfterClose: "slot" | "unit" | "board" | "none" = "slot";
     let controller: AbortController | undefined;
     const evidenceCache = new Map<string, { families: number; score: number | null }>();
     const draft = () => ({ version: 1 as const, ids: [...ids], layout, battlefield });
@@ -104,11 +105,11 @@ export function initPremiumCrew(
                 })
                 .join("") || `<p class="premium-empty">${t("No matching units.", "Нет подходящих юнитов.")}</p>`;
     };
-    const open = (index: number, continuePicking = false) => {
+    const open = (index: number, continuePicking = false, fromBoard = false) => {
         if (!Number.isInteger(index) || index < 0 || index >= CREW_LEVELS.length) return;
         slot = index;
         advance = continuePicking;
-        focusAfterClose = "slot";
+        focusAfterClose = fromBoard ? "unit" : "slot";
         search.value = "";
         picker.querySelector("[data-crew-progress]")!.textContent = t(
             `${ids.length} / 6 PICKED`,
@@ -184,6 +185,10 @@ export function initPremiumCrew(
     const refresh = () => {
         const target = root.querySelector<HTMLElement>("[data-crew-content]");
         if (!target) return;
+        if (!initialized) {
+            ids = samplePremiumCrew(getData()?.library, catalog, ids);
+            initialized = true;
+        }
         if (getData()?.library) battlefield = String(getData()!.library!.scope.map ?? "all") as CrewBattlefield;
         target.innerHTML = renderPremiumCrew(
             ids,
@@ -206,7 +211,11 @@ export function initPremiumCrew(
         if (button.hasAttribute("data-crew-close")) picker.close();
         if (button.hasAttribute("data-crew-slot")) {
             const index = Number(button.dataset.crewSlot);
-            open(index, premiumCrewSlots(ids, catalog)[index] === undefined);
+            open(
+                index,
+                premiumCrewSlots(ids, catalog)[index] === undefined,
+                button.classList.contains("premium-crew-token"),
+            );
         }
         if (button.hasAttribute("data-crew-remove")) {
             const id = premiumCrewSlots(ids, catalog)[Number(button.dataset.crewRemove)];
@@ -223,7 +232,7 @@ export function initPremiumCrew(
             const next = premiumCrewSlots(ids, catalog).findIndex((value) => value === undefined);
             if (advance && fillingEmpty && next >= 0) open(next, true);
             else {
-                focusAfterClose = advance && fillingEmpty ? "board" : "slot";
+                if (advance && fillingEmpty) focusAfterClose = "board";
                 picker.close();
             }
         }
@@ -275,8 +284,10 @@ export function initPremiumCrew(
             board?.setAttribute("tabindex", "-1");
             board?.focus({ preventScroll: true });
             board?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        } else if (focusAfterClose === "slot")
-            root.querySelector<HTMLButtonElement>(`[data-crew-slot="${slot}"]`)?.focus({ preventScroll: true });
+        } else if (focusAfterClose === "slot" || focusAfterClose === "unit")
+            root.querySelector<HTMLButtonElement>(
+                `${focusAfterClose === "unit" ? ".premium-crew-token" : ""}[data-crew-slot="${slot}"]`,
+            )?.focus({ preventScroll: true });
     });
     root.addEventListener("change", (event) => {
         const target = event.target as HTMLSelectElement;

@@ -1,5 +1,5 @@
 import { cells, valid, propose, type PublicInput, type Point } from "@heroesofcrypto/common/src/ai/placement/layout";
-import { creatureInfo } from "@heroesofcrypto/common/src/ai/setup/creature_score";
+import { creatureInfo, scoreCreature } from "@heroesofcrypto/common/src/ai/setup/creature_score";
 import { tier1ArtifactFitScoreV7, tier2ArtifactFitScoreV6 } from "@heroesofcrypto/common/src/ai/setup/artifact_fit";
 import { dualStrikeRelativeDamageGain } from "@heroesofcrypto/common/src/ai/setup/dual_strike_fit";
 import { DOUBLE_SHOT_ABILITY_NAMES } from "@heroesofcrypto/common/src/abilities/double_shot_names";
@@ -42,20 +42,38 @@ const unitPortrait = (item: PremiumCatalog["units"][string], eager = false) =>
     portraitMarkup(item.slug, item.name, { className: "premium-portrait", eager });
 const kb = (anchor: string, lang: Lang) => `${lang === "ru" ? "/ru" : ""}/knowledge-base/#${e(anchor)}`;
 
-export function samplePremiumCrew(library: PremiumLibrary, catalog: PremiumCatalog): number[] {
-    const rows = rankPremiumRows(library.units, 50);
-    const pool = [...rows, ...rankPremiumRows(library.units, 1)];
-    const chosen: number[] = [];
-    for (const level of CREW_LEVELS) {
-        const row = pool.find(
-            (row) =>
-                !chosen.includes(row.ids[0]) &&
-                catalog.units[row.ids[0]]?.level === level &&
-                catalog.units[row.ids[0]]?.kit?.amount,
+/** Fill a legal starting crew, retaining saved picks and using current rules when battle data is missing. */
+export function samplePremiumCrew(
+    library: PremiumLibrary | null | undefined,
+    catalog: PremiumCatalog,
+    existing: readonly number[] = [],
+): number[] {
+    const rows = library?.units ?? [];
+    const fallback = Object.keys(catalog.units)
+        .map(Number)
+        .filter((id) => catalog.units[id].kit?.amount)
+        .sort((a, b) => scoreCreature(b) - scoreCreature(a) || a - b);
+    const pool = [
+        ...rankPremiumRows(rows, 50).map((row) => row.ids[0]),
+        ...rankPremiumRows(rows, 1).map((row) => row.ids[0]),
+        ...fallback,
+    ];
+    const chosen = premiumCrewSlots(existing, catalog).filter(
+        (id, index, slots): id is number =>
+            id !== undefined && Boolean(catalog.units[id]?.kit?.amount) && slots.indexOf(id) === index,
+    );
+    const slots = premiumCrewSlots(chosen, catalog);
+    for (const [index, level] of CREW_LEVELS.entries()) {
+        if (slots[index] !== undefined) continue;
+        const id = pool.find(
+            (id) => !chosen.includes(id) && catalog.units[id]?.level === level && catalog.units[id]?.kit?.amount,
         );
-        if (row) chosen.push(row.ids[0]);
+        if (id !== undefined) {
+            slots[index] = id;
+            chosen.push(id);
+        }
     }
-    return chosen;
+    return slots.filter((id): id is number => id !== undefined);
 }
 
 /** A legal role-based starting formation, not a measured optimum or a live-game operation. */
@@ -242,7 +260,7 @@ export function premiumCrewArtifactBenefit(slug: string, ids: readonly number[],
 
 export function premiumCrewShell(lang: Lang): string {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
-    return `<section id="premium-crew" class="premium-section premium-crew"><header class="premium-section-heading"><span>02</span><div><h2>${t("Build your crew", "Соберите армию")}</h2><p>${t("Pick up to six units. See their formation, artifacts and faction bonuses.", "Выберите до шести юнитов: расстановка, артефакты и бонусы фракций.")}</p></div></header><div data-crew-content></div></section>`;
+    return `<section id="premium-crew" class="premium-section premium-crew"><header class="premium-section-heading"><span>02</span><div><h2>${t("Build your crew", "Соберите армию")}</h2><p>${t("Six units are already placed. Click a unit to swap it and update the formation, artifacts and faction bonuses.", "Шесть юнитов уже на поле. Нажмите на юнита, чтобы заменить его и обновить расстановку, артефакты и бонусы фракций.")}</p></div></header><div data-crew-content></div></section>`;
 }
 
 export function renderPremiumCrew(
@@ -275,7 +293,8 @@ export function renderPremiumCrew(
                 body = formation.input.bodies[index],
                 point = formation.positions[index];
             const coordinate = `${String.fromCharCode(65 + point.x)}${point.y + 1}`;
-            return `<a href="${kb(item.anchor, lang)}" class="premium-crew-token" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(`${item.name} · ${coordinate}`)}">${unitPortrait(item)}<b>${index + 1}</b></a>`;
+            const slot = premiumCrewSlots(ids, catalog).indexOf(id);
+            return `<button type="button" class="premium-crew-token" data-crew-slot="${slot}" data-knowledge-reference="${e(item.anchor)}" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(t(`Replace ${item.name} at ${coordinate}`, `Заменить ${item.name} на ${coordinate}`))}">${unitPortrait(item)}<b>${index + 1}</b></button>`;
         })
         .join("");
     const axes = Array.from(
