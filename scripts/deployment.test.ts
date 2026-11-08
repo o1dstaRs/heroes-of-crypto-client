@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { loadEnv } from "vite";
 import { prepareBuildEnvironment } from "./build_environment";
+import { workspaceTestBatchSize } from "./workspace_test_batches";
 import {
     deploymentCommand,
     deploymentEnvironment,
@@ -30,6 +31,20 @@ const config: DeploymentConfig = {
 };
 const common = "1234567".padEnd(40, "a");
 const pin = (revision: string) => `github:o1dstaRs/heroes-of-crypto-common#${revision}`;
+
+describe("release test memory batches", () => {
+    it("keeps the existing batch size unless a smaller release batch is requested", () => {
+        expect(workspaceTestBatchSize(undefined)).toBe(10);
+        for (let size = 1; size <= 10; size++) expect(workspaceTestBatchSize(String(size))).toBe(size);
+    });
+
+    it.each(["", "0", "-1", "1.5", "11", "NaN", "Infinity"])(
+        "rejects an invalid batch size %s before it can skip tests or stall the runner",
+        (value) => {
+            expect(() => workspaceTestBatchSize(value)).toThrow("integer from 1 to 10");
+        },
+    );
+});
 
 describe("deployment command selection", () => {
     it("defaults to a local plan rather than starting a release", () => {
