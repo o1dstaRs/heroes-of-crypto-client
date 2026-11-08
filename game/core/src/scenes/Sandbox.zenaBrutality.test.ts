@@ -80,6 +80,7 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant", re
             isPlayingOneShotAnimation: () => false,
             isDead: () => destroyed,
             applyRecoil: () => {},
+            catchZenaChakram: mock(),
             playOneShotAnimation: mock((_state: string, done?: () => void) => done?.()),
             destroyVisuals: mock(() => {
                 destroyed = true;
@@ -336,12 +337,14 @@ describe("Zena lethal impact routing", () => {
             };
             const pending = f.run([strike()], damage);
             await flush();
+            expect(f.a.catchZenaChakram).not.toHaveBeenCalled();
             const firstCut = prepareBrutalityTarget(f.b.getStaticBattlefieldPreviewAt()!, f.b.getName())!;
             const bounceCut = prepareBrutalityTarget(f.c.getStaticBattlefieldPreviewAt()!, f.c.getName())!;
             expect(f.flights[0].to).toEqual(firstCut.point);
             f.flights[0].impact();
             f.flights[0].finish();
             await flush();
+            expect(f.a.catchZenaChakram).not.toHaveBeenCalled();
             expect(f.roots()).toHaveLength(1);
             expect(impacts.bloodSprays).toHaveLength(1);
             expect(impacts.slashes).toHaveLength(1);
@@ -359,8 +362,10 @@ describe("Zena lethal impact routing", () => {
             expect(impacts.bloodSprays).toHaveLength(2);
             expect(impacts.slashes).toHaveLength(2);
             expect(f.paths[1][0]).toEqual(bounceCut.point);
+            expect(f.a.catchZenaChakram).not.toHaveBeenCalled();
             f.hops.shift()!();
             await pending;
+            expect(f.a.catchZenaChakram).toHaveBeenCalledTimes(1);
             expect(f.roots()).toHaveLength(2);
         } finally {
             f.cleanup();

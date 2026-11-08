@@ -800,6 +800,7 @@ export class UnitsOverlay {
                                   : undefined,
                               backgroundOpacity: portraitVisual.backgroundOpacity,
                               backgroundShadeAlpha: portraitVisual.backgroundShadeAlpha,
+                              backgroundShadeColor: portraitVisual.backgroundShadeColor,
                               backgroundTone: portraitVisual.backgroundTone,
                               artPalette: portraitVisual.artPalette,
                               framing: portraitVisual.framing,

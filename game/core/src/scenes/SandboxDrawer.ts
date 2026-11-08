@@ -17,26 +17,7 @@ import {
 } from "./AbominationSandAura";
 import { drawZenaChakramAura, resetZenaChakramAuras, ZENA_AURA_PALETTE } from "./ZenaChakramAura";
 import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
-import { FightProperties, GridSettings, HoCConstants, HoCMath, TeamType, type Unit } from "@heroesofcrypto/common";
-
-export const isAlwaysVisibleCombatAura = (name: string): boolean =>
-    name === "Griffin" || name === "Arachna Queen" || name === "Abomination";
-
-/** Wyvern poison is automatic only for its seated owner during that owner's turn. */
-export const isAutomaticCombatAura = (
-    name: string,
-    ownerTeam?: TeamType,
-    viewerTeam?: TeamType,
-    activeTeam?: TeamType,
-): boolean =>
-    isAlwaysVisibleCombatAura(name) ||
-    (name === "Wyvern" && viewerTeam !== undefined && ownerTeam === viewerTeam && activeTeam === viewerTeam);
-
-export const hasVisiblePersistentAura = (unit: Unit, viewerTeam?: TeamType, activeTeam?: TeamType): boolean =>
-    isAutomaticCombatAura(unit.getName(), unit.getTeam(), viewerTeam, activeTeam) &&
-    !unit.isDead() &&
-    !(viewerTeam !== undefined && unit.getTeam() !== viewerTeam && unit.hasBuffActive("Hidden")) &&
-    unit.getAuraRanges().some((range) => range > 0);
+import { FightProperties, GridSettings, HoCConstants, HoCMath, TeamType } from "@heroesofcrypto/common";
 
 /**
  * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
@@ -320,8 +301,6 @@ export interface IGameplayDrawContext {
     currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     sc_isAnimating: boolean;
     currentActiveUnit?: RenderableUnit;
-    auraUnits?: Iterable<Unit>;
-    viewerTeam?: TeamType;
     hoverManager: HoverManager;
     sidebarUnitRanges?: {
         xy: HoCMath.XY;
@@ -505,19 +484,6 @@ export class SandboxDrawer {
         resetAbominationSandAuras(ctx.abominationDustContainer);
         resetAbominationSandAuras(ctx.abominationGustContainer);
         const fightStarted = fightProps.hasFightStarted();
-        // The validated ghost footprint is the prospective landing. Keep it in logical
-        // board space so the aura renderer applies battlefield projection exactly once.
-        const auraLanding = ctx.hoverManager.hoverBattlefieldFootprintCells;
-        const previewAuraCenter =
-            fightStarted &&
-            currentActiveUnit &&
-            !sc_isAnimating &&
-            !isActiveUnitMoving &&
-            ctx.hoverManager.getHoverSilhouette?.()?.visible &&
-            auraLanding?.length
-                ? GridMath.getPositionForCells(gs, auraLanding)
-                : undefined;
-        const previewAuraOwner = previewAuraCenter ? currentActiveUnit?.getId() : undefined;
         const narrowingLayers = fightStarted
             ? Math.min(Math.max(0, fightProps.getLapsNarrowed()), HoCConstants.MAX_HOLE_LAYERS)
             : 0;
@@ -539,13 +505,6 @@ export class SandboxDrawer {
         // fill bounds visible while their top edges are dragged by hand.
         drawMovementAreaCalibration(movementGraphics, gs);
 
-        const automaticallyVisible = (owner?: { name: string; team?: TeamType }) =>
-            fightStarted &&
-            !!ctx.auraUnits &&
-            !!owner &&
-            isAutomaticCombatAura(owner.name, owner.team, ctx.viewerTeam, currentActiveUnit?.getTeam());
-        const selectedWyvern = sidebarUnitRanges?.auraOwner?.name === "Wyvern";
-
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
             const { xy, attackRange, auraRanges, footprint, auraOwner } = sidebarUnitRanges;
@@ -553,10 +512,7 @@ export class SandboxDrawer {
                 g,
                 xy,
                 attackRange,
-                (fightStarted && (!selectedWyvern || automaticallyVisible(auraOwner))) ||
-                    (!selectedWyvern && previewAuraOwner && auraOwner?.id === previewAuraOwner)
-                    ? []
-                    : auraRanges,
+                auraRanges,
                 footprint,
                 gs,
                 hoverGlowPhase,
@@ -568,16 +524,7 @@ export class SandboxDrawer {
         }
 
         // 0.51 Hovered Aura Ranges
-        if (
-            hoveredAuraRanges &&
-            !automaticallyVisible(hoveredAuraRanges.auraOwner) &&
-            !(selectedWyvern && sidebarUnitRanges?.auraOwner?.id === hoveredAuraRanges.auraOwner?.id) &&
-            !(
-                hoveredAuraRanges.auraOwner?.name !== "Wyvern" &&
-                ((currentActiveUnit && hoveredAuraRanges.auraOwner?.id === currentActiveUnit.getId()) ||
-                    (previewAuraOwner && hoveredAuraRanges.auraOwner?.id === previewAuraOwner))
-            )
-        ) {
+        if (hoveredAuraRanges) {
             const { xy, auraRanges, footprint, auraOwner } = hoveredAuraRanges;
             SandboxDrawer.drawAuraAndAttackRanges(
                 g,
@@ -594,37 +541,8 @@ export class SandboxDrawer {
             );
         }
 
-        if (fightStarted && ctx.auraUnits) {
-            for (const unit of ctx.auraUnits) {
-                if (!hasVisiblePersistentAura(unit, ctx.viewerTeam, currentActiveUnit?.getTeam())) continue;
-                const auraRanges = visibleAuraRanges(
-                    unit.getAuraRanges(),
-                    unit.getAuraIsBuff(),
-                    fightProps.getAdditionalAuraRangePerTeam(unit.getTeam()),
-                    ctx.activeAuraRangesScratch,
-                );
-                SandboxDrawer.drawAuraAndAttackRanges(
-                    g,
-                    unit.getPosition(),
-                    0,
-                    auraRanges,
-                    { width: unit.getFootprintWidth(), height: unit.getFootprintHeight() },
-                    gs,
-                    hoverGlowPhase,
-                    0.7,
-                    { name: unit.getName(), id: unit.getId() },
-                    narrowingLayers,
-                    ctx,
-                );
-            }
-        }
-
-        // Turn-only auras follow the active creature, including its movement and landing preview.
-        if (
-            currentActiveUnit &&
-            currentActiveUnit.getName() !== "Wyvern" &&
-            !(fightStarted && ctx.auraUnits && isAlwaysVisibleCombatAura(currentActiveUnit.getName()))
-        ) {
+        // 0.6 Active Unit Aura Range (Requested Feature)
+        if (currentActiveUnit && (!isActiveUnitMoving || currentActiveUnit.getName() === "Abomination")) {
             const auraRanges = visibleAuraRanges(
                 currentActiveUnit.getAuraRanges(),
                 currentActiveUnit.getAuraIsBuff(),
@@ -634,7 +552,7 @@ export class SandboxDrawer {
             if (auraRanges.length > 0) {
                 // The range drawer performs the battlefield projection itself. Passing the sprite's
                 // already projected centre here bent the active aura a second time.
-                const xy = previewAuraCenter ?? currentActiveUnit.getPosition();
+                const xy = currentActiveUnit.getPosition();
                 const footprint = {
                     width: currentActiveUnit.getFootprintWidth(),
                     height: currentActiveUnit.getFootprintHeight(),
@@ -648,10 +566,7 @@ export class SandboxDrawer {
                     footprint,
                     gs,
                     hoverGlowPhase,
-                    // Match the approved lab/selected seal and blood aura in live combat.
-                    currentActiveUnit.getName() === "Crusader" || currentActiveUnit.getName() === "Valkyrie"
-                        ? 0.7
-                        : 0.5,
+                    0.5,
                     { name: currentActiveUnit.getName(), id: currentActiveUnit.getId() },
                     narrowingLayers,
                     ctx,

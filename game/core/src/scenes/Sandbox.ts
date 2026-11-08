@@ -13,6 +13,7 @@ import { terrifyingGazeRecipients } from "./terrifyingGazeFlagEffects";
 import { PETRIFYING_GAZE_DURATION_MS } from "./sandbox/PetrifyingGazePops";
 import { BEHOLDER_DEBUFFS, isBeholderDebuff, beholderDebuffTextureName } from "./sandbox/BeholderDebuffPops";
 import { resetWyvernPoisonAuras } from "./WyvernPoisonAura";
+import { resetSatyrSylvanAuras } from "./SatyrSylvanAura";
 import { shatterArmorRecipients } from "./shatterArmorFlagEffects";
 import { isBackstabImpact } from "./backstabFlagEffects";
 import { isTouchGameActive } from "../viewport/gameViewport";
@@ -79,7 +80,6 @@ import {
     hoveredShotRangeColor,
     movementCellsOutsideUnitFootprint,
     visibleAuraRanges,
-    hasVisiblePersistentAura,
     type IAltInspectFootprint,
     type IFootprintExtent,
     type ShotRangeCornerSpritePool,
@@ -5759,6 +5759,10 @@ export class Sandbox extends PixiScene {
                                 absolvingProgress,
                             );
                             await Promise.all([attack, chakramFlight]);
+                            // The exchange owns the ricochets and final return. Restore the held weapon
+                            // only after that flight finishes, before waiting for Zena's recovery cels.
+                            if (isChakramFlight && source.getName() === "Zena" && !this.isSceneDestroyed())
+                                source.catchZenaChakram?.();
                             // Projectile arrival can precede the authored shooter's recovery frames.
                             if (usesAuthoredRangedRelease(source.getName()))
                                 await this.waitForProjectileHitReaction(source);
@@ -6168,13 +6172,21 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
-        chakram?: boolean,
+        exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): Promise<void> {
         await this.fireUnitProjectile(
             attacker,
-            this.getReplayProjectileOptions(attacker, target, toPosition, onImpact, chakram, onProgress, damage),
+            this.getReplayProjectileOptions(
+                attacker,
+                target,
+                toPosition,
+                onImpact,
+                exchangeChakram,
+                onProgress,
+                damage,
+            ),
         );
     }
     private getReplayProjectileOptions(
@@ -6182,7 +6194,7 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
-        chakram?: boolean,
+        exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): IFireProjectileOptions {
@@ -6209,7 +6221,10 @@ export class Sandbox extends PixiScene {
             cannonImpactPosition: cannon ? targetPosition : undefined,
             cannonballDiameter: cannon ? gs.getCellSize() : undefined,
             big: bigProjectile,
-            chakram: chakram ?? attacker.hasAbilityActive("Chakram"),
+            chakram: exchangeChakram ?? attacker.hasAbilityActive("Chakram"),
+            // An exchange starts its continuation at primary contact. Auto-returning this first leg
+            // as well would leave two discs alive. Standalone throws still return and catch themselves.
+            chakramDeferReturn: exchangeChakram === true,
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
             arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
             centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
@@ -15722,12 +15737,10 @@ export class Sandbox extends PixiScene {
                 // SandboxDrawer paints it on the same persistent layer (z=55) as the active/selected
                 // unit's aura. The old hoverManager.drawAuraArea layer (z=51) gets wiped mid-frame by the
                 // placement-hover path (updateHoverPlacementCell -> clearAuraVisuals), which is why the
-                // hover aura "never showed". Active units are drawn separately; sidebar selection
-                // supplies auras only before combat, except Wyvern which also supports explicit combat selection.
+                // hover aura "never showed". Match main: active/selected board units already
+                // own their aura; hover must not add a second copy.
                 const auraAlreadyVisualized =
-                    (hoverTargetUnit === this.currentActiveUnit && hoverTargetUnit.getName() !== "Wyvern") ||
-                    (!FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
-                        hoverTargetUnit === this.selectedBoardUnit);
+                    hoverTargetUnit === this.currentActiveUnit || hoverTargetUnit === this.selectedBoardUnit;
                 const auraRanges = hoverTargetUnit.getAuraRanges();
                 if (!auraAlreadyVisualized && auraRanges && auraRanges.length > 0) {
                     const finalAuras = visibleAuraRanges(
@@ -18567,6 +18580,7 @@ export class Sandbox extends PixiScene {
         resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
         resetDryadWindAuras(this.arachnaWebAuraContainer);
         resetLeprechaunCloverAuras(this.arachnaWebAuraContainer);
+        resetSatyrSylvanAuras(this.arachnaWebAuraContainer);
         resetZenaChakramAuras(this.arachnaWebAuraContainer);
         resetPegasusWingedSwordAuras(this.arachnaWebAuraContainer);
         resetCrusaderSixSwordsAuras(this.arachnaWebAuraContainer);
@@ -18689,8 +18703,6 @@ export class Sandbox extends PixiScene {
 
         SandboxDrawer.drawGameplayVisuals(g, {
             fightProps,
-            auraUnits: this.unitsHolder.getAllUnits().values(),
-            viewerTeam: this.getViewerTeam(),
             currentActiveShotRange,
             shiftSelectedShotRange,
             hoveredShotRange: this.sc_hoveredShotRange,
@@ -18804,12 +18816,6 @@ export class Sandbox extends PixiScene {
         }
     }
     private hasGameplayVisuals(): boolean {
-        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
-            for (const unit of this.unitsHolder.getAllUnits().values()) {
-                if (hasVisiblePersistentAura(unit, this.getViewerTeam(), this.currentActiveUnit?.getTeam()))
-                    return true;
-            }
-        }
         if (isMovementAreaEditorActive()) return true;
         if (this.sc_placementMoveRange?.length || this.sc_hoveredMoveRange?.length) return true;
         if (this.sc_hoveredShotRange || this.sc_hoveredAuraRanges || this.sc_currentActiveShotRange) return true;
@@ -18818,7 +18824,7 @@ export class Sandbox extends PixiScene {
         if (this.currentActiveSpell) return true;
 
         const activeUnit = this.currentActiveUnit;
-        if (!activeUnit) return false;
+        if (!activeUnit || this.isActiveUnitMoving) return false;
         return activeUnit.getAuraRanges().some((range) => range > 0);
     }
     private throwTransparency(spellName: string, caster: Unit): TransparencyPredicate | undefined {
@@ -20652,6 +20658,7 @@ export class Sandbox extends PixiScene {
         resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
         resetDryadWindAuras(this.arachnaWebAuraContainer);
         resetLeprechaunCloverAuras(this.arachnaWebAuraContainer);
+        resetSatyrSylvanAuras(this.arachnaWebAuraContainer);
         resetZenaChakramAuras(this.arachnaWebAuraContainer);
         resetPegasusWingedSwordAuras(this.arachnaWebAuraContainer);
         resetCrusaderSixSwordsAuras(this.arachnaWebAuraContainer);
