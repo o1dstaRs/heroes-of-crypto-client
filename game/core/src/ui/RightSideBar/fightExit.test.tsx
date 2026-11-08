@@ -42,31 +42,37 @@ afterAll(() => {
     else Reflect.deleteProperty(globalThis, "window");
 });
 
-test("sandbox fight keeps exactly one exit beside Premium controls for signed-in and anonymous players", async () => {
+test("sandbox setup and combat keep Start over beside one exit when restarting is available", async () => {
     for (const signedIn of [false, true]) {
         authenticated = signedIn;
         for (const enabled of [false, true]) {
             active = enabled;
-            const tree = (
-                <CacheProvider value={createCache({ key: "fight-exit" })}>
-                    <MemoryRouter>
-                        <React.Suspense fallback={null}>
-                            <RightSideBar
-                                gameStarted
-                                showPremiumFightControls
-                                onStartOver={() => {}}
-                                windowSize={{ width: 1200, height: 800 }}
-                            />
-                        </React.Suspense>
-                    </MemoryRouter>
-                </CacheProvider>
-            );
-            const stream = await renderToReadableStream(tree, { signal: AbortSignal.timeout(5000) });
-            await stream.allReady;
-            const html = await new Response(stream).text();
-            expect(html.match(/aria-label="Exit fight"/g)).toHaveLength(1);
-            expect(html).not.toContain('aria-label="Start over"');
-            expect(html.includes("data-premium-controls")).toBe(enabled);
+            for (const gameStarted of [false, true]) {
+                for (const canStartOver of [false, true]) {
+                    const tree = (
+                        <CacheProvider value={createCache({ key: "fight-exit" })}>
+                            <MemoryRouter>
+                                <React.Suspense fallback={null}>
+                                    <RightSideBar
+                                        gameStarted={gameStarted}
+                                        showPremiumFightControls
+                                        onClose={gameStarted ? undefined : () => {}}
+                                        onStartOver={canStartOver ? () => {} : undefined}
+                                        windowSize={{ width: 1200, height: 800 }}
+                                    />
+                                </React.Suspense>
+                            </MemoryRouter>
+                        </CacheProvider>
+                    );
+                    const stream = await renderToReadableStream(tree, { signal: AbortSignal.timeout(5000) });
+                    await stream.allReady;
+                    const html = await new Response(stream).text();
+                    const exitLabel = gameStarted ? "Exit fight" : "Back";
+                    expect(html.match(new RegExp(`aria-label="${exitLabel}"`, "g"))).toHaveLength(1);
+                    expect(html.match(/aria-label="Start over"/g) ?? []).toHaveLength(canStartOver ? 1 : 0);
+                    expect(html.includes("data-premium-controls")).toBe(gameStarted && enabled);
+                }
+            }
         }
     }
 });

@@ -30,7 +30,7 @@ import FightControlToggler from "./FightControlToggler";
 import { AccountSignInMethods } from "../AccountSignInMethods";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { GameCornerExitButton, GameCornerSlot } from "../GameCornerExit";
+import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
 import {
     GAME_SYSTEM_CONTROL_SIZE_PX,
     GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX,
@@ -342,6 +342,7 @@ export default function RightSideBar({
                 the sandbox used to spend its own gothic button on this in the bar's title row. */}
             {onClose && (
                 <GameCornerSlot>
+                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                     <GameCornerExitButton onClick={onClose} label="Back" />
                 </GameCornerSlot>
             )}
@@ -576,6 +577,7 @@ export default function RightSideBar({
                 // (start over). A signed-in player keeps the trip to the play hub. The control
                 // itself paints in the shared top-right corner, not in this centre slot.
                 <GameCornerSlot>
+                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                     <GameCornerExitButton
                         onClick={() => {
                             if (authenticated) {
