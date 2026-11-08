@@ -45,7 +45,7 @@ const expectStraightApproach = (points: HoCMath.XY[]) => {
     }
 };
 
-const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") => {
+const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant", realImpacts = false) => {
     const texture = new Texture({ source: new TextureSource({ width: 512, height: 512 }) });
     const world = new Container();
     const actor = (id: string, name: string, x: number, team: TeamType) => {
@@ -103,6 +103,7 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
     const c = actor("C", "Wolf", 9, TeamVals.RIGHT);
     const units = new Map([a, b, c].map((unit) => [unit.getId(), unit]));
     const visuals = new CombatVisuals({
+        legacyEffectsEnabled: false,
         getGridSettings: () => gs,
         attachToWorldRoot: (node) => {
             world.addChild(node);
@@ -113,8 +114,10 @@ const fixture = (ranked = false, sourceName = "Zena", victimName = "Peasant") =>
         setUnitPropertiesUpdateNeeded: () => {},
     });
     visuals.showFloatingDamage = mock();
-    visuals.spawnBloodSpray = mock();
-    visuals.spawnSlash = mock();
+    if (!realImpacts) {
+        visuals.spawnBloodSpray = mock();
+        visuals.spawnSlash = mock();
+    }
     visuals.showMissLabel = mock();
     visuals.spawnCommonFlagPop = mock();
     const flights: { from: HoCMath.XY; to: HoCMath.XY; impact: () => void; finish: () => void }[] = [];
@@ -297,7 +300,8 @@ describe("Zena lethal impact routing", () => {
         { ranked: false, legacy: true },
         { ranked: true, legacy: true },
     ])("each lethal ricochet starts at its own arrival, ranked=$ranked legacy=$legacy", async ({ ranked, legacy }) => {
-        const f = fixture(ranked);
+        const f = fixture(ranked, "Zena", "Peasant", true);
+        const impacts = f.visuals as unknown as { bloodSprays: unknown[]; slashes: unknown[] };
         try {
             const splash = [f.b, f.c].map((unit) => ({
                 unitId: unit.getId(),
@@ -339,6 +343,8 @@ describe("Zena lethal impact routing", () => {
             f.flights[0].finish();
             await flush();
             expect(f.roots()).toHaveLength(1);
+            expect(impacts.bloodSprays).toHaveLength(1);
+            expect(impacts.slashes).toHaveLength(1);
             expect(f.c.destroyVisuals).not.toHaveBeenCalled();
             expect(f.paths[0][0]).toEqual(firstCut.point);
             expect(f.paths[0].at(-1)).toEqual(bounceCut.point);
@@ -350,10 +356,62 @@ describe("Zena lethal impact routing", () => {
             await flush();
             expect(f.roots()).toHaveLength(2);
             expect(f.c.destroyVisuals).toHaveBeenCalledTimes(1);
+            expect(impacts.bloodSprays).toHaveLength(2);
+            expect(impacts.slashes).toHaveLength(2);
             expect(f.paths[1][0]).toEqual(bounceCut.point);
             f.hops.shift()!();
             await pending;
             expect(f.roots()).toHaveLength(2);
+        } finally {
+            f.cleanup();
+        }
+    });
+
+    test.each([false, true])("live blood and wounds follow each surviving contact, ranked=%s", async (ranked) => {
+        const f = fixture(ranked, "Zena", "Peasant", true);
+        const impacts = f.visuals as unknown as { bloodSprays: unknown[]; slashes: unknown[] };
+        try {
+            const arcs = [{ targetUnitId: "C", hitUnitIds: ["C"], cells: [...f.b.getCells(), ...f.c.getCells()] }];
+            const splash = [f.b, f.c].map((unit) => ({
+                unitId: unit.getId(),
+                position: unit.getPosition(),
+                amount: 30,
+                unitsDied: 1,
+            }));
+            const pending = f.run([strike({ amount: 30, unitsDied: 1, lethal: false })], {
+                unitId: "B",
+                splash,
+                chakramArcs: arcs,
+                chakramFlights: [
+                    {
+                        attackerId: "A",
+                        primaryTargetId: "B",
+                        response: false,
+                        hitIndex: 0,
+                        missed: false,
+                        arcs,
+                        splash,
+                    },
+                ],
+            });
+            await flush();
+            expect(impacts.bloodSprays).toHaveLength(0);
+            expect(impacts.slashes).toHaveLength(0);
+            f.flights[0].impact();
+            await flush();
+            expect(impacts.bloodSprays).toHaveLength(1);
+            expect(impacts.slashes).toHaveLength(1);
+            f.flights[0].finish();
+            await flush();
+            expect(impacts.bloodSprays).toHaveLength(1);
+            f.hops.shift()!();
+            await flush();
+            expect(impacts.bloodSprays).toHaveLength(2);
+            expect(impacts.slashes).toHaveLength(2);
+            expect(f.roots()).toHaveLength(0);
+            expect(f.paths.at(-1)!.at(-1)).toEqual(f.a.getVisualCenter());
+            f.hops.shift()!();
+            await pending;
         } finally {
             f.cleanup();
         }

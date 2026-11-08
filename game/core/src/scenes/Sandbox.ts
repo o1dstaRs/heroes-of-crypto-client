@@ -10549,8 +10549,8 @@ export class Sandbox extends PixiScene {
                 if (primary && !primary.isDead()) {
                     const center = primary.getVisualCenter(gs);
                     const throwDir = this.chakramWorldDir(attackerCenter, center);
-                    this.combatVisuals?.spawnBloodSpray(center, cellSize, throwDir);
-                    this.combatVisuals?.spawnSlash(center, cellSize, throwDir);
+                    this.combatVisuals?.spawnBloodSpray(center, cellSize, throwDir, "chakram");
+                    this.combatVisuals?.spawnSlash(center, cellSize, throwDir, "chakram");
                 }
             }
 
@@ -10641,8 +10641,8 @@ export class Sandbox extends PixiScene {
                     // Fully absorbed impacts still catch and return the disc, without a wound or recoil.
                     // Legacy recordings without a per-victim entry keep their original contact effects.
                     if (dmg ? dmg.amount <= 0 : authoritativeFlight) continue;
-                    this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir);
-                    this.combatVisuals?.spawnSlash(center, cellSize, lastDir);
+                    this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir, "chakram");
+                    this.combatVisuals?.spawnSlash(center, cellSize, lastDir, "chakram");
                     unit?.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
                     if (dmg) onBounceImpact?.(unitId, dmg, lastDir);
                 }
@@ -10766,8 +10766,8 @@ export class Sandbox extends PixiScene {
                     if (primary && !primary.isDead()) {
                         const center = primary.getVisualCenter(gs);
                         const direction = this.chakramWorldDir(attackerCenter, center);
-                        this.combatVisuals?.spawnBloodSpray(center, cellSize, direction);
-                        this.combatVisuals?.spawnSlash(center, cellSize, direction);
+                        this.combatVisuals?.spawnBloodSpray(center, cellSize, direction, "chakram");
+                        this.combatVisuals?.spawnSlash(center, cellSize, direction, "chakram");
                     }
                 }
             });
@@ -10834,8 +10834,8 @@ export class Sandbox extends PixiScene {
                         );
                     }
                     if (dmg ? dmg.amount <= 0 : authoritativeFlight) continue;
-                    this.combatVisuals?.spawnBloodSpray(center, cellSize, direction);
-                    this.combatVisuals?.spawnSlash(center, cellSize, direction);
+                    this.combatVisuals?.spawnBloodSpray(center, cellSize, direction, "chakram");
+                    this.combatVisuals?.spawnSlash(center, cellSize, direction, "chakram");
                     unit?.applyRecoil(direction.x * cellSize * 0.16, direction.y * cellSize * 0.16);
                     if (dmg) onBounceImpact?.(unitId, dmg, direction);
                 }

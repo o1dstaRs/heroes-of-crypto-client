@@ -4009,8 +4009,8 @@ export class CombatVisuals {
         this.skewerSpears ??= new SkewerSpears((root, z) => this.context.attachToWorldRoot(root, z));
         this.skewerSpears.spawn(id, end, cell, follow);
     }
-    public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
-        if (!this.context.legacyEffectsEnabled) return;
+    public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY, authoredSource?: "chakram"): void {
+        if (!this.context.legacyEffectsEnabled && authoredSource !== "chakram") return;
         const container = new Container();
         this.attachEffect(container, SLASH_Z);
         const gfx = new Graphics();
@@ -4119,8 +4119,8 @@ export class CombatVisuals {
             }
         }
     }
-    public spawnBloodSpray(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
-        if (!this.context.legacyEffectsEnabled) return;
+    public spawnBloodSpray(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY, authoredSource?: "chakram"): void {
+        if (!this.context.legacyEffectsEnabled && authoredSource !== "chakram") return;
         const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
         const baseAng = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) : Math.PI / 2;
 
