@@ -73,35 +73,38 @@
             "unit": "Angel",
             "slug": "angel",
             "role": "attack",
-            "source_id": "source-123883f006ce55fe",
+            "source_id": "provided-dbb7826fbd6664ddfb66",
             "source": {
-                "kind": "library",
-                "author": "artisticdude",
-                "license": "CC0",
-                "page_url": "https://opengameart.org/content/swishes-sound-pack",
-                "download_url": "https://opengameart.org/sites/default/files/swishes.zip",
-                "filename": "swish-9.wav",
-                "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
-                "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
+                "kind": "user-provided",
+                "filename": "sword-swish-smartsound-fx-1-00-01.mp3",
+                "title": "Sword swish",
+                "author": "SmartSound FX",
+                "sha256": "dbb7826fbd6664ddfb666b333662b4b0fd5b2b25ebe96b136c66a1a2e8342de6",
+                "label": "Sword swish",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_id": "provided-dbb7826fbd6664ddfb66",
+                "source_site": "https://uppbeat.io/"
             },
             "encoded": {
                 "webm": {
-                    "lufs": -19.92,
-                    "true_peak_db": -4.93,
-                    "bytes": 2251,
-                    "duration_ms": 144,
+                    "lufs": -20.06,
+                    "true_peak_db": -5.45,
+                    "bytes": 6533,
+                    "duration_ms": 634,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -19.09
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -23.48
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -5.5,
-                    "bytes": 2348,
-                    "duration_ms": 144,
-                    "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -19.64
+                    "lufs": -20.35,
+                    "true_peak_db": -5.62,
+                    "bytes": 8396,
+                    "duration_ms": 634,
+                    "leading_quiet_ms": 6,
+                    "trailing_quiet_ms": 14,
+                    "rms_db": -23.78
                 }
             }
         },
@@ -453,25 +456,38 @@
             "unit": "Berserker",
             "slug": "berserker",
             "role": "attack",
-            "generation_id": "vUBryZwJ06GJ3xQDTCmX",
+            "source_id": "provided-f45e8dba967c0e892efe",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3",
+                "title": "Sword stab - puncture flesh",
+                "author": "Joshua Chivers",
+                "sha256": "f45e8dba967c0e892efe4924d625b824486ff0ac2677efb70abab88b3fd30072",
+                "label": "Sword stab - puncture flesh",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-f45e8dba967c0e892efe"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.13,
-                    "true_peak_db": -4.1,
-                    "bytes": 5566,
-                    "duration_ms": 495,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.2,
+                    "bytes": 7379,
+                    "duration_ms": 749,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.96
+                    "rms_db": -23.4
                 },
                 "mp3": {
-                    "lufs": -20.53,
-                    "true_peak_db": -4.12,
-                    "bytes": 6668,
-                    "duration_ms": 495,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.24,
+                    "true_peak_db": -5.12,
+                    "bytes": 9836,
+                    "duration_ms": 749,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.38
+                    "rms_db": -23.73
                 }
             }
         },
@@ -563,25 +579,38 @@
             "unit": "Blacksmith",
             "slug": "blacksmith",
             "role": "attack",
-            "generation_id": "zoxphuDQ8rUWwJ9eUlc0",
+            "source_id": "provided-93af0d9b419521733cc1",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-impacting-flesh-gamemaster-audio-1-00-00.mp3",
+                "title": "Sword impacting flesh",
+                "author": "Gamemaster Audio",
+                "sha256": "93af0d9b419521733cc1ac2cbdb9b9a394bbb40bdbdf6f229b35eb54dd081f07",
+                "label": "Sword impacting flesh",
+                "source_id": "provided-93af0d9b419521733cc1",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.06,
-                    "true_peak_db": -4.57,
-                    "bytes": 7976,
-                    "duration_ms": 715,
+                    "lufs": -20.03,
+                    "true_peak_db": -5.33,
+                    "bytes": 4105,
+                    "duration_ms": 399,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -21.11
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.59
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -5.01,
-                    "bytes": 9260,
-                    "duration_ms": 715,
+                    "lufs": -20.43,
+                    "true_peak_db": -6.0,
+                    "bytes": 5516,
+                    "duration_ms": 399,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -21.51
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.0
                 }
             }
         },
@@ -667,25 +696,38 @@
             "unit": "Champion",
             "slug": "champion",
             "role": "attack",
-            "generation_id": "1wEdURRcYnIxqx4FJ4aj",
+            "source_id": "provided-0b2db194cfa57cd9bd9b",
+            "source": {
+                "kind": "user-provided",
+                "filename": "bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3",
+                "title": "Bullet impacting flesh",
+                "author": "Gamemaster Audio",
+                "sha256": "0b2db194cfa57cd9bd9b8561afc5e1691e949de92345b32eb2110a18a4df597e",
+                "label": "Bullet impacting flesh",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-0b2db194cfa57cd9bd9b"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.03,
-                    "true_peak_db": -6.56,
-                    "bytes": 6854,
-                    "duration_ms": 730,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -22.97
+                    "lufs": -20.1,
+                    "true_peak_db": -3.33,
+                    "bytes": 4167,
+                    "duration_ms": 394,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.81
                 },
                 "mp3": {
-                    "lufs": -20.34,
-                    "true_peak_db": -8.19,
-                    "bytes": 9548,
-                    "duration_ms": 730,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -23.27
+                    "lufs": -20.52,
+                    "true_peak_db": -4.16,
+                    "bytes": 5516,
+                    "duration_ms": 394,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.24
                 }
             }
         },
@@ -693,25 +735,38 @@
             "unit": "Champion",
             "slug": "champion",
             "role": "hurt",
-            "generation_id": "3DhjndZDIm2BD7rQsRDF",
+            "source_id": "provided-da60b68beab175564a31",
+            "source": {
+                "kind": "user-provided",
+                "filename": "groan-painful-male-smartsound-fx-1-00-00.mp3",
+                "title": "Groan - painful (Male)",
+                "author": "SmartSound FX",
+                "sha256": "da60b68beab175564a31421777b026326f3f458c43838b5af81cbcee6d5d50af",
+                "label": "Groan - painful (Male)",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-da60b68beab175564a31"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.97,
-                    "true_peak_db": -7.92,
-                    "bytes": 5038,
-                    "duration_ms": 470,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.85,
+                    "bytes": 4647,
+                    "duration_ms": 429,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.9
+                    "rms_db": -20.17
                 },
                 "mp3": {
-                    "lufs": -20.42,
-                    "true_peak_db": -8.18,
-                    "bytes": 6380,
-                    "duration_ms": 470,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.44,
+                    "true_peak_db": -6.0,
+                    "bytes": 5804,
+                    "duration_ms": 429,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.37
+                    "rms_db": -20.62
                 }
             }
         },
@@ -901,25 +956,38 @@
             "unit": "Dryad",
             "slug": "dryad",
             "role": "hurt",
-            "generation_id": "B5ErhzPLbNMAKyUWoZ1P",
+            "source_id": "provided-e0da1ddfa3953bf0bddc",
+            "source": {
+                "kind": "user-provided",
+                "filename": "groan-pain-female-smartsound-fx-1-00-00.mp3",
+                "title": "Groan - pain (Female)",
+                "author": "SmartSound FX",
+                "sha256": "e0da1ddfa3953bf0bddc557e6d0918f348b041515ce34d4fc67f3f9fcc208736",
+                "label": "Groan - pain (Female)",
+                "source_id": "provided-e0da1ddfa3953bf0bddc",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.0,
-                    "true_peak_db": -8.74,
-                    "bytes": 5969,
-                    "duration_ms": 589,
+                    "lufs": -19.97,
+                    "true_peak_db": -8.44,
+                    "bytes": 4664,
+                    "duration_ms": 424,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.19
+                    "rms_db": -21.7
                 },
                 "mp3": {
-                    "lufs": -20.43,
-                    "true_peak_db": -8.91,
-                    "bytes": 7820,
-                    "duration_ms": 589,
+                    "lufs": -20.45,
+                    "true_peak_db": -8.77,
+                    "bytes": 5804,
+                    "duration_ms": 424,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.64
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -22.18
                 }
             }
         },
@@ -1421,25 +1489,38 @@
             "unit": "Healer",
             "slug": "healer",
             "role": "hurt",
-            "generation_id": "bd2CPsUzXg8G6MrBI23r",
+            "source_id": "provided-3a9ab0daa18d2f599c80",
+            "source": {
+                "kind": "user-provided",
+                "filename": "ouch-female-gfx-sounds-2-2-00-00.mp3",
+                "title": "\"Ouch\" - female",
+                "author": "GFX Sounds",
+                "sha256": "3a9ab0daa18d2f599c802a10f4ca6ff6389315e7c6f741183d6d9b495523e3db",
+                "label": "\"Ouch\" - female",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-3a9ab0daa18d2f599c80"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -9.57,
-                    "bytes": 4139,
-                    "duration_ms": 370,
+                    "lufs": -19.91,
+                    "true_peak_db": -7.48,
+                    "bytes": 5505,
+                    "duration_ms": 514,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.71
+                    "rms_db": -20.48
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -9.7,
-                    "bytes": 5228,
-                    "duration_ms": 370,
+                    "lufs": -20.44,
+                    "true_peak_db": -8.18,
+                    "bytes": 6956,
+                    "duration_ms": 514,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.12
+                    "rms_db": -21.01
                 }
             }
         },
@@ -2019,25 +2100,38 @@
             "unit": "Nomad",
             "slug": "nomad",
             "role": "attack",
-            "generation_id": "pszW2acsv4FA1QoopXuL",
+            "source_id": "provided-c129c3b62c1e95153e34",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-stab-flesh-joshua-chivers-1-00-01.mp3",
+                "title": "Sword - stab flesh",
+                "author": "Joshua Chivers",
+                "sha256": "c129c3b62c1e95153e344b19defa62444ab3f39a6e82d1f2b4abd10519098fd8",
+                "label": "Sword - stab flesh",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-c129c3b62c1e95153e34"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -4.76,
-                    "bytes": 4358,
-                    "duration_ms": 430,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -21.95
+                    "lufs": -20.16,
+                    "true_peak_db": -4.81,
+                    "bytes": 6435,
+                    "duration_ms": 634,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.51
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -5.7,
-                    "bytes": 5804,
-                    "duration_ms": 430,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -22.38
+                    "lufs": -20.5,
+                    "true_peak_db": -5.28,
+                    "bytes": 8396,
+                    "duration_ms": 634,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -22.84
                 }
             }
         },
@@ -2539,25 +2633,38 @@
             "unit": "Squire",
             "slug": "squire",
             "role": "attack",
-            "generation_id": "G7a1vNYsPbrjHBMBm0rp",
+            "source_id": "provided-994e15c0d8a795245dcd",
+            "source": {
+                "kind": "user-provided",
+                "filename": "metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3",
+                "title": "Metal weapon impact (Heavy)",
+                "author": "Joshua Chivers",
+                "sha256": "994e15c0d8a795245dcdd5b26583ba22f5594356065ddd0cd681f14d2e4307f2",
+                "label": "Metal weapon impact (Heavy)",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-994e15c0d8a795245dcd"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.02,
-                    "true_peak_db": -5.16,
-                    "bytes": 6523,
-                    "duration_ms": 644,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.36,
+                    "bytes": 6344,
+                    "duration_ms": 624,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 4,
-                    "rms_db": -22.82
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.16
                 },
                 "mp3": {
-                    "lufs": -20.38,
-                    "true_peak_db": -6.57,
-                    "bytes": 8396,
-                    "duration_ms": 644,
+                    "lufs": -20.32,
+                    "true_peak_db": -4.78,
+                    "bytes": 8108,
+                    "duration_ms": 624,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 19,
-                    "rms_db": -23.18
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.51
                 }
             }
         },
@@ -2747,25 +2854,38 @@
             "unit": "Troll",
             "slug": "troll",
             "role": "attack",
-            "generation_id": "yU1i78sJY9XhYxdKBkFb",
+            "source_id": "provided-b6bc665d78e381f45389",
+            "source": {
+                "kind": "user-provided",
+                "filename": "bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3",
+                "title": "Bullet impacting body",
+                "author": "Gamemaster Audio",
+                "sha256": "b6bc665d78e381f4538910300907c671ea060b840f790c22dd547266e62a6592",
+                "label": "Bullet impacting body",
+                "source_id": "provided-b6bc665d78e381f45389",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.96,
-                    "true_peak_db": -4.55,
-                    "bytes": 2842,
-                    "duration_ms": 219,
+                    "lufs": -20.25,
+                    "true_peak_db": -3.34,
+                    "bytes": 3520,
+                    "duration_ms": 319,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.06
+                    "rms_db": -20.91
                 },
                 "mp3": {
-                    "lufs": -20.4,
-                    "true_peak_db": -4.26,
-                    "bytes": 3500,
-                    "duration_ms": 219,
+                    "lufs": -20.73,
+                    "true_peak_db": -4.15,
+                    "bytes": 4652,
+                    "duration_ms": 319,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.46
+                    "rms_db": -21.35
                 }
             }
         },
@@ -3221,25 +3341,38 @@
             "unit": "Zena",
             "slug": "zena",
             "role": "attack",
-            "generation_id": "PyUoJ550G6Oy9okrs6hr",
+            "source_id": "provided-f0064449e2233b300565",
+            "source": {
+                "kind": "user-provided",
+                "filename": "whoosh-blade-throw-joshua-chivers-1-00-01.mp3",
+                "title": "Whoosh - blade throw",
+                "author": "Joshua Chivers",
+                "sha256": "f0064449e2233b300565ead53a79a8febb22b7378424a1ff95c5950f0a312339",
+                "label": "Whoosh - blade throw",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_id": "provided-f0064449e2233b300565",
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -5.18,
-                    "bytes": 9302,
-                    "duration_ms": 850,
+                    "lufs": -20.28,
+                    "true_peak_db": -3.93,
+                    "bytes": 6843,
+                    "duration_ms": 719,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.59
+                    "rms_db": -23.25
                 },
                 "mp3": {
-                    "lufs": -20.39,
-                    "true_peak_db": -5.28,
-                    "bytes": 10988,
-                    "duration_ms": 850,
+                    "lufs": -20.66,
+                    "true_peak_db": -4.49,
+                    "bytes": 9260,
+                    "duration_ms": 719,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.03
+                    "rms_db": -23.61
                 }
             }
         },

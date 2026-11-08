@@ -166,6 +166,31 @@ for Summoning Wars. These brief weapon-swing foley recordings provide a physical
 to the rejected abstract enchanted-blade generations. The design is grounded in Angel's
 long steel sword as shown in both inspected creature images.
 
+The user-selected Uppbeat recordings below replace only their listed unit/role. Originals stay
+under `tmp/audio/raw/provided/<hash>/`, with filenames, embedded artist/title metadata, SHA-256,
+and explicit selections in the overrides and provenance. No generation credit is used. Their
+active events fit the duration limits after outer-silence trimming, so mastering preserves speed
+and pitch and adds the normal 3 ms attack / 20 ms release fades before loudness and codec checks.
+
+| Unit / role       | Provided recording                                       |
+| ----------------- | -------------------------------------------------------- |
+| Nomad attack      | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`            |
+| Squire attack     | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3` |
+| Berserker attack  | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`   |
+| Champion attack   | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`  |
+| Healer hurt       | `ouch-female-gfx-sounds-2-2-00-00.mp3`                   |
+| Champion hurt     | `groan-painful-male-smartsound-fx-1-00-00.mp3`           |
+| Zena attack       | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`          |
+| Angel attack      | `sword-swish-smartsound-fx-1-00-01.mp3`                  |
+| Blacksmith attack | `sword-impacting-flesh-gamemaster-audio-1-00-00.mp3`     |
+| Troll attack      | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`   |
+| Dryad hurt        | `groan-pain-female-smartsound-fx-1-00-00.mp3`            |
+
+Each combat strike triggers its own attack cue. The Berserker regression in
+`CombatExchangePlayback.test.ts` passes the recorded two-hit plan through the actual sound player
+with a controlled clock, verifies two audible attack starts from one decoded buffer, and covers
+a missed first blow and a simultaneous counterattack. Ranked playback inherits the same scene path.
+
 ## Provided game effects
 
 `game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement,

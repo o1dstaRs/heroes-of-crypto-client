@@ -2,8 +2,8 @@
     "Blacksmith": {
         "slug": "blacksmith",
         "attack": {
-            "durationMs": 715,
-            "revision": "4fe80aab82"
+            "durationMs": 399,
+            "revision": "cc3c66074c"
         },
         "hurt": {
             "durationMs": 720,
@@ -13,8 +13,8 @@
     "Squire": {
         "slug": "squire",
         "attack": {
-            "durationMs": 644,
-            "revision": "a0bc1c230c"
+            "durationMs": 624,
+            "revision": "e439fb527e"
         },
         "hurt": {
             "durationMs": 490,
@@ -72,8 +72,8 @@
             "revision": "bf4025e21f"
         },
         "hurt": {
-            "durationMs": 370,
-            "revision": "5fd429e8d6"
+            "durationMs": 514,
+            "revision": "f53d391b74"
         }
     },
     "Battle Mage": {
@@ -134,8 +134,8 @@
     "Angel": {
         "slug": "angel",
         "attack": {
-            "durationMs": 144,
-            "revision": "937938237d"
+            "durationMs": 634,
+            "revision": "afcf8560ff"
         },
         "hurt": {
             "durationMs": 705,
@@ -145,12 +145,12 @@
     "Champion": {
         "slug": "champion",
         "attack": {
-            "durationMs": 730,
-            "revision": "433068aedb"
+            "durationMs": 394,
+            "revision": "ac5527f504"
         },
         "hurt": {
-            "durationMs": 470,
-            "revision": "9045f2e8a6"
+            "durationMs": 429,
+            "revision": "49716d2ab1"
         }
     },
     "Fairy": {
@@ -171,8 +171,8 @@
             "revision": "bedbbf05cb"
         },
         "hurt": {
-            "durationMs": 589,
-            "revision": "00f0ca712c"
+            "durationMs": 424,
+            "revision": "223d33e302"
         }
     },
     "Wolf": {
@@ -387,8 +387,8 @@
     "Troll": {
         "slug": "troll",
         "attack": {
-            "durationMs": 219,
-            "revision": "3f7d4679b6"
+            "durationMs": 319,
+            "revision": "d8403c45f2"
         },
         "hurt": {
             "durationMs": 490,
@@ -552,8 +552,8 @@
     "Berserker": {
         "slug": "berserker",
         "attack": {
-            "durationMs": 495,
-            "revision": "abd40ac243"
+            "durationMs": 749,
+            "revision": "76ab42b611"
         },
         "hurt": {
             "durationMs": 589,
@@ -585,8 +585,8 @@
     "Nomad": {
         "slug": "nomad",
         "attack": {
-            "durationMs": 430,
-            "revision": "7ebbbcfb99"
+            "durationMs": 634,
+            "revision": "067709f313"
         },
         "hurt": {
             "durationMs": 485,
@@ -651,8 +651,8 @@
     "Zena": {
         "slug": "zena",
         "attack": {
-            "durationMs": 850,
-            "revision": "34049542c2"
+            "durationMs": 719,
+            "revision": "d04cbc5ced"
         },
         "hurt": {
             "durationMs": 664,

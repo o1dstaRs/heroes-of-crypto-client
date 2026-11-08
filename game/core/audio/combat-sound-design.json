@@ -26,6 +26,11 @@
             "hurt": {
                 "prompt": "One young adult man's short winded grunt of pain, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "battlefield_asset": "squire_battlefield_side_right_distance_readable_v1",
+                "attack_animation_asset": "squire_attack_atlas_quarter",
+                "attack_basis": "The armored foot soldier holds a shield and a heavy spiked metal mace. The melee atlas raises the mace behind the helmet, brings it forward and down, then returns to guard; the weapon is not a sword."
             }
         },
         {
@@ -627,6 +632,11 @@
             "hurt": {
                 "prompt": "One adult berserker's brief rough low grunt of pain, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "battlefield_asset": "berserker_battlefield_side_right_distance_readable_v1",
+                "attack_animation_asset": "berserker_melee_attack_atlas",
+                "attack_basis": "The muscular warrior holds a broad axe in one hand and keeps a sword sheathed across his back. The melee atlas draws the axe back, drives it forward in a forceful chop, and recovers. Each gameplay strike, including Double Punch, receives its own attack cue."
             }
         },
         {
@@ -663,6 +673,11 @@
             "hurt": {
                 "prompt": "One adult nomad's short winded grunt of pain, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "battlefield_asset": "nomad_battlefield_side_right_final_v1",
+                "attack_animation_asset": "nomad_melee_attack_atlas",
+                "attack_basis": "The mounted warrior holds a curved steel blade. The melee atlas shows the rider drawing that arm back, sweeping the blade outward and forward, then recovering while remaining mounted."
             }
         },
         {

@@ -655,7 +655,13 @@
                               escape(new Date(job.created_at).toLocaleString()) +
                               " · " +
                               escape(
-                                  job.provider === "suno" ? "Suno" : job.role === "cast" ? "Freesound" : "ElevenLabs",
+                                  job.provider === "user-provided"
+                                      ? "Provided recording"
+                                      : job.provider === "suno"
+                                        ? "Suno"
+                                        : job.role === "cast"
+                                          ? "Freesound"
+                                          : "ElevenLabs",
                               ) +
                               (job.duration_seconds ? " · Game limit: " + escape(job.duration_seconds) + " s" : "") +
                               "</p>"

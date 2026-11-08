@@ -13,17 +13,20 @@
         }
     },
     "angel/attack": {
-        "source_id": "source-123883f006ce55fe",
-        "path": "tmp/audio/raw/library/artisticdude/swishes/swishes/swish-9.wav",
+        "source_id": "provided-dbb7826fbd6664ddfb66",
+        "path": "tmp/audio/raw/provided/dbb7826fbd6664dd/sword-swish-smartsound-fx-1-00-01.mp3",
         "source": {
-            "kind": "library",
-            "author": "artisticdude",
-            "license": "CC0",
-            "page_url": "https://opengameart.org/content/swishes-sound-pack",
-            "download_url": "https://opengameart.org/sites/default/files/swishes.zip",
-            "filename": "swish-9.wav",
-            "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
-            "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
+            "kind": "user-provided",
+            "filename": "sword-swish-smartsound-fx-1-00-01.mp3",
+            "title": "Sword swish",
+            "author": "SmartSound FX",
+            "sha256": "dbb7826fbd6664ddfb666b333662b4b0fd5b2b25ebe96b136c66a1a2e8342de6",
+            "label": "Sword swish",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_id": "provided-dbb7826fbd6664ddfb66",
+            "source_site": "https://uppbeat.io/"
         }
     },
     "berserker/hurt": {
@@ -54,6 +57,176 @@
             "filename": "arbalester_damage_received.wav",
             "sha256": "e83b5117ec3a2d3ca8208d9fea954c8e1c859c7a0b8db4398fbc006564074a68",
             "label": "Provided damage reaction \u00b7 Arbalester"
+        }
+    },
+    "nomad/attack": {
+        "source_id": "provided-c129c3b62c1e95153e34",
+        "path": "tmp/audio/raw/provided/c129c3b62c1e9515/sword-stab-flesh-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "sword-stab-flesh-joshua-chivers-1-00-01.mp3",
+            "title": "Sword - stab flesh",
+            "author": "Joshua Chivers",
+            "sha256": "c129c3b62c1e95153e344b19defa62444ab3f39a6e82d1f2b4abd10519098fd8",
+            "label": "Sword - stab flesh",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-c129c3b62c1e95153e34"
+        }
+    },
+    "squire/attack": {
+        "source_id": "provided-994e15c0d8a795245dcd",
+        "path": "tmp/audio/raw/provided/994e15c0d8a79524/metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3",
+            "title": "Metal weapon impact (Heavy)",
+            "author": "Joshua Chivers",
+            "sha256": "994e15c0d8a795245dcdd5b26583ba22f5594356065ddd0cd681f14d2e4307f2",
+            "label": "Metal weapon impact (Heavy)",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-994e15c0d8a795245dcd"
+        }
+    },
+    "berserker/attack": {
+        "source_id": "provided-f45e8dba967c0e892efe",
+        "path": "tmp/audio/raw/provided/f45e8dba967c0e89/sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3",
+            "title": "Sword stab - puncture flesh",
+            "author": "Joshua Chivers",
+            "sha256": "f45e8dba967c0e892efe4924d625b824486ff0ac2677efb70abab88b3fd30072",
+            "label": "Sword stab - puncture flesh",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-f45e8dba967c0e892efe"
+        }
+    },
+    "champion/attack": {
+        "source_id": "provided-0b2db194cfa57cd9bd9b",
+        "path": "tmp/audio/raw/provided/0b2db194cfa57cd9/bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3",
+            "title": "Bullet impacting flesh",
+            "author": "Gamemaster Audio",
+            "sha256": "0b2db194cfa57cd9bd9b8561afc5e1691e949de92345b32eb2110a18a4df597e",
+            "label": "Bullet impacting flesh",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-0b2db194cfa57cd9bd9b"
+        }
+    },
+    "healer/hurt": {
+        "source_id": "provided-3a9ab0daa18d2f599c80",
+        "path": "tmp/audio/raw/provided/3a9ab0daa18d2f59/ouch-female-gfx-sounds-2-2-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "ouch-female-gfx-sounds-2-2-00-00.mp3",
+            "title": "\"Ouch\" - female",
+            "author": "GFX Sounds",
+            "sha256": "3a9ab0daa18d2f599c802a10f4ca6ff6389315e7c6f741183d6d9b495523e3db",
+            "label": "\"Ouch\" - female",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-3a9ab0daa18d2f599c80"
+        }
+    },
+    "champion/hurt": {
+        "source_id": "provided-da60b68beab175564a31",
+        "path": "tmp/audio/raw/provided/da60b68beab17556/groan-painful-male-smartsound-fx-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "groan-painful-male-smartsound-fx-1-00-00.mp3",
+            "title": "Groan - painful (Male)",
+            "author": "SmartSound FX",
+            "sha256": "da60b68beab175564a31421777b026326f3f458c43838b5af81cbcee6d5d50af",
+            "label": "Groan - painful (Male)",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-da60b68beab175564a31"
+        }
+    },
+    "zena/attack": {
+        "source_id": "provided-f0064449e2233b300565",
+        "path": "tmp/audio/raw/provided/f0064449e2233b30/whoosh-blade-throw-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "whoosh-blade-throw-joshua-chivers-1-00-01.mp3",
+            "title": "Whoosh - blade throw",
+            "author": "Joshua Chivers",
+            "sha256": "f0064449e2233b300565ead53a79a8febb22b7378424a1ff95c5950f0a312339",
+            "label": "Whoosh - blade throw",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_id": "provided-f0064449e2233b300565",
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "blacksmith/attack": {
+        "source_id": "provided-93af0d9b419521733cc1",
+        "path": "tmp/audio/raw/provided/93af0d9b41952173/sword-impacting-flesh-gamemaster-audio-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "sword-impacting-flesh-gamemaster-audio-1-00-00.mp3",
+            "title": "Sword impacting flesh",
+            "author": "Gamemaster Audio",
+            "sha256": "93af0d9b419521733cc1ac2cbdb9b9a394bbb40bdbdf6f229b35eb54dd081f07",
+            "label": "Sword impacting flesh",
+            "source_id": "provided-93af0d9b419521733cc1",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "troll/attack": {
+        "source_id": "provided-b6bc665d78e381f45389",
+        "path": "tmp/audio/raw/provided/b6bc665d78e381f4/bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3",
+            "title": "Bullet impacting body",
+            "author": "Gamemaster Audio",
+            "sha256": "b6bc665d78e381f4538910300907c671ea060b840f790c22dd547266e62a6592",
+            "label": "Bullet impacting body",
+            "source_id": "provided-b6bc665d78e381f45389",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "dryad/hurt": {
+        "source_id": "provided-e0da1ddfa3953bf0bddc",
+        "path": "tmp/audio/raw/provided/e0da1ddfa3953bf0/groan-pain-female-smartsound-fx-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "groan-pain-female-smartsound-fx-1-00-00.mp3",
+            "title": "Groan - pain (Female)",
+            "author": "SmartSound FX",
+            "sha256": "e0da1ddfa3953bf0bddc557e6d0918f348b041515ce34d4fc67f3f9fcc208736",
+            "label": "Groan - pain (Female)",
+            "source_id": "provided-e0da1ddfa3953bf0bddc",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_site": "https://uppbeat.io/"
         }
     }
 }
