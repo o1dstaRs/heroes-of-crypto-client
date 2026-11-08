@@ -56,9 +56,11 @@ export const areUnitStatsPropsEqual = (prev: UnitStatsListItemProps, next: UnitS
         pUnit.magic_resist_mod !== nUnit.magic_resist_mod
     )
         return false;
+    const previousSpells = pUnit.spells ?? [];
+    const nextSpells = nUnit.spells ?? [];
     if (
-        pUnit.spells.length !== nUnit.spells.length ||
-        pUnit.spells.some((spell, index) => spell !== nUnit.spells[index])
+        previousSpells.length !== nextSpells.length ||
+        previousSpells.some((spell, index) => spell !== nextSpells[index])
     )
         return false;
     return true;

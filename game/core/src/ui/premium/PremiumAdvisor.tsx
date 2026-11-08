@@ -399,9 +399,8 @@ export const PremiumSetupPanel: React.FC<{
     stageKey: string;
     auto?: boolean;
     setupView?: boolean;
-    hidePanel?: boolean;
     children?: React.ReactNode;
-}> = ({ gameId, stageKey, auto = false, setupView = false, hidePanel = false, children }) => {
+}> = ({ gameId, stageKey, auto = false, setupView = false, children }) => {
     const enabled = usePremiumCapability("setup");
     const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
     const impression = usePremiumAdviceView(gameId, advice?.adviceId);
@@ -414,10 +413,24 @@ export const PremiumSetupPanel: React.FC<{
         void apply("automatic");
     }, [auto, advice, apply, busy, gameId]);
     if (!advice || advice.stage === "fight") return <>{children}</>;
-    if (setupView || hidePanel) return <PremiumContext.Provider value={advice}>{children}</PremiumContext.Provider>;
     return (
         <PremiumContext.Provider value={advice}>
-            <Box sx={{ display: "contents" }}>
+            <Box
+                data-testid={setupView ? "premium-setup-layout" : undefined}
+                sx={
+                    setupView && children
+                        ? {
+                              display: "grid",
+                              gridTemplateColumns: "240px minmax(0, 1fr)",
+                              gap: "12px",
+                              width: "100%",
+                              height: "100%",
+                              minHeight: 0,
+                              overflow: "hidden",
+                          }
+                        : { display: "contents" }
+                }
+            >
                 <Sheet
                     ref={impression}
                     data-testid="premium-setup-panel"
@@ -426,9 +439,10 @@ export const PremiumSetupPanel: React.FC<{
                         border: "1px solid #a75425",
                         borderRadius: 8,
                         p: 1,
-                        my: 1,
+                        my: setupView ? 0 : 1,
                         minHeight: 0,
-                        flexShrink: 0,
+                        flexShrink: setupView ? undefined : 0,
+                        overflowY: setupView ? "auto" : undefined,
                     }}
                 >
                     <Typography
@@ -438,7 +452,7 @@ export const PremiumSetupPanel: React.FC<{
                     >
                         Premium guidance
                     </Typography>
-                    {advice.stage === "setup" ? (
+                    {advice.stage === "setup" || setupView ? (
                         <>
                             <Typography level="body-xs" sx={{ color: "#efcfaf", my: 0.6 }}>
                                 {advice.augments?.map((choice) => `${choice.kind} ${choice.value}`).join(" · ")}
@@ -519,7 +533,7 @@ export const PremiumSetupPanel: React.FC<{
                         )}
                     </Box>
                     <PremiumSetupComparison comparison={advice.setupComparison} />
-                    {advice.stage === "board" && (
+                    {advice.stage === "board" && !setupView && (
                         <Typography level="body-xs" sx={{ mt: 0.5 }}>
                             Review or edit the formation, then press Ready. Undo is available until you edit your build
                             or board.

@@ -3713,7 +3713,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     gameId={snapshot.gameId}
                                     stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
                                     auto
-                                    hidePanel
                                 />
                                 {inBoardStage && <PremiumSearchSlot inline />}
                             </>
