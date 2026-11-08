@@ -457,6 +457,12 @@
         {
             "name": "Efreet",
             "slug": "efreet",
+            "art_reference": {
+                "full_body_asset": "efreet_portrait_full_v7",
+                "battlefield_asset": "efreet_battlefield_side_right_distance_readable_v1",
+                "attack_animation_asset": "efreet_lab_melee_attack_atlas",
+                "attack_basis": "The full-body portrait and battlefield figure show a muscular fire spirit with burning palms and a swirling flame lower body, without a held weapon. The current melee animation draws back one burning hand and thrusts an open flaming palm forward. The attack sound should express that short, forceful palm-driven burst of fire; Fire Shield is a separate defensive reaction."
+            },
             "attack": {
                 "prompt": "One concentrated flame lash, short hot rushing flare, close and dry, immediate onset, no background.",
                 "duration_seconds": 1

@@ -80,15 +80,25 @@ and hurt files alone. The Freesound key stays outside the page and outside track
 Technical selection does not establish artistic fit: the report keeps all takes
 available locally for listening and revision.
 
-Every creature row has **Regenerate**. It opens an editable sound description, a library search,
-and available mastered alternatives. **ElevenLabs** is the default (four takes with an explicit
-duration parameter). **Suno** is optional (two takes for two generation credits, plus up to one
-separate download credit per take).
-**Regenerate** uses the description, with no existing
-audio. ElevenLabs uses prompt influence `0.3`, giving it more variation than the previous `0.7`.
-Change the description when the sound itself is wrong;
-rerolling an unchanged description does not establish a new artistic direction. Each batch shows
-its creation time, and each take retains its actual prompt and generation settings for inspection.
+Every creature row and dialog has separate **Regenerate · ElevenLabs** and **Regenerate · Suno**
+buttons. Clicking one creates a new direction and then generates with that provider. **Review takes**
+opens the dialog without generating anything. ElevenLabs produces four takes with an explicit
+duration; Suno produces two takes for two generation credits, plus up to one download credit per take.
+
+**Regenerate means the current sound is rejected.** Before either audio provider is called, a vision
+model inspects the current full-body portrait, battlefield figure, and configured action atlas. It
+combines these with current creature descriptions, ability descriptions, the shared game sound style,
+the rejected prompt, the last eight attempts, and optional feedback. It must invent a materially
+different acoustic concept that still fits the creature and action. Exact and near-copy prompts are
+rejected before audio generation; missing art or a model failure never falls back to the old prompt.
+Each batch shows the new prompt, visual observations, why it fits, and what changed. Playing a take
+selects its direction to reject on the next regeneration. ElevenLabs uses prompt influence `0.3`.
+
+The sound director uses the existing local Codex login through an isolated, ephemeral, read-only
+`codex exec` inference with attached images and tools disabled. This uses model quota in addition to
+the selected audio provider's generation credits. Jobs retain portable image keys and hashes, game
+context, feedback, and generated direction. Applying a take preserves that provenance and updates the
+authored prompt and inspected art references for future work. Credentials remain local to each tool.
 
 Suno's `sounds-create` has no duration parameter: a request for one second can return several
 seconds. The Suno prompt requests one brief event, but this is not a duration guarantee. The page
@@ -111,13 +121,15 @@ replacement. Do not implement this button by silently reusing a prompt or applyi
 Suno uses the existing Codex OAuth connection through `codex app-server`. The ephemeral thread
 only hosts MCP tools; it does not start a model turn. Configure the `suno` MCP server at
 `https://api.suno.com/mcp`, enable it, and run `codex mcp login suno` if it is not already connected.
-Suno Sounds requires a signed-in Pro or Premier account. The page displays generation and download
-balances separately. It requires two of each before creating a batch so it does not spend generation
-credits on takes that cannot be downloaded. The `audio.download` entitlement alone is not enough:
-Suno can still return `requires_credit` and then `insufficient_credits` / `quota_exhausted` for a
-zero download balance. The server rechecks both balances before creation. It calls `sounds-create`,
-saves both clip IDs, waits for completion, downloads,
-and runs the same mastering checks as other sources. It records the authored and actual provider
+Suno Sounds requires a signed-in Pro or Premier account and two generation credits. The page displays
+generation and download balances separately; a zero download balance does not block generation.
+The server rechecks the account before creation. Without download credits or download access, it
+creates a listening-only batch and skips download requests. Each completed take immediately gets a
+**Listen to take … in Suno** link, even while the other take is generating. These links play the original
+Suno audio; local trimming, mastering, and applying to the game require downloading it later.
+**Check existing downloads** can recover the same saved takes when downloads become available.
+With downloads available, it downloads and runs the same mastering checks as other sources.
+It records the authored and actual provider
 prompts, clip IDs, and file hashes; OAuth tokens and signed download URLs are never saved in jobs.
 
 An interrupted Suno batch has **Resume this Suno batch**. Known clip IDs resume downloads;

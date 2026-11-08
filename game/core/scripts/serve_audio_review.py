@@ -26,6 +26,7 @@ import urllib.request
 
 from prepare_combat_audio import CORE, master, spell_placeholders, spell_rows_for_review, write_review
 from suno_mcp import SunoMcp, SunoToolError
+from sound_prompt_director import SoundPromptDirector, sound_context, validate_direction
 
 WORK = CORE / "tmp/audio"
 JOBS = WORK / "revisions"
@@ -218,6 +219,8 @@ def prepare_candidate(job, index, path, source):
         source = {**source, "duration_limit_ms": min(1600, round(job["duration_seconds"] * 1000))}
     if job.get("provider") == "suno":
         source["crop_to_duration"] = True
+    if job.get("direction"):
+        source = {**source, "prompt_direction": job["direction"], "prompt_context": job["direction_context"]}
     record = {"path": path, "unit": unit["name"], "slug": unit["slug"], "role": job["role"],
               "source_id": source_id, "source": source}
     result = master(key, [record], folder, folder / "assets")
@@ -304,6 +307,14 @@ def apply_candidate(job, index):
         design = json.loads(design_path.read_text())
         unit = next(u for u in design["units"] if u["slug"] == slug)
         unit[role]["prompt"] = source["prompt"]
+        if source.get("prompt_direction") and source.get("prompt_context"):
+            art = unit.setdefault("art_reference", {})
+            for image in source["prompt_context"].get("images", []):
+                field = {"full_body": "full_body_asset", "battlefield": "battlefield_asset",
+                         "action": "attack_animation_asset" if role == "attack" else "hurt_animation_asset"}.get(image["kind"])
+                if field:
+                    art[field] = image["key"]
+            art["attack_basis" if role == "attack" else "hurt_basis"] = source["prompt_direction"]["visual_basis"]
         save_json(design_path, design, 4)
     manifest_path = CORE / "src/ui/audio/combatSoundManifest.json"
     manifest = json.loads(manifest_path.read_text())
@@ -326,9 +337,10 @@ def apply_candidate(job, index):
 
 
 class ReviewService:
-    def __init__(self, api_key=None, suno=None):
+    def __init__(self, api_key=None, suno=None, director=None):
         self.api_key = api_key if api_key is not None else os.environ.get("ELEVENLABS_API_KEY", "")
         self.suno = suno if suno is not None else SunoMcp(CORE.parents[1])
+        self.director = director if director is not None else SoundPromptDirector()
         self.suno_status = None
         self.suno_status_time = 0
         self.suno_status_lock = threading.Lock()
@@ -373,8 +385,8 @@ class ReviewService:
                            "note": "Four fresh takes using ElevenLabs credits, with the sound's configured duration.",
                            "error": "Configure ELEVENLABS_API_KEY in the review server environment."},
             "suno": {"label": "Suno", "takes": 2, "max_prompt_length": 400,
-                     "available": None, "note": "Long Suno takes are cut to one short event with a smooth fade before audition. "
-                     "Two takes use 2 generation credits; downloads may also use 1 download credit per take.",
+                     "available": None, "note": "Two takes use 2 generation credits. Listen to each original on Suno as it finishes. "
+                     "Downloading may use 1 separate download credit per take; downloaded takes are then cut and mastered for the game.",
                      "error": "Checking the Suno connection…"},
         }
 
@@ -382,7 +394,8 @@ class ReviewService:
         with self.suno_status_lock:
             if force or self.suno_status is None or time.monotonic() - self.suno_status_time > 60:
                 status = {"available": False, "connected": False, "label": "Suno",
-                          "generation_credits": None, "download_credits": None, "error": ""}
+                          "generation_credits": None, "download_credits": None, "error": "",
+                          "downloads_available": False, "download_note": ""}
                 try:
                     usage = self.suno.call("account-usage", {})
                     account = usage.get("suno_account") or {}
@@ -390,17 +403,17 @@ class ReviewService:
                         raise ValueError("Sign in to Suno with codex mcp login suno; an API key cannot create Sounds.")
                     status.update({"connected": True, "generation_credits": account.get("credits_remaining"),
                                    "download_credits": account.get("download_credits_remaining")})
+                    download_credits = status["download_credits"]
+                    status["downloads_available"] = ("audio.download" in usage.get("features", [])
+                        and isinstance(download_credits, (int, float)) and download_credits >= 1)
+                    if not status["downloads_available"]:
+                        status["download_note"] = "Ready to generate and listen on Suno. Local downloads are unavailable for now."
                     plan = account.get("plan") or {}
                     plan_name = plan.get("name", "") if isinstance(plan, dict) else str(plan)
                     if any(name in plan_name.lower() for name in ("free", "basic")):
                         raise ValueError("Suno Sounds requires a Pro or Premier plan.")
                     if account.get("credits_remaining", 0) < 2:
                         raise ValueError("Suno needs at least 2 generation credits for these two takes.")
-                    if "audio.download" not in usage.get("features", []):
-                        raise ValueError("This Suno plan does not allow downloading the generated sounds.")
-                    if not isinstance(status["download_credits"], (int, float)) or status["download_credits"] < 2:
-                        raise ValueError("Suno is connected, but this page requires 2 available download credits before creating "
-                                         "another batch. Generation credits cannot pay for downloads. Choose ElevenLabs or add download credits in Suno.")
                     status["available"] = True
                 except Exception as error:
                     status["error"] = str(error)[:500]
@@ -408,7 +421,7 @@ class ReviewService:
                 self.suno_status_time = time.monotonic()
             return dict(self.suno_status)
 
-    def regenerate(self, slug, role, prompt, request_id, mode="fresh", provider="elevenlabs"):
+    def regenerate(self, slug, role, prompt, request_id, mode="fresh", provider="elevenlabs", feedback=""):
         if mode == "similar":
             raise ValueError(SIMILAR_UNAVAILABLE)
         if mode != "fresh":
@@ -418,16 +431,19 @@ class ReviewService:
         if provider not in ("elevenlabs", "suno"):
             raise ValueError("Unknown sound provider")
         unit, defaults = design_entry(slug, role)
-        maximum = self.providers()[provider]["max_prompt_length"]
-        if not isinstance(prompt, str) or not 5 <= len(prompt.strip()) <= maximum:
-            raise ValueError(f"Use a sound description between 5 and {maximum} characters for {provider}")
+        if not isinstance(prompt, str) or not 5 <= len(prompt.strip()) <= 2000:
+            raise ValueError("The previous sound description must contain between 5 and 2000 characters")
+        if not isinstance(feedback, str) or len(feedback) > 1000:
+            raise ValueError("Keep sound feedback within 1000 characters")
         if not isinstance(request_id, str) or not re.fullmatch(r"[a-zA-Z0-9-]{16,64}", request_id):
             raise ValueError("Invalid generation request ID")
         with self.lock:
             if request_id in self.jobs:
                 existing = self.jobs[request_id]
-                if (existing["slug"], existing["role"], existing["prompt"]) != (slug, role, prompt.strip()):
+                if (existing["slug"], existing["role"], existing.get("rejected_prompt", existing["prompt"])) != (slug, role, prompt.strip()):
                     raise ValueError("This request ID belongs to another generation")
+                if existing.get("feedback", "") != feedback.strip():
+                    raise ValueError("This request ID belongs to different feedback")
                 if existing.get("provider", "elevenlabs") != provider:
                     raise ValueError("This request ID belongs to another sound provider")
                 return existing  # An ambiguous browser retry never starts another paid run.
@@ -437,6 +453,7 @@ class ReviewService:
                 raise ValueError("A generation is already running; wait for its existing takes")
             job = {"id": request_id, "slug": slug, "role": role, "unit": unit["name"],
                    "prompt": prompt.strip(), "status": "generating", "candidates": [], "errors": [],
+                   "rejected_prompt": prompt.strip(), "feedback": feedback.strip(), "stage": "directing",
                    "duration_seconds": defaults["duration_seconds"],
                    "provider": provider, "take_count": self.providers()[provider]["takes"],
                    "mode": mode,
@@ -449,9 +466,41 @@ class ReviewService:
             self.jobs[request_id] = job
             self.active = request_id
             save_json(JOBS / request_id / "job.json", job)
-            target = self.generate_suno if provider == "suno" else self.generate
-            threading.Thread(target=target, args=(job,), daemon=True).start()
+            threading.Thread(target=self.generate_fresh, args=(job,), daemon=True).start()
             return job
+
+    def generate_fresh(self, job):
+        """Rethink the sound before submitting any paid audio request."""
+        try:
+            context, images = sound_context(CORE, job["slug"], job["role"])
+            with self.lock:
+                history = [{"prompt": j["prompt"], "concept": j.get("direction", {}).get("concept", "")}
+                           for j in sorted(self.jobs.values(), key=lambda j: j.get("created_at", ""))
+                           if j["id"] != job["id"] and j["slug"] == job["slug"] and j["role"] == job["role"]][-8:]
+            maximum = self.providers()[job["provider"]]["max_prompt_length"]
+            prefix = f"Single {job['duration_seconds']:g}-second one-shot, played once. "
+            suffix = " End immediately; no repeats or long tail."
+            if job["provider"] == "suno":
+                maximum -= len(prefix) + len(suffix)
+            direction = self.director.rewrite(context, images, job["rejected_prompt"], history, job["feedback"], maximum)
+            validate_direction(direction, [job["rejected_prompt"], context["authored_prompt"],
+                                          *[h["prompt"] for h in history]], maximum)
+            job.update({"prompt": direction["prompt"], "direction": direction, "direction_context": context,
+                        "stage": "creating"})
+            if job["provider"] == "suno":
+                job["provider_prompt"] = prefix + job["prompt"] + suffix
+            self.save_job(job)
+        except Exception as error:
+            with self.lock:
+                job["errors"].append({"index": -1, "stage": "directing", "message": str(error)[:500]})
+                job["status"] = "failed"
+                self.active = None
+                save_json(JOBS / job["id"] / "job.json", job)
+            return
+        if job["provider"] == "suno":
+            self.generate_suno(job)
+        else:
+            self.generate(job)
 
     def save_job(self, job):
         with self.lock:
@@ -505,6 +554,7 @@ class ReviewService:
                     status = self.check_suno(force=True)
                     if not status["available"]:
                         raise ValueError(status["error"])
+                    job["listen_only"] = not status["downloads_available"]
                 job["creation_sent"] = True
                 self.save_job(job)
                 created = self.suno.call("sounds-create", {
@@ -537,7 +587,13 @@ class ReviewService:
                         if clip.get("status") == "error":
                             raise ValueError("Suno could not generate this take")
                         if clip.get("status") == "complete":
-                            self.suno_candidate(job, item)
+                            item["generation_complete"] = True
+                            # Publish listening links before any download or local mastering.
+                            self.save_job(job)
+                            if job.get("listen_only") and item["state"] != "download_approved":
+                                item["state"] = "download_blocked"
+                            else:
+                                self.suno_candidate(job, item)
                     except Exception as error:
                         if isinstance(error, SunoToolError) and error.tool == "audio-download" and error.code == "insufficient_credits":
                             item["state"] = "download_blocked"
@@ -591,6 +647,8 @@ class ReviewService:
                 for item in job.get("suno_clips", []):
                     if item["state"] == "download_blocked":
                         item["state"] = "pending"  # Probe without confirmation; never spend a download credit here.
+            if job.get("suno_clips"):
+                job["listen_only"] = False  # Explicitly checking saved downloads never creates another batch.
             if not job.get("suno_clips"):
                 age = datetime.now(timezone.utc) - datetime.fromisoformat(job["created_at"])
                 if age.total_seconds() > 23 * 3600:
@@ -728,11 +786,36 @@ class ReviewHandler(SimpleHTTPRequestHandler):
                                       "can_generate": bool(service.api_key),
                                       "providers": service.providers(),
                                       "regeneration": {"fresh": True, "similar": False,
+                                                       "director_available": service.director.available(),
                                                        "similar_unavailable": SIMILAR_UNAVAILABLE},
                                       "freesound": bool(freesound_api_key()),
                                       "provider_url": "https://elevenlabs.io/app/flows/" + flow_id if flow_id else None})
         if parsed.path == "/api/audio/provider/suno":
             return self.json_response(200, service.check_suno())
+        if parsed.path == "/api/audio/context":
+            query = urllib.parse.parse_qs(parsed.query)
+            try:
+                context, _ = sound_context(CORE, query.get("slug", [""])[0], query.get("role", [""])[0])
+                return self.json_response(200, context)
+            except (ValueError, OSError, KeyError) as error:
+                return self.json_response(400, {"error": str(error)[:500]})
+        if parsed.path.startswith("/api/audio/art/"):
+            parts = parsed.path.split("/")
+            try:
+                if len(parts) != 7:
+                    raise ValueError("Unknown creature image")
+                context, paths = sound_context(CORE, parts[4], parts[5])
+                path = next(path for info, path in zip(context["images"], paths) if info["key"] == parts[6])
+                payload = path.read_bytes()
+            except (ValueError, OSError, KeyError, StopIteration):
+                return self.send_error(404)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/webp")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         if parsed.path == "/api/audio/jobs":
             query = urllib.parse.parse_qs(parsed.query)
             with service.lock:
@@ -767,7 +850,7 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             service = self.server.service
             if self.path == "/api/audio/regenerate":
                 job = service.regenerate(body.get("slug"), body.get("role"), body.get("prompt"), body.get("request_id"),
-                                         body.get("mode", "fresh"), body.get("provider", "elevenlabs"))
+                                         body.get("mode", "fresh"), body.get("provider", "elevenlabs"), body.get("feedback", ""))
                 return self.json_response(202, {"id": job["id"], "status": job["status"]})
             if self.path == "/api/audio/resume":
                 job = service.resume_suno(body.get("job_id"), body.get("download_index"))
