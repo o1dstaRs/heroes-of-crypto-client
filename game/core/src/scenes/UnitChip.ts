@@ -191,6 +191,7 @@ export type UnitChipOptions = {
         backgroundTexture?: Texture;
         backgroundOpacity?: number;
         backgroundShadeAlpha?: number;
+        backgroundShadeColor?: number;
         backgroundTone?: CreaturePortraitBackgroundTone;
         artPalette?: CreaturePortraitArtPalette;
         framing: PortraitFraming;
@@ -241,6 +242,7 @@ export class UnitChip extends Container {
     private portraitFraming?: PortraitFraming;
     private portraitBackgroundOpacity = 1;
     private portraitBackgroundShadeAlpha = CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
+    private portraitBackgroundShadeColor = 0x000000;
     private mirrorPortraitX = false;
     private sprite: Sprite;
     private badgeCont: Container;
@@ -290,6 +292,7 @@ export class UnitChip extends Container {
         this.portraitBackgroundOpacity = opts.portrait?.backgroundOpacity ?? 1;
         this.portraitBackgroundShadeAlpha =
             opts.portrait?.backgroundShadeAlpha ?? CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
+        this.portraitBackgroundShadeColor = opts.portrait?.backgroundShadeColor ?? 0x000000;
         this.mirrorPortraitX = opts.portrait?.mirrorX ?? false;
 
         this.portraitContainer = new Container();
@@ -595,7 +598,7 @@ export class UnitChip extends Container {
         this.portraitBackgroundShade
             ?.clear()
             .roundRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, radius)
-            .fill({ color: 0x000000, alpha: this.portraitBackgroundShadeAlpha });
+            .fill({ color: this.portraitBackgroundShadeColor, alpha: this.portraitBackgroundShadeAlpha });
         const textureWidth = Math.max(1, this.sprite.texture.width);
         const textureHeight = Math.max(1, this.sprite.texture.height);
         const objectFitScale =

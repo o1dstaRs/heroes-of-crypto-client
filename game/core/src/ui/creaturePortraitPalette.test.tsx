@@ -72,6 +72,18 @@ test("Hydra's poster and animated canvas share one palette, outside the faction 
     );
 });
 
+test("large Hydra portraits sharpen the same still/animation composition while preserving silhouette alpha", () => {
+    const large = renderToStaticMarkup(<CreaturePortraitImage creatureId={CreatureVals.HYDRA} highQualityArt />);
+    expect(large).toContain("feConvolveMatrix");
+    expect(large).toContain('preserveAlpha="true"');
+    expect(renderToStaticMarkup(<CreaturePortraitImage creatureId={CreatureVals.HYDRA} />)).not.toContain(
+        "feConvolveMatrix",
+    );
+    expect(
+        renderToStaticMarkup(<CreaturePortraitImage creatureId={CreatureVals.BLACK_DRAGON} highQualityArt />),
+    ).not.toContain("feConvolveMatrix");
+});
+
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 const gradeScale = (rgb: readonly number[]) => {
     const warm = clamp(rgb.reduce((sum, value, i) => sum + value * HYDRA_PORTRAIT_WARM_MASK[i], 0) / 255);

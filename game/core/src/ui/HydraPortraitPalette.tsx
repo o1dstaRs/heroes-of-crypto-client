@@ -9,7 +9,7 @@ import {
 const alphaMatrix = (row: readonly number[]) => `${Array(15).fill(0).join(" ")} ${row.join(" ")}`;
 
 /** Wrap the still AND the animation, so the first-frame handoff cannot flash the old cyan palette. */
-export function HydraPortraitPalette({ children }: { children: React.ReactNode }) {
+export function HydraPortraitPalette({ children, sharpen = false }: { children: React.ReactNode; sharpen?: boolean }) {
     const filterId = `hydra-portrait-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
     return (
         <>
@@ -39,6 +39,16 @@ export function HydraPortraitPalette({ children }: { children: React.ReactNode }
                         <feComposite in="olive" in2="scales" operator="in" result="gradedScales" />
                         <feComposite in="SourceGraphic" in2="scales" operator="out" result="retainedArt" />
                         <feComposite in="retainedArt" in2="gradedScales" operator="arithmetic" k2="1" k3="1" />
+                        {sharpen && (
+                            // The large sidebar enlarges the authored 572px animation on Retina screens.
+                            // A gentle local sharpen restores scale detail; keep the original silhouette alpha.
+                            <feConvolveMatrix
+                                order="3"
+                                kernelMatrix="0 -0.12 0 -0.12 1.48 -0.12 0 -0.12 0"
+                                preserveAlpha="true"
+                                edgeMode="duplicate"
+                            />
+                        )}
                     </filter>
                 </defs>
             </svg>

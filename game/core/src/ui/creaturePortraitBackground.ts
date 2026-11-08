@@ -23,6 +23,10 @@ export const creaturePortraitBackgroundShadeAlpha = (creatureId: number): number
         : CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
 };
 
+/** A warm orange veil lifts Chaos shadows without recolouring the creature or moving the painted fire. */
+export const creaturePortraitBackgroundShadeColor = (creatureId: number): number =>
+    CreatureFactionsMap[creatureId] === FactionVals.CHAOS ? 0x9b3d00 : 0x000000;
+
 /** Background opacity remains neutral; darkening is handled by explicit overlay layers. */
 export const creaturePortraitBackgroundOpacity = (creatureId: number): number => {
     void creatureId;

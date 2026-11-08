@@ -227,7 +227,7 @@ const CreaturePortraitImageBase = ({
                             position: "absolute",
                             inset: 0,
                             zIndex: 1,
-                            bgcolor: `rgba(0,0,0,${backgroundShadeAlpha})`,
+                            bgcolor: `rgba(${(visual.backgroundShadeColor >> 16) & 255},${(visual.backgroundShadeColor >> 8) & 255},${visual.backgroundShadeColor & 255},${backgroundShadeAlpha})`,
                             pointerEvents: "none",
                         }}
                     />
@@ -253,7 +253,9 @@ const CreaturePortraitImageBase = ({
                     />
                 )}
                 {visual.artPalette === "hydra" ? (
-                    <HydraPortraitPalette>{renderArt ? renderArt(art) : art}</HydraPortraitPalette>
+                    <HydraPortraitPalette sharpen={highQualityArt}>
+                        {renderArt ? renderArt(art) : art}
+                    </HydraPortraitPalette>
                 ) : renderArt ? (
                     renderArt(art)
                 ) : (

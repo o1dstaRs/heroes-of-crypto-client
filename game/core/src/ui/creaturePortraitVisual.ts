@@ -3,6 +3,7 @@ import { CreatureFactionsMap, CreatureVals, FactionVals } from "@heroesofcrypto/
 import {
     creaturePortraitBackgroundOpacity,
     creaturePortraitBackgroundShadeAlpha,
+    creaturePortraitBackgroundShadeColor,
     resolveCreaturePortraitBackground,
 } from "./creaturePortraitBackground";
 import { resolvePortraitFraming, type PortraitFraming } from "./portraitFraming";
@@ -14,6 +15,7 @@ export interface CreaturePortraitVisual {
     background?: string;
     backgroundOpacity: number;
     backgroundShadeAlpha: number;
+    backgroundShadeColor: number;
     backgroundTone?: CreaturePortraitBackgroundTone;
     artPalette?: CreaturePortraitArtPalette;
     framing: PortraitFraming;
@@ -109,6 +111,7 @@ export const resolveCreaturePortraitVisual = (creatureId: number): CreaturePortr
         background: resolveCreaturePortraitBackground(creatureId),
         backgroundOpacity: creaturePortraitBackgroundOpacity(creatureId),
         backgroundShadeAlpha: creaturePortraitBackgroundShadeAlpha(creatureId),
+        backgroundShadeColor: creaturePortraitBackgroundShadeColor(creatureId),
         backgroundTone: CreatureFactionsMap[creatureId] === FactionVals.CHAOS ? "chaos" : undefined,
         artPalette: creatureId === CreatureVals.HYDRA ? "hydra" : undefined,
         framing,
