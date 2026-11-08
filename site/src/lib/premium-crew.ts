@@ -1,5 +1,5 @@
 import { cells, valid, propose, type PublicInput, type Point } from "@heroesofcrypto/common/src/ai/placement/layout";
-import { creatureInfo } from "@heroesofcrypto/common/src/ai/setup/creature_score";
+import { creatureInfo, scoreCreature } from "@heroesofcrypto/common/src/ai/setup/creature_score";
 import { tier1ArtifactFitScoreV7, tier2ArtifactFitScoreV6 } from "@heroesofcrypto/common/src/ai/setup/artifact_fit";
 import { dualStrikeRelativeDamageGain } from "@heroesofcrypto/common/src/ai/setup/dual_strike_fit";
 import { DOUBLE_SHOT_ABILITY_NAMES } from "@heroesofcrypto/common/src/abilities/double_shot_names";
@@ -42,20 +42,38 @@ const unitPortrait = (item: PremiumCatalog["units"][string], eager = false) =>
     portraitMarkup(item.slug, item.name, { className: "premium-portrait", eager });
 const kb = (anchor: string, lang: Lang) => `${lang === "ru" ? "/ru" : ""}/knowledge-base/#${e(anchor)}`;
 
-export function samplePremiumCrew(library: PremiumLibrary, catalog: PremiumCatalog): number[] {
-    const rows = rankPremiumRows(library.units, 50);
-    const pool = [...rows, ...rankPremiumRows(library.units, 1)];
-    const chosen: number[] = [];
-    for (const level of CREW_LEVELS) {
-        const row = pool.find(
-            (row) =>
-                !chosen.includes(row.ids[0]) &&
-                catalog.units[row.ids[0]]?.level === level &&
-                catalog.units[row.ids[0]]?.kit?.amount,
+/** Fill a legal starting crew, retaining saved picks and using current rules when battle data is missing. */
+export function samplePremiumCrew(
+    library: PremiumLibrary | null | undefined,
+    catalog: PremiumCatalog,
+    existing: readonly number[] = [],
+): number[] {
+    const rows = library?.units ?? [];
+    const fallback = Object.keys(catalog.units)
+        .map(Number)
+        .filter((id) => catalog.units[id].kit?.amount)
+        .sort((a, b) => scoreCreature(b) - scoreCreature(a) || a - b);
+    const pool = [
+        ...rankPremiumRows(rows, 50).map((row) => row.ids[0]),
+        ...rankPremiumRows(rows, 1).map((row) => row.ids[0]),
+        ...fallback,
+    ];
+    const chosen = premiumCrewSlots(existing, catalog).filter(
+        (id, index, slots): id is number =>
+            id !== undefined && Boolean(catalog.units[id]?.kit?.amount) && slots.indexOf(id) === index,
+    );
+    const slots = premiumCrewSlots(chosen, catalog);
+    for (const [index, level] of CREW_LEVELS.entries()) {
+        if (slots[index] !== undefined) continue;
+        const id = pool.find(
+            (id) => !chosen.includes(id) && catalog.units[id]?.level === level && catalog.units[id]?.kit?.amount,
         );
-        if (row) chosen.push(row.ids[0]);
+        if (id !== undefined) {
+            slots[index] = id;
+            chosen.push(id);
+        }
     }
-    return chosen;
+    return slots.filter((id): id is number => id !== undefined);
 }
 
 /** A legal role-based starting formation, not a measured optimum or a live-game operation. */
@@ -139,7 +157,7 @@ export function premiumCrewFormation(
     return { input, positions: ids.length && layout === "spread" ? propose(input, positions, 2) : positions };
 }
 
-export function premiumCrewArtifacts(ids: readonly number[], catalog: PremiumCatalog) {
+export function premiumCrewArtifacts(ids: readonly number[], catalog: PremiumCatalog, perTier = 1) {
     if (!ids.length) return [];
     const own = ids.flatMap((id) => creatureInfo(id) ?? []);
     const eligible = (slug: string) => {
@@ -168,9 +186,10 @@ export function premiumCrewArtifacts(ids: readonly number[], catalog: PremiumCat
                 return { key, id, tier, item, score };
             })
             .filter((item) => Number.isFinite(item.score) && item.score > 0)
-            .sort((a, b) => b.score - a.score || a.id - b.id)[0];
+            .sort((a, b) => b.score - a.score || a.id - b.id)
+            .slice(0, Math.max(1, perTier));
     const first = pick(1);
-    return [first, pick(2, first?.id)].filter((item): item is NonNullable<typeof item> => Boolean(item));
+    return [...first, ...pick(2, first[0]?.id)];
 }
 
 export function premiumCrewSynergies(ids: readonly number[], catalog: PremiumCatalog) {
@@ -189,7 +208,10 @@ export function premiumCrewSynergies(ids: readonly number[], catalog: PremiumCat
                 })),
             };
         })
-        .filter((item) => item.count > 0);
+        .filter((item) => item.count > 0)
+        .sort(
+            (a, b) => a.next - a.count - (b.next - b.count) || b.level - a.level || a.faction.localeCompare(b.faction),
+        );
 }
 
 export function premiumCrewArtifactBenefit(slug: string, ids: readonly number[], lang: Lang) {
@@ -242,10 +264,17 @@ export function premiumCrewArtifactBenefit(slug: string, ids: readonly number[],
 
 export function premiumCrewShell(lang: Lang): string {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
-    return `<section id="premium-crew" class="premium-section premium-crew"><header class="premium-section-heading"><span>02</span><div><h2>${t("Build your crew", "Соберите армию")}</h2><p>${t("Pick up to six units. See their formation, artifacts and faction bonuses.", "Выберите до шести юнитов: расстановка, артефакты и бонусы фракций.")}</p></div></header><div data-crew-content></div></section>`;
+    return `<section id="premium-crew" class="premium-section premium-crew"><header class="premium-section-heading"><span>02</span><div><h2>${t("Build your crew", "Соберите армию")}</h2><p>${t("Start with six units on the board. Click a unit to swap it and update the formation, artifacts and faction bonuses.", "Начните с шести юнитов на поле. Нажмите на юнита, чтобы заменить его и обновить расстановку, артефакты и бонусы фракций.")}</p></div></header><div data-crew-content></div></section>`;
 }
 
-export function renderPremiumCrew(ids: number[], catalog: PremiumCatalog, lang: Lang, layout: CrewLayout, map: number) {
+export function renderPremiumCrew(
+    ids: number[],
+    catalog: PremiumCatalog,
+    lang: Lang,
+    layout: CrewLayout,
+    map: number,
+    hasEvidence = true,
+) {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
     const formation = premiumCrewFormation(ids, catalog, layout, map);
     const slots = premiumCrewSlots(ids, catalog)
@@ -268,7 +297,8 @@ export function renderPremiumCrew(ids: number[], catalog: PremiumCatalog, lang: 
                 body = formation.input.bodies[index],
                 point = formation.positions[index];
             const coordinate = `${String.fromCharCode(65 + point.x)}${point.y + 1}`;
-            return `<a href="${kb(item.anchor, lang)}" class="premium-crew-token" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(`${item.name} · ${coordinate}`)}">${unitPortrait(item)}<b>${index + 1}</b></a>`;
+            const slot = premiumCrewSlots(ids, catalog).indexOf(id);
+            return `<button type="button" class="premium-crew-token" data-crew-slot="${slot}" data-knowledge-reference="${e(item.anchor)}" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(t(`Replace ${item.name} at ${coordinate}`, `Заменить ${item.name} на ${coordinate}`))}"><span class="premium-crew-token-crop">${unitPortrait(item)}</span><b>${index + 1}</b></button>`;
         })
         .join("");
     const axes = Array.from(
@@ -276,11 +306,17 @@ export function renderPremiumCrew(ids: number[], catalog: PremiumCatalog, lang: 
         (_, i) =>
             `<span class="premium-crew-axis" style="left:${(i + 0.5) * 6.25}%;top:2px" aria-hidden="true">${String.fromCharCode(65 + i)}</span><span class="premium-crew-axis" style="left:3px;top:${(15 - i + 0.5) * 6.25}%" aria-hidden="true">${i + 1}</span>`,
     ).join("");
-    const artifactMarkup = premiumCrewArtifacts(ids, catalog)
-        .map(({ item, tier }) => {
-            const benefit = premiumCrewArtifactBenefit(item.slug, ids, lang);
-            return `<a class="premium-crew-artifact" href="${kb(item.anchor, lang)}" data-premium-applies-to="${e(benefit.names.join(", "))}"><img src="${e(item.icon)}" alt="" width="52" height="52"/><span><small>${t("Tier", "Уровень")} ${tier}${/^(Cursed|Проклятие):/.test(item.description) ? ` · <em class="premium-crew-cursed">${t("Cursed", "Проклятие")}</em>` : ""}</small><strong>${e(item.name)}</strong><small class="premium-crew-benefit">${e(benefit.label)}</small></span></a>`;
-        })
+    const artifactOptions = premiumCrewArtifacts(ids, catalog, 3);
+    const bestArtifacts = [1, 2].flatMap((tier) => artifactOptions.find((item) => item.tier === tier) ?? []);
+    const renderArtifact = ({ item, tier, key }: (typeof artifactOptions)[number], alternative = false) => {
+        const benefit = premiumCrewArtifactBenefit(item.slug, ids, lang);
+        const rank = artifactOptions.filter((item) => item.tier === tier).findIndex((item) => item.key === key) + 1;
+        return `<a class="premium-crew-artifact" href="${kb(item.anchor, lang)}" data-premium-applies-to="${e(benefit.names.join(", "))}"><img src="${e(item.icon)}" alt="" width="52" height="52"/><span><small>${t("Tier", "Уровень")} ${tier}${alternative ? ` · #${rank}` : ""}${/^(Cursed|Проклятие):/.test(item.description) ? ` · <em class="premium-crew-cursed">${t("Cursed", "Проклятие")}</em>` : ""}</small><strong>${e(item.name)}</strong><small class="premium-crew-benefit">${e(benefit.label)}</small></span></a>`;
+    };
+    const artifactMarkup = bestArtifacts.map((item) => renderArtifact(item)).join("");
+    const alternatives = artifactOptions
+        .filter((option) => !bestArtifacts.some((best) => best.key === option.key))
+        .map((item) => renderArtifact(item, true))
         .join("");
     const names: Record<string, [string, string]> = {
         Life: ["Life", "Жизнь"],
@@ -291,14 +327,14 @@ export function renderPremiumCrew(ids: number[], catalog: PremiumCatalog, lang: 
     const synergyMarkup = premiumCrewSynergies(ids, catalog)
         .map(
             ({ faction, count, level, next, variants }) =>
-                `<details class="premium-crew-synergy"><summary data-premium-help="${e(level ? variants.map(({ variant, power }) => synergyEffect(faction, variant, power, lang)).join(" / ") + " · " + t("One variant is rolled per match.", "В матче выпадает один вариант.") : t(`Add ${next - count} more to activate.`, `Для активации нужно ещё ${next - count}.`))}" data-premium-help-title="${e(t(...names[faction]))}"><img src="/assets/images/units/factions/${faction.toLowerCase()}_128.webp" alt="" width="36" height="36"/><span><strong>${t(...names[faction])}</strong><small>${level ? `${t("Level", "Уровень")} ${level}` : t("Inactive", "Не активна")}</small></span><span class="premium-synergy-pips" aria-label="${count} / ${next}">${Array.from({ length: 6 }, (_, i) => `<i class="${i < count ? "filled" : ""}"></i>`).join("")}</span></summary><p>${level ? t("One variant is rolled for each faction in a match.", "В матче для каждой фракции выпадает один вариант.") : t(`Add ${next - count} more ${faction} unit to activate.`, `Для активации нужно ещё ${next - count}.`)} ${level ? variants.map(({ variant, power }) => synergyEffect(faction, variant, power, lang)).join(" / ") : ""}</p></details>`,
+                `<div class="premium-crew-synergy-option"><details class="premium-crew-synergy"><summary data-premium-help="${e(level ? variants.map(({ variant, power }) => premiumCrewSynergyEffect(faction, variant, power, lang)).join(" / ") + " · " + t("One variant is rolled per match.", "В матче выпадает один вариант.") : t(`Add ${next - count} more to activate.`, `Для активации нужно ещё ${next - count}.`))}" data-premium-help-title="${e(t(...names[faction]))}"><img src="/assets/images/units/factions/${faction.toLowerCase()}_128.webp" alt="" width="36" height="36"/><span><strong>${t(...names[faction])}</strong><small>${level ? `${t("Level", "Уровень")} ${level}` : t("Inactive", "Не активна")}</small></span><span class="premium-synergy-pips" aria-label="${count} / ${next}">${Array.from({ length: 6 }, (_, i) => `<i class="${i < count ? "filled" : ""}"></i>`).join("")}</span></summary><p>${level ? t("One variant is rolled for each faction in a match.", "В матче для каждой фракции выпадает один вариант.") : t(`Add ${next - count} more ${faction} unit to activate.`, `Для активации нужно ещё ${next - count}.`)} ${level ? variants.map(({ variant, power }) => premiumCrewSynergyEffect(faction, variant, power, lang)).join(" / ") : ""}</p></details>${level < 3 ? `<button type="button" class="premium-text-button premium-crew-faction-pick" data-crew-faction="${faction}" aria-label="${e(t(`Find next ${faction} pick`, `Выбрать следующего юнита фракции ${t(...names[faction])}`))}">${t(`${next - count} more for L${level + 1} · pick next`, `Ещё ${next - count} до уровня ${level + 1} · выбрать`)} →</button>` : ""}</div>`,
         )
         .join("");
-    return `<div class="premium-crew-toolbar"><span role="status" aria-live="polite">${ids.length} / 6 ${t("units", "юнитов")}</span><div><button type="button" class="premium-text-button" data-crew-sample>${t("Try meta picks", "Взять юнитов из меты")}</button>${ids.length ? `<button type="button" class="premium-text-button" data-crew-share>${t("Copy crew link", "Скопировать состав")}</button><button type="button" class="premium-text-button" data-crew-clear>${t("Clear", "Очистить")}</button>` : ""}</div></div><div class="premium-crew-slots">${slots}</div><div data-crew-share-fallback hidden><label>${t("Crew link", "Ссылка на состав")}<input type="text" readonly data-crew-share-link /></label></div>
-    ${ids.length ? `<div class="premium-crew-layout"><div><div class="premium-subheading"><h3>${t("Suggested formation", "Рекомендуемая расстановка")}</h3><select data-crew-layout aria-label="${t("Formation style", "Стиль расстановки")}"><option value="screen" ${layout === "screen" ? "selected" : ""}>${t("Protect back line", "Прикрыть тыл")}</option><option value="spread" ${layout === "spread" ? "selected" : ""}>${t("Spread out", "Разнести юнитов")}</option></select></div><div class="premium-crew-board" role="group" aria-label="${t("16 by 16 board, your army deploys on the left", "Поле 16 на 16, ваша армия слева")}">${boardCells}${tokens}${axes}<span class="premium-crew-enemy" aria-hidden="true">${t("Enemy side", "Сторона врага")} →</span></div><p class="premium-fine">${t("Your deployment · base placement zone · no opponent selected", "Ваша зона · без усиления расстановки · противник не выбран")}</p><details class="premium-crew-notes"><summary>${t("Positions & details", "Клетки и подробности")}</summary><ul>${ids.map((id, i) => `<li><a href="${kb(catalog.units[id].anchor, lang)}">${e(catalog.units[id].name)}</a><b>${String.fromCharCode(65 + formation.positions[i].x)}${formation.positions[i].y + 1}</b></li>`).join("")}</ul><p>${t("A legal starting layout based on roles and unit footprints. It has not been tested as the best formation against an opponent.", "Начальная расстановка по ролям и размерам юнитов. Она не проверена как лучшая против конкретного противника.")}</p></details></div><aside class="premium-crew-recommendations"><h3>${t("Artifacts for this crew", "Артефакты для армии")}</h3><p>${t("Suggested by the game’s roster-fit rules", "По правилам подбора к составу армии")}</p>${artifactMarkup}<h3>${t("Faction bonuses", "Бонусы фракций")}</h3>${synergyMarkup}<div data-crew-evidence role="status" aria-live="polite"></div></aside></div>` : `<p class="premium-crew-empty">${t("Choose your first unit, or try a crew from the rankings.", "Выберите первого юнита или возьмите состав из рейтинга.")}</p>`}`;
+    return `<div class="premium-crew-toolbar"><span role="status" aria-live="polite">${ids.length} / 6 ${t("units", "юнитов")}</span><div>${hasEvidence ? `<button type="button" class="premium-text-button" data-crew-sample>${t("Try meta picks", "Взять юнитов из меты")}</button>` : ""}${ids.length ? `<button type="button" class="premium-text-button" data-crew-share>${t("Copy crew link", "Скопировать состав")}</button><button type="button" class="premium-text-button" data-crew-clear>${t("Clear", "Очистить")}</button>` : ""}</div></div><div class="premium-crew-slots">${slots}</div><div data-crew-share-fallback hidden><label>${t("Crew link", "Ссылка на состав")}<input type="text" readonly data-crew-share-link /></label></div>
+    ${ids.length ? `<div class="premium-crew-layout"><div><div class="premium-subheading"><h3>${t("Suggested formation", "Рекомендуемая расстановка")}</h3><select data-crew-layout aria-label="${t("Formation style", "Стиль расстановки")}"><option value="screen" ${layout === "screen" ? "selected" : ""}>${t("Protect back line", "Прикрыть тыл")}</option><option value="spread" ${layout === "spread" ? "selected" : ""}>${t("Spread out", "Разнести юнитов")}</option></select></div><div class="premium-crew-board" role="group" aria-label="${t("16 by 16 board, your army deploys on the left", "Поле 16 на 16, ваша армия слева")}">${boardCells}${tokens}${axes}<span class="premium-crew-enemy" aria-hidden="true">${t("Enemy side", "Сторона врага")} →</span></div><p class="premium-fine">${t("Your deployment · base placement zone · no opponent selected", "Ваша зона · без усиления расстановки · противник не выбран")}</p><details class="premium-crew-notes"><summary>${t("Positions & details", "Клетки и подробности")}</summary><ul>${ids.map((id, i) => `<li><a href="${kb(catalog.units[id].anchor, lang)}">${e(catalog.units[id].name)}</a><b>${String.fromCharCode(65 + formation.positions[i].x)}${formation.positions[i].y + 1}</b></li>`).join("")}</ul><p>${t("A legal starting layout based on roles and unit footprints. It has not been tested as the best formation against an opponent.", "Начальная расстановка по ролям и размерам юнитов. Она не проверена как лучшая против конкретного противника.")}</p></details></div><aside class="premium-crew-recommendations"><h3>${t("Artifacts for this crew", "Артефакты для армии")}</h3><p>${t("Suggested by the game’s roster-fit rules", "По правилам подбора к составу армии")}</p>${artifactMarkup}${alternatives ? `<details class="premium-crew-artifact-options"><summary>${t("More artifact options", "Другие артефакты")}</summary>${alternatives}</details>` : ""}<h3>${t("Faction bonuses", "Бонусы фракций")}</h3>${synergyMarkup}<div data-crew-evidence role="status" aria-live="polite"></div></aside></div>` : `<p class="premium-crew-empty">${hasEvidence ? t("Choose your first unit, or try a crew from the rankings.", "Выберите первого юнита или возьмите состав из рейтинга.") : t("Choose your first unit to explore formations, artifacts and faction bonuses.", "Выберите первого юнита, чтобы изучить расстановки, артефакты и бонусы фракций.")}</p>`}`;
 }
 
-function synergyEffect(faction: string, variant: number, power: number[], lang: Lang): string {
+export function premiumCrewSynergyEffect(faction: string, variant: number, power: number[], lang: Lang): string {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
     const effects: Record<string, string[]> = {
         Life: [

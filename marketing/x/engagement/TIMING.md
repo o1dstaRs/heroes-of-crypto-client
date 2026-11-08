@@ -723,3 +723,29 @@ Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT. Weekend: Satu
 - Fri 6 4:48 PM evening slot never went out (QUEUE marked missed).
 
 Finding: evening is still the best own-post slot on reach (Behemoth 15, Hydra 17, Arachna/Cyclops 32, Quiver 33 at 7d all evening); morning stays weakest (Manticore 11, Pikeman 10, Fire Breath pacing ~9). Losing Friday's evening slot cost the slot that travels furthest. No outside replies in any slot, so reply timing is still not measurable from our own posts.
+
+## Sat 7 Nov 2026, 11:43 AM PT run (window: ~7:40 AM – 11:43 AM Sat PT)
+
+Official originals in window (PT, metrics at read ~11:44 AM PST):
+
+- @WickedNightGame physical units with magic weapons #ScreenshotSaturday, 11:43 AM: 11 / 0 / 0 (surfaced, just opened).
+- @TheVowGame bad sketch / good render part 4, 10:00 AM: 99 / 2 / 0 (surfaced).
+- @Lavapotion quote 8:38 AM: 963 / 30 / 5 replies (Wielders, skipped). @CompanyOfHeroes sale 9:00 AM: 989 / 34 / 3. @MARVELSNAP final live 9:21 AM: 6,291 / 57 / 1.
+- Morning #ScreenshotSaturday posts by 11:43 AM: @MeltedGames 6:25 AM 96 / 4 / 3 replies (was 19 / 1 / 1 at 7:40); @quasimorph 4:00 AM 553 / 20 / 0 (was 467 / 15 / 0).
+
+Thread open vs peak (this run only): the early Saturday posts did gain a little by late morning (Melted 1 to 3 replies, quasimorph +86 impressions), but no official tactics thread passed 5 replies. A second, smaller US-morning wave opened 10 AM–noon PT.
+
+Recommendation: unchanged on weekdays (9:30 AM–1 PM PT). Saturday: two thin waves, ~4–7 AM PT (EU) and ~10 AM–noon PT (US); replies stay in single digits, so Saturday outreach is low value. The 11:37 AM Saturday scan is the right one to keep; 3:37/7:37 PM weekend scans still proposed to drop.
+
+## Sat 7 Nov 2026, 3:43 PM PT run (window: ~3:43 AM – 3:43 PM Sat PT; new posts checked since 11:43 AM)
+
+Official originals after 11:43 AM PT (metrics at read ~3:43 PM PST). Surfaced none.
+
+- @MARVELSNAP Golden Gauntlet Top 16 halfway, 12:23 PM: 6,979 impressions, 57 likes, 0 replies (skipped: watch CTA).
+- Already logged earlier today (metrics at this read): @WickedNightGame 11:43 AM 1,669 / 88 / 3; @TheVowGame 10:00 AM 166 / 2 / 0; @MeltedGames 6:25 AM 108 / 4 / 4; @quasimorph 4:00 AM 590 / 23 / 1.
+
+Thread open vs peak (this run only): No new English board/tactics official thread opened after the ~10 AM–noon PT US-morning wave. WickedNightGame's noon post collected 3 replies by mid-afternoon (was 0 at open). MeltedGames' early scroll climbed from 1 to 4 replies across the day. Afternoon Saturday again empty of fresh board threads.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT. Saturday pattern holds: thin EU wave ~4–7 AM PT, thin US wave ~10 AM–noon PT, then quiet through mid-afternoon. The 11:37 AM Saturday scan remains the useful one; 3:37/7:37 PM weekend scans still proposed to drop.

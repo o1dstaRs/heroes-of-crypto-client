@@ -26,14 +26,16 @@ class FakeSuno:
         self.retrieve_timeout = False
         self.download_timeout = False
         self.download_credits = 20
+        self.generation_credits = 20
+        self.features = ["audio.download"]
         self.reject_download = False
         self.reject_generation = False
 
     def call(self, name, arguments):
         self.calls.append((name, dict(arguments)))
         if name == "account-usage":
-            return {"features": ["audio.download"], "suno_account": {
-                "credits_remaining": 20, "download_credits_remaining": self.download_credits,
+            return {"features": self.features, "suno_account": {
+                "credits_remaining": self.generation_credits, "download_credits_remaining": self.download_credits,
                 "plan": {"name": "Pro Plan"}}}
         if name == "sounds-create":
             if self.reject_generation:
@@ -86,7 +88,7 @@ class AudioReviewTests(unittest.TestCase):
         def generate(job):
             calls.append(job["id"])
             started.set()
-        service.generate = generate
+        service.generate_fresh = generate
         server = ThreadingHTTPServer(("127.0.0.1", 0), review.ReviewHandler)
         server.service = service
         worker = threading.Thread(target=server.serve_forever, daemon=True)
@@ -144,6 +146,33 @@ class AudioReviewTests(unittest.TestCase):
         job = {"id": "test-job", "slug": "abomination", "role": "attack", "candidates": [candidate]}
         return assets, job
 
+    def test_context_and_art_routes_only_serve_the_selected_creatures_references(self):
+        artwork = self.root / "current-creature.webp"
+        artwork.write_bytes(b"current-artwork")
+        context = {"images": [{"kind": "full_body", "key": "current_creature"}],
+                   "creature": {"name": "Abomination", "abilities": []}}
+        server = ThreadingHTTPServer(("127.0.0.1", 0), review.ReviewHandler)
+        server.service = review.ReviewService(api_key="")
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        origin = f"http://127.0.0.1:{server.server_port}"
+        try:
+            with patch.object(review, "sound_context", return_value=(context, [artwork])) as load:
+                with urllib.request.urlopen(origin + "/api/audio/context?slug=abomination&role=attack") as response:
+                    self.assertEqual(json.loads(response.read()), context)
+                load.assert_called_with(self.root, "abomination", "attack")
+                with urllib.request.urlopen(origin + "/api/audio/art/abomination/attack/current_creature") as response:
+                    self.assertEqual(response.headers.get_content_type(), "image/webp")
+                    self.assertEqual(response.read(), b"current-artwork")
+                with self.assertRaises(urllib.error.HTTPError) as rejected:
+                    urllib.request.urlopen(origin + "/api/audio/art/abomination/attack/private_file")
+                self.assertEqual(rejected.exception.code, 404)
+                rejected.exception.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join()
+
     def test_fresh_regeneration_sends_description_with_more_variation_and_records_actual_settings(self):
         service = review.ReviewService(api_key="test-key")
         prompt = "One short dry spider pain squeak"
@@ -187,6 +216,81 @@ class AudioReviewTests(unittest.TestCase):
         self.assertEqual(saved["mode"], "fresh")
         self.assertEqual(saved["prompt_influence"], 0.3)
 
+    def test_regenerate_rethinks_with_context_feedback_and_history_before_either_audio_provider(self):
+        from unittest.mock import Mock
+        previous = "One short dry monster grunt"
+        context = {"authored_prompt": previous, "creature": {"name": "Abomination", "abilities": []}, "images": []}
+        direction = {"prompt": "One close constricted chest bark: abrupt coarse low pressure snap, gravelly throat body and a clipped breath ending. No words, music, ambience or reverb.",
+                     "concept": "Chest bark", "visual_basis": "A massive brute with a heavy chest.",
+                     "reason": "Fits its weight.", "changes": "A clipped bark replaces the drawn grunt."}
+        for provider in ("elevenlabs", "suno"):
+            with self.subTest(provider=provider):
+                if provider == "suno":
+                    direction = {**direction,
+                        "prompt": "An abrupt wet nasal crack followed by a low sealed-mouth rumble and a clipped throat click. Close and dry, one half-second undead exertion, no words, music, ambience, reverb or impact.",
+                        "concept": "Nasal crack", "changes": "A nasal crack replaces the chest bark and prior drawn grunt."}
+                director = Mock()
+                director.rewrite.return_value = dict(direction)
+                service = review.ReviewService(api_key="test-key", director=director)
+                old_id = "older-" + provider
+                service.jobs[old_id] = {"id": old_id, "slug": "abomination", "role": "attack",
+                    "prompt": "Earlier rejected snorting rattle", "created_at": "2026-01-01", "direction": {"concept": "Rattle"}}
+                request_id = "new-direction-request-" + provider
+                with patch.object(review.threading.Thread, "start"):
+                    job = service.regenerate("abomination", "attack", previous, request_id,
+                        provider=provider, feedback="Less breath, more weight")
+                with patch.object(review, "sound_context", return_value=(context, [Path("current-creature.webp")])), \
+                     patch.object(service, "generate") as elevenlabs, patch.object(service, "generate_suno") as suno:
+                    service.generate_fresh(job)
+                director.rewrite.assert_called_once()
+                args = director.rewrite.call_args.args
+                self.assertEqual(args[:3], (context, [Path("current-creature.webp")], previous))
+                self.assertIn({"prompt": "Earlier rejected snorting rattle", "concept": "Rattle"}, args[3])
+                self.assertEqual(args[4], "Less breath, more weight")
+                (suno if provider == "suno" else elevenlabs).assert_called_once_with(job)
+                (elevenlabs if provider == "suno" else suno).assert_not_called()
+                self.assertEqual(job["prompt"], direction["prompt"])
+                self.assertEqual(job["rejected_prompt"], previous)
+                self.assertEqual(job["stage"], "creating")
+                self.assertEqual(job["direction_context"], context)
+                if provider == "suno":
+                    self.assertIn(direction["prompt"], job["provider_prompt"])
+                    self.assertLessEqual(len(job["provider_prompt"]), 400)
+                saved = json.loads((self.jobs / job["id"] / "job.json").read_text())
+                self.assertEqual(saved["direction"], direction)
+                with patch.object(review.threading.Thread, "start") as start:
+                    duplicate = service.regenerate("abomination", "attack", previous, request_id,
+                        provider=provider, feedback="Less breath, more weight")
+                self.assertIs(duplicate, job)
+                start.assert_not_called()
+                director.rewrite.assert_called_once()
+
+    def test_failed_or_repeated_direction_never_submits_audio_generation(self):
+        from unittest.mock import Mock
+        previous = "One short dry monster grunt"
+        context = {"authored_prompt": previous, "images": []}
+        for failure in ("model-error", "repeated-prompt", "missing-art"):
+            with self.subTest(failure=failure):
+                director = Mock()
+                director.rewrite.return_value = {"prompt": previous, "concept": "Same", "visual_basis": "Brute",
+                    "reason": "Same", "changes": "Same"}
+                if failure == "model-error":
+                    director.rewrite.side_effect = RuntimeError("Sound director unavailable")
+                service = review.ReviewService(api_key="test-key", director=director)
+                with patch.object(review.threading.Thread, "start"):
+                    job = service.regenerate("abomination", "attack", previous, "failure-request-" + failure)
+                with patch.object(review, "sound_context", return_value=(context, []),
+                                  side_effect=ValueError("Missing current artwork") if failure == "missing-art" else None), \
+                     patch.object(service, "generate") as elevenlabs, patch.object(service, "generate_suno") as suno:
+                    service.generate_fresh(job)
+                elevenlabs.assert_not_called()
+                suno.assert_not_called()
+                self.assertEqual(job["status"], "failed")
+                self.assertIsNone(service.active)
+                self.assertEqual(job["errors"][-1]["stage"], "directing")
+                if failure == "missing-art":
+                    director.rewrite.assert_not_called()
+
     def test_similar_generation_cannot_silently_charge_for_a_text_only_run(self):
         service = review.ReviewService(api_key="test-key")
         with patch.object(review.threading.Thread, "start") as start:
@@ -224,6 +328,9 @@ class AudioReviewTests(unittest.TestCase):
                          "sine=frequency=440:duration=0.35:sample_rate=48000", "-c:a", "libmp3lame", raw)
         suno = FakeSuno()
         service, job = self.suno_job(suno)
+        job["direction"] = {"prompt": job["prompt"], "visual_basis": "A broad, heavy undead brute."}
+        job["direction_context"] = {"images": [{"kind": "battlefield", "key": "abomination_current", "sha256": "a" * 64}],
+                                    "creature": {"name": "Abomination", "abilities": []}}
         self.run_suno(service, job, raw.read_bytes(), real_mastering=True)
         self.assertEqual(job["status"], "ready", job["errors"])
         self.assertEqual(len(job["candidates"]), 2)
@@ -237,6 +344,8 @@ class AudioReviewTests(unittest.TestCase):
             self.assertEqual(c["source"]["kind"], "suno-mcp")
             self.assertEqual(c["source"]["request_prompt"], job["provider_prompt"])
             self.assertEqual(c["source"]["duration_limit_ms"], 1000)
+            self.assertEqual(c["source"]["prompt_direction"], job["direction"])
+            self.assertEqual(c["source"]["prompt_context"], job["direction_context"])
             for m in c["result"]["encoded"].values():
                 self.assertLessEqual(abs(m["lufs"] + 20), 0.75)
                 self.assertLessEqual(m["true_peak_db"], -3)
@@ -248,6 +357,7 @@ class AudioReviewTests(unittest.TestCase):
         review.apply_candidate(job, 1)
         provenance = json.loads((self.root / "audio/combat-sound-provenance.json").read_text())
         self.assertEqual(provenance["clips"][0]["source"]["clip_id"], "clip-b")
+        self.assertEqual(provenance["clips"][0]["source"]["prompt_context"], job["direction_context"])
         self.assertEqual(provenance["provider"], "Mixed: see individual clip sources")
         self.assertEqual(provenance["clips"][1]["generation_id"], "keep-hurt")
         self.assertEqual((assets / "abomination_hurt.mp3").read_bytes(), b"keep hurt")
@@ -255,6 +365,9 @@ class AudioReviewTests(unittest.TestCase):
             self.assertNotEqual((assets / ("abomination_attack." + codec)).read_bytes(), b"previous attack")
         design = json.loads((self.root / "audio/combat-sound-design.json").read_text())
         self.assertEqual(next(u for u in design["units"] if u["slug"] == "abomination")["attack"]["prompt"], job["prompt"])
+        art = next(u for u in design["units"] if u["slug"] == "abomination")["art_reference"]
+        self.assertEqual(art["battlefield_asset"], "abomination_current")
+        self.assertEqual(art["attack_basis"], job["direction"]["visual_basis"])
         overrides = json.loads((self.root / "audio/combat-sound-overrides.json").read_text())
         self.assertEqual(overrides["abomination/attack"]["source"]["kind"], "suno-mcp")
 
@@ -351,8 +464,8 @@ class AudioReviewTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Reference-audio"):
                 service.regenerate(job["slug"], job["role"], job["prompt"], "suno-similar-00000001",
                                    mode="similar", provider="suno")
-            with self.assertRaisesRegex(ValueError, "400"):
-                service.regenerate(job["slug"], job["role"], "x" * 401, "long-request-00000001", provider="suno")
+            with self.assertRaisesRegex(ValueError, "2000"):
+                service.regenerate(job["slug"], job["role"], "x" * 2001, "long-request-00000001", provider="suno")
             start.assert_not_called()
         self.assertEqual(suno.calls, [])
 
@@ -387,21 +500,78 @@ class AudioReviewTests(unittest.TestCase):
         self.assertEqual(remastered["source"]["duration_edit"], candidate["source"]["duration_edit"])
         self.assertFalse((self.root / "public/audio/combat").exists())
 
-    def test_generation_credits_do_not_make_suno_ready_without_download_credits(self):
+    def test_suno_generates_listening_links_without_download_credits_and_can_download_later(self):
         suno = FakeSuno()
         service, job = self.suno_job(suno)
         self.assertTrue(service.check_suno()["available"])
         suno.download_credits = 0
-        # Creation must re-read the balance even when the browser saw "ready".
-        self.run_suno(service, job)
-        self.assertEqual(job["status"], "failed")
-        self.assertFalse(any(name == "sounds-create" for name, _ in suno.calls))
+        saved_while_second_take_pending = []
+        call = suno.call
+        def retrieve(name, arguments):
+            if name == "audio-retrieve" and arguments["id"] == "clip-b":
+                saved_while_second_take_pending.append(json.loads((self.jobs / job["id"] / "job.json").read_text()))
+            return call(name, arguments)
+        # Re-read the balance before creation, then publish each take independently.
+        with patch.object(suno, "call", side_effect=retrieve):
+            self.run_suno(service, job)
+        self.assertEqual(job["status"], "download_blocked")
+        self.assertTrue(job["listen_only"])
+        self.assertEqual(job["errors"], [])
+        self.assertEqual(job["candidates"], [])
+        self.assertEqual(sum(name == "sounds-create" for name, _ in suno.calls), 1)
+        self.assertFalse(any(name == "audio-download" for name, _ in suno.calls))
+        self.assertEqual(len(saved_while_second_take_pending), 1)
+        first = saved_while_second_take_pending[0]
+        self.assertEqual(first["status"], "generating")
+        self.assertTrue(first["suno_clips"][0]["generation_complete"])
+        self.assertEqual(first["suno_clips"][0]["song_url"], "https://suno.com/song/clip-a")
+        self.assertEqual(first["suno_clips"][1]["state"], "pending")
+        self.assertTrue(all(c["generation_complete"] and c["song_url"] for c in job["suno_clips"]))
         status = service.check_suno()
         self.assertTrue(status["connected"])
-        self.assertFalse(status["available"])
+        self.assertTrue(status["available"])
+        self.assertFalse(status["downloads_available"])
         self.assertEqual(status["generation_credits"], 20)
         self.assertEqual(status["download_credits"], 0)
-        self.assertIn("download credits", status["error"])
+        self.assertEqual(status["error"], "")
+        self.assertIn("listen on Suno", status["download_note"])
+        # Keep both original clip IDs through restart and explicit download recovery.
+        suno.download_credits = 2
+        suno.needs_credit.update({"clip-a", "clip-b"})
+        restarted = review.ReviewService(api_key="", suno=suno)
+        with patch.object(review.threading.Thread, "start"):
+            recovered = restarted.resume_suno(job["id"])
+        self.run_suno(restarted, recovered)
+        self.assertEqual(recovered["status"], "needs_download_approval")
+        self.assertFalse(recovered["listen_only"])
+        self.assertEqual(sum(name == "sounds-create" for name, _ in suno.calls), 1)
+        self.assertFalse(any(args.get("confirm") for name, args in suno.calls if name == "audio-download"))
+        with patch.object(review.threading.Thread, "start"):
+            restarted.resume_suno(job["id"], download_index=0)
+        self.run_suno(restarted, recovered)
+        self.assertEqual(len(recovered["candidates"]), 1)
+        self.assertEqual(sum(name == "sounds-create" for name, _ in suno.calls), 1)
+
+    def test_suno_can_generate_for_listening_without_download_entitlement(self):
+        suno = FakeSuno()
+        suno.features = []
+        service, job = self.suno_job(suno)
+        self.run_suno(service, job)
+        self.assertTrue(service.check_suno()["available"])
+        self.assertEqual(job["status"], "download_blocked")
+        self.assertEqual(job["errors"], [])
+        self.assertEqual(len(job["suno_clips"]), 2)
+        self.assertFalse(any(name == "audio-download" for name, _ in suno.calls))
+
+    def test_suno_listening_still_requires_generation_credits(self):
+        suno = FakeSuno()
+        suno.generation_credits = 0
+        service, job = self.suno_job(suno)
+        self.run_suno(service, job)
+        self.assertEqual(job["status"], "failed")
+        self.assertFalse(service.check_suno()["available"])
+        self.assertFalse(any(name == "sounds-create" for name, _ in suno.calls))
+        self.assertIn("generation credits", job["errors"][-1]["message"])
 
     def test_explicit_download_credit_refusal_is_recoverable_without_new_generation(self):
         suno = FakeSuno()
@@ -562,6 +732,53 @@ class AudioReviewTests(unittest.TestCase):
         self.assertEqual((assets / "abomination_attack.webm").read_bytes(), b"previous attack")
         self.assertEqual((assets / "abomination_attack.mp3").read_bytes(), b"previous attack")
 
+    def test_selected_movement_survives_apply_recovery_and_remaster_source_collection(self):
+        assets, job = self.fixture()
+        job["role"] = "move"
+        candidate = job["candidates"][0]
+        candidate["result"]["role"] = "move"
+        original = self.root / candidate["path"]
+        original.parent.mkdir(parents=True)
+        original.write_bytes(b"selected movement recording")
+        # Adding a previously empty role must preserve both existing combat cues.
+        review.apply_candidate(job, 0)
+        review.apply_candidate(job, 0)
+        manifest = json.loads((self.root / "src/ui/audio/combatSoundManifest.json").read_text())
+        self.assertEqual(manifest["Abomination"]["attack"]["revision"], "old")
+        self.assertEqual(manifest["Abomination"]["hurt"]["revision"], "keep")
+        self.assertEqual(manifest["Abomination"]["move"]["durationMs"], 350)
+        for codec, data in (("webm", b"mastered opus"), ("mp3", b"mastered mp3")):
+            self.assertEqual((assets / ("abomination_move." + codec)).read_bytes(), data)
+            self.assertEqual((assets / ("abomination_attack." + codec)).read_bytes(), b"previous attack")
+            self.assertEqual((assets / ("abomination_hurt." + codec)).read_bytes(), b"keep hurt")
+        for path in (self.root / "audio/combat-sound-provenance.json", self.work / "mastering-report.json"):
+            clips = json.loads(path.read_text())["clips"]
+            self.assertEqual([c["role"] for c in clips], ["attack", "hurt", "move"])
+        (self.work / "mastering-report.json").unlink()
+        recovered = review.load_combat_report()["clips"]
+        self.assertEqual([c["role"] for c in recovered], ["attack", "hurt", "move"])
+        units = json.loads((self.root / "audio/combat-sound-design.json").read_text())["units"]
+        groups = mastering.collect_sources(self.work / "receipts", units, self.work / "raw")
+        self.assertEqual(set(groups), {"abomination/move"})
+        self.assertEqual(groups["abomination/move"][0]["path"], original.resolve())
+        self.assertEqual(groups["abomination/move"][0]["source"], candidate["source"])
+
+    def test_movement_slots_cover_current_roster_without_generating_missing_sounds(self):
+        selected = {"unit": "Champion", "slug": "champion", "role": "move", "encoded": {"webm": {}}}
+        retired = {"unit": "Zombie", "slug": "zombie", "role": "move", "encoded": {"webm": {}}}
+        rows = mastering.movement_rows_for_review([selected, retired])
+        units = json.loads((self.root / "audio/combat-sound-design.json").read_text())["units"]
+        self.assertEqual({r["slug"] for r in rows}, {u["slug"] for u in units})
+        self.assertEqual([r for r in rows if r.get("encoded")], [selected])
+        self.assertTrue(all(r.get("placeholder") and "encoded" not in r for r in rows if r != selected))
+        suno = FakeSuno()
+        service = review.ReviewService(api_key="test", suno=suno)
+        with self.assertRaisesRegex(ValueError, "generation is not enabled"):
+            service.regenerate("champion", "move", "Horse galloping", "movement-0000000000000001",
+                               provider="suno")
+        self.assertEqual(suno.calls, [])
+        self.assertFalse(self.jobs.exists())
+
     def test_selected_generated_prompt_becomes_the_default_for_later_regeneration(self):
         _, job = self.fixture()
         prompt = "One sharp dry heavy steel sword slash through the air"
@@ -572,6 +789,26 @@ class AudioReviewTests(unittest.TestCase):
         self.assertEqual(unit["attack"]["prompt"], prompt)
         report = json.loads((self.work / "mastering-report.json").read_text())
         self.assertEqual(report["clips"][0]["design_prompt"], prompt)
+
+    def test_retired_creatures_stay_out_of_reports_and_cached_html_recovery(self):
+        self.work.mkdir(parents=True, exist_ok=True)
+        kept = {"unit": "Abomination", "slug": "abomination", "role": "attack"}
+        retired = [{"unit": name, "slug": slug, "role": role}
+                   for name, slug in (("Skeleton", "skeleton"), ("Imp", "imp"), ("Zombie", "zombie"),
+                                      ("Dark Champion", "dark-champion")) for role in ("attack", "hurt")]
+        report_path = self.work / "mastering-report.json"
+        review.save_json(report_path, {"clips": [kept, *retired]})
+        self.assertEqual(review.load_combat_report()["clips"], [kept])
+        report_path.unlink()
+        (self.work / "review.html").write_text("<script>let sounds = " + json.dumps([kept, *retired]) + ";</script>")
+        self.assertEqual(review.load_combat_report()["clips"], [kept])
+        with patch.object(mastering, "spell_rows_for_review", return_value=[]):
+            review.write_review(self.work, [kept, *retired])
+        page = (self.work / "review.html").read_text()
+        for clip in retired:
+            self.assertNotIn(clip["unit"], page)
+            with self.assertRaisesRegex(ValueError, "Unknown creature"):
+                review.design_entry(clip["slug"], clip["role"])
 
     def test_freesound_refresh_keeps_the_downloaded_catalog(self):
         folder = self.work / "freesound" / "cc0-spell-cast"

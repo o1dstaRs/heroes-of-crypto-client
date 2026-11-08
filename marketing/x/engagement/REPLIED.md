@@ -5,7 +5,7 @@ Format: post id | author | URL | decision | handled at (PT)
 
 ## Last checked
 
-2026-11-07 2:24 PM PT (search to:/@/url @Heroes0fcrypto -from:us since 20:00 UTC Nov 7 = 0; own posts since Nov 6 each reply_count=1 = our self-reply only, quote_count=0; nothing new to handle)
+2026-11-08 8:21 AM PT (search to:/@/url @Heroes0fcrypto -from:us since 06:00 UTC Nov 8 = 0; own posts since Nov 6 each reply_count=1 = our self-reply only, quote_count=0; nothing new to handle)
 
 ## Handled
 

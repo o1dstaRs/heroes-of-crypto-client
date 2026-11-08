@@ -33,6 +33,7 @@ export interface IMoveAnimationContext {
     getHoverManager(): HoverManager;
     getWorldRoot(): Container;
     requestVisibleStateUpdate(): void;
+    startMovementSound?(unit: RenderableUnit): () => void;
 }
 
 interface IMoveAnimationState {
@@ -46,6 +47,7 @@ interface IMoveAnimationState {
     lastTrackWorld: HoCMath.XY;
     onComplete?: () => void;
     onCancel?: () => void;
+    stopMovementSound?: () => void;
     /** The route is an approach to a melee strike, so an authored flyer must land before releasing it. */
     chainsIntoMeleeAttack: boolean;
     waitingForLanding: boolean;
@@ -162,6 +164,7 @@ export class MoveAnimationManager {
         this.swapAnimation = undefined;
 
         if (move) {
+            move.stopMovementSound?.();
             move.unit.stopBoardWalkAnimation();
             if (move.rapidCharge) move.unit.setMotionBlur(0);
         }
@@ -196,6 +199,7 @@ export class MoveAnimationManager {
         rapidCharge = false,
         onCancel?: () => void,
     ) {
+        this.moveAnimation?.stopMovementSound?.();
         this.isActiveUnitMoving = true;
         this.moveTrackPath = moveTrackPath;
         this.moveTrackProgress = 0;
@@ -250,6 +254,8 @@ export class MoveAnimationManager {
             // alternate at frame 4 / frame 0 every half gait cycle.
             nextFootstepDistance: 0,
             footstepIndex: 0,
+            stopMovementSound:
+                travelDistanceCells > 0 && speed > 0 ? this.context.startMovementSound?.(unit) : undefined,
         };
     }
     public startSwapAnimation(
@@ -632,6 +638,8 @@ export class MoveAnimationManager {
         const anim = this.moveAnimation;
         if (!anim) return;
         const { unit, worldPath } = anim;
+        anim.stopMovementSound?.();
+        anim.stopMovementSound = undefined;
         const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
 
         unit.setPosition(end.x, end.y);

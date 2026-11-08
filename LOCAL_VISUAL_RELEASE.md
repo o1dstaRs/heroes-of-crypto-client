@@ -3,7 +3,7 @@
 ## Current coordinated candidate
 
 The user approved a coordinated test client and API rollout on 2026-11-08. Client #205 and published
-server main now use common `f4c1f2f7b47d4de015fa4dc26e8dbecfe2df67b2`. Artifact IDs, tier lists,
+server main now use common `b61c2bfa7faa85e0141eba35a43e639edf5d8bc3`. Artifact IDs, tier lists,
 ordering, exclusions, power values, roster and execution behavior follow current main.
 
 The client includes protected test release `6905e984c6359fee0666fb1005dca2382be9706e` in its ancestry.

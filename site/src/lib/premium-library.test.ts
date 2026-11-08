@@ -38,6 +38,7 @@ describe("Premium library presentation", () => {
         for (const lang of ["en", "ru"] as const) {
             const html = renderPremiumDashboard(data, premiumCatalog(lang), { ...view, lang });
             expect(html).toContain("Premium AI");
+            expect(html).toContain('id="premium-crew"');
             expect(html).not.toContain("0.0%");
             expect(html).not.toContain("temporarily unavailable");
         }

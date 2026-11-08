@@ -2175,6 +2175,9 @@ body:has(.premium-page) .site-header {
     z-index: 2;
     min-width: 0;
     min-height: 0;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
     border: 1px solid #c0be8d88;
     border-radius: 3px;
     background: #2c3928;
@@ -2186,12 +2189,19 @@ body:has(.premium-page) .site-header {
     outline: 2px solid #ecc297;
     outline-offset: 1px;
 }
-.premium-crew-token .portrait.premium-portrait {
-    width: auto;
-    height: 100%;
-    max-width: 100%;
-    border: 0;
+.premium-crew-token-crop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
     border-radius: 2px;
+}
+.premium-crew-token .portrait.premium-portrait {
+    width: 100%;
+    height: auto;
+    /* Keep the composed portrait's framing and clip its lower portion to the square board token. */
+    aspect-ratio: 190/256;
+    border: 0;
+    border-radius: 0;
 }
 .premium-crew-token b {
     position: absolute;
@@ -2392,7 +2402,7 @@ body:has(.premium-page) .site-header {
         13px/1.4 Inter,
         sans-serif;
 }
-.premium-crew-sort {
+.premium-crew-picker .premium-crew-sort {
     margin: 12px 0 18px;
     font-size: 10px;
     color: #aa917a;
@@ -2449,6 +2459,56 @@ body:has(.premium-page) .site-header {
     color: #dbb287;
     font-size: 14px;
     white-space: nowrap;
+}
+.premium-crew-choice-copy {
+    flex: 1;
+    min-width: 0;
+}
+.premium-crew-fit-signals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 7px;
+}
+.premium-crew-fit {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #cfbfa0;
+    font-size: 10px;
+    line-height: 1.35;
+}
+.premium-crew-fit img {
+    object-fit: contain;
+}
+.premium-crew-fit-loss {
+    color: #d49b89;
+}
+.premium-crew-choice-artifacts {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.premium-crew-choice-artifacts img {
+    object-fit: contain;
+}
+.premium-crew-artifact-options {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--premium-muted);
+}
+.premium-crew-artifact-options summary {
+    cursor: pointer;
+}
+.premium-crew-artifact-options .premium-crew-artifact img {
+    width: 32px;
+    height: 32px;
+}
+.premium-crew-faction-pick {
+    margin: 0 0 12px 46px;
+    padding: 0;
+    font-size: 10px;
+    text-align: left;
 }
 .premium-crew-choice-score small {
     font-size: 9px;

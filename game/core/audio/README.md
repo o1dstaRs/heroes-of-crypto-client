@@ -1,10 +1,16 @@
 # Combat sounds
 
 The first library covers every creature in the engine configuration, including summoned and hidden
-creatures: one attack and one hurt effect per name. `combat-sound-design.json` holds the
+creatures: one attack and one hurt effect per name, plus an optional movement recording.
+The audition page has an empty movement slot for every creature without a selected recording.
+`combat-sound-design.json` holds the
 sound direction, short generation prompts, and source duration. `combat-sound-provenance.json`
 records the selected sources, ElevenLabs generation IDs when applicable, and measurements of
 the actual encoded files.
+
+The retired Death roster (Skeleton, Imp, Zombie, and Dark Champion) has no creature definitions or
+combat audio entries. Both report generation and cached-report recovery filter against the current
+sound roster, so older local audition data cannot bring those rows back.
 
 Inspect the creature's complete portrait and current battlefield figure before authoring a
 prompt. Resolve their canonical keys in `src/pixi/creaturePortraitAssetKeys.ts` and
@@ -80,15 +86,25 @@ and hurt files alone. The Freesound key stays outside the page and outside track
 Technical selection does not establish artistic fit: the report keeps all takes
 available locally for listening and revision.
 
-Every creature row has **Regenerate**. It opens an editable sound description, a library search,
-and available mastered alternatives. **ElevenLabs** is the default (four takes with an explicit
-duration parameter). **Suno** is optional (two takes for two generation credits, plus up to one
-separate download credit per take).
-**Regenerate** uses the description, with no existing
-audio. ElevenLabs uses prompt influence `0.3`, giving it more variation than the previous `0.7`.
-Change the description when the sound itself is wrong;
-rerolling an unchanged description does not establish a new artistic direction. Each batch shows
-its creation time, and each take retains its actual prompt and generation settings for inspection.
+Every creature row and dialog has separate **Regenerate · ElevenLabs** and **Regenerate · Suno**
+buttons. Clicking one creates a new direction and then generates with that provider. **Review takes**
+opens the dialog without generating anything. ElevenLabs produces four takes with an explicit
+duration; Suno produces two takes for two generation credits, plus up to one download credit per take.
+
+**Regenerate means the current sound is rejected.** Before either audio provider is called, a vision
+model inspects the current full-body portrait, battlefield figure, and configured action atlas. It
+combines these with current creature descriptions, ability descriptions, the shared game sound style,
+the rejected prompt, the last eight attempts, and optional feedback. It must invent a materially
+different acoustic concept that still fits the creature and action. Exact and near-copy prompts are
+rejected before audio generation; missing art or a model failure never falls back to the old prompt.
+Each batch shows the new prompt, visual observations, why it fits, and what changed. Playing a take
+selects its direction to reject on the next regeneration. ElevenLabs uses prompt influence `0.3`.
+
+The sound director uses the existing local Codex login through an isolated, ephemeral, read-only
+`codex exec` inference with attached images and tools disabled. This uses model quota in addition to
+the selected audio provider's generation credits. Jobs retain portable image keys and hashes, game
+context, feedback, and generated direction. Applying a take preserves that provenance and updates the
+authored prompt and inspected art references for future work. Credentials remain local to each tool.
 
 Suno's `sounds-create` has no duration parameter: a request for one second can return several
 seconds. The Suno prompt requests one brief event, but this is not a duration guarantee. The page
@@ -111,13 +127,15 @@ replacement. Do not implement this button by silently reusing a prompt or applyi
 Suno uses the existing Codex OAuth connection through `codex app-server`. The ephemeral thread
 only hosts MCP tools; it does not start a model turn. Configure the `suno` MCP server at
 `https://api.suno.com/mcp`, enable it, and run `codex mcp login suno` if it is not already connected.
-Suno Sounds requires a signed-in Pro or Premier account. The page displays generation and download
-balances separately. It requires two of each before creating a batch so it does not spend generation
-credits on takes that cannot be downloaded. The `audio.download` entitlement alone is not enough:
-Suno can still return `requires_credit` and then `insufficient_credits` / `quota_exhausted` for a
-zero download balance. The server rechecks both balances before creation. It calls `sounds-create`,
-saves both clip IDs, waits for completion, downloads,
-and runs the same mastering checks as other sources. It records the authored and actual provider
+Suno Sounds requires a signed-in Pro or Premier account and two generation credits. The page displays
+generation and download balances separately; a zero download balance does not block generation.
+The server rechecks the account before creation. Without download credits or download access, it
+creates a listening-only batch and skips download requests. Each completed take immediately gets a
+**Listen to take … in Suno** link, even while the other take is generating. These links play the original
+Suno audio; local trimming, mastering, and applying to the game require downloading it later.
+**Check existing downloads** can recover the same saved takes when downloads become available.
+With downloads available, it downloads and runs the same mastering checks as other sources.
+It records the authored and actual provider
 prompts, clip IDs, and file hashes; OAuth tokens and signed download URLs are never saved in jobs.
 
 An interrupted Suno batch has **Resume this Suno batch**. Known clip IDs resume downloads;
@@ -153,6 +171,37 @@ Angel's sword alternatives use artisticdude's CC0
 for Summoning Wars. These brief weapon-swing foley recordings provide a physical alternative
 to the rejected abstract enchanted-blade generations. The design is grounded in Angel's
 long steel sword as shown in both inspected creature images.
+
+The user-selected Uppbeat recordings below replace only their listed unit/role. Originals stay
+under `tmp/audio/raw/provided/<hash>/`, with filenames, embedded artist/title metadata, SHA-256,
+and explicit selections in the overrides and provenance. No generation credit is used. Their
+Selections preserve speed and pitch and use the normal 3 ms attack / 20 ms release fades before
+loudness and codec checks. Excerpts also record their exact original bounds and the original and
+excerpt hashes, so later mastering uses the same selected event.
+
+| Unit / role                           | Provided recording                                                                                  |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Nomad attack                          | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                       |
+| Squire attack                         | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                            |
+| Berserker attack                      | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                              |
+| Champion attack                       | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`                                             |
+| Healer hurt                           | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                              |
+| Champion hurt                         | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                      |
+| Zena attack                           | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                     |
+| Angel attack                          | `sword-swish-smartsound-fx-1-00-01.mp3`                                                             |
+| Blacksmith attack                     | `sword-impacting-flesh-gamemaster-audio-1-00-00.mp3`                                                |
+| Troll attack                          | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                              |
+| Dryad hurt                            | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                       |
+| White Tiger attack                    | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                        |
+| Thunderbird hurt                      | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                    |
+| Unicorn hurt                          | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`   |
+| Hydra attack                          | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3` |
+| Champion, Unicorn, Nightmare movement | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                  |
+
+Each combat strike triggers its own attack cue. The Berserker regression in
+`CombatExchangePlayback.test.ts` passes the recorded two-hit plan through the actual sound player
+with a controlled clock, verifies two audible attack starts from one decoded buffer, and covers
+a missed first blow and a simultaneous counterattack. Ranked playback inherits the same scene path.
 
 ## Provided game effects
 
@@ -192,3 +241,11 @@ damage, spell damage, poison, fire-wall burns, and Armageddon use the same unit 
 damage numbers. A missed attack has no hurt reaction. Casters play their unit's effect when a
 successful cast starts. Bow/cannon creatures use an appropriate existing weapon sound when
 fighting in melee.
+
+Movement playback belongs to `MoveAnimationManager`: a single gallop loop follows the whole route,
+including corners, and stops on arrival, cancellation, forced completion, or scene teardown.
+It fades in over 20 ms and out over 30 ms at 65% of the combat cue gain. Mute stops active loops;
+a decoded recording cannot start after the move has ended. Swaps and carried units do not trigger
+hoofbeats. Only Champion, Unicorn, and Nightmare currently have movement recordings; the remaining
+slots stay silent, and movement generation is disabled in the review page. Selected movement
+overrides survive full mastering runs alongside attack and hurt cues.

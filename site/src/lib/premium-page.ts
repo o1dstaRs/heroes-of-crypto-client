@@ -64,7 +64,9 @@ export function initPremiumPage(): void {
         const library = data?.library;
         form.hidden = !library;
         refresh.hidden = !library;
-        root.querySelectorAll<HTMLElement>("[data-premium-library-nav]").forEach((link) => (link.hidden = !library));
+        root.querySelectorAll<HTMLAnchorElement>("[data-premium-library-nav]").forEach((link) => {
+            link.hidden = !library && link.hash !== "#premium-crew";
+        });
         ai.setAccess(
             entitlement?.active === true,
             snapshot && library

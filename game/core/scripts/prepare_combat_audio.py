@@ -264,7 +264,7 @@ def collect_sources(receipts, units, raw_dir, only=None):
         units_by_slug = {u["slug"]: u for u in units}
         for key, selected in json.loads(override_path.read_text()).items():
             slug, role = key.split("/")
-            if slug not in units_by_slug or role not in ("attack", "hurt"):
+            if slug not in units_by_slug or role not in ("attack", "hurt", "move"):
                 raise ValueError("Unknown selected sound: " + key)
             if only and slug not in only:
                 continue
@@ -439,9 +439,17 @@ def spell_rows_for_review(work):
     return [applied.get(row["slug"], row) for row in rows]
 
 
+def movement_rows_for_review(clips):
+    design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
+    applied = {clip["slug"]: clip for clip in clips if clip.get("role") == "move" and clip.get("encoded")}
+    return [applied.get(unit["slug"], {"unit": unit["name"], "slug": unit["slug"], "role": "move",
+                                      "placeholder": True, "alternates": []}) for unit in design["units"]]
+
+
 def write_review(work, results):
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     art_references = {u["slug"]: u.get("art_reference") for u in design["units"]}
+    results = [clip for clip in results if clip.get("slug") in art_references and clip.get("role") in ("attack", "hurt", "move")]
     prompts = {u["slug"] + "/" + role: u[role]["prompt"] for u in design["units"] for role in ("attack", "hurt")}
     searches = {u["slug"] + "/" + role: u[role].get("library_query") for u in design["units"] for role in ("attack", "hurt")}
     for clip in results:
@@ -453,7 +461,8 @@ def write_review(work, results):
         if base.with_suffix(".webm").exists() and base.with_suffix(".mp3").exists():
             clip["revision"] = hashlib.sha256(base.with_suffix(".webm").read_bytes()
                                                + base.with_suffix(".mp3").read_bytes()).hexdigest()[:10]
-    clips = [clip for clip in results if clip.get("role") != "cast"]
+    clips = [clip for clip in results if clip.get("role") in ("attack", "hurt")] + movement_rows_for_review(results)
+    clips.sort(key=lambda clip: (clip["unit"], clip["role"]))
     data = json.dumps(clips + spell_rows_for_review(work)).replace("</", "<\\/")
     template = (CORE / "audio" / "combat-sound-review.html").read_text()
     (work / "review.html").write_text(template.replace("__COMBAT_AUDIO_DATA__", data))
@@ -474,6 +483,7 @@ def main():
         return
     required = {u["slug"] + "/" + role for u in spec["units"] if not only or u["slug"] in only
                 for role in ("attack", "hurt")}
+    required.update(key for key in groups if key.endswith("/move"))
     missing = required - groups.keys()
     if missing:
         raise ValueError("Missing generated sources: " + ", ".join(sorted(missing)))
@@ -496,7 +506,8 @@ def main():
         manifest = {u["name"]: {"slug": u["slug"],
                     **{role: {"durationMs": next(c for c in results if c["slug"] == u["slug"] and c["role"] == role)["encoded"]["webm"]["duration_ms"],
                               "revision": hashlib.sha256((args.output / (u["slug"] + "_" + role + ".webm")).read_bytes() + (args.output / (u["slug"] + "_" + role + ".mp3")).read_bytes()).hexdigest()[:10]}
-                       for role in ("attack", "hurt")}} for u in spec["units"]}
+                       for role in ("attack", "hurt", "move")
+                       if any(c["slug"] == u["slug"] and c["role"] == role for c in results)}} for u in spec["units"]}
         (CORE / "src/ui/audio/combatSoundManifest.json").write_text(json.dumps(manifest, indent=4) + "\n")
     print(json.dumps({"effects": len(results), "bytes": {codec: sum(c["encoded"][codec]["bytes"] for c in results)
                                                         for codec in ("webm", "mp3")}}), flush=True)

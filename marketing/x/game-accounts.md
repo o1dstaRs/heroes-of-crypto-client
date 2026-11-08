@@ -3,49 +3,51 @@
 Verified 14 Oct 2026, 4:12 PM PT, using the X API.
 
 How each account was checked:
+
 - The bio says "official" or "developers of", or the account is the studio named in the game's credits.
 - `verified_type` is from the API: "business" = organization check, "blue" = paid check, "none" = unverified but bio-confirmed.
 - "Last post" is the date of the account's most recent post of any kind, including replies, in UTC.
 
 Excluded on purpose:
+
 - Publishers, press, aggregators and creators.
 - Look-alike or dead handles: @FireEmblemWorld (fan, 11 followers), @firaxis (fan), @AGEOFWONDERS (not official), @DisciplesGame (2 followers), @menacegame (empty), @polytopia (personal account; the official Polytopia account is @Midjiwan).
 - Accounts under 1,000 followers: @Northgard_Game (689), @SpaceCraft_Game (795).
 - I found no official X account for Olden Era (other than @Unfrozen_Studio), Rainbow Six Tactics, Disciples or Into the Breach (other than @subsetgames).
 
-| Handle | Followers | Verified | Last post (UTC) | Bio / note |
-|---|---|---|---|---|
-| @Rainbow6Game | 2,474,732 | business | 2026-10-14 | The official Rainbow 6 X account. They/Them. For Esports, follow @R6es |
-| @PlayHearthstone | 699,693 | business | 2026-10-14 | 🤝 🐙 Join the Old Gods and let the Reign of the Black Empire begin on O |
-| @TFT | 367,516 | business | 2026-10-14 | Official account of Teamfight Tactics ⚔️ by @RiotGames Find TFT Esport |
-| @MARVELSNAP | 189,682 | business | 2026-10-14 | The fastest card battler in the Multiverse! Available now on Mobile an |
-| @totalwar | 181,004 | business | 2026-10-14 | The official account for the Total War series // https://t.co/XQDqSgbF |
-| @CivGame | 170,348 | business | 2026-09-30 | 𝐄𝐀𝐑𝐓𝐇𝐑𝐈𝐒𝐄 - Coming 2027 🧑‍🚀 𝐀𝐑𝐂 𝐎𝐅 𝐓𝐎𝐌𝐎𝐑𝐑𝐎𝐖 - Coming 2027 ⚛️ #Civ7 / E |
-| @FE_Heroes_EN | 128,977 | business | 2026-10-14 | Official English account for the Fire Emblem Heroes game. Feh, the Ord |
-| @XCOM | 69,154 | none | 2024-07-26 | Welcome back, Commander. ESRB Rating: TEEN to MATURE with Blood and Go |
-| @subsetgames | 27,799 | none | 2025-06-30 | Subset Games is a micro game studio lead by J. Ma (@Jarmustard) and Ma |
-| @TeamWoodGames | 27,323 | none | 2025-05-20 | A chill auto battler. |
-| @Lavapotion | 25,293 | blue | 2026-10-14 | We're on a quest to create amazing games! https://t.co/Flev1MB2uQ / ht |
-| @shirogames | 16,517 | blue | 2026-10-06 | Devs of @SpaceCraft_Game, @Wartales_Game, @DuneSpiceWars, @Northgard_G |
-| @Midjiwan | 15,461 | blue | 2026-10-14 | フラットで不思議な世界「スクエア」で繰り広げられる、ターンベース戦略ゲームが登場。12 の部族のひとつを率いて勝利を目指せ。国を拡大し、技術 |
-| @DuneSpiceWars | 8,310 | none | 2024-12-12 | Dune: Spice Wars (Shiro/Funcom) |
-| @OverhypeStudios | 8,271 | none | 2026-10-14 | Developers of Battle Brothers and MENACE. |
-| @Wartales_Game | 7,788 | blue | 2026-10-12 | Wartales (Shiro Games) |
-| @EugenSystems | 6,042 | none | 2024-06-06 | Indie game development studio. RTS lovers. We are developing and publi |
-| @MightMagicGame | 5,228 | business | 2026-10-07 | A legend returns in 2027! Wishlist Heroes of Might and Magic III Remak |
-| @Unfrozen_Studio | 4,998 | blue | 2026-10-08 | Game development studio — Unfrozen ⚔️ Heroes of Might and Magic: Olden |
-| @TriumphStudios | 4,698 | none | 2026-06-17 | Creators of the Age of Wonders and Overlord Series. A @PdxInteractive  |
-| @KingsBountyGame | 4,192 | none | 2022-06-14 | The Legend Returns! Out now! Developed by @1C_Company. #KingsBounty2 |
-| @OneManLeft | 3,988 | none | 2026-09-25 | Mage Food Truck: https://t.co/IhwgZzGX5z  Grab Hex Gambit: Respawned o |
-| @GloomhavenGame | 3,829 | none | 2026-01-22 | ✦ Grim Tactical RPG ✦ Lead a group of mercenaries through doom & gloom |
-| @mechabellum | 3,621 | blue | 2026-10-12 | A mech-based, tactical auto-battler.  Developer: Game River Publisher: |
-| @LegionTD2 | 2,451 | none | 2025-08-05 | An infinitely replayable multiplayer and single-player tower defense.  |
-| @MeltedGames | 2,206 | none | 2026-10-15 | Of Grit & Graves is a rogue-like dungeon crawler with board game soul (added 15 Oct 2026) |
-| @RisingSpire | 2,058 | blue | 2026-10-15 | A fantasy turn based RPG inspired by the classics. Steam Early Access (added 15 Oct 2026) |
+| Handle           | Followers | Verified | Last post (UTC) | Bio / note                                                                                                                                |
+| ---------------- | --------- | -------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| @Rainbow6Game    | 2,474,732 | business | 2026-10-14      | The official Rainbow 6 X account. They/Them. For Esports, follow @R6es                                                                    |
+| @PlayHearthstone | 699,693   | business | 2026-10-14      | 🤝 🐙 Join the Old Gods and let the Reign of the Black Empire begin on O                                                                  |
+| @TFT             | 367,516   | business | 2026-10-14      | Official account of Teamfight Tactics ⚔️ by @RiotGames Find TFT Esport                                                                    |
+| @MARVELSNAP      | 189,682   | business | 2026-10-14      | The fastest card battler in the Multiverse! Available now on Mobile an                                                                    |
+| @totalwar        | 181,004   | business | 2026-10-14      | The official account for the Total War series // https://t.co/XQDqSgbF                                                                    |
+| @CivGame         | 170,348   | business | 2026-09-30      | 𝐄𝐀𝐑𝐓𝐇𝐑𝐈𝐒𝐄 - Coming 2027 🧑‍🚀 𝐀𝐑𝐂 𝐎𝐅 𝐓𝐎𝐌𝐎𝐑𝐑𝐎𝐖 - Coming 2027 ⚛️ #Civ7 / E                                                                     |
+| @FE_Heroes_EN    | 128,977   | business | 2026-10-14      | Official English account for the Fire Emblem Heroes game. Feh, the Ord                                                                    |
+| @XCOM            | 69,154    | none     | 2024-07-26      | Welcome back, Commander. ESRB Rating: TEEN to MATURE with Blood and Go                                                                    |
+| @subsetgames     | 27,799    | none     | 2025-06-30      | Subset Games is a micro game studio lead by J. Ma (@Jarmustard) and Ma                                                                    |
+| @TeamWoodGames   | 27,323    | none     | 2025-05-20      | A chill auto battler.                                                                                                                     |
+| @Lavapotion      | 25,293    | blue     | 2026-10-14      | We're on a quest to create amazing games! https://t.co/Flev1MB2uQ / ht                                                                    |
+| @shirogames      | 16,517    | blue     | 2026-10-06      | Devs of @SpaceCraft_Game, @Wartales_Game, @DuneSpiceWars, @Northgard_G                                                                    |
+| @Midjiwan        | 15,461    | blue     | 2026-10-14      | フラットで不思議な世界「スクエア」で繰り広げられる、ターンベース戦略ゲームが登場。12 の部族のひとつを率いて勝利を目指せ。国を拡大し、技術 |
+| @DuneSpiceWars   | 8,310     | none     | 2024-12-12      | Dune: Spice Wars (Shiro/Funcom)                                                                                                           |
+| @OverhypeStudios | 8,271     | none     | 2026-10-14      | Developers of Battle Brothers and MENACE.                                                                                                 |
+| @Wartales_Game   | 7,788     | blue     | 2026-10-12      | Wartales (Shiro Games)                                                                                                                    |
+| @EugenSystems    | 6,042     | none     | 2024-06-06      | Indie game development studio. RTS lovers. We are developing and publi                                                                    |
+| @MightMagicGame  | 5,228     | business | 2026-10-07      | A legend returns in 2027! Wishlist Heroes of Might and Magic III Remak                                                                    |
+| @Unfrozen_Studio | 4,998     | blue     | 2026-10-08      | Game development studio — Unfrozen ⚔️ Heroes of Might and Magic: Olden                                                                    |
+| @TriumphStudios  | 4,698     | none     | 2026-06-17      | Creators of the Age of Wonders and Overlord Series. A @PdxInteractive                                                                     |
+| @KingsBountyGame | 4,192     | none     | 2022-06-14      | The Legend Returns! Out now! Developed by @1C_Company. #KingsBounty2                                                                      |
+| @OneManLeft      | 3,988     | none     | 2026-09-25      | Mage Food Truck: https://t.co/IhwgZzGX5z Grab Hex Gambit: Respawned o                                                                     |
+| @GloomhavenGame  | 3,829     | none     | 2026-01-22      | ✦ Grim Tactical RPG ✦ Lead a group of mercenaries through doom & gloom                                                                    |
+| @mechabellum     | 3,621     | blue     | 2026-10-12      | A mech-based, tactical auto-battler. Developer: Game River Publisher:                                                                     |
+| @LegionTD2       | 2,451     | none     | 2025-08-05      | An infinitely replayable multiplayer and single-player tower defense.                                                                     |
+| @MeltedGames     | 2,206     | none     | 2026-10-15      | Of Grit & Graves is a rogue-like dungeon crawler with board game soul (added 15 Oct 2026)                                                 |
+| @RisingSpire     | 2,058     | blue     | 2026-10-15      | A fantasy turn based RPG inspired by the classics. Steam Early Access (added 15 Oct 2026)                                                 |
 
 | @TerraRandoma | 5,429 | blue | 2026-10-15 | Creators of Terra Randoma and Those Far Stars (added 15 Oct 2026) |
 | @StudioDraconis | 1,876 | blue | 2026-10-16 | Making Zodiac Legion, a tactical RPG (added 15 Oct 2026) |
-| @WickedNightGame | 1,867 | none | 2026-10-15 | Official account for Wicked Night, an upcoming Strategy RPG (added 15 Oct 2026) |
+| @WickedNightGame | 1,998 | none | 2026-11-07 | Official account for Wicked Night, an upcoming Strategy RPG (added 15 Oct 2026) |
 | @DangersDen | 2,846 | none | 2026-10-16 | Stories from Danger's Den — retro RPG by @McKathlinDev (added 15 Oct 2026) |
 | @Conviction_SRPG | 6,923 | blue | 2026-10-16 | Conviction - The Glory Of Kraft, Langrisser-inspired tactical RPG (RPG Maker MZ); bio is the dev's RPG Maker plugin profile (added 16 Oct 2026) |
 | @Nomadgames | 3,579 | none | 2026-10-16 | Small studio making board games digital (Talisman, Fury of Dracula); developer of HeroQuest: Digital Edition (added 16 Oct 2026) |
@@ -60,7 +62,7 @@ Excluded on purpose:
 | @blightstonegame | 1,087 | none | not seen 16–17 Oct | Blightstone, dark-fantasy turn-based strategy RPG with a rogue-lite edge, from @UnfinishedPixel; hit 1.0 this week (added 17 Oct 2026) |
 | @UnfinishedPixel | 2,185 | none | not seen 16–17 Oct | Indie studio making Blightstone (added 17 Oct 2026) |
 | @SynthWave6666 | 1,585 | none | 2026-10-19 | Official account for Blightmarch, dark fantasy SRPG (added 19 Oct 2026) |
-| @TheVowGame | 2,338 | blue | 2026-10-19 | The Vow: Vampire's Curse, dark fantasy tactical roguelike with turn-based combat; Steam demo live (added 19 Oct 2026) |
+| @TheVowGame | 2,455 | blue | 2026-11-07 | The Vow: Vampire's Curse, dark fantasy tactical roguelike with turn-based combat; Steam demo live (added 19 Oct 2026) |
 | @secretdoor_dh | 2,722 | blue | 2026-10-19 | Secret Door, "Developers of Sunderfolk and Shadowstone"; Shadowstone (hex-grid tactical combat) demo live for Next Fest (added 19 Oct 2026) |
 | @Culdcept_NeosEN | 3,985 | blue | 2026-10-20 | Official account for Culdcept BEGINS, card-and-board strategy (dice + cards on a board map); Steam release 28 Oct 2026, demo in Next Fest. Game's own account, run by NEOS (added 20 Oct 2026) |
 | @Epic7_Global | 35,152 | business | 2026-10-20 | Official Epic Seven account, turn-based gacha RPG with PvP arena; demo in Next Fest. Use only for combat/PvP posts, not wishlist or summon CTAs (added 20 Oct 2026) |
@@ -86,6 +88,7 @@ Excluded on purpose:
 | @WishseekerGame | 1,013 | blue | 2026-11-06 | Official Wishseeker account — turn-based tactical roguelite (party of four, dungeon runs). Barely over the 1,000 floor; prefer combat/board posts over thin #PitchYaGame wishlist drops (added 6 Nov 2026) |
 
 Notes for the routine:
+
 - Dormant: @XCOM (2024-07), @KingsBountyGame (2022-06), @EugenSystems (2024-06), @DuneSpiceWars (2024-12), @subsetgames (2025-06), @TeamWoodGames (2025-05), @LegionTD2 (2025-08). Check them, but expect nothing.
 - Most active and on-genre: @OverhypeStudios, @Lavapotion, @Wartales_Game, @shirogames, @MightMagicGame, @Unfrozen_Studio, @mechabellum, @Midjiwan, @FE_Heroes_EN (Summoner Duels is its PvP mode), @TFT, @MARVELSNAP, @PlayHearthstone, @totalwar, @TerraRandoma, @WickedNightGame, @StudioDraconis, @DangersDen.
 - @Rainbow6Game is official, but its posts are about Siege (an FPS). Use it only for Rainbow Six Tactics posts.
@@ -162,3 +165,5 @@ Notes for the routine:
 | @StudioDaimon | 5,885 | none | 2026-11-06 | Italian indie team behind FOOD DEVILS, anime tactical RPG/roguelite ("Fried Emblem"); free demo on Steam. Steam review-wait post 6 Nov had strong replies but was not a board decision — draft when they post combat/systems (added 6 Nov 2026) |
 
 - Seen 6 Nov 2026 (7:53 PM run): added @WishseekerGame (1,013). Not added: @SEAGamethetic (12,583, curator), @yokozunagames (26, under floor), @HeroArenaGame (2,014, Web3 USDT tournament), @PENGDIDI_STUDIO (1), @JacobIndieAdv / SoftpaleGames hub (curator).
+
+- Seen 7 Nov 2026 (3:43 PM run): surfaced none. No new official accounts added. Follower updates: @WickedNightGame 2,001; @TheVowGame 2,462; @MeltedGames 2,239; @quasimorph 4,102; @Lavapotion 25,302; @CompanyOfHeroes 26,670; @MARVELSNAP 189,543; @HOI_Game 82,582; @AOE_Mobile 63,921; @mechabellum 3,616.

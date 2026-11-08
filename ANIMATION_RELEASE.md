@@ -177,9 +177,16 @@ a reference snapshot and must not replace the live test API.
 
 ## Current coordinated engine pin
 
-Client #205 pins published main common `f4c1f2f7b47d4de015fa4dc26e8dbecfe2df67b2`, matching the
+Client #205 pins published main common `b61c2bfa7faa85e0141eba35a43e639edf5d8bc3`, matching the
 authoritative server main package and lockfile. This includes merged common #114, main's confirmed-resistance
 events and the current main roster. The user approved deploying the matching test API and client on
 2026-11-08; the earlier visual-only API boundary records a historical rollout. Recheck all three pins and
 fresh published revisions before upload. Keep the website and independent knowledge service outside this
 coordinated test rollout, as described in `LOCAL_VISUAL_RELEASE.md`.
+
+## Champion aura default — 2026-11-08
+
+Champion remains a local `Tie up the Horses Aura` source. The user changed its default range from two
+to three cells in both main and #205; its fixed +2 movement still affects walking allies only. Keep
+the client gitlink and server package/lockfile on the same common revision above. Main's separate
+unit-count/split inputs, Clone/Accept/Split/Delete actions and Start over controls remain in place.

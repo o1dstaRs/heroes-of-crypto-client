@@ -1,5 +1,6 @@
 import { getAuthToken } from "./auth-state";
 import { portraitMarkup } from "./portrait";
+import { premiumCrewFactionSlot, rankPremiumCrewPicks } from "./premium-crew-picks";
 import {
     escapePremiumHtml as e,
     premiumPercent as pct,
@@ -42,7 +43,8 @@ export function initPremiumCrew(
         battlefield: CrewBattlefield = saved.battlefield,
         slot = 0;
     let advance = false;
-    let focusAfterClose: "slot" | "board" | "none" = "slot";
+    let initialized = false;
+    let focusAfterClose: "slot" | "unit" | "board" | "none" = "slot";
     let controller: AbortController | undefined;
     const evidenceCache = new Map<string, { families: number; score: number | null }>();
     const draft = () => ({ version: 1 as const, ids: [...ids], layout, battlefield });
@@ -62,7 +64,7 @@ export function initPremiumCrew(
     const picker = document.createElement("dialog");
     picker.className = "premium-crew-picker";
     picker.setAttribute("aria-labelledby", "premium-crew-picker-title");
-    picker.innerHTML = `<header><div><p class="premium-eyebrow" data-crew-progress></p><h2 id="premium-crew-picker-title" aria-live="polite"></h2></div><button type="button" class="premium-crew-close" data-crew-close aria-label="${t("Close unit picker", "Закрыть выбор юнита")}">×</button></header><label class="premium-search"><span class="sr-only">${t("Search crew units", "Поиск юнитов для армии")}</span><input type="search" data-crew-search placeholder="${t("Search a unit or faction…", "Юнит или фракция…")}" /></label><p class="premium-crew-sort">${t("Strongest supported results first · hover for abilities", "Сначала лучшие подтверждённые результаты · способности при наведении")}</p><div data-crew-choices class="premium-crew-choices"></div>`;
+    picker.innerHTML = `<header><div><p class="premium-eyebrow" data-crew-progress></p><h2 id="premium-crew-picker-title" aria-live="polite"></h2></div><button type="button" class="premium-crew-close" data-crew-close aria-label="${t("Close unit picker", "Закрыть выбор юнита")}">×</button></header><label class="premium-search"><span class="sr-only">${t("Search crew units", "Поиск юнитов для армии")}</span><input type="search" data-crew-search placeholder="${t("Search a unit or faction…", "Юнит или фракция…")}" /></label><p class="premium-crew-sort"></p><div data-crew-choices class="premium-crew-choices"></div>`;
     root.append(picker);
     const search = picker.querySelector<HTMLInputElement>("[data-crew-search]")!;
     const announce = (message: string) => {
@@ -70,39 +72,52 @@ export function initPremiumCrew(
         if (status) status.textContent = message;
     };
     const choices = () => {
-        const rows = new Map(getData()?.library?.units.map((row) => [row.ids[0], row]));
-        const visible = Object.entries(catalog.units)
-            .filter(
-                ([id, item]) =>
-                    item.level === CREW_LEVELS[slot] &&
-                    item.kit?.amount &&
-                    `${item.name} ${item.faction}`.toLowerCase().includes(search.value.trim().toLowerCase()),
-            )
-            .sort(([a, itemA], [b, itemB]) => {
-                const x = rows.get(Number(a)),
-                    y = rows.get(Number(b));
-                return (
-                    Number((y?.families ?? 0) >= 50) - Number((x?.families ?? 0) >= 50) ||
-                    (y?.interval[0] ?? -1) - (x?.interval[0] ?? -1) ||
-                    (y?.families ?? 0) - (x?.families ?? 0) ||
-                    itemA.name.localeCompare(itemB.name)
-                );
-            });
+        picker.querySelector(".premium-crew-sort")!.textContent = getData()?.library
+            ? t(
+                  "Crew fit and recorded battles · faction bonuses, roles and artifacts",
+                  "По составу и записанным боям · бонусы фракций, роли и артефакты",
+              )
+            : t(
+                  "Crew fit first · faction bonuses, roles and artifacts · hover for abilities",
+                  "По составу · бонусы фракций, роли и артефакты · способности при наведении",
+              );
+        const visible = rankPremiumCrewPicks(ids, slot, catalog, getData()?.library, lang)
+            .filter(({ id }) => {
+                const item = catalog.units[id];
+                return `${item.name} ${item.faction}`.toLowerCase().includes(search.value.trim().toLowerCase());
+            })
+            .map((pick, index) => ({ ...pick, rank: index + 1 }));
         picker.querySelector<HTMLElement>("[data-crew-choices]")!.innerHTML =
             visible
-                .map(([key, item]) => {
-                    const id = Number(key),
-                        row = rows.get(id),
-                        selected = ids.includes(id);
-                    return `<button type="button" data-crew-pick="${id}" data-knowledge-reference="${e(item.anchor)}" ${selected ? "disabled" : ""}>${portraitMarkup(item.slug, item.name, { className: "premium-portrait" })}<span><strong>${e(item.name)}</strong><small>${e(item.faction)} · ${crewRole(item.kit?.role, lang)}</small></span><span class="premium-crew-choice-score">${selected ? t("Picked", "В армии") : row ? `${pct(row.score)}<small>${row.families < 50 ? t("Few games", "Мало боёв") : t("battle score", "результат боёв")}</small>` : t("No results", "Нет результатов")}</span></button>`;
+                .map((pick) => {
+                    const { id, evidence: row, selected } = pick;
+                    const item = catalog.units[id];
+                    const signals = selected
+                        ? ""
+                        : pick.signals
+                              .slice(0, 2)
+                              .map(
+                                  (signal) =>
+                                      `<span class="premium-crew-fit ${signal.kind === "lost-synergy" ? "premium-crew-fit-loss" : ""}" ${signal.detail ? `data-premium-help-title="${e(signal.text)}" data-premium-help="${e(signal.detail)}"` : ""}>${signal.faction ? `<img src="/assets/images/units/factions/${signal.faction.toLowerCase()}_128.webp" alt="" width="16" height="16" />` : ""}${e(signal.text)}</span>`,
+                              )
+                              .join("");
+                    const artifacts = selected
+                        ? ""
+                        : pick.artifacts
+                              .map(
+                                  ({ item, tier, benefit }) =>
+                                      `<img src="${e(item.icon)}" alt="${e(item.name)}" width="24" height="24" data-premium-help-title="${e(item.name)}" data-premium-help="${e(t(`Tier ${tier} for this crew. `, `Уровень ${tier} для состава. `) + item.description + " · " + benefit.label + ": " + benefit.names.join(", "))}" />`,
+                              )
+                              .join("");
+                    return `<button type="button" data-crew-pick="${id}" data-knowledge-reference="${e(item.anchor)}" ${selected ? "disabled" : ""}>${portraitMarkup(item.slug, item.name, { className: "premium-portrait" })}<span class="premium-crew-choice-copy"><strong>${e(item.name)}</strong><small>${e(item.faction)} · ${crewRole(item.kit?.role, lang)}</small>${signals ? `<span class="premium-crew-fit-signals">${signals}</span>` : ""}${artifacts ? `<span class="premium-crew-choice-artifacts" aria-label="${t("Artifacts after this pick", "Артефакты после выбора")}">${artifacts}</span>` : ""}</span><span class="premium-crew-choice-score">${selected ? (pick.current ? t("Current", "Сейчас") : t("Picked", "В армии")) : `#${pick.rank}`}<small title="${row ? e(t(`${row.families} recorded battle pairs; historical score, not a win prediction`, `${row.families} записанных пар боёв; история, не прогноз победы`)) : ""}">${row && row.families >= 50 ? `${pct(row.score)} ${t("recorded", "в боях")}` : selected ? "" : t("crew fit", "по составу")}</small></span></button>`;
                 })
                 .join("") || `<p class="premium-empty">${t("No matching units.", "Нет подходящих юнитов.")}</p>`;
     };
-    const open = (index: number, continuePicking = false) => {
+    const open = (index: number, continuePicking = false, fromBoard = false) => {
         if (!Number.isInteger(index) || index < 0 || index >= CREW_LEVELS.length) return;
         slot = index;
         advance = continuePicking;
-        focusAfterClose = "slot";
+        focusAfterClose = fromBoard ? "unit" : "slot";
         search.value = "";
         picker.querySelector("[data-crew-progress]")!.textContent = t(
             `${ids.length} / 6 PICKED`,
@@ -178,8 +193,19 @@ export function initPremiumCrew(
     const refresh = () => {
         const target = root.querySelector<HTMLElement>("[data-crew-content]");
         if (!target) return;
+        if (!initialized) {
+            ids = samplePremiumCrew(getData()?.library, catalog, ids);
+            initialized = true;
+        }
         if (getData()?.library) battlefield = String(getData()!.library!.scope.map ?? "all") as CrewBattlefield;
-        target.innerHTML = renderPremiumCrew(ids, catalog, lang, layout, getData()?.library?.scope.map ?? 1);
+        target.innerHTML = renderPremiumCrew(
+            ids,
+            catalog,
+            lang,
+            layout,
+            battlefield === "all" ? 1 : Number(battlefield),
+            !!getData()?.library,
+        );
         persist();
         void checkEvidence();
     };
@@ -193,7 +219,11 @@ export function initPremiumCrew(
         if (button.hasAttribute("data-crew-close")) picker.close();
         if (button.hasAttribute("data-crew-slot")) {
             const index = Number(button.dataset.crewSlot);
-            open(index, premiumCrewSlots(ids, catalog)[index] === undefined);
+            open(
+                index,
+                premiumCrewSlots(ids, catalog)[index] === undefined,
+                button.classList.contains("premium-crew-token"),
+            );
         }
         if (button.hasAttribute("data-crew-remove")) {
             const id = premiumCrewSlots(ids, catalog)[Number(button.dataset.crewRemove)];
@@ -210,12 +240,21 @@ export function initPremiumCrew(
             const next = premiumCrewSlots(ids, catalog).findIndex((value) => value === undefined);
             if (advance && fillingEmpty && next >= 0) open(next, true);
             else {
-                focusAfterClose = advance && fillingEmpty ? "board" : "slot";
+                if (advance && fillingEmpty) focusAfterClose = "board";
                 picker.close();
             }
         }
         if (button.hasAttribute("data-crew-sample") && getData()?.library)
             setCrew(samplePremiumCrew(getData()!.library!, catalog));
+        if (button.hasAttribute("data-crew-faction")) {
+            const faction = button.dataset.crewFaction!;
+            const next = premiumCrewFactionSlot(ids, faction, catalog, getData()?.library);
+            if (next === undefined)
+                return announce(t("No legal pick for this bonus", "Нет доступного выбора для бонуса"));
+            open(next);
+            search.value = faction;
+            choices();
+        }
         if (button.hasAttribute("data-crew-clear")) {
             setCrew([]);
             root.querySelector<HTMLButtonElement>("[data-crew-slot]")?.focus();
@@ -262,8 +301,10 @@ export function initPremiumCrew(
             board?.setAttribute("tabindex", "-1");
             board?.focus({ preventScroll: true });
             board?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        } else if (focusAfterClose === "slot")
-            root.querySelector<HTMLButtonElement>(`[data-crew-slot="${slot}"]`)?.focus({ preventScroll: true });
+        } else if (focusAfterClose === "slot" || focusAfterClose === "unit")
+            root.querySelector<HTMLButtonElement>(
+                `${focusAfterClose === "unit" ? ".premium-crew-token" : ""}[data-crew-slot="${slot}"]`,
+            )?.focus({ preventScroll: true });
     });
     root.addEventListener("change", (event) => {
         const target = event.target as HTMLSelectElement;

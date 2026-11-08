@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { GridConstants, GridSettings } from "@heroesofcrypto/common";
+import { HoCConfig, GridConstants, GridSettings } from "@heroesofcrypto/common";
 import { Container, DOMAdapter, Mesh, Texture } from "pixi.js";
 import { arachnaWebBounds } from "./ArachnaQueenWebAura";
 import {
@@ -30,10 +30,12 @@ const gs = new GridSettings(
 const footprint = { width: 2, height: 2 };
 const center = { x: gs.getMinX() + gs.getCellSize(), y: gs.getMinY() + gs.getCellSize() };
 
-test("Champion artwork covers the complete six-cell aura and expands with the actual range", () => {
+test("Champion artwork covers the default three-cell aura and expands with the actual range", () => {
     const cell = gs.getCellSize();
     const middle = { x: gs.getMinX() + 8 * cell, y: gs.getMinY() + 8 * cell };
-    for (const range of [2, 3]) {
+    const defaultRange = HoCConfig.getAuraEffectConfig("Tie up the Horses")!.range;
+    expect(defaultRange).toBe(3);
+    for (const range of [defaultRange, defaultRange + 1]) {
         const bounds = arachnaWebBounds(middle, footprint, range, gs)!;
         expect((bounds.right - bounds.left) / cell).toBe(2 + 2 * range);
         expect((bounds.top - bounds.bottom) / cell).toBe(2 + 2 * range);

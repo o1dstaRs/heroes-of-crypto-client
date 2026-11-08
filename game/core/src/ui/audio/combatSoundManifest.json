@@ -2,8 +2,8 @@
     "Blacksmith": {
         "slug": "blacksmith",
         "attack": {
-            "durationMs": 715,
-            "revision": "4fe80aab82"
+            "durationMs": 399,
+            "revision": "cc3c66074c"
         },
         "hurt": {
             "durationMs": 720,
@@ -13,8 +13,8 @@
     "Squire": {
         "slug": "squire",
         "attack": {
-            "durationMs": 644,
-            "revision": "a0bc1c230c"
+            "durationMs": 624,
+            "revision": "e439fb527e"
         },
         "hurt": {
             "durationMs": 490,
@@ -72,8 +72,8 @@
             "revision": "bf4025e21f"
         },
         "hurt": {
-            "durationMs": 370,
-            "revision": "5fd429e8d6"
+            "durationMs": 514,
+            "revision": "f53d391b74"
         }
     },
     "Battle Mage": {
@@ -134,8 +134,8 @@
     "Angel": {
         "slug": "angel",
         "attack": {
-            "durationMs": 144,
-            "revision": "937938237d"
+            "durationMs": 634,
+            "revision": "afcf8560ff"
         },
         "hurt": {
             "durationMs": 705,
@@ -145,12 +145,16 @@
     "Champion": {
         "slug": "champion",
         "attack": {
-            "durationMs": 730,
-            "revision": "433068aedb"
+            "durationMs": 394,
+            "revision": "ac5527f504"
         },
         "hurt": {
-            "durationMs": 470,
-            "revision": "9045f2e8a6"
+            "durationMs": 429,
+            "revision": "49716d2ab1"
+        },
+        "move": {
+            "durationMs": 1470,
+            "revision": "e61d6bbbd7"
         }
     },
     "Fairy": {
@@ -171,8 +175,8 @@
             "revision": "bedbbf05cb"
         },
         "hurt": {
-            "durationMs": 589,
-            "revision": "00f0ca712c"
+            "durationMs": 424,
+            "revision": "223d33e302"
         }
     },
     "Wolf": {
@@ -200,8 +204,8 @@
     "White Tiger": {
         "slug": "white-tiger",
         "attack": {
-            "durationMs": 735,
-            "revision": "ae61b57b37"
+            "durationMs": 1355,
+            "revision": "d0373a41d1"
         },
         "hurt": {
             "durationMs": 550,
@@ -248,8 +252,12 @@
             "revision": "55e4dcb866"
         },
         "hurt": {
-            "durationMs": 820,
-            "revision": "5c61fed14e"
+            "durationMs": 939,
+            "revision": "0a856c9b42"
+        },
+        "move": {
+            "durationMs": 1470,
+            "revision": "37a977c3fa"
         }
     },
     "Mantis": {
@@ -387,8 +395,8 @@
     "Troll": {
         "slug": "troll",
         "attack": {
-            "durationMs": 219,
-            "revision": "3f7d4679b6"
+            "durationMs": 319,
+            "revision": "d8403c45f2"
         },
         "hurt": {
             "durationMs": 490,
@@ -442,8 +450,8 @@
     "Hydra": {
         "slug": "hydra",
         "attack": {
-            "durationMs": 955,
-            "revision": "4fbb057c0f"
+            "durationMs": 1350,
+            "revision": "fad46cb24c"
         },
         "hurt": {
             "durationMs": 780,
@@ -492,50 +500,10 @@
         "hurt": {
             "durationMs": 940,
             "revision": "e5bff924a9"
-        }
-    },
-    "Skeleton": {
-        "slug": "skeleton",
-        "attack": {
-            "durationMs": 485,
-            "revision": "8c5b7d57a2"
         },
-        "hurt": {
-            "durationMs": 464,
-            "revision": "de4ebe31ba"
-        }
-    },
-    "Imp": {
-        "slug": "imp",
-        "attack": {
-            "durationMs": 890,
-            "revision": "edb196d308"
-        },
-        "hurt": {
-            "durationMs": 705,
-            "revision": "9c3227b75a"
-        }
-    },
-    "Zombie": {
-        "slug": "zombie",
-        "attack": {
-            "durationMs": 514,
-            "revision": "b5ea1190b2"
-        },
-        "hurt": {
-            "durationMs": 715,
-            "revision": "dbff933a18"
-        }
-    },
-    "Dark Champion": {
-        "slug": "dark-champion",
-        "attack": {
-            "durationMs": 765,
-            "revision": "31b07261a8"
-        },
-        "hurt": {
-            "durationMs": 600,
-            "revision": "386d90100c"
+        "move": {
+            "durationMs": 1470,
+            "revision": "c25cad967b"
         }
     },
     "Mermaid": {
@@ -552,8 +520,8 @@
     "Berserker": {
         "slug": "berserker",
         "attack": {
-            "durationMs": 495,
-            "revision": "abd40ac243"
+            "durationMs": 749,
+            "revision": "76ab42b611"
         },
         "hurt": {
             "durationMs": 589,
@@ -585,8 +553,8 @@
     "Nomad": {
         "slug": "nomad",
         "attack": {
-            "durationMs": 430,
-            "revision": "7ebbbcfb99"
+            "durationMs": 634,
+            "revision": "067709f313"
         },
         "hurt": {
             "durationMs": 485,
@@ -651,8 +619,8 @@
     "Zena": {
         "slug": "zena",
         "attack": {
-            "durationMs": 850,
-            "revision": "34049542c2"
+            "durationMs": 719,
+            "revision": "d04cbc5ced"
         },
         "hurt": {
             "durationMs": 664,
@@ -666,8 +634,8 @@
             "revision": "8f0f09df49"
         },
         "hurt": {
-            "durationMs": 595,
-            "revision": "998b351611"
+            "durationMs": 1039,
+            "revision": "8bedb7f8f5"
         }
     },
     "Behemoth": {

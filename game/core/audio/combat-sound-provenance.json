@@ -73,35 +73,38 @@
             "unit": "Angel",
             "slug": "angel",
             "role": "attack",
-            "source_id": "source-123883f006ce55fe",
+            "source_id": "provided-dbb7826fbd6664ddfb66",
             "source": {
-                "kind": "library",
-                "author": "artisticdude",
-                "license": "CC0",
-                "page_url": "https://opengameart.org/content/swishes-sound-pack",
-                "download_url": "https://opengameart.org/sites/default/files/swishes.zip",
-                "filename": "swish-9.wav",
-                "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
-                "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
+                "kind": "user-provided",
+                "filename": "sword-swish-smartsound-fx-1-00-01.mp3",
+                "title": "Sword swish",
+                "author": "SmartSound FX",
+                "sha256": "dbb7826fbd6664ddfb666b333662b4b0fd5b2b25ebe96b136c66a1a2e8342de6",
+                "label": "Sword swish",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_id": "provided-dbb7826fbd6664ddfb66",
+                "source_site": "https://uppbeat.io/"
             },
             "encoded": {
                 "webm": {
-                    "lufs": -19.92,
-                    "true_peak_db": -4.93,
-                    "bytes": 2251,
-                    "duration_ms": 144,
+                    "lufs": -20.06,
+                    "true_peak_db": -5.45,
+                    "bytes": 6533,
+                    "duration_ms": 634,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -19.09
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -23.48
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -5.5,
-                    "bytes": 2348,
-                    "duration_ms": 144,
-                    "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -19.64
+                    "lufs": -20.35,
+                    "true_peak_db": -5.62,
+                    "bytes": 8396,
+                    "duration_ms": 634,
+                    "leading_quiet_ms": 6,
+                    "trailing_quiet_ms": 14,
+                    "rms_db": -23.78
                 }
             }
         },
@@ -453,25 +456,38 @@
             "unit": "Berserker",
             "slug": "berserker",
             "role": "attack",
-            "generation_id": "vUBryZwJ06GJ3xQDTCmX",
+            "source_id": "provided-f45e8dba967c0e892efe",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3",
+                "title": "Sword stab - puncture flesh",
+                "author": "Joshua Chivers",
+                "sha256": "f45e8dba967c0e892efe4924d625b824486ff0ac2677efb70abab88b3fd30072",
+                "label": "Sword stab - puncture flesh",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-f45e8dba967c0e892efe"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.13,
-                    "true_peak_db": -4.1,
-                    "bytes": 5566,
-                    "duration_ms": 495,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.2,
+                    "bytes": 7379,
+                    "duration_ms": 749,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.96
+                    "rms_db": -23.4
                 },
                 "mp3": {
-                    "lufs": -20.53,
-                    "true_peak_db": -4.12,
-                    "bytes": 6668,
-                    "duration_ms": 495,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.24,
+                    "true_peak_db": -5.12,
+                    "bytes": 9836,
+                    "duration_ms": 749,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.38
+                    "rms_db": -23.73
                 }
             }
         },
@@ -563,25 +579,38 @@
             "unit": "Blacksmith",
             "slug": "blacksmith",
             "role": "attack",
-            "generation_id": "zoxphuDQ8rUWwJ9eUlc0",
+            "source_id": "provided-93af0d9b419521733cc1",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-impacting-flesh-gamemaster-audio-1-00-00.mp3",
+                "title": "Sword impacting flesh",
+                "author": "Gamemaster Audio",
+                "sha256": "93af0d9b419521733cc1ac2cbdb9b9a394bbb40bdbdf6f229b35eb54dd081f07",
+                "label": "Sword impacting flesh",
+                "source_id": "provided-93af0d9b419521733cc1",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.06,
-                    "true_peak_db": -4.57,
-                    "bytes": 7976,
-                    "duration_ms": 715,
+                    "lufs": -20.03,
+                    "true_peak_db": -5.33,
+                    "bytes": 4105,
+                    "duration_ms": 399,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -21.11
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.59
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -5.01,
-                    "bytes": 9260,
-                    "duration_ms": 715,
+                    "lufs": -20.43,
+                    "true_peak_db": -6.0,
+                    "bytes": 5516,
+                    "duration_ms": 399,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -21.51
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.0
                 }
             }
         },
@@ -667,25 +696,38 @@
             "unit": "Champion",
             "slug": "champion",
             "role": "attack",
-            "generation_id": "1wEdURRcYnIxqx4FJ4aj",
+            "source_id": "provided-0b2db194cfa57cd9bd9b",
+            "source": {
+                "kind": "user-provided",
+                "filename": "bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3",
+                "title": "Bullet impacting flesh",
+                "author": "Gamemaster Audio",
+                "sha256": "0b2db194cfa57cd9bd9b8561afc5e1691e949de92345b32eb2110a18a4df597e",
+                "label": "Bullet impacting flesh",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-0b2db194cfa57cd9bd9b"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.03,
-                    "true_peak_db": -6.56,
-                    "bytes": 6854,
-                    "duration_ms": 730,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -22.97
+                    "lufs": -20.1,
+                    "true_peak_db": -3.33,
+                    "bytes": 4167,
+                    "duration_ms": 394,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.81
                 },
                 "mp3": {
-                    "lufs": -20.34,
-                    "true_peak_db": -8.19,
-                    "bytes": 9548,
-                    "duration_ms": 730,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -23.27
+                    "lufs": -20.52,
+                    "true_peak_db": -4.16,
+                    "bytes": 5516,
+                    "duration_ms": 394,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.24
                 }
             }
         },
@@ -693,25 +735,38 @@
             "unit": "Champion",
             "slug": "champion",
             "role": "hurt",
-            "generation_id": "3DhjndZDIm2BD7rQsRDF",
+            "source_id": "provided-da60b68beab175564a31",
+            "source": {
+                "kind": "user-provided",
+                "filename": "groan-painful-male-smartsound-fx-1-00-00.mp3",
+                "title": "Groan - painful (Male)",
+                "author": "SmartSound FX",
+                "sha256": "da60b68beab175564a31421777b026326f3f458c43838b5af81cbcee6d5d50af",
+                "label": "Groan - painful (Male)",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-da60b68beab175564a31"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.97,
-                    "true_peak_db": -7.92,
-                    "bytes": 5038,
-                    "duration_ms": 470,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.85,
+                    "bytes": 4647,
+                    "duration_ms": 429,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.9
+                    "rms_db": -20.17
                 },
                 "mp3": {
-                    "lufs": -20.42,
-                    "true_peak_db": -8.18,
-                    "bytes": 6380,
-                    "duration_ms": 470,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.44,
+                    "true_peak_db": -6.0,
+                    "bytes": 5804,
+                    "duration_ms": 429,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.37
+                    "rms_db": -20.62
                 }
             }
         },
@@ -820,58 +875,6 @@
             }
         },
         {
-            "unit": "Dark Champion",
-            "slug": "dark-champion",
-            "role": "attack",
-            "generation_id": "uDD4oNaNo55Hd6c9rVRC",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.98,
-                    "true_peak_db": -8.23,
-                    "bytes": 7934,
-                    "duration_ms": 765,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -22.99
-                },
-                "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -8.56,
-                    "bytes": 9836,
-                    "duration_ms": 765,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -23.42
-                }
-            }
-        },
-        {
-            "unit": "Dark Champion",
-            "slug": "dark-champion",
-            "role": "hurt",
-            "generation_id": "AgJCoXEpKXSHczgwWOMu",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -5.93,
-                    "bytes": 6143,
-                    "duration_ms": 600,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.49
-                },
-                "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -6.5,
-                    "bytes": 7820,
-                    "duration_ms": 600,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.96
-                }
-            }
-        },
-        {
             "unit": "Dryad",
             "slug": "dryad",
             "role": "attack",
@@ -901,25 +904,38 @@
             "unit": "Dryad",
             "slug": "dryad",
             "role": "hurt",
-            "generation_id": "B5ErhzPLbNMAKyUWoZ1P",
+            "source_id": "provided-e0da1ddfa3953bf0bddc",
+            "source": {
+                "kind": "user-provided",
+                "filename": "groan-pain-female-smartsound-fx-1-00-00.mp3",
+                "title": "Groan - pain (Female)",
+                "author": "SmartSound FX",
+                "sha256": "e0da1ddfa3953bf0bddc557e6d0918f348b041515ce34d4fc67f3f9fcc208736",
+                "label": "Groan - pain (Female)",
+                "source_id": "provided-e0da1ddfa3953bf0bddc",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.0,
-                    "true_peak_db": -8.74,
-                    "bytes": 5969,
-                    "duration_ms": 589,
+                    "lufs": -19.97,
+                    "true_peak_db": -8.44,
+                    "bytes": 4664,
+                    "duration_ms": 424,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.19
+                    "rms_db": -21.7
                 },
                 "mp3": {
-                    "lufs": -20.43,
-                    "true_peak_db": -8.91,
-                    "bytes": 7820,
-                    "duration_ms": 589,
+                    "lufs": -20.45,
+                    "true_peak_db": -8.77,
+                    "bytes": 5804,
+                    "duration_ms": 424,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.64
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -22.18
                 }
             }
         },
@@ -1421,25 +1437,38 @@
             "unit": "Healer",
             "slug": "healer",
             "role": "hurt",
-            "generation_id": "bd2CPsUzXg8G6MrBI23r",
+            "source_id": "provided-3a9ab0daa18d2f599c80",
+            "source": {
+                "kind": "user-provided",
+                "filename": "ouch-female-gfx-sounds-2-2-00-00.mp3",
+                "title": "\"Ouch\" - female",
+                "author": "GFX Sounds",
+                "sha256": "3a9ab0daa18d2f599c802a10f4ca6ff6389315e7c6f741183d6d9b495523e3db",
+                "label": "\"Ouch\" - female",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 800,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-3a9ab0daa18d2f599c80"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -9.57,
-                    "bytes": 4139,
-                    "duration_ms": 370,
+                    "lufs": -19.91,
+                    "true_peak_db": -7.48,
+                    "bytes": 5505,
+                    "duration_ms": 514,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.71
+                    "rms_db": -20.48
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -9.7,
-                    "bytes": 5228,
-                    "duration_ms": 370,
+                    "lufs": -20.44,
+                    "true_peak_db": -8.18,
+                    "bytes": 6956,
+                    "duration_ms": 514,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.12
+                    "rms_db": -21.01
                 }
             }
         },
@@ -1447,25 +1476,47 @@
             "unit": "Hydra",
             "slug": "hydra",
             "role": "attack",
-            "generation_id": "0dnM2aN3pOty7pVN6NCV",
+            "source_id": "provided-a8cbc9c50d4aaa4ed9e5-50-1400",
+            "source": {
+                "kind": "user-provided",
+                "filename": "snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3",
+                "title": "Snake hissing - long",
+                "author": "SmartSound FX",
+                "sha256": "a8cbc9c50d4aaa4ed9e5e95f9df20ba092dd3cdd85c23f0096d822b7206f9564",
+                "label": "Opening hiss",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 50,
+                    "end_ms": 1400,
+                    "original_duration_ms": 2643,
+                    "original_path": "tmp/audio/raw/provided/a8cbc9c50d4aaa4e/snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3",
+                    "sha256": "b8218c91958e15bb0e1bd7ab8e45a8e394a38b99c6c8c4cb16996c5698818f85",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "source_id": "provided-a8cbc9c50d4aaa4ed9e5-50-1400"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.02,
-                    "true_peak_db": -6.38,
-                    "bytes": 9054,
-                    "duration_ms": 955,
+                    "lufs": -19.98,
+                    "true_peak_db": -3.0,
+                    "bytes": 11145,
+                    "duration_ms": 1350,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.13
+                    "rms_db": -23.77
                 },
                 "mp3": {
-                    "lufs": -20.46,
-                    "true_peak_db": -6.7,
-                    "bytes": 12140,
-                    "duration_ms": 955,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.27,
+                    "true_peak_db": -3.45,
+                    "bytes": 17036,
+                    "duration_ms": 1350,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.57
+                    "rms_db": -24.05
                 }
             }
         },
@@ -1544,58 +1595,6 @@
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
                     "rms_db": -19.7
-                }
-            }
-        },
-        {
-            "unit": "Imp",
-            "slug": "imp",
-            "role": "attack",
-            "generation_id": "hNd1Ywj64nJ85cQOKeu6",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.97,
-                    "true_peak_db": -8.69,
-                    "bytes": 8479,
-                    "duration_ms": 890,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -22.39
-                },
-                "mp3": {
-                    "lufs": -20.37,
-                    "true_peak_db": -9.75,
-                    "bytes": 11564,
-                    "duration_ms": 890,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -22.79
-                }
-            }
-        },
-        {
-            "unit": "Imp",
-            "slug": "imp",
-            "role": "hurt",
-            "generation_id": "eZpqwS0suqwTymF214wN",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -9.24,
-                    "bytes": 7334,
-                    "duration_ms": 705,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -22.05
-                },
-                "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -9.62,
-                    "bytes": 9260,
-                    "duration_ms": 705,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -22.48
                 }
             }
         },
@@ -2019,25 +2018,38 @@
             "unit": "Nomad",
             "slug": "nomad",
             "role": "attack",
-            "generation_id": "pszW2acsv4FA1QoopXuL",
+            "source_id": "provided-c129c3b62c1e95153e34",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-stab-flesh-joshua-chivers-1-00-01.mp3",
+                "title": "Sword - stab flesh",
+                "author": "Joshua Chivers",
+                "sha256": "c129c3b62c1e95153e344b19defa62444ab3f39a6e82d1f2b4abd10519098fd8",
+                "label": "Sword - stab flesh",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-c129c3b62c1e95153e34"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -4.76,
-                    "bytes": 4358,
-                    "duration_ms": 430,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -21.95
+                    "lufs": -20.16,
+                    "true_peak_db": -4.81,
+                    "bytes": 6435,
+                    "duration_ms": 634,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.51
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -5.7,
-                    "bytes": 5804,
-                    "duration_ms": 430,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -22.38
+                    "lufs": -20.5,
+                    "true_peak_db": -5.28,
+                    "bytes": 8396,
+                    "duration_ms": 634,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -22.84
                 }
             }
         },
@@ -2484,80 +2496,41 @@
             }
         },
         {
-            "unit": "Skeleton",
-            "slug": "skeleton",
-            "role": "attack",
-            "generation_id": "smnwyUQy32T0ELXnvMXb",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.96,
-                    "true_peak_db": -6.77,
-                    "bytes": 4989,
-                    "duration_ms": 485,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -22.65
-                },
-                "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -7.35,
-                    "bytes": 6668,
-                    "duration_ms": 485,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -23.13
-                }
-            }
-        },
-        {
-            "unit": "Skeleton",
-            "slug": "skeleton",
-            "role": "hurt",
-            "generation_id": "4jh4Z9P46A2Fqgi9Dwd4",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.3,
-                    "true_peak_db": -3.79,
-                    "bytes": 5775,
-                    "duration_ms": 464,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -22.89
-                },
-                "mp3": {
-                    "lufs": -20.64,
-                    "true_peak_db": -3.7,
-                    "bytes": 6380,
-                    "duration_ms": 464,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -23.25
-                }
-            }
-        },
-        {
             "unit": "Squire",
             "slug": "squire",
             "role": "attack",
-            "generation_id": "G7a1vNYsPbrjHBMBm0rp",
+            "source_id": "provided-994e15c0d8a795245dcd",
+            "source": {
+                "kind": "user-provided",
+                "filename": "metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3",
+                "title": "Metal weapon impact (Heavy)",
+                "author": "Joshua Chivers",
+                "sha256": "994e15c0d8a795245dcdd5b26583ba22f5594356065ddd0cd681f14d2e4307f2",
+                "label": "Metal weapon impact (Heavy)",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-994e15c0d8a795245dcd"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.02,
-                    "true_peak_db": -5.16,
-                    "bytes": 6523,
-                    "duration_ms": 644,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.36,
+                    "bytes": 6344,
+                    "duration_ms": 624,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 4,
-                    "rms_db": -22.82
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.16
                 },
                 "mp3": {
-                    "lufs": -20.38,
-                    "true_peak_db": -6.57,
-                    "bytes": 8396,
-                    "duration_ms": 644,
+                    "lufs": -20.32,
+                    "true_peak_db": -4.78,
+                    "bytes": 8108,
+                    "duration_ms": 624,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 19,
-                    "rms_db": -23.18
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.51
                 }
             }
         },
@@ -2617,25 +2590,47 @@
             "unit": "Thunderbird",
             "slug": "thunderbird",
             "role": "hurt",
-            "generation_id": "PpvXUGEBcIRduE2OZSwV",
+            "source_id": "provided-a137fc38a3ddb00c683c-0-1050",
+            "source": {
+                "kind": "user-provided",
+                "filename": "tropical-bird-squawk-ra-music-1-00-03.mp3",
+                "title": "Tropical bird squawk",
+                "author": "RA Music",
+                "sha256": "a137fc38a3ddb00c683c3d5cd721df62ed956a2d27010b833c2aa8430f6995b1",
+                "label": "Opening squawk",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 0,
+                    "end_ms": 1050,
+                    "original_duration_ms": 3000,
+                    "original_path": "tmp/audio/raw/provided/a137fc38a3ddb00c/tropical-bird-squawk-ra-music-1-00-03.mp3",
+                    "sha256": "838b84e6314f00ca9c2191571da72c34d341589da5749837d136762bbecb9f47",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "source_id": "provided-a137fc38a3ddb00c683c-0-1050"
+            },
             "encoded": {
                 "webm": {
                     "lufs": -20.0,
-                    "true_peak_db": -8.6,
-                    "bytes": 6576,
-                    "duration_ms": 595,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -21.44
+                    "true_peak_db": -9.95,
+                    "bytes": 10030,
+                    "duration_ms": 1039,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -20.81
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -9.45,
-                    "bytes": 7820,
-                    "duration_ms": 595,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -21.89
+                    "lufs": -20.45,
+                    "true_peak_db": -10.78,
+                    "bytes": 13292,
+                    "duration_ms": 1039,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -21.26
                 }
             }
         },
@@ -2747,25 +2742,38 @@
             "unit": "Troll",
             "slug": "troll",
             "role": "attack",
-            "generation_id": "yU1i78sJY9XhYxdKBkFb",
+            "source_id": "provided-b6bc665d78e381f45389",
+            "source": {
+                "kind": "user-provided",
+                "filename": "bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3",
+                "title": "Bullet impacting body",
+                "author": "Gamemaster Audio",
+                "sha256": "b6bc665d78e381f4538910300907c671ea060b840f790c22dd547266e62a6592",
+                "label": "Bullet impacting body",
+                "source_id": "provided-b6bc665d78e381f45389",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.96,
-                    "true_peak_db": -4.55,
-                    "bytes": 2842,
-                    "duration_ms": 219,
+                    "lufs": -20.25,
+                    "true_peak_db": -3.34,
+                    "bytes": 3520,
+                    "duration_ms": 319,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.06
+                    "rms_db": -20.91
                 },
                 "mp3": {
-                    "lufs": -20.4,
-                    "true_peak_db": -4.26,
-                    "bytes": 3500,
-                    "duration_ms": 219,
+                    "lufs": -20.73,
+                    "true_peak_db": -4.15,
+                    "bytes": 4652,
+                    "duration_ms": 319,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.46
+                    "rms_db": -21.35
                 }
             }
         },
@@ -2883,25 +2891,38 @@
             "unit": "Unicorn",
             "slug": "unicorn",
             "role": "hurt",
-            "generation_id": "S6ssRXJumJHk4T04YU3w",
+            "source_id": "provided-25b8bf6edeb3e1fd4039",
+            "source": {
+                "kind": "user-provided",
+                "filename": "horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3",
+                "title": "Horse whinny - cartoon squeal",
+                "author": "Epic Stock Media",
+                "sha256": "25b8bf6edeb3e1fd4039c2c67c559c0d6fce7fa3a873be3f5808649224363580",
+                "label": "Complete whinny",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-25b8bf6edeb3e1fd4039"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.02,
-                    "true_peak_db": -10.27,
-                    "bytes": 7823,
-                    "duration_ms": 820,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.59
+                    "lufs": -19.97,
+                    "true_peak_db": -5.56,
+                    "bytes": 8543,
+                    "duration_ms": 939,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -21.99
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -11.12,
-                    "bytes": 10700,
-                    "duration_ms": 820,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -21.02
+                    "lufs": -20.45,
+                    "true_peak_db": -5.94,
+                    "bytes": 12140,
+                    "duration_ms": 939,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -22.45
                 }
             }
         },
@@ -3013,25 +3034,47 @@
             "unit": "White Tiger",
             "slug": "white-tiger",
             "role": "attack",
-            "generation_id": "xlBmxxqUiWZjAp22uMpY",
+            "source_id": "provided-c5d761a0e37f3717af95-4080-5500",
+            "source": {
+                "kind": "user-provided",
+                "filename": "lion-attacking-growl-gfx-sounds-2-2-00-05.mp3",
+                "title": "Lion - attacking growl",
+                "author": "GFX Sounds",
+                "sha256": "c5d761a0e37f3717af95b0bf78a57b9c32425546bad3fece255ad42f0a41ecd9",
+                "label": "Final growl",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 4080,
+                    "end_ms": 5500,
+                    "original_duration_ms": 5975,
+                    "original_path": "tmp/audio/raw/provided/c5d761a0e37f3717/lion-attacking-growl-gfx-sounds-2-2-00-05.mp3",
+                    "sha256": "9d326e4698a0f752ce68c05d8d6dd24e9a372792e61ef046b85957c419f4e0c2",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "source_id": "provided-c5d761a0e37f3717af95-4080-5500"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -9.99,
-                    "bytes": 6719,
-                    "duration_ms": 735,
+                    "lufs": -20.09,
+                    "true_peak_db": -4.31,
+                    "bytes": 11754,
+                    "duration_ms": 1355,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -20.23
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -17.98
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -10.75,
-                    "bytes": 9548,
-                    "duration_ms": 735,
+                    "lufs": -20.52,
+                    "true_peak_db": -4.46,
+                    "bytes": 17036,
+                    "duration_ms": 1355,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -20.7
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.4
                 }
             }
         },
@@ -3221,25 +3264,38 @@
             "unit": "Zena",
             "slug": "zena",
             "role": "attack",
-            "generation_id": "PyUoJ550G6Oy9okrs6hr",
+            "source_id": "provided-f0064449e2233b300565",
+            "source": {
+                "kind": "user-provided",
+                "filename": "whoosh-blade-throw-joshua-chivers-1-00-01.mp3",
+                "title": "Whoosh - blade throw",
+                "author": "Joshua Chivers",
+                "sha256": "f0064449e2233b300565ead53a79a8febb22b7378424a1ff95c5950f0a312339",
+                "label": "Whoosh - blade throw",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1000,
+                "source_id": "provided-f0064449e2233b300565",
+                "source_site": "https://uppbeat.io/"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -5.18,
-                    "bytes": 9302,
-                    "duration_ms": 850,
+                    "lufs": -20.28,
+                    "true_peak_db": -3.93,
+                    "bytes": 6843,
+                    "duration_ms": 719,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.59
+                    "rms_db": -23.25
                 },
                 "mp3": {
-                    "lufs": -20.39,
-                    "true_peak_db": -5.28,
-                    "bytes": 10988,
-                    "duration_ms": 850,
+                    "lufs": -20.66,
+                    "true_peak_db": -4.49,
+                    "bytes": 9260,
+                    "duration_ms": 719,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.03
+                    "rms_db": -23.61
                 }
             }
         },
@@ -3270,54 +3326,149 @@
             }
         },
         {
-            "unit": "Zombie",
-            "slug": "zombie",
-            "role": "attack",
-            "generation_id": "poDLR79o9B6scil39UoQ",
+            "unit": "Champion",
+            "slug": "champion",
+            "role": "move",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+            "source": {
+                "kind": "user-provided",
+                "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "title": "Horse galloping - ambient loop",
+                "author": "Bosnow",
+                "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+                "label": "Three-stride gallop loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 1350,
+                    "end_ms": 2820,
+                    "original_duration_ms": 16331,
+                    "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                    "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+                "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.2,
-                    "true_peak_db": -3.98,
-                    "bytes": 5246,
-                    "duration_ms": 514,
-                    "leading_quiet_ms": 1,
+                    "lufs": -20.02,
+                    "true_peak_db": -3.41,
+                    "bytes": 15993,
+                    "duration_ms": 1470,
+                    "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.26
+                    "rms_db": -18.62
                 },
                 "mp3": {
-                    "lufs": -20.74,
-                    "true_peak_db": -4.41,
-                    "bytes": 6956,
-                    "duration_ms": 514,
-                    "leading_quiet_ms": 1,
+                    "lufs": -20.4,
+                    "true_peak_db": -4.18,
+                    "bytes": 18476,
+                    "duration_ms": 1470,
+                    "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.8
+                    "rms_db": -19.01
                 }
             }
         },
         {
-            "unit": "Zombie",
-            "slug": "zombie",
-            "role": "hurt",
-            "generation_id": "WwWKF7qqmtMuFIkqr1ZG",
+            "unit": "Unicorn",
+            "slug": "unicorn",
+            "role": "move",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+            "source": {
+                "kind": "user-provided",
+                "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "title": "Horse galloping - ambient loop",
+                "author": "Bosnow",
+                "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+                "label": "Three-stride gallop loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 1350,
+                    "end_ms": 2820,
+                    "original_duration_ms": 16331,
+                    "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                    "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+                "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -9.07,
-                    "bytes": 6945,
-                    "duration_ms": 715,
+                    "lufs": -20.02,
+                    "true_peak_db": -3.41,
+                    "bytes": 15993,
+                    "duration_ms": 1470,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.45
+                    "rms_db": -18.62
                 },
                 "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -9.31,
-                    "bytes": 9260,
-                    "duration_ms": 715,
+                    "lufs": -20.4,
+                    "true_peak_db": -4.18,
+                    "bytes": 18476,
+                    "duration_ms": 1470,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.91
+                    "rms_db": -19.01
+                }
+            }
+        },
+        {
+            "unit": "Nightmare",
+            "slug": "nightmare",
+            "role": "move",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+            "source": {
+                "kind": "user-provided",
+                "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "title": "Horse galloping - ambient loop",
+                "author": "Bosnow",
+                "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+                "label": "Three-stride gallop loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 1350,
+                    "end_ms": 2820,
+                    "original_duration_ms": 16331,
+                    "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                    "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+                "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -3.41,
+                    "bytes": 15993,
+                    "duration_ms": 1470,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.62
+                },
+                "mp3": {
+                    "lufs": -20.4,
+                    "true_peak_db": -4.18,
+                    "bytes": 18476,
+                    "duration_ms": 1470,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.01
                 }
             }
         }
