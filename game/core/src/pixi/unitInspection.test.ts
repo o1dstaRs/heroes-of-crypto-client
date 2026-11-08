@@ -1,6 +1,6 @@
-import { expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, expect, mock, test } from "bun:test";
 import { FactionVals, type UnitProperties } from "@heroesofcrypto/common";
-import { Container, Texture } from "pixi.js";
+import { Container, DOMAdapter, Texture } from "pixi.js";
 
 import { PixiGameManager } from "./PixiGameManager";
 import { PixiScene } from "./PixiScene";
@@ -8,6 +8,12 @@ import { RankedPlayScene } from "../scenes/RankedPlayScene";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { UnitChip } from "../scenes/UnitChip";
 import type { IUnitInspection } from "../scenes/VisibleState";
+
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 const createOverlay = () => {
     const app = {

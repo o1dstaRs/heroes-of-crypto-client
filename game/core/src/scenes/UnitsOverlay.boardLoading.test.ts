@@ -1,10 +1,16 @@
-import { expect, spyOn, test } from "bun:test";
-import { Assets, Container, Texture } from "pixi.js";
+import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
+import { Assets, Container, DOMAdapter, Texture } from "pixi.js";
 
 import { BATTLEFIELD_TEXTURE_KEYS } from "../pixi/battlefieldTextureKeys";
 import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
 import type { UnitChip } from "./UnitChip";
 import { UnitsOverlay } from "./UnitsOverlay";
+
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 test("requests visible portraits first and starts only a hovered or selected creature's board figure", () => {
     const requested: string[] = [];

@@ -4,6 +4,9 @@ import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "..
 import { images, type ImageKey } from "../generated/image_imports";
 import { CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA } from "../ui/creaturePortraitBackground";
 import type { PortraitFraming } from "../ui/portraitFraming";
+import type { CreaturePortraitArtPalette, CreaturePortraitBackgroundTone } from "../ui/creaturePortraitPalette";
+import { createChaosPortraitBackgroundFilter, createHydraPortraitFilter } from "../pixi/portraitColorFilter";
+import { destroyContainerFilters } from "../pixi/filterLifecycle";
 
 // --- Atlas helpers (Pixi version of your React helpers) ---
 
@@ -201,6 +204,8 @@ export type UnitChipOptions = {
         backgroundTexture?: Texture;
         backgroundOpacity?: number;
         backgroundShadeAlpha?: number;
+        backgroundTone?: CreaturePortraitBackgroundTone;
+        artPalette?: CreaturePortraitArtPalette;
         framing: PortraitFraming;
         mirrorX?: boolean;
     };
@@ -307,6 +312,9 @@ export class UnitChip extends Container {
             if (opts.portrait.backgroundTexture) {
                 this.portraitBackground = new Sprite(opts.portrait.backgroundTexture);
                 this.portraitBackground.anchor.set(0.5);
+                if (opts.portrait.backgroundTone === "chaos") {
+                    this.portraitBackground.filters = [createChaosPortraitBackgroundFilter()];
+                }
                 this.portraitContainer.addChild(this.portraitBackground);
                 this.portraitBackgroundShade = new Graphics();
                 this.portraitContainer.addChild(this.portraitBackgroundShade);
@@ -316,6 +324,7 @@ export class UnitChip extends Container {
 
         this.sprite = new Sprite(this.idleTexture);
         this.sprite.anchor.set(0.5);
+        if (opts.portrait?.artPalette === "hydra") this.sprite.filters = [createHydraPortraitFilter()];
         this.portraitContainer.addChild(this.sprite);
         if (this.portraitMask) {
             this.portraitContainer.addChild(this.portraitMask);
@@ -662,6 +671,8 @@ export class UnitChip extends Container {
         }
         this.tweenStepFn = undefined;
         this.isTweening = false;
+        if (this.portraitBackground) destroyContainerFilters(this.portraitBackground);
+        destroyContainerFilters(this.sprite);
         super.destroy(options);
     }
     private stopAtlasAnimation(): void {
