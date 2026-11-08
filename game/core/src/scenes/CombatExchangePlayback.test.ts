@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -54,16 +54,17 @@ const flush = async () => {
 };
 
 test.each([
-    { active: true, missed: false, amount: 10, lethal: false, response: false, expected: true },
-    { active: false, missed: false, amount: 10, lethal: false, response: false, expected: false },
-    { active: true, missed: true, amount: 0, lethal: false, response: false, expected: false },
-    { active: true, missed: false, amount: 0, lethal: false, response: false, expected: false },
-    { active: true, missed: false, amount: 10, lethal: true, response: false, expected: false },
-    { active: true, missed: false, amount: 10, lethal: false, response: true, expected: false },
-])("Shadow Touch marks the surviving victim immediately after damage: %j", async (options) => {
+    { active: true, missed: false, amount: 10, lethal: false, response: false },
+    { active: false, missed: false, amount: 10, lethal: false, response: false },
+    { active: true, missed: true, amount: 0, lethal: false, response: false },
+    { active: true, missed: false, amount: 0, lethal: false, response: false },
+    { active: true, missed: false, amount: 10, lethal: true, response: false },
+    { active: true, missed: false, amount: 10, lethal: false, response: true },
+])("Shadow Touch stays passive without an above-unit popup: %j", async (options) => {
     const { scene, a, b, events, finish } = setup();
     a.hasAbilityActive = (name?: string) => options.active && name === "Shadow Touch";
-    scene.combatVisuals.prepareCommonFlagPop = () => undefined;
+    const preparePop = mock((_kind: string) => undefined);
+    scene.combatVisuals.prepareCommonFlagPop = preparePop;
     scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) => events.push(`${unit.getId()}:${kind}`);
     scene.showAttackMissedVfx = () => events.push("miss");
     const plan: CombatExchangeStrike[] = [
@@ -74,18 +75,18 @@ test.each([
     await flush();
     finish.splice(0).forEach((done) => done());
     await flush();
-    const popIndex = events.indexOf("B:shadow_touch");
-    expect(popIndex >= 0).toBe(options.expected);
-    expect(events).not.toContain("A:shadow_touch");
-    if (options.expected) {
-        expect(events[popIndex - 1]).toBe("damage");
-        expect(events).not.toContain("B:attack");
-    }
     for (let i = 0; i < 5; i++) {
         finish.splice(0).forEach((resolve) => resolve());
         await flush();
     }
     await pending;
+    expect(events).not.toContain("A:shadow_touch");
+    expect(events).not.toContain("B:shadow_touch");
+    expect(preparePop).not.toHaveBeenCalledWith("shadow_touch");
+    expect(events.includes("B:attack")).toBe(options.response);
+    expect(events.filter((event) => event === "damage")).toHaveLength(
+        (options.missed || options.amount <= 0 ? 0 : 1) + (options.response ? 1 : 0),
+    );
 });
 
 test.each(["melee", "range"])(

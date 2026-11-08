@@ -5063,11 +5063,6 @@ export class Sandbox extends PixiScene {
             this.combatVisuals?.prepareCommonFlagPop?.("leather_armor");
         const gazeEntries = (event.damage?.secondary ?? []).filter((entry) => entry.source === "petrifying_gaze");
         if (gazeEntries.length) this.combatVisuals?.preparePetrifyingGazePop?.();
-        const shadowTouchActive =
-            event.attackType === "melee" &&
-            attacker.hasAbilityActive?.("Shadow Touch") &&
-            !plan.some((strike) => strike.response);
-        if (shadowTouchActive) this.combatVisuals?.prepareCommonFlagPop?.("shadow_touch");
         if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Backstab")))
             this.combatVisuals?.prepareCommonFlagPop?.("backstab");
         if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Blind Fury")))
@@ -5533,11 +5528,6 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 strike.lethal ? undefined : renderedVictim,
                             );
-                            // Shadow Touch replaces the victim's counter: reveal it after the damage
-                            // at contact, never on the harpy, a miss, or a flag removed by a lethal blow.
-                            if (shadowTouchActive && !strike.response && !strike.lethal && renderedVictim) {
-                                this.combatVisuals.spawnCommonFlagPop(renderedVictim, "shadow_touch");
-                            }
                         }
                         if (!strike.missed) {
                             // Secondary entries preserve the order of each striker's reflections. A later
@@ -14840,7 +14830,7 @@ export class Sandbox extends PixiScene {
         }
         if (state === "shadow_touch") {
             this.combatVisuals?.spawnCommonFlagPop(unit, "shadow_touch");
-            return { ok: true, message: `${unit.getName()}: Shadow Touch · 0,65 с · в бою над флагом противника` };
+            return { ok: true, message: `${unit.getName()}: Shadow Touch · 0,65 с · отдельное превью` };
         }
         if (state === "wind_flow") {
             this.combatVisuals?.spawnCommonFlagPop(unit, "wind_flow");
