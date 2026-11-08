@@ -57,20 +57,23 @@ def save_json(path, data, indent=2):
 def load_combat_report():
     report_path = WORK / "mastering-report.json"
     if report_path.is_file():
-        return json.loads(report_path.read_text())
-    # The standalone audition page retains the complete measured clips even when
-    # the separate temporary report has been removed. Decode its JSON, never JS.
-    page = (WORK / "review.html").read_text()
-    assignment = re.search(r"\blet\s+sounds\s*=\s*", page)
-    if not assignment:
-        raise ValueError("The audition page has no saved sound data")
-    clips, _ = json.JSONDecoder().raw_decode(page[assignment.end():])
+        report = json.loads(report_path.read_text())
+    else:
+        # The standalone page can recover measured clips, but never retired roster entries.
+        page = (WORK / "review.html").read_text()
+        assignment = re.search(r"\blet\s+sounds\s*=\s*", page)
+        if not assignment:
+            raise ValueError("The audition page has no saved sound data")
+        clips, _ = json.JSONDecoder().raw_decode(page[assignment.end():])
+        report = {"clips": clips}
+    clips = report.get("clips")
     if not isinstance(clips, list):
         raise ValueError("The audition page has invalid sound data")
-    clips = [clip for clip in clips if clip.get("role") in ("attack", "hurt")]
+    active = {unit["slug"] for unit in json.loads((CORE / "audio/combat-sound-design.json").read_text())["units"]}
+    clips = [clip for clip in clips if clip.get("role") in ("attack", "hurt") and clip.get("slug") in active]
     if not clips:
         raise ValueError("The audition page has no saved creature sounds")
-    return {"clips": clips}
+    return {**report, "clips": clips}
 
 
 def design_entry(slug, role):

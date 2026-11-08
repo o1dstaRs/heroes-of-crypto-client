@@ -6,6 +6,10 @@ sound direction, short generation prompts, and source duration. `combat-sound-pr
 records the selected sources, ElevenLabs generation IDs when applicable, and measurements of
 the actual encoded files.
 
+The retired Death roster (Skeleton, Imp, Zombie, and Dark Champion) has no creature definitions or
+combat audio entries. Both report generation and cached-report recovery filter against the current
+sound roster, so older local audition data cannot bring those rows back.
+
 Inspect the creature's complete portrait and current battlefield figure before authoring a
 prompt. Resolve their canonical keys in `src/pixi/creaturePortraitAssetKeys.ts` and
 `src/pixi/battlefieldTextureKeys.ts`; record the inspected keys and physical attack basis in

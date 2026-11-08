@@ -875,58 +875,6 @@
             }
         },
         {
-            "unit": "Dark Champion",
-            "slug": "dark-champion",
-            "role": "attack",
-            "generation_id": "uDD4oNaNo55Hd6c9rVRC",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.98,
-                    "true_peak_db": -8.23,
-                    "bytes": 7934,
-                    "duration_ms": 765,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -22.99
-                },
-                "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -8.56,
-                    "bytes": 9836,
-                    "duration_ms": 765,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -23.42
-                }
-            }
-        },
-        {
-            "unit": "Dark Champion",
-            "slug": "dark-champion",
-            "role": "hurt",
-            "generation_id": "AgJCoXEpKXSHczgwWOMu",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -5.93,
-                    "bytes": 6143,
-                    "duration_ms": 600,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.49
-                },
-                "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -6.5,
-                    "bytes": 7820,
-                    "duration_ms": 600,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.96
-                }
-            }
-        },
-        {
             "unit": "Dryad",
             "slug": "dryad",
             "role": "attack",
@@ -1625,58 +1573,6 @@
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
                     "rms_db": -19.7
-                }
-            }
-        },
-        {
-            "unit": "Imp",
-            "slug": "imp",
-            "role": "attack",
-            "generation_id": "hNd1Ywj64nJ85cQOKeu6",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.97,
-                    "true_peak_db": -8.69,
-                    "bytes": 8479,
-                    "duration_ms": 890,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -22.39
-                },
-                "mp3": {
-                    "lufs": -20.37,
-                    "true_peak_db": -9.75,
-                    "bytes": 11564,
-                    "duration_ms": 890,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -22.79
-                }
-            }
-        },
-        {
-            "unit": "Imp",
-            "slug": "imp",
-            "role": "hurt",
-            "generation_id": "eZpqwS0suqwTymF214wN",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -9.24,
-                    "bytes": 7334,
-                    "duration_ms": 705,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -22.05
-                },
-                "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -9.62,
-                    "bytes": 9260,
-                    "duration_ms": 705,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -22.48
                 }
             }
         },
@@ -2578,58 +2474,6 @@
             }
         },
         {
-            "unit": "Skeleton",
-            "slug": "skeleton",
-            "role": "attack",
-            "generation_id": "smnwyUQy32T0ELXnvMXb",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.96,
-                    "true_peak_db": -6.77,
-                    "bytes": 4989,
-                    "duration_ms": 485,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -22.65
-                },
-                "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -7.35,
-                    "bytes": 6668,
-                    "duration_ms": 485,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -23.13
-                }
-            }
-        },
-        {
-            "unit": "Skeleton",
-            "slug": "skeleton",
-            "role": "hurt",
-            "generation_id": "4jh4Z9P46A2Fqgi9Dwd4",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.3,
-                    "true_peak_db": -3.79,
-                    "bytes": 5775,
-                    "duration_ms": 464,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -22.89
-                },
-                "mp3": {
-                    "lufs": -20.64,
-                    "true_peak_db": -3.7,
-                    "bytes": 6380,
-                    "duration_ms": 464,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -23.25
-                }
-            }
-        },
-        {
             "unit": "Squire",
             "slug": "squire",
             "role": "attack",
@@ -3399,58 +3243,6 @@
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 4,
                     "rms_db": -20.7
-                }
-            }
-        },
-        {
-            "unit": "Zombie",
-            "slug": "zombie",
-            "role": "attack",
-            "generation_id": "poDLR79o9B6scil39UoQ",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.2,
-                    "true_peak_db": -3.98,
-                    "bytes": 5246,
-                    "duration_ms": 514,
-                    "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.26
-                },
-                "mp3": {
-                    "lufs": -20.74,
-                    "true_peak_db": -4.41,
-                    "bytes": 6956,
-                    "duration_ms": 514,
-                    "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.8
-                }
-            }
-        },
-        {
-            "unit": "Zombie",
-            "slug": "zombie",
-            "role": "hurt",
-            "generation_id": "WwWKF7qqmtMuFIkqr1ZG",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -9.07,
-                    "bytes": 6945,
-                    "duration_ms": 715,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -19.45
-                },
-                "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -9.31,
-                    "bytes": 9260,
-                    "duration_ms": 715,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -19.91
                 }
             }
         }

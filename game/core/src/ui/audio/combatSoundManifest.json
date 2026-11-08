@@ -494,50 +494,6 @@
             "revision": "e5bff924a9"
         }
     },
-    "Skeleton": {
-        "slug": "skeleton",
-        "attack": {
-            "durationMs": 485,
-            "revision": "8c5b7d57a2"
-        },
-        "hurt": {
-            "durationMs": 464,
-            "revision": "de4ebe31ba"
-        }
-    },
-    "Imp": {
-        "slug": "imp",
-        "attack": {
-            "durationMs": 890,
-            "revision": "edb196d308"
-        },
-        "hurt": {
-            "durationMs": 705,
-            "revision": "9c3227b75a"
-        }
-    },
-    "Zombie": {
-        "slug": "zombie",
-        "attack": {
-            "durationMs": 514,
-            "revision": "b5ea1190b2"
-        },
-        "hurt": {
-            "durationMs": 715,
-            "revision": "dbff933a18"
-        }
-    },
-    "Dark Champion": {
-        "slug": "dark-champion",
-        "attack": {
-            "durationMs": 765,
-            "revision": "31b07261a8"
-        },
-        "hurt": {
-            "durationMs": 600,
-            "revision": "386d90100c"
-        }
-    },
     "Mermaid": {
         "slug": "mermaid",
         "attack": {

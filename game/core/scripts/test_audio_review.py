@@ -743,6 +743,26 @@ class AudioReviewTests(unittest.TestCase):
         report = json.loads((self.work / "mastering-report.json").read_text())
         self.assertEqual(report["clips"][0]["design_prompt"], prompt)
 
+    def test_retired_creatures_stay_out_of_reports_and_cached_html_recovery(self):
+        self.work.mkdir(parents=True, exist_ok=True)
+        kept = {"unit": "Abomination", "slug": "abomination", "role": "attack"}
+        retired = [{"unit": name, "slug": slug, "role": role}
+                   for name, slug in (("Skeleton", "skeleton"), ("Imp", "imp"), ("Zombie", "zombie"),
+                                      ("Dark Champion", "dark-champion")) for role in ("attack", "hurt")]
+        report_path = self.work / "mastering-report.json"
+        review.save_json(report_path, {"clips": [kept, *retired]})
+        self.assertEqual(review.load_combat_report()["clips"], [kept])
+        report_path.unlink()
+        (self.work / "review.html").write_text("<script>let sounds = " + json.dumps([kept, *retired]) + ";</script>")
+        self.assertEqual(review.load_combat_report()["clips"], [kept])
+        with patch.object(mastering, "spell_rows_for_review", return_value=[]):
+            review.write_review(self.work, [kept, *retired])
+        page = (self.work / "review.html").read_text()
+        for clip in retired:
+            self.assertNotIn(clip["unit"], page)
+            with self.assertRaisesRegex(ValueError, "Unknown creature"):
+                review.design_entry(clip["slug"], clip["role"])
+
     def test_freesound_refresh_keeps_the_downloaded_catalog(self):
         folder = self.work / "freesound" / "cc0-spell-cast"
         folder.mkdir(parents=True)

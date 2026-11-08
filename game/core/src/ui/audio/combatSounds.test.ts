@@ -39,6 +39,10 @@ describe("combat sounds", () => {
         }
         expect(resolveCombatSound("Unknown", "attack")).toBeUndefined();
         expect(resolveCombatSound("__proto__", "attack")).toBeUndefined();
+        for (const name of ["Skeleton", "Imp", "Zombie", "Dark Champion"]) {
+            expect(resolveCombatSound(name, "attack")).toBeUndefined();
+            expect(resolveCombatSound(name, "hurt")).toBeUndefined();
+        }
     });
 
     test("uses weapon swings for a bow creature's melee attacks and its own hurt reaction", () => {

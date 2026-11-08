@@ -563,54 +563,6 @@
             }
         },
         {
-            "name": "Skeleton",
-            "slug": "skeleton",
-            "attack": {
-                "prompt": "One rusty skeletal sword slash, dry brittle metal swish, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One skeleton taking a blow, brief brittle bone clatter, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
-            "name": "Imp",
-            "slug": "imp",
-            "attack": {
-                "prompt": "One small demon's attack hiss, tight scratchy rasp, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One small demon's brief strained raspy squeal, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
-            "name": "Zombie",
-            "slug": "zombie",
-            "attack": {
-                "prompt": "One undead arm swinging, short heavy cloth-and-air swish, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One zombie's short dry guttural groan of pain, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
-            "name": "Dark Champion",
-            "slug": "dark-champion",
-            "attack": {
-                "prompt": "One dark knight's heavy sword sweep, low dense metallic swish, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One undead armored knight's brief hollow grunt of pain, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
             "name": "Mermaid",
             "slug": "mermaid",
             "attack": {

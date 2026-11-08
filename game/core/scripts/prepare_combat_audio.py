@@ -442,6 +442,7 @@ def spell_rows_for_review(work):
 def write_review(work, results):
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     art_references = {u["slug"]: u.get("art_reference") for u in design["units"]}
+    results = [clip for clip in results if clip.get("slug") in art_references and clip.get("role") in ("attack", "hurt")]
     prompts = {u["slug"] + "/" + role: u[role]["prompt"] for u in design["units"] for role in ("attack", "hurt")}
     searches = {u["slug"] + "/" + role: u[role].get("library_query") for u in design["units"] for role in ("attack", "hurt")}
     for clip in results:
