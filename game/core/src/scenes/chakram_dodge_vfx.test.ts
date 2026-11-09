@@ -43,6 +43,7 @@ const unitStub = (id: string) => ({
  */
 const makeScene = () => {
     const calls: { visual: string; unitId: string }[] = [];
+    const sounds: { name: string; identity?: string }[] = [];
     const units = new Map<string, ReturnType<typeof unitStub>>();
     for (const id of ["Zena", "Primary", "Bounce"]) {
         units.set(id, unitStub(id));
@@ -54,6 +55,9 @@ const makeScene = () => {
     const flightEvents: string[] = [];
     const scene = {
         flightEvents,
+        sounds,
+        playSceneGameSound: (name: string, _alive?: () => boolean, identity?: string) =>
+            sounds.push({ name, identity }),
         isSceneDestroyed: () => false,
         rangedProjectiles: {
             prepare: async () => undefined,
@@ -139,6 +143,7 @@ describe("Zena's chakram, when a victim dodges", () => {
 
         const onBounce = scene.calls.filter((call) => call.unitId === "Bounce").map((call) => call.visual);
         expect(onBounce).toEqual(["miss"]);
+        expect(scene.sounds).toEqual([{ name: "miss", identity: "miss:Zena:chakram:Bounce" }]);
     });
 
     test("does not open the primary's wound when the throw itself was dodged", async () => {
