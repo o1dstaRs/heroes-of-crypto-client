@@ -3186,7 +3186,6 @@ export class CombatVisuals {
         return this.lightTexture;
     }
     public spawnFireSweep(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
-        if (!this.context.legacyEffectsEnabled) return;
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const len = Math.hypot(dx, dy);
@@ -3234,7 +3233,6 @@ export class CombatVisuals {
         this.fireSweeps.push({ container, particles });
     }
     public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
-        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();

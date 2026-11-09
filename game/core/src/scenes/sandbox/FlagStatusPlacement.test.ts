@@ -135,8 +135,6 @@ test("live combat skips other archived procedural effects before allocating or l
     try {
         f.visuals.spawnShatter(info);
         f.visuals.spawnDeathVfx(info, "target", true);
-        f.visuals.spawnFireSweep(pos, { x: 200, y: 300 }, 64);
-        f.visuals.spawnFireBurn(pos, 64);
         f.visuals.spawnEnchantResult(pos, 64, {
             tint: 0xffffff,
             iconTexture: Texture.WHITE,

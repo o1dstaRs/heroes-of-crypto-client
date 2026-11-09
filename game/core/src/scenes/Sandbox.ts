@@ -11161,7 +11161,8 @@ export class Sandbox extends PixiScene {
             const isMeteor =
                 (event.spellName === "Meteor Shower" || event.spellName === "Meteorite") && !!event.targetCell;
             const isFireStrike = event.spellName === "Fire Strike";
-            if (event.targetCell && (isRing || event.spellName === "Whirlpool")) {
+            const isWhirlpool = event.spellName === "Whirlpool";
+            if (event.targetCell && (isRing || isWhirlpool)) {
                 const target = event.targetId ? this.unitsHolder?.getAllUnits().get(event.targetId) : undefined;
                 const occupied = target?.getCells();
                 const cells = occupied?.length ? occupied : [event.targetCell];
@@ -11242,7 +11243,17 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && !isFireball && !isFireStrike && flightOrigin) {
+                const hasImpactDamage = hit.amount > 0 || hit.unitsDied > 0;
+                if (
+                    hasImpactDamage &&
+                    isThrown &&
+                    !isRing &&
+                    !isMeteor &&
+                    !isWhirlpool &&
+                    !isFireball &&
+                    !isFireStrike &&
+                    flightOrigin
+                ) {
                     this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? hitPosition, cellSize);
                 }
                 let arrowLaunched = false;
@@ -11279,7 +11290,7 @@ export class Sandbox extends PixiScene {
                     }
                 } else if (event.spellName === "Lightning Strike") {
                     this.combatVisuals.spawnLightningStrike(hitUnit?.getVisualCenter(gs) ?? hitPosition, cellSize);
-                } else if (!isRing && !isMeteor && !isFireball) {
+                } else if (hasImpactDamage && !isRing && !isMeteor && !isFireball && !isWhirlpool) {
                     this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
                 }
                 if (!arrowLaunched) showSpellHit();
