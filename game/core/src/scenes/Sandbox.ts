@@ -11423,7 +11423,7 @@ export class Sandbox extends PixiScene {
         }
     }
     protected isStrikeInFlight(): boolean {
-        // An attack also owns its queue while textures load, before any sprite starts moving.
+        // Cold textures are part of an attack's windup, before a projectile or one-shot exists.
         return this.sc_moveBlocked || this.replayPlaybackActive || this.isPlayingActionAnimation();
     }
     protected queueOrPlayEffectPops(entry: IPendingEffectPop, holdForImpact = false): void {
