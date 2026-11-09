@@ -2,6 +2,7 @@ import { Container, Graphics } from "pixi.js";
 
 export interface ParalysisStatusUnit {
     isDead(): boolean;
+    hasPresentedStatus?(name: string): boolean;
     getUnitProperties?(): { applied_debuffs?: readonly string[]; applied_effects?: readonly string[] } | undefined;
 }
 
@@ -46,17 +47,21 @@ export class ParalysisStatusVfx {
         const pending = this.context.isImpactPending?.() ?? false;
         for (const [id, unit] of units) {
             const properties = unit.getUnitProperties?.();
-            const afflicted = !!(
-                properties?.applied_debuffs?.includes("Paralysis") || properties?.applied_effects?.includes("Paralysis")
-            );
+            const afflicted = unit.hasPresentedStatus
+                ? unit.hasPresentedStatus("Paralysis")
+                : !!(
+                      properties?.applied_debuffs?.includes("Paralysis") ||
+                      properties?.applied_effects?.includes("Paralysis")
+                  );
             let field = this.fields.get(id);
-            if (unit.isDead() || (!afflicted && (!pending || this.presented.has(id)))) {
+            const defer = pending && !unit.hasPresentedStatus;
+            if (unit.isDead() || (!afflicted && (!defer || this.presented.has(id)))) {
                 field?.node.destroy();
                 this.fields.delete(id);
                 continue;
             }
             if (!afflicted && !field) continue;
-            if (!field && pending && !this.presented.has(id)) continue;
+            if (!field && defer && !this.presented.has(id)) continue;
             const frame = this.context.getFrame(unit);
             if (!frame || !Object.values(frame).every(Number.isFinite) || frame.width <= 0 || frame.height <= 0) {
                 if (field) field.node.visible = false;

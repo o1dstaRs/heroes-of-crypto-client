@@ -42,7 +42,7 @@ describe("replay turn-status icons", () => {
     test("the capture records what a rebuild cannot recompute", () => {
         // Effects and FightProperties are both gone after a hydrate, so a sandbox replay needs all three.
         expect(capture).toContain("onHourglass: unit.isOnHourglass()");
-        expect(capture).toContain("skipping: Sandbox.skippingForDisplay(unit)");
+        expect(capture).toContain("skipping: Sandbox.skippingForCapture(unit)");
         expect(capture).toContain("hasHourglassed: fightProps.hasAlreadyHourglass(unit.getId())");
         expect(capture).toContain("upNext: [...fightProps.getUpNextQueueIterable()]");
     });

@@ -322,6 +322,12 @@ import {
 } from "../ui/battlefieldShadowTuning";
 import { StunStars } from "./StunStars";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
+import {
+    EMBER_COVENANT_STATUS,
+    IMPACT_STATUS_NAMES,
+    type CombatStatusFrame,
+    type CombatStatusPresentation,
+} from "./sandbox/combatStatusPresentation";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 export type TexResolver = (name: string, options?: TextureLoadOptions) => Texture | undefined;
 
@@ -3275,6 +3281,7 @@ export class RenderableUnit extends Unit {
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
         ru.lastFuseFatalHit = undefined;
+        ru.combatStatusPresentation = undefined;
         ru.texResolver = texResolver;
         ru.immobilizedContainer = undefined;
         ru.immobilizedSprite = undefined;
@@ -4527,10 +4534,10 @@ export class RenderableUnit extends Unit {
         if (
             spriteVisible &&
             this.visualMode === "normal" &&
-            !this.isDead() &&
+            this.getDisplayedAmount() > 0 &&
             this.shouldShowStunIndicator() &&
-            !this.hasStatusEffect("Blindness") &&
-            !this.hasStatusEffect("Whirlpool") &&
+            !this.hasPresentedStatus("Blindness") &&
+            !this.hasPresentedStatus("Whirlpool") &&
             this.badgeContainer &&
             this.badgeDrawState &&
             this.oneShotAnim?.stateName !== "death"
@@ -5081,14 +5088,15 @@ export class RenderableUnit extends Unit {
         if (this.activeAura) this.activeAura.visible = false;
         if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
 
-        // The permanent water shell follows the authoritative buff; its short rupture outlives removal.
+        // A resolved attack can consume this buff before its projectile flies. Follow the presented
+        // shield until contact; the gameplay lookup stays authoritative throughout the animation.
         //
         // hasStatusBuff, NOT hasBuffActive: the latter reads only the buff OBJECT array, which a ranked
         // client fills solely from its own seeding pass (trySeedWaterShield, gated on the unit carrying the
         // Water Shield ABILITY). A shield the server granted for any other reason — most visibly one an
         // Arachna Queen assimilated off a Mermaid — is then present in the authoritative applied_buffs list
         // and completely invisible on the board. hasStatusBuff ORs both, so the ring follows the server.
-        const waterShieldActive = !this.isDead() && this.hasStatusBuff("Water Shield");
+        const waterShieldActive = this.getDisplayedAmount() > 0 && this.hasPresentedBuff("Water Shield");
         if (!this.waterShieldLabBroken && (waterShieldActive || (this.waterShieldLabPreview && !this.isDead()))) {
             this.updateWaterShieldAura(worldRoot, gs, pos, now);
         } else {
@@ -5099,14 +5107,14 @@ export class RenderableUnit extends Unit {
         // Whirlpool is a one-lap movement/turn lock. Keep its vortex visible for exactly as long as the
         // authoritative status is applied, rather than guessing from a cast event that may predate a ranked
         // reconnect. hasStatusEffect reads the live object in Sandbox and applied_debuffs in Ranked.
-        if (!this.isDead() && this.hasStatusEffect("Whirlpool")) {
+        if (this.getDisplayedAmount() > 0 && this.hasPresentedStatus("Whirlpool")) {
             this.updateWhirlpoolAura(worldRoot, gs, pos, now);
         } else if (this.whirlpoolAura) {
             this.whirlpoolAura.visible = false;
         }
 
         // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
-        if (!this.isDead() && this.hasStatusEffect("Freeze")) {
+        if (this.getDisplayedAmount() > 0 && this.hasPresentedStatus("Freeze")) {
             this.updateFreezeCrust(worldRoot, gs, pos, now);
         } else {
             if (this.freezeCrust) this.freezeCrust.visible = false;
@@ -5114,7 +5122,7 @@ export class RenderableUnit extends Unit {
         }
         // The shield is permanent until it absorbs a hit, so a still-alive unit losing the buff means it
         // just broke — kick off the one-shot dissolve burst at that instant.
-        if (this.waterShieldWasActive && !waterShieldActive && !this.isDead()) {
+        if (this.waterShieldWasActive && !waterShieldActive && this.getDisplayedAmount() > 0) {
             this.waterShieldBreakStartMs = now;
         }
         this.waterShieldWasActive = waterShieldActive;
@@ -12081,6 +12089,7 @@ export class RenderableUnit extends Unit {
     }
     public destroyVisuals(): void {
         if (this.isDestroyed) return;
+        this.combatStatusPresentation = undefined;
         this.isDestroyed = true;
         this.loadingPlaceholder?.destroy();
         this.loadingPlaceholder = undefined;
@@ -12810,7 +12819,7 @@ export class RenderableUnit extends Unit {
         const geometry = this.badgeDrawState?.geometry;
         const canRender =
             (this.visualMode ?? "normal") === "normal" &&
-            this.getAmountAlive() > 0 &&
+            this.getDisplayedAmount() > 0 &&
             Boolean(badge?.visible && geometry);
 
         this.syncFlagStatusIcon("hourglass", "hourglass", canRender && this.shouldShowHourglassIndicator(), badge);
@@ -12990,14 +12999,14 @@ export class RenderableUnit extends Unit {
         }
     }
     private isSkippingForDisplay(): boolean {
-        return this.skippingThisTurnSynced || this.isSkippingThisTurn();
+        return this.presentedCombatStatus()?.skipping ?? (this.skippingThisTurnSynced || this.isSkippingThisTurn());
     }
     private shouldShowImmobilizedIndicator(): boolean {
         // Share the engine predicate: paralysis, whirlpool, and the authoritative Web movement lock.
-        return !this.canMove();
+        return this.presentedCombatStatus()?.immobilized ?? !this.canMove();
     }
     private shouldShowStunIndicator(): boolean {
-        return this.isSkippingForDisplay() && !this.hasStatusEffect("Freeze");
+        return this.isSkippingForDisplay() && !this.hasPresentedStatus("Freeze");
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
@@ -13057,6 +13066,7 @@ export class RenderableUnit extends Unit {
         this.luckPerTurn = state.luckPerTurn;
     }
     public setRemainingStats(amountAlive: number, hp: number, amountDied: number): void {
+        this.combatStatusPresentation = undefined;
         this.clearDamagePresentation();
         const alive = Math.max(0, Math.floor(amountAlive));
         this.unitProperties.amount_alive = alive;
@@ -13352,7 +13362,7 @@ export class RenderableUnit extends Unit {
     private currentEffectTint(now = performance.now()): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
         // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
-        if (this.hasStatusEffect("Freeze")) {
+        if (this.hasPresentedStatus("Freeze")) {
             return 0x8ec6ff;
         }
         if (!this.effectFlashStartMs) return 0xffffff;
@@ -13384,6 +13394,118 @@ export class RenderableUnit extends Unit {
     }
     public hasStatusBuff(name: string): boolean {
         return this.hasStatusBuffApplied(name);
+    }
+    public captureCombatStatusFrame(): CombatStatusFrame {
+        const properties = this.getUnitProperties();
+        const buffs = new Set(properties.applied_buffs ?? []);
+        if (this.hasStatusBuff("Water Shield")) buffs.add("Water Shield");
+        if (
+            !properties.applied_buffs?.some(
+                (name, index) => name === EMBER_COVENANT_STATUS && properties.applied_buffs_laps[index] > 0,
+            )
+        )
+            buffs.delete(EMBER_COVENANT_STATUS);
+        return {
+            effects: new Set(IMPACT_STATUS_NAMES.filter((name) => this.hasStatusEffect(name))),
+            buffs,
+            skipping: this.isSkippingApplied(),
+            immobilized: !this.canMove(),
+        };
+    }
+    /** Resolve combat immediately, but keep the previous appearance until this unit's contact. */
+    public beginCombatStatusPresentation(
+        pending: () => boolean,
+        before = this.captureCombatStatusFrame(),
+        after?: CombatStatusFrame,
+        waitForDamage = true,
+    ): void {
+        if (isAiSearchSimulating()) return;
+        this.combatStatusPresentation = {
+            before,
+            visible: before,
+            after,
+            pending,
+            waitForDamage,
+            effectsPresented: false,
+            buffsPresented: false,
+            awaitingBuffs: new Set(),
+        };
+    }
+    private presentedCombatStatus(): CombatStatusFrame | undefined {
+        if (isAiSearchSimulating()) return undefined;
+        const presentation = this.combatStatusPresentation;
+        if (!presentation) return undefined;
+        if (!presentation.pending()) {
+            const after = presentation.after ?? this.captureCombatStatusFrame();
+            // Secondary damage numbers can arrive after the main attack's recovery. A newly applied
+            // disable and a consumed one-use Water Shield still belong to their actual hit callback.
+            const newDisable =
+                !presentation.effectsPresented &&
+                ((!presentation.before.skipping && after.skipping) ||
+                    (!presentation.before.immobilized && after.immobilized) ||
+                    [...after.effects].some((name) => !presentation.before.effects.has(name)));
+            const waterBreak =
+                !presentation.buffsPresented &&
+                presentation.visible.buffs.has("Water Shield") &&
+                !after.buffs.has("Water Shield");
+            const waitingForBuff = [...presentation.awaitingBuffs].some(
+                (name) => presentation.visible.buffs.has(name) !== after.buffs.has(name),
+            );
+            if (!waitingForBuff && (!presentation.waitForDamage || (!newDisable && !waterBreak))) {
+                this.combatStatusPresentation = undefined;
+                return undefined;
+            }
+        }
+        return presentation.visible;
+    }
+    public hasPresentedStatus(name: string): boolean {
+        if (!this.getUnitProperties()) return false;
+        if (!(IMPACT_STATUS_NAMES as readonly string[]).includes(name)) return this.hasStatusEffect(name);
+        return this.presentedCombatStatus()?.effects.has(name) ?? this.hasStatusEffect(name);
+    }
+    public hasPresentedBuff(name: string): boolean {
+        if (!this.getUnitProperties()) return false;
+        const presentation = this.presentedCombatStatus();
+        if (presentation) return presentation.buffs.has(name);
+        if (name === EMBER_COVENANT_STATUS) {
+            const properties = this.getUnitProperties();
+            return (
+                properties.applied_buffs?.some(
+                    (buff, index) => buff === name && properties.applied_buffs_laps[index] > 0,
+                ) ?? false
+            );
+        }
+        return this.hasStatusBuff(name);
+    }
+    public presentCombatBuffsAtImpact(name?: string): void {
+        if (isAiSearchSimulating()) return;
+        const presentation = this.combatStatusPresentation;
+        if (!presentation) return;
+        const after = presentation.after ?? this.captureCombatStatusFrame();
+        if (name) {
+            const buffs = new Set(presentation.visible.buffs);
+            if (after.buffs.has(name)) buffs.add(name);
+            else buffs.delete(name);
+            presentation.visible = { ...presentation.visible, buffs };
+        } else {
+            presentation.visible = { ...presentation.visible, buffs: after.buffs };
+            presentation.buffsPresented = true;
+        }
+    }
+    public waitForCombatBuffImpact(name: string): void {
+        if (!isAiSearchSimulating()) this.combatStatusPresentation?.awaitingBuffs.add(name);
+    }
+    public presentCombatStatusAtImpact(): void {
+        if (isAiSearchSimulating()) return;
+        const presentation = this.combatStatusPresentation;
+        if (!presentation) return;
+        presentation.visible = presentation.after ?? this.captureCombatStatusFrame();
+        presentation.effectsPresented = true;
+        presentation.buffsPresented = true;
+        this.refreshTurnStatusIndicators();
+    }
+    public clearCombatStatusPresentation(): void {
+        if (!isAiSearchSimulating()) this.combatStatusPresentation = undefined;
     }
     public markWaterShieldSpent(): void {
         this.waterShieldSpent = true;
@@ -14328,6 +14450,7 @@ export class RenderableUnit extends Unit {
         }
     }
     private combatAmountPresentation?: { initial: number; amount: number; model: number };
+    private combatStatusPresentation?: CombatStatusPresentation;
     private loadingPlaceholder?: UnitLoadingPlaceholder;
     private animationAssetsRequested = false;
     private getCreatureGroundDepth(): number {
@@ -14375,10 +14498,15 @@ export class RenderableUnit extends Unit {
         presentation.amount = Math.max(0, presentation.initial - losses);
     }
     /** Delayed numbers belong to this action, even if a snapshot or another action lands first. */
-    public captureDamageCasualties(unitsDied: number): () => void {
+    public captureDamageCasualties(unitsDied: number, statusImpact: "damage" | "shield" = "damage"): () => void {
         const presentation = this.combatAmountPresentation;
+        const statuses = this.combatStatusPresentation;
         return () => {
             if (presentation && presentation === this.combatAmountPresentation) this.presentDamageCasualties(unitsDied);
+            if (statuses && statuses === this.combatStatusPresentation) {
+                if (statusImpact === "damage") this.presentCombatStatusAtImpact();
+                else this.presentCombatBuffsAtImpact();
+            }
         };
     }
     public presentDamageCasualties(unitsDied: number): void {
@@ -14411,6 +14539,9 @@ export class RenderableUnit extends Unit {
     }
     public isSkippingDisplayed(): boolean {
         return this.isSkippingForDisplay();
+    }
+    public isSkippingApplied(): boolean {
+        return this.skippingThisTurnSynced || this.isSkippingThisTurn();
     }
 }
 

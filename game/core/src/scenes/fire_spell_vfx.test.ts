@@ -36,6 +36,7 @@ function fixture(cells = [{ x: 4, y: 5 }]) {
     };
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         sc_sceneSettings: { getGridSettings: () => gs },
+        isSceneDestroyed: () => false,
         combatVisuals: visuals,
         unitsHolder: { getAllUnits: () => new Map([["target", { getCells: () => cells }]]) },
         showFleshShieldAbsorbedDamage: mock(() => undefined),
@@ -200,4 +201,55 @@ test("Fireball routes the old ring sequence without extra sweep or burn layers",
     expect(visuals.spawnFireRing).not.toHaveBeenCalled();
     expect(visuals.spawnFireSweep).not.toHaveBeenCalled();
     expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
+});
+
+test.each([0, 8])("Fire Strike shield absorption waits for contact with %s primary damage", (amount) => {
+    const { scene, visuals } = fixture();
+    let contact!: () => void;
+    Object.assign(visuals, {
+        spawnFireStrikeArrow: (...args: unknown[]) => {
+            contact = args[5] as () => void;
+            return 600;
+        },
+    });
+    const origin = { x: 40, y: 80 };
+    const present = mock(() => undefined);
+    scene.unitsHolder.getAllUnits = () =>
+        new Map([
+            ["caster", { getSpells: () => [], getSpellProjectileOrigin: () => origin }],
+            [
+                "target",
+                {
+                    hasAbilityActive: () => false,
+                    getDamagePredictionAnchor: () => ({ x: 300, y: 200 }),
+                    captureDamageCasualties: () => present,
+                },
+            ],
+        ]);
+    const shield = {
+        unitId: "target",
+        position: { x: 300, y: 200 },
+        amount: 20,
+        unitsDied: 0,
+        source: "ember_covenant" as const,
+    };
+    scene.renderSpellDamageVfx(
+        [
+            {
+                ...event("Fire Strike"),
+                secondary: [shield],
+                damaged: [{ unitId: "target", position: shield.position, amount, unitsDied: 0 }],
+            },
+        ],
+        origin,
+    );
+    expect(present).not.toHaveBeenCalled();
+    expect(scene.showShieldAbsorbs.mock.calls.flatMap((call: unknown[]) => call[0] ?? [])).toEqual([]);
+    expect(visuals.showFloatingDamage).not.toHaveBeenCalled();
+    contact();
+    expect(present).toHaveBeenCalledTimes(1);
+    expect(scene.showShieldAbsorbs.mock.calls.flatMap((call: unknown[]) => call[0] ?? [])).toEqual([shield]);
+    expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(amount > 0 ? 1 : 0);
+    contact();
+    expect(present).toHaveBeenCalledTimes(1);
 });

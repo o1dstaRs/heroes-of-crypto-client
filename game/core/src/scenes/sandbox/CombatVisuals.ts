@@ -1171,7 +1171,10 @@ export class CombatVisuals {
         unitId = unit?.getId(),
     ): void {
         if (presentCasualties) presentCasualties();
-        else unit?.presentDamageCasualties(unitsDied ?? 0);
+        else {
+            unit?.presentCombatBuffsAtImpact?.();
+            unit?.presentDamageCasualties(unitsDied ?? 0);
+        }
         if (unit && bitterExperienceTriggered(unit, { amount, unitsDied }))
             this.spawnCommonFlagPop(unit, "bitter_experience");
         if (unitId && source === "ember_covenant") {
@@ -4309,7 +4312,11 @@ export class CombatVisuals {
         effectUnit = audioUnit instanceof RenderableUnit ? audioUnit : undefined,
     ): void {
         if (presentCasualties) presentCasualties();
-        else if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
+        else if (audioUnit instanceof RenderableUnit) {
+            if (amount > 0 || (unitsDied ?? 0) > 0) audioUnit.presentCombatStatusAtImpact();
+            else audioUnit.presentCombatBuffsAtImpact();
+            audioUnit.presentDamageCasualties(unitsDied ?? 0);
+        }
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
