@@ -2,7 +2,7 @@ import { useGameLayout } from "../mobile/GameViewport";
 import { readGameViewport } from "../../viewport/gameViewport";
 import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
-import { PremiumContext, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
+import { PremiumContext, PremiumDraftBanner, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
 import { usePremiumCapability } from "../premium/usePremiumPreference";
 import {
     AllAbilities,
@@ -2025,7 +2025,7 @@ const PickPanel: React.FC<{
     );
 };
 
-const ArtifactPanel: React.FC<{
+export const ArtifactPanel: React.FC<{
     disabled: boolean;
     selected: number;
     offered: number[];
@@ -2033,7 +2033,7 @@ const ArtifactPanel: React.FC<{
     onInspect?: (artifact: Artifact.ArtifactProperties) => void;
     onInspectEnd?: () => void;
 }> = ({ disabled, selected, offered, onSelect, onInspect, onInspectEnd }) => {
-    // The server offers 3 random Tier-2 artifacts (of 12). Fall back to the full list only if no offer has
+    // The server offers 3 random Tier-2 artifacts. Fall back to the full list only if no offer has
     // arrived yet (e.g. a server that predates the offer field), so the picker is never empty.
     const offeredIds = offered.length ? offered : Artifact.TIER2_ARTIFACT_LIST.map((a) => a.id);
     return (
@@ -3608,6 +3608,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 {/* The corner the Rules link used to own: the draft's only destructive action, kept small and
                 far away from the cards it would otherwise sit under. */}
                 {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
+                <PremiumDraftBanner
+                    advice={premium.advice}
+                    draft={{ gameId, picked, opponentPicked, artifactTier1, artifactTier2, isYourTurn }}
+                />
             </Sheet>
         </PremiumContext.Provider>
     );

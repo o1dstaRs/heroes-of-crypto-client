@@ -70,11 +70,11 @@ const render = (state: PickBanContextType): string =>
         </CacheProvider>,
     );
 
-test("draft keeps one commit action and card advice without the removed summary banner", () => {
+test("draft keeps its single commit action, card advice and contextual Premium guidance", () => {
     const html = render(draft);
     expect(html.match(/<button /g)).toHaveLength(1);
     expect(html.match(/data-recommendation="preserved"/g)).toHaveLength(3);
-    expect(html).not.toContain("data-draft-advice");
+    expect(html).toContain('data-draft-advice="preserved"');
     expect(html.match(/data-map-reveal="3"/g)).toHaveLength(1);
     expect(html).toContain("hocCommitAvailable");
 });

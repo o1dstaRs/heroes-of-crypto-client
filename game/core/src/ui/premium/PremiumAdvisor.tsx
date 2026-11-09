@@ -162,16 +162,10 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
     const askQuestion = useAskPremiumQuestion();
     const thumbStyle = useContext(PremiumThumbStyleContext);
     const ranked = advice?.choices?.filter((item) => item.kind === kind) ?? [];
-    const available = new Set([
-        ...ranked.map((item) => item.value),
-        ...(advice?.offers?.filter((item) => item.kind === kind).map((item) => item.value) ?? []),
-    ]);
-    const thumb = kind === "creature" || kind === "bundle";
-    const choices = thumb ? ranked.slice(0, available.size <= 2 ? 1 : 2) : ranked;
-    const index = choices.findIndex((choice) => choice.value === value);
-    const choice = index >= 0 ? choices[index] : undefined;
+    const thumb = kind === "creature" || kind === "bundle" || kind === "artifact";
+    const index = ranked.findIndex((choice) => choice.value === value);
+    const choice = index >= 0 ? ranked[index] : undefined;
     const medal: PremiumThumbMedal = index === 0 ? "gold" : "silver";
-    if (thumb && !choice) return null;
     if (!choice) {
         const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
         if (!offer || !askQuestion) return null;
@@ -205,7 +199,13 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
             }}
         >
             <Tooltip
-                title={<ChoiceExplanation choice={choice} />}
+                title={
+                    askQuestion ? (
+                        `${index === 0 ? "Top recommendation" : `Recommendation #${index + 1}`} · Explain ${choice.label}`
+                    ) : (
+                        <ChoiceExplanation choice={choice} />
+                    )
+                }
                 describeChild
                 placement="top"
                 arrow
@@ -222,7 +222,10 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                     component="button"
                     type="button"
                     aria-label={`Premium: ${thumb ? `${medal}, #${index + 1}` : index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
-                    onClick={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        askQuestion?.(premiumChoiceQuestion(choice));
+                    }}
                     sx={{
                         pointerEvents: "auto",
                         position: "absolute",
