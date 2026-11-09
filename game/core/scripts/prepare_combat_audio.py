@@ -446,6 +446,11 @@ def movement_rows_for_review(clips):
                                       "placeholder": True, "alternates": []}) for unit in design["units"]]
 
 
+def game_rows_for_review(work):
+    report = work / "game-sound-report.json"
+    return json.loads(report.read_text()) if report.exists() else []
+
+
 def write_review(work, results):
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     art_references = {u["slug"]: u.get("art_reference") for u in design["units"]}
@@ -463,7 +468,7 @@ def write_review(work, results):
                                                + base.with_suffix(".mp3").read_bytes()).hexdigest()[:10]
     clips = [clip for clip in results if clip.get("role") in ("attack", "hurt")] + movement_rows_for_review(results)
     clips.sort(key=lambda clip: (clip["unit"], clip["role"]))
-    data = json.dumps(clips + spell_rows_for_review(work)).replace("</", "<\\/")
+    data = json.dumps(clips + spell_rows_for_review(work) + game_rows_for_review(work)).replace("</", "<\\/")
     template = (CORE / "audio" / "combat-sound-review.html").read_text()
     (work / "review.html").write_text(template.replace("__COMBAT_AUDIO_DATA__", data))
 

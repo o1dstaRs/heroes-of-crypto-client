@@ -24,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from prepare_combat_audio import CORE, master, movement_rows_for_review, spell_placeholders, spell_rows_for_review, write_review
+from prepare_combat_audio import CORE, game_rows_for_review, master, movement_rows_for_review, spell_placeholders, spell_rows_for_review, write_review
 from suno_mcp import SunoMcp, SunoToolError
 from sound_prompt_director import SoundPromptDirector, sound_context, validate_direction
 
@@ -272,6 +272,17 @@ def apply_spell_candidate(job, index):
     result["revision"] = revision
     result["source_id"] = candidate["source_id"]
     result["source"] = candidate["source"]
+    manifest_path = CORE / "src/ui/audio/spellSoundManifest.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    manifest[result["unit"]] = {"slug": slug, "durationMs": result["encoded"]["webm"]["duration_ms"],
+                                "revision": revision}
+    save_json(manifest_path, manifest, 4)
+    provenance_path = CORE / "audio/spell-sound-provenance.json"
+    provenance = json.loads(provenance_path.read_text()) if provenance_path.exists() else {"clips": []}
+    selected = {k: result[k] for k in ("unit", "slug", "role", "source_id", "source", "encoded")}
+    selected["path"] = candidate["path"]
+    provenance["clips"] = [clip for clip in provenance["clips"] if clip["slug"] != slug] + [selected]
+    save_json(provenance_path, provenance, 4)
     report_path = WORK / "spell-sound-report.json"
     report = json.loads(report_path.read_text()) if report_path.exists() else {"clips": []}
     report["clips"] = [result if clip.get("slug") == slug else clip for clip in report["clips"]]
@@ -794,7 +805,7 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             combat = [clip for clip in report["clips"] if clip.get("role") in ("attack", "hurt")]
             combat += movement_rows_for_review(report["clips"])
             combat.sort(key=lambda clip: (clip["unit"], clip["role"]))
-            return self.json_response(200, {"sounds": combat + spell_rows_for_review(WORK),
+            return self.json_response(200, {"sounds": combat + spell_rows_for_review(WORK) + game_rows_for_review(WORK),
                                       "can_generate": bool(service.api_key),
                                       "providers": service.providers(),
                                       "regeneration": {"fresh": True, "similar": False,

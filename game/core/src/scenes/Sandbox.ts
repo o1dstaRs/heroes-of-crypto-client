@@ -32,6 +32,7 @@ import {
     type CombatSoundRole,
 } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
+import { playSpellSound, resolveSpellSound } from "../ui/audio/spellSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { glyphScaleX } from "../pixi/boardMirror";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
@@ -4979,8 +4980,13 @@ export class Sandbox extends PixiScene {
         const responseAnimation = ranged ? findRangeResponseAnimation(event, attacker.getPosition()) : undefined;
         const responseFlight = event.damage.chakramFlights?.find((flight) => flight.response && flight.hitIndex === 0);
         const responseTargetId =
-            responseFlight?.primaryTargetId ?? responseAnimation?.affectedUnitId ?? attacker.getId();
+            responseFlight?.primaryTargetId ??
+            event.damage.missedResponse?.unitId ??
+            responseAnimation?.affectedUnitId ??
+            attacker.getId();
         const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseTargetId);
+        const recordedSplashMiss =
+            !!responseAnimation && event.damage.splash?.some((hit) => hit.unitId === responseTargetId && hit.missed);
         // A missed/absorbed physical counter can still breathe fire. Its recorded rear victims prove
         // the response happened even when the primary HP diff cannot reveal it.
         const recordedBreathResponse =
@@ -4988,17 +4994,30 @@ export class Sandbox extends PixiScene {
             event.damage.secondary?.some((hit) => hit.source === "fire_breath") &&
             fireBreathHitsForStrike(event.damage.secondary, target.getPosition(), attacker.getPosition()).length > 0;
         const response: CombatExchangeStrike | undefined =
-            responseDamage || responseFlight || recordedBreathResponse
+            responseDamage ||
+            responseFlight ||
+            event.damage.missedResponse ||
+            recordedSplashMiss ||
+            recordedBreathResponse
                 ? {
                       attackerId: responseFlight?.attackerId ?? target.getId(),
                       targetId: responseTargetId,
-                      amount: responseFlight ? (responsePrimary?.amount ?? 0) : (responseDamage?.amount ?? 0),
-                      unitsDied: responseFlight ? (responsePrimary?.unitsDied ?? 0) : (responseDamage?.unitsDied ?? 0),
+                      amount: responseFlight
+                          ? (responsePrimary?.amount ?? 0)
+                          : event.damage.missedResponse
+                            ? 0
+                            : (responseDamage?.amount ?? 0),
+                      unitsDied: responseFlight
+                          ? (responsePrimary?.unitsDied ?? 0)
+                          : event.damage.missedResponse
+                            ? 0
+                            : (responseDamage?.unitsDied ?? 0),
                       lethal: deadIds.has(responseTargetId),
                       response: true,
                       hitIndex: 0,
                       missed:
                           responseFlight?.missed ??
+                          (event.damage.missedResponse ? true : undefined) ??
                           event.damage.splash?.find((hit) => hit.unitId === responseTargetId)?.missed,
                       position: responseAnimation?.toPosition,
                   }
@@ -5009,9 +5028,29 @@ export class Sandbox extends PixiScene {
         if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
         playCombatSound(unit.getName(), role, unit.getId(), melee, () => !this.isSceneDestroyed());
     }
-    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean): void {
+    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean, identity?: string): void {
         if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
-        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true));
+        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true), identity);
+    }
+    protected playSceneSpellSound(caster: Pick<Unit, "getId">, spellName: string): void {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playSpellSound(spellName, caster.getId(), () => !this.isSceneDestroyed());
+    }
+    protected playUnitCastSound(
+        caster: Pick<Unit, "getName" | "getId">,
+        spellName: string,
+        castEvents: readonly GameEvent[],
+    ): void {
+        if (caster.getName() === "Blacksmith") {
+            this.playSceneGameSound("blacksmith_cast");
+        } else if (castEvents.some((event) => event.type === "unit_summoned")) {
+            // The shared summon cue starts when the new or merged stack is presented.
+            return;
+        } else if (resolveSpellSound(spellName)) {
+            this.playSceneSpellSound(caster, spellName);
+        } else {
+            this.playUnitCombatSound(caster, "attack");
+        }
     }
     /** Shared by every creature and attack source; never await or retime a strike for this overlay. */
     private showRepeatedAttackFlag(unit: RenderableUnit, hitIndex: number): void {
@@ -5634,6 +5673,11 @@ export class Sandbox extends PixiScene {
                             }
                         }
                         if (strike.missed) {
+                            this.playSceneGameSound(
+                                "miss",
+                                undefined,
+                                `miss:${strike.attackerId}:${strike.response}:${strike.hitIndex}`,
+                            );
                             this.showAttackMissedVfx(source, victim, {
                                 ...event.damage,
                                 unitId: strike.targetId,
@@ -5955,6 +5999,13 @@ export class Sandbox extends PixiScene {
         const from = attacker.getVisualCenter(gs);
         const reactions: Promise<void>[] = [];
         this.renderAreaImpactVfx(splash);
+        if (splash.some((hit) => hit.missed)) {
+            this.playSceneGameSound(
+                "miss",
+                undefined,
+                `miss:${attacker.getId()}:${!!context.response}:${context.hitIndex}`,
+            );
+        }
         for (const hit of splash) {
             const unit = context.units.get(hit.unitId) as RenderableUnit | undefined;
             const before = context.remainingAmounts.get(hit.unitId) ?? unit?.getAmountAlive() ?? 0;
@@ -6120,6 +6171,19 @@ export class Sandbox extends PixiScene {
                 (hit) => {
                     if (this.isSceneDestroyed()) return;
                     const unit = units.get(hit.unitId);
+                    if (hit.missed) {
+                        this.playSceneGameSound(
+                            "miss",
+                            undefined,
+                            `miss:${attacker.getId()}:${hitIndex}:${hit.unitId}`,
+                        );
+                        if (unit)
+                            this.showAttackMissedVfx(attacker, unit, {
+                                ...event.damage,
+                                unitId: hit.unitId,
+                                missed: true,
+                            });
+                    }
                     const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
                     remaining.set(hit.unitId, amount);
                     unit?.presentDamageCasualties(hit.unitsDied);
@@ -6717,6 +6781,7 @@ export class Sandbox extends PixiScene {
         // secondary/deepWounds rendering above (a missed primary can still land Skewer/Lightning-Spin
         // side damage) and before the HP-diff fallback, which must not run for a dodge.
         if (damage.missed) {
+            this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}`);
             this.showAttackMissedVfx(attacker, target, damage);
             return;
         }
@@ -6991,6 +7056,7 @@ export class Sandbox extends PixiScene {
             const primary = responseFlight.splash.find((hit) => hit.unitId === responseFlight.primaryTargetId);
             return { amount: primary?.amount ?? 0, unitsDied: primary?.unitsDied ?? 0 };
         }
+        if (attackEvent.damage.missedResponse) return { amount: 0, unitsDied: 0 };
         if (attackEvent.attackType === "range" && !responseAnimation) {
             return undefined;
         }
@@ -7266,7 +7332,7 @@ export class Sandbox extends PixiScene {
         if (facingTarget) {
             caster.faceBoardTarget(facingTarget);
         }
-        this.playUnitCombatSound(caster, "attack");
+        this.playUnitCastSound(caster, action.spellName, record.events);
         if (action.spellName === "Vine Throw" && caster.getName() === "Trent") {
             const targetCell = action.targetId
                 ? this.unitsHolder.getAllUnits().get(action.targetId)?.getBaseCell()
@@ -9882,7 +9948,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
         caster.faceBoardTarget(targetUnit.getPosition());
-        this.playUnitCombatSound(caster, "attack");
+        this.playUnitCastSound(caster, spell.getName(), result.events);
         if (caster.hasAnimationState("cast") && !(isSwap && caster.getName() === "Harpy")) {
             caster.playOneShotAnimation("cast");
         }
@@ -10115,7 +10181,7 @@ export class Sandbox extends PixiScene {
         if (castTargetPosition) {
             caster.faceBoardTarget(castTargetPosition);
         }
-        this.playUnitCombatSound(caster, "attack");
+        this.playUnitCastSound(caster, spell.getName(), result.events);
         if (caster.hasAnimationState("cast")) {
             caster.playOneShotAnimation("cast");
         }
@@ -10187,7 +10253,7 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
-                this.playUnitCombatSound(caster, "attack");
+                this.playUnitCastSound(caster, spell.getName(), result.events);
                 if (caster.hasAnimationState("cast")) {
                     caster.playOneShotAnimation("cast");
                 }
@@ -10232,7 +10298,7 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
-                this.playUnitCombatSound(caster, "attack");
+                this.playUnitCastSound(caster, spell.getName(), result.events);
                 if (caster.hasAnimationState("cast")) {
                     caster.playOneShotAnimation("cast");
                 }
@@ -10706,6 +10772,7 @@ export class Sandbox extends PixiScene {
                     const center = unit?.getVisualCenter(gs) ?? captured?.center ?? arrival;
                     const dmg = splashByUnit.get(unitId);
                     if (dmg?.missed) {
+                        this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}:chakram:${unitId}`);
                         popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                         continue;
                     }
@@ -10901,6 +10968,7 @@ export class Sandbox extends PixiScene {
                         this.showGravechainVfx(damage, undefined, capturedUnits, new Set([unitId]));
                     const dmg = splashByUnit.get(unitId);
                     if (dmg?.missed) {
+                        this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}:chakram:${unitId}`);
                         popChakramMiss(unit, center, direction);
                         continue;
                     }
@@ -13200,6 +13268,9 @@ export class Sandbox extends PixiScene {
             // A fully-dodged attack (Dodge / Small Specie / Boar Saliva / Broken Aegis) — drives the
             // "MISS" pop + bullet-time dodge below instead of a damage number.
             damageForAnimation.missed = attackEvent.damage.missed;
+            damageForAnimation.missedResponse = attackEvent.damage.missedResponse
+                ? { ...attackEvent.damage.missedResponse, position: { ...attackEvent.damage.missedResponse.position } }
+                : undefined;
             damageForAnimation.hits = attackEvent.damage.hits?.map((hit) => ({ ...hit }));
             // Carry the per-affected-unit AOE breakdown (Gargantuan Area Throw / Large Caliber). Without
             // it the live path can't tell a Double-Shot AOE landed twice — so its second projectile and
@@ -13569,7 +13640,10 @@ export class Sandbox extends PixiScene {
 
         // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
         // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
-        if (!exchangeAnimated) this.showAttackMissedVfx(attacker, target, damageForAnimation);
+        if (!exchangeAnimated) {
+            if (damageForAnimation.missed) this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}`);
+            this.showAttackMissedVfx(attacker, target, damageForAnimation);
+        }
 
         // Lucky Strike procs (attacker and/or responder): gold flash + "LUCKY!" over each striker.
         this.spawnLuckyStrikeVfx(damageForAnimation);
@@ -19478,6 +19552,10 @@ export class Sandbox extends PixiScene {
         const result = this.createActionEngine().apply(action);
         this.applyTurnEngineEvents(result.events, unitSnapshot);
         if (result.completed && action.type === "cast_spell" && !this.shouldDeferActionToAuthoritativeReplay(action)) {
+            const caster = unitSnapshot.get(action.casterId);
+            if (caster && (caster.getName() === "Blacksmith" || resolveSpellSound(action.spellName))) {
+                this.playUnitCastSound(caster, action.spellName, result.events);
+            }
             this.renderCastOutcomes(result.events);
         }
         return result.completed;
@@ -19588,6 +19666,7 @@ export class Sandbox extends PixiScene {
             this.clearSandboxPremiumGuidance();
         }
         const armageddonWaves = new Set<number>();
+        let playedSummonSound = false;
         let lastDestroyedUnit: RenderableUnit | undefined;
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;
@@ -19634,6 +19713,10 @@ export class Sandbox extends PixiScene {
                     this.syncSystemMovedUnit(event.unitId, event.position, unitSnapshot);
                     break;
                 case "unit_summoned":
+                    if (event.amount > 0 && !playedSummonSound) {
+                        this.playSceneGameSound("summon");
+                        playedSummonSound = true;
+                    }
                     this.syncSummonedUnit(event, event.sourceAbility === "Infest" ? lastDestroyedUnit : undefined);
                     shouldRefreshVisibleState = true;
                     break;

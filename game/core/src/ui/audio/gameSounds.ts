@@ -1,5 +1,6 @@
 import { playEffectSound, preloadEffectSounds, type ICombatSoundSource } from "./combatSounds";
 import manifest from "./gameSoundManifest.json";
+import { preloadSpellSounds } from "./spellSounds";
 
 export type GameSoundName = keyof typeof manifest;
 
@@ -16,6 +17,7 @@ export const resolveGameSound = (name: GameSoundName): ICombatSoundSource => {
 
 export const preloadGameSounds = (): void => {
     preloadEffectSounds((Object.keys(manifest) as GameSoundName[]).map(resolveGameSound));
+    preloadSpellSounds();
 };
 
 /** One heal/resurrection per simultaneous group, preserving later independent events. */

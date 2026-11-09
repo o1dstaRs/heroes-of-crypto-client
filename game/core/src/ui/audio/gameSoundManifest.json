@@ -18,5 +18,17 @@
     "heal": {
         "durationMs": 2167,
         "revision": "386a2a2cba"
+    },
+    "blacksmith_cast": {
+        "durationMs": 2324,
+        "revision": "63b83dcda0"
+    },
+    "summon": {
+        "durationMs": 2092,
+        "revision": "a121b0afec"
+    },
+    "miss": {
+        "durationMs": 314,
+        "revision": "836aaf98a0"
     }
 }

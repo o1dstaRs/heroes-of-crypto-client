@@ -2,12 +2,12 @@
     "Blacksmith": {
         "slug": "blacksmith",
         "attack": {
-            "durationMs": 399,
-            "revision": "cc3c66074c"
+            "durationMs": 599,
+            "revision": "9e44da61b5"
         },
         "hurt": {
-            "durationMs": 720,
-            "revision": "14ec8754e6"
+            "durationMs": 814,
+            "revision": "680ae3ad23"
         }
     },
     "Squire": {
@@ -134,8 +134,8 @@
     "Angel": {
         "slug": "angel",
         "attack": {
-            "durationMs": 634,
-            "revision": "afcf8560ff"
+            "durationMs": 909,
+            "revision": "1b61146842"
         },
         "hurt": {
             "durationMs": 705,
@@ -219,8 +219,8 @@
             "revision": "031f27fdac"
         },
         "hurt": {
-            "durationMs": 500,
-            "revision": "db16760fd0"
+            "durationMs": 1374,
+            "revision": "2bc7d5489f"
         }
     },
     "Satyr": {
@@ -348,8 +348,8 @@
             "revision": "741c16441b"
         },
         "hurt": {
-            "durationMs": 765,
-            "revision": "9c69690af7"
+            "durationMs": 819,
+            "revision": "426952a9f6"
         },
         "move": {
             "durationMs": 1420,
@@ -594,8 +594,8 @@
     "Wyvern": {
         "slug": "wyvern",
         "attack": {
-            "durationMs": 825,
-            "revision": "ec9c776f51"
+            "durationMs": 1054,
+            "revision": "ecf8b7fc7a"
         },
         "hurt": {
             "durationMs": 735,

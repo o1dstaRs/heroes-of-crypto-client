@@ -88,22 +88,38 @@ test("move reviews disappear as soon as the match, turn, stage or response stops
     expect(currentPremiumTurnReview({ ...turn, options: [] }, "match", version)).toBeUndefined();
 });
 
-test("the review numbers all three board choices and retains late risk and shared-use warnings", () => {
-    const render = (canAsk: boolean) =>
-        renderToStaticMarkup(
-            <CacheProvider value={createCache({ key: "premium-moves-test" })}>
-                <PremiumSearchPromptContext.Provider value={canAsk ? () => {} : undefined}>
-                    <PremiumMoveReview turn={turn} />
-                </PremiumSearchPromptContext.Provider>
-            </CacheProvider>,
-        );
-    const html = render(true);
-    expect(html).toContain("Review 3 moves");
+const render = (preview: PremiumTurnReview, canAsk = true) =>
+    renderToStaticMarkup(
+        <CacheProvider value={createCache({ key: "premium-moves-test" })}>
+            <PremiumSearchPromptContext.Provider value={canAsk ? () => {} : undefined}>
+                <PremiumMoveReview turn={preview} />
+            </PremiumSearchPromptContext.Provider>
+        </CacheProvider>,
+    );
+test("the review numbers two board choices and retains late risk and shared-use warnings", () => {
+    const two = { ...turn, options: [turn.options[0], turn.options[2]] };
+    const html = render(two);
+    expect(html).toContain("Review 2 moves");
     expect(html).toContain("1 · Preferred");
-    expect(html).toContain("3 · Ally spell");
-    expect(html).toContain("planned path crosses lava");
+    expect(html).toContain("2 · Ally spell");
     expect(html).toContain("own resurrection charge");
     expect(html).toContain("Material warning 16.");
-    expect(html.match(/Explain this move/g)).toHaveLength(3);
-    expect(render(false)).not.toContain("Explain this move");
+    expect(html.match(/Explain this move/g)).toHaveLength(2);
+    expect(render(two, false)).not.toContain("Explain this move");
+});
+
+test("a single recommendation is presented as the proposed best turn", () => {
+    const html = render({ ...turn, options: [turn.options[0]] });
+    expect(html).toContain("Proposed best turn");
+    expect(html).not.toContain("Review 1 moves");
+    expect(html).not.toContain("2 ·");
+    expect(html.match(/Explain this move/g)).toHaveLength(1);
+});
+
+test("a legacy third option is not numbered or included in the review count", () => {
+    const html = render(turn);
+    expect(html).toContain("Review 2 moves");
+    expect(html).toContain("planned path crosses lava");
+    expect(html).not.toContain("3 ·");
+    expect(html.match(/Explain this move/g)).toHaveLength(2);
 });

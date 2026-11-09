@@ -139,6 +139,9 @@ test.each([false, true])(
         const { scene, a, b, finish } = setup();
         const shown: number[] = [];
         const flights: { contact(): void; land(): void }[] = [];
+        scene.playSceneGameSound = (name: string) => {
+            expect(name).not.toBe("miss");
+        };
         scene.combatVisuals.showFloatingAbsorbed = (_position: unknown, amount: number) => shown.push(amount);
         scene.playReplayProjectile = (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
             new Promise<void>((land) => flights.push({ contact, land }));
@@ -383,6 +386,7 @@ test("a miss has an attack sound but no hurt reaction", async () => {
     scene.showAttackMissedVfx = () => {};
     const sounds: string[] = [];
     scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
+    scene.playSceneGameSound = (name: string) => sounds.push(name);
     const pending = scene.playCombatExchange(
         a,
         b,
@@ -391,10 +395,78 @@ test("a miss has an attack sound but no hurt reaction", async () => {
         () => {},
     );
     await flush();
-    expect(sounds).toEqual(["A:attack"]);
+    expect(sounds).toEqual(["A:attack", "miss"]);
     finish.splice(0).forEach((fn) => fn());
     await pending;
 });
+
+test.each(["melee", "range"])("recorded %s counter misses survive a zero-damage exchange", (attackType) => {
+    const { scene, a, b } = setup();
+    Object.assign(a, { getPosition: () => ({ x: 0, y: 0 }), getAbility: () => undefined });
+    const event = {
+        attackType,
+        animations: [],
+        damage: { amount: 10, missedResponse: { unitId: "A", position: { x: 0, y: 0 } } },
+    };
+    const plan = scene.buildCombatExchange(a, b, event, new Map(), new Set());
+    expect(plan).toHaveLength(2);
+    expect(plan[1]).toMatchObject({ attackerId: "B", targetId: "A", response: true, missed: true, amount: 0 });
+    expect(scene.buildCombatExchange(a, b, { ...event, damage: { amount: 0 } }, new Map(), new Set())).toHaveLength(1);
+    if (attackType === "range") {
+        const splashCounter = {
+            attackType,
+            damage: { amount: 10, splash: [{ unitId: "A", amount: 0, unitsDied: 0, missed: true }] },
+            animations: [
+                { fromPosition: { x: 0, y: 0 }, toPosition: { x: 100, y: 0 }, affectedUnitId: "B" },
+                { fromPosition: { x: 100, y: 0 }, toPosition: { x: 0, y: 0 }, affectedUnitId: "A" },
+            ],
+        };
+        expect(scene.buildCombatExchange(a, b, splashCounter, new Map(), new Set())[1]).toMatchObject({
+            attackerId: "B",
+            targetId: "A",
+            response: true,
+            missed: true,
+            amount: 0,
+        });
+    }
+});
+
+test.each(["melee", "range"])(
+    "%s misses sound once per strike, including simultaneous counters and second blows",
+    async (attackType) => {
+        const { scene, a, b, finish } = setup();
+        const misses: string[] = [];
+        const hurts: string[] = [];
+        const flights: { contact(): void; land(): void }[] = [];
+        scene.showAttackMissedVfx = () => {};
+        scene.playSceneGameSound = (name: string, _alive: unknown, identity: string) => {
+            expect(name).toBe("miss");
+            misses.push(identity);
+        };
+        scene.playUnitCombatSound = (unit: typeof a, role: string) => {
+            if (role === "hurt") hurts.push(unit.getId());
+        };
+        scene.playReplayProjectile = (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
+            new Promise<void>((land) => flights.push({ contact, land }));
+        const plan = [strike(), strike(true), strike(false, 1)].map((hit) => ({ ...hit, missed: true, amount: 0 }));
+        const pending = scene.playCombatExchange(a, b, { attackType }, plan, () => {});
+        await flush();
+        expect(misses).toHaveLength(attackType === "range" ? 0 : 2);
+        for (let phase = 0; phase < 4; phase++) {
+            flights.splice(0).forEach(({ contact, land }) => {
+                contact();
+                contact();
+                land();
+            });
+            finish.splice(0).forEach((done) => done());
+            await flush();
+        }
+        await pending;
+        expect(misses).toHaveLength(3);
+        expect(new Set(misses).size).toBe(3);
+        expect(hurts).toEqual([]);
+    },
+);
 
 test.each([false, true])(
     "Berserker's two recorded strikes both reach the audio player, first missed=%s",
