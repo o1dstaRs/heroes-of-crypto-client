@@ -75,10 +75,8 @@ test("live reflection enables its flag cue without opting other effects into arc
         const pos = { x: 100, y: 200 };
         f.visuals.spawnFireBurn(pos, 64);
         f.visuals.spawnFireSweep(pos, { x: 500, y: 200 }, 64);
-        f.visuals.spawnPoisonCloud(pos, 64);
-        f.visuals.spawnResurrectionBurst(pos, 64);
         let arrivals = 0;
-        f.visuals.spawnAbilityGift(pos, { x: 500, y: 200 }, 64, "Wild Regeneration", "gifted", Texture.WHITE, () => {
+        f.visuals.spawnAbilitySteal(pos, { x: 500, y: 200 }, 64, "Wild Regeneration", Texture.WHITE, () => {
             arrivals++;
         });
         expect(arrivals).toBe(1);

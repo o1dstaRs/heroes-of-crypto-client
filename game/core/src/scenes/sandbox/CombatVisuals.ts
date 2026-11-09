@@ -1522,6 +1522,11 @@ export class CombatVisuals {
         iconTexture?: Texture,
         onArrival?: () => void,
     ): void {
+        // Live theft uses Predatory Assimilation's authored effect; gifts/copies still use the card flight.
+        if (!this.context.legacyEffectsEnabled) {
+            onArrival?.();
+            return;
+        }
         this.spawnAbilityTransfer(
             from,
             to,
@@ -1643,10 +1648,6 @@ export class CombatVisuals {
         },
         onArrival?: () => void,
     ): void {
-        if (!this.context.legacyEffectsEnabled) {
-            onArrival?.();
-            return;
-        }
         if (Math.hypot(to.x - from.x, to.y - from.y) < 1) {
             onArrival?.();
             return;
@@ -3462,7 +3463,6 @@ export class CombatVisuals {
         return this.poisonTexture;
     }
     public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
-        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
         const tex = this.getPoisonTexture();
@@ -4400,7 +4400,6 @@ export class CombatVisuals {
         });
     }
     public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
-        if (!this.context.legacyEffectsEnabled) return;
         const graphics = new Graphics();
         this.attachEffect(graphics, RESURRECT_BURST_Z);
         this.resurrectBursts.push({

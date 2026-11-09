@@ -137,7 +137,6 @@ test("live combat skips other archived procedural effects before allocating or l
         f.visuals.spawnDeathVfx(info, "target", true);
         f.visuals.spawnFireSweep(pos, { x: 200, y: 300 }, 64);
         f.visuals.spawnFireBurn(pos, 64);
-        f.visuals.spawnPoisonCloud(pos, 64);
         f.visuals.spawnEnchantResult(pos, 64, {
             tint: 0xffffff,
             iconTexture: Texture.WHITE,
@@ -147,18 +146,9 @@ test("live combat skips other archived procedural effects before allocating or l
         f.visuals.spawnSlash(pos, 64);
         f.visuals.spawnBloodSpray(pos, 64);
         f.visuals.spawnClawSlash(pos, 64, 3);
-        f.visuals.spawnResurrectionBurst(pos, 64);
         f.visuals.spawnAreaImpact(pos, 64);
         let arrived = 0;
-        f.visuals.spawnAbilityGift(
-            pos,
-            { x: 200, y: 300 },
-            64,
-            "Double Punch",
-            "gifted",
-            Texture.WHITE,
-            () => arrived++,
-        );
+        f.visuals.spawnAbilitySteal(pos, { x: 200, y: 300 }, 64, "Double Punch", Texture.WHITE, () => arrived++);
         expect(arrived).toBe(1);
         f.visuals.update(1);
         expect(f.root.children).toHaveLength(0);
