@@ -11805,12 +11805,19 @@ export class Sandbox extends PixiScene {
 
         const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const unitName = unit.getName().trim().toLowerCase();
+        // Capture all visual endpoints before the first hit removes a barrel from DungeonVisuals.
+        // The event positions remain logical coordinates for combat and replay reconciliation.
+        const impactPositions = worldPositions.map(
+            (position) =>
+                this.dungeonVisuals?.getObstacleProjectileImpactPoint(position) ??
+                projectBattlefieldPoint(position, gsAnim),
+        );
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
             if (this.isSceneDestroyed()) return;
             this.showRepeatedAttackFlag(unit, shotIndex);
             await this.fireUnitProjectile(unit, {
-                from: unit.getRangedProjectileOrigin(worldPositions[shotIndex], gsAnim),
-                to: worldPositions[shotIndex],
+                from: unit.getRangedProjectileOrigin(impactPositions[shotIndex], gsAnim),
+                to: impactPositions[shotIndex],
                 big,
                 orcAxe: unitName === "orc",
                 arbalesterBolt: unitName === "arbalester",
@@ -11820,11 +11827,12 @@ export class Sandbox extends PixiScene {
                 elfArrow: unitName === "elf",
                 medusaSerpent: unitName === "medusa",
                 cyclopsRock: unitName === "cyclops",
-                cyclopsImpactPosition: unitName === "cyclops" ? worldPositions[shotIndex] : undefined,
+                cyclopsImpactPosition: unitName === "cyclops" ? impactPositions[shotIndex] : undefined,
                 monkOrb: unitName === "monk",
                 tsarCannonball: unitName === "tsar cannon",
+                cannonImpactPosition: unitName === "tsar cannon" ? impactPositions[shotIndex] : undefined,
                 gargantuanRock: unitName === "gargantuan",
-                gargantuanImpactPosition: unitName === "gargantuan" ? worldPositions[shotIndex] : undefined,
+                gargantuanImpactPosition: unitName === "gargantuan" ? impactPositions[shotIndex] : undefined,
             });
             onImpact?.(shotIndex);
         }

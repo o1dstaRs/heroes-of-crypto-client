@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
+import { GridSettings } from "@heroesofcrypto/common";
 
 test.each(["melee", "range"])("%s obstacle attacks show every additional strike and preserve cadence", async (mode) => {
     const events: string[] = [];
@@ -10,7 +11,7 @@ test.each(["melee", "range"])("%s obstacle attacks show every additional strike 
         applyRecoil: () => events.push("attack"),
     };
     const scene = Object.assign(Object.create(Sandbox.prototype), {
-        sc_sceneSettings: { getGridSettings: () => ({ getCellSize: () => 64 }) },
+        sc_sceneSettings: { getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32) },
         isSceneDestroyed: () => false,
         combatVisuals: {
             prepareCommonFlagPop: () => new Promise(() => {}),
@@ -52,7 +53,7 @@ test("Pikeman obstacle attacks start the authored thrust and pass the recorded p
         getAnimationTextureKey: () => "pikeman_attack_atlas",
     };
     const scene = Object.assign(Object.create(Sandbox.prototype), {
-        sc_sceneSettings: { getGridSettings: () => ({ getCellSize: () => 64 }) },
+        sc_sceneSettings: { getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32) },
         isSceneDestroyed: () => false,
         showRepeatedAttackFlag: () => {},
         playUnitCombatSound: () => {},
