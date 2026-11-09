@@ -1,0 +1,317 @@
+{
+  "release": "tavern-concepts-20261023",
+  "assets": [
+    {
+      "file": "01-hearth.webp",
+      "path": "assets/images/home/hero/taverns/01-hearth.webp",
+      "sha256": "0c06c6b3c8808dd60552c9efb8ae7c7ba6a3175f8604123343d3e13c08ce01eb",
+      "bytes": 433172,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "02-grand-hall.webp",
+      "path": "assets/images/home/hero/taverns/02-grand-hall.webp",
+      "sha256": "6e4aaeb20ae663b0d579cc9cefa288d4fe61f539a1880698716f021b17f8e01c",
+      "bytes": 428786,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "03-enchanted-forest.webp",
+      "path": "assets/images/home/hero/taverns/03-enchanted-forest.webp",
+      "sha256": "78eb086ef64f7ea413a3bb0f1f0476f7dfb7e2349cf0660f833210f5f8e8c734",
+      "bytes": 481750,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "04-hearthstone.webp",
+      "path": "assets/images/home/hero/taverns/04-hearthstone.webp",
+      "sha256": "009e33478b56dbdd4897084a5739ac8e3cd9c8cbd5f8823f054fbb183838f9a8",
+      "bytes": 443366,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "05-night-inn.webp",
+      "path": "assets/images/home/hero/taverns/05-night-inn.webp",
+      "sha256": "551fa72607102a85142b0d5498bfdd570fda469fc51b3a20bf4b5b62c0837178",
+      "bytes": 488346,
+      "width": 1672,
+      "height": 940
+    },
+    {
+      "file": "06-moonlit-lodge.webp",
+      "path": "assets/images/home/hero/taverns/06-moonlit-lodge.webp",
+      "sha256": "d20278d6607d89a5a6afbaaad101abd954ad5cd9d2059d8e7ef8239984c47598",
+      "bytes": 366792,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "07-rainy-harbor.webp",
+      "path": "assets/images/home/hero/taverns/07-rainy-harbor.webp",
+      "sha256": "2435de95dffcb799c1999953622aa97a467fbcb22f4be71c9858f78708ae1776",
+      "bytes": 355796,
+      "width": 1672,
+      "height": 940
+    },
+    {
+      "file": "08-stone-cellar.webp",
+      "path": "assets/images/home/hero/taverns/08-stone-cellar.webp",
+      "sha256": "df5ef047f85d02bce67b4b4730d78a13611b1a92249a7a9d3816805df1373308",
+      "bytes": 362552,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "09-twilight-grove.webp",
+      "path": "assets/images/home/hero/taverns/09-twilight-grove.webp",
+      "sha256": "ca2aaff60374df2e0b24b1526a66c0ee9e7266d1ddeefb6d1db9150c9e0582b0",
+      "bytes": 372474,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "10-snowbound-inn.webp",
+      "path": "assets/images/home/hero/taverns/10-snowbound-inn.webp",
+      "sha256": "f7ee87d93adaff3cc4773f6d4d30b0c5d91f95e23d5d01f9df7608a8de98dd82",
+      "bytes": 368080,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "11-roundhouse-teams-v2.webp",
+      "path": "assets/images/home/hero/taverns/11-roundhouse-teams-v2.webp",
+      "sha256": "20e77e9f0ba6589aa4cf8db7048dc6b3c2140a69e6b80d395a03991e2ffb2b7a",
+      "bytes": 442282,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "12-harbor-teams-v2.webp",
+      "path": "assets/images/home/hero/taverns/12-harbor-teams-v2.webp",
+      "sha256": "c9210b41dfdc0f78dc5aed74e696488aca5f902e01144821e855a499663d32a5",
+      "bytes": 467680,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "13-brewery-teams-v2.webp",
+      "path": "assets/images/home/hero/taverns/13-brewery-teams-v2.webp",
+      "sha256": "46f13db7f0b0e1d1a07a0c5013653775c567bf2156b405c122853727a7bb0389",
+      "bytes": 374432,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "14-canopy-teams-v2.webp",
+      "path": "assets/images/home/hero/taverns/14-canopy-teams-v2.webp",
+      "sha256": "390585db16dc71c5fdc16341069409b038f84e800ccf3620265c3a375bcca53c",
+      "bytes": 484644,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "15-astral-teams-v2.webp",
+      "path": "assets/images/home/hero/taverns/15-astral-teams-v2.webp",
+      "sha256": "831f1d0c3a14a8dcd1ab6a02c128e8815778798245cd7140ac2ebea78c8225e0",
+      "bytes": 435978,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "16-timber-guildhall.webp",
+      "path": "assets/images/home/hero/taverns/16-timber-guildhall.webp",
+      "sha256": "b818e454b4921dd92ec04007776c27c63764d1c352e8236c277dd547f5fe2aef",
+      "bytes": 411348,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "17-vaulted-main-v3.webp",
+      "path": "assets/images/home/hero/taverns/17-vaulted-main-v3.webp",
+      "sha256": "c51cccb028890423210d5757940349f66ea7c79435f733eaa252f365142a15e0",
+      "bytes": 459942,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "18-northern-hearth.webp",
+      "path": "assets/images/home/hero/taverns/18-northern-hearth.webp",
+      "sha256": "39339c76fd958cbb70f458973353ec8dcb80d41d01514b93686a2eb6f6181a7c",
+      "bytes": 440446,
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "file": "19-small-hearth.webp",
+      "path": "assets/images/home/hero/taverns/19-small-hearth.webp",
+      "sha256": "293561cf31b63d99e9836c189e5d9a1c5332ade9d47a84d579c2a3bd87072740",
+      "bytes": 416888,
+      "width": 1773,
+      "height": 887
+    },
+    {
+      "file": "20-small-cellar.webp",
+      "path": "assets/images/home/hero/taverns/20-small-cellar.webp",
+      "sha256": "4edb465b6868d7d63af5eabdbd481152d6bbdb5ccab415e98b7064ee04df17ea",
+      "bytes": 416910,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "21-rainy-window-nook.webp",
+      "path": "assets/images/home/hero/taverns/21-rainy-window-nook.webp",
+      "sha256": "902ba29987207355b22fb704f6beb02ff1998f7603ad8aa812484124456503e7",
+      "bytes": 386742,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "22-mountain-snug.webp",
+      "path": "assets/images/home/hero/taverns/22-mountain-snug.webp",
+      "sha256": "a238a03bbbf0dff68be16b77103cb6dbd4a767d3f38519b2414e8ba7b9ed4573",
+      "bytes": 460734,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "23-dockside-snug.webp",
+      "path": "assets/images/home/hero/taverns/23-dockside-snug.webp",
+      "sha256": "64e621b5c6749d73cd70964d2c39640ce5dd1b215b765d70f357521baaedf5a3",
+      "bytes": 449622,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "24-mossroot-oil.webp",
+      "path": "assets/images/home/hero/taverns/24-mossroot-oil.webp",
+      "sha256": "5e712f7a1fd435e21324a3df4f61608925569aa35be7667ad506e81589cffdaa",
+      "bytes": 559764,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "25-blackstone-cinema.webp",
+      "path": "assets/images/home/hero/taverns/25-blackstone-cinema.webp",
+      "sha256": "2cc6b3227d8e70cf726cc32e3554aa53a12ae5bdaa0f06276a56e929cc46183a",
+      "bytes": 588684,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "26-ironbrew-stylized.webp",
+      "path": "assets/images/home/hero/taverns/26-ironbrew-stylized.webp",
+      "sha256": "eb104f6b72ff84eb249a629ffb3790c1a521926465fe1b51ecd0bd28752a3b49",
+      "bytes": 504948,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "27-candlecrypt-gothic.webp",
+      "path": "assets/images/home/hero/taverns/27-candlecrypt-gothic.webp",
+      "sha256": "269b458b70f1c68866bc240fd0971deb2865cd4971ff2af33853311c8a5f09e9",
+      "bytes": 605618,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "28-saffron-caravan.webp",
+      "path": "assets/images/home/hero/taverns/28-saffron-caravan.webp",
+      "sha256": "a6a3b12e61d9c604b2901042a0596e541489eb866a1050b22dabfea444368e90",
+      "bytes": 607816,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "29-tidepool-moon.webp",
+      "path": "assets/images/home/hero/taverns/29-tidepool-moon.webp",
+      "sha256": "d00f77a703120cffe63903556322d9717a40a4514e8fd0a3f5297f4495017ce5",
+      "bytes": 582296,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "30-frostfang-nordic.webp",
+      "path": "assets/images/home/hero/taverns/30-frostfang-nordic.webp",
+      "sha256": "07b56d563f5205fca97766474c556b320c47435929b974225af9cc4c0167a12d",
+      "bytes": 577466,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "31-mushroom-story.webp",
+      "path": "assets/images/home/hero/taverns/31-mushroom-story.webp",
+      "sha256": "fa92f5771eb24c9130f3d9e3202a4b0cd82e953146aac0e8677b893d600b9571",
+      "bytes": 626096,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "32-webbed-velvet.webp",
+      "path": "assets/images/home/hero/taverns/32-webbed-velvet.webp",
+      "sha256": "4a4f6381d65e9bae73ec6c4a3e207dd2607ab54e9a4de3713f87ff10f8caec42",
+      "bytes": 567710,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "33-thunder-roost.webp",
+      "path": "assets/images/home/hero/taverns/33-thunder-roost.webp",
+      "sha256": "f15f54d6e0647006e170528524dda73886d178c4dd6bbba24d853164b94eee06",
+      "bytes": 572984,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "34-emberforge-cinema.webp",
+      "path": "assets/images/home/hero/taverns/34-emberforge-cinema.webp",
+      "sha256": "c48ed083b33f9d9074c66c459854e3567bd19b6e3c532510d374ad385dc0575f",
+      "bytes": 519416,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "35-wyvern-cliff.webp",
+      "path": "assets/images/home/hero/taverns/35-wyvern-cliff.webp",
+      "sha256": "c3746eba8923e85c6253d3b65af4a943bd331af102a1fe36589910d9772e34a4",
+      "bytes": 528206,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "36-silverleaf-artnouveau.webp",
+      "path": "assets/images/home/hero/taverns/36-silverleaf-artnouveau.webp",
+      "sha256": "40a4bb39055505e495dc4e22a17cc60103b1eb661077d67486c89fbf2c2a12ed",
+      "bytes": 629338,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "37-oneeye-hideout.webp",
+      "path": "assets/images/home/hero/taverns/37-oneeye-hideout.webp",
+      "sha256": "62ce29ec7cf1f8c39d529557ea25736cbea307ac9dd7dc2b04b265a26dabeaff",
+      "bytes": 545770,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "38-dragon-embers.webp",
+      "path": "assets/images/home/hero/taverns/38-dragon-embers.webp",
+      "sha256": "4c4d355a6ab0eafa66f969c278675c4f789bebea7e18b810aba101495897663a",
+      "bytes": 586674,
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "file": "39-forge-frost-cliff.webp",
+      "path": "assets/images/home/hero/taverns/39-forge-frost-cliff.webp",
+      "sha256": "55645c43150fcb9044d18b5d0ffc0c9eb3551788035a784be8ce7121f1c9d893",
+      "bytes": 535610,
+      "width": 1774,
+      "height": 887
+    }
+  ]
+}

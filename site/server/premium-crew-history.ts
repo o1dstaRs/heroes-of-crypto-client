@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { PremiumEvidenceSnapshot } from "@heroesofcrypto/common/src/simulation/premium_evidence_snapshot";
+import { PremiumObservationIndex } from "./premium-observation-index";
 import { PREMIUM_COHORTS, type PremiumCatalog, type PremiumRow } from "../src/lib/premium-library";
 import { premiumCatalog } from "../src/lib/premium-catalog";
 import { premiumCrewArtifactBenefit } from "../src/lib/premium-crew";
@@ -24,7 +25,7 @@ const levels = [1, 1, 2, 2, 3, 4];
 
 /** Read-only observed battle results. Mirrored seats are averaged within each independent family. */
 export class PremiumCrewHistoryStore {
-    private readonly snapshot: PremiumEvidenceSnapshot;
+    private readonly snapshot: { manifest: { snapshotId: string; sourceSha256: string }; close(): void };
     private readonly db: Database;
     readonly catalog: PremiumCatalog = premiumCatalog("en");
     private readonly scopes = new Map<string, Army[]>();
@@ -33,8 +34,15 @@ export class PremiumCrewHistoryStore {
         return this.snapshot.manifest;
     }
 
-    constructor(path: string, sourceSha256: string, allowDevelopment = false) {
-        this.snapshot = new PremiumEvidenceSnapshot(path, sourceSha256, { allowDevelopment });
+    constructor(
+        path: string,
+        sourceSha256: string,
+        allowDevelopment = false,
+        options: { observationIndex?: boolean } = {},
+    ) {
+        this.snapshot = options.observationIndex
+            ? new PremiumObservationIndex(path, sourceSha256, allowDevelopment)
+            : new PremiumEvidenceSnapshot(path, sourceSha256, { allowDevelopment });
         this.db = new Database(path, { readonly: true, strict: true });
         this.db.exec("PRAGMA query_only=ON");
     }

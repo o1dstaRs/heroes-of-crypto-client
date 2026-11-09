@@ -8,6 +8,7 @@ export type Language = (typeof supportedLanguages)[number];
 
 export const pageSlugs = [
     "game",
+    "top",
     "knowledge-base",
     "patches",
     "faq",
@@ -75,6 +76,7 @@ export const content = {
         },
         nav: {
             game: "Game",
+            top: "Top",
             knowledgeBase: "Knowledge Base",
             rules: "Rules",
             news: "News",
@@ -413,6 +415,11 @@ export const content = {
                 description:
                     "Free-to-play tactical battles with factions, spells, abilities, and community-shaped development.",
             },
+            top: {
+                title: "Top Players",
+                eyebrow: "Ranked arena",
+                description: "Explore the live Heroes of Crypto leaderboard, ranked players, matches, and leagues.",
+            },
             "knowledge-base": {
                 title: "Heroes of Crypto Knowledge Base",
                 eyebrow: "Rules and game data",
@@ -522,7 +529,7 @@ export const content = {
                 {
                     title: "Swing the fight",
                     description:
-                        "75+ spells, abilities, and aura effects can flip the board when you read the moment correctly.",
+                        "100+ spells, abilities, and aura effects can flip the board when you read the moment correctly.",
                     icon: "/assets/icons/home/decentralized.svg",
                 },
             ],
@@ -1118,6 +1125,7 @@ export const content = {
         },
         nav: {
             game: "Игра",
+            top: "Top",
             knowledgeBase: "База знаний",
             rules: "Правила",
             news: "Новости",
@@ -1457,6 +1465,11 @@ export const content = {
                 description:
                     "Бесплатные тактические бои с фракциями, заклинаниями, способностями и развитием вместе с сообществом.",
             },
+            top: {
+                title: "Лучшие игроки",
+                eyebrow: "Рейтинговая арена",
+                description: "Актуальный рейтинг игроков Heroes of Crypto, матчи и лиги.",
+            },
             "knowledge-base": {
                 title: "База знаний Heroes of Crypto",
                 eyebrow: "Правила и игровые данные",
@@ -1569,7 +1582,7 @@ export const content = {
                 {
                     title: "Переверните бой",
                     description:
-                        "75+ заклинаний, способностей и аур могут изменить всю партию, если вы правильно прочитали момент.",
+                        "100+ заклинаний, способностей и аур могут изменить всю партию, если вы правильно прочитали момент.",
                     icon: "/assets/icons/home/decentralized.svg",
                 },
             ],
