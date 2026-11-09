@@ -97,7 +97,7 @@ test.each([
     expect(f.calls).toEqual([`preload:${kind}`, `spawn:${kind}`]);
 });
 
-test("dedicated passive, healing, resurrection, and damage badges also stay out of combat", async () => {
+test("other dedicated passive, healing, resurrection, and damage badges stay out of combat", async () => {
     const grid = mock(() => {
         throw new Error("A suppressed badge must not allocate a layer or read the board");
     });
@@ -108,7 +108,6 @@ test("dedicated passive, healing, resurrection, and damage badges also stay out 
     visuals.spawnHealCross(unit);
     visuals.spawnCrusadePop(unit);
     visuals.spawnUnyieldingPowerPop(unit);
-    visuals.spawnMagicReflectionPop(unit);
     visuals.spawnAngelResurrectionPop(unit);
     visuals.spawnDevourEssencePop(unit);
     visuals.preparePetrifyingGazePop();

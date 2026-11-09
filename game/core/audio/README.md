@@ -174,29 +174,43 @@ long steel sword as shown in both inspected creature images.
 
 The user-selected Uppbeat recordings below replace only their listed unit/role. Originals stay
 under `tmp/audio/raw/provided/<hash>/`, with filenames, embedded artist/title metadata, SHA-256,
-and explicit selections in the overrides and provenance. No generation credit is used. Their
+and explicit selections in the overrides and provenance. No generation credit is used.
 Selections preserve speed and pitch and use the normal 3 ms attack / 20 ms release fades before
 loudness and codec checks. Excerpts also record their exact original bounds and the original and
 excerpt hashes, so later mastering uses the same selected event.
 
-| Unit / role                           | Provided recording                                                                                  |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Nomad attack                          | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                       |
-| Squire attack                         | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                            |
-| Berserker attack                      | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                              |
-| Champion attack                       | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`                                             |
-| Healer hurt                           | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                              |
-| Champion hurt                         | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                      |
-| Zena attack                           | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                     |
-| Angel attack                          | `sword-swish-smartsound-fx-1-00-01.mp3`                                                             |
-| Blacksmith attack                     | `sword-impacting-flesh-gamemaster-audio-1-00-00.mp3`                                                |
-| Troll attack                          | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                              |
-| Dryad hurt                            | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                       |
-| White Tiger attack                    | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                        |
-| Thunderbird hurt                      | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                    |
-| Unicorn hurt                          | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`   |
-| Hydra attack                          | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3` |
-| Champion, Unicorn, Nightmare movement | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                  |
+| Unit / role                            | Provided recording                                                                                          |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Abomination hurt                       | `wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3`        |
+| Valkyrie attack                        | `crowbar-swing-attack-joshua-chivers-1-00-00.mp3`                                                           |
+| Tsar Cannon attack                     | `cannon-fired-gamemaster-audio-4-4-00-01.mp3`                                                               |
+| Mantis attack                          | `combat-bloody-hit-epic-stock-media-1-00-00.mp3`                                                            |
+| Mermaid attack                         | `underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3`                                                       |
+| Elf attack                             | `punch-block-hit-gfx-sounds-1-00-00.mp3`                                                                    |
+| Black Dragon attack                    | `dragon-breathing-fire-gregor-quendel-1-00-03.mp3`                                                          |
+| Nomad attack                           | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                               |
+| Squire attack                          | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                                    |
+| Berserker attack                       | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                                      |
+| Champion attack                        | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`                                                     |
+| Healer hurt                            | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                                      |
+| Champion hurt                          | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                              |
+| Zena attack                            | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                             |
+| Angel attack                           | `sword-swish-smartsound-fx-1-00-01.mp3`                                                                     |
+| Blacksmith attack                      | `sword-impacting-flesh-gamemaster-audio-1-00-00.mp3`                                                        |
+| Troll attack                           | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                                      |
+| Dryad hurt                             | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                               |
+| Arachna Queen attack                   | `spider-monster-angry-screech-epic-stock-media-1-00-01.mp3`                                                 |
+| Arachna Queen hurt                     | `spider-monster-scream-epic-stock-media-1-00-00.mp3`                                                        |
+| White Tiger attack                     | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                                |
+| Thunderbird hurt                       | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                            |
+| Unicorn hurt                           | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`           |
+| Hydra attack                           | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3`         |
+| Champion, Unicorn, Nightmare movement  | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                          |
+| Arachna Queen, Arachna Spider movement | 0.850–2.270 s of `insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3` |
+
+Abomination’s longer hurt recording is cropped to a 1.55-second event with a 40 ms tail fade.
+Black Dragon’s fire breath uses a 1.59-second event with a 20 ms tail fade. Exact crop bounds
+are recorded in provenance, and both originals stay intact.
 
 Each combat strike triggers its own attack cue. The Berserker regression in
 `CombatExchangePlayback.test.ts` passes the recorded two-hit plan through the actual sound player
@@ -242,10 +256,11 @@ damage numbers. A missed attack has no hurt reaction. Casters play their unit's 
 successful cast starts. Bow/cannon creatures use an appropriate existing weapon sound when
 fighting in melee.
 
-Movement playback belongs to `MoveAnimationManager`: a single gallop loop follows the whole route,
+Movement playback belongs to `MoveAnimationManager`: a single movement loop follows the whole route,
 including corners, and stops on arrival, cancellation, forced completion, or scene teardown.
 It fades in over 20 ms and out over 30 ms at 65% of the combat cue gain. Mute stops active loops;
 a decoded recording cannot start after the move has ended. Swaps and carried units do not trigger
-hoofbeats. Only Champion, Unicorn, and Nightmare currently have movement recordings; the remaining
-slots stay silent, and movement generation is disabled in the review page. Selected movement
+movement sounds. Champion, Unicorn, Nightmare, Arachna Queen, and Arachna Spider currently have
+movement recordings; the remaining slots stay silent, and movement generation is disabled in the
+review page. Selected movement
 overrides survive full mastering runs alongside attack and hurt cues.

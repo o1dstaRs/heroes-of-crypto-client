@@ -128,7 +128,7 @@ test("live combat suppresses static buff icons and duplicate lucky/resist captio
     }
 });
 
-test("live combat skips archived procedural effects before allocating or loading textures", () => {
+test("live combat skips other archived procedural effects before allocating or loading textures", () => {
     const f = fixture(false);
     const pos = { x: 120, y: 300 };
     const info = { texture: Texture.WHITE, x: 120, y: 300, scaleX: 1, scaleY: -1 };
@@ -144,7 +144,6 @@ test("live combat skips archived procedural effects before allocating or loading
             label: "Double Punch",
             success: true,
         });
-        f.visuals.spawnMagicMirrorRebound(pos, { x: 200, y: 300 }, 64);
         f.visuals.spawnSlash(pos, 64);
         f.visuals.spawnBloodSpray(pos, 64);
         f.visuals.spawnClawSlash(pos, 64, 3);

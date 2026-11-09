@@ -1312,8 +1312,8 @@ export class CombatVisuals {
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public spawnMagicReflectionPop(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
-        if (presentation !== "preview") return;
+    public spawnMagicReflectionPop(unit: RenderableUnit, _presentation: FlagPopPresentation = "combat"): void {
+        // INTENDED main parity: confirmed reflections keep their causal trigger cue in live combat.
         const gs = this.context.getGridSettings();
         const id = unit.getId();
         this.magicReflectionPops ??= new MagicReflectionPops(this.attachFlagOverlay);
@@ -3931,7 +3931,7 @@ export class CombatVisuals {
         void this.whirlpoolSprites.spawn(footprint);
     }
     public spawnMagicMirrorRebound(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
-        if (!this.context.legacyEffectsEnabled) return;
+        // INTENDED main parity: show whose mirror returned the spell without enabling other archived VFX.
         const container = new Container();
         this.attachEffect(container, MIRROR_Z);
         const pane = new Graphics();
