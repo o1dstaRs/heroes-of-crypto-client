@@ -11374,7 +11374,9 @@ export class Sandbox extends PixiScene {
                 const showSpellHit = () => {
                     if (spellHitShown || this.isSceneDestroyed()) return;
                     spellHitShown = true;
-                    presentCasualties?.();
+                    // A damage label presents its captured casualties itself. Only a fully absorbed
+                    // hit has no label, so release its shield here without subtracting casualties twice.
+                    if (hit.amount <= 0) presentCasualties?.();
                     if (isFireStrike) {
                         this.showShieldAbsorbs(
                             arrowAbsorbs.filter((absorb) => absorb.unitId === hit.unitId),

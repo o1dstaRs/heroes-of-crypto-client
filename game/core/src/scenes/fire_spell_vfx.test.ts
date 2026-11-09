@@ -211,6 +211,8 @@ test.each([0, 8])("Fire Strike shield absorption waits for contact with %s prima
             contact = args[5] as () => void;
             return 600;
         },
+        // Match CombatVisuals: the damage label owns presentation of its captured casualties.
+        showFloatingDamage: mock<CombatVisuals["showFloatingDamage"]>((...args) => args[9]?.()),
     });
     const origin = { x: 40, y: 80 };
     const present = mock(() => undefined);
