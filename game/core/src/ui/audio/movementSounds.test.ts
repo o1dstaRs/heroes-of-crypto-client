@@ -2,13 +2,15 @@ import { expect, test } from "bun:test";
 import { createCombatSoundPlayer, resolveCombatSound } from "./combatSounds";
 import manifest from "./combatSoundManifest.json";
 
-test("only the three selected horses have movement recordings", () => {
+test("movement recordings are limited to the selected horses and spiders", () => {
     expect(
         Object.keys(manifest)
             .filter((name) => resolveCombatSound(name, "move"))
             .sort(),
-    ).toEqual(["Champion", "Nightmare", "Unicorn"]);
+    ).toEqual(["Arachna Queen", "Arachna Spider", "Champion", "Nightmare", "Unicorn"]);
     expect(resolveCombatSound("Champion", "move", true)?.webm).toContain("champion_move.webm");
+    expect(resolveCombatSound("Arachna Queen", "move")?.webm).toContain("arachna-queen_move.webm");
+    expect(resolveCombatSound("Arachna Spider", "move")?.webm).toContain("arachna-spider_move.webm");
     expect(resolveCombatSound("Skeleton", "move")).toBeUndefined();
 });
 

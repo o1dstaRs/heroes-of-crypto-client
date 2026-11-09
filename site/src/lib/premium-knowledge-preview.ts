@@ -141,8 +141,10 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
             : localCatalog && renderPremiumCatalogPreview(reference, localCatalog, lang);
         if (local) {
             const appliesTo = link.getAttribute("data-premium-applies-to");
+            const note = link.getAttribute("data-premium-reference-note");
             card.innerHTML =
                 local +
+                (note ? `<p class="premium-reference-applies">${e(note)}</p>` : "") +
                 (appliesTo
                     ? `<p class="premium-reference-applies"><strong>${lang === "ru" ? "В вашей армии" : "In your crew"}</strong><br>${e(appliesTo)}</p>`
                     : "");
@@ -189,6 +191,11 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
         if (link) void show(link);
     });
     root.addEventListener("focusout", scheduleClose);
+    root.addEventListener("click", (event) => {
+        const editingCrew =
+            event.target instanceof Element && event.target.closest("[data-crew-slot], [data-crew-roster-pick]");
+        if (anchor && (!anchor.isConnected || editingCrew)) hide();
+    });
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") hide();
     });

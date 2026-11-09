@@ -1,20 +1,9 @@
 import { getAuthToken } from "./auth-state";
-import { portraitMarkup } from "./portrait";
-import { premiumCrewFactionSlot, rankPremiumCrewPicks } from "./premium-crew-picks";
-import {
-    escapePremiumHtml as e,
-    premiumPercent as pct,
-    type PremiumCatalog,
-    type PremiumLibraryResponse,
-} from "./premium-library";
-import {
-    CREW_LEVELS,
-    crewRole,
-    premiumCrewSlots,
-    renderPremiumCrew,
-    samplePremiumCrew,
-    type CrewLayout,
-} from "./premium-crew";
+import { premiumCrewFactionSlot } from "./premium-crew-picks";
+import { renderPremiumCrewRoster } from "./premium-crew-roster";
+import { validCrewHistory, type PremiumCrewHistory } from "./premium-crew-history";
+import { premiumPercent as pct, type PremiumCatalog, type PremiumLibraryResponse } from "./premium-library";
+import { CREW_LEVELS, premiumCrewSlots, renderPremiumCrew, samplePremiumCrew, type CrewLayout } from "./premium-crew";
 import {
     PREMIUM_CREW_STORAGE_KEY,
     readPremiumCrewDraft,
@@ -42,10 +31,12 @@ export function initPremiumCrew(
         layout: CrewLayout = saved.layout,
         battlefield: CrewBattlefield = saved.battlefield,
         slot = 0;
-    let advance = false;
+    let faction: string | undefined;
     let initialized = false;
-    let focusAfterClose: "slot" | "unit" | "board" | "none" = "slot";
     let controller: AbortController | undefined;
+    let historyController: AbortController | undefined;
+    let history: PremiumCrewHistory | undefined;
+    const historyCache = new Map<string, PremiumCrewHistory>();
     const evidenceCache = new Map<string, { families: number; score: number | null }>();
     const draft = () => ({ version: 1 as const, ids: [...ids], layout, battlefield });
     const persist = () => {
@@ -58,81 +49,32 @@ export function initPremiumCrew(
         if (current.searchParams.has("crew")) {
             const updated = new URL(premiumCrewShareUrl(current, draft()));
             updated.hash = current.hash;
-            history.replaceState(null, "", updated.href);
+            window.history.replaceState(null, "", updated.href);
         }
     };
-    const picker = document.createElement("dialog");
-    picker.className = "premium-crew-picker";
-    picker.setAttribute("aria-labelledby", "premium-crew-picker-title");
-    picker.innerHTML = `<header><div><p class="premium-eyebrow" data-crew-progress></p><h2 id="premium-crew-picker-title" aria-live="polite"></h2></div><button type="button" class="premium-crew-close" data-crew-close aria-label="${t("Close unit picker", "Закрыть выбор юнита")}">×</button></header><label class="premium-search"><span class="sr-only">${t("Search crew units", "Поиск юнитов для армии")}</span><input type="search" data-crew-search placeholder="${t("Search a unit or faction…", "Юнит или фракция…")}" /></label><p class="premium-crew-sort"></p><div data-crew-choices class="premium-crew-choices"></div>`;
-    root.append(picker);
-    const search = picker.querySelector<HTMLInputElement>("[data-crew-search]")!;
     const announce = (message: string) => {
         const status = root.querySelector<HTMLElement>(".premium-crew-toolbar [role=status]");
         if (status) status.textContent = message;
     };
-    const choices = () => {
-        picker.querySelector(".premium-crew-sort")!.textContent = getData()?.library
-            ? t(
-                  "Crew fit and recorded battles · faction bonuses, roles and artifacts",
-                  "По составу и записанным боям · бонусы фракций, роли и артефакты",
-              )
-            : t(
-                  "Crew fit first · faction bonuses, roles and artifacts · hover for abilities",
-                  "По составу · бонусы фракций, роли и артефакты · способности при наведении",
-              );
-        const visible = rankPremiumCrewPicks(ids, slot, catalog, getData()?.library, lang)
-            .filter(({ id }) => {
-                const item = catalog.units[id];
-                return `${item.name} ${item.faction}`.toLowerCase().includes(search.value.trim().toLowerCase());
-            })
-            .map((pick, index) => ({ ...pick, rank: index + 1 }));
-        picker.querySelector<HTMLElement>("[data-crew-choices]")!.innerHTML =
-            visible
-                .map((pick) => {
-                    const { id, evidence: row, selected } = pick;
-                    const item = catalog.units[id];
-                    const signals = selected
-                        ? ""
-                        : pick.signals
-                              .slice(0, 2)
-                              .map(
-                                  (signal) =>
-                                      `<span class="premium-crew-fit ${signal.kind === "lost-synergy" ? "premium-crew-fit-loss" : ""}" ${signal.detail ? `data-premium-help-title="${e(signal.text)}" data-premium-help="${e(signal.detail)}"` : ""}>${signal.faction ? `<img src="/assets/images/units/factions/${signal.faction.toLowerCase()}_128.webp" alt="" width="16" height="16" />` : ""}${e(signal.text)}</span>`,
-                              )
-                              .join("");
-                    const artifacts = selected
-                        ? ""
-                        : pick.artifacts
-                              .map(
-                                  ({ item, tier, benefit }) =>
-                                      `<img src="${e(item.icon)}" alt="${e(item.name)}" width="24" height="24" data-premium-help-title="${e(item.name)}" data-premium-help="${e(t(`Tier ${tier} for this crew. `, `Уровень ${tier} для состава. `) + item.description + " · " + benefit.label + ": " + benefit.names.join(", "))}" />`,
-                              )
-                              .join("");
-                    return `<button type="button" data-crew-pick="${id}" data-knowledge-reference="${e(item.anchor)}" ${selected ? "disabled" : ""}>${portraitMarkup(item.slug, item.name, { className: "premium-portrait" })}<span class="premium-crew-choice-copy"><strong>${e(item.name)}</strong><small>${e(item.faction)} · ${crewRole(item.kit?.role, lang)}</small>${signals ? `<span class="premium-crew-fit-signals">${signals}</span>` : ""}${artifacts ? `<span class="premium-crew-choice-artifacts" aria-label="${t("Artifacts after this pick", "Артефакты после выбора")}">${artifacts}</span>` : ""}</span><span class="premium-crew-choice-score">${selected ? (pick.current ? t("Current", "Сейчас") : t("Picked", "В армии")) : `#${pick.rank}`}<small title="${row ? e(t(`${row.families} recorded battle pairs; historical score, not a win prediction`, `${row.families} записанных пар боёв; история, не прогноз победы`)) : ""}">${row && row.families >= 50 ? `${pct(row.score)} ${t("recorded", "в боях")}` : selected ? "" : t("crew fit", "по составу")}</small></span></button>`;
-                })
-                .join("") || `<p class="premium-empty">${t("No matching units.", "Нет подходящих юнитов.")}</p>`;
+    const refreshRoster = () => {
+        const roster = root.querySelector<HTMLElement>("[data-crew-roster]");
+        if (!roster) return;
+        roster.innerHTML = renderPremiumCrewRoster(ids, slot, catalog, getData()?.library, lang, faction, history);
+        root.querySelectorAll<HTMLButtonElement>("[data-crew-slot]").forEach((button) => {
+            const active = Number(button.dataset.crewSlot) === slot;
+            button.setAttribute("aria-pressed", String(active));
+            button.closest(".premium-crew-slot")?.classList.toggle("premium-crew-slot-active", active);
+        });
     };
-    const open = (index: number, continuePicking = false, fromBoard = false) => {
+    const selectSlot = (index: number, scroll = false) => {
         if (!Number.isInteger(index) || index < 0 || index >= CREW_LEVELS.length) return;
         slot = index;
-        advance = continuePicking;
-        focusAfterClose = fromBoard ? "unit" : "slot";
-        search.value = "";
-        picker.querySelector("[data-crew-progress]")!.textContent = t(
-            `${ids.length} / 6 PICKED`,
-            `ВЫБРАНО ${ids.length} / 6`,
-        );
-        picker.querySelector("h2")!.textContent = t(
-            `Choose a level ${CREW_LEVELS[slot]} unit`,
-            `Выберите юнита ${CREW_LEVELS[slot]} уровня`,
-        );
-        choices();
-        if (!picker.open) picker.showModal();
-        search.focus();
+        refreshRoster();
+        if (scroll)
+            root.querySelector(".premium-crew-roster-heading")?.scrollIntoView({ block: "start", behavior: "smooth" });
     };
     const renderEvidence = (box: HTMLElement, packet: { families: number; score: number | null }) => {
-        box.innerHTML = `<details class="premium-crew-notes"><summary>${packet.families ? t(`${packet.families} recorded battle ${packet.families === 1 ? "pair" : "pairs"}`, `Записанных пар боёв: ${packet.families}`) : t("This crew has no recorded battles yet", "Этот состав ещё не встречался в записях")}</summary><p>${packet.families >= 50 && packet.score !== null ? `${pct(packet.score)} ${t("historical battle score for this exact crew.", "исторический результат точного состава.")}` : t("The formation and artifact suggestions use current game rules. More battles are needed to compare this exact crew’s performance.", "Расстановка и артефакты подобраны по текущим правилам. Для сравнения результатов точного состава нужно больше боёв.")}</p></details>`;
+        box.innerHTML = `<details class="premium-crew-notes"><summary>${packet.families ? t(`${packet.families} recorded battle ${packet.families === 1 ? "pair" : "pairs"}`, `Записанных пар боёв: ${packet.families}`) : t("This crew has no recorded battles yet", "Этот состав ещё не встречался в записях")}</summary><p>${packet.families >= 50 && packet.score !== null ? `${pct(packet.score)} ${t("historical battle score for this exact crew.", "исторический результат точного состава.")}` : t("More battles are needed to compare this exact crew’s performance. Each unit’s hover shows the population used for its recorded score.", "Для сравнения результатов точного состава нужно больше боёв. При наведении на юнита указана выборка для его результата.")}</p></details>`;
     };
     const checkEvidence = async () => {
         controller?.abort();
@@ -190,14 +132,77 @@ export function initPremiumCrew(
                 );
         }
     };
-    const refresh = () => {
+    const expectedHistory = () => {
+        const data = getData();
+        return data?.snapshot && data.library
+            ? {
+                  snapshotId: data.snapshot.snapshotId,
+                  sourceSha256: data.snapshot.sourceSha256,
+                  cohort: data.library.scope.cohort,
+                  map: String(data.library.scope.map ?? "all"),
+                  ownUnits: [...ids],
+              }
+            : undefined;
+    };
+    const checkHistory = async () => {
+        historyController?.abort();
+        const expected = expectedHistory(),
+            token = getAuthToken();
+        if (!expected || !token) return;
+        const key = token + JSON.stringify(expected);
+        const cached = historyCache.get(key);
+        if (cached) {
+            if (history !== cached) {
+                history = cached;
+                refresh(false);
+            }
+            return;
+        }
+        const current = new AbortController();
+        historyController = current;
+        const params = new URLSearchParams({
+            snapshot: expected.snapshotId,
+            cohort: expected.cohort,
+            map: expected.map,
+            units: expected.ownUnits.join(","),
+        });
+        try {
+            const response = await fetch(`${evidenceUrl()}/picks?${params}`, {
+                headers: { Authorization: token, Accept: "application/json" },
+                cache: "no-store",
+                signal: AbortSignal.any([current.signal, AbortSignal.timeout(8000)]),
+            });
+            if (!response.ok) return;
+            const value: unknown = await response.json();
+            if (
+                current.signal.aborted ||
+                JSON.stringify(expectedHistory()) !== JSON.stringify(expected) ||
+                getAuthToken() !== token ||
+                !validCrewHistory(value, expected, catalog)
+            )
+                return;
+            if (historyCache.size >= 32) historyCache.delete(historyCache.keys().next().value!);
+            historyCache.set(key, value);
+            history = value;
+            refresh(false);
+        } catch {
+            /* Unit-level SQLite library results remain visible when co-play history is unavailable. */
+        }
+    };
+    const refresh = (loadHistory = true) => {
         const target = root.querySelector<HTMLElement>("[data-crew-content]");
         if (!target) return;
+        const focused = target.querySelector<HTMLButtonElement>(
+            "[data-crew-roster-pick]:focus-visible, .premium-crew-slots [data-crew-slot]:focus-visible",
+        );
+        const scrollToCrew = !initialized && location.hash === "#premium-crew";
         if (!initialized) {
             ids = samplePremiumCrew(getData()?.library, catalog, ids);
             initialized = true;
         }
         if (getData()?.library) battlefield = String(getData()!.library!.scope.map ?? "all") as CrewBattlefield;
+        const expected = expectedHistory();
+        if (!expected || !validCrewHistory(history, expected, catalog)) history = undefined;
         target.innerHTML = renderPremiumCrew(
             ids,
             catalog,
@@ -205,9 +210,20 @@ export function initPremiumCrew(
             layout,
             battlefield === "all" ? 1 : Number(battlefield),
             !!getData()?.library,
+            getData()?.library,
+            history,
         );
+        refreshRoster();
+        if (focused) {
+            const selector = focused.hasAttribute("data-crew-roster-pick")
+                ? `[data-crew-roster-pick="${focused.dataset.crewRosterPick}"]`
+                : `.premium-crew-slots [data-crew-slot="${focused.dataset.crewSlot}"]`;
+            target.querySelector<HTMLButtonElement>(selector)?.focus({ preventScroll: true });
+        }
         persist();
         void checkEvidence();
+        if (loadHistory) void checkHistory();
+        if (scrollToCrew) target.closest("#premium-crew")?.scrollIntoView({ block: "start" });
     };
     const setCrew = (next: number[]) => {
         ids = normalizePremiumCrewDraft({ ...draft(), ids: next }, catalog).ids;
@@ -216,46 +232,73 @@ export function initPremiumCrew(
     root.addEventListener("click", (event) => {
         const button = (event.target as Element).closest<HTMLButtonElement>("button");
         if (!button) return;
-        if (button.hasAttribute("data-crew-close")) picker.close();
         if (button.hasAttribute("data-crew-slot")) {
-            const index = Number(button.dataset.crewSlot);
-            open(
-                index,
-                premiumCrewSlots(ids, catalog)[index] === undefined,
-                button.classList.contains("premium-crew-token"),
-            );
+            faction = undefined;
+            selectSlot(Number(button.dataset.crewSlot), button.classList.contains("premium-crew-token"));
         }
-        if (button.hasAttribute("data-crew-remove")) {
-            const id = premiumCrewSlots(ids, catalog)[Number(button.dataset.crewRemove)];
-            setCrew(ids.filter((value) => value !== id));
-            root.querySelector<HTMLButtonElement>(`[data-crew-slot="${button.dataset.crewRemove}"]`)?.focus();
-        }
-        if (button.hasAttribute("data-crew-pick")) {
-            const id = Number(button.dataset.crewPick);
-            if (ids.includes(id) || catalog.units[id]?.level !== CREW_LEVELS[slot]) return;
-            const slots = premiumCrewSlots(ids, catalog);
-            const fillingEmpty = slots[slot] === undefined;
-            slots[slot] = id;
-            setCrew(slots.filter((value): value is number => value !== undefined));
-            const next = premiumCrewSlots(ids, catalog).findIndex((value) => value === undefined);
-            if (advance && fillingEmpty && next >= 0) open(next, true);
-            else {
-                if (advance && fillingEmpty) focusAfterClose = "board";
-                picker.close();
+        if (button.hasAttribute("data-crew-remove") || button.hasAttribute("data-crew-roster-pick")) {
+            const id = button.hasAttribute("data-crew-remove")
+                ? premiumCrewSlots(ids, catalog)[Number(button.dataset.crewRemove)]
+                : Number(button.dataset.crewRosterPick);
+            const item = id === undefined ? undefined : catalog.units[id];
+            if (!item?.kit?.amount || id === undefined) return;
+            faction = undefined;
+            if (ids.includes(id)) {
+                const remaining = ids.filter((value) => value !== id);
+                slot = premiumCrewSlots(remaining, catalog).findIndex(
+                    (value, index) => value === undefined && CREW_LEVELS[index] === item.level,
+                );
+                setCrew(remaining);
+                announce(
+                    t(
+                        `${item.name} removed · ${ids.length} / 6 units`,
+                        `${item.name} убран · ${ids.length} / 6 юнитов`,
+                    ),
+                );
+            } else {
+                const target = Number(button.dataset.crewTargetSlot);
+                if (
+                    !Number.isInteger(target) ||
+                    target < 0 ||
+                    target >= CREW_LEVELS.length ||
+                    CREW_LEVELS[target] !== item.level
+                )
+                    return;
+                const slots = premiumCrewSlots(ids, catalog);
+                const fillingEmpty = slots[target] === undefined;
+                slots[target] = id;
+                const next = slots.findIndex((value) => value === undefined);
+                slot = fillingEmpty && next >= 0 ? next : (target + 1) % CREW_LEVELS.length;
+                setCrew(slots.filter((value): value is number => value !== undefined));
+                announce(
+                    t(
+                        `${item.name} picked · ${ids.length} / 6 units`,
+                        `${item.name} выбран · ${ids.length} / 6 юнитов`,
+                    ),
+                );
             }
+            if (event.detail === 0)
+                root.querySelector<HTMLButtonElement>(".premium-crew-suggestion-1")?.focus({ preventScroll: true });
         }
-        if (button.hasAttribute("data-crew-sample") && getData()?.library)
+        if (button.hasAttribute("data-crew-sample") && getData()?.library) {
+            faction = undefined;
+            slot = 0;
             setCrew(samplePremiumCrew(getData()!.library!, catalog));
+        }
         if (button.hasAttribute("data-crew-faction")) {
-            const faction = button.dataset.crewFaction!;
-            const next = premiumCrewFactionSlot(ids, faction, catalog, getData()?.library);
+            faction = button.dataset.crewFaction!;
+            const next = premiumCrewFactionSlot(ids, faction, catalog, getData()?.library, history);
             if (next === undefined)
                 return announce(t("No legal pick for this bonus", "Нет доступного выбора для бонуса"));
-            open(next);
-            search.value = faction;
-            choices();
+            selectSlot(next, true);
+        }
+        if (button.hasAttribute("data-crew-roster-all")) {
+            faction = undefined;
+            refreshRoster();
         }
         if (button.hasAttribute("data-crew-clear")) {
+            faction = undefined;
+            slot = 0;
             setCrew([]);
             root.querySelector<HTMLButtonElement>("[data-crew-slot]")?.focus();
         }
@@ -294,18 +337,6 @@ export function initPremiumCrew(
             root.querySelector("#premium-crew")?.scrollIntoView({ block: "start", behavior: "smooth" });
         }
     });
-    search.addEventListener("input", choices);
-    picker.addEventListener("close", () => {
-        if (focusAfterClose === "board") {
-            const board = root.querySelector<HTMLElement>(".premium-crew-board");
-            board?.setAttribute("tabindex", "-1");
-            board?.focus({ preventScroll: true });
-            board?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        } else if (focusAfterClose === "slot" || focusAfterClose === "unit")
-            root.querySelector<HTMLButtonElement>(
-                `${focusAfterClose === "unit" ? ".premium-crew-token" : ""}[data-crew-slot="${slot}"]`,
-            )?.focus({ preventScroll: true });
-    });
     root.addEventListener("change", (event) => {
         const target = event.target as HTMLSelectElement;
         if (!target.matches("[data-crew-layout]")) return;
@@ -318,8 +349,8 @@ export function initPremiumCrew(
         refresh,
         suspend() {
             controller?.abort();
-            focusAfterClose = "none";
-            if (picker.open) picker.close();
+            historyController?.abort();
+            history = undefined;
         },
     };
 }

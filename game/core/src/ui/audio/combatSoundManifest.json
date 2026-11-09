@@ -57,8 +57,8 @@
     "Valkyrie": {
         "slug": "valkyrie",
         "attack": {
-            "durationMs": 735,
-            "revision": "1c853eb754"
+            "durationMs": 359,
+            "revision": "cd579a6f55"
         },
         "hurt": {
             "durationMs": 700,
@@ -123,8 +123,8 @@
     "Tsar Cannon": {
         "slug": "tsar-cannon",
         "attack": {
-            "durationMs": 530,
-            "revision": "8a238c58fb"
+            "durationMs": 685,
+            "revision": "18f1a89d93"
         },
         "hurt": {
             "durationMs": 380,
@@ -215,8 +215,8 @@
     "Elf": {
         "slug": "elf",
         "attack": {
-            "durationMs": 369,
-            "revision": "6c217a5e2e"
+            "durationMs": 134,
+            "revision": "031f27fdac"
         },
         "hurt": {
             "durationMs": 500,
@@ -263,8 +263,8 @@
     "Mantis": {
         "slug": "mantis",
         "attack": {
-            "durationMs": 475,
-            "revision": "6c0fd554fb"
+            "durationMs": 536,
+            "revision": "fcc501ebd4"
         },
         "hurt": {
             "durationMs": 650,
@@ -329,12 +329,16 @@
     "Arachna Queen": {
         "slug": "arachna-queen",
         "attack": {
-            "durationMs": 915,
-            "revision": "7170b51072"
+            "durationMs": 979,
+            "revision": "08938eb799"
         },
         "hurt": {
-            "durationMs": 685,
-            "revision": "c0d0bd3153"
+            "durationMs": 774,
+            "revision": "f660addea1"
+        },
+        "move": {
+            "durationMs": 1420,
+            "revision": "1e6df7dbcd"
         }
     },
     "Arachna Spider": {
@@ -346,6 +350,10 @@
         "hurt": {
             "durationMs": 765,
             "revision": "9c69690af7"
+        },
+        "move": {
+            "durationMs": 1420,
+            "revision": "77f987d153"
         }
     },
     "Scavenger": {
@@ -439,8 +447,8 @@
     "Black Dragon": {
         "slug": "black-dragon",
         "attack": {
-            "durationMs": 850,
-            "revision": "4d51ae07ac"
+            "durationMs": 1585,
+            "revision": "f3f7f8381d"
         },
         "hurt": {
             "durationMs": 815,
@@ -465,8 +473,8 @@
             "revision": "a07b44cde8"
         },
         "hurt": {
-            "durationMs": 455,
-            "revision": "a6185d55ee"
+            "durationMs": 1545,
+            "revision": "41a8b3e639"
         }
     },
     "Wandering Mage": {
@@ -509,8 +517,8 @@
     "Mermaid": {
         "slug": "mermaid",
         "attack": {
-            "durationMs": 365,
-            "revision": "95f1b845c4"
+            "durationMs": 769,
+            "revision": "4ce40bb236"
         },
         "hurt": {
             "durationMs": 675,

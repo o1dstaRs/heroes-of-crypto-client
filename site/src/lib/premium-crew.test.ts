@@ -68,8 +68,8 @@ test("crew tools remain usable without offering unavailable statistical picks", 
     expect(empty).not.toContain("data-crew-sample");
     expect(empty).not.toContain("rankings");
     const built = renderPremiumCrew(crew(), catalog, "en", "screen", 1, false);
-    expect(built).toContain("Suggested formation");
-    expect(built).toContain("Artifacts for this crew");
+    expect(built).toContain("Starting formation");
+    expect(built).toContain("Artifact results");
     expect(built).toContain("data-crew-share");
     expect(built).not.toContain("data-crew-sample");
 });
@@ -108,7 +108,20 @@ test("artifact suggestions exclude items with no beneficiaries and synergy level
         .filter(([, item]) => item.kit?.role === "melee" && item.level === 1)
         .slice(0, 2)
         .map(([id]) => Number(id));
-    const artifacts = premiumCrewArtifacts(ground, catalog);
+    const recorded = (id: number, score: number) => ({
+        key: String(id),
+        ids: [id],
+        score,
+        families: 80,
+        observations: 80,
+        interval: [score - 0.1, score + 0.1],
+        frequency: 0.1,
+    });
+    const data = {
+        artifactsTier1: [recorded(6, 0.9), recorded(5, 0.6)],
+        artifactsTier2: [recorded(15, 0.9), recorded(2, 0.6)],
+    } as PremiumLibrary;
+    const artifacts = premiumCrewArtifacts(ground, catalog, 1, data);
     expect(artifacts.map((item) => item.tier)).toEqual([1, 2]);
     expect(
         artifacts.some((item) =>
