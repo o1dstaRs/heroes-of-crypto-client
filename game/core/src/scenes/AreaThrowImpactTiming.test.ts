@@ -208,6 +208,31 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
     };
 };
 
+test("several misses from one area impact share one swish and no hurt cues", async () => {
+    const f = fixture();
+    f.scene.playSceneGameSound = (name: string) => f.events.push(name);
+    f.scene.showAttackMissedVfx = (_source: unknown, unit: typeof f.near) =>
+        f.events.push(`${unit.getId()}:miss-label`);
+    const hits = [f.near, f.far].map((unit) => ({
+        unitId: unit.getId(),
+        position: unit.getPosition(),
+        amount: 0,
+        unitsDied: 0,
+        missed: true,
+    }));
+    await f.scene.playAreaThrowImpact(f.giant, hits, {
+        damage: { splash: hits },
+        hitIndex: 0,
+        units: f.units,
+        remainingAmounts: new Map(),
+        deadIds: new Set(),
+        onDeath: () => {},
+    });
+    expect(f.events.filter((event) => event === "miss")).toHaveLength(1);
+    expect(f.events.filter((event) => event.endsWith(":miss-label"))).toHaveLength(2);
+    expect(f.events.some((event) => event.endsWith(":hurt"))).toBe(false);
+});
+
 test.each([false, true])("free Double Throw honors a single recorded projectile, replay=%s", async (replay) => {
     const f = fixture();
     Object.assign(f.damage, { rangedVolleyCount: undefined });

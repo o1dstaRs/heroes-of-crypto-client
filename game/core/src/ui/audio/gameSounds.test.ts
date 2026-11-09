@@ -7,11 +7,14 @@ import { createCombatSoundPlayer } from "./combatSounds";
 
 test("provided effects ship both measured codecs with matching cache revisions", () => {
     expect(Object.keys(manifest).sort()).toEqual([
+        "blacksmith_cast",
         "heal",
+        "miss",
         "place_unit",
         "resurrection",
         "spellbook_close",
         "spellbook_open",
+        "summon",
     ]);
     for (const name of Object.keys(manifest) as GameSoundName[]) {
         const clip = provenance.sounds.find((sound) => sound.id === name)!;

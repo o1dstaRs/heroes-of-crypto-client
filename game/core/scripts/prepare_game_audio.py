@@ -42,7 +42,8 @@ def prepare(item, source, work, output):
                     "slug": item["id"], "role": "event", "source_id": "import-" + source_hash[:12]}],
                     work, output, max_duration_ms=item["max_duration_ms"])
     result.update({"id": item["id"], "source_file": str(source.relative_to(CORE)),
-                   "source": {"kind": "user-provided", "filename": item["source_filename"],
+                   "source": {**item.get("source_metadata", {}),
+                              "kind": "user-provided", "filename": item["source_filename"],
                               "sha256": source_hash, **original},
                    "time_stretch_factor": round(factor, 4),
                    "max_duration_ms": item["max_duration_ms"],

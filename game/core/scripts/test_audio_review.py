@@ -649,7 +649,10 @@ class AudioReviewTests(unittest.TestCase):
         clips = json.loads(report_path.read_text())["clips"]
         clips[0].update({"waveform": [0.1, 0.5, 0.2], "source_file": "tmp/audio/raw/old.mp3",
                          "alternates": [{"source_id": "old-attack", "score": 0.8}]})
+        events = [{"unit": "Missed strike", "slug": "miss", "role": "event", "asset_base": "public/audio/events/miss"}]
+        review.save_json(self.work / "game-sound-report.json", events)
         mastering.write_review(self.work, clips)
+        self.assertIn('"slug": "miss"', (self.work / "review.html").read_text())
         report_path.unlink()
         service = review.ReviewService(api_key="test-private-key-never-sent-to-browser")
         server = ThreadingHTTPServer(("127.0.0.1", 0), review.ReviewHandler)
@@ -666,6 +669,7 @@ class AudioReviewTests(unittest.TestCase):
             self.assertIn("Reference-audio", catalog["regeneration"]["similar_unavailable"])
             combat = [c for c in catalog["sounds"] if c["role"] in ("attack", "hurt")]
             self.assertEqual(combat, clips)
+            self.assertEqual([c for c in catalog["sounds"] if c["role"] == "event"], events)
             self.assertEqual(len([c for c in catalog["sounds"] if c["role"] == "cast"]),
                              len(mastering.spell_placeholders()))
             self.assertTrue(combat[0]["design_prompt"])
@@ -947,6 +951,11 @@ class AudioReviewTests(unittest.TestCase):
         self.assertEqual(manifest["Abomination"]["attack"]["revision"], "old")
         self.assertEqual(manifest["Abomination"]["hurt"]["revision"], "keep")
         self.assertFalse((self.root / "audio/combat-sound-overrides.json").exists())
+        spells = json.loads((self.root / "src/ui/audio/spellSoundManifest.json").read_text())
+        self.assertEqual(spells["Heal"], {"slug": "spell-heal", "durationMs": 400, "revision": applied["revision"]})
+        provenance = json.loads((self.root / "audio/spell-sound-provenance.json").read_text())
+        self.assertEqual(provenance["clips"][0]["source_id"], "freesound-22")
+        self.assertEqual(provenance["clips"][0]["path"], candidate["path"])
         report = json.loads((self.work / "spell-sound-report.json").read_text())
         self.assertEqual(report["clips"][0]["asset_base"], "public/audio/spells/spell-heal")
         page = (self.work / "review.html").read_text()

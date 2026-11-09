@@ -191,6 +191,132 @@
                     "rms_db": -21.78
                 }
             }
+        },
+        {
+            "id": "blacksmith_cast",
+            "source": {
+                "title": "Blacksmith crafting metal",
+                "author": "Epic Stock Media",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for every Blacksmith spell cast",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3",
+                "sha256": "ccdf1c0f0d896aa0c77453f3f6e31b3f1229439e9c78f8afa6acb617a6ff034e",
+                "score": -0.5918,
+                "bursts_to_review": 2,
+                "raw_duration_ms": 3315,
+                "leading_trim_ms": 66,
+                "trailing_trim_ms": 905,
+                "raw_rms_db": -27.05,
+                "raw_peak_db": 1.18
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.23,
+                    "true_peak_db": -3.82,
+                    "bytes": 20213,
+                    "duration_ms": 2324,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.37
+                },
+                "mp3": {
+                    "lufs": -20.57,
+                    "true_peak_db": -3.9,
+                    "bytes": 28556,
+                    "duration_ms": 2324,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.73
+                }
+            }
+        },
+        {
+            "id": "summon",
+            "source": {
+                "title": "Magic whoosh - ethereal harp swirl",
+                "author": "Bosnow",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for all successful summons",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3",
+                "sha256": "1dbd9b604d553440e5b3e525c547f287e5a7734c544444715c55f99dffc4afc3",
+                "score": 0.6587,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 3677,
+                "leading_trim_ms": 66,
+                "trailing_trim_ms": 1517,
+                "raw_rms_db": -22.27,
+                "raw_peak_db": -4.75
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.05,
+                    "true_peak_db": -4.19,
+                    "bytes": 19030,
+                    "duration_ms": 2092,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.09
+                },
+                "mp3": {
+                    "lufs": -20.48,
+                    "true_peak_db": -4.3,
+                    "bytes": 25964,
+                    "duration_ms": 2092,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.5
+                }
+            }
+        },
+        {
+            "id": "miss",
+            "source": {
+                "title": "Swish - bullet flyby (Faster)",
+                "author": "Gamemaster Audio",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for missed attacks and missed counterattacks",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "swish-bullet-flyby-faster-gamemaster-audio-4-4-00-00.mp3",
+                "sha256": "413a3bdc070f55c97675695897dae7ab15bad9bcb7cc91401113b11af2c8d077",
+                "score": 0.4105,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 554,
+                "leading_trim_ms": 56,
+                "trailing_trim_ms": 179,
+                "raw_rms_db": -24.04,
+                "raw_peak_db": -5.59
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 1000,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -3.25,
+                    "bytes": 3475,
+                    "duration_ms": 314,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.67
+                },
+                "mp3": {
+                    "lufs": -20.34,
+                    "true_peak_db": -4.01,
+                    "bytes": 4652,
+                    "duration_ms": 314,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.0
+                }
+            }
         }
     ]
 }

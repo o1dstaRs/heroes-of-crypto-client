@@ -152,13 +152,14 @@
         show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or artistic fit:
         compare the sounds at the same volume here.
     </p>
-    <input id="search" placeholder="Find a unit or spell…" aria-label="Find a unit or spell" />
+    <input id="search" placeholder="Find a unit, spell, or effect…" aria-label="Find a unit, spell, or effect" />
     <select id="role" aria-label="Sound role">
         <option value="">All sounds</option>
         <option value="attack">Attacks</option>
         <option value="hurt">Damage received</option>
         <option value="move">Movement</option>
         <option value="cast">Spell casts</option>
+        <option value="event">Game effects</option>
     </select>
     <select id="codec" aria-label="Codec">
         <option value="webm">Opus</option>
@@ -341,7 +342,9 @@
                         c.slug +
                         "/" +
                         c.role +
-                        '">Original</button>' +
+                        '"' +
+                        (c.source_file ? "" : ' disabled title="Original recording is not available locally"') +
+                        ">Original</button>" +
                         (c.role === "event" || c.role === "move"
                             ? ""
                             : c.role === "cast"

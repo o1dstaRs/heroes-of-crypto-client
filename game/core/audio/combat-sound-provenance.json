@@ -96,38 +96,38 @@
             "unit": "Angel",
             "slug": "angel",
             "role": "attack",
-            "source_id": "provided-dbb7826fbd6664ddfb66",
+            "source_id": "provided-8f8ce99d2f8905e0db20",
             "source": {
                 "kind": "user-provided",
-                "filename": "sword-swish-smartsound-fx-1-00-01.mp3",
-                "title": "Sword swish",
-                "author": "SmartSound FX",
-                "sha256": "dbb7826fbd6664ddfb666b333662b4b0fd5b2b25ebe96b136c66a1a2e8342de6",
-                "label": "Sword swish",
+                "source_id": "provided-8f8ce99d2f8905e0db20",
+                "filename": "sword-impact-swing-joshua-chivers-1-00-00.mp3",
+                "title": "Sword impact - swing",
+                "author": "Joshua Chivers",
+                "sha256": "8f8ce99d2f8905e0db20d25bebb602623d23146c0ca8d91c93afe965a5778e55",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Angel sword swing",
+                "selection": "Explicitly selected by the user to replace Angel attack",
                 "license": "License receipt not included in the supplied file",
-                "selection": "Explicitly selected by the user",
-                "duration_limit_ms": 800,
-                "source_id": "provided-dbb7826fbd6664ddfb66",
-                "source_site": "https://uppbeat.io/"
+                "duration_limit_ms": 1600
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.06,
-                    "true_peak_db": -5.45,
-                    "bytes": 6533,
-                    "duration_ms": 634,
+                    "lufs": -20.07,
+                    "true_peak_db": -4.96,
+                    "bytes": 10110,
+                    "duration_ms": 909,
                     "leading_quiet_ms": 1,
-                    "trailing_quiet_ms": 4,
-                    "rms_db": -23.48
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -24.51
                 },
                 "mp3": {
-                    "lufs": -20.35,
-                    "true_peak_db": -5.62,
-                    "bytes": 8396,
-                    "duration_ms": 634,
-                    "leading_quiet_ms": 6,
-                    "trailing_quiet_ms": 14,
-                    "rms_db": -23.78
+                    "lufs": -20.37,
+                    "true_peak_db": -6.08,
+                    "bytes": 11564,
+                    "duration_ms": 909,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -24.81
                 }
             }
         },
@@ -265,25 +265,38 @@
             "unit": "Arachna Spider",
             "slug": "arachna-spider",
             "role": "hurt",
-            "generation_id": "TemmJZQjKrcwLLyJNuLn",
+            "source_id": "provided-450cf971ba82fd763e58",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-450cf971ba82fd763e58",
+                "filename": "spider-monster-growl-epic-stock-media-1-00-01.mp3",
+                "title": "Spider monster - growl",
+                "author": "Epic Stock Media",
+                "sha256": "450cf971ba82fd763e58fb212532365adcf8a9dcf1d356b7fd6e6913f063a822",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Arachna Spider hurt",
+                "selection": "Explicitly selected by the user for Arachna Spider hurt",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -9.8,
-                    "bytes": 8033,
-                    "duration_ms": 765,
+                    "lufs": -19.98,
+                    "true_peak_db": -6.61,
+                    "bytes": 7840,
+                    "duration_ms": 819,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.72
+                    "rms_db": -21.49
                 },
                 "mp3": {
                     "lufs": -20.44,
-                    "true_peak_db": -10.48,
-                    "bytes": 9836,
-                    "duration_ms": 765,
+                    "true_peak_db": -7.28,
+                    "bytes": 10700,
+                    "duration_ms": 819,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -23.17
+                    "rms_db": -21.95
                 }
             }
         },
@@ -651,38 +664,38 @@
             "unit": "Blacksmith",
             "slug": "blacksmith",
             "role": "attack",
-            "source_id": "provided-93af0d9b419521733cc1",
+            "source_id": "provided-d1421277bcd9cb4cfd2b",
             "source": {
                 "kind": "user-provided",
-                "filename": "sword-impacting-flesh-gamemaster-audio-1-00-00.mp3",
-                "title": "Sword impacting flesh",
-                "author": "Gamemaster Audio",
-                "sha256": "93af0d9b419521733cc1ac2cbdb9b9a394bbb40bdbdf6f229b35eb54dd081f07",
-                "label": "Sword impacting flesh",
-                "source_id": "provided-93af0d9b419521733cc1",
+                "source_id": "provided-d1421277bcd9cb4cfd2b",
+                "filename": "metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3",
+                "title": "Metallic anvil impact",
+                "author": "Jam FX",
+                "sha256": "d1421277bcd9cb4cfd2b8ad706e4d0d237c9979a213b16ba1a35e1e55b7f62a5",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for Blacksmith attack; remove the empty tail",
                 "license": "License receipt not included in the supplied file",
-                "selection": "Explicitly selected by the user",
-                "duration_limit_ms": 1000,
-                "source_site": "https://uppbeat.io/"
+                "label": "Selected Blacksmith anvil attack",
+                "duration_limit_ms": 1600
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.03,
-                    "true_peak_db": -5.33,
-                    "bytes": 4105,
-                    "duration_ms": 399,
+                    "lufs": -20.23,
+                    "true_peak_db": -3.21,
+                    "bytes": 6347,
+                    "duration_ms": 599,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.59
+                    "rms_db": -20.69
                 },
                 "mp3": {
-                    "lufs": -20.43,
-                    "true_peak_db": -6.0,
-                    "bytes": 5516,
-                    "duration_ms": 399,
+                    "lufs": -20.65,
+                    "true_peak_db": -4.21,
+                    "bytes": 7820,
+                    "duration_ms": 599,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.0
+                    "rms_db": -21.11
                 }
             }
         },
@@ -690,25 +703,47 @@
             "unit": "Blacksmith",
             "slug": "blacksmith",
             "role": "hurt",
-            "generation_id": "Z2OwfKswEHypKi4T64Ka",
+            "source_id": "provided-b0cff106f8ed9da03f9d-0-950",
+            "source": {
+                "kind": "user-provided",
+                "filename": "death-grunt-male-smartsound-fx-soft-3-00-03.mp3",
+                "title": "Death grunt - male",
+                "author": "SmartSound FX",
+                "sha256": "b0cff106f8ed9da03f9d618562bd68d2f89029d16f69015aaf74a87389de7892",
+                "source_site": "https://uppbeat.io/",
+                "label": "Opening male grunt",
+                "selection": "Explicitly selected by the user: starting portion for Blacksmith hurt",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600,
+                "source_id": "provided-b0cff106f8ed9da03f9d-0-950",
+                "excerpt": {
+                    "start_ms": 0,
+                    "end_ms": 950,
+                    "original_duration_ms": 3466,
+                    "original_path": "tmp/audio/raw/provided/b0cff106f8ed9da0/death-grunt-male-smartsound-fx-soft-3-00-03.mp3",
+                    "sha256": "6787e1fb8785bf513acdc6811dce8f10b962f14da9fb2e3eab0a6b7a4c85cfcb",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                }
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.02,
-                    "true_peak_db": -6.66,
-                    "bytes": 6870,
-                    "duration_ms": 720,
-                    "leading_quiet_ms": 0,
+                    "lufs": -19.97,
+                    "true_peak_db": -3.91,
+                    "bytes": 9540,
+                    "duration_ms": 814,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.58
+                    "rms_db": -21.7
                 },
                 "mp3": {
-                    "lufs": -20.43,
-                    "true_peak_db": -6.81,
-                    "bytes": 9260,
-                    "duration_ms": 720,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.37,
+                    "true_peak_db": -4.37,
+                    "bytes": 10412,
+                    "duration_ms": 814,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.99
+                    "rms_db": -22.11
                 }
             }
         },
@@ -1106,25 +1141,47 @@
             "unit": "Elf",
             "slug": "elf",
             "role": "hurt",
-            "generation_id": "mj6zVbpX1ODzyIHuwpzo",
+            "source_id": "provided-368c0f33d64521c7439e-0-1600",
+            "source": {
+                "kind": "user-provided",
+                "filename": "death-whimper-female-smartsound-fx-short-2-00-04.mp3",
+                "title": "Death whimper - female",
+                "author": "SmartSound FX",
+                "sha256": "368c0f33d64521c7439e4b7ba1ed56b849976cc06910ecf7d59a04f81a646e4d",
+                "source_site": "https://uppbeat.io/",
+                "label": "Opening female whimper",
+                "selection": "Explicitly selected by the user: starting portion for Elf hurt",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600,
+                "source_id": "provided-368c0f33d64521c7439e-0-1600",
+                "excerpt": {
+                    "start_ms": 0,
+                    "end_ms": 1600,
+                    "original_duration_ms": 4046,
+                    "original_path": "tmp/audio/raw/provided/368c0f33d64521c7/death-whimper-female-smartsound-fx-short-2-00-04.mp3",
+                    "sha256": "0c1695c34e7a1d2ada8136f52162ed7734546cf528ac73359d9ed98bd196364f",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                }
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.05,
-                    "true_peak_db": -4.41,
-                    "bytes": 5161,
-                    "duration_ms": 500,
-                    "leading_quiet_ms": 0,
+                    "lufs": -19.99,
+                    "true_peak_db": -7.79,
+                    "bytes": 12512,
+                    "duration_ms": 1374,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.68
+                    "rms_db": -21.52
                 },
                 "mp3": {
-                    "lufs": -20.47,
-                    "true_peak_db": -4.68,
-                    "bytes": 6668,
-                    "duration_ms": 500,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.44,
+                    "true_peak_db": -8.26,
+                    "bytes": 17324,
+                    "duration_ms": 1374,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.11
+                    "rms_db": -21.96
                 }
             }
         },
@@ -3349,25 +3406,38 @@
             "unit": "Wyvern",
             "slug": "wyvern",
             "role": "attack",
-            "generation_id": "kYCNAAz831H9P6MPdUzd",
+            "source_id": "provided-8c41c847a5957f1f7274",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-8c41c847a5957f1f7274",
+                "filename": "gore-blood-splatter-epic-stock-media-1-00-01.mp3",
+                "title": "Gore - blood splatter",
+                "author": "Epic Stock Media",
+                "sha256": "8c41c847a5957f1f727408aa44e2667d9e248d352e3e4fc924a655d259cd1c4c",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Wyvern attack",
+                "selection": "Explicitly selected by the user for Wyvern attack",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -7.63,
-                    "bytes": 7400,
-                    "duration_ms": 825,
+                    "lufs": -20.1,
+                    "true_peak_db": -3.57,
+                    "bytes": 11448,
+                    "duration_ms": 1054,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -21.2
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.14
                 },
                 "mp3": {
-                    "lufs": -20.41,
-                    "true_peak_db": -7.39,
-                    "bytes": 10700,
-                    "duration_ms": 825,
+                    "lufs": -20.49,
+                    "true_peak_db": -3.96,
+                    "bytes": 13292,
+                    "duration_ms": 1054,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -21.64
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.54
                 }
             }
         },

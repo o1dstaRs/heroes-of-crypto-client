@@ -1,0 +1,84 @@
+{
+    "clips": [
+        {
+            "unit": "Fireball",
+            "slug": "spell-fireball",
+            "role": "cast",
+            "source_id": "provided-9bdb8b8512cb2987af1f",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-9bdb8b8512cb2987af1f",
+                "filename": "magic-fire-spell-fiery-impactful-epic-stock-media-questgamemagicfirespellflamecasthit3-1-0m03s.mp3",
+                "title": "Magic fire spell - fiery & impactful",
+                "author": "Epic Stock Media",
+                "sha256": "9bdb8b8512cb2987af1f113d27fff6fcbadb909d6e499cf0fa7a0aa5e92656b6",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Fireball cast",
+                "selection": "Explicitly selected by the user for Fireball spell cast",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 2500
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.16,
+                    "true_peak_db": -3.15,
+                    "bytes": 17911,
+                    "duration_ms": 2430,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.17
+                },
+                "mp3": {
+                    "lufs": -20.62,
+                    "true_peak_db": -3.85,
+                    "bytes": 29996,
+                    "duration_ms": 2430,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.66
+                }
+            },
+            "path": "tmp/audio/raw/provided/9bdb8b8512cb2987/magic-fire-spell-fiery-impactful-epic-stock-media-questgamemagicfirespellflamecasthit3-1-0m03s.mp3"
+        },
+        {
+            "unit": "Fire Strike",
+            "slug": "spell-fire-strike",
+            "role": "cast",
+            "source_id": "provided-69b6132817195ffeb604",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-69b6132817195ffeb604",
+                "filename": "fireball-fiery-impact-roys-noise-fireballwave-impact-3-5-0m05s.mp3",
+                "title": "Fireball - fiery impact",
+                "author": "Roy's Noise",
+                "sha256": "69b6132817195ffeb60483e59eb896322b4c7d7347bb4c0685927bf7045d5226",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Fire Strike cast",
+                "selection": "Explicitly selected by the user for Fire Strike spell cast",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 2500
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -4.55,
+                    "bytes": 15426,
+                    "duration_ms": 1724,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.05
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -5.1,
+                    "bytes": 21356,
+                    "duration_ms": 1724,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.46
+                }
+            },
+            "path": "tmp/audio/raw/provided/69b6132817195ffe/fireball-fiery-impact-roys-noise-fireballwave-impact-3-5-0m05s.mp3"
+        }
+    ]
+}

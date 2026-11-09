@@ -82,7 +82,10 @@ the next unused CC0 result of the Freesound “spell cast” search, then master
 the same −20 LUFS, −3 dBTP, mono 48 kHz, Opus and MP3 contract. Casts may run to 2.5 seconds.
 A clip that fails the check is skipped, and the next result is tried, up to eight per click.
 **Apply to game** copies the chosen pair to `public/audio/spells` and leaves creature attack
-and hurt files alone. The Freesound key stays outside the page and outside tracked metadata.
+and hurt files alone. It also publishes `spellSoundManifest.json` and the selected source path,
+source metadata, and encoded measurements in `spell-sound-provenance.json`. Spell playback
+uses that manifest on the shared effects bus, with the caster's usual cue as the fallback
+when no spell recording is selected. The Freesound key stays outside the page and outside tracked metadata.
 Technical selection does not establish artistic fit: the report keeps all takes
 available locally for listening and revision.
 
@@ -188,6 +191,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Mermaid attack                         | `underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3`                                                       |
 | Elf attack                             | `punch-block-hit-gfx-sounds-1-00-00.mp3`                                                                    |
 | Black Dragon attack                    | `dragon-breathing-fire-gregor-quendel-1-00-03.mp3`                                                          |
+| Wyvern attack                          | `gore-blood-splatter-epic-stock-media-1-00-01.mp3`                                                          |
 | Nomad attack                           | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                               |
 | Squire attack                          | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                                    |
 | Berserker attack                       | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                                      |
@@ -195,18 +199,30 @@ excerpt hashes, so later mastering uses the same selected event.
 | Healer hurt                            | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                                      |
 | Champion hurt                          | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                              |
 | Zena attack                            | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                             |
-| Angel attack                           | `sword-swish-smartsound-fx-1-00-01.mp3`                                                                     |
-| Blacksmith attack                      | `sword-impacting-flesh-gamemaster-audio-1-00-00.mp3`                                                        |
+| Angel attack                           | `sword-impact-swing-joshua-chivers-1-00-00.mp3`                                                              |
+| Blacksmith attack                      | `metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3`                                               |
 | Troll attack                           | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                                      |
 | Dryad hurt                             | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                               |
 | Arachna Queen attack                   | `spider-monster-angry-screech-epic-stock-media-1-00-01.mp3`                                                 |
 | Arachna Queen hurt                     | `spider-monster-scream-epic-stock-media-1-00-00.mp3`                                                        |
+| Arachna Spider hurt                    | `spider-monster-growl-epic-stock-media-1-00-01.mp3`                                                         |
 | White Tiger attack                     | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                                |
 | Thunderbird hurt                       | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                            |
 | Unicorn hurt                           | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`           |
 | Hydra attack                           | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3`         |
 | Champion, Unicorn, Nightmare movement  | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                          |
 | Arachna Queen, Arachna Spider movement | 0.850–2.270 s of `insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3` |
+
+Angel’s attack uses `sword-impact-swing-joshua-chivers-1-00-00.mp3`, replacing the earlier
+SmartSound sword swish. The 0.909-second master preserves its speed and pitch.
+
+Blacksmith’s anvil attack trims 3.48 seconds of trailing silence to a 0.60-second hit.
+His hurt sound uses the opening 0–0.950 seconds of
+`death-grunt-male-smartsound-fx-soft-3-00-03.mp3`, mastered to a 0.814-second reaction
+with the original speed and pitch preserved.
+Elf’s hurt sound uses the opening 0–1.600 seconds of
+`death-whimper-female-smartsound-fx-short-2-00-04.mp3`, ending at the first quiet gap;
+the mastered reaction lasts 1.374 seconds. Both selections preserve speed and pitch.
 
 Abomination’s longer hurt recording is cropped to a 1.55-second event with a 40 ms tail fade.
 Black Dragon’s fire breath uses a 1.59-second event with a 20 ms tail fade. Exact crop bounds
@@ -220,26 +236,55 @@ a missed first blow and a simultaneous counterattack. Ranked playback inherits t
 ## Provided game effects
 
 `game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement,
-and heal recordings to event names and duration budgets. Import local files once:
+heal, Blacksmith casting, summoning, and miss recordings to event names and duration budgets. Import local files once:
 
 ```sh
 python3 game/core/scripts/prepare_game_audio.py --source-dir "$HOME/Downloads"
 ```
 
 Later runs omit `--source-dir` and reuse the originals under `tmp/audio/raw/events`.
-The script reuses the combat mastering engine, stages all five effects before publishing,
+The script reuses the combat mastering engine, stages all configured effects before publishing,
 and records source filenames and SHA-256 hashes in `game-sound-provenance.json`.
 Long healing and resurrection effects are trimmed and gently shortened with pitch-preserving
 time stretching to fit a 2.5-second budget; the book and placement effects fit one second.
 All use the same −20 LUFS target, −3 dBTP ceiling, codec pair, and 32 KiB per-file limit.
 Final files live in `public/audio/events` and revisions in `src/ui/audio/gameSoundManifest.json`.
 
-Audition originals and masters at `http://127.0.0.1:5174/tmp/audio/game-sound-review.html`.
+The main `tmp/audio/review.html` includes shared effects under the **Game effects** filter;
+`tmp/audio/game-sound-review.html` also remains available. Originals are playable when cached locally.
 Playback uses the same Web Audio effects bus as creature sounds. The spellbook fires only on
 an actual open/close transition, including Escape, outside click, and picking a spell. Valid
 placement and split gestures play the placement effect. Positive healing plays once per group;
 fully resisted healing stays quiet. Both an Angel's resurrection cast and passive self-resurrection
 use the shared resurrection VFX trigger in sandbox and ranked replay.
+
+Blacksmith uses `blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3` for every cast
+(Craft and both runes), including direct AI/Premium actions and authoritative replay. The
+2.324-second master trims quiet edges without changing speed or pitch. Rejected casts stay
+quiet, and ranked submissions wait for replay, so the craft cue plays once instead of the
+attack cue. Both use the shared effects bus, mute/volume controls, and scene cancellation.
+
+All positive `unit_summoned` events use
+`magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3`, trimmed to 2.092 seconds.
+The cue plays once per simultaneous group, including Summon Wolves, merged summons, and Infest
+hatchlings. It follows the shared event presentation in sandbox and ranked replay. Rejected casts
+and zero-amount events stay quiet; the original speed and pitch are preserved.
+
+Fireball casts use
+`magic-fire-spell-fiery-impactful-epic-stock-media-questgamemagicfirespellflamecasthit3-1-0m03s.mp3`
+(2.430 seconds). Fire Strike casts separately use
+`fireball-fiery-impact-roys-noise-fireballwave-impact-3-5-0m05s.mp3` (1.724 seconds).
+Both trim quiet edges without speed or pitch changes, use the 2.5-second spell budget,
+and play once for an accepted cast in manual, AI/Premium, and authoritative replay paths.
+Listen to these in their spell rows on `tmp/audio/review.html`, alongside the shared summon effect.
+
+Confirmed missed strikes use `swish-bullet-flyby-faster-gamemaster-audio-4-4-00-00.mp3`,
+trimmed to 0.314 seconds with speed and pitch preserved. The normal attack cue still plays at
+the swing/release; the swish plays at missed contact and no hurt cue is emitted. Each actual
+blow has its own identity, including simultaneous counters, double attacks, and ranged impacts.
+The shared engine records ordinary counter misses in `IVisibleDamage.missedResponse`, since
+zero HP loss alone cannot distinguish a miss from an absorbed hit. Publish that common change
+with the client and server pins when deploying; older recordings can only sound misses they recorded.
 
 ## Playback
 

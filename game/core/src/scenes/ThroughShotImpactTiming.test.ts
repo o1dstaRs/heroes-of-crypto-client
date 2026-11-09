@@ -149,6 +149,27 @@ const fixture = (double = false) => {
     return { scene, cannon, near, far, event, events, shots, projectiles, play, advance, logical };
 };
 
+test("a piercing shot sounds a miss only when it reaches that victim, preserving later hits", async () => {
+    const f = fixture();
+    Object.assign(
+        f.event.damage.splash.find((hit) => hit.unitId === "near")!,
+        { amount: 0, unitsDied: 0, missed: true },
+    );
+    f.scene.playSceneGameSound = (name: string) => f.events.push(name);
+    f.scene.showAttackMissedVfx = () => f.events.push("near:miss-label");
+    const pending = f.play();
+    await flush();
+    f.advance(0.05);
+    expect(f.events).toEqual(["cannon:attack"]);
+    f.advance(0.35);
+    expect(f.events).toEqual(["cannon:attack", "miss", "near:miss-label"]);
+    f.advance(1);
+    await pending;
+    expect(f.events.filter((event) => event === "miss")).toHaveLength(1);
+    expect(f.events).not.toContain("near:hurt");
+    expect(f.events).toContain("far:hurt");
+});
+
 test("a piercing cannonball presents each hit and lethal casualty while it is still travelling", async () => {
     const f = fixture();
     const pending = f.play();
