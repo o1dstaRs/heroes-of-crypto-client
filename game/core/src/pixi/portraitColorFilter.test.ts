@@ -34,6 +34,8 @@ test("roster filters grade separate art/background layers and release their owne
     expect(graded).toHaveLength(2);
     const filters = graded.map((sprite) => sprite.filters![0]);
     expect((filters[0] as { matrix?: readonly number[] }).matrix).toEqual(CHAOS_PORTRAIT_BACKGROUND_MATRIX);
+    // The material grade must preserve fine head detail at the renderer's current pixel density.
+    expect(filters[1].resolution).toBe("inherit");
     const destroyed = filters.map((filter) => spyOn(filter, "destroy"));
     chip.destroy({ children: true });
     destroyed.forEach((spy) => expect(spy).toHaveBeenCalledTimes(1));
