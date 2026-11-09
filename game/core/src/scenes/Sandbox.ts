@@ -11815,7 +11815,15 @@ export class Sandbox extends PixiScene {
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
             if (this.isSceneDestroyed()) return;
             this.showRepeatedAttackFlag(unit, shotIndex);
+            let impacted = false;
+            const impact = (): void => {
+                if (impacted || this.isSceneDestroyed()) return;
+                impacted = true;
+                onImpact?.(shotIndex);
+            };
             await this.fireUnitProjectile(unit, {
+                // A real contact callback also distinguishes this targeted shot from a lab free shot.
+                onImpact: impact,
                 from: unit.getRangedProjectileOrigin(impactPositions[shotIndex], gsAnim),
                 to: impactPositions[shotIndex],
                 big,
@@ -11834,7 +11842,7 @@ export class Sandbox extends PixiScene {
                 gargantuanRock: unitName === "gargantuan",
                 gargantuanImpactPosition: unitName === "gargantuan" ? impactPositions[shotIndex] : undefined,
             });
-            onImpact?.(shotIndex);
+            impact();
         }
     }
     private footprintCenterForAnchor(unit: Unit, anchor: HoCMath.XY): HoCMath.XY {

@@ -116,3 +116,55 @@ test("a non-barrel obstacle still projects its recorded ground point once", () =
     const point = { x: 30, y: 1200 };
     expect(visuals.getObstacleProjectileImpactPoint(point)).toEqual(projectBattlefieldPoint(point, gs));
 });
+
+test("a real barrel arrow cannot become an animation-lab free shot and reports contact once", async () => {
+    const { visuals, logical } = fixture(14);
+    const contact = visuals.getObstacleProjectileImpactPoint(logical);
+    const abort = new AbortController();
+    const shot = { signal: abort.signal, abort: () => abort.abort() };
+    const launches: IFireProjectileOptions[] = [];
+    let freeShots = 0;
+    const unit = {
+        getName: () => "Elf",
+        getVisualCenter: () => ({ x: -500, y: 0 }),
+        getRangedProjectileOrigin: () => ({ x: -500, y: 100 }),
+        getElfLabFreeShotTarget: () => {
+            freeShots++;
+            return { x: 10, y: 10 };
+        },
+        prepareDryadRangedShot: () => shot,
+        finishDryadRangedShot: () => {},
+        getAnimationTextureKey: () => "elf-attack",
+        setBoardFacing: () => {},
+        getDryadArrowLength: () => 30,
+        playDryadRangedShot: (_state: unknown, _shot: unknown, release: () => void) => {
+            release();
+            return true;
+        },
+    };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        creatureAnimationLabEnabled: true,
+        sc_sceneSettings: { getGridSettings: () => gs },
+        dungeonVisuals: visuals,
+        isSceneDestroyed: () => false,
+        scheduleSceneTimeout: () => 1,
+        clearSceneTimeout: () => {},
+        playUnitCombatSound: () => {},
+        showRepeatedAttackFlag: () => {},
+        waitForTexture: async () => Texture.WHITE,
+        rangedProjectiles: {
+            prepare: async () => {},
+            fire: async (options: IFireProjectileOptions) => {
+                launches.push(options);
+                options.onImpact?.();
+            },
+        },
+        fireUnitProjectile: (source: unknown, options: IFireProjectileOptions) =>
+            scene.fireDryadLabProjectile(source, options, "attack"),
+    });
+    const contacts: number[] = [];
+    await scene.animateObstacleStrikeSequence(unit, [logical], undefined, (index: number) => contacts.push(index));
+    expect(freeShots).toBe(0);
+    expect(launches.map((launch) => launch.to)).toEqual([contact]);
+    expect(contacts).toEqual([0]);
+});
