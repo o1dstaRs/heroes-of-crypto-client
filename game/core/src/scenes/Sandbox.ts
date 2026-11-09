@@ -20,6 +20,7 @@ import { isTouchGameActive } from "../viewport/gameViewport";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import { fireBreathHitsForStrike } from "./sandbox/fireBreathImpact";
 import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 import { chakramContactPath } from "./sandbox/chakramContactPath";
 import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
@@ -1057,6 +1058,7 @@ export class Sandbox extends PixiScene {
     private replayPlaybackActive = false;
     private readonly notedDeathBlowEvents = new WeakSet<object>();
     private readonly dyingVisualUnits = new Set<RenderableUnit>();
+    private shownFireBreathHits?: WeakSet<object>;
     private pyreDeaths?: LastFuseDeaths<RenderableUnit>;
     /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
     private readonly depthSortableUnitsScratch: RenderableUnit[] = [];
@@ -4217,7 +4219,12 @@ export class Sandbox extends PixiScene {
         if (!this.combatVisuals) {
             return;
         }
-        const burns = fireBurnTargets(damage);
+        const burns = fireBurnTargets(
+            damage && {
+                ...damage,
+                secondary: damage.secondary?.filter((hit) => !this.shownFireBreathHits?.has(hit)),
+            },
+        );
         if (!burns.length) {
             return;
         }
@@ -4974,8 +4981,14 @@ export class Sandbox extends PixiScene {
         const responseTargetId =
             responseFlight?.primaryTargetId ?? responseAnimation?.affectedUnitId ?? attacker.getId();
         const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseTargetId);
+        // A missed/absorbed physical counter can still breathe fire. Its recorded rear victims prove
+        // the response happened even when the primary HP diff cannot reveal it.
+        const recordedBreathResponse =
+            !ranged &&
+            event.damage.secondary?.some((hit) => hit.source === "fire_breath") &&
+            fireBreathHitsForStrike(event.damage.secondary, target.getPosition(), attacker.getPosition()).length > 0;
         const response: CombatExchangeStrike | undefined =
-            responseDamage || responseFlight
+            responseDamage || responseFlight || recordedBreathResponse
                 ? {
                       attackerId: responseFlight?.attackerId ?? target.getId(),
                       targetId: responseTargetId,
@@ -5079,6 +5092,7 @@ export class Sandbox extends PixiScene {
         deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
         attackLap = FightStateManager.getInstance().getFightProperties().getCurrentLap(),
     ): Promise<Set<string>> {
+        this.shownFireBreathHits = new WeakSet();
         if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Bitter Experience")))
             this.combatVisuals?.prepareCommonFlagPop?.("bitter_experience");
         if (attacker.hasAbilityActive?.("Small Specie") || target.hasAbilityActive?.("Small Specie"))
@@ -5136,6 +5150,8 @@ export class Sandbox extends PixiScene {
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
         const pendingFireShieldDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_shield");
+        const pendingFireBreathDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_breath");
+        const breathVictims = new Set(pendingFireBreathDamage.map((hit) => hit.unitId));
         const fireShieldOwners = new Set(fireShieldCasterIds(attacker.getId(), target.getId(), event.damage));
         this.preparePyreDeaths?.(dullingEvents ?? [], capturedUnits ?? this.snapshotRenderableUnits());
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
@@ -5166,9 +5182,11 @@ export class Sandbox extends PixiScene {
         for (const [id, unit] of units) {
             if (unit instanceof RenderableUnit) {
                 unit.continueDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
-                if (areaThrowWaves.size && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
+                if ((areaThrowWaves.size || breathVictims.has(id)) && !this.unitsHolder.getAllUnits().has(id))
+                    this.dyingVisualUnits.add(unit);
             }
-            if (areaThrowWaves.size && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
+            if ((areaThrowWaves.size || breathVictims.has(id)) && !remainingAmounts.has(id))
+                remainingAmounts.set(id, unit.getAmountAlive());
         }
         const cyclopsKills = new Map<string, ReadonlySet<string>>();
         if (event.attackType === "range") {
@@ -5236,6 +5254,16 @@ export class Sandbox extends PixiScene {
             // Both opening actors wait for the same combat assets, then start together. Optional
             // status art must never add another gate or stretch attack/response/hit timing.
             await Promise.all([
+                ...pendingFireBreathDamage
+                    .flatMap((hit) => {
+                        const unit = units.get(hit.unitId) as RenderableUnit | undefined;
+                        return [
+                            unit?.getAnimationTextureKey("hit"),
+                            deathState?.deadIds.has(hit.unitId) ? unit?.getAnimationTextureKey("death") : undefined,
+                        ];
+                    })
+                    .filter((key): key is string => !!key)
+                    .map((key) => this.waitForTexture(key)),
                 ...[...fireShieldOwners]
                     .map((id) => (units.get(id) as RenderableUnit | undefined)?.getAnimationTextureKey("cast"))
                     .filter((key): key is string => !!key)
@@ -5438,8 +5466,23 @@ export class Sandbox extends PixiScene {
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
                         const waves = areaThrowWaves.get(source.getId());
+                        // Breath is part of this contact, even when the physical hit misses. The engine
+                        // records one wave per side, so consume it before a later double blow can replay it.
+                        const breath =
+                            melee && pendingFireBreathDamage.length
+                                ? fireBreathHitsForStrike(
+                                      pendingFireBreathDamage,
+                                      source.getPosition(),
+                                      victim.getPosition(),
+                                  )
+                                : [];
+                        for (const hit of breath) {
+                            pendingFireBreathDamage.splice(pendingFireBreathDamage.indexOf(hit), 1);
+                            this.shownFireBreathHits!.add(hit);
+                        }
                         if ((!waves || isChakramFlight) && hasShieldAbsorb(event.damage)) {
                             const recipients = new Set<string>();
+                            for (const hit of breath) recipients.add(hit.unitId);
                             if (!strike.missed) {
                                 recipients.add(strike.targetId);
                                 if (melee && !isChakramFlight) {
@@ -5528,6 +5571,35 @@ export class Sandbox extends PixiScene {
                                 strike.lethal ? undefined : renderedVictim,
                             );
                         }
+                        // Primary and all rear stacks lose their displayed casualties and react on the
+                        // same impact. Captured figures retain lethal victims already removed by local apply.
+                        this.showFireBreathDamageAtImpact(breath, from, units);
+                        const breathReactions: Promise<void>[] = [];
+                        for (const hit of breath) {
+                            if (hit.amount <= 0 && hit.unitsDied <= 0) continue;
+                            const remaining = consumeLoss(hit.unitId, hit.unitsDied);
+                            if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(hit.unitId)) {
+                                presentDeath(hit.unitId);
+                                continue;
+                            }
+                            const burned = units.get(hit.unitId) as RenderableUnit | undefined;
+                            if (!burned) continue;
+                            const showReaction = (): Promise<void> => {
+                                if (this.isSceneDestroyed() || shownDeaths.has(hit.unitId)) return Promise.resolve();
+                                const animation = this.playReplayOneShot(burned, "hit", 3000, true);
+                                if (
+                                    (burned.getUnitProperties?.().level ?? 0) <= 2 ||
+                                    usesApprovedBaseAnimations(burned.getName())
+                                )
+                                    return animation;
+                                this.applyReplayHitKnockback(burned, source, hit.amount);
+                                return Promise.all([animation, this.delayReplay(330)]).then(() => {});
+                            };
+                            // A victim may still own a simultaneous outgoing action; do not cancel it.
+                            const outgoing = activeAttacks.get(hit.unitId);
+                            breathReactions.push(outgoing ? outgoing.then(showReaction) : showReaction());
+                        }
+                        reaction = Promise.all(breathReactions).then(() => {});
                         if (!strike.missed) {
                             // Secondary entries preserve the order of each striker's reflections. A later
                             // blow owns its next burn; the final blow also takes any sweep/AOE reflections.
@@ -5780,7 +5852,7 @@ export class Sandbox extends PixiScene {
                 }),
             );
         }
-        if (areaThrowWaves.size && deathState) {
+        if ((areaThrowWaves.size || breathVictims.size) && deathState) {
             for (const id of event.unitIdsDied) {
                 const unit = units.get(id);
                 if (!deathState.deadIds.has(id) && unit instanceof RenderableUnit) unit.clearDamagePresentation();
@@ -6164,6 +6236,33 @@ export class Sandbox extends PixiScene {
                 stroke,
                 unit?.getDamagePredictionAnchor(gs),
                 unit,
+            );
+        }
+    }
+    private showFireBreathDamageAtImpact(
+        secondary: IVisibleDamage["secondary"],
+        origin: HoCMath.XY,
+        units: ReadonlyMap<string, Unit>,
+    ): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const { fill, stroke } = this.getSecondaryDamageStyle("fire_breath");
+        for (const hit of secondary ?? []) {
+            if (hit.amount <= 0 && hit.unitsDied <= 0) continue;
+            const unit = units.get(hit.unitId) as RenderableUnit | undefined;
+            const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
+            const direction = { x: center.x - origin.x, y: center.y - origin.y };
+            this.combatVisuals.spawnFireBurn(center, gs.getCellSize(), 1);
+            this.combatVisuals.showFloatingDamage(
+                unit ? this.offsetReplayDamagePosition(center, unit, direction) : center,
+                hit.amount,
+                direction,
+                hit.unitsDied,
+                fill,
+                stroke,
+                unit?.getDamagePredictionAnchor(gs),
+                unit,
+                undefined,
+                unit?.captureDamageCasualties(hit.unitsDied),
             );
         }
     }
@@ -6749,12 +6848,15 @@ export class Sandbox extends PixiScene {
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
+        const breathVictims = new Set(
+            attackEvent.damage.secondary?.filter((hit) => this.shownFireBreathHits?.has(hit)).map((hit) => hit.unitId),
+        );
         for (const animation of attackEvent.animations) {
             const unitId = animation.affectedUnitId ?? animation.bodyUnitId;
             const unit = unitId
                 ? (this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined)
                 : undefined;
-            if (!unit || unit.isDead() || skipUnitIds.has(unit.getId())) {
+            if (!unit || unit.isDead() || skipUnitIds.has(unit.getId()) || breathVictims.has(unit.getId())) {
                 continue;
             }
             // These entries also describe approaches and projectiles. Only an actual HP loss warrants a flinch.
@@ -13096,8 +13198,8 @@ export class Sandbox extends PixiScene {
                 position: { ...entry.position },
             }));
             damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) =>
-                // Contact playback and the later summary share absorb records, so each is presented once.
-                entry.source === "ember_covenant" || entry.source === "water_shield"
+                // Contact playback and the later summary share these records, so each is presented once.
+                entry.source === "ember_covenant" || entry.source === "water_shield" || entry.source === "fire_breath"
                     ? entry
                     : { ...entry, position: { ...entry.position } },
             );
@@ -13811,7 +13913,10 @@ export class Sandbox extends PixiScene {
                 !damageForAnimation.splash?.length &&
                 !damageForAnimation.missed &&
                 damageForAnimation.amount > 0;
-            if (diff > 0 && !primaryReactionAlreadyPlayed && !exchangeDamage.has(uId)) {
+            const breathReactionAlreadyPlayed = damageForAnimation.secondary?.some(
+                (hit) => hit.unitId === uId && this.shownFireBreathHits?.has(hit),
+            );
+            if (diff > 0 && !primaryReactionAlreadyPlayed && !exchangeDamage.has(uId) && !breathReactionAlreadyPlayed) {
                 // Splash and other secondary victims recoil away from the attack origin too. Missing or
                 // dead units are ignored by the helper, leaving lethal hits to the death animation.
                 this.applyHitReactionFromPoint(u, attacker.getVisualCenter(gs), diff, 0.2);
@@ -13865,7 +13970,8 @@ export class Sandbox extends PixiScene {
             alreadyDied += gazeDamageByUnit.get(uId)?.unitsDied ?? 0;
             if (exchangeAnimated) {
                 for (const hit of damageForAnimation.secondary ?? []) {
-                    if (hit.source !== "fire_shield" || hit.unitId !== uId) continue;
+                    if (hit.unitId !== uId || (hit.source !== "fire_shield" && !this.shownFireBreathHits?.has(hit)))
+                        continue;
                     alreadyShown += hit.amount;
                     alreadyDied += hit.unitsDied;
                 }
@@ -21632,6 +21738,8 @@ export class Sandbox extends PixiScene {
                 (entry) =>
                     entry.source !== "flesh_shield" &&
                     entry.source !== "devour_essence" &&
+                    // Contact-time breath numbers/casualties must not repeat after attack recovery.
+                    !this.shownFireBreathHits?.has(entry) &&
                     // Full absorbs get a labelled pop, never a red damage number.
                     entry.source !== "water_shield" &&
                     entry.source !== "ember_covenant",

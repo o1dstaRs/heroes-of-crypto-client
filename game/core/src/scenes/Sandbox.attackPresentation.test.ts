@@ -112,6 +112,30 @@ const fixture = ({ fairy = false, noMelee = false, ranged = false } = {}) => {
 };
 
 describe("live attack presentation", () => {
+    test("the live summary preserves contact-time Fire Breath ownership instead of repeating its number", async () => {
+        const h = fixture();
+        h.damage.secondary = [
+            { source: "fire_breath", unitId: "rear", position: { x: 1000, y: 0 }, amount: 21, unitsDied: 1 },
+        ];
+        let summary: IVisibleDamage["secondary"];
+        h.scene.spawnFireBreathVfx = (_a: unknown, _b: unknown, damage: IVisibleDamage) => {
+            summary = damage.secondary;
+        };
+        const stop = h.scene.playCombatExchange;
+        h.scene.playCombatExchange = async () => {
+            h.scene.shownFireBreathHits = new WeakSet(h.damage.secondary);
+            const schedule = h.scene.scheduleSceneTimeout;
+            const lateNumbers: number[] = [];
+            h.scene.scheduleSceneTimeout = (_callback: () => void, delay: number) => lateNumbers.push(delay);
+            h.scene.showFleshShieldAbsorbedDamage = () => new Map();
+            h.scene.showDevourEssenceHeals = () => {};
+            h.scene.showSecondaryDamageNumbers(summary, { x: 0, y: 0 });
+            expect(lateNumbers).toEqual([]);
+            h.scene.scheduleSceneTimeout = schedule;
+            return stop();
+        };
+        await h.run();
+    });
     test.each(["ember_covenant", "water_shield"] as const)(
         "%s preserves a fully absorbed ranged counter onto a screening ally",
         async (source) => {
