@@ -24,6 +24,8 @@ export interface EmberCovenantUnit {
     getUnitProperties(): Pick<UnitProperties, "applied_buffs" | "applied_buffs_laps">;
     getBlessingHaloFrame?(): { x: number; y: number; width: number; height: number; zIndex: number } | undefined;
     isDead(): boolean;
+    hasPresentedBuff?(name: string): boolean;
+    presentCombatBuffsAtImpact?(name: string): void;
 }
 
 interface Ring {
@@ -59,6 +61,7 @@ function phaseFor(id: string): number {
 }
 
 function carriesCovenant(unit: EmberCovenantUnit): boolean {
+    if (unit.hasPresentedBuff) return unit.hasPresentedBuff(NAME);
     const properties = unit.getUnitProperties?.();
     return !!properties?.applied_buffs.some((name, index) => name === NAME && properties.applied_buffs_laps[index] > 0);
 }
@@ -77,6 +80,11 @@ export class EmberCovenantRings {
         const unit = units?.get(id);
         const recipientRing = this.rings.get(id);
         const team = unit?.getTeam?.() ?? recipientRing?.team;
+        // This absorb is the shared shield's contact. Release that buff across its army without
+        // revealing unrelated effects on allies whose incoming projectiles have not landed yet.
+        for (const ally of units?.values() ?? []) {
+            if (team !== undefined && ally.getTeam?.() === team) ally.presentCombatBuffsAtImpact?.(NAME);
+        }
         if ((unit && !carriesCovenant(unit)) || (!unit && recipientRing)) {
             for (const [ringId, ring] of this.rings) {
                 const ally = units?.get(ringId);

@@ -3,6 +3,12 @@ import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { fireBreathHitsForStrike } from "./sandbox/fireBreathImpact";
+import {
+    combatStatusFrameFromProperties,
+    EMBER_COVENANT_STATUS,
+    IMPACT_STATUS_NAMES,
+    type CombatStatusFrame,
+} from "./sandbox/combatStatusPresentation";
 import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 import { chakramContactPath } from "./sandbox/chakramContactPath";
 import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
@@ -1036,7 +1042,7 @@ export class Sandbox extends PixiScene {
     private sandboxTurnLogHeaderUnitId?: string;
     private preDeferredActionUnitHp?: Map<
         string,
-        { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY }
+        { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY; status?: CombatStatusFrame }
     >;
     private isAdvancingTurnEvents = false;
     private startListenerConnected = false;
@@ -3376,7 +3382,7 @@ export class Sandbox extends PixiScene {
                 // hydrate, and Stun/Blindness effects don't survive one either. Recording them here is what
                 // lets a SANDBOX replay show the same icons the live board showed.
                 hasHourglassed: fightProps.hasAlreadyHourglass(unit.getId()),
-                skipping: Sandbox.skippingForDisplay(unit),
+                skipping: Sandbox.skippingForCapture(unit),
                 forcedTargetId: unit.getTarget() || undefined,
                 forbiddenTargetId: unit.getForbiddenTarget() || undefined,
                 mechanicalBreakLaps: unit.getEffect("Break")?.getLaps(),
@@ -3617,6 +3623,8 @@ export class Sandbox extends PixiScene {
         if (replayActorId && !this.ensureReplayActiveUnit(replayActorId)) {
             return false;
         }
+        const statusUnits = this.beginCombatStatusPresentation(action, record.stateAfter);
+        this.deferConsumedShieldsUntilImpact(record.events, statusUnits);
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             this.beginStackCountPresentation();
         }
@@ -5347,6 +5355,14 @@ export class Sandbox extends PixiScene {
                     const impact = (): void => {
                         if (impacted || this.isSceneDestroyed()) return;
                         impacted = true;
+                        if (!strike.missed) {
+                            renderedVictim?.presentCombatBuffsAtImpact?.();
+                            const absorbed = event.damage?.secondary?.some(
+                                (hit) =>
+                                    hit.source === "water_shield" && hit.unitId === strike.targetId && hit.amount > 0,
+                            );
+                            if (strike.amount > 0 || !absorbed) renderedVictim?.presentCombatStatusAtImpact?.();
+                        }
                         absolvingProgress?.(1);
                         if (!strike.response && victim === target && repeatedAttack && !oneInTheFieldShown) {
                             oneInTheFieldShown = true;
@@ -5824,6 +5840,13 @@ export class Sandbox extends PixiScene {
             const before = context.remainingAmounts.get(hit.unitId) ?? unit?.getAmountAlive() ?? 0;
             const remaining = Math.max(0, before - hit.unitsDied);
             context.remainingAmounts.set(hit.unitId, remaining);
+            if (!hit.missed) {
+                unit?.presentCombatBuffsAtImpact?.();
+                const absorbed = context.damage?.secondary?.some(
+                    (entry) => entry.source === "water_shield" && entry.unitId === hit.unitId && entry.amount > 0,
+                );
+                if (hit.amount > 0 || !absorbed) unit?.presentCombatStatusAtImpact?.();
+            }
             unit?.presentDamageCasualties(hit.unitsDied);
             if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
@@ -5972,6 +5995,14 @@ export class Sandbox extends PixiScene {
                     }
                     const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
                     remaining.set(hit.unitId, amount);
+                    if (!hit.missed) {
+                        unit?.presentCombatBuffsAtImpact?.();
+                        const absorbed = event.damage?.secondary?.some(
+                            (entry) =>
+                                entry.source === "water_shield" && entry.unitId === hit.unitId && entry.amount > 0,
+                        );
+                        if (hit.amount > 0 || !absorbed) unit?.presentCombatStatusAtImpact?.();
+                    }
                     unit?.presentDamageCasualties(hit.unitsDied);
                     if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
@@ -6341,7 +6372,7 @@ export class Sandbox extends PixiScene {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
-            const presentCasualties = unit?.captureDamageCasualties(entry.unitsDied);
+            const presentCasualties = unit?.captureDamageCasualties(entry.unitsDied, "shield");
             const show = (): void => {
                 this.combatVisuals.showFloatingAbsorbed(
                     pos,
@@ -11073,7 +11104,8 @@ export class Sandbox extends PixiScene {
         }
     }
     protected isStrikeInFlight(): boolean {
-        return this.replayPlaybackActive || this.isPlayingActionAnimation();
+        // Cold textures are part of an attack's windup, before a projectile or one-shot exists.
+        return this.sc_moveBlocked || this.replayPlaybackActive || this.isPlayingActionAnimation();
     }
     protected queueOrPlayEffectPops(entry: IPendingEffectPop): void {
         if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
@@ -11147,6 +11179,7 @@ export class Sandbox extends PixiScene {
         stackIndex: number,
         kind: "debuff" | "buff",
     ): void {
+        if ((IMPACT_STATUS_NAMES as readonly string[]).includes(effectName)) unit.presentCombatStatusAtImpact?.();
         if (effectName === "Paralysis") {
             if (!unit.isDead()) this.combatVisuals?.spawnParalysisPop(unit);
             return;
@@ -18621,7 +18654,16 @@ export class Sandbox extends PixiScene {
         // of an interceptor removed by the local apply. Non-attacks clear any prior snapshot.
         const isAttackAction = action.type === "range_attack" || action.type === "melee_attack";
         const preActionHp = isAttackAction
-            ? new Map<string, { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY }>()
+            ? new Map<
+                  string,
+                  {
+                      amount: number;
+                      cumulativeHp: number;
+                      maxHp: number;
+                      visualCenter: HoCMath.XY;
+                      status?: CombatStatusFrame;
+                  }
+              >()
             : undefined;
         if (preActionHp) {
             const gridSettings = this.sc_sceneSettings.getGridSettings();
@@ -18631,11 +18673,16 @@ export class Sandbox extends PixiScene {
                     typeof renderable.getProjectileImpactPoint === "function"
                         ? renderable.getProjectileImpactPoint(gridSettings)
                         : u.getPosition();
+                const properties = u.getUnitProperties();
                 preActionHp.set(u.getId(), {
                     amount: u.getAmountAlive(),
                     cumulativeHp: u.getCumulativeHp(),
                     maxHp: u.getMaxHp(),
                     visualCenter: { x: visualCenter.x, y: visualCenter.y },
+                    status:
+                        Array.isArray(properties?.applied_buffs) && Array.isArray(properties?.applied_effects)
+                            ? renderable.captureCombatStatusFrame?.()
+                            : undefined,
                 });
             }
         }
@@ -18683,10 +18730,22 @@ export class Sandbox extends PixiScene {
                     this.replayRecorder.beginAction();
                 }
 
+                // Replay already holds the journal's before/after view. A best-effort mechanical
+                // re-apply must not replace it with the unit's eagerly resolved state.
+                const statusUnits = this.replayPlaybackActive ? [] : this.beginCombatStatusPresentation(action);
+
                 const amountsBefore = FightStateManager.getInstance().getFightProperties().hasFightStarted()
                     ? this.beginStackCountPresentation()
                     : new Map<RenderableUnit, number>();
-                const result = engine.apply(action);
+                let result: ReturnType<SceneActionEngine["apply"]>;
+                try {
+                    result = engine.apply(action);
+                } catch (error) {
+                    for (const unit of statusUnits) unit.clearCombatStatusPresentation();
+                    throw error;
+                }
+                if (!result.completed) for (const unit of statusUnits) unit.clearCombatStatusPresentation();
+                else this.deferConsumedShieldsUntilImpact(result.events, statusUnits);
                 if (result.completed) this.rememberStatusApplications(result.events);
                 for (const [unit, amount] of amountsBefore) {
                     // Refused actions and raises have no casualty timeline to hold on the ribbon.
@@ -20686,6 +20745,13 @@ export class Sandbox extends PixiScene {
             ? renderable.isSkippingDisplayed()
             : unit.isSkippingThisTurn();
     }
+    private static skippingForCapture(unit: Unit): boolean {
+        const renderable = unit as RenderableUnit;
+        // Journals store resolved battle state, never the older pose held for a projectile.
+        return typeof renderable.isSkippingApplied === "function"
+            ? renderable.isSkippingApplied()
+            : unit.isSkippingThisTurn();
+    }
     protected applySceneStateUpNext(upNext: string[] | undefined): void {
         if (!upNext?.length) {
             return;
@@ -21838,6 +21904,54 @@ export class Sandbox extends PixiScene {
             unit.beginDamagePresentation(amount);
         }
         return amounts;
+    }
+    private beginCombatStatusPresentation(action: GameAction, outcome?: SandboxSceneState): RenderableUnit[] {
+        if (
+            !["melee_attack", "range_attack", "area_throw_attack", "obstacle_attack", "cast_spell"].includes(
+                action.type,
+            )
+        )
+            return [];
+        const outcomes = new Map(outcome?.units.map((unit) => [unit.properties.id, unit]));
+        const held: RenderableUnit[] = [];
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (!(unit instanceof RenderableUnit)) continue;
+            // Partial actors used during hydration have no status model to snapshot yet.
+            const properties = unit.getUnitProperties();
+            if (!Array.isArray(properties?.applied_buffs) || !Array.isArray(properties?.applied_effects)) continue;
+            const after = outcomes.get(unit.getId());
+            unit.beginCombatStatusPresentation(
+                () => this.sc_moveBlocked || this.isStrikeInFlight() || !!this.preDeferredActionUnitHp,
+                this.preDeferredActionUnitHp?.get(unit.getId())?.status,
+                after
+                    ? combatStatusFrameFromProperties(after.properties, after.skipping, unit.isWebMovementLocked())
+                    : undefined,
+                action.type !== "cast_spell",
+            );
+            held.push(unit);
+        }
+        return held;
+    }
+    private deferConsumedShieldsUntilImpact(events: readonly GameEvent[], units: readonly RenderableUnit[]): void {
+        const byId = new Map(units.map((unit) => [unit.getId(), unit]));
+        for (const event of events) {
+            const secondary =
+                event.type === "unit_attacked" || event.type === "area_attacked" || event.type === "obstacle_attacked"
+                    ? event.damage?.secondary
+                    : event.type === "spell_cast"
+                      ? event.secondary
+                      : undefined;
+            for (const hit of secondary ?? []) {
+                if (hit.amount <= 0) continue;
+                const unit = byId.get(hit.unitId);
+                if (hit.source === "water_shield") unit?.waitForCombatBuffImpact("Water Shield");
+                if (hit.source === "ember_covenant" && unit) {
+                    for (const ally of units) {
+                        if (ally.getTeam() === unit.getTeam()) ally.waitForCombatBuffImpact(EMBER_COVENANT_STATUS);
+                    }
+                }
+            }
+        }
     }
     protected endHelpingHandLinksAtImpact(unitId: string): void {
         this.unitsHolder?.refreshHelpingHandLinks?.(unitId);

@@ -51,6 +51,7 @@ const PRESENTATION_FIELDS = [
     "battlefieldStyleSignature",
     "boardSelected",
     "combatAmountPresentation",
+    "combatStatusPresentation",
     "creatureAnimationLabPreviewEnabled",
     "currentRecoilX",
     "currentRecoilY",
