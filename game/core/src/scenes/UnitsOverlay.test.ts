@@ -700,7 +700,7 @@ describe("UnitsOverlay chip visibility", () => {
         overlay.destroy();
     });
 
-    test("mirrors Nature and the reviewed cutouts while leaving portrait backgrounds untouched", () => {
+    test("faces the lower Nature and Chaos groups toward each other while retaining approved crops and backgrounds", () => {
         const app = {
             renderer: { height: 900, width: 1600 },
             stage: new Container(),
@@ -724,10 +724,9 @@ describe("UnitsOverlay chip visibility", () => {
         const chaos = portraitParts(internals.allChips.find((chip) => chip.nameKey === "Orc")!);
         const might = portraitParts(internals.allChips.find((chip) => chip.nameKey === "Centaur")!);
 
-        expect(nature.sprite.scale.x).toBeLessThan(0);
-        // Wolf's approved crop has a non-zero X offset. A crop-first mirror reverses that offset along
-        // with the image so the visible card fragment is preserved rather than exposing another body area.
-        expect(nature.sprite.x).toBeGreaterThan(0);
+        expect(nature.sprite.scale.x).toBeGreaterThan(0);
+        // Wolf faces right from the lower-left group and retains its authored negative crop offset.
+        expect(nature.sprite.x).toBeLessThan(0);
         expect(nature.portraitBackground?.scale.x).toBeGreaterThan(0);
         expect(life.sprite.scale.x).toBeGreaterThan(0);
         expect(life.portraitBackground?.scale.x).toBeGreaterThan(0);
@@ -753,10 +752,17 @@ describe("UnitsOverlay chip visibility", () => {
             expect(selected.mirrorPortraitX).toBe(true);
         }
 
+        // Nature's left group keeps its rightward facing, and the reviewed top-row crops stay intact.
+        for (const name of ["Unicorn", "Pegasus", "Healer", "Pikeman"]) {
+            const untouched = internals.allChips.find((chip) => chip.nameKey === name)! as unknown as {
+                mirrorPortraitX: boolean;
+            };
+            expect(untouched.mirrorPortraitX, name).toBe(false);
+        }
+
         for (const name of [
             "Trent",
-            "Healer",
-            "Pikeman",
+            "Goblin Knight",
             "Manticore",
             "Hydra",
             "Nightmare",
@@ -764,10 +770,10 @@ describe("UnitsOverlay chip visibility", () => {
             "Black Dragon",
             "Abomination",
         ]) {
-            const untouched = internals.allChips.find((chip) => chip.nameKey === name)! as unknown as {
+            const mirrored = internals.allChips.find((chip) => chip.nameKey === name)! as unknown as {
                 mirrorPortraitX: boolean;
             };
-            expect(untouched.mirrorPortraitX).toBe(false);
+            expect(mirrored.mirrorPortraitX, name).toBe(true);
         }
 
         overlay.destroy();

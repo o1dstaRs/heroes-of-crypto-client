@@ -48,5 +48,7 @@ void main() {
 /** Same material masks as the SVG renderer, with premultiplied alpha restored before compositing. */
 export const createHydraPortraitFilter = (): Filter =>
     new Filter({
+        // A colour-only pass must keep the renderer's Retina/fractional pixel density, not resample heads at 1x.
+        resolution: "inherit",
         glProgram: GlProgram.from({ name: "hydra-portrait-palette", vertex, fragment }),
     });

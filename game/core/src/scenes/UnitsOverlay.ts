@@ -81,8 +81,8 @@ const ROSTER_MOVEMENT_TYPE_ICON_KEY = {
 export const PICK_CARD_ASPECT = 190 / 256;
 
 /**
- * Approved non-Nature cutouts that face into the roster after crop-first mirroring. Nature remains a
- * faction-wide rule; these named exceptions come from the user's L2–L4 visual review.
+ * Reviewed top-row cutouts that face into the roster after crop-first mirroring. The lower Nature/Chaos
+ * row uses the approved pick-card facing instead of a blanket faction flip.
  */
 export const MIRRORED_ROSTER_PORTRAIT_NAMES = new Set([
     "Valkyrie",
@@ -97,9 +97,6 @@ export const MIRRORED_ROSTER_PORTRAIT_NAMES = new Set([
     "Behemoth",
     "Frenzied Boar",
 ]);
-
-/** Nature is mirrored by default, but Trent's approved L2 portrait already faces into the roster. */
-const UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES = new Set(["Trent"]);
 
 type GetTexture = (key: string, options?: TextureLoadOptions) => Texture | undefined;
 const isReadyTexture = (texture: Texture | undefined): boolean =>
@@ -804,10 +801,11 @@ export class UnitsOverlay {
                               backgroundTone: portraitVisual.backgroundTone,
                               artPalette: portraitVisual.artPalette,
                               framing: portraitVisual.framing,
+                              // Nature sits left of Chaos in the lower row: both groups face into its centre.
                               mirrorX:
-                                  (faction.type === FactionVals.NATURE &&
-                                      !UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES.has(unitName)) ||
-                                  MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
+                                  faction.type === FactionVals.NATURE || faction.type === FactionVals.CHAOS
+                                      ? portraitVisual.mirrored
+                                      : MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
                           }
                         : undefined;
 
