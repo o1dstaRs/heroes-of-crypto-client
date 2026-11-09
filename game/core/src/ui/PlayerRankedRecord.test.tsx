@@ -17,12 +17,34 @@ test("ranked records retain wins, ties, losses and a zero-percent win rate", () 
     });
 });
 
-test("missing profiles and invalid values stay unknown instead of inventing a record", () => {
-    expect(rankedRecordText()).toEqual({ record: "W— T— L—", winRate: "—%" });
-    expect(rankedRecordText({ wins: Number.NaN, losses: Infinity, draws: -2, winRatePct: Number.NaN })).toEqual({
-        record: "W— T0 L—",
-        winRate: "—%",
-    });
+test.each([
+    undefined,
+    {},
+    { wins: 0, draws: 0, losses: 0, totalGames: 0, winRatePct: 0 },
+    { wins: Number.NaN, losses: Infinity, draws: -2, winRatePct: Number.NaN },
+])("missing or empty ranked history renders no stats: %j", (profile) => {
+    expect(rankedRecordText(profile)).toEqual({ record: "", winRate: "" });
+    for (const compact of [true, false]) {
+        expect(renderToStaticMarkup(<PlayerRankedRecord profile={profile} color="#d3a65c" compact={compact} />)).toBe(
+            "",
+        );
+    }
+});
+
+test("each statistic stays hidden until its own data is available", () => {
+    const render = (profile: React.ComponentProps<typeof PlayerRankedRecord>["profile"]) =>
+        renderToStaticMarkup(
+            <CacheProvider value={createCache({ key: "partial-record" })}>
+                <PlayerRankedRecord profile={profile} color="#d3a65c" compact={false} />
+            </CacheProvider>,
+        );
+    const recordOnly = render({ wins: 0, draws: 0, losses: 12 });
+    expect(recordOnly).toContain("W0 T0 L12");
+    expect(recordOnly).not.toContain("data-player-win-rate");
+    expect(recordOnly).not.toContain("WIN RATE");
+    const rateOnly = render({ totalGames: 12, winRatePct: 0 });
+    expect(rateOnly).toContain("0%");
+    expect(rateOnly).not.toContain("data-player-record=");
 });
 
 test.each([true, false])("record and win rate are visible in the compact=%s player row", (compact) => {
