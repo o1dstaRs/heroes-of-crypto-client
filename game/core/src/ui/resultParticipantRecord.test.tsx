@@ -36,8 +36,11 @@ test("practice result cards retain the human record and win rate without ranked 
     expect(html).not.toContain("MMR");
 });
 
-test("unknown guest records stay honest and AI seats do not inherit the human's profile", () => {
-    expect(render(false, false)).toContain("W— T— L—");
-    expect(render(false, false)).toContain("—%");
+test("unknown guest records stay hidden and AI seats do not inherit the human's profile", () => {
+    const guest = render(false, false);
+    expect(guest).toContain("RuneWarden");
+    expect(guest).not.toContain("data-player-ranked-record");
+    expect(guest).not.toContain("WIN RATE");
+    expect(guest).not.toContain("—%");
     expect(render(true, true)).not.toContain("data-player-ranked-record");
 });

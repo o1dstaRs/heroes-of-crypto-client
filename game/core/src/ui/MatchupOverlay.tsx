@@ -67,8 +67,7 @@ type MatchupProfile = Readonly<{
 const fallbackProfile = (player: MatchupPlayer): MatchupProfile => ({
     username: player.label || (player.isAi ? "AI" : player.team === MATCHUP_LOWER_TEAM ? "Green" : "Red"),
     rank: player.isAi ? "AI" : "Ranked",
-    record: "W— T— L—",
-    winRate: "—%",
+    ...rankedRecordText(),
 });
 
 const MATCHUP_COLLAPSED_STORAGE_KEY = "hoc.matchupOverlay.collapsed";
@@ -332,7 +331,7 @@ const MatchupPlayerCard: React.FC<{
                     >
                         {player.isAi ? "AI opponent" : standing || "Rank unavailable"}
                     </Typography>
-                    {!player.isAi && (
+                    {!player.isAi && (text.record || text.winRate) && (
                         <Typography
                             sx={{
                                 mt: 0.65,
@@ -344,10 +343,13 @@ const MatchupPlayerCard: React.FC<{
                                 letterSpacing: "0.015em",
                             }}
                         >
-                            {text.record} ·{" "}
-                            <Box component="span" sx={{ color: "#fff0c9" }}>
-                                {text.winRate}
-                            </Box>
+                            {text.record}
+                            {text.record && text.winRate && " · "}
+                            {text.winRate && (
+                                <Box component="span" sx={{ color: "#fff0c9" }}>
+                                    {text.winRate}
+                                </Box>
+                            )}
                         </Typography>
                     )}
                 </Box>
