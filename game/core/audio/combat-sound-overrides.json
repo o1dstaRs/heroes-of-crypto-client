@@ -13,17 +13,20 @@
         }
     },
     "angel/attack": {
-        "source_id": "source-123883f006ce55fe",
-        "path": "tmp/audio/raw/library/artisticdude/swishes/swishes/swish-9.wav",
+        "source_id": "provided-8f8ce99d2f8905e0db20",
+        "path": "tmp/audio/raw/provided/8f8ce99d2f8905e0/sword-impact-swing-joshua-chivers-1-00-00.mp3",
         "source": {
-            "kind": "library",
-            "author": "artisticdude",
-            "license": "CC0",
-            "page_url": "https://opengameart.org/content/swishes-sound-pack",
-            "download_url": "https://opengameart.org/sites/default/files/swishes.zip",
-            "filename": "swish-9.wav",
-            "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
-            "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
+            "kind": "user-provided",
+            "source_id": "provided-8f8ce99d2f8905e0db20",
+            "filename": "sword-impact-swing-joshua-chivers-1-00-00.mp3",
+            "title": "Sword impact - swing",
+            "author": "Joshua Chivers",
+            "sha256": "8f8ce99d2f8905e0db20d25bebb602623d23146c0ca8d91c93afe965a5778e55",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Angel sword swing",
+            "selection": "Explicitly selected by the user to replace Angel attack",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
         }
     },
     "berserker/hurt": {
@@ -54,6 +57,667 @@
             "filename": "arbalester_damage_received.wav",
             "sha256": "e83b5117ec3a2d3ca8208d9fea954c8e1c859c7a0b8db4398fbc006564074a68",
             "label": "Provided damage reaction \u00b7 Arbalester"
+        }
+    },
+    "nomad/attack": {
+        "source_id": "provided-c129c3b62c1e95153e34",
+        "path": "tmp/audio/raw/provided/c129c3b62c1e9515/sword-stab-flesh-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "sword-stab-flesh-joshua-chivers-1-00-01.mp3",
+            "title": "Sword - stab flesh",
+            "author": "Joshua Chivers",
+            "sha256": "c129c3b62c1e95153e344b19defa62444ab3f39a6e82d1f2b4abd10519098fd8",
+            "label": "Sword - stab flesh",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-c129c3b62c1e95153e34"
+        }
+    },
+    "squire/attack": {
+        "source_id": "provided-994e15c0d8a795245dcd",
+        "path": "tmp/audio/raw/provided/994e15c0d8a79524/metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3",
+            "title": "Metal weapon impact (Heavy)",
+            "author": "Joshua Chivers",
+            "sha256": "994e15c0d8a795245dcdd5b26583ba22f5594356065ddd0cd681f14d2e4307f2",
+            "label": "Metal weapon impact (Heavy)",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-994e15c0d8a795245dcd"
+        }
+    },
+    "berserker/attack": {
+        "source_id": "provided-f45e8dba967c0e892efe",
+        "path": "tmp/audio/raw/provided/f45e8dba967c0e89/sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3",
+            "title": "Sword stab - puncture flesh",
+            "author": "Joshua Chivers",
+            "sha256": "f45e8dba967c0e892efe4924d625b824486ff0ac2677efb70abab88b3fd30072",
+            "label": "Sword stab - puncture flesh",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-f45e8dba967c0e892efe"
+        }
+    },
+    "champion/attack": {
+        "source_id": "provided-0b2db194cfa57cd9bd9b",
+        "path": "tmp/audio/raw/provided/0b2db194cfa57cd9/bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3",
+            "title": "Bullet impacting flesh",
+            "author": "Gamemaster Audio",
+            "sha256": "0b2db194cfa57cd9bd9b8561afc5e1691e949de92345b32eb2110a18a4df597e",
+            "label": "Bullet impacting flesh",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-0b2db194cfa57cd9bd9b"
+        }
+    },
+    "healer/hurt": {
+        "source_id": "provided-3a9ab0daa18d2f599c80",
+        "path": "tmp/audio/raw/provided/3a9ab0daa18d2f59/ouch-female-gfx-sounds-2-2-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "ouch-female-gfx-sounds-2-2-00-00.mp3",
+            "title": "\"Ouch\" - female",
+            "author": "GFX Sounds",
+            "sha256": "3a9ab0daa18d2f599c802a10f4ca6ff6389315e7c6f741183d6d9b495523e3db",
+            "label": "\"Ouch\" - female",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-3a9ab0daa18d2f599c80"
+        }
+    },
+    "champion/hurt": {
+        "source_id": "provided-da60b68beab175564a31",
+        "path": "tmp/audio/raw/provided/da60b68beab17556/groan-painful-male-smartsound-fx-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "groan-painful-male-smartsound-fx-1-00-00.mp3",
+            "title": "Groan - painful (Male)",
+            "author": "SmartSound FX",
+            "sha256": "da60b68beab175564a31421777b026326f3f458c43838b5af81cbcee6d5d50af",
+            "label": "Groan - painful (Male)",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-da60b68beab175564a31"
+        }
+    },
+    "zena/attack": {
+        "source_id": "provided-f0064449e2233b300565",
+        "path": "tmp/audio/raw/provided/f0064449e2233b30/whoosh-blade-throw-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "whoosh-blade-throw-joshua-chivers-1-00-01.mp3",
+            "title": "Whoosh - blade throw",
+            "author": "Joshua Chivers",
+            "sha256": "f0064449e2233b300565ead53a79a8febb22b7378424a1ff95c5950f0a312339",
+            "label": "Whoosh - blade throw",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_id": "provided-f0064449e2233b300565",
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "blacksmith/attack": {
+        "source_id": "provided-d1421277bcd9cb4cfd2b",
+        "path": "tmp/audio/raw/provided/d1421277bcd9cb4c/metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-d1421277bcd9cb4cfd2b",
+            "filename": "metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3",
+            "title": "Metallic anvil impact",
+            "author": "Jam FX",
+            "sha256": "d1421277bcd9cb4cfd2b8ad706e4d0d237c9979a213b16ba1a35e1e55b7f62a5",
+            "source_site": "https://uppbeat.io/",
+            "selection": "Explicitly selected by the user for Blacksmith attack; remove the empty tail",
+            "license": "License receipt not included in the supplied file",
+            "label": "Selected Blacksmith anvil attack",
+            "duration_limit_ms": 1600
+        }
+    },
+    "troll/attack": {
+        "source_id": "provided-b6bc665d78e381f45389",
+        "path": "tmp/audio/raw/provided/b6bc665d78e381f4/bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3",
+            "title": "Bullet impacting body",
+            "author": "Gamemaster Audio",
+            "sha256": "b6bc665d78e381f4538910300907c671ea060b840f790c22dd547266e62a6592",
+            "label": "Bullet impacting body",
+            "source_id": "provided-b6bc665d78e381f45389",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1000,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "dryad/hurt": {
+        "source_id": "provided-e0da1ddfa3953bf0bddc",
+        "path": "tmp/audio/raw/provided/e0da1ddfa3953bf0/groan-pain-female-smartsound-fx-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "groan-pain-female-smartsound-fx-1-00-00.mp3",
+            "title": "Groan - pain (Female)",
+            "author": "SmartSound FX",
+            "sha256": "e0da1ddfa3953bf0bddc557e6d0918f348b041515ce34d4fc67f3f9fcc208736",
+            "label": "Groan - pain (Female)",
+            "source_id": "provided-e0da1ddfa3953bf0bddc",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 800,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "white-tiger/attack": {
+        "source_id": "provided-c5d761a0e37f3717af95-4080-5500",
+        "path": "tmp/audio/raw/provided/c5d761a0e37f3717/excerpt-4080-5500.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "lion-attacking-growl-gfx-sounds-2-2-00-05.mp3",
+            "title": "Lion - attacking growl",
+            "author": "GFX Sounds",
+            "sha256": "c5d761a0e37f3717af95b0bf78a57b9c32425546bad3fece255ad42f0a41ecd9",
+            "label": "Final growl",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 4080,
+                "end_ms": 5500,
+                "original_duration_ms": 5975,
+                "original_path": "tmp/audio/raw/provided/c5d761a0e37f3717/lion-attacking-growl-gfx-sounds-2-2-00-05.mp3",
+                "sha256": "9d326e4698a0f752ce68c05d8d6dd24e9a372792e61ef046b85957c419f4e0c2",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-c5d761a0e37f3717af95-4080-5500"
+        }
+    },
+    "thunderbird/hurt": {
+        "source_id": "provided-a137fc38a3ddb00c683c-0-1050",
+        "path": "tmp/audio/raw/provided/a137fc38a3ddb00c/excerpt-0-1050.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "tropical-bird-squawk-ra-music-1-00-03.mp3",
+            "title": "Tropical bird squawk",
+            "author": "RA Music",
+            "sha256": "a137fc38a3ddb00c683c3d5cd721df62ed956a2d27010b833c2aa8430f6995b1",
+            "label": "Opening squawk",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 1050,
+                "original_duration_ms": 3000,
+                "original_path": "tmp/audio/raw/provided/a137fc38a3ddb00c/tropical-bird-squawk-ra-music-1-00-03.mp3",
+                "sha256": "838b84e6314f00ca9c2191571da72c34d341589da5749837d136762bbecb9f47",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-a137fc38a3ddb00c683c-0-1050"
+        }
+    },
+    "unicorn/hurt": {
+        "source_id": "provided-25b8bf6edeb3e1fd4039",
+        "path": "tmp/audio/raw/provided/25b8bf6edeb3e1fd/horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3",
+            "title": "Horse whinny - cartoon squeal",
+            "author": "Epic Stock Media",
+            "sha256": "25b8bf6edeb3e1fd4039c2c67c559c0d6fce7fa3a873be3f5808649224363580",
+            "label": "Complete whinny",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-25b8bf6edeb3e1fd4039"
+        }
+    },
+    "hydra/attack": {
+        "source_id": "provided-a8cbc9c50d4aaa4ed9e5-50-1400",
+        "path": "tmp/audio/raw/provided/a8cbc9c50d4aaa4e/excerpt-50-1400.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3",
+            "title": "Snake hissing - long",
+            "author": "SmartSound FX",
+            "sha256": "a8cbc9c50d4aaa4ed9e5e95f9df20ba092dd3cdd85c23f0096d822b7206f9564",
+            "label": "Opening hiss",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 50,
+                "end_ms": 1400,
+                "original_duration_ms": 2643,
+                "original_path": "tmp/audio/raw/provided/a8cbc9c50d4aaa4e/snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3",
+                "sha256": "b8218c91958e15bb0e1bd7ab8e45a8e394a38b99c6c8c4cb16996c5698818f85",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-a8cbc9c50d4aaa4ed9e5-50-1400"
+        }
+    },
+    "champion/move": {
+        "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+        "path": "tmp/audio/raw/provided/3f8e33cad85e9656/excerpt-1350-2820.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+            "title": "Horse galloping - ambient loop",
+            "author": "Bosnow",
+            "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+            "label": "Three-stride gallop loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1350,
+                "end_ms": 2820,
+                "original_duration_ms": 16331,
+                "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+        }
+    },
+    "unicorn/move": {
+        "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+        "path": "tmp/audio/raw/provided/3f8e33cad85e9656/excerpt-1350-2820.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+            "title": "Horse galloping - ambient loop",
+            "author": "Bosnow",
+            "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+            "label": "Three-stride gallop loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1350,
+                "end_ms": 2820,
+                "original_duration_ms": 16331,
+                "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+        }
+    },
+    "nightmare/move": {
+        "source_id": "provided-3f8e33cad85e965623d0-1350-2820",
+        "path": "tmp/audio/raw/provided/3f8e33cad85e9656/excerpt-1350-2820.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+            "title": "Horse galloping - ambient loop",
+            "author": "Bosnow",
+            "sha256": "3f8e33cad85e965623d08b20165e0d5b3db63a81948630d29b0fe6acedd625c2",
+            "label": "Three-stride gallop loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1350,
+                "end_ms": 2820,
+                "original_duration_ms": 16331,
+                "original_path": "tmp/audio/raw/provided/3f8e33cad85e9656/horse-galloping-ambient-loop-bosnow-1-00-16.mp3",
+                "sha256": "376e323cdbeeda535c367375291d09a24278ab7f2660ccec478d0056b382535d",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "source_id": "provided-3f8e33cad85e965623d0-1350-2820"
+        }
+    },
+    "arachna-queen/attack": {
+        "source_id": "provided-545de6a90174456d3c5c",
+        "path": "tmp/audio/raw/provided/545de6a90174456d/spider-monster-angry-screech-epic-stock-media-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-545de6a90174456d3c5c",
+            "filename": "spider-monster-angry-screech-epic-stock-media-1-00-01.mp3",
+            "title": "Spider monster - angry screech",
+            "author": "Epic Stock Media",
+            "sha256": "545de6a90174456d3c5c2ea6f517b27999812c6e8f9c82cee38740cd6912cb2d",
+            "label": "Selected Arachna Queen attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "arachna-queen/hurt": {
+        "source_id": "provided-c79eeec4306f82ebf314",
+        "path": "tmp/audio/raw/provided/c79eeec4306f82eb/spider-monster-scream-epic-stock-media-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-c79eeec4306f82ebf314",
+            "filename": "spider-monster-scream-epic-stock-media-1-00-00.mp3",
+            "title": "Spider monster - scream",
+            "author": "Epic Stock Media",
+            "sha256": "c79eeec4306f82ebf3149cd1e366368a21a6ebfbb844bd3d9aa75eea6b92691f",
+            "label": "Selected Arachna Queen hurt",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "arachna-queen/move": {
+        "source_id": "provided-900a4fa5c445e48047be-850-2270",
+        "path": "tmp/audio/raw/provided/900a4fa5c445e480/excerpt-850-2270.wav",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-900a4fa5c445e48047be-850-2270",
+            "filename": "insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3",
+            "title": "Insects skittering & scratching",
+            "author": "GFX Sounds",
+            "sha256": "900a4fa5c445e48047bea6ab1eb45372542ee98000ead64cfdfaefd0f2fab9b7",
+            "label": "Spider skittering movement loop",
+            "selection": "Explicitly selected by the user for all spiders",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "excerpt": {
+                "start_ms": 850,
+                "end_ms": 2270,
+                "original_duration_ms": 2920,
+                "original_path": "tmp/audio/raw/provided/900a4fa5c445e480/insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3",
+                "sha256": "66808ddb1b9e065e28b0686ac21604882a4332178eeb1662d8e4c7c9eade696e",
+                "speed": 1,
+                "pitch_shift_semitones": 0,
+                "selection": "Continuous skittering section bounded by quiet points"
+            },
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "arachna-spider/move": {
+        "source_id": "provided-900a4fa5c445e48047be-850-2270",
+        "path": "tmp/audio/raw/provided/900a4fa5c445e480/excerpt-850-2270.wav",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-900a4fa5c445e48047be-850-2270",
+            "filename": "insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3",
+            "title": "Insects skittering & scratching",
+            "author": "GFX Sounds",
+            "sha256": "900a4fa5c445e48047bea6ab1eb45372542ee98000ead64cfdfaefd0f2fab9b7",
+            "label": "Spider skittering movement loop",
+            "selection": "Explicitly selected by the user for all spiders",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "playback": "Loop during board movement with 20 ms entry and 30 ms exit fades",
+            "excerpt": {
+                "start_ms": 850,
+                "end_ms": 2270,
+                "original_duration_ms": 2920,
+                "original_path": "tmp/audio/raw/provided/900a4fa5c445e480/insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3",
+                "sha256": "66808ddb1b9e065e28b0686ac21604882a4332178eeb1662d8e4c7c9eade696e",
+                "speed": 1,
+                "pitch_shift_semitones": 0,
+                "selection": "Continuous skittering section bounded by quiet points"
+            },
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "abomination/hurt": {
+        "source_id": "provided-55c8d9598183dad0b31d",
+        "path": "tmp/audio/raw/provided/55c8d9598183dad0/wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-55c8d9598183dad0b31d",
+            "filename": "wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
+            "title": "Wendigo monster - fang growth",
+            "author": "GFX Sounds",
+            "sha256": "55c8d9598183dad0b31d9a72c5ba5ea351db972d8768e62ef75e62a483a5e4a0",
+            "label": "Selected abomination hurt",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "crop_to_duration": true,
+            "source_site": "https://uppbeat.io/",
+            "duration_edit": {
+                "method": "event-crop-v1",
+                "original_duration_ms": 3737,
+                "start_ms": 6.0,
+                "end_ms": 1551.188,
+                "natural_ending": false,
+                "fade_in_ms": 3,
+                "fade_out_ms": 40
+            }
+        }
+    },
+    "valkyrie/attack": {
+        "source_id": "provided-fdb454794105c5c5f8aa",
+        "path": "tmp/audio/raw/provided/fdb454794105c5c5/crowbar-swing-attack-joshua-chivers-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-fdb454794105c5c5f8aa",
+            "filename": "crowbar-swing-attack-joshua-chivers-1-00-00.mp3",
+            "title": "Crowbar swing attack",
+            "author": "Joshua Chivers",
+            "sha256": "fdb454794105c5c5f8aa32b02f765062611ab121b5103439bd696418eaf0cb1c",
+            "label": "Selected valkyrie attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "tsar-cannon/attack": {
+        "source_id": "provided-a6c62be3738e0195cf65",
+        "path": "tmp/audio/raw/provided/a6c62be3738e0195/cannon-fired-gamemaster-audio-4-4-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-a6c62be3738e0195cf65",
+            "filename": "cannon-fired-gamemaster-audio-4-4-00-01.mp3",
+            "title": "Cannon fired",
+            "author": "Gamemaster Audio",
+            "sha256": "a6c62be3738e0195cf655538e6155457c786943ebe7b61806653a82aa773260a",
+            "label": "Selected tsar-cannon attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "mantis/attack": {
+        "source_id": "provided-7d3fce781743ad046db7",
+        "path": "tmp/audio/raw/provided/7d3fce781743ad04/combat-bloody-hit-epic-stock-media-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-7d3fce781743ad046db7",
+            "filename": "combat-bloody-hit-epic-stock-media-1-00-00.mp3",
+            "title": "Combat - bloody hit",
+            "author": "Epic Stock Media",
+            "sha256": "7d3fce781743ad046db752d69a041e5e3959b2e401d9de0e4f23513854cec555",
+            "label": "Selected mantis attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "mermaid/attack": {
+        "source_id": "provided-cfbd8de6aed6a9a34b10",
+        "path": "tmp/audio/raw/provided/cfbd8de6aed6a9a3/underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-cfbd8de6aed6a9a34b10",
+            "filename": "underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3",
+            "title": "Underwater whoosh (Fast)",
+            "author": "Slava Pogorelsky",
+            "sha256": "cfbd8de6aed6a9a34b102ff93f773b5ac830d20a092121a8ee6e9d4be184add5",
+            "label": "Selected mermaid attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "elf/attack": {
+        "source_id": "provided-b4c5535e0febbf07f42d",
+        "path": "tmp/audio/raw/provided/b4c5535e0febbf07/punch-block-hit-gfx-sounds-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-b4c5535e0febbf07f42d",
+            "filename": "punch-block-hit-gfx-sounds-1-00-00.mp3",
+            "title": "Punch - block hit",
+            "author": "GFX Sounds",
+            "sha256": "b4c5535e0febbf07f42de67891c75be830446c55556f0978662e83af92e0a78f",
+            "label": "Selected elf attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/"
+        }
+    },
+    "black-dragon/attack": {
+        "source_id": "provided-fded8ef9347fbe878759",
+        "path": "tmp/audio/raw/provided/fded8ef9347fbe87/dragon-breathing-fire-gregor-quendel-1-00-03.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-fded8ef9347fbe878759",
+            "filename": "dragon-breathing-fire-gregor-quendel-1-00-03.mp3",
+            "title": "Dragon breathing fire",
+            "author": "Gregor Quendel",
+            "sha256": "fded8ef9347fbe8787590fbfb465b1faefd18881aa02d3147641f5fdf7c7f6a9",
+            "label": "Selected black-dragon attack",
+            "selection": "Explicitly selected by the user",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "crop_to_duration": true,
+            "source_site": "https://uppbeat.io/",
+            "duration_edit": {
+                "method": "event-crop-v1",
+                "original_duration_ms": 3024,
+                "start_ms": 47.0,
+                "end_ms": 1632.188,
+                "natural_ending": true,
+                "fade_in_ms": 3,
+                "fade_out_ms": 20
+            }
+        }
+    },
+    "elf/hurt": {
+        "source_id": "provided-368c0f33d64521c7439e-0-1600",
+        "path": "tmp/audio/raw/provided/368c0f33d64521c7/excerpt-0-1600.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "death-whimper-female-smartsound-fx-short-2-00-04.mp3",
+            "title": "Death whimper - female",
+            "author": "SmartSound FX",
+            "sha256": "368c0f33d64521c7439e4b7ba1ed56b849976cc06910ecf7d59a04f81a646e4d",
+            "source_site": "https://uppbeat.io/",
+            "label": "Opening female whimper",
+            "selection": "Explicitly selected by the user: starting portion for Elf hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_id": "provided-368c0f33d64521c7439e-0-1600",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 1600,
+                "original_duration_ms": 4046,
+                "original_path": "tmp/audio/raw/provided/368c0f33d64521c7/death-whimper-female-smartsound-fx-short-2-00-04.mp3",
+                "sha256": "0c1695c34e7a1d2ada8136f52162ed7734546cf528ac73359d9ed98bd196364f",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            }
+        }
+    },
+    "blacksmith/hurt": {
+        "source_id": "provided-b0cff106f8ed9da03f9d-0-950",
+        "path": "tmp/audio/raw/provided/b0cff106f8ed9da0/excerpt-0-950.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "death-grunt-male-smartsound-fx-soft-3-00-03.mp3",
+            "title": "Death grunt - male",
+            "author": "SmartSound FX",
+            "sha256": "b0cff106f8ed9da03f9d618562bd68d2f89029d16f69015aaf74a87389de7892",
+            "source_site": "https://uppbeat.io/",
+            "label": "Opening male grunt",
+            "selection": "Explicitly selected by the user: starting portion for Blacksmith hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600,
+            "source_id": "provided-b0cff106f8ed9da03f9d-0-950",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 950,
+                "original_duration_ms": 3466,
+                "original_path": "tmp/audio/raw/provided/b0cff106f8ed9da0/death-grunt-male-smartsound-fx-soft-3-00-03.mp3",
+                "sha256": "6787e1fb8785bf513acdc6811dce8f10b962f14da9fb2e3eab0a6b7a4c85cfcb",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            }
+        }
+    },
+    "wyvern/attack": {
+        "source_id": "provided-8c41c847a5957f1f7274",
+        "path": "tmp/audio/raw/provided/8c41c847a5957f1f/gore-blood-splatter-epic-stock-media-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-8c41c847a5957f1f7274",
+            "filename": "gore-blood-splatter-epic-stock-media-1-00-01.mp3",
+            "title": "Gore - blood splatter",
+            "author": "Epic Stock Media",
+            "sha256": "8c41c847a5957f1f727408aa44e2667d9e248d352e3e4fc924a655d259cd1c4c",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Wyvern attack",
+            "selection": "Explicitly selected by the user for Wyvern attack",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
+    },
+    "arachna-spider/hurt": {
+        "source_id": "provided-450cf971ba82fd763e58",
+        "path": "tmp/audio/raw/provided/450cf971ba82fd76/spider-monster-growl-epic-stock-media-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-450cf971ba82fd763e58",
+            "filename": "spider-monster-growl-epic-stock-media-1-00-01.mp3",
+            "title": "Spider monster - growl",
+            "author": "Epic Stock Media",
+            "sha256": "450cf971ba82fd763e58fb212532365adcf8a9dcf1d356b7fd6e6913f063a822",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Arachna Spider hurt",
+            "selection": "Explicitly selected by the user for Arachna Spider hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
         }
     }
 }

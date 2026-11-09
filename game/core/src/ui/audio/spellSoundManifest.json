@@ -1,0 +1,12 @@
+{
+    "Fireball": {
+        "slug": "spell-fireball",
+        "durationMs": 2430,
+        "revision": "70c50e0431"
+    },
+    "Fire Strike": {
+        "slug": "spell-fire-strike",
+        "durationMs": 1724,
+        "revision": "e8151c53e4"
+    }
+}

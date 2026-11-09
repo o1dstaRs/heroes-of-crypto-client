@@ -7,7 +7,10 @@ import {
     premiumCrewFormation,
     premiumCrewSlots,
     premiumCrewSynergies,
+    renderPremiumCrew,
+    samplePremiumCrew,
 } from "./premium-crew";
+import type { PremiumLibrary } from "./premium-library";
 import { premiumCrewEvidenceResponse } from "../../server/premium-crew-evidence";
 import type { PremiumEvidenceSnapshot } from "@heroesofcrypto/common/src/simulation/premium_evidence_snapshot";
 
@@ -21,6 +24,55 @@ const crew = (offset = 0) => {
     }
     return picked;
 };
+
+test("the starting crew fills all six legal board positions without requiring battle statistics", () => {
+    const ids = samplePremiumCrew(null, catalog);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
+    expect(ids.map((id) => catalog.units[id].level)).toEqual(CREW_LEVELS);
+    const formation = premiumCrewFormation(ids, catalog);
+    expect(valid(formation.input, formation.positions)).toBe(true);
+    const html = renderPremiumCrew(ids, catalog, "en", "screen", 1, false);
+    expect(html.match(/class="premium-crew-token"/g)).toHaveLength(6);
+    expect(html).not.toContain("Add unit");
+    expect(html).not.toContain("data-crew-sample");
+    for (const id of ids) expect(html).toContain(`data-knowledge-reference="${catalog.units[id].anchor}"`);
+});
+
+test("starting crews retain saved units and fill missing tiers when the evidence only covers one choice", () => {
+    const existing = crew(1);
+    const observed = eligible.find(([id, item]) => item.level === 3 && Number(id) !== existing[4])!;
+    const library = {
+        units: [{ key: observed[0], ids: [Number(observed[0])], families: 80, interval: [0.45, 0.7] }],
+    } as PremiumLibrary;
+    expect(samplePremiumCrew(library, catalog, existing)).toEqual(existing);
+    const partial = [existing[0], existing[2]];
+    const filled = samplePremiumCrew(library, catalog, partial);
+    expect(filled).toHaveLength(6);
+    expect(filled).toContain(partial[0]);
+    expect(filled).toContain(partial[1]);
+    expect(filled).toContain(Number(observed[0]));
+    expect(filled.map((id) => catalog.units[id].level)).toEqual(CREW_LEVELS);
+    const html = renderPremiumCrew(filled, catalog, "en", "screen", 1);
+    const boardButtons = html.match(/<button[^>]*class="premium-crew-token"[^>]*>/g)!;
+    expect(boardButtons).toHaveLength(6);
+    boardButtons.forEach((button, index) => {
+        expect(button).toContain(`data-crew-slot="${index}"`);
+        expect(button).toContain('aria-label="Replace ');
+    });
+});
+
+test("crew tools remain usable without offering unavailable statistical picks", () => {
+    const empty = renderPremiumCrew([], catalog, "en", "screen", 1, false);
+    expect(empty).toContain("data-crew-slot");
+    expect(empty).not.toContain("data-crew-sample");
+    expect(empty).not.toContain("rankings");
+    const built = renderPremiumCrew(crew(), catalog, "en", "screen", 1, false);
+    expect(built).toContain("Starting formation");
+    expect(built).toContain("Artifact results");
+    expect(built).toContain("data-crew-share");
+    expect(built).not.toContain("data-crew-sample");
+});
 
 test("ranked crew limits survive replacement, removal and programmatic input", () => {
     const ids = crew();
@@ -56,7 +108,20 @@ test("artifact suggestions exclude items with no beneficiaries and synergy level
         .filter(([, item]) => item.kit?.role === "melee" && item.level === 1)
         .slice(0, 2)
         .map(([id]) => Number(id));
-    const artifacts = premiumCrewArtifacts(ground, catalog);
+    const recorded = (id: number, score: number) => ({
+        key: String(id),
+        ids: [id],
+        score,
+        families: 80,
+        observations: 80,
+        interval: [score - 0.1, score + 0.1],
+        frequency: 0.1,
+    });
+    const data = {
+        artifactsTier1: [recorded(6, 0.9), recorded(5, 0.6)],
+        artifactsTier2: [recorded(15, 0.9), recorded(2, 0.6)],
+    } as PremiumLibrary;
+    const artifacts = premiumCrewArtifacts(ground, catalog, 1, data);
     expect(artifacts.map((item) => item.tier)).toEqual([1, 2]);
     expect(
         artifacts.some((item) =>

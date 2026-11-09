@@ -9,7 +9,7 @@ import { PremiumSearchSlot } from "./PremiumSearch";
 import { PremiumFightMoves } from "./PremiumFightMoves";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 
-/** Fight footer: chat stays available whether or not the player wants board suggestions. */
+/** The strategy guide stays available whether or not the player wants board suggestions. */
 export const PremiumFightControls: React.FC = () => {
     const suggestedMoves = usePremiumSuggestedMoves();
     const { t } = useTranslation();

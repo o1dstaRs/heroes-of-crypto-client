@@ -8,6 +8,8 @@ import {
 } from "./creaturePortraitBackgroundMotion";
 import { resolveCreaturePortraitArtPlacement, resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
+import { CHAOS_PORTRAIT_BACKGROUND_FILTER } from "./creaturePortraitPalette";
+import { HydraPortraitPalette } from "./HydraPortraitPalette";
 
 export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     creatureId: number;
@@ -161,6 +163,7 @@ const CreaturePortraitImageBase = ({
                             height: "100%",
                             objectFit: backgroundFit,
                             opacity: backgroundOpacity,
+                            filter: visual.backgroundTone === "chaos" ? CHAOS_PORTRAIT_BACKGROUND_FILTER : undefined,
                         }}
                     />
                 )}
@@ -224,7 +227,7 @@ const CreaturePortraitImageBase = ({
                             position: "absolute",
                             inset: 0,
                             zIndex: 1,
-                            bgcolor: `rgba(0,0,0,${backgroundShadeAlpha})`,
+                            bgcolor: `rgba(${(visual.backgroundShadeColor >> 16) & 255},${(visual.backgroundShadeColor >> 8) & 255},${visual.backgroundShadeColor & 255},${backgroundShadeAlpha})`,
                             pointerEvents: "none",
                         }}
                     />
@@ -249,7 +252,15 @@ const CreaturePortraitImageBase = ({
                         }}
                     />
                 )}
-                {renderArt ? renderArt(art) : art}
+                {visual.artPalette === "hydra" ? (
+                    <HydraPortraitPalette sharpen={highQualityArt}>
+                        {renderArt ? renderArt(art) : art}
+                    </HydraPortraitPalette>
+                ) : renderArt ? (
+                    renderArt(art)
+                ) : (
+                    art
+                )}
             </DecodedPortraitLayers>
         </Box>
     );

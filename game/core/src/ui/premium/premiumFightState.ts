@@ -17,6 +17,8 @@ export const currentPremiumTurn = (advice: PremiumAdvice, snapshot: PlaySnapshot
         turn?.sequence === snapshot.latestSequence &&
         turn.lap === snapshot.currentLap &&
         turn.unitId === snapshot.currentUnitId
-        ? turn
+        ? turn.options.length > 2
+            ? { ...turn, options: turn.options.slice(0, 2) }
+            : turn
         : undefined;
 };

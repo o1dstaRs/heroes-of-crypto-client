@@ -10,6 +10,7 @@ from prepare_combat_audio import (
     CREATURES_JSON,
     RATE,
     SPELLS_JSON,
+    crop_one_shot,
     decode,
     fade_edges,
     loudness,
@@ -70,6 +71,68 @@ class CombatMasteringTests(unittest.TestCase):
                 self.assertLessEqual(measured["true_peak_db"], -3)
                 self.assertLess(len(decode(path)) / RATE, 0.4)
                 self.assertLess(result["encoded"][codec]["bytes"], 32768)
+
+    def test_source_duration_limit_rejects_a_long_performance_before_encoding(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
+            work = Path(folder)
+            source = work / "long.wav"
+            write_wave(source, array.array("f", self.tone(1.2)))
+            record = {"path": source, "unit": "test", "slug": "test", "role": "attack",
+                      "source_id": "long-take", "source": {"kind": "suno-mcp", "duration_limit_ms": 1000}}
+            # This would fit the global 1.6 s cap, but must also fit the requested 1 s.
+            with self.assertRaisesRegex(ValueError, "exceeds the 1000 ms limit"):
+                master("test/attack", [record], work, work / "output")
+            self.assertFalse((work / "output").exists())
+
+    def test_long_silence_padding_does_not_reject_a_short_complete_event(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
+            work = Path(folder)
+            source = work / "padded.wav"
+            write_wave(source, array.array("f", [0] * RATE + self.tone(0.25) + [0] * RATE * 2))
+            record = {"path": source, "unit": "test", "slug": "test", "role": "attack",
+                      "source_id": "padded-take", "source": {"kind": "suno-mcp", "duration_limit_ms": 1000}}
+            result = master("test/attack", [record], work, work / "output")
+            self.assertEqual(result["raw_duration_ms"], 3250)
+            self.assertEqual(result["source"]["duration_limit_ms"], 1000)
+            for encoded in result["encoded"].values():
+                self.assertLessEqual(encoded["duration_ms"], 1000)
+                self.assertGreaterEqual(encoded["duration_ms"], 250)
+
+    def test_crop_selects_a_complete_strong_event_and_keeps_original_pcm(self):
+        samples = array.array("f", [0] * 4800 + [v * 0.2 for v in self.tone(0.3)] + [0] * 9600 +
+                              self.tone(0.45) + [0] * 4800 + [v * 0.3 for v in self.tone(1.8)])
+        original = samples.tobytes()
+        start, end = trim_bounds(samples)
+        left, right, edit = crop_one_shot(samples, start, end, 1000)
+        self.assertGreater(left / RATE, 0.55)
+        self.assertLess(left / RATE, 0.65)
+        self.assertGreater(right / RATE, 1.04)
+        self.assertLess(right / RATE, 1.1)
+        self.assertTrue(edit["natural_ending"])
+        self.assertEqual(edit["fade_out_ms"], 20)
+        self.assertEqual(samples.tobytes(), original)
+
+    def test_crop_uses_a_quiet_dip_and_fades_an_unfinished_tail_to_zero(self):
+        # A continuous 3.4 s performance, with a valley at 0.75 s and louder audio afterwards.
+        tone = self.tone(3.4)
+        for i in range(len(tone)):
+            t = i / RATE
+            if 0.70 <= t <= 0.78:
+                tone[i] *= 0.2
+            elif t > 0.1:
+                tone[i] *= 0.8
+        samples = array.array("f", tone)
+        start, end = trim_bounds(samples)
+        left, right, edit = crop_one_shot(samples, start, end, 1000)
+        self.assertLess(left / RATE, 0.02)
+        self.assertGreater(right / RATE, 0.70)
+        self.assertLess(right / RATE, 0.80)
+        self.assertFalse(edit["natural_ending"])
+        self.assertEqual(edit["fade_out_ms"], 40)
+        faded = fade_edges(samples[left:right], fade_out_ms=edit["fade_out_ms"])
+        self.assertEqual(faded[0], 0)
+        self.assertEqual(faded[-1], 0)
+        self.assertLess(max(abs(x) for x in faded[-48:]), 0.001)
 
 
 if __name__ == "__main__":

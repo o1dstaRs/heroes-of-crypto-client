@@ -17,6 +17,7 @@ import { hocDisplayFontFamily } from "./hocTheme";
 import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
 import type { OpponentConnectionLabel } from "./opponentConnection";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
+import { PlayerRankedRecord, rankedRecordText } from "./PlayerRankedRecord";
 import { useFullscreenActive } from "./useFullscreenActive";
 
 export type MatchupPlayer = Readonly<{
@@ -70,9 +71,6 @@ const fallbackProfile = (player: MatchupPlayer): MatchupProfile => ({
     winRate: "—%",
 });
 
-const wholeStat = (value: number | undefined): string =>
-    typeof value === "number" && Number.isFinite(value) ? String(Math.max(0, Math.trunc(value))) : "—";
-
 const MATCHUP_COLLAPSED_STORAGE_KEY = "hoc.matchupOverlay.collapsed";
 
 /**
@@ -107,12 +105,7 @@ const profileFor = (player: MatchupPlayer, publicProfile?: PublicPlayerStats): M
         publicProfile.state === "placed"
             ? publicProfile.leagueName || publicProfile.standingTitle || publicProfile.wealthName || "Ranked"
             : "Calibrating";
-    const record = `W${wholeStat(publicProfile.wins)} T${wholeStat(publicProfile.draws)} L${wholeStat(publicProfile.losses)}`;
-    const winRate =
-        typeof publicProfile.winRatePct === "number" && Number.isFinite(publicProfile.winRatePct)
-            ? `${Math.round(publicProfile.winRatePct)}%`
-            : "—%";
-    return { username, rank, record, winRate };
+    return { username, rank, ...rankedRecordText(publicProfile) };
 };
 
 /**
@@ -189,21 +182,27 @@ const PlayerAvatar: React.FC<{
     size: number;
     text: MatchupProfile;
     tone: MatchupTeamTone;
-}> = ({ player, profile, size, text, tone }) => (
-    <Box sx={{ position: "relative", width: size, height: size }}>
-        {player.isAi ? (
-            <AiAvatar label={`${text.username} — AI`} size={size} />
-        ) : profile ? (
-            <LeagueEmblem
-                label={`${text.username} — ${text.rank}`}
-                league={profile.league ?? 0}
-                wealth={profile.wealth ?? 0}
-                size={size}
-                variant={size <= 48 ? "compact" : "default"}
-            />
-        ) : (
-            <Crest team={player.team} tone={tone} size={size} />
-        )}
+    clipArtwork?: boolean;
+}> = ({ player, profile, size, text, tone, clipArtwork = false }) => (
+    <Box data-matchup-avatar sx={{ position: "relative", width: size, height: size }}>
+        <Box
+            data-matchup-avatar-art
+            sx={{ width: "100%", height: "100%", overflow: clipArtwork ? "hidden" : undefined, borderRadius: "50%" }}
+        >
+            {player.isAi ? (
+                <AiAvatar label={`${text.username} — AI`} size={size} />
+            ) : profile ? (
+                <LeagueEmblem
+                    label={`${text.username} — ${text.rank}`}
+                    league={profile.league ?? 0}
+                    wealth={profile.wealth ?? 0}
+                    size={size}
+                    variant={size <= 48 ? "compact" : "default"}
+                />
+            ) : (
+                <Crest team={player.team} tone={tone} size={size} />
+            )}
+        </Box>
         {!player.isAi && <PremiumShield testOnly size={Math.min(24, Math.round(size * 0.3))} />}
     </Box>
 );
@@ -670,52 +669,7 @@ const Side: React.FC<{
                             {player.note}
                         </Typography>
                     ) : (
-                        <Box
-                            sx={{
-                                mt: "4px",
-                                display: "flex",
-                                minWidth: 0,
-                                alignItems: "center",
-                                justifyContent: reversed ? "flex-end" : "flex-start",
-                                gap: 0.45,
-                                color: "#eadfc8",
-                                fontSize: "0.66rem",
-                                fontWeight: 900,
-                                fontVariantNumeric: "lining-nums tabular-nums",
-                                letterSpacing: "0.01em",
-                                lineHeight: 1,
-                                textTransform: "uppercase",
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            <Box
-                                component="span"
-                                sx={{
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    color: tone.bright,
-                                    textShadow: "0 1px 2px #000",
-                                }}
-                            >
-                                {text.record}
-                            </Box>
-                            <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
-                                ·
-                            </Box>
-                            <Box
-                                component="span"
-                                sx={{
-                                    flex: "0 0 auto",
-                                    color: "#fff0c9",
-                                    fontSize: "0.69rem",
-                                    fontWeight: 900,
-                                    letterSpacing: 0,
-                                    textShadow: "0 1px 2px #000",
-                                }}
-                            >
-                                {text.winRate}
-                            </Box>
-                        </Box>
+                        <PlayerRankedRecord profile={profile} color={tone.bright} reversed={reversed} />
                     )}
                 </Box>
             </Box>

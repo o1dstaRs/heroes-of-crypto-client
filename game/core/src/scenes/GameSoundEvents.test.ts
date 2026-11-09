@@ -1,6 +1,43 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 import { Sandbox } from "./Sandbox";
+import { RankedPlayScene } from "./RankedPlayScene";
+
+for (const ranked of [false, true]) {
+    test(`${ranked ? "ranked" : "sandbox"} summons share one cue per group, including merges and hatchlings`, () => {
+        const playSceneGameSound = mock(() => undefined);
+        const syncSummonedUnit = mock(() => undefined);
+        const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
+            sandboxPremiumRevision: 0,
+            preparePyreDeaths: () => undefined,
+            clearSandboxPremiumGuidance: () => undefined,
+            syncSummonedUnit,
+            playSceneGameSound,
+            refreshVisibleStateIfNeeded: () => undefined,
+            updateLiveFightStats: () => undefined,
+            reconcileEffectVisuals: () => undefined,
+            flushPendingReplayRecords: () => undefined,
+            replayPlaybackActive: ranked,
+        });
+        const summoned = (unitName: string, amount: number, merged = false, sourceAbility?: string) => ({
+            type: "unit_summoned",
+            unitId: unitName,
+            unitName,
+            amount,
+            merged,
+            sourceAbility,
+        });
+        scene.applyTurnEngineEvents([summoned("Wolf", 3), summoned("Arachna Spider", 1, false, "Infest")], new Map());
+        expect(playSceneGameSound).toHaveBeenCalledTimes(1);
+        expect(playSceneGameSound).toHaveBeenCalledWith("summon");
+        expect(syncSummonedUnit).toHaveBeenCalledTimes(2);
+        scene.applyTurnEngineEvents([summoned("Wolf", 2, true)], new Map());
+        expect(playSceneGameSound).toHaveBeenCalledTimes(2);
+        scene.applyTurnEngineEvents([summoned("Wolf", 0)], new Map());
+        scene.applyTurnEngineEvents([], new Map());
+        expect(playSceneGameSound).toHaveBeenCalledTimes(2);
+    });
+}
 
 test("spellbook sounds follow real transitions, with no repeated open/close sounds and no late open after closing", () => {
     const sounds: { name: string; alive: () => boolean }[] = [];

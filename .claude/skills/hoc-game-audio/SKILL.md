@@ -47,8 +47,9 @@ accent, but "enchanted" or "celestial" must not replace the blade's physical sou
 Translate the art into acoustic instructions rather than feeding its visual description to
 the SFX model. Separate a swing from contact: a weapon swing can play on a miss, so do not
 put a victim impact or blade clash into it. Prefer reusable weapon foley when generated takes
-keep sounding like generic magic. Update the authored design prompt before regenerating;
-the UI's default follows that direction, while provenance retains the old source prompt.
+keep sounding like generic magic. For manual generation, update the authored design prompt first.
+The review UI's Regenerate buttons instead ask a vision model for a new direction from current
+art, game data, and rejected attempts; the authored design changes when a take is applied.
 
 Use dry, close, brief fantasy effects with consistent space and texture. Give units distinct
 weapon/material, vocal, or magical identities. Ask for one clear event with immediate onset;
@@ -117,14 +118,23 @@ port if occupied. Listen for unrelated noises, truncated tails, clicks, repeated
 overly harsh transients, and reactions that do not fit the creature. Keep alternate takes
 locally for revisions; distinguish measured quality from listening judgments.
 
-Each combat row's **Regenerate** control supports an editable prompt, four mastered variations,
-and **Apply to game**. The local server uses `ELEVENLABS_API_KEY` from its environment; keys
+Each combat row and dialog shows separate **Regenerate · ElevenLabs** and **Regenerate · Suno**
+buttons. A click means the existing direction is rejected: the local sound director must inspect
+actual current artwork and combine it with game style, creature descriptions and abilities,
+recent rejected prompts, and optional feedback to create a materially different acoustic concept.
+Do not restore a same-prompt reroll or invent acoustic changes without inspecting the art.
+The isolated Codex inference runs before the paid audio call. Missing context, model failure,
+or a repeated prompt must stop without generating audio. **Review takes** opens without charging.
+ElevenLabs generates four takes; Suno generates two, with listening links if downloads are unavailable.
+The dialog shows the new prompt, visual observations, reasoning, and changes. Applying preserves
+the generated prompt and portable context/image hashes for subsequent agents.
+The local server uses `ELEVENLABS_API_KEY` from its environment; keys
 never enter browser JavaScript or tracked metadata. It needs sound-generation permission,
 not account-read permission. If generation is unavailable, use the page's clean ElevenLabs
 editor link or the connected MCP tools. Never repeat an ambiguous paid request; reconcile
 the persisted job under `tmp/audio/revisions` first. The Apply action publishes both codecs,
 the explicit source override, provenance, cache revision, and report together. Refresh the game
-to use the replacement. Selecting a generated take also persists its edited prompt in the sound
+to use the replacement. Selecting a generated take also persists its generated prompt in the sound
 design for future regeneration. Lookup reusable library sounds before spending credits when they fit.
 
 `game/core/src/ui/audio/combatSounds.ts` is the player. Preserve its settings subscription,
@@ -151,6 +161,7 @@ between sandbox and ranked replay. Preserve the scene's liveness guard and mute 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 game/core/scripts/test_prepare_combat_audio.py
 PYTHONDONTWRITEBYTECODE=1 python3 game/core/scripts/test_audio_review.py
+PYTHONDONTWRITEBYTECODE=1 python3 game/core/scripts/test_sound_prompt_director.py
 bun test --cwd game/core src/ui/audio/combatSounds.test.ts src/ui/audio/gameSounds.test.ts src/scenes/CombatExchangePlayback.test.ts src/scenes/GameSoundEvents.test.ts
 bun run typecheck
 git diff --check

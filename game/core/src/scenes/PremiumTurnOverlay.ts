@@ -37,6 +37,7 @@ export interface PremiumMoveDrawing {
     cells: HoCMath.XY[];
     point: HoCMath.XY;
     label: string;
+    hasObstacleInteraction?: boolean;
 }
 
 /** Uses the server's exact action plan, never parses display text or runs a game action. */
@@ -148,6 +149,8 @@ export const premiumMoveDrawing = (
                         !(rangeContext.grid.hasScatteredMountains() && AbilityHelper.getDoubleShotAbility(shooter));
                     if (singleBlocked && !projection.evaluation.affectedUnits.some((group) => group.length))
                         return undefined;
+                    if (projection.blocker || projection.hits.length || projection.evaluation.attackObstacle)
+                        drawing.hasObstacleInteraction = true;
                     const obstacles = singleBlocked
                         ? []
                         : projection.hits.map((hit) => GridMath.getCellForPosition(gs, hit.position));
@@ -238,7 +241,7 @@ export const premiumMoveDrawing = (
     return drawing.label && drawing.cells.every(validCell) ? drawing : undefined;
 };
 
-const COLORS = [0xffc65a, 0x80d9ec, 0xc6b6ff] as const;
+const COLORS = [0xffc65a, 0x80d9ec] as const;
 
 /** Floor paths and non-interactive labels live on the board, so camera fitting and mirroring follow it. */
 export class PremiumTurnOverlay {

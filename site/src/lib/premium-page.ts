@@ -57,13 +57,18 @@ export function initPremiumPage(): void {
         lang,
         () => data,
         () => url("crew"),
+        () => view.minimum,
+        () => void load(),
     );
+    select("map").value = crew.battlefield;
     const updateAi = () => {
         const snapshot = data?.snapshot;
         const library = data?.library;
         form.hidden = !library;
         refresh.hidden = !library;
-        root.querySelectorAll<HTMLElement>("[data-premium-library-nav]").forEach((link) => (link.hidden = !library));
+        root.querySelectorAll<HTMLAnchorElement>("[data-premium-library-nav]").forEach((link) => {
+            link.hidden = !library && link.hash !== "#premium-crew";
+        });
         ai.setAccess(
             entitlement?.active === true,
             snapshot && library
@@ -74,7 +79,7 @@ export function initPremiumPage(): void {
                       snapshot?.studyProfile.replace("premium-", ""),
                       select("cohort").selectedOptions[0]?.text,
                       select("map").selectedOptions[0]?.text,
-                      view.minimum + "+ " + t("families", "семейств"),
+                      view.minimum + "+ " + t("battle pairs", "пар боёв"),
                   ]
                       .filter(Boolean)
                       .join(" · ")

@@ -87,6 +87,34 @@
         dialog::backdrop {
             background: #000a;
         }
+        .dialog-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .provider-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .provider-option {
+            flex: 1 1 260px;
+            border: 1px solid #383838;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .provider-option p {
+            margin: 6px 4px;
+        }
+        .row-actions {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 330px;
+        }
+        [hidden] {
+            display: none !important;
+        }
         textarea {
             box-sizing: border-box;
             width: 100%;
@@ -99,6 +127,10 @@
         .candidate {
             padding: 10px 0;
             border-top: 1px solid #383838;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
         }
         .art-images {
             display: flex;
@@ -114,17 +146,20 @@
     </style>
     <h1>Combat sound audition</h1>
     <p>
-        Original short attack and damage reactions for every creature. Mono Opus at 64 kbps, MP3 fallback at 96 kbps.
-        Mastered to −20 LUFS using a consistent repeated one-shot measurement, with encoded true peaks below −3 dBTP.
-        Waveforms show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or
-        artistic fit: compare the sounds at the same volume here.
+        Attack, damage, and movement sounds for every creature. Movement recordings loop while the unit travels. Empty
+        movement slots are ready for your selected recordings. Mono Opus at 64 kbps, MP3 fallback at 96 kbps. Mastered
+        to −20 LUFS using a consistent repeated one-shot measurement, with encoded true peaks below −3 dBTP. Waveforms
+        show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or artistic fit:
+        compare the sounds at the same volume here.
     </p>
-    <input id="search" placeholder="Find a unit or spell…" aria-label="Find a unit or spell" />
+    <input id="search" placeholder="Find a unit, spell, or effect…" aria-label="Find a unit, spell, or effect" />
     <select id="role" aria-label="Sound role">
         <option value="">All sounds</option>
         <option value="attack">Attacks</option>
         <option value="hurt">Damage received</option>
+        <option value="move">Movement</option>
         <option value="cast">Spell casts</option>
+        <option value="event">Game effects</option>
     </select>
     <select id="codec" aria-label="Codec">
         <option value="webm">Opus</option>
@@ -150,7 +185,12 @@
         <tbody id="rows"></tbody>
     </table>
     <dialog id="regeneration">
-        <h2 id="regeneration-title">Replace a sound</h2>
+        <div class="dialog-header">
+            <h2 id="regeneration-title">Replace a sound</h2>
+            <form method="dialog">
+                <button id="close-regeneration" type="submit">Close</button>
+            </form>
+        </div>
         <p>
             <a id="library-link" target="_blank" rel="noopener">Look for reusable library sounds first</a>
             · <a id="elevenlabs-link" target="_blank" rel="noopener" hidden>Open ElevenLabs editor</a>
@@ -158,14 +198,47 @@
         <section id="art-reference" hidden>
             <div id="art-images" class="art-images"></div>
             <p id="attack-basis"></p>
+            <p id="creature-description"></p>
+            <details>
+                <summary>Abilities and game sound style</summary>
+                <div id="creature-abilities"></div>
+                <p id="game-sound-style" class="muted"></p>
+            </details>
         </section>
-        <label id="prompt-label" for="generation-prompt">Sound description</label>
-        <textarea id="generation-prompt"></textarea>
+        <label id="prompt-label" for="generation-prompt">Current sound direction</label>
+        <textarea id="generation-prompt" readonly></textarea>
+        <div id="direction-feedback">
+            <label for="generation-feedback">What didn't work? (optional)</label>
+            <textarea
+                id="generation-feedback"
+                maxlength="1000"
+                placeholder="For example: too airy; make the fire feel heavier and more aggressive."
+            ></textarea>
+            <p class="muted">
+                Regenerate means a new direction. The model reviews the artwork, abilities, game style, and previous
+                attempts before writing a different sound prompt.
+            </p>
+        </div>
+        <div id="provider-controls" class="provider-buttons">
+            <div class="provider-option">
+                <button id="generate-elevenlabs" aria-describedby="elevenlabs-status">Regenerate · ElevenLabs</button>
+                <p id="elevenlabs-status" class="muted" aria-live="polite"></p>
+                <p class="muted">New prompt + 4 takes · ElevenLabs credits</p>
+            </div>
+            <div class="provider-option">
+                <button id="generate-suno" aria-describedby="suno-status">Regenerate · Suno</button>
+                <p id="suno-status" class="muted" aria-live="polite"></p>
+                <p class="muted">New prompt + 2 takes · 2 generation credits · listen on Suno</p>
+            </div>
+        </div>
         <p>
-            <button id="generate">Generate 4 takes</button>
-            <button id="close-regeneration">Close</button>
-            <span id="generation-note" class="muted">Generation uses ElevenLabs credits. Listen, then apply your preferred take.</span>
+            <button id="generate" hidden>Next Freesound sound</button>
+            <button id="generate-similar" disabled aria-describedby="similar-note">
+                Regenerate similar — unavailable
+            </button>
         </p>
+        <p id="generation-note" class="muted">Listen to the generated takes, then apply your preferred one.</p>
+        <p id="similar-note" class="muted"></p>
         <p id="generation-status" aria-live="polite"></p>
         <div id="candidates"></div>
     </dialog>
@@ -214,7 +287,8 @@
             const visible = filtered();
             const bytes = (codec) =>
                 sounds.reduce((n, c) => n + ((c.encoded && c.encoded[codec] && c.encoded[codec].bytes) || 0), 0);
-            const waiting = sounds.filter((c) => !c.encoded).length;
+            const waiting = sounds.filter((c) => !c.encoded && c.role === "cast").length;
+            const emptyMovement = sounds.filter((c) => !c.encoded && c.role === "move").length;
             $("totals").textContent =
                 sounds.filter((c) => c.encoded).length +
                 " sounds · Opus " +
@@ -223,11 +297,19 @@
                 (bytes("mp3") / 1048576).toFixed(2) +
                 " MiB" +
                 (waiting ? " · " + waiting + " spell placeholders" : "") +
+                (emptyMovement ? " · " + emptyMovement + " empty movement slots" : "") +
                 " · " +
                 visible.length +
                 " shown";
             $("rows").innerHTML = visible
                 .map((c) => {
+                    if (!c.encoded && c.role === "move") {
+                        return (
+                            "<tr><td>" +
+                            escape(c.unit) +
+                            '</td><td>movement</td><td><span class="muted">No sound selected</span></td><td></td><td>—</td><td>—</td><td></td></tr>'
+                        );
+                    }
                     if (!c.encoded) {
                         return (
                             "<tr><td>" +
@@ -251,8 +333,8 @@
                         "<tr><td>" +
                         escape(c.unit) +
                         "</td><td>" +
-                        c.role +
-                        '</td><td><button data-play="' +
+                        (c.role === "move" ? "movement" : c.role) +
+                        '</td><td><div class="row-actions"><button data-play="' +
                         c.slug +
                         "/" +
                         c.role +
@@ -260,18 +342,31 @@
                         c.slug +
                         "/" +
                         c.role +
-                        '">Original</button>' +
-                        (c.role === "event"
+                        '"' +
+                        (c.source_file ? "" : ' disabled title="Original recording is not available locally"') +
+                        ">Original</button>" +
+                        (c.role === "event" || c.role === "move"
                             ? ""
-                            : '<button data-regenerate="' +
-                              c.slug +
-                              "/" +
-                              c.role +
-                              '">' +
-                              (c.role === "cast" ? "Next sound" : "Regenerate") +
-                              "</button>") +
+                            : c.role === "cast"
+                              ? '<button data-regenerate="' + c.slug + '/cast">Next sound</button>'
+                              : '<button data-review="' +
+                                c.slug +
+                                "/" +
+                                c.role +
+                                '">Review takes</button><button data-provider="elevenlabs" data-regenerate="' +
+                                c.slug +
+                                "/" +
+                                c.role +
+                                '">Regenerate · ElevenLabs</button><button data-provider="suno" data-regenerate="' +
+                                c.slug +
+                                "/" +
+                                c.role +
+                                '">Regenerate · Suno</button>') +
+                        "</div>" +
                         (c.source?.kind === "freesound"
-                            ? '<div class="muted">Freesound CC0 · ' + escape(c.source.filename || c.source.author || "") + "</div>"
+                            ? '<div class="muted">Freesound CC0 · ' +
+                              escape(c.source.filename || c.source.author || "") +
+                              "</div>"
                             : c.source?.kind === "user-provided"
                               ? '<div class="muted">Provided recording · ' + escape(c.source.filename) + "</div>"
                               : "") +
@@ -327,16 +422,32 @@
                         );
                     }),
             );
-            document.querySelectorAll("[data-regenerate]").forEach((b) => {
+            document.querySelectorAll("[data-regenerate],[data-review]").forEach((b) => {
                 b.onclick = async () => {
-                    const sound = sounds.find((c) => c.slug + "/" + c.role === b.dataset.regenerate);
+                    const sound = sounds.find(
+                        (c) => c.slug + "/" + c.role === (b.dataset.regenerate || b.dataset.review),
+                    );
                     const running = await openRegeneration(sound);
-                    if (sound && sound.role === "cast" && running === undefined) $("generate").click();
+                    if (
+                        b.dataset.regenerate &&
+                        running === undefined &&
+                        $("regeneration").open &&
+                        selectedSound === sound
+                    )
+                        requestGeneration(b.dataset.provider || "freesound");
                 };
             });
         }
         let selectedSound = null,
-            pollTimer = null;
+            pollTimer = null,
+            providerCatalog = {},
+            providerStatus = {},
+            providerRequest = 0,
+            dialogRequest = 0,
+            contextReady = false,
+            directorReady = false,
+            spellReady = false,
+            generationBusy = false;
         const playedJobs = new Set();
         async function api(path, body) {
             const response = await fetch(
@@ -354,93 +465,264 @@
                 try {
                     error = (await response.json()).error;
                 } catch {}
-                throw new Error(error || "Start scripts/serve_audio_review.py to enable regeneration.");
+                const failure = new Error(error || "Start scripts/serve_audio_review.py to enable regeneration.");
+                failure.status = response.status;
+                throw failure;
             }
             return response.json();
         }
+        function syncGenerationButtons() {
+            const spell = selectedSound?.role === "cast";
+            $("generate").hidden = !spell;
+            $("generate").disabled = generationBusy || !spellReady;
+            $("provider-controls").hidden = !!spell;
+            $("direction-feedback").hidden = !!spell;
+            for (const provider of ["elevenlabs", "suno"]) {
+                $("generate-" + provider).disabled =
+                    generationBusy || !contextReady || !directorReady || !providerStatus[provider]?.available;
+            }
+        }
         async function refreshCatalog() {
             const catalog = await api("/api/audio/catalog");
-            const spellSelected = selectedSound && selectedSound.role === "cast";
-            $("elevenlabs-link").hidden = !catalog.provider_url || spellSelected;
+            const spell = selectedSound?.role === "cast";
+            $("elevenlabs-link").hidden = !catalog.provider_url || spell;
             if (catalog.provider_url) $("elevenlabs-link").href = catalog.provider_url;
             sounds = catalog.sounds;
+            providerCatalog = catalog.providers || {};
+            directorReady = !!catalog.regeneration?.director_available;
+            spellReady = !!catalog.freesound;
             render();
-            const spell = selectedSound && selectedSound.role === "cast";
-            $("generate").textContent = spell ? "Next Freesound sound" : "Generate 4 takes";
-            $("generate").disabled = spell ? !catalog.freesound : !catalog.can_generate;
-            if (spell && !catalog.freesound)
-                $("generation-status").textContent = "Save the Freesound API key before requesting the next sound.";
-            else if (!spell && !catalog.can_generate)
-                $("generation-status").textContent = "Configure ELEVENLABS_API_KEY in the local server environment.";
+            $("generate-similar").hidden = !!spell;
+            $("similar-note").hidden = !!spell;
+            $("similar-note").textContent =
+                catalog.regeneration?.similar_unavailable || "Audio-reference regeneration is not available.";
+            $("generate-similar").title = $("similar-note").textContent;
+            syncGenerationButtons();
+            return catalog;
+        }
+        async function updateProviders() {
+            const request = ++providerRequest;
+            if (!selectedSound || selectedSound.role === "cast") return;
+            providerStatus = { elevenlabs: providerCatalog.elevenlabs || {}, suno: { available: false } };
+            const directorError = directorReady ? "" : "Connect Codex to create a new sound direction. ";
+            $("elevenlabs-status").textContent =
+                directorError +
+                (providerStatus.elevenlabs.available
+                    ? "Ready"
+                    : providerStatus.elevenlabs.error || "Generator unavailable");
+            $("suno-status").textContent = "Checking Suno…";
+            syncGenerationButtons();
+            let status;
+            try {
+                status = await api("/api/audio/provider/suno");
+            } catch (error) {
+                status = { available: false, error: error.message };
+            }
+            if (request !== providerRequest || !$("regeneration").open) return;
+            providerStatus.suno = status;
+            const balances = status.connected
+                ? status.generation_credits +
+                  " generation credits · " +
+                  (status.download_credits ?? "unknown") +
+                  " download credits. "
+                : "";
+            $("suno-status").textContent =
+                directorError +
+                balances +
+                (status.available ? status.download_note || "Ready to generate and listen" : status.error);
+            syncGenerationButtons();
+        }
+        function showContext(context) {
+            $("art-reference").hidden = false;
+            $("art-images").replaceChildren();
+            for (const reference of context.images) {
+                const link = document.createElement("a");
+                link.href = reference.url;
+                link.target = "_blank";
+                link.rel = "noopener";
+                const image = document.createElement("img");
+                image.src = reference.url;
+                image.alt = context.creature.name + " · " + reference.kind.replace("_", " ");
+                link.append(image);
+                $("art-images").append(link);
+            }
+            $("attack-basis").textContent = context.inspected_attack_basis;
+            const creature = context.creature;
+            $("creature-description").textContent = [
+                creature.faction,
+                creature.attack_type?.toLowerCase(),
+                creature.movement_type?.toLowerCase(),
+                Array.isArray(creature.description) ? creature.description.join(" ") : creature.description,
+            ]
+                .filter(Boolean)
+                .join(" · ");
+            $("creature-abilities").innerHTML = creature.abilities
+                .map((a) => "<p><strong>" + escape(a.name) + "</strong> · " + escape(a.description) + "</p>")
+                .join("");
+            $("game-sound-style").textContent = context.game_sound_style;
         }
         async function openRegeneration(c) {
             stop();
             clearTimeout(pollTimer);
+            const request = ++dialogRequest;
             selectedSound = c;
+            generationBusy = true;
+            contextReady = false;
+            providerStatus = {};
             $("regeneration-title").textContent = c.unit + " · " + c.role;
-            $("prompt-label").textContent = c.role === "cast" ? "Spell" : "Sound description";
-            $("generation-prompt").readOnly = c.role === "cast";
+            $("prompt-label").textContent = c.role === "cast" ? "Spell" : "Current sound direction";
             $("generation-prompt").value = c.role === "cast" ? c.summary || c.unit : c.design_prompt || "";
-            $("generate").textContent = c.role === "cast" ? "Next Freesound sound" : "Generate 4 takes";
+            $("generation-feedback").value = "";
             $("generation-note").textContent =
                 c.role === "cast"
-                    ? "Each click takes the next unused CC0 Freesound preview and masters it to −20 LUFS, −3 dBTP, mono 48 kHz Opus and MP3."
-                    : "Generation uses ElevenLabs credits. Listen, then apply your preferred take.";
-            const art = c.art_reference;
-            $("art-reference").hidden = !art;
+                    ? "Each click takes the next unused CC0 Freesound preview and masters it for the game."
+                    : "Each Regenerate button creates a new prompt from the creature and the rejected direction. Listen before applying.";
+            $("art-reference").hidden = true;
             $("art-images").replaceChildren();
-            $("attack-basis").textContent = art?.attack_basis || "";
-            if (art) {
-                for (const [key, label] of [
-                    [art.full_body_asset, "full-body portrait"],
-                    [art.battlefield_asset, "battlefield figure"],
-                ]) {
-                    if (typeof key !== "string" || !/^[a-z0-9_]+$/.test(key)) continue;
-                    const link = document.createElement("a");
-                    link.href = "../../images/" + key + ".webp";
-                    link.target = "_blank";
-                    link.rel = "noopener";
-                    const image = document.createElement("img");
-                    image.src = link.href;
-                    image.alt = c.unit + " " + label + " reference";
-                    link.append(image);
-                    $("art-images").append(link);
-                }
-            }
             $("library-link").href =
                 c.role === "cast"
                     ? "https://freesound.org/search/?q=spell+cast&f=license:%22Creative+Commons+0%22"
                     : "https://opengameart.org/art-search-advanced?keys=" +
                       encodeURIComponent(c.library_query || c.unit + " " + c.role + " sound");
             $("candidates").textContent = "";
-            $("generation-status").textContent = "Loading available takes…";
-            $("generate").disabled = true;
-            $("regeneration").showModal();
+            $("generation-status").textContent = "Loading creature context and available takes…";
+            syncGenerationButtons();
+            if (!$("regeneration").open) $("regeneration").showModal();
             try {
-                await refreshCatalog();
+                const catalog = await refreshCatalog();
+                if (request !== dialogRequest) return null;
+                if (c.role !== "cast") {
+                    if (!catalog.regeneration?.fresh)
+                        throw new Error("Restart the audio review server to enable regeneration.");
+                    const context = await api(
+                        "/api/audio/context?slug=" + encodeURIComponent(c.slug) + "&role=" + c.role,
+                    );
+                    if (request !== dialogRequest) return null;
+                    showContext(context);
+                    contextReady = true;
+                }
                 const data = await api("/api/audio/jobs?slug=" + encodeURIComponent(c.slug) + "&role=" + c.role);
+                if (request !== dialogRequest) return null;
                 showJobs(data.jobs);
+                const latest = data.jobs.find((j) => j.prompt && j.stage !== "directing");
+                if (latest && c.role !== "cast") $("generation-prompt").value = latest.prompt;
                 const running = data.jobs.find((j) => j.status === "generating");
+                generationBusy = !!running;
+                syncGenerationButtons();
                 if (running) poll(running.id);
                 else
-                    $("generation-status").textContent = data.jobs.length
-                        ? "Compare the mastered takes, or request another."
-                        : c.role === "cast"
-                          ? "The next click takes the next unused CC0 Freesound spell cast and masters it."
-                          : "Find a library sound or generate four variations.";
-                return running;
+                    $("generation-status").textContent =
+                        c.role === "cast" && !spellReady
+                            ? "Save the Freesound API key before requesting the next sound."
+                            : "Play a take to select the direction to replace, or regenerate with either provider.";
+                if (c.role !== "cast") await updateProviders();
+                return request === dialogRequest ? running : null;
             } catch (error) {
+                if (request !== dialogRequest) return null;
+                generationBusy = false;
                 $("generation-status").textContent = error.message;
+                syncGenerationButtons();
                 return null;
             }
+        }
+        function sunoListeningClips(job) {
+            return (job.suno_clips || []).filter(
+                (clip) =>
+                    /^https:\/\/suno\.com\/song\/[a-zA-Z0-9-]+$/.test(clip.song_url || "") &&
+                    (clip.generation_complete ||
+                        [
+                            "ready",
+                            "download_blocked",
+                            "requires_credit",
+                            "download_approved",
+                            "download_requested",
+                            "download_uncertain",
+                        ].includes(clip.state)),
+            );
         }
         function showJobs(jobs) {
             $("candidates").innerHTML = jobs
                 .map(
                     (job) =>
                         "<section><h3>" +
-                        escape(job.prompt || "Library alternatives") +
+                        escape(
+                            job.status === "generating" && job.stage === "directing"
+                                ? "Creating a new sound direction…"
+                                : job.direction?.concept || job.prompt || "Library alternatives",
+                        ) +
                         "</h3>" +
+                        (job.direction
+                            ? "<p>" +
+                              escape(job.prompt) +
+                              "</p><p><strong>Why this fits:</strong> " +
+                              escape(job.direction.reason) +
+                              "</p><p><strong>What changed:</strong> " +
+                              escape(job.direction.changes) +
+                              "</p><details><summary>Artwork observations and previous direction</summary><p>" +
+                              escape(job.direction.visual_basis) +
+                              "</p><p>Previous: " +
+                              escape(job.rejected_prompt) +
+                              "</p></details>"
+                            : "") +
+                        (job.created_at
+                            ? '<p class="muted">' +
+                              escape(new Date(job.created_at).toLocaleString()) +
+                              " · " +
+                              escape(
+                                  job.provider === "user-provided"
+                                      ? "Provided recording"
+                                      : job.provider === "suno"
+                                        ? "Suno"
+                                        : job.role === "cast"
+                                          ? "Freesound"
+                                          : "ElevenLabs",
+                              ) +
+                              (job.duration_seconds ? " · Game limit: " + escape(job.duration_seconds) + " s" : "") +
+                              "</p>"
+                            : "") +
+                        (job.status === "download_blocked"
+                            ? "<p>Ready to listen on Suno. Your original takes are saved there; download, trimming, and applying to the game can wait.</p>"
+                            : "") +
+                        (job.provider === "suno" && ["interrupted", "download_blocked"].includes(job.status)
+                            ? '<button data-resume="' +
+                              escape(job.id) +
+                              '">' +
+                              (job.status === "download_blocked"
+                                  ? "Check existing downloads"
+                                  : "Resume this Suno batch") +
+                              "</button>"
+                            : "") +
+                        sunoListeningClips(job)
+                            .map(
+                                (clip) =>
+                                    '<p><a target="_blank" rel="noopener" data-direction="' +
+                                    escape(job.id) +
+                                    '" href="' +
+                                    escape(clip.song_url) +
+                                    '">Listen to take ' +
+                                    (clip.index + 1) +
+                                    " in Suno</a>" +
+                                    (clip.raw_duration_ms
+                                        ? " · Original: " + (clip.raw_duration_ms / 1000).toFixed(2) + " s"
+                                        : "") +
+                                    "</p>",
+                            )
+                            .join("") +
+                        (job.suno_clips || [])
+                            .filter((clip) => clip.state === "requires_credit")
+                            .map(
+                                (clip) =>
+                                    "<p>Take " +
+                                    (clip.index + 1) +
+                                    ' needs 1 Suno download credit. <button data-download="' +
+                                    escape(job.id) +
+                                    "/" +
+                                    clip.index +
+                                    '" ' +
+                                    (job.status === "generating" ? "disabled" : "") +
+                                    ">Approve 1 download credit</button></p>",
+                            )
+                            .join("") +
                         job.candidates
                             .map((c) => {
                                 const m = c.result.encoded[$("codec").value];
@@ -469,6 +751,28 @@
                                     (job.applied_index === c.index
                                         ? ' <span class="muted">Current game sound</span>'
                                         : "") +
+                                    (c.source.duration_edit
+                                        ? '<p class="muted">Cut from ' +
+                                          (c.source.duration_edit.original_duration_ms / 1000).toFixed(2) +
+                                          " s: " +
+                                          (c.source.duration_edit.start_ms / 1000).toFixed(2) +
+                                          "–" +
+                                          (c.source.duration_edit.end_ms / 1000).toFixed(2) +
+                                          " s, " +
+                                          c.source.duration_edit.fade_out_ms +
+                                          " ms fade. Listen to the ending before applying.</p>"
+                                        : "") +
+                                    (c.source.prompt
+                                        ? "<details><summary>Sound description used</summary><p>" +
+                                          escape(c.source.request_prompt || c.source.prompt) +
+                                          "</p>" +
+                                          (typeof c.source.prompt_influence === "number"
+                                              ? '<p class="muted">Prompt influence: ' +
+                                                c.source.prompt_influence +
+                                                "</p>"
+                                              : "") +
+                                          "</details>"
+                                        : "") +
                                     (c.source.page_url
                                         ? '<p><a target="_blank" rel="noopener" href="' +
                                           escape(c.source.page_url) +
@@ -481,7 +785,9 @@
                             })
                             .join("") +
                         (job.errors.length
-                            ? '<p class="muted">' + escape(job.errors.map((e) => e.message).join(" · ")) + "</p>"
+                            ? '<p class="muted">' +
+                              escape([...new Set(job.errors.map((e) => e.message))].join(" · ")) +
+                              "</p>"
                             : "") +
                         "</section>",
                 )
@@ -491,10 +797,17 @@
                     (b.onclick = () => {
                         const [id, index] = b.dataset.candidate.split("/");
                         const c = jobs.find((j) => j.id === id).candidates.find((c) => c.index === Number(index));
+                        if (c.source.prompt) $("generation-prompt").value = c.source.prompt;
                         stop();
                         play({ ...c.result, asset_base: c.asset_base, source_id: c.source_id });
                     }),
             );
+            document.querySelectorAll("[data-direction]").forEach((link) => {
+                link.onclick = () => {
+                    const job = jobs.find((j) => j.id === link.dataset.direction);
+                    if (job?.prompt) $("generation-prompt").value = job.prompt;
+                };
+            });
             document.querySelectorAll("[data-apply]").forEach(
                 (b) =>
                     (b.onclick = async () => {
@@ -503,6 +816,7 @@
                             const [job_id, index] = b.dataset.apply.split("/");
                             await api("/api/audio/apply", { job_id, index: Number(index) });
                             await refreshCatalog();
+                            await updateProviders();
                             const data = await api(
                                 "/api/audio/jobs?slug=" + selectedSound.slug + "&role=" + selectedSound.role,
                             );
@@ -515,6 +829,27 @@
                         }
                     }),
             );
+            document.querySelectorAll("[data-resume], [data-download]").forEach((button) => {
+                button.onclick = async () => {
+                    button.disabled = true;
+                    const [job_id, index] = (button.dataset.download || button.dataset.resume).split("/");
+                    try {
+                        generationBusy = true;
+                        syncGenerationButtons();
+                        const body = { job_id };
+                        if (index !== undefined) body.download_index = Number(index);
+                        const job = await api("/api/audio/resume", body);
+                        await poll(job.id);
+                    } catch (error) {
+                        if (error.status >= 400 && error.status < 500) {
+                            generationBusy = false;
+                            button.disabled = false;
+                            await updateProviders();
+                        }
+                        $("generation-status").textContent = error.message;
+                    }
+                };
+            });
         }
         async function poll(id) {
             const slug = selectedSound.slug,
@@ -523,19 +858,43 @@
                 const job = await api("/api/audio/job/" + id);
                 if (!$("regeneration").open || selectedSound.slug !== slug || selectedSound.role !== role) return;
                 const data = await api("/api/audio/jobs?slug=" + selectedSound.slug + "&role=" + selectedSound.role);
+                if (!$("regeneration").open || selectedSound.slug !== slug || selectedSound.role !== role) return;
                 showJobs(data.jobs);
+                if (job.direction) $("generation-prompt").value = job.prompt;
                 const spell = role === "cast";
                 $("generation-status").textContent =
                     job.status === "generating"
                         ? spell
                             ? "Downloading the next CC0 clip and mastering it…"
-                            : "Generating and mastering… " + job.candidates.length + " of 4 takes ready."
+                            : job.stage === "directing"
+                              ? "Reviewing the creature's artwork, abilities, game style, and rejected prompts to create a new direction…"
+                              : job.provider === "suno"
+                                ? "Generating on Suno… " +
+                                  sunoListeningClips(job).length +
+                                  " of " +
+                                  (job.take_count || 2) +
+                                  " takes available to listen below."
+                                : "Generating and mastering… " +
+                                  job.candidates.length +
+                                  " of " +
+                                  (job.take_count || 4) +
+                                  " takes ready."
                         : spell
                           ? job.candidates.length
                               ? "Mastered. Listen, then apply it if it fits this spell. Another click takes the next unused clip."
                               : "No clip in this batch fit the loudness, length, or format check. Click again for the next ones."
-                          : job.candidates.length + " takes ready. Listen and choose one to apply.";
-                $("generate").disabled = job.status === "generating";
+                          : job.stage === "directing"
+                            ? "Could not create a new direction. No sound-generation credits were spent. See the error below."
+                            : job.status === "needs_download_approval"
+                              ? "Suno needs a download-credit approval for the indicated take."
+                              : job.status === "download_blocked"
+                                ? "Ready to listen. Open the Suno take links below; downloading and applying can wait."
+                                : job.status === "interrupted"
+                                  ? "This Suno batch paused. Resume it below to recover the same request."
+                                  : job.candidates.length + " takes ready. Listen and choose one to apply.";
+                generationBusy = job.status === "generating";
+                syncGenerationButtons();
+                if (!generationBusy && !spell) await updateProviders();
                 if (job.status !== "generating" && spell && job.candidates.length && !playedJobs.has(job.id)) {
                     playedJobs.add(job.id);
                     const take = job.candidates[job.candidates.length - 1];
@@ -546,30 +905,59 @@
                 $("generation-status").textContent = error.message;
             }
         }
-        $("generate").onclick = async () => {
+        async function requestGeneration(provider) {
+            if (generationBusy || !selectedSound || !$("regeneration").open) return;
             const spell = selectedSound && selectedSound.role === "cast";
-            $("generate").disabled = true;
+            if (!spell && (!contextReady || !directorReady || !providerStatus[provider]?.available)) {
+                $("generation-status").textContent = !contextReady
+                    ? "Creature context is not ready."
+                    : !directorReady
+                      ? "Connect Codex to create a new sound direction."
+                      : providerStatus[provider]?.error || "This generator is not ready yet.";
+                return;
+            }
+            if (spell && !spellReady) return;
+            const prompt = $("generation-prompt").value.trim();
+            if (!spell && (prompt.length < 5 || prompt.length > 2000)) {
+                $("generation-status").textContent = "The previous sound description is missing or too long.";
+                return;
+            }
+            const slug = selectedSound.slug,
+                role = selectedSound.role;
+            generationBusy = true;
+            syncGenerationButtons();
             $("generation-status").textContent = spell
                 ? "Fetching the next CC0 Freesound clip…"
-                : "Starting four takes…";
+                : "Creating a new direction from the artwork, abilities, and previous attempts…";
             try {
                 const job = await api("/api/audio/regenerate", {
-                    slug: selectedSound.slug,
-                    role: selectedSound.role,
-                    prompt: spell ? selectedSound.unit : $("generation-prompt").value,
+                    slug,
+                    role,
+                    prompt: spell ? selectedSound.unit : prompt,
+                    feedback: spell ? "" : $("generation-feedback").value.trim(),
+                    mode: "fresh",
+                    provider: spell ? "freesound" : provider,
                     request_id: crypto.randomUUID(),
                 });
+                if (!$("regeneration").open || selectedSound.slug !== slug || selectedSound.role !== role) return;
                 await poll(job.id);
             } catch (error) {
                 $("generation-status").textContent = error.message;
                 // A lost creature POST may still have started a charged run. Do not immediately
-                // re-enable that button. A rejected spell request never spends ElevenLabs credits.
-                if (spell) $("generate").disabled = false;
+                // re-enable that button. A definite client error is safe to correct.
+                if (spell || (error.status >= 400 && error.status < 500)) {
+                    generationBusy = false;
+                    syncGenerationButtons();
+                }
             }
-        };
-        $("close-regeneration").onclick = () => $("regeneration").close();
+        }
+        $("generate").onclick = () => requestGeneration("freesound");
+        $("generate-elevenlabs").onclick = () => requestGeneration("elevenlabs");
+        $("generate-suno").onclick = () => requestGeneration("suno");
         $("regeneration").onclose = () => {
             clearTimeout(pollTimer);
+            providerRequest++;
+            dialogRequest++;
             stop();
         };
         ["search", "role", "codec"].forEach((id) => ($(id).oninput = render));

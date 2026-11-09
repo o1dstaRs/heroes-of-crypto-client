@@ -1,10 +1,16 @@
 # Combat sounds
 
 The first library covers every creature in the engine configuration, including summoned and hidden
-creatures: one attack and one hurt effect per name. `combat-sound-design.json` holds the
+creatures: one attack and one hurt effect per name, plus an optional movement recording.
+The audition page has an empty movement slot for every creature without a selected recording.
+`combat-sound-design.json` holds the
 sound direction, short generation prompts, and source duration. `combat-sound-provenance.json`
 records the selected sources, ElevenLabs generation IDs when applicable, and measurements of
 the actual encoded files.
+
+The retired Death roster (Skeleton, Imp, Zombie, and Dark Champion) has no creature definitions or
+combat audio entries. Both report generation and cached-report recovery filter against the current
+sound roster, so older local audition data cannot bring those rows back.
 
 Inspect the creature's complete portrait and current battlefield figure before authoring a
 prompt. Resolve their canonical keys in `src/pixi/creaturePortraitAssetKeys.ts` and
@@ -76,13 +82,76 @@ the next unused CC0 result of the Freesound “spell cast” search, then master
 the same −20 LUFS, −3 dBTP, mono 48 kHz, Opus and MP3 contract. Casts may run to 2.5 seconds.
 A clip that fails the check is skipped, and the next result is tried, up to eight per click.
 **Apply to game** copies the chosen pair to `public/audio/spells` and leaves creature attack
-and hurt files alone. The Freesound key stays outside the page and outside tracked metadata.
+and hurt files alone. It also publishes `spellSoundManifest.json` and the selected source path,
+source metadata, and encoded measurements in `spell-sound-provenance.json`. Spell playback
+uses that manifest on the shared effects bus, with the caster's usual cue as the fallback
+when no spell recording is selected. The Freesound key stays outside the page and outside tracked metadata.
 Technical selection does not establish artistic fit: the report keeps all takes
 available locally for listening and revision.
 
-Every creature row has **Regenerate**. It opens an editable sound description, a library search,
-and available mastered alternatives. **Generate 4 takes** uses the server's `ELEVENLABS_API_KEY`;
-the key stays in the server environment. Its API permissions must include sound generation.
+Every creature row and dialog has separate **Regenerate · ElevenLabs** and **Regenerate · Suno**
+buttons. Clicking one creates a new direction and then generates with that provider. **Review takes**
+opens the dialog without generating anything. ElevenLabs produces four takes with an explicit
+duration; Suno produces two takes for two generation credits, plus up to one download credit per take.
+
+**Regenerate means the current sound is rejected.** Before either audio provider is called, a vision
+model inspects the current full-body portrait, battlefield figure, and configured action atlas. It
+combines these with current creature descriptions, ability descriptions, the shared game sound style,
+the rejected prompt, the last eight attempts, and optional feedback. It must invent a materially
+different acoustic concept that still fits the creature and action. Exact and near-copy prompts are
+rejected before audio generation; missing art or a model failure never falls back to the old prompt.
+Each batch shows the new prompt, visual observations, why it fits, and what changed. Playing a take
+selects its direction to reject on the next regeneration. ElevenLabs uses prompt influence `0.3`.
+
+The sound director uses the existing local Codex login through an isolated, ephemeral, read-only
+`codex exec` inference with attached images and tools disabled. This uses model quota in addition to
+the selected audio provider's generation credits. Jobs retain portable image keys and hashes, game
+context, feedback, and generated direction. Applying a take preserves that provenance and updates the
+authored prompt and inspected art references for future work. Credentials remain local to each tool.
+
+Suno's `sounds-create` has no duration parameter: a request for one second can return several
+seconds. The Suno prompt requests one brief event, but this is not a duration guarantee. The page
+shows each original's reported duration alongside the batch's game limit. New generated takes
+must fit the sound design's duration, as well as the overall 1.6-second combat limit. Long Suno
+takes are edited locally: prefer a complete prominent event between quiet gaps, otherwise keep
+the main attack and end near a quiet dip within the budget. Apply a 3 ms fade-in and a 20–40 ms
+fade-out, then run the normal loudness/codec checks. No speed or pitch change is used.
+The raw source is preserved. `crop_to_duration`, `duration_limit_ms`, and `duration_edit` record
+the policy, source interval, and fades so later mastering reproduces the edit. The page shows the
+cut and lets the user audition before applying; waveform analysis alone cannot establish artistic
+fit. Unedited sources retain the length rejection. Existing shipped sounds are unchanged.
+
+**Regenerate similar** is reserved for generation conditioned on the actual current audio.
+It is disabled while no compatible short-SFX reference model is connected, and the server rejects
+that mode before making a paid request. The verified ElevenLabs SFX MCP model and Suno's
+`sounds-create` tool accept text only; Suno's song reference/cover tools are not a short-SFX
+replacement. Do not implement this button by silently reusing a prompt or applying audio filters.
+
+Suno uses the existing Codex OAuth connection through `codex app-server`. The ephemeral thread
+only hosts MCP tools; it does not start a model turn. Configure the `suno` MCP server at
+`https://api.suno.com/mcp`, enable it, and run `codex mcp login suno` if it is not already connected.
+Suno Sounds requires a signed-in Pro or Premier account and two generation credits. The page displays
+generation and download balances separately; a zero download balance does not block generation.
+The server rechecks the account before creation. Without download credits or download access, it
+creates a listening-only batch and skips download requests. Each completed take immediately gets a
+**Listen to take … in Suno** link, even while the other take is generating. These links play the original
+Suno audio; local trimming, mastering, and applying to the game require downloading it later.
+**Check existing downloads** can recover the same saved takes when downloads become available.
+With downloads available, it downloads and runs the same mastering checks as other sources.
+It records the authored and actual provider
+prompts, clip IDs, and file hashes; OAuth tokens and signed download URLs are never saved in jobs.
+
+An interrupted Suno batch has **Resume this Suno batch**. Known clip IDs resume downloads;
+an uncertain creation reuses the same provider idempotency key within 23 hours. It never starts
+a second batch automatically. Downloads are first requested without credit approval. If Suno
+requires a download credit, the page shows an explicit approval button for that take. An uncertain
+confirmed download is not repeated automatically. Explicit insufficient-download-credit refusals
+remain recoverable and are distinguished from unknown outcomes. **Check existing downloads** probes
+the saved clips without approving a charge or regenerating them. Completed clips link to Suno for
+listening while downloads are blocked. Existing mastered takes remain available.
+
+ElevenLabs uses the server's `ELEVENLABS_API_KEY`, which stays in the server environment.
+Its API permissions must include sound generation.
 The separate account-read permission is not required. A clean ElevenLabs editor link also works
 with the connected workspace login. Generation spends credits and is never automatically retried;
 request IDs prevent duplicate POSTs from charging twice. Jobs and successful partial results stay
@@ -106,29 +175,116 @@ for Summoning Wars. These brief weapon-swing foley recordings provide a physical
 to the rejected abstract enchanted-blade generations. The design is grounded in Angel's
 long steel sword as shown in both inspected creature images.
 
+The user-selected Uppbeat recordings below replace only their listed unit/role. Originals stay
+under `tmp/audio/raw/provided/<hash>/`, with filenames, embedded artist/title metadata, SHA-256,
+and explicit selections in the overrides and provenance. No generation credit is used.
+Selections preserve speed and pitch and use the normal 3 ms attack / 20 ms release fades before
+loudness and codec checks. Excerpts also record their exact original bounds and the original and
+excerpt hashes, so later mastering uses the same selected event.
+
+| Unit / role                            | Provided recording                                                                                          |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Abomination hurt                       | `wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3`        |
+| Valkyrie attack                        | `crowbar-swing-attack-joshua-chivers-1-00-00.mp3`                                                           |
+| Tsar Cannon attack                     | `cannon-fired-gamemaster-audio-4-4-00-01.mp3`                                                               |
+| Mantis attack                          | `combat-bloody-hit-epic-stock-media-1-00-00.mp3`                                                            |
+| Mermaid attack                         | `underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3`                                                       |
+| Elf attack                             | `punch-block-hit-gfx-sounds-1-00-00.mp3`                                                                    |
+| Black Dragon attack                    | `dragon-breathing-fire-gregor-quendel-1-00-03.mp3`                                                          |
+| Wyvern attack                          | `gore-blood-splatter-epic-stock-media-1-00-01.mp3`                                                          |
+| Nomad attack                           | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                               |
+| Squire attack                          | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                                    |
+| Berserker attack                       | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                                      |
+| Champion attack                        | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`                                                     |
+| Healer hurt                            | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                                      |
+| Champion hurt                          | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                              |
+| Zena attack                            | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                             |
+| Angel attack                           | `sword-impact-swing-joshua-chivers-1-00-00.mp3`                                                              |
+| Blacksmith attack                      | `metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3`                                               |
+| Troll attack                           | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                                      |
+| Dryad hurt                             | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                               |
+| Arachna Queen attack                   | `spider-monster-angry-screech-epic-stock-media-1-00-01.mp3`                                                 |
+| Arachna Queen hurt                     | `spider-monster-scream-epic-stock-media-1-00-00.mp3`                                                        |
+| Arachna Spider hurt                    | `spider-monster-growl-epic-stock-media-1-00-01.mp3`                                                         |
+| White Tiger attack                     | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                                |
+| Thunderbird hurt                       | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                            |
+| Unicorn hurt                           | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`           |
+| Hydra attack                           | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3`         |
+| Champion, Unicorn, Nightmare movement  | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                          |
+| Arachna Queen, Arachna Spider movement | 0.850–2.270 s of `insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3` |
+
+Angel’s attack uses `sword-impact-swing-joshua-chivers-1-00-00.mp3`, replacing the earlier
+SmartSound sword swish. The 0.909-second master preserves its speed and pitch.
+
+Blacksmith’s anvil attack trims 3.48 seconds of trailing silence to a 0.60-second hit.
+His hurt sound uses the opening 0–0.950 seconds of
+`death-grunt-male-smartsound-fx-soft-3-00-03.mp3`, mastered to a 0.814-second reaction
+with the original speed and pitch preserved.
+Elf’s hurt sound uses the opening 0–1.600 seconds of
+`death-whimper-female-smartsound-fx-short-2-00-04.mp3`, ending at the first quiet gap;
+the mastered reaction lasts 1.374 seconds. Both selections preserve speed and pitch.
+
+Abomination’s longer hurt recording is cropped to a 1.55-second event with a 40 ms tail fade.
+Black Dragon’s fire breath uses a 1.59-second event with a 20 ms tail fade. Exact crop bounds
+are recorded in provenance, and both originals stay intact.
+
+Each combat strike triggers its own attack cue. The Berserker regression in
+`CombatExchangePlayback.test.ts` passes the recorded two-hit plan through the actual sound player
+with a controlled clock, verifies two audible attack starts from one decoded buffer, and covers
+a missed first blow and a simultaneous counterattack. Ranked playback inherits the same scene path.
+
 ## Provided game effects
 
 `game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement,
-and heal recordings to event names and duration budgets. Import local files once:
+heal, Blacksmith casting, summoning, and miss recordings to event names and duration budgets. Import local files once:
 
 ```sh
 python3 game/core/scripts/prepare_game_audio.py --source-dir "$HOME/Downloads"
 ```
 
 Later runs omit `--source-dir` and reuse the originals under `tmp/audio/raw/events`.
-The script reuses the combat mastering engine, stages all five effects before publishing,
+The script reuses the combat mastering engine, stages all configured effects before publishing,
 and records source filenames and SHA-256 hashes in `game-sound-provenance.json`.
 Long healing and resurrection effects are trimmed and gently shortened with pitch-preserving
 time stretching to fit a 2.5-second budget; the book and placement effects fit one second.
 All use the same −20 LUFS target, −3 dBTP ceiling, codec pair, and 32 KiB per-file limit.
 Final files live in `public/audio/events` and revisions in `src/ui/audio/gameSoundManifest.json`.
 
-Audition originals and masters at `http://127.0.0.1:5174/tmp/audio/game-sound-review.html`.
+The main `tmp/audio/review.html` includes shared effects under the **Game effects** filter;
+`tmp/audio/game-sound-review.html` also remains available. Originals are playable when cached locally.
 Playback uses the same Web Audio effects bus as creature sounds. The spellbook fires only on
 an actual open/close transition, including Escape, outside click, and picking a spell. Valid
 placement and split gestures play the placement effect. Positive healing plays once per group;
 fully resisted healing stays quiet. Both an Angel's resurrection cast and passive self-resurrection
 use the shared resurrection VFX trigger in sandbox and ranked replay.
+
+Blacksmith uses `blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3` for every cast
+(Craft and both runes), including direct AI/Premium actions and authoritative replay. The
+2.324-second master trims quiet edges without changing speed or pitch. Rejected casts stay
+quiet, and ranked submissions wait for replay, so the craft cue plays once instead of the
+attack cue. Both use the shared effects bus, mute/volume controls, and scene cancellation.
+
+All positive `unit_summoned` events use
+`magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3`, trimmed to 2.092 seconds.
+The cue plays once per simultaneous group, including Summon Wolves, merged summons, and Infest
+hatchlings. It follows the shared event presentation in sandbox and ranked replay. Rejected casts
+and zero-amount events stay quiet; the original speed and pitch are preserved.
+
+Fireball casts use
+`magic-fire-spell-fiery-impactful-epic-stock-media-questgamemagicfirespellflamecasthit3-1-0m03s.mp3`
+(2.430 seconds). Fire Strike casts separately use
+`fireball-fiery-impact-roys-noise-fireballwave-impact-3-5-0m05s.mp3` (1.724 seconds).
+Both trim quiet edges without speed or pitch changes, use the 2.5-second spell budget,
+and play once for an accepted cast in manual, AI/Premium, and authoritative replay paths.
+Listen to these in their spell rows on `tmp/audio/review.html`, alongside the shared summon effect.
+
+Confirmed missed strikes use `swish-bullet-flyby-faster-gamemaster-audio-4-4-00-00.mp3`,
+trimmed to 0.314 seconds with speed and pitch preserved. The normal attack cue still plays at
+the swing/release; the swish plays at missed contact and no hurt cue is emitted. Each actual
+blow has its own identity, including simultaneous counters, double attacks, and ranged impacts.
+The shared engine records ordinary counter misses in `IVisibleDamage.missedResponse`, since
+zero HP loss alone cannot distinguish a miss from an absorbed hit. Publish that common change
+with the client and server pins when deploying; older recordings can only sound misses they recorded.
 
 ## Playback
 
@@ -144,3 +300,12 @@ damage, spell damage, poison, fire-wall burns, and Armageddon use the same unit 
 damage numbers. A missed attack has no hurt reaction. Casters play their unit's effect when a
 successful cast starts. Bow/cannon creatures use an appropriate existing weapon sound when
 fighting in melee.
+
+Movement playback belongs to `MoveAnimationManager`: a single movement loop follows the whole route,
+including corners, and stops on arrival, cancellation, forced completion, or scene teardown.
+It fades in over 20 ms and out over 30 ms at 65% of the combat cue gain. Mute stops active loops;
+a decoded recording cannot start after the move has ended. Swaps and carried units do not trigger
+movement sounds. Champion, Unicorn, Nightmare, Arachna Queen, and Arachna Spider currently have
+movement recordings; the remaining slots stay silent, and movement generation is disabled in the
+review page. Selected movement
+overrides survive full mastering runs alongside attack and hurt cues.

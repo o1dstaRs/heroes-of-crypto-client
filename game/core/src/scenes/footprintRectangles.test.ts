@@ -258,7 +258,7 @@ describe("aura squares hug the owner's body", () => {
     const extentFor = (side: number) => (range + side / 2) * cellSize - cellSize * 0.055;
 
     test("every generic buff/debuff excludes its owner's footprint except the spider queen", () => {
-        for (const name of ["Wolf", "Dark Champion", "Arachna Queen"]) {
+        for (const name of ["Wolf", "Nomad", "Arachna Queen"]) {
             for (const footprint of [
                 { width: 1, height: 1 },
                 { width: 2, height: 2 },

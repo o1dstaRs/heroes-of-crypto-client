@@ -4,7 +4,7 @@ Tracks replies, quotes and mentions on @Heroes0fcrypto's own posts that the comm
 Format: post id | author | URL | decision | handled at (PT)
 
 ## Last checked
-2026-11-06 8:22 PM PT (mentions/to:/@Heroes0fcrypto since 00:00 UTC Nov 5 = 0 external; get_users_mentions since 00:00 UTC Nov 5 = 0; quote scans on Scavenger 2118794932194541935, Manticore 2118731408839782864, pin 2110567307013726582 = 0; conversation scans on Scavenger/Manticore/Behemoth/Medusa/pin = only our self-replies plus DARKHARVESTOR already handled; recent posts through Scavenger still only our self-replies reply_count=1 quote_count=0; pin reply_count=1 still DARKHARVESTOR; nothing new to handle)
+2026-11-08 12:26 PM PT (search (to: OR @) -from:Heroes0fcrypto since 18:00 UTC Nov 8 = 0; (to: OR @ OR url:) since 06:00 UTC Nov 8 = 0; own posts since Nov 6 each reply_count=1 = our self-reply only, quote_count=0; conversation and quotes on midday White Tiger post 2119520002877649304 = only our self-reply / 0 quotes; conversation on morning Abomination post 2119443866403426313 = only our self-reply; nothing new to handle)
 
 ## Handled
 - 2110567549566116259 | @DARKHARVESTOR | https://x.com/DARKHARVESTOR/status/2110567549566116259 | skipped: follow-back request on the pin, not a question; we don't follow | 2026-10-14 10:28 PM PT

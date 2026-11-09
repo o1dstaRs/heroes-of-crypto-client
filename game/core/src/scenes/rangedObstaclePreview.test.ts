@@ -148,6 +148,7 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
             )!;
             expect(drawing.cells).toEqual(f.barrels.slice(0, abilities.includes("Double Shot") ? 2 : 1));
             expect(drawing.label).toBe("Shoot barrel");
+            expect(drawing.hasObstacleInteraction).toBe(true);
             expect(cell(drawing.point)).toEqual(drawing.cells.at(-1)!);
             expect(f.fire(action)).toEqual(drawing.cells);
         });
@@ -187,6 +188,7 @@ describe("ranged barrel projection agrees with accepted attacks", () => {
         expect(drawing.cells).toContainEqual(f.barrels[0]);
         expect(drawing.cells).toContainEqual(f.target.getBaseCell());
         expect(drawing.label).toBe("Shoot through barrel");
+        expect(drawing.hasObstacleInteraction).toBe(true);
         const hp = f.target.getCumulativeHp();
         expect(f.fire(action)).toEqual([f.barrels[0]]);
         expect(f.target.getCumulativeHp()).toBeLessThan(hp);

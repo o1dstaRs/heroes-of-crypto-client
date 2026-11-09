@@ -2,11 +2,19 @@ import { isTouchGameActive } from "../viewport/gameViewport";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
 import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import { fireBreathHitsForStrike } from "./sandbox/fireBreathImpact";
 import type { BrutalityTarget } from "./sandbox/ZenaBrutalityVfx";
 import { chakramContactPath } from "./sandbox/chakramContactPath";
 import { cyclopsMultiKillTargets } from "./sandbox/cyclopsMultiKill";
-import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
+import {
+    playCombatSound,
+    preloadCombatSounds,
+    startMovementSound,
+    stopCombatSounds,
+    type CombatSoundRole,
+} from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
+import { playSpellSound, resolveSpellSound } from "../ui/audio/spellSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { glyphScaleX } from "../pixi/boardMirror";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
@@ -1017,6 +1025,7 @@ export class Sandbox extends PixiScene {
     private replayPlaybackActive = false;
     private readonly notedDeathBlowEvents = new WeakSet<object>();
     private readonly dyingVisualUnits = new Set<RenderableUnit>();
+    private shownFireBreathHits?: WeakSet<object>;
     private pyreDeaths?: LastFuseDeaths<RenderableUnit>;
     /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
     private readonly depthSortableUnitsScratch: RenderableUnit[] = [];
@@ -1225,6 +1234,8 @@ export class Sandbox extends PixiScene {
         this.rollScatteredMountains();
 
         this.moveAnimManager = new MoveAnimationManager({
+            startMovementSound: (unit) =>
+                startMovementSound(unit.getName(), unit.getId(), () => !this.isSceneDestroyed()),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             updateSceneLog: (msg) => this.sc_sceneLog.updateLog(msg),
             finishTurn: () => this.finishTurn(),
@@ -4189,7 +4200,12 @@ export class Sandbox extends PixiScene {
         if (!this.combatVisuals) {
             return;
         }
-        const burns = fireBurnTargets(damage);
+        const burns = fireBurnTargets(
+            damage && {
+                ...damage,
+                secondary: damage.secondary?.filter((hit) => !this.shownFireBreathHits?.has(hit)),
+            },
+        );
         if (!burns.length) {
             return;
         }
@@ -4475,6 +4491,7 @@ export class Sandbox extends PixiScene {
         );
         this.applyReplayEvents(replayEvents, record.stateAfter);
         this.popRecordedDullingDefense(record.events);
+        this.popRecordedResistances(record.events);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -4922,20 +4939,44 @@ export class Sandbox extends PixiScene {
         const responseAnimation = ranged ? findRangeResponseAnimation(event, attacker.getPosition()) : undefined;
         const responseFlight = event.damage.chakramFlights?.find((flight) => flight.response && flight.hitIndex === 0);
         const responseTargetId =
-            responseFlight?.primaryTargetId ?? responseAnimation?.affectedUnitId ?? attacker.getId();
+            responseFlight?.primaryTargetId ??
+            event.damage.missedResponse?.unitId ??
+            responseAnimation?.affectedUnitId ??
+            attacker.getId();
         const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseTargetId);
+        const recordedSplashMiss =
+            !!responseAnimation && event.damage.splash?.some((hit) => hit.unitId === responseTargetId && hit.missed);
+        // A missed/absorbed physical counter can still breathe fire. Its recorded rear victims prove
+        // the response happened even when the primary HP diff cannot reveal it.
+        const recordedBreathResponse =
+            !ranged &&
+            event.damage.secondary?.some((hit) => hit.source === "fire_breath") &&
+            fireBreathHitsForStrike(event.damage.secondary, target.getPosition(), attacker.getPosition()).length > 0;
         const response: CombatExchangeStrike | undefined =
-            responseDamage || responseFlight
+            responseDamage ||
+            responseFlight ||
+            event.damage.missedResponse ||
+            recordedSplashMiss ||
+            recordedBreathResponse
                 ? {
                       attackerId: responseFlight?.attackerId ?? target.getId(),
                       targetId: responseTargetId,
-                      amount: responseFlight ? (responsePrimary?.amount ?? 0) : (responseDamage?.amount ?? 0),
-                      unitsDied: responseFlight ? (responsePrimary?.unitsDied ?? 0) : (responseDamage?.unitsDied ?? 0),
+                      amount: responseFlight
+                          ? (responsePrimary?.amount ?? 0)
+                          : event.damage.missedResponse
+                            ? 0
+                            : (responseDamage?.amount ?? 0),
+                      unitsDied: responseFlight
+                          ? (responsePrimary?.unitsDied ?? 0)
+                          : event.damage.missedResponse
+                            ? 0
+                            : (responseDamage?.unitsDied ?? 0),
                       lethal: deadIds.has(responseTargetId),
                       response: true,
                       hitIndex: 0,
                       missed:
                           responseFlight?.missed ??
+                          (event.damage.missedResponse ? true : undefined) ??
                           event.damage.splash?.find((hit) => hit.unitId === responseTargetId)?.missed,
                       position: responseAnimation?.toPosition,
                   }
@@ -4946,9 +4987,29 @@ export class Sandbox extends PixiScene {
         if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
         playCombatSound(unit.getName(), role, unit.getId(), melee, () => !this.isSceneDestroyed());
     }
-    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean): void {
+    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean, identity?: string): void {
         if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
-        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true));
+        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true), identity);
+    }
+    protected playSceneSpellSound(caster: Pick<Unit, "getId">, spellName: string): void {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playSpellSound(spellName, caster.getId(), () => !this.isSceneDestroyed());
+    }
+    protected playUnitCastSound(
+        caster: Pick<Unit, "getName" | "getId">,
+        spellName: string,
+        castEvents: readonly GameEvent[],
+    ): void {
+        if (caster.getName() === "Blacksmith") {
+            this.playSceneGameSound("blacksmith_cast");
+        } else if (castEvents.some((event) => event.type === "unit_summoned")) {
+            // The shared summon cue starts when the new or merged stack is presented.
+            return;
+        } else if (resolveSpellSound(spellName)) {
+            this.playSceneSpellSound(caster, spellName);
+        } else {
+            this.playUnitCombatSound(caster, "attack");
+        }
     }
     /** Play the first blow and response together, then any extra blows; impacts never apply engine damage. */
     private async playCombatExchange(
@@ -4963,6 +5024,7 @@ export class Sandbox extends PixiScene {
         deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
         attackLap = FightStateManager.getInstance().getFightProperties().getCurrentLap(),
     ): Promise<Set<string>> {
+        this.shownFireBreathHits = new WeakSet();
         if (event.attackType === "range" && attacker.hasAbilityActive?.("Through Shot")) {
             return this.playThroughShotExchange(
                 attacker,
@@ -4991,6 +5053,8 @@ export class Sandbox extends PixiScene {
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
         const pendingFireShieldDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_shield");
+        const pendingFireBreathDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_breath");
+        const breathVictims = new Set(pendingFireBreathDamage.map((hit) => hit.unitId));
         const fireShieldOwners = new Set(fireShieldCasterIds(attacker.getId(), target.getId(), event.damage));
         this.preparePyreDeaths?.(dullingEvents ?? [], capturedUnits ?? this.snapshotRenderableUnits());
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
@@ -5021,9 +5085,11 @@ export class Sandbox extends PixiScene {
         for (const [id, unit] of units) {
             if (unit instanceof RenderableUnit) {
                 unit.continueDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
-                if (areaThrowWaves.size && !this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(unit);
+                if ((areaThrowWaves.size || breathVictims.has(id)) && !this.unitsHolder.getAllUnits().has(id))
+                    this.dyingVisualUnits.add(unit);
             }
-            if (areaThrowWaves.size && !remainingAmounts.has(id)) remainingAmounts.set(id, unit.getAmountAlive());
+            if ((areaThrowWaves.size || breathVictims.has(id)) && !remainingAmounts.has(id))
+                remainingAmounts.set(id, unit.getAmountAlive());
         }
         const cyclopsKills = new Map<string, ReadonlySet<string>>();
         if (event.attackType === "range") {
@@ -5089,6 +5155,16 @@ export class Sandbox extends PixiScene {
             });
             // Cold atlases or projectile art must not make one side start after the other has struck.
             await Promise.all([
+                ...pendingFireBreathDamage
+                    .flatMap((hit) => {
+                        const unit = units.get(hit.unitId) as RenderableUnit | undefined;
+                        return [
+                            unit?.getAnimationTextureKey("hit"),
+                            deathState?.deadIds.has(hit.unitId) ? unit?.getAnimationTextureKey("death") : undefined,
+                        ];
+                    })
+                    .filter((key): key is string => !!key)
+                    .map((key) => this.waitForTexture(key)),
                 ...[...fireShieldOwners]
                     .map((id) => (units.get(id) as RenderableUnit | undefined)?.getAnimationTextureKey("cast"))
                     .filter((key): key is string => !!key)
@@ -5288,8 +5364,23 @@ export class Sandbox extends PixiScene {
                             this.spawnBorrowedGraceVfx(event.damage, source, units);
                         }
                         const waves = areaThrowWaves.get(source.getId());
+                        // Breath is part of this contact, even when the physical hit misses. The engine
+                        // records one wave per side, so consume it before a later double blow can replay it.
+                        const breath =
+                            melee && pendingFireBreathDamage.length
+                                ? fireBreathHitsForStrike(
+                                      pendingFireBreathDamage,
+                                      source.getPosition(),
+                                      victim.getPosition(),
+                                  )
+                                : [];
+                        for (const hit of breath) {
+                            pendingFireBreathDamage.splice(pendingFireBreathDamage.indexOf(hit), 1);
+                            this.shownFireBreathHits!.add(hit);
+                        }
                         if ((!waves || isChakramFlight) && hasShieldAbsorb(event.damage)) {
                             const recipients = new Set<string>();
+                            for (const hit of breath) recipients.add(hit.unitId);
                             if (!strike.missed) {
                                 recipients.add(strike.targetId);
                                 if (melee && !isChakramFlight) {
@@ -5332,6 +5423,7 @@ export class Sandbox extends PixiScene {
                         // The unit this blow struck. The incoming hit lists both fighters too, and popping there
                         // showed Dulling Defense before the knight had answered.
                         this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
+                        this.popRecordedResistances(dullingEvents, new Set([strike.targetId]));
                         const remaining = consumeLoss(strike.targetId, strike.unitsDied);
                         renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
                         const from = source.getVisualCenter(gs);
@@ -5353,6 +5445,35 @@ export class Sandbox extends PixiScene {
                                 renderedVictim?.getDamagePredictionAnchor(gs),
                             );
                         }
+                        // Primary and all rear stacks lose their displayed casualties and react on the
+                        // same impact. Captured figures retain lethal victims already removed by local apply.
+                        this.showFireBreathDamageAtImpact(breath, from, units);
+                        const breathReactions: Promise<void>[] = [];
+                        for (const hit of breath) {
+                            if (hit.amount <= 0 && hit.unitsDied <= 0) continue;
+                            const remaining = consumeLoss(hit.unitId, hit.unitsDied);
+                            if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(hit.unitId)) {
+                                presentDeath(hit.unitId);
+                                continue;
+                            }
+                            const burned = units.get(hit.unitId) as RenderableUnit | undefined;
+                            if (!burned) continue;
+                            const showReaction = (): Promise<void> => {
+                                if (this.isSceneDestroyed() || shownDeaths.has(hit.unitId)) return Promise.resolve();
+                                const animation = this.playReplayOneShot(burned, "hit", 3000, true);
+                                if (
+                                    (burned.getUnitProperties?.().level ?? 0) <= 2 ||
+                                    usesApprovedBaseAnimations(burned.getName())
+                                )
+                                    return animation;
+                                this.applyReplayHitKnockback(burned, source, hit.amount);
+                                return Promise.all([animation, this.delayReplay(330)]).then(() => {});
+                            };
+                            // A victim may still own a simultaneous outgoing action; do not cancel it.
+                            const outgoing = activeAttacks.get(hit.unitId);
+                            breathReactions.push(outgoing ? outgoing.then(showReaction) : showReaction());
+                        }
+                        reaction = Promise.all(breathReactions).then(() => {});
                         if (!strike.missed) {
                             // Secondary entries preserve the order of each striker's reflections. A later
                             // blow owns its next burn; the final blow also takes any sweep/AOE reflections.
@@ -5387,6 +5508,11 @@ export class Sandbox extends PixiScene {
                             }
                         }
                         if (strike.missed) {
+                            this.playSceneGameSound(
+                                "miss",
+                                undefined,
+                                `miss:${strike.attackerId}:${strike.response}:${strike.hitIndex}`,
+                            );
                             this.showAttackMissedVfx(source, victim, {
                                 ...event.damage,
                                 unitId: strike.targetId,
@@ -5562,6 +5688,10 @@ export class Sandbox extends PixiScene {
                                 absolvingProgress,
                             );
                             await Promise.all([attack, chakramFlight]);
+                            // The exchange owns the ricochets and final return. Restore the held weapon
+                            // only after that flight finishes, before waiting for Zena's recovery cels.
+                            if (isChakramFlight && source.getName() === "Zena" && !this.isSceneDestroyed())
+                                source.catchZenaChakram?.();
                             // Projectile arrival can precede the authored shooter's recovery frames.
                             if (usesAuthoredRangedRelease(source.getName()))
                                 await this.waitForProjectileHitReaction(source);
@@ -5579,7 +5709,7 @@ export class Sandbox extends PixiScene {
                 }),
             );
         }
-        if (areaThrowWaves.size && deathState) {
+        if ((areaThrowWaves.size || breathVictims.size) && deathState) {
             for (const id of event.unitIdsDied) {
                 const unit = units.get(id);
                 if (!deathState.deadIds.has(id) && unit instanceof RenderableUnit) unit.clearDamagePresentation();
@@ -5682,6 +5812,13 @@ export class Sandbox extends PixiScene {
         const from = attacker.getVisualCenter(gs);
         const reactions: Promise<void>[] = [];
         this.renderAreaImpactVfx(splash);
+        if (splash.some((hit) => hit.missed)) {
+            this.playSceneGameSound(
+                "miss",
+                undefined,
+                `miss:${attacker.getId()}:${!!context.response}:${context.hitIndex}`,
+            );
+        }
         for (const hit of splash) {
             const unit = context.units.get(hit.unitId) as RenderableUnit | undefined;
             const before = context.remainingAmounts.get(hit.unitId) ?? unit?.getAmountAlive() ?? 0;
@@ -5690,6 +5827,7 @@ export class Sandbox extends PixiScene {
             unit?.presentDamageCasualties(hit.unitsDied);
             if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
+            this.popRecordedResistances(context.events, new Set([hit.unitId]));
             this.showGravechainVfx(
                 context.damage,
                 { attackerId: attacker.getId(), response: context.response ?? false, hitIndex: context.hitIndex },
@@ -5819,11 +5957,25 @@ export class Sandbox extends PixiScene {
                 (hit) => {
                     if (this.isSceneDestroyed()) return;
                     const unit = units.get(hit.unitId);
+                    if (hit.missed) {
+                        this.playSceneGameSound(
+                            "miss",
+                            undefined,
+                            `miss:${attacker.getId()}:${hitIndex}:${hit.unitId}`,
+                        );
+                        if (unit)
+                            this.showAttackMissedVfx(attacker, unit, {
+                                ...event.damage,
+                                unitId: hit.unitId,
+                                missed: true,
+                            });
+                    }
                     const amount = Math.max(0, (remaining.get(hit.unitId) ?? 0) - hit.unitsDied);
                     remaining.set(hit.unitId, amount);
                     unit?.presentDamageCasualties(hit.unitsDied);
                     if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
+                    this.popRecordedResistances(events, new Set([hit.unitId]));
                     this.showGravechainVfx(
                         event.damage,
                         { attackerId: attacker.getId(), response: false, hitIndex },
@@ -5926,18 +6078,53 @@ export class Sandbox extends PixiScene {
             );
         }
     }
+    private showFireBreathDamageAtImpact(
+        secondary: IVisibleDamage["secondary"],
+        origin: HoCMath.XY,
+        units: ReadonlyMap<string, Unit>,
+    ): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const { fill, stroke } = this.getSecondaryDamageStyle("fire_breath");
+        for (const hit of secondary ?? []) {
+            if (hit.amount <= 0 && hit.unitsDied <= 0) continue;
+            const unit = units.get(hit.unitId) as RenderableUnit | undefined;
+            const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
+            const direction = { x: center.x - origin.x, y: center.y - origin.y };
+            this.combatVisuals.spawnFireBurn(center, gs.getCellSize(), 1);
+            this.combatVisuals.showFloatingDamage(
+                unit ? this.offsetReplayDamagePosition(center, unit, direction) : center,
+                hit.amount,
+                direction,
+                hit.unitsDied,
+                fill,
+                stroke,
+                unit?.getDamagePredictionAnchor(gs),
+                unit,
+                undefined,
+                unit?.captureDamageCasualties(hit.unitsDied),
+            );
+        }
+    }
     private async playReplayProjectile(
         attacker: RenderableUnit,
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
-        chakram?: boolean,
+        exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): Promise<void> {
         await this.fireUnitProjectile(
             attacker,
-            this.getReplayProjectileOptions(attacker, target, toPosition, onImpact, chakram, onProgress, damage),
+            this.getReplayProjectileOptions(
+                attacker,
+                target,
+                toPosition,
+                onImpact,
+                exchangeChakram,
+                onProgress,
+                damage,
+            ),
         );
     }
     private getReplayProjectileOptions(
@@ -5945,7 +6132,7 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
-        chakram?: boolean,
+        exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
     ): IFireProjectileOptions {
@@ -5972,7 +6159,10 @@ export class Sandbox extends PixiScene {
             cannonImpactPosition: cannon ? targetPosition : undefined,
             cannonballDiameter: cannon ? gs.getCellSize() : undefined,
             big: bigProjectile,
-            chakram: chakram ?? attacker.hasAbilityActive("Chakram"),
+            chakram: exchangeChakram ?? attacker.hasAbilityActive("Chakram"),
+            // An exchange starts its continuation at primary contact. Auto-returning this first leg
+            // as well would leave two discs alive. Standalone throws still return and catch themselves.
+            chakramDeferReturn: exchangeChakram === true,
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
             arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
             centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
@@ -6365,6 +6555,7 @@ export class Sandbox extends PixiScene {
         // side damage) and before the HP-diff fallback, which must not run for a dodge.
         this.spawnLuckyStrikeVfx(damage);
         if (damage.missed) {
+            this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}`);
             this.showAttackMissedVfx(attacker, target, damage);
             return;
         }
@@ -6496,12 +6687,15 @@ export class Sandbox extends PixiScene {
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
+        const breathVictims = new Set(
+            attackEvent.damage.secondary?.filter((hit) => this.shownFireBreathHits?.has(hit)).map((hit) => hit.unitId),
+        );
         for (const animation of attackEvent.animations) {
             const unitId = animation.affectedUnitId ?? animation.bodyUnitId;
             const unit = unitId
                 ? (this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined)
                 : undefined;
-            if (!unit || unit.isDead() || skipUnitIds.has(unit.getId())) {
+            if (!unit || unit.isDead() || skipUnitIds.has(unit.getId()) || breathVictims.has(unit.getId())) {
                 continue;
             }
             // These entries also describe approaches and projectiles. Only an actual HP loss warrants a flinch.
@@ -6636,6 +6830,7 @@ export class Sandbox extends PixiScene {
             const primary = responseFlight.splash.find((hit) => hit.unitId === responseFlight.primaryTargetId);
             return { amount: primary?.amount ?? 0, unitsDied: primary?.unitsDied ?? 0 };
         }
+        if (attackEvent.damage.missedResponse) return { amount: 0, unitsDied: 0 };
         if (attackEvent.attackType === "range" && !responseAnimation) {
             return undefined;
         }
@@ -6763,6 +6958,7 @@ export class Sandbox extends PixiScene {
             attacker,
         );
         this.popRecordedDullingDefense(record.events);
+        this.popRecordedResistances(record.events);
         spawnResponseAbilitySteal();
         onImpact?.();
 
@@ -6900,7 +7096,7 @@ export class Sandbox extends PixiScene {
         if (facingTarget) {
             caster.faceBoardTarget(facingTarget);
         }
-        this.playUnitCombatSound(caster, "attack");
+        this.playUnitCastSound(caster, action.spellName, record.events);
         if (action.spellName === "Vine Throw" && caster.getName() === "Trent") {
             const targetCell = action.targetId
                 ? this.unitsHolder.getAllUnits().get(action.targetId)?.getBaseCell()
@@ -9546,7 +9742,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
         caster.faceBoardTarget(targetUnit.getPosition());
-        this.playUnitCombatSound(caster, "attack");
+        this.playUnitCastSound(caster, spell.getName(), result.events);
         if (caster.hasAnimationState("cast") && !(isSwap && caster.getName() === "Harpy")) {
             caster.playOneShotAnimation("cast");
         }
@@ -9609,17 +9805,7 @@ export class Sandbox extends PixiScene {
         }
     }
     protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
-        const resistedUnits = new Set<string>();
-        for (const event of events ?? []) {
-            if (event.type !== "effects_applied") continue;
-            for (const application of event.applications) {
-                if (application.kind === "debuff" && application.resisted) resistedUnits.add(application.unitId);
-            }
-        }
-        for (const id of resistedUnits) {
-            const recipient = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (recipient && !recipient.isDead()) this.combatVisuals?.spawnCommonFlagPop(recipient, "resist");
-        }
+        this.popRecordedResistances(events);
         for (const unitId of empowerAppliedUnitIds(events)) {
             const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             if (!recipient || recipient.isDead()) continue;
@@ -9734,7 +9920,7 @@ export class Sandbox extends PixiScene {
         if (castTargetPosition) {
             caster.faceBoardTarget(castTargetPosition);
         }
-        this.playUnitCombatSound(caster, "attack");
+        this.playUnitCastSound(caster, spell.getName(), result.events);
         if (caster.hasAnimationState("cast")) {
             caster.playOneShotAnimation("cast");
         }
@@ -9816,7 +10002,7 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
-                this.playUnitCombatSound(caster, "attack");
+                this.playUnitCastSound(caster, spell.getName(), result.events);
                 if (caster.hasAnimationState("cast")) {
                     caster.playOneShotAnimation("cast");
                 }
@@ -9861,7 +10047,7 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
-                this.playUnitCombatSound(caster, "attack");
+                this.playUnitCastSound(caster, spell.getName(), result.events);
                 if (caster.hasAnimationState("cast")) {
                     caster.playOneShotAnimation("cast");
                 }
@@ -10332,6 +10518,7 @@ export class Sandbox extends PixiScene {
                     const center = unit?.getVisualCenter(gs) ?? captured?.center ?? arrival;
                     const dmg = splashByUnit.get(unitId);
                     if (dmg?.missed) {
+                        this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}:chakram:${unitId}`);
                         popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                         continue;
                     }
@@ -10527,6 +10714,7 @@ export class Sandbox extends PixiScene {
                         this.showGravechainVfx(damage, undefined, capturedUnits, new Set([unitId]));
                     const dmg = splashByUnit.get(unitId);
                     if (dmg?.missed) {
+                        this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}:chakram:${unitId}`);
                         popChakramMiss(unit, center, direction);
                         continue;
                     }
@@ -12692,6 +12880,9 @@ export class Sandbox extends PixiScene {
             // A fully-dodged attack (Dodge / Small Specie / Boar Saliva / Broken Aegis) — drives the
             // "MISS" pop + bullet-time dodge below instead of a damage number.
             damageForAnimation.missed = attackEvent.damage.missed;
+            damageForAnimation.missedResponse = attackEvent.damage.missedResponse
+                ? { ...attackEvent.damage.missedResponse, position: { ...attackEvent.damage.missedResponse.position } }
+                : undefined;
             damageForAnimation.hits = attackEvent.damage.hits?.map((hit) => ({ ...hit }));
             // Carry the per-affected-unit AOE breakdown (Gargantuan Area Throw / Large Caliber). Without
             // it the live path can't tell a Double-Shot AOE landed twice — so its second projectile and
@@ -12701,8 +12892,8 @@ export class Sandbox extends PixiScene {
                 position: { ...entry.position },
             }));
             damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) =>
-                // Contact playback and the later summary share absorb records, so each is presented once.
-                entry.source === "ember_covenant" || entry.source === "water_shield"
+                // Contact playback and the later summary share these records, so each is presented once.
+                entry.source === "ember_covenant" || entry.source === "water_shield" || entry.source === "fire_breath"
                     ? entry
                     : { ...entry, position: { ...entry.position } },
             );
@@ -13043,7 +13234,10 @@ export class Sandbox extends PixiScene {
 
         // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
         // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
-        if (!exchangeAnimated) this.showAttackMissedVfx(attacker, target, damageForAnimation);
+        if (!exchangeAnimated) {
+            if (damageForAnimation.missed) this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}`);
+            this.showAttackMissedVfx(attacker, target, damageForAnimation);
+        }
 
         // Lucky Strike procs (attacker and/or responder): gold flash + "LUCKY!" over each striker.
         this.spawnLuckyStrikeVfx(damageForAnimation);
@@ -13273,6 +13467,7 @@ export class Sandbox extends PixiScene {
         // A skewer or a spin dulls someone the exchange never drew. The blow itself already popped
         // the unit it struck.
         this.popRecordedDullingDefense(attackActionEvents);
+        this.popRecordedResistances(attackActionEvents);
 
         if (stackLost > 0 || hpLost > 0) {
             const maxHp = attacker.getMaxHp();
@@ -13386,7 +13581,10 @@ export class Sandbox extends PixiScene {
                 !damageForAnimation.splash?.length &&
                 !damageForAnimation.missed &&
                 damageForAnimation.amount > 0;
-            if (diff > 0 && !primaryReactionAlreadyPlayed && !exchangeDamage.has(uId)) {
+            const breathReactionAlreadyPlayed = damageForAnimation.secondary?.some(
+                (hit) => hit.unitId === uId && this.shownFireBreathHits?.has(hit),
+            );
+            if (diff > 0 && !primaryReactionAlreadyPlayed && !exchangeDamage.has(uId) && !breathReactionAlreadyPlayed) {
                 // Splash and other secondary victims recoil away from the attack origin too. Missing or
                 // dead units are ignored by the helper, leaving lethal hits to the death animation.
                 this.applyHitReactionFromPoint(u, attacker.getVisualCenter(gs), diff, 0.2);
@@ -13438,7 +13636,8 @@ export class Sandbox extends PixiScene {
             }
             if (exchangeAnimated) {
                 for (const hit of damageForAnimation.secondary ?? []) {
-                    if (hit.source !== "fire_shield" || hit.unitId !== uId) continue;
+                    if (hit.unitId !== uId || (hit.source !== "fire_shield" && !this.shownFireBreathHits?.has(hit)))
+                        continue;
                     alreadyShown += hit.amount;
                     alreadyDied += hit.unitsDied;
                 }
@@ -18569,6 +18768,10 @@ export class Sandbox extends PixiScene {
         const result = this.createActionEngine().apply(action);
         this.applyTurnEngineEvents(result.events, unitSnapshot);
         if (result.completed && action.type === "cast_spell" && !this.shouldDeferActionToAuthoritativeReplay(action)) {
+            const caster = unitSnapshot.get(action.casterId);
+            if (caster && (caster.getName() === "Blacksmith" || resolveSpellSound(action.spellName))) {
+                this.playUnitCastSound(caster, action.spellName, result.events);
+            }
             this.renderCastOutcomes(result.events);
         }
         return result.completed;
@@ -18679,6 +18882,7 @@ export class Sandbox extends PixiScene {
             this.clearSandboxPremiumGuidance();
         }
         const armageddonWaves = new Set<number>();
+        let playedSummonSound = false;
         let lastDestroyedUnit: RenderableUnit | undefined;
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;
@@ -18725,6 +18929,10 @@ export class Sandbox extends PixiScene {
                     this.syncSystemMovedUnit(event.unitId, event.position, unitSnapshot);
                     break;
                 case "unit_summoned":
+                    if (event.amount > 0 && !playedSummonSound) {
+                        this.playSceneGameSound("summon");
+                        playedSummonSound = true;
+                    }
                     this.syncSummonedUnit(event, event.sourceAbility === "Infest" ? lastDestroyedUnit : undefined);
                     shouldRefreshVisibleState = true;
                     break;
@@ -20820,6 +21028,8 @@ export class Sandbox extends PixiScene {
                 (entry) =>
                     entry.source !== "flesh_shield" &&
                     entry.source !== "devour_essence" &&
+                    // Contact-time breath numbers/casualties must not repeat after attack recovery.
+                    !this.shownFireBreathHits?.has(entry) &&
                     // Full absorbs get a labelled pop, never a red damage number.
                     entry.source !== "water_shield" &&
                     entry.source !== "ember_covenant",
@@ -21243,9 +21453,46 @@ export class Sandbox extends PixiScene {
     }
     private beginDullingDefensePresentation(): void {
         this.dullingPopShownForAction = new Set();
+        this.resistancePopsShownForAction = new WeakMap();
+        this.resistanceLogsShownForAction = new WeakSet();
         this.shownAbsolutions = new WeakSet();
         this.shownGravechains = new WeakSet();
         this.legacyGraveboundShown = new Set();
+    }
+    private resistancePopsShownForAction?: WeakMap<GameEvent, Set<string>>;
+    private resistanceLogsShownForAction?: WeakSet<object>;
+    protected popRecordedResistances(
+        events: readonly GameEvent[] | undefined,
+        onlyUnitIds?: ReadonlySet<string>,
+    ): void {
+        const seenEvents = (this.resistancePopsShownForAction ??= new WeakMap());
+        const seenLogs = (this.resistanceLogsShownForAction ??= new WeakSet());
+        const recipients = new Map<string, RenderableUnit>();
+        for (const event of events ?? []) {
+            if (event.type !== "effects_applied") continue;
+            const shown = seenEvents.get(event) ?? new Set<string>();
+            seenEvents.set(event, shown);
+            for (const application of event.applications) {
+                if (
+                    !application.resisted ||
+                    application.kind === "buff" ||
+                    (onlyUnitIds && !onlyUnitIds.has(application.unitId))
+                )
+                    continue;
+                const unit = this.unitsHolder.getAllUnits().get(application.unitId) as RenderableUnit | undefined;
+                if (!unit || unit.isDead()) continue;
+                if (application.kind === "effect" && application.resistedBy && !seenLogs.has(application)) {
+                    seenLogs.add(application);
+                    this.sc_sceneLog?.updateLog(
+                        `${unit.getName()} resisted ${application.name} (${application.resistedBy})`,
+                    );
+                }
+                if (shown.has(application.unitId)) continue;
+                shown.add(application.unitId);
+                recipients.set(application.unitId, unit);
+            }
+        }
+        for (const unit of recipients.values()) this.combatVisuals?.spawnCommonFlagPop(unit, "resist");
     }
     protected popRecordedDullingDefense(
         events: readonly GameEvent[] | undefined,

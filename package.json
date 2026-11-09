@@ -121,10 +121,10 @@
         "sharp": "0.35.5",
         "sort-package-json": "4.0.0",
         "stylelint": "^17.16.0",
-        "stylelint-scss": "7.3.0",
+        "stylelint-scss": "7.4.0",
         "svgo": "^4.1.0",
         "typescript": "6.0.3",
-        "vite": "^8.3.4"
+        "vite": "^8.3.5"
     },
     "packageManager": "bun@^1.4.4",
     "engines": {

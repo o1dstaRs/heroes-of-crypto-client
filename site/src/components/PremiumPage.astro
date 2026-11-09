@@ -52,7 +52,7 @@ const loginHref = `${home}/auth/login/?redirect=${encodeURIComponent(`${home}/pr
         </nav>
         <div class="premium-main">
             <form class="premium-filters" data-premium-filters>
-                <label>{t("Snapshot", "Снимок")}<select name="snapshot" aria-label={t("Snapshot", "Снимок")}></select></label>
+                <label>{t("Battle data", "Данные боёв")}<select name="snapshot" aria-label={t("Battle data", "Данные боёв")}></select></label>
                 <label>{t("Army type", "Тип армии")}<select name="cohort"><option value="ranked-draft">{t("Ranked draft", "Рейтинговый драфт")}</option><option value="uniform-mixed">{t("Mixed armies", "Смешанные армии")}</option><option value="ranged-heavy">{t("Ranged heavy", "Стрелковые")}</option><option value="ground-melee">{t("Ground melee", "Наземный ближний бой")}</option><option value="flyer-heavy">{t("Flyer heavy", "Летающие")}</option><option value="caster-support">{t("Caster & support", "Магия и поддержка")}</option><option value="cross-archetype">{t("Cross-archetype", "Разные архетипы")}</option></select></label>
                 <label>{t("Battlefield", "Поле боя")}<select name="map"><option value="all">{t("All live maps", "Все активные карты")}</option><option value="1">{t("Normal", "Обычная")}</option><option value="3">{t("Lava Center", "Лава в центре")}</option><option value="4">{t("Block Center", "Блок в центре")}</option></select></label>
                 <label>{t("Min. battle pairs", "Мин. пар боёв")}<select name="minimum"><option value="50">50+</option><option value="20">20+</option><option value="1">1+</option></select></label>

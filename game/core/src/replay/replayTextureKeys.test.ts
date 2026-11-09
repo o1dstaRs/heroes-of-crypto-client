@@ -31,18 +31,37 @@ test("an exchange readies the attacker, response, secondary victims and summons 
     after.units[1].dead = true;
     const record = {
         action: { type: "melee_attack", attackerId: "Wolf", targetId: "Orc" },
-        events: [{ type: "unit_attacked", damage: { secondary: [{ unitId: "Healer" }] } }],
+        events: [
+            { type: "unit_attacked", damage: { secondary: [{ unitId: "Healer" }] } },
+            { type: "next_unit_selected", unitId: "Peasant" },
+        ],
         stateAfter: after,
     } as unknown as SandboxReplayActionRecord;
     const keys = replayActionTextureKeys(previous, record);
     for (const name of ["Wolf", "Orc", "Healer", "Arachna Spider"]) {
         expect(keys).toContain(unitToTextureName(name, TextureType.SMALL));
-        for (const key of approvedAnimationAssetKeysForUnit(name)) expect(keys).toContain(key);
+        for (const key of approvedAnimationAssetKeysForUnit(name)) {
+            if (/_(idle|default)_/.test(key)) expect(keys).not.toContain(key);
+            else expect(keys).toContain(key);
+        }
     }
     for (const key of approvedAnimationAssetKeysForUnit("Peasant").filter((key) => /_(attack|walk)_/.test(key))) {
         expect(keys).not.toContain(key);
     }
     expect(new Set(keys).size).toBe(keys.length);
+});
+
+test("a move does not wait for the mover's full-resolution idle or the next unit's animations", () => {
+    const previous = state("Unicorn", "Valkyrie");
+    const keys = replayActionTextureKeys(previous, {
+        action: { type: "move_unit", unitId: "Unicorn", path: [] },
+        events: [{ type: "next_unit_selected", unitId: "Valkyrie", team: 1 }],
+        stateAfter: previous,
+    } as unknown as SandboxReplayActionRecord);
+    expect(keys).toContain("unicorn_lab_walk_atlas");
+    expect(keys).not.toContain("unicorn_lab_idle_atlas");
+    expect(keys).not.toContain("valkyrie_lab_walk_atlas");
+    for (const key of approvedAnimationAssetKeysForUnit("Valkyrie")) expect(keys).not.toContain(key);
 });
 
 test("firepit changes load at the action that needs them, and other maps load neither variant", () => {

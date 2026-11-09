@@ -8,6 +8,7 @@ import {
     SpellHelper,
     type GameAction,
     type IDecisionContext,
+    type IEnumeratedCandidate,
     type Unit,
 } from "@heroesofcrypto/common";
 import { snapshotBattle, restoreBattle } from "../../../heroes-of-crypto-common/src/simulation/battle_snapshot";
@@ -17,6 +18,7 @@ import { captureAITargetMemory, restoreAITargetMemory } from "../../../heroes-of
 import type { PremiumTurnAdvice } from "../api/premium_client";
 import { runAiSearchSimulation } from "./aiSearchGuard";
 import { premiumMoveDrawing } from "./PremiumTurnOverlay";
+import { hasClearPremiumAttackAdvantage } from "./premiumCandidateComparison";
 import { searchSandboxPremiumDecision, type ISandboxAiSearchHost } from "./sandboxAiSearch";
 import { DamageStatisticHolder } from "./DamageStats";
 
@@ -90,6 +92,8 @@ export const sandboxPremiumAdvice = (
                 (a, b) => Number(b.kind === "incumbent") - Number(a.kind === "incumbent") || score(b) - score(a),
             );
             const options: PremiumTurnAdvice["options"] = [];
+            const selected: IEnumeratedCandidate[] = [];
+            let comparableEstimates = true;
             const seen = new Set<string>();
             for (const candidate of ordered) {
                 const actions = premiumHumanActions(candidate.actions);
@@ -130,8 +134,16 @@ export const sandboxPremiumAdvice = (
                 if (seen.has(identity)) continue;
                 seen.add(identity);
                 options.push({ ...option, actions: structuredClone(actions) });
+                selected.push(candidate);
+                comparableEstimates &&= !drawing.hasObstacleInteraction;
                 if (options.length === 2) break;
             }
+            if (
+                selected.length === 2 &&
+                comparableEstimates &&
+                hasClearPremiumAttackAdvantage(selected[0], selected[1])
+            )
+                options.pop();
             return {
                 sequence: revision,
                 lap: fight.getCurrentLap(),

@@ -175,7 +175,7 @@ test("area spells highlight their actual footprint and reject blocks outside the
     ).toBeUndefined();
 });
 
-test("all three suggestion labels keep their proportions as a rectangular camera resizes and mirrors", () => {
+test("at most two suggestion labels keep their proportions as a rectangular camera resizes and mirrors", () => {
     const root = new Container();
     const overlay = new PremiumTurnOverlay(root);
     try {
@@ -204,7 +204,7 @@ test("all three suggestion labels keep their proportions as a rectangular camera
             ]) {
                 root.scale.set(mirrored ? -x : x, -y);
                 overlay.setVisible(true);
-                expect(root.children[1].children).toHaveLength(3);
+                expect(root.children[1].children).toHaveLength(2);
                 for (const label of root.children[1].children) {
                     const origin = label.toGlobal({ x: 0, y: 0 });
                     const right = label.toGlobal({ x: 1, y: 0 });

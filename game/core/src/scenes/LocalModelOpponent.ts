@@ -598,8 +598,12 @@ const getAvailableSummonCells = (caster: Unit, grid: Grid, spell: Spell): Array<
     // ...and the body the SUMMONED creature has, not the 1x1 canCastSummon assumes by default. Summon
     // Wolves spawns a Wolf, which ships 2x1, so "this one cell is free" offers seats the engine refuses.
     const { width, height } = SpellHelper.summonFootprintOf(spell);
-    return GridMath.getCellsAroundFootprint(grid.getSettings(), caster.getCells()).filter((cell) =>
-        SpellHelper.canCastSummon(spell, grid.getMatrix(), cell, width, height),
+    return SpellHelper.summonableAnchors(
+        spell,
+        grid.getMatrix(),
+        GridMath.getCellsAroundFootprint(grid.getSettings(), caster.getCells()),
+        width,
+        height,
     );
 };
 

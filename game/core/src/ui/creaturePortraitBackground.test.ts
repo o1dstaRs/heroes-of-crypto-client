@@ -6,20 +6,28 @@ import {
     creaturePortraitBackgroundKey,
     creaturePortraitBackgroundOpacity,
     creaturePortraitBackgroundShadeAlpha,
+    creaturePortraitBackgroundShadeColor,
 } from "./creaturePortraitBackground";
 
 describe("creaturePortraitBackgroundKey", () => {
+    test("uses warm orange shade only behind Chaos creatures", () => {
+        for (const [id, faction] of Object.entries(CreatureFactionsMap)) {
+            expect(creaturePortraitBackgroundShadeColor(Number(id))).toBe(faction === FactionVals.CHAOS ? 0x9b3d00 : 0);
+        }
+    });
     test("adds five percent to the previous eight-percent faction-background shade", () => {
         expect(CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA).toBeCloseTo(0.126, 6);
     });
 
-    test("adds another ten percent only to Life and Chaos backgrounds", () => {
+    test("keeps Chaos lighter for dark creatures while retaining Life's extra shade", () => {
         expect(creaturePortraitBackgroundOpacity(CreatureVals.PEASANT)).toBe(1);
         expect(creaturePortraitBackgroundOpacity(CreatureVals.ORC)).toBe(1);
         expect(creaturePortraitBackgroundOpacity(CreatureVals.WOLF)).toBe(1);
         expect(creaturePortraitBackgroundOpacity(CreatureVals.CENTAUR)).toBe(1);
         expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.PEASANT)).toBeCloseTo(0.2134, 6);
-        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.ORC)).toBeCloseTo(0.2134, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.ORC)).toBeCloseTo(0.126, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.HYDRA)).toBeCloseTo(0.126, 6);
+        expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.BLACK_DRAGON)).toBeCloseTo(0.126, 6);
         expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.WOLF)).toBeCloseTo(0.126, 6);
         expect(creaturePortraitBackgroundShadeAlpha(CreatureVals.CENTAUR)).toBeCloseTo(0.126, 6);
     });

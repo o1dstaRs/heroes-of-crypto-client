@@ -26,6 +26,11 @@
             "hurt": {
                 "prompt": "One young adult man's short winded grunt of pain, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "battlefield_asset": "squire_battlefield_side_right_distance_readable_v1",
+                "attack_animation_asset": "squire_attack_atlas_quarter",
+                "attack_basis": "The armored foot soldier holds a shield and a heavy spiked metal mace. The melee atlas raises the mace behind the helmet, brings it forward and down, then returns to guard; the weapon is not a sword."
             }
         },
         {
@@ -457,6 +462,12 @@
         {
             "name": "Efreet",
             "slug": "efreet",
+            "art_reference": {
+                "full_body_asset": "efreet_portrait_full_v7",
+                "battlefield_asset": "efreet_battlefield_side_right_distance_readable_v1",
+                "attack_animation_asset": "efreet_lab_melee_attack_atlas",
+                "attack_basis": "The full-body portrait and battlefield figure show a muscular fire spirit with burning palms and a swirling flame lower body, without a held weapon. The current melee animation draws back one burning hand and thrusts an open flaming palm forward. The attack sound should express that short, forceful palm-driven burst of fire; Fire Shield is a separate defensive reaction."
+            },
             "attack": {
                 "prompt": "One concentrated flame lash, short hot rushing flare, close and dry, immediate onset, no background.",
                 "duration_seconds": 1
@@ -552,54 +563,6 @@
             }
         },
         {
-            "name": "Skeleton",
-            "slug": "skeleton",
-            "attack": {
-                "prompt": "One rusty skeletal sword slash, dry brittle metal swish, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One skeleton taking a blow, brief brittle bone clatter, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
-            "name": "Imp",
-            "slug": "imp",
-            "attack": {
-                "prompt": "One small demon's attack hiss, tight scratchy rasp, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One small demon's brief strained raspy squeal, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
-            "name": "Zombie",
-            "slug": "zombie",
-            "attack": {
-                "prompt": "One undead arm swinging, short heavy cloth-and-air swish, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One zombie's short dry guttural groan of pain, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
-            "name": "Dark Champion",
-            "slug": "dark-champion",
-            "attack": {
-                "prompt": "One dark knight's heavy sword sweep, low dense metallic swish, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
-            },
-            "hurt": {
-                "prompt": "One undead armored knight's brief hollow grunt of pain, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
-            }
-        },
-        {
             "name": "Mermaid",
             "slug": "mermaid",
             "attack": {
@@ -621,6 +584,11 @@
             "hurt": {
                 "prompt": "One adult berserker's brief rough low grunt of pain, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "battlefield_asset": "berserker_battlefield_side_right_distance_readable_v1",
+                "attack_animation_asset": "berserker_melee_attack_atlas",
+                "attack_basis": "The muscular warrior holds a broad axe in one hand and keeps a sword sheathed across his back. The melee atlas draws the axe back, drives it forward in a forceful chop, and recovers. Each gameplay strike, including Double Punch, receives its own attack cue."
             }
         },
         {
@@ -657,6 +625,11 @@
             "hurt": {
                 "prompt": "One adult nomad's short winded grunt of pain, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "battlefield_asset": "nomad_battlefield_side_right_final_v1",
+                "attack_animation_asset": "nomad_melee_attack_atlas",
+                "attack_basis": "The mounted warrior holds a curved steel blade. The melee atlas shows the rider drawing that arm back, sweeping the blade outward and forward, then recovering while remaining mounted."
             }
         },
         {

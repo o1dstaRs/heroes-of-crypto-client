@@ -27,6 +27,8 @@ const purposeLabels = {
 export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn }) => {
     const askQuestion = useAskPremiumQuestion();
     const impression = usePremiumAdviceView(turn.gameId, turn.adviceId);
+    const options = turn.options.slice(0, 2);
+    const onlyBest = options.length === 1;
     return (
         <Box
             ref={impression}
@@ -43,7 +45,7 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
         >
             <Box
                 component="summary"
-                aria-label="Review suggested moves"
+                aria-label={onlyBest ? "Review proposed best turn" : "Review suggested moves"}
                 sx={{
                     display: "flex",
                     alignItems: "center",
@@ -57,13 +59,13 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                 }}
             >
                 <PremiumIcon size={13} />
-                Review {turn.options.length} moves
+                {onlyBest ? "Proposed best turn" : `Review ${options.length} moves`}
             </Box>
             <Box sx={{ maxHeight: "min(40vh, 300px)", overflowY: "auto", overscrollBehavior: "contain", p: 0.8 }}>
                 <Typography level="body-xs" sx={{ color: "#c7ac94", mb: 1 }}>
                     {turn.actorName} · this turn
                 </Typography>
-                {turn.options.slice(0, 3).map((option, index) => (
+                {options.map((option, index) => (
                     <Box
                         key={option.id}
                         sx={{ borderTop: "1px solid #63472f", pt: 0.75, pb: 1, overflowWrap: "anywhere" }}
@@ -71,16 +73,18 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                         <Typography
                             level="title-sm"
                             sx={{
-                                color: option.assessment?.recommended ? "#ffc65a" : index === 2 ? "#c6b6ff" : "#80d9ec",
+                                color: onlyBest || option.assessment?.recommended ? "#ffc65a" : "#80d9ec",
                                 fontSize: 12,
                             }}
                         >
                             {index + 1} ·{" "}
-                            {option.assessment?.recommended
-                                ? "Preferred"
-                                : option.assessment
-                                  ? purposeLabels[option.assessment.purpose]
-                                  : "Legal option"}
+                            {onlyBest
+                                ? "Proposed best turn"
+                                : option.assessment?.recommended
+                                  ? "Preferred"
+                                  : option.assessment
+                                    ? purposeLabels[option.assessment.purpose]
+                                    : "Legal option"}
                         </Typography>
                         <Typography level="body-xs" sx={{ color: "#f0d7bd", my: 0.5 }}>
                             {option.label}
@@ -102,7 +106,11 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                                 onClick={(event) => {
                                     event.stopPropagation();
                                     askQuestion(
-                                        `Explain marked move ${index + 1}, "${option.label}", for this ${turn.actorName} stack. Compare its resources, planned position and supported damage estimates with the preferred move and other legal options.`,
+                                        `Explain marked move ${index + 1}, "${option.label}", for this ${turn.actorName} stack. ${
+                                            onlyBest
+                                                ? "Explain why it is the proposed best turn, including its resources, planned position, supported estimates and risks."
+                                                : "Compare its resources, planned position and supported damage estimates with the preferred move and other legal options."
+                                        }`,
                                         {
                                             unitId: turn.unitId,
                                             name: turn.actorName,
@@ -112,7 +120,7 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                                     );
                                 }}
                             >
-                                Ask about this move
+                                Explain this move
                             </PremiumButton>
                         )}
                     </Box>

@@ -1,8 +1,10 @@
 import { expect, mock, test } from "bun:test";
-import { Texture } from "pixi.js";
+import { BufferImageSource, Container, Texture } from "pixi.js";
+import type { GridSettings } from "@heroesofcrypto/common";
 import { Sandbox } from "./Sandbox";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { IFireProjectileOptions } from "./sandbox/RangedProjectiles";
+import { RangedProjectiles } from "./sandbox/RangedProjectiles";
 
 type ProjectileScene = {
     fireUnitProjectile(unit: RenderableUnit, options: IFireProjectileOptions): Promise<void>;
@@ -123,6 +125,88 @@ const authoredShots = [
         flags: { tsarCannonball: true, cannonImpactPosition: { x: 500, y: 100 } },
     },
 ] satisfies { name: string; lab?: boolean; flags: Partial<IFireProjectileOptions> }[];
+
+test.each([false, true])(
+    "an exchange's Zena disc has one flight owner after primary contact, ricochet=%s",
+    async (bounce) => {
+        const f = fixture("Zena");
+        const world = new Container();
+        const projectiles = new RangedProjectiles({
+            getGridSettings: () => ({ getCellSize: () => 100 }) as GridSettings,
+            attachToWorldRoot: (object) => {
+                world.addChild(object);
+            },
+        });
+        const texture = new Texture({
+            source: new BufferImageSource({ resource: new Uint8Array(4), width: 512, height: 512 }),
+        });
+        const state = projectiles as unknown as {
+            zenaChakramTexture: Texture;
+            projectiles: { dist: number; speed: number }[];
+        };
+        state.zenaChakramTexture = texture;
+        Object.assign(f.scene, { rangedProjectiles: projectiles });
+        const from = { x: 0, y: 100 };
+        const to = { x: 500, y: 100 };
+        const target = { getProjectileImpactPoint: () => to } as unknown as RenderableUnit;
+        const scene = f.scene as unknown as {
+            getReplayProjectileOptions(
+                attacker: RenderableUnit,
+                target: RenderableUnit,
+                position: undefined,
+                impact: () => void,
+                chakram: boolean,
+            ): IFireProjectileOptions;
+        };
+        let contacts = 0;
+        let continuation = Promise.resolve();
+        const impact = () => {
+            contacts++;
+            continuation = projectiles.fireAlongPath(bounce ? [to, { x: 500, y: 300 }, from] : [to, from], {
+                big: false,
+                chakram: true,
+            });
+        };
+        try {
+            const opts = scene.getReplayProjectileOptions(f.unit, target, undefined, impact, true);
+            const outgoing = f.scene.fireUnitProjectile(f.unit, opts);
+            await flush();
+            f.release();
+            await flush();
+            expect(state.projectiles).toHaveLength(1);
+            const first = state.projectiles[0];
+            projectiles.update(first.dist / first.speed);
+            await flush();
+            expect(contacts).toBe(1);
+            // The exchange continues the ricochet/return. The first leg must not ALSO fly home.
+            expect(state.projectiles).toHaveLength(1);
+            projectiles.update(10);
+            await Promise.all([outgoing, continuation]);
+            expect(projectiles.hasActive()).toBe(false);
+        } finally {
+            projectiles.destroy();
+            texture.destroy(true);
+            world.destroy({ children: true });
+        }
+    },
+);
+
+test("a standalone Zena shot still owns its automatic return and catches once", async () => {
+    const f = fixture("Zena");
+    const catchDisc = mock();
+    const impact = mock();
+    Object.assign(f.unit, { catchZenaChakram: catchDisc });
+    const pending = f.scene.fireUnitProjectile(f.unit, options({ chakram: true, onImpact: impact }));
+    await flush();
+    f.release();
+    await pending;
+    expect(f.shots).toHaveLength(1);
+    expect(f.shots[0].returnToOrigin).toBe(true);
+    expect(f.shots[0].onImpact).toBeUndefined();
+    f.shots[0].onWaypoint?.(0);
+    expect(impact).toHaveBeenCalledTimes(1);
+    expect(catchDisc).toHaveBeenCalledTimes(1);
+});
 
 test("a non-authored projectile sounds once when it launches", async () => {
     const f = fixture("Trent");

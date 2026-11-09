@@ -655,3 +655,86 @@ Thread open vs peak (this run only): Friday evening again quiet for English boar
 Own account: no new timing pull this run.
 
 Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Friday 7:53 PM scan again found no fresh board thread — matches the pattern that 11:37 AM is the main drafting run and 3:37/7:37 PM are thin on weekdays. Weekend drop of those evening scans still proposed for Stepan.
+
+## Sat 7 Nov 2026, 7:40 AM PT run (window: ~7:40 PM Fri – 7:40 AM Sat PT)
+
+Official game/studio originals in window (posted time PT, public metrics at read ~7:42 AM PST). Surfaced two.
+- @MeltedGames, Raistlin Summon Greater Demon scroll "burn it now or save it for the boss?" #ScreenshotSaturday, 6:25 AM: 19 impressions, 1 like, 1 reply (own demo link), 1 repost (surfaced).
+- @quasimorph, "simplest solution is the most explosive one" #ScreenshotSaturday, 4:00 AM: 467 impressions, 15 likes, 0 replies in metrics (one outside dev reply at 7:17 AM in conversation search), 4 reposts (surfaced).
+- Skipped: @Lavapotion 2k concurrent 7:20 AM (198 / 3 / 2; Wielders), @HOI_Game Wojtek 2:01 AM (4,456 / 51 / 2) and stream 6:04 AM, @mechabellum cup casts 1:39 / 4:48 AM, @AOE_Mobile memes 5:00 AM, @FE_Heroes_EN GHB 11:00 PM Fri, @Conviction_SRPG Japanese 2:00 AM.
+
+Thread open vs peak (this run only): Saturday #ScreenshotSaturday posts opened early (4:00–6:25 AM PT, i.e. European midday). Replies were thin by 7:40 AM (0–2 outside replies on every official post). Friday evening after 7:53 PM stayed quiet apart from FE Heroes event at 11 PM.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT. Weekend: Saturday threads open ~4–7 AM PT and are still thin at the 7:37 AM scan, so the 11:37 AM Saturday scan should show whether they collect replies. Weekend drop of 3:37/7:37 PM scans still proposed for Stepan.
+
+## Sat 7 Nov 2026, 9:39 AM PT daily engagement review (own account timing)
+
+24h snapshots from pulls/2026-11-07.json, by posting slot (PT):
+- Thu 5 4:51 PM evening, Behemoth Battle Roar: 15 views / ER 0 (40.8h, late snapshot)
+- Fri 6 7:45 AM morning, Manticore Terrifying Gaze: 11 views / ER 0 (25.9h)
+- Fri 6 11:57 AM midday, Scavenger Backstab: 13 views / ER 0 (21.7h)
+- Sat 7 6:57 AM morning, Black Dragon Fire Breath: 9 views at ~2.7h (not yet a snapshot)
+- Fri 6 4:48 PM evening slot never went out (QUEUE marked missed).
+
+Finding: evening is still the best own-post slot on reach (Behemoth 15, Hydra 17, Arachna/Cyclops 32, Quiver 33 at 7d all evening); morning stays weakest (Manticore 11, Pikeman 10, Fire Breath pacing ~9). Losing Friday's evening slot cost the slot that travels furthest. No outside replies in any slot, so reply timing is still not measurable from our own posts.
+
+## Sat 7 Nov 2026, 11:43 AM PT run (window: ~7:40 AM – 11:43 AM Sat PT)
+
+Official originals in window (PT, metrics at read ~11:44 AM PST):
+- @WickedNightGame physical units with magic weapons #ScreenshotSaturday, 11:43 AM: 11 / 0 / 0 (surfaced, just opened).
+- @TheVowGame bad sketch / good render part 4, 10:00 AM: 99 / 2 / 0 (surfaced).
+- @Lavapotion quote 8:38 AM: 963 / 30 / 5 replies (Wielders, skipped). @CompanyOfHeroes sale 9:00 AM: 989 / 34 / 3. @MARVELSNAP final live 9:21 AM: 6,291 / 57 / 1.
+- Morning #ScreenshotSaturday posts by 11:43 AM: @MeltedGames 6:25 AM 96 / 4 / 3 replies (was 19 / 1 / 1 at 7:40); @quasimorph 4:00 AM 553 / 20 / 0 (was 467 / 15 / 0).
+
+Thread open vs peak (this run only): the early Saturday posts did gain a little by late morning (Melted 1 to 3 replies, quasimorph +86 impressions), but no official tactics thread passed 5 replies. A second, smaller US-morning wave opened 10 AM–noon PT.
+
+Recommendation: unchanged on weekdays (9:30 AM–1 PM PT). Saturday: two thin waves, ~4–7 AM PT (EU) and ~10 AM–noon PT (US); replies stay in single digits, so Saturday outreach is low value. The 11:37 AM Saturday scan is the right one to keep; 3:37/7:37 PM weekend scans still proposed to drop.
+
+## Sat 7 Nov 2026, 3:43 PM PT run (window: ~3:43 AM – 3:43 PM Sat PT; new posts checked since 11:43 AM)
+
+Official originals after 11:43 AM PT (metrics at read ~3:43 PM PST). Surfaced none.
+- @MARVELSNAP Golden Gauntlet Top 16 halfway, 12:23 PM: 6,979 impressions, 57 likes, 0 replies (skipped: watch CTA).
+- Already logged earlier today (metrics at this read): @WickedNightGame 11:43 AM 1,669 / 88 / 3; @TheVowGame 10:00 AM 166 / 2 / 0; @MeltedGames 6:25 AM 108 / 4 / 4; @quasimorph 4:00 AM 590 / 23 / 1.
+
+Thread open vs peak (this run only): No new English board/tactics official thread opened after the ~10 AM–noon PT US-morning wave. WickedNightGame's noon post collected 3 replies by mid-afternoon (was 0 at open). MeltedGames' early scroll climbed from 1 to 4 replies across the day. Afternoon Saturday again empty of fresh board threads.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT. Saturday pattern holds: thin EU wave ~4–7 AM PT, thin US wave ~10 AM–noon PT, then quiet through mid-afternoon. The 11:37 AM Saturday scan remains the useful one; 3:37/7:37 PM weekend scans still proposed to drop.
+
+## Sat 7 Nov 2026, 7:45 PM PT run (new posts checked since 3:43 PM PT)
+
+Surfaced none. Only tracked official original: @MARVELSNAP Top 16 finalists, 4:52 PM: 7,137 impressions / 88 likes / 6 replies (esports watch CTA, skipped). No board/tactics official thread opened Saturday after the ~10 AM–noon PT US wave.
+
+Recommendation: unchanged. Weekday reply window 9:30 AM–1 PM PT. Saturday: thin EU wave ~4–7 AM PT and US wave ~10 AM–noon PT, then nothing worth a reply through the evening. The 3:37/7:37 PM weekend scans are still proposed to drop.
+
+## Sun 8 Nov 2026, 7:45 AM PT run (window: ~7:45 PM Sat – 7:45 AM Sun PT)
+
+Official game/studio originals in window (posted time PT, public metrics at read ~7:45 AM PST). Surfaced one.
+- @MeltedGames, Caramon walked 9 tiles at a troll / 2 Grit for +1 damage, 6:15 AM: 128 impressions, 4 likes, 1 reply (own demo link), 1 repost (surfaced).
+- @mechabellum, Happy 2v2 Sunday tournaments, 3:33 AM: 148 impressions, 2 likes, 0 replies (skipped: tournament CTA).
+- @Conviction_SRPG, battle visual presentation, 1:01 AM: 554 impressions, 19 likes, 2 replies (skipped: UI/VFX, not a board decision).
+- @Look_behindyou, Soverain six heroes / favorite, 12:14 AM: 1,917 impressions, 103 likes, 3 replies, 6 reposts (skipped: character poll, not combat).
+- @FE_Heroes_EN, Divine Games underway, 11:00 PM Sat: 7,232 impressions, 52 likes, 0 replies (skipped: gacha/event).
+- @MARVELSNAP, Golden Gauntlet world champion, 9:17 PM Sat: 32,903 impressions, 480 likes, 15 replies, 54 reposts (skipped: esports).
+- @Rainbow6Game: no originals in window.
+
+Thread open vs peak (this run only): Saturday evening after 7:45 PM stayed quiet except the MARVEL SNAP championship recap (9:17 PM, 15 replies by morning) and the FE Heroes 11:00 PM event post (0 replies overnight). Sunday official board/tactics traffic opened early: Soverain's midnight character post had the most likes in-genre (103 by 7:45 AM) but no board question; Conviction's 1:01 AM visual update collected 2 UI replies; MeltedGames' 6:15 AM tile-walk clip is the first real board thread of the morning, still only a self-reply about 90 minutes in. Matches the weekend pattern of a thin early-PT / European-morning wave.
+
+Own account: no new timing pull this run.
+
+Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Sunday so far matches Saturday's early thin wave (~12 AM–6:15 AM PT) rather than a busy morning; the 11:37 AM scan should show whether the MeltedGames clip or any US-morning posts collect outside replies. Weekend drop of the 3:37/7:37 PM scans is still proposed for Stepan.
+
+## Sun 8 Nov 2026, 9:49 AM PT daily engagement review (own account timing)
+
+24h snapshots from pulls/2026-11-08.json, by posting slot (PT):
+
+- Sat 7 6:57 AM morning, Black Dragon Fire Breath: 11 views / ER 0 (26.9h)
+- Sat 7 11:51 AM midday, Frenzied Boar Saliva: 11 views / ER 0 (22.0h)
+- Sat 7 4:53 PM evening, Pegasus Might Aura: 10 views at ~16.9h (not yet a snapshot)
+- Sun 8 6:56 AM morning, Abomination Flesh Shield: 8 views at ~2.9h (not yet a snapshot)
+- Fri 6 4:48 PM evening slot never went out (QUEUE marked missed), so there is no ~40h evening snapshot today.
+
+Finding: the two new 24h snapshots tied at 11, so slot didn't separate them. Evening is still the strongest own-post slot on 24h reach since 26 Oct (avg 17.4, n=10) vs midday 14.7 (n=13) and morning 11.5 (n=13). Losing Friday's evening slot again meant we didn't get the slot that usually travels furthest. No outside replies in any slot, so reply timing is still not measurable from our own posts.
