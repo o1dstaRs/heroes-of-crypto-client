@@ -1726,6 +1726,26 @@ export class DungeonVisuals {
         this.syncBackgroundTexture();
         this.syncScatteredMountainVisibility();
     }
+    /** Events use logical ground coordinates; project shots onto the barrel's painted body. */
+    public getObstacleProjectileImpactPoint(position: HoCMath.XY): HoCMath.XY {
+        const gs = this.context.getGridSettings();
+        const cell = GridMath.getCellForPosition(gs, position);
+        const barrel = cell && this.scatteredMountains.find((entry) => entry.x === cell.x && entry.y === cell.y);
+        if (!barrel) return projectBattlefieldPoint(position, gs);
+        const center = GridMath.getPositionForCell(barrel, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const metrics = projectedBattlefieldMetricsAtPoint(center, gs);
+        const geometry = cemeteryObstacleFrameGeometry(metrics.width, metrics.height, barrel.y);
+        // The approved 256x461 atlas keeps the barrel in its lower half. Its body centre is 75%
+        // down the frame, below the sprite origin. Aim there rather than at the floor or empty padding.
+        return {
+            x: metrics.center.x,
+            y:
+                metrics.center.y +
+                geometry.rise +
+                metrics.height * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS -
+                geometry.frameHeight * 0.25,
+        };
+    }
     public highlightScatteredMountains(positions: readonly HoCMath.XY[]): void {
         const gs = this.context.getGridSettings();
         const targets = new Set(
