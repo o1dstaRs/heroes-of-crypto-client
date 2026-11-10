@@ -7,6 +7,7 @@ function fixture() {
     const unit = {
         getId: () => "unit",
         getName: () => "Magic Dragon",
+        getTeam: () => 1,
         isDead: () => false,
         isSmallSize: () => false,
         getVisualCenter: () => ({ x: 100, y: 200 }),
@@ -122,7 +123,67 @@ test("each common lab button uses the same above-flag runtime", () => {
             expect(f.calls.at(-1)?.kind).toBe("miss");
             expect(f.calls.at(-1)?.args.at(-1)).toBe(f.unit);
         } else {
-            expect(f.calls.at(-1)).toEqual({ kind: "pop", args: [f.unit, kind] });
+            expect(f.calls.at(-1)).toEqual({ kind: "pop", args: [f.unit, kind, "preview"] });
         }
     }
 });
+
+test("repeat attack preview uses the same shared sprite for a creature without native double attack", () => {
+    const f = fixture();
+    expect(f.scene.playCreatureAnimationLabState("multi_attack").ok).toBe(true);
+    expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "multi_attack", "preview"] }]);
+});
+
+function addBiteVictim(f: ReturnType<typeof fixture>) {
+    const victim = {
+        ...f.unit,
+        getId: () => "victim",
+        getName: () => "Squire",
+        getTeam: () => 2,
+        getCells: () => [{ x: 1, y: 1 }],
+    };
+    f.scene.unitsHolder.getAllUnits = () =>
+        new Map([
+            ["unit", f.unit],
+            ["victim", victim],
+        ]);
+    f.scene.grid = { getOccupantUnitId: () => "victim" };
+    return victim;
+}
+
+test("Penetrating Bite lab preview uses the victim's flag and requires an opponent", () => {
+    const f = fixture();
+    expect(f.scene.playCreatureAnimationLabState("penetrating_bite").ok).toBe(false);
+    expect(f.calls).toHaveLength(0);
+    const victim = addBiteVictim(f);
+    expect(f.scene.playCreatureAnimationLabState("penetrating_bite").ok).toBe(true);
+    expect(f.calls).toEqual([{ kind: "pop", args: [victim, "penetrating_bite", "preview"] }]);
+});
+
+test("Shadow Touch lab preview uses the combat flag renderer", () => {
+    const f = fixture();
+    expect(f.scene.playCreatureAnimationLabState("shadow_touch").ok).toBe(true);
+    expect(f.calls).toEqual([{ kind: "pop", args: [f.unit, "shadow_touch", "preview"] }]);
+});
+
+test.each(["melee_attack", "melee_attack_up", "melee_attack_down"])(
+    "Hyena lab %s starts the bite only when the attack starts",
+    (state) => {
+        const f = fixture();
+        let allowed = false;
+        Object.assign(f.unit, {
+            getName: () => "Hyena",
+            hasAnimationState: () => true,
+            hasAbilityActive: (name: string) => name === "Penetrating Bite",
+            playOneShotAnimation: () => allowed,
+        });
+        expect(f.scene.playCreatureAnimationLabState(state).ok).toBe(false);
+        expect(f.calls).toHaveLength(0);
+        allowed = true;
+        expect(f.scene.playCreatureAnimationLabState(state).ok).toBe(true);
+        expect(f.calls).toHaveLength(0);
+        const victim = addBiteVictim(f);
+        expect(f.scene.playCreatureAnimationLabState(state).ok).toBe(true);
+        expect(f.calls).toEqual([{ kind: "pop", args: [victim, "penetrating_bite", "preview"] }]);
+    },
+);

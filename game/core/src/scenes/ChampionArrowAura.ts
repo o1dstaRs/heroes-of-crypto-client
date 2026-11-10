@@ -1,7 +1,8 @@
 import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
-import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
+import { Container, Mesh, MeshGeometry, Texture, type Shader } from "pixi.js";
 import { arachnaWebProjection as championArrowProjection } from "./ArachnaQueenWebAura";
 import { auraProjectionKey } from "./auraProjectionKey";
+import { createArrowAuraShader } from "./WolfRiderArrowShader";
 export { arachnaWebProjection as championArrowProjection } from "./ArachnaQueenWebAura";
 
 export const CHAMPION_ARROW_ATLAS_KEY = "vfx_champion_arrow_aura_atlas";
@@ -19,7 +20,7 @@ export function championArrowGlowTint(ageMs: number): number {
 }
 
 type ArrowSprite = {
-    meshes: [Mesh<MeshGeometry>, Mesh<MeshGeometry>];
+    meshes: [Mesh<MeshGeometry, Shader>, Mesh<MeshGeometry, Shader>];
     started: number;
     seen: number;
     layout: string;
@@ -28,6 +29,7 @@ type ArrowSprite = {
     facing: -1 | 1;
 };
 const owners = new WeakMap<Container, Map<string, ArrowSprite>>();
+const clocks = new WeakMap<Container, number>();
 
 /** Hide between inspections and release geometry after the owner leaves the scene. */
 export function resetChampionArrowAuras(container?: Container, now = performance.now()): void {
@@ -63,11 +65,12 @@ export function drawChampionArrowAura(
     narrowing = 0,
     now = performance.now(),
     facing: -1 | 1 = 1,
+    singleArrow = false,
 ): void {
     if (!container || !texture || texture === Texture.EMPTY || !(alpha > 0)) return;
     let sprites = owners.get(container);
     if (!sprites) owners.set(container, (sprites = new Map()));
-    const key = `${ownerId}:${range}`;
+    const key = `${ownerId}:${range}:${singleArrow ? "single" : "double"}`;
     let sprite = sprites.get(key);
     if (sprite?.meshes[0].visible) return;
     const layout = auraProjectionKey(center, footprint, range, gs, narrowing);
@@ -77,20 +80,25 @@ export function drawChampionArrowAura(
             : undefined;
     if ((!sprite || sprite.layout !== layout) && !projection) return;
     if (!sprite && projection) {
+        if (!clocks.has(container)) clocks.set(container, now);
         const makeMesh = () => {
             const geometry = new MeshGeometry({
                 positions: projection.positions.slice(),
                 uvs: projection.uvs.slice(),
                 indices: projection.indices.slice(),
             });
-            const mesh = new Mesh({ texture, geometry });
+            const shader = createArrowAuraShader(texture, singleArrow);
+            const mesh = new Mesh<MeshGeometry, Shader>({ texture, geometry, shader });
             // Normal alpha-over darkens overlapping cels halfway through every 50 ms crossfade.
             // Additive light keeps their weighted brightness constant between atlas frames.
             mesh.blendMode = "add";
             mesh.eventMode = "none";
-            mesh.label = "champion-arrow-aura";
+            mesh.label = singleArrow ? "wolf-rider-arrow-aura" : "champion-arrow-aura";
             mesh.visible = false;
-            mesh.once("destroyed", () => geometry.destroy());
+            mesh.once("destroyed", () => {
+                shader?.destroy();
+                geometry.destroy();
+            });
             container.addChild(mesh);
             return mesh;
         };
@@ -116,11 +124,11 @@ export function drawChampionArrowAura(
     // Keep forward motion continuous through slow rendering and brief changes
     // of selection. A fresh reveal belongs only to a newly created pooled owner.
     sprite.seen = now;
-    const age = now - sprite.started;
+    const age = now - (clocks.get(container) ?? sprite.started);
     const { frame, next, mix } = championArrowFrames(age);
-    const revealProgress = Math.min(1, Math.max(0, age / 900));
+    const revealProgress = Math.min(1, Math.max(0, (now - sprite.started) / 900));
     const reveal = revealProgress * revealProgress * (3 - 2 * revealProgress);
-    const opacity = Math.min(1, alpha * 1.3) * reveal * 0.8;
+    const opacity = Math.min(1, alpha * 1.3) * reveal * 0.459;
     const tint = championArrowGlowTint(age);
     if (sprite.facing !== facing) {
         sprite.frames[0] = sprite.frames[1] = -1;
@@ -131,6 +139,10 @@ export function drawChampionArrowAura(
         const index = layer === 0 ? frame : next;
         mesh.visible = true;
         mesh.texture = texture;
+        mesh.shader!.resources.uArrows = texture.source;
+        const cells = mesh.shader!.resources.arrowGrid.uniforms.uFieldCells;
+        cells[0] = range * 2 + footprint.width;
+        cells[1] = range * 2 + footprint.height;
         mesh.tint = tint;
         mesh.alpha = opacity * (layer === 0 ? 1 - mix : mix);
         if (sprite.frames[layer] === index) continue;

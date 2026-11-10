@@ -7,6 +7,7 @@ export function playSidebarAtlas(
     canvas: HTMLCanvasElement,
     image: HTMLImageElement,
     timing: AtlasTiming,
+    onFirstFrame?: () => void,
 ): (() => void) | undefined {
     const context = canvas.getContext("2d");
     if (!context || !image.naturalWidth || !image.naturalHeight) return;
@@ -17,9 +18,12 @@ export function playSidebarAtlas(
     let frame: number | undefined;
     let stopped = false;
     let hasSize = false;
+    let origin: number | undefined;
     const canPlay = () => !stopped && hasSize && !document.hidden;
     const paint = (time: number) => {
-        const next = timing.frameForElapsed(time);
+        const first = origin === undefined;
+        origin ??= time;
+        const next = timing.frameForElapsed(Math.max(0, time - origin));
         if (next === lastFrame) return;
         lastFrame = next;
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -34,6 +38,7 @@ export function playSidebarAtlas(
             canvas.width,
             canvas.height,
         );
+        if (first) onFirstFrame?.();
     };
     const animate = (time: number) => {
         if (!canPlay()) return;

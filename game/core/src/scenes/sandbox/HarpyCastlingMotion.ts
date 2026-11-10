@@ -23,7 +23,7 @@ const mix = (a: HoCMath.XY, b: HoCMath.XY, t: number): HoCMath.XY => ({
 export function harpyCastlingDurations(distanceCells: number): number[] {
     const travel = Math.max(0, distanceCells);
     return [0.16, 0.2 + travel * 0.06, 0.06, 0.1, 0.32 + travel * 0.1, 0.2, 0.12, 0.28 + travel * 0.075, 0.2].map(
-        (duration) => duration / (1.4 * 1.2),
+        (duration) => duration / (1.4 * 1.2 * 1.3),
     );
 }
 

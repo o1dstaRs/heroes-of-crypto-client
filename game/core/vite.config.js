@@ -1,8 +1,11 @@
 // game/core/vite.config.ts
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { streamedImageAssets } from "./src/build/streamedImageAssets";
 import { animationLabProfilePlugin, resolveAnimationProfileDirectory } from "./scripts/animation_lab_profile";
 import { approvedBrowserPreferencesPlugin } from "./scripts/approved_browser_preferences";
+import { pickCardOrderProfilePlugin, resolvePickOrderDirectory } from "./scripts/pick_card_order_profile";
+import { pickStatOrderProfilePlugin } from "./scripts/pick_stat_order_profile";
 import fs from "node:fs/promises";
 import { realpathSync } from "node:fs";
 import path from "path";
@@ -184,7 +187,10 @@ export default defineConfig(({ mode }) => {
         envPrefix: ["VITE_"],
 
         plugins: [
+            streamedImageAssets(__dirname),
             approvedBrowserPreferencesPlugin(),
+            pickCardOrderProfilePlugin(resolvePickOrderDirectory({ ...env, ...process.env })),
+            pickStatOrderProfilePlugin({ ...env, ...process.env }),
             animationLabProfilePlugin(resolveAnimationProfileDirectory({ ...env, ...process.env })),
             react(),
             devShadowTuningPlugin(),

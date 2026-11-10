@@ -12,6 +12,8 @@ import {
 export interface RangedObstaclePreview {
     hits: IAttackObstacle[];
     blocker?: IAttackObstacle;
+    /** First direct projectile impact; splash barrels are never aim endpoints. */
+    firstImpact?: IAttackObstacle;
     evaluation: IRangeAttackEvaluation;
 }
 
@@ -44,7 +46,9 @@ export function projectRangedObstacles({
     obstacleTarget?: boolean;
     blastCells?: readonly HoCMath.XY[];
 }): RangedObstaclePreview {
-    if (!grid.hasScatteredMountains()) return { hits: [], blocker: evaluation.attackObstacle, evaluation };
+    if (!grid.hasScatteredMountains()) {
+        return { hits: [], blocker: evaluation.attackObstacle, firstImpact: evaluation.attackObstacle, evaluation };
+    }
 
     if (attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw")) {
         const settings = grid.getSettings();
@@ -77,5 +81,5 @@ export function projectRangedObstacles({
             : intersections.length
               ? undefined
               : evaluation.attackObstacle;
-    return { hits, blocker, evaluation };
+    return { hits, blocker, firstImpact: hits[0], evaluation };
 }

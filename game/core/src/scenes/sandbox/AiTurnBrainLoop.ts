@@ -1,3 +1,5 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
+import { overheadEffectElapsedMs, OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -17,7 +19,7 @@ let atlasLeases = 0;
 export function aiTurnBrainFrameAt(elapsedMs: number): number {
     const durations = animationAtlases["Vfx Ai Turn Brain"].loop.frameDurationsMs!;
     const total = durations.reduce((sum, ms) => sum + ms, 0);
-    const time = Math.max(0, elapsedMs) % total;
+    const time = overheadEffectElapsedMs(Math.max(0, elapsedMs) % OVERHEAD_EFFECT_DURATION_MS, total);
     let end = 0;
     for (const [frame, duration] of durations.entries()) {
         end += duration;
@@ -38,7 +40,7 @@ export class AiTurnBrainLoop {
     private sprite?: Sprite;
     private startedAtMs = 0;
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -104,7 +106,7 @@ export class AiTurnBrainLoop {
         this.container = container;
         this.sprite = sprite;
         this.startedAtMs = this.now();
-        this.attach(container, 5520);
+        this.attach(container, 5520, () => this.target?.follow());
         this.update();
     }
     public update(): void {

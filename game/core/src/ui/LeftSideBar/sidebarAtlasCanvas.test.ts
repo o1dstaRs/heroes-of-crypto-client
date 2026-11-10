@@ -66,7 +66,8 @@ const fixture = (density = 2) => {
     };
     const image = { naturalWidth: 5720, naturalHeight: 8080 } as HTMLImageElement;
     const timing = { cols: 10, rows: 10, frameForElapsed: (elapsed: number) => Math.floor(elapsed / 100) % 100 };
-    const start = () => playSidebarAtlas(canvas as unknown as HTMLCanvasElement, image, timing)!;
+    const start = (onFirstFrame?: () => void) =>
+        playSidebarAtlas(canvas as unknown as HTMLCanvasElement, image, timing, onFirstFrame)!;
     return {
         canvas,
         context,
@@ -227,5 +228,32 @@ test("a minute of playback keeps one cel-sized backing store and the authored dr
     }
     expect(f.context.drawImage).toHaveBeenCalledTimes(600);
     expect(f.context.clearRect).toHaveBeenCalledTimes(600);
+    stop();
+});
+
+test("a late-mounted atlas starts at frame zero instead of the page's wall-clock phase", () => {
+    const f = fixture();
+    f.tick(9876);
+    const first = mock(() => {});
+    const stop = f.start(first);
+    expect(f.context.drawImage).toHaveBeenLastCalledWith(f.image, 0, 0, 572, 808, 0, 0, 572, 808);
+    expect(first).toHaveBeenCalledTimes(1);
+    f.tick(9976);
+    expect(f.context.drawImage).toHaveBeenLastCalledWith(f.image, 572, 0, 572, 808, 0, 0, 572, 808);
+    expect(first).toHaveBeenCalledTimes(1);
+    stop();
+});
+
+test("first-frame readiness waits for a real paint at a visible size", () => {
+    const f = fixture();
+    f.canvas.clientWidth = 0;
+    const first = mock(() => {});
+    const stop = f.start(first);
+    expect(first).not.toHaveBeenCalled();
+    f.tick(5000);
+    f.canvas.clientWidth = 286;
+    f.resize();
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(f.context.drawImage).toHaveBeenLastCalledWith(f.image, 0, 0, 572, 808, 0, 0, 572, 808);
     stop();
 });

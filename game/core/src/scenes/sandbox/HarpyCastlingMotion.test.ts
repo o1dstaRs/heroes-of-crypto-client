@@ -119,7 +119,9 @@ test("transport snapshots live positions, keeps the grip, and completes exactly 
 
 test.each(["forceFinish", "cancel"] as const)("%s clears carried poses and releases the scene", (method) => {
     const f = fixture();
-    f.manager.update(1.3);
+    const distanceCells = Math.hypot(target.x - origin.x, target.y - origin.y) / 100;
+    const duration = harpyCastlingDurations(distanceCells).reduce((total, phase) => total + phase, 0);
+    f.manager.update(duration / 2);
     f.manager[method]();
     f.manager[method]();
     expect(f.a.grip()).toBeUndefined();

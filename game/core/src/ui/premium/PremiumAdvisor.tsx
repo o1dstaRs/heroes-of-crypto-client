@@ -4,6 +4,7 @@ import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
 import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
+import { PremiumThumbIcon, PremiumThumbStyleContext, type PremiumThumbMedal } from "./PremiumThumbIcon";
 
 import {
     applyPremium,
@@ -21,6 +22,7 @@ import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
 import { premiumChoiceQuestion } from "./premiumQuestions";
 import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
+import { PremiumPreviewContext } from "./PremiumPreviewContext";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -28,6 +30,7 @@ export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined
 const orange = "var(--hoc-premium-accent)";
 
 export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number, enabled = true) => {
+    const preview = useContext(PremiumPreviewContext);
     const { authenticated, user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
@@ -36,7 +39,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     const requests = useRef(createPremiumRequestGate());
     const refresh = useCallback(
         async (signal?: AbortSignal) => {
-            if (!enabled || !authenticated || gameId?.startsWith("preview")) return;
+            if (preview || !enabled || !authenticated || gameId?.startsWith("preview")) return;
             const request = requests.current.begin("read");
             if (!request) return;
             try {
@@ -55,7 +58,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 requests.current.finish(request);
             }
         },
-        [authenticated, gameId, enabled],
+        [authenticated, gameId, enabled, preview],
     );
     useLayoutEffect(() => {
         requests.current.reset();
@@ -65,7 +68,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
         return () => requests.current.reset();
     }, [authenticated, accountKey, gameId, refreshKey, enabled]);
     useEffect(() => {
-        if (!enabled || !authenticated) return;
+        if (preview || !enabled || !authenticated) return;
         const controller = new AbortController();
         void refresh(controller.signal);
         const timer = setInterval(
@@ -78,10 +81,10 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
             controller.abort();
             clearInterval(timer);
         };
-    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated]);
+    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated, preview]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
-            if (!enabled || !gameId || !advice || busy) return;
+            if (preview || !enabled || !gameId || !advice || busy) return;
             const request = requests.current.begin("apply");
             if (!request) return;
             let refreshAfterFailure = false;
@@ -117,9 +120,9 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 }
             }
         },
-        [gameId, advice, busy, refresh, enabled],
+        [gameId, advice, busy, refresh, enabled, preview],
     );
-    return { advice: enabled ? advice : undefined, apply, busy, error };
+    return { advice: enabled ? (preview ?? advice) : undefined, apply, busy, error };
 };
 
 const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
@@ -157,8 +160,12 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
     const askQuestion = useAskPremiumQuestion();
-    const index = advice?.choices?.findIndex((choice) => choice.kind === kind && choice.value === value) ?? -1;
-    const choice = index >= 0 ? advice?.choices?.[index] : undefined;
+    const thumbStyle = useContext(PremiumThumbStyleContext);
+    const ranked = advice?.choices?.filter((item) => item.kind === kind) ?? [];
+    const thumb = kind === "creature" || kind === "bundle" || kind === "artifact";
+    const index = ranked.findIndex((choice) => choice.value === value);
+    const choice = index >= 0 ? ranked[index] : undefined;
+    const medal: PremiumThumbMedal = index === 0 ? "gold" : "silver";
     if (!choice) {
         const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
         if (!offer || !askQuestion) return null;
@@ -180,18 +187,25 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
     return (
         <Box
             data-testid={`premium-${kind}-${value}`}
+            data-recommendation-medal={thumb ? medal : undefined}
             sx={{
                 position: "absolute",
                 inset: 0,
                 zIndex: 9,
                 pointerEvents: "none",
-                border: `${index === 0 ? 3 : 2}px solid ${index === 0 ? orange : "#a95825"}`,
+                border: thumb ? undefined : `${index === 0 ? 3 : 2}px solid ${index === 0 ? orange : "#a95825"}`,
                 borderRadius: "inherit",
-                boxShadow: index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
+                boxShadow: !thumb && index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
             }}
         >
             <Tooltip
-                title={<ChoiceExplanation choice={choice} />}
+                title={
+                    askQuestion ? (
+                        `${index === 0 ? "Top recommendation" : `Recommendation #${index + 1}`} · Explain ${choice.label}`
+                    ) : (
+                        <ChoiceExplanation choice={choice} />
+                    )
+                }
                 describeChild
                 placement="top"
                 arrow
@@ -207,13 +221,16 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                 <Box
                     component="button"
                     type="button"
-                    aria-label={`Premium: ${index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
-                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Premium: ${thumb ? `${medal}, #${index + 1}` : index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        askQuestion?.(premiumChoiceQuestion(choice));
+                    }}
                     sx={{
                         pointerEvents: "auto",
                         position: "absolute",
-                        top: 5,
-                        left: 5,
+                        top: thumb && kind === "bundle" ? 16 : 5,
+                        left: thumb && kind === "bundle" ? 16 : 5,
                         border: "1px solid #cb702c",
                         borderRadius: "5px",
                         px: 0.7,
@@ -223,10 +240,36 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                         fontSize: 11,
                         fontWeight: 700,
                         cursor: "help",
+                        ...(thumb
+                            ? {
+                                  width: 30,
+                                  height: 30,
+                                  p: 0,
+                                  border: 0,
+                                  borderRadius: 0,
+                                  background: "transparent",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  filter: "drop-shadow(0 2px 2px #000) drop-shadow(0 0 3px #000)",
+                                  animation: index === 0 ? "hocGoldThumbPulse 1800ms ease-in-out infinite" : undefined,
+                                  "@keyframes hocGoldThumbPulse": {
+                                      "0%, 100%": { transform: "scale(1)" },
+                                      "50%": { transform: "scale(1.13)" },
+                                  },
+                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                  "&:focus-visible": { outline: "1px solid #e8c476", outlineOffset: 2 },
+                              }
+                            : {}),
                     }}
                 >
-                    <PremiumIcon size={14} style={{ marginRight: 4 }} />
-                    {index === 0 ? "Preferred" : "Alternative"}
+                    {thumb ? (
+                        <PremiumThumbIcon medal={medal} variant={thumbStyle} />
+                    ) : (
+                        <>
+                            <PremiumIcon size={14} style={{ marginRight: 4 }} />
+                            {index === 0 ? "Preferred" : "Alternative"}
+                        </>
+                    )}
                 </Box>
             </Tooltip>
         </Box>

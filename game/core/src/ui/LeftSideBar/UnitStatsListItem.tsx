@@ -44,7 +44,7 @@ import {
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
-import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "../leftSidebarPortraitAnimation";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
@@ -69,6 +69,8 @@ import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
+import { BlacksmithSpells } from "./BlacksmithSpells";
+import { CreatureNameFlag } from "./CreatureNameFlag";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -151,8 +153,7 @@ const AtlasAnimation: React.FC<{
         onLoadedRef.current = onLoaded;
     }, [onLoaded]);
 
-    // Reuse the shared asynchronous decode. The still stays visible until the canvas paints its
-    // first cel; cached sheets resume immediately at the current authored clock phase.
+    // Reuse the shared asynchronous decode. Frame zero stays visible until the canvas paints it too.
     React.useLayoutEffect(() => {
         let cancelled = false;
         setLoadedSource(isAtlasReady(src) ? src : undefined);
@@ -199,8 +200,7 @@ const AtlasAnimation: React.FC<{
         if (!isImageLoaded || !canvasRef.current) return;
         const image = getDecodedImage(src) as HTMLImageElement | undefined;
         if (!image) return;
-        const stop = playSidebarAtlas(canvasRef.current, image, timing);
-        if (stop) onLoadedRef.current();
+        const stop = playSidebarAtlas(canvasRef.current, image, timing, () => onLoadedRef.current());
         return stop;
     }, [src, timing, isImageLoaded]);
 
@@ -248,7 +248,7 @@ const AtlasAnimation: React.FC<{
     );
 };
 
-/** The still and atlas share local readiness, including while this complete portrait is held on screen. */
+/** The loading poster and playback use the same atlas pixels and portrait placement. */
 const SidebarPortraitAnimation = ({
     art,
     config,
@@ -262,18 +262,27 @@ const SidebarPortraitAnimation = ({
     onLoaded: () => void;
     playback: "ping-pong" | "loop";
 }) => {
-    const [ready, setReady] = useState(() => !config.pages && isAtlasReady(config.src));
+    const [ready, setReady] = useState(false);
+    const poster = sidebarPortraitFirstFrame(config);
     const markLoaded = useCallback(() => {
         setReady(true);
         onLoaded();
     }, [onLoaded]);
     return (
         <>
-            {React.cloneElement(art, { style: { ...art.props.style, opacity: ready ? 0 : 1 } })}
+            {React.cloneElement(art, { style: { ...art.props.style, opacity: 0 } })}
+            <svg
+                aria-hidden
+                data-sidebar-first-frame={poster.src}
+                viewBox={`0 0 ${poster.frameWidth} ${poster.frameHeight}`}
+                preserveAspectRatio="xMidYMid meet"
+                style={{ ...art.props.style, overflow: "hidden", opacity: ready ? 0 : 1 }}
+            >
+                <image href={poster.src} width={poster.atlasWidth} height={poster.atlasHeight} />
+            </svg>
             <Box
                 aria-label={`${art.props.alt} animated portrait`}
-                // Both sources were authored on the same portrait canvas. Reuse the still's complete
-                // placement so the first animated frame cannot change facing, crop, size or offsets.
+                // Reuse the poster's complete placement at the first painted animation frame.
                 style={{
                     ...art.props.style,
                     zIndex: 4,
@@ -418,9 +427,9 @@ const threeAcrossTileSize = (metrics: ISidebarMetrics): number => {
 const baseAbilityTileSize = (metrics: ISidebarMetrics): number =>
     Math.min(Math.round(metrics.abilityCell * 1.4), threeAcrossTileSize(metrics));
 
-// Keep the responsive three-across calculation intact, then make only the rendered ability tiles 6% smaller.
+// Keep the responsive three-across calculation intact, then make only the rendered ability tiles 16% smaller.
 // Applying the reduction last also covers widths where the three-across cap, rather than abilityCell, wins.
-const ABILITY_TILE_SCALE = 0.94;
+const ABILITY_TILE_SCALE = 0.84;
 const abilityTileSize = (metrics: ISidebarMetrics): number =>
     Math.round(baseAbilityTileSize(metrics) * ABILITY_TILE_SCALE);
 
@@ -901,6 +910,11 @@ export const SectionTitle: React.FC<{
             <Typography
                 level="title-sm"
                 sx={{
+                    // Keep the plaque on the same axis as its two lifted divider rules.
+                    transform:
+                        leftRuleLiftPx === rightRuleLiftPx && leftRuleLiftPx
+                            ? `translateY(-${leftRuleLiftPx}px)`
+                            : "none",
                     // The three unit-card plaques are deliberately 10% larger than the shared Up next title.
                     // This is local to displayFont; the common font metrics remain unchanged everywhere else.
                     fontSize: `${fontSizeRem}rem`,
@@ -981,6 +995,7 @@ const PanelSection: React.FC<{
     children: React.ReactNode;
     overlayTitle?: boolean;
     offsetY?: number;
+    titleOffsetY?: number;
     titleHeightScale?: number;
     leftRuleLiftPx?: number;
     rightRuleLiftPx?: number;
@@ -990,6 +1005,7 @@ const PanelSection: React.FC<{
     children,
     overlayTitle = false,
     offsetY = 0,
+    titleOffsetY = 0,
     titleHeightScale = 1,
     leftRuleLiftPx = 0,
     rightRuleLiftPx = 0,
@@ -1021,7 +1037,7 @@ const PanelSection: React.FC<{
                     : // The wells below are lifted into their plaque and carry transforms of their own, so
                       // they open a later stacking context and used to paint over the caption. The plaque
                       // owns that overlap: it stays legible and the tile that reaches it slides beneath.
-                      { position: "relative", zIndex: 7 }
+                      { position: "relative", zIndex: 7, top: titleOffsetY }
             }
         >
             <SectionTitle
@@ -1328,13 +1344,13 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
     // synchronous decode lets the background paint first. Keep the previous pair on screen until both
     // new files have decoded, then swap them on the same frame. The name and the stats still follow the
     // live unit.
-    const portraitReady = isLeftSidebarPortraitReady(creatureId);
+    const portraitReady = isLeftSidebarPortraitReady(creatureId, animatePortrait);
     const [heldPortraitId, setHeldPortraitId] = useState<number | undefined>(undefined);
     useEffect(() => {
         let cancelled = false;
         // A cached selection must become the held picture immediately too; otherwise the next cold
         // selection falls back to an older creature while an optional atlas is still loading.
-        if (isLeftSidebarPortraitReady(creatureId)) setHeldPortraitId(creatureId);
+        if (isLeftSidebarPortraitReady(creatureId, animatePortrait)) setHeldPortraitId(creatureId);
         const portraitWarm = warmLeftSidebarPortrait(creatureId, animatePortrait);
         void portraitWarm.then((ready) => {
             if (ready && !cancelled) setHeldPortraitId(creatureId);
@@ -1391,10 +1407,12 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
         artOffsetY: portraitOffsetY,
     } = sidebarPortraitTuning;
     const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
-    const portraitSource = sidebarPortraitArt.source;
-    const portraitUsesFraming = sidebarPortraitArt.usesFraming !== false;
-    const portraitFit = sidebarPortraitArt.fit;
-    const portraitBaseScale = sidebarPortraitArt.baseScale;
+    const portraitSource = portraitAnimationConfig
+        ? sidebarPortraitFirstFrame(portraitAnimationConfig).src
+        : sidebarPortraitArt.source;
+    const portraitUsesFraming = !portraitAnimationConfig && sidebarPortraitArt.usesFraming !== false;
+    const portraitFit = portraitAnimationConfig ? "contain" : sidebarPortraitArt.fit;
+    const portraitBaseScale = portraitAnimationConfig ? 1 : sidebarPortraitArt.baseScale;
     const portraitAtlasSource = portraitAnimationConfig?.src;
     const portraitAtlasMeta = portraitAnimationConfig?.meta;
     const portraitPages = portraitAnimationConfig?.pages;
@@ -1647,6 +1665,46 @@ const UnitStatsLayout: React.FC<{
     // so long lists never drift between wheel steps; the final padding lets the last row align too.
     const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
     const effectWellHeight = effectRowStep;
+    const effectsRef = React.useRef<HTMLDivElement>(null);
+    const [effectsHeight, setEffectsHeight] = React.useState<number>();
+    React.useLayoutEffect(() => {
+        const effects = effectsRef.current;
+        const sidebar = effects?.closest(".Sidebar");
+        const footer = sidebar?.querySelector<HTMLElement>("[data-sidebar-footer]");
+        const card = effects?.closest(".SidebarCard");
+        if (!effects || !footer || !sidebar) return;
+
+        const measure = () => {
+            const rect = effects.getBoundingClientRect();
+            const scale = rect.width / effects.offsetWidth;
+            if (!(scale > 0)) return;
+            const next = Math.max(0, Math.floor((footer.getBoundingClientRect().top - rect.top) / scale) - 2);
+            setEffectsHeight((current) => (current === next ? current : next));
+        };
+        const observer = new ResizeObserver(measure);
+        observer.observe(sidebar);
+        observer.observe(footer);
+        if (card) observer.observe(card);
+        card?.addEventListener("transitionend", measure);
+        measure();
+        return () => {
+            observer.disconnect();
+            card?.removeEventListener("transitionend", measure);
+        };
+    }, [unitProperties.name, metrics.gapPx, effectRowStep]);
+
+    const buffCount = orderedBuffs.length + shownSynergies.length;
+    // The empty Buffs heading stays visible, but it must not reserve two rows above Debuffs.
+    const buffWellHeight =
+        buffCount === 0
+            ? 0
+            : buffCount > 4 && (effectsHeight ?? Infinity) >= effectRowStep * 3 + metrics.gapPx * 8
+              ? effectRowStep * 2
+              : effectRowStep;
+    React.useLayoutEffect(() => {
+        // Start at the Buffs plaque instead of scrolling it underneath the ability row.
+        if (effectsRef.current) effectsRef.current.scrollTop = 0;
+    }, [unitProperties.name]);
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
@@ -1710,11 +1768,12 @@ const UnitStatsLayout: React.FC<{
                         boxSizing: "border-box",
                         border: "1px solid rgba(9, 7, 5, 0.98)",
                         borderBottom: 0,
+                        borderTop: 0,
                         boxShadow: "inset 0 0 0 1px rgba(151, 104, 54, 0.82), inset 0 0 0 2px rgba(4, 4, 3, 0.78)",
-                        // Keep just the selected-card contour. It ends cleanly at the Abilities divider;
-                        // the separate full-height sidebar rails no longer need any transition ornaments.
+                        // Keep the selected-card side rails only; the painted flag owns its upper edge.
+                        // Side framing ends cleanly at the Abilities divider.
                         clipPath:
-                            "polygon(0 0, 100% 0, 100% 100%, calc(100% - 3px) 100%, calc(100% - 3px) 3px, 3px 3px, 3px 100%, 0 100%)",
+                            "polygon(0 0, 3px 0, 3px 100%, calc(100% - 3px) 100%, calc(100% - 3px) 0, 100% 0, 100% 100%, 0 100%)",
                         pointerEvents: "none",
                     },
                 }}
@@ -1873,64 +1932,71 @@ const UnitStatsLayout: React.FC<{
                 </IconScrollWell>
             </PanelSection>
 
-            {/* Move the complete lower pair together. At the approved scale, 1.2 of the shared gap closes
-                the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
-                above them. Keeping both sections in this wrapper preserves their authored relationship. */}
+            {unitProperties.name === "Blacksmith" && (
+                <PanelSection title="Magic" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
+                    <BlacksmithSpells spells={unitProperties.spells} size={abilityTileSize(metrics)} />
+                </PanelSection>
+            )}
+
+            {/* Keep effects in normal flow so the Buffs plaque cannot overlap the ability tiles. */}
             <Box
+                ref={effectsRef}
+                aria-label="Creature effects"
                 sx={{
                     width: "100%",
                     display: "flex",
                     flexDirection: "column",
+                    flexShrink: 0,
+                    "& > *": { flexShrink: 0 },
+                    maxHeight: effectsHeight === undefined ? undefined : `${effectsHeight}px`,
+                    overflowY: "auto",
+                    ...hocScrollSx,
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
-                    transform: `translateY(${-Math.round(metrics.gapPx * 1.2)}px)`,
                 }}
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
-                    <IconScrollWell
-                        height={effectWellHeight}
-                        offsetY={-Math.round(metrics.gapPx)}
-                        vertical
-                        rowStepPx={effectRowStep}
-                    >
-                        {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
-                        <Box
-                            sx={{
-                                display: "flex",
-                                flexDirection: "row",
-                                flexWrap: "wrap",
-                                alignItems: "flex-start",
-                                alignContent: "flex-start",
-                                width: "100%",
-                                height: "max-content",
-                                minWidth: 0,
-                                gap: `${metrics.gapPx * 0.6}px`,
-                                pb: `${metrics.gapPx * 0.6}px`,
-                            }}
-                        >
-                            {orderedBuffs.length > 0 && (
-                                <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
-                            )}
-                            {/* Whole-fight synergy badges follow the status icons so newly applied
+                    {buffCount > 0 && (
+                        <IconScrollWell height={buffWellHeight} offsetY={2} vertical rowStepPx={effectRowStep}>
+                            {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    alignItems: "flex-start",
+                                    alignContent: "flex-start",
+                                    width: "100%",
+                                    height: "max-content",
+                                    minWidth: 0,
+                                    gap: `${metrics.gapPx * 0.6}px`,
+                                    pb: `${metrics.gapPx * 0.6}px`,
+                                }}
+                            >
+                                {orderedBuffs.length > 0 && (
+                                    <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                                )}
+                                {/* Whole-fight synergy badges follow the status icons so newly applied
                                 temporary buffs stay visible at the start of the well. */}
-                            {shownSynergies.length > 0 && (
-                                <SynergiesRow
-                                    synergies={shownSynergies}
-                                    // Use the same authored width/height as the neighbouring buff image.
-                                    // The synergy asset has no extra frame, so adding the buff border again
-                                    // made its visible footprint larger than every ordinary tile.
-                                    size={effectTileSize(metrics)}
-                                    inline
-                                />
-                            )}
-                        </Box>
-                    </IconScrollWell>
+                                {shownSynergies.length > 0 && (
+                                    <SynergiesRow
+                                        synergies={shownSynergies}
+                                        // Use the same authored width/height as the neighbouring buff image.
+                                        // The synergy asset has no extra frame, so adding the buff border again
+                                        // made its visible footprint larger than every ordinary tile.
+                                        size={effectTileSize(metrics)}
+                                        inline
+                                    />
+                                )}
+                            </Box>
+                        </IconScrollWell>
+                    )}
                 </PanelSection>
 
                 <PanelSection
                     title="Debuffs"
                     metrics={metrics}
-                    offsetY={-Math.round(metrics.gapPx * 3)}
                     titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
+                    titleOffsetY={Math.round(metrics.gapPx * 0.5)}
                 >
                     <Box
                         sx={{
@@ -2212,8 +2278,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                 nested
             >
                 <Box sx={unitDetailsShellSx(metrics)}>
-                    {/* The creature name uses the same plaque as Abilities / Buffs / Debuffs. The wrapper
-                        only positions that shared component over the team flag; it adds no second surface. */}
+                    {/* The cloth shows the surviving share of this stack; its name stays stationary. */}
                     <Box
                         sx={{
                             // Centred in the cloth between the crossbar and the crest — the run down from the
@@ -2230,31 +2295,15 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                             // then shares the exact screen-space edge of the roster collapse control at
                             // every responsive density, without relying on a guessed pixel offset.
                             transform: `translateY(calc(${-bannerLayout(metrics).above}px - var(--sidebar-card-top-inset, 0px)))`,
-                            // A restrained finishing rail closes the card above the name plaque without
-                            // crossing the plaque or stealing any room from the portrait.
-                            "&::before": {
-                                content: '""',
-                                position: "absolute",
-                                // Share the plaque's upper edge instead of floating above it. This keeps the
-                                // requested line visible even when the card begins at the top of the screen.
-                                top: 0,
-                                left: "1.5%",
-                                right: "1.5%",
-                                height: "1px",
-                                background:
-                                    "linear-gradient(90deg, transparent 0%, rgba(116,77,42,.72) 5%, rgba(203,159,92,.72) 50%, rgba(116,77,42,.72) 95%, transparent 100%)",
-                                boxShadow: "0 1px 0 rgba(0,0,0,.7)",
-                                pointerEvents: "none",
-                            },
                         }}
                     >
-                        <SectionTitle
+                        <CreatureNameFlag
+                            team={unitProperties.team}
                             title={unitProperties.name.toUpperCase()}
                             metrics={metrics}
-                            displayFont
-                            preserveCase
-                            namePlaque
-                            namePlaqueTeam={unitProperties.team}
+                            unitId={unitProperties.id}
+                            alive={unitProperties.amount_alive}
+                            died={unitProperties.amount_died}
                         />
                         <Box
                             sx={{

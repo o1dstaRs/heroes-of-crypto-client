@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
@@ -587,5 +587,129 @@ test.each([false, true])("Covenant absorbs wait for their own contact, first sho
     flights[1].contact();
     expect(shown).toEqual(firstMissed ? [53] : [47, 53]);
     flights[1].land();
+    await pending;
+});
+
+// Preserve approved PR popup-policy coverage alongside main’s intentional combat timing.
+test.each([
+    { active: true, missed: false, amount: 10, lethal: false, response: false },
+    { active: false, missed: false, amount: 10, lethal: false, response: false },
+    { active: true, missed: true, amount: 0, lethal: false, response: false },
+    { active: true, missed: false, amount: 0, lethal: false, response: false },
+    { active: true, missed: false, amount: 10, lethal: true, response: false },
+    { active: true, missed: false, amount: 10, lethal: false, response: true },
+])("Shadow Touch stays passive without an above-unit popup: %j", async (options) => {
+    const { scene, a, b, events, finish } = setup();
+    a.hasAbilityActive = (name?: string) => options.active && name === "Shadow Touch";
+    const preparePop = mock((_kind: string) => undefined);
+    scene.combatVisuals.prepareCommonFlagPop = preparePop;
+    scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) => events.push(`${unit.getId()}:${kind}`);
+    scene.showAttackMissedVfx = () => events.push("miss");
+    const plan: CombatExchangeStrike[] = [
+        { ...strike(false, 0, options.lethal), amount: options.amount, missed: options.missed },
+    ];
+    if (options.response) plan.push(strike(true));
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, plan, () => {});
+    await flush();
+    finish.splice(0).forEach((done) => done());
+    await flush();
+    for (let i = 0; i < 5; i++) {
+        finish.splice(0).forEach((resolve) => resolve());
+        await flush();
+    }
+    await pending;
+    expect(events).not.toContain("A:shadow_touch");
+    expect(events).not.toContain("B:shadow_touch");
+    expect(preparePop).not.toHaveBeenCalledWith("shadow_touch");
+    expect(events.includes("B:attack")).toBe(options.response);
+    expect(events.filter((event) => event === "damage")).toHaveLength(
+        (options.missed || options.amount <= 0 ? 0 : 1) + (options.response ? 1 : 0),
+    );
+});
+
+test.each(["melee", "range"])(
+    "%s extra strikes pop above their source without delaying attacks",
+    async (attackType) => {
+        const { scene, a, b, events, finish } = setup();
+        // An unresolved effect preload must never hold up either combatant or any later strike.
+        scene.combatVisuals.prepareCommonFlagPop = () => new Promise(() => {});
+        scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) =>
+            events.push(`${unit.getId()}:${kind}`);
+        scene.playReplayProjectile = (unit: typeof a) => {
+            events.push(`${unit.getId()}:projectile`);
+            return new Promise<void>((resolve) => finish.push(resolve));
+        };
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            { attackType },
+            orderCombatExchange([strike(), strike(false, 1), strike(false, 2), strike(false, 3)], strike(true)),
+            () => {},
+        );
+        await flush();
+        expect(events.filter((event) => event.endsWith(":multi_attack"))).toHaveLength(0);
+        for (let i = 0; i < 10; i++) {
+            finish.splice(0).forEach((resolve) => resolve());
+            await flush();
+        }
+        await pending;
+        expect(events.filter((event) => event.endsWith(":multi_attack"))).toEqual(Array(3).fill("A:multi_attack"));
+        for (const [i, event] of events.entries()) {
+            if (event === "A:multi_attack")
+                expect(events[i + 1]).toBe(attackType === "melee" ? "A:attack" : "A:projectile");
+        }
+    },
+);
+
+test("each strike reports actual playback progress without advancing while a reaction is held", async () => {
+    const { scene, a, b, finish } = setup();
+    let progress = 0;
+    scene.aiController = {
+        noteActionPresentationProgress: () => {
+            progress++;
+        },
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        orderCombatExchange([strike()], strike(true)),
+        () => {},
+    );
+    await flush();
+    // The group plus both simultaneous contacts report real progress; waiting for either
+    // outgoing attack or hit reaction must not manufacture additional progress notifications.
+    expect(progress).toBe(3);
+    for (let i = 0; i < 4; i++) {
+        finish.splice(0).forEach((resolve) => resolve());
+        await flush();
+        expect(progress).toBe(3);
+    }
+    await pending;
+    expect(progress).toBe(3);
+});
+
+test("INTENDED: cold status art cannot delay the opening exchange or move melee damage past attack completion", async () => {
+    const { scene, a, b, events, finish } = setup();
+    scene.pendingEffectPops = [{ unit: b, debuffs: ["Curse"], buffs: [] }];
+    scene.waitForTexture = () => new Promise(() => {});
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, [strike(), strike(true)], () => {});
+    await flush();
+    expect(events.filter((event: string) => event.endsWith(":attack"))).toEqual(["A:attack", "B:attack"]);
+    expect(events.filter((event: string) => event === "damage")).toHaveLength(2);
+    expect(events.some((event: string) => event.endsWith(":hit"))).toBe(false);
+    // Each unit's own outgoing attack owns its body until it finishes. Incoming damage is
+    // already visible; its hit reaction must not cancel that attack or its authored projectile.
+    finish[0]();
+    await flush();
+    expect(events).toContain("A:hit");
+    expect(events).not.toContain("B:hit");
+    finish[1]();
+    await flush();
+    expect(events).toContain("B:hit");
+    for (let i = 0; i < 4; i++) {
+        finish.splice(0).forEach((done) => done());
+        await flush();
+    }
     await pending;
 });

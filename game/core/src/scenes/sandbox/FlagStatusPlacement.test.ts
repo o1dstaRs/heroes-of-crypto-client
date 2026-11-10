@@ -1,10 +1,10 @@
 import { expect, spyOn, test } from "bun:test";
-import { Container, Sprite, Texture } from "pixi.js";
+import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 import type { RenderableUnit } from "../RenderableUnit";
 import { CombatVisuals } from "./CombatVisuals";
 
-function fixture() {
+function fixture(legacyEffectsEnabled = true) {
     const root = new Container();
     root.scale.set(0.8, -0.5);
     const makeUnit = (x: number, y: number) =>
@@ -17,6 +17,7 @@ function fixture() {
     const unit = makeUnit(120, 300);
     const units = new Map([["target", unit]]);
     const visuals = new CombatVisuals({
+        legacyEffectsEnabled,
         getGridSettings: () => ({ getCellSize: () => 64 }) as GridSettings,
         getBoardScale: () => ({ x: root.scale.x, y: root.scale.y }),
         attachToWorldRoot: (container) => {
@@ -35,30 +36,35 @@ test("buffs, debuffs and morale follow the live flag across hydration and expire
     let now = 0;
     const clock = spyOn(performance, "now").mockImplementation(() => now);
     try {
-        f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Weakness", 0, "debuff", f.unit);
+        f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Slow", 0, "debuff", f.unit);
         f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Morale", 1, "buff", f.unit);
         const [debuff, buff] = f.root.children;
-        expect(debuff.x).toBe(120);
+        // Fixed label metrics keep this layout test independent of a browser canvas/font service.
+        for (const pop of [debuff, buff]) pop.boundsArea = new Rectangle(-50, -24, 100, 90);
+        now = 200;
+        f.visuals.update(0);
+        expect((debuff.x + buff.x) / 2).toBeCloseTo(120);
         expect(debuff.y).toBeGreaterThan(300);
-        expect(buff.y - debuff.y).toBeCloseTo(64 * 1.35);
+        expect(buff.y).toBeCloseTo(debuff.y);
+        expect(buff.x - debuff.x).toBeGreaterThan(100);
         f.units.set("target", f.makeUnit(200, 400));
         now = 400;
         f.visuals.update(0);
-        expect(debuff.x).toBe(200);
-        expect(debuff.y).toBeCloseTo(400 + 64 * 0.85);
+        expect((debuff.x + buff.x) / 2).toBeCloseTo(200);
+        expect(debuff.y).toBeGreaterThan(400);
         expect(debuff.scale.y / debuff.scale.x).toBeCloseTo(-1.6);
         for (const pop of [debuff, buff]) {
             const icon = pop.children[0] as Sprite;
             const bounds = icon.getBounds();
             expect(bounds.width).toBeCloseTo(bounds.height);
         }
-        now = 1000;
+        now = 425;
         f.visuals.update(0);
         expect(debuff.destroyed).toBe(false);
         expect(buff.destroyed).toBe(false);
         expect(debuff.alpha).toBe(1);
         expect(buff.alpha).toBe(1);
-        now = 1800;
+        now = 650;
         f.visuals.update(0);
         expect(debuff.destroyed).toBe(true);
         expect(buff.destroyed).toBe(true);
@@ -72,6 +78,8 @@ test.each(["luck", "resist", "heal", "absorb"])(
     "%s labels start above the flag, with no attack-direction drift",
     (kind) => {
         const f = fixture();
+        let now = 0;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
         const pop = spyOn(f.visuals, "spawnCommonFlagPop").mockImplementation(() => undefined);
         const pos = { x: 999, y: 10 };
         try {
@@ -82,11 +90,68 @@ test.each(["luck", "resist", "heal", "absorb"])(
             const label = f.root.children[0];
             expect(label.x).toBe(120);
             expect(label.y).toBeGreaterThan(300);
-            f.visuals.update(0.2);
+            now = 649;
+            f.visuals.update(0);
             expect(label.x).toBe(120);
+            expect(label.destroyed).toBe(false);
+            now = 650;
+            f.visuals.update(0);
+            expect(label.destroyed).toBe(true);
         } finally {
             f.visuals.clear();
             pop.mockRestore();
+            clock.mockRestore();
         }
     },
 );
+
+test("live combat suppresses static buff icons and duplicate lucky/resist captions", () => {
+    const f = fixture(false);
+    const pop = spyOn(f.visuals, "spawnCommonFlagPop").mockImplementation(() => undefined);
+    try {
+        for (const [name, kind] of [
+            ["Deep Wounds", "debuff"],
+            ["Courage", "buff"],
+            ["Double Punch", "buff"],
+        ] as const)
+            f.visuals.spawnDebuffPop({ x: 120, y: 300 }, Texture.WHITE, name, 0, kind, f.unit);
+        f.visuals.showLuckyLabel({ x: 120, y: 300 }, undefined, f.unit);
+        f.visuals.showResistLabel({ x: 120, y: 300 }, undefined, f.unit);
+        expect(pop.mock.calls.map((call) => call[1])).toEqual(["lucky", "resist"]);
+        expect(f.root.children).toHaveLength(0);
+        // Loss presentation and healing numbers remain independent of the retired icon renderer.
+        f.visuals.showFloatingHeal({ x: 120, y: 300 }, 10, f.unit);
+        expect(f.root.children).toHaveLength(1);
+    } finally {
+        pop.mockRestore();
+        f.visuals.clear();
+    }
+});
+
+test("live combat skips other archived procedural effects before allocating or loading textures", () => {
+    const f = fixture(false);
+    const pos = { x: 120, y: 300 };
+    const info = { texture: Texture.WHITE, x: 120, y: 300, scaleX: 1, scaleY: -1 };
+    try {
+        f.visuals.spawnShatter(info);
+        f.visuals.spawnDeathVfx(info, "target", true);
+        f.visuals.spawnEnchantResult(pos, 64, {
+            tint: 0xffffff,
+            iconTexture: Texture.WHITE,
+            label: "Double Punch",
+            success: true,
+        });
+        f.visuals.spawnSlash(pos, 64);
+        f.visuals.spawnBloodSpray(pos, 64);
+        f.visuals.spawnClawSlash(pos, 64, 3);
+        f.visuals.spawnAreaImpact(pos, 64);
+        let arrived = 0;
+        f.visuals.spawnAbilitySteal(pos, { x: 200, y: 300 }, 64, "Double Punch", Texture.WHITE, () => arrived++);
+        expect(arrived).toBe(1);
+        f.visuals.update(1);
+        expect(f.root.children).toHaveLength(0);
+        expect(Texture.WHITE.destroyed).toBe(false);
+    } finally {
+        f.visuals.clear();
+    }
+});

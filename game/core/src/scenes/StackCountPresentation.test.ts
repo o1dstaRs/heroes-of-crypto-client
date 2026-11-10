@@ -355,6 +355,7 @@ describe("stack counts at damage impact", () => {
         );
         await flush();
         expect(countsAtPop).toEqual([]);
+        // Opening projectiles start together; their independently recorded contacts still own losses.
         expect(contacts).toHaveLength(2);
         expect(attacker.getDisplayedAmount()).toBe(10 - (pendingBurn ? 0 : approachLosses));
         if (pendingBurn) presentBurn();

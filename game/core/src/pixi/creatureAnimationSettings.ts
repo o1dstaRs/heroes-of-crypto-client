@@ -475,6 +475,7 @@ const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
     "thief_walk_atlas_quarter",
     "scavenger_homm_idle_atlas_quarter",
     "scavenger_combat_hit_atlas_quarter",
+    "scavenger_combat_dodge_atlas_quarter",
     "scavenger_combat_death_atlas_quarter",
     "scavenger_combat_attack_atlas_quarter",
     "scavenger_combat_attack_up_atlas_quarter",

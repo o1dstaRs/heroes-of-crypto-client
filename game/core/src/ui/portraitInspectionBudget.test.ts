@@ -40,7 +40,7 @@ test("hover inspection warms only the still pair and leaves large idle sheets co
         decode: () => Promise.resolve(),
     }));
     for (const id of [CreatureVals.HEALER, CreatureVals.BATTLE_MAGE, CreatureVals.MANTICORE]) {
-        const sources = leftSidebarPortraitSources(id);
+        const sources = leftSidebarPortraitSources(id, false);
         expect(await warmLeftSidebarPortrait(id, false)).toBe(true);
         expect(requested).toContain(sources.creature!);
         expect(requested).not.toContain(sources.atlas!);
@@ -65,7 +65,7 @@ test("a 100-frame portrait sheet is released when it leaves the screen, even bel
     expect(isDecodedImageReady("current-sheet")).toBe(false);
 });
 
-test("selecting Arbalester prepares its still without starting an optional animation download", async () => {
+test("selecting Arbalester prepares only its first frame page instead of a full animation sheet", async () => {
     const requested: string[] = [];
     installPortraitImageFactoryForTests(() => ({
         decoding: "",
@@ -85,7 +85,7 @@ test("selecting Arbalester prepares its still without starting an optional anima
     const displayedAtlas = resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src;
     const supersededAtlas = resolveLeftSidebarPortraitAnimation(CreatureVals.ARBALESTER)!.src;
     expect(requested).not.toContain(displayedAtlas);
-    expect(requested).not.toContain(leftSidebarPortraitSources(CreatureVals.ARBALESTER).atlas!);
+    expect(requested).toContain(leftSidebarPortraitSources(CreatureVals.ARBALESTER).atlas!);
     expect(requested).not.toContain(supersededAtlas);
 });
 

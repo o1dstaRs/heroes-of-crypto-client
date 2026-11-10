@@ -151,7 +151,7 @@ describe("painted Boar Saliva flag cue", () => {
             visuals.update(0);
             expect(pop.destroyed).toBe(false);
             expect(pop.x).toBe(150);
-            expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
+            expect(pop.y).toBeCloseTo(250 + 6);
             units.set("enemy", makeUnit(150, 250, true));
             visuals.update(0);
             expect(pop.destroyed).toBe(true);

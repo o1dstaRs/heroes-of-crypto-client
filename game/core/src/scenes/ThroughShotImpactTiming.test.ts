@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { GridConstants, GridSettings, type HoCMath } from "@heroesofcrypto/common";
-import { Container } from "pixi.js";
+import { Container, Texture, TextureSource } from "pixi.js";
 
 import { Sandbox } from "./Sandbox";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
@@ -63,9 +63,14 @@ const fixture = (double = false) => {
         getGridSettings: () => gs,
         attachToWorldRoot: (object) => attachments.push(object),
     });
-    Object.assign(projectiles, { ensureProjectileTexture: () => Promise.resolve() });
+    const blastSource = new TextureSource({ width: 320, height: 320 });
+    Object.assign(projectiles, {
+        ensureProjectileTexture: () => Promise.resolve(),
+        cannonExplosionFrames: Array.from({ length: 16 }, () => new Texture({ source: blastSource })),
+    });
     cleanup.push(() => {
         projectiles.destroy();
+        blastSource.destroy();
         attachments.forEach((object) => {
             if (!object.destroyed) object.destroy({ children: true });
         });
@@ -192,11 +197,16 @@ test("a piercing cannonball presents each hit and lethal casualty while it is st
 
 test("a second volley owns its own contact and does not hit the first volley's dead victim again", async () => {
     const f = fixture(true);
+    const pops: string[] = [];
+    f.scene.combatVisuals.spawnCommonFlagPop = (unit: typeof f.cannon, kind: string) =>
+        pops.push(`${unit.getId()}:${kind}`);
     const pending = f.play();
     await flush();
+    expect(pops).toEqual([]);
     f.advance(1);
     await flush();
     expect(f.shots).toHaveLength(2);
+    expect(pops).toEqual(["cannon:multi_attack"]);
     expect(f.near.displayed).toBe(2);
     f.advance(0.4);
     expect(f.events.slice(-3)).toEqual(["near:hurt", "damage:7", "near:hit"]);
@@ -205,6 +215,7 @@ test("a second volley owns its own contact and does not hit the first volley's d
     await pending;
     expect(f.events.filter((entry) => entry === "far:death")).toHaveLength(1);
     expect(f.events.filter((entry) => entry.startsWith("damage:"))).toHaveLength(3);
+    expect(pops).toHaveLength(1);
 });
 
 test("cancelling a scene after the first contact suppresses all later impacts and volleys", async () => {
@@ -291,4 +302,25 @@ test.each([
     progress(1);
     progress(0.1);
     expect(seen).toEqual([0.3, 0.5, 0.8]);
+});
+
+test("ranked Through Shot keeps its full flight and explodes over the last recorded victim", async () => {
+    const f = fixture();
+    const pending = f.play();
+    await flush();
+    const shot = f.shots[0];
+    expect(shot.cannonPiercing).toBe(true);
+    expect(shot.cannonExplodeOnImpact).toBe(true);
+    expect(shot.cannonImpactPosition).toEqual(f.far.getProjectileImpactPoint());
+    expect(shot.to.x).toBeGreaterThan(shot.cannonImpactPosition!.x);
+    const state = f.projectiles as unknown as { cannonExplosions: { sprite: { x: number; y: number } }[] };
+    f.advance(0.4);
+    expect(state.cannonExplosions).toHaveLength(0);
+    f.advance(1);
+    await pending;
+    expect(state.cannonExplosions).toHaveLength(1);
+    expect(state.cannonExplosions[0].sprite.x).toBe(shot.cannonImpactPosition!.x);
+    expect(state.cannonExplosions[0].sprite.y).toBe(shot.cannonImpactPosition!.y);
+    f.projectiles.update(1);
+    expect(state.cannonExplosions).toHaveLength(0);
 });

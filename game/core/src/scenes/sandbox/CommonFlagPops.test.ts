@@ -6,8 +6,166 @@ import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "../../p
 
 const meta = animationAtlases["Vfx Common Lucky"].pop;
 
+test("a cold Shadow Touch atlas cannot replay the suppression cue after the hit is over", async () => {
+    let resolve!: (texture: Texture) => void;
+    const load = spyOn(Assets, "load").mockReturnValue(
+        new Promise<Texture>((done) => {
+            resolve = done;
+        }) as unknown as Promise<Record<string, unknown>>,
+    );
+    const unload = spyOn(Assets, "unload").mockResolvedValue();
+    const root = new Container();
+    let now = 0;
+    const layer = new CommonFlagPops(
+        "shadow_touch",
+        (container) => root.addChild(container),
+        () => now,
+    );
+    try {
+        const pending = layer.spawn("victim", { x: 0, y: 0 }, 64);
+        now = 901;
+        resolve(new Texture({ source: new TextureSource({ width: 1536, height: 1152 }) }));
+        await pending;
+        expect(layer.active).toBe(false);
+        expect(root.children).toHaveLength(0);
+    } finally {
+        layer.clear();
+        await Promise.resolve();
+        root.destroy({ children: true });
+        load.mockRestore();
+        unload.mockRestore();
+    }
+});
+
+test("Shadow Touch follows its victim and expires in 650ms of real time", async () => {
+    const meta = animationAtlases["Vfx Shadow Touch"].pop;
+    expect(meta.frameCount).toBe(16);
+    expect(meta.frameDurationsMs!.reduce((sum, ms) => sum + ms, 0)).toBe(900);
+    expect(isLazyCombatEffectAssetKey("vfx_shadow_touch_pop_atlas")).toBe(true);
+    expect(isProductionOmittedAssetKey("vfx_shadow_touch_pop_atlas")).toBe(false);
+    const atlas = new Texture({ source: new TextureSource({ width: meta.atlasWidth, height: meta.atlasHeight }) });
+    const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
+    const unload = spyOn(Assets, "unload").mockResolvedValue();
+    const root = new Container();
+    let now = 0;
+    const anchor = { x: 100, y: 200 };
+    const layer = new CommonFlagPops(
+        "shadow_touch",
+        (container) => root.addChild(container),
+        () => now,
+    );
+    try {
+        await layer.spawn("victim", anchor, 64, () => anchor);
+        anchor.x = 160;
+        now = 325;
+        layer.update(0);
+        expect(root.children[0].x).toBe(160);
+        expect((root.children[0].children[0] as Sprite).texture.frame.y).toBe(768);
+        now = 649;
+        layer.update(0);
+        expect(layer.active).toBe(true);
+        now = 650;
+        layer.update(0);
+        expect(layer.active).toBe(false);
+    } finally {
+        layer.clear();
+        await Promise.resolve();
+        root.destroy({ children: true });
+        load.mockRestore();
+        unload.mockRestore();
+    }
+});
+
+test.each([false, true])(
+    "a cold repeat-attack atlas drops stale cues and retains a newer strike: %s",
+    async (thirdStrike) => {
+        let resolve!: (texture: Texture) => void;
+        const load = spyOn(Assets, "load").mockReturnValue(
+            new Promise<Texture>((done) => {
+                resolve = done;
+            }) as unknown as Promise<Record<string, unknown>>,
+        );
+        const unload = spyOn(Assets, "unload").mockResolvedValue();
+        const root = new Container();
+        let now = 0;
+        const layer = new CommonFlagPops(
+            "multi_attack",
+            (container) => root.addChild(container),
+            () => now,
+        );
+        try {
+            const pending = layer.spawn("unit", { x: 0, y: 0 }, 64);
+            now = 700;
+            if (thirdStrike) await layer.spawn("unit", { x: 0, y: 0 }, 64);
+            now = 900;
+            resolve(new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) }));
+            await pending;
+            expect(layer.active).toBe(thirdStrike);
+            expect(root.children).toHaveLength(thirdStrike ? 1 : 0);
+            now = 1500;
+            layer.update(0);
+            expect(layer.active).toBe(false);
+        } finally {
+            layer.clear();
+            await Promise.resolve();
+            root.destroy({ children: true });
+            load.mockRestore();
+            unload.mockRestore();
+        }
+    },
+);
+
+test("repeated attack normalizes 16 authored cels to 650ms and restarts on a third strike without stacking", async () => {
+    const multi = animationAtlases["Vfx Multi Attack"].pop;
+    expect(multi.frameCount).toBe(16);
+    let elapsed = 0;
+    for (const [i, duration] of multi.frameDurationsMs!.entries()) {
+        expect(commonFlagFrameAt("multi_attack", elapsed)).toBe(i);
+        elapsed += duration;
+    }
+    expect(elapsed).toBe(800);
+    expect(isLazyCombatEffectAssetKey("vfx_multi_attack_pop_atlas")).toBe(true);
+    expect(isProductionOmittedAssetKey("vfx_multi_attack_pop_atlas")).toBe(false);
+    const atlas = new Texture({ source: new TextureSource({ width: multi.atlasWidth, height: multi.atlasHeight }) });
+    const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
+    const unload = spyOn(Assets, "unload").mockResolvedValue();
+    const root = new Container();
+    let now = 0;
+    const layer = new CommonFlagPops(
+        "multi_attack",
+        (container) => root.addChild(container),
+        () => now,
+    );
+    try {
+        layer.preload();
+        await layer.spawn("unit", { x: 100, y: 200 }, 64);
+        const sprite = root.children[0].children[0] as Sprite;
+        const first = sprite.texture;
+        now = 500;
+        layer.update(0);
+        expect(sprite.texture).not.toBe(first);
+        await layer.spawn("unit", { x: 150, y: 250 }, 64);
+        expect(root.children).toHaveLength(1);
+        expect(sprite.texture).toBe(first);
+        expect(root.children[0].x).toBe(150);
+        now = 1149;
+        layer.update(0);
+        expect(layer.active).toBe(true);
+        now = 1150;
+        layer.update(0);
+        expect(layer.active).toBe(false);
+        expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+        layer.clear();
+        await Promise.resolve();
+        root.destroy({ children: true });
+        load.mockRestore();
+        unload.mockRestore();
+    }
+});
+
 test.each(["empower", "dulling_defense", "enchanted_skin", "ogre_riot"] as const)(
-    "%s status holds its painted cels for 1.8 seconds",
+    "%s status completes its painted cels in 650 ms",
     async (kind) => {
         const atlas = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
         const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
@@ -21,13 +179,13 @@ test.each(["empower", "dulling_defense", "enchanted_skin", "ogre_riot"] as const
         );
         try {
             await layer.spawn("unit", { x: 0, y: 0 }, 64);
-            now = 1000;
+            now = 325;
             layer.update(0);
             expect(layer.active).toBe(true);
-            now = 1799;
+            now = 649;
             layer.update(0);
             expect(layer.active).toBe(true);
-            now = 1800;
+            now = 650;
             layer.update(0);
             expect(layer.active).toBe(false);
         } finally {
@@ -148,4 +306,18 @@ test("all five effects have equal canvas, timing and an authored nine-frame life
         expect(atlas.frameCount).toBe(9);
         expect(atlas.frameDurationsMs?.reduce((sum, value) => sum + value, 0)).toBe(1000);
     }
+});
+
+test("Penetrating Bite keeps all sixteen cels within one second", () => {
+    const bite = animationAtlases["Vfx Penetrating Bite"].pop;
+    expect(bite.frameCount).toBe(16);
+    expect(isLazyCombatEffectAssetKey("vfx_penetrating_bite_pop_atlas")).toBe(true);
+    expect(isProductionOmittedAssetKey("vfx_penetrating_bite_pop_atlas")).toBe(false);
+    let elapsed = 0;
+    for (const [i, duration] of bite.frameDurationsMs!.entries()) {
+        expect(commonFlagFrameAt("penetrating_bite", elapsed)).toBe(i);
+        elapsed += duration;
+    }
+    expect(elapsed).toBe(1000);
+    expect(commonFlagFrameAt("penetrating_bite", elapsed)).toBeUndefined();
 });

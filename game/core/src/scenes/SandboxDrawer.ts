@@ -1,3 +1,9 @@
+import { drawWhiteTigerPawAura, resetWhiteTigerPawAuras } from "./WhiteTigerPawAura";
+import { drawDryadWindAura, resetDryadWindAuras } from "./DryadWindAura";
+import { drawLeprechaunCloverAura, resetLeprechaunCloverAuras } from "./LeprechaunCloverAura";
+import { drawValkyrieBloodAura, resetValkyrieBloodAuras } from "./ValkyrieBloodAura";
+import { drawSatyrSylvanAura, resetSatyrSylvanAuras } from "./SatyrSylvanAura";
+import { drawWyvernPoisonAura, resetWyvernPoisonAuras } from "./WyvernPoisonAura";
 import { GridMath, type IWeightedRoute } from "@heroesofcrypto/common";
 import { drawCrusaderSixSwordsAura, resetCrusaderSixSwordsAuras } from "./CrusaderSixSwordsAura";
 import { drawGriffinQuestionBowAura, resetGriffinQuestionBowAuras } from "./GriffinQuestionBowAura";
@@ -11,14 +17,7 @@ import {
 } from "./AbominationSandAura";
 import { drawZenaChakramAura, resetZenaChakramAuras, ZENA_AURA_PALETTE } from "./ZenaChakramAura";
 import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
-import {
-    FightProperties,
-    FightStateManager,
-    GridSettings,
-    HoCConstants,
-    HoCMath,
-    TeamType,
-} from "@heroesofcrypto/common";
+import { FightProperties, GridSettings, HoCConstants, HoCMath, TeamType } from "@heroesofcrypto/common";
 
 /**
  * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
@@ -132,14 +131,6 @@ export interface ShotRangeOverlay {
 }
 
 export const SHOT_RANGE_LINE_WIDTH_CELLS = 0.011;
-const PEGASUS_RANGE_GLOW_LAYERS = [
-    [0.24, 0.025, 0x24ff5e],
-    [0.18, 0.04, 0x24ff5e],
-    [0.13, 0.07, 0x32ff67],
-    [0.09, 0.12, 0x43ff75],
-    [0.045, 0.8, 0x66ff8b],
-    [0.018, 0.95, 0xe0ffe9],
-] as const;
 /** The authored bitmap occupies almost the full square; keep the visible ornament compact at the frame corners. */
 export const SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS = 0.37536 * 1.15;
 /** Centre lines of the authored vertical/horizontal rails (normalised texture coordinates). */
@@ -316,13 +307,13 @@ export interface IGameplayDrawContext {
         attackRange: number; // World distance radius
         auraRanges: { range: number; isBuff: boolean }[]; // Range in cells
         footprint: IFootprintExtent;
-        auraOwner?: { name: string; id: string };
+        auraOwner?: { name: string; id: string; team?: TeamType };
     };
     hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
         footprint: IFootprintExtent;
-        auraOwner?: { name: string; id: string };
+        auraOwner?: { name: string; id: string; team?: TeamType };
     };
     lingeringTracks: ILingeringTrack[];
     hoveredMoveRange?: HoCMath.XY[];
@@ -351,6 +342,7 @@ export interface IGameplayDrawContext {
     getGriffinQuestionBowAuraTexture?: () => Texture | undefined;
     getPegasusWingedSwordAuraTexture?: () => Texture | undefined;
     getCrusaderSixSwordsAuraTexture?: () => Texture | undefined;
+    getWhiteTigerAuraRevealed?: (ownerId: string, range: number) => boolean;
     getAuraOwnerFacing?: (ownerId: string) => -1 | 1;
     getAbominationSandForeground?: (ownerId: string) => AbominationSandForeground | undefined;
     abominationDustContainer?: Container;
@@ -478,10 +470,16 @@ export class SandboxDrawer {
         } = ctx;
         resetArachnaQueenWebAuras(ctx.arachnaWebAuraContainer);
         resetChampionArrowAuras(ctx.arachnaWebAuraContainer);
+        resetWhiteTigerPawAuras(ctx.arachnaWebAuraContainer);
+        resetValkyrieBloodAuras(ctx.arachnaWebAuraContainer);
+        resetDryadWindAuras(ctx.arachnaWebAuraContainer);
+        resetLeprechaunCloverAuras(ctx.arachnaWebAuraContainer);
+        resetSatyrSylvanAuras(ctx.arachnaWebAuraContainer);
         resetZenaChakramAuras(ctx.arachnaWebAuraContainer);
         resetPegasusWingedSwordAuras(ctx.arachnaWebAuraContainer);
         resetCrusaderSixSwordsAuras(ctx.arachnaWebAuraContainer);
         resetGriffinQuestionBowAuras(ctx.arachnaWebAuraContainer);
+        resetWyvernPoisonAuras(ctx.arachnaWebAuraContainer);
         resetAbominationSandAuras(ctx.arachnaWebAuraContainer);
         resetAbominationSandAuras(ctx.abominationDustContainer);
         resetAbominationSandAuras(ctx.abominationGustContainer);
@@ -548,9 +546,7 @@ export class SandboxDrawer {
             const auraRanges = visibleAuraRanges(
                 currentActiveUnit.getAuraRanges(),
                 currentActiveUnit.getAuraIsBuff(),
-                FightStateManager.getInstance()
-                    .getFightProperties()
-                    .getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
+                fightProps.getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
                 ctx.activeAuraRangesScratch,
             );
             if (auraRanges.length > 0) {
@@ -798,6 +794,7 @@ export class SandboxDrawer {
             | "getPegasusWingedSwordAuraTexture"
             | "getCrusaderSixSwordsAuraTexture"
             | "getGriffinQuestionBowAuraTexture"
+            | "getWhiteTigerAuraRevealed"
             | "getAuraOwnerFacing"
             | "getAbominationSandForeground"
             | "abominationDustContainer"
@@ -829,6 +826,77 @@ export class SandboxDrawer {
             const auraGraphics = webContext?.auraFloorGraphics ?? g;
             for (const aura of auraRanges) {
                 const { range, isBuff } = aura;
+                if (auraOwner?.name === "Satyr" && isBuff) {
+                    drawSatyrSylvanAura(
+                        webContext?.arachnaWebAuraContainer,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                        performance.now(),
+                        webContext?.getAbominationSandForeground?.(auraOwner.id),
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Leprechaun" && isBuff) {
+                    drawLeprechaunCloverAura(
+                        webContext?.arachnaWebAuraContainer,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                    );
+                    continue;
+                }
+                if ((auraOwner?.name === "Dryad" || auraOwner?.name === "Peasant") && isBuff) {
+                    drawDryadWindAura(
+                        webContext?.arachnaWebAuraContainer,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                        performance.now(),
+                        auraOwner.name === "Peasant",
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "Valkyrie" && !isBuff) {
+                    drawValkyrieBloodAura(
+                        webContext?.arachnaWebAuraContainer,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                    );
+                    continue;
+                }
+                if (auraOwner?.name === "White Tiger") {
+                    drawWhiteTigerPawAura(
+                        webContext?.arachnaWebAuraContainer,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                        performance.now(),
+                        webContext?.getWhiteTigerAuraRevealed?.(auraOwner.id, range) ?? false,
+                    );
+                    continue;
+                }
                 if (auraOwner?.name === "Crusader" && isBuff) {
                     drawCrusaderSixSwordsAura(
                         webContext?.arachnaWebAuraContainer,
@@ -843,6 +911,22 @@ export class SandboxDrawer {
                     );
                     continue;
                 }
+                if (auraOwner?.name === "Wyvern") {
+                    drawWyvernPoisonAura(
+                        webContext?.arachnaWebAuraContainer,
+                        xy,
+                        footprint,
+                        range,
+                        gs,
+                        auraOwner.id,
+                        alphaMultiplier,
+                        narrowingLayers,
+                        performance.now(),
+                        webContext?.getAbominationSandForeground?.(auraOwner.id),
+                        webContext?.getAuraOwnerFacing?.(auraOwner.id) ?? 1,
+                    );
+                    continue;
+                }
                 if (auraOwner?.name === "Griffin" && !isBuff) {
                     drawGriffinQuestionBowAura(
                         webContext?.arachnaWebAuraContainer,
@@ -854,38 +938,13 @@ export class SandboxDrawer {
                         auraOwner.id,
                         alphaMultiplier,
                         narrowingLayers,
+                        performance.now(),
+                        webContext?.getAbominationSandForeground?.(auraOwner.id),
+                        webContext?.getAuraOwnerFacing?.(auraOwner.id) ?? 1,
                     );
                     continue;
                 }
                 if (auraOwner?.name === "Pegasus" && isBuff) {
-                    // Keep the actual cell reach stationary while the larger sword ornament rotates.
-                    const cellSize = gs.getCellSize();
-                    const bounds =
-                        range > 0
-                            ? SandboxDrawer.clampSquareToBoard(
-                                  xy,
-                                  (range + footprint.width / 2) * cellSize,
-                                  (range + footprint.height / 2) * cellSize,
-                                  gs,
-                                  narrowingLayers,
-                              )
-                            : undefined;
-                    if (bounds) {
-                        const { left, bottom, width, height } = bounds;
-                        const outline = projectedRectPoints(left, bottom, left + width, bottom + height, gs);
-                        const glow = (0.94 + 0.06 * Math.sin(pulsePhase * 1.7)) * alphaMultiplier;
-                        // Nested engine strokes form a soft green halo around a hot, narrow core.
-                        // Every layer follows the same true range; the ornament rotates independently.
-                        for (const [thickness, alpha, color] of PEGASUS_RANGE_GLOW_LAYERS) {
-                            g.poly(outline).stroke({
-                                width: Math.max(1, cellSize * thickness),
-                                color,
-                                alpha: alpha * glow,
-                                join: "round",
-                                cap: "round",
-                            });
-                        }
-                    }
                     drawPegasusWingedSwordAura(
                         webContext?.arachnaWebAuraContainer,
                         webContext?.getPegasusWingedSwordAuraTexture?.(),
@@ -896,10 +955,12 @@ export class SandboxDrawer {
                         auraOwner.id,
                         alphaMultiplier,
                         narrowingLayers,
+                        performance.now(),
+                        webContext?.getAuraOwnerFacing?.(auraOwner.id) ?? 1,
                     );
                     continue;
                 }
-                if (auraOwner?.name === "Champion" && isBuff) {
+                if ((auraOwner?.name === "Champion" || auraOwner?.name === "Wolf Rider") && isBuff) {
                     drawChampionArrowAura(
                         webContext?.arachnaWebAuraContainer,
                         webContext?.getChampionArrowAuraTexture?.(),
@@ -912,6 +973,7 @@ export class SandboxDrawer {
                         narrowingLayers,
                         performance.now(),
                         webContext?.getAuraOwnerFacing?.(auraOwner.id) ?? 1,
+                        auraOwner.name === "Wolf Rider",
                     );
                     continue;
                 }
@@ -934,7 +996,7 @@ export class SandboxDrawer {
                 if (auraOwner?.name === "Arachna Queen" && !isBuff) {
                     drawArachnaQueenWebAura(
                         webContext?.arachnaWebAuraContainer,
-                        webContext?.getArachnaWebAuraTexture?.(),
+                        undefined,
                         xy,
                         footprint,
                         range,

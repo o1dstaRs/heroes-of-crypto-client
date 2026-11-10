@@ -116,7 +116,7 @@ describe("painted Devour Essence flag cue", () => {
         }
     });
 
-    test("ranked hydration preserves the cue and reacquires the rebuilt recipient", async () => {
+    test("lab preview survives hydration and reacquires the rebuilt recipient", async () => {
         let now = 0;
         const clock = spyOn(performance, "now").mockImplementation(() => now);
         const atlas = new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) });
@@ -140,6 +140,7 @@ describe("painted Devour Essence flag cue", () => {
         try {
             visuals.spawnDevourEssencePop(
                 units.get("enemy")! as unknown as Parameters<CombatVisuals["spawnDevourEssencePop"]>[0],
+                "preview",
             );
             await Promise.resolve();
             await Promise.resolve();
@@ -151,7 +152,7 @@ describe("painted Devour Essence flag cue", () => {
             visuals.update(0);
             expect(pop.destroyed).toBe(false);
             expect(pop.x).toBe(150);
-            expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
+            expect(pop.y).toBeCloseTo(250 + 6);
             units.set("enemy", makeUnit(150, 250, true));
             visuals.update(0);
             expect(pop.destroyed).toBe(true);

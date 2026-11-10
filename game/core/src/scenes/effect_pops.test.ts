@@ -59,11 +59,13 @@ describe("isAuraEffectName / animatableEffectNames", () => {
         expect(
             animatableEffectNames([
                 "Luck",
-                "Luck Blessing",
                 "Sharpened Weapons Blessing",
-                "Sylvan Focus Blessing",
-                "Wolf Trail Blessing",
                 "Pegasus Might",
+                "Luck Blessing",
+                "Sylvan Focus Blessing",
+                "Tie up the Horses Blessing",
+                "Pegasus Might Blessing",
+                "Wolf Trail Blessing",
             ]).size,
         ).toBe(0);
     });
@@ -197,12 +199,12 @@ describe("diffUnitEffects", () => {
 
     test("an aura gained as a unit moves into range does NOT pop (filtered before diff)", () => {
         // Raw buff lists as the scene would read them, using the REAL applied effect names (short, no
-        // " Aura" suffix): the unit moves into a Luck aura, but also gets a real cast buff (Courage).
-        // Only Courage should animate — the aura effect is filtered out.
+        // " Aura" suffix): the unit moves into a Luck aura, but also gets a real cast buff (Blessing).
+        // Only Blessing should animate — the aura effect is filtered out.
         const prevBuffs = animatableEffectNames(["War Anger"]); // already standing in an aura
-        const currentBuffs = animatableEffectNames(["War Anger", "Luck", "Courage"]);
+        const currentBuffs = animatableEffectNames(["War Anger", "Luck", "Blessing"]);
         const diff = diffUnitEffects(set(), prevBuffs, set(), currentBuffs);
-        expect(diff.newBuffs).toEqual(["Courage"]);
+        expect(diff.newBuffs).toEqual(["Blessing"]);
         expect(diff.flash).toBe("buff");
     });
 });

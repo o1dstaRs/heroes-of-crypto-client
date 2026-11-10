@@ -60,7 +60,7 @@ describe("Empower flag effect", () => {
             scene.renderCastOutcomes([event]);
             expect(spawnCommonFlagPop).toHaveBeenCalledTimes(4);
             expect(scene.playCreatureAnimationLabState(kind).ok).toBe(true);
-            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, kind);
+            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, kind, "preview");
             expect(animatableEffectNames([name])).toEqual(new Set());
         });
 

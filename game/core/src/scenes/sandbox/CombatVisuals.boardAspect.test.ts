@@ -22,6 +22,7 @@ const EXPECTED_STRETCH = BOARD_SCALE_X / BOARD_SCALE_Y;
 const makeVisuals = (boardScale?: { x: number; y: number }) => {
     const attached: Container[] = [];
     const visuals = new CombatVisuals({
+        legacyEffectsEnabled: true,
         getGridSettings: () => undefined as unknown as GridSettings,
         attachToWorldRoot: (obj: Container) => {
             attached.push(obj);

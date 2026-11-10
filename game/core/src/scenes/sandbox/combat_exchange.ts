@@ -12,7 +12,12 @@ export interface CombatExchangeStrike {
     missed?: boolean;
 }
 
-/** The first blow and its recorded response are simultaneous; later blows follow that exchange. */
+/**
+ * INTENDED COMBAT TIMING: the opening blow and its recorded response share one presentation group.
+ * Never serialize them, including lethal exchanges. Later blows wait for the entire opening group
+ * (outgoing attacks and hit reactions), so neither a counterattack nor a second hit cancels a clip.
+ * This is presentation of authoritative results, not a second damage calculation.
+ */
 export function groupCombatExchange(plan: readonly CombatExchangeStrike[]): CombatExchangeStrike[][] {
     if (!plan.length) return [];
     return [

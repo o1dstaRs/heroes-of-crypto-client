@@ -1,6 +1,36 @@
 import { expect, spyOn, test } from "bun:test";
-import { Container, Graphics, Texture } from "pixi.js";
+import { Container, Graphics, Texture, TextureSource } from "pixi.js";
 import { UnitChip } from "./UnitChip";
+
+test("deferred roster portraits prepare shared mipmaps once without destroying the source", () => {
+    const source = new TextureSource({ width: 1024, height: 1024 });
+    const texture = new Texture({ source });
+    const unload = spyOn(source, "unload");
+    const chip = new UnitChip({
+        unitName: "Squire",
+        portrait: {
+            texture: Texture.EMPTY,
+            framing: { source: "portrait", fit: "cover", scale: 1, offsetX: 0, offsetY: 0, background: "none" },
+        },
+    });
+    try {
+        chip.layout(80, 108);
+        chip.setPortraitTextures(texture);
+        chip.setPortraitTextures(texture);
+        chip.setHovered(true);
+        expect(source.autoGenerateMipmaps).toBe(true);
+        expect(source.scaleMode).toBe("linear");
+        expect(source.mipmapFilter).toBe("linear");
+        expect(unload).toHaveBeenCalledTimes(1);
+        expect(source.destroyed).toBe(false);
+        expect(texture.destroyed).toBe(false);
+        expect(Texture.EMPTY.source.autoGenerateMipmaps).toBe(false);
+    } finally {
+        unload.mockRestore();
+        chip.destroy({ children: true });
+        texture.destroy(true);
+    }
+});
 
 test("hover motion and overflowing decorations cannot steal an adjacent roster cell", () => {
     const root = new Container();

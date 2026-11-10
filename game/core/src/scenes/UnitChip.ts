@@ -12,6 +12,19 @@ import { destroyContainerFilters } from "../pixi/filterLifecycle";
 
 type AtlasMeta = AnimationAtlasMeta;
 
+function prepareRosterPortraitTexture(texture?: Texture): void {
+    if (!texture || texture === Texture.EMPTY || texture === Texture.WHITE || texture.destroyed) return;
+    const source = texture.source;
+    if (source.destroyed || source.autoGenerateMipmaps) return;
+    // Average fine hair, armour and background detail before minification instead of sampling a few
+    // full-resolution pixels. Trilinear sampling also keeps the hover zoom from shimmering.
+    source.autoGenerateMipmaps = true;
+    source.scaleMode = "linear";
+    // A cached portrait may already have been uploaded by another surface. Reallocate its GPU copy
+    // with mip levels on the next draw; retain the decoded source and all shared Texture wrappers.
+    source.unload();
+}
+
 // These creatures now have dedicated waist-up portraits generated from the approved full-body set.
 // Their breathing atlas belongs on the battlefield; using its distant full-body frame inside the
 // sandbox roster would undo the portrait crop the moment a chip is selected or hovered.
@@ -874,6 +887,8 @@ export class UnitChip extends Container {
     }
     private updatePortraitReadiness(): void {
         if (!this.portraitFraming) return;
+        prepareRosterPortraitTexture(this.idleTexture);
+        prepareRosterPortraitTexture(this.portraitBackground?.texture);
         const portraitReady = this.isPortraitReady();
         this.sprite.visible = portraitReady;
         if (this.portraitBackground) this.portraitBackground.visible = portraitReady;

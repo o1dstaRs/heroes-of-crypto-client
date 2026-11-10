@@ -14,11 +14,11 @@ export const TOUCH_BOARD_GAP = 8;
 export const GAME_VIEWPORT_CHANGED = "hoc-game-viewport-changed";
 
 let touchGameActive = false;
-let touchInsets = { top: 0, bottom: 0 };
+let touchInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 export const isTouchGameActive = (): boolean => touchGameActive;
-export const getTouchGameInsets = (): { top: number; bottom: number } => touchInsets;
-export const setTouchGameInsets = (insets: { top: number; bottom: number }): void => {
-    touchInsets = insets;
+export const getTouchGameInsets = (): typeof touchInsets => touchInsets;
+export const setTouchGameInsets = (insets: { top: number; bottom: number; left?: number; right?: number }): void => {
+    touchInsets = { left: 0, right: 0, ...insets };
 };
 export const setTouchGameActive = (active: boolean): void => {
     touchGameActive = active;

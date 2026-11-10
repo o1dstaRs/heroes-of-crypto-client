@@ -54,6 +54,8 @@ import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftShellSx } from "./draftShell";
 import { DraftBanSummary } from "./DraftBanSummary";
+import { DraftBanSlash } from "./DraftBanSlash";
+import { DraftBanPlacementPreview, type DraftBanPlacement } from "./DraftBanPlacement";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import {
@@ -64,13 +66,22 @@ import {
     type CursorSample,
 } from "./draftHoverIntent";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
-import { GameCornerSlot } from "../GameCornerExit";
+import { GAME_CORNER_SLOT_TOP, GameCornerSlot } from "../GameCornerExit";
 import {
     GAME_SYSTEM_CONTROL_SIZE_PX,
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     GameSystemControls,
 } from "../GameSystemControls";
 import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
+import {
+    applyPickPreviewOrder,
+    isCreatureOrderPreview,
+    selectPickPreviewSwap,
+    usePickPreviewOrder,
+} from "../pickPreviewOrder";
+
+import { usePickStatOrder } from "../pickStatOrder";
+import type { PickStatId } from "../pickStatOrderModel";
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
@@ -152,13 +163,15 @@ const BoardFootprintIcon: React.FC<{ width: number; height: number }> = ({ width
     );
 };
 
-const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label: string }> = ({
+const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label: string; statId: PickStatId }> = ({
+    statId,
     icon,
     value,
     label,
 }) => (
     <Tooltip title={label} variant="soft" placement="top">
         <Box
+            data-pick-stat={statId}
             sx={{
                 display: "flex",
                 alignItems: "center",
@@ -193,6 +206,7 @@ const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label:
 // what a unit does before picking it. The header always reserves its space; revealing it must not shove the
 // hovered portrait away from the cursor.
 export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) => {
+    const statOrder = usePickStatOrder();
     if (!creatureId) {
         return null;
     }
@@ -206,6 +220,36 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
     const usesShotDistance = c.attack_type === "RANGE" && c.shot_distance > 0;
     const usesShots = c.attack_type === "RANGE" && c.range_shots > 0;
     const footprint = creatureFootprint(c);
+    const stats: Record<PickStatId, { icon: React.ReactNode; label: string; value: React.ReactNode } | null> = {
+        health: { icon: images.stat_health_gold_v2, label: t("Hit points"), value: `${c.hp}/${c.hp}` },
+        damage: {
+            icon: images.stat_damage_gold_v2,
+            label: t("Damage"),
+            value: `${c.attack_damage_min} - ${c.attack_damage_max}`,
+        },
+        attack: {
+            icon: c.attack_type === "RANGE" ? images.stat_ranged_attack_gold_v2 : images.stat_melee_attack_gold_v2,
+            label: t("Attack"),
+            value: c.attack,
+        },
+        shotDistance: usesShotDistance
+            ? { icon: images.stat_shot_range_gold_v2_arc, label: t("Shot distance"), value: c.shot_distance }
+            : null,
+        shots: usesShots ? { icon: images.stat_ammo_gold_v2, label: t("Shots"), value: c.range_shots } : null,
+        armor: { icon: images.stat_armor_gold_v2, label: t("Armor"), value: c.armor },
+        magicResist: { icon: images.stat_magic_resist_gold_v2, label: t("Magic resist"), value: `${c.magic_resist}%` },
+        size: {
+            icon: <BoardFootprintIcon width={footprint.width} height={footprint.height} />,
+            label: t("Size on the board"),
+            value: creatureFootprintLabel(footprint),
+        },
+        initiative: { icon: images.stat_initiative_gold_v2, label: t("Initiative"), value: c.initiative },
+        movement: {
+            icon: c.movement_type === "FLY" ? images.stat_fly_gold_v2 : images.stat_walk_gold_v2,
+            label: t("Movement steps"),
+            value: c.steps,
+        },
+    };
     const amount = startingStackAmount(c);
     const img = creatureImage(creatureId);
     const abilities = (c.abilities ?? []).filter(Boolean);
@@ -303,44 +347,10 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                     gap: "8px",
                 }}
             >
-                <StatChip icon={images.stat_health_gold_v2} label={t("Hit points")} value={`${c.hp}/${c.hp}`} />
-                <StatChip
-                    icon={images.stat_damage_gold_v2}
-                    label={t("Damage")}
-                    value={`${c.attack_damage_min} - ${c.attack_damage_max}`}
-                />
-                <StatChip
-                    icon={
-                        c.attack_type === "RANGE" ? images.stat_ranged_attack_gold_v2 : images.stat_melee_attack_gold_v2
-                    }
-                    label={t("Attack")}
-                    value={c.attack}
-                />
-                {usesShotDistance && (
-                    <StatChip
-                        icon={images.stat_shot_range_gold_v2_arc}
-                        label={t("Shot distance")}
-                        value={c.shot_distance}
-                    />
-                )}
-                {usesShots && <StatChip icon={images.stat_ammo_gold_v2} label={t("Shots")} value={c.range_shots} />}
-                <StatChip icon={images.stat_armor_gold_v2} label={t("Armor")} value={c.armor} />
-                <StatChip
-                    icon={images.stat_magic_resist_gold_v2}
-                    label={t("Magic resist")}
-                    value={`${c.magic_resist}%`}
-                />
-                <StatChip
-                    icon={<BoardFootprintIcon width={footprint.width} height={footprint.height} />}
-                    label={t("Size on the board")}
-                    value={creatureFootprintLabel(footprint)}
-                />
-                <StatChip icon={images.stat_initiative_gold_v2} label={t("Initiative")} value={c.initiative} />
-                <StatChip
-                    icon={c.movement_type === "FLY" ? images.stat_fly_gold_v2 : images.stat_walk_gold_v2}
-                    label={t("Movement steps")}
-                    value={c.steps}
-                />
+                {statOrder.order.map((id) => {
+                    const stat = stats[id];
+                    return stat ? <StatChip key={id} statId={id} {...stat} /> : null;
+                })}
             </Box>
             <>
                 <Divider orientation="vertical" sx={{ display: { xs: "none", lg: "block" } }} />
@@ -373,7 +383,8 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    p: 0.75,
+                                    p: 0,
+                                    overflow: "hidden",
                                 }}
                             >
                                 {ability && (
@@ -382,7 +393,7 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                                             component="img"
                                             src={abilityImage(ability)}
                                             alt={ability}
-                                            sx={{ width: "82%", height: "82%", objectFit: "contain" }}
+                                            sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
                                         />
                                     </>
                                 )}
@@ -946,13 +957,6 @@ const MOVEMENT_TYPE_ICON_IMAGE: Record<string, string> = {
 const FLY_ICON_DISPLAY_SCALE = 220 / 170;
 const CREATURE_TILE_DISPLAY_SCALE = 0.99;
 const CREATURE_PORTRAIT_FILL_SCALE = 1.019;
-const BAN_SLASH_FRAME_COUNT = 14;
-// Extend the authored cut only along its bottom-left -> top-right axis. Scaling the complete overlay
-// uniformly made the wound itself thicker; this directional transform keeps its approved width while
-// carrying both tips just beyond the portrait frame.
-const BAN_SLASH_AXIS_DEGREES = -53.4;
-const BAN_SLASH_LENGTH_SCALE = 1.28;
-const BAN_SLASH_LENGTH_TRANSFORM = `rotate(${BAN_SLASH_AXIS_DEGREES}deg) scaleX(${BAN_SLASH_LENGTH_SCALE}) rotate(${-BAN_SLASH_AXIS_DEGREES}deg)`;
 
 // Attack and movement use the same matching silver pictogram set. Muted cards carry the same visual
 // weight as their dimmed captions, so a banned creature cannot keep a bright class icon.
@@ -1016,6 +1020,9 @@ const CreaturePortrait: React.FC<{
     verticalOffsetPercent?: number;
     /** Clicked but not yet committed — the commit button carries the confirm now. */
     pending?: boolean;
+    /** Offline preview editor: cards remain swappable even when already picked or banned. */
+    reordering?: boolean;
+    reorderSelected?: boolean;
     onClick?: () => void;
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
@@ -1031,20 +1038,36 @@ const CreaturePortrait: React.FC<{
     horizontalOffset = 0,
     verticalOffsetPercent = 0,
     pending,
+    reordering = false,
+    reorderSelected = false,
     onClick,
     onInspect,
     onInspectEnd,
 }) => {
-    const selectable = state === "available" && !disabled && !!onClick;
+    const selectable = (reordering || (state === "available" && !disabled)) && !!onClick;
     const unavailable = state === "banned" || state === "taken";
     // Taking a card is a statement about YOUR army, so its ring and both halos wear the colour the player
     // chose in settings — the same one their units are about to be painted in on the board.
     const mine = ownArmyAccent();
-    const ring = pending || state === "picked" ? mine.ring(1) : "rgba(255,255,255,0.18)";
+    const ring = reorderSelected ? "#f1c66b" : pending || state === "picked" ? mine.ring(1) : "rgba(255,255,255,0.18)";
     const config = creatureFullConfig(creatureId)?.config;
     const src = creatureImage(creatureId);
     const portrait = (
         <Box
+            role={reordering ? "button" : undefined}
+            tabIndex={reordering ? 0 : undefined}
+            aria-label={reordering ? `Поменять местами: ${creatureName(creatureId)}` : undefined}
+            aria-pressed={reordering ? reorderSelected : undefined}
+            onKeyDown={
+                reordering
+                    ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onClick?.();
+                          }
+                      }
+                    : undefined
+            }
             data-touch-draft-choice
             onClick={selectable ? onClick : undefined}
             onMouseEnter={() => onInspect?.(creatureId)}
@@ -1070,6 +1093,9 @@ const CreaturePortrait: React.FC<{
                 // remains visible beyond this frame at its two diagonal tips.
                 overflow: "visible",
                 border: `2px solid ${ring}`,
+                outline: reorderSelected ? "3px solid #f1c66b" : undefined,
+                outlineOffset: reorderSelected ? 2 : undefined,
+                "&:focus-visible": reordering ? { outline: "3px solid #f1c66b", outlineOffset: 2 } : undefined,
                 cursor: selectable ? "pointer" : "default",
                 opacity: 1,
                 // The unit you are about to confirm pulses a soft green halo.
@@ -1081,10 +1107,6 @@ const CreaturePortrait: React.FC<{
                 "@keyframes hocCommitFlash": {
                     "0%": { boxShadow: `0 0 0 0 ${mine.label(0.9)}` },
                     "100%": { boxShadow: `0 0 0 26px ${mine.label(0)}` },
-                },
-                "@keyframes hocBanSlashCut": {
-                    "0%": { backgroundPosition: "0% 0" },
-                    "100%": { backgroundPosition: "100% 0" },
                 },
                 "@keyframes hocPendingGlow": {
                     "0%, 100%": { boxShadow: `0 0 0 0 ${mine.ring(0.55)}, 0 0 10px ${mine.ring(0.35)}` },
@@ -1181,33 +1203,7 @@ const CreaturePortrait: React.FC<{
                     )}
                 </Box>
             )}
-            {(state === "banned" || state === "taken") && (
-                // Variant 2 is authored as fourteen top-to-bottom sprite frames. The same overlay mounts
-                // for initial bans and for a newly learned 409 collision, so both events visibly cut the
-                // portrait open instead of fading in a static paint mark.
-                <Box
-                    aria-hidden
-                    sx={{
-                        position: "absolute",
-                        inset: 0,
-                        zIndex: 4,
-                        pointerEvents: "none",
-                        borderRadius: "8px",
-                        backgroundImage: `url(${images.pick_ban_slash_variant2_atlas})`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundSize: `${BAN_SLASH_FRAME_COUNT * 100}% 100%`,
-                        backgroundPosition: "0% 0",
-                        animation: `hocBanSlashCut 580ms steps(${BAN_SLASH_FRAME_COUNT - 1}, end) forwards`,
-                        transform: BAN_SLASH_LENGTH_TRANSFORM,
-                        transformOrigin: "center",
-                        willChange: "background-position",
-                        "@media (prefers-reduced-motion: reduce)": {
-                            animation: "none",
-                            backgroundPosition: "100% 0",
-                        },
-                    }}
-                />
-            )}
+            {unavailable && <DraftBanSlash />}
             {(state === "picked" || pending) && (
                 <Box
                     sx={{
@@ -1404,8 +1400,8 @@ export const PickCommitButton: React.FC<{
                         WebkitMaskComposite: "xor",
                         maskComposite: "exclude",
                     },
-                    // Armed = a choice is staged and this press commits it. The whole plate breathes so the
-                    // second press is obviously still owed; hovering settles it.
+                    // Pulse the edge/glow only. Scaling or filtering the whole plate makes its thin
+                    // separators shimmer as they move across fractional screen pixels.
                     animation: waiting
                         ? "hocCommitWaiting 1.35s ease-in-out infinite"
                         : effectiveArmed
@@ -1432,24 +1428,19 @@ export const PickCommitButton: React.FC<{
                         "0%, 100%": { opacity: 1 },
                         "50%": { opacity: 0.3 },
                     },
-                    // The whole neutral plate breathes as soon as our choice opens, including its clock
-                    // and divider. Selecting a creature retains the same cadence with the green treatment.
+                    // Keep the interior geometry and brightness fixed throughout the idle cycle.
                     "@keyframes hocCommitAvailable": {
-                        "0%, 100%": { transform: "translateY(3vh) scale(1)", filter: "brightness(1)" },
-                        "50%": { transform: "translateY(3vh) scale(1.012)", filter: "brightness(1.039)" },
+                        "0%, 100%": { borderColor: "rgba(202,202,202,.8)" },
+                        "50%": { borderColor: "rgba(211,211,211,.86)" },
                     },
                     "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                     "@keyframes hocCommitPlate": {
                         "0%, 100%": {
-                            transform: "translateY(3vh) scale(1)",
-                            filter: "brightness(1)",
                             borderColor: "rgba(150,222,150,0.8)",
                             boxShadow:
                                 "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 14px rgba(90,190,110,0.2)",
                         },
                         "50%": {
-                            transform: "translateY(3vh) scale(1.012)",
-                            filter: "brightness(1.039)",
                             borderColor: "rgba(178,240,178,0.94)",
                             boxShadow:
                                 "inset 0 1px 0 rgba(255,255,255,0.11), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 20px rgba(120,225,140,0.4)",
@@ -1457,15 +1448,11 @@ export const PickCommitButton: React.FC<{
                     },
                     "@keyframes hocCommitPlateHover": {
                         "0%, 100%": {
-                            transform: "translateY(3vh) scale(1)",
-                            filter: "brightness(1)",
                             borderColor: "rgba(150,222,150,0.8)",
                             boxShadow:
                                 "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 28px rgba(90,190,110,0.4)",
                         },
                         "50%": {
-                            transform: "translateY(3vh) scale(1.012)",
-                            filter: "brightness(1.039)",
                             borderColor: "rgba(178,240,178,0.94)",
                             boxShadow:
                                 "inset 0 1px 0 rgba(255,255,255,0.11), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 40px rgba(120,225,140,0.8)",
@@ -1473,15 +1460,11 @@ export const PickCommitButton: React.FC<{
                     },
                     "@keyframes hocCommitPlateGold": {
                         "0%, 100%": {
-                            transform: "translateY(3vh) scale(1)",
-                            filter: "brightness(1)",
                             borderColor: "rgba(132,116,91,.84)",
                             boxShadow:
                                 "inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.58), 0 0 16px rgba(145,121,78,.16)",
                         },
                         "50%": {
-                            transform: "translateY(3vh) scale(1.012)",
-                            filter: "brightness(1.06)",
                             borderColor: "rgba(177,156,119,.94)",
                             boxShadow:
                                 "inset 0 1px 0 rgba(255,255,255,.1), inset 0 -1px 0 rgba(0,0,0,.58), 0 0 22px rgba(166,139,91,.26)",
@@ -1601,13 +1584,19 @@ export const PickCommitButton: React.FC<{
                                 animation: "none",
                                 transition: "none",
                             },
-                            // White while there is time, blinking red for the last 15 seconds.
-                            color: urgent ? "#ff3b2f" : waiting ? OPPONENT_ARMY_TEXT_COLOR : "#c0b7a6",
-                            textShadow: urgent ? "0 0 18px rgba(255,59,47,0.75)" : "none",
-                            animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
                         }}
                     >
-                        {`${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`}
+                        <Box
+                            component="span"
+                            sx={{
+                                // Blink only the digits: parent opacity would also fade its separator.
+                                color: urgent ? "#ff3b2f" : waiting ? OPPONENT_ARMY_TEXT_COLOR : "#c0b7a6",
+                                textShadow: urgent ? "0 0 18px rgba(255,59,47,0.75)" : "none",
+                                animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
+                            }}
+                        >
+                            {`${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`}
+                        </Box>
                     </Box>
                 )}
             </Box>
@@ -1896,7 +1885,7 @@ export const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }
 // Draft pools are faction-balanced (4/4/4/4 on L1-L2, 3/3/3/3 on L3-L4) and never contain Death, so the
 // grid can lay the level out as two factions per row.
 const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might"] as const;
-const PICK_GRID_FACTION_ORDER = ["Nature", "Might", "Life", "Chaos"] as const;
+const PICK_GRID_FACTION_ORDER = ["Life", "Nature", "Chaos", "Might"] as const;
 
 const FACTION_COLOR: Record<string, string> = {
     Life: "#e0d3b0",
@@ -1916,15 +1905,22 @@ const PickPanel: React.FC<{
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
 }> = ({ level, banned, picked, opponentTaken, disabled, pendingId, onSelect, onInspect, onInspectEnd }) => {
+    const orderEditor = usePickPreviewOrder();
+    const preview = isCreatureOrderPreview();
+    const reordering = preview && orderEditor.editing;
+    useEffect(() => {
+        if (reordering) onInspectEnd?.();
+    }, [reordering, onInspectEnd]);
     const bannedSet = new Set(banned);
     const pickedSet = new Set(picked);
     const takenSet = new Set(opponentTaken);
     const creatures = (level >= 1 ? getCreaturesByLevel(level) : []).filter(
         (creatureId) => creatureFullConfig(creatureId)?.faction !== "Death",
     );
-    const orderedCreatures = PICK_GRID_FACTION_ORDER.flatMap((faction) =>
+    const defaultCreatures = PICK_GRID_FACTION_ORDER.flatMap((faction) =>
         creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
     );
+    const orderedCreatures = applyPickPreviewOrder(defaultCreatures, orderEditor.orders[level]);
     const columns = Math.max(1, Math.ceil(orderedCreatures.length / 2));
 
     return (
@@ -2008,9 +2004,19 @@ const PickPanel: React.FC<{
                             horizontalOffset={((columns - 1) / 2 - columnIndex) * 2}
                             verticalOffsetPercent={index < columns ? -2.727 : 1.727}
                             pending={pendingId === creatureId}
-                            onClick={() => onSelect(creatureId)}
-                            onInspect={onInspect}
-                            onInspectEnd={onInspectEnd}
+                            reordering={reordering}
+                            reorderSelected={
+                                reordering &&
+                                orderEditor.selected?.level === level &&
+                                orderEditor.selected.id === creatureId
+                            }
+                            onClick={() =>
+                                reordering
+                                    ? selectPickPreviewSwap(level, creatureId, orderedCreatures)
+                                    : onSelect(creatureId)
+                            }
+                            onInspect={reordering ? undefined : onInspect}
+                            onInspectEnd={reordering ? undefined : onInspectEnd}
                         />
                     );
                 })}
@@ -2019,7 +2025,7 @@ const PickPanel: React.FC<{
     );
 };
 
-const ArtifactPanel: React.FC<{
+export const ArtifactPanel: React.FC<{
     disabled: boolean;
     selected: number;
     offered: number[];
@@ -2027,7 +2033,7 @@ const ArtifactPanel: React.FC<{
     onInspect?: (artifact: Artifact.ArtifactProperties) => void;
     onInspectEnd?: () => void;
 }> = ({ disabled, selected, offered, onSelect, onInspect, onInspectEnd }) => {
-    // The server offers 3 random Tier-2 artifacts (of 12). Fall back to the full list only if no offer has
+    // The server offers 3 random Tier-2 artifacts. Fall back to the full list only if no offer has
     // arrived yet (e.g. a server that predates the offer field), so the picker is never empty.
     const offeredIds = offered.length ? offered : Artifact.TIER2_ARTIFACT_LIST.map((a) => a.id);
     return (
@@ -2623,6 +2629,8 @@ export const MyDraftBar: React.FC<{
 // ---- Root view ------------------------------------------------------------
 
 interface StainedGlassProps {
+    /** Local layout comparisons; live drafts retain their standard inline scouting summary. */
+    banPlacement?: DraftBanPlacement;
     userTeam: TeamType;
     /** This match's id — seeds the per-game synergy draw shown in the rails. */
     gameId?: string;
@@ -2812,6 +2820,7 @@ export const OpponentDraftBar: React.FC<{
 };
 
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({
+    banPlacement = import.meta.env.MODE === "test" ? "right" : "inline",
     userTeam,
     gameId,
     opponentLabel = t("Opponent"),
@@ -2873,7 +2882,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const [selection, setSelection] = useState<{ phaseIdentity: string; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
-    const { touch } = useGameLayout();
+    const viewport = useGameLayout();
+    const { touch } = viewport;
     const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
     // the reserved header. Clearing on a short delay lets the cursor pass between nearby draft elements
@@ -3459,7 +3469,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </>
                     )}
 
-                    {pickPhase !== PickPhaseVals.DOCTRINE && <DraftBanSummary banned={banned} doctrine={doctrine} />}
+                    {pickPhase !== PickPhaseVals.DOCTRINE &&
+                        (banPlacement === "inline" ? (
+                            <DraftBanSummary banned={banned} doctrine={doctrine} />
+                        ) : (
+                            <DraftBanPlacementPreview placement={banPlacement} banned={banned} doctrine={doctrine} />
+                        ))}
 
                     <Box
                         data-testid="draft-choice-action-zone"
@@ -3492,7 +3507,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </Box>
 
                         {userTeam && isCommitPhase && pickPhase >= 0 && (
-                            <Box data-touch-draft-commit sx={{ display: "contents" }}>
+                            <Box
+                                data-touch-draft-commit
+                                sx={{
+                                    display: "contents",
+                                    "& > button": banPlacement === "bottom" ? { top: "28px" } : undefined,
+                                }}
+                            >
                                 <PickCommitButton
                                     key={phaseIdentity}
                                     label={commitLabel}
@@ -3561,10 +3582,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         target="_blank"
                         rel="noopener noreferrer"
                         level="body-sm"
+                        aria-label={t("Rules")}
                         sx={{
                             position: "fixed",
-                            top: "1rem",
+                            top: GAME_CORNER_SLOT_TOP,
                             left: "1rem",
+                            width: GAME_SYSTEM_CONTROL_SIZE_PX,
+                            height: GAME_SYSTEM_CONTROL_SIZE_PX,
+                            justifyContent: "center",
+                            fontSize: `${GAME_SYSTEM_CONTROL_SIZE_PX}px`,
+                            lineHeight: 1,
                             zIndex: 60,
                             color: "#9fd0ff",
                             textDecoration: "none",
@@ -3575,7 +3602,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             "&:hover": { textDecoration: "underline" },
                         }}
                     >
-                        📖 {t("Rules")}
+                        <span aria-hidden="true">📖</span>
                     </Typography>
                 </Tooltip>
                 {/* The corner the Rules link used to own: the draft's only destructive action, kept small and

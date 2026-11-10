@@ -4,6 +4,8 @@
         "cyclops.impactMode": "engine",
         "stone.playbackRate": 1.6,
         "stone.settledHoldMs": 30,
-        "cyclops.clothPeriodMs": 1800
+        "cyclops.clothPeriodMs": 1800,
+        "stun.tiltDeg": 52,
+        "stun.rotationDeg": 0
     }
 }
