@@ -876,14 +876,20 @@ export class UnitChip extends Container {
             this.alpha = 1.0;
         }
     }
+    public isPortraitReady(): boolean {
+        if (this.destroyed || this.sprite.destroyed) return false;
+        const ready = (texture: Texture): boolean =>
+            texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
+        return (
+            ready(this.idleTexture) &&
+            (!this.portraitBackground || (!this.portraitBackground.destroyed && ready(this.portraitBackground.texture)))
+        );
+    }
     private updatePortraitReadiness(): void {
         if (!this.portraitFraming) return;
         prepareRosterPortraitTexture(this.idleTexture);
         prepareRosterPortraitTexture(this.portraitBackground?.texture);
-        const ready = (texture: Texture): boolean =>
-            texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
-        const portraitReady =
-            ready(this.idleTexture) && (!this.portraitBackground || ready(this.portraitBackground.texture));
+        const portraitReady = this.isPortraitReady();
         this.sprite.visible = portraitReady;
         if (this.portraitBackground) this.portraitBackground.visible = portraitReady;
         if (this.portraitBackgroundShade) this.portraitBackgroundShade.visible = portraitReady;

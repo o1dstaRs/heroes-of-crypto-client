@@ -177,7 +177,7 @@ describe("UnitsOverlay chip visibility", () => {
             stage: new Container(),
             ticker: { add: () => undefined, remove: () => undefined },
         } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
-        const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+        const overlay = new UnitsOverlay(app, () => Texture.WHITE);
         overlay.build();
         const state = overlay as unknown as OverlayInternals;
         try {
@@ -424,7 +424,7 @@ describe("UnitsOverlay chip visibility", () => {
         expect(() => overlay.refreshLazyTextures()).not.toThrow();
     });
 
-    test("requests portraits only for the visible level and loads a new level on selection", () => {
+    test("defers other levels while the first row is cold and prioritizes a requested level", () => {
         const directLoads = spyOn(Assets, "load").mockRejectedValue(new Error("The scene resolver owns texture loads"));
         const requestedTextures = new Set<string>();
         const app = {
@@ -507,13 +507,15 @@ describe("UnitsOverlay chip visibility", () => {
             return image;
         });
         let ready = false;
+        let nextLevelReady = false;
         const app = {
             renderer: { height: 900, width: 1600 },
             stage: new Container(),
             ticker: { add: () => undefined, remove: () => undefined },
         } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
         const overlay = new UnitsOverlay(app, (key, options) =>
-            options?.priority === "visible" && key !== "units_overlay_toggle_square_v1" && !ready
+            (key === "black_dragon_portrait_full" && !nextLevelReady) ||
+            (options?.priority === "visible" && key !== "units_overlay_toggle_square_v1" && !ready)
                 ? undefined
                 : Texture.WHITE,
         );
@@ -533,6 +535,7 @@ describe("UnitsOverlay chip visibility", () => {
             expect(images).toHaveLength(2);
             expect(images.map((image) => image.src)).not.toContain(squire.creature!);
             ready = true;
+            nextLevelReady = true;
             overlay.refreshLazyTextures();
             await new Promise((resolve) => setTimeout(resolve, 0));
             const internals = overlay as unknown as OverlayInternals & { chipLevels: Map<UnitChip, number> };
@@ -860,7 +863,7 @@ describe("UnitsOverlay chip visibility", () => {
         let selected: UnitProperties | null = null;
         const overlay = new UnitsOverlay(
             app,
-            () => Texture.EMPTY,
+            () => Texture.WHITE,
             (properties) => {
                 selected = properties;
             },

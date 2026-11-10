@@ -304,6 +304,7 @@ export class UnitsOverlay {
     private levelTabs: LevelTab[] = [];
     private cellSize = 0;
     private selectedLevel = 1;
+    private requestedLevel?: number;
     private selectedName: string | null = null;
     private readonly factions: { type: FactionType }[] = [
         { type: FactionVals.LIFE },
@@ -475,6 +476,7 @@ export class UnitsOverlay {
         return true;
     }
     private selectChip(chip: UnitChip): void {
+        this.requestedLevel = undefined;
         const unitName = chip.nameKey;
         const next = this.selectedName === unitName ? null : unitName;
         this.selectedName = next;
@@ -540,7 +542,7 @@ export class UnitsOverlay {
             if (!b) continue;
 
             if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
-                if (tab.level !== this.selectedLevel) {
+                if (tab.level !== this.selectedLevel || this.requestedLevel !== undefined) {
                     this.setSelectedLevel(tab.level);
                 }
                 return true;
@@ -665,6 +667,7 @@ export class UnitsOverlay {
         );
     }
     public build(): void {
+        this.requestedLevel = undefined;
         this.visiblePortraitsReady = true;
         this.refreshToggleTexture();
         this.levelRail.removeChildren();
@@ -835,38 +838,79 @@ export class UnitsOverlay {
 
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
-        this.warmVisibleSidebarPortraits();
+        this.refreshLazyTextures();
     }
     public refreshLazyTextures(): void {
         if (this.container.destroyed || !this.container.visible || !this.openTarget) return;
-        this.visiblePortraitsReady = true;
         this.refreshToggleTexture();
-        for (const chip of this.allChips) {
-            if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
-            const typePresentation = creatureTypePresentation(chip.nameKey);
-            if (typePresentation) {
-                const attack = this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack]);
-                const movement = this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement]);
-                if (attack && movement) {
-                    chip.setTypeIcons(attack, movement, typePresentation.movement === "FLY" ? 220 / 170 : 1);
-                }
+        this.visiblePortraitsReady = this.refreshPortraitLevel(
+            this.selectedLevel,
+            this.requestedLevel === undefined ? this.visibleTextureOptions : undefined,
+        );
+        if (
+            this.requestedLevel !== undefined &&
+            this.refreshPortraitLevel(this.requestedLevel, this.visibleTextureOptions)
+        ) {
+            // Keep the complete old row on screen until both layers of every new card are decoded.
+            // Cached rows take this path synchronously, without rebuilding chips or clearing textures.
+            this.selectedLevel = this.requestedLevel;
+            this.requestedLevel = undefined;
+            this.visiblePortraitsReady = true;
+            this.scrollX = 0;
+            for (const tab of this.levelTabs) {
+                tab.hovered = false;
+                tab.label.scale.set(1);
+                tab.hoverLight.alpha = 0;
             }
-            const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
-            const visual = creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
-            if (!visual) continue;
-
-            const textureKey = IMAGE_URL_TO_KEY.get(visual.source);
-            const texture = textureKey ? this.getTex(textureKey, this.visibleTextureOptions) : undefined;
-            const backgroundKey = visual.background ? IMAGE_URL_TO_KEY.get(visual.background) : undefined;
-            const backgroundTexture = backgroundKey
-                ? this.getTex(backgroundKey, this.visibleTextureOptions)
-                : undefined;
-            if (!isReadyTexture(texture) || (visual.background && !isReadyTexture(backgroundTexture))) {
-                this.visiblePortraitsReady = false;
+            this.onResize(this.app.renderer.width, this.app.renderer.height);
+        }
+        if (this.visiblePortraitsReady) {
+            // Warm only two unready cards at a time through the scene's optional lane. Completion
+            // resumes this pass; hiding/destroying the roster stops further work. No animation sheets.
+            let pending = 0;
+            for (const chip of this.allChips) {
+                const level = this.chipLevels.get(chip);
+                if (level === this.selectedLevel || level === this.requestedLevel) continue;
+                if (!this.refreshPortrait(chip) && ++pending === 2) break;
             }
-            chip.setPortraitTextures(texture ?? Texture.EMPTY, backgroundTexture);
         }
         this.warmVisibleSidebarPortraits();
+    }
+    private refreshPortraitLevel(level: number, options?: TextureLoadOptions): boolean {
+        let ready = true;
+        for (const chip of this.allChips) {
+            if (this.chipLevels.get(chip) !== level) continue;
+            if (!this.refreshPortrait(chip, options)) ready = false;
+        }
+        return ready;
+    }
+    private refreshPortrait(chip: UnitChip, options?: TextureLoadOptions): boolean {
+        const typePresentation = creatureTypePresentation(chip.nameKey);
+        if (typePresentation) {
+            const attack = this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack]);
+            const movement = this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement]);
+            if (attack && movement) {
+                chip.setTypeIcons(attack, movement, typePresentation.movement === "FLY" ? 220 / 170 : 1);
+            }
+        }
+        const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
+        const visual = creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
+        if (!visual) {
+            const level = this.chipLevels.get(chip)!;
+            const textureKey =
+                chip.nameKey === "Arachna Spider"
+                    ? "arachna_spider_battlefield_side_right_final_v1"
+                    : unitToTextureName(chip.nameKey, TextureType.LARGE, this.levelBuckets[level - 1].unitSize);
+            chip.setPortraitTexture(this.getTex(textureKey, options) ?? Texture.EMPTY);
+        } else {
+            const textureKey = IMAGE_URL_TO_KEY.get(visual.source);
+            const backgroundKey = visual.background ? IMAGE_URL_TO_KEY.get(visual.background) : undefined;
+            chip.setPortraitTextures(
+                (textureKey ? this.getTex(textureKey, options) : undefined) ?? Texture.EMPTY,
+                backgroundKey ? this.getTex(backgroundKey, options) : undefined,
+            );
+        }
+        return chip.isPortraitReady();
     }
     private refreshToggleTexture(): void {
         const texture = this.getTex("units_overlay_toggle_square_v1", this.visibleTextureOptions);
@@ -886,17 +930,9 @@ export class UnitsOverlay {
         // picked a creature from the newly expanded row.
         this.clearSelection(true);
         this.clearSidebarPortraitPrefetch();
-        this.selectedLevel = level;
+        this.requestedLevel = level === this.selectedLevel ? undefined : level;
         this.visibleTextureOptions = { priority: "visible", group: {} };
-        this.scrollX = 0;
-        for (const tab of this.levelTabs) {
-            tab.hovered = false;
-            tab.label.scale.set(1);
-            tab.hoverLight.alpha = 0;
-        }
-        this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.refreshLazyTextures();
-        this.warmVisibleSidebarPortraits();
     }
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;
@@ -1167,7 +1203,10 @@ export class UnitsOverlay {
         // Mirror the authored image straight away so the chevron follows the target panel direction.
         this.openTarget = open;
         if (open) this.refreshLazyTextures();
-        else this.clearSidebarPortraitPrefetch();
+        else {
+            this.requestedLevel = undefined;
+            this.clearSidebarPortraitPrefetch();
+        }
         this.updateButtonVisuals(false);
 
         const startX = this.content.x;
@@ -1200,7 +1239,10 @@ export class UnitsOverlay {
     public setVisible(v: boolean): void {
         this.container.visible = v;
         if (v) this.refreshLazyTextures();
-        else this.clearSidebarPortraitPrefetch();
+        else {
+            this.requestedLevel = undefined;
+            this.clearSidebarPortraitPrefetch();
+        }
         if (!this.toggleGlowStep) return;
         if (v && !this.toggleGlowRegistered) {
             this.app.ticker.add(this.toggleGlowStep);
@@ -1250,6 +1292,7 @@ export class UnitsOverlay {
     private warmVisibleSidebarPortraits(): void {
         if (
             !this.visiblePortraitsReady ||
+            this.requestedLevel !== undefined ||
             !this.container.visible ||
             !this.openTarget ||
             this.sidebarWarmLevel === this.selectedLevel
