@@ -18,6 +18,7 @@ type Army = {
     artifact_t1: number;
     artifact_t2: number;
     units: number[];
+    opponentUnits: number[];
     synergies: number[][];
 };
 type Category = "units" | "tier1" | "tier2" | "synergies";
@@ -57,15 +58,28 @@ export class PremiumCrewHistoryStore {
         const cached = this.scopes.get(key);
         if (cached) return cached;
         const rows = this.db
-            .query<Omit<Army, "units" | "synergies"> & { units: string; synergies: string }, [string, string, number]>(
+            .query<
+                Omit<Army, "units" | "synergies" | "opponentUnits"> & {
+                    units: string;
+                    synergies: string;
+                    opponentUnits: string;
+                },
+                [string, string, number]
+            >(
                 `SELECT a.id, a.family_id family, a.score, a.artifact_t1, a.artifact_t2,
                 (SELECT json_group_array(u.creature_id) FROM unit u WHERE u.army_id=a.id) units,
+                (SELECT json_group_array(u.creature_id) FROM army e JOIN unit u ON u.army_id=e.id WHERE e.family_id=a.family_id AND e.id<>a.id) opponentUnits,
                 (SELECT json_group_array(json_array(s.faction,s.synergy,s.level)) FROM synergy s WHERE s.army_id=a.id AND s.level>0) synergies
              FROM army a JOIN family f ON f.id=a.family_id
              WHERE f.partition='train' AND f.cohort=? AND f.map IN (1,3,4) AND (?='all' OR f.map=?) ORDER BY a.id`,
             )
             .all(cohort, map, Number(map) || 0)
-            .map((row) => ({ ...row, units: JSON.parse(row.units), synergies: JSON.parse(row.synergies) }));
+            .map((row) => ({
+                ...row,
+                units: JSON.parse(row.units),
+                opponentUnits: JSON.parse(row.opponentUnits),
+                synergies: JSON.parse(row.synergies),
+            }));
         if (this.scopes.size >= 16) this.scopes.delete(this.scopes.keys().next().value!);
         this.scopes.set(key, rows);
         return rows;
@@ -121,6 +135,7 @@ export class PremiumCrewHistoryStore {
         category: Category,
         eligible: Set<number> | undefined,
         choices: number,
+        accepts: (row: PremiumRow) => boolean = () => true,
     ): CrewHistoryGroup {
         const unique = [...new Set(allies)].sort((a, b) => a - b);
         const subsets = Array.from({ length: 1 << unique.length }, (_, mask) =>
@@ -128,7 +143,9 @@ export class PremiumCrewHistoryStore {
         );
         const scored = subsets.map((contextUnits) => {
             const matched = armies.filter((army) => contextUnits.every((id) => army.units.includes(id)));
-            const rows = this.aggregate(matched, category).filter((row) => !eligible || eligible.has(row.ids[0]));
+            const rows = this.aggregate(matched, category).filter(
+                (row) => (!eligible || eligible.has(row.ids[0])) && accepts(row),
+            );
             const supported = rows.filter((row) => row.families >= CREW_HISTORY_MINIMUM);
             return {
                 contextUnits,
@@ -149,8 +166,34 @@ export class PremiumCrewHistoryStore {
         return { contextUnits: chosen.contextUnits, rows: chosen.rows };
     }
 
-    history(ownUnits: number[], cohort: string, map: string): PremiumCrewHistory {
-        const key = JSON.stringify([ownUnits, cohort, map]);
+    /** Prefer the most specific supported enemy subset, using sample coverage rather than results. */
+    private setupContext(
+        armies: Army[],
+        allies: number[],
+        opponents: number[],
+        category: Category,
+        eligible: Set<number> | undefined,
+        choices: number,
+        accepts: (row: PremiumRow) => boolean = () => true,
+    ): CrewHistoryGroup {
+        const unique = [...new Set(opponents)].sort((a, b) => a - b);
+        const subsets = Array.from({ length: 1 << unique.length }, (_, mask) =>
+            unique.filter((_, i) => mask & (1 << i)),
+        ).sort((a, b) => b.length - a.length || a.join(":").localeCompare(b.join(":")));
+        for (const opponentUnits of subsets) {
+            const matched = armies.filter((army) => opponentUnits.every((id) => army.opponentUnits.includes(id)));
+            const supported = this.aggregate(matched, category).filter(
+                (row) =>
+                    row.families >= CREW_HISTORY_MINIMUM && (!eligible || eligible.has(row.ids[0])) && accepts(row),
+            );
+            if (opponentUnits.length && supported.length < choices) continue;
+            return { ...this.context(matched, allies, category, eligible, choices, accepts), opponentUnits };
+        }
+        return { contextUnits: [], opponentUnits: [], rows: [] };
+    }
+
+    history(ownUnits: number[], cohort: string, map: string, enemyUnits: number[] = []): PremiumCrewHistory {
+        const key = JSON.stringify([ownUnits, cohort, map, enemyUnits]);
         const cached = this.cache.get(key);
         if (cached) return cached;
         const armies = this.armies(cohort, map);
@@ -183,13 +226,15 @@ export class PremiumCrewHistoryStore {
             cohort,
             map,
             ownUnits: [...ownUnits],
+            ...(enemyUnits.length ? { enemyUnits: [...enemyUnits] } : {}),
             minimumFamilies: CREW_HISTORY_MINIMUM,
             slots: groups,
             artifacts: [1, 2].map((tier) => ({
                 tier,
-                ...this.context(
+                ...this.setupContext(
                     armies,
                     ownUnits,
+                    enemyUnits,
                     tier === 1 ? "tier1" : "tier2",
                     new Set(
                         Object.keys(this.catalog.artifacts)
@@ -205,6 +250,27 @@ export class PremiumCrewHistoryStore {
                 ),
             })),
             synergies: this.context(armies, ownUnits, "synergies", undefined, 2),
+            synergiesByFaction: Object.entries({ Life: 4, Nature: 3, Chaos: 1, Might: 2 }).map(([faction, code]) => {
+                const level = Math.min(
+                    3,
+                    Math.floor(ownUnits.filter((id) => this.catalog.units[id]?.faction === faction).length / 2),
+                );
+                return {
+                    faction,
+                    level,
+                    ...(level
+                        ? this.setupContext(
+                              armies,
+                              ownUnits,
+                              enemyUnits,
+                              "synergies",
+                              undefined,
+                              2,
+                              (row) => row.ids[0] === code && row.ids[2] === level && [1, 2].includes(row.ids[1]),
+                          )
+                        : { contextUnits: [], opponentUnits: [], rows: [] }),
+                };
+            }),
         };
         if (this.cache.size >= 32) this.cache.delete(this.cache.keys().next().value!);
         this.cache.set(key, value);
@@ -223,22 +289,30 @@ export function premiumCrewHistoryResponse(
     if (!store) return reply({ error: "Crew history unavailable" }, 503);
     const params = new URL(request.url).searchParams;
     const raw = params.get("units") ?? "";
+    const rawEnemy = params.get("enemy") ?? "";
     const units = raw === "" ? [] : raw.split(",").map(Number);
+    const enemyUnits = rawEnemy === "" ? [] : rawEnemy.split(",").map(Number);
     const cohort = params.get("cohort") ?? "ranked-draft",
         map = params.get("map") ?? "all";
-    if (
-        units.length > 6 ||
-        new Set(units).size !== units.length ||
-        units.some((id) => !Number.isSafeInteger(id) || !store.catalog.units[id]?.kit?.amount) ||
+    const invalidArmy = (ids: number[]) =>
+        ids.length > 6 ||
+        new Set(ids).size !== ids.length ||
+        ids.some((id) => !Number.isSafeInteger(id) || !store.catalog.units[id]?.kit?.amount) ||
         [1, 2, 3, 4].some(
             (level) =>
-                units.filter((id) => store.catalog.units[id].level === level).length >
+                ids.filter((id) => store.catalog.units[id].level === level).length >
                 levels.filter((value) => value === level).length,
-        ) ||
+        );
+    if (
+        raw.length > 128 ||
+        rawEnemy.length > 128 ||
+        invalidArmy(units) ||
+        invalidArmy(enemyUnits) ||
+        enemyUnits.some((id) => units.includes(id)) ||
         !PREMIUM_COHORTS.includes(cohort as (typeof PREMIUM_COHORTS)[number]) ||
         !["all", "1", "3", "4"].includes(map)
     )
         return reply({ error: "Invalid ranked crew or battle scope" }, 400);
     if (params.get("snapshot") !== store.manifest.snapshotId) return reply({ error: "Unknown snapshot" }, 400);
-    return reply(store.history(units, cohort, map));
+    return reply(store.history(units, cohort, map, enemyUnits));
 }

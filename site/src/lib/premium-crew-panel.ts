@@ -62,7 +62,7 @@ export function initPremiumCrew(
     let enemyIds = saved.enemyIds ?? [];
     let artifactIds: [number, number] = saved.artifactIds ?? [0, 0];
     let synergyVariants: CrewSynergyVariants = saved.synergyVariants ?? {};
-    let synergiesInitialized = false;
+    let synergiesAutomatic = saved.synergiesAutomatic ?? !new URL(location.href).searchParams.has("synergies");
     let equipped: readonly number[] = [];
     let recommendationCategory: CrewRecommendationCategory = "units";
     let planner: PremiumCrewPlanner | undefined;
@@ -101,6 +101,7 @@ export function initPremiumCrew(
         ...(enemyIds.length ? { enemyIds: [...enemyIds] } : {}),
         ...(artifactIds.some(Boolean) ? { artifactIds: [...artifactIds] as [number, number] } : {}),
         ...(Object.keys(synergyVariants).length ? { synergyVariants: { ...synergyVariants } } : {}),
+        synergiesAutomatic,
     });
     const persist = () => {
         try {
@@ -240,6 +241,7 @@ export function initPremiumCrew(
                   cohort: data.library.scope.cohort,
                   map: String(data.library.scope.map ?? "all"),
                   ownUnits: [...ids],
+                  enemyUnits: [...enemyIds],
               }
             : undefined;
     };
@@ -264,6 +266,7 @@ export function initPremiumCrew(
             cohort: expected.cohort,
             map: expected.map,
             units: expected.ownUnits.join(","),
+            enemy: expected.enemyUnits.join(","),
         });
         try {
             const response = await fetch(`${evidenceUrl()}/picks?${params}`, {
@@ -319,15 +322,11 @@ export function initPremiumCrew(
         const expected = expectedHistory();
         if (!expected || !validCrewHistory(history, expected, catalog)) history = undefined;
         const data = getData();
-        if (!synergiesInitialized) {
-            synergyVariants = Object.fromEntries(
-                resolveCrewSynergies(ids, catalog, synergyVariants, data?.library, history).map((item) => [
-                    item.faction,
-                    item.variant,
-                ]),
-            );
-            synergiesInitialized = true;
-        }
+        synergyVariants = Object.fromEntries(
+            resolveCrewSynergies(ids, catalog, synergiesAutomatic ? {} : synergyVariants, data?.library, history).map(
+                (item) => [item.faction, item.variant],
+            ),
+        );
         artifactIds = artifactIds.map((id, index) => {
             const item = catalog.artifacts[`${index + 1}:${id}`];
             return item && premiumCrewArtifactBenefit(item.slug, ids, lang).names.length ? id : 0;
@@ -358,6 +357,13 @@ export function initPremiumCrew(
             planner,
             plan,
         );
+        const automaticSynergies = target.querySelector<HTMLButtonElement>("[data-crew-synergies-recommended]");
+        if (automaticSynergies) {
+            automaticSynergies.setAttribute("aria-pressed", String(synergiesAutomatic));
+            automaticSynergies.textContent = synergiesAutomatic
+                ? t("Recommended ✓", "Рекомендации ✓")
+                : t("Use recommendations", "По рекомендациям");
+        }
         if (enemyIds.length && !planner && !plannerFailed) void loadPlanner();
         const randomize = target.querySelector<HTMLButtonElement>("[data-crew-randomize]");
         if (randomize && plannerLoading) {
@@ -407,6 +413,7 @@ export function initPremiumCrew(
             const variant = Number(button.dataset.crewSynergyVariant);
             if (!CREW_SYNERGY_FACTIONS.includes(faction) || (variant !== 1 && variant !== 2)) return;
             synergyVariants = { ...synergyVariants, [faction]: variant };
+            synergiesAutomatic = false;
             refresh(false);
             announce(t("Synergy selected · formation recalculated", "Синергия выбрана · расстановка пересчитана"));
             root.querySelector<HTMLButtonElement>(
@@ -414,12 +421,7 @@ export function initPremiumCrew(
             )?.focus({ preventScroll: true });
         }
         if (button.hasAttribute("data-crew-synergies-recommended")) {
-            synergyVariants = Object.fromEntries(
-                resolveCrewSynergies(ids, catalog, {}, getData()?.library, history).map((item) => [
-                    item.faction,
-                    item.variant,
-                ]),
-            );
+            synergiesAutomatic = true;
             refresh(false);
             root.querySelector<HTMLButtonElement>("[data-crew-synergies-recommended]")?.focus({ preventScroll: true });
         }
@@ -475,8 +477,12 @@ export function initPremiumCrew(
         if (button.hasAttribute("data-crew-randomize")) {
             if (plannerLoading) return;
             enemyIds = randomPremiumEnemy(ids, catalog);
+            artifactIds = [0, 0];
+            synergiesAutomatic = true;
+            historyController?.abort();
+            history = undefined;
             plannerFailed = false;
-            refresh(false);
+            refresh();
             root.querySelector<HTMLButtonElement>("[data-crew-randomize]")?.focus({ preventScroll: true });
             announce(
                 enemyIds.length
@@ -484,8 +490,8 @@ export function initPremiumCrew(
                         ? t("Enemy crew ready · complete your six picks", "Армия врага готова · выберите шесть юнитов")
                         : planner
                           ? t(
-                                "Enemy crew randomized · formation updated",
-                                "Случайный враг выбран · расстановка обновлена",
+                                "New enemy · artifacts, synergies and formation refreshed",
+                                "Новый враг · артефакты, синергии и расстановка обновлены",
                             )
                           : t(
                                 "Enemy crew randomized · loading game AI…",

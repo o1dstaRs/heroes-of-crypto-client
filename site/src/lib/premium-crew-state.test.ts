@@ -38,6 +38,15 @@ test("crew links round-trip formation and battlefield without unrelated query da
     }
 });
 
+test("automatic and manually changed synergies keep their mode through refreshes and shared links", () => {
+    for (const synergiesAutomatic of [true, false]) {
+        const draft = { ...saved, synergyVariants: { Life: 2 as const, Nature: 1 as const }, synergiesAutomatic };
+        const page = new URL("https://heroesofcrypto.io/premium/");
+        expect(readPremiumCrewDraft(page, JSON.stringify(draft), catalog)).toEqual(draft);
+        expect(readPremiumCrewDraft(new URL(premiumCrewShareUrl(page, draft)), null, catalog)).toEqual(draft);
+    }
+});
+
 test("explicit shared crews override storage, including an empty crew; damaged storage remains usable", () => {
     const stored = JSON.stringify(saved);
     expect(readPremiumCrewDraft(new URL("https://heroesofcrypto.io/premium/"), stored, catalog)).toEqual(saved);

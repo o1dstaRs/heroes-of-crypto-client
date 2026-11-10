@@ -2724,8 +2724,9 @@ body:has(.premium-page) .site-header {
 .premium-crew-synergy-choice [data-crew-synergy] {
     padding: 8px 6px;
     display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
     align-content: start;
-    gap: 5px;
+    gap: 5px 8px;
     text-align: left;
     color: #d0b69e;
     font: inherit;
@@ -2735,6 +2736,15 @@ body:has(.premium-page) .site-header {
     background: transparent;
     border: 0;
     border-bottom: 2px solid #72503355;
+}
+.premium-crew-synergy-icon {
+    grid-row: 1 / span 2;
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+.premium-crew-synergy-choice [data-crew-synergy] > span {
+    min-width: 0;
 }
 .premium-crew-synergy-choice [data-crew-synergy][aria-pressed="true"] {
     color: #efd5b0;
@@ -2746,6 +2756,7 @@ body:has(.premium-page) .site-header {
     outline-offset: 2px;
 }
 .premium-crew-synergy-choice [data-crew-synergy] small {
+    grid-column: 2;
     color: var(--premium-muted);
     font-size: 9px;
 }

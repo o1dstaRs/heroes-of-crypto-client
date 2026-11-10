@@ -17,7 +17,8 @@ import {
     type PremiumRow,
 } from "./premium-library";
 import { portraitMarkup } from "./portrait";
-import type { CrewSynergyVariants } from "./premium-crew-synergies";
+import { resolveCrewSynergies, type CrewSynergyVariants } from "./premium-crew-synergies";
+import { synergyIcons } from "./synergy-icons";
 
 export const CREW_RECOMMENDATION_CATEGORIES = ["units", "pairs", "triples", "artifacts", "synergies"] as const;
 export type CrewRecommendationCategory = (typeof CREW_RECOMMENDATION_CATEGORIES)[number];
@@ -219,7 +220,7 @@ export function renderPremiumCrewRecommendations(
                             return `<article class="premium-pick premium-pick-artifact"><a class="premium-pick-artifact-icon" href="${lang === "ru" ? "/ru" : ""}/knowledge-base/#${e(item.anchor)}"><img src="${e(item.icon)}" width="42" height="42" alt="${e(item.name)}"/></a>${stats(row)}<strong class="premium-pick-name">${e(item.name)}</strong><p>${e(premiumCrewArtifactBenefit(item.slug, own, lang).label)}</p><button type="button" class="premium-text-button" data-crew-artifact-tier="${tier}" data-crew-artifact="${id}" aria-pressed="${selected}">${selected ? t("Equipped ✓", "Выбран ✓") : t("Equip", "Выбрать")} </button></article>`;
                         })
                         .join("") || `<p class="premium-fine">${t("No supported choices", "Недостаточно данных")}</p>`
-                }<p class="premium-pick-population">${e(population(group?.contextUnits ?? []))}</p></div>`;
+                }<p class="premium-pick-population">${e(population(group?.contextUnits ?? []) + (group?.opponentUnits?.length ? t(" · vs ", " · против ") + group.opponentUnits.map((id) => catalog.units[id].name).join(", ") : ""))}</p></div>`;
             })
             .join("");
         scope = t(
@@ -229,17 +230,28 @@ export function renderPremiumCrewRecommendations(
         seeAll = "#premium-artifacts";
     } else {
         const group = history?.synergies;
-        cards = premiumCrewSynergyRecommendations(own, catalog, group?.rows ?? library?.synergies ?? [], minimum)
+        const current = resolveCrewSynergies(own, catalog, synergyVariants, library, history);
+        const rows = [
+            ...(group?.rows ?? library?.synergies ?? []).filter(
+                (row) => !current.some((item) => item.faction === factions[row.ids[0]] && item.level === row.ids[2]),
+            ),
+            ...current.flatMap((item) => item.rows),
+        ];
+        cards = premiumCrewSynergyRecommendations(own, catalog, rows, minimum)
             .map(({ row, faction, variant, level, count, needed, power }) => {
                 const name = lang === "ru" ? factionRu[faction] : faction;
                 const effect = premiumCrewSynergyEffect(faction, variant, power, lang);
-                return `<article class="premium-pick"><a class="premium-pick-artifact-icon" href="${lang === "ru" ? "/ru" : ""}/knowledge-base/#rule-synergies"><img src="/assets/images/units/factions/${faction.toLowerCase()}_128.webp" width="42" height="42" alt="${e(name)}"/></a>${stats(row)}<strong class="premium-pick-name">${e(name)} · L${level} · ${t("Variant", "Вариант")} ${variant}</strong><p>${e(effect)}</p><small>${needed ? e(t(`${count} picked · ${needed} more needed`, `Выбрано ${count} · нужно ещё ${needed}`)) : t("Active faction level", "Уровень фракции активен")}</small><button type="button" class="premium-text-button" data-crew-synergy="${faction}" data-crew-synergy-variant="${variant}" aria-pressed="${synergyVariants?.[faction as keyof CrewSynergyVariants] === variant}">${synergyVariants?.[faction as keyof CrewSynergyVariants] === variant ? t("Selected variant ✓", "Вариант выбран ✓") : t("Preview variant", "Выбрать вариант")}</button>${needed ? `<button type="button" class="premium-text-button" data-crew-faction="${faction}">${e(t(`Choose ${faction} units`, `Выбрать юнитов: ${name}`))} →</button>` : `<span class="premium-pick-active">${t("Level active", "Уровень активен")}</span>`}</article>`;
+                const context = current.find((item) => item.faction === faction && item.level === level);
+                const choiceScope =
+                    population(context?.contextUnits ?? group?.contextUnits ?? []) +
+                    (context?.opponentNames.length ? t(" · vs ", " · против ") + context.opponentNames.join(", ") : "");
+                return `<article class="premium-pick"><a class="premium-pick-artifact-icon" href="${lang === "ru" ? "/ru" : ""}/knowledge-base/#rule-synergies"><img src="${synergyIcons[`${faction}:${variant}`]}" width="42" height="42" alt="${e(`${name}: ${effect}`)}" loading="lazy" decoding="async"/></a>${stats(row)}<strong class="premium-pick-name">${e(name)} · L${level} · ${t("Variant", "Вариант")} ${variant}</strong><p>${e(effect)}</p><small>${needed ? e(t(`${count} picked · ${needed} more needed`, `Выбрано ${count} · нужно ещё ${needed}`)) : t("Active faction level", "Уровень фракции активен")}</small><button type="button" class="premium-text-button" data-crew-synergy="${faction}" data-crew-synergy-variant="${variant}" aria-pressed="${synergyVariants?.[faction as keyof CrewSynergyVariants] === variant}">${synergyVariants?.[faction as keyof CrewSynergyVariants] === variant ? t("Selected variant ✓", "Вариант выбран ✓") : t("Preview variant", "Выбрать вариант")}</button>${needed ? `<button type="button" class="premium-text-button" data-crew-faction="${faction}">${e(t(`Choose ${faction} units`, `Выбрать юнитов: ${name}`))} →</button>` : `<span class="premium-pick-active">${t("Level active", "Уровень активен")}</span>`}<small class="premium-pick-population">${e(choiceScope)}</small></article>`;
             })
             .join("");
-        scope =
-            population(group?.contextUnits ?? []) +
-            " · " +
-            t("One variant is rolled per faction in a match", "В матче выпадает один вариант каждой фракции");
+        scope = t(
+            "Active bonuses and next faction levels · One variant is rolled per faction",
+            "Текущие бонусы и следующие уровни фракций · В матче выпадает один вариант каждой фракции",
+        );
         seeAll = "#premium-synergies";
     }
     return `<header class="premium-picks-heading"><h3>${t("Best next picks", "Что выбрать дальше")}</h3><a href="${seeAll}">${t("All results", "Все результаты")} →</a></header><div class="premium-picks-tabs" role="group" aria-label="${t("Pick suggestions", "Рекомендации для выбора")}">${CREW_RECOMMENDATION_CATEGORIES.map((key) => `<button type="button" data-crew-recommendation="${key}" aria-pressed="${category === key}">${labels[key]}</button>`).join("")}</div><p class="premium-picks-scope">${e(scope)}</p><div class="premium-picks-results${category === "artifacts" ? " premium-picks-artifacts" : ""}">${cards || `<p class="premium-fine">${t(`No choices meet ${minimum}+ battle pairs for these picks and filters.`, `Нет подходящих вариантов с ${minimum}+ парами боёв для этих юнитов и фильтров.`)}</p>${library && minimum > 1 ? `<button type="button" class="premium-text-button" data-crew-recommendation-minimum="${minimum === 50 ? 20 : 1}">${t(`Compare ${minimum === 50 ? 20 : 1}+ battle pairs instead`, `Сравнить от ${minimum === 50 ? 20 : 1} пар боёв`)} →</button>` : ""}`}</div><p class="premium-picks-footnote">${t("Observed army scores · cautious ranking · hover for uncertainty", "Результаты записанных армий · ранжирование с учётом неопределённости · интервал при наведении")}</p>`;

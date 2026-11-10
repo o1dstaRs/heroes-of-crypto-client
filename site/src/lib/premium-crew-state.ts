@@ -16,6 +16,7 @@ export interface PremiumCrewDraft {
     enemyIds?: number[];
     artifactIds?: [number, number];
     synergyVariants?: CrewSynergyVariants;
+    synergiesAutomatic?: boolean;
 }
 
 /** Saved drafts and shared URLs must obey today's roster and draft limits. */
@@ -60,6 +61,7 @@ export function normalizePremiumCrewDraft(value: unknown, catalog: PremiumCatalo
             : {}),
         ...(artifactIds.some(Boolean) ? { artifactIds } : {}),
         ...(Object.keys(synergyVariants).length ? { synergyVariants } : {}),
+        ...(typeof raw.synergiesAutomatic === "boolean" ? { synergiesAutomatic: raw.synergiesAutomatic } : {}),
     };
 }
 
@@ -79,6 +81,9 @@ export function readPremiumCrewDraft(url: URL, stored: string | null, catalog: P
                 synergyVariants: Object.fromEntries(
                     CREW_SYNERGY_FACTIONS.map((faction, index) => [faction, variants[index]]),
                 ),
+                synergiesAutomatic: url.searchParams.has("auto-synergies")
+                    ? url.searchParams.get("auto-synergies") === "1"
+                    : undefined,
                 layout: url.searchParams.get("formation"),
                 battlefield: url.searchParams.get("battlefield"),
             },
@@ -104,6 +109,8 @@ export function premiumCrewShareUrl(current: URL, draft: PremiumCrewDraft): stri
             "synergies",
             CREW_SYNERGY_FACTIONS.map((faction) => draft.synergyVariants?.[faction] ?? 0).join(","),
         );
+    if (draft.synergiesAutomatic !== undefined)
+        url.searchParams.set("auto-synergies", draft.synergiesAutomatic ? "1" : "0");
     url.hash = "premium-crew";
     return url.href;
 }

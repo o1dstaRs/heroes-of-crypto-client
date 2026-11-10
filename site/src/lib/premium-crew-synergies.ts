@@ -10,6 +10,7 @@ import { planA19SupportSplits } from "@heroesofcrypto/common/src/ai/support_setu
 import type { PremiumCatalog, PremiumLibrary, PremiumRow } from "./premium-library";
 import { rankPremiumRows, escapePremiumHtml as e, premiumPercent as pct } from "./premium-library";
 import { CREW_HISTORY_MINIMUM, type PremiumCrewHistory } from "./premium-crew-history";
+import { synergyIcons } from "./synergy-icons";
 
 export const CREW_SYNERGY_FACTIONS = SYNERGY_FACTION_ORDER;
 export type CrewSynergyFaction = (typeof CREW_SYNERGY_FACTIONS)[number];
@@ -34,7 +35,6 @@ export function resolveCrewSynergies(
     library?: PremiumLibrary | null,
     history?: PremiumCrewHistory,
 ) {
-    const rows = history?.synergies.rows ?? library?.synergies ?? [];
     return CREW_SYNERGY_FACTIONS.map((faction) => {
         const count = [...new Set(ids)].filter((id) => catalog.units[id]?.faction === faction).length;
         const level = Math.min(3, Math.floor(count / 2));
@@ -43,14 +43,18 @@ export function resolveCrewSynergies(
             row.ids[0] === factionCode[faction] &&
             row.ids[2] === level &&
             [1, 2].includes(row.ids[1]);
-        const local = rows.filter(matches);
+        const group =
+            history?.synergiesByFaction?.find((item) => item.faction === faction && item.level === level) ??
+            history?.synergies;
+        const local = (group?.rows ?? library?.synergies ?? []).filter(matches);
         const broad = (library?.synergies ?? []).filter(matches);
         // Broaden only for better support coverage, never because another population has a higher score.
         const broader =
             !!history &&
             rankPremiumRows(broad, CREW_HISTORY_MINIMUM).length > rankPremiumRows(local, CREW_HISTORY_MINIMUM).length;
         const observed = broader ? broad : local;
-        const contextUnits = broader ? [] : (history?.synergies.contextUnits ?? []);
+        const contextUnits = broader ? [] : (group?.contextUnits ?? []);
+        const opponentUnits = broader ? [] : (group?.opponentUnits ?? []);
         const recommended = rankPremiumRows(observed, CREW_HISTORY_MINIMUM)[0];
         const variant = variants[faction] ?? recommended?.ids[1] ?? DEFAULT_SYNERGY_VARIANTS[faction];
         return {
@@ -63,6 +67,8 @@ export function resolveCrewSynergies(
             rows: observed,
             contextUnits,
             contextNames: contextUnits.map((id) => catalog.units[id].name),
+            opponentUnits,
+            opponentNames: opponentUnits.map((id) => catalog.units[id].name),
         };
     });
 }
@@ -152,7 +158,7 @@ export function renderCrewSynergyChoices(own: CrewResolvedSynergies, enemy: Crew
         Might: t("Might", "Сила"),
     };
     return (
-        `<div class="premium-crew-synergy-heading"><h3>${t("Match synergies", "Синергии матча")}</h3><button type="button" class="premium-text-button" data-crew-synergies-recommended>${t("Use recommendations", "По рекомендациям")}</button></div><p class="premium-fine">${t("Applies to both armies. Ranked rolls one variant per faction; preview either here.", "Действует для обеих армий. В рейтинге вариант выпадает случайно; здесь можно проверить любой.")}</p>` +
+        `<div class="premium-crew-synergy-heading"><h3>${t("Match synergies", "Синергии матча")}</h3><button type="button" class="premium-text-button" data-crew-synergies-recommended>${t("Use recommendations", "По рекомендациям")}</button></div><p class="premium-fine">${t("Applies to both armies. Recommendations update with the enemy; change any bonus. Ranked rolls one shared variant per faction.", "Действует для обеих армий. Советы обновляются при смене врага; любой бонус можно изменить. В рейтинге вариант общий и случайный.")}</p>` +
         own
             .map((item) => {
                 const opponent = enemy.find((other) => other.faction === item.faction)!;
@@ -178,6 +184,7 @@ export function renderCrewSynergyChoices(own: CrewResolvedSynergies, enemy: Crew
                                       "All armies in the selected dataset and filters",
                                       "Все армии в выбранном наборе и фильтрах",
                                   ),
+                            item.opponentNames.length ? t("Facing ", "Против ") + item.opponentNames.join(", ") : "",
                             t("Your crew: ", "Ваша армия: ") +
                                 (item.level
                                     ? premiumCrewSynergyEffect(item.faction, variant, ownPower, lang)
@@ -194,7 +201,7 @@ export function renderCrewSynergyChoices(own: CrewResolvedSynergies, enemy: Crew
                         ]
                             .filter(Boolean)
                             .join(" · ");
-                        return `<button type="button" data-crew-synergy="${item.faction}" data-crew-synergy-variant="${variant}" aria-pressed="${item.variant === variant}" data-premium-help="${e(detail)}" data-premium-help-title="${e(names[item.faction])}"><span>${e(effect)}${item.recommendedVariant === variant ? `<em>${t("Recommended", "Рекомендуется")}</em>` : ""}</span><small>${row ? `${pct(row.score)} · n=${row.families}${row.families < 50 ? ` · ${t("Small sample", "Малая выборка")}` : ""}` : item.level ? t("No recorded games", "Нет записанных боёв") : t("Not active for your crew", "В вашей армии не активна")}</small></button>`;
+                        return `<button type="button" data-crew-synergy="${item.faction}" data-crew-synergy-variant="${variant}" aria-pressed="${item.variant === variant}" data-premium-help="${e(detail)}" data-premium-help-title="${e(names[item.faction])}"><img class="premium-crew-synergy-icon" src="${synergyIcons[`${item.faction}:${variant}`]}" width="40" height="40" alt="" loading="lazy" decoding="async"/><span>${e(effect)}${item.recommendedVariant === variant ? `<em>${t("Recommended", "Рекомендуется")}</em>` : ""}</span><small>${row ? `${pct(row.score)} · n=${row.families}${row.families < 50 ? ` · ${t("Small sample", "Малая выборка")}` : ""}` : item.level ? t("No recorded games", "Нет записанных боёв") : t("Not active for your crew", "В вашей армии не активна")}</small></button>`;
                     })
                     .join(
                         "",

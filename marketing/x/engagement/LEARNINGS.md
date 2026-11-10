@@ -357,3 +357,5 @@ Weekly X research refresh (2–8 Nov 2026 PT). Read-only. About 55 public X API 
 - Watch-only: @TurnBasedThurs (7,508) for Wednesday's host and the TurnBasedThursdayFest date.
 
 - 2026-11-09 (daily): Named-unit aura posts still earn views but zero likes/replies; only the Mon 2 Arachna/Cyclops retune post (36 views, 1 like) has drawn any engagement this week. Concealment/reveal (White Tiger Disguise) reached 30 views, best of the aura run. Followers flat at 90 for 5 days.
+
+- 2026-11-10 (daily): Still zero likes/replies on all 24h snapshots since Mon 2 Arachna/Cyclops (1 like). Best new 24h: Mon 9 morning Guiding Winds 19 views; worst 11 (War Anger midday). Followers flat at 90 for 6 days. 7d tails are tiny (+1 to +3 views). Format and slot changes aren't moving engagement; reach is the constraint, not post style.

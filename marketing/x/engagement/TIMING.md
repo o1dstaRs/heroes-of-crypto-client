@@ -740,3 +740,5 @@ Recommendation: unchanged. Weekday reply window still 9:30 AM–1 PM PT. Sunday 
 Finding: the two new 24h snapshots tied at 11, so slot didn't separate them. Evening is still the strongest own-post slot on 24h reach since 26 Oct (avg 17.4, n=10) vs midday 14.7 (n=13) and morning 11.5 (n=13). Losing Friday's evening slot again meant we didn't get the slot that usually travels furthest. No outside replies in any slot, so reply timing is still not measurable from our own posts.
 
 - 2026-11-09: Sun 8 midday (11:58 AM) White Tiger Disguise reached 30 views at ~22h, double the usual 11-15 midday/evening range; morning Flesh Shield 15. Slot differences remain within noise; no engagement (ER 0) in any slot.
+
+- 2026-11-10: Mon 9 morning (6:59 AM) 19 views at ~34.8h beat midday (11) at ~30h; Sat 8 evening 16. All inside the 11-30 noise range; ER 0 in every slot.
