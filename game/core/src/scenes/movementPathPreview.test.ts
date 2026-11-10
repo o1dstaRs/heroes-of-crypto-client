@@ -80,24 +80,32 @@ function setup(width = 1, height = 1, route = detour) {
     } as unknown as IGameplayDrawContext;
     const polygons: { points: number[]; closed: boolean | undefined }[] = [];
     const dots: HoCMath.XY[] = [];
+    const strokes: { points: number[] | undefined; color: number; width: number | undefined }[] = [];
+    let strokePoints: number[] | undefined;
     const g = {
         poly(points: number[], closed?: boolean) {
             polygons.push({ points: [...points], closed });
+            strokePoints = points;
             return g;
         },
         circle(x: number, y: number) {
             dots.push({ x, y });
+            strokePoints = undefined;
             return g;
         },
-        stroke: () => g,
+        stroke(style: { color: number; width?: number }) {
+            strokes.push({ points: strokePoints, color: style.color, width: style.width });
+            return g;
+        },
         fill: () => g,
     } as unknown as Graphics;
     const draw = () => {
         polygons.length = 0;
         dots.length = 0;
+        strokes.length = 0;
         SandboxDrawer.drawGameplayVisuals(g, context);
     };
-    return { context, fightProps, unit, polygons, dots, draw };
+    return { context, fightProps, unit, polygons, dots, strokes, draw };
 }
 
 describe("projected movement with Fire Wall", () => {
@@ -181,12 +189,59 @@ describe("projected movement with Fire Wall", () => {
                 route.map((cell) => GridMath.getPositionForFootprintAnchor(gs, cell, width, height)),
                 gs,
             );
-            expect(scene.polygons.filter((polygon) => polygon.closed === false)).toEqual([
+            expect(scene.polygons.filter((polygon) => polygon.closed === false).slice(0, 2)).toEqual([
                 { points: expected, closed: false },
                 { points: expected, closed: false },
             ]);
             expect(scene.polygons.filter((polygon) => polygon.closed !== false)).toEqual([
                 { points: tunedCellFillPolygon(burningCell, gs), closed: undefined },
+            ]);
+        });
+    }
+
+    for (const [dx, dy] of [
+        [1, 1],
+        [-1, 1],
+        [1, -1],
+        [-1, -1],
+    ]) {
+        test(`marks only the affected diagonal travel segment red (${dx},${dy}), even with clear endpoints`, () => {
+            const origin = { x: 7, y: 7 };
+            const next = { x: 7 + dx, y: 7 + dy };
+            const destination = { x: 7 + dx * 2, y: 7 + dy * 2 };
+            const scene = setup(1, 1, [origin, next, destination]);
+            scene.fightProps.getFireWalls().clear();
+            const corners = [
+                { x: next.x, y: origin.y },
+                { x: origin.x, y: next.y },
+            ];
+            scene.fightProps.getFireWalls().addAll(corners, 3);
+
+            scene.draw();
+
+            expect(scene.polygons.filter((polygon) => polygon.closed !== false)).toEqual(
+                corners.map((cell) => ({ points: tunedCellFillPolygon(cell, gs), closed: undefined })),
+            );
+            const redTravel = scene.strokes.filter((stroke) => stroke.color === 0xff3b30 && stroke.width === 3);
+            expect(redTravel).toEqual([
+                {
+                    color: 0xff3b30,
+                    width: 3,
+                    points: projectedPolyline(
+                        [origin, next].map((cell) => GridMath.getPositionForFootprintAnchor(gs, cell, 1, 1)),
+                        gs,
+                    ),
+                },
+            ]);
+            expect(
+                scene.strokes
+                    .filter((stroke) => stroke.color === 0xffffff && stroke.width === 2)
+                    .map((stroke) => stroke.points),
+            ).toEqual([
+                projectedPolyline(
+                    [origin, next, destination].map((cell) => GridMath.getPositionForFootprintAnchor(gs, cell, 1, 1)),
+                    gs,
+                ),
             ]);
         });
     }
