@@ -24,19 +24,27 @@ export function drawMovementPathPreview(
     // including those under the non-anchor parts of a rectangular creature.
     const occupied = new Set(unit.getCells().map(cellKey));
     const highlighted = new Set<number>();
+    const burningSegments: number[] = [];
+    let previousAnchor = origin;
     for (const anchor of route) {
         const center = GridMath.getPositionForFootprintAnchor(gs, anchor, width, height);
         const previous = worldPath[worldPath.length - 1];
-        if (center.x !== previous.x || center.y !== previous.y) worldPath.push(center);
+        if (center.x === previous.x && center.y === previous.y) continue;
+        worldPath.push(center);
 
-        for (const cell of GridMath.getFootprintCellsForAnchor(anchor, width, height)) {
+        let burning = false;
+        // Use the engine's swept footprint, so a diagonal crossing cannot promise a safe white path.
+        for (const cell of GridMath.getSweptFootprintCells(previousAnchor, anchor, width, height)) {
             const key = cellKey(cell);
             if (occupied.has(key) || highlighted.has(key) || !fireWalls.has(cell)) continue;
             highlighted.add(key);
+            burning = true;
             g.poly(tunedCellFillPolygon(cell, gs))
-                .fill({ color: 0xff6a28, alpha: 0.3 })
-                .stroke({ color: 0xff6a28, width: 2, alpha: 0.95 });
+                .fill({ color: 0xff3b30, alpha: 0.3 })
+                .stroke({ color: 0xff3b30, width: 2, alpha: 0.95 });
         }
+        if (burning) burningSegments.push(worldPath.length - 1);
+        previousAnchor = anchor;
     }
 
     // Follow the same footprint-centred waypoints as the movement animation, projected onto the floor.
@@ -44,11 +52,20 @@ export function drawMovementPathPreview(
     const points = projectedPolyline(worldPath, gs);
     g.poly(points, false).stroke({ color: 0x17100c, width: 5, alpha: 0.85, cap: "round", join: "round" });
     g.poly(points, false).stroke({ color: 0xffffff, width: 2, alpha: 0.95, cap: "round", join: "round" });
+    for (const index of burningSegments) {
+        g.poly(projectedPolyline([worldPath[index - 1], worldPath[index]], gs), false).stroke({
+            color: 0xff3b30,
+            width: 3,
+            alpha: 0.95,
+            cap: "round",
+            join: "round",
+        });
+    }
     const radius = gs.getStep() * 0.045;
     for (let index = 1; index < worldPath.length; index += 1) {
         const point = projectBattlefieldPoint(worldPath[index], gs);
         g.circle(point.x, point.y, radius)
-            .fill({ color: 0xffffff, alpha: 0.95 })
+            .fill({ color: burningSegments.includes(index) ? 0xff3b30 : 0xffffff, alpha: 0.95 })
             .stroke({ color: 0x17100c, width: 1.5, alpha: 0.85 });
     }
 }
