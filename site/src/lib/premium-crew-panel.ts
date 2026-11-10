@@ -1,9 +1,34 @@
 import { getAuthToken } from "./auth-state";
+import {
+    CREW_SYNERGY_FACTIONS,
+    resolveCrewSynergies,
+    type CrewSynergyFaction,
+    type CrewSynergyVariants,
+} from "./premium-crew-synergies";
+import { renderMarkdown } from "./markdown-lite";
+import { renderPremiumAiEvidence } from "./premium-ai-panel";
+import { createCrewStrategy, premiumCrewStrategyRequest, type CrewStrategyState } from "./premium-crew-strategy";
+import {
+    CREW_RECOMMENDATION_CATEGORIES,
+    premiumCrewComboDraft,
+    renderPremiumCrewRecommendations,
+    type CrewRecommendationCategory,
+} from "./premium-crew-recommendations";
 import { premiumCrewFactionSlot } from "./premium-crew-picks";
 import { renderPremiumCrewRoster } from "./premium-crew-roster";
 import { validCrewHistory, type PremiumCrewHistory } from "./premium-crew-history";
 import { premiumPercent as pct, type PremiumCatalog, type PremiumLibraryResponse } from "./premium-library";
-import { CREW_LEVELS, premiumCrewSlots, renderPremiumCrew, samplePremiumCrew, type CrewLayout } from "./premium-crew";
+import {
+    CREW_LEVELS,
+    premiumCrewSlots,
+    renderPremiumCrew,
+    samplePremiumCrew,
+    randomPremiumEnemy,
+    premiumCrewBoardPlan,
+    premiumCrewArtifactBenefit,
+    type CrewLayout,
+    type PremiumCrewPlanner,
+} from "./premium-crew";
 import {
     PREMIUM_CREW_STORAGE_KEY,
     readPremiumCrewDraft,
@@ -18,6 +43,8 @@ export function initPremiumCrew(
     lang: "en" | "ru",
     getData: () => PremiumLibraryResponse | undefined,
     evidenceUrl: () => string,
+    getMinimumFamilies: () => number = () => 50,
+    onAccessLost: () => void = () => {},
 ) {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
     let stored: string | null = null;
@@ -32,13 +59,49 @@ export function initPremiumCrew(
         battlefield: CrewBattlefield = saved.battlefield,
         slot = 0;
     let faction: string | undefined;
+    let enemyIds = saved.enemyIds ?? [];
+    let artifactIds: [number, number] = saved.artifactIds ?? [0, 0];
+    let synergyVariants: CrewSynergyVariants = saved.synergyVariants ?? {};
+    let synergiesInitialized = false;
+    let equipped: readonly number[] = [];
+    let recommendationCategory: CrewRecommendationCategory = "units";
+    let planner: PremiumCrewPlanner | undefined;
+    let plannerLoading = false;
+    let plannerFailed = false;
     let initialized = false;
+    let strategyEnabled = false;
     let controller: AbortController | undefined;
     let historyController: AbortController | undefined;
     let history: PremiumCrewHistory | undefined;
     const historyCache = new Map<string, PremiumCrewHistory>();
     const evidenceCache = new Map<string, { families: number; score: number | null }>();
-    const draft = () => ({ version: 1 as const, ids: [...ids], layout, battlefield });
+    const renderStrategy = (state: CrewStrategyState) => {
+        const box = root.querySelector<HTMLElement>("[data-crew-strategy]");
+        if (!box) return;
+        const waiting = state.phase === "waiting" || state.phase === "loading";
+        box.setAttribute("aria-busy", String(waiting));
+        const label =
+            state.phase === "error"
+                ? t("Strategy is unavailable right now.", "План боя сейчас недоступен.")
+                : waiting
+                  ? t("Planning for this crew…", "Составляем план для этой армии…")
+                  : state.phase === "idle"
+                    ? ids.length !== 6
+                        ? t("Choose all six units to get a plan.", "Выберите шесть юнитов для плана боя.")
+                        : t("Preparing the formation…", "Готовим расстановку…")
+                    : "";
+        box.innerHTML = `<header><h3>${t("Battle plan", "План боя")}</h3><small>${t("Updates automatically", "Обновляется автоматически")}</small></header><p class="premium-fine" role="status">${label}</p>${state.text ? `<div class="premium-crew-strategy-answer">${renderMarkdown(state.text)}</div>` : ""}${state.phase === "error" ? `<button type="button" class="premium-text-button" data-crew-strategy-retry>${t("Retry", "Повторить")}</button>` : ""}${state.phase === "ready" && state.evidence.length ? `<details class="premium-crew-notes"><summary>${t("Data used", "Использованные данные")}</summary>${state.evidence.map((packet) => renderPremiumAiEvidence(packet, lang)).join("")}</details>` : ""}`;
+    };
+    const strategy = createCrewStrategy({ onChange: renderStrategy, onAccessLost });
+    const draft = () => ({
+        version: 1 as const,
+        ids: [...ids],
+        layout,
+        battlefield,
+        ...(enemyIds.length ? { enemyIds: [...enemyIds] } : {}),
+        ...(artifactIds.some(Boolean) ? { artifactIds: [...artifactIds] as [number, number] } : {}),
+        ...(Object.keys(synergyVariants).length ? { synergyVariants: { ...synergyVariants } } : {}),
+    });
     const persist = () => {
         try {
             localStorage.setItem(PREMIUM_CREW_STORAGE_KEY, JSON.stringify(draft()));
@@ -56,6 +119,41 @@ export function initPremiumCrew(
         const status = root.querySelector<HTMLElement>(".premium-crew-toolbar [role=status]");
         if (status) status.textContent = message;
     };
+    const loadPlanner = async () => {
+        if (planner || plannerLoading || plannerFailed) return;
+        plannerLoading = true;
+        try {
+            planner = (await import("@heroesofcrypto/common/src/ai/placement/adapter")).finalizeA19Placement;
+        } catch {
+            plannerFailed = true;
+        } finally {
+            plannerLoading = false;
+        }
+        refresh(false);
+        if (plannerFailed)
+            announce(
+                t(
+                    "Game AI could not load. Click Randomize enemy to retry.",
+                    "Не удалось загрузить игровой ИИ. Нажмите «Случайный враг» для повтора.",
+                ),
+            );
+    };
+    const refreshRecommendations = () => {
+        const target = root.querySelector<HTMLElement>("[data-crew-recommendations]");
+        if (target)
+            target.innerHTML = renderPremiumCrewRecommendations(
+                ids,
+                slot,
+                recommendationCategory,
+                catalog,
+                getData()?.library,
+                lang,
+                getMinimumFamilies(),
+                history,
+                equipped,
+                synergyVariants,
+            );
+    };
     const refreshRoster = () => {
         const roster = root.querySelector<HTMLElement>("[data-crew-roster]");
         if (!roster) return;
@@ -65,6 +163,7 @@ export function initPremiumCrew(
             button.setAttribute("aria-pressed", String(active));
             button.closest(".premium-crew-slot")?.classList.toggle("premium-crew-slot-active", active);
         });
+        refreshRecommendations();
     };
     const selectSlot = (index: number, scroll = false) => {
         if (!Number.isInteger(index) || index < 0 || index >= CREW_LEVELS.length) return;
@@ -192,8 +291,23 @@ export function initPremiumCrew(
     const refresh = (loadHistory = true) => {
         const target = root.querySelector<HTMLElement>("[data-crew-content]");
         if (!target) return;
+        const focusKeys = [
+            "data-crew-roster-pick",
+            "data-crew-randomize",
+            "data-crew-recommendation",
+            "data-crew-combo",
+            "data-crew-artifact",
+            "data-crew-artifact-tier",
+            "data-crew-artifacts-auto",
+            "data-crew-synergy",
+            "data-crew-synergy-variant",
+            "data-crew-synergies-recommended",
+        ];
         const focused = target.querySelector<HTMLButtonElement>(
-            "[data-crew-roster-pick]:focus-visible, .premium-crew-slots [data-crew-slot]:focus-visible",
+            [
+                ...focusKeys.map((key) => `[${key}]:focus-visible`),
+                ".premium-crew-slots [data-crew-slot]:focus-visible",
+            ].join(","),
         );
         const scrollToCrew = !initialized && location.hash === "#premium-crew";
         if (!initialized) {
@@ -201,8 +315,36 @@ export function initPremiumCrew(
             initialized = true;
         }
         if (getData()?.library) battlefield = String(getData()!.library!.scope.map ?? "all") as CrewBattlefield;
+        if (enemyIds.length) enemyIds = randomPremiumEnemy(ids, catalog, Math.random, enemyIds);
         const expected = expectedHistory();
         if (!expected || !validCrewHistory(history, expected, catalog)) history = undefined;
+        const data = getData();
+        if (!synergiesInitialized) {
+            synergyVariants = Object.fromEntries(
+                resolveCrewSynergies(ids, catalog, synergyVariants, data?.library, history).map((item) => [
+                    item.faction,
+                    item.variant,
+                ]),
+            );
+            synergiesInitialized = true;
+        }
+        artifactIds = artifactIds.map((id, index) => {
+            const item = catalog.artifacts[`${index + 1}:${id}`];
+            return item && premiumCrewArtifactBenefit(item.slug, ids, lang).names.length ? id : 0;
+        }) as [number, number];
+        const plan = premiumCrewBoardPlan(
+            ids,
+            enemyIds,
+            catalog,
+            layout,
+            battlefield === "all" ? 1 : Number(battlefield),
+            planner,
+            data?.library,
+            history,
+            artifactIds,
+            synergyVariants,
+        );
+        equipped = plan.own.input.artifacts;
         target.innerHTML = renderPremiumCrew(
             ids,
             catalog,
@@ -212,15 +354,43 @@ export function initPremiumCrew(
             !!getData()?.library,
             getData()?.library,
             history,
+            enemyIds,
+            planner,
+            plan,
         );
+        if (enemyIds.length && !planner && !plannerFailed) void loadPlanner();
+        const randomize = target.querySelector<HTMLButtonElement>("[data-crew-randomize]");
+        if (randomize && plannerLoading) {
+            randomize.setAttribute("aria-disabled", "true");
+            randomize.setAttribute("aria-busy", "true");
+            randomize.textContent = t("Loading game AI…", "Загрузка игрового ИИ…");
+        }
         refreshRoster();
         if (focused) {
-            const selector = focused.hasAttribute("data-crew-roster-pick")
-                ? `[data-crew-roster-pick="${focused.dataset.crewRosterPick}"]`
+            const keys = focusKeys.filter((key) => focused.hasAttribute(key));
+            const selector = keys.length
+                ? keys.map((key) => `[${key}="${focused.getAttribute(key)}"]`).join("")
                 : `.premium-crew-slots [data-crew-slot="${focused.dataset.crewSlot}"]`;
             target.querySelector<HTMLButtonElement>(selector)?.focus({ preventScroll: true });
         }
         persist();
+        strategy.update(
+            strategyEnabled && data?.entitlement.active
+                ? premiumCrewStrategyRequest(
+                      plan,
+                      catalog,
+                      lang,
+                      data.snapshot && data.library
+                          ? {
+                                snapshotId: data.snapshot.snapshotId,
+                                ...data.library.scope,
+                                minimumFamilies: getMinimumFamilies(),
+                            }
+                          : undefined,
+                      data.snapshot?.sourceSha256,
+                  )
+                : undefined,
+        );
         void checkEvidence();
         if (loadHistory) void checkHistory();
         if (scrollToCrew) target.closest("#premium-crew")?.scrollIntoView({ block: "start" });
@@ -232,6 +402,98 @@ export function initPremiumCrew(
     root.addEventListener("click", (event) => {
         const button = (event.target as Element).closest<HTMLButtonElement>("button");
         if (!button) return;
+        if (button.hasAttribute("data-crew-synergy")) {
+            const faction = button.dataset.crewSynergy as CrewSynergyFaction;
+            const variant = Number(button.dataset.crewSynergyVariant);
+            if (!CREW_SYNERGY_FACTIONS.includes(faction) || (variant !== 1 && variant !== 2)) return;
+            synergyVariants = { ...synergyVariants, [faction]: variant };
+            refresh(false);
+            announce(t("Synergy selected · formation recalculated", "Синергия выбрана · расстановка пересчитана"));
+            root.querySelector<HTMLButtonElement>(
+                `[data-crew-synergy="${faction}"][data-crew-synergy-variant="${variant}"]`,
+            )?.focus({ preventScroll: true });
+        }
+        if (button.hasAttribute("data-crew-synergies-recommended")) {
+            synergyVariants = Object.fromEntries(
+                resolveCrewSynergies(ids, catalog, {}, getData()?.library, history).map((item) => [
+                    item.faction,
+                    item.variant,
+                ]),
+            );
+            refresh(false);
+            root.querySelector<HTMLButtonElement>("[data-crew-synergies-recommended]")?.focus({ preventScroll: true });
+        }
+        if (button.hasAttribute("data-crew-recommendation-minimum")) {
+            const minimum = Number(button.dataset.crewRecommendationMinimum);
+            const filter = root.querySelector<HTMLSelectElement>('[data-premium-filters] select[name="minimum"]');
+            if (![1, 20].includes(minimum) || !filter) return;
+            filter.value = String(minimum);
+            filter.dispatchEvent(new Event("change", { bubbles: true }));
+            root.querySelector<HTMLButtonElement>(`[data-crew-recommendation="${recommendationCategory}"]`)?.focus({
+                preventScroll: true,
+            });
+        }
+        if (button.hasAttribute("data-crew-recommendation")) {
+            const category = button.dataset.crewRecommendation as CrewRecommendationCategory;
+            if (!CREW_RECOMMENDATION_CATEGORIES.includes(category)) return;
+            recommendationCategory = category;
+            refreshRecommendations();
+            root.querySelector<HTMLButtonElement>(`[data-crew-recommendation="${category}"]`)?.focus({
+                preventScroll: true,
+            });
+        }
+        if (button.hasAttribute("data-crew-combo")) {
+            const picks = (button.dataset.crewCombo ?? "").split(",").map(Number);
+            const draft = premiumCrewComboDraft(ids, picks, catalog, slot);
+            if (!draft) return;
+            faction = undefined;
+            setCrew(draft.ids);
+            announce(t("Picked ", "Выбраны ") + picks.map((id) => catalog.units[id].name).join(" + "));
+            root.querySelector<HTMLButtonElement>(`[data-crew-recommendation="${recommendationCategory}"]`)?.focus({
+                preventScroll: true,
+            });
+        }
+        if (button.hasAttribute("data-crew-artifact")) {
+            const tier = Number(button.dataset.crewArtifactTier),
+                id = Number(button.dataset.crewArtifact);
+            const item = catalog.artifacts[`${tier}:${id}`];
+            if (![1, 2].includes(tier) || !item || !premiumCrewArtifactBenefit(item.slug, ids, lang).names.length)
+                return;
+            artifactIds[tier - 1] = id;
+            refresh(false);
+            announce(t("Equipped ", "Выбран ") + item.name);
+            root.querySelector<HTMLButtonElement>(
+                `[data-crew-artifact-tier="${tier}"][data-crew-artifact="${id}"]`,
+            )?.focus({ preventScroll: true });
+        }
+        if (button.hasAttribute("data-crew-artifacts-auto")) {
+            artifactIds = [0, 0];
+            refresh(false);
+            root.querySelector<HTMLButtonElement>("[data-crew-artifacts-auto]")?.focus({ preventScroll: true });
+        }
+        if (button.hasAttribute("data-crew-strategy-retry")) strategy.retry();
+        if (button.hasAttribute("data-crew-randomize")) {
+            if (plannerLoading) return;
+            enemyIds = randomPremiumEnemy(ids, catalog);
+            plannerFailed = false;
+            refresh(false);
+            root.querySelector<HTMLButtonElement>("[data-crew-randomize]")?.focus({ preventScroll: true });
+            announce(
+                enemyIds.length
+                    ? ids.length !== 6
+                        ? t("Enemy crew ready · complete your six picks", "Армия врага готова · выберите шесть юнитов")
+                        : planner
+                          ? t(
+                                "Enemy crew randomized · formation updated",
+                                "Случайный враг выбран · расстановка обновлена",
+                            )
+                          : t(
+                                "Enemy crew randomized · loading game AI…",
+                                "Случайный враг выбран · загрузка игрового ИИ…",
+                            )
+                    : t("Not enough unpicked units for an enemy crew", "Недостаточно свободных юнитов для армии врага"),
+            );
+        }
         if (button.hasAttribute("data-crew-slot")) {
             faction = undefined;
             selectSlot(Number(button.dataset.crewSlot), button.classList.contains("premium-crew-token"));
@@ -346,8 +608,13 @@ export function initPremiumCrew(
     });
     return {
         battlefield: saved.battlefield,
-        refresh,
+        refresh() {
+            strategyEnabled = true;
+            refresh();
+        },
         suspend() {
+            strategyEnabled = false;
+            strategy.suspend();
             controller?.abort();
             historyController?.abort();
             history = undefined;

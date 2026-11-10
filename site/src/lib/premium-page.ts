@@ -57,6 +57,8 @@ export function initPremiumPage(): void {
         lang,
         () => data,
         () => url("crew"),
+        () => view.minimum,
+        () => void load(),
     );
     select("map").value = crew.battlefield;
     const updateAi = () => {

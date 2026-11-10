@@ -315,3 +315,45 @@ Weekly X research refresh (26 Oct – 1 Nov 2026 PT). Read-only. About 15 public
 - Didn't work: today's two new 24h posts tied at 11 views with no likes — more named-unit ability explainers in the 10–15 band (Fire Breath 11, Saliva 11, Manticore 11, Scavenger 13). Aegis, an artifact trade-off with no named-unit payoff, stayed stuck at 11 through 7d.
 - Lesson: a named unit on an ability explainer is not enough; posts that pose a cross-army choice or admit a fix (Quiver, Tome, Arachna/Cyclops, Angel) still travel further than another single-ability write-up. Reach remains the blocker; outreach/media proposals stay open for Stepan. Proposal only, no edits to XCOM.md / CALENDAR.md / IMAGES.md.
 - 0 outside replies, 0 tactics replies, 0 token replies for 25 days running (mentions since 1 Nov = 0; every reply_count 1 is our own follow-up; quotes 0; comment-reply routine last checked 8:21 AM PT with nothing to handle). Followers 90 (flat vs 2026-11-07 and vs baseline 90). Yesterday's three Sat 7 slots all posted; Fri 6 4:48 PM evening is still the missed slot.
+
+## 2026-11-09 (weekly)
+
+Weekly X research refresh (2–8 Nov 2026 PT). Read-only. About 55 public X API reads. Full report: research/2026-11-09-weekly.md (+ .html).
+
+### Market findings
+
+- HoMM3 Remake is coming to players: @MightMagicGame opened Closed Playtest sign-ups, starting 18 Nov (125 / 9 replies / 3,480 https://x.com/MightMagicGame/status/2118025484231430529), and was voted IGN's community Best Game of Poznań Game Arena (20,665 views https://x.com/MightMagicGame/status/2118750265687822450). The biggest event for our audience this month.
+- The human-made stance became a meme: "removing AI from ur feed with 4 screenshots of our hand-drawn game" hit 29,375 posts in 7 days (peak 6,431 on 5 Nov UTC); top post @coldbloodinc 1,505 / 61,740 https://x.com/coldbloodinc/status/2117398214597038087. List accounts joined (@TheVowGame 103 / 2,028, @WishseekerGame 99 / 2,008). Context: 49.9% of October Steam releases disclosed gen-AI (https://x.com/i/trending/2117314833712574474); itch.io purged AI slop.
+- "Browser game" + AI + money: X news stories on AI-built browser games in 24h and "Mental Kombat" (AI fighters, the winner takes 10% of the loser's balance). Relevancy search for turn-based + PvP is dominated by Web3 (Endless Clash 11,561 views; @hallofash "turn-based… runs directly in your browser" on Robinhood Chain; @HeroArenaGame USDT cups). Our name "(HOCAI)" reads into that bucket.
+- Motion still wins at our size: @WishseekerGame (1,039 followers) 308 / 8,503 https://x.com/WishseekerGame/status/2118698879638262100; @wintersong_game (1,361) skill/crit clip 334 / 7,648 https://x.com/wintersong_game/status/2118410313854767261; @WickedNightGame 252 / 6,215; @SynthWave6666 (2,104, +18%) Sera expressions 3,761 / 41,842 https://x.com/SynthWave6666/status/2117275340682965399.
+- Real news and honest indie-studio pain beat promo: Lavapotion scammer-keys post 203 / 55 replies / 23,286; Wartales DLC (9 Dec) + free update 225 / 9,079; MENACE Squad Leader update 139 / 3,602; Vampire Tactics "10,000 wishlists in a week" 130 / 11 replies.
+- #TurnBasedThursday: @MuHaGames hosted 5 Nov, 54 replies https://x.com/MuHaGames/status/2118312375673876526. @TurnBasedThurs is organising a "TurnBasedThursdayFest" (no date yet). Next thread Thu 12 Nov.
+- Astra + game: 1,767 posts in 7 days (1,909 last week). Thin. Quiet: @Unfrozen_Studio, @shirogames, @Midjiwan, @TerraRandoma, @CyberKnightsRPG, @LudogramGames, @TeamWoodGames.
+
+### Our comparison
+
+- Followers 90 (91 → 90 on 6 Nov). Pin 189 views (159). 20 of 21 slots posted (Fri 6 4:48 PM missed, second week running with a lost evening); all text-only; 16 of 20 were single-ability named-unit explainers.
+- Avg 24h views 13.1 (n=16, median 13), down from 14.8. Slots: evening 18.3 (n=4), midday 12.2 (n=6), morning 10.5 (n=6); morning last for the third week running. Trade-off/dev-diary 16.3 (n=4) vs single-ability tactics 12.0 (n=12).
+- Best: Arachna/Cyclops retune 30 at 24h, 36 now, the only outside like; White Tiger Disguise (a counter-intuitive "can't be targeted" rule) 30 views in ~20h, the first single-ability post to get there. Worst: Medusa 5, stack size 7, Pikeman 8.
+- 0 outside replies for 26 days, 0 mentions since 1 Nov, outreach.csv still empty, no experiment has run, no media since 17 Oct.
+- Lesson: copy tweaks have hit a ceiling. Real before/after changes and counter-intuitive rules beat ability explainers, but the gap to peers (7,600–8,500 views for 1K-follower tactics accounts with a clip) is media and outreach, not wording.
+
+### Proposed changes for Stepan (proposals only, no edits to XCOM.md / CALENDAR.md / IMAGES.md)
+
+1. Media arm: 3 posts, each a 5–10s real-match clip/GIF of one mechanic + one line (Wintersong format), evening slot, recorded by Stepan.
+2. Outreach: one text-only reply a day (Stepan posts, or standing permission). Start with the Thu 12 Nov #TurnBasedThursday host thread and the @MightMagicGame HoMM3 Remake playtest post.
+3. Heroes III week: one true "what we kept from Heroes III battles and what we changed for PvP" dev-diary on Tue 17 or Wed 18 Nov, using Stepan's facts, with no claims about the Remake.
+4. Mix: at most one single-ability explainer a day; fill the rest with retunes/before-after, "we got one wrong" fixes, counter-intuitive rules. Test the morning slot at ~9:30 AM PT for a week. Ask Stepan for any upcoming balance numbers.
+5. "4 screenshots, made by people" post only if Stepan confirms no generative AI in art/units/code; otherwise skip the topic.
+6. Profile: drop "(HOCAI)", drop the 🟦, add the final period (open since 14 Oct; more urgent given this week's AI/Web3 browser-game noise).
+7. Reliability: confirm each URL in LOG.md within the slot and make up a miss by the next slot. The garbled Quiver self-reply (https://x.com/Heroes0fcrypto/status/2116681463664198041) still needs Stepan to delete or repost it.
+8. Reply targets: see the list below. Skip @gr8_rebellion review-bomb drama, Wielders posts, giveaways, Japanese-only Conviction posts, and all Web3 turn-based PvP accounts.
+
+### Routine target list additions
+
+- No new accounts added. Rechecked @manafinder (3,324, blue; Manafinder II turn-based RPG, joined the 5 Nov TBT thread); keeping the 5 Nov scan's call not to add it (classic RPG, not grid tactics).
+- Priority this week: #TurnBasedThursday host (12 Nov), @MightMagicGame, @Wartales_Game, @SynthWave6666, @wintersong_game, @WishseekerGame, @vampiretactics.
+- Not added: @coldbloodinc (horror life-sim), @perfectgarbo (farming sim), @Vampiresveil_ (metroidvania), @eldritchhousegs (horror), @GardenSouls01 (platformer), @ArcWillow09 (personal), @EsteranGames (158), @corhoonx (personal); Web3: @EndlessClashRPG, @BrnMetaverse, @hallofash, @HeroArenaGame; curators/aggregators: @turnbasedlovers, @RPGActionGames, @Keymailer, @civfanatics.
+- Watch-only: @TurnBasedThurs (7,508) for Wednesday's host and the TurnBasedThursdayFest date.
+
+- 2026-11-09 (daily): Named-unit aura posts still earn views but zero likes/replies; only the Mon 2 Arachna/Cyclops retune post (36 views, 1 like) has drawn any engagement this week. Concealment/reveal (White Tiger Disguise) reached 30 views, best of the aura run. Followers flat at 90 for 5 days.
