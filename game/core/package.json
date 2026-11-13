@@ -48,7 +48,7 @@
         "react-dom": "^19.3.1",
         "react-is": "^19.3.1",
         "react-router": "8.5.0",
-        "sass": "^1.107.1",
+        "sass": "^1.108.1",
         "sort-package-json": "4.0.0",
         "typed-signals": "^3.0.0",
         "typeface-open-sans": "1.1.13",
