@@ -114,7 +114,7 @@
         "events": "^3.3.0",
         "globals": "^17.13.0",
         "lint-staged": "17.3.0",
-        "postcss": "8.5.30",
+        "postcss": "8.5.32",
         "postcss-scss": "^4.0.9",
         "process": "^0.11.10",
         "rimraf": "^6.1.3",
