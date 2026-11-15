@@ -52,6 +52,7 @@ const slug = (name: string) =>
 const abilityIconOverrides: Readonly<Record<string, string>> = {
     "Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
     "Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
+    "Tie up the Horses Blessing": "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
     "Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
     "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
@@ -303,7 +304,10 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Земляные элементали получают на 50% больше. Ветряной элементаль заземляет молнию: не получает урона, и цепь на нём обрывается.",
     ],
     "Wind Element": ["Дает иммунитет к ветру. Земляные атаки наносят на {}% больше урона."],
-    "Tie up the Horses Aura": ["Союзные нелетающие юниты в радиусе ауры получают +{} к дистанции перемещения."],
+    "Tie up the Horses Blessing": [
+        "Пока носитель жив и без Break, все союзные нелетающие юниты на поле получают +{} к движению.",
+        "Базовый бонус при силе стека 1–5: 0,42/0,84/1,26/1,68/2,1, умноженный на (1 + удача носителя / 100). Действует только сильнейший источник.",
+    ],
     Crusade: ["Юнит получает +{} к атаке и броне за каждую пройденную клетку. Бонус не растет выше 50 базовых очков."],
     "Made of Fire": [
         "При контакте с лавой в центре карты существо получает +10% ко всем характеристикам, включая способности. Существо может проходить через лаву или стоять в ней.",

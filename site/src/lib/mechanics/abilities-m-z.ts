@@ -202,9 +202,11 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: ({ p }) =>
             `Выстрел летит до края поля и поражает каждого врага на линии — союзников пролетает, не раня, — каждого на (${p} + удача)% обычного удара, без масштаба силой стека, со своим броском уклонения и своим штрафом дальности; всё за облаком Smoke получает половину. Гора его останавливает, как и Arrows Wingshield у Angel. На его выстрелы никогда не отвечают, и сама Tsar Cannon никогда не отвечает выстрелом.`,
     },
-    "Tie up the Horses Aura": {
-        en: ({ p }) => `Allied non-flying units within 2 cells, the Champion included, get +${p} movement.`,
-        ru: ({ p }) => `Союзные нелетающие юниты в радиусе 2 клеток, включая Champion, получают +${p} к движению.`,
+    "Tie up the Horses Blessing": {
+        en: ({ p, n }) =>
+            `While Champion is alive and not Broken, every allied non-flying unit anywhere on the battlefield, including Champion, gains ${[1, 2, 3, 4, 5].map((tier) => n((p * tier) / 5)).join("/")} movement at stack power 1–5, multiplied by (1 + Champion's luck / 100). At +10 luck the full-stack bonus is +${n(p * 1.1)}. Recipient luck and Aura Range do not change it. Same-name blessings use the strongest source; Wolf Trail is a separate bonus.`,
+        ru: ({ p, n }) =>
+            `Пока Champion жив и без Break, все союзные нелетающие юниты на поле, включая Champion, получают ${[1, 2, 3, 4, 5].map((tier) => n((p * tier) / 5)).join("/")} к движению при силе стека 1–5, умноженные на (1 + удача Champion / 100). При удаче +10 полный стек даёт +${n(p * 1.1)}. Удача получателя и «Радиус аур» бонус не меняют. Действует сильнейшее одноимённое благословение; Wolf Trail прибавляется отдельно.`,
     },
     "Time Denial": {
         en: () =>

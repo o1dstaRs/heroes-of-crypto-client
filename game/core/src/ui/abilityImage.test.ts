@@ -14,6 +14,7 @@ const ART_SET: Record<string, string> = {
     warding_mane_aura_256: "warding-mane-aura.webp",
     sharpened_weapons_aura_256: "sharpened-weapons-aura.webp",
     luck_aura_256: "luck-aura.webp",
+    tie_up_the_horses_aura_256: "champion-movement.webp",
 };
 const artLookup = (key: string): string | undefined => ART_SET[key];
 
@@ -34,6 +35,7 @@ describe("ability icons", () => {
         expect(resolveAbilityImage("Warding Mane Blessing", artLookup)).toBe(ART_SET.warding_mane_aura_256);
         expect(resolveAbilityImage("Sharpened Weapons Blessing", artLookup)).toBe(ART_SET.sharpened_weapons_aura_256);
         expect(resolveAbilityImage("Luck Blessing", artLookup)).toBe(ART_SET.luck_aura_256);
+        expect(resolveAbilityImage("Tie up the Horses Blessing", artLookup)).toBe(ART_SET.tie_up_the_horses_aura_256);
     });
 
     test("an ability with no art at all resolves to nothing, so the caller can draw its own fallback", () => {

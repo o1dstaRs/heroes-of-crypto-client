@@ -105,6 +105,7 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 const spellIconOverrides: Readonly<Record<string, string>> = {
     "System:Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
     "System:Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
+    "System:Tie up the Horses Blessing": "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
     "System:Wolf Trail Blessing": "/assets/images/units/abilities/wolf_trail_aura_256.webp",
     "System:Ember Covenant Blessing": "/assets/images/units/abilities/ember_covenant_blessing_256.webp",
     "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
@@ -163,6 +164,7 @@ const abilityCastSpells = new Set([
 const appliedBySources: Record<string, string[]> = {
     "Luck Blessing": ["Luck Blessing"],
     "Sylvan Focus Blessing": ["Sylvan Focus Blessing"],
+    "Tie up the Horses Blessing": ["Tie up the Horses Blessing"],
     "Wolf Trail Blessing": ["Wolf Trail Blessing"],
     "Ember Covenant Blessing": ["Ember Covenant Blessing"],
     "Dulling Defense": ["Dulling Defense"],
@@ -244,6 +246,8 @@ const descriptionsRu: Record<string, string> = {
         "Все союзники на поле получают +{} к удаче (предел общей удачи: +10). При силе стека 1–5 бонус равен +2/4/6/8/10. Действует сильнейшее благословение живого носителя без Break.",
     "System:Sylvan Focus Blessing":
         "Все союзники на поле получают +{}% к магическому урону. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
+    "System:Tie up the Horses Blessing":
+        "Все союзные нелетающие юниты на поле получают +{} к движению. Базовый бонус: 0,42/0,84/1,26/1,68/2,1 при силе стека 1–5, умноженный на (1 + удача носителя / 100). Действует сильнейшее благословение живого носителя без Break.",
     "System:Wolf Trail Blessing":
         "Все союзники на поле получают +{} к движению. Сила: 20/40/60/80/100% от базового значения при силе стека 1–5. Действует сильнейшее благословение живого носителя без Break.",
     "Nature:Whirlpool":

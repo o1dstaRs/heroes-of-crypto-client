@@ -30,7 +30,7 @@ const gs = new GridSettings(
 const footprint = { width: 2, height: 2 };
 const center = { x: gs.getMinX() + gs.getCellSize(), y: gs.getMinY() + gs.getCellSize() };
 
-test("Champion artwork covers the default three-cell aura and expands with the actual range", () => {
+test("legacy Champion aura artwork covers its saved three-cell range and expands with the actual range", () => {
     const cell = gs.getCellSize();
     const middle = { x: gs.getMinX() + 8 * cell, y: gs.getMinY() + 8 * cell };
     const defaultRange = HoCConfig.getAuraEffectConfig("Tie up the Horses")!.range;
