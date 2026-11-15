@@ -83,6 +83,37 @@ export function renderPremiumCatalogPreview(
         : undefined;
 }
 
+/** Keep readable content on screen; only content taller than the viewport needs to scroll. */
+export function premiumPreviewPlacement(
+    anchor: { left: number; right: number; top: number; bottom: number },
+    viewport: { width: number; height: number },
+    content: { width: number; height: number },
+) {
+    const margin = 12,
+        gap = 10;
+    const maxHeight = Math.max(0, viewport.height - margin * 2);
+    const width = Math.min(content.width, Math.max(0, viewport.width - margin * 2));
+    const height = Math.min(content.height, maxHeight);
+    const clampX = (x: number) => Math.max(margin, Math.min(x, viewport.width - width - margin));
+    const clampY = (y: number) => Math.max(margin, Math.min(y, viewport.height - height - margin));
+    const below = viewport.height - anchor.bottom - gap - margin;
+    const above = anchor.top - gap - margin;
+    const right = viewport.width - anchor.right - gap - margin;
+    const left = anchor.left - gap - margin;
+    let x = clampX(anchor.left),
+        y: number;
+    if (content.height <= below) y = anchor.bottom + gap;
+    else if (content.height <= above) y = anchor.top - height - gap;
+    else if (right >= width || left >= width) {
+        x = right >= left ? anchor.right + gap : anchor.left - gap - width;
+        y = anchor.top;
+    } else {
+        // On narrower screens the card may overlap the trigger rather than unnecessarily crop its content.
+        y = below >= above ? anchor.bottom + gap : anchor.top - height - gap;
+    }
+    return { left: clampX(x), top: clampY(y), maxHeight };
+}
+
 export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru", localCatalog?: PremiumCatalog) {
     let card: HTMLElement | undefined;
     let anchor: HTMLElement | undefined;
@@ -99,16 +130,25 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
     const position = () => {
         if (!anchor || !card || card.hidden) return;
         if (!anchor.isConnected) return hide();
-        const rect = anchor.getBoundingClientRect();
-        const width = card.offsetWidth;
-        const gap = 10;
-        const below = window.innerHeight - rect.bottom - gap - 12;
-        const above = rect.top - gap - 12;
-        const placeBelow = below >= Math.min(480, card.scrollHeight) || below >= above;
-        card.style.maxHeight = `${Math.max(80, Math.min(480, placeBelow ? below : above))}px`;
-        const height = card.offsetHeight;
-        card.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
-        card.style.top = `${Math.max(12, placeBelow ? rect.bottom + gap : rect.top - height - gap)}px`;
+        const viewport = {
+            width: document.documentElement.clientWidth || window.innerWidth,
+            height: window.innerHeight,
+        };
+        const width = Math.min(440, Math.max(0, viewport.width - 24));
+        const maxHeight = Math.max(0, viewport.height - 24);
+        card.style.width = `${width}px`;
+        card.style.maxHeight = `${maxHeight}px`;
+        const naturalHeight = () => card!.scrollHeight + card!.offsetHeight - card!.clientHeight;
+        if (naturalHeight() > maxHeight && viewport.width - 24 > width) {
+            // More line length can eliminate a scrollbar on shorter desktop windows without shrinking type.
+            card.style.width = `${Math.min(640, viewport.width - 24)}px`;
+        }
+        const placement = premiumPreviewPlacement(anchor.getBoundingClientRect(), viewport, {
+            width: card.offsetWidth,
+            height: naturalHeight(),
+        });
+        card.style.left = `${placement.left}px`;
+        card.style.top = `${placement.top}px`;
     };
     const scheduleClose = () => {
         cancelClose();
@@ -149,11 +189,13 @@ export function initPremiumKnowledgePreview(root: HTMLElement, lang: "en" | "ru"
                     ? `<p class="premium-reference-applies"><strong>${lang === "ru" ? "В вашей армии" : "In your crew"}</strong><br>${e(appliesTo)}</p>`
                     : "");
             card.hidden = false;
+            card.scrollTop = 0;
             position();
             return;
         }
         card.textContent = lang === "ru" ? "Загружаем описание…" : "Loading entry…";
         card.hidden = false;
+        card.scrollTop = 0;
         position();
         try {
             const entry = findKnowledgePreview(await loadCatalog(), reference);

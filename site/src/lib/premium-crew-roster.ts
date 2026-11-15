@@ -14,6 +14,7 @@ export function renderPremiumCrewRoster(
     history?: PremiumCrewHistory,
 ): string {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
+    const activeLevel = CREW_LEVELS[slot];
     const slots = premiumCrewSlots(ids, catalog);
     const current = slots[slot] === undefined ? undefined : catalog.units[slots[slot]!];
     const picks = rankPremiumCrewRoster(ids, slot, catalog, library, lang, faction, history);
@@ -63,8 +64,8 @@ export function renderPremiumCrewRoster(
                 : pick.suggestion
                   ? `<span class="premium-crew-roster-rank" aria-hidden="true">${pick.suggestion === 1 ? t("#1", "#1") : `#${pick.suggestion}`}</span>`
                   : "";
-            const label = `${action} · ${row ? `${percent} ${t("recorded score", "в боях")} · n=${row.families}` : t("no recorded games", "нет записанных боёв")}${pick.suggestion ? ` · #${pick.suggestion} ${t("suggestion", "совет")}` : ""}`;
-            return `<button type="button" class="premium-crew-roster-unit${pick.suggestion ? ` premium-crew-suggestion-${pick.suggestion}` : ""}${pick.selected ? " premium-crew-roster-selected" : ""}" data-crew-roster-pick="${pick.id}" data-crew-target-slot="${pick.slot}" data-knowledge-reference="${e(item.anchor)}" data-premium-reference-note="${e(detail)}" aria-pressed="${pick.selected}" aria-label="${e(label)}"><span class="premium-crew-roster-portrait"><span class="premium-crew-icon-crop">${portraitMarkup(item.slug, item.name, { className: "premium-portrait", eager: true })}</span>${badge}<small class="premium-crew-roster-level" aria-hidden="true">${item.level}</small></span><strong>${e(item.name)}</strong><span class="premium-crew-roster-percent">${percent}</span><small class="premium-crew-roster-sample${row && row.families < CREW_HISTORY_MINIMUM ? " premium-crew-small-sample" : ""}">${row ? `n=${row.families}` : t("No games", "Нет боёв")}</small></button>`;
+            const label = `${action} · ${t("level", "уровень")} ${item.level} · ${row ? `${percent} ${t("recorded score", "в боях")} · n=${row.families}` : t("no recorded games", "нет записанных боёв")}${pick.suggestion ? ` · #${pick.suggestion} ${t("suggestion", "совет")}` : ""}`;
+            return `<button type="button" class="premium-crew-roster-unit premium-crew-roster-${item.level === activeLevel ? "level-match" : "other-level"}${pick.suggestion ? ` premium-crew-suggestion-${pick.suggestion}` : ""}${pick.selected ? " premium-crew-roster-selected" : ""}" data-crew-roster-pick="${pick.id}" data-crew-level="${item.level}" data-crew-target-slot="${pick.slot}" data-knowledge-reference="${e(item.anchor)}" data-premium-reference-note="${e(detail)}" aria-pressed="${pick.selected}" aria-label="${e(label)}"><span class="premium-crew-roster-portrait"><span class="premium-crew-icon-crop">${portraitMarkup(item.slug, item.name, { className: "premium-portrait", eager: true })}</span>${badge}<small class="premium-crew-roster-level" aria-hidden="true">${item.level}</small></span><strong>${e(item.name)}</strong><span class="premium-crew-roster-percent">${percent}</span><small class="premium-crew-roster-sample${row && row.families < CREW_HISTORY_MINIMUM ? " premium-crew-small-sample" : ""}">${row ? `n=${row.families}` : t("No games", "Нет боёв")}</small></button>`;
         })
         .join("")}</div>`;
 }

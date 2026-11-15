@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { artifacts } from "./artifacts-data";
 import { spells } from "./spells-data";
+import { synergyIcons } from "./synergy-icons";
 import { abilities, allUnits, factionUnits } from "./units-data";
 
 interface AssetReference {
@@ -33,10 +34,11 @@ const assetReferences = (): AssetReference[] => [
         owner: `${spell.book}:${spell.name} spell`,
         url: spell.icon,
     })),
+    ...Object.entries(synergyIcons).map(([key, url]) => ({ owner: `${key} synergy`, url })),
 ];
 
 describe("public codex assets", () => {
-    test("has a non-empty image for every game-derived faction, unit, ability, spell, and artifact", async () => {
+    test("has a non-empty image for every game-derived faction, unit, ability, spell, artifact, and synergy", async () => {
         const missing: string[] = [];
 
         for (const reference of assetReferences()) {

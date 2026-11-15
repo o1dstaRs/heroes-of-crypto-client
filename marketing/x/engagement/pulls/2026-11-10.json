@@ -1,0 +1,998 @@
+{
+    "pulled_at": "2026-11-10T17:45:00Z",
+    "test": false,
+    "user": {
+        "data": {
+            "created_at": "2024-03-14T20:15:16.000Z",
+            "id": "1768370292353884160",
+            "username": "Heroes0fcrypto",
+            "public_metrics": {
+                "followers_count": 90,
+                "following_count": 8,
+                "like_count": 16,
+                "listed_count": 1,
+                "media_count": 52,
+                "tweet_count": 268
+            }
+        }
+    },
+    "posts": {
+        "data": [
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-10T14:55:42.000Z",
+                "edit_history_tweet_ids": ["2120168526833209627"],
+                "id": "2120168526833209627",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 3,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2120168303570403376",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Losses lock it too: at 80% or less of the biggest stack's experience, it's below power 5. Life's Supply synergy at level 3 does it from the other side. When it fires, it hits every enemy in a 3x3 block anywhere.\n\nCast it on lap one, or hold it?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2120168526833209627"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-10T14:54:49.000Z",
+                "edit_history_tweet_ids": ["2120168303570403376"],
+                "id": "2120168303570403376",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 11,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Counter-intuitive rule: your opponent can lock your Meteor Shower without touching the caster.\n\nIt needs stack power 5, and stack power is measured against the biggest stack on the board. Grow one enemy stack big enough and your untouched Magic Dragons drop to 4.",
+                "url": "https://x.com/Heroes0fcrypto/status/2120168303570403376"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-10T00:56:00.000Z",
+                "edit_history_tweet_ids": ["2119957211573338251"],
+                "id": "2119957211573338251",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 4,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119957051132817622",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Magic resistance cuts the burn and 100% blocks it. Fire Elements are immune, Water Elements take 1.5x. It lasts until the third lap change after the cast.\n\nDo you use it to cut the enemy's path, or to fence in your own shooters?\n\nTry it: https://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119957211573338251"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-10T00:55:22.000Z",
+                "edit_history_tweet_ids": ["2119957051132817622"],
+                "id": "2119957051132817622",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 17,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Fire Wall doesn't burn a stack that stands in it. It burns whatever walks in, friend or foe: 25% of the stack's total max health, plus 1 extra step. Armor doesn't help. Flyers only pay where they land. And if the board narrows and shoves you into the flames, you burn.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119957051132817622"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-09T19:51:35.000Z",
+                "edit_history_tweet_ids": ["2119880600303833419"],
+                "id": "2119880600303833419",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 4,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119880387602313233",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "One catch on her answers: when she retaliates, she counts enemies from before the attacker moved, so the stack that walked in to hit her doesn't add to it. Split stacks get less (+2% per stack power), and it's off while she's Broken.\n\nTry it: https://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119880600303833419"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-09T19:50:44.000Z",
+                "edit_history_tweet_ids": ["2119880387602313233"],
+                "id": "2119880387602313233",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 11,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Most units want to avoid getting surrounded. The Valkyrie wants it.\n\nWar Anger: for each enemy stack within 2 cells of the cell she strikes from, she gets +10% of her base attack at full stack. Three enemy stacks nearby is +30%.\n\nDive her in, or hold her back?",
+                "url": "https://x.com/Heroes0fcrypto/status/2119880387602313233"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-09T14:59:51.000Z",
+                "edit_history_tweet_ids": ["2119807185127698922"],
+                "id": "2119807185127698922",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 11,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119807009285652819",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "It only helps once it adds a whole cell: a stack-power-1 Dryad goes 6.5 to 6.8 and gains nothing. Split stacks weaken it. With Farsight Quiver allied shots already stay full damage at any distance, so the winds stop mattering.\n\nTry it: https://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119807185127698922"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-09T14:59:09.000Z",
+                "edit_history_tweet_ids": ["2119807009285652819"],
+                "id": "2119807009285652819",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 19,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Dryad's Guiding Winds: ranged allies within 2 cells, the Dryad included, shoot 25% farther at full stack (luck shifts it, never past 35%).\n\nFalloff counts whole cells, so it pays in steps: the Dryad's full-damage band grows from 6 cells to 8.\n\nWhich shooter sits beside it?",
+                "url": "https://x.com/Heroes0fcrypto/status/2119807009285652819"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-09T01:00:15.000Z",
+                "edit_history_tweet_ids": ["2119595890604408984"],
+                "id": "2119595890604408984",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 7,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119595543714546150",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "A second poison doesn't reset the first: it adds half the new poison to the tick, or lifts the tick if the new one is bigger. Mechanism units are immune, and two poison auras don't stack.\n\nWhich stack would you seat next to your Wyvern first?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119595890604408984"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-09T00:58:52.000Z",
+                "edit_history_tweet_ids": ["2119595543714546150"],
+                "id": "2119595543714546150",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 16,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Wyvern's Venom Cloud turns its neighbours into poisoners.\n\nEvery ally within 2 cells, the Wyvern included, poisons whatever it damages: 20% of the hit comes back at the start of each of the victim's turns for the rest of the fight, ignoring armor and magic resistance.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119595543714546150"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-08T20:01:42.000Z",
+                "edit_history_tweet_ids": ["2119520760696033498"],
+                "id": "2119520760696033498",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 8,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119520002877649304",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Hidden isn't untouchable. Splash, area spells, chain arcs, bounces and shots passing through still hit it. Do you walk a cheap stack in to reveal it, or spend the turn on damage that never needs a target?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119520760696033498"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-08T19:58:42.000Z",
+                "edit_history_tweet_ids": ["2119520002877649304"],
+                "id": "2119520002877649304",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 33,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "While no enemy stack stands within 3 cells, the White Tiger is Hidden. It can't be chosen as the target of an attack, a shot or a single-target spell. The moment an enemy steps within 3 cells, it turns Visible again.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119520002877649304"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-08T14:57:31.000Z",
+                "edit_history_tweet_ids": ["2119444210051125541"],
+                "id": "2119444210051125541",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 5,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119443866403426313",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Spells and magic never move. Only weapon hits share. Petrifying Gaze still prices the full hit on the ally before the aura takes its cut. Do you seat the Abomination on your shooter, or on the melee you can't afford to lose?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119444210051125541"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-08T14:56:09.000Z",
+                "edit_history_tweet_ids": ["2119443866403426313"],
+                "id": "2119443866403426313",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 16,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "At full stack, an Abomination's Flesh Shield moves 90% of each physical hit on allies within 2 cells onto the Abomination, priced against its armor. It does not cover itself. Magic still hits the ally. The share can finish the tank off.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119443866403426313"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-08T00:52:50.000Z",
+                "edit_history_tweet_ids": ["2119231636940394677"],
+                "id": "2119231636940394677",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 13,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119231564127371601",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Might's Aura Range synergy widens every aura in your army by +1, +2 or +3 cells. Do you park the Pegasus in the middle of the knot, or leave a flyer a step outside so the bubble can walk with them?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119231636940394677"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-08T00:52:32.000Z",
+                "edit_history_tweet_ids": ["2119231564127371601"],
+                "id": "2119231564127371601",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 13,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Pegasus gives +2 base attack and +2 base armor to itself and every ally within 2 cells. That circle is the whole buff. Before you lock placement, look at who is actually standing inside it.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119231564127371601"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-07T19:51:46.000Z",
+                "edit_history_tweet_ids": ["2119155869699223764"],
+                "id": "2119155869699223764",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 6,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119155710517018637",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "No roll if the target is clean; mind resistance can shrug it off. Luck shifts the miss. Miss chances multiply with Small Specie (Fairy vs level-4 giants only). Peel the Fairy, or keep the Boar on the giant?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119155869699223764"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-07T19:51:08.000Z",
+                "edit_history_tweet_ids": ["2119155710517018637"],
+                "id": "2119155710517018637",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 14,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Frenzied Boar's landed melee hit puts Boar Saliva on for 3 laps: the target misses 30% of its attacks, shots and answers at full stack. Against a full Fairy stack a slobbered Behemoth misses 65% of the time. Madness and Mechanism shrug it off.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119155710517018637"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-07T14:57:41.000Z",
+                "edit_history_tweet_ids": ["2119081863780376635"],
+                "id": "2119081863780376635",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 6,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2119081706334589202",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Fire Elements and 100% magic-resistance units take nothing and block it. Passes a Water Shield without breaking it; still fires if the main blow is dodged. Attack bonuses raise it too. Pack the file and risk the splash, or leave a gap behind every stack?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2119081863780376635"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-07T14:57:04.000Z",
+                "edit_history_tweet_ids": ["2119081706334589202"],
+                "id": "2119081706334589202",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 16,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Black Dragon Fire Breath: each melee attack or answer also burns whoever stands directly behind the target on the strike line, friend or foe, for 100% of its melee damage against them at full stack. Armor applies; magic resistance cuts it. One cell behind a 1\u00d71, two behind a 2\u00d72.",
+                "url": "https://x.com/Heroes0fcrypto/status/2119081706334589202"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-06T19:58:27.000Z",
+                "edit_history_tweet_ids": ["2118795166832275847"],
+                "id": "2118795166832275847",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 7,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118794932194541935",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Stack power scales it: +5% per point, so that 25% is only at full stack. Diagonals count. Do you flank wide for the bonus, or pin the Scavenger so it never gets behind?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2118795166832275847"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-06T19:57:31.000Z",
+                "edit_history_tweet_ids": ["2118794932194541935"],
+                "id": "2118794932194541935",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 16,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Scavenger Backstab: when it stands beyond its target along the line of advance \u2014 nearer the target army's starting edge, diagonals count \u2014 melee attacks and answers deal +25% at full stack, plus 1% per luck. Second strikes don't get it.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118794932194541935"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-06T15:45:53.000Z",
+                "edit_history_tweet_ids": ["2118731606081061114"],
+                "id": "2118731606081061114",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 7,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118731408839782864",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "The target still answers the frightening blow itself. Spells aren't blocked. A frightened Hydra's Lightning Spin skips that Manticore too. Mind resistance cuts the roll. Peel the Manticore first, or eat the gaze and trade elsewhere?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2118731606081061114"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-06T15:45:06.000Z",
+                "edit_history_tweet_ids": ["2118731408839782864"],
+                "id": "2118731408839782864",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 16,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Manticore's Terrifying Gaze: each of its own landed melee attacks (not answers) has 60% at full stack, plus luck, to frighten the target for one lap. It can't attack, shoot at, or answer that Manticore, but may hit anyone else. Madness and Mechanism never take it.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118731408839782864"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-06T00:50:58.000Z",
+                "edit_history_tweet_ids": ["2118506393796042853"],
+                "id": "2118506393796042853",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 6,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118506217631019271",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Stacks with 100% magic resistance skip the roar, and a stack already roaring can't take another. Quagmire and Hamstrung still cut those extra steps. Do you roar before the charge, or hold it for the mid-fight push?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2118506393796042853"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-06T00:50:16.000Z",
+                "edit_history_tweet_ids": ["2118506217631019271"],
+                "id": "2118506217631019271",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 19,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Behemoth's Battle Roar is once per fight, and only from stack power 3 up. For two laps the whole army \u2014 the Behemoth too \u2014 gets +1 movement per living Behemoth in that stack and always rolls max damage, even under Curse.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118506217631019271"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-05T19:53:11.000Z",
+                "edit_history_tweet_ids": ["2118431454439092579"],
+                "id": "2118431454439092579",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 13,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118431311400718401",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Flesh Shield does not soften it: the gaze is priced from the full hit before the aura takes its share. Do you open Medusa on the swarm or the lone finisher?\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2118431454439092579"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-05T19:52:37.000Z",
+                "edit_history_tweet_ids": ["2118431311400718401"],
+                "id": "2118431311400718401",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 9,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Medusa hit does two things past the damage. Part of it becomes whole creatures killed. Then a petrify roll can take the front one: 15% on a level-1 target at full stack, 27% on a level-4. Madness and Mechanism shrug both.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118431311400718401"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-05T15:02:07.000Z",
+                "edit_history_tweet_ids": ["2118358205227323790"],
+                "id": "2118358205227323790",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 23,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118357932740153397",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Buffs and heals on its allies stay free. The lock ends early if that Pikeman dies, and it does not reapply while active. Mind resistance cuts the roll. Open on a shooter or a melee threat first?\n\nhttps://t.co/EENa0HvsTL",
+                "url": "https://x.com/Heroes0fcrypto/status/2118358205227323790"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-05T15:01:03.000Z",
+                "edit_history_tweet_ids": ["2118357932740153397"],
+                "id": "2118357932740153397",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 14,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Pikeman's Aggr: every landed melee hit or answer has 50% at full stack, plus luck, to lock the target for one lap. It may attack, shoot, or cast at enemies only at that Pikeman. Madness and Mechanism never take it.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118357932740153397"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-05T00:55:51.000Z",
+                "edit_history_tweet_ids": ["2118145232760086824"],
+                "id": "2118145232760086824",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 11,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118145056867791014",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "A Manticore's Terrifying Gaze can frighten it out of the spin. Pack around it or peel off?\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2118145232760086824"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-05T00:55:09.000Z",
+                "edit_history_tweet_ids": ["2118145056867791014"],
+                "id": "2118145056867791014",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 18,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Lightning Spin: every Hydra attack and retaliation hits every enemy touching it, each with its own dodge roll. While the Hydra isn't Broken, those hits can't be answered.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118145056867791014"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-04T19:53:35.000Z",
+                "edit_history_tweet_ids": ["2118069165437354141"],
+                "id": "2118069165437354141",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 5,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2118068964450529420",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "At full stack the cut is 40 percent, and it hits Mechanism harder. Might's Abilities power synergy can push the cut further. Do you open on the shooter that has to reposition, or the melee stack that still answers from that cell?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2118069165437354141"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-04T19:52:47.000Z",
+                "edit_history_tweet_ids": ["2118068964450529420"],
+                "id": "2118068964450529420",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 23,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Mantis that lands a melee hit can pin the target for one lap: it cannot move, and its weapon hits are cut. Spells and Fire Breath keep full damage. Pin the stack that needs a new cell, not the one that can still cast from here.",
+                "url": "https://x.com/Heroes0fcrypto/status/2118068964450529420"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-04T14:54:49.000Z",
+                "edit_history_tweet_ids": ["2117993977911877814"],
+                "id": "2117993977911877814",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 5,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117993713922412769",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Large units need a clear 2x2 before the board eats the edge. Seat them early, or the square you wanted is already gone.\n\nWhere do you put Black Dragon or Angel on lap one?\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117993977911877814"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-04T14:53:46.000Z",
+                "edit_history_tweet_ids": ["2117993713922412769"],
+                "id": "2117993713922412769",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 13,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Black Dragon and Angel are large flying finishers, but both need room for a 2x2 body. On a board that deletes outer cells, that open square is the plan.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117993713922412769"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-04T00:56:00.000Z",
+                "edit_history_tweet_ids": ["2117782882462916631"],
+                "id": "2117782882462916631",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 12,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117782728532017253",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "One in the Field is the exception to the once-per-lap rule. It still never answers a shot, and Stun, Blindness, Freeze, Shadow Touch or Terrifying Gaze can still stop an answer.\n\nWould you open into a Unicorn, or peel it first?\n\nPlay: https://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117782882462916631"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-04T00:55:23.000Z",
+                "edit_history_tweet_ids": ["2117782728532017253"],
+                "id": "2117782728532017253",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 16,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Most stacks answer once a lap. A Unicorn answers every melee hit.\n\nPile Double Punch into it and you take both answers \u2014 unless its first Blindness cancels your second strike.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117782728532017253"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-03T19:51:55.000Z",
+                "edit_history_tweet_ids": ["2117706356488851563"],
+                "id": "2117706356488851563",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 4,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117706237471309835",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Aura Range adds 1, 2 or 3 cells to every aura, this one included. Do you dive the Griffin or peel the shooters first?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117706356488851563"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-03T19:51:26.000Z",
+                "edit_history_tweet_ids": ["2117706237471309835"],
+                "id": "2117706237471309835",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 19,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Enemy shooters within 2 cells of a Griffin can neither shoot nor return fire. Range Null Field is why you put a flyer on their line on purpose, not as a flourish.\n\nMight's Aura Range synergy makes that bubble bigger.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117706237471309835"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-03T14:56:47.000Z",
+                "edit_history_tweet_ids": ["2117632083455815832"],
+                "id": "2117632083455815832",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 12,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117631878106886221",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2. Split an unsplit stack in half and both halves usually drop from stack power 5 to 3. Which stack do you open with?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117632083455815832"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-03T14:55:58.000Z",
+                "edit_history_tweet_ids": ["2117631878106886221"],
+                "id": "2117631878106886221",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 8,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "A Peasant stack arrives as 200 bodies. A Black Dragon arrives as one. Both are worth about 1,000 experience. Judge the whole stack and its job, not the one figure you can see.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117631878106886221"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-03T00:54:35.000Z",
+                "edit_history_tweet_ids": ["2117420139545292863"],
+                "id": "2117420139545292863",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 12,
+                    "like_count": 1,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117419969042694425",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Dryad experience is 11. Wandering Mage is 6.466 so 1,000 experience buys 155. Scavenger stays at 6.1. Which stack do you still draft first after the retune?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117420139545292863"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-03T00:53:55.000Z",
+                "edit_history_tweet_ids": ["2117419969042694425"],
+                "id": "2117419969042694425",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 37,
+                    "like_count": 1,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "We kept the same Arachna line and the same Cyclops, then moved the numbers. Spider is attack 31 for 55\u201370. The Queen keeps 32 / 54\u201378 with armor 40 and 200 health. Cyclops is 22 attack, 18\u201323, 72 health, armor 19. Same picks, different weights.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117419969042694425"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-02T19:56:22.000Z",
+                "edit_history_tweet_ids": ["2117345090763121135"],
+                "id": "2117345090763121135",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 3,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117344897862943083",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "One catch: you can't open it while either of you is in a live ranked or lobby game.\n\nWhat would you test first with a friend: a full shooter line or one huge melee stack?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117345090763121135"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-02T19:55:36.000Z",
+                "edit_history_tweet_ids": ["2117344897862943083"],
+                "id": "2117344897862943083",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 15,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Want to test a strange build against a friend without risking your rating? Open a co-op sandbox and invite one friend: you take green, they take red, same board. Sandbox fights never touch the ladder. Break the build there, then take it into ranked.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117344897862943083"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-02T14:57:58.000Z",
+                "edit_history_tweet_ids": ["2117269994061119513"],
+                "id": "2117269994061119513",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 10,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117269828595810800",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Hovering a unit shows its real chance: luck 7 reads 37%. The slow doesn't stack or refresh, and partial resistance won't lower the chance.\n\nWould you put it on shooters or on melee that trades hits?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117269994061119513"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-02T14:57:18.000Z",
+                "edit_history_tweet_ids": ["2117269828595810800"],
+                "id": "2117269828595810800",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 20,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Rime Charm, from v0.1.7: every hit your army lands, retaliations and splash included, has a 30% chance plus luck to put Quagmire on the target, -25% movement for 3 laps.\n\nAdd a Dryad's Hamstrung and a flyer keeps about half its movement. A Black Dragon is never slowed.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117269828595810800"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-02T00:52:35.000Z",
+                "edit_history_tweet_ids": ["2117057247843065963"],
+                "id": "2117057247843065963",
+                "in_reply_to_user_id": "1768370292353884160",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 4,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0
+                },
+                "referenced_tweets": [
+                    {
+                        "id": "2117056968313766009",
+                        "type": "replied_to"
+                    }
+                ],
+                "text": "Same math with a 50% Magic Shield on top: that 15% unit ends up near 65%. It cuts magic damage and the chance a debuff spell lands.\n\nWould you spend an artifact pick on it against a caster army?\n\nhttps://t.co/gdYw9HVfcS",
+                "url": "https://x.com/Heroes0fcrypto/status/2117057247843065963"
+            },
+            {
+                "author_id": "1768370292353884160",
+                "created_at": "2026-11-02T00:51:28.000Z",
+                "edit_history_tweet_ids": ["2117056968313766009"],
+                "id": "2117056968313766009",
+                "public_metrics": {
+                    "bookmark_count": 0,
+                    "impression_count": 12,
+                    "like_count": 0,
+                    "quote_count": 0,
+                    "reply_count": 1,
+                    "retweet_count": 0
+                },
+                "text": "Aegis of the Arcane gives every unit in your army its own 18% magic-defense roll.\n\nIt doesn't add, it stacks: a unit with 15% ends up near 30%, not 33%, because each roll only blocks what the last one let through.\n\nIt won't stop Stun, Freeze, Paralysis, Blindness or the gazes.",
+                "url": "https://x.com/Heroes0fcrypto/status/2117056968313766009"
+            }
+        ]
+    }
+}

@@ -6,7 +6,9 @@ import type { PremiumEvidenceSnapshot } from "@heroesofcrypto/common/src/simulat
 export function premiumCrewEvidenceResponse(
     request: Request,
     entitlement: { active: boolean },
-    snapshot: Pick<PremiumEvidenceSnapshot, "manifest" | "query"> | undefined,
+    snapshot:
+        | { manifest: Pick<PremiumEvidenceSnapshot["manifest"], "snapshotId">; query: PremiumEvidenceSnapshot["query"] }
+        | undefined,
 ): Response {
     const reply = (body: unknown, status = 200) =>
         Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
