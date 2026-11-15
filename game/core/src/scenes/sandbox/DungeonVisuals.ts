@@ -1035,6 +1035,9 @@ export class DungeonVisuals {
     public spawnHoleLayer(layerIndex: number): void {
         this.holeContainer.addChild(this.createHoleLayer(layerIndex));
     }
+    public hasActiveTerrainAnimations(): boolean {
+        return this.activeCollapses.length > 0;
+    }
     public isCenterDried(): boolean {
         return this.centerDried;
     }
