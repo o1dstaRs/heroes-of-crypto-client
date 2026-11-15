@@ -186,6 +186,29 @@ test("a breath hit presented at contact is not burned again by the post-exchange
     }
 });
 
+test("Fireforged Sword has a readable sweep and lingering flames that finish across turn cleanup", () => {
+    const f = fixture();
+    try {
+        f.visuals.spawnFireforgedSwordBurn({ x: 240, y: 160 }, 64, { x: 1, y: 0 });
+        const burn = f.internals.fireBurns[0].container;
+        const flames = (burn.children as Sprite[]).filter(
+            (sprite) => sprite.blendMode === "add" && sprite.tint !== 0xffe2a0,
+        );
+        f.step(0.2);
+        expect(flames.some((sprite) => sprite.visible && sprite.alpha > 0)).toBe(true);
+        expect(flames.some((sprite) => !sprite.visible)).toBe(true);
+        f.step(0.55);
+        expect(flames.some((sprite) => sprite.visible && sprite.alpha > 0)).toBe(true);
+        f.visuals.clear({ keepDetachedOverlays: true });
+        expect(burn.destroyed).toBe(false);
+        f.step(2);
+        expect(burn.destroyed).toBe(true);
+        expect(f.root.children).toHaveLength(0);
+    } finally {
+        f.dispose();
+    }
+});
+
 test("Fireforged Sword retains its dedicated burn instead of adding a generic target burst", () => {
     const f = fixture();
     const sword = spyOn(f.visuals, "spawnFireforgedSwordBurn").mockImplementation(() => {});

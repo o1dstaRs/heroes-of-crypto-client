@@ -1,5 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
-import { GridConstants, GridMath, GridSettings, type GameEvent, type HoCMath } from "@heroesofcrypto/common";
+import {
+    Grid,
+    GridConstants,
+    GridMath,
+    GridSettings,
+    GridVals,
+    type GameEvent,
+    type HoCMath,
+} from "@heroesofcrypto/common";
 import { Container } from "pixi.js";
 
 import { RenderableUnit } from "./RenderableUnit";
@@ -108,10 +116,28 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
     };
     const record = {
         action: { type: "area_throw_attack", attackerId: "giant", targetCell: areaEvent.targetCell },
-        events: [areaEvent, { type: "unit_destroyed", unitId: "far" }],
+        events: [areaEvent, { type: "unit_destroyed", unitId: "far", reason: "dead_cleanup" }] as GameEvent[],
+    };
+    const grid = new Grid(gs, GridVals.NORMAL);
+    const removedBarrels: HoCMath.XY[] = [];
+    const addBarrel = (legacy = false) => {
+        const cell = { x: 10, y: 8 };
+        grid.setScatteredMountains([cell]);
+        record.events.unshift({
+            type: "obstacle_attacked",
+            attackerId: "giant",
+            targetPosition: GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            hitsBefore: 0,
+            hitsAfter: 0,
+            animations: [],
+            ...(legacy ? {} : { source: "ranged_splash" as const }),
+        });
+        return cell;
     };
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         sc_sceneSettings: { getGridSettings: () => gs },
+        grid,
+        dungeonVisuals: { removeScatteredMountainAt: (x: number, y: number) => removedBarrels.push({ x, y }) },
         unitsHolder: { getAllUnits: () => units, refreshStackPowerForAllUnits: () => {} },
         dyingVisualUnits: new Set(),
         sceneDestroyed: false,
@@ -192,6 +218,9 @@ const fixture = (redirect = false, shooter = "Gargantuan") => {
     };
     return {
         scene,
+        grid,
+        addBarrel,
+        removedBarrels,
         giant,
         near,
         far,
@@ -456,7 +485,7 @@ test.each(["local", "replay"])("a %s free throw consumes death attribution once 
         f.scene.createActionEngine = () => ({
             apply: () => ({
                 ...apply(),
-                events: [localAreaEvent, { type: "unit_destroyed", unitId: "far" }],
+                events: [localAreaEvent, { type: "unit_destroyed", unitId: "far", reason: "dead_cleanup" }],
             }),
         });
     }
@@ -528,7 +557,7 @@ test.each(["targeted", "live free", "replay free"])(
         const f = fixture(false, "Cyclops");
         f.damage.splash[2].unitsDied = 2;
         f.areaEvent.unitIdsDied = ["near", "far"];
-        f.record.events.push({ type: "unit_destroyed", unitId: "near" });
+        f.record.events.push({ type: "unit_destroyed", unitId: "near", reason: "dead_cleanup" });
         if (mode !== "targeted") {
             f.scene.createActionEngine = () => ({
                 apply: () => {
@@ -575,6 +604,7 @@ test.each(["Cyclops", "Gargantuan"])(
 test("a Cyclops counter owns only its enemy splash deaths at its boulder's contact", async () => {
     const f = fixture(false, "Cyclops");
     f.near.getName = () => "Elf";
+    const barrel = f.addBarrel();
     const splash = [
         { unitId: "giant", position: f.giant.getPosition(), amount: 1, unitsDied: 0 },
         { unitId: "near", position: f.near.getPosition(), amount: 30, unitsDied: 3 },
@@ -598,17 +628,21 @@ test("a Cyclops counter owns only its enemy splash deaths at its boulder's conta
         ],
         (unit: RenderableUnit) => f.events.push(`${unit.getId()}:death`),
         new Map(f.units),
-        [],
+        f.record.events,
         false,
         { amountsBefore: new Map([...f.units.keys()].map((id) => [id, 3])), deadIds: new Set(["near", "far"]) },
     );
     await flush();
     // Both opening boulders launch together; each contact still owns its own deaths.
     expect(f.shots).toHaveLength(2);
+    f.shots[0].onImpact?.();
+    expect(f.grid.getOccupantUnitId(barrel)).toBe("B");
     f.advance(0.99);
     expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual([]);
     f.advance(0.02);
     await pending;
+    expect(f.grid.getOccupantUnitId(barrel)).not.toBe("B");
+    expect(f.removedBarrels).toEqual([barrel]);
     expect(f.events.filter((entry) => entry.endsWith(":gore"))).toEqual(["near:gore", "far:gore"]);
     expect(f.events.filter((entry) => entry.endsWith(":death")).sort()).toEqual(["far:death", "near:death"]);
     expect(f.events.filter((entry) => entry.startsWith("damage:")).sort()).toEqual([
@@ -617,3 +651,28 @@ test("a Cyclops counter owns only its enemy splash deaths at its boulder's conta
         "damage:30",
     ]);
 });
+
+for (const name of ["Cyclops", "Gargantuan"]) {
+    test.each(["targeted", "free", "replay", "legacy"])(
+        `${name} %s splash removes barrels at contact, once`,
+        async (mode) => {
+            const f = fixture(false, name);
+            const barrel = f.addBarrel(mode === "legacy");
+            if (mode === "replay")
+                f.scene.createActionEngine = () => ({ apply: () => ({ completed: false, events: [] }) });
+            const pending = mode === "targeted" ? f.playTargeted() : f.playFree(mode === "replay");
+            await flush();
+            f.advance(0.99);
+            expect(f.grid.getOccupantUnitId(barrel)).toBe("B");
+            expect(f.removedBarrels).toEqual([]);
+            f.advance(0.02);
+            expect(f.grid.getOccupantUnitId(barrel)).not.toBe("B");
+            expect(f.removedBarrels).toEqual([barrel]);
+            await flush();
+            f.advance(1.01);
+            await pending;
+            f.scene.presentRangedSplashObstacles(f.giant, f.record.events);
+            expect(f.removedBarrels).toEqual([barrel]);
+        },
+    );
+}

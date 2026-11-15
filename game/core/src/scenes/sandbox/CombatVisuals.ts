@@ -5240,11 +5240,12 @@ export class CombatVisuals {
 
 const FF_SWORD_FLAME_COUNT = 16;
 
-const FF_SWORD_SWEEP_S = 0.13;
+// The burn still starts on contact; its blade sweep and embers need time to read as a separate fire hit.
+const FF_SWORD_SWEEP_S = 0.3;
 
-const FF_SWORD_FLAME_LIFE = 0.42;
+const FF_SWORD_FLAME_LIFE = 0.7;
 
-const FF_SWORD_FLASH_LIFE = 0.22;
+const FF_SWORD_FLASH_LIFE = 0.35;
 
 const FF_SWORD_SMOKE_COUNT = 5;
 

@@ -53,7 +53,8 @@ test("all creature recommendations retain thumbs in AI order within their own ki
     expect(html).toContain("Premium: silver, #3 Creature 4. Why?");
     expect(html.match(/data-thumb-direction="mirrored"/g)).toHaveLength(4);
     expect(html).toContain("Premium: silver, #4 Creature 2. Why?");
-    expect(html).toContain("Explain Creature 5 with Premium");
+    expect(html).not.toContain("Explain Creature 5 with Premium");
+    expect(html).not.toContain("Explain choice");
     expect(html).not.toContain("Ask Premium");
 });
 
@@ -105,9 +106,10 @@ test("every advised artifact gets the same thumb styling and per-kind order", ()
     expect(html).not.toContain(">Preferred<");
 });
 
-test("an unadvised offer keeps its explanation entry without inventing a thumb", () => {
+test("an unadvised offer has no explanation button or invented recommendation", () => {
     const html = render([creature(3)], [creature(3), creature(5)]);
     expect(html.match(/data-recommendation-medal=/g)).toHaveLength(1);
-    expect(html).toContain('aria-label="Explain Creature 5 with Premium"');
+    expect(html).not.toContain('aria-label="Explain Creature 5 with Premium"');
+    expect(html).not.toContain("Explain choice");
     expect(html).not.toContain('data-testid="premium-creature-5"');
 });

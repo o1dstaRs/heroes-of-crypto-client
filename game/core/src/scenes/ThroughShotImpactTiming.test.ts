@@ -149,7 +149,7 @@ const fixture = (double = false) => {
     const advance = (fraction: number) => {
         const shot = shots.at(-1)!;
         const distance = Math.hypot(shot.to.x - shot.from.x, shot.to.y - shot.from.y);
-        projectiles.update((distance * fraction) / (gs.getCellSize() * 64));
+        projectiles.update((distance * fraction) / (gs.getCellSize() * 64 * 1.2));
     };
     return { scene, cannon, near, far, event, events, shots, projectiles, play, advance, logical };
 };

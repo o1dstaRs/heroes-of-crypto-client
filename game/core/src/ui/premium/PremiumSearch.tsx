@@ -3,6 +3,7 @@ import { PremiumSearchPromptContext, type PremiumInspectionFocus } from "./Premi
 import { PremiumTurnPreviewProvider } from "./PremiumTurnPreviewContext";
 import { PremiumGuide } from "./PremiumGuide";
 import { PremiumAccessProvider } from "./PremiumAccess";
+import { PremiumSearchAnchorContext } from "./PremiumSearchAnchorContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { premiumSearchGameId } from "../../api/premium_search";
 import { Box } from "@mui/joy";
@@ -55,13 +56,17 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
                                         <PremiumSearchPromptContext.Provider
                                             value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
                                         >
-                                            <PremiumGuide
-                                                onAvailabilityChange={setVisible}
-                                                anchor={anchor ?? dockAnchor}
-                                                compact={Boolean(anchor) || pathname.startsWith("/game/")}
-                                                prompt={prompt}
-                                            />
-                                            {children}
+                                            <PremiumSearchAnchorContext.Provider
+                                                value={visible ? (anchor ?? dockAnchor) : null}
+                                            >
+                                                <PremiumGuide
+                                                    onAvailabilityChange={setVisible}
+                                                    anchor={anchor ?? dockAnchor}
+                                                    compact={Boolean(anchor) || pathname.startsWith("/game/")}
+                                                    prompt={prompt}
+                                                />
+                                                {children}
+                                            </PremiumSearchAnchorContext.Provider>
                                         </PremiumSearchPromptContext.Provider>
                                     </DockVisibleContext.Provider>
                                 </SetDockAnchorContext.Provider>

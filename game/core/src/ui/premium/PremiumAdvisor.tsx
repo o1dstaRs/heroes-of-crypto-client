@@ -1,4 +1,5 @@
 import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
+import Popper from "@mui/material/Popper";
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
@@ -19,7 +20,7 @@ import { usePremiumCapability } from "./usePremiumPreference";
 import { PremiumIcon } from "../PremiumIcon";
 import { PremiumButton } from "./PremiumButton";
 import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
-import { premiumChoiceQuestion } from "./premiumQuestions";
+import { PremiumSearchAnchorContext } from "./PremiumSearchAnchorContext";
 import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
 import { PremiumPreviewContext } from "./PremiumPreviewContext";
@@ -125,11 +126,11 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     return { advice: enabled ? (preview ?? advice) : undefined, apply, busy, error };
 };
 
-const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
-    const askQuestion = useAskPremiumQuestion();
+const ChoiceExplanation: React.FC<{ choice: PremiumChoice; rank?: number }> = ({ choice, rank }) => {
     return (
         <Box sx={{ maxWidth: 350, p: 0.5 }}>
             <Typography level="title-sm" sx={{ color: orange }}>
+                {rank && `${rank}. `}
                 {choice.label}
             </Typography>
             {choice.reasons.map((reason) => (
@@ -140,50 +141,19 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
             <Box sx={{ mt: 1 }}>
                 <EvidenceText evidence={choice.evidence} />
             </Box>
-            {askQuestion && (
-                <PremiumButton
-                    size="sm"
-                    variant="plain"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        askQuestion(premiumChoiceQuestion(choice));
-                    }}
-                    sx={{ mt: 0.75, px: 0.5 }}
-                >
-                    Explain this choice
-                </PremiumButton>
-            )}
         </Box>
     );
 };
 
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
-    const askQuestion = useAskPremiumQuestion();
     const thumbStyle = useContext(PremiumThumbStyleContext);
     const ranked = advice?.choices?.filter((item) => item.kind === kind) ?? [];
     const thumb = kind === "creature" || kind === "bundle" || kind === "artifact";
     const index = ranked.findIndex((choice) => choice.value === value);
     const choice = index >= 0 ? ranked[index] : undefined;
     const medal: PremiumThumbMedal = index === 0 ? "gold" : "silver";
-    if (!choice) {
-        const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
-        if (!offer || !askQuestion) return null;
-        return (
-            <PremiumButton
-                size="sm"
-                variant="outlined"
-                aria-label={`Explain ${offer.label} with Premium`}
-                onClick={(event) => {
-                    event.stopPropagation();
-                    askQuestion(premiumChoiceQuestion(offer));
-                }}
-                sx={{ position: "absolute", zIndex: 9, top: 5, left: 5, minHeight: 24, px: 0.7, fontSize: 11 }}
-            >
-                Explain choice
-            </PremiumButton>
-        );
-    }
+    if (!choice) return null;
     return (
         <Box
             data-testid={`premium-${kind}-${value}`}
@@ -199,13 +169,7 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
             }}
         >
             <Tooltip
-                title={
-                    askQuestion ? (
-                        `${index === 0 ? "Top recommendation" : `Recommendation #${index + 1}`} · Explain ${choice.label}`
-                    ) : (
-                        <ChoiceExplanation choice={choice} />
-                    )
-                }
+                title={<ChoiceExplanation choice={choice} />}
                 describeChild
                 placement="top"
                 arrow
@@ -224,7 +188,6 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                     aria-label={`Premium: ${thumb ? `${medal}, #${index + 1}` : index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
                     onClick={(event) => {
                         event.stopPropagation();
-                        askQuestion?.(premiumChoiceQuestion(choice));
                     }}
                     sx={{
                         pointerEvents: "auto",
@@ -312,88 +275,117 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
     draft,
 }) => {
     const impression = usePremiumAdviceView(advice?.gameId, advice?.adviceId);
+    const anchor = useContext(PremiumSearchAnchorContext);
     if (!advice?.entitlement.active) return null;
     const assessment = premiumDraftAssessment({ ...draft, scouting: advice.scouting });
-    const preferred = draft.isYourTurn ? advice.choices?.[0] : undefined;
-    return (
-        <Tooltip
-            placement="top-start"
-            describeChild
-            arrow
-            title={
-                <Box sx={{ maxHeight: "min(560px, 65vh)", overflowY: "auto", p: 0.5 }}>
-                    <Typography level="title-sm" sx={{ color: "var(--hoc-premium-accent)" }}>
-                        Draft so far · {assessment.roster}
-                    </Typography>
-                    <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
-                        {assessment.headline}.
-                        {assessment.focus !== assessment.routeWarning ? ` ${assessment.focus}` : ""}
-                    </Typography>
-                    <PremiumDraftRoutes
-                        routes={assessment.routes}
-                        remaining={assessment.remaining}
-                        routeWarning={assessment.routeWarning}
-                    />
-                    {assessment.notes.map((note) => (
-                        <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
-                            <strong>{note.label}:</strong> {note.text}
-                        </Typography>
-                    ))}
-                    {preferred && (
-                        <Box sx={{ mt: 1, pt: 0.75, borderTop: "1px solid #a9582555" }}>
-                            <Typography level="body-xs" sx={{ color: "var(--hoc-premium-accent)" }}>
-                                Next recommendation
-                            </Typography>
-                            <ChoiceExplanation choice={preferred} />
-                        </Box>
-                    )}
-                </Box>
-            }
+    const recommendations = draft.isYourTurn ? (advice.choices ?? []).slice(0, 3) : [];
+    const panel = (
+        <Box
+            role="region"
+            ref={impression}
+            aria-label="Premium draft assessment"
             sx={{
-                maxWidth: "min(400px, calc(100vw - 32px))",
-                bgcolor: "#21150f",
-                color: "#f3dfcb",
-                border: "1px solid #a95825",
-                boxShadow: "0 8px 24px #0009",
-                "--Tooltip-arrowBackground": "#21150f",
+                position: anchor ? "relative" : "fixed",
+                right: anchor ? undefined : 18,
+                bottom: anchor ? undefined : 72,
+                zIndex: 1390,
+                width: "min(360px, calc(100vw - 24px))",
+                maxHeight: "min(520px, calc(100dvh - 100px))",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#845c37 transparent",
+                boxSizing: "border-box",
+                px: 1.2,
+                py: 0.8,
+                border: "1px solid #aa5424",
+                borderRadius: 8,
+                bgcolor: "#26160fed",
+                color: "#ffd5ad",
+                boxShadow: "0 3px 16px #0008",
+                fontSize: 12,
+                lineHeight: 1.4,
+                pointerEvents: "auto",
             }}
         >
-            <Box
-                tabIndex={0}
-                role="region"
-                ref={impression}
-                aria-label="Premium draft assessment"
+            <Tooltip
+                placement="top-start"
+                describeChild
+                arrow
+                title={
+                    <Box sx={{ maxHeight: "min(560px, 65vh)", overflowY: "auto", p: 0.5 }}>
+                        <Typography level="title-sm" sx={{ color: orange }}>
+                            Draft so far · {assessment.roster}
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
+                            {assessment.headline}.
+                            {assessment.focus !== assessment.routeWarning ? ` ${assessment.focus}` : ""}
+                        </Typography>
+                        <PremiumDraftRoutes
+                            routes={assessment.routes}
+                            remaining={assessment.remaining}
+                            routeWarning={assessment.routeWarning}
+                        />
+                        {assessment.notes.map((note) => (
+                            <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
+                                <strong>{note.label}:</strong> {note.text}
+                            </Typography>
+                        ))}
+                    </Box>
+                }
                 sx={{
-                    position: "fixed",
-                    left: 18,
-                    bottom: 16,
-                    zIndex: 35,
-                    maxWidth: "min(340px, 42vw)",
-                    boxSizing: "border-box",
-                    px: 1.2,
-                    py: 0.8,
-                    border: "1px solid #aa5424",
-                    borderRadius: 8,
-                    bgcolor: "#26160fed",
-                    color: "#ffd5ad",
-                    boxShadow: "0 3px 16px #0008",
-                    fontSize: 12,
-                    lineHeight: 1.4,
-                    cursor: "help",
-                    "&:focus-visible": { outline: "2px solid var(--hoc-premium-accent)", outlineOffset: 3 },
+                    maxWidth: "min(400px, calc(100vw - 32px))",
+                    bgcolor: "#21150f",
+                    color: "#f3dfcb",
+                    border: "1px solid #a95825",
+                    boxShadow: "0 8px 24px #0009",
+                    "--Tooltip-arrowBackground": "#21150f",
                 }}
             >
-                <strong>
-                    <PremiumIcon size={16} style={{ marginRight: 5 }} />
-                    Premium · Draft so far
-                </strong>
-                <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
-                <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
-                {assessment.scouting && (
-                    <Box sx={{ mt: 0.5, color: "#e7bc83", fontSize: 11 }}>{assessment.scouting}</Box>
-                )}
-            </Box>
-        </Tooltip>
+                <Box tabIndex={0} sx={{ cursor: "help", "&:focus-visible": { outline: "1px solid #ffd5ad" } }}>
+                    <strong>
+                        <PremiumIcon size={16} style={{ marginRight: 5 }} />
+                        Premium · Draft so far
+                    </strong>
+                    <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
+                    <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
+                    {assessment.scouting && (
+                        <Box sx={{ mt: 0.5, color: "#e7bc83", fontSize: 11 }}>{assessment.scouting}</Box>
+                    )}
+                </Box>
+            </Tooltip>
+            {recommendations.length > 0 && (
+                <Box component="ol" aria-label="Recommended draft choices" sx={{ m: 0, p: 0, listStyle: "none" }}>
+                    {recommendations.map((choice, index) => (
+                        <Box
+                            component="li"
+                            key={`${choice.kind}:${choice.value}`}
+                            sx={{ mt: 1, pt: 0.75, borderTop: "1px solid #a9582555" }}
+                        >
+                            <ChoiceExplanation choice={choice} rank={index + 1} />
+                        </Box>
+                    ))}
+                </Box>
+            )}
+        </Box>
+    );
+    return anchor ? (
+        <Popper
+            open
+            role="presentation"
+            anchorEl={anchor}
+            placement="top-end"
+            popperOptions={{ strategy: "fixed" }}
+            modifiers={[
+                { name: "offset", options: { offset: [0, 12] } },
+                { name: "preventOverflow", options: { padding: 12 } },
+            ]}
+            sx={{ zIndex: 1390 }}
+        >
+            {panel}
+        </Popper>
+    ) : (
+        panel
     );
 };
 
