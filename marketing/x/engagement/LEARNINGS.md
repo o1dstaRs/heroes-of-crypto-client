@@ -367,3 +367,5 @@ Weekly X research refresh (2–8 Nov 2026 PT). Read-only. About 55 public X API 
 - 2026-11-13 (daily): New 24h snapshots: Wed 11 evening luck question 9 views (~41h), Thu 12 morning one-diagonal-step question 18 (best), Thu 12 midday map-reveal statement 16. 7d tails: Fri 6 midday 18, Sat 7 morning 18. All 0 likes, 0 outside replies, ER 0. Question-framed posts (9 and 18 views) reach no differently from statements (16). Followers flat at 90 for 9 days (tweet count 286). Tactics replies 0, token replies 0. Reach, not format, remains the constraint.
 
 - 2026-11-14: Reach is ~8-19 views per post regardless of slot or format (rule explainer, question, dev diary); 0 likes and 0 outside replies for 5+ days at 90 followers. Distribution, not wording, is the bottleneck; post-side tweaks cannot be judged until reach moves. Posting is also blocked by the X account check since Fri 4:48 PM.
+
+- 2026-11-15 (daily): No new snapshots due; no posts since Fri 13 midday because of the X email check (about 2 days, 7 slots missed). Followers flat at 90, tactics replies 0, token replies 0. Best recent 24h: Wed 11 morning 24 views, 0 ER. Nothing to learn until posting resumes.
