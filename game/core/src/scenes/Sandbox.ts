@@ -5385,6 +5385,7 @@ export class Sandbox extends PixiScene {
                     const impact = (): void => {
                         if (impacted || this.isSceneDestroyed()) return;
                         impacted = true;
+                        if (!melee) this.presentRangedSplashObstacles(source, dullingEvents);
                         if (!strike.missed) {
                             renderedVictim?.presentCombatBuffsAtImpact?.();
                             const absorbed = event.damage?.secondary?.some(
@@ -5836,6 +5837,27 @@ export class Sandbox extends PixiScene {
             nextWaveByUnit.set(hit.unitId, waveIndex + 1);
         }
         return waves;
+    }
+    private presentedRangedSplashObstacles?: WeakSet<object>;
+    /** Barrels belong to their blast's contact, including counter-shots and journals without source metadata. */
+    private presentRangedSplashObstacles(attacker: RenderableUnit, events: readonly GameEvent[] = []): void {
+        const hasSplash = attacker.hasAbilityActive?.("Large Caliber") || attacker.hasAbilityActive?.("Area Throw");
+        for (const event of events) {
+            if (
+                event.type !== "obstacle_attacked" ||
+                event.attackerId !== attacker.getId() ||
+                !(event.source === "ranged_splash" || (!event.source && hasSplash)) ||
+                this.presentedRangedSplashObstacles?.has(event)
+            )
+                continue;
+            const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), event.targetPosition);
+            if (!cell || !this.grid.hasScatteredMountains()) continue;
+            this.grid.clearScatteredMountainAt(cell.x, cell.y);
+            this.dungeonVisuals?.removeScatteredMountainAt(cell.x, cell.y);
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+            (this.presentedRangedSplashObstacles ??= new WeakSet()).add(event);
+        }
     }
     private playAreaThrowImpact(
         attacker: RenderableUnit,
@@ -12466,6 +12488,7 @@ export class Sandbox extends PixiScene {
                     onImpact: () => {
                         if (impacted || this.isSceneDestroyed()) return;
                         impacted = true;
+                        this.presentRangedSplashObstacles(unit, events);
                         if (throwIndex === 0) {
                             fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(
                                 areaEvent?.damage.secondary,
@@ -19224,6 +19247,8 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "obstacle_attacked": {
+                    // Its projectile already removed this barrel. Do not replay the visual at turn cleanup.
+                    if (this.presentedRangedSplashObstacles?.has(event)) break;
                     if (event.damage?.gravechains?.length)
                         this.showGravechainVfx(event.damage, undefined, unitSnapshot);
                     // A Lightning Spin off the strike may have killed: attribute those blows before this batch's
