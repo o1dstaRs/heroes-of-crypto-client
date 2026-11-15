@@ -7954,7 +7954,7 @@ describe("RenderableUnit runtime spell synchronization", () => {
 
 describe("RenderableUnit runtime aura and reflection descriptions", () => {
     const descriptionFor = (
-        creatureName: "Dryad" | "Satyr" | "Magic Dragon" | "Wolf Rider",
+        creatureName: "Dryad" | "Satyr" | "Magic Dragon" | "Wolf Rider" | "Champion",
         textureName: string,
         abilityName: string,
         stackPower: number,
@@ -7963,7 +7963,7 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         const effectFactory = new EffectFactory();
         const properties = HoCConfig.getCreatureConfig(
             TeamVals.LEFT,
-            creatureName === "Wolf Rider" ? "Might" : "Nature",
+            creatureName === "Champion" ? "Life" : creatureName === "Wolf Rider" ? "Might" : "Nature",
             creatureName,
             textureName,
             1,
@@ -8010,6 +8010,24 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
                 expect(descriptionFor("Wolf Rider", "wolf_rider_512", "Wolf Trail Blessing", tier, luck)).toContain(
                     `gain +${tier / 5} movement distance`,
                 );
+            }
+        }
+    });
+
+    test("prints Champion's walking-only army blessing with its stack and source-luck multiplier", () => {
+        const bonuses = [0.42, 0.84, 1.26, 1.68, 2.1];
+        for (let tier = 1; tier <= 5; tier++) {
+            for (const luck of [-10, 0, 10]) {
+                const value = Number((bonuses[tier - 1] * (1 + luck / 100)).toFixed(4));
+                const description = descriptionFor(
+                    "Champion",
+                    "champion_512",
+                    "Tie up the Horses Blessing",
+                    tier,
+                    luck,
+                );
+                expect(description).toContain(`all allied non-flying units gain +${value} movement distance anywhere`);
+                expect(description).not.toContain("within the aura");
             }
         }
     });
