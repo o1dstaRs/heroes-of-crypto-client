@@ -39,15 +39,22 @@ const flush = async () => {
     for (let index = 0; index < 40; index++) await Promise.resolve();
 };
 
-test.each([
-    { names: ["Wolf", "Orc"], factions: ["Nature", "Chaos"], attackType: "melee", blows: 1 },
-    { names: ["Wolf", "Wolf"], factions: ["Nature", "Nature"], attackType: "melee", blows: 2 },
-    { names: ["Orc", "Dryad"], factions: ["Chaos", "Nature"], attackType: "range", blows: 1 },
-    { names: ["Elf", "Zena"], factions: ["Nature", "Might"], attackType: "range", blows: 2 },
-    { names: ["Arbalester", "Medusa"], factions: ["Life", "Chaos"], attackType: "range", blows: 1 },
-] as const)(
-    "ranked $names $attackType starts the response in the same frame, including $blows blows",
-    async ({ names, factions, attackType, blows }) => {
+test.each(
+    (
+        [
+            { names: ["Wolf", "Orc"], factions: ["Nature", "Chaos"], attackType: "melee", blows: 1 },
+            { names: ["Wolf", "Wolf"], factions: ["Nature", "Nature"], attackType: "melee", blows: 2 },
+            { names: ["Orc", "Dryad"], factions: ["Chaos", "Nature"], attackType: "range", blows: 1 },
+            { names: ["Elf", "Zena"], factions: ["Nature", "Might"], attackType: "range", blows: 2 },
+            { names: ["Arbalester", "Medusa"], factions: ["Life", "Chaos"], attackType: "range", blows: 1 },
+        ] as const
+    ).flatMap((scenario) => [
+        { ...scenario, narrowing: false },
+        { ...scenario, narrowing: true },
+    ]),
+)(
+    "ranked $names $attackType starts the response in the same frame, including $blows blows; narrowing=$narrowing",
+    async ({ names, factions, attackType, blows, narrowing }) => {
         const texture = new Texture({
             source: new BufferImageSource({ resource: new Uint8Array(4), width: 16384, height: 16384 }),
         });
@@ -107,7 +114,7 @@ test.each([
             currentUnitId: attacker.getId(),
             currentTurnTeam: attacker.getTeam(),
             latestSequence: 1,
-            narrowingLayers: 0,
+            narrowingLayers: narrowing ? 1 : 0,
             centerDried: false,
             units: actors.map((unit, index): AuthoritativeUnitState => ({
                 id: unit.getId(),
@@ -162,6 +169,7 @@ test.each([
         const projectiles: IFireProjectileOptions[] = [];
         const damage: number[] = [];
         let settled = false;
+        let narrowingStartedAt: number | undefined;
         const noop = () => {};
         const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
             lastAuthoritativeSequence: 0,
@@ -172,6 +180,16 @@ test.each([
             sc_sceneSettings: { getGridSettings: () => gs },
             sc_sceneLog: { updateLog: noop },
             dyingVisualUnits: new Set(),
+            drawnNarrowingLaps: new Set(),
+            attachToWorldRoot: noop,
+            occupyNarrowingLayer: noop,
+            moveFiresInward: noop,
+            dungeonVisuals: {
+                getHoleContainer: () => world,
+                spawnHoleLayer: noop,
+                setNarrowingLayers: noop,
+                hasActiveTerrainAnimations: () => false,
+            },
             isSceneDestroyed: () => false,
             preparePyreDeaths: noop,
             waitForTexture: async () => texture,
@@ -203,7 +221,12 @@ test.each([
             spawnShatterArmorSlashVfx: noop,
             spawnSkewerWindSpearVfx: noop,
             destroyReplayAttackUnitsAtImpact: noop,
-            applyReplayEvents: noop,
+            applyReplayEvents: (events: GameEvent[]) => {
+                if (!events.some((entry) => entry.type === "narrowing_applied")) return;
+                expect(actors.every((unit) => !unit.isPlayingOneShotAnimation())).toBe(true);
+                narrowingStartedAt = frame;
+                scene.renderNarrowingLayers(1, { animate: true });
+            },
             applyRankedUnitStats: () => {
                 settled = true;
             },
@@ -216,7 +239,12 @@ test.each([
                     attackerId: attacker.getId(),
                     targetId: defender.getId(),
                 },
-                [event],
+                [
+                    event,
+                    ...(narrowing
+                        ? [{ type: "narrowing_applied", lap: 1, layers: 1, encounterCurrent: false } as GameEvent]
+                        : []),
+                ],
                 snapshot,
             )
             .then((played: boolean) => {
@@ -243,6 +271,10 @@ test.each([
             expect(await playback).toBe(true);
             expect(settled).toBe(true);
             expect(scene.lastAuthoritativeSequence).toBe(1);
+            if (narrowing) {
+                expect(narrowingStartedAt).toBeDefined();
+                expect(frame - narrowingStartedAt!).toBeGreaterThanOrEqual(Math.ceil(650 / (1000 / 60)));
+            }
             expect(starts.filter((entry) => entry.state.includes("attack"))).toHaveLength(blows + 1);
             expect(new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.unit.getId()))).toEqual(
                 new Set(actors.map((unit) => unit.getId())),
