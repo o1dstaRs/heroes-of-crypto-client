@@ -14125,8 +14125,9 @@ export class Sandbox extends PixiScene {
 
         if (result.nextUnit) {
             const nextUnit = result.nextUnit as RenderableUnit;
-            if (this.narrowingPresentation) {
-                void this.narrowingPresentation.then(() => {
+            const narrowingPresentation = this.narrowingPresentation as Promise<void> | undefined;
+            if (narrowingPresentation) {
+                void narrowingPresentation.then(() => {
                     if (
                         !this.isSceneDestroyed() &&
                         !this.currentActiveUnit &&
