@@ -969,6 +969,8 @@ export class Sandbox extends PixiScene {
     private static readonly REPLAY_ATTACK_AFTER_APPLY_HOLD_MS = 160;
     private static readonly REPLAY_SPELL_HOLD_MS = 150;
     private static readonly REPLAY_HANG_WATCHDOG_MS = 5000;
+    private static readonly NARROWING_HOLD_MS = 650;
+    private static readonly NARROWING_EFFECT_LIMIT_MS = 3000;
     private static readonly DRAW_TEAM_PLACEMENT_ZONES = true;
     protected readonly grid: Grid;
     private readonly pathHelper: PathHelper;
@@ -1031,6 +1033,9 @@ export class Sandbox extends PixiScene {
     private replayPlaybackActive = false;
     private readonly notedDeathBlowEvents = new WeakSet<object>();
     private readonly dyingVisualUnits = new Set<RenderableUnit>();
+    private narrowingPresentation?: Promise<void>;
+    private narrowingPlaybackEpoch = 0;
+    private roundEndAnimationWaitStartedAtMs?: number;
     private shownFireBreathHits?: WeakSet<object>;
     private pyreDeaths?: LastFuseDeaths<RenderableUnit>;
     /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
@@ -3068,6 +3073,9 @@ export class Sandbox extends PixiScene {
         this.sc_factionNameUpdateNeeded = true;
         this.sc_moveBlocked = false;
         this.sc_isAnimating = false;
+        this.narrowingPlaybackEpoch = (this.narrowingPlaybackEpoch ?? 0) + 1;
+        this.narrowingPresentation = undefined;
+        this.roundEndAnimationWaitStartedAtMs = undefined;
         // Keep the hole layers the board already shows whenever the rebuild restores at least as many.
         // Clearing them here and re-spawning them further down painted one or more frames of a FULLY
         // un-narrowed board before every layer popped back — the narrowing "flicker". The grid is re-carved
@@ -3561,11 +3569,16 @@ export class Sandbox extends PixiScene {
                     timedOut = true;
                     this.moveAnimManager.forceFinish();
                     this.sc_isAnimating = false;
+                    this.narrowingPlaybackEpoch = (this.narrowingPlaybackEpoch ?? 0) + 1;
+                    this.narrowingPresentation = undefined;
                     this.onReplayHangRecovery();
                     console.warn("[replay-watchdog] forced recovery of a hung authoritative replay");
                     resolve(false);
                 },
-                Sandbox.REPLAY_HANG_WATCHDOG_MS,
+                Sandbox.REPLAY_HANG_WATCHDOG_MS +
+                    (events.some((event) => event.type === "narrowing_applied")
+                        ? 2 * Sandbox.NARROWING_EFFECT_LIMIT_MS
+                        : 0),
                 () => resolve(false),
             );
         });
@@ -3617,6 +3630,23 @@ export class Sandbox extends PixiScene {
         );
     }
     protected async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const narrowingIndex = record.events.findIndex((event) => event.type === "narrowing_applied");
+        if (narrowingIndex < 0) return this.playReplayActionRecord(record);
+
+        // A lap-ending action owns its complete attack/response first. Moving the border units or
+        // rebuilding the board at contact cuts off recovery and death animations from that action.
+        const lapIndex = record.events.findIndex((event) => event.type === "lap_flipped");
+        const splitAt = lapIndex >= 0 && lapIndex < narrowingIndex ? lapIndex : narrowingIndex;
+        const epoch = this.narrowingPlaybackEpoch ?? 0;
+        const played = await this.playReplayActionRecord({ ...record, events: record.events.slice(0, splitAt) });
+        if (!played || this.isSceneDestroyed()) return played;
+        await this.waitForNarrowingPredecessors(epoch);
+        if (this.isSceneDestroyed() || (this.narrowingPlaybackEpoch ?? 0) !== epoch) return false;
+        this.applyReplayEvents(record.events.slice(splitAt), record.stateAfter);
+        await this.narrowingPresentation;
+        return !this.isSceneDestroyed() && (this.narrowingPlaybackEpoch ?? 0) === epoch;
+    }
+    private async playReplayActionRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         this.preparePyreDeaths?.(record.events);
         const action = cloneReplayData(record.action);
         const replayActorId = this.getReplayTurnActorId(action);
@@ -8813,7 +8843,7 @@ export class Sandbox extends PixiScene {
         this.updateUnitsOverlayVisibility();
     }
     public override ShiftKey(down: boolean): void {
-        if (!down || this.sc_isAnimating) {
+        if (!down || this.isAnimating()) {
             return;
         }
         this.rotateFireWallAim();
@@ -8822,7 +8852,7 @@ export class Sandbox extends PixiScene {
         this.pointerVisualWorld = p;
         p = this.getLogicalBattlefieldPoint(p);
         this.sc_mouseWorld = p;
-        if (this.sc_isAnimating) return;
+        if (this.isAnimating()) return;
 
         if (this.creatureAnimationLabEnabled && this.creatureAnimationLabSpell === "Fire Wall") {
             const held = this.shiftHeld;
@@ -12503,7 +12533,7 @@ export class Sandbox extends PixiScene {
             !shooter ||
             !fight.hasFightStarted() ||
             fight.hasFightFinished() ||
-            this.sc_isAnimating ||
+            this.isAnimating() ||
             this.isActiveUnitMoving
         ) {
             this.rangedInspectionCache?.clear();
@@ -14057,7 +14087,7 @@ export class Sandbox extends PixiScene {
         this.advanceAfterNoActiveUnitIfNeeded();
     }
     private advanceAfterNoActiveUnitIfNeeded(): void {
-        if (this.currentActiveUnit) {
+        if (this.currentActiveUnit || this.narrowingPresentation) {
             return;
         }
 
@@ -14074,6 +14104,18 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        // The local engine can narrow as soon as the last turn ends. Let that turn's remaining
+        // visual reactions finish before the engine force-moves units and removes border cells.
+        const liveUnits = [...this.unitsHolder.getAllUnits().values()].filter((unit) => !unit.isDead());
+        if (
+            liveUnits.every((unit) => fightProps.hasAlreadyMadeTurn(unit.getId())) &&
+            this.hasForegroundCombatAnimation()
+        ) {
+            this.roundEndAnimationWaitStartedAtMs ??= performance.now();
+            if (performance.now() - this.roundEndAnimationWaitStartedAtMs < Sandbox.NARROWING_EFFECT_LIMIT_MS) return;
+        }
+        this.roundEndAnimationWaitStartedAtMs = undefined;
+
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createTurnEngine().advanceAfterNoActiveUnit({
             centerAlreadyDried: this.dungeonVisuals.isCenterDried(),
@@ -14082,7 +14124,18 @@ export class Sandbox extends PixiScene {
         this.applyTurnEngineEvents(result.events, unitSnapshot);
 
         if (result.nextUnit) {
-            this.handleNextUnitActivation(result.nextUnit as RenderableUnit);
+            const nextUnit = result.nextUnit as RenderableUnit;
+            if (this.narrowingPresentation) {
+                void this.narrowingPresentation.then(() => {
+                    if (
+                        !this.isSceneDestroyed() &&
+                        !this.currentActiveUnit &&
+                        this.unitsHolder.getAllUnits().get(nextUnit.getId()) === nextUnit &&
+                        !nextUnit.isDead()
+                    )
+                        this.handleNextUnitActivation(nextUnit);
+                });
+            } else this.handleNextUnitActivation(nextUnit);
         }
     }
     private isBoardInputLockedByAI(): boolean {
@@ -15121,7 +15174,53 @@ export class Sandbox extends PixiScene {
         return false;
     }
     protected isPlayingActionAnimation(): boolean {
-        return this.isActiveUnitMoving || this.sc_isAnimating || this.moveAnimManager.isMoving();
+        return (
+            !!this.replayPlaybackActive ||
+            this.isActiveUnitMoving ||
+            this.isAnimating() ||
+            this.moveAnimManager.isMoving()
+        );
+    }
+    public override isAnimating(): boolean {
+        return super.isAnimating() || !!this.narrowingPresentation;
+    }
+    protected shouldDeferNarrowingSnapshot(layers: number): boolean {
+        return (
+            !!this.narrowingPresentation ||
+            (layers > 0 && !this.drawnNarrowingLaps?.has(layers) && this.isPlayingActionAnimation())
+        );
+    }
+    private hasForegroundCombatAnimation(): boolean {
+        return [...this.unitsHolder.getAllUnits().values(), ...(this.dyingVisualUnits ?? [])].some((unit) =>
+            (unit as RenderableUnit).isPlayingOneShotAnimation?.(),
+        );
+    }
+    private async waitForNarrowingPredecessors(epoch: number): Promise<void> {
+        for (let elapsed = 0; elapsed < Sandbox.NARROWING_EFFECT_LIMIT_MS; elapsed += 16) {
+            if (
+                this.isSceneDestroyed() ||
+                (this.narrowingPlaybackEpoch ?? 0) !== epoch ||
+                !this.hasForegroundCombatAnimation()
+            )
+                return;
+            await this.delayReplay(16);
+        }
+    }
+    private beginNarrowingPresentation(): void {
+        if (this.narrowingPresentation) return;
+        const epoch = this.narrowingPlaybackEpoch ?? 0;
+        const presentation = (async () => {
+            // The ring needs its own visible beat. Falling border stones own their actual lifetime;
+            // ambient lava/glow loops are deliberately excluded from this finite presentation barrier.
+            for (let elapsed = 0; elapsed < Sandbox.NARROWING_EFFECT_LIMIT_MS; elapsed += 16) {
+                if (this.isSceneDestroyed() || (this.narrowingPlaybackEpoch ?? 0) !== epoch) return;
+                if (elapsed >= Sandbox.NARROWING_HOLD_MS && !this.dungeonVisuals.hasActiveTerrainAnimations?.()) return;
+                await this.delayReplay(16);
+            }
+        })().finally(() => {
+            if (this.narrowingPresentation === presentation) this.narrowingPresentation = undefined;
+        });
+        this.narrowingPresentation = presentation;
     }
     protected override hover(): void {
         this.localAim = undefined;
@@ -15329,7 +15428,7 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-            if (this.sc_isAnimating || this.isActiveUnitMoving || this.sc_moveBlocked || !this.sc_mouseWorld) {
+            if (this.isAnimating() || this.isActiveUnitMoving || this.sc_moveBlocked || !this.sc_mouseWorld) {
                 // While a projectile is in flight / the unit is landing an attack, it can't move —
                 // don't draw the move-preview silhouette.
                 this.hoverManager.clearHoverSilhouette();
@@ -17751,7 +17850,6 @@ export class Sandbox extends PixiScene {
         this.updateVisibleTurnTimerIfDue();
         this.cleanupDeadUnits();
         if (timeStep > 0) this.sc_stepCount.increment();
-        this.sc_isAnimating = this.isAnimating();
         const fightStateManager = FightStateManager.getInstance();
         const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
@@ -17768,6 +17866,7 @@ export class Sandbox extends PixiScene {
         if (
             fightStarted &&
             !this.replayPlaybackActive &&
+            !this.isAnimating() &&
             this.currentActiveUnit &&
             this.aiController.shouldTriggerAI()
         ) {
@@ -17924,7 +18023,7 @@ export class Sandbox extends PixiScene {
                 this.currentActiveUnit &&
                 !this.replayPlaybackActive &&
                 this.aiController.shouldTriggerAI() &&
-                !this.sc_isAnimating &&
+                !this.isAnimating() &&
                 !this.moveAnimManager.isMoving()
             ) {
                 this.aiController.triggerAIAction(2000);
@@ -18235,7 +18334,7 @@ export class Sandbox extends PixiScene {
     }
     private drawLavaMovementVisuals(): void {
         const lavaGraphics = this.lavaMovementGraphics;
-        if (!lavaGraphics || this.sc_isAnimating) return;
+        if (!lavaGraphics || this.isAnimating()) return;
 
         const isLavaCell = (cell: HoCMath.XY): boolean =>
             this.gridMatrixNoUnits[cell.x]?.[cell.y] === ObstacleType.LAVA;
@@ -19285,7 +19384,7 @@ export class Sandbox extends PixiScene {
         // grid (see pendingNarrowingLayers above), so the vacated cells become holes and the units'
         // new cells stay occupied.
         if (pendingNarrowingLayers > 0) {
-            this.renderNarrowingLayers(pendingNarrowingLayers);
+            this.renderNarrowingLayers(pendingNarrowingLayers, { animate: true });
             this.gridMatrix = this.grid.getMatrix();
             this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         }
@@ -19328,13 +19427,15 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private renderNarrowingLayers(layers: number, options: { regrid?: boolean } = {}): void {
+    private renderNarrowingLayers(layers: number, options: { regrid?: boolean; animate?: boolean } = {}): void {
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
+        let addedLayer = false;
         for (let layer = 1; layer <= layers; layer++) {
             const alreadyDrawn = this.drawnNarrowingLaps.has(layer);
             if (!alreadyDrawn) {
                 this.dungeonVisuals.spawnHoleLayer(layer);
                 this.drawnNarrowingLaps.add(layer);
+                addedLayer = true;
             }
             if (!alreadyDrawn || options.regrid) {
                 this.occupyNarrowingLayer(layer);
@@ -19344,6 +19445,7 @@ export class Sandbox extends PixiScene {
         // correct when layers were kept rather than re-spawned.
         this.moveFiresInward(layers);
         this.dungeonVisuals.setNarrowingLayers(layers);
+        if (addedLayer && options.animate) this.beginNarrowingPresentation();
     }
     protected applyAuthoritativeNarrowing(narrowingLayers: number): void {
         if (narrowingLayers > 0 && !this.drawnNarrowingLaps.has(narrowingLayers)) {

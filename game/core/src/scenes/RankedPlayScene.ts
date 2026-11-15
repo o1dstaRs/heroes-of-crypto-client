@@ -2165,6 +2165,9 @@ export class RankedPlayScene extends Sandbox {
         if (this.fullReplayPlaybackActive) {
             return;
         }
+        // Even a metadata-only snapshot can narrow the grid and reposition a unit. Keep future
+        // narrowing behind the current action and its map presentation; explicit recovery may resync.
+        if (!options?.forceBoardRebuild && this.shouldDeferNarrowingSnapshot(snapshot.narrowingLayers)) return;
         const priorTurnActivationKey = this.rankedTurnActivationKey;
         this.rememberStatusSnapshot(snapshot);
         this.premiumSnapshot = snapshot;
