@@ -112,6 +112,7 @@ describe("mountain collapse animation", () => {
             FightStateManager.getInstance().getFightProperties().setObstacleHitsPerMountain(0, 0);
             visuals.ensureCenterTerrainSprite();
             expect(collapseCount()).toBe(2);
+            expect(visuals.hasActiveTerrainAnimations()).toBe(true);
             const containers = findCollapseContainers(attached);
             expect(containers).toHaveLength(2);
 
@@ -119,11 +120,13 @@ describe("mountain collapse animation", () => {
             now += 250;
             visuals.ensureCenterTerrainSprite();
             expect(containers.every((container) => !container.destroyed)).toBe(true);
+            expect(visuals.hasActiveTerrainAnimations()).toBe(true);
 
             // This step still runs on the both-destroyed early-return path.
             now += 1250;
             visuals.ensureCenterTerrainSprite();
             expect(containers.every((container) => container.destroyed)).toBe(true);
+            expect(visuals.hasActiveTerrainAnimations()).toBe(false);
         } finally {
             clock.mockRestore();
         }
