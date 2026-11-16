@@ -2022,7 +2022,7 @@ const UnitStatsLayout: React.FC<{
                             two different controls and the overflowing tiles were reachable only sideways. */}
                         <IconScrollWell
                             height={effectWellHeight}
-                            offsetY={-Math.round(metrics.gapPx)}
+                            offsetY={Math.max(2, Math.round(metrics.gapPx * 0.25))}
                             vertical
                             rowStepPx={effectRowStep}
                         >
