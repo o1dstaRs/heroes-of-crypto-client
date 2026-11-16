@@ -11829,7 +11829,6 @@ export class Sandbox extends PixiScene {
                 const worldPos = worldPositions[hitIndex];
                 unit.faceBoardTarget?.(worldPos);
                 if (unit.getName() === "Pikeman") {
-                    unit.faceBoardTarget(worldPos);
                     const state = unit.getAttackAnimationStateForTarget(worldPos, "melee");
                     const key = unit.getAnimationTextureKey(state);
                     if (key) await this.waitForTexture(key);
