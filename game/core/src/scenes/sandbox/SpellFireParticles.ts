@@ -8,19 +8,22 @@ import type { WhirlpoolFootprint as Footprint } from "./WhirlpoolSprites";
 type Material = "flame" | "smoke" | "glow" | "rock" | "tongue";
 type Materials = Record<Exclude<Material, "tongue">, Texture[]> & { tongue?: Texture[] };
 type Cast = {
-    kind: "ring" | "meteor" | "strike";
+    kind: "ring" | "meteor" | "strike" | "fireball";
     target: Footprint;
     area: Footprint;
     start: number;
     delay: number;
     seed: number;
     hollow?: boolean;
+    hotImpact?: boolean;
     from?: { x: number; y: number };
     source?: () => { x: number; y: number };
     flight?: number;
     released?: boolean;
     onImpact?: () => void;
+    cancelImpact?: () => void;
 };
+type PendingImpact = { finished: Promise<boolean>; present: () => void; cancel: () => void };
 export const FIRE_STRIKE_RELEASE_MS = 360;
 export const FIRE_STRIKE_BURN_MS = 1000;
 /** Only contact-to-fade accelerates; book release, travel and hit notification are unchanged. */
@@ -28,6 +31,8 @@ export const FIRE_STRIKE_EXPLOSION_SPEED = 1.25;
 export const FIRE_STRIKE_EXPLOSION_SCALE = 0.7;
 export const fireStrikeFlightMs = (from: { x: number; y: number }, to: { x: number; y: number }, cell: number) =>
     Math.max(390, Math.min(780, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * 72));
+export const fireballFlightMs = (from: { x: number; y: number }, to: { x: number; y: number }, cell: number) =>
+    Math.max(340, Math.min(780, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * 76));
 const TAU = Math.PI * 2;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const valid = (f: Footprint) =>
@@ -133,6 +138,10 @@ export function createFireParticleMaterials(): Materials {
 /** World-space pooled particles: ground illumination, turbulent flame, smoke and ballistic embers. */
 export class SpellFireParticles {
     private casts: Cast[] = [];
+    private readonly pendingImpacts = new Set<PendingImpact>();
+    private updateQueue?: Cast[];
+    private updating = false;
+    private generation = 0;
     private materials?: Materials;
     private air?: Container;
     private ground?: Container;
@@ -150,6 +159,67 @@ export class SpellFireParticles {
     ) {}
     public get active(): boolean {
         return this.casts.length > 0;
+    }
+    /** Only recorded contact callbacks block actions; ambient fire and post-impact smoke never do. */
+    public get hasPendingImpacts(): boolean {
+        return this.pendingImpacts.size > 0;
+    }
+    public waitForPendingImpacts(): Promise<boolean> {
+        return Promise.all([...this.pendingImpacts].map((impact) => impact.finished)).then((results) =>
+            results.every(Boolean),
+        );
+    }
+    private ownImpact(callback: () => void): PendingImpact {
+        let resolve!: (completed: boolean) => void;
+        let pending = true;
+        const finished = new Promise<boolean>((done) => {
+            resolve = done;
+        });
+        const settle = (completed: boolean) => {
+            if (!pending) return;
+            pending = false;
+            this.pendingImpacts.delete(impact);
+            resolve(completed);
+        };
+        const impact: PendingImpact = {
+            finished,
+            present: () => {
+                if (!pending) return;
+                try {
+                    // Keep ownership through the callback itself, including casualty/status presentation.
+                    callback();
+                    settle(true);
+                } catch (error) {
+                    settle(false);
+                    throw error;
+                }
+            },
+            cancel: () => settle(false),
+        };
+        this.pendingImpacts.add(impact);
+        return impact;
+    }
+    public cancelPendingImpacts(): void {
+        this.generation++;
+        for (const impact of this.pendingImpacts) impact.cancel();
+        const casts = new Set([...(this.updateQueue ?? []), ...this.casts]);
+        this.casts = [...casts].filter((cast) => !cast.onImpact);
+        this.updateQueue = undefined;
+    }
+    public fireballImpact(target: Footprint, area: Footprint): void {
+        if (!valid(target) || !valid(area)) return;
+        this.add([
+            {
+                kind: "ring",
+                target: copy(target),
+                area: copy(area),
+                start: this.now(),
+                delay: 0,
+                seed: Math.floor(Math.random() * 200),
+                hollow: false,
+                hotImpact: true,
+            },
+        ]);
     }
     public ring(target: Footprint, area: Footprint, hollow = false): void {
         if (!valid(target) || !valid(area)) return;
@@ -188,21 +258,50 @@ export class SpellFireParticles {
     ): number {
         if (!valid(target) || !valid(ground) || ![from.x, from.y].every(Number.isFinite)) return 0;
         const flight = fireStrikeFlightMs(from, target.center, target.width);
-        this.add([
-            {
-                kind: "strike",
-                from: { ...from },
-                source,
-                target: copy(target),
-                area: copy(ground),
-                start: this.now(),
-                delay: 0,
-                seed: Math.floor(Math.random() * 200),
-                flight,
-                onImpact,
-            },
-        ]);
+        this.addFlight("strike", from, target, ground, flight, onImpact, source);
         return (FIRE_STRIKE_RELEASE_MS + flight) / FIRE_SPELL_PLAYBACK_SPEED;
+    }
+    public fireball(
+        from: { x: number; y: number },
+        target: Footprint,
+        ground: Footprint,
+        onImpact?: () => void,
+    ): number {
+        if (!valid(target) || !valid(ground) || ![from.x, from.y].every(Number.isFinite)) return 0;
+        const flight = fireballFlightMs(from, target.center, target.width);
+        this.addFlight("fireball", from, target, ground, flight, onImpact);
+        return flight / FIRE_SPELL_PLAYBACK_SPEED;
+    }
+    private addFlight(
+        kind: "strike" | "fireball",
+        from: { x: number; y: number },
+        target: Footprint,
+        ground: Footprint,
+        flight: number,
+        onImpact?: () => void,
+        source?: () => { x: number; y: number },
+    ): void {
+        const impact = onImpact ? this.ownImpact(onImpact) : undefined;
+        try {
+            this.add([
+                {
+                    kind,
+                    from: { ...from },
+                    source,
+                    target: copy(target),
+                    area: copy(ground),
+                    start: this.now(),
+                    delay: 0,
+                    seed: Math.floor(Math.random() * 200),
+                    flight,
+                    onImpact: impact?.present,
+                    cancelImpact: impact?.cancel,
+                },
+            ]);
+        } catch (error) {
+            impact?.cancel();
+            throw error;
+        }
     }
     private add(casts: Cast[]): void {
         if (!casts.length) return;
@@ -216,9 +315,13 @@ export class SpellFireParticles {
             this.attach(this.ground, 80);
         }
         // Bound rapid preview clicking; a full shower is twelve impacts.
-        this.casts.push(...casts);
-        if (this.casts.length > 48) this.casts.splice(0, this.casts.length - 48);
+        const queue = this.updateQueue ?? this.casts;
+        queue.push(...casts);
+        if (!this.updating) this.trimCasts();
         this.update();
+    }
+    private trimCasts(): void {
+        for (const cast of this.casts.splice(0, Math.max(0, this.casts.length - 48))) cast.cancelImpact?.();
     }
     private puff(
         material: Material,
@@ -326,7 +429,8 @@ export class SpellFireParticles {
         const t = ms / 1000,
             { target, area, seed } = cast;
         const sx = Math.min(target.width, target.height) / 82;
-        if (t < 0.31 && !cast.hollow) {
+        if (cast.hotImpact) this.impact({ ...area, width: area.width * 0.9, height: area.height * 0.9 }, t, seed);
+        if (t < 0.31 && !cast.hollow && !cast.hotImpact) {
             const k = t / 0.31,
                 radius = (7 + 19 * k) * sx;
             this.puff(
@@ -453,6 +557,103 @@ export class SpellFireParticles {
         }
         this.puff("rock", x, y, 25 * sx * size, 28 * sy * size, fade, 0xffffff, cast.seed, -0.5 + t * 0.65);
         this.puff("glow", x - 5 * sx, y - 5 * sy, 16 * sx, 13 * sy, fade * 0.7, 0xffa04b, 0);
+    }
+    /** A rotating volume of hot lobes and curling tongues, with an advected flame/ember wake. */
+    private drawFireball(cast: Cast, ms: number): void {
+        const from = cast.from!,
+            target = cast.target,
+            size = target.width;
+        const t = clamp(ms / cast.flight!);
+        const dx = target.center.x - from.x,
+            dy = target.center.y - from.y;
+        const distance = Math.max(1, Math.hypot(dx, dy)),
+            ux = dx / distance,
+            uy = dy / distance;
+        const lift = Math.sin(t * Math.PI) * size * 0.28;
+        const x = from.x + dx * t,
+            y = from.y + dy * t + lift;
+        const fade = clamp(ms / 35),
+            spin = ms * 0.018 + cast.seed;
+        const tail = Math.min(distance * t, size * 2.8);
+        for (let i = 33; i >= 0; i--) {
+            const q = i / 33,
+                seed = seeds[(i + cast.seed) % seeds.length];
+            const curl = Math.sin(q * 15 - spin + seed.phase * 0.25) * size * 0.17 * q;
+            const px = x - ux * tail * q - uy * curl,
+                py = y - uy * tail * q + ux * curl;
+            if (i % 5 === 0)
+                this.puff(
+                    "smoke",
+                    px,
+                    py + size * q * 0.1,
+                    size * (0.18 + q * 0.35),
+                    size * (0.22 + q * 0.4),
+                    fade * q * (1 - q) * 0.55,
+                    0x685247,
+                    i,
+                );
+            this.puff(
+                "tongue",
+                px,
+                py,
+                size * (0.16 + (1 - q) * 0.2),
+                size * (0.22 + (1 - q) * 0.35),
+                fade * (1 - q) * 0.9,
+                q < 0.25 ? 0xffce70 : 0xf35b0e,
+                i,
+                -Math.atan2(dy, dx) - Math.PI / 2,
+            );
+        }
+        this.puff("glow", x, y, size * 1.25, size * 1.25, fade * 0.85, 0xff5c08, 0);
+        // Depth-sorted latitude bands make the ball rotate rather than translate as a flat fire decal.
+        for (let band = 0; band < 2; band++)
+            for (let i = 0; i < 28; i++) {
+                const a = spin + i * 2.3999632297,
+                    latitude = (i / 27 - 0.5) * 1.65;
+                const depth = Math.cos(a) * Math.cos(latitude);
+                if ((depth > 0 ? 1 : 0) !== band) continue;
+                const radius = size * (0.23 + 0.025 * Math.sin(spin * 0.7 + i));
+                const px = x + Math.sin(a) * Math.cos(latitude) * radius;
+                const py = y + Math.sin(latitude) * radius + Math.sin(a * 2 + spin) * size * 0.025;
+                const lobe = 0.16 + (depth + 1) * 0.045;
+                this.puff(
+                    "flame",
+                    px,
+                    py,
+                    size * lobe,
+                    size * lobe * 1.25,
+                    fade * (0.75 + depth * 0.15),
+                    depth > 0.25 ? 0xffe9a7 : depth > -0.2 ? 0xffa12b : 0xe94708,
+                    i,
+                    -a,
+                );
+                if (i % 2 === 0)
+                    this.puff(
+                        "tongue",
+                        px,
+                        py,
+                        size * 0.2,
+                        size * (0.28 + 0.08 * Math.sin(spin + i)),
+                        fade * 0.8,
+                        0xffab30,
+                        i,
+                        -a - Math.PI / 2,
+                    );
+            }
+        this.puff("glow", x - size * 0.05, y + size * 0.035, size * 0.34, size * 0.32, fade * 0.9, 0xfff0c7, 0);
+        this.puff(
+            "glow",
+            x,
+            cast.area.center.y - dy * (1 - t),
+            size * 1.4,
+            size * 0.65,
+            fade * 0.28,
+            0xff7215,
+            0,
+            0,
+            true,
+        );
+        this.emitAtmosphere?.({ x, y, width: size * 1.2, height: size, light: fade * 0.6, heat: 0.5 });
     }
     private drawStrike(cast: Cast, ms: number): void {
         const { target, area, seed } = cast;
@@ -658,42 +859,68 @@ export class SpellFireParticles {
         });
     }
     public update(): void {
+        if (this.updating) return;
+        this.updating = true;
+        const generation = this.generation;
+        const queue = this.casts;
+        this.casts = [];
+        this.updateQueue = queue;
         this.airUsed = this.groundUsed = this.arrowsUsed = 0;
         const now = this.now();
-        this.casts = this.casts.filter((cast) => {
-            const age = (now - cast.start) * FIRE_SPELL_PLAYBACK_SPEED - cast.delay;
-            if (cast.kind === "strike" && age >= FIRE_STRIKE_RELEASE_MS + cast.flight! && cast.onImpact) {
-                const impact = cast.onImpact;
-                cast.onImpact = undefined;
-                impact();
+        try {
+            // Impact can enqueue the explosion into this same frame; it must not overwrite or lose it.
+            for (let index = 0; index < queue.length && generation === this.generation; index++) {
+                const cast = queue[index];
+                const age = (now - cast.start) * FIRE_SPELL_PLAYBACK_SPEED - cast.delay;
+                const contact = cast.kind === "strike" ? FIRE_STRIKE_RELEASE_MS + cast.flight! : cast.flight!;
+                if ((cast.kind === "strike" || cast.kind === "fireball") && age >= contact && cast.onImpact) {
+                    const impact = cast.onImpact;
+                    cast.onImpact = cast.cancelImpact = undefined;
+                    impact();
+                    if (generation !== this.generation) break;
+                }
+                const life =
+                    cast.kind === "strike"
+                        ? contact + FIRE_STRIKE_BURN_MS / FIRE_STRIKE_EXPLOSION_SPEED
+                        : cast.kind === "fireball"
+                          ? contact
+                          : cast.kind === "ring"
+                            ? FIRE_RING_LIFE_MS
+                            : METEOR_FALL_MS + METEOR_IMPACT_MS;
+                if (age >= life) continue;
+                if (age >= 0) {
+                    if (cast.kind === "ring" || cast.kind === "meteor")
+                        emitFireAtmosphere(
+                            this.emitAtmosphere,
+                            cast.hollow ? "hollow" : cast.kind,
+                            age,
+                            cast.target,
+                            cast.area,
+                        );
+                    if (cast.kind === "ring") this.drawRing(cast, age);
+                    else if (cast.kind === "meteor") this.drawMeteor(cast, age);
+                    else if (cast.kind === "fireball") this.drawFireball(cast, age);
+                    else this.drawStrike(cast, age);
+                }
+                this.casts.push(cast);
             }
-            const life =
-                cast.kind === "strike"
-                    ? FIRE_STRIKE_RELEASE_MS + cast.flight! + FIRE_STRIKE_BURN_MS / FIRE_STRIKE_EXPLOSION_SPEED
-                    : cast.kind === "ring"
-                      ? FIRE_RING_LIFE_MS
-                      : METEOR_FALL_MS + METEOR_IMPACT_MS;
-            if (age >= life) return false;
-            if (age >= 0) {
-                if (cast.kind !== "strike")
-                    emitFireAtmosphere(
-                        this.emitAtmosphere,
-                        cast.hollow ? "hollow" : cast.kind,
-                        age,
-                        cast.target,
-                        cast.area,
-                    );
-                if (cast.kind === "ring") this.drawRing(cast, age);
-                else if (cast.kind === "meteor") this.drawMeteor(cast, age);
-                else this.drawStrike(cast, age);
-            }
-            return true;
-        });
+            if (generation === this.generation) this.trimCasts();
+        } catch (error) {
+            // A failed visual callback must release its waiters rather than strand the replay watchdog.
+            for (const cast of queue) cast.cancelImpact?.();
+            throw error;
+        } finally {
+            if (this.updateQueue === queue) this.updateQueue = undefined;
+            this.updating = false;
+        }
         for (let i = this.arrowsUsed; i < this.arrows.length; i++) this.arrows[i].visible = false;
         for (let i = this.airUsed; i < this.airPool.length; i++) this.airPool[i].visible = false;
         for (let i = this.groundUsed; i < this.groundPool.length; i++) this.groundPool[i].visible = false;
     }
     public clear(): void {
+        this.generation++;
+        for (const impact of this.pendingImpacts) impact.cancel();
+        this.updateQueue = undefined;
         this.casts = [];
         this.air?.destroy({ children: true });
         this.ground?.destroy({ children: true });

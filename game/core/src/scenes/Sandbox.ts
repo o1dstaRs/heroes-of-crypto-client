@@ -3618,6 +3618,7 @@ export class Sandbox extends PixiScene {
                 () => {
                     timedOut = true;
                     this.moveAnimManager.forceFinish();
+                    this.combatVisuals?.cancelPendingSpellImpacts?.();
                     this.sc_isAnimating = false;
                     this.narrowingPlaybackEpoch = (this.narrowingPlaybackEpoch ?? 0) + 1;
                     this.narrowingPresentation = undefined;
@@ -7548,6 +7549,7 @@ export class Sandbox extends PixiScene {
             // (the existing server-id stack is already present, so syncSummonedUnit only refreshes its visual).
             this.renderHealVfx(record.events);
             this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
+            if (!(await this.waitForSpellDamageDelivery())) return false;
             this.renderCastOutcomes(record.events);
             this.renderSnareResistVfx(record.events);
             for (const summon of authoritativeSummons) {
@@ -7572,6 +7574,7 @@ export class Sandbox extends PixiScene {
         // Fire Strike / Meteorite: same reasoning as the heal above — `damaged[]` on the RECORD is what the
         // server resolved, so the fire and the numbers are safe to play during replay.
         this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
+        if (!(await this.waitForSpellDamageDelivery())) return false;
         // The record is authoritative even if the local re-apply was rejected after turn handover.
         const castSequenceMs = this.renderSpellCastSequence(caster, action.spellName, record.events);
         this.onReplaySpellImpact(record);
@@ -7588,6 +7591,18 @@ export class Sandbox extends PixiScene {
         }
         await this.delayReplay(Math.max(Sandbox.REPLAY_SPELL_HOLD_MS, castSequenceMs));
         return true;
+    }
+    private async waitForSpellDamageDelivery(): Promise<boolean> {
+        const visuals = this.combatVisuals;
+        if (!visuals) return !this.isSceneDestroyed();
+        const epoch = visuals.spellImpactEpoch;
+        const completed = (await visuals.waitForSpellImpacts?.()) ?? true;
+        return (
+            completed &&
+            !this.isSceneDestroyed() &&
+            visuals === this.combatVisuals &&
+            epoch === visuals.spellImpactEpoch
+        );
     }
     private captureFightSnapshot(): IFightSnapshot {
         const units: IUnitFightSnapshot[] = [];
@@ -10298,10 +10313,29 @@ export class Sandbox extends PixiScene {
         }
         return true;
     }
+    private pendingSpellCleanup?: { visuals: CombatVisuals; epoch: number };
     private cleanupAfterSpell(
         commonEvents?: GameEvent[],
         unitSnapshot: ReadonlyMap<string, RenderableUnit> = this.snapshotRenderableUnits(),
     ): void {
+        if (this.combatVisuals?.hasPendingSpellImpacts?.()) {
+            const visuals = this.combatVisuals;
+            const epoch = visuals.spellImpactEpoch;
+            if (this.pendingSpellCleanup?.visuals === visuals && this.pendingSpellCleanup.epoch === epoch) return;
+            const token = { visuals, epoch };
+            this.pendingSpellCleanup = token;
+            this.sc_moveBlocked = true;
+            // The engine has resolved, but its deaths and turn events belong to the visible contact.
+            // Cancellation releases a live accepted action. A rematch/full clear invalidates this
+            // generation so an old microtask cannot advance the freshly reset fight.
+            void visuals.waitForSpellImpacts().then(() => {
+                if (this.pendingSpellCleanup !== token) return;
+                this.pendingSpellCleanup = undefined;
+                if (!this.isSceneDestroyed() && visuals === this.combatVisuals && epoch === visuals.spellImpactEpoch)
+                    this.cleanupAfterSpell(commonEvents, unitSnapshot);
+            });
+            return;
+        }
         this.preparePyreDeaths?.(commonEvents ?? [], unitSnapshot);
         const unitsDied: RenderableUnit[] = [];
         for (const u of this.unitsHolder.getAllUnits().values()) {
@@ -11273,10 +11307,80 @@ export class Sandbox extends PixiScene {
         const fallback = damaged.find((entry) => entry.unitId === holderUnitId)?.position;
         return fallback ? projectBattlefieldPoint(fallback, this.sc_sceneSettings.getGridSettings()) : undefined;
     }
+    private launchSpellDamageDelivery(
+        event: Extract<GameEvent, { type: "spell_cast" }>,
+        casterPosition?: HoCMath.XY,
+        capturedUnits?: ReadonlyMap<string, RenderableUnit>,
+    ): boolean {
+        if (event.spellName !== "Fire Strike" && event.spellName !== "Fireball") return false;
+        const visuals = this.combatVisuals;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const units = this.unitsHolder.getAllUnits();
+        const caster = (units.get(event.casterId) ?? capturedUnits?.get(event.casterId)) as RenderableUnit | undefined;
+        const flight = event.animations.find((animation) => animation.fromPosition && animation.toPosition);
+        const source = caster?.getSpellProjectileOrigin ? () => caster.getSpellProjectileOrigin(gs) : undefined;
+        const from =
+            source?.() ??
+            (flight?.fromPosition
+                ? projectBattlefieldPoint(flight.fromPosition, gs)
+                : casterPosition
+                  ? projectBattlefieldPoint(casterPosition, gs)
+                  : caster?.getVisualCenter?.(gs));
+        const primary = event.damaged?.find((hit) => !hit.rebounded);
+        const victim = (units.get(primary?.unitId ?? event.targetId ?? "") ??
+            capturedUnits?.get(primary?.unitId ?? event.targetId ?? "")) as RenderableUnit | undefined;
+        // The record's first impact is authoritative, even when the aimed creature is behind a blocker.
+        const ground =
+            event.spellName === "Fireball" && event.targetCell
+                ? spellFootprint([event.targetCell], gs)
+                : primary
+                  ? {
+                        center: projectBattlefieldPoint(primary.position, gs),
+                        width: gs.getCellSize(),
+                        height: gs.getCellSize() * 0.65,
+                    }
+                  : event.targetCell
+                    ? spellFootprint([event.targetCell], gs)
+                    : undefined;
+        const to =
+            event.spellName === "Fireball"
+                ? ground?.center
+                : flight?.toPosition
+                  ? projectBattlefieldPoint(flight.toPosition, gs)
+                  : (victim?.getProjectileImpactPoint?.(gs) ?? ground?.center);
+        if (!from || !to || !ground || ![from.x, from.y, to.x, to.y].every(Number.isFinite)) return false;
+        // Capture before cleanup/hydration can replace the presentation objects. One delivery owns all
+        // AOE, reflected, absorbed and zero-damage entries; never launch one projectile per recipient.
+        const casualties = new Map<object, () => void>();
+        for (const hit of event.damaged ?? []) {
+            const unit = (units.get(hit.unitId) ?? capturedUnits?.get(hit.unitId)) as RenderableUnit | undefined;
+            const present = unit?.captureDamageCasualties?.(hit.unitsDied, hit.amount > 0 ? "damage" : "shield");
+            if (present) casualties.set(hit, present);
+        }
+        let presented = false;
+        const present = () => {
+            if (presented || this.isSceneDestroyed() || visuals !== this.combatVisuals) return;
+            presented = true;
+            this.renderSpellDamageVfx([event], casterPosition, capturedUnits, casualties);
+        };
+        try {
+            const duration =
+                event.spellName === "Fire Strike"
+                    ? visuals.spawnFireStrikeArrow(from, to, ground.center, gs.getCellSize(), source, present)
+                    : visuals.spawnFireballFlight(from, to, ground, gs.getCellSize(), present);
+            if (duration > 0) return true;
+        } catch (error) {
+            console.warn("[spell-delivery] visual unavailable; presenting recorded impact", error);
+        }
+        // Missing/invalid visual resources must not strand an already accepted mechanical action.
+        present();
+        return true;
+    }
     protected renderSpellDamageVfx(
         events: readonly GameEvent[],
         casterPosition?: HoCMath.XY,
         capturedUnits?: ReadonlyMap<string, RenderableUnit>,
+        deliveredCasualties?: ReadonlyMap<object, () => void>,
     ): void {
         if (!this.combatVisuals) {
             return;
@@ -11288,6 +11392,7 @@ export class Sandbox extends PixiScene {
             if (event.type !== "spell_cast") {
                 continue;
             }
+            if (!deliveredCasualties && this.launchSpellDamageDelivery(event, casterPosition, capturedUnits)) continue;
             // Mass buffs/debuffs skip fully immune units before recording applications. Their
             // confirmed cast and deterministic scope still reach Enchanted Skin visually.
             const castUnits = this.unitsHolder.getAllUnits();
@@ -11362,17 +11467,7 @@ export class Sandbox extends PixiScene {
             // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
             // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
             this.showFleshShieldAbsorbedDamage(secondary, visualCasterPosition);
-            // Fire Strike owns a real flight in this renderer. A fully absorbed arrow still reaches
-            // its target, so its shield and ABSORBED label must wait for the same callback as damage.
-            const arrowTargets = new Set(isFireStrike ? event.damaged?.map((hit) => hit.unitId) : []);
-            const arrowAbsorbs = (secondary ?? []).filter(
-                (hit) =>
-                    arrowTargets.has(hit.unitId) && (hit.source === "water_shield" || hit.source === "ember_covenant"),
-            );
-            this.showShieldAbsorbs(
-                secondary?.filter((hit) => !arrowAbsorbs.includes(hit)),
-                visualCasterPosition,
-            );
+            this.showShieldAbsorbs(secondary, visualCasterPosition);
             // Thrown spells sweep embers from the caster to each victim; Lightning Strike descends from
             // above, while Meteor Shower bursts where it lands. Ring of Fire is
             // excluded from the per-victim sweep (its flame is the circle drawn above).
@@ -11419,8 +11514,10 @@ export class Sandbox extends PixiScene {
                             MIRROR_DAMAGE_STROKE,
                             flagAnchor,
                             audioUnit,
+                            undefined,
+                            deliveredCasualties?.get(hit),
                         );
-                    }
+                    } else deliveredCasualties?.get(hit)?.();
                     continue;
                 }
                 const hasImpactDamage = hit.amount > 0 || hit.unitsDied > 0;
@@ -11436,62 +11533,30 @@ export class Sandbox extends PixiScene {
                 ) {
                     this.combatVisuals.spawnFireSweep(flightOrigin, flightEnd ?? hitPosition, cellSize);
                 }
-                let arrowLaunched = false;
-                let spellHitShown = false;
-                const presentCasualties = audioUnit?.captureDamageCasualties?.(
-                    hit.unitsDied,
-                    hit.amount > 0 ? "damage" : "shield",
-                );
-                const showSpellHit = () => {
-                    if (spellHitShown || this.isSceneDestroyed()) return;
-                    spellHitShown = true;
-                    // A damage label presents its captured casualties itself. Only a fully absorbed
-                    // hit has no label, so release its shield here without subtracting casualties twice.
-                    if (hit.amount <= 0) presentCasualties?.();
-                    if (isFireStrike) {
-                        this.showShieldAbsorbs(
-                            arrowAbsorbs.filter((absorb) => absorb.unitId === hit.unitId),
-                            flightOrigin,
-                        );
-                    }
-                    if (hit.amount > 0)
-                        this.combatVisuals?.showFloatingDamage(
-                            hitPosition,
-                            hit.amount,
-                            undefined,
-                            hit.unitsDied,
-                            undefined,
-                            undefined,
-                            flagAnchor,
-                            audioUnit,
-                            undefined,
-                            presentCasualties,
-                        );
-                };
-                if (isFireStrike) {
-                    const sourceUnit = (caster ?? capturedUnits?.get(event.casterId)) as RenderableUnit | undefined;
-                    const source = sourceUnit?.getSpellProjectileOrigin
-                        ? () => sourceUnit.getSpellProjectileOrigin(gs)
-                        : undefined;
-                    const origin = source?.() ?? flightOrigin;
-                    const victim = hitUnit ?? capturedUnits?.get(hit.unitId);
-                    if (origin) {
-                        arrowLaunched =
-                            this.combatVisuals.spawnFireStrikeArrow(
-                                origin,
-                                flightEnd ?? victim?.getProjectileImpactPoint?.(gs) ?? hitPosition,
-                                hitPosition,
-                                cellSize,
-                                source,
-                                showSpellHit,
-                            ) > 0;
-                    }
-                } else if (event.spellName === "Lightning Strike") {
+                const presentCasualties =
+                    deliveredCasualties?.get(hit) ??
+                    audioUnit?.captureDamageCasualties?.(hit.unitsDied, hit.amount > 0 ? "damage" : "shield");
+                // The shared delivery has already reached contact. Shield-only hits have no label
+                // to release their captured status presentation, so do that explicitly here.
+                if (hit.amount <= 0) presentCasualties?.();
+                if (event.spellName === "Lightning Strike") {
                     this.combatVisuals.spawnLightningStrike(hitUnit?.getVisualCenter(gs) ?? hitPosition, cellSize);
-                } else if (hasImpactDamage && !isRing && !isMeteor && !isFireball && !isWhirlpool) {
+                } else if (hasImpactDamage && !isRing && !isMeteor && !isFireball && !isWhirlpool && !isFireStrike) {
                     this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
                 }
-                if (!arrowLaunched) showSpellHit();
+                if (hit.amount > 0)
+                    this.combatVisuals.showFloatingDamage(
+                        hitPosition,
+                        hit.amount,
+                        undefined,
+                        hit.unitsDied,
+                        undefined,
+                        undefined,
+                        flagAnchor,
+                        audioUnit,
+                        undefined,
+                        presentCasualties,
+                    );
             }
         }
     }
@@ -14837,6 +14902,28 @@ export class Sandbox extends PixiScene {
                       unitsDied: 0,
                   }))
                 : undefined;
+        // A no-creature lab cast still previews the complete Fireball delivery, not just its burst.
+        const previewFlight =
+            spell === "Fireball"
+                ? [
+                      {
+                          affectedUnitId: this.grid.getOccupantUnitId(cell) ?? "animation-lab-empty-cell",
+                          fromPosition: GridMath.getPositionForCell(
+                              {
+                                  x:
+                                      cell.x >= middle
+                                          ? Math.max(0, cell.x - 5)
+                                          : Math.min(gs.getGridSize() - 1, cell.x + 5),
+                                  y: cell.y,
+                              },
+                              gs.getMinX(),
+                              gs.getStep(),
+                              gs.getHalfStep(),
+                          ),
+                          toPosition: GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+                      },
+                  ]
+                : [];
         this.renderSpellDamageVfx([
             {
                 type: "spell_cast",
@@ -14845,7 +14932,7 @@ export class Sandbox extends PixiScene {
                 targetCell: { ...cell },
                 targetId: this.grid.getOccupantUnitId(cell) ?? undefined,
                 unitIdsDied: [],
-                animations: [],
+                animations: previewFlight,
                 damaged,
             },
         ]);
@@ -16012,7 +16099,8 @@ export class Sandbox extends PixiScene {
             !!this.replayPlaybackActive ||
             this.isActiveUnitMoving ||
             this.isAnimating() ||
-            this.moveAnimManager.isMoving()
+            this.moveAnimManager.isMoving() ||
+            !!this.combatVisuals?.hasPendingSpellImpacts?.()
         );
     }
     protected isAiActionPresentationBusy(): boolean {
@@ -16042,6 +16130,7 @@ export class Sandbox extends PixiScene {
             this.isActiveUnitMoving ||
             this.moveAnimManager.isMoving() ||
             this.rangedProjectiles.hasActive() ||
+            !!this.combatVisuals?.hasPendingSpellImpacts?.() ||
             this.hasForegroundCombatAnimation()
         );
     }

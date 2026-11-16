@@ -13,6 +13,7 @@ function fixture(alive: boolean) {
         ),
         spawnFireRing: mock(() => undefined),
         spawnFireball: mock((..._args: unknown[]) => undefined),
+        spawnFireballFlight: mock((..._args: unknown[]) => 500),
         spawnFireStrikeArrow: mock((..._args: unknown[]) => 600),
         showFloatingDamage: mock(() => undefined),
         spawnMagicMirrorRebound: mock(() => undefined),
@@ -116,6 +117,11 @@ for (const spellName of ["Fire Strike", "Fireball"]) {
             (call[5] as () => void)();
             expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(1);
         } else {
+            const flight = visuals.spawnFireballFlight.mock.calls[0];
+            expect(visuals.spawnFireball).not.toHaveBeenCalled();
+            expect(visuals.showFloatingDamage).not.toHaveBeenCalled();
+            (flight[4] as () => void)();
+            expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(1);
             expect(visuals.spawnFireball.mock.calls).toEqual([
                 [spellFootprint([cell], gs as never), spellFootprint([cell], gs as never, 1)],
             ]);

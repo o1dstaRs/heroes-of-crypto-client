@@ -764,6 +764,7 @@ export class CombatVisuals {
         attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
     });
     private audioEpoch = 0;
+    private spellImpactGeneration = 0;
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
@@ -1978,6 +1979,7 @@ export class CombatVisuals {
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
+        if (!keepDetachedOverlays) this.spellImpactGeneration += 1;
         if (!keepDetachedOverlays) this.flagOverlayLayout.clear();
         if (!keepDetachedOverlays) this.terrifyingGazePops?.clear();
         if (!keepDetachedOverlays) this.petrifyingGazePops?.clear();
@@ -3328,17 +3330,21 @@ export class CombatVisuals {
         saveFireSpellRenderMode(mode);
     }
     public spawnFireball(target: WhirlpoolFootprint, area: WhirlpoolFootprint): void {
-        this.spawnFireRing(target, area, false);
+        // Fireball's contact burst shares its hot particle materials with the flight, so a cold
+        // sprite atlas can never postpone the explosion after recorded damage has appeared.
+        this.fireParticleLayer().fireballImpact(target, area);
+    }
+    private fireParticleLayer(): SpellFireParticles {
+        return (this.spellFireParticles ??= new SpellFireParticles(
+            (container, z) => this.context.attachToWorldRoot(container, z),
+            undefined,
+            undefined,
+            (sample) => this.emitSpellAtmosphere(sample),
+        ));
     }
     public spawnFireRing(target: WhirlpoolFootprint, area: WhirlpoolFootprint, hollow = true): void {
         if (this.fireSpellRenderMode === "particles") {
-            this.spellFireParticles ??= new SpellFireParticles(
-                (container, z) => this.context.attachToWorldRoot(container, z),
-                undefined,
-                undefined,
-                (sample) => this.emitSpellAtmosphere(sample),
-            );
-            this.spellFireParticles.ring(target, area, hollow);
+            this.fireParticleLayer().ring(target, area, hollow);
             return;
         }
         this.spellFireSprites ??= new SpellFireSprites(
@@ -3348,6 +3354,33 @@ export class CombatVisuals {
         );
         void this.spellFireSprites.ring(target, area, hollow);
     }
+    /** Finite spell deliveries share the replay/AI barrier; their lingering flames do not. */
+    public get spellImpactEpoch(): number {
+        return this.spellImpactGeneration;
+    }
+    public hasPendingSpellImpacts(): boolean {
+        return this.spellFireParticles?.hasPendingImpacts ?? false;
+    }
+    public waitForSpellImpacts(): Promise<boolean> {
+        return this.spellFireParticles?.waitForPendingImpacts() ?? Promise.resolve(true);
+    }
+    public cancelPendingSpellImpacts(): void {
+        this.spellFireParticles?.cancelPendingImpacts();
+    }
+    public spawnFireballFlight(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        ground: WhirlpoolFootprint,
+        cellSize: number,
+        onImpact: () => void,
+    ): number {
+        return this.fireParticleLayer().fireball(
+            from,
+            { center: to, width: cellSize, height: cellSize },
+            ground,
+            onImpact,
+        );
+    }
     public spawnFireStrikeArrow(
         from: HoCMath.XY,
         to: HoCMath.XY,
@@ -3356,13 +3389,7 @@ export class CombatVisuals {
         source?: () => HoCMath.XY,
         onImpact?: () => void,
     ): number {
-        this.spellFireParticles ??= new SpellFireParticles(
-            (container, z) => this.context.attachToWorldRoot(container, z),
-            undefined,
-            undefined,
-            (sample) => this.emitSpellAtmosphere(sample),
-        );
-        return this.spellFireParticles.strike(
+        return this.fireParticleLayer().strike(
             from,
             { center: to, width: cellSize, height: cellSize },
             { center: ground, width: cellSize, height: cellSize * 0.65 },
@@ -3375,13 +3402,7 @@ export class CombatVisuals {
         mode: FireSpellRenderMode = this.fireSpellRenderMode,
     ): void {
         if (mode === "particles") {
-            this.spellFireParticles ??= new SpellFireParticles(
-                (container, z) => this.context.attachToWorldRoot(container, z),
-                undefined,
-                undefined,
-                (sample) => this.emitSpellAtmosphere(sample),
-            );
-            this.spellFireParticles.meteors(cells);
+            this.fireParticleLayer().meteors(cells);
             return;
         }
         this.spellFireSprites ??= new SpellFireSprites(

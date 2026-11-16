@@ -190,7 +190,7 @@ test("Fire Strike emits one book-anchored arrow and no premature legacy burn", (
     expect(visuals.spawnFireBurn).not.toHaveBeenCalled();
 });
 
-test("Fireball routes the old ring sequence without extra sweep or burn layers", () => {
+test("Fireball without a flight origin falls back to one filled contact burst", () => {
     const { scene, visuals } = fixture();
     scene.renderSpellDamageVfx([
         { ...event("Fireball"), damaged: [{ unitId: "other", position: { x: 288, y: 352 }, amount: 7, unitsDied: 0 }] },
