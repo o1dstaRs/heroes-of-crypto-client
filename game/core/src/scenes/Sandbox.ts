@@ -1,3 +1,4 @@
+import { publishBattleUnitFacings, releaseBattleUnitFacings } from "../pixi/battleUnitFacing";
 import { isTouchGameActive } from "../viewport/gameViewport";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
@@ -592,6 +593,8 @@ export interface SandboxSceneUnitState {
     cells: HoCMath.XY[];
     baseCell: HoCMath.XY;
     attackType?: AttackType;
+    /** Visual pose only; omitted by older journals and authoritative engine snapshots. */
+    facingDirection?: -1 | 1;
     /** Whether the unit is waiting on the hourglass (so the hourglass icon survives rebuild/replay). */
     onHourglass?: boolean;
     /** Whether the unit already used its one hourglass (wait) this lap — restored into fightProperties so the
@@ -2978,6 +2981,12 @@ export class Sandbox extends PixiScene {
         // most one action before the sidebar snaps back to whoever is acting. Only the id is kept: the unit
         // object itself is destroyed below, and the replacement is looked up after the rebuild.
         const inspectedUnitId = this.currentShiftedUnit?.getId();
+        const priorFacings = new Map(
+            Array.from(
+                this.unitsHolder.getAllUnits().values(),
+                (unit) => [unit.getId(), (unit as RenderableUnit).getBoardFacingDirection?.()] as const,
+            ),
+        );
         // Preserve the mountains' battered state across the reset below. reset()+setGridType() re-inits
         // both mountains to full HP, so without carrying the prior (or snapshotted) hit counts a mountain
         // sprang back to full on the next hydrate — e.g. the turn after it was struck, or during replay.
@@ -3192,6 +3201,10 @@ export class Sandbox extends PixiScene {
             if (!unit) {
                 unit = this.createRenderableUnitFromSceneState(unitState);
             }
+            if (snapshot.fightStarted) {
+                const facing = unitState.facingDirection ?? priorFacings.get(unit.getId());
+                if (facing !== undefined) unit.setBoardFacing(facing);
+            }
             this.unitsHolder.addUnit(unit);
             if (!unitState.placed || !unitState.cells.length) {
                 const benchPosition = benchPositions.get(unitState.properties.id);
@@ -3332,6 +3345,7 @@ export class Sandbox extends PixiScene {
             summoned,
         );
         const renderableUnit = RenderableUnit.fromBase(base, this.texAny);
+        if (unitState.facingDirection !== undefined) renderableUnit.setBoardFacing(unitState.facingDirection);
         if (unitState.helpingHandStatState) {
             renderableUnit.restoreHelpingHandReplayStatState(unitState.helpingHandStatState);
         }
@@ -3377,6 +3391,7 @@ export class Sandbox extends PixiScene {
             const baseCell = unit.getBaseCell();
             units.push({
                 properties: unit.getAllProperties(),
+                facingDirection: (unit as RenderableUnit).getBoardFacingDirection?.(),
                 helpingHandStatState:
                     unit instanceof RenderableUnit ? unit.captureHelpingHandReplayStatState() : undefined,
                 team: unit.getTeam(),
@@ -4612,7 +4627,7 @@ export class Sandbox extends PixiScene {
                 !(await this.waitForProjectileHitReaction(unit))
             )
                 return;
-            unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
+            // The action owns logical facing; painted muzzle/impact offsets cannot turn the unit.
             let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
             try {
                 const origin = await new Promise<HoCMath.XY | undefined>((resolve) => {
@@ -4715,7 +4730,7 @@ export class Sandbox extends PixiScene {
             !(await this.waitForTexture(unit.getAnimationTextureKey(state) ?? ""))
         )
             return;
-        unit.setBoardFacing(opts.to.x - center.x);
+        // Keep the action's logical facing through the authored release animation.
         let centaurReleaseOrigin: HoCMath.XY | undefined;
         const released = await new Promise<boolean>((resolve) => {
             let done = false;
@@ -4825,7 +4840,7 @@ export class Sandbox extends PixiScene {
             if (!atlas) return;
             if (shot.signal.aborted || this.isSceneDestroyed()) return;
             const gs = this.sc_sceneSettings.getGridSettings();
-            unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
+            // The action owns logical facing; painted muzzle/impact offsets cannot turn the unit.
             let arrowLength: number | undefined;
             const origin = await new Promise<HoCMath.XY | undefined>((resolve) => {
                 const cancel = (): void => settle(undefined);
@@ -4897,7 +4912,7 @@ export class Sandbox extends PixiScene {
             await this.rangedProjectiles.prepare(opts);
             if (shot.signal.aborted || this.isSceneDestroyed()) return;
             const gs = this.sc_sceneSettings.getGridSettings();
-            unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
+            // The action owns logical facing; painted muzzle/impact offsets cannot turn the unit.
             const origin = await new Promise<HoCMath.XY | undefined>((resolve) => {
                 const cancel = (): void => settle(undefined);
                 const settle = (point: HoCMath.XY | undefined): void => {
@@ -11439,6 +11454,7 @@ export class Sandbox extends PixiScene {
         if (attackFromCell) {
             for (let hitIndex = 0; hitIndex < worldPositions.length; hitIndex += 1) {
                 const worldPos = worldPositions[hitIndex];
+                unit.faceBoardTarget?.(worldPos);
                 const animDir = { x: worldPos.x - attackerCenter.x, y: worldPos.y - attackerCenter.y };
                 const animLen = Math.hypot(animDir.x, animDir.y);
                 if (animLen <= 0.001) {
@@ -11468,6 +11484,7 @@ export class Sandbox extends PixiScene {
                 projectBattlefieldPoint(position, gsAnim),
         );
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
+            unit.faceBoardTarget?.(worldPositions[shotIndex]);
             let impacted = false;
             const impact = (): void => {
                 if (impacted || this.isSceneDestroyed()) return;
@@ -12010,6 +12027,7 @@ export class Sandbox extends PixiScene {
                     lineEnd,
                 );
             } else {
+                unit.faceBoardTarget?.(lineEnd);
                 const to = projectBattlefieldPoint(lineEnd, gs);
                 await this.fireUnitProjectile(unit, this.getReplayProjectileOptions(unit, unit, to));
             }
@@ -14758,6 +14776,7 @@ export class Sandbox extends PixiScene {
             this.zenaLabRicochetRunning = true;
             void (async () => {
                 try {
+                    unit.faceBoardTarget?.(chain[0].getPosition());
                     const points = chain.map((target) => target.getProjectileImpactPoint(gs));
                     await this.fireUnitProjectile(
                         unit,
@@ -14848,6 +14867,7 @@ export class Sandbox extends PixiScene {
                 );
             });
             const target = targets[0] as RenderableUnit | undefined;
+            if (target) unit.faceBoardTarget?.(target.getPosition());
             const side = from.x < (gs.getMinX() + gs.getMaxX()) / 2 ? 1 : -1;
             const to = target?.getProjectileImpactPoint(gs) ?? {
                 x: from.x + side * gs.getCellSize() * 4,
@@ -17731,6 +17751,7 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        releaseBattleUnitFacings(this);
         this.aimIntentSink = undefined;
         this.opponentAimOverlay?.destroy();
         this.opponentAimOverlay = undefined;
@@ -18143,6 +18164,7 @@ export class Sandbox extends PixiScene {
             depthSortableUnits.push(dyingUnit);
         }
 
+        publishBattleUnitFacings(this, this.unitsHolder.getAllUnits().values());
         const depthCandidates = this.depthSortCandidatesScratch;
         depthCandidates.length = 0;
         for (let stableOrder = 0; stableOrder < depthSortableUnits.length; stableOrder += 1) {

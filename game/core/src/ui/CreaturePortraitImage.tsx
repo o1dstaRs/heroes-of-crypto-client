@@ -1,3 +1,5 @@
+import { useBattleUnitFacing } from "./useBattleUnitFacing";
+import { battlePortraitFacingScale } from "./battlePortraitFacing";
 import { DecodedPortraitLayers } from "./DecodedPortraitLayers";
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
@@ -13,6 +15,9 @@ import { HydraPortraitPalette } from "./HydraPortraitPalette";
 
 export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     creatureId: number;
+    /** Battle surfaces follow this stack; draft/roster portraits retain their reviewed orientation. */
+    unitId?: string;
+    unitTeam?: number;
     alt?: string;
     imageStyle?: React.CSSProperties;
     /** Multiplies only the creature art. The faction background keeps its approved framing. */
@@ -49,6 +54,8 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
  */
 const CreaturePortraitImageBase = ({
     creatureId,
+    unitId,
+    unitTeam,
     alt,
     imageStyle,
     artScale = 1,
@@ -68,6 +75,8 @@ const CreaturePortraitImageBase = ({
     forwardedRef,
     ...boxProps
 }: CreaturePortraitImageProps & { forwardedRef?: React.Ref<HTMLDivElement> }) => {
+    const facing = useBattleUnitFacing(unitId, unitTeam);
+    const facingScale = battlePortraitFacingScale(UNIT_ID_TO_NAME[creatureId] ?? "", facing);
     const visual = resolveCreaturePortraitVisual(creatureId);
     if (!visual) return null;
     const { framing, background: portraitBackground, backgroundOpacity, backgroundShadeAlpha, source } = visual;
@@ -252,7 +261,23 @@ const CreaturePortraitImageBase = ({
                         }}
                     />
                 )}
-                {visual.artPalette === "hydra" ? (
+                {unitId ? (
+                    <Box
+                        data-battle-portrait-facing={facing}
+                        data-battle-portrait-art-scale={facingScale}
+                        sx={{ position: "absolute", inset: 0, zIndex: 3, transform: `scaleX(${facingScale})` }}
+                    >
+                        {visual.artPalette === "hydra" ? (
+                            <HydraPortraitPalette sharpen={highQualityArt}>
+                                {renderArt ? renderArt(art) : art}
+                            </HydraPortraitPalette>
+                        ) : renderArt ? (
+                            renderArt(art)
+                        ) : (
+                            art
+                        )}
+                    </Box>
+                ) : visual.artPalette === "hydra" ? (
                     <HydraPortraitPalette sharpen={highQualityArt}>
                         {renderArt ? renderArt(art) : art}
                     </HydraPortraitPalette>

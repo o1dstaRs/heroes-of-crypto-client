@@ -407,6 +407,8 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                                         {unit.name && UNIT_NAME_TO_ID[unit.name.trim()] !== undefined ? (
                                             <CreaturePortraitImage
                                                 creatureId={UNIT_NAME_TO_ID[unit.name.trim()]}
+                                                unitId={unit.id}
+                                                unitTeam={unit.teamType}
                                                 alt={unit.name}
                                                 sx={{
                                                     width: "100%",

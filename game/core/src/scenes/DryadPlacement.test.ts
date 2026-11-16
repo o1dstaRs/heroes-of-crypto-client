@@ -118,6 +118,11 @@ for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
                 samePlacement();
                 production.unit.startBoardWalkAnimation(1, 3);
                 production.unit.stopBoardWalkAnimation();
+                // A rightward move turns either team right, even without a walk atlas. Compare like poses.
+                expect(production.unit.getBoardFacingDirection()).toBe(1);
+                reference.unit.setBoardFacing(1);
+                reference.unit.syncVisual(reference.root, grid);
+                production.unit.syncVisual(production.root, grid);
                 samePlacement();
                 for (const action of ["attack", "attack_up", "attack_down", "melee_attack", "hit"]) {
                     expect(production.unit.playOneShotAnimation(action)).toBe(true);

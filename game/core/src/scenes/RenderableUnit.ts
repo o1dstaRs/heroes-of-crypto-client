@@ -8548,14 +8548,15 @@ export class RenderableUnit extends Unit {
         syncBlacksmithWalkColorFilter(this.sprite, frameIndex);
     }
     public setBoardFacingFromMovement(horizontalDirection: number): void {
-        if (!this.hasAnimationState("walk") || Math.abs(horizontalDirection) < 0.001) return;
+        // Facing expresses intent even when a creature has no authored walking atlas.
+        if (!Number.isFinite(horizontalDirection) || Math.abs(horizontalDirection) < 0.001) return;
         this.setBoardFacing(horizontalDirection);
     }
     public getBoardFacingDirection(): -1 | 1 {
         return this.facingDirection ?? 1;
     }
     public setBoardFacing(horizontalDirection: number): void {
-        if (Math.abs(horizontalDirection) < 0.001) return;
+        if (!Number.isFinite(horizontalDirection) || Math.abs(horizontalDirection) < 0.001) return;
         this.facingDirection = horizontalDirection < 0 ? -1 : 1;
     }
     public faceBoardTarget(target: HoCMath.XY): void {
@@ -12075,7 +12076,7 @@ export class RenderableUnit extends Unit {
         this.restingBadgeOffsetY = undefined;
         this.movementBadgeOffsetY = undefined;
         this.walkAnim = undefined;
-        this.facingDirection = placementFacingDirectionForTeam(this.getTeam());
+        // Recreating Pixi objects must preserve the last movement/attack direction.
         // Spellbook sprites live in a scene-shared container, not under this unit's own display
         // objects, so destroying the unit's sprite/containers above does not free them. Leaving them
         // behind orphans them in that shared container — and because ranked snapshots constantly
@@ -12991,8 +12992,7 @@ export class RenderableUnit extends Unit {
             this.clearGenericCombatRecoil();
             return;
         }
-        // dx points away from the impact source, so its inverse turns Wandering Mage toward whoever hit it.
-        this.setBoardFacingFromMovement(-dx);
+        // Receiving damage preserves the last deliberate movement/attack facing.
         // Keep the authored damage pose in the same low-level path as the positional recoil. Both the
         // live sandbox and authoritative replay ultimately land here, so neither mode can miss it.
         if (this.hasAnimationState("hit") && !this.isPlayingOneShotAnimation("death")) {
