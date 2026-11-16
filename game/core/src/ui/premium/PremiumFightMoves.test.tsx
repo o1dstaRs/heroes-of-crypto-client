@@ -123,3 +123,14 @@ test("a legacy third option is not numbered or included in the review count", ()
     expect(html).not.toContain("3 ·");
     expect(html.match(/Explain this move/g)).toHaveLength(2);
 });
+
+test("move details expose a visible collapse control on the persistent keyboard-accessible summary", () => {
+    const html = render(turn);
+    expect(html).toContain('title="Expand or collapse move details"');
+    expect(html).toContain('class="premium-review-expand">Expand</span>');
+    expect(html).toContain('class="premium-review-collapse">Collapse</span>');
+    expect(html).toContain("premium-review-chevron");
+    const headerEnd = html.indexOf("</summary>");
+    expect(html.indexOf('premium-review-collapse">Collapse')).toBeLessThan(headerEnd);
+    expect(html.indexOf("planned path crosses lava")).toBeGreaterThan(headerEnd);
+});

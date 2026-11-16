@@ -121,7 +121,7 @@ export const premiumMoveDrawing = (
                     if (!shooter || !handler) return undefined;
                     const through = shooter.hasAbilityActive("Through Shot");
                     const area = shooter.hasAbilityActive("Large Caliber") || shooter.hasAbilityActive("Area Throw");
-                    const endpoint = target
+                    const resolvedAim = target
                         ? GridMath.resolveRangeAttackAimEdge(
                               rangeContext.grid.getMatrix(),
                               gs,
@@ -132,8 +132,32 @@ export const premiumMoveDrawing = (
                               action.aimCell,
                               action.aimSide,
                               area,
-                          )?.position
-                        : action.targetPosition;
+                          )
+                        : undefined;
+                    const aimedUnit = target ? rangeContext.unitsHolder.getAllUnits().get(target.getId()) : undefined;
+                    // Advice can arrive from an older API or a retained incumbent. Never draw a ray
+                    // through a rear-facing edge that the player's actual aiming controls cannot select.
+                    if (
+                        target &&
+                        !through &&
+                        (!resolvedAim ||
+                            !aimedUnit ||
+                            !GridMath.isRangeAttackSideSelectable(
+                                rangeContext.grid.getMatrix(),
+                                gs,
+                                resolvedAim.cell,
+                                resolvedAim.side,
+                                position,
+                                aimedUnit.getPosition(),
+                                shooter.isSmallSize(),
+                                aimedUnit.isSmallSize(),
+                                shooter.getTeam(),
+                                through,
+                                area,
+                            ))
+                    )
+                        return undefined;
+                    const endpoint = resolvedAim?.position ?? (!target ? action.targetPosition : undefined);
                     if (!endpoint) return undefined;
                     const projection = projectRangedObstacles({
                         attacker: shooter,

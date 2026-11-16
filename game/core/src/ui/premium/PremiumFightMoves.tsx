@@ -1,4 +1,5 @@
 import { Box, Typography } from "@mui/joy";
+import ExpandMoreRounded from "@mui/icons-material/ExpandMoreRounded";
 import React from "react";
 import { useLocation } from "react-router";
 
@@ -40,26 +41,39 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                 borderRadius: 6,
                 bgcolor: "#1e160fe8",
                 fontFamily: hocFontFamily,
+                "& .premium-review-collapse": { display: "none" },
+                "&[open] .premium-review-collapse": { display: "inline" },
+                "&[open] .premium-review-expand": { display: "none" },
+                "&[open] .premium-review-chevron": { transform: "rotate(180deg)" },
             }}
             onKeyDown={(event) => event.stopPropagation()}
         >
             <Box
                 component="summary"
                 aria-label={onlyBest ? "Review proposed best turn" : "Review suggested moves"}
+                title="Expand or collapse move details"
                 sx={{
                     display: "flex",
                     alignItems: "center",
                     gap: 0.5,
                     cursor: "pointer",
                     p: 0.7,
+                    minHeight: 36,
                     color: "#efcfaf",
                     fontSize: 11,
                     listStyle: "none",
                     "&::-webkit-details-marker": { display: "none" },
+                    "&:hover": { bgcolor: "#74503533" },
+                    "&:focus-visible": { outline: "2px solid #ffc65a", outlineOffset: 2 },
                 }}
             >
                 <PremiumIcon size={13} />
                 {onlyBest ? "Proposed best turn" : `Review ${options.length} moves`}
+                <Box component="span" sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.5 }} aria-hidden>
+                    <span className="premium-review-expand">Expand</span>
+                    <span className="premium-review-collapse">Collapse</span>
+                    <ExpandMoreRounded className="premium-review-chevron" sx={{ fontSize: 20 }} />
+                </Box>
             </Box>
             <Box sx={{ maxHeight: "min(40vh, 300px)", overflowY: "auto", overscrollBehavior: "contain", p: 0.8 }}>
                 <Typography level="body-xs" sx={{ color: "#c7ac94", mb: 1 }}>
