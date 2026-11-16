@@ -5,7 +5,12 @@ import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
 import type { OgreSpellFlagKind } from "../ogreSpellFlagEffects";
 import type { SatyrSpellFlagKind } from "../satyrSpellFlagEffects";
-import { overheadEffectElapsedMs, OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
+import {
+    overheadEffectElapsedMs,
+    OVERHEAD_EFFECT_DURATION_MS,
+    statusEffectAppearanceElapsedMs,
+    STATUS_EFFECT_APPEARANCE_SPEED,
+} from "../../settings/statusEffectTiming";
 
 import type { MageSpellFlagKind } from "../mageSpellFlagEffects";
 import type { TroglodyteFlagKind } from "../troglodyteFlagEffects";
@@ -338,7 +343,11 @@ export class CommonFlagPops {
             const pop = this.pops[i];
             const ageMs = Math.max(0, now - pop.startedAtMs);
             const authoredDuration = authoredDurations.get(this.kind)!;
-            const elapsed = overheadEffectElapsedMs(ageMs, authoredDuration);
+            const originalElapsed = overheadEffectElapsedMs(ageMs, authoredDuration);
+            const combatResult = ["lucky", "miss", "resist", "heal", "absorb"].includes(this.kind);
+            const elapsed = combatResult
+                ? originalElapsed
+                : statusEffectAppearanceElapsedMs(originalElapsed, authoredDuration);
             const frame = commonFlagFrameAt(this.kind, elapsed);
             const position = pop.follow?.();
             if (frame === undefined || (pop.follow && !position)) {
@@ -366,7 +375,10 @@ export class CommonFlagPops {
                 this.kind.startsWith("blacksmith_")
             ) {
                 const phase = ageMs / OVERHEAD_EFFECT_DURATION_MS;
-                pop.sprite.alpha = Math.max(0, Math.min(1, phase / 0.08, (1 - phase) / 0.22));
+                pop.sprite.alpha = Math.max(
+                    0,
+                    Math.min(1, (phase * STATUS_EFFECT_APPEARANCE_SPEED) / 0.08, (1 - phase) / 0.22),
+                );
             }
             if (position) pop.container.position.set(position.x, position.y + pop.offsetY);
             // Counter both the y-up world and the board camera's unequal axes.

@@ -32,6 +32,7 @@ import {
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
+import { STATUS_EFFECT_APPEARANCE_SPEED } from "../../settings/statusEffectTiming";
 import { boardVerticalStretch } from "../../pixi/boardFit";
 import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
@@ -479,9 +480,9 @@ const FT_FLAG_GAP = 6;
 // damage number so the icon + name are readable, then drifts up and fades.
 const DP_LIFE = OVERHEAD_EFFECT_DURATION_MS / 1000;
 const DP_RISE = 64; // world px the pop floats up over its life
-const DP_POP_DUR = DP_LIFE / 6; // seconds of the spawn "pop" (icon scales in with overshoot)
+const DP_POP_DUR = DP_LIFE / 6 / STATUS_EFFECT_APPEARANCE_SPEED; // spawn scale reaches full size 25% faster
 const DP_START_SCALE = 0.25; // scale the pop springs in from
-const DP_FADE_IN = DP_LIFE * (0.16 / 1.8); // seconds to fade in
+const DP_FADE_IN = (DP_LIFE * (0.16 / 1.8)) / STATUS_EFFECT_APPEARANCE_SPEED; // opening fade only; readable hold is unchanged
 const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
 const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
 

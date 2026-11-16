@@ -4,6 +4,7 @@ import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
+import { statusEffectAppearanceElapsedMs } from "../../settings/statusEffectTiming";
 
 export type BattleRoarDurationMs = 1000 | 1500;
 type Anchor = Readonly<{ x: number; y: number }>;
@@ -113,7 +114,10 @@ export class BattleRoarPops {
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const ageMs = overheadEffectElapsedMs(now - pop.startedAtMs, pop.durationMs);
+            const ageMs = statusEffectAppearanceElapsedMs(
+                overheadEffectElapsedMs(now - pop.startedAtMs, pop.durationMs),
+                pop.durationMs,
+            );
             const frame = battleRoarFrameAt(ageMs, pop.durationMs);
             if (frame === undefined) {
                 pop.container.destroy({ children: true });

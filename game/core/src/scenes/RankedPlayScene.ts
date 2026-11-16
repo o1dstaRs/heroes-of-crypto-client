@@ -1949,8 +1949,8 @@ export class RankedPlayScene extends Sandbox {
         // Ranked snapshots own generic buff pops, including when spectating without a transport.
         // Named cast flourishes still render from the recorded outcomes through renderCastOutcomes.
     }
-    private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
-        if (!snapshot.fightStarted || snapshot.fightFinished) {
+    private processDebuffPops(snapshot: AuthoritativeGameSnapshot, impactUnitIds?: ReadonlySet<string>): void {
+        if (!snapshot.fightStarted || (snapshot.fightFinished && !impactUnitIds)) {
             return;
         }
         // Own the per-game reset here (this now runs before applyRankedSnapshotMetadata): a new game
@@ -1975,9 +1975,12 @@ export class RankedPlayScene extends Sandbox {
                 )
                 .flatMap((entry) => this.parseJournalEvents(entry)),
         );
-        this.effectPopsSequence = snapshot.latestSequence;
+        // A contact commits only its own recipient. The response and other piercing/AOE contacts
+        // still need their unchanged baselines when they arrive later in this same record.
+        if (!impactUnitIds) this.effectPopsSequence = snapshot.latestSequence;
         const seen = new Set<string>();
         for (const unitState of snapshot.units) {
+            if (impactUnitIds && !impactUnitIds.has(unitState.id)) continue;
             seen.add(unitState.id);
             const currentDebuffs = animatableEffectNames(unitState.debuffs ?? []);
             const currentBuffs = animatableEffectNames(unitState.buffs ?? []);
@@ -2017,13 +2020,21 @@ export class RankedPlayScene extends Sandbox {
             // Diffed eagerly (above) so a mid-animation snapshot can't drop the effect, but ANIMATED only
             // once the strike that applied it connects: the server resolves an action — and this snapshot
             // lands — while the replayed arrow is still flying or the attacker is still walking in.
-            this.queueOrPlayEffectPops({
+            const pop = {
                 unit,
                 flash: diff.flash,
                 debuffs: [...diff.newDebuffs],
-                buffs: diff.newBuffs.filter((name) => !stolenBuffs.get(unitState.id)?.has(name)),
-            });
+                buffs: diff.newBuffs.filter(
+                    (name) =>
+                        name !== "Armor Rune" && name !== "Weapon Rune" && !stolenBuffs.get(unitState.id)?.has(name),
+                ),
+            };
+            if (pop.flash !== "none") {
+                if (impactUnitIds) this.playEffectPops(pop);
+                else this.queueOrPlayEffectPops(pop);
+            }
         }
+        if (impactUnitIds) return;
         for (const id of [...this.unitDebuffs.keys()]) {
             if (!seen.has(id)) {
                 this.unitDebuffs.delete(id);
@@ -3904,7 +3915,7 @@ export class RankedPlayScene extends Sandbox {
                 winner = priorWinner;
             }
         }
-        const fightOver = winner !== TeamVals.NO_TEAM || finishedByEngine;
+        const fightOver = snapshot.fightFinished || winner !== TeamVals.NO_TEAM || finishedByEngine;
         const fightStats = this.buildRankedFightStats(winner, units, lap, snapshot.damageStats ?? []);
         // Mid-fight (no winner yet) we wait until the roster is captured before publishing stats. But
         // once the fight is OVER we must always publish the finished state — gating it on the start
@@ -4713,6 +4724,16 @@ export class RankedPlayScene extends Sandbox {
         if (changed) this.sc_visibleStateUpdateNeeded = true;
     }
     protected override onReplaySpellImpact(record: SandboxReplayActionRecord): void {
+        const recipients = new Set<string>();
+        if (record.action.type === "cast_spell") {
+            recipients.add(record.action.casterId);
+            if (record.action.targetId) recipients.add(record.action.targetId);
+        }
+        for (const event of record.events) {
+            if (event.type === "effects_applied")
+                for (const application of event.applications) recipients.add(application.unitId);
+        }
+        this.onReplayUnitImpact(recipients, record.events);
         if (record.action.type !== "cast_spell" || record.action.spellName !== "Helping Hand") {
             return;
         }
@@ -4756,6 +4777,9 @@ export class RankedPlayScene extends Sandbox {
         // these is already gated on its own game id + sequence, so replaying them in order behaves exactly
         // as it did live: seed on the first record, then emit only what is new.
         this.processDebuffPops(snapshot);
+        // A full replay owns the scene for its entire duration. Any legacy/unrouted status must
+        // settle on this record, rather than remaining queued until the following unit attacks.
+        this.flushEffectPops();
         this.applyAuthoritativeSceneLog(snapshot);
         this.renderNewlyAppliedMorale(snapshot);
         this.renderNewlyAppliedPoison(snapshot);
@@ -4764,6 +4788,19 @@ export class RankedPlayScene extends Sandbox {
         this.reconcileAuraEffectsFromSnapshot(snapshot);
         this.applyRankedTimer(snapshot);
         this.applyRankedFightStats(snapshot, record.stateAfter.units);
+    }
+    protected override onReplayUnitImpact(unitIds: ReadonlySet<string>, events?: readonly GameEvent[]): void {
+        const snapshot = this.currentReplayImpactRecord?.authoritativeSnapshot;
+        if (snapshot) this.processDebuffPops(snapshot, unitIds);
+        else if (this.fullReplayPlaybackActive) super.onReplayUnitImpact(unitIds, events);
+    }
+    protected override onReplayCompleted(record: SandboxReplayActionRecord): void {
+        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
+        if (!snapshot?.fightFinished) return;
+        // The final hydrate can rebuild visible state after the last record published its stats.
+        // Publish the authoritative terminal report again before the replay releases the results UI.
+        this.applyRankedFightStats(snapshot, record.stateAfter.units);
+        this.sc_visibleStateUpdateNeeded = true;
     }
     protected override getPlacementOwnerTeam(): TeamType | undefined {
         return this.viewerTeam;

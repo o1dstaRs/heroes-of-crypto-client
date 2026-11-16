@@ -164,6 +164,42 @@ test("repeated attack normalizes 16 authored cels to 650ms and restarts on a thi
     }
 });
 
+test("painted status cels begin 25% faster and retain their readable lifetime", async () => {
+    const atlas = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
+    const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
+    const unload = spyOn(Assets, "unload").mockResolvedValue();
+    const root = new Container();
+    let now = 0;
+    const layer = new CommonFlagPops(
+        "empower",
+        (container) => root.addChild(container),
+        () => now,
+    );
+    try {
+        await layer.spawn("unit", { x: 0, y: 0 }, 64);
+        const sprite = root.children[0].children[0] as Sprite;
+        const first = sprite.texture;
+        const boundary = (animationAtlases["Vfx Empower"].pop.frameDurationsMs![0] * 0.65) / 1.25;
+        now = boundary - 0.01;
+        layer.update(0);
+        expect(sprite.texture).toBe(first);
+        now = boundary + 0.01;
+        layer.update(0);
+        expect(sprite.texture).not.toBe(first);
+        now = 649;
+        layer.update(0);
+        expect(layer.active).toBe(true);
+        now = 650;
+        layer.update(0);
+        expect(layer.active).toBe(false);
+    } finally {
+        layer.clear();
+        root.destroy({ children: true });
+        load.mockRestore();
+        unload.mockRestore();
+    }
+});
+
 test.each(["empower", "dulling_defense", "enchanted_skin", "ogre_riot"] as const)(
     "%s status completes its painted cels in 650 ms",
     async (kind) => {

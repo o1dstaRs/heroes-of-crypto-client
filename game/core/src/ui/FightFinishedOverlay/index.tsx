@@ -27,6 +27,8 @@ import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
+import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
+import { canShowFightResults } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
 // Keep the results preview and live overlay compatible with either checked-out common revision.
@@ -1096,8 +1098,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             setVisibleState(s);
             // A new fight has begun — re-arm the overlay for next time.
             if (!s.hasFinished) {
-                setDismissed(false);
                 if (!replayInProgress.current) {
+                    setDismissed(false);
                     setReplayResult(false);
                 }
                 setPlayAgainBusy(false);
@@ -1200,7 +1202,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         finishedView.current = { state: liveState, stats: liveStats };
     }
     const finished = liveState.hasFinished ? finishedView.current : null;
-    if (!finished || dismissed) {
+    if (!finished || !canShowFightResults(liveState, dismissed)) {
         return null;
     }
     const stats = finished.stats;
@@ -1628,7 +1630,13 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
                     spacing={2}
-                    sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
+                    sx={{
+                        alignItems: { xs: "center", sm: "flex-end" },
+                        justifyContent: "center",
+                        mt: 2,
+                        pt: 1,
+                        flexShrink: 0,
+                    }}
                 >
                     {reportTarget && (
                         <ActionButton
@@ -1686,25 +1694,28 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         />
                     )}
                     {!showSandboxActions && onPlayAgainVsAi && (
-                        <ActionButton
-                            label={playAgainBusy ? "Starting…" : "⚔ Play Again vs AI"}
-                            primary
-                            disabled={playAgainBusy}
-                            onClick={() => {
-                                if (playAgainBusy) return;
-                                setPlayAgainError("");
-                                setPlayAgainBusy(true);
-                                Promise.resolve(onPlayAgainVsAi())
-                                    // On success the caller navigates away; only clear the busy flag on
-                                    // failure so a rejected click stays clickable instead of stuck.
-                                    .catch((err: unknown) => {
-                                        setPlayAgainBusy(false);
-                                        setPlayAgainError(
-                                            err instanceof Error ? err.message : "Unable to start an AI match",
-                                        );
-                                    });
-                            }}
-                        />
+                        <Box>
+                            <NextAiDoctrinePicker disabled={playAgainBusy} />
+                            <ActionButton
+                                label={playAgainBusy ? "Starting…" : "⚔ Play Again vs AI"}
+                                primary
+                                disabled={playAgainBusy}
+                                onClick={() => {
+                                    if (playAgainBusy) return;
+                                    setPlayAgainError("");
+                                    setPlayAgainBusy(true);
+                                    Promise.resolve(onPlayAgainVsAi())
+                                        // On success the caller navigates away; only clear the busy flag on
+                                        // failure so a rejected click stays clickable instead of stuck.
+                                        .catch((err: unknown) => {
+                                            setPlayAgainBusy(false);
+                                            setPlayAgainError(
+                                                err instanceof Error ? err.message : "Unable to start an AI match",
+                                            );
+                                        });
+                                }}
+                            />
+                        </Box>
                     )}
                     {!showSandboxActions && onRematch && (
                         <ActionButton

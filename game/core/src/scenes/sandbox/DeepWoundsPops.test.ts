@@ -65,9 +65,14 @@ describe("painted Deep Wounds flag effects", () => {
             expect(sprite.scale.x).toBe(scale.x);
             expect(sprite.scale.y).toBe(scale.y);
             expect(sprite.texture.width).toBe(384);
-            expect(sprite.texture.frame.x).toBe((deepWoundsFrameAt(2, 500)! % 4) * 384);
+            // At 500ms the readable tail has reached cel 12; the complete cue remains 650ms.
+            expect(sprite.texture.frame.x).toBe(0);
+            expect(sprite.texture.frame.y).toBe(1152);
             expect(container.alpha).toBe(1); // The sprite already carries its fade.
-            now = 1800;
+            now = 649;
+            layer.update(1 / 240);
+            expect(layer.active).toBe(true);
+            now = 650;
             layer.update(1 / 240);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);

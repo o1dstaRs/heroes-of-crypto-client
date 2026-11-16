@@ -3,6 +3,7 @@ import { FightStateManager, type GameEvent } from "@heroesofcrypto/common";
 import type { SandboxReplayActionRecord } from "../replay/sandbox_replay";
 import { RankedPlayScene } from "./RankedPlayScene";
 import { Sandbox } from "./Sandbox";
+import { RenderableUnit } from "./RenderableUnit";
 
 const flush = async () => {
     for (let index = 0; index < 30; index++) await Promise.resolve();
@@ -13,6 +14,8 @@ function fixture(terrainDuration = 0) {
     let destroyed = false;
     let foregroundUntil = 400;
     let terrainUntil = 0;
+    let projectileUntil = 0;
+    let movementUntil = 0;
     const timers: { due: number; resolve(): void }[] = [];
     const timeline: { name: string; at: number }[] = [];
     const actionEvents: GameEvent[][] = [];
@@ -31,7 +34,8 @@ function fixture(terrainDuration = 0) {
         drawnNarrowingLaps: new Set<number>(),
         dyingVisualUnits: new Set(),
         unitsHolder: { getAllUnits: () => units },
-        moveAnimManager: { isMoving: () => false },
+        moveAnimManager: { isMoving: () => now < movementUntil },
+        rangedProjectiles: { hasActive: () => now < projectileUntil },
         isSceneDestroyed: () => destroyed,
         delayReplay: delay,
         attachToWorldRoot: () => {},
@@ -85,6 +89,12 @@ function fixture(terrainDuration = 0) {
         },
         setForegroundUntil: (until: number) => {
             foregroundUntil = until;
+        },
+        setProjectileUntil: (until: number) => {
+            projectileUntil = until;
+        },
+        setMovementUntil: (until: number) => {
+            movementUntil = until;
         },
     };
 }
@@ -230,4 +240,106 @@ test("local round handoff waits for the old reaction, then for narrowing, before
     } finally {
         for (const spy of spies) spy.mockRestore();
     }
+});
+
+test.each(["projectile", "movement", "windup"] as const)(
+    "narrowing replay waits for the complete %s even when no creature one-shot is playing",
+    async (kind) => {
+        const f = fixture();
+        f.setForegroundUntil(0);
+        if (kind === "projectile") f.setProjectileUntil(900);
+        if (kind === "movement") f.setMovementUntil(900);
+        if (kind === "windup") f.scene.sc_moveBlocked = true;
+        const pending = f.scene.playSandboxReplayRecord(record("range_attack"));
+        await f.advance(800);
+        expect(f.mapEvents).toEqual([]);
+        if (kind === "windup") f.scene.sc_moveBlocked = false;
+        await f.advance(800);
+        expect(await pending).toBe(true);
+        expect(f.timeline.find((event) => event.name === "map")!.at).toBeGreaterThanOrEqual(
+            kind === "windup" ? 800 : 900,
+        );
+    },
+);
+
+test("a real attack tail longer than three seconds is not mistaken for finished playback", async () => {
+    const f = fixture();
+    f.setForegroundUntil(4200);
+    const pending = f.scene.playSandboxReplayRecord(record("range_attack"));
+    await f.advance(3500);
+    expect(f.mapEvents).toEqual([]);
+    await f.advance(1400);
+    expect(await pending).toBe(true);
+    expect(f.timeline.find((event) => event.name === "map")!.at).toBeGreaterThanOrEqual(4200);
+});
+
+test.each(["projectile", "long reaction", "windup"] as const)(
+    "the local round cannot advance through a pending %s",
+    async (kind) => {
+        const f = fixture();
+        f.scene.replayPlaybackActive = false;
+        f.setForegroundUntil(kind === "long reaction" ? 4200 : 0);
+        if (kind === "projectile") f.setProjectileUntil(4200);
+        if (kind === "windup") f.scene.sc_moveBlocked = true;
+        const fight = FightStateManager.getInstance().getFightProperties();
+        const spies = [
+            spyOn(fight, "hasFightStarted").mockReturnValue(true),
+            spyOn(fight, "hasFightFinished").mockReturnValue(false),
+            spyOn(fight, "hasAlreadyMadeTurn").mockReturnValue(true),
+            spyOn(performance, "now").mockImplementation(f.now),
+        ];
+        let advances = 0;
+        f.scene.snapshotRenderableUnits = () => new Map();
+        f.scene.createTurnEngine = () => ({
+            advanceAfterNoActiveUnit: () => {
+                advances++;
+                return { events: [] };
+            },
+        });
+        f.scene.applyTurnEngineEvents = () => {};
+        try {
+            f.scene.advanceAfterNoActiveUnitIfNeeded();
+            expect(advances).toBe(0);
+            await f.advance(3500);
+            f.scene.advanceAfterNoActiveUnitIfNeeded();
+            expect(advances).toBe(0);
+            f.scene.sc_moveBlocked = false;
+            await f.advance(800);
+            f.scene.advanceAfterNoActiveUnitIfNeeded();
+            expect(advances).toBe(1);
+        } finally {
+            for (const spy of spies) spy.mockRestore();
+        }
+    },
+);
+
+test("a narrowing snapshot cannot move the board while the last projectile is still flying", () => {
+    const f = fixture();
+    f.scene.replayPlaybackActive = false;
+    f.setForegroundUntil(0);
+    f.setProjectileUntil(900);
+    f.scene.rememberStatusSnapshot = () => {
+        throw new Error("snapshot overtook the projectile");
+    };
+    RankedPlayScene.prototype.applyAuthoritativeSnapshot.call(
+        f.scene,
+        { narrowingLayers: 1, latestSequence: 8 } as Parameters<RankedPlayScene["applyAuthoritativeSnapshot"]>[0],
+        { skipBoardRebuild: true },
+    );
+});
+
+test("holding a completed death cel cannot stall narrowing forever", async () => {
+    const f = fixture();
+    f.setForegroundUntil(0);
+    const corpse = Object.assign(Object.create(RenderableUnit.prototype), {
+        oneShotAnim: { stateName: "death", holdLastFrame: true, finished: true },
+    }) as RenderableUnit;
+    expect(corpse.isPlayingOneShotAnimation("death")).toBe(true);
+    expect(corpse.hasUnfinishedCombatAnimation()).toBe(false);
+    f.scene.dyingVisualUnits.add(corpse);
+    const pending = f.scene.playSandboxReplayRecord(record());
+    await f.advance(100);
+    expect(f.mapEvents).toHaveLength(1);
+    await f.advance(656);
+    expect(await pending).toBe(true);
 });

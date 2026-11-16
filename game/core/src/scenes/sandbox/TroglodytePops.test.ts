@@ -38,13 +38,22 @@ test.each(["blind_fury", "miner", "madness"] as const)(
                     : `${sprite.texture.frame.x}:${sprite.texture.frame.y}`;
             const initialPosition = celPosition();
             const frames = new Set<string>();
-            for (let i = 0; i < 16; i++) {
-                now = ((i + 0.5) * 650) / 16;
+            // Sample the real clock densely: the first cels now advance 25% faster, rather than
+            // assuming every cel still has the old uniform wall-clock hold.
+            for (now = 0; now < 650; now += 5) {
                 layer.update(0);
                 frames.add(celPosition());
                 if (sprite instanceof InterpolatedFlagCel) {
-                    expect(sprite.shader!.resources.cels.uniforms.uBlend).toBeCloseTo(0.5);
+                    const blend = sprite.shader!.resources.cels.uniforms.uBlend;
+                    expect(blend).toBeGreaterThanOrEqual(0);
+                    expect(blend).toBeLessThanOrEqual(1);
                 }
+            }
+            // The later readable hold keeps its original interpolation.
+            now = (10.5 * 650) / 16;
+            layer.update(0);
+            if (sprite instanceof InterpolatedFlagCel) {
+                expect(sprite.shader!.resources.cels.uniforms.uBlend).toBeCloseTo(0.5);
             }
             expect(frames.size).toBe(16);
             anchor.x = 150;
