@@ -324,20 +324,21 @@ const PagedPortraitCanvas = ({
     React.useLayoutEffect(() => {
         ready.current = onLoaded;
     }, [onLoaded]);
+    const { meta, pages } = config;
     React.useLayoutEffect(() => {
-        if (!canvas.current || !config.pages) return;
-        const { meta } = config;
+        if (!canvas.current || !pages) return;
         const timing =
             playback === "ping-pong"
                 ? buildAtlasPingPongTiming(meta)
                 : { frameForElapsed: (elapsed: number) => Math.floor(elapsed / (1000 / meta.fps)) % meta.frameCount };
         return playPagedSidebarAtlas(
             canvas.current,
-            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages: config.pages },
+            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages },
             timing,
             () => ready.current(),
         );
-    }, [config, playback]);
+        // Facing changes update the art transform, never the running animation clock.
+    }, [meta, pages, playback]);
     return (
         <Box
             component="canvas"
@@ -1330,12 +1331,16 @@ const StatItem: React.FC<{
 
 // Keep portrait decoding, tuning and the held-image handoff out of the stat/effect render tree.
 const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
+    unitId,
+    unitTeam,
     creatureId,
     animatePortrait,
     onImageLoaded,
     portraitHeight,
 }: {
     creatureId: number;
+    unitId?: string;
+    unitTeam?: number;
     animatePortrait: boolean;
     onImageLoaded: () => void;
     portraitHeight: number;
@@ -1424,6 +1429,8 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
             displayedCreatureId === undefined ? null : (
                 <CreaturePortraitImage
                     creatureId={displayedCreatureId}
+                    unitId={unitId}
+                    unitTeam={unitTeam}
                     alt={portraitAlt}
                     artScale={portraitArtScale * LEFT_SIDEBAR_ART_SCALE}
                     artScaleX={portraitArtScaleX}
@@ -1460,6 +1467,8 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
             ),
         [
             displayedCreatureId,
+            unitId,
+            unitTeam,
             portraitAlt,
             portraitArtScale,
             portraitArtScaleX,
@@ -1828,6 +1837,8 @@ const UnitStatsLayout: React.FC<{
                             >
                                 <SelectedUnitPortrait
                                     creatureId={creatureId}
+                                    unitId={unitProperties.id}
+                                    unitTeam={unitProperties.team}
                                     animatePortrait={animatePortrait}
                                     onImageLoaded={onImageLoaded}
                                     portraitHeight={portraitHeight}
