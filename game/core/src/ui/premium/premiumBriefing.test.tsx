@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server.node";
 
 import { premiumBriefingPlan, premiumSandboxVersion, type PremiumSandboxState } from "./premiumBriefing";
 import { PremiumSandboxHelp } from "./PremiumSandboxHelp";
+import { activityForPath } from "../social/presenceActivity";
 
 const empty: PremiumSandboxState = {
     left: 0,
@@ -14,6 +15,19 @@ const empty: PremiumSandboxState = {
     map: 1,
     visibleQueue: [],
 };
+
+test("the ranked arena explains doctrine and queue choices without using a stale sandbox or requesting match advice", () => {
+    for (const sandbox of [undefined, empty, { ...empty, started: true, left: 6, right: 6 }]) {
+        const plan = premiumBriefingPlan(undefined, sandbox, activityForPath("/play").kind);
+        expect(plan.title).toBe("Ranked arena");
+        expect(plan.question).toBeUndefined();
+        const html = renderToStaticMarkup(<PremiumSandboxHelp plan={plan} />);
+        expect(html).toContain("Choose your scouting doctrine");
+        expect(html).toContain("ranked opponent");
+        expect(html).not.toContain("Sandbox");
+        expect(html).not.toContain("place them on each side");
+    }
+});
 
 test("an empty sandbox explains how to place both armies without making an AI request", () => {
     const plan = premiumBriefingPlan(undefined, empty);
@@ -81,4 +95,16 @@ test("sandbox combat context stays explicitly partial, bounded and separate from
     expect(plan.question).not.toContain("Creature 39");
     expect(premiumSandboxVersion({ ...state, lap: 4 })).not.toBe(premiumSandboxVersion(state));
     expect(premiumBriefingPlan(undefined, { ...state, finished: true }).question).toContain("lesson, not an action");
+});
+
+test("menu routes have no practice-board context, while both sandbox entry points retain setup help", () => {
+    for (const route of ["/lobbies", "/lobby/room", "/portal"]) {
+        const plan = premiumBriefingPlan(undefined, empty, activityForPath(route).kind);
+        expect(plan.title).toBe("Premium guide");
+        expect(plan.question).toBeUndefined();
+        expect(JSON.stringify(plan)).not.toContain("Sandbox");
+    }
+    for (const route of ["/", "/sandbox/room"]) {
+        expect(premiumBriefingPlan(undefined, empty, activityForPath(route).kind).title).toBe("Set up a fight");
+    }
 });

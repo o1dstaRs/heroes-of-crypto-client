@@ -4,6 +4,7 @@ import Popper from "@mui/material/Popper";
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
+import { activityForPath } from "../social/presenceActivity";
 
 import { deviceIdHeaders } from "../../api/deviceId";
 import {
@@ -63,9 +64,15 @@ export const PremiumGuide: React.FC<{
     const accountKey = user?.email || user?.username;
     const location = useLocation();
     const gameId = premiumSearchGameId(location.pathname);
+    const activity = activityForPath(location.pathname).kind;
+    const inSandbox = !gameId && (activity === "sandbox" || activity === "coop");
     const matchVersion = usePremiumSearchMatch(gameId);
-    const sandbox = usePremiumSandboxState(available && compact && !gameId);
-    const plan = premiumBriefingPlan(matchVersion?.stage, gameId ? undefined : (sandbox.state ?? emptySandbox));
+    const sandbox = usePremiumSandboxState(available && compact && inSandbox);
+    const plan = premiumBriefingPlan(
+        matchVersion?.stage,
+        inSandbox ? (sandbox.state ?? emptySandbox) : undefined,
+        gameId ? undefined : activity,
+    );
     const [open, setOpen] = useState(false);
     const [focus, setFocus] = useState<PremiumInspectionFocus>();
     const [answer, setAnswer] = useState("");
@@ -243,8 +250,8 @@ export const PremiumGuide: React.FC<{
     }, [prompt, available, anchor, gameId, location.pathname, accountKey, prepare]);
     if (!available || !anchor) return null;
     const preparePlan = () => {
-        const current = gameId ? undefined : (sandbox.refresh() ?? sandbox.state ?? emptySandbox);
-        const next = premiumBriefingPlan(matchVersion?.stage, current);
+        const current = inSandbox ? (sandbox.refresh() ?? sandbox.state ?? emptySandbox) : undefined;
+        const next = premiumBriefingPlan(matchVersion?.stage, current, gameId ? undefined : activity);
         setFocus(undefined);
         if (next.question) void prepare(next.question, undefined, current);
         else {
@@ -375,7 +382,7 @@ export const PremiumGuide: React.FC<{
                         </IconButton>
                     </Box>
                     {plan.steps && !focus ? (
-                        <PremiumSandboxHelp plan={plan} sandbox={sandbox.state} />
+                        <PremiumSandboxHelp plan={plan} sandbox={inSandbox ? sandbox.state : undefined} />
                     ) : (
                         <>
                             {matchChanged && lastRequest && (

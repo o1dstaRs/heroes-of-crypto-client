@@ -1,4 +1,5 @@
 import type { PremiumSearchMatchVersion } from "./premiumSearchFreshness";
+import type { PresenceActivityKind } from "../social/presenceActivity";
 
 export interface PremiumSandboxState {
     left: number;
@@ -25,7 +26,46 @@ const evidence =
 export function premiumBriefingPlan(
     stage?: PremiumSearchMatchVersion["stage"],
     sandbox?: PremiumSandboxState,
+    location?: PresenceActivityKind,
 ): PremiumBriefingPlan {
+    // A menu has no battlefield. In particular, the ranked arena must never read the manager's
+    // empty (or previous) sandbox and tell the player to place two armies before queueing.
+    if (location && location !== "sandbox" && location !== "coop") {
+        if (location === "arena") {
+            return {
+                title: "Ranked arena",
+                subtitle: "Ranked · choose your next match",
+                steps: [
+                    {
+                        title: "Choose your scouting doctrine",
+                        text: "Pick A, B or C before you queue. Each doctrine trades draft visibility for upgrade points.",
+                    },
+                    {
+                        title: "Choose how to play",
+                        text: "Queue for a ranked opponent or start a game against AI.",
+                    },
+                    {
+                        title: "Get advice during the match",
+                        text: "Premium follows your draft, army setup, placement and battle. Open it there for advice based on the information visible to you.",
+                    },
+                ],
+            };
+        }
+        return {
+            title: "Premium guide",
+            subtitle: "Guidance for your next match",
+            steps: [
+                {
+                    title: "Choose a game",
+                    text: "Use the ranked arena to find an opponent or play against AI, or join a custom-game lobby.",
+                },
+                {
+                    title: "Advice follows your match",
+                    text: "During a game, Premium can explain your draft, army setup, placement and battle using the information visible to you.",
+                },
+            ],
+        };
+    }
     if (sandbox) {
         if (!sandbox.started) {
             const empty = sandbox.left + sandbox.right === 0;
