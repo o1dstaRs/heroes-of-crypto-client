@@ -294,35 +294,11 @@ export function rangeTargetEdgeIsSelectable(
     throughShot: boolean,
     ignoresStructures = false,
 ): boolean {
-    const center = GridMath.getPositionForCell(
-        cell,
-        gridSettings.getMinX(),
-        gridSettings.getStep(),
-        gridSettings.getHalfStep(),
-    );
-    const probeDistance = Math.max(0, gridSettings.getHalfStep() - 1);
-    const probe = { ...center };
-
-    switch (side) {
-        case GridMath.RangeAttackCellSide.LEFT:
-            probe.x -= probeDistance;
-            break;
-        case GridMath.RangeAttackCellSide.RIGHT:
-            probe.x += probeDistance;
-            break;
-        case GridMath.RangeAttackCellSide.DOWN:
-            probe.y -= probeDistance;
-            break;
-        case GridMath.RangeAttackCellSide.UP:
-        default:
-            probe.y += probeDistance;
-            break;
-    }
-
-    const resolved = GridMath.getClosestSideCenterDetailed(
+    return GridMath.isRangeAttackSideSelectable(
         gridMatrix,
         gridSettings,
-        probe,
+        cell,
+        side,
         attackerPosition,
         targetPosition,
         attackerIsSmall,
@@ -331,5 +307,4 @@ export function rangeTargetEdgeIsSelectable(
         throughShot,
         ignoresStructures,
     );
-    return resolved?.cell.x === cell.x && resolved.cell.y === cell.y && resolved.side === side;
 }
