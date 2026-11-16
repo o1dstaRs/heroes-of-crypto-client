@@ -2019,10 +2019,11 @@ const UnitStatsLayout: React.FC<{
                     >
                         {/* The same wrapped, row-paged well the Buffs section uses. Debuffs used to be a
                             horizontal strip with a thin bottom rail of its own, so the two sections read as
-                            two different controls and the overflowing tiles were reachable only sideways. */}
+                            two different controls and the overflowing tiles were reachable only sideways.
+                            Include the lowered plaque in the offset so the visible gap matches Buffs. */}
                         <IconScrollWell
                             height={effectWellHeight}
-                            offsetY={Math.max(2, Math.round(metrics.gapPx * 0.25))}
+                            offsetY={Math.round(metrics.gapPx * 0.5) + 2}
                             vertical
                             rowStepPx={effectRowStep}
                         >
