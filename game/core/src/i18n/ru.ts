@@ -987,6 +987,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "+ NEW BATTLE": "+ НОВЫЙ БОЙ",
     "NEW BATTLE": "НОВЫЙ БОЙ",
     "Play Again vs AI": "Снова против ИИ",
+    "Doctrine for next game": "Доктрина для следующей игры",
+    "Doctrine for next AI game": "Доктрина для следующей игры против ИИ",
     "Refresh the page to start a new one": "Обновите страницу, чтобы начать новый бой",
     "Green AI": "Зелёный ИИ",
     "Red AI": "Красный ИИ",

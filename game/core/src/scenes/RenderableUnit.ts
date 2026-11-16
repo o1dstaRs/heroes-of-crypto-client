@@ -10741,6 +10741,10 @@ export class RenderableUnit extends Unit {
         if (this.unicornBlindnessFlash && (!stateName || stateName === "cast")) return true;
         return !!this.oneShotAnim && (!stateName || this.oneShotAnim.stateName === stateName);
     }
+    /** A completed death or attack may retain its final cel without keeping the combat queue busy. */
+    public hasUnfinishedCombatAnimation(): boolean {
+        return !!this.unicornBlindnessFlash || (!!this.oneShotAnim && !this.oneShotAnim.finished);
+    }
     public isPlayingForegroundAttackAnimation(): boolean {
         return (
             this.getName() !== BLACKSMITH_UNIT_NAME &&

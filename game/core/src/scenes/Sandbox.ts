@@ -1038,7 +1038,6 @@ export class Sandbox extends PixiScene {
     private readonly dyingVisualUnits = new Set<RenderableUnit>();
     private narrowingPresentation?: Promise<void>;
     private narrowingPlaybackEpoch = 0;
-    private roundEndAnimationWaitStartedAtMs?: number;
     private shownFireBreathHits?: WeakSet<object>;
     private pyreDeaths?: LastFuseDeaths<RenderableUnit>;
     /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
@@ -3085,7 +3084,6 @@ export class Sandbox extends PixiScene {
         this.sc_isAnimating = false;
         this.narrowingPlaybackEpoch = (this.narrowingPlaybackEpoch ?? 0) + 1;
         this.narrowingPresentation = undefined;
-        this.roundEndAnimationWaitStartedAtMs = undefined;
         // Keep the hole layers the board already shows whenever the rebuild restores at least as many.
         // Clearing them here and re-spawning them further down painted one or more frames of a FULLY
         // un-narrowed board before every layer popped back — the narrowing "flicker". The grid is re-carved
@@ -3472,6 +3470,7 @@ export class Sandbox extends PixiScene {
             clearPersonalArmyTint();
             await this.preloadTextureKeys(replayStateTextureKeys(replay.initialState), { priority: "visible" });
             if (this.isSceneDestroyed()) return false;
+            this.replayDebuffsShown = new WeakSet();
             this.resetStatusApplicationOrder();
             this.hydrateSceneState(cloneReplayData(replay.initialState));
             // Hydration also warms every creature's later combat sheets. Only the visible map belongs
@@ -3543,6 +3542,7 @@ export class Sandbox extends PixiScene {
                 if (finalRecord.stateAfter.fightFinished && finalWinner?.type === "fight_finished") {
                     this.finishFight(finalWinner.winningTeam, { mechanicsAlreadyApplied: true });
                 }
+                this.onReplayCompleted(finalRecord);
             }
             return true;
         } finally {
@@ -4016,9 +4016,9 @@ export class Sandbox extends PixiScene {
      *      so a mid-animation snapshot can't drop them. DIFF EARLY, ANIMATE AT IMPACT: the snapshot lands
      *      when the SERVER resolves the action, which is well before the replayed projectile arrives or
      *      the attacker finishes walking in, so animating on the diff pops the icon ahead of the blow.
-     *      Route the animation through queueOrPlayEffectPops — it holds the pop while a strike is in
-     *      flight and flushEffectPops releases it here at impact (with a per-frame drain as the
-     *      backstop, so holding can never swallow one).
+     *      Live snapshots use queueOrPlayEffectPops until contact. Full replays commit each recipient
+     *      through onReplayUnitImpact: their snapshots otherwise arrive after the action, while the
+     *      whole replay still owns the scene, leaving the pop queued until the NEXT attack.
      *
      * Retaliation note: playCombatExchange starts the initiating strike and its recorded response together
      * in every mode. Per-strike effects belong in its impact callback, keyed by source and response.
@@ -5487,6 +5487,7 @@ export class Sandbox extends PixiScene {
                         // showed Dulling Defense before the knight had answered.
                         this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
                         this.popRecordedResistances(dullingEvents, new Set([strike.targetId]));
+                        if (!strike.missed) this.onReplayUnitImpact(new Set([strike.targetId]), dullingEvents);
                         const remaining = consumeLoss(strike.targetId, strike.unitsDied);
                         renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
                         const from = source.getVisualCenter(gs);
@@ -5919,6 +5920,7 @@ export class Sandbox extends PixiScene {
             if (!hit.missed) this.showShieldAbsorbsAtImpact(context.damage, new Set([hit.unitId]), from);
             this.popRecordedDullingDefense(context.events, new Set([hit.unitId]));
             this.popRecordedResistances(context.events, new Set([hit.unitId]));
+            if (!hit.missed) this.onReplayUnitImpact(new Set([hit.unitId]), context.events);
             this.showGravechainVfx(
                 context.damage,
                 { attackerId: attacker.getId(), response: context.response ?? false, hitIndex: context.hitIndex },
@@ -6075,6 +6077,7 @@ export class Sandbox extends PixiScene {
                     if (!hit.missed) this.showShieldAbsorbsAtImpact(event.damage, new Set([hit.unitId]), from);
                     this.popRecordedDullingDefense(events, new Set([hit.unitId]));
                     this.popRecordedResistances(events, new Set([hit.unitId]));
+                    if (!hit.missed) this.onReplayUnitImpact(new Set([hit.unitId]), events);
                     this.showGravechainVfx(
                         event.damage,
                         { attackerId: attacker.getId(), response: false, hitIndex },
@@ -11195,7 +11198,7 @@ export class Sandbox extends PixiScene {
             this.playEffectPops(entry);
         }
     }
-    private playEffectPops(entry: IPendingEffectPop): void {
+    protected playEffectPops(entry: IPendingEffectPop): void {
         // Re-check liveness at play time, not queue time: the strike that applied the effect may have
         // killed the unit while the pop was held, and a dead unit's sprite is torn down.
         if (entry.unit.isDead()) {
@@ -14151,12 +14154,10 @@ export class Sandbox extends PixiScene {
         const liveUnits = [...this.unitsHolder.getAllUnits().values()].filter((unit) => !unit.isDead());
         if (
             liveUnits.every((unit) => fightProps.hasAlreadyMadeTurn(unit.getId())) &&
-            this.hasForegroundCombatAnimation()
+            this.hasPendingCombatPresentation()
         ) {
-            this.roundEndAnimationWaitStartedAtMs ??= performance.now();
-            if (performance.now() - this.roundEndAnimationWaitStartedAtMs < Sandbox.NARROWING_EFFECT_LIMIT_MS) return;
+            return;
         }
-        this.roundEndAnimationWaitStartedAtMs = undefined;
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createTurnEngine().advanceAfterNoActiveUnit({
@@ -15230,7 +15231,7 @@ export class Sandbox extends PixiScene {
         // Turn events advance the logical actor at impact. The next AI must also wait for every
         // remaining projectile and foreground reaction, including a corpse removed from UnitsHolder.
         // Ambient auras, looping terrain and floating labels do not hold up the action queue.
-        return this.isStrikeInFlight() || this.rangedProjectiles.hasActive() || this.hasForegroundCombatAnimation();
+        return this.isStrikeInFlight() || this.hasPendingCombatPresentation();
     }
     public override isAnimating(): boolean {
         return super.isAnimating() || !!this.narrowingPresentation;
@@ -15238,22 +15239,33 @@ export class Sandbox extends PixiScene {
     protected shouldDeferNarrowingSnapshot(layers: number): boolean {
         return (
             !!this.narrowingPresentation ||
-            (layers > 0 && !this.drawnNarrowingLaps?.has(layers) && this.isPlayingActionAnimation())
+            (layers > 0 &&
+                !this.drawnNarrowingLaps?.has(layers) &&
+                (this.isPlayingActionAnimation() || this.hasPendingCombatPresentation()))
+        );
+    }
+    private hasPendingCombatPresentation(): boolean {
+        // Presentation ownership (replayPlaybackActive / narrowingPresentation) is excluded here:
+        // the replay itself waits on this predicate before it is allowed to start the map phase.
+        // Completion follows the real effects, rather than a three-second wall-clock guess.
+        return (
+            this.sc_moveBlocked ||
+            this.sc_isAnimating ||
+            this.isActiveUnitMoving ||
+            this.moveAnimManager.isMoving() ||
+            this.rangedProjectiles.hasActive() ||
+            this.hasForegroundCombatAnimation()
         );
     }
     private hasForegroundCombatAnimation(): boolean {
-        return [...this.unitsHolder.getAllUnits().values(), ...(this.dyingVisualUnits ?? [])].some((unit) =>
-            (unit as RenderableUnit).isPlayingOneShotAnimation?.(),
-        );
+        return [...this.unitsHolder.getAllUnits().values(), ...(this.dyingVisualUnits ?? [])].some((unit) => {
+            const renderable = unit as RenderableUnit;
+            return renderable.hasUnfinishedCombatAnimation?.() ?? renderable.isPlayingOneShotAnimation?.();
+        });
     }
     private async waitForNarrowingPredecessors(epoch: number): Promise<void> {
-        for (let elapsed = 0; elapsed < Sandbox.NARROWING_EFFECT_LIMIT_MS; elapsed += 16) {
-            if (
-                this.isSceneDestroyed() ||
-                (this.narrowingPlaybackEpoch ?? 0) !== epoch ||
-                !this.hasForegroundCombatAnimation()
-            )
-                return;
+        while (!this.isSceneDestroyed() && (this.narrowingPlaybackEpoch ?? 0) === epoch) {
+            if (!this.hasPendingCombatPresentation()) return;
             await this.delayReplay(16);
         }
     }
@@ -21026,9 +21038,43 @@ export class Sandbox extends PixiScene {
                 })),
         ];
     }
-    protected onReplaySpellImpact(_record: SandboxReplayActionRecord): void {}
+    protected onReplaySpellImpact(record: SandboxReplayActionRecord): void {
+        const recipients = new Set<string>();
+        for (const event of record.events) {
+            if (event.type === "effects_applied")
+                for (const application of event.applications) recipients.add(application.unitId);
+        }
+        this.onReplayUnitImpact(recipients, record.events);
+    }
+    protected onReplayUnitImpact(unitIds: ReadonlySet<string>, events?: readonly GameEvent[]): void {
+        if (!this.replayPlaybackActive) return;
+        const shown = (this.replayDebuffsShown ??= new WeakSet());
+        const recipients = new Map<string, Set<string>>();
+        for (const event of events ?? []) {
+            if (event.type !== "effects_applied") continue;
+            for (const application of event.applications) {
+                if (
+                    application.kind === "buff" ||
+                    application.resisted ||
+                    !unitIds.has(application.unitId) ||
+                    shown.has(application) ||
+                    !animatableEffectNames([application.name]).size
+                )
+                    continue;
+                shown.add(application);
+                const names = recipients.get(application.unitId) ?? new Set<string>();
+                names.add(application.name);
+                recipients.set(application.unitId, names);
+            }
+        }
+        for (const [id, names] of recipients) {
+            const unit = this.renderableForEffectPop(id);
+            if (unit) this.playEffectPops({ unit, flash: "debuff", debuffs: [...names], buffs: [] });
+        }
+    }
     protected onReplayRecordSettling(_record: SandboxReplayActionRecord): void {}
     protected onReplayRecordPresented(_record: SandboxReplayActionRecord): void {}
+    protected onReplayCompleted(_record: SandboxReplayActionRecord): void {}
     private dispelSmokeUnderRegisteredUnit(unit: RenderableUnit): void {
         const smoke = FightStateManager.getInstance().getFightProperties().getSmokeClouds();
         for (const cell of this.grid.getRegisteredCells(unit.getId())) {
@@ -21699,6 +21745,7 @@ export class Sandbox extends PixiScene {
         this.legacyGraveboundShown = new Set();
     }
     private resistancePopsShownForAction?: WeakMap<GameEvent, Set<string>>;
+    private replayDebuffsShown?: WeakSet<object>;
     private resistanceLogsShownForAction?: WeakSet<object>;
     protected popRecordedResistances(
         events: readonly GameEvent[] | undefined,

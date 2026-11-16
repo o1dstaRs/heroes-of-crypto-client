@@ -54,6 +54,7 @@ const createScene = (): DamageScene => {
         sc_visibleState: undefined,
         sc_damageStatsUpdateNeeded: false,
         sc_damageForAnimation: { render: false },
+        pendingEffectPops: [],
         sc_sceneLog: {
             hasBeenUpdated: () => false,
             isSuppressed: () => false,

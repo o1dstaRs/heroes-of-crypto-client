@@ -20,6 +20,7 @@ for (const ranked of [false, true]) {
                 getBaseCell: () => ({ x: 2, y: 2 }),
                 isDead: () => false,
                 flashBuffApplied: mock(() => undefined),
+                flashDebuffDarken: mock(() => undefined),
             };
             const units = new Map<string, unknown>([
                 ["caster", caster],
@@ -27,6 +28,7 @@ for (const ranked of [false, true]) {
             ]);
             const popEffectOnUnit = mock(() => undefined);
             const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
+                replayPlaybackActive: true,
                 unitsHolder: { getAllUnits: () => units },
                 sc_sceneSettings: { getGridSettings: () => ({}) },
                 snapshotRenderableUnits: () => units,
@@ -63,8 +65,9 @@ for (const ranked of [false, true]) {
                 expect(popEffectOnUnit).not.toHaveBeenCalled();
                 expect(target.flashBuffApplied).not.toHaveBeenCalled();
             } else {
-                expect(popEffectOnUnit).toHaveBeenCalledTimes(1);
+                expect(popEffectOnUnit).toHaveBeenCalledTimes(2);
                 expect(popEffectOnUnit).toHaveBeenCalledWith(target, "Blessing", 0, "buff");
+                expect(popEffectOnUnit).toHaveBeenCalledWith(target, "Weakness", 0, "debuff");
                 expect(target.flashBuffApplied).toHaveBeenCalledTimes(1);
             }
         });

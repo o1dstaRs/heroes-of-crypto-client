@@ -30,6 +30,31 @@ function fixture() {
     return { root, unit, units, makeUnit, visuals };
 }
 
+test("buff icon and name finish their opening fade and pop 25% faster", () => {
+    const f = fixture();
+    let now = 0;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    try {
+        f.visuals.spawnDebuffPop({ x: 0, y: 0 }, Texture.WHITE, "Strength", 0, "buff", f.unit);
+        const pop = f.root.children[0];
+        now = 128;
+        f.visuals.update(0);
+        expect(pop.alpha).toBeCloseTo(1);
+        now = 240;
+        f.visuals.update(0);
+        expect(pop.scale.x).toBeCloseTo(1);
+        now = 1799;
+        f.visuals.update(0);
+        expect(pop.destroyed).toBe(false);
+        now = 1800;
+        f.visuals.update(0);
+        expect(pop.destroyed).toBe(true);
+    } finally {
+        f.visuals.clear();
+        clock.mockRestore();
+    }
+});
+
 test("buffs, debuffs and morale follow the live flag across hydration and expire without simulation ticks", () => {
     const f = fixture();
     let now = 0;

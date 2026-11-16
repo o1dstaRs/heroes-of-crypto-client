@@ -168,6 +168,8 @@ test.each(
         const sleeps: { due: number; resolve(): void }[] = [];
         const projectiles: IFireProjectileOptions[] = [];
         const damage: number[] = [];
+        const damageFrames: number[] = [];
+        const statusFrames: number[] = [];
         let settled = false;
         let narrowingStartedAt: number | undefined;
         const noop = () => {};
@@ -184,6 +186,7 @@ test.each(
             attachToWorldRoot: noop,
             occupyNarrowingLayer: noop,
             moveFiresInward: noop,
+            moveAnimManager: { isMoving: () => false },
             dungeonVisuals: {
                 getHoleContainer: () => world,
                 spawnHoleLayer: noop,
@@ -199,11 +202,15 @@ test.each(
                 new Promise<void>((resolve) => sleeps.push({ due: frame + Math.ceil(ms / (1000 / 60)), resolve })),
             playUnitCombatSound: noop,
             combatVisuals: {
-                showFloatingDamage: (_position: unknown, amount: number) => damage.push(amount),
+                showFloatingDamage: (_position: unknown, amount: number) => {
+                    damage.push(amount);
+                    damageFrames.push(frame);
+                },
                 spawnBloodSpray: noop,
                 spawnSlash: noop,
             },
             rangedProjectiles: {
+                hasActive: () => false,
                 prepare: async () => {},
                 fire: async (options: IFireProjectileOptions) => {
                     projectiles.push(options);
@@ -220,6 +227,7 @@ test.each(
             spawnAbilityStealVfx: noop,
             spawnShatterArmorSlashVfx: noop,
             spawnSkewerWindSpearVfx: noop,
+            onReplayUnitImpact: () => statusFrames.push(frame),
             destroyReplayAttackUnitsAtImpact: noop,
             applyReplayEvents: (events: GameEvent[]) => {
                 if (!events.some((entry) => entry.type === "narrowing_applied")) return;
@@ -292,6 +300,8 @@ test.each(
             expect(projectiles).toHaveLength(attackType === "range" ? blows + 1 : 0);
             expect(projectiles.some((shot) => shot.signal?.aborted)).toBe(false);
             expect(damage).toEqual(Array(blows + 1).fill(1));
+            // Initiating and responding hits can land on different frames. Each owns its status cue.
+            expect(statusFrames).toEqual(damageFrames);
         } finally {
             for (const unit of actors) unit.destroyVisuals();
             world.destroy({ children: true });
