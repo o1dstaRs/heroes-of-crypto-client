@@ -5494,9 +5494,11 @@ export class RenderableUnit extends Unit {
     }
     private updateWaterShieldBreak(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (this.waterShieldBreakStartMs === undefined) return;
+        // A later shot can already have killed the model. The first shield rupture belongs to the
+        // still-presented living stack until that later projectile actually lands.
         if (this.getName() === MERMAID_UNIT_NAME) {
             if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.visible = false;
-            if (this.isDead() || !this.sprite || this.oneShotAnim?.stateName === "death") {
+            if (this.getDisplayedAmount() <= 0 || !this.sprite || this.oneShotAnim?.stateName === "death") {
                 this.waterShieldVisual?.hide();
                 this.waterShieldBreakStartMs = undefined;
                 return;
@@ -5511,7 +5513,7 @@ export class RenderableUnit extends Unit {
         }
         const DURATION_MS = 550;
         const elapsed = nowMs - this.waterShieldBreakStartMs;
-        if (elapsed >= DURATION_MS || this.isDead()) {
+        if (elapsed >= DURATION_MS || this.getDisplayedAmount() <= 0) {
             if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.visible = false;
             this.waterShieldBreakStartMs = undefined;
             return;
