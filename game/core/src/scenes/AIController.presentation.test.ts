@@ -108,6 +108,16 @@ test("a delayed action cannot spill into a later activation of the same stack", 
     expect(f.controller.shouldTriggerAI()).toBe(true);
 });
 
+test("timer throttling cannot make the watchdog queue a duplicate AI action", async () => {
+    const f = fixture();
+    f.controller.triggerAIAction(100);
+    Object.assign(f.controller, { performingActionSinceMs: 1 });
+    expect(f.controller.shouldTriggerAI()).toBe(false);
+    expect(f.time.timers.size).toBe(1);
+    await f.time.advance(100);
+    expect(f.perform).toHaveBeenCalledTimes(1);
+});
+
 test("timeout takeover waits for visual completion without skipping the turn", async () => {
     const f = fixture();
     f.setBusy(true);
@@ -116,7 +126,9 @@ test("timeout takeover waits for visual completion without skipping the turn", a
     await f.time.advance(96);
     expect(f.perform).not.toHaveBeenCalled();
     expect(complete).not.toHaveBeenCalled();
+    Object.assign(f.controller, { performingActionSinceMs: 1 });
     f.setBusy(false);
+    expect(f.controller.shouldTriggerAI()).toBe(false);
     await f.time.advance(16);
     expect(f.perform).toHaveBeenCalledTimes(1);
     expect(complete).toHaveBeenCalledTimes(1);

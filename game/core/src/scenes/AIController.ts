@@ -235,6 +235,7 @@ export class AIController {
     // Timestamp performingAction last went true; the stall watchdog (PERFORMING_ACTION_STALL_MS) uses it to
     // recover from a wedged flag. 0 when idle.
     private performingActionSinceMs = 0;
+    private turnActionQueued = false;
     public constructor(context: IAIContext) {
         this.context = context;
         this.localModelOpponent = getLocalModelOpponentConfig();
@@ -258,6 +259,7 @@ export class AIController {
         this.pendingTimeouts.clear();
         this.performingAction = false;
         this.performingActionSinceMs = 0;
+        this.turnActionQueued = false;
     }
     /**
      * Restore the AI toggle to the player's pre-auto-turn choice. AI-Driven units force AI on for
@@ -277,6 +279,7 @@ export class AIController {
         this.restoreAIState(priorAIActive);
         this.performingAction = false;
         this.performingActionSinceMs = 0;
+        this.turnActionQueued = false;
     }
     /**
      * Clear state that belongs to one unit activation after the scene observes a real handoff.
@@ -380,6 +383,9 @@ export class AIController {
      * shouldTriggerAI(), which the update loop polls even while performingAction blocks a fresh trigger.
      */
     private recoverIfActionStalled(): void {
+        // A queued turn still owns a live timer, including a timeout takeover waiting for visual
+        // completion. Background-tab timer throttling must not let the watchdog schedule a second turn.
+        if (this.turnActionQueued) return;
         if (!this.performingAction || this.performingActionSinceMs <= 0) return;
         if (HoCLib.getTimeMillis() - this.performingActionSinceMs < AIController.PERFORMING_ACTION_STALL_MS) return;
         console.warn(
@@ -458,10 +464,12 @@ export class AIController {
         const scheduledActivation = this.context.getTurnActivationKey?.();
 
         this.performingAction = true;
+        this.turnActionQueued = true;
         this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
         this.scheduleTimeout(async () => {
+            this.turnActionQueued = false;
             const currentUnit = this.context.getCurrentActiveUnit();
             // Re-validate before acting: during the trigger delay the player may have toggled AI off
             // (or the active unit may have changed). Without this, a queued action would run — and
@@ -488,6 +496,7 @@ export class AIController {
             this.context.getButtonManager().refreshButtons(true);
 
             try {
+                this.performingActionSinceMs = HoCLib.getTimeMillis();
                 await this.performAction(wasAIActive);
             } catch (err) {
                 console.error("AI action failed", err);
@@ -511,6 +520,7 @@ export class AIController {
             return false;
         }
         this.performingAction = true;
+        this.turnActionQueued = true;
         this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
@@ -525,6 +535,7 @@ export class AIController {
                 (scheduledActivation !== undefined && this.context.getTurnActivationKey?.() !== scheduledActivation)
             ) {
                 this.performingAction = false;
+                this.turnActionQueued = false;
                 this.restoreAIState(wasAIActive);
                 onComplete?.();
                 return;
@@ -539,6 +550,8 @@ export class AIController {
             // (isAIActive) is left untouched so a single missed turn doesn't turn AI on for good.
             this.context.getButtonManager().sc_isAIActive = true;
             this.context.getButtonManager().refreshButtons(true);
+            this.turnActionQueued = false;
+            this.performingActionSinceMs = HoCLib.getTimeMillis();
             try {
                 await this.performAction(wasAIActive);
             } catch (err) {
