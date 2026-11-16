@@ -1949,15 +1949,17 @@ const UnitStatsLayout: React.FC<{
                             width: "100%",
                             height: `${effectWellHeight}px`,
                             overflow: "visible",
-                            // Move the complete original-size row. The scrolling/clipping viewport itself
-                            // is no longer transformed, which prevents its lower edge slicing the artwork.
-                            transform: "translateY(-17.5%)",
                         }}
                     >
                         {/* The same wrapped, row-paged well the Buffs section uses. Debuffs used to be a
                             horizontal strip with a thin bottom rail of its own, so the two sections read as
                             two different controls and the overflowing tiles were reachable only sideways. */}
-                        <IconScrollWell height={effectWellHeight} vertical rowStepPx={effectRowStep}>
+                        <IconScrollWell
+                            height={effectWellHeight}
+                            offsetY={-Math.round(metrics.gapPx)}
+                            vertical
+                            rowStepPx={effectRowStep}
+                        >
                             <Box
                                 sx={{
                                     display: "flex",
