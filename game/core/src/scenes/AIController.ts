@@ -84,6 +84,8 @@ export interface IAIContext {
      * and change when the same unit becomes active again (next lap or after hourglass).
      */
     getTurnActivationKey?(): string;
+    /** Logical turn completion can precede projectile, hit, death, or terrain presentation. */
+    isActionPresentationBusy?(): boolean;
     getGrid(): Grid;
     getGridMatrix(): number[][];
     getUnitsHolder(): UnitsHolder;
@@ -366,7 +368,7 @@ export class AIController {
         // Observe EVERY active unit, not only units this controller will play. Manual turns are the handoff
         // boundary for activation-scoped retry/wait/cast guards in mixed human + AI-Driven armies.
         this.observeActiveUnitHandoff(currentUnit.getId());
-        return this.shouldAutoPlay(currentUnit) && !this.performingAction;
+        return !this.context.isActionPresentationBusy?.() && this.shouldAutoPlay(currentUnit) && !this.performingAction;
     }
     /**
      * Break a wedged performingAction flag. performingAction is the gate for shouldTriggerAI(); if a
@@ -452,6 +454,9 @@ export class AIController {
     public triggerAIAction(delayMs: number, onComplete?: () => void): void {
         if (!this.shouldTriggerAI()) return;
 
+        const scheduledUnitId = this.context.getCurrentActiveUnit()!.getId();
+        const scheduledActivation = this.context.getTurnActivationKey?.();
+
         this.performingAction = true;
         this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
@@ -461,7 +466,13 @@ export class AIController {
             // Re-validate before acting: during the trigger delay the player may have toggled AI off
             // (or the active unit may have changed). Without this, a queued action would run — and
             // previously also force the toggle back on — making it impossible to switch AI off.
-            if (!currentUnit || !this.shouldAutoPlay(currentUnit)) {
+            if (
+                !currentUnit ||
+                currentUnit.getId() !== scheduledUnitId ||
+                (scheduledActivation !== undefined && this.context.getTurnActivationKey?.() !== scheduledActivation) ||
+                !this.shouldAutoPlay(currentUnit) ||
+                this.context.isActionPresentationBusy?.()
+            ) {
                 this.performingAction = false;
                 this.restoreAIState(wasAIActive);
                 onComplete?.();
@@ -503,12 +514,25 @@ export class AIController {
         this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
-        this.scheduleTimeout(async () => {
+        const scheduledUnitId = currentUnit.getId();
+        const scheduledActivation = this.context.getTurnActivationKey?.();
+
+        const run = async () => {
             const unit = this.context.getCurrentActiveUnit();
-            if (!unit) {
+            if (
+                !unit ||
+                unit.getId() !== scheduledUnitId ||
+                (scheduledActivation !== undefined && this.context.getTurnActivationKey?.() !== scheduledActivation)
+            ) {
                 this.performingAction = false;
                 this.restoreAIState(wasAIActive);
                 onComplete?.();
+                return;
+            }
+            // A timeout takeover must wait for the previous visual tail without reporting failure:
+            // the caller interprets false as permission to skip the unit's turn.
+            if (this.context.isActionPresentationBusy?.()) {
+                this.scheduleTimeout(run, 16);
                 return;
             }
             // Cosmetic only: show the AI button as active during the forced turn. The logical toggle
@@ -524,13 +548,18 @@ export class AIController {
             } finally {
                 onComplete?.();
             }
-        }, delayMs);
+        };
+        this.scheduleTimeout(run, delayMs);
         return true;
     }
     /**
      * Main AI action logic - decides and executes the best action for current unit.
      */
     public async performAction(wasAIActive: boolean): Promise<void> {
+        if (this.context.isActionPresentationBusy?.()) {
+            this.finishAIAction(wasAIActive);
+            return;
+        }
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) {
             this.finishAIAction(wasAIActive);

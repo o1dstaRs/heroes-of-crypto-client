@@ -1516,6 +1516,7 @@ export class Sandbox extends PixiScene {
         this.aiController = new AIController({
             getCurrentActiveUnit: () => this.currentActiveUnit,
             getTurnActivationKey: () => this.getTurnActivationKey(),
+            isActionPresentationBusy: () => this.isAiActionPresentationBusy(),
             getGrid: () => this.grid,
             getGridMatrix: () => this.gridMatrix,
             getUnitsHolder: () => this.unitsHolder,
@@ -15224,6 +15225,12 @@ export class Sandbox extends PixiScene {
             this.isAnimating() ||
             this.moveAnimManager.isMoving()
         );
+    }
+    protected isAiActionPresentationBusy(): boolean {
+        // Turn events advance the logical actor at impact. The next AI must also wait for every
+        // remaining projectile and foreground reaction, including a corpse removed from UnitsHolder.
+        // Ambient auras, looping terrain and floating labels do not hold up the action queue.
+        return this.isStrikeInFlight() || this.rangedProjectiles.hasActive() || this.hasForegroundCombatAnimation();
     }
     public override isAnimating(): boolean {
         return super.isAnimating() || !!this.narrowingPresentation;
