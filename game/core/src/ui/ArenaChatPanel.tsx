@@ -1,6 +1,7 @@
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
+import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
@@ -355,16 +356,7 @@ export const ArenaChatPanel: React.FC<{
                         "&:hover .hoc-chat-caret": { color: hocColors.orange },
                     }}
                 >
-                    <Box
-                        sx={{
-                            width: 7,
-                            height: 7,
-                            flexShrink: 0,
-                            borderRadius: "50%",
-                            bgcolor: hocColors.green,
-                            boxShadow: `0 0 6px ${hocColors.green}`,
-                        }}
-                    />
+                    <ChatBubbleRoundedIcon sx={{ fontSize: 16, flexShrink: 0, color: hocColors.sidebarTitle }} />
                     <Typography level="title-sm" sx={{ color: hocColors.sidebarTitle }}>
                         {t("Arena chat")}
                     </Typography>

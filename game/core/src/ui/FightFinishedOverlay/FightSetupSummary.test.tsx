@@ -58,7 +58,7 @@ test("army icon rails retain the correct completed doctrine and both artifact ti
     expect(html.match(/aria-label="Doctrine:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 1 artifact:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 2 artifact:/g)).toHaveLength(2);
-    const armies = html.slice(0, html.indexOf('aria-label="Fight setup"'));
+    const armies = html.slice(0, html.indexOf('aria-label="Synergies"'));
     const icons = [...armies.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)].map(
         (match) => match[1],
     );
@@ -76,8 +76,9 @@ test("the global synergies appear once per faction, using the match's selected v
         "Might: Aura range",
     ])
         expect(html).toContain(`aria-label="${name}"`);
-    expect(html).toContain("Synergies");
-    const synergies = html.slice(html.indexOf('aria-label="Fight setup"'));
+    expect(html).toContain('aria-label="Synergies"');
+    expect(html).not.toContain("Synergies:");
+    const synergies = html.slice(html.indexOf('aria-label="Synergies"'));
     const icons = [...synergies.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)];
     expect(icons).toHaveLength(4);
     expect(icons.every(([, contents]) => contents.includes("<img") && !contents.includes("<p"))).toBe(true);
@@ -87,7 +88,10 @@ test("the global synergies appear once per faction, using the match's selected v
 });
 
 test("missing legacy data has an explicit placeholder and unknown ids do not masquerade as an empty slot", () => {
-    expect(render()).toContain("Fight setup not recorded");
+    const legacy = render();
+    expect(legacy).toContain('aria-label="Life: Not recorded"');
+    expect(legacy).not.toContain('aria-label="Life: Supply"');
+    expect(legacy).not.toContain("Fight setup not recorded");
     const html = render({
         armies: [{ team: TeamVals.LEFT, doctrine: 999, artifactTier1: 999, artifactTier2: 0 }],
         synergyVariants: {},

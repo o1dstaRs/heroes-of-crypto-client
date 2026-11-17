@@ -128,57 +128,42 @@ export const FightArmySetupIcons: React.FC<{ team: TeamType; army?: IFightResult
 
 /** Read-only match facts. In particular, this must never read the next-game doctrine chooser. */
 export const FightSetupSummary: React.FC<{ setup?: IFightResultSetup }> = ({ setup }) => (
-    <Box component="section" aria-label={t("Fight setup")} sx={{ textTransform: "none", mb: 1.25, px: 0.25 }}>
-        {!setup ? (
-            <Typography level="body-xs" sx={{ color: "#b6a080" }}>
-                {t("Fight setup not recorded")}
-            </Typography>
-        ) : (
-            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.75 }}>
-                <Typography
-                    component="span"
-                    sx={{ color: "#cbb388", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}
-                >
-                    {t("Synergies")}:
-                </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                    {SYNERGY_FACTION_ORDER.map((faction) => {
-                        const variant = setup.synergyVariants[faction];
-                        const label = synergyLabels[`${faction}:${variant}`];
-                        return (
-                            <Box key={faction} data-result-synergy={faction}>
-                                <Choice
-                                    iconOnly
-                                    choice={{
-                                        label: faction,
-                                        name: label ? t(label) : t("Not recorded"),
-                                        image: (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
-                                            `${faction}:${variant}:1`
-                                        ],
-                                        // These are global variants. Do not imply either team reached level 1,
-                                        // or derive its drafted level from the surviving creatures after the fight.
-                                        detail: label ? (
-                                            <>
-                                                <Typography level="body-xs" sx={{ mb: 0.5 }}>
-                                                    {t(
-                                                        "Shared by both armies; levels depend on each army's drafted factions.",
-                                                    )}
-                                                </Typography>
-                                                {[1, 2, 3].map((level) => (
-                                                    <Typography key={level} level="body-xs" sx={{ mb: 0.5 }}>
-                                                        {t("Level")} {level}:{" "}
-                                                        {t(synergyEffectAtLevel(faction, variant, level))}
-                                                    </Typography>
-                                                ))}
-                                            </>
-                                        ) : undefined,
-                                    }}
-                                />
-                            </Box>
-                        );
-                    })}
+    <Box
+        component="section"
+        aria-label={t("Synergies")}
+        data-result-global-synergies
+        sx={{ display: "flex", flexDirection: "column", gap: 0.75, textTransform: "none", mb: 2 }}
+    >
+        {SYNERGY_FACTION_ORDER.map((faction) => {
+            const variant = setup?.synergyVariants[faction];
+            const label = synergyLabels[`${faction}:${variant}`];
+            return (
+                <Box key={faction} data-result-synergy={faction}>
+                    <Choice
+                        iconOnly
+                        choice={{
+                            label: t(faction),
+                            name: label ? t(label) : t("Not recorded"),
+                            image: (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[`${faction}:${variant}:1`],
+                            // Global variants have no shared activation level. Missing legacy data stays
+                            // unknown, with compact placeholders rather than borrowing today's choices.
+                            detail:
+                                label && variant !== undefined ? (
+                                    <>
+                                        <Typography level="body-xs" sx={{ mb: 0.5 }}>
+                                            {t("Shared by both armies; levels depend on each army's drafted factions.")}
+                                        </Typography>
+                                        {[1, 2, 3].map((level) => (
+                                            <Typography key={level} level="body-xs" sx={{ mb: 0.5 }}>
+                                                {t("Level")} {level}: {t(synergyEffectAtLevel(faction, variant, level))}
+                                            </Typography>
+                                        ))}
+                                    </>
+                                ) : undefined,
+                        }}
+                    />
                 </Box>
-            </Box>
-        )}
+            );
+        })}
     </Box>
 );

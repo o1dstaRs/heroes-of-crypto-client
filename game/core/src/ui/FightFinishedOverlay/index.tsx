@@ -1541,9 +1541,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     <Box
                         sx={{
                             display: "flex",
-                            flexDirection: { xs: "column", md: "row" },
-                            alignItems: { xs: "stretch", md: "center" },
-                            gap: { xs: 0, md: 1.5 },
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 1.5,
                             flexShrink: 0,
                         }}
                     >
@@ -1554,11 +1554,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 ornateResultsFrame
                             />
                         </Box>
-                        {/* Keep the global icons beside the plot; on phones they sit below its right edge. */}
-                        <Box
-                            data-result-synergy-side
-                            sx={{ flex: "0 0 auto", alignSelf: { xs: "flex-end", md: "center" } }}
-                        >
+                        {/* One global icon column stays beside the plot at every viewport size. */}
+                        <Box data-result-synergy-side sx={{ flex: "0 0 28px", alignSelf: "center" }}>
                             <FightSetupSummary setup={stats.setup} />
                         </Box>
                     </Box>
