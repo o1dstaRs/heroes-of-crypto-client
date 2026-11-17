@@ -2234,6 +2234,7 @@ export class RankedPlayScene extends Sandbox {
         // that arrives while an action is still playing never reaches the log — and the next quiet apply
         // can be late enough that those lines have already fallen out of the 64-entry tail. Spectators hit
         // this for a whole fight: their snapshots land during the animation they just watched.
+        // Keep ingesting here; PixiGameManager publishes the retained lines only once presentation is ready.
         if (snapshot.latestSequence >= this.lastAuthoritativeSequence) {
             this.applyRankedDamageStatistics(snapshot.damageStats);
             this.applyAuthoritativeSceneLog(snapshot);

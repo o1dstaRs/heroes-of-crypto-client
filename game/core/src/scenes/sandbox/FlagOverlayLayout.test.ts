@@ -39,16 +39,17 @@ test.each([1, -1])("flag row clears rising stacked damage and remains centered w
             expect(b.maxY).toBeLessThan(numberBounds.minY);
         }
     }
-    // A neighboring stack's numbers must not displace this row.
+    // Expiry or a neighboring stack's numbers must not collapse the reserved height.
+    const heldOffset = left.y - flag.y;
     numbers[0].flagAnchor = { x: flag.x + 64, y: flag.y };
     layout.update(numbers, 6);
-    expect(left.y).toBeCloseTo(flag.y + 6);
+    expect(left.y).toBeCloseTo(flag.y + heldOffset);
     // Expiry recenters the survivor; hydration/movement follows the replacement flag.
     left.destroy({ children: true });
     flag = { x: 320, y: 180 };
     layout.update([], 6);
     expect(right.x).toBeCloseTo(320);
-    expect(right.y).toBeCloseTo(186);
+    expect(right.y).toBeCloseTo(flag.y + heldOffset);
     root.destroy({ children: true });
 });
 
@@ -87,7 +88,57 @@ test("stack identity associates a live flag with its separate stable damage anch
     expect(pop.y).toBe(362);
     number.flagAnchor = { x: 300, y: 150, unitId: "neighbor" };
     layout.update([number], 6);
-    expect(pop.y).toBe(156);
+    expect(pop.y).toBe(362);
     pop.destroy();
+    damage.destroy();
+});
+
+test("damage expiry and changing animation bounds retain the effect's original Y", () => {
+    const layout = new FlagOverlayLayout();
+    const flag = { x: 100, y: 200, unitId: "victim" };
+    const pop = new Container();
+    pop.boundsArea = new Rectangle(-40, -80, 80, 100);
+    pop.scale.y = -1;
+    layout.add(pop, () => flag);
+    const damage = new Container();
+    damage.position.set(100, 286);
+    layout.update([{ container: damage, flagAnchor: flag, topExtent: 36 }], 6);
+    const y = pop.y;
+    damage.destroy();
+    pop.boundsArea = new Rectangle(-30, -50, 60, 60);
+    layout.update([], 6);
+    expect(pop.y).toBe(y);
+    flag.y += 40;
+    layout.update([], 6);
+    expect(pop.y).toBe(y + 40);
+    pop.destroy();
+});
+
+test("a fresh effect row releases the previous row's height after its last cue ends or the scene clears", () => {
+    const layout = new FlagOverlayLayout();
+    const flag = { x: 100, y: 200, unitId: "victim" };
+    const add = () => {
+        const pop = new Container();
+        pop.boundsArea = new Rectangle(-40, -80, 80, 80);
+        pop.scale.y = -1;
+        layout.add(pop, () => flag);
+        return pop;
+    };
+    const old = add();
+    const damage = new Container();
+    damage.position.set(100, 320);
+    layout.update([{ container: damage, flagAnchor: flag }], 6);
+    expect(old.y).toBe(362);
+    old.destroy();
+    layout.update([], 6);
+    const fresh = add();
+    layout.update([], 6);
+    expect(fresh.y).toBe(206);
+    layout.clear();
+    const nextGame = add();
+    layout.update([], 6);
+    expect(nextGame.y).toBe(206);
+    fresh.destroy();
+    nextGame.destroy();
     damage.destroy();
 });

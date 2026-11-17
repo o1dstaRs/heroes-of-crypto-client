@@ -344,6 +344,8 @@ export interface IGameplayDrawContext {
     getCrusaderSixSwordsAuraTexture?: () => Texture | undefined;
     getWhiteTigerAuraRevealed?: (ownerId: string, range: number) => boolean;
     getAuraOwnerFacing?: (ownerId: string) => -1 | 1;
+    /** Includes walks, melee approaches and both participants in a position swap. */
+    isAuraOwnerMoving?: (ownerId: string) => boolean;
     getAbominationSandForeground?: (ownerId: string) => AbominationSandForeground | undefined;
     abominationDustContainer?: Container;
     abominationGustContainer?: Container;
@@ -491,6 +493,9 @@ export class SandboxDrawer {
         // The unit whose turn is active always receives a neutral white movement preview. Team colours are
         // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
         const movementColor = 0xffffff;
+        const auraOwnerIsMoving = (ownerId: string | undefined): boolean =>
+            ownerId !== undefined &&
+            (ctx.isAuraOwnerMoving?.(ownerId) ?? (isActiveUnitMoving && currentActiveUnit?.getId() === ownerId));
         // The board no longer gets a red frame on the enemy's turn — the turn card already says "Enemy
         // turn" in red, and the frame fought with the board art. The red movement highlight above still
         // carries the cue on the board itself.
@@ -512,7 +517,7 @@ export class SandboxDrawer {
                 g,
                 xy,
                 attackRange,
-                auraRanges,
+                auraOwnerIsMoving(auraOwner?.id) ? [] : auraRanges,
                 footprint,
                 gs,
                 hoverGlowPhase,
@@ -524,7 +529,7 @@ export class SandboxDrawer {
         }
 
         // 0.51 Hovered Aura Ranges
-        if (hoveredAuraRanges) {
+        if (hoveredAuraRanges && !auraOwnerIsMoving(hoveredAuraRanges.auraOwner?.id)) {
             const { xy, auraRanges, footprint, auraOwner } = hoveredAuraRanges;
             SandboxDrawer.drawAuraAndAttackRanges(
                 g,
@@ -542,14 +547,14 @@ export class SandboxDrawer {
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
-        if (currentActiveUnit && (!isActiveUnitMoving || currentActiveUnit.getName() === "Abomination")) {
+        if (currentActiveUnit) {
             const auraRanges = visibleAuraRanges(
                 currentActiveUnit.getAuraRanges(),
                 currentActiveUnit.getAuraIsBuff(),
                 fightProps.getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
                 ctx.activeAuraRangesScratch,
             );
-            if (auraRanges.length > 0) {
+            if (auraRanges.length > 0 && !auraOwnerIsMoving(currentActiveUnit.getId())) {
                 // The range drawer performs the battlefield projection itself. Passing the sprite's
                 // already projected centre here bent the active aura a second time.
                 const xy = currentActiveUnit.getPosition();

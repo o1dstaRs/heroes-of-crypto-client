@@ -16251,6 +16251,16 @@ export class Sandbox extends PixiScene {
     public override isAnimating(): boolean {
         return super.isAnimating() || !!this.narrowingPresentation;
     }
+    public override canPublishBattleLog(): boolean {
+        // Engine and ranked journal lines must be retained immediately, but publishing them before
+        // travel, contact, retaliation or recovery finishes reveals an outcome ahead of the board.
+        // A full replay releases each record during its inter-action gap rather than hiding the whole log.
+        return (
+            !this.narrowingPresentation &&
+            !(this.replayPlaybackActive && !this.fightReplayPlaybackActive) &&
+            !this.hasPendingCombatPresentation()
+        );
+    }
     protected shouldDeferNarrowingSnapshot(layers: number): boolean {
         return (
             !!this.narrowingPresentation ||
@@ -19403,6 +19413,10 @@ export class Sandbox extends PixiScene {
                 (
                     this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined
                 )?.getBoardFacingDirection() ?? 1,
+            isAuraOwnerMoving: (ownerId) => {
+                const unit = this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined;
+                return !!unit && this.moveAnimManager.isUnitMoving(unit);
+            },
             getAbominationSandForeground: (ownerId) => {
                 const unit = this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined;
                 const depth = unit?.getCreatureDepthSortCandidate(0)?.baseDepth;
@@ -19482,7 +19496,7 @@ export class Sandbox extends PixiScene {
         if (this.currentActiveSpell) return true;
 
         const activeUnit = this.currentActiveUnit;
-        if (!activeUnit || this.isActiveUnitMoving) return false;
+        if (!activeUnit || this.moveAnimManager.isUnitMoving(activeUnit)) return false;
         return activeUnit.getAuraRanges().some((range) => range > 0);
     }
     private throwTransparency(spellName: string, caster: Unit): TransparencyPredicate | undefined {

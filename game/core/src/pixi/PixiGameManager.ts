@@ -1382,6 +1382,12 @@ export class PixiGameManager {
     private static readonly SIM_DT = 1 / PixiGameManager.SIM_HZ;
     private static readonly SIM_STEP = 1 / 240;
     private static readonly MAX_SIM_STEPS = 5;
+    private publishBattleLog(): void {
+        const scene = this.m_scene;
+        if (scene?.sc_sceneLog.hasBeenUpdated() && scene.canPublishBattleLog()) {
+            this.onAttackLanded.emit(scene.sc_sceneLog.getLog());
+        }
+    }
     public SimulationLoop(currentTime: number): void {
         if (this.m_fpsCalculator.addFrame() <= 0) return;
 
@@ -1434,9 +1440,7 @@ export class PixiGameManager {
         }
 
         // Logs
-        if (this.m_scene?.sc_sceneLog.hasBeenUpdated()) {
-            this.onAttackLanded.emit(this.m_scene.sc_sceneLog.getLog());
-        }
+        this.publishBattleLog();
         const noticeScene = this.m_scene;
         const playerNotice = noticeScene?.sc_playerNotice;
         if (noticeScene && playerNotice) {

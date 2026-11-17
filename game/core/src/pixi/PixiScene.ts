@@ -1103,6 +1103,9 @@ export abstract class PixiScene {
     public isAnimating(): boolean {
         return this.sc_isAnimating;
     }
+    public canPublishBattleLog(): boolean {
+        return !this.isAnimating();
+    }
     public GetDefaultViewZoom(edgesPx = EDGES_SIZE): number {
         const gs = this.sc_sceneSettings.getGridSettings();
         const minX = gs.getMinX();

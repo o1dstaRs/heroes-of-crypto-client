@@ -11,9 +11,16 @@ export interface FlagNumber {
     topExtent?: number;
 }
 
-/** One horizontal row per flag, above the current upper edge of its floating results. */
+interface FlagOverlay {
+    container: Container;
+    follow: () => Anchor | undefined;
+    bottomOffset?: number;
+    lowerExtent?: number;
+}
+
+/** One horizontal row per flag, retaining its reserved height until the last cue finishes. */
 export class FlagOverlayLayout {
-    private overlays: { container: Container; follow: () => Anchor | undefined }[] = [];
+    private overlays: FlagOverlay[] = [];
     public add(container: Container, follow: () => Anchor | undefined): void {
         this.overlays.push({ container, follow });
     }
@@ -22,18 +29,25 @@ export class FlagOverlayLayout {
     }
     public update(numbers: readonly FlagNumber[], gap: number): void {
         this.overlays = this.overlays.filter(({ container }) => !container.destroyed);
-        const groups = new Map<string, { anchor: Anchor; containers: Container[] }>();
-        for (const { container, follow } of this.overlays) {
+        const groups = new Map<string, { anchor: Anchor; overlays: FlagOverlay[] }>();
+        for (const overlay of this.overlays) {
+            const { container, follow } = overlay;
             if (!container.visible || !container.renderable) continue;
             const anchor = follow();
             if (!anchor) continue;
             const key = anchor.unitId ?? `${anchor.x}:${anchor.y}`;
             let group = groups.get(key);
-            if (!group) groups.set(key, (group = { anchor, containers: [] }));
-            group.containers.push(container);
+            if (!group) groups.set(key, (group = { anchor, overlays: [] }));
+            group.overlays.push(overlay);
         }
-        for (const { anchor, containers } of groups.values()) {
+        for (const { anchor, overlays } of groups.values()) {
+            // Damage reads for 650 ms; effects can remain for 1300 ms. Releasing its space early
+            // made every surviving effect drop mid-animation. Keep the row's height relative to
+            // its flag, including when that flag moves or is replaced by an authoritative snapshot.
             let bottom = anchor.y + gap;
+            for (const overlay of overlays) {
+                bottom = Math.max(bottom, anchor.y + (overlay.bottomOffset ?? gap));
+            }
             for (const number of numbers) {
                 if (!number.flagAnchor || number.container.destroyed) continue;
                 // Identity keeps a responding/moving stack's stable number anchor and live flag together.
@@ -49,11 +63,17 @@ export class FlagOverlayLayout {
                     number.container.y + (number.topExtent ?? 36) * Math.abs(number.container.scale.y) + gap,
                 );
             }
-            const bounds = containers.map((container) => {
+            const bounds = overlays.map((overlay) => {
+                const { container } = overlay;
+                overlay.bottomOffset = bottom - anchor.y;
                 const b = container.getLocalBounds();
                 const left = Math.min(b.minX * container.scale.x, b.maxX * container.scale.x);
                 const right = Math.max(b.minX * container.scale.x, b.maxX * container.scale.x);
-                const lower = Math.min(b.minY * container.scale.y, b.maxY * container.scale.y);
+                // Animated cels and captions may change bounds; they must not move the cue's origin.
+                const lower = (overlay.lowerExtent ??= Math.min(
+                    b.minY * container.scale.y,
+                    b.maxY * container.scale.y,
+                ));
                 return { container, left, width: right - left, lower };
             });
             const width = bounds.reduce((sum, b) => sum + b.width, 0) + gap * (bounds.length - 1);
