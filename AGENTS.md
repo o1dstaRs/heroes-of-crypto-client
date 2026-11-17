@@ -59,6 +59,11 @@ Use **`bun fmt`**, not a separate Prettier invocation, for formatting. Run it on
 formatting stays targeted. Use `bun fmt --no-script --check <paths>` for a read-only formatting check;
 the repository's lint/check commands remain the validation gate. Do not format a peer's in-flight files.
 
+Run focused tests while editing, then the full `bun run check` once for the finalized source. That
+command already runs the common suite; do not also start a separate full common test run alongside
+it. Repeat a passed gate when code, dependency pins or relevant configuration change. Consolidate
+shared fixtures around observable behavior, and keep full simulations for assertions that need them.
+
 Core tests run in isolated worker processes: up to 12 locally and 2 on CI. Run `bun run test:core` for
 the full suite; its timing profile schedules slow files first without limiting test discovery. To collect
 fresh per-file timings, use `bun run test:core --timings tmp/core-test-timings.json --update-timings`.
