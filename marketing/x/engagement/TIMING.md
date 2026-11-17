@@ -1009,3 +1009,82 @@ Official originals in window: none from the 69 listed accounts. Off-list (PT, vi
 Thread open vs peak (this run only): Saturday late morning was silent from the tracked studios, the big US accounts included (no on-the-hour posts at 9, 10 or 11 AM PT). Small indie #ScreenshotSaturday posts clustered on the hour (10:00 AM PT) and drew no replies within ~1.5 hours.
 
 Recommendation: unchanged for weekdays (9:30 AM–1 PM PT). Weekend: the 7–9 AM PT Saturday window (EU-posted threads) is the only one producing usable threads so far; a Saturday 11:40 AM scan came up empty.
+
+## Sat 14 Nov 2026, 3:41 PM PT run (new posts checked since 11:40 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~3:45 PM PST): @TFT 12:05 PM: 68,928 / 3,322 / 26; 12:15 PM: 191,369 / 4,352 / 67; 12:20 PM: 47,952 / 282 / 3 (concert/esports promo). No other listed account posted. Off-list: @nanbrest 1:00 PM: 374 / 21 / 0; @badgerpunch 1:17 PM: 227 / 15 / 1.
+
+Thread open vs peak (this run only): Saturday afternoon only the big Riot account posted, a 15-minute burst around noon PT that drew replies fast (67 on one post within ~3.5 hours); indie posts at 1 PM PT drew 0–1 replies.
+
+Recommendation: unchanged for weekdays (9:30 AM–1 PM PT). Weekend: the 7–9 AM PT Saturday window remains the only one producing usable tactics threads; Saturday 11:40 AM and 3:41 PM scans came up empty.
+
+## Sat 14 Nov 2026, 7:41 PM PT run (new posts checked since 3:41 PM PT)
+
+Official originals in window (PT, views / likes / replies at read ~7:45 PM PST): @Rainbow6Game 6:30 PM: 55,024 / 340 / 17; 7:00 PM: 68,396 / 2,117 / 23; 7:10 PM: 46,576 / 831 / 25. @FE_Heroes_EN 7:00 PM: 20,995 / 423 / 29 (replies 7:10–7:38 PM); 7:02 PM: 4,948 / 38 / 1.
+
+Thread open vs peak (this run only): Saturday evening only the big publisher accounts posted, tied to a live reveal stream (R6 at 6:30 PM PT) and FEH's regular 7 PM PT banner reveal; the FEH thread drew ~29 replies within 40 minutes. No indie tactics studio posted after 1 PM PT.
+
+Recommendation: unchanged for weekdays (9:30 AM–1 PM PT). Weekend: the 7–9 AM PT Saturday window remains the only one producing usable tactics threads; all three later Saturday scans (11:40 AM, 3:41 PM, 7:41 PM) came up empty.
+
+
+## Sun 15 Nov 2026, 7:41 AM PT run (new posts checked since 7:41 PM PT Sat)
+
+Official originals in window (PT, views / likes / replies at read ~7:45 AM PST): @Rainbow6Game 8:00 PM: 67,117 / 184 / 7; 8:30 PM: 198,827 / 1,581 / 49; 8:37 PM–12:29 AM: 41,950–47,490 / 81–484 / 2–11. @FE_Heroes_EN 11:00 PM: 7,449 / 55 / 0. @wintersong_game 11:48 PM: 1,692 / 51 / 2 (replies 1:22 and 2:24 AM). @HOI_Game 2:00 AM: 3,126 / 50 / 3 (replies 2:51–2:57 AM). @TFT 3:42 AM: 86,612 / 1,389 / 22. @Conviction_SRPG 4:32 AM: 351 / 8 / 0. @mechabellum 4:45 AM: 257 / 5 / 1. @MeltedGames 6:36 AM: 31 / 1 / 1 (own reply).
+
+Thread open vs peak (this run only): Sunday overnight the indie tactics posts came from EU/Asia-timed accounts (11:48 PM–6:36 AM PT); the Wintersong thread got its replies 1.5–2.5 hours after posting and none after 2:30 AM PT. The Conviction trailer had 0 replies after ~3 hours. Big publisher accounts (R6, TFT, FEH) drew replies within minutes, as before.
+
+Recommendation: unchanged for weekdays (9:30 AM–1 PM PT). Weekend: like Saturday, the usable indie tactics threads open overnight PT (EU morning), so replying 7–9 AM PT on weekends still lands while those threads are fresh; later weekend scans have come up empty.
+
+
+## Sun 15 Nov 2026, 11:39 AM PT run (new posts checked since 7:41 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~11:42 AM PST): @Mount_and_Blade 8:00 AM: 2,650 / 41 / 3. @SynthWave6666 8:10 AM: 1,574 / 166 / 3 (replies 8:27, 10:55, 10:57 AM). @MightMagicGame 9:00 AM: 390 / 10 / 0. @CompanyOfHeroes 9:00 AM: 890 / 25 / 3 (replies 9:07, 9:51, 10:45 AM). @TFT 9:00 AM: 20,849 / 254 / 6; 9:15 AM: 23,005 / 425 / 5. @Rainbow6Game 9:00 AM: 27,524 / 116 / 10.
+
+Thread open vs peak (this run only): Sunday morning the tracked studios posted on the hour, clustered 8–9:15 AM PT (US-scheduled posts, unlike the overnight EU posts earlier today). Replies trickled in over 2–3 hours (SynthWave and CoH each 3 by ~11:40 AM PT); the HoMM post had 0 replies after 2.7 hours.
+
+Recommendation: unchanged for weekdays (9:30 AM–1 PM PT). Weekend: two windows now show usable threads, 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday 8–9 AM PT studio posts; Saturday later scans stayed empty.
+## Sun 15 Nov 2026, 3:44 PM PT run (new posts checked since 11:39 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~3:47 PM PST): @TFT 1:00 PM: 20,145 / 487 / 13; 2:00 PM: 13,955 / 157 / 3. No other tracked account posted.
+
+Thread open vs peak (this run only): Sunday afternoon was empty for indie tactics studios, as on Saturday afternoon; only TFT kept its hourly promo cadence, drawing replies within the first hour. The 8:10 AM SynthWave post kept growing (1,574 -> 4,745 views, 3 -> 4 replies by ~3:45 PM PT), so Sunday-morning indie threads stay live into the afternoon.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts; weekend afternoon scans (Sat and Sun) found nothing usable.
+## Sun 15 Nov 2026, 7:42 PM PT run (new posts checked since 3:44 PM PT)
+
+Official originals in window (PT, views / likes / replies at read ~7:45 PM PST): @Conviction_SRPG 5:41 PM: 209 / 5 / 0. @FE_Heroes_EN 7:00 PM: 4,974 / 101 / 2.
+
+Thread open vs peak (this run only): Sunday evening matched Saturday evening: only FEH's regular 7 PM PT reveal and an Asia-timed indie (Conviction) posted; no Western indie tactics studio posted after the morning.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts; weekend afternoon and evening scans (Sat and Sun) found nothing usable.
+## Mon 16 Nov 2026, 7:43 AM PT run (new posts checked since 7:42 PM PT Sun)
+
+Official originals in window (PT, views / likes / replies at read ~7:46 AM PST): @FE_Heroes_EN Sun 8:00 PM: 11,665 / 275 / 8; 11:00–11:04 PM: 6,307 / 98 / 3, 6,231 / 53 / 0, 9,056 / 139 / 9. @CompanyOfHeroes 11:00 PM: 891 / 18 / 0. @WishseekerGame 1:34 AM: 1,331 / 48 / 2. @HOI_Game 1:44 AM: 2,386 / 39 / 1; 5:49 AM: 2,629 / 35 / 0; 7:01 AM: 1,342 / 10 / 1. @Conviction_SRPG Sun 7:17 PM: 301 / 5 / 2. @quasimorph 4:00 AM: 401 / 12 / 1 (reply 4:47 AM). @OwlcatGames 4:06 AM: 5,828 / 321 / 4; 7:07 AM: 5,993 / 389 / 11 (11 replies inside 40 min). @AOE_Mobile 5:00 AM: 579 / 8 / 0. @TFT 5:00, 6:00, 7:00 AM: 16,797 / 264 / 5, 8,069 / 67 / 6, 5,509 / 81 / 0. @OfBladesNTails 5:25 AM: 218 / 5 / 0. @Mantis_GamesBE 5:56 AM: 180 / 6 / 0. @Rainbow6Game 6:00 AM: 36,208 / 342 / 16. @MeltedGames 6:25 AM: 18 / 0 / 1.
+
+Thread open vs peak (this run only): Monday's tracked posts opened 4–7 AM PT (EU midday), the same overnight-EU pattern as the weekend. Indie tactics threads (quasimorph, MeltedGames) had 0–1 outside replies by 7:45 AM PT; only Owlcat's 100K account drew replies fast (11 in 40 minutes).
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT, which still catches 4–7 AM PT EU posts while their reply count is low. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+## Mon 16 Nov 2026, 11:42 AM PT run (new posts checked since 7:40 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~11:45 AM PST): @MightMagicGame 9:00 AM: 11,454 / 49 / 4 (replies 9:39–10:44 AM). @MARVELSNAP 9:00 AM: 10,073 / 92 / 8; 11:04 AM: 5,193 / 53 / 4 (4 outside replies within 40 min). @Rainbow6Game 9:00 AM: 30,677 / 192 / 39; 11:00 AM: 21,077 / 189 / 9. @Mount_and_Blade 9:35 AM: 3,258 / 78 / 6. @Hybrid_Fiction 9:37 AM: 141 / 4 / 1. @TFT 9:39 AM: 10,940 / 178 / 3; 10:00 AM: 13,014 / 205 / 14; 11:00 AM: 4,803 / 28 / 2. @PlayHearthstone 10:00 AM: 10,297 / 60 / 47. @TheVowGame 10:00 AM: 444 / 19 / 2. @totalwar 10:02 AM: 5,216 / 50 / 2. @CompanyOfHeroes 10:56 AM: 480 / 4 / 1. @wintersong_game 11:00 AM: 373 / 18 / 0.
+
+Thread open vs peak (this run only): Monday's US-side posting opened on the hour at 9, 10 and 11 AM PT. Big accounts drew replies within the first hour (Hearthstone 47 in under 2 h on a question post; MARVEL SNAP 4 in 40 min). Indie tactics posts (wintersong, Hybrid Fiction) were still at 0–1 replies within an hour.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT; today's 9–11 AM PT posts confirm it. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+
+## Mon 16 Nov 2026, 3:40 PM PT run (new posts checked since 11:38 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~3:42 PM PST): @CyberKnightsRPG 11:52 AM: 158 / 7 / 0. @WickedNightGame 1:44 PM: 828 / 55 / 2 (replies 2:17 and 3:01 PM). @secretdoor_dh 1:46 PM: 358 / 8 / 0. None of the large accounts (TFT, Rainbow 6, MARVEL SNAP, Hearthstone, Total War, Owlcat) posted an original after 11:38 AM PT.
+
+Thread open vs peak (this run only): Monday afternoon PT was nearly silent; only three indie posts, and the one with a question (Wicked Night) drew 2 outside replies in 80 minutes. Big-account posting stopped by about 11 AM PT.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT; Monday afternoon after noon PT adds little. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+
+
+## Mon 16 Nov 2026, 7:38 PM PT run (new posts checked since 3:30 PM PT)
+
+Official originals in window (PT, views / likes / replies at read ~7:42 PM PST): @Conviction_SRPG 4:47 PM: 132 / 0 / 0. @CasselGames 5:10 PM: 329 / 7 / 2 (outside replies 6:02 and 6:40 PM; studio reply 7:39 PM). None of the large accounts posted an original after 3:30 PM PT.
+
+Thread open vs peak (this run only): Monday evening PT was again near-silent; the one indie SRPG unit reveal drew its first outside reply about 50 minutes after posting and a second after 90 minutes.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT; Monday afternoon and evening PT add little. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
