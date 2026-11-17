@@ -1067,7 +1067,7 @@ export class CombatVisuals {
             flagLane = 0;
             while (occupiedLanes.has(flagLane)) flagLane++;
         }
-        const grid = flagTopAnchor ? this.context.getGridSettings() : undefined;
+        const grid = flagTopAnchor ? this.context.getGridSettings?.() : undefined;
         const minX = grid?.getMinX?.(),
             maxX = grid?.getMaxX?.();
         const columns = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6].filter(

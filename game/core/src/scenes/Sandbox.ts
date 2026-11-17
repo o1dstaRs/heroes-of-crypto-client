@@ -846,6 +846,14 @@ export const obstacleImpactEvents = (events: readonly GameEvent[]): ObstacleAtta
     return struck.map((event, index) => (index === 0 ? [event, ...spun] : [event]));
 };
 
+/** These untagged records consume entire outgoing shots before the unit-bound volley.
+ * Splash/pierce/spin removals belong to another impact and must never create extra projectiles. */
+export const rangedBlockerEvents = (attackerId: string, events: readonly GameEvent[] = []): ObstacleAttackedEvent[] =>
+    events.filter(
+        (event): event is ObstacleAttackedEvent =>
+            event.type === "obstacle_attacked" && event.attackerId === attackerId && !event.source,
+    );
+
 /**
  * Exact impact points an obstacle strike must animate, in landing order.
  *
@@ -3632,6 +3640,11 @@ export class Sandbox extends PixiScene {
                     : budget,
             0,
         );
+        // Barrel-bound shots precede the remaining unit volley and have their own release/recovery.
+        const blockerBudget =
+            record.action.type === "range_attack"
+                ? rangedBlockerEvents(record.action.attackerId, events).length * Sandbox.REPLAY_HANG_WATCHDOG_MS
+                : 0;
         let hangTimer: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<boolean>((resolve) => {
             hangTimer = this.scheduleSceneTimeout(
@@ -3650,6 +3663,7 @@ export class Sandbox extends PixiScene {
                 },
                 Sandbox.REPLAY_HANG_WATCHDOG_MS +
                     gazeBudget +
+                    blockerBudget +
                     (events.some((event) => event.type === "narrowing_applied")
                         ? 2 * Sandbox.NARROWING_EFFECT_LIMIT_MS
                         : 0),
@@ -4492,14 +4506,27 @@ export class Sandbox extends PixiScene {
         );
         const target = this.unitsHolder.getAllUnits().get(action.targetId || attackEvent?.targetId || "") as
             RenderableUnit | undefined;
-        if (!attacker || !attackEvent) {
+        if (!attacker) return false;
+        if (
+            !attackEvent &&
+            (action.type !== "range_attack" || !rangedBlockerEvents(attacker.getId(), record.events).length)
+        )
             return false;
-        }
 
         this.currentActiveUnit = attacker;
         attacker.setActiveTurn(true);
         attacker.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
         this.sc_moveBlocked = true;
+
+        // Two barrels can consume the complete double shot, leaving no unit_attacked record at all.
+        if (!attackEvent) {
+            await this.playRangedBlockerImpacts(attacker, record.events);
+            if (this.isSceneDestroyed()) return false;
+            this.applyReplayEvents(record.events, record.stateAfter);
+            this.preDeferredActionUnitHp = undefined;
+            this.sc_moveBlocked = false;
+            return true;
+        }
 
         // A legal free Through Shot can hit nothing, so it has no target unit to anchor the generic replay.
         // It still fires to the selected ray and consumes the authoritative action/turn events.
@@ -5349,6 +5376,22 @@ export class Sandbox extends PixiScene {
         }
         if (event.damage?.secondary?.some((hit) => hit.source === "petrifying_gaze"))
             this.combatVisuals?.preparePetrifyingGazePop?.();
+        const precedingBlockers =
+            event.attackType === "range" &&
+            !(attacker.hasAbilityActive?.("Area Throw") || attacker.hasAbilityActive?.("Large Caliber"))
+                ? rangedBlockerEvents(attacker.getId(), dullingEvents)
+                : [];
+        if (precedingBlockers.length) {
+            const heldUnits = new Map(capturedUnits ?? this.unitsHolder.getAllUnits());
+            heldUnits.set(target.getId(), target);
+            // Preserve the pre-hit count/death pose while the first projectile is still hitting a barrel.
+            for (const [id, unit] of heldUnits)
+                if (unit instanceof RenderableUnit)
+                    unit.continueDamagePresentation(deathState?.amountsBefore.get(id) ?? unit.getAmountAlive());
+            this.combatVisuals?.prepareCommonFlagPop?.("multi_attack");
+            await this.playRangedBlockerImpacts(attacker, dullingEvents ?? []);
+            if (this.isSceneDestroyed()) return new Set();
+        }
         if (event.attackType === "range" && attacker.hasAbilityActive?.("Through Shot")) {
             return this.playThroughShotExchange(
                 attacker,
@@ -6047,7 +6090,10 @@ export class Sandbox extends PixiScene {
                         }
                     };
                     try {
-                        this.showRepeatedAttackFlag(source, strike.hitIndex);
+                        this.showRepeatedAttackFlag(
+                            source,
+                            strike.hitIndex + (strike.response ? 0 : precedingBlockers.length),
+                        );
                         if (melee) {
                             if (renderedVictim && source.hasAbilityActive?.("Penetrating Bite")) {
                                 this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "penetrating_bite");
@@ -6198,6 +6244,34 @@ export class Sandbox extends PixiScene {
         }
         return waves;
     }
+    private async playRangedBlockerImpacts(attacker: RenderableUnit, events: readonly GameEvent[]): Promise<void> {
+        const blockers = rangedBlockerEvents(attacker.getId(), events).filter(
+            (event) => !this.presentedRangedSplashObstacles?.has(event),
+        );
+        if (!blockers.length) return;
+        await this.animateObstacleStrikeSequence(
+            attacker,
+            blockers.map((event) => event.targetPosition),
+            undefined,
+            (index) => {
+                const event = blockers[index];
+                if (event) this.presentRangedObstacleAtContact(event);
+            },
+            blockers,
+        );
+    }
+    private presentRangedObstacleAtContact(event: ObstacleAttackedEvent): void {
+        if (this.presentedRangedSplashObstacles?.has(event)) return;
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), event.targetPosition);
+        if (!cell || !this.grid.hasScatteredMountains()) return;
+        this.grid.clearScatteredMountainAt(cell.x, cell.y);
+        this.dungeonVisuals?.removeScatteredMountainAt(cell.x, cell.y);
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        // Present only this obstacle here. Applying a partial turn event batch would reconcile buffs
+        // and final unit HP before the second projectile actually reached its recipient.
+        (this.presentedRangedSplashObstacles ??= new WeakSet()).add(event);
+    }
     private presentedRangedSplashObstacles?: WeakSet<object>;
     /** Barrels belong to their blast's contact, including counter-shots and journals without source metadata. */
     private presentRangedSplashObstacles(attacker: RenderableUnit, events: readonly GameEvent[] = []): void {
@@ -6210,13 +6284,7 @@ export class Sandbox extends PixiScene {
                 this.presentedRangedSplashObstacles?.has(event)
             )
                 continue;
-            const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), event.targetPosition);
-            if (!cell || !this.grid.hasScatteredMountains()) continue;
-            this.grid.clearScatteredMountainAt(cell.x, cell.y);
-            this.dungeonVisuals?.removeScatteredMountainAt(cell.x, cell.y);
-            this.gridMatrix = this.grid.getMatrix();
-            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-            (this.presentedRangedSplashObstacles ??= new WeakSet()).add(event);
+            this.presentRangedObstacleAtContact(event);
         }
     }
     private playAreaThrowImpact(
@@ -6531,7 +6599,7 @@ export class Sandbox extends PixiScene {
                     }
                 },
             );
-            this.showRepeatedAttackFlag(attacker, hitIndex);
+            this.showRepeatedAttackFlag(attacker, hitIndex + rangedBlockerEvents(attacker.getId(), events).length);
             const attack = usesAuthoredRangedRelease(attacker.getName())
                 ? Promise.resolve()
                 : this.playReplayOneShot(attacker, attackState, 5000, true);
@@ -12181,6 +12249,7 @@ export class Sandbox extends PixiScene {
                 gargantuanImpactPosition: unitName === "gargantuan" ? impactPositions[shotIndex] : undefined,
             });
             impact();
+            if (usesAuthoredRangedRelease(unit.getName())) await this.waitForProjectileHitReaction(unit);
         }
     }
     private footprintCenterForAnchor(unit: Unit, anchor: HoCMath.XY): HoCMath.XY {
@@ -13931,7 +14000,24 @@ export class Sandbox extends PixiScene {
                 return this.submitActionForAuthoritativeReplay(action);
             }
 
-            if (!applyAttackActionResult(this.createActionEngine().apply(action))) return false;
+            const result = this.createActionEngine().apply(action);
+            if (
+                result.completed &&
+                !result.events.some((event) => event.type === "unit_attacked") &&
+                rangedBlockerEvents(attacker.getId(), result.events).length
+            ) {
+                // A legal double shot can spend both arrows on barrels; there is no unit damage to present.
+                this.sc_moveBlocked = true;
+                try {
+                    await this.playRangedBlockerImpacts(attacker, result.events);
+                } finally {
+                    this.applyTurnEngineEvents(result.events, actionEventSnapshot);
+                    this.sc_moveBlocked = false;
+                    this.sc_visibleStateUpdateNeeded = true;
+                }
+                return true;
+            }
+            if (!applyAttackActionResult(result)) return false;
             await presentExchange();
         } else {
             {

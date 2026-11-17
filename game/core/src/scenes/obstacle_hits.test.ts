@@ -168,3 +168,15 @@ describe("Lightning Spin tombstones", () => {
         expect(obstacleImpactEvents([])).toEqual([]);
     });
 });
+
+test("ranged blocker shots exclude splash, pierce, spin and another actor's obstacle removals", async () => {
+    const { rangedBlockerEvents } = await import("./Sandbox");
+    const blocker = event();
+    const records = [
+        blocker,
+        event({ source: "ranged_splash" }),
+        event({ source: "lightning_spin" }),
+        event({ attackerId: "other" }),
+    ];
+    expect(rangedBlockerEvents("u1", records)).toEqual([blocker]);
+});

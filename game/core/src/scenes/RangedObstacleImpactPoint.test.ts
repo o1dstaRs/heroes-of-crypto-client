@@ -168,3 +168,35 @@ test("a real barrel arrow cannot become an animation-lab free shot and reports c
     expect(launches.map((launch) => launch.to)).toEqual([contact]);
     expect(contacts).toEqual([0]);
 });
+
+test("barrel contact updates only its obstacle and cannot publish the later unit's buffs or turn", () => {
+    const removed: string[] = [];
+    const event = {
+        type: "obstacle_attacked",
+        attackerId: "archer",
+        targetPosition: { x: 224, y: 224 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        sc_sceneSettings: { getGridSettings: () => gs },
+        grid: {
+            hasScatteredMountains: () => true,
+            clearScatteredMountainAt: (x: number, y: number) => removed.push(`grid:${x}:${y}`),
+            getMatrix: () => [],
+            getMatrixNoUnits: () => [],
+        },
+        dungeonVisuals: { removeScatteredMountainAt: (x: number, y: number) => removed.push(`art:${x}:${y}`) },
+        applyTurnEngineEvents: () => {
+            throw new Error("A partial turn batch would expose effects before shot two");
+        },
+        reconcileEffectVisuals: () => {
+            throw new Error("Unit effects belong to the later unit contact");
+        },
+    });
+    scene.presentRangedObstacleAtContact(event);
+    scene.presentRangedObstacleAtContact(event);
+    expect(removed).toHaveLength(2);
+    expect(scene.presentedRangedSplashObstacles.has(event)).toBe(true);
+});

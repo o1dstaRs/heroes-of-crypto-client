@@ -853,3 +853,114 @@ test("INTENDED: cold status art cannot delay the opening exchange or move melee 
     }
     await pending;
 });
+
+test("a barrel consumes the first projectile before the remaining unit hit, without stealing its damage", async () => {
+    const { scene, a, b, events } = setup();
+    const barrel = {
+        type: "obstacle_attacked",
+        attackerId: "A",
+        targetPosition: { x: 50, y: 0 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    };
+    const order: string[] = [],
+        flags: number[] = [];
+    const units = new Map([
+        ["A", a],
+        ["B", b],
+    ]);
+    Object.assign(a, { getRangedProjectileOrigin: () => ({ x: 0, y: 0 }) });
+    scene.snapshotRenderableUnits = () => units;
+    scene.dungeonVisuals = { getObstacleProjectileImpactPoint: () => ({ x: 50, y: 20 }) };
+    scene.showRepeatedAttackFlag = (_unit: unknown, index: number) => flags.push(index);
+    scene.playReplayOneShot = async () => {};
+    scene.presentRangedObstacleAtContact = (applied: unknown) => {
+        expect(applied).toBe(barrel);
+        (scene.presentedRangedSplashObstacles ??= new WeakSet()).add(barrel);
+        order.push("barrel contact");
+    };
+    let releaseBarrel!: () => void;
+    scene.fireUnitProjectile = (_unit: unknown, options: { to: unknown; onImpact(): void }) => {
+        expect(options.to).toEqual({ x: 50, y: 20 });
+        order.push("barrel projectile");
+        return new Promise<void>((resolve) => {
+            releaseBarrel = () => {
+                options.onImpact();
+                resolve();
+            };
+        });
+    };
+    scene.playReplayProjectile = async (_a: unknown, _b: unknown, _pos: unknown, contact: () => void) => {
+        order.push("unit projectile");
+        contact();
+    };
+    const pending = scene.playCombatExchange(a, b, { attackType: "range" }, [strike()], () => {}, units, [barrel]);
+    await flush();
+    expect(order).toEqual(["barrel projectile"]);
+    expect(events).not.toContain("damage");
+    releaseBarrel();
+    await pending;
+    expect(order).toEqual(["barrel projectile", "barrel contact", "unit projectile"]);
+    expect(flags).toEqual([0, 1]);
+    expect(events.filter((entry) => entry === "damage")).toHaveLength(1);
+    expect(scene.presentedRangedSplashObstacles.has(barrel)).toBe(true);
+});
+
+test("ranked/replay renders both barrel-bound shots even when the record has no unit attack", async () => {
+    const { scene, a, b } = setup();
+    const barrels = [50, 80].map((x) => ({
+        type: "obstacle_attacked",
+        attackerId: "A",
+        targetPosition: { x, y: 0 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    }));
+    const record = {
+        action: { type: "range_attack", attackerId: "A", targetId: "B" },
+        events: [...barrels, { type: "turn_completed", unitId: "A" }],
+        stateAfter: {},
+    };
+    const order: string[] = [],
+        releases: (() => void)[] = [];
+    Object.assign(a, {
+        setActiveTurn: () => {},
+        syncVisual: () => {},
+        getRangedProjectileOrigin: () => ({ x: 0, y: 0 }),
+    });
+    Object.assign(scene, {
+        drawer: { getUnitsContainer: () => ({}) },
+        beginDullingDefensePresentation: () => {},
+        snapshotRenderableUnits: () =>
+            new Map([
+                ["A", a],
+                ["B", b],
+            ]),
+        dungeonVisuals: { getObstacleProjectileImpactPoint: (position: unknown) => position },
+        showRepeatedAttackFlag: () => {},
+        presentRangedObstacleAtContact: (event: { targetPosition: { x: number } }) =>
+            order.push(`contact:${event.targetPosition.x}`),
+        applyReplayEvents: () => order.push("turn complete"),
+        fireUnitProjectile: (_source: unknown, options: { to: { x: number }; onImpact(): void }) => {
+            order.push(`shot:${options.to.x}`);
+            return new Promise<void>((resolve) =>
+                releases.push(() => {
+                    options.onImpact();
+                    resolve();
+                }),
+            );
+        },
+    });
+    const pending = scene.playReplayAttackRecord(record);
+    await flush();
+    expect(order).toEqual(["shot:50"]);
+    releases.shift()!();
+    await flush();
+    expect(order).toEqual(["shot:50", "contact:50", "shot:80"]);
+    expect(scene.sc_moveBlocked).toBe(true);
+    releases.shift()!();
+    expect(await pending).toBe(true);
+    expect(order).toEqual(["shot:50", "contact:50", "shot:80", "contact:80", "turn complete"]);
+    expect(scene.sc_moveBlocked).toBe(false);
+});

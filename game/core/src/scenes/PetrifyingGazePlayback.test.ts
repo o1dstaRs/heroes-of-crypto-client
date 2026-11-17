@@ -210,3 +210,30 @@ test("explicit gaze lab preview retains its badge and controlled authored delay"
     await pending;
     expect(calls).toEqual(["preview", "finish", "damage"]);
 });
+
+test("the replay watchdog budgets both barrel-bound releases before a unit volley", async () => {
+    const timeouts: number[] = [];
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        isSceneDestroyed: () => false,
+        scheduleSceneTimeout: (_callback: () => void, ms: number) => {
+            timeouts.push(ms);
+            return 1;
+        },
+        clearSceneTimeout: () => {},
+        playSandboxReplayRecord: async () => true,
+    });
+    const events = [50, 80].map((x) => ({
+        type: "obstacle_attacked",
+        attackerId: "A",
+        targetPosition: { x, y: 0 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    })) as GameEvent[];
+    expect(
+        await scene.playAuthoritativeActionRecord({ type: "range_attack", attackerId: "A", targetId: "B" }, events, {
+            units: [],
+        }),
+    ).toBe(true);
+    expect(timeouts).toEqual([15000]);
+});
