@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Artifact, CreatureLevelList, CreatureVals, GridVals, synergyVariantsForSeed } from "@heroesofcrypto/common";
-import { cells } from "@heroesofcrypto/common/src/ai/placement/layout";
+import { cells } from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import type { PremiumDraftState } from "./premiumDraftAssessment";
 import { clampDraftPanel, projectPremiumDraft } from "./premiumDraftProjection";
 

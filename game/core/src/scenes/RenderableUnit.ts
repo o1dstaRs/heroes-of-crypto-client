@@ -2744,6 +2744,8 @@ interface SpawnAnimState {
 }
 
 interface OneShotAnimState {
+    /** One adjustment per dying attack; damage/contact and every authored frame remain intact. */
+    lethalMeleeRecoveryHastened?: boolean;
     externallyDriven?: boolean;
     zenaCatching?: boolean;
     stateName: string;
@@ -10854,6 +10856,36 @@ export class RenderableUnit extends Unit {
         return (
             getAnimationStateConfig(props.name, stateName, this.getFootprintWidth(), this.getFootprintHeight()) !== null
         );
+    }
+    /** A mortally wounded melee actor still finishes its counter, with at most 150 ms less recovery.
+     * Keep the current frame's phase and all remaining cels: starting death by replacing the attack
+     * would cancel its callback and could strand the exchange or erase the recorded counter. */
+    public hastenLethalMeleeRecovery(): boolean {
+        const anim = this.oneShotAnim;
+        if (
+            !anim ||
+            !isAttackAnimationStateName(anim.stateName) ||
+            anim.externallyDriven ||
+            anim.finished ||
+            anim.lethalMeleeRecoveryHastened ||
+            anim.projectileRelease ||
+            anim.orcRelease
+        )
+            return false;
+        const remaining = anim.frames
+            .slice(anim.frameIndex)
+            .reduce(
+                (sum, _frame, index) =>
+                    sum + (anim.frameDurationsMs?.[anim.frameIndex + index] ?? anim.durationPerFrame),
+                -anim.elapsed,
+            );
+        if (!(remaining > 0)) return false;
+        const scale = 1 - Math.min(150, remaining * 0.2) / remaining;
+        anim.durationPerFrame *= scale;
+        anim.frameDurationsMs = anim.frameDurationsMs?.map((ms) => ms * scale);
+        anim.elapsed *= scale;
+        anim.lethalMeleeRecoveryHastened = true;
+        return true;
     }
     public isPlayingOneShotAnimation(stateName?: string): boolean {
         if (this.unicornBlindnessFlash && (!stateName || stateName === "cast")) return true;

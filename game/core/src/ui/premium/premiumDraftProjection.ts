@@ -17,7 +17,7 @@ import {
     type Body,
     type Point,
     type PublicInput,
-} from "@heroesofcrypto/common/src/ai/placement/layout";
+} from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import { synergyEffectAtLevel, synergyNextLevel } from "../LeftSideBar/synergyLadder";
 import type { PremiumDraftState } from "./premiumDraftAssessment";
 

@@ -964,3 +964,34 @@ test("ranked/replay renders both barrel-bound shots even when the record has no 
     expect(order).toEqual(["shot:50", "contact:50", "shot:80", "contact:80", "turn complete"]);
     expect(scene.sc_moveBlocked).toBe(false);
 });
+
+test("mortally wounded melee actors shorten recovery only after their own attack starts", async () => {
+    const { scene, a, b, finish, events } = setup();
+    const started = new Set<string>(),
+        shortened = new Set<string>();
+    for (const unit of [a, b])
+        Object.assign(unit, {
+            hastenLethalMeleeRecovery: () => {
+                if (started.has(unit.getId())) shortened.add(unit.getId());
+            },
+        });
+    const play = scene.playReplayOneShot;
+    scene.playReplayOneShot = (unit: typeof a, state: string) => {
+        if (state === "attack") started.add(unit.getId());
+        return play(unit, state);
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        orderCombatExchange([strike(false, 0, true)], strike(true, 0, true)),
+        (unit: typeof a) => events.push(`${unit.getId()}:death`),
+    );
+    await flush();
+    expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
+    expect([...shortened].sort()).toEqual(["A", "B"]);
+    expect(events.some((event) => event.endsWith(":death"))).toBe(false);
+    finish.splice(0).forEach((done) => done());
+    await pending;
+    expect(events.filter((event) => event.endsWith(":death")).sort()).toEqual(["A:death", "B:death"]);
+});

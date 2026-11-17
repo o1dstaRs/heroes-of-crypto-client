@@ -5501,6 +5501,7 @@ export class Sandbox extends PixiScene {
             if (activeAttacks.has(unitId) || futureAttackers.has(unitId)) {
                 if (!this.unitsHolder.getAllUnits().has(unitId)) this.dyingVisualUnits.add(unit);
                 pendingDeaths.set(unitId, unit);
+                if (event.attackType === "melee") unit.hastenLethalMeleeRecovery?.();
             } else onDeath(unit);
         };
         const initialChakramActive = initialChakram ?? attacker.hasAbilityActive?.("Chakram");
@@ -6100,6 +6101,9 @@ export class Sandbox extends PixiScene {
                             }
                             this.playUnitCombatSound(source, "attack", true);
                             const attack = this.playReplayOneShot(source, attackState, 5000, true);
+                            // The primary's contact can mark this counterattacker dead before its
+                            // callback starts the clip. Shorten only that dying actor's recovery.
+                            if (pendingDeaths.has(source.getId())) source.hastenLethalMeleeRecovery?.();
                             if (!strike.missed)
                                 this.spawnSkewerWindSpearVfx(source, victim, event.damage, dullingEvents);
                             if (
