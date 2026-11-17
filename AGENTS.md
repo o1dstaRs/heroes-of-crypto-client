@@ -198,6 +198,14 @@ server README's **Matchmaking handoff** section documents the invariant and regr
 
 ## AI tournament analyser
 
+The user explicitly adopted `nightmare-wall-movement-coverage-v1` into the A19-backed v0.8 default
+on November 17, 2026. Common's production profile is v10; the locked V3/contextual draft and accepted
+neural models retain their identities. Read
+`game/heroes-of-crypto-common/docs/nightmare_wall_movement_adoption.md` before iterating on it.
+Preserve the exact ground-wall plus omitted-movement comparison policy and its original failed
+qualification evidence. New experiments compare against the adopted default; already-running frozen
+studies keep their registered comparator. The server's revision ends in `barrel-v1-nightmare-v1`.
+
 For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
 `src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
 confirmation measured **+3.34 match-score points (95% interval +2.20 to +4.49)** on the ranked A19
