@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Texture, TextureSource } from "pixi.js";
 import type { GameEvent } from "@heroesofcrypto/common";
@@ -81,7 +82,7 @@ test.each(["stale", "cancelled"] as const)("a %s atlas request cannot resurrect 
         (container) => {
             world.addChild(container);
         },
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         const pending = layer.spawn("victim", { x: 10, y: 20 }, 64);

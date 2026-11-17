@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { Assets, Container, DOMAdapter, Sprite, Texture, TextureSource } from "pixi.js";
 import { CommonFlagPops } from "./CommonFlagPops";
@@ -29,7 +30,7 @@ test.each([
     const layer = new CommonFlagPops(
         kind,
         (c) => root.addChild(c),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         expect(isLazyCombatEffectAssetKey(`vfx_${kind}_pop_atlas`)).toBe(true);

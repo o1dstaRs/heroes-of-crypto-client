@@ -1,5 +1,4 @@
 import type { FlagOverlayAttach } from "./FlagOverlayLayout";
-import { overheadEffectElapsedMs, OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -13,13 +12,15 @@ export type AiBrainTarget = Readonly<{
 }>;
 
 const atlasUrl = images.vfx_ai_turn_brain_loop_atlas;
+// Thinking is a continuous turn indicator; the user's slower buff/debuff cues do not retime it.
+const LOOP_DURATION_MS = 650;
 let atlasLeases = 0;
 
 /** The painted pulse loops for the entire activation, independently of scene pauses or AI polling. */
 export function aiTurnBrainFrameAt(elapsedMs: number): number {
     const durations = animationAtlases["Vfx Ai Turn Brain"].loop.frameDurationsMs!;
     const total = durations.reduce((sum, ms) => sum + ms, 0);
-    const time = overheadEffectElapsedMs(Math.max(0, elapsedMs) % OVERHEAD_EFFECT_DURATION_MS, total);
+    const time = ((Math.max(0, elapsedMs) % LOOP_DURATION_MS) / LOOP_DURATION_MS) * total;
     let end = 0;
     for (const [frame, duration] of durations.entries()) {
         end += duration;

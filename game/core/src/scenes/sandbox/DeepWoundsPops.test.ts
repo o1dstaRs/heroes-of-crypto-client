@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 
@@ -41,7 +42,7 @@ describe("painted Deep Wounds flag effects", () => {
         let anchor: { x: number; y: number } | undefined = { x: 100, y: 200 };
         const layer = new DeepWoundsPops(
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             await Promise.all([

@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { Container, DOMAdapter, Sprite, Texture, TextureSource } from "pixi.js";
 import { PetrifyingGazePops } from "./PetrifyingGazePops";
@@ -20,7 +21,7 @@ test.each([1, -1])(
             anchor: { x: number; y: number } | undefined = { x: 120, y: 300 };
         const layer = new PetrifyingGazePops(
             (c) => root.addChild(c),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
             async () => art,
         );
         await layer.spawn("victim", 64, () => anchor);
@@ -72,7 +73,7 @@ test.each(["clear", "late"])("pending gaze never resurrects after %s", async (re
         resolve!: (t: Texture) => void;
     const layer = new PetrifyingGazePops(
         (c) => root.addChild(c),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         () =>
             new Promise((done) => {
                 resolve = done;

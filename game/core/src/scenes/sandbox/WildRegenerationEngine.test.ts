@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { Assets, Container, DOMAdapter, Mesh, Texture, TextureSource } from "pixi.js";
 import { REGENERATION_ENGINE_MAX_POPS, WildRegenerationEngine } from "./WildRegenerationEngine";
@@ -20,7 +21,7 @@ test.each([1, -1])("engine variant follows flag and expires with mirrored camera
         (c) => {
             root.addChild(c);
         },
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         async () => art,
     );
     try {

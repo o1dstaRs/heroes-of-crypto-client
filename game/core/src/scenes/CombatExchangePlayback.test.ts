@@ -24,6 +24,7 @@ const setup = () => {
         getAnimationTextureKey: (_state: string): string | undefined => undefined,
         getVisualCenter: () => ({ x: id === "A" ? 0 : 100, y: 0 }),
         getDamagePredictionAnchor: () => ({ x: 0, y: 100 }),
+        presentDamageCasualties: (_loss: number) => {},
     });
     const a = unit("A"),
         b = unit("B");
@@ -53,6 +54,67 @@ const setup = () => {
 const flush = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
 };
+
+test.each([false, true])(
+    "gaze head, amount and casualties appear once at projectile contact; lethal=%s",
+    async (lethal) => {
+        const { scene, a, b } = setup();
+        const losses: number[] = [],
+            amounts: number[] = [],
+            deaths: string[] = [];
+        const shown: string[] = [];
+        b.presentDamageCasualties = (loss: number) => losses.push(loss);
+        scene.combatVisuals.showFloatingDamage = (_pos: unknown, amount: number) => amounts.push(amount);
+        scene.combatVisuals.spawnPetrifyingGazePop = (unit: typeof b) => {
+            shown.push(unit.getId());
+            // A cold cosmetic atlas may never complete. It cannot own the attack barrier.
+            return new Promise(() => {});
+        };
+        scene.playReplayOneShot = async () => {};
+        scene.waitForProjectileHitReaction = async () => {};
+        scene.delayReplay = async () => {};
+        let contact!: () => void, land!: () => void;
+        scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, impact: () => void) => {
+            contact = impact;
+            return new Promise<void>((resolve) => {
+                land = resolve;
+            });
+        };
+        const gaze = { source: "petrifying_gaze", unitId: "B", position: { x: 100, y: 0 }, amount: 45, unitsDied: 1 };
+        const damage = { secondary: [gaze] };
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            {
+                attackType: "range",
+                damage,
+                unitIdsDied: lethal ? ["B"] : [],
+            },
+            [strike()],
+            (unit: typeof b) => deaths.push(unit.getId()),
+            undefined,
+            undefined,
+            undefined,
+            {
+                amountsBefore: new Map([["B", lethal ? 1 : 2]]),
+                deadIds: new Set(lethal ? ["B"] : []),
+            },
+        );
+        await flush();
+        expect(shown).toEqual([]);
+        expect(amounts).toEqual([]);
+        contact();
+        contact();
+        expect(amounts).toEqual([10, 45]);
+        expect(losses).toEqual([0, 1]);
+        expect(shown).toEqual(["B"]);
+        scene.showSecondaryDamageNumbers([gaze], { x: 0, y: 0 });
+        expect(amounts).toEqual([10, 45]);
+        land();
+        await pending;
+        expect(deaths).toEqual(lethal ? ["B"] : []);
+    },
+);
 
 test.each(
     ["melee", "range"].flatMap((attackType) =>

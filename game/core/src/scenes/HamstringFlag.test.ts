@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import type { GameEvent } from "@heroesofcrypto/common";
 import { Assets, Container, Texture } from "pixi.js";
@@ -83,7 +84,7 @@ test("a cold Hamstring download cannot replay an expired hit", async () => {
     const layer = new CommonFlagPops(
         "hamstring",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         const pending = layer.spawn("victim", { x: 0, y: 0 }, 64);

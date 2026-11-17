@@ -6,7 +6,7 @@ import {
 } from "./FlagOverlayLayout";
 import { SkewerSpears, type SkewerSpearPose } from "./SkewerSpear";
 import { bitterExperienceTriggered } from "../bitterExperienceFlagEffects";
-import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
+import { OVERHEAD_EFFECT_DURATION_MS, FLOATING_RESULT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { WildRegenerationEngine } from "./WildRegenerationEngine";
 import { HealCrossPops } from "./HealCrossPops";
 import { PetrifyingGazePops } from "./PetrifyingGazePops";
@@ -51,7 +51,9 @@ import { CrusadePops } from "./CrusadePops";
 import { UnyieldingPowerPops } from "./UnyieldingPowerPops";
 import { showsEnchantedSkinShield } from "../enchantedSkinVisual";
 import { CommonFlagPops, type FlagPopKind } from "./CommonFlagPops";
-import { shouldShowStatusFlagPop, type FlagPopPresentation } from "./combatStatusPopups";
+import { shouldShowStatusFlagPop, statusFlagName, type FlagPopPresentation } from "./combatStatusPopups";
+import { addEffectCaption, updateEffectCaption, type EffectCaptionView } from "./EffectCaption";
+import type { EffectFaction } from "../effectCaptions";
 import { MagicReflectionPops } from "./MagicReflectionPops";
 import { InfestHatchPops } from "./InfestHatchPops";
 import { PredatoryAssimilationPops } from "./PredatoryAssimilationPops";
@@ -459,7 +461,7 @@ interface IAbilitySteal {
 }
 
 // Tuning for the floating damage numbers.
-const FT_LIFE = OVERHEAD_EFFECT_DURATION_MS / 1000;
+const FT_LIFE = FLOATING_RESULT_DURATION_MS / 1000;
 const FT_RISE = 72; // world px the number floats up
 const FT_DRIFT = 26; // world px horizontal drift in the hit direction
 const FT_POP_DUR = FT_LIFE * 0.2; // seconds of the spawn "pop"
@@ -803,18 +805,33 @@ export class CombatVisuals {
     private wildRegenerationEngine?: WildRegenerationEngine;
     private healCrossPops?: HealCrossPops;
     private readonly flagOverlayLayout = new FlagOverlayLayout();
+    private effectCaptions: EffectCaptionView[] = [];
+    private namedFlagAttach(name: string, sourceFaction?: EffectFaction): FlagOverlayAttach {
+        return (container, zIndex, follow) => {
+            this.effectCaptions.push(
+                addEffectCaption(container, name, this.context.getGridSettings().getCellSize(), false, sourceFaction),
+            );
+            this.attachFlagOverlay(container, zIndex, follow);
+        };
+    }
     private readonly attachFlagOverlay: FlagOverlayAttach = (container, zIndex, follow) => {
         this.context.attachToWorldRoot(container, zIndex);
         this.flagOverlayLayout.add(container, follow);
         queueMicrotask(() => this.layoutFlagOverlays());
     };
     private layoutFlagOverlays(): void {
+        this.effectCaptions = this.effectCaptions.filter(({ owner }) => !owner.destroyed);
+        for (const caption of this.effectCaptions) {
+            updateEffectCaption(caption);
+            const art = caption.owner.children.find((child) => child !== caption.root);
+            caption.root.alpha = art?.alpha ?? 1;
+        }
         this.flagOverlayLayout.update(this.floatingTexts, 6);
     }
     private flagOverlayAnchor(unit: RenderableUnit, gs: GridSettings): FlagOverlayAnchor {
         return { ...unit.getFlagEffectAnchor(gs), unitId: unit.getId() };
     }
-    private readonly commonFlagPops = new Map<FlagPopKind, CommonFlagPops>();
+    private readonly commonFlagPops = new Map<string, CommonFlagPops>();
     private angelResurrectionPops?: AngelResurrectionPops;
     private deepWoundsPops?: DeepWoundsPops;
     private paralysisPops?: ParalysisPops;
@@ -1227,17 +1244,18 @@ export class CombatVisuals {
         const gs = this.context.getGridSettings();
         const id = unit.getId();
         this.paralysisStatus.present(id);
-        this.paralysisPops ??= new ParalysisPops(this.attachFlagOverlay);
+        this.paralysisPops ??= new ParalysisPops(this.namedFlagAttach("Paralysis"));
         this.paralysisPops.spawn(id, gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    private getCommonFlagPopLayer(kind: FlagPopKind): CommonFlagPops {
-        let layer = this.commonFlagPops.get(kind);
+    private getCommonFlagPopLayer(kind: FlagPopKind, sourceFaction?: EffectFaction): CommonFlagPops {
+        const key = sourceFaction ? `${kind}:${sourceFaction}` : kind;
+        let layer = this.commonFlagPops.get(key);
         if (!layer) {
-            layer = new CommonFlagPops(kind, this.attachFlagOverlay);
-            this.commonFlagPops.set(kind, layer);
+            layer = new CommonFlagPops(kind, this.namedFlagAttach(statusFlagName(kind), sourceFaction));
+            this.commonFlagPops.set(key, layer);
         }
         return layer;
     }
@@ -1248,7 +1266,7 @@ export class CombatVisuals {
     public spawnHealCross(unit: RenderableUnit, presentation: FlagPopPresentation = "combat"): void {
         if (presentation !== "preview") return;
         if (unit.isDead()) return;
-        this.healCrossPops ??= new HealCrossPops(this.attachFlagOverlay);
+        this.healCrossPops ??= new HealCrossPops(this.namedFlagAttach("Heal"));
         const id = unit.getId(),
             gs = this.context.getGridSettings();
         void this.healCrossPops.spawn(id, gs.getCellSize(), () => {
@@ -1257,7 +1275,7 @@ export class CombatVisuals {
         });
     }
     public spawnWildRegenerationEngine(unit: RenderableUnit): void {
-        this.wildRegenerationEngine ??= new WildRegenerationEngine(this.attachFlagOverlay);
+        this.wildRegenerationEngine ??= new WildRegenerationEngine(this.namedFlagAttach("Wild Regeneration"));
         const id = unit.getId(),
             gs = this.context.getGridSettings();
         void this.wildRegenerationEngine.spawn(id, gs.getCellSize(), () => {
@@ -1269,12 +1287,13 @@ export class CombatVisuals {
         unit: RenderableUnit,
         kind: FlagPopKind,
         presentation: FlagPopPresentation = "combat",
+        sourceFaction?: EffectFaction,
     ): void {
         if (!shouldShowStatusFlagPop(kind, presentation)) return;
         if (kind === "resist" && showsEnchantedSkinShield(unit)) kind = "enchanted_skin";
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        const layer = this.getCommonFlagPopLayer(kind);
+        const layer = this.getCommonFlagPopLayer(kind, sourceFaction);
         void layer.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1283,7 +1302,7 @@ export class CombatVisuals {
     public spawnBattleRoarPop(unit: RenderableUnit, durationMs: BattleRoarDurationMs = 1000, stackIndex = 0): void {
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.battleRoarPops ??= new BattleRoarPops(this.attachFlagOverlay);
+        this.battleRoarPops ??= new BattleRoarPops(this.namedFlagAttach("Battle Roar"));
         void this.battleRoarPops.spawn(
             unit.getFlagEffectAnchor(gs),
             gs.getCellSize(),
@@ -1300,7 +1319,7 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.unyieldingPowerPops ??= new UnyieldingPowerPops(this.attachFlagOverlay);
+        this.unyieldingPowerPops ??= new UnyieldingPowerPops(this.namedFlagAttach("Unyielding Power"));
         void this.unyieldingPowerPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1311,7 +1330,7 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.crusadePops ??= new CrusadePops(this.attachFlagOverlay);
+        this.crusadePops ??= new CrusadePops(this.namedFlagAttach("Crusade"));
         void this.crusadePops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1321,7 +1340,7 @@ export class CombatVisuals {
         // INTENDED main parity: confirmed reflections keep their causal trigger cue in live combat.
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.magicReflectionPops ??= new MagicReflectionPops(this.attachFlagOverlay);
+        this.magicReflectionPops ??= new MagicReflectionPops(this.namedFlagAttach("Magic Reflection"));
         void this.magicReflectionPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1331,7 +1350,7 @@ export class CombatVisuals {
         if (presentation !== "preview") return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.angelResurrectionPops ??= new AngelResurrectionPops(this.attachFlagOverlay);
+        this.angelResurrectionPops ??= new AngelResurrectionPops(this.namedFlagAttach("Resurrection"));
         void this.angelResurrectionPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1341,9 +1360,10 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.deepWoundsPops ??= new DeepWoundsPops((container, zIndex) =>
-            this.context.attachToWorldRoot(container, zIndex),
-        );
+        this.deepWoundsPops ??= new DeepWoundsPops((container, zIndex) => {
+            this.effectCaptions.push(addEffectCaption(container, "Deep Wounds", gs.getCellSize()));
+            this.context.attachToWorldRoot(container, zIndex);
+        });
         void this.deepWoundsPops.spawn(id, level, unit.getFlagCenterAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? current.getFlagCenterAnchor(gs) : undefined;
@@ -1371,7 +1391,7 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.devourEssencePops ??= new DevourEssencePops(this.attachFlagOverlay);
+        this.devourEssencePops ??= new DevourEssencePops(this.namedFlagAttach("Devour Essence"));
         void this.devourEssencePops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1381,21 +1401,19 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.boarSalivaPops ??= new BoarSalivaPops(this.attachFlagOverlay);
+        this.boarSalivaPops ??= new BoarSalivaPops(this.namedFlagAttach("Boar Saliva"));
         void this.boarSalivaPops.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    public preparePetrifyingGazePop(presentation: FlagPopPresentation = "combat"): void {
-        if (presentation !== "preview") return;
+    public preparePetrifyingGazePop(_presentation: FlagPopPresentation = "combat"): void {
         void Assets.load<Texture>(images.vfx_petrifying_gaze_pop_atlas).catch(() => undefined);
     }
     public async spawnPetrifyingGazePop(
         unit: RenderableUnit,
         presentation: FlagPopPresentation = "combat",
     ): Promise<() => void> {
-        if (presentation !== "preview") return () => undefined;
         const gs = this.context.getGridSettings();
         const damageAnchor = unit.getDamagePredictionAnchor(gs);
         const primaryNumbers = new Set(
@@ -1408,9 +1426,15 @@ export class CombatVisuals {
         );
         // Final engine HP may already be zero. The presentation still owns this victim's flag.
         // Use the same flag anchor as luck; damage gets its usual lane after the head finishes.
-        const follow = (): FlagOverlayAnchor => this.flagOverlayAnchor(unit, gs);
-        this.petrifyingGazePops ??= new PetrifyingGazePops(this.attachFlagOverlay);
+        const follow = (): FlagOverlayAnchor => {
+            const current = this.context.getUnitsHolder?.().getAllUnits().get(unit.getId()) as
+                RenderableUnit | undefined;
+            return this.flagOverlayAnchor(current ?? unit, gs);
+        };
+        this.petrifyingGazePops ??= new PetrifyingGazePops(this.namedFlagAttach("Petrifying Gaze"));
         await this.petrifyingGazePops.spawn(unit.getId(), gs.getCellSize(), follow);
+        // Combat shows its recorded result at contact. Only the lab stages a second number afterwards.
+        if (presentation !== "preview") return () => undefined;
         // Replace only the numbers captured at this impact. Slow render frames must not
         // leave the first hit underneath the passive's new number/kill row.
         return () => {
@@ -1431,7 +1455,7 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.terrifyingGazePops ??= new TerrifyingGazePops(this.attachFlagOverlay);
+        this.terrifyingGazePops ??= new TerrifyingGazePops(this.namedFlagAttach("Terrifying Gaze"));
         void this.terrifyingGazePops.spawn(id, gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1469,25 +1493,18 @@ export class CombatVisuals {
             );
             return;
         }
-        if (!this.context.legacyEffectsEnabled) return;
         const container = new Container();
 
         const iconSize = cell * 0.72;
-        const icon = new Sprite(iconTexture);
-        icon.anchor.set(0.5);
-        icon.width = iconSize;
-        icon.height = iconSize;
-
-        const label = new PixiText({
-            text: name,
-            style: kind === "buff" ? this.getBuffStyle() : this.getDebuffStyle(),
-        });
-        label.anchor.set(0.5);
-        // Sits just under the icon. The container is Y-flipped (see scale below), matching the
-        // floating-damage convention where a positive child-y renders below its anchor.
-        label.position.set(0, iconSize * 0.62);
-
-        container.addChild(icon, label);
+        // Confirmed effects without bespoke art still get a name; static icon tiles stay lab-only.
+        if (this.context.legacyEffectsEnabled) {
+            const icon = new Sprite(iconTexture);
+            icon.anchor.set(0.5);
+            icon.width = iconSize;
+            icon.height = iconSize;
+            container.addChild(icon);
+        }
+        this.effectCaptions.push(addEffectCaption(container, name, cell));
 
         const gs = this.context.getGridSettings();
         const id = unit?.getId();
@@ -1569,7 +1586,7 @@ export class CombatVisuals {
             const unit = current(id);
             return unit && !unit.isDead() ? this.flagOverlayAnchor(unit, gs) : undefined;
         };
-        this.borrowedGracePops ??= new BorrowedGracePops(this.attachFlagOverlay);
+        this.borrowedGracePops ??= new BorrowedGracePops(this.namedFlagAttach("Borrowed Grace"));
         void this.borrowedGracePops.spawn(
             victim.getFlagEffectAnchor(gs),
             gs.getCellSize(),
@@ -1981,6 +1998,7 @@ export class CombatVisuals {
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
         if (!keepDetachedOverlays) this.spellImpactGeneration += 1;
         if (!keepDetachedOverlays) this.flagOverlayLayout.clear();
+        if (!keepDetachedOverlays) this.effectCaptions.length = 0;
         if (!keepDetachedOverlays) this.terrifyingGazePops?.clear();
         if (!keepDetachedOverlays) this.petrifyingGazePops?.clear();
         if (!keepDetachedOverlays) this.beholderDebuffPops?.clear();

@@ -5,16 +5,13 @@ import { CombatVisuals } from "./sandbox/CombatVisuals";
 const flush = async () => {
     for (let i = 0; i < 30; i++) await Promise.resolve();
 };
-// INTENDED: actual secondary damage is not another attack/hit sequence. The archived head
-// animation and its pause belong only to the explicit lab preview below.
+// INTENDED: the real head overlay starts with damage but never adds a second hit or a combat wait.
 test.each([false, true])("recorded gaze damage adds no attack, hit, or popup delay; lethal=%s", async (lethal) => {
     const numbers = mock((_position: unknown, _amount: number, ..._rest: unknown[]) => undefined);
     const extraHit = mock(() => {
         throw new Error("Gaze must not add a second hit animation");
     });
-    const pop = mock(() => {
-        throw new Error("A passive popup must not retime combat");
-    });
+    const pop = mock((_unit: unknown) => new Promise<() => void>(() => {}));
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         isSceneDestroyed: () => false,
         sc_sceneSettings: { getGridSettings: () => ({}) },
@@ -47,7 +44,8 @@ test.each([false, true])("recorded gaze damage adds no attack, hit, or popup del
     expect(casualties).toHaveBeenCalledWith(lethal ? 1 : 0);
     expect(death).toHaveBeenCalledTimes(lethal ? 1 : 0);
     expect(extraHit).not.toHaveBeenCalled();
-    expect(pop).not.toHaveBeenCalled();
+    expect(pop).toHaveBeenCalledTimes(1);
+    expect(pop.mock.calls[0]?.[0]).toBe(unit);
 });
 test("retired scenes cannot emit a new gaze result", async () => {
     const numbers = mock(() => undefined);

@@ -1,8 +1,11 @@
-/** PR #205 keeps its complete overhead cues at 650ms; accelerating the opening must not lengthen them. */
-export const OVERHEAD_EFFECT_DURATION_MS = 650;
+/** The user-selected overhead playback is half the former 650 ms speed (1.3 seconds per cue). */
+export const OVERHEAD_EFFECT_PLAYBACK_SPEED = 0.5;
+export const OVERHEAD_EFFECT_DURATION_MS = 650 / OVERHEAD_EFFECT_PLAYBACK_SPEED;
+/** Numbers report impact immediately and retain their established reading cadence. */
+export const FLOATING_RESULT_DURATION_MS = 650;
 export const STATUS_EFFECT_DURATION_MULTIPLIER = OVERHEAD_EFFECT_DURATION_MS / 1000;
 
-/** Normalize different authored atlases without changing their established full lifetime. */
+/** Normalize authored atlases onto the shared overhead playback clock. */
 export const overheadEffectElapsedMs = (elapsedMs: number, authoredDurationMs: number): number =>
     (Math.max(0, elapsedMs) / OVERHEAD_EFFECT_DURATION_MS) * authoredDurationMs;
 export const STATUS_EFFECT_APPEARANCE_SPEED = 1.25;

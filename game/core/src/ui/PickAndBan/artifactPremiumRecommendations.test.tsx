@@ -10,7 +10,7 @@ import { PremiumContext } from "../premium/PremiumAdvisor";
 import { PremiumSearchPromptContext } from "../premium/PremiumSearchPromptContext";
 import { ArtifactPanel } from "./runtime";
 
-test("actual artifact cards show a thumb for every advised offer", () => {
+test("the three tier-2 artifact cards show one gold and one silver recommendation", () => {
     const artifacts = Artifact.TIER2_ARTIFACT_LIST.slice(0, 3);
     const advice: PremiumAdvice = {
         entitlement: { active: true, reason: "test" },
@@ -37,10 +37,11 @@ test("actual artifact cards show a thumb for every advised offer", () => {
         </CacheProvider>,
     );
     expect(html.match(/data-recommendation-medal="gold"/g)).toHaveLength(1);
-    expect(html.match(/data-recommendation-medal="silver"/g)).toHaveLength(2);
-    expect(html.match(/data-thumb-direction="mirrored"/g)).toHaveLength(3);
+    expect(html.match(/data-recommendation-medal="silver"/g)).toHaveLength(1);
+    expect(html.match(/data-thumb-direction="mirrored"/g)).toHaveLength(2);
     expect(html.match(/data-touch-draft-choice="true"/g)).toHaveLength(3);
-    for (const { id } of artifacts) {
+    for (const { id } of artifacts.slice(0, 2)) {
         expect(html).toContain(`data-testid="premium-artifact-${id}"`);
     }
+    expect(html).not.toContain(`data-testid="premium-artifact-${artifacts[2].id}"`);
 });

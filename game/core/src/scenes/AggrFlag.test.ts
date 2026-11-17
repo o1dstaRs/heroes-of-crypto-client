@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { animationAtlases } from "../generated/animation_atlases";
@@ -20,7 +21,7 @@ test("Aggr uses a painted flag cue on the affected living unit, without generic 
     expect(canPreviewCreatureLabState({ name: "Peasant", abilities: [], spells: [] }, "aggr")).toBe(false);
 });
 
-test("all 12 cels follow the recipient's flag and release frame views after 650ms", async () => {
+test("all 12 cels follow the recipient's flag and release frame views after 1300ms", async () => {
     const meta = animationAtlases["Vfx Aggr"].pop;
     expect(meta.frameCount).toBe(12);
     expect(meta.frameDurationsMs!.reduce((a, b) => a + b, 0)).toBe(650);
@@ -35,7 +36,7 @@ test("all 12 cels follow the recipient's flag and release frame views after 650m
     const layer = new CommonFlagPops(
         "aggr",
         (c) => root.addChild(c),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn("victim", anchor, 64, () => anchor);

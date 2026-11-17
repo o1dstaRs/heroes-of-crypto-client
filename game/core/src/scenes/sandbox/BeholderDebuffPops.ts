@@ -3,6 +3,7 @@ import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { beholderDebuffFramePose } from "./beholderDebuffRegistration";
 import { glyphScaleX } from "../../pixi/boardMirror";
+import { addEffectCaption, updateEffectCaption, type EffectCaptionView } from "./EffectCaption";
 
 /** Each atlas contains the animated central motif, without the original icon's tile or frame. */
 export const BEHOLDER_DEBUFFS = [
@@ -21,7 +22,7 @@ const LIFE_MS = OVERHEAD_EFFECT_DURATION_MS;
 const MAX_GROUPS = 16;
 const FRAME_COUNT = 16;
 type Anchor = Readonly<{ x: number; y: number }>;
-type Motif = { name: string; sprite: Sprite; frames: Texture[] };
+type Motif = { name: string; sprite: Sprite; frames: Texture[]; caption: EffectCaptionView };
 type Group = {
     unitId: string;
     container: Container;
@@ -103,8 +104,11 @@ export class BeholderDebuffPops {
         const sprite = new Sprite(frames[0]);
         sprite.anchor.set(0.5);
         sprite.width = sprite.height = cell;
-        group.container.addChild(sprite);
-        group.motifs.push({ name, sprite, frames });
+        const motifRoot = new Container();
+        motifRoot.addChild(sprite);
+        const caption = addEffectCaption(motifRoot, name, cell, true);
+        group.container.addChild(motifRoot);
+        group.motifs.push({ name, sprite, frames, caption });
         // Reserve a fixed, symmetric envelope for the complete sequence. Measuring each changing
         // frame would move the entire row and undo the authored landmark registration.
         let halfWidth = 0;
@@ -112,12 +116,17 @@ export class BeholderDebuffPops {
         let bottom = -Infinity;
         group.motifs.forEach((motif, index) => {
             const slot = beholderDebuffSlot(index, group.motifs.length);
+            let motifBottom = -Infinity;
             for (let frame = 0; frame < FRAME_COUNT; frame++) {
                 const [dx, dy, scale] = beholderDebuffFramePose(motif.name, frame);
                 halfWidth = Math.max(halfWidth, (Math.abs(slot.x + dx / 256) + scale / 2) * cell);
                 top = Math.min(top, (slot.y + dy / 256 - scale / 2) * cell);
                 bottom = Math.max(bottom, (slot.y + dy / 256 + scale / 2) * cell);
+                motifBottom = Math.max(motifBottom, (slot.y + dy / 256 + scale / 2) * cell);
             }
+            motif.caption.root.position.set(slot.x * cell, motifBottom + cell * 0.055);
+            halfWidth = Math.max(halfWidth, (Math.abs(slot.x) + 0.52) * cell);
+            bottom = Math.max(bottom, motif.caption.root.y + cell * 0.48 + 5);
         });
         group.container.boundsArea = new Rectangle(-halfWidth, top, halfWidth * 2, bottom - top);
         this.update();
@@ -155,6 +164,7 @@ export class BeholderDebuffPops {
             g.container.alpha = Math.min(1, elapsed / (LIFE_MS * 0.075), (LIFE_MS - elapsed) / (LIFE_MS * 0.15));
             const frame = Math.min(FRAME_COUNT - 1, Math.floor((elapsed / LIFE_MS) * FRAME_COUNT));
             g.motifs.forEach((motif, index) => {
+                updateEffectCaption(motif.caption, g.container);
                 const slot = beholderDebuffSlot(index, g.motifs.length);
                 const [offsetX, offsetY, scale] = beholderDebuffFramePose(motif.name, frame);
                 motif.sprite.texture = motif.frames[frame];

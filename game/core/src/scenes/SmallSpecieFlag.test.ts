@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { animationAtlases } from "../generated/animation_atlases";
@@ -73,7 +74,7 @@ test("Fairy misses keep MISS labels; Small Specie badges require an explicit lab
     ).toBe(false);
 });
 
-test("nine Small Specie cels follow the mirrored flag, replay on the next dodge and end after 650 ms", async () => {
+test("nine Small Specie cels follow the mirrored flag, replay on the next dodge and end after 1300 ms", async () => {
     const meta = animationAtlases["Vfx Small Specie"].pop;
     expect(meta.frameCount).toBe(9);
     expect(meta.frameDurationsMs?.reduce((a, b) => a + b, 0)).toBe(650);
@@ -89,7 +90,7 @@ test("nine Small Specie cels follow the mirrored flag, replay on the next dodge 
     const pops = new CommonFlagPops(
         "small_specie",
         (c) => root.addChild(c),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await pops.spawn("fairy", anchor, 64, () => anchor);

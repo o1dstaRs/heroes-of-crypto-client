@@ -3,6 +3,7 @@ import type { GameEvent } from "@heroesofcrypto/common";
 import { Sandbox } from "./Sandbox";
 import { canPreviewCreatureLabState } from "../ui/creatureAnimationLabCapabilities";
 import { BLACKSMITH_CRAFT_FLAGS, BLACKSMITH_FLAG_KINDS } from "./blacksmithFlagEffects";
+import { OVERHEAD_EFFECT_DURATION_MS } from "../settings/statusEffectTiming";
 
 function fixture() {
     const pops: string[] = [];
@@ -128,9 +129,11 @@ test("unknown craft abilities and unrelated spells do not invent successful buff
 
 test("the explicit lab sequence retains the source-art preview and its authored pause", () => {
     const f = fixture();
-    expect(f.scene.renderSpellCastSequence(f.caster, "Armor Rune", cast("Armor Rune", "enchanted"), true)).toBe(1380);
+    expect(f.scene.renderSpellCastSequence(f.caster, "Armor Rune", cast("Armor Rune", "enchanted"), true)).toBe(
+        OVERHEAD_EFFECT_DURATION_MS * 2 + 80,
+    );
     expect(f.pops).toEqual(["smith:blacksmith_craft"]);
-    expect(f.scheduled[0].delay).toBe(730);
+    expect(f.scheduled[0].delay).toBe(OVERHEAD_EFFECT_DURATION_MS + 80);
     f.scheduled[0].callback();
     expect(f.pops).toEqual(["smith:blacksmith_craft", "ally:blacksmith_armor"]);
 });

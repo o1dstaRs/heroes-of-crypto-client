@@ -1,4 +1,6 @@
 import { publishBattleUnitFacings, releaseBattleUnitFacings } from "../pixi/battleUnitFacing";
+import { defaultSummonCell } from "./defaultSummonCell";
+import { effectSourceFaction } from "./effectCaptions";
 import {
     BLACKSMITH_CRAFT_FLAGS,
     BLACKSMITH_FLAG_KINDS,
@@ -5127,7 +5129,8 @@ export class Sandbox extends PixiScene {
         if (shown.has(entry)) return;
         shown.add(entry);
         if (!preview) {
-            // Gaze is authoritative secondary damage, not another attack/reaction sequence.
+            // The head and its caption start at contact, without delaying the recorded result or next strike.
+            if (unit) void this.combatVisuals.spawnPetrifyingGazePop?.(unit);
             const gs = this.sc_sceneSettings.getGridSettings();
             const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const style = this.getSecondaryDamageStyle(entry.source);
@@ -5174,6 +5177,35 @@ export class Sandbox extends PixiScene {
             else await this.playReplayOneShot(unit, "hit", 3000, true);
         }
     }
+    private presentGazeAtImpact(
+        secondary: IVisibleDamage["secondary"],
+        unitId: string,
+        from: HoCMath.XY,
+        unit: RenderableUnit | undefined,
+        remaining: Map<string, number>,
+        deadIds: ReadonlySet<string>,
+        onDeath: (unitId: string) => void,
+        moreBlows = false,
+    ): void {
+        const hits = (secondary ?? []).filter(
+            (hit) =>
+                hit.source === "petrifying_gaze" && hit.unitId === unitId && !this.presentedPetrifyingGaze?.has(hit),
+        );
+        // Legacy secondary records are ordered but lack hit indices; leave the next proc to the next blow.
+        if (moreBlows) hits.splice(1);
+        for (const hit of hits) {
+            const before = remaining.get(unitId);
+            const left = before === undefined ? undefined : Math.max(0, before - hit.unitsDied);
+            if (left !== undefined) remaining.set(unitId, left);
+            void this.presentPetrifyingGaze(
+                hit,
+                from,
+                unit,
+                Promise.resolve(),
+                left === 0 && deadIds.has(unitId) ? () => onDeath(unitId) : undefined,
+            );
+        }
+    }
     private async playCombatExchange(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -5214,6 +5246,8 @@ export class Sandbox extends PixiScene {
         ) {
             this.combatVisuals?.prepareCommonFlagPop?.("penetrating_bite");
         }
+        if (event.damage?.secondary?.some((hit) => hit.source === "petrifying_gaze"))
+            this.combatVisuals?.preparePetrifyingGazePop?.();
         if (event.attackType === "range" && attacker.hasAbilityActive?.("Through Shot")) {
             return this.playThroughShotExchange(
                 attacker,
@@ -5673,6 +5707,24 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 undefined,
                                 strike.lethal ? undefined : renderedVictim,
+                            );
+                        }
+                        if (receivedDamage) {
+                            this.presentGazeAtImpact(
+                                event.damage?.secondary,
+                                strike.targetId,
+                                from,
+                                renderedVictim,
+                                remainingAmounts,
+                                deathState?.deadIds ?? new Set(event.unitIdsDied),
+                                presentDeath,
+                                plan.some(
+                                    (next) =>
+                                        next.attackerId === strike.attackerId &&
+                                        next.targetId === strike.targetId &&
+                                        next.hitIndex > strike.hitIndex &&
+                                        !next.missed,
+                                ),
                             );
                         }
                         // Primary and all rear stacks lose their displayed casualties and react on the
@@ -6144,6 +6196,16 @@ export class Sandbox extends PixiScene {
                     undefined,
                     unit,
                 );
+                this.presentGazeAtImpact(
+                    context.damage.secondary,
+                    hit.unitId,
+                    from,
+                    unit,
+                    context.remainingAmounts,
+                    context.deadIds,
+                    context.onDeath,
+                    true,
+                );
             }
             if (unit && hit.unitsDied > 0 && remaining === 0 && context.deadIds.has(hit.unitId)) {
                 if (!hit.missed && hit.amount > 0 && context.cyclopsKills?.has(hit.unitId)) {
@@ -6179,6 +6241,8 @@ export class Sandbox extends PixiScene {
         deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
         endpoint?: HoCMath.XY,
     ): Promise<Set<string>> {
+        if (event.damage?.secondary?.some((hit) => hit.source === "petrifying_gaze"))
+            this.combatVisuals?.preparePetrifyingGazePop?.();
         const gs = this.sc_sceneSettings.getGridSettings();
         const units = new Map(capturedUnits ?? this.snapshotRenderableUnits());
         units.set(attacker.getId(), attacker);
@@ -6324,6 +6388,22 @@ export class Sandbox extends PixiScene {
                             undefined,
                             undefined,
                             unit,
+                        );
+                        this.presentGazeAtImpact(
+                            event.damage?.secondary,
+                            hit.unitId,
+                            from,
+                            unit,
+                            remaining,
+                            deadIds,
+                            (id) => {
+                                const killed = units.get(id);
+                                if (killed && !shownDeaths.has(id)) {
+                                    shownDeaths.add(id);
+                                    onDeath(killed);
+                                }
+                            },
+                            hitIndex + 1 < waves.length,
                         );
                     }
                     if (unit && hit.unitsDied > 0 && amount === 0 && deadIds.has(hit.unitId)) {
@@ -10130,7 +10210,13 @@ export class Sandbox extends PixiScene {
         const stunnedUnits = new Set(stunRecipients(events));
         for (const id of stunnedUnits) {
             const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (unit && !unit.isDead()) this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+            if (unit && !unit.isDead())
+                this.combatVisuals?.spawnCommonFlagPop(
+                    unit,
+                    "stun",
+                    "combat",
+                    effectSourceFaction(events, id, this.unitsHolder.getAllUnits()),
+                );
         }
         this.popRecordedResistances(events);
         for (const unitId of empowerAppliedUnitIds(events)) {
@@ -10185,7 +10271,7 @@ export class Sandbox extends PixiScene {
                     case "stun":
                         if (event.spellName === "Craft" && !stunnedUnits.has(entry.unitId)) {
                             stunnedUnits.add(entry.unitId);
-                            this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+                            this.combatVisuals?.spawnCommonFlagPop(unit, "stun", "combat", "Life");
                         }
                         break;
                     case "nothing":
@@ -10369,10 +10455,12 @@ export class Sandbox extends PixiScene {
         const summonFootprint = spell.isSummon() ? SpellHelper.summonFootprintOf(spell) : undefined;
         const summonSeat =
             amountToSummon > 0 && summonFootprint
-                ? SpellHelper.resolveSummonAnchor(
+                ? defaultSummonCell(
                       spell,
                       this.gridMatrix,
-                      GridMath.getCellsAroundFootprint(gs, caster.getCells()),
+                      gs,
+                      caster,
+                      FightStateManager.getInstance().getFightProperties().isSideAxisPolicyTeam(caster.getTeam()),
                   )
                 : undefined;
         if (amountToSummon > 0 && summonSeat) {
@@ -22241,6 +22329,10 @@ export class Sandbox extends PixiScene {
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;
                 const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+                if (entry.source === "petrifying_gaze") {
+                    void this.presentPetrifyingGaze(entry, attackerCenter, sUnit);
+                    return;
+                }
                 const sCenter = sUnit ? sUnit.getVisualCenter(gs) : projectBattlefieldPoint(entry.position, gs);
                 const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
                 const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : sCenter;
@@ -22249,15 +22341,6 @@ export class Sandbox extends PixiScene {
                 const presentCasualties = sUnit?.captureDamageCasualties(entry.unitsDied);
                 this.scheduleSceneTimeout(
                     () => {
-                        if (entry.source === "petrifying_gaze" && sUnit) {
-                            // "Yank" the petrified unit away from the attacker, then it springs back —
-                            // the same reaction the live sandbox path gives a gaze kill.
-                            const len = Math.hypot(sDir.x, sDir.y);
-                            if (len > 0.001) {
-                                const mag = gs.getCellSize() * 0.35;
-                                sUnit.applyRecoil((sDir.x / len) * mag, (sDir.y / len) * mag);
-                            }
-                        }
                         this.combatVisuals.showFloatingDamage(
                             sPos,
                             entry.amount,
@@ -22724,7 +22807,12 @@ export class Sandbox extends PixiScene {
             const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
             if (!unit || unit.isDead()) continue;
             shown.add(id);
-            this.combatVisuals?.spawnCommonFlagPop(unit, "stun");
+            this.combatVisuals?.spawnCommonFlagPop(
+                unit,
+                "stun",
+                "combat",
+                effectSourceFaction(events, id, this.unitsHolder.getAllUnits()),
+            );
         }
     }
     protected popRecordedShatterArmor(

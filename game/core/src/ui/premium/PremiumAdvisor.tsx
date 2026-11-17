@@ -24,6 +24,7 @@ import { PremiumSearchAnchorContext } from "./PremiumSearchAnchorContext";
 import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
 import { PremiumPreviewContext } from "./PremiumPreviewContext";
+import { premiumDraftChoices } from "./premiumDraftChoices";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -148,7 +149,7 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice; rank?: number }> = ({
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
     const thumbStyle = useContext(PremiumThumbStyleContext);
-    const ranked = advice?.choices?.filter((item) => item.kind === kind) ?? [];
+    const ranked = premiumDraftChoices(advice?.choices).filter((item) => item.kind === kind);
     const thumb = kind === "creature" || kind === "bundle" || kind === "artifact";
     const index = ranked.findIndex((choice) => choice.value === value);
     const choice = index >= 0 ? ranked[index] : undefined;
@@ -278,7 +279,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
     const anchor = useContext(PremiumSearchAnchorContext);
     if (!advice?.entitlement.active) return null;
     const assessment = premiumDraftAssessment({ ...draft, scouting: advice.scouting });
-    const recommendations = draft.isYourTurn ? (advice.choices ?? []).slice(0, 3) : [];
+    const recommendations = draft.isYourTurn ? premiumDraftChoices(advice.choices).slice(0, 3) : [];
     const panel = (
         <Box
             role="region"

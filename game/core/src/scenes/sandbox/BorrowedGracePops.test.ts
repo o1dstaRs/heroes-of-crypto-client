@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GameEvent, IVisibleDamage } from "@heroesofcrypto/common";
@@ -50,7 +51,7 @@ test("hand stays on the victim, then the actual card follows the rebuilt monk fl
     let monk: { x: number; y: number } | undefined = { x: 500, y: 400 };
     const layer = new BorrowedGracePops(
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn(
@@ -148,7 +149,7 @@ test("animated buff takes over after the hand without creating an icon, even aft
     let recipient: { x: number; y: number } | undefined = { x: 500, y: 400 };
     const layer = new BorrowedGracePops(
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     const spawn = () =>
         layer.spawn(

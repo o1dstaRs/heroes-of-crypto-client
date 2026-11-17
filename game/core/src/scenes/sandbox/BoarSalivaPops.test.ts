@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
@@ -41,7 +42,7 @@ describe("painted Boar Saliva flag cue", () => {
         let anchor: { x: number; y: number } | undefined = { x: 100, y: 200 };
         const layer = new BoarSalivaPops(
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             await Promise.all([
@@ -118,7 +119,7 @@ describe("painted Boar Saliva flag cue", () => {
 
     test("ranked hydration preserves the cue and reacquires the rebuilt recipient", async () => {
         let now = 0;
-        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        const clock = spyOn(performance, "now").mockImplementation(() => now / OVERHEAD_EFFECT_PLAYBACK_SPEED);
         const atlas = new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) });
         const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
         const unload = spyOn(Assets, "unload").mockResolvedValue();
@@ -151,7 +152,9 @@ describe("painted Boar Saliva flag cue", () => {
             visuals.update(0);
             expect(pop.destroyed).toBe(false);
             expect(pop.x).toBe(150);
-            expect(pop.y).toBeCloseTo(250 + 6);
+            const bounds = pop.getLocalBounds();
+            const lower = Math.min(bounds.minY * pop.scale.y, bounds.maxY * pop.scale.y);
+            expect(pop.y + lower).toBeCloseTo(250 + 6);
             units.set("enemy", makeUnit(150, 250, true));
             visuals.update(0);
             expect(pop.destroyed).toBe(true);

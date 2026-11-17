@@ -76,7 +76,7 @@ test("two ranked recommendations among more offers keep both medals", () => {
     expect(html).toContain("Premium: silver, #2 Creature 1. Why?");
 });
 
-test("both starting bundles keep recommendation thumbs when both are advised", () => {
+test("only the top opening pair-plus-artifact bundle is recommended", () => {
     const choices: PremiumChoice[] = [0, 1].map((value) => ({
         kind: "bundle",
         value,
@@ -84,13 +84,13 @@ test("both starting bundles keep recommendation thumbs when both are advised", (
         reasons: [],
     }));
     const html = render(choices, choices, "bundle");
-    expect(html.match(/data-recommendation-medal=/g)).toHaveLength(2);
+    expect(html.match(/data-recommendation-medal=/g)).toHaveLength(1);
     expect(html).toContain("Premium: gold, #1 Bundle 0. Why?");
-    expect(html).toContain("Premium: silver, #2 Bundle 1. Why?");
+    expect(html).not.toContain('data-testid="premium-bundle-1"');
     expect(html).not.toContain("Ask Premium");
 });
 
-test("every advised artifact gets the same thumb styling and per-kind order", () => {
+test("three artifact offers have exactly one gold and one silver in AI order", () => {
     const choices: PremiumChoice[] = [
         creature(4),
         { kind: "artifact", value: 3, label: "Artifact 3", reasons: ["First artifact reason"] },
@@ -98,11 +98,11 @@ test("every advised artifact gets the same thumb styling and per-kind order", ()
         { kind: "artifact", value: 2, label: "Artifact 2", reasons: ["Third artifact reason"] },
     ];
     const html = render(choices, choices, "artifact");
-    expect(html.match(/data-recommendation-medal=/g)).toHaveLength(3);
-    expect(html.match(/data-thumb-direction="mirrored"/g)).toHaveLength(3);
+    expect(html.match(/data-recommendation-medal=/g)).toHaveLength(2);
+    expect(html.match(/data-thumb-direction="mirrored"/g)).toHaveLength(2);
     expect(html).toContain("Premium: gold, #1 Artifact 3. Why?");
     expect(html).toContain("Premium: silver, #2 Artifact 1. Why?");
-    expect(html).toContain("Premium: silver, #3 Artifact 2. Why?");
+    expect(html).not.toContain('data-testid="premium-artifact-2"');
     expect(html).not.toContain(">Preferred<");
 });
 

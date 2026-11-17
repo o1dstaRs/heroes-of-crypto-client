@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { assimilationPose, PredatoryAssimilationPops } from "./PredatoryAssimilationPops";
@@ -17,7 +18,7 @@ test("the claw captures before travel and releases before the stolen icon appear
         (c) => {
             world.addChild(c);
         },
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     let flag = { x: 300, y: 200 };
     try {

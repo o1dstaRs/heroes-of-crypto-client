@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { Container, DOMAdapter, Sprite, Texture, TextureSource } from "pixi.js";
 import { HealCrossPops, HEAL_CROSS_MAX_POPS, healCrossFrameAt } from "./HealCrossPops";
@@ -19,7 +20,7 @@ test.each([1, -1])("Heal follows the flag, preserves proportions and expires at 
         (c) => {
             root.addChild(c);
         },
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         async () => art,
     );
     try {
@@ -60,7 +61,7 @@ test.each(["clear", "stale"])("pending Heal cannot appear after %s", async (reas
         (c) => {
             root.addChild(c);
         },
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         () =>
             new Promise((r) => {
                 resolve = r;
@@ -105,7 +106,7 @@ test("painted sequence reaches every cel and releases frame views without releas
     let now = 0;
     const layer = new HealCrossPops(
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         async () => art,
     );
     await layer.spawn("ally", 64, () => ({ x: 0, y: 0 }));
@@ -115,14 +116,14 @@ test("painted sequence reaches every cel and releases frame views without releas
     const views = new Set<Texture>();
     for (now = 0; now < 650; now++) {
         layer.update();
-        const index = healCrossFrameAt(now)!;
+        const index = healCrossFrameAt(now / OVERHEAD_EFFECT_PLAYBACK_SPEED)!;
         expect(sprite.texture.frame.x).toBe((index % 4) * 160);
         expect(sprite.texture.frame.y).toBe(Math.floor(index / 4) * 160);
         views.add(sprite.texture);
     }
     expect(views.size).toBe(16);
     expect(healCrossFrameAt(-10)).toBe(0);
-    expect(healCrossFrameAt(650)).toBeUndefined();
+    expect(healCrossFrameAt(650 / OVERHEAD_EFFECT_PLAYBACK_SPEED)).toBeUndefined();
     layer.clear();
     for (const frame of views) expect(frame.destroyed).toBe(true);
     expect(art.source.destroyed).toBe(false);

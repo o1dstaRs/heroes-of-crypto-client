@@ -3,6 +3,7 @@ import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 import type { RenderableUnit } from "../RenderableUnit";
 import { CombatVisuals } from "./CombatVisuals";
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 
 function fixture(legacyEffectsEnabled = true) {
     const root = new Container();
@@ -34,7 +35,7 @@ function fixture(legacyEffectsEnabled = true) {
 test("buff icon and name finish their opening fade and pop 25% faster", () => {
     const f = fixture();
     let now = 0;
-    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    const clock = spyOn(performance, "now").mockImplementation(() => now / OVERHEAD_EFFECT_PLAYBACK_SPEED);
     try {
         f.visuals.spawnDebuffPop({ x: 0, y: 0 }, Texture.WHITE, "Strength", 0, "buff");
         const pop = f.root.children[0];
@@ -61,7 +62,7 @@ test("buff icon and name finish their opening fade and pop 25% faster", () => {
 test("buffs, debuffs and morale follow the live flag across hydration and expire without simulation ticks", () => {
     const f = fixture();
     let now = 0;
-    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    const clock = spyOn(performance, "now").mockImplementation(() => now / OVERHEAD_EFFECT_PLAYBACK_SPEED);
     try {
         f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Slow", 0, "debuff", f.unit);
         f.visuals.spawnDebuffPop({ x: 999, y: 10 }, Texture.WHITE, "Morale", 1, "buff", f.unit);
@@ -132,7 +133,7 @@ test.each(["luck", "resist", "heal", "absorb"])(
     },
 );
 
-test("live combat suppresses static buff icons and duplicate lucky/resist captions", () => {
+test("live combat names confirmed effects without static tiles or duplicate lucky/resist captions", () => {
     const f = fixture(false);
     const pop = spyOn(f.visuals, "spawnCommonFlagPop").mockImplementation(() => undefined);
     try {
@@ -145,10 +146,14 @@ test("live combat suppresses static buff icons and duplicate lucky/resist captio
         f.visuals.showLuckyLabel({ x: 120, y: 300 }, undefined, f.unit);
         f.visuals.showResistLabel({ x: 120, y: 300 }, undefined, f.unit);
         expect(pop.mock.calls.map((call) => call[1])).toEqual(["lucky", "resist"]);
-        expect(f.root.children).toHaveLength(0);
+        expect(f.root.children).toHaveLength(3);
+        for (const container of f.root.children) {
+            expect(container.children).toHaveLength(1);
+            expect(container.children[0].label).toBe("effect-caption");
+        }
         // Loss presentation and healing numbers remain independent of the retired icon renderer.
         f.visuals.showFloatingHeal({ x: 120, y: 300 }, 10, f.unit);
-        expect(f.root.children).toHaveLength(1);
+        expect(f.root.children).toHaveLength(4);
     } finally {
         pop.mockRestore();
         f.visuals.clear();

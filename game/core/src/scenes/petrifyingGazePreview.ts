@@ -94,9 +94,7 @@ export function petrifyingGazePreview(
 }
 
 export function petrifyingGazePreviewText(preview: PetrifyingGazePreview, multipleHits = false): string {
-    const value =
-        preview.killsMax > 1
-            ? `+${formatCombatRange(preview.killsMin, preview.killsMax)} kills`
-            : `${formatCombatRange(Number(preview.chanceMin.toFixed(1)), Number(preview.chanceMax.toFixed(1)))}%`;
-    return `Gaze: ${value}${multipleHits ? " (first hit)" : ""}`;
+    const chance = formatCombatRange(Number(preview.chanceMin.toFixed(1)), Number(preview.chanceMax.toFixed(1)));
+    const kills = formatCombatRange(preview.killsMin, preview.killsMax);
+    return `Gaze: ${chance}% · +${kills} kills${multipleHits ? " (first hit)" : ""}`;
 }

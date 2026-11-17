@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
@@ -38,7 +39,7 @@ describe("Battle Roar painted flag effect", () => {
             let now = 0;
             const layer = new BattleRoarPops(
                 (container) => root.addChild(container),
-                () => now,
+                () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
             );
             layers.push(layer);
             let anchor = { x: 100, y: 200 };
@@ -98,7 +99,7 @@ describe("Battle Roar painted flag effect", () => {
 
     test("ranked hydration keeps the running effect and follows the rebuilt recipient flag", async () => {
         let now = 0;
-        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        const clock = spyOn(performance, "now").mockImplementation(() => now / OVERHEAD_EFFECT_PLAYBACK_SPEED);
         const meta = animationAtlases["Vfx Battle Roar"].short;
         const atlas = new Texture({ source: new TextureSource({ width: meta.atlasWidth, height: meta.atlasHeight }) });
         const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
@@ -134,7 +135,9 @@ describe("Battle Roar painted flag effect", () => {
             now = 600;
             visuals.update(0.4);
             expect(pop.x).toBe(150);
-            expect(pop.y).toBeCloseTo(250 + 6);
+            const bounds = pop.getLocalBounds();
+            const lower = Math.min(bounds.minY * pop.scale.y, bounds.maxY * pop.scale.y);
+            expect(pop.y + lower).toBeCloseTo(250 + 6);
             now = 1000;
             visuals.update(0.7);
             expect(pop.destroyed).toBe(true);
@@ -162,7 +165,7 @@ describe("Battle Roar painted flag effect", () => {
                 let now = 5000;
                 const layer = new BattleRoarPops(
                     (container) => root.addChild(container),
-                    () => now,
+                    () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
                 );
                 layers.push(layer);
                 await layer.spawn({ x: 100, y: 200 }, 64, durationMs);

@@ -9,6 +9,7 @@ import { UnyieldingPowerPops } from "./UnyieldingPowerPops";
 import { AngelResurrectionPops } from "./AngelResurrectionPops";
 import { DeepWoundsPops } from "./DeepWoundsPops";
 import { BattleRoarPops } from "./BattleRoarPops";
+import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 
 const kinds: FlagPopKind[] = [
     "bitter_experience",
@@ -40,7 +41,7 @@ const dedicated = {
 };
 const cases = [...kinds, ...Object.keys(dedicated), "wounds1", "wounds2", "wounds3", "roar1000", "roar1500"];
 
-test.each(cases)("%s completes every cel in 650 ms regardless of scene-step speed", async (kind) => {
+test.each(cases)("%s completes every cel at half speed in 1300 ms regardless of scene-step speed", async (kind) => {
     const art = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
     const load = spyOn(Assets, "load").mockResolvedValue(art as unknown as Record<string, unknown>);
     const unload = spyOn(Assets, "unload").mockResolvedValue();
@@ -66,7 +67,7 @@ test.each(cases)("%s completes every cel in 650 ms regardless of scene-step spee
         const pop = root.children[0];
         const sprite = pop.children[0] as Sprite;
         const seen = new Set<Texture>();
-        for (now = 0; now < 650; now++) {
+        for (now = 0; now < OVERHEAD_EFFECT_DURATION_MS; now++) {
             layer.update(now % 2 ? 0 : 1 / 240);
             expect(layer.active).toBe(true);
             seen.add(sprite.texture);

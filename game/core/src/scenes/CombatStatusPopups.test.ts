@@ -110,8 +110,5 @@ test("other dedicated passive, healing, resurrection, and damage badges stay out
     visuals.spawnUnyieldingPowerPop(unit);
     visuals.spawnAngelResurrectionPop(unit);
     visuals.spawnDevourEssencePop(unit);
-    visuals.preparePetrifyingGazePop();
-    const finish = await visuals.spawnPetrifyingGazePop(unit);
-    finish();
     expect(grid).not.toHaveBeenCalled();
 });

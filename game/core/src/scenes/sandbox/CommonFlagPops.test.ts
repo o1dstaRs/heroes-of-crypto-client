@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -19,7 +20,7 @@ test("a cold Shadow Touch atlas cannot replay the suppression cue after the hit 
     const layer = new CommonFlagPops(
         "shadow_touch",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         const pending = layer.spawn("victim", { x: 0, y: 0 }, 64);
@@ -37,7 +38,7 @@ test("a cold Shadow Touch atlas cannot replay the suppression cue after the hit 
     }
 });
 
-test("Shadow Touch follows its victim and expires in 650ms of real time", async () => {
+test("Shadow Touch follows its victim and expires in 1300ms of real time", async () => {
     const meta = animationAtlases["Vfx Shadow Touch"].pop;
     expect(meta.frameCount).toBe(16);
     expect(meta.frameDurationsMs!.reduce((sum, ms) => sum + ms, 0)).toBe(900);
@@ -52,7 +53,7 @@ test("Shadow Touch follows its victim and expires in 650ms of real time", async 
     const layer = new CommonFlagPops(
         "shadow_touch",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn("victim", anchor, 64, () => anchor);
@@ -91,7 +92,7 @@ test.each([false, true])(
         const layer = new CommonFlagPops(
             "multi_attack",
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             const pending = layer.spawn("unit", { x: 0, y: 0 }, 64);
@@ -115,7 +116,7 @@ test.each([false, true])(
     },
 );
 
-test("repeated attack normalizes 16 authored cels to 650ms and restarts on a third strike without stacking", async () => {
+test("repeated attack normalizes 16 authored cels to 1300ms and restarts on a third strike without stacking", async () => {
     const multi = animationAtlases["Vfx Multi Attack"].pop;
     expect(multi.frameCount).toBe(16);
     let elapsed = 0;
@@ -134,7 +135,7 @@ test("repeated attack normalizes 16 authored cels to 650ms and restarts on a thi
     const layer = new CommonFlagPops(
         "multi_attack",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         layer.preload();
@@ -173,7 +174,7 @@ test("painted status cels begin 25% faster and retain their readable lifetime", 
     const layer = new CommonFlagPops(
         "empower",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn("unit", { x: 0, y: 0 }, 64);
@@ -211,7 +212,7 @@ test.each(["empower", "dulling_defense", "enchanted_skin", "ogre_riot"] as const
         const layer = new CommonFlagPops(
             kind,
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             await layer.spawn("unit", { x: 0, y: 0 }, 64);
@@ -273,7 +274,7 @@ test("common flag pop coalesces hits, follows a rebuilt flag, keeps artwork scal
     const layer = new CommonFlagPops(
         "lucky",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await Promise.all([layer.spawn("dragon", anchor, 64, () => anchor), layer.spawn("dragon", anchor, 64)]);

@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, test } from "bun:test";
 import { Container, Texture, TextureSource } from "pixi.js";
 import { BeholderDebuffPops, BEHOLDER_DEBUFFS, beholderDebuffSlot } from "./BeholderDebuffPops";
@@ -10,7 +11,7 @@ const fixture = () => {
     const texture = new Texture({ source: new TextureSource({ width: 1024, height: 1024 }) });
     const layer = new BeholderDebuffPops(
         (node) => root.addChild(node),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     return { root, texture, layer, time: (ms: number) => (now = ms) };
 };
@@ -109,7 +110,7 @@ test("motifs stay hidden until damage finishes, then play their full authored se
     expect(f.root.children[0].visible).toBe(true);
     f.time(3200);
     f.layer.update();
-    const sprite = f.root.children[0].children[0] as import("pixi.js").Sprite;
+    const sprite = f.root.children[0].children[0].children[0] as import("pixi.js").Sprite;
     expect(sprite.texture.frame.y).toBe(256); // New painted pose, not a scaled still icon.
     const frame = sprite.texture;
     f.time(3649);

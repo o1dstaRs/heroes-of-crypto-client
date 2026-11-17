@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import {
     AbilityFactory,
@@ -57,7 +58,7 @@ test("speculative AI activation never emits healing VFX", () => {
     runAiSearchSimulation(() => unit.refreshPreTurnState(log));
     expect(unit.consumeRegenerationHp()).toBe(0);
 });
-test("regeneration follows the flag, deduplicates, expires at 650 ms and cleans up its sprites", async () => {
+test("regeneration follows the flag, deduplicates, expires at 1300 ms and cleans up its sprites", async () => {
     const meta = animationAtlases["Vfx Wild Regeneration"].pop;
     expect(meta.frameCount).toBe(16);
     expect(meta.frameDurationsMs!.reduce((a, b) => a + b, 0)).toBe(960);
@@ -77,7 +78,7 @@ test("regeneration follows the flag, deduplicates, expires at 650 ms and cleans 
         (c) => {
             root.addChild(c);
         },
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn("troll", anchor, 64, () => anchor);

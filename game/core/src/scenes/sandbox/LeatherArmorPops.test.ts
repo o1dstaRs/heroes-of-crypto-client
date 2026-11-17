@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { CommonFlagPops } from "./CommonFlagPops";
@@ -15,7 +16,7 @@ test("Leather Armor follows a mirrored flag, restarts at each impact and release
     const layer = new CommonFlagPops(
         "leather_armor",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn("arbalester", anchor, 64, () => anchor);
@@ -53,7 +54,7 @@ test("Leather Armor follows a mirrored flag, restarts at each impact and release
     }
 });
 
-test("a late Leather Armor atlas cannot show a stale impact after the 650ms cue", async () => {
+test("a late Leather Armor atlas cannot show a stale impact after the 1300ms cue", async () => {
     let resolve!: (texture: Texture) => void;
     const load = spyOn(Assets, "load").mockReturnValue(
         new Promise<Texture>((done) => {
@@ -66,7 +67,7 @@ test("a late Leather Armor atlas cannot show a stale impact after the 650ms cue"
     const layer = new CommonFlagPops(
         "leather_armor",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         const pending = layer.spawn("arbalester", { x: 0, y: 0 }, 64);

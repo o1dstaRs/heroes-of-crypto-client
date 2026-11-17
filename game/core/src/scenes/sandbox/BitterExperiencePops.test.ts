@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -19,7 +20,7 @@ test.each([false, true])(
         const layer = new CommonFlagPops(
             "bitter_experience",
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             const pending = layer.spawn("unit", { x: 0, y: 0 }, 64);
@@ -43,7 +44,7 @@ test.each([false, true])(
     },
 );
 
-test("Bitter Experience normalizes 16 authored cels to 650ms and restarts on a third strike without stacking", async () => {
+test("Bitter Experience normalizes 16 authored cels to 1300ms and restarts on a third strike without stacking", async () => {
     const multi = animationAtlases["Vfx Bitter Experience"].pop;
     expect(multi.frameCount).toBe(16);
     let elapsed = 0;
@@ -62,7 +63,7 @@ test("Bitter Experience normalizes 16 authored cels to 650ms and restarts on a t
     const layer = new CommonFlagPops(
         "bitter_experience",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         layer.preload();

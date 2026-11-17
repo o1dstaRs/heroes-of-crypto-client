@@ -87,3 +87,14 @@ test("old recommendations disappear while waiting for the opponent or the next a
     expect(render(true, false, recommendations(3))).not.toContain("Army fit for choice");
     expect(render(true, true, [])).not.toContain('aria-label="Recommended draft choices"');
 });
+
+test.each([
+    ["bundle", 2, 1],
+    ["artifact", 3, 2],
+] as const)("%s reasons match the limited card recommendations", (kind, count, shown) => {
+    const choices = recommendations(count).map((choice) => ({ ...choice, kind }));
+    const html = render(true, true, choices);
+    expect(html.match(/<li /g)).toHaveLength(shown);
+    for (let i = 1; i <= shown; i++) expect(html).toContain(`Army fit for choice ${i}`);
+    expect(html).not.toContain(`Army fit for choice ${shown + 1}`);
+});

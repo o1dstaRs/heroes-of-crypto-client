@@ -2,6 +2,33 @@ import type { FlagPopKind } from "./CommonFlagPops";
 
 export type FlagPopPresentation = "combat" | "preview";
 
+const STATUS_NAMES: Partial<Record<FlagPopKind, string>> = {
+    blacksmith_double_punch: "Crafted Double Punch",
+    blacksmith_double_shot: "Crafted Double Shot",
+    blacksmith_frozen_sword: "Crafted Frozen Sword",
+    blacksmith_frozen_bow: "Crafted Frozen Bow",
+    blacksmith_armor: "Armor Rune",
+    blacksmith_weapon: "Weapon Rune",
+    ogre_riot: "Riot",
+    ogre_magic_mirror: "Magic Mirror",
+    satyr_courage: "Courage",
+    satyr_helping_hand: "Helping Hand",
+    mage_misfortune: "Misfortune",
+    mage_fireforged: "Fireforged Sword",
+    hamstring: "Hamstrung",
+    unicorn_blindness: "Blindness",
+};
+
+export function statusFlagName(kind: FlagPopKind): string {
+    return (
+        STATUS_NAMES[kind] ??
+        kind
+            .split("_")
+            .map((word) => word[0].toUpperCase() + word.slice(1))
+            .join(" ")
+    );
+}
+
 // Callers supply recorded applications, successful spell outcomes, or observed buff transitions.
 // Owning a passive or modifying a hit is not a status application.
 const STATUS_POP_KINDS: ReadonlySet<FlagPopKind> = new Set([

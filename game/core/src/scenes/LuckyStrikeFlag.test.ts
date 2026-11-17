@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Texture } from "pixi.js";
 import { Sandbox } from "./Sandbox";
@@ -65,7 +66,7 @@ test("expired cold Lucky Strike downloads do not replay a completed proc", async
     const layer = new CommonFlagPops(
         "lucky_strike",
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         const pending = layer.spawn("a", { x: 0, y: 0 }, 64);
