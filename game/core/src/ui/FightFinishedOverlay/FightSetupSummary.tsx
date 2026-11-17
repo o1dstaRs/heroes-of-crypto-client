@@ -134,23 +134,21 @@ export const FightSetupSummary: React.FC<{ setup?: IFightResultSetup }> = ({ set
                 {t("Fight setup not recorded")}
             </Typography>
         ) : (
-            <>
-                <Typography sx={{ color: "#cbb388", fontSize: 10, fontWeight: 800, mt: 1, mb: 0.5 }}>
-                    {t("Global synergies")} · {t("Shared by both armies")}
-                </Typography>
-                <Box
-                    sx={{
-                        display: "grid",
-                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" },
-                        gap: 0.75,
-                    }}
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.75 }}>
+                <Typography
+                    component="span"
+                    sx={{ color: "#cbb388", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}
                 >
+                    {t("Synergies")}:
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                     {SYNERGY_FACTION_ORDER.map((faction) => {
                         const variant = setup.synergyVariants[faction];
                         const label = synergyLabels[`${faction}:${variant}`];
                         return (
                             <Box key={faction} data-result-synergy={faction}>
                                 <Choice
+                                    iconOnly
                                     choice={{
                                         label: faction,
                                         name: label ? t(label) : t("Not recorded"),
@@ -180,7 +178,7 @@ export const FightSetupSummary: React.FC<{ setup?: IFightResultSetup }> = ({ set
                         );
                     })}
                 </Box>
-            </>
+            </Box>
         )}
     </Box>
 );

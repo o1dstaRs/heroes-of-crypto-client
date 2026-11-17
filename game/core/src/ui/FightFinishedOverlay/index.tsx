@@ -1003,62 +1003,6 @@ export const ResultParticipantCard: React.FC<{
     );
 };
 
-const CompactBattleStat: React.FC<{ label: string; value: string; valueColor?: string }> = ({
-    label,
-    value,
-    valueColor = "#d8bd83",
-}) => (
-    <Box
-        sx={{
-            position: "relative",
-            flex: 1,
-            minWidth: 0,
-            height: 35,
-            px: 1.1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 0.55,
-            textAlign: "center",
-            borderRadius: "7px",
-            border: "1px solid rgba(53,51,48,.86)",
-            background: "linear-gradient(180deg, rgba(17,17,16,.88), rgba(7,7,7,.94))",
-            boxShadow: "inset 0 0 0 1px rgba(0,0,0,.82), 0 3px 7px rgba(0,0,0,.62)",
-        }}
-    >
-        <Typography
-            sx={{
-                color: "#bfa56f",
-                fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: "0.6rem",
-                fontWeight: 800,
-                letterSpacing: "0.035em",
-                lineHeight: 1,
-                whiteSpace: "nowrap",
-            }}
-        >
-            {label}
-        </Typography>
-        <Typography
-            sx={{
-                color: valueColor,
-                fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: "0.8rem",
-                fontWeight: 900,
-                letterSpacing: "0.025em",
-                lineHeight: 1,
-                textShadow: `0 0 8px ${valueColor}35, 0 1px 2px #000`,
-                whiteSpace: "nowrap",
-            }}
-        >
-            {value}
-        </Typography>
-    </Box>
-);
-
-const fellPercentage = (killedTotal: number, startTotal: number, fallbackPct: number): number =>
-    Math.round(Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)));
-
 interface FightResultPlayerRef {
     playerId?: string;
     team: TeamType;
@@ -1254,14 +1198,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
-    const finalSample = stats.series.at(-1);
-    const leftFellPct = fellPercentage(stats.leftKilledTotal, stats.leftStartTotal, finalSample?.leftKilledPct ?? 0);
-    const rightFellPct = fellPercentage(
-        stats.rightKilledTotal,
-        stats.rightStartTotal,
-        finalSample?.rightKilledPct ?? 0,
-    );
-    const topDamage = Math.max(0, ...(stats.damageByUnit ?? []).map((entry) => entry.damage));
     const resultParticipants = ([LOWER_TEAM, UPPER_TEAM] as TeamType[]).map((team): ResultParticipant => {
         const side = team === LOWER_TEAM ? "lower" : "upper";
         const settlement = activeMatch?.players.find((player) => player.side === side);
@@ -1588,29 +1524,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <ExitResultBanner exit={matchExit} ranked={exit?.ranked} viewerPlayerId={viewerPlayerId} />
                     </Box>
                 )}
-                <Box
-                    sx={{
-                        display: "grid",
-                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" },
-                        gap: 0.75,
-                        flexShrink: 0,
-                        mb: 1.25,
-                        px: 0.25,
-                    }}
-                >
-                    <CompactBattleStat label="LENGTH" value={`${Math.max(0, stats.totalLaps)} LAPS`} />
-                    <CompactBattleStat
-                        label="GREEN LOST"
-                        value={`${leftFellPct}%`}
-                        valueColor={teamColor(LOWER_TEAM)}
-                    />
-                    <CompactBattleStat label="RED LOST" value={`${rightFellPct}%`} valueColor={teamColor(UPPER_TEAM)} />
-                    <CompactBattleStat
-                        label="TOP DAMAGE"
-                        value={Math.round(topDamage).toLocaleString("en-US")}
-                        valueColor="#d5ad61"
-                    />
-                </Box>
 
                 {/* Only the damage list shrinks and scrolls when the card reaches the viewport limit.
                     Keep the chart, casualty rosters and action buttons visible. */}

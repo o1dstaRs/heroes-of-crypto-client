@@ -58,7 +58,8 @@ test("army icon rails retain the correct completed doctrine and both artifact ti
     expect(html.match(/aria-label="Doctrine:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 1 artifact:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 2 artifact:/g)).toHaveLength(2);
-    const icons = [...html.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)].map(
+    const armies = html.slice(0, html.indexOf('aria-label="Fight setup"'));
+    const icons = [...armies.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)].map(
         (match) => match[1],
     );
     expect(icons).toHaveLength(6);
@@ -75,7 +76,11 @@ test("the global synergies appear once per faction, using the match's selected v
         "Might: Aura range",
     ])
         expect(html).toContain(`aria-label="${name}"`);
-    expect(html).toContain("Shared by both armies");
+    expect(html).toContain("Synergies");
+    const synergies = html.slice(html.indexOf('aria-label="Fight setup"'));
+    const icons = [...synergies.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)];
+    expect(icons).toHaveLength(4);
+    expect(icons.every(([, contents]) => contents.includes("<img") && !contents.includes("<p"))).toBe(true);
     expect(html).not.toContain("Level 1 artifact");
     // No bogus team-wide level is inferred from survivors or one team's final synergy buffs.
     expect(html).not.toContain("lvl 1");
