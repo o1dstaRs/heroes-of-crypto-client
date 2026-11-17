@@ -46,7 +46,11 @@ const render = (
 test.each([true, false])("draft guidance stays available while isYourTurn=%s", (isYourTurn) => {
     const html = render(true, isYourTurn);
     expect(html).toContain('aria-label="Premium draft assessment"');
-    expect(html).toContain("Premium · Draft so far");
+    expect(html).toContain("Draft planner");
+    expect(html).toContain("Live draft projected battlefield");
+    expect(html).toContain("Collapse draft planner");
+    expect(html).toContain("Move draft planner with arrow keys or drag");
+    expect(html).toContain("Match synergies");
     expect(html).toContain("position:fixed");
     expect(html).toContain("right:18px");
     expect(html).toContain("bottom:72px");

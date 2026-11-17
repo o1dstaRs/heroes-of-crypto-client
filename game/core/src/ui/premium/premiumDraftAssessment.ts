@@ -15,6 +15,8 @@ import { synergyNextLevel } from "../LeftSideBar/synergyLadder";
 
 export interface PremiumDraftState {
     gameId?: string;
+    doctrine?: number;
+    revealedMap?: number;
     picked: readonly number[];
     /** Only the roster revealed to this player by the pick stream; zeroes are hidden slots. */
     opponentPicked: readonly number[];

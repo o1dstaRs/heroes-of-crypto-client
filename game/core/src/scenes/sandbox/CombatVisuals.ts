@@ -95,6 +95,7 @@ export interface ICombatVisualsContext {
 }
 
 interface IFloatingText extends FlagNumber {
+    flagLane?: number;
     immediate?: boolean;
     container: Container;
     startedAtMs: number;
@@ -474,7 +475,8 @@ const FT_START_SCALE = 0.55; // scale the number pops in from
 const FT_FADE_IN = FT_LIFE * 0.125; // seconds to fade in
 const FT_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
 const FT_STACK_DIST = 64; // px: numbers closer than this are stacked, not overlapped
-const FT_STACK_STEP = 46; // px: vertical gap per stacked number
+const FT_STACK_STEP = 46; // px: vertical gap for unanchored labels
+const FT_FLAG_COLUMN_WIDTH = 160; // repeated impacts share one height; never build a tower above the flag
 // Lowest screen-space edge of the authored floating-damage rows at their final 1x scale. Keep these
 // explicit instead of calling getLocalBounds() on every hit: measuring Pixi text there would recreate the
 // exact first-impact canvas/font work that prewarm() exists to remove.
@@ -1043,18 +1045,49 @@ export class CombatVisuals {
         // result above the banner without a per-hit text measurement.
         const baseY = flagTopAnchor ? flagTopAnchor.y + screenBottomExtent + FT_FLAG_GAP : pos.y + 20;
         let stack = 0;
+        let flagLane: number | undefined;
+        const occupiedLanes = new Set<number>();
         for (const other of this.floatingTexts) {
-            const dx = other.container.x - baseX;
-            const dy = other.container.y - baseY;
-            if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
+            if (other.container.destroyed) continue;
+            if (flagTopAnchor) {
+                const anchor = other.flagAnchor;
+                const sameOwner =
+                    anchor &&
+                    (anchor.unitId && flagTopAnchor.unitId
+                        ? anchor.unitId === flagTopAnchor.unitId
+                        : Math.abs(anchor.x - flagTopAnchor.x) < 1 && Math.abs(anchor.y - flagTopAnchor.y) < 1);
+                if (sameOwner) occupiedLanes.add(other.flagLane ?? 0);
+            } else {
+                const dx = other.container.x - baseX;
+                const dy = other.container.y - baseY;
+                if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
+            }
         }
-
-        const startX = baseX;
-        const startY = baseY + stack * FT_STACK_STEP;
+        if (flagTopAnchor) {
+            flagLane = 0;
+            while (occupiedLanes.has(flagLane)) flagLane++;
+        }
+        const grid = flagTopAnchor ? this.context.getGridSettings() : undefined;
+        const minX = grid?.getMinX?.(),
+            maxX = grid?.getMaxX?.();
+        const columns = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6].filter(
+            (column) =>
+                column === 0 ||
+                minX === undefined ||
+                maxX === undefined ||
+                (baseX + column * FT_FLAG_COLUMN_WIDTH >= minX + FT_FLAG_COLUMN_WIDTH / 2 &&
+                    baseX + column * FT_FLAG_COLUMN_WIDTH <= maxX - FT_FLAG_COLUMN_WIDTH / 2),
+        );
+        const lane = flagLane ?? 0;
+        const column = flagTopAnchor ? columns[lane % columns.length] : 0;
+        const startX = baseX + column * FT_FLAG_COLUMN_WIDTH;
+        // At a board edge choose inward columns first. Only an unusually full result row wraps.
+        const startY = baseY + (flagTopAnchor ? Math.floor(lane / columns.length) : stack) * FT_STACK_STEP;
 
         // Flag-anchored results stay fixed for their entire lifetime. The
         // attack direction still applies to free-floating labels (MISS, RESISTED, etc.), while repeated
-        // flag-anchored hits separate only vertically through the stack offset above.
+        // flag-anchored hits use fixed neighboring columns. Their old vertical tower pushed every
+        // status cue several cells away, and nearby units could incorrectly add to that tower.
         let driftX = 0;
         let driftY = 0;
         if (direction && !flagTopAnchor) {
@@ -1073,6 +1106,7 @@ export class CombatVisuals {
         this.attachEffect(container, zIndex);
 
         this.floatingTexts.push({
+            flagLane,
             flagAnchor: flagTopAnchor,
             topExtent,
             immediate,

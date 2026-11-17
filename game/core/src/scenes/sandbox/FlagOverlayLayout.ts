@@ -60,7 +60,13 @@ export class FlagOverlayLayout {
                 if (!sameFlag) continue;
                 bottom = Math.max(
                     bottom,
-                    number.container.y + (number.topExtent ?? 36) * Math.abs(number.container.scale.y) + gap,
+                    // Damage is captured at contact and may stay behind while a responder returns
+                    // home. Reserve its authored height relative to its original flag, not that stale
+                    // world position; otherwise a moving flag drags its effects far above the unit.
+                    anchor.y +
+                        (number.container.y - number.flagAnchor.y) +
+                        (number.topExtent ?? 36) * Math.abs(number.container.scale.y) +
+                        gap,
                 );
             }
             const bounds = overlays.map((overlay) => {

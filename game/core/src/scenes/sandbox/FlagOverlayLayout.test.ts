@@ -85,10 +85,10 @@ test("stack identity associates a live flag with its separate stable damage anch
     const number = { container: damage, flagAnchor: { x: 280, y: 210, unitId: "victim" } };
     layout.update([number], 6);
     expect(pop.x).toBe(300);
-    expect(pop.y).toBe(362);
+    expect(pop.y).toBe(302);
     number.flagAnchor = { x: 300, y: 150, unitId: "neighbor" };
     layout.update([number], 6);
-    expect(pop.y).toBe(362);
+    expect(pop.y).toBe(302);
     pop.destroy();
     damage.destroy();
 });
@@ -140,5 +140,25 @@ test("a fresh effect row releases the previous row's height after its last cue e
     expect(nextGame.y).toBe(206);
     fresh.destroy();
     nextGame.destroy();
+    damage.destroy();
+});
+
+test("a returning responder keeps its effect close when damage remains at the captured contact", () => {
+    const layout = new FlagOverlayLayout();
+    const flag = { x: 100, y: 300, unitId: "responder" };
+    const pop = new Container();
+    pop.boundsArea = new Rectangle(-40, -80, 80, 80);
+    pop.scale.y = -1;
+    layout.add(pop, () => flag);
+    const damage = new Container();
+    damage.position.set(100, 342);
+    const captured = { ...flag };
+    layout.update([{ container: damage, flagAnchor: captured }], 6);
+    const offset = pop.y - flag.y;
+    flag.y -= 180;
+    layout.update([{ container: damage, flagAnchor: captured }], 6);
+    expect(pop.y - flag.y).toBe(offset);
+    expect(pop.y).toBeLessThan(damage.y);
+    pop.destroy();
     damage.destroy();
 });

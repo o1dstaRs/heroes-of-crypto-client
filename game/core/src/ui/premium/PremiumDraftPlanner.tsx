@@ -1,0 +1,661 @@
+import { Artifact } from "@heroesofcrypto/common";
+import ExpandMoreRounded from "@mui/icons-material/ExpandMoreRounded";
+import RestartAltRounded from "@mui/icons-material/RestartAltRounded";
+import { Box, IconButton, Typography } from "@mui/joy";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import type { PremiumAdvice } from "../../api/premium_client";
+import { images } from "../../generated/image_imports";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
+import { DoctrineIcon } from "../DoctrineIcon";
+import { PremiumIcon } from "../PremiumIcon";
+import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
+import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
+import {
+    clampDraftPanel,
+    projectPremiumDraft,
+    type DraftFormationStyle,
+    type DraftPanelRect,
+    type DraftProjectedStack,
+} from "./premiumDraftProjection";
+
+const storageKey = "hoc-premium-draft-panel-v1";
+const muted = "#bfa78f",
+    ink = "#f3dec4",
+    accent = "#ffb477";
+type Projection = ReturnType<typeof projectPremiumDraft>;
+
+export const DraftPlannerBoard: React.FC<{
+    plan: Projection;
+    showPlan: boolean;
+    selected?: string;
+    onSelect?: (key: string) => void;
+}> = ({ plan, showPlan, selected, onSelect }) => {
+    const marker = useId().replaceAll(":", "");
+    const token = (unit: DraftProjectedStack, enemy: boolean) => {
+        const key = `${enemy ? "enemy" : "own"}:${unit.creature}`;
+        return (
+            <Box
+                component="button"
+                type="button"
+                key={key}
+                onClick={() => onSelect?.(key)}
+                aria-label={`${enemy ? "Enemy" : "Your"} ${unit.name}, ${unit.role}, projected ${unit.amount} creatures`}
+                aria-pressed={selected === key}
+                title={`${unit.name} · ${unit.role} · ${unit.amount} creatures (before setup augments)`}
+                sx={{
+                    position: "absolute",
+                    left: `${(unit.position.x - unit.width + 1) * 6.25}%`,
+                    top: `${(15 - unit.position.y) * 6.25}%`,
+                    width: `${unit.width * 6.25}%`,
+                    height: `${unit.height * 6.25}%`,
+                    p: 0,
+                    zIndex: 2,
+                    cursor: "pointer",
+                    bgcolor: "#201a12",
+                    borderRadius: "3px",
+                    border: `1px ${enemy ? "dashed" : "solid"} ${selected === key ? "#ffcf7d" : enemy ? "#a77768" : "#9dba89"}`,
+                    boxShadow: selected === key ? "0 0 0 2px #ffcf7d88" : "0 1px 3px #0009",
+                    "&:focus-visible": { outline: "2px solid #ffcf7d", outlineOffset: 2 },
+                    "&:hover": { zIndex: 4, filter: "brightness(1.15)" },
+                }}
+            >
+                <CreaturePortraitImage
+                    creatureId={unit.creature}
+                    alt=""
+                    sx={{ width: "100%", height: "100%", borderRadius: "2px", overflow: "hidden" }}
+                />
+                <Box
+                    component="b"
+                    sx={{
+                        position: "absolute",
+                        bottom: -3,
+                        right: -3,
+                        px: "2px",
+                        borderRadius: "2px",
+                        color: "#241a10",
+                        bgcolor: enemy ? "#d9a18c" : "#d6bc8c",
+                        fontSize: 9,
+                        lineHeight: 1.2,
+                    }}
+                >
+                    {unit.amount}
+                </Box>
+            </Box>
+        );
+    };
+    return (
+        <Box
+            role="group"
+            aria-label="Live draft projected battlefield"
+            sx={{
+                position: "relative",
+                aspectRatio: "1",
+                width: "100%",
+                bgcolor: "#1e2119",
+                border: "1px solid #63523a",
+                borderRadius: "4px",
+                isolation: "isolate",
+            }}
+        >
+            <svg
+                viewBox="0 0 160 160"
+                width="100%"
+                height="100%"
+                aria-hidden="true"
+                style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+            >
+                <defs>
+                    <marker
+                        id={`${marker}-advance`}
+                        viewBox="0 0 10 10"
+                        refX="8"
+                        refY="5"
+                        markerWidth="4"
+                        markerHeight="4"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#bcd47d" strokeWidth="2" />
+                    </marker>
+                    <marker
+                        id={`${marker}-support`}
+                        viewBox="0 0 10 10"
+                        refX="8"
+                        refY="5"
+                        markerWidth="4"
+                        markerHeight="4"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#88cbe0" strokeWidth="2" />
+                    </marker>
+                </defs>
+                <rect x="10" y="10" width="30" height="140" fill="#77a66c" opacity=".14" />
+                <rect x="120" y="10" width="30" height="140" fill="#b66f5b" opacity=".12" />
+                {Array.from({ length: 17 }, (_, i) => (
+                    <path key={i} d={`M ${i * 10} 0 V 160 M 0 ${i * 10} H 160`} stroke="#aa9d7840" strokeWidth=".3" />
+                ))}
+                {plan.map === 3 && <rect x="60" y="60" width="40" height="40" fill="#e16c2766" stroke="#eea35466" />}
+                {plan.map === 4 &&
+                    [5, 6, 9, 10].flatMap((x) =>
+                        [7, 8].map((y) => (
+                            <rect
+                                key={`${x}:${y}`}
+                                x={x * 10}
+                                y={(15 - y) * 10}
+                                width="10"
+                                height="10"
+                                fill="#918676aa"
+                            />
+                        )),
+                    )}
+                {showPlan &&
+                    plan.arrows.map((arrow) => (
+                        <path
+                            key={`${arrow.kind}:${arrow.creature}`}
+                            d={`M ${arrow.from.x * 10} ${(16 - arrow.from.y) * 10} L ${arrow.to.x * 10} ${(16 - arrow.to.y) * 10}`}
+                            fill="none"
+                            stroke={arrow.kind === "support" ? "#88cbe0" : "#bcd47d"}
+                            strokeWidth=".9"
+                            strokeDasharray={arrow.kind === "support" ? "1.5 1.2" : "3 1.8"}
+                            opacity=".85"
+                            markerEnd={`url(#${marker}-${arrow.kind})`}
+                        />
+                    ))}
+                {Array.from({ length: 16 }, (_, i) => (
+                    <React.Fragment key={i}>
+                        <text x={i * 10 + 5} y="3.5" textAnchor="middle" fill="#b8b092" fontSize="2.7">
+                            {String.fromCharCode(65 + i)}
+                        </text>
+                        <text x="1" y={i * 10 + 6} fill="#b8b092" fontSize="2.7">
+                            {16 - i}
+                        </text>
+                    </React.Fragment>
+                ))}
+            </svg>
+            {plan.own.map((unit) => token(unit, false))}
+            {plan.enemy.map((unit) => token(unit, true))}
+            {!plan.own.length && (
+                <Box sx={{ position: "absolute", inset: "35% 15%", textAlign: "center", color: muted, fontSize: 12 }}>
+                    Your projected army appears as you pick.
+                </Box>
+            )}
+        </Box>
+    );
+};
+
+export const PremiumDraftPlanner: React.FC<{
+    advice: PremiumAdvice;
+    draft: PremiumDraftState;
+    impression?: React.Ref<HTMLDivElement>;
+    children?: React.ReactNode;
+}> = ({ advice, draft, impression, children }) => {
+    // Pick timers rerender the shell every second. Re-plan only when the public draft changes.
+    const sourceKey = JSON.stringify({ ...draft, scouting: advice.scouting ?? draft.scouting });
+    const source = useMemo(() => JSON.parse(sourceKey) as PremiumDraftState, [sourceKey]);
+    const [style, setStyle] = useState<DraftFormationStyle>("screen");
+    const [showPlan, setShowPlan] = useState(true),
+        [collapsed, setCollapsed] = useState(false);
+    const [selected, setSelected] = useState<string>();
+    const [rect, setRect] = useState<DraftPanelRect>();
+    const panel = useRef<HTMLDivElement>(null);
+    const gesture = useRef<
+        { pointer: number; x: number; y: number; rect: DraftPanelRect; resize: boolean } | undefined
+    >(undefined);
+    const plan = useMemo(() => projectPremiumDraft(source, style), [source, style]);
+    const assessment = useMemo(() => premiumDraftAssessment(source), [source]);
+    const selectedUnit = [
+        ...plan.own.map((u) => ({ ...u, key: `own:${u.creature}` })),
+        ...plan.enemy.map((u) => ({ ...u, key: `enemy:${u.creature}` })),
+    ].find((unit) => unit.key === selected);
+    const fit = (next: DraftPanelRect, compact = collapsed) => {
+        const fitted = clampDraftPanel(next, { width: window.innerWidth, height: window.innerHeight });
+        // A collapsed handle can sit at the bottom edge; expanding clamps the complete window again.
+        return compact ? { ...fitted, y: Math.max(12, Math.min(next.y, window.innerHeight - 54)) } : fitted;
+    };
+    const remember = (next: DraftPanelRect) => {
+        try {
+            sessionStorage.setItem(storageKey, JSON.stringify(next));
+        } catch {
+            /* Moving works when storage is disabled. */
+        }
+    };
+    const geometry = (): DraftPanelRect => {
+        const b = panel.current!.getBoundingClientRect();
+        return { x: b.x, y: b.y, width: b.width, height: collapsed ? (rect?.height ?? 600) : b.height };
+    };
+    useEffect(() => {
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null") as DraftPanelRect | null;
+            if (saved && [saved.x, saved.y, saved.width, saved.height].every(Number.isFinite)) setRect(fit(saved));
+        } catch {
+            /* Use the corner default. */
+        }
+        // Geometry is restored once. Draft updates never reset a user's window position.
+    }, []);
+    useEffect(() => {
+        const resize = () => {
+            if (panel.current) setRect((current) => fit(current ?? geometry()));
+        };
+        window.addEventListener("resize", resize);
+        return () => window.removeEventListener("resize", resize);
+    }, [collapsed]);
+    const start = (event: React.PointerEvent<HTMLElement>, resize = false) => {
+        if (event.button !== 0 || (!resize && (event.target as HTMLElement).closest("button"))) return;
+        event.preventDefault();
+        event.stopPropagation();
+        gesture.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY, rect: geometry(), resize };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    };
+    const move = (event: React.PointerEvent) => {
+        const g = gesture.current;
+        if (!g || g.pointer !== event.pointerId) return;
+        event.stopPropagation();
+        const dx = event.clientX - g.x,
+            dy = event.clientY - g.y;
+        setRect(
+            fit(
+                g.resize
+                    ? { ...g.rect, width: g.rect.width + dx, height: g.rect.height + dy }
+                    : { ...g.rect, x: g.rect.x + dx, y: g.rect.y + dy },
+            ),
+        );
+    };
+    const stop = (event: React.PointerEvent) => {
+        if (gesture.current?.pointer !== event.pointerId) return;
+        gesture.current = undefined;
+        if (panel.current) remember(fit(geometry()));
+    };
+    const moveByKey = (event: React.KeyboardEvent, resize = false) => {
+        const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+        if (!delta) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const g = geometry(),
+            dx = delta[0] * (event.shiftKey ? 40 : 10),
+            dy = delta[1] * (event.shiftKey ? 40 : 10);
+        const next = fit(
+            resize ? { ...g, width: g.width + dx, height: g.height + dy } : { ...g, x: g.x + dx, y: g.y + dy },
+        );
+        setRect(next);
+        remember(next);
+    };
+    const wide = (rect?.width ?? (typeof window === "undefined" ? 640 : Math.min(640, window.innerWidth - 24))) >= 560;
+    const content = (
+        <Box
+            ref={panel}
+            role="region"
+            aria-label="Premium draft assessment"
+            data-premium-draft-planner
+            onPointerMove={move}
+            onPointerUp={stop}
+            onPointerCancel={stop}
+            onLostPointerCapture={stop}
+            sx={{
+                position: "fixed",
+                zIndex: 1390,
+                right: rect ? undefined : 18,
+                bottom: rect ? undefined : 72,
+                left: rect?.x,
+                top: rect?.y,
+                width: rect?.width ?? "min(640px, calc(100vw - 24px))",
+                height: collapsed ? 42 : (rect?.height ?? "min(640px, calc(100dvh - 100px))"),
+                maxWidth: "calc(100vw - 24px)",
+                maxHeight: "calc(100dvh - 24px)",
+                boxSizing: "border-box",
+                border: "1px solid #775135",
+                borderRadius: "8px",
+                bgcolor: "#1c160ff5",
+                color: ink,
+                boxShadow: "0 8px 28px #0008",
+                display: "flex",
+                flexDirection: "column",
+                pointerEvents: "auto",
+                overflow: "hidden",
+                fontSize: 12,
+                lineHeight: 1.45,
+            }}
+        >
+            <Box
+                onPointerDown={(e) => start(e)}
+                onKeyDown={(e) => {
+                    if (e.target === e.currentTarget) moveByKey(e);
+                }}
+                tabIndex={0}
+                aria-label="Move draft planner with arrow keys or drag"
+                title="Drag to move · arrow keys also move the planner"
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.7,
+                    minHeight: 40,
+                    px: 1,
+                    cursor: "grab",
+                    touchAction: "none",
+                    userSelect: "none",
+                    borderBottom: collapsed ? 0 : "1px solid #73503566",
+                    "&:focus-visible": { outline: "2px solid #d2a371", outlineOffset: -2 },
+                }}
+            >
+                <Box component="span" aria-hidden="true" sx={{ fontSize: 18, color: "#997b5a" }}>
+                    ⠿
+                </Box>
+                <PremiumIcon size={16} />
+                <Typography level="title-sm" sx={{ flex: 1, color: ink, fontSize: 13 }}>
+                    Draft planner{" "}
+                    <Box component="span" sx={{ color: muted, fontSize: 11 }}>
+                        · {plan.own.length}/6
+                    </Box>
+                </Typography>
+                <IconButton
+                    size="sm"
+                    variant="plain"
+                    aria-label="Reset draft planner position"
+                    title="Reset position"
+                    onClick={() => {
+                        setRect(undefined);
+                        try {
+                            sessionStorage.removeItem(storageKey);
+                        } catch {
+                            /* optional */
+                        }
+                    }}
+                    sx={{ color: muted, minHeight: 28, minWidth: 28 }}
+                >
+                    <RestartAltRounded sx={{ fontSize: 17 }} />
+                </IconButton>
+                <IconButton
+                    size="sm"
+                    variant="plain"
+                    aria-label={collapsed ? "Expand draft planner" : "Collapse draft planner"}
+                    aria-expanded={!collapsed}
+                    onClick={() => {
+                        setRect(fit(geometry(), !collapsed));
+                        setCollapsed(!collapsed);
+                    }}
+                    sx={{ color: accent, minHeight: 28, minWidth: 28 }}
+                >
+                    {collapsed ? <ExpandMoreRounded sx={{ transform: "rotate(180deg)" }} /> : <ExpandMoreRounded />}
+                </IconButton>
+            </Box>
+            <Box
+                ref={impression}
+                hidden={collapsed}
+                sx={{
+                    display: collapsed ? "none" : "block",
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: "auto",
+                    overscrollBehavior: "contain",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#845c37 transparent",
+                    p: 1.4,
+                }}
+            >
+                <Box
+                    sx={{
+                        display: "grid",
+                        gridTemplateColumns: wide ? "minmax(0, 1.25fr) minmax(0, 1fr)" : "minmax(0, 1fr)",
+                        gap: 1.5,
+                    }}
+                >
+                    <Box>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1,
+                                mb: 0.8,
+                            }}
+                        >
+                            <Typography level="title-sm" sx={{ color: ink, fontSize: 12 }}>
+                                Projected formation
+                            </Typography>
+                            <Box
+                                component="select"
+                                aria-label="Projected formation style"
+                                value={style}
+                                onChange={(e) => setStyle(e.target.value as DraftFormationStyle)}
+                                sx={{
+                                    bgcolor: "#2a2117",
+                                    color: ink,
+                                    border: "1px solid #6c5036",
+                                    borderRadius: "4px",
+                                    fontSize: 11,
+                                    p: 0.4,
+                                }}
+                            >
+                                <option value="screen">Protect back line</option>
+                                <option value="spread">Spread out</option>
+                            </Box>
+                        </Box>
+                        <DraftPlannerBoard plan={plan} showPlan={showPlan} selected={selected} onSelect={setSelected} />
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                color: muted,
+                                fontSize: 10,
+                                mt: 0.6,
+                            }}
+                        >
+                            <span>You · left / Enemy · right</span>
+                            <Box
+                                component="label"
+                                sx={{ display: "flex", alignItems: "center", gap: 0.4, cursor: "pointer" }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={showPlan}
+                                    onChange={(e) => setShowPlan(e.target.checked)}
+                                />
+                                Strategy overlay
+                            </Box>
+                        </Box>
+                        {showPlan && (
+                            <Box sx={{ fontSize: 10, mt: 0.4 }}>
+                                <span style={{ color: "#bcd47d" }}>→ Advance / screen</span>
+                                <span style={{ color: "#88cbe0", marginLeft: 12 }}>⇢ Support</span>
+                            </Box>
+                        )}
+                        <Box sx={{ fontSize: 10, color: muted, mt: 0.6 }}>
+                            {plan.map
+                                ? `Map: ${plan.map === 3 ? "Lava" : plan.map === 4 ? "Mountains" : "Normal"}`
+                                : "Map not revealed"}{" "}
+                            · {plan.enemy.length}/6 enemy picks revealed
+                        </Box>
+                        <Box sx={{ fontSize: 10, color: "#9e907d", mt: 0.4 }}>
+                            Positions and arrows are a projection; deployment is chosen after the draft.
+                        </Box>
+                        {selectedUnit && (
+                            <Box
+                                role="status"
+                                sx={{ mt: 0.7, p: 0.7, borderLeft: "2px solid #bd8f52", bgcolor: "#c18d3410" }}
+                            >
+                                <strong>{selectedUnit.name}</strong>
+                                <div style={{ color: muted }}>
+                                    {selectedUnit.role} · {selectedUnit.amount} projected creatures
+                                </div>
+                            </Box>
+                        )}
+                    </Box>
+                    <Box>
+                        <Typography level="title-sm" sx={{ color: ink, fontSize: 12, mb: 0.6 }}>
+                            Match synergies
+                        </Typography>
+                        <Box sx={{ fontSize: 10, color: muted, mb: 0.8 }}>
+                            Shared match variants · enemy levels use revealed picks
+                        </Box>
+                        {plan.synergies.map((item) => (
+                            <Box
+                                key={item.faction}
+                                title={`${item.effect}. Enemy: ${item.enemyEffect}.`}
+                                sx={{
+                                    display: "flex",
+                                    gap: 0.7,
+                                    alignItems: "center",
+                                    py: 0.8,
+                                    borderBottom: "1px solid #61482d55",
+                                }}
+                            >
+                                {item.variant && (
+                                    <Box
+                                        component="img"
+                                        src={
+                                            (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
+                                                `${item.faction}:${item.variant}:1`
+                                            ]
+                                        }
+                                        alt=""
+                                        sx={{ width: 30, height: 30, opacity: item.level ? 1 : 0.5 }}
+                                    />
+                                )}
+                                <Box sx={{ flex: 1 }}>
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 0.5 }}>
+                                        <strong>{item.faction}</strong>
+                                        <span style={{ fontSize: 10, color: muted }}>
+                                            You: {item.level ? `L${item.level}` : "—"} · Enemy:{" "}
+                                            {item.enemyLevel ? `≥L${item.enemyLevel}` : "—"}
+                                        </span>
+                                    </Box>
+                                    <Box sx={{ color: item.level ? "#dec394" : muted, fontSize: 11 }}>{item.label}</Box>
+                                    {!!item.level && (
+                                        <Box sx={{ color: muted, fontSize: 10, mt: 0.3 }}>{item.effect}</Box>
+                                    )}
+                                    <Box sx={{ display: "flex", gap: "3px", mt: 0.4 }}>
+                                        {Array.from({ length: 6 }, (_, i) => (
+                                            <Box
+                                                key={i}
+                                                sx={{
+                                                    height: 3,
+                                                    flex: 1,
+                                                    bgcolor: i < item.count ? "#bd995e" : "#4c3b2b",
+                                                }}
+                                            />
+                                        ))}
+                                    </Box>
+                                    {item.next && item.count > 0 && plan.own.length < 6 && (
+                                        <Box sx={{ color: accent, fontSize: 10, mt: 0.4 }}>
+                                            {item.next.unitsAway} more for L{item.next.level}
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Box>
+                        ))}
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.7, mt: 1.1, flexWrap: "wrap" }}>
+                            {!!draft.doctrine && <DoctrineIcon doctrineId={draft.doctrine} size={30} />}
+                            {plan.artifacts.map((item) => (
+                                <Box
+                                    key={item.tier}
+                                    title={`${item.name}: ${Artifact.formatArtifactDescription(item)}`}
+                                    sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: "1 1 100px" }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={(images as Record<string, string>)[item.imageKey]}
+                                        alt=""
+                                        sx={{ width: 28, height: 28 }}
+                                    />
+                                    <Box sx={{ fontSize: 11 }}>
+                                        <span style={{ color: muted }}>T{item.tier} </span>
+                                        {item.name}
+                                    </Box>
+                                </Box>
+                            ))}
+                            {!plan.artifacts.length && (
+                                <span style={{ color: muted, fontSize: 11 }}>Artifacts appear when picked.</span>
+                            )}
+                        </Box>
+                    </Box>
+                </Box>
+                <Box sx={{ mt: 1.4, pt: 1.1, borderTop: "1px solid #79543866" }}>
+                    <Typography level="title-sm" sx={{ color: ink, fontSize: 13 }}>
+                        Battle plan{" "}
+                        <Box component="span" sx={{ fontSize: 10, color: muted }}>
+                            · updates as you pick
+                        </Box>
+                    </Typography>
+                    <Box sx={{ mt: 0.5, color: accent }}>{assessment.headline}</Box>
+                    <Box sx={{ mt: 0.3, color: muted, fontSize: 11 }}>{assessment.focus}</Box>
+                    {plan.steps.map((step) => (
+                        <Box
+                            component="button"
+                            type="button"
+                            key={step.title}
+                            onClick={() => {
+                                const unit = plan.own.find((u) => step.unitIds.includes(u.creature));
+                                const enemy = plan.enemy.find((u) => step.unitIds.includes(u.creature));
+                                setSelected(
+                                    unit ? `own:${unit.creature}` : enemy ? `enemy:${enemy.creature}` : undefined,
+                                );
+                            }}
+                            sx={{
+                                display: "block",
+                                width: "100%",
+                                textAlign: "left",
+                                border: 0,
+                                borderLeft: "2px solid #88643f",
+                                p: 0.7,
+                                mt: 0.6,
+                                bgcolor: "#50341b22",
+                                color: ink,
+                                fontSize: 11,
+                                cursor: "pointer",
+                                "&:hover": { bgcolor: "#76502833" },
+                            }}
+                        >
+                            <strong>{step.title}</strong>
+                            <div style={{ color: muted }}>{step.text}</div>
+                        </Box>
+                    ))}
+                </Box>
+                {children}
+                <Box component="details" sx={{ mt: 1, fontSize: 11, color: muted }}>
+                    <summary style={{ cursor: "pointer", color: accent }}>Draft routes & details</summary>
+                    <PremiumDraftRoutes
+                        routes={assessment.routes}
+                        remaining={assessment.remaining}
+                        routeWarning={assessment.routeWarning}
+                    />
+                    {assessment.notes.map((note) => (
+                        <Box key={note.label} sx={{ mt: 0.7 }}>
+                            <strong>{note.label}:</strong> {note.text}
+                        </Box>
+                    ))}
+                </Box>
+            </Box>
+            {!collapsed && (
+                <Box
+                    component="button"
+                    type="button"
+                    aria-label="Resize draft planner with arrow keys or drag"
+                    title="Drag to resize"
+                    onPointerDown={(e) => start(e, true)}
+                    onKeyDown={(e) => moveByKey(e, true)}
+                    sx={{
+                        position: "absolute",
+                        right: 1,
+                        bottom: 1,
+                        width: 16,
+                        height: 16,
+                        p: 0,
+                        border: 0,
+                        bgcolor: "transparent",
+                        color: "#be9467",
+                        cursor: "nwse-resize",
+                        touchAction: "none",
+                        fontSize: 14,
+                        lineHeight: 1,
+                    }}
+                >
+                    ◢
+                </Box>
+            )}
+        </Box>
+    );
+    // Escape nested draft transforms; the movable window uses viewport coordinates throughout.
+    return typeof document === "undefined" ? content : createPortal(content, document.body);
+};

@@ -1,10 +1,9 @@
 import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
-import Popper from "@mui/material/Popper";
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
-import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
-import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
+import type { PremiumDraftState } from "./premiumDraftAssessment";
+import { PremiumDraftPlanner } from "./PremiumDraftPlanner";
 import { PremiumThumbIcon, PremiumThumbStyleContext, type PremiumThumbMedal } from "./PremiumThumbIcon";
 
 import {
@@ -20,7 +19,6 @@ import { usePremiumCapability } from "./usePremiumPreference";
 import { PremiumIcon } from "../PremiumIcon";
 import { PremiumButton } from "./PremiumButton";
 import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
-import { PremiumSearchAnchorContext } from "./PremiumSearchAnchorContext";
 import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
 import { PremiumPreviewContext } from "./PremiumPreviewContext";
@@ -276,85 +274,10 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
     draft,
 }) => {
     const impression = usePremiumAdviceView(advice?.gameId, advice?.adviceId);
-    const anchor = useContext(PremiumSearchAnchorContext);
     if (!advice?.entitlement.active) return null;
-    const assessment = premiumDraftAssessment({ ...draft, scouting: advice.scouting });
     const recommendations = draft.isYourTurn ? premiumDraftChoices(advice.choices).slice(0, 3) : [];
-    const panel = (
-        <Box
-            role="region"
-            ref={impression}
-            aria-label="Premium draft assessment"
-            sx={{
-                position: anchor ? "relative" : "fixed",
-                right: anchor ? undefined : 18,
-                bottom: anchor ? undefined : 72,
-                zIndex: 1390,
-                width: "min(360px, calc(100vw - 24px))",
-                maxHeight: "min(520px, calc(100dvh - 100px))",
-                overflowY: "auto",
-                overscrollBehavior: "contain",
-                scrollbarWidth: "thin",
-                scrollbarColor: "#845c37 transparent",
-                boxSizing: "border-box",
-                px: 1.2,
-                py: 0.8,
-                border: "1px solid #aa5424",
-                borderRadius: 8,
-                bgcolor: "#26160fed",
-                color: "#ffd5ad",
-                boxShadow: "0 3px 16px #0008",
-                fontSize: 12,
-                lineHeight: 1.4,
-                pointerEvents: "auto",
-            }}
-        >
-            <Tooltip
-                placement="top-start"
-                describeChild
-                arrow
-                title={
-                    <Box sx={{ maxHeight: "min(560px, 65vh)", overflowY: "auto", p: 0.5 }}>
-                        <Typography level="title-sm" sx={{ color: orange }}>
-                            Draft so far · {assessment.roster}
-                        </Typography>
-                        <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
-                            {assessment.headline}.
-                            {assessment.focus !== assessment.routeWarning ? ` ${assessment.focus}` : ""}
-                        </Typography>
-                        <PremiumDraftRoutes
-                            routes={assessment.routes}
-                            remaining={assessment.remaining}
-                            routeWarning={assessment.routeWarning}
-                        />
-                        {assessment.notes.map((note) => (
-                            <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
-                                <strong>{note.label}:</strong> {note.text}
-                            </Typography>
-                        ))}
-                    </Box>
-                }
-                sx={{
-                    maxWidth: "min(400px, calc(100vw - 32px))",
-                    bgcolor: "#21150f",
-                    color: "#f3dfcb",
-                    border: "1px solid #a95825",
-                    boxShadow: "0 8px 24px #0009",
-                    "--Tooltip-arrowBackground": "#21150f",
-                }}
-            >
-                <Box tabIndex={0} sx={{ cursor: "help", "&:focus-visible": { outline: "1px solid #ffd5ad" } }}>
-                    <strong>
-                        <PremiumIcon size={16} style={{ marginRight: 5 }} />
-                        Premium · Draft so far
-                    </strong>
-                    <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
-                    <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
-                    {assessment.scouting && (
-                        <Box sx={{ mt: 0.5, color: "#e7bc83", fontSize: 11 }}>{assessment.scouting}</Box>
-                    )}
-                </Box>
-            </Tooltip>
+    return (
+        <PremiumDraftPlanner advice={advice} draft={draft} impression={impression}>
             {recommendations.length > 0 && (
                 <Box component="ol" aria-label="Recommended draft choices" sx={{ m: 0, p: 0, listStyle: "none" }}>
                     {recommendations.map((choice, index) => (
@@ -368,25 +291,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                     ))}
                 </Box>
             )}
-        </Box>
-    );
-    return anchor ? (
-        <Popper
-            open
-            role="presentation"
-            anchorEl={anchor}
-            placement="top-end"
-            popperOptions={{ strategy: "fixed" }}
-            modifiers={[
-                { name: "offset", options: { offset: [0, 12] } },
-                { name: "preventOverflow", options: { padding: 12 } },
-            ]}
-            sx={{ zIndex: 1390 }}
-        >
-            {panel}
-        </Popper>
-    ) : (
-        panel
+        </PremiumDraftPlanner>
     );
 };
 

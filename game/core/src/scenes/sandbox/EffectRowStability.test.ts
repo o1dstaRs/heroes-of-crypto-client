@@ -37,6 +37,19 @@ test.each(["buff", "debuff"] as const)(
             )!;
             expect(pop).toBeDefined();
             const y = pop.y;
+            // Additional impacts share horizontal result lanes instead of pushing this cue higher.
+            visuals.showFloatingDamage(anchor, 30, undefined, 0, undefined, undefined, anchor);
+            visuals.showFloatingDamage(anchor, 20, undefined, 0, undefined, undefined, anchor);
+            visuals.update(0);
+            expect(pop.y).toBe(y);
+            // Another unit's taller damage/loss block must not reserve space for our flag.
+            visuals.showFloatingDamage(anchor, 80, undefined, 4, undefined, undefined, {
+                x: anchor.x + 20,
+                y: anchor.y,
+                unitId: "neighbor",
+            });
+            visuals.update(0);
+            expect(pop.y).toBe(y);
             for (const age of [
                 FLOATING_RESULT_DURATION_MS - 1,
                 FLOATING_RESULT_DURATION_MS,

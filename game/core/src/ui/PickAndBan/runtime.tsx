@@ -3610,7 +3610,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
                 <PremiumDraftBanner
                     advice={premium.advice}
-                    draft={{ gameId, picked, opponentPicked, artifactTier1, artifactTier2, isYourTurn }}
+                    draft={{
+                        gameId,
+                        doctrine,
+                        revealedMap: mapType,
+                        picked,
+                        opponentPicked,
+                        artifactTier1,
+                        artifactTier2,
+                        isYourTurn,
+                    }}
                 />
             </Sheet>
         </PremiumContext.Provider>

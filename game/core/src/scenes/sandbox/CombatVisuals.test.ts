@@ -147,16 +147,34 @@ describe("floating received damage", () => {
         }
         const labels = internals(visuals).floatingTexts.map(({ container }) => container);
         const previousY = labels.map((label) => label.y);
-        expect(new Set(previousY).size).toBe(3);
+        expect(new Set(previousY).size).toBe(1);
+        const previousX = labels.map((label) => label.x);
+        expect(new Set(previousX).size).toBe(3);
         for (let frame = 0; frame < 7; frame++) {
             now += 50;
             visuals.update(0.05);
             labels.forEach((label, index) => {
-                expect(label.x).toBe(flagTop.x);
+                expect(label.x).toBe(previousX[index]);
                 expect(label.y).toBe(previousY[index]);
                 expect(label.y).toBeGreaterThan(flagTop.y);
             });
         }
+    });
+
+    test.each([40, 984])("repeated results at board x=%s use inward columns", (x) => {
+        const { visuals } = makeVisuals();
+        const context = (visuals as unknown as { context: { getGridSettings: () => GridSettings } }).context;
+        context.getGridSettings = () => ({ getMinX: () => 0, getMaxX: () => 1024 }) as GridSettings;
+        const flag = { x, y: 200, unitId: "edge" };
+        for (let i = 0; i < 3; i++) visuals.showFloatingDamage(flag, 20, undefined, 0, undefined, undefined, flag);
+        const labels = internals(visuals).floatingTexts.map(({ container }) => container);
+        expect(new Set(labels.map((label) => label.x)).size).toBe(3);
+        for (const label of labels) {
+            expect(label.x).toBeGreaterThanOrEqual(0);
+            expect(label.x).toBeLessThanOrEqual(1024);
+            expect(label.y).toBe(labels[0].y);
+        }
+        visuals.clear();
     });
 
     test("destroys text and icon children when a floating result expires", () => {
