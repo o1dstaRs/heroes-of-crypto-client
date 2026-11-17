@@ -4197,7 +4197,15 @@ export class Sandbox extends PixiScene {
         events: readonly GameEvent[] = [],
         obstaclePrimary = false,
     ): void {
-        if (attacker.getName() !== "Pikeman" || !attacker.hasAbilityActive?.("Skewer Strike")) return;
+        const skewerHits = (damage?.secondary ?? []).filter((hit) => hit.source === "skewer_strike");
+        const untaggedPierce = obstaclePrimary && attacker.hasAbilityActive?.("Skewer Strike");
+        const skewerObstacles = events.filter(
+            (entry): entry is ObstacleAttackedEvent =>
+                entry.type === "obstacle_attacked" &&
+                (entry.source === "skewer_strike" || (untaggedPierce && !entry.source)) &&
+                entry.attackerId === attacker.getId(),
+        );
+        if (!skewerHits.length && !skewerObstacles.length) return;
         const from = attacker.getPosition(),
             primary = target.getPosition();
         const dx = primary.x - from.x,
@@ -4210,18 +4218,48 @@ export class Sandbox extends PixiScene {
             (position.x - from.x) * dx + (position.y - from.y) * dy > primaryDistance ** 2 + 1 &&
             Math.abs((position.x - from.x) * dy - (position.y - from.y) * dx) < 1;
         // A shield-absorbed skewer is still a real contact (amount can be zero).
-        const hit = damage?.secondary?.find((entry) => entry.source === "skewer_strike" && beyond(entry.position));
+        const hits = skewerHits.filter((entry) => beyond(entry.position));
         // Barrels are recorded separately, not in unit damage. A pierce past an aimed barrel
         // uses untagged obstacle events; ownership and the forward ray exclude other blows.
-        const obstacle = events.find(
-            (entry): entry is ObstacleAttackedEvent =>
-                entry.type === "obstacle_attacked" &&
-                entry.attackerId === attacker.getId() &&
-                (entry.source === "skewer_strike" || (obstaclePrimary && !entry.source)) &&
-                beyond(entry.targetPosition),
+        const obstacles = skewerObstacles.filter((entry) => beyond(entry.targetPosition));
+        const position = hits[0]?.position ?? obstacles[0]?.targetPosition;
+        if (!position) return;
+        // The recording proves this ability fired. A later Break/theft must not erase its visual.
+        if (attacker.getName() === "Pikeman") {
+            this.spawnPikemanSpearToCell(attacker, position);
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const pierced = [
+            ...hits.map((hit) => ({
+                logical: hit.position,
+                visual:
+                    (this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined)?.getVisualCenter?.(
+                        gs,
+                    ) ?? projectBattlefieldPoint(hit.position, gs),
+            })),
+            ...obstacles.map((entry) => ({
+                logical: entry.targetPosition,
+                visual: projectBattlefieldPoint(entry.targetPosition, gs),
+            })),
+        ].sort((a, b) => (a.logical.x - b.logical.x) * dx + (a.logical.y - b.logical.y) * dy);
+        const seen = new Set<string>();
+        const points = pierced
+            .filter(({ logical }) => {
+                const key = `${logical.x}:${logical.y}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
+            .map(({ visual }) => visual);
+        this.combatVisuals?.spawnWindSpear(
+            [
+                attacker.getVisualCenter(gs),
+                target instanceof RenderableUnit ? target.getVisualCenter(gs) : projectBattlefieldPoint(primary, gs),
+                ...points,
+            ],
+            gs.getCellSize(),
         );
-        const position = hit?.position ?? obstacle?.targetPosition;
-        if (position) this.spawnPikemanSpearToCell(attacker, position);
     }
     private spawnPikemanSpearToCell(attacker: RenderableUnit, position: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -12021,6 +12059,14 @@ export class Sandbox extends PixiScene {
                 const recoilY = (animDir.y / animLen) * mag;
                 this.playUnitCombatSound(unit, "attack", true);
                 unit.applyRecoil(recoilX, recoilY);
+                const primary = events.find(
+                    (entry): entry is ObstacleAttackedEvent =>
+                        entry.type === "obstacle_attacked" &&
+                        entry.attackerId === unit.getId() &&
+                        entry.targetPosition.x === worldPos.x &&
+                        entry.targetPosition.y === worldPos.y,
+                );
+                this.spawnSkewerWindSpearVfx(unit, { getPosition: () => worldPos }, primary?.damage, events, true);
                 onImpact?.(hitIndex);
                 if (hitIndex + 1 < worldPositions.length) {
                     await this.delayReplay(ATTACK_HIT_STAGGER_MS);

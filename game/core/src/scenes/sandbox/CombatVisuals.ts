@@ -5,6 +5,7 @@ import {
     type FlagOverlayAnchor,
 } from "./FlagOverlayLayout";
 import { SkewerSpears, type SkewerSpearPose } from "./SkewerSpear";
+import { WindSpears } from "./WindSpear";
 import { bitterExperienceTriggered } from "../bitterExperienceFlagEffects";
 import { OVERHEAD_EFFECT_DURATION_MS, FLOATING_RESULT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { WildRegenerationEngine } from "./WildRegenerationEngine";
@@ -788,6 +789,7 @@ export class CombatVisuals {
     private fireSpellRenderMode: FireSpellRenderMode = readFireSpellRenderMode();
     private mirrorRebounds: IMirrorRebound[] = [];
     private skewerSpears?: SkewerSpears;
+    private windSpears?: WindSpears;
     private slashes: ISlash[] = [];
     private bloodSprays: IBloodSpray[] = [];
     private clawSlashes: IClawSlash[] = [];
@@ -2093,6 +2095,7 @@ export class CombatVisuals {
             }
             this.mirrorRebounds.length = 0;
             this.skewerSpears?.clear();
+            this.windSpears?.clear();
             for (const slash of this.slashes) {
                 slash.container.destroy({ children: true });
             }
@@ -2200,6 +2203,7 @@ export class CombatVisuals {
             !this.spellFireParticles?.active &&
             this.mirrorRebounds.length === 0 &&
             !this.skewerSpears?.active &&
+            !this.windSpears?.active &&
             this.abilitySteals.length === 0 &&
             this.slashes.length === 0 &&
             this.bloodSprays.length === 0 &&
@@ -2302,6 +2306,7 @@ export class CombatVisuals {
         this.spellAtmosphere?.update();
         this.stepMirrorRebounds(dt);
         this.skewerSpears?.update();
+        this.windSpears?.update();
         this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
         this.stepBloodSprays(dt);
@@ -4058,6 +4063,15 @@ export class CombatVisuals {
                 this.mirrorRebounds.splice(i, 1);
             }
         }
+    }
+    public spawnWindSpear(points: readonly HoCMath.XY[], cellSize: number): void {
+        // Recorded Skewer contacts, including a stolen card, are combat effects rather than passive badges.
+        this.windSpears ??= new WindSpears(
+            (root, z) => this.context.attachToWorldRoot(root, z),
+            () => this.getLightTexture(),
+            () => this.boardStretch(),
+        );
+        this.windSpears.spawn(points, cellSize);
     }
     public spawnSkewerSpear(
         id: string,

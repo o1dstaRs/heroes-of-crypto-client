@@ -83,3 +83,43 @@ test("Pikeman obstacle attacks start the authored thrust and pass the recorded p
     );
     expect(order).toEqual(["face", "texture", "thrust", "pierce", "impact"]);
 });
+
+test("a stolen Skewer owner routes barrel pierce records at the existing melee contact", async () => {
+    const order: string[] = [];
+    const damage = { secondary: [{ source: "skewer_strike", amount: 0, position: { x: 128, y: 0 } }] };
+    const recorded = [{ type: "obstacle_attacked", attackerId: "queen", targetPosition: { x: 64, y: 0 }, damage }];
+    const unit = {
+        getId: () => "queen",
+        getName: () => "Arachna Queen",
+        getVisualCenter: () => ({ x: 0, y: 0 }),
+        applyRecoil: () => order.push("attack"),
+    };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        sc_sceneSettings: { getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32) },
+        isSceneDestroyed: () => false,
+        showRepeatedAttackFlag: () => {},
+        playUnitCombatSound: () => {},
+        spawnSkewerWindSpearVfx: (
+            source: unknown,
+            target: { getPosition(): unknown },
+            actualDamage: unknown,
+            events: unknown,
+            obstacle: boolean,
+        ) => {
+            expect(source).toBe(unit);
+            expect(target.getPosition()).toEqual({ x: 64, y: 0 });
+            expect(actualDamage).toBe(damage);
+            expect(events).toBe(recorded);
+            expect(obstacle).toBe(true);
+            order.push("pierce");
+        },
+    });
+    await scene.animateObstacleStrikeSequence(
+        unit,
+        [{ x: 64, y: 0 }],
+        { x: 0, y: 0 },
+        () => order.push("impact"),
+        recorded,
+    );
+    expect(order).toEqual(["attack", "pierce", "impact"]);
+});

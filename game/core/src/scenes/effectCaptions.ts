@@ -1,6 +1,6 @@
-import spells from "@heroesofcrypto/common/src/configuration/spells.json";
-import creatures from "@heroesofcrypto/common/src/configuration/creatures.json";
-import abilities from "@heroesofcrypto/common/src/configuration/abilities.json";
+import spells from "../../../heroes-of-crypto-common/src/configuration/spells.json";
+import creatures from "../../../heroes-of-crypto-common/src/configuration/creatures.json";
+import abilities from "../../../heroes-of-crypto-common/src/configuration/abilities.json";
 import { ToFactionName, type GameEvent, type Unit } from "@heroesofcrypto/common";
 
 export const EFFECT_FACTION_COLORS = {
