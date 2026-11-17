@@ -71,7 +71,7 @@ function fixture(mirror = false) {
 }
 const point = (sprite: { x: number; y: number }) => ({ x: sprite.x, y: sprite.y });
 
-test.each(["Stun", "Blindness"])("%s has persistent stars and a small body-only tremor", (name) => {
+test.each(["Stun", "Blindness"])("%s has persistent stars and a gentle body-only sway", (name) => {
     const f = fixture();
     const logical = { ...f.unit.getPosition() };
     const base = point(f.view.sprite),
@@ -79,15 +79,20 @@ test.each(["Stun", "Blindness"])("%s has persistent stars and a small body-only 
     f.apply(name);
     f.draw();
     expect(f.view.stunStars?.root.visible).toBe(true);
-    f.time(1200);
-    f.draw();
+    let distance = 0;
+    for (const time of [1200, 1650, 2100, 2550]) {
+        f.time(time);
+        f.draw();
+        const moved = point(f.view.sprite);
+        distance = Math.max(distance, Math.abs(moved.x - base.x));
+        expect(Math.abs(moved.x - base.x)).toBeLessThan(2);
+        expect(moved.y).toBe(base.y);
+    }
     const moved = point(f.view.sprite);
-    expect(Math.hypot(moved.x - base.x, moved.y - base.y)).toBeGreaterThan(0.05);
-    expect(Math.abs(moved.x - base.x)).toBeLessThan(2);
-    expect(Math.abs(moved.y - base.y)).toBeLessThan(0.5);
+    expect(distance).toBeGreaterThan(0.5);
     expect(point(f.view.badgeContainer)).toEqual(flag);
     expect(f.unit.getPosition()).toEqual(logical);
-    // Repeated draws of the same instant cannot accumulate the shake into travel.
+    // Repeated draws of the same instant cannot accumulate the sway into travel.
     for (let i = 0; i < 50; i++) f.draw();
     expect(point(f.view.sprite)).toEqual(moved);
     f.time(10_000);
@@ -97,6 +102,37 @@ test.each(["Stun", "Blindness"])("%s has persistent stars and a small body-only 
     f.draw();
     expect(f.view.stunStars?.root.visible).toBe(false);
     expect(point(f.view.sprite)).toEqual(base);
+});
+
+test("Stun rocks slowly side to side instead of vibrating or bouncing", () => {
+    const f = fixture();
+    const base = point(f.view.sprite);
+    f.apply("Stun");
+    f.draw();
+    let min = Infinity,
+        max = -Infinity,
+        previous: number | undefined,
+        direction = 0,
+        turns = 0;
+    for (let time = 1200; time < 6600; time += 17) {
+        f.time(time);
+        f.draw();
+        const x = f.view.sprite.x;
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+        expect(f.view.sprite.y).toBe(base.y);
+        if (previous !== undefined) {
+            const delta = x - previous;
+            expect(Math.abs(delta)).toBeLessThan(0.1);
+            const next = Math.sign(delta);
+            if (next && direction && next !== direction) turns++;
+            if (next) direction = next;
+        }
+        previous = x;
+    }
+    expect(max - min).toBeGreaterThan(2);
+    expect(turns).toBeGreaterThanOrEqual(5);
+    expect(turns).toBeLessThanOrEqual(7);
 });
 
 test.each(["Stun", "Blindness"])("removing %s from a combined disable leaves the other cue active", (removed) => {

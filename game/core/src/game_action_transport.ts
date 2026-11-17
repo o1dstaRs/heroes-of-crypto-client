@@ -185,6 +185,13 @@ export interface AuthoritativeGameSnapshot {
     upNext?: string[];
     damageStats?: IDamageStatistic[];
     journalTail?: AuthoritativeJournalEntry[];
+    /** Existing wire setup fields, retained for cold results and recorded action playback. */
+    leftDoctrine?: number;
+    rightDoctrine?: number;
+    leftArtifactTier1?: number;
+    leftArtifactTier2?: number;
+    rightArtifactTier1?: number;
+    rightArtifactTier2?: number;
     // Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
     // overlay renders casualty stats even for a team later fully wiped (whose units are then gone).
     leftStartUnits?: number;

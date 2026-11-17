@@ -5,12 +5,12 @@ export const STUN_STAR_COUNT = 5;
 const TAIL_COUNT = 4;
 const TAU = Math.PI * 2;
 
-/** Small persistent body tremor; the flag, floor anchor and logical battlefield position stay still. */
-export function stunBodyShake(nowMs: number, cell: number, phaseRatio = 0): { x: number; y: number } {
-    const phase = phaseRatio * TAU;
+/** Intentional slow loss-of-balance motion: one left/right cycle in 1.8s, with no vertical jitter. */
+export function stunBodySway(nowMs: number, cell: number, phaseRatio = 0): { x: number; y: number } {
+    const phase = ((nowMs % 1800) / 1800 + phaseRatio) * TAU;
     return {
-        x: cell * 0.022 * (Math.sin(nowMs * 0.041 + phase) * 0.72 + Math.sin(nowMs * 0.067 + phase * 2) * 0.28),
-        y: cell * 0.006 * Math.sin(nowMs * 0.033 + phase),
+        x: cell * 0.022 * Math.sin(phase),
+        y: 0,
     };
 }
 

@@ -117,9 +117,25 @@ export interface IFightDamageEntry {
     team: TeamType;
 }
 
+/** The actual setup of a completed fight, detached from mutable next-game preferences. */
+export interface IFightResultArmySetup {
+    readonly team: TeamType;
+    /** Undefined only when a legacy recording did not carry this field; zero means explicitly none. */
+    readonly doctrine?: number;
+    readonly artifactTier1?: number;
+    readonly artifactTier2?: number;
+}
+
+export interface IFightResultSetup {
+    readonly armies: readonly IFightResultArmySetup[];
+    /** One match-wide variant per faction; these are shared by both armies, not a team's active levels. */
+    readonly synergyVariants: Readonly<Record<string, number>>;
+}
+
 /** End-of-fight summary rendered by the Fight Finished overlay. */
 export interface IFightStatsReport {
     winner: TeamType;
+    setup?: IFightResultSetup;
     series: IFightStatsSample[];
     leftDeaths: IFightDeathEntry[];
     rightDeaths: IFightDeathEntry[];

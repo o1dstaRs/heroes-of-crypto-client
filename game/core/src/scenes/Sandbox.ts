@@ -195,7 +195,8 @@ import { projectRangedObstacles, type RangedObstaclePreview } from "./rangedObst
 import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
-import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
+import { VisibleButtonState, IVisibleUnit, type IFightResultSetup } from "./VisibleState";
+import { captureFightResultSetup } from "./fightResultSetup";
 import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
 import {
@@ -671,6 +672,8 @@ export interface SandboxSceneTerrainCell {
 }
 
 export interface SandboxSceneState {
+    /** Client replay metadata: the completed fight must keep its own choices after another game starts. */
+    resultSetup?: IFightResultSetup;
     gridType: GridType;
     currentLap: number;
     fightStarted: boolean;
@@ -3006,6 +3009,7 @@ export class Sandbox extends PixiScene {
         return renderableUnit;
     }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
+        this.replayResultSetup = snapshot.resultSetup;
         for (const { properties } of snapshot.units) {
             if (properties.amount_alive > 0) this.pyreDeaths?.forget(properties.id);
         }
@@ -3449,6 +3453,7 @@ export class Sandbox extends PixiScene {
         }
 
         return {
+            resultSetup: this.getFightResultSetup(),
             gridType: fightProps.getGridType(),
             currentLap: fightProps.hasFightStarted() ? fightProps.getCurrentLap() : 0,
             fightStarted: fightProps.hasFightStarted(),
@@ -21307,6 +21312,13 @@ export class Sandbox extends PixiScene {
             this.destroySpecificUnits(unitsToDestroy, true, true);
         }
     }
+    private replayResultSetup?: IFightResultSetup;
+    private getFightResultSetup(): IFightResultSetup | undefined {
+        // Old local replays have no recorded setup. Never fill that gap from a different/current game.
+        return this.fightReplayPlaybackActive
+            ? this.replayResultSetup
+            : captureFightResultSetup(FightStateManager.getInstance().getFightProperties());
+    }
     private updateLiveFightStats(): void {
         if (!this.sc_visibleState) return;
         // Once the fight is over, finishFight has published the FINAL report (with the winning team on it).
@@ -21315,12 +21327,15 @@ export class Sandbox extends PixiScene {
         // wipe (many stacks cleaned up at once, so the tracker samples again) lost its overlay entirely.
         if (this.sc_visibleState.hasFinished) return;
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        this.sc_visibleState.fightStats = this.fightStatsTracker.buildReport(
-            TeamVals.NO_TEAM,
-            this.unitsHolder.getAllUnits().values(),
-            fightProps.getCurrentLap(),
-            this.attackHandler?.getDamageStatisticHolder().get() ?? [],
-        );
+        this.sc_visibleState.fightStats = {
+            ...this.fightStatsTracker.buildReport(
+                TeamVals.NO_TEAM,
+                this.unitsHolder.getAllUnits().values(),
+                fightProps.getCurrentLap(),
+                this.attackHandler?.getDamageStatisticHolder().get() ?? [],
+            ),
+            setup: this.getFightResultSetup(),
+        };
         this.sc_visibleStateUpdateNeeded = true;
     }
     protected finishFight(teamWin: TeamType, opts: { mechanicsAlreadyApplied?: boolean } = {}): void {
@@ -21389,7 +21404,7 @@ export class Sandbox extends PixiScene {
             // total. Don't overwrite an already-populated report (e.g. the ranked one) with an empty
             // one; the ranked path fills it in via applyRankedFightStats.
             if (report.leftStartTotal > 0 && report.rightStartTotal > 0) {
-                this.sc_visibleState.fightStats = report;
+                this.sc_visibleState.fightStats = { ...report, setup: this.getFightResultSetup() };
             }
             this.sc_visibleStateUpdateNeeded = true;
         }

@@ -1503,4 +1503,15 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Didn't count toward calibration — the opponent abandoned": "Не засчитан в калибровку — соперник покинул матч",
     "Didn't count — an early exit left the match unscored": "Не засчитан — ранний выход оставил матч без результата",
     "Didn't count — the match was voided": "Не засчитан — матч аннулирован",
+    "Not recorded": "Не записано",
+    "Unknown doctrine": "Неизвестная доктрина",
+    "Unknown artifact": "Неизвестный артефакт",
+    "army setup": "состав армии",
+    "Fight setup": "Настройки боя",
+    "Fight setup not recorded": "Настройки этого боя не записаны",
+    "Global synergies": "Общие синергии",
+    "Shared by both armies": "Одинаковые для обеих армий",
+    "Shared by both armies; levels depend on each army's drafted factions.":
+        "Одинаковые для обеих армий; уровни зависят от фракций выбранных существ каждой армии.",
+    Level: "Уровень",
 };

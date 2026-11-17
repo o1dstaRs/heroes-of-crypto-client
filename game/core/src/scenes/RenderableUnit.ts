@@ -320,7 +320,7 @@ import {
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
-import { StunStars, stunBodyShake } from "./StunStars";
+import { StunStars, stunBodySway } from "./StunStars";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import {
     EMBER_COVENANT_STATUS,
@@ -4549,15 +4549,15 @@ export class RenderableUnit extends Unit {
                 this.badgeDrawState.geometry.flagHeight,
             );
             // INTENDED: Blindness and authoritative skip-only snapshots use the same feedback as Stun.
-            // Use presented status, so neither stars nor shaking can precede projectile contact.
+            // Use presented status, so neither stars nor swaying can precede projectile contact.
             // This is a body-only offset applied after the frame's base pose, never a movement/recoil.
-            const shake = stunBodyShake(
+            const sway = stunBodySway(
                 now,
                 gs.getCellSize() * battlefieldPerspectiveScale,
                 this.refreshedIdlePhaseRatio,
             );
-            this.sprite.x += shake.x * this.stunStars.root.alpha;
-            this.sprite.y += shake.y * this.stunStars.root.alpha;
+            this.sprite.x += sway.x * this.stunStars.root.alpha;
+            this.sprite.y += sway.y * this.stunStars.root.alpha;
         } else this.stunStars?.hide();
         if (battleMageDeathAlpha === 0) {
             if (this.badgeContainer) this.badgeContainer.visible = false;

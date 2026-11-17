@@ -1,4 +1,4 @@
-import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { Artifact, Doctrine, TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
@@ -28,6 +28,7 @@ import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
+import { FightSetupSummary } from "./FightSetupSummary";
 import { canShowFightResults } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
@@ -51,6 +52,23 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     teamWin: UPPER_TEAM,
     fightStats: {
         winner: UPPER_TEAM,
+        setup: {
+            armies: [
+                {
+                    team: LOWER_TEAM,
+                    doctrine: Doctrine.Doctrine.SEE_ALL,
+                    artifactTier1: Artifact.Tier1Artifact.WINGED_BOOTS,
+                    artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+                },
+                {
+                    team: UPPER_TEAM,
+                    doctrine: Doctrine.Doctrine.SEE_NONE,
+                    artifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
+                    artifactTier2: Artifact.Tier2Artifact.PENDANT_OF_VITALITY,
+                },
+            ],
+            synergyVariants: { Life: 2, Nature: 2, Chaos: 1, Might: 2 },
+        },
         series: [
             { lap: 1, leftKilled: 0, rightKilled: 0, leftKilledPct: 0, rightKilledPct: 0 },
             {
@@ -1365,16 +1383,25 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     display: "flex",
                     flexDirection: "column",
                     overflow: { xs: "auto", sm: "hidden" },
+                    // Actual borders/background stay at the viewport while short/mobile content scrolls.
+                    // Absolutely positioned ornamental layers otherwise scroll away halfway through setup.
+                    "@media (max-height: 820px)": {
+                        overflowY: "auto",
+                        backgroundColor: "rgba(17,13,9,.82)",
+                        border: "2px solid rgba(48,47,45,.94)",
+                    },
                     overscrollBehavior: "contain",
                     isolation: "isolate",
                     textTransform: "uppercase",
                     borderRadius: "11px",
-                    border: "none",
-                    backgroundColor: "transparent",
+                    border: { xs: "2px solid rgba(48,47,45,.94)", sm: "none" },
+                    backgroundColor: { xs: "rgba(17,13,9,.82)", sm: "transparent" },
                     boxShadow: "0 22px 60px rgba(0,0,0,.92), 0 0 24px rgba(0,0,0,.72)",
                     padding: "18px 22px 16px",
                     "&::before": {
                         content: '""',
+                        display: { xs: "none", sm: "block" },
+                        "@media (max-height: 820px)": { display: "none" },
                         position: "absolute",
                         inset: 0,
                         zIndex: -1,
@@ -1391,6 +1418,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     },
                     "&::after": {
                         content: '""',
+                        display: { xs: "none", sm: "block" },
+                        "@media (max-height: 820px)": { display: "none" },
                         position: "absolute",
                         inset: 0,
                         zIndex: 5,
@@ -1408,6 +1437,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     sx={{
                         position: "absolute",
                         inset: 9,
+                        display: { xs: "none", sm: "block" },
+                        "@media (max-height: 820px)": { display: "none" },
                         zIndex: 4,
                         pointerEvents: "none",
                         border: "1px solid rgba(42,41,39,.66)",
@@ -1576,6 +1607,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         flexDirection: "column",
                         overflow: { xs: "visible", sm: "hidden" },
                         pb: 1.5,
+                        "@media (max-height: 820px)": { flex: "0 0 auto", minHeight: "auto", overflow: "visible" },
                     }}
                 >
                     <CasualtyChartPanel
@@ -1594,6 +1626,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             overscrollBehavior: "contain",
                             scrollbarWidth: "thin",
                             scrollbarColor: "rgba(74,67,60,.58) transparent",
+                            "@media (max-height: 820px)": { flex: "0 0 auto", overflow: "visible" },
                             "&::-webkit-scrollbar": { width: "5px" },
                             "&::-webkit-scrollbar-track": { background: "transparent" },
                             "&::-webkit-scrollbar-thumb": {
@@ -1602,6 +1635,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             },
                         }}
                     >
+                        <FightSetupSummary setup={stats.setup} />
                         <ResultsSectionPlaque label="DAMAGE DEALT" />
                         <DamageBreakdown entries={stats.damageByUnit ?? []} />
                     </Box>
