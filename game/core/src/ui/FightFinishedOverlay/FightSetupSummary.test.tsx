@@ -6,7 +6,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
 import type { IFightResultSetup } from "../../scenes/VisibleState";
-import { FightSetupSummary } from "./FightSetupSummary";
+import { FightArmySetupIcons, FightSetupSummary } from "./FightSetupSummary";
 
 const setup: IFightResultSetup = {
     // Deliberately reversed: ordering must follow the player columns, not incoming map/array order.
@@ -29,11 +29,19 @@ const setup: IFightResultSetup = {
 const render = (value?: IFightResultSetup) =>
     renderToStaticMarkup(
         <CacheProvider value={createCache({ key: "result-setup" })}>
+            <FightArmySetupIcons
+                team={TeamVals.LEFT}
+                army={value?.armies.find((army) => army.team === TeamVals.LEFT)}
+            />
+            <FightArmySetupIcons
+                team={TeamVals.RIGHT}
+                army={value?.armies.find((army) => army.team === TeamVals.RIGHT)}
+            />
             <FightSetupSummary setup={value} />
         </CacheProvider>,
     );
 
-test("results show both teams' doctrines and both artifact tiers under the correct player columns", () => {
+test("army icon rails retain the correct completed doctrine and both artifact tiers without visible labels", () => {
     const html = render(setup);
     const left = html.slice(
         html.indexOf(`data-result-army="${TeamVals.LEFT}"`),
@@ -50,6 +58,11 @@ test("results show both teams' doctrines and both artifact tiers under the corre
     expect(html.match(/aria-label="Doctrine:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 1 artifact:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 2 artifact:/g)).toHaveLength(2);
+    const icons = [...html.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)].map(
+        (match) => match[1],
+    );
+    expect(icons).toHaveLength(6);
+    expect(icons.every((icon) => icon.includes("<img") && !icon.includes("<p"))).toBe(true);
 });
 
 test("the global synergies appear once per faction, using the match's selected variants", () => {

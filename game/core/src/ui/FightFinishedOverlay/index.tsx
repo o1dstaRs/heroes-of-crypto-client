@@ -16,7 +16,7 @@ import { PlayerRankedRecord } from "../PlayerRankedRecord";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
+import { IFightDeathEntry, IFightResultSetup, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { MatchupPlayerTooltip, type MatchupPlayer } from "../MatchupOverlay";
 import { matchupTeamTone } from "../matchupOverlayTone";
@@ -28,7 +28,7 @@ import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
-import { FightSetupSummary } from "./FightSetupSummary";
+import { FightArmySetupIcons, FightSetupSummary } from "./FightSetupSummary";
 import { canShowFightResults } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
@@ -251,7 +251,8 @@ const CasualtyColumn: React.FC<{
     killedTotal: number;
     startTotal: number;
     fallbackPct: number;
-}> = ({ team, deaths, killedTotal, startTotal, fallbackPct }) => {
+    setup?: IFightResultSetup;
+}> = ({ team, deaths, killedTotal, startTotal, fallbackPct, setup }) => {
     const color = teamColor(team);
     const fellPct = Math.round(
         Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)),
@@ -301,122 +302,136 @@ const CasualtyColumn: React.FC<{
             </Stack>
             <Box
                 sx={{
-                    position: "relative",
                     display: "flex",
-                    flexWrap: "nowrap",
-                    gap: 1,
-                    p: 0.75,
-                    borderRadius: "14px",
-                    border: "2px solid rgba(55,52,49,.9)",
-                    backgroundColor: "transparent",
-                    height: 92,
-                    minHeight: 92,
-                    maxHeight: 92,
-                    overflowX: "auto",
-                    overflowY: "hidden",
-                    overscrollBehaviorX: "contain",
-                    scrollbarWidth: "thin",
-                    scrollbarColor: "rgba(74,67,60,.58) transparent",
-                    boxShadow:
-                        "inset 0 0 0 1px rgba(6,6,6,.98), inset 0 0 0 3px rgba(82,72,62,.12), 0 3px 8px rgba(0,0,0,.7)",
-                    "&::-webkit-scrollbar": { height: "4px" },
-                    "&::-webkit-scrollbar-track": { background: "transparent" },
-                    "&::-webkit-scrollbar-thumb": {
-                        backgroundColor: "rgba(74,67,60,.58)",
-                        borderRadius: "2px",
-                    },
-                    "&::before": {
-                        content: '\"\"',
-                        position: "absolute",
-                        inset: "4px",
-                        zIndex: 0,
-                        pointerEvents: "none",
-                        background: "linear-gradient(160deg, rgba(30,18,7,.62), rgba(9,6,2,.62))",
-                        // Combined with the 62%-alpha warm gradient, this leaves the loss well about 51%
-                        // transparent without fading its portraits, counters or forged frame.
-                        opacity: 0.79,
-                        borderRadius: "10px",
-                    },
-                    "&::after": {
-                        content: '""',
-                        position: "absolute",
-                        inset: "3px",
-                        zIndex: 3,
-                        pointerEvents: "none",
-                        boxSizing: "border-box",
-                        border: "1px solid rgba(40,39,37,.92)",
-                        borderRadius: "11px",
-                    },
+                    flexDirection: team === UPPER_TEAM ? "row-reverse" : "row",
+                    alignItems: "center",
+                    gap: 0.75,
                 }}
             >
-                {deaths.length === 0 && (
-                    <Typography
-                        sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
-                    >
-                        No casualties — flawless.
-                    </Typography>
-                )}
-                {deaths.map((d) => (
-                    <Tooltip
-                        key={d.name}
-                        title={`${d.name}: ${d.died} of ${d.start} lost`}
-                        placement="top"
-                        sx={{
-                            backgroundColor: "#2d1606",
-                            border: `2px solid ${GOLD}`,
-                            color: PARCHMENT,
-                            zIndex: 10001,
-                        }}
-                    >
-                        <Box sx={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
-                            {UNIT_NAME_TO_ID[d.name.trim()] !== undefined ? (
-                                <CreaturePortraitImage
-                                    creatureId={UNIT_NAME_TO_ID[d.name.trim()]}
-                                    alt={d.name}
+                {/* The completed build belongs beside its army, with the opposing rail mirrored outward. */}
+                <FightArmySetupIcons team={team} army={setup?.armies.find((army) => army.team === team)} />
+                <Box
+                    data-result-army-roster={team}
+                    sx={{
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        position: "relative",
+                        display: "flex",
+                        flexWrap: "nowrap",
+                        gap: 1,
+                        p: 0.75,
+                        borderRadius: "14px",
+                        border: "2px solid rgba(55,52,49,.9)",
+                        backgroundColor: "transparent",
+                        height: 92,
+                        minHeight: 92,
+                        maxHeight: 92,
+                        overflowX: "auto",
+                        overflowY: "hidden",
+                        overscrollBehaviorX: "contain",
+                        scrollbarWidth: "thin",
+                        scrollbarColor: "rgba(74,67,60,.58) transparent",
+                        boxShadow:
+                            "inset 0 0 0 1px rgba(6,6,6,.98), inset 0 0 0 3px rgba(82,72,62,.12), 0 3px 8px rgba(0,0,0,.7)",
+                        "&::-webkit-scrollbar": { height: "4px" },
+                        "&::-webkit-scrollbar-track": { background: "transparent" },
+                        "&::-webkit-scrollbar-thumb": {
+                            backgroundColor: "rgba(74,67,60,.58)",
+                            borderRadius: "2px",
+                        },
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            inset: "4px",
+                            zIndex: 0,
+                            pointerEvents: "none",
+                            background: "linear-gradient(160deg, rgba(30,18,7,.62), rgba(9,6,2,.62))",
+                            // Combined with the 62%-alpha warm gradient, this leaves the loss well about 51%
+                            // transparent without fading its portraits, counters or forged frame.
+                            opacity: 0.79,
+                            borderRadius: "10px",
+                        },
+                        "&::after": {
+                            content: '""',
+                            position: "absolute",
+                            inset: "3px",
+                            zIndex: 3,
+                            pointerEvents: "none",
+                            boxSizing: "border-box",
+                            border: "1px solid rgba(40,39,37,.92)",
+                            borderRadius: "11px",
+                        },
+                    }}
+                >
+                    {deaths.length === 0 && (
+                        <Typography
+                            sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
+                        >
+                            No casualties — flawless.
+                        </Typography>
+                    )}
+                    {deaths.map((d) => (
+                        <Tooltip
+                            key={d.name}
+                            title={`${d.name}: ${d.died} of ${d.start} lost`}
+                            placement="top"
+                            sx={{
+                                backgroundColor: "#2d1606",
+                                border: `2px solid ${GOLD}`,
+                                color: PARCHMENT,
+                                zIndex: 10001,
+                            }}
+                        >
+                            <Box sx={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
+                                {UNIT_NAME_TO_ID[d.name.trim()] !== undefined ? (
+                                    <CreaturePortraitImage
+                                        creatureId={UNIT_NAME_TO_ID[d.name.trim()]}
+                                        alt={d.name}
+                                        sx={{
+                                            width: 60,
+                                            height: 80,
+                                            borderRadius: "7px",
+                                            border: "none",
+                                            filter: "grayscale(55%) brightness(0.82)",
+                                        }}
+                                    />
+                                ) : (
+                                    <Avatar
+                                        src={creatureImgSrc(d.smallTextureName, d.name)}
+                                        variant="plain"
+                                        sx={{
+                                            width: 60,
+                                            height: 80,
+                                            borderRadius: "7px",
+                                            border: "none",
+                                            filter: "grayscale(55%) brightness(0.82)",
+                                        }}
+                                    />
+                                )}
+                                <Box
                                     sx={{
-                                        width: 60,
-                                        height: 80,
-                                        borderRadius: "7px",
-                                        border: "none",
-                                        filter: "grayscale(55%) brightness(0.82)",
+                                        position: "absolute",
+                                        bottom: -4,
+                                        right: -4,
+                                        px: 0.5,
+                                        minWidth: 20,
+                                        height: 20,
+                                        borderRadius: "10px",
+                                        backgroundColor: WOOD_DARK,
+                                        border: `1.5px solid ${color}`,
+                                        color: PARCHMENT,
+                                        fontSize: "0.72rem",
+                                        fontWeight: 800,
+                                        lineHeight: "17px",
+                                        textAlign: "center",
                                     }}
-                                />
-                            ) : (
-                                <Avatar
-                                    src={creatureImgSrc(d.smallTextureName, d.name)}
-                                    variant="plain"
-                                    sx={{
-                                        width: 60,
-                                        height: 80,
-                                        borderRadius: "7px",
-                                        border: "none",
-                                        filter: "grayscale(55%) brightness(0.82)",
-                                    }}
-                                />
-                            )}
-                            <Box
-                                sx={{
-                                    position: "absolute",
-                                    bottom: -4,
-                                    right: -4,
-                                    px: 0.5,
-                                    minWidth: 20,
-                                    height: 20,
-                                    borderRadius: "10px",
-                                    backgroundColor: WOOD_DARK,
-                                    border: `1.5px solid ${color}`,
-                                    color: PARCHMENT,
-                                    fontSize: "0.72rem",
-                                    fontWeight: 800,
-                                    lineHeight: "17px",
-                                    textAlign: "center",
-                                }}
-                            >
-                                ×{d.died}
+                                >
+                                    ×{d.died}
+                                </Box>
                             </Box>
-                        </Box>
-                    </Tooltip>
-                ))}
+                        </Tooltip>
+                    ))}
+                </Box>
             </Box>
         </Box>
     );
@@ -1645,6 +1660,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={3} sx={{ px: 1, pt: 2 }}>
                             <CasualtyColumn
                                 team={LOWER_TEAM}
+                                setup={stats.setup}
                                 deaths={stats.leftDeaths}
                                 killedTotal={stats.leftKilledTotal}
                                 startTotal={stats.leftStartTotal}
@@ -1652,6 +1668,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             />
                             <CasualtyColumn
                                 team={UPPER_TEAM}
+                                setup={stats.setup}
                                 deaths={stats.rightDeaths}
                                 killedTotal={stats.rightKilledTotal}
                                 startTotal={stats.rightStartTotal}
