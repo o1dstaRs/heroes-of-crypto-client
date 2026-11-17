@@ -54,7 +54,7 @@ test.each([
     { attackerName: "Wolf", defenderName: "Manticore", attackType: "melee" },
     { attackerName: "Orc", defenderName: "Medusa", attackType: "melee" },
 ])(
-    "$attackerName / $defenderName $attackType preserve both authored attacks before reactions or deaths",
+    "$attackerName / $defenderName $attackType keep both authored attacks without a late hit pose",
     async ({ attackerName, defenderName, attackType }) => {
         // Test pre-action replay figures and the already-resolved, mutually lethal local-engine state.
         for (const lethal of [false, true])
@@ -193,7 +193,7 @@ test.each([
                     expect(starts.filter((entry) => entry.state.includes("attack"))).toHaveLength(2);
                     expect(
                         new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.actor.getName())),
-                    ).toEqual(new Set(lethal ? [] : actors.map((actor) => actor.getName())));
+                    ).toEqual(new Set());
                     expect(new Set(deaths)).toEqual(new Set(lethal ? actors : []));
                     expect(damage).toEqual([10, 10]);
                 } finally {

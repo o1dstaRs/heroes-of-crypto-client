@@ -5524,6 +5524,11 @@ export class Sandbox extends PixiScene {
                 const attackState = this.prepareDirectionalAttackState(source, victim, melee);
                 return [{ strike, source, renderedVictim, victim, attackState }];
             });
+            // INTENDED: the outgoing attack is also this actor's impact pose. Never append a hit
+            // clip/knockback after a simultaneous counter. Capture membership for the whole group:
+            // a fast shooter may finish before the other projectile arrives. Later double strikes
+            // have a fresh group, so a passive recipient still flinches on those contacts.
+            const simultaneousAttackers = new Set(prepared.map(({ source }) => source.getId()));
             // Both opening actors wait for the same combat assets, then start together. Optional
             // status art must never add another gate or stretch attack/response/hit timing.
             await Promise.all([
@@ -5792,6 +5797,7 @@ export class Sandbox extends PixiScene {
                                 response: strike.response,
                                 events: dullingEvents,
                                 activeAttacks,
+                                simultaneousAttackers,
                             });
                             return;
                         }
@@ -5888,7 +5894,12 @@ export class Sandbox extends PixiScene {
                             const burned = units.get(hit.unitId) as RenderableUnit | undefined;
                             if (!burned) continue;
                             const showReaction = (): Promise<void> => {
-                                if (this.isSceneDestroyed() || shownDeaths.has(hit.unitId)) return Promise.resolve();
+                                if (
+                                    this.isSceneDestroyed() ||
+                                    shownDeaths.has(hit.unitId) ||
+                                    simultaneousAttackers.has(hit.unitId)
+                                )
+                                    return Promise.resolve();
                                 const animation = this.playReplayOneShot(burned, "hit", 3000, true);
                                 if (
                                     (burned.getUnitProperties?.().level ?? 0) <= 2 ||
@@ -5972,6 +5983,7 @@ export class Sandbox extends PixiScene {
                                     cyclopsKills: cyclopsKills.get(source.getId()),
                                     events: dullingEvents,
                                     activeAttacks,
+                                    simultaneousAttackers,
                                 });
                             } else {
                                 for (const hit of collateral) consumeLoss(hit.unitId, hit.unitsDied);
@@ -6061,7 +6073,11 @@ export class Sandbox extends PixiScene {
                             presentDeath(strike.targetId);
                         } else if (receivedDamage && renderedVictim) {
                             const showReaction = (): Promise<void> => {
-                                if (this.isSceneDestroyed() || shownDeaths.has(strike.targetId))
+                                if (
+                                    this.isSceneDestroyed() ||
+                                    shownDeaths.has(strike.targetId) ||
+                                    simultaneousAttackers.has(strike.targetId)
+                                )
                                     return Promise.resolve();
                                 // The shield cast is this Efreet's reaction. A generic hit animation would
                                 // cancel it (or insert another whole animation before the reflection).
@@ -6082,9 +6098,8 @@ export class Sandbox extends PixiScene {
                                 this.applyReplayHitKnockback(victim, source, strike.amount);
                                 return Promise.all([hit, this.delayReplay(330)]).then(() => {});
                             };
-                            // INTENDED: both opening attacks run together. Only the incoming hit animation
-                            // waits for its victim's own outgoing attack; never serialize the counterattack.
-                            // Damage, casualties and sounds still occur at projectile contact.
+                            // Keep the outgoing-action barrier for delayed ability damage, even when
+                            // the ordinary hit pose is suppressed. Numbers/statuses/sounds still own contact.
                             const outgoing = activeAttacks.get(strike.targetId);
                             const hitReaction = outgoing ? outgoing.then(showReaction) : showReaction();
                             reaction = Promise.all([reaction, hitReaction]).then(() => {});
@@ -6303,6 +6318,7 @@ export class Sandbox extends PixiScene {
             onDeath: (unitId: string) => void;
             events?: readonly GameEvent[];
             activeAttacks?: ReadonlyMap<string, Promise<void>>;
+            simultaneousAttackers?: ReadonlySet<string>;
             cyclopsKills?: ReadonlySet<string>;
             response?: boolean;
         },
@@ -6397,7 +6413,8 @@ export class Sandbox extends PixiScene {
                 context.onDeath(hit.unitId);
             } else if (unit && hit.amount > 0) {
                 const react = (): Promise<void> => {
-                    if (this.isSceneDestroyed()) return Promise.resolve();
+                    if (this.isSceneDestroyed() || context.simultaneousAttackers?.has(hit.unitId))
+                        return Promise.resolve();
                     const reaction = this.playReplayOneShot(unit, "hit", 3000, true);
                     if (unit.getUnitProperties().level > 2 && !usesApprovedBaseAnimations(unit.getName()))
                         this.applyReplayHitKnockback(unit, attacker, hit.amount);

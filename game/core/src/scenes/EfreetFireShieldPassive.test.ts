@@ -221,7 +221,7 @@ test.each([false, true])(
         expect(h.events).not.toContain("efreet:hit");
         await h.finish("efreet", "cast");
         await h.finish("striker", "melee_attack");
-        await h.finish("striker", "hit");
+        expect(h.events).not.toContain("striker:hit");
         await pending;
         expect(h.events.filter((event) => event === "reflection:4")).toHaveLength(1);
     },

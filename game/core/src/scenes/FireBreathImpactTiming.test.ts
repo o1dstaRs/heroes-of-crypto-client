@@ -253,12 +253,12 @@ test("a counter with no primary HP loss still breathes at the simultaneous conta
     expect(f.events).toContain("damage:17");
     expect(f.events).toContain("counter-rear:hit");
     expect(f.counterRear.displayedAmount).toBe(2);
-    // The primary victim's own outgoing counter must finish before its incoming hit reaction.
+    // Counterattacking actors use their outgoing pose; rear stacks still flinch at contact.
     expect(f.events).not.toContain("primary:hit");
     await f.settle();
     await pending;
     expect(f.events.filter((entry) => entry === "damage:17")).toHaveLength(1);
-    expect(f.events.filter((entry) => entry === "primary:hit")).toHaveLength(1);
+    expect(f.events.filter((entry) => entry === "primary:hit")).toHaveLength(0);
 });
 
 test("zero breath payloads cannot invent damage, burns, casualties or hit reactions", async () => {

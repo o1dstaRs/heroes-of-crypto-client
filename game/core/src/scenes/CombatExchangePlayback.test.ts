@@ -312,7 +312,7 @@ test.each([false, true])(
     },
 );
 
-test("melee attacks and counters start together; double strike waits for both attacks and reactions", async () => {
+test("simultaneous melee uses attack poses; a later single-sided strike still flinches", async () => {
     const { scene, a, b, events, finish } = setup();
     const pending = scene.playCombatExchange(
         a,
@@ -326,18 +326,13 @@ test("melee attacks and counters start together; double strike waits for both at
     const [finishA, finishB] = finish.splice(0);
     finishA();
     await flush();
-    expect(events.slice(4)).toEqual(["A:hit"]);
+    expect(events).toHaveLength(4);
     finishB();
     await flush();
-    expect(events.slice(4)).toEqual(["A:hit", "B:hit"]);
-    const [finishAHit, finishBHit] = finish.splice(0);
-    finishBHit();
-    await flush();
-    expect(events).toHaveLength(6);
-    finishAHit();
-    await flush();
-    expect(events.slice(6)).toEqual(["A:attack", "damage", "B:hit"]);
-    finish.splice(0).forEach((fn) => fn());
+    expect(events.slice(4)).toEqual(["A:attack", "damage", "B:hit"]);
+    expect(events.filter((event) => event === "A:hit")).toHaveLength(0);
+    expect(events.filter((event) => event === "B:hit")).toHaveLength(1);
+    finish.splice(0).forEach((done) => done());
     await pending;
 });
 test.each([
@@ -360,22 +355,22 @@ test.each([
         const [finishA, finishB] = finish.splice(0);
         finishA();
         await flush();
-        expect(events.slice(4)).toEqual([counterLethal ? "A:death" : "A:hit"]);
+        expect(events.slice(4)).toEqual(counterLethal ? ["A:death"] : []);
         finishB();
         await flush();
-        expect(events.slice(5)).toEqual([primaryLethal ? "B:death" : "B:hit"]);
+        expect(events.filter((event) => event.endsWith(":hit"))).toEqual([]);
         finish.splice(0).forEach((fn) => fn());
         const deaths = await pending;
         expect([...deaths].sort()).toEqual([...(counterLethal ? ["A"] : []), ...(primaryLethal ? ["B"] : [])]);
         expect(events.filter((event) => event.endsWith(":attack"))).toHaveLength(2);
     },
 );
-test("ranged attack and counter fly together; contacts own damage and double shot waits for the exchange", async () => {
+test("ranged actors never queue a late hit, even when the counter lands and recovers first", async () => {
     const { scene, a, b, events, finish } = setup();
-    const flights: { contact: () => void; land: () => void }[] = [];
-    scene.playReplayProjectile = (source: { getId(): string }, _b: unknown, _pos: unknown, onImpact: () => void) => {
+    const flights: { contact(): void; land(): void }[] = [];
+    scene.playReplayProjectile = (source: { getId(): string }, _b: unknown, _pos: unknown, contact: () => void) => {
         events.push(source.getId() + ":projectile");
-        return new Promise<void>((resolve) => flights.push({ contact: onImpact, land: resolve }));
+        return new Promise<void>((land) => flights.push({ contact, land }));
     };
     const pending = scene.playCombatExchange(
         a,
@@ -386,28 +381,22 @@ test("ranged attack and counter fly together; contacts own damage and double sho
     );
     await flush();
     expect(events).toEqual(["A:projectile", "B:projectile"]);
-    // The counter may arrive first because it has a different release frame or travel distance.
     flights[1].contact();
     flights[1].land();
     await flush();
     expect(events).toEqual(["A:projectile", "B:projectile", "damage"]);
     flights[0].contact();
-    await flush();
-    expect(events.slice(3)).toEqual(["damage", "B:hit"]);
     flights[0].land();
     await flush();
-    expect(events.at(-1)).toBe("A:hit");
-    expect(flights).toHaveLength(2);
-    finish.splice(0).forEach((fn) => fn());
-    await flush();
-    expect(events.at(-1)).toBe("A:projectile");
+    expect(events).toEqual(["A:projectile", "B:projectile", "damage", "damage", "A:projectile"]);
     expect(flights).toHaveLength(3);
     flights[2].contact();
     flights[2].land();
     await flush();
-    finish.splice(0).forEach((fn) => fn());
-    await pending;
     expect(events.slice(-2)).toEqual(["damage", "B:hit"]);
+    expect(events).not.toContain("A:hit");
+    finish.splice(0).forEach((done) => done());
+    await pending;
 });
 
 test("both combatants' textures are ready before either attack starts", async () => {
@@ -493,7 +482,7 @@ test("an intercepted counter starts alongside the attack and reacts on the scree
     finish.splice(0).forEach((resolve) => resolve());
     await pending;
     expect(events).not.toContain("A:hit");
-    expect(events.filter((entry) => entry.endsWith(":hit"))).toEqual(["screen:hit", "B:hit"]);
+    expect(events.filter((entry) => entry.endsWith(":hit"))).toEqual(["screen:hit"]);
 });
 
 test("a removed replay victim uses its captured impact point without hitting a different figure", async () => {
@@ -838,15 +827,15 @@ test("INTENDED: cold status art cannot delay the opening exchange or move melee 
     expect(events.filter((event: string) => event.endsWith(":attack"))).toEqual(["A:attack", "B:attack"]);
     expect(events.filter((event: string) => event === "damage")).toHaveLength(2);
     expect(events.some((event: string) => event.endsWith(":hit"))).toBe(false);
-    // Each unit's own outgoing attack owns its body until it finishes. Incoming damage is
-    // already visible; its hit reaction must not cancel that attack or its authored projectile.
+    // The outgoing attack owns the body for this simultaneous exchange. Damage is already
+    // visible at contact; no generic hit pose is queued behind either attack.
     finish[0]();
     await flush();
-    expect(events).toContain("A:hit");
+    expect(events).not.toContain("A:hit");
     expect(events).not.toContain("B:hit");
     finish[1]();
     await flush();
-    expect(events).toContain("B:hit");
+    expect(events).not.toContain("B:hit");
     for (let i = 0; i < 4; i++) {
         finish.splice(0).forEach((done) => done());
         await flush();
@@ -995,3 +984,28 @@ test("mortally wounded melee actors shorten recovery only after their own attack
     await pending;
     expect(events.filter((event) => event.endsWith(":death")).sort()).toEqual(["A:death", "B:death"]);
 });
+
+test.each(["melee", "range"])(
+    "%s simultaneous actors skip both the hit pose and knockback, passive recipients keep them",
+    async (attackType) => {
+        const { scene, a, b } = setup();
+        const hits: string[] = [],
+            knockbacks: string[] = [];
+        for (const unit of [a, b])
+            Object.assign(unit, { getName: () => "Fixture actor", getUnitProperties: () => ({ level: 3 }) });
+        scene.applyReplayLunge = () => {};
+        scene.delayReplay = async () => {};
+        scene.playReplayOneShot = async (unit: typeof a, state: string) => {
+            if (state === "hit") hits.push(unit.getId());
+        };
+        scene.applyReplayHitKnockback = (unit: typeof a) => knockbacks.push(unit.getId());
+        scene.playReplayProjectile = async (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
+            contact();
+        await scene.playCombatExchange(a, b, { attackType }, orderCombatExchange([strike()], strike(true)), () => {});
+        expect(hits).toEqual([]);
+        expect(knockbacks).toEqual([]);
+        await scene.playCombatExchange(a, b, { attackType }, [strike()], () => {});
+        expect(hits).toEqual(["B"]);
+        expect(knockbacks).toEqual(["B"]);
+    },
+);

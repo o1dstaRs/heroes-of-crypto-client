@@ -676,3 +676,36 @@ for (const name of ["Cyclops", "Gargantuan"]) {
         },
     );
 }
+
+test("a splash impact keeps numbers and passive hit reactions but never appends a counterattacker's flinch", async () => {
+    const f = fixture();
+    for (const unit of [f.near, f.far]) unit.continueDamagePresentation(3);
+    const hits = [f.near, f.far].map((unit) => ({
+        unitId: unit.getId(),
+        position: unit.getPosition(),
+        amount: 11,
+        unitsDied: 1,
+    }));
+    let finishCounter!: () => void;
+    const counter = new Promise<void>((resolve) => {
+        finishCounter = resolve;
+    });
+    const pending = f.scene.playAreaThrowImpact(f.giant, hits, {
+        damage: { splash: hits },
+        hitIndex: 0,
+        units: f.units,
+        remainingAmounts: new Map(hits.map((hit) => [hit.unitId, 3])),
+        deadIds: new Set(),
+        onDeath: () => {},
+        simultaneousAttackers: new Set([f.near.getId()]),
+        activeAttacks: new Map([[f.near.getId(), counter]]),
+    });
+    await flush();
+    expect(f.events.filter((event) => event.startsWith("damage:"))).toEqual(["damage:11", "damage:11"]);
+    expect(f.events).not.toContain("near:hit");
+    expect(f.events).toContain("far:hit");
+    expect(f.near.getDisplayedAmount()).toBe(2);
+    finishCounter();
+    await pending;
+    expect(f.events).not.toContain("near:hit");
+});
