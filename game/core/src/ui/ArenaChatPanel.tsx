@@ -1,7 +1,7 @@
+import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
-import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
@@ -34,6 +34,24 @@ export const ARENA_CHAT_OPEN_KEY = "hoc:arenaChatOpen";
 const COLLAPSE_KEY = ARENA_CHAT_OPEN_KEY;
 /** How long a jumped-to original stays highlighted after clicking a reply's quote. */
 const FLASH_MS = 1400;
+
+type ChatConnection = "connecting" | "connected" | "reconnecting" | "offline" | "paused";
+
+const CONNECTION_LABELS: Record<ChatConnection, string> = {
+    connecting: "Connecting",
+    connected: "Connected",
+    reconnecting: "Reconnecting",
+    offline: "Offline",
+    paused: "Chat paused",
+};
+
+const CONNECTION_COLORS: Record<ChatConnection, string> = {
+    connecting: hocColors.orange,
+    connected: hocColors.green,
+    reconnecting: hocColors.orange,
+    offline: hocColors.danger,
+    paused: hocColors.muted,
+};
 
 /** The site's full-profile page for a player, language-aware (same shape matchHistoryModel builds). */
 export const playerProfileHref = (playerId: string, username: string, language: string): string => {
@@ -99,6 +117,7 @@ export const ArenaChatPanel: React.FC<{
     const [error, setError] = useState("");
     const [sending, setSending] = useState(false);
     const [open, setOpen] = useState<boolean>(() => window.localStorage.getItem(COLLAPSE_KEY) !== "0");
+    const [connection, setConnection] = useState<ChatConnection>("connecting");
     /** The message the next send answers, shown as a chip over the input until sent or cancelled. */
     const [replyTo, setReplyTo] = useState<ArenaChatMessage | null>(null);
     /** Briefly highlights the original after clicking a reply's quote, so the jump lands somewhere. */
@@ -128,9 +147,10 @@ export const ArenaChatPanel: React.FC<{
     const refresh = useCallback(async () => {
         try {
             merge(await fetchArenaChat(newestRef.current));
+            return true;
         } catch {
-            // A dropped poll is not worth a banner — the next tick recovers, and a chat that shouts
-            // about its own network is more annoying than one that quietly catches up.
+            // A dropped poll changes the icon, without interrupting the conversation with a banner.
+            return false;
         }
     }, [merge]);
 
@@ -139,15 +159,40 @@ export const ArenaChatPanel: React.FC<{
     // cursor makes catching up cheap, so the wake-up poll returns the whole gap in one response.
     useEffect(() => {
         mountedRef.current = true;
-        if (!open) {
-            return () => {
-                mountedRef.current = false;
-            };
-        }
-        const stopPolling = startVisibleInterval(() => void refresh(), POLL_INTERVAL_MS);
+        let active = true;
+        let requestId = 0;
+        const updateAvailability = () => {
+            // Invalidate in-flight replies when polling pauses or the browser changes networks.
+            ++requestId;
+            setConnection(!navigator.onLine ? "offline" : !open || document.hidden ? "paused" : "connecting");
+        };
+        const poll = async () => {
+            if (!open || document.hidden || !navigator.onLine) return;
+            const id = ++requestId;
+            const connected = await refresh();
+            if (active && id === requestId && navigator.onLine && !document.hidden) {
+                // This room polls rather than holding a socket. Only a successful room response
+                // earns green; an online browser alone does not prove the chat server is reachable.
+                setConnection(connected ? "connected" : "reconnecting");
+            }
+        };
+        const onOnline = () => {
+            updateAvailability();
+            void poll();
+        };
+        updateAvailability();
+        window.addEventListener("offline", updateAvailability);
+        window.addEventListener("online", onOnline);
+        // Register before startVisibleInterval so a foreground catch-up starts after the state reset.
+        document.addEventListener("visibilitychange", updateAvailability);
+        const stopPolling = open ? startVisibleInterval(() => void poll(), POLL_INTERVAL_MS) : undefined;
         return () => {
+            active = false;
             mountedRef.current = false;
-            stopPolling();
+            stopPolling?.();
+            window.removeEventListener("offline", updateAvailability);
+            window.removeEventListener("online", onOnline);
+            document.removeEventListener("visibilitychange", updateAvailability);
         };
     }, [refresh, open]);
 
@@ -356,7 +401,12 @@ export const ArenaChatPanel: React.FC<{
                         "&:hover .hoc-chat-caret": { color: hocColors.orange },
                     }}
                 >
-                    <ChatBubbleRoundedIcon sx={{ fontSize: 16, flexShrink: 0, color: hocColors.sidebarTitle }} />
+                    <ChatBubbleRoundedIcon
+                        role="img"
+                        aria-label={t(CONNECTION_LABELS[connection])}
+                        data-chat-connection={connection}
+                        sx={{ fontSize: 16, flexShrink: 0, color: CONNECTION_COLORS[connection] }}
+                    />
                     <Typography level="title-sm" sx={{ color: hocColors.sidebarTitle }}>
                         {t("Arena chat")}
                     </Typography>

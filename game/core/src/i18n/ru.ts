@@ -157,6 +157,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Connecting: "Подключение",
     Connected: "Подключено",
     Reconnecting: "Переподключение…",
+    Offline: "Нет сети",
+    "Chat paused": "Чат приостановлен",
     "Too many people are watching this match. Trying again shortly.":
         "Слишком много зрителей у этого матча. Скоро попробуем снова.",
     "Watching as observer": "Режим наблюдателя",
