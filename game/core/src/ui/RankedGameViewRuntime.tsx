@@ -12,6 +12,7 @@ import {
     sendRankedReadinessWithRetry,
 } from "./rankedReadiness";
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
+import { premiumSetupDraft } from "./premium/premiumSetupDraft";
 import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
 import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
@@ -134,7 +135,7 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
 import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { startVisibleInterval } from "./visibleInterval";
-import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
+import { isOlderRankedSnapshot, playMissingRankedSnapshotRecords, waitForRankedPlayback } from "./rankedSnapshotSync";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -588,7 +589,8 @@ export const RankedGameView: React.FC<Props> = ({
             for (const [sequence, pendingRecord] of pending) {
                 const played = await playAuthoritativeRecordData(
                     pendingRecord.record,
-                    pendingRecord.stateAfterSnapshot ?? stateAfterSnapshot,
+                    pendingRecord.stateAfterSnapshot ??
+                        (sequence === stateAfterSnapshot.latestSequence ? stateAfterSnapshot : undefined),
                 );
                 pendingAuthoritativeRecordsRef.current.delete(sequence);
                 playedAny ||= played;
@@ -598,17 +600,26 @@ export const RankedGameView: React.FC<Props> = ({
         [playAuthoritativeRecordData],
     );
 
+    const reconcileLiveSnapshot = useCallback(
+        async (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
+            // Polls, reconnect snapshots and HTTP responses can beat the action delivery channel.
+            // Present missing journal entries before hydration makes their sequence look already played.
+            await waitForAuthoritativePlayback();
+            const presented = await playMissingRankedSnapshotRecords(
+                nextSnapshot,
+                snapshotRef.current,
+                playAuthoritativeRecord,
+            );
+            await waitForAuthoritativePlayback();
+            applySnapshot(nextSnapshot, { ...options, skipBoardRebuild: !!options?.skipBoardRebuild || presented });
+        },
+        [applySnapshot, playAuthoritativeRecord, waitForAuthoritativePlayback],
+    );
     const refreshSnapshot = useCallback(async () => {
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
         // undefined = the game is still drafting (204); there is nothing to reconcile against yet.
-        if (nextSnapshot) {
-            // A poll sees the final exchange while we may still be presenting its first blow. Applying
-            // it now can remove a fighter and cancel their animation callback, delaying the next blow
-            // until the replay timeout. Let the exchange settle before reconciling the board and UI.
-            await waitForAuthoritativePlayback();
-            applySnapshot(nextSnapshot);
-        }
-    }, [applySnapshot, gameId, waitForAuthoritativePlayback]);
+        if (nextSnapshot) await reconcileLiveSnapshot(nextSnapshot);
+    }, [gameId, reconcileLiveSnapshot]);
 
     const clearReplayTimers = useCallback(() => {
         replayTimersRef.current.forEach(window.clearTimeout);
@@ -831,7 +842,8 @@ export const RankedGameView: React.FC<Props> = ({
                                     });
                                 if (event.snapshot) {
                                     await waitForAuthoritativePlayback();
-                                    if (!closed) applySnapshot(event.snapshot, { skipBoardRebuild: played });
+                                    if (!closed)
+                                        await reconcileLiveSnapshot(event.snapshot, { skipBoardRebuild: played });
                                 }
                                 const sseError = rejectionErrorFromPlayEvent(event);
                                 if (sseError && !closed) setError(sseError);
@@ -868,6 +880,7 @@ export const RankedGameView: React.FC<Props> = ({
         manager,
         playAuthoritativeRecord,
         rememberAuthoritativeRecord,
+        reconcileLiveSnapshot,
         waitForAuthoritativePlayback,
         replayOnly,
     ]);
@@ -1045,7 +1058,7 @@ export const RankedGameView: React.FC<Props> = ({
             if (!canSubmitRankedBoardAction(snapshotRef.current, payload)) {
                 await waitForAuthoritativePlayback();
                 const current = snapshotRef.current;
-                if (current && !isModelSubmission) applySnapshot(current, { forceBoardRebuild: true });
+                if (current && !isModelSubmission) await reconcileLiveSnapshot(current, { forceBoardRebuild: true });
                 return false;
             }
             // Placement drops are already on the board. Waiting on the spinner here disabled the next
@@ -1078,7 +1091,7 @@ export const RankedGameView: React.FC<Props> = ({
                         send: (action) => sendRankedPlayAction(gameId, action, options),
                         refresh: async () => {
                             const fresh = await fetchRankedPlaySnapshot(gameId);
-                            if (fresh) applySnapshot(fresh);
+                            if (fresh) await reconcileLiveSnapshot(fresh);
                         },
                         getSnapshot: () => snapshotRef.current,
                         newActionId: uuidv4,
@@ -1125,14 +1138,17 @@ export const RankedGameView: React.FC<Props> = ({
                     shouldApplyActionResponseSnapshotToViewer(responseSnapshot, { isModelSubmission })
                 ) {
                     await waitForAuthoritativePlayback();
-                    applySnapshot(responseSnapshot, { skipBoardRebuild: played, forceBoardRebuild: rejected });
+                    await reconcileLiveSnapshot(responseSnapshot, {
+                        skipBoardRebuild: played,
+                        forceBoardRebuild: rejected,
+                    });
                 } else {
                     await waitForAuthoritativePlayback();
                     const fresh = await fetchRankedPlaySnapshot(gameId);
                     // A fight in progress always has a snapshot; undefined would mean the game left PLAY
                     // under us (finished/abandoned), in which case there is nothing to apply.
                     if (fresh) {
-                        applySnapshot(fresh, { forceBoardRebuild: rejected });
+                        await reconcileLiveSnapshot(fresh, { forceBoardRebuild: rejected });
                     }
                 }
                 if (
@@ -1257,6 +1273,7 @@ export const RankedGameView: React.FC<Props> = ({
             effectiveLocalModelConfig.modelTeam,
             playAuthoritativeRecord,
             refreshSnapshot,
+            reconcileLiveSnapshot,
             rememberAuthoritativeRecord,
             waitForAuthoritativePlayback,
             sandboxCoop,
@@ -3472,6 +3489,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
           : (augmentOverlayOpenState ?? true);
     // Same fit-to-window scale the pick/ban board uses, so the augment step never re-flows either.
     const draftScale = useDraftScale();
+    const [augmentPlannerHost, setAugmentPlannerHost] = useState<HTMLDivElement | null>(null);
     // Placement countdown for the header chip.
     const [augmentNowMs, setAugmentNowMs] = useState(Date.now());
     useEffect(() => {
@@ -3777,6 +3795,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             }}
                         >
                             <ModalDialog
+                                ref={setAugmentPlannerHost}
                                 layout="fullscreen"
                                 variant="plain"
                                 sx={{ ...draftShellSx, height: "100%", border: "none" }}
@@ -3938,6 +3957,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                 >
                                                     <PremiumSetupPanel
                                                         setupView
+                                                        draft={premiumSetupDraft(snapshot, userTeam)}
+                                                        plannerContainer={augmentPlannerHost}
                                                         gameId={snapshot.gameId}
                                                         stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
                                                     >

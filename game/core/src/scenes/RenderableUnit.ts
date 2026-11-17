@@ -32,6 +32,7 @@ import {
 import { CANNON_BALL_SIZE_MULTIPLIER } from "./TsarCannonImpact";
 import { whirlpoolEdgeScale } from "./sandbox/WhirlpoolWaterEdge";
 import { HIT_REACTION_ADDITIONAL_SPEED } from "../settings/hitTiming";
+import { SPELL_PROJECTILE_CAST_RELEASE_FRACTION } from "../settings/fireSpellTiming";
 import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
 import {
     MAGIC_DRAGON_LAB_DEATH_SPEED,
@@ -10856,6 +10857,37 @@ export class RenderableUnit extends Unit {
         return (
             getAnimationStateConfig(props.name, stateName, this.getFootprintWidth(), this.getFootprintHeight()) !== null
         );
+    }
+    /** Release during the cast, allowing the projectile and the creature's recovery to overlap.
+     * Fire Arrow has its own book charge, so start that lead-in early enough for the same release point. */
+    public onCastProjectileRelease(onRelease: () => void, projectileWindupMs = 0): boolean {
+        const anim = this.oneShotAnim;
+        if (
+            !anim ||
+            anim.stateName !== "cast" ||
+            anim.finished ||
+            anim.externallyDriven ||
+            anim.frames.length < 2 ||
+            !Number.isFinite(projectileWindupMs) ||
+            projectileWindupMs < 0
+        )
+            return false;
+        const durations = anim.frames.map((_frame, index) => anim.frameDurationsMs?.[index] ?? anim.durationPerFrame);
+        const releaseMs = Math.max(
+            0,
+            durations.reduce((sum, ms) => sum + ms, 0) * SPELL_PROJECTILE_CAST_RELEASE_FRACTION - projectileWindupMs,
+        );
+        let releaseFrame = 0;
+        let elapsed = 0;
+        while (releaseFrame < anim.frames.length - 1 && elapsed < releaseMs) {
+            elapsed += durations[releaseFrame++];
+        }
+        if (releaseFrame <= anim.frameIndex) onRelease();
+        else {
+            anim.projectileReleaseFrame = releaseFrame;
+            anim.projectileRelease = onRelease;
+        }
+        return true;
     }
     /** A mortally wounded melee actor still finishes its counter, with at most 150 ms less recovery.
      * Keep the current frame's phase and all remaining cels: starting death by replacing the attack

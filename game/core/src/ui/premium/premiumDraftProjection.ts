@@ -85,7 +85,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
         const zone = new RectanglePlacement(
             new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
             left ? PlacementPositionType.LEFT_BOTTOM : PlacementPositionType.RIGHT_TOP,
-            3,
+            left && draft.setup ? 3 + Math.max(0, Math.min(3, draft.setup.placement)) : 3,
             true,
         );
         const bodies: Body[] = units.map((unit) => ({
@@ -115,7 +115,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
             map: map ?? GridVals.NORMAL,
             artifacts: left ? [draft.artifactTier1, draft.artifactTier2] : [],
             doctrine: draft.doctrine ?? 0,
-            augments: [],
+            augments: left ? (draft.setup?.augments ?? []) : [],
             left,
             legal: [...zone.possibleCellHashes()],
         };
@@ -126,7 +126,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
             .sort((a, b) => b.body.width * b.body.height - a.body.width * a.body.height || a.index - b.index);
         for (const { body, index } of ordered) {
             const back = body.ranged || (body.caster && !units[index].melee);
-            const targetX = back ? body.width : 3;
+            const targetX = back ? body.width : left && draft.setup ? 3 + draft.setup.placement : 3;
             const targetY = 3 + (index % 3) * 4;
             const anchors = zone
                 .possibleCellPositions(true, body.width, body.height)
@@ -148,7 +148,10 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
         const supply = life.variant === 1 && supplyLevel ? (SynergyKeysToPower[`Life:1:${supplyLevel}`]?.[0] ?? 0) : 0;
         return bodies.map((body, index) => ({
             ...body,
-            amount: Math.floor(body.amount * (1 + supply / 100)),
+            amount:
+                left && draft.setup
+                    ? (draft.setup.amounts[body.creature] ?? body.amount)
+                    : Math.floor(body.amount * (1 + supply / 100)),
             position: planned[index],
             role: body.ranged
                 ? "Ranged pressure"
@@ -216,6 +219,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
         steps,
         arrows,
         artifacts,
+        setup: !!draft.setup,
         hiddenEnemy: Math.max(0, 6 - enemy.length),
     };
 }

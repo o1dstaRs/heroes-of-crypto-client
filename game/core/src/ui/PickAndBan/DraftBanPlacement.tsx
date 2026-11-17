@@ -2,6 +2,7 @@ import { Box } from "@mui/joy";
 import React from "react";
 import { DraftBanSummary } from "./DraftBanSummary";
 import { DraftBanSidebar } from "./DraftBanSidebar";
+import type { DraftBanColumns } from "./draftBanLayout";
 
 export type DraftBanPlacement = "inline" | "left" | "right" | "top" | "bottom";
 
@@ -22,9 +23,20 @@ export const DraftBanPlacementPreview: React.FC<{
     placement: Exclude<DraftBanPlacement, "inline">;
     banned: readonly number[];
     doctrine: number;
-}> = ({ placement, banned, doctrine }) => {
+    columns?: DraftBanColumns;
+    maxHeight?: number;
+}> = ({ placement, banned, doctrine, columns, maxHeight }) => {
     const sidebar = placement === "left" || placement === "right";
-    if (sidebar) return <DraftBanSidebar banned={banned} doctrine={doctrine} side={placement} />;
+    if (sidebar)
+        return (
+            <DraftBanSidebar
+                banned={banned}
+                doctrine={doctrine}
+                side={placement}
+                columns={columns}
+                maxHeight={maxHeight}
+            />
+        );
     return (
         <Box
             data-testid="draft-ban-placement"

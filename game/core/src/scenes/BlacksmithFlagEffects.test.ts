@@ -53,12 +53,17 @@ const cast = (spellName: string, outcome: string, unitId = "ally") =>
 
 test("only successful recorded runes announce their recipient, without a smith badge", () => {
     const f = fixture();
-    expect(f.scene.showBlacksmithCraft(f.caster)).toBe(0);
     f.scene.renderCastOutcomes(cast("Armor Rune", "enchanted"));
     f.scene.renderCastOutcomes(cast("Weapon Rune", "enchanted"));
     f.scene.renderCastOutcomes(cast("Armor Rune", "enchanted", "smith"));
     expect(f.pops).toEqual(["ally:blacksmith_armor", "ally:blacksmith_weapon", "smith:blacksmith_armor"]);
     expect(f.flashes).toEqual(["ally", "ally", "smith"]);
+});
+
+test("Craft retains its source animation independently of the recorded rune results", () => {
+    const f = fixture();
+    expect(f.scene.showBlacksmithCraft(f.caster)).toBeGreaterThan(0);
+    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
 });
 
 test("failed, absent and dead recipients never receive a successful rune cue", () => {
@@ -95,7 +100,7 @@ test.each(Object.entries(BLACKSMITH_CRAFT_FLAGS))(
         const events = cast("Craft", ability.includes("Frozen") ? "frozen" : "double");
         (events[0] as Extract<GameEvent, { type: "spell_cast" }>).outcomes![0].grantedAbility = ability;
         expect(f.scene.renderSpellCastSequence(f.caster, "Craft", events)).toBe(0);
-        expect(f.pops).toEqual([`ally:${kind}`]);
+        expect(f.pops).toEqual(["smith:blacksmith_craft", `ally:${kind}`]);
         expect(f.flashes).toEqual(["ally"]);
         expect(f.scheduled).toEqual([]);
     },
@@ -113,7 +118,7 @@ test("Craft backfire presents confirmed stun while an empty result keeps its tex
     const f = fixture();
     const events = [...cast("Craft", "stun", "smith"), ...cast("Craft", "nothing")];
     f.scene.renderSpellCastSequence(f.caster, "Craft", events);
-    expect(f.pops).toEqual(["smith:stun"]);
+    expect(f.pops).toEqual(["smith:blacksmith_craft", "smith:stun"]);
     expect(f.scheduled).toEqual([]);
     expect(f.failures).toEqual([{ x: 100, y: 200 }]);
     expect(f.flashes).toEqual([]);

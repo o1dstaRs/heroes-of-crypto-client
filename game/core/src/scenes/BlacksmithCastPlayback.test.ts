@@ -91,13 +91,14 @@ const fixture = (spellName: string, completed = true, authoritative = false) => 
 };
 
 test.each(["Craft", "Armor Rune", "Weapon Rune"])(
-    "local %s presents its recorded outcomes without a caster badge",
+    "local %s presents its recorded outcomes and keeps the Craft cast cue",
     (spellName) => {
         const f = fixture(spellName);
         const run = () =>
             spellName === "Craft" ? f.scene.castAreaSpellAtCell({ x: 2, y: 2 }) : f.scene.castSpellOnTarget(f.target);
         expect(run()).toBe(true);
-        expect(f.pops).not.toHaveBeenCalled();
+        if (spellName === "Craft") expect(f.pops).toHaveBeenCalledWith(f.caster, "blacksmith_craft", "combat");
+        else expect(f.pops).not.toHaveBeenCalled();
         expect(f.pending).toEqual([]);
         expect(f.outcomes).toHaveBeenCalledWith(f.localEvents);
     },
@@ -114,11 +115,12 @@ test.each(["Craft", "Armor Rune", "Weapon Rune"])("rejected local %s does not fo
 
 for (const completed of [true, false]) {
     test.each(["Craft", "Armor Rune", "Weapon Rune"])(
-        `recorded %s keeps authoritative outcomes without a caster badge with reapply=${completed}`,
+        `recorded %s keeps authoritative outcomes and the Craft cue with reapply=${completed}`,
         async (spellName) => {
             const f = fixture(spellName, completed);
             expect(await f.scene.playReplayCastSpellAction(f.record)).toBe(true);
-            expect(f.pops).not.toHaveBeenCalled();
+            if (spellName === "Craft") expect(f.pops).toHaveBeenCalledWith(f.caster, "blacksmith_craft", "combat");
+            else expect(f.pops).not.toHaveBeenCalled();
             expect(f.pending).toEqual([]);
             expect(f.delay).toHaveBeenCalledWith(150);
             expect(f.outcomes).toHaveBeenCalledWith(f.record.events);

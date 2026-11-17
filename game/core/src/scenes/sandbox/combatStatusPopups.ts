@@ -3,6 +3,7 @@ import type { FlagPopKind } from "./CommonFlagPops";
 export type FlagPopPresentation = "combat" | "preview";
 
 const STATUS_NAMES: Partial<Record<FlagPopKind, string>> = {
+    blacksmith_craft: "Craft",
     blacksmith_double_punch: "Crafted Double Punch",
     blacksmith_double_shot: "Crafted Double Shot",
     blacksmith_frozen_sword: "Crafted Frozen Sword",
@@ -59,5 +60,6 @@ const STATUS_POP_KINDS: ReadonlySet<FlagPopKind> = new Set([
 ]);
 
 export function shouldShowStatusFlagPop(kind: FlagPopKind, presentation: FlagPopPresentation): boolean {
-    return presentation === "preview" || STATUS_POP_KINDS.has(kind);
+    // Craft is an explicit cast cue. Other passive/attack badges still require a confirmed status.
+    return presentation === "preview" || kind === "blacksmith_craft" || STATUS_POP_KINDS.has(kind);
 }

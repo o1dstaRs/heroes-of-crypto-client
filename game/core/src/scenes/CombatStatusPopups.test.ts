@@ -40,7 +40,6 @@ test.each([
     "unicorn_retaliation",
     "enchanted_skin",
     "madness",
-    "blacksmith_craft",
     "lucky",
     "miss",
     "resist",
@@ -55,6 +54,13 @@ test.each([
     f.visuals.prepareCommonFlagPop(kind, "preview");
     f.visuals.spawnCommonFlagPop(f.unit, kind, "preview");
     expect(f.calls).toEqual([`preload:${kind}`, `spawn:${kind}`]);
+});
+
+test("the explicit Craft cast cue is retained in combat", () => {
+    const f = fixture();
+    f.visuals.prepareCommonFlagPop("blacksmith_craft");
+    f.visuals.spawnCommonFlagPop(f.unit, "blacksmith_craft");
+    expect(f.calls).toEqual(["preload:blacksmith_craft", "spawn:blacksmith_craft"]);
 });
 
 test.each([

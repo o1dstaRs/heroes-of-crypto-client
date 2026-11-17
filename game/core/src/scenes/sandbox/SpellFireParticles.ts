@@ -1,7 +1,7 @@
 import type { SpellAtmosphereEmitter } from "./SpellAtmosphere";
 import { emitFireAtmosphere } from "./FireSpellAtmosphere";
 import { Container, Graphics, Sprite, Texture } from "pixi.js";
-import { FIRE_SPELL_PLAYBACK_SPEED, METEOR_FLIGHT_SCALE } from "../../settings/fireSpellTiming";
+import { FIRE_SPELL_PLAYBACK_SPEED, FIRE_STRIKE_RELEASE_MS, METEOR_FLIGHT_SCALE } from "../../settings/fireSpellTiming";
 import { FIRE_RING_LIFE_MS, METEOR_FALL_MS, METEOR_IMPACT_MS, meteorImpactPlan } from "./SpellFireSprites";
 import type { WhirlpoolFootprint as Footprint } from "./WhirlpoolSprites";
 
@@ -24,7 +24,7 @@ type Cast = {
     cancelImpact?: () => void;
 };
 type PendingImpact = { finished: Promise<boolean>; present: () => void; cancel: () => void };
-export const FIRE_STRIKE_RELEASE_MS = 360;
+export { FIRE_STRIKE_RELEASE_MS } from "../../settings/fireSpellTiming";
 export const FIRE_STRIKE_BURN_MS = 1000;
 /** Only contact-to-fade accelerates; book release, travel and hit notification are unchanged. */
 export const FIRE_STRIKE_EXPLOSION_SPEED = 1.25;

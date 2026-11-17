@@ -54,6 +54,7 @@ import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftShellSx } from "./draftShell";
 import { DraftBanSummary } from "./DraftBanSummary";
+import { draftBanLayout } from "./draftBanLayout";
 import { DraftBanSlash } from "./DraftBanSlash";
 import { DraftBanPlacementPreview, type DraftBanPlacement } from "./DraftBanPlacement";
 import { draftAttackIconKind } from "./attackTypeIcon";
@@ -2883,6 +2884,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
     const viewport = useGameLayout();
+    const banLayout = draftBanLayout(viewport, draftScale, { width: DRAFT_BOARD_WIDTH, height: DRAFT_BOARD_HEIGHT });
+    const effectiveBanPlacement =
+        (banPlacement === "left" || banPlacement === "right") && !banLayout.docked ? "inline" : banPlacement;
     const { touch } = viewport;
     const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
@@ -3470,10 +3474,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     )}
 
                     {pickPhase !== PickPhaseVals.DOCTRINE &&
-                        (banPlacement === "inline" ? (
+                        (effectiveBanPlacement === "inline" ? (
                             <DraftBanSummary banned={banned} doctrine={doctrine} />
                         ) : (
-                            <DraftBanPlacementPreview placement={banPlacement} banned={banned} doctrine={doctrine} />
+                            <DraftBanPlacementPreview
+                                placement={effectiveBanPlacement}
+                                banned={banned}
+                                doctrine={doctrine}
+                                columns={banLayout.columns}
+                                maxHeight={banLayout.maxHeight}
+                            />
                         ))}
 
                     <Box

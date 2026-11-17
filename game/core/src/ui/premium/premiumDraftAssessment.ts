@@ -24,6 +24,8 @@ export interface PremiumDraftState {
     artifactTier2: number;
     isYourTurn: boolean | null;
     scouting?: IDraftScoutingContext;
+    /** Authoritative setup selections; absent while the army is still being drafted. */
+    setup?: { placement: number; augments: { kind: string; value: number }[]; amounts: Record<number, number> };
 }
 
 export interface PremiumDraftAssessment {

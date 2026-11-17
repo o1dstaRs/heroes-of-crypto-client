@@ -44,7 +44,7 @@ export const DraftPlannerBoard: React.FC<{
                 onClick={() => onSelect?.(key)}
                 aria-label={`${enemy ? "Enemy" : "Your"} ${unit.name}, ${unit.role}, projected ${unit.amount} creatures`}
                 aria-pressed={selected === key}
-                title={`${unit.name} · ${unit.role} · ${unit.amount} creatures (before setup augments)`}
+                title={`${unit.name} · ${unit.role} · ${unit.amount} creatures${plan.setup ? " (selected setup)" : " (before setup augments)"}`}
                 sx={{
                     position: "absolute",
                     left: `${(unit.position.x - unit.width + 1) * 6.25}%`,
@@ -190,7 +190,8 @@ export const PremiumDraftPlanner: React.FC<{
     draft: PremiumDraftState;
     impression?: React.Ref<HTMLDivElement>;
     children?: React.ReactNode;
-}> = ({ advice, draft, impression, children }) => {
+    portalContainer?: HTMLElement | null;
+}> = ({ advice, draft, impression, children, portalContainer }) => {
     // Pick timers rerender the shell every second. Re-plan only when the public draft changes.
     const sourceKey = JSON.stringify({ ...draft, scouting: advice.scouting ?? draft.scouting });
     const source = useMemo(() => JSON.parse(sourceKey) as PremiumDraftState, [sourceKey]);
@@ -343,7 +344,7 @@ export const PremiumDraftPlanner: React.FC<{
                 </Box>
                 <PremiumIcon size={16} />
                 <Typography level="title-sm" sx={{ flex: 1, color: ink, fontSize: 13 }}>
-                    Draft planner{" "}
+                    {source.setup ? "Army planner" : "Draft planner"}{" "}
                     <Box component="span" sx={{ color: muted, fontSize: 11 }}>
                         · {plan.own.length}/6
                     </Box>
@@ -657,5 +658,5 @@ export const PremiumDraftPlanner: React.FC<{
         </Box>
     );
     // Escape nested draft transforms; the movable window uses viewport coordinates throughout.
-    return typeof document === "undefined" ? content : createPortal(content, document.body);
+    return typeof document === "undefined" ? content : createPortal(content, portalContainer ?? document.body);
 };

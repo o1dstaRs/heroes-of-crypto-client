@@ -6,6 +6,9 @@ import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { SpellFireParticles } from "./sandbox/SpellFireParticles";
 import { spellFootprint } from "./sandbox/SpellFootprint";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { FIRE_SPELL_PLAYBACK_SPEED, FIRE_STRIKE_RELEASE_MS } from "../settings/fireSpellTiming";
+import { playMissingRankedSnapshotRecords } from "../ui/rankedSnapshotSync";
+import type { PlaySnapshot } from "../api/play_protocol";
 
 type ExposedScene = {
     renderSpellDamageVfx(
@@ -14,8 +17,8 @@ type ExposedScene = {
         units?: ReadonlyMap<string, object>,
     ): void;
     cleanupAfterSpell(events?: GameEvent[], units?: ReadonlyMap<string, object>): void;
-    playReplayCastSpellAction(record: unknown): Promise<boolean>;
-    playReplayActionRecord(record: unknown): Promise<boolean>;
+    playReplayCastSpellAction(record: unknown, deferTurnAdvance?: boolean): Promise<boolean>;
+    playReplayActionRecord(record: unknown, deferTurnAdvance?: boolean): Promise<boolean>;
     playSandboxReplayRecord(record: unknown): Promise<boolean>;
     playAuthoritativeActionRecord(action: GameAction, events: GameEvent[], state: unknown): Promise<boolean>;
     isAiActionPresentationBusy(): boolean;
@@ -112,7 +115,7 @@ function fixture(spellName = "Fire Strike", amount = 7, unitsDied = 0) {
         isSceneDestroyed: () => destroyed,
         snapshotRenderableUnits: () => new Map(units),
         playUnitCastSound: () => undefined,
-        playReplayOneShot: mock(async () => undefined),
+        playReplayOneShot: mock(async (): Promise<void> => undefined),
         spawnAbilityTransferVfx: () => undefined,
         renderHealVfx: () => undefined,
         renderCastOutcomes: mock(() => undefined),
@@ -178,6 +181,81 @@ function fixture(spellName = "Fire Strike", amount = 7, unitsDied = 0) {
         },
     };
 }
+
+for (const spell of ["Fire Strike", "Fireball"])
+    test(`${spell} starts at the cast release and still waits for both contact and creature recovery`, async () => {
+        const f = fixture(spell);
+        try {
+            let release!: () => void;
+            let complete!: () => void;
+            let returned = false;
+            const cast = new Promise<void>((resolve) => {
+                complete = resolve;
+            });
+            f.scene.playReplayOneShot.mockImplementation(() => cast);
+            const register = mock((callback: () => void, _windupMs: number) => {
+                release = callback;
+                return true;
+            });
+            Object.assign(f.caster, { onCastProjectileRelease: register });
+            const playback = f.scene.playReplayCastSpellAction(f.record).then((result) => {
+                returned = true;
+                return result;
+            });
+            await flush();
+            expect(register.mock.calls[0][1]).toBe(
+                spell === "Fire Strike" ? FIRE_STRIKE_RELEASE_MS / FIRE_SPELL_PLAYBACK_SPEED : 0,
+            );
+            expect(f.visuals.hasPendingSpellImpacts()).toBe(false);
+            release();
+            await flush();
+            expect(f.visuals.hasPendingSpellImpacts()).toBe(true);
+            expect(f.contacts).toEqual([]);
+            f.at(1000);
+            await flush();
+            expect(f.contacts).toHaveLength(1);
+            expect(returned).toBe(false);
+            expect(f.scene.applyReplayEvents).not.toHaveBeenCalled();
+            complete();
+            expect(await playback).toBe(true);
+            expect(f.scene.applyReplayEvents).toHaveBeenCalledTimes(1);
+            expect(f.contacts).toHaveLength(1);
+        } finally {
+            f.dispose();
+        }
+    });
+
+for (const spell of ["Fire Strike", "Fireball"])
+    test(`${spell} cannot launch after the scene is destroyed during cast wind-up`, async () => {
+        const f = fixture(spell);
+        try {
+            let release!: () => void;
+            let complete!: () => void;
+            const cast = new Promise<void>((resolve) => {
+                complete = resolve;
+            });
+            f.scene.playReplayOneShot.mockImplementation(() => cast);
+            Object.assign(f.caster, {
+                onCastProjectileRelease: (callback: () => void) => {
+                    release = callback;
+                    return true;
+                },
+            });
+            const launch = spyOn(f.scene, "renderSpellDamageVfx");
+            const playback = f.scene.playReplayCastSpellAction(f.record);
+            await flush();
+            f.destroy();
+            release();
+            complete();
+            expect(await playback).toBe(false);
+            expect(launch).not.toHaveBeenCalled();
+            expect(f.scene.applyReplayEvents).not.toHaveBeenCalled();
+            f.at(2000);
+            expect(f.contacts).toEqual([]);
+        } finally {
+            f.dispose();
+        }
+    });
 
 // R1: a cast clip finishing (and a rejected authoritative re-apply) is not projectile contact.
 for (const spell of ["Fire Strike", "Fireball"])
@@ -422,10 +500,72 @@ test("unavailable projectile resources fall back to the authoritative impact wit
     }
 });
 
+for (const spell of ["Fire Strike", "Fireball"])
+    test(`a lap-ending ${spell} never re-runs completeTurn while its delivery is pending`, async () => {
+        const f = fixture(spell);
+        try {
+            const apply = mock(() => {
+                throw new Error("Local completeTurn would narrow before delivery");
+            });
+            f.scene.createActionEngine = () => ({ apply });
+            f.scene.playReplayActionRecord = (record: unknown, deferTurnAdvance?: boolean) =>
+                f.scene.playReplayCastSpellAction(record, deferTurnAdvance);
+            f.record.events.push({ type: "narrowing_applied", layers: 1 } as unknown as GameEvent);
+            const playback = f.scene.playSandboxReplayRecord(f.record);
+            await flush();
+            expect(apply).not.toHaveBeenCalled();
+            expect(f.visuals.hasPendingSpellImpacts()).toBe(true);
+            expect(f.scene.applyReplayEvents).not.toHaveBeenCalled();
+            f.at(600);
+            expect(await playback).toBe(true);
+            expect(apply).not.toHaveBeenCalled();
+            expect(f.contacts).toHaveLength(1);
+            expect(f.scene.applyReplayEvents.mock.calls[1][0][0].type).toBe("narrowing_applied");
+        } finally {
+            f.dispose();
+        }
+    });
+
+test("a poll-first last-turn Fire Arrow keeps its real flight ahead of narrowing and hydration", async () => {
+    const f = fixture();
+    try {
+        f.scene.playReplayActionRecord = (record: unknown, deferTurnAdvance?: boolean) =>
+            f.scene.playReplayCastSpellAction(record, deferTurnAdvance);
+        f.record.events.push({ type: "narrowing_applied", layers: 1 } as unknown as GameEvent);
+        const next = {
+            gameId: "last-turn-cast",
+            latestSequence: 42,
+            serverTimeMs: 1000,
+            journalTail: [{ sequence: 42 }],
+        } as PlaySnapshot;
+        let hydrated = false;
+        const poll = playMissingRankedSnapshotRecords(next, { ...next, latestSequence: 41 }, async () =>
+            f.scene.playSandboxReplayRecord(f.record),
+        ).then(() => {
+            hydrated = true;
+        });
+        await flush();
+        expect(f.visuals.hasPendingSpellImpacts()).toBe(true);
+        f.at(150);
+        await flush();
+        expect(hydrated).toBe(false);
+        expect(f.scene.applyReplayEvents).not.toHaveBeenCalled();
+        expect(f.contacts).toEqual([]);
+        f.at(600);
+        await poll;
+        expect(f.contacts).toHaveLength(1);
+        expect(f.scene.applyReplayEvents.mock.calls[1][0][0].type).toBe("narrowing_applied");
+        expect(hydrated).toBe(true);
+    } finally {
+        f.dispose();
+    }
+});
+
 test("a lap-ending replay cannot apply narrowing until the spell impact was presented", async () => {
     const f = fixture();
     try {
-        f.scene.playReplayActionRecord = (record: unknown) => f.scene.playReplayCastSpellAction(record);
+        f.scene.playReplayActionRecord = (record: unknown, deferTurnAdvance?: boolean) =>
+            f.scene.playReplayCastSpellAction(record, deferTurnAdvance);
         f.record.events.push({ type: "narrowing_applied", layers: 1 } as unknown as GameEvent);
         const playback = f.scene.playSandboxReplayRecord(f.record);
         await flush();

@@ -59,7 +59,11 @@ import { PEGASUS_WINGED_SWORD_AURA_KEY, resetPegasusWingedSwordAuras } from "./P
 import { readCyclopsImpactMode, type CyclopsImpactMode } from "./sandbox/CyclopsFracturePhysics";
 import { showsEnchantedSkinShield } from "./enchantedSkinVisual";
 import { ZENA_CHAKRAM_AURA_KEY, resetZenaChakramAuras } from "./ZenaChakramAura";
-import type { FireSpellRenderMode } from "../settings/fireSpellTiming";
+import {
+    FIRE_SPELL_PLAYBACK_SPEED,
+    FIRE_STRIKE_RELEASE_MS,
+    type FireSpellRenderMode,
+} from "../settings/fireSpellTiming";
 import { lastCannonHit } from "./TsarCannonImpact";
 import { angelResurrectionActor } from "./sandbox/angelResurrectionEvent";
 import { chainLightningRecipients } from "./sandbox/chainLightningRecipients";
@@ -3726,7 +3730,7 @@ export class Sandbox extends PixiScene {
         const lapIndex = record.events.findIndex((event) => event.type === "lap_flipped");
         const splitAt = lapIndex >= 0 && lapIndex < narrowingIndex ? lapIndex : narrowingIndex;
         const epoch = this.narrowingPlaybackEpoch ?? 0;
-        const played = await this.playReplayActionRecord({ ...record, events: record.events.slice(0, splitAt) });
+        const played = await this.playReplayActionRecord({ ...record, events: record.events.slice(0, splitAt) }, true);
         if (!played || this.isSceneDestroyed()) return played;
         await this.waitForNarrowingPredecessors(epoch);
         if (this.isSceneDestroyed() || (this.narrowingPlaybackEpoch ?? 0) !== epoch) return false;
@@ -3734,7 +3738,10 @@ export class Sandbox extends PixiScene {
         await this.narrowingPresentation;
         return !this.isSceneDestroyed() && (this.narrowingPlaybackEpoch ?? 0) === epoch;
     }
-    private async playReplayActionRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+    private async playReplayActionRecord(
+        record: SandboxReplay["actions"][number],
+        deferTurnAdvance = false,
+    ): Promise<boolean> {
         this.preparePyreDeaths?.(record.events);
         const action = cloneReplayData(record.action);
         const replayActorId = this.getReplayTurnActorId(action);
@@ -3762,7 +3769,7 @@ export class Sandbox extends PixiScene {
             case "area_throw_attack":
                 return this.playReplayAreaThrowAction(record);
             case "cast_spell":
-                return this.playReplayCastSpellAction(record);
+                return this.playReplayCastSpellAction(record, deferTurnAdvance);
             case "end_turn":
             case "wait_turn":
             case "defend_turn":
@@ -7697,7 +7704,10 @@ export class Sandbox extends PixiScene {
         await this.performAreaThrow(unit, action.targetCell, cellPosition, record);
         return true;
     }
-    private async playReplayCastSpellAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
+    private async playReplayCastSpellAction(
+        record: SandboxReplay["actions"][number],
+        deferTurnAdvance = false,
+    ): Promise<boolean> {
         const action = record.action;
         if (action.type !== "cast_spell") {
             return false;
@@ -7726,13 +7736,30 @@ export class Sandbox extends PixiScene {
             if (fromCell && targetCell)
                 this.vineLayer?.previewCast(VineHelper.vinePathCells(fromCell, targetCell), 470, fromCell);
         }
+        let castCompletion: Promise<void> | undefined;
         if (caster.hasAnimationState("cast") && !(caster.getName() === "Harpy" && action.spellName === "Castling")) {
-            await this.playReplayOneShot(
+            castCompletion = this.playReplayOneShot(
                 caster,
                 "cast",
                 caster.getName() === "Wandering Mage" ? 1500 : caster.getName() === "Trent" ? 1200 : 720,
             );
+            const projectileWindupMs =
+                action.spellName === "Fire Strike"
+                    ? FIRE_STRIKE_RELEASE_MS / FIRE_SPELL_PLAYBACK_SPEED
+                    : action.spellName === "Fireball"
+                      ? 0
+                      : undefined;
+            if (projectileWindupMs === undefined) await castCompletion;
+            else {
+                // Await the authored release frame, then keep the full cast alive alongside flight.
+                // Completion also releases missing clips and the scene-owned timeout/cancellation path.
+                await new Promise<void>((resolve) => {
+                    caster.onCastProjectileRelease?.(resolve, projectileWindupMs);
+                    void castCompletion!.then(resolve);
+                });
+            }
         }
+        if (this.isSceneDestroyed()) return false;
 
         // Craft announces its cast over the smith's flag. The recorded outcomes remain authoritative;
         // replay must never infer rune success from a fresh local roll.
@@ -7831,7 +7858,8 @@ export class Sandbox extends PixiScene {
             // (the existing server-id stack is already present, so syncSummonedUnit only refreshes its visual).
             this.renderHealVfx(record.events);
             this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
-            if (!(await this.waitForSpellDamageDelivery())) return false;
+            const [delivered] = await Promise.all([this.waitForSpellDamageDelivery(), castCompletion]);
+            if (!delivered) return false;
             this.renderCastOutcomes(record.events);
             this.renderSnareResistVfx(record.events);
             for (const summon of authoritativeSummons) {
@@ -7847,7 +7875,11 @@ export class Sandbox extends PixiScene {
         // re-apply after the authoritative turn has already advanced, but the server-stated transfer must
         // still animate on both players' clients.
         this.spawnAbilityTransferVfx(record.events, unitSnapshot);
-        const result = this.createActionEngine().apply(action);
+        // Re-running completeTurn for a lap-ending cast can move border units and narrow the local
+        // grid before its projectile even exists. The recorded action and map phases already own it.
+        const result = deferTurnAdvance
+            ? { completed: false, events: [] as GameEvent[] }
+            : this.createActionEngine().apply(action);
         // Heal numbers come from the RECORD, not `result`: the local re-apply above is best-effort and in
         // ranked is routinely rejected, whereas the record is what the server actually resolved. Safe to
         // render during playback (unlike the outcome-dependent pops below) because `healed[]` is
@@ -7856,7 +7888,8 @@ export class Sandbox extends PixiScene {
         // Fire Strike / Meteorite: same reasoning as the heal above — `damaged[]` on the RECORD is what the
         // server resolved, so the fire and the numbers are safe to play during replay.
         this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
-        if (!(await this.waitForSpellDamageDelivery())) return false;
+        const [delivered] = await Promise.all([this.waitForSpellDamageDelivery(), castCompletion]);
+        if (!delivered) return false;
         // The record is authoritative even if the local re-apply was rejected after turn handover.
         const castSequenceMs = this.renderSpellCastSequence(caster, action.spellName, record.events);
         this.onReplaySpellImpact(record);
@@ -10483,32 +10516,37 @@ export class Sandbox extends PixiScene {
     }
     private prepareBlacksmithCast(spellName: string, preview = false): void {
         if (!isBlacksmithSpell(spellName)) return;
-        if (preview) this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft", "preview");
+        if (preview || spellName === "Craft")
+            this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft", preview ? "preview" : "combat");
         const rune = blacksmithRuneFlagKind(spellName);
         for (const kind of rune ? [rune] : Object.values(BLACKSMITH_CRAFT_FLAGS)) {
             this.combatVisuals?.prepareCommonFlagPop(kind);
         }
         if (spellName === "Craft") this.combatVisuals?.prepareCommonFlagPop("stun");
     }
-    /** Combat announces recorded recipients; source art and its delay remain available in the lab. */
+    /** Craft keeps its forge cast cue in combat; recipient results still come only from the record. */
     private renderSpellCastSequence(
         caster: RenderableUnit,
         spellName: string,
         events: readonly GameEvent[] | undefined,
         preview = false,
     ): number {
-        if (!preview || !isBlacksmithSpell(spellName)) {
+        if (!isBlacksmithSpell(spellName) || (!preview && spellName !== "Craft")) {
             this.renderCastOutcomes(events);
             return 0;
         }
-        this.prepareBlacksmithCast(spellName, true);
-        const forgeMs = this.showBlacksmithCraft(caster, true);
+        this.prepareBlacksmithCast(spellName, preview);
+        const forgeMs = this.showBlacksmithCraft(caster, preview);
+        if (!preview) {
+            // Like other above-flag cast cues, the forge may linger while the recorded results appear.
+            this.renderCastOutcomes(events);
+            return 0;
+        }
         this.scheduleSceneTimeout(() => this.renderCastOutcomes(events), forgeMs + 80);
         return forgeMs + 80 + OVERHEAD_EFFECT_DURATION_MS;
     }
     private showBlacksmithCraft(caster: RenderableUnit, preview = false): number {
-        if (!preview) return 0;
-        this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft", "preview");
+        this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft", preview ? "preview" : "combat");
         return OVERHEAD_EFFECT_DURATION_MS;
     }
     private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean): void {

@@ -1,5 +1,5 @@
 import { Doctrine, getCreatureLevel } from "@heroesofcrypto/common";
-import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
+import { Box, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
 import { tf, useTranslation } from "../../i18n/i18n";
@@ -7,18 +7,25 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { DraftBanSlash } from "./DraftBanSlash";
 
-// The full ban list previously rendered 51.6px portraits inside its fixed-height rail.
-const BAN_ICON_HEIGHT = Number((51.6 * 1.15).toFixed(2));
-const BAN_ICON_WIDTH = BAN_ICON_HEIGHT * 0.8;
-const BAN_ICON_GAP = 2;
-const BAN_FRAME_WIDTH = BAN_ICON_WIDTH * 2 + BAN_ICON_GAP * 3 + 2;
+import {
+    DRAFT_BAN_ICON_HEIGHT as BAN_ICON_HEIGHT,
+    DRAFT_BAN_ICON_WIDTH as BAN_ICON_WIDTH,
+    DRAFT_BAN_ICON_GAP as BAN_ICON_GAP,
+    DRAFT_BAN_SIDE_OFFSET,
+    DRAFT_BAN_TOP,
+    draftBanRailWidth,
+    type DraftBanColumns,
+} from "./draftBanLayout";
 
 /** Only group identities already authorized by the private draft stream. */
 export const DraftBanSidebar: React.FC<{
     banned: readonly number[];
     doctrine: number;
     side?: "left" | "right";
-}> = ({ banned, doctrine, side = "right" }) => {
+    columns?: DraftBanColumns;
+    maxHeight?: number;
+}> = ({ banned, doctrine, side = "right", columns = 2, maxHeight }) => {
+    const width = draftBanRailWidth(columns);
     const { t } = useTranslation();
     if (doctrine !== Doctrine.Doctrine.THREE_REVEALS && doctrine !== Doctrine.Doctrine.SEE_ALL) return null;
     const visible = [...new Set(banned)].filter((id) => !!UNIT_ID_TO_NAME[id]);
@@ -31,66 +38,36 @@ export const DraftBanSidebar: React.FC<{
         <Box
             data-testid="draft-ban-placement"
             data-placement={side}
+            data-ban-columns={columns}
             sx={{
                 position: "absolute",
                 zIndex: 6,
-                top: "24px",
-                maxHeight: "calc(100% - 48px)",
+                top: `${DRAFT_BAN_TOP}px`,
+                maxHeight: maxHeight === undefined ? "calc(100% - 120px)" : `${maxHeight}px`,
                 overflowY: "auto",
+                overflowX: "hidden",
                 scrollbarWidth: "thin",
-                [side]: `${-BAN_FRAME_WIDTH - 18}px`,
-                width: `${BAN_FRAME_WIDTH}px`,
+                [side]: `${-width - DRAFT_BAN_SIDE_OFFSET}px`,
+                width: `${width}px`,
                 height: "auto",
-                // Keep the standard creature grid when the window has no side gutter.
-                "@media (max-aspect-ratio: 3/2)": {
-                    left: "22px",
-                    right: "22px",
-                    top: { xs: "72px", md: "132px" },
-                    width: "auto",
-                    height: { xs: "40px", md: "58px" },
-                    maxHeight: "none",
-                    "& > section": { gridTemplateColumns: "104px minmax(0, 1fr)", gridTemplateRows: "1fr", py: "5px" },
-                    "& .draft-ban-heading": { flexDirection: "column", gap: 0, fontSize: "11px" },
-                    "& .draft-ban-groups": { display: "flex", flexDirection: "row", gap: "8px" },
-                    "& .draft-ban-group": {
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        borderTop: 0,
-                        borderLeft: "1px solid #b28a4d44",
-                        pl: "8px",
-                        pt: 0,
-                    },
-                    "& .draft-ban-level": {
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        gap: "2px",
-                    },
-                    "& ul": { display: "flex", justifyContent: "space-evenly", flex: 1, gap: "3px" },
-                    "& li": { width: { xs: "22.4px", md: "35.2px" }, height: { xs: "28px", md: "44px" } },
-                },
             }}
         >
-            <Sheet
+            <Box
                 component="section"
                 aria-label={t("Banned creatures")}
                 data-testid="draft-ban-summary"
                 sx={{
                     display: "grid",
                     gridTemplateRows: "auto auto",
-                    gap: "8px",
+                    gap: "12px",
                     width: "100%",
                     height: "auto",
                     minHeight: 0,
                     p: `${BAN_ICON_GAP}px`,
                     pb: "8px",
-                    bgcolor: "rgba(20,13,7,.9)",
+                    background: "linear-gradient(90deg, transparent, #100c0877 12%, #100c0877 88%, transparent)",
                     color: "#efe4cc",
-                    border: "1px solid rgba(211,166,91,.35)",
-                    borderRadius: "8px",
                     boxSizing: "border-box",
-                    boxShadow: "inset 0 0 0 2px #100c0877, 0 3px 12px #0008",
                 }}
             >
                 <Typography
@@ -110,7 +87,7 @@ export const DraftBanSidebar: React.FC<{
                 </Typography>
                 <Box
                     className="draft-ban-groups"
-                    sx={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: 0 }}
+                    sx={{ display: "flex", flexDirection: "column", gap: "12px", minHeight: 0 }}
                 >
                     {groups.map(({ level, ids }) => (
                         <Box
@@ -126,8 +103,6 @@ export const DraftBanSidebar: React.FC<{
                                 display: "grid",
                                 gridTemplateRows: "14px auto",
                                 gap: "4px",
-                                borderTop: "1px solid #b28a4d55",
-                                pt: "5px",
                             }}
                         >
                             <Typography
@@ -140,6 +115,13 @@ export const DraftBanSidebar: React.FC<{
                                     color: "#d4bb8e",
                                     fontSize: "10px",
                                     letterSpacing: "1px",
+                                    gap: "8px",
+                                    "&::before, &::after": {
+                                        content: '""',
+                                        height: "1px",
+                                        flex: 1,
+                                        background: "linear-gradient(90deg, transparent, #b28a4d66, transparent)",
+                                    },
                                     lineHeight: 1,
                                 }}
                             >
@@ -149,11 +131,10 @@ export const DraftBanSidebar: React.FC<{
                                 component="ul"
                                 sx={{
                                     display: "grid",
-                                    gridTemplateColumns: `repeat(2, ${BAN_ICON_WIDTH}px)`,
-                                    gridTemplateRows: `repeat(${Math.ceil(ids.length / 2)}, ${BAN_ICON_HEIGHT}px)`,
-                                    justifyItems: "end",
+                                    gridTemplateColumns: `repeat(${columns}, ${BAN_ICON_WIDTH}px)`,
+                                    gridTemplateRows: `repeat(${Math.ceil(ids.length / columns)}, ${BAN_ICON_HEIGHT}px)`,
+                                    justifyContent: "center",
                                     gap: `${BAN_ICON_GAP}px`,
-                                    "& > li:nth-of-type(even)": { justifySelf: "start" },
                                     minHeight: 0,
                                     m: 0,
                                     p: 0,
@@ -175,8 +156,8 @@ export const DraftBanSidebar: React.FC<{
                                                 boxSizing: "border-box",
                                                 flexShrink: 0,
                                                 overflow: "visible",
-                                                border: "1px solid rgba(187,83,70,.65)",
-                                                borderRadius: "4px",
+                                                borderRadius: "8px",
+                                                boxShadow: "0 2px 6px #0008",
                                                 "&:hover, &:focus-visible": {
                                                     outline: "1px solid #d3a65b",
                                                     outlineOffset: "1px",
@@ -190,7 +171,7 @@ export const DraftBanSidebar: React.FC<{
                                                     width: "100%",
                                                     height: "100%",
                                                     opacity: 0.75,
-                                                    borderRadius: "3px",
+                                                    borderRadius: "8px",
                                                     zIndex: 1,
                                                     isolation: "isolate",
                                                 }}
@@ -203,7 +184,7 @@ export const DraftBanSidebar: React.FC<{
                         </Box>
                     ))}
                 </Box>
-            </Sheet>
+            </Box>
         </Box>
     );
 };

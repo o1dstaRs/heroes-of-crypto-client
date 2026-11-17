@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { DRAFT_BAN_FRAME_WIDTH, DRAFT_BAN_SIDE_OFFSET, draftBanLayout } from "./draftBanLayout";
+import { DRAFT_BAN_SIDE_OFFSET, draftBanLayout } from "./draftBanLayout";
 
 const board = { width: 1340, height: 880 };
 const scaleFor = (width: number, height: number) =>
@@ -20,9 +20,15 @@ test.each([
     expect(result.docked).toBe(docked);
     expect(result.maxHeight).toBeGreaterThan(0);
     if (result.docked) {
-        const right = (width + board.width * scale) / 2 + (DRAFT_BAN_FRAME_WIDTH + DRAFT_BAN_SIDE_OFFSET) * scale;
+        const right = (width + board.width * scale) / 2 + (result.width + DRAFT_BAN_SIDE_OFFSET) * scale;
         expect(right).toBeLessThanOrEqual(width - 8);
     }
+});
+
+test("wide gutters open four columns, then compact before the rail can cover the choices", () => {
+    expect(draftBanLayout({ width: 2560, height: 1277, touch: false }, scaleFor(2560, 1277), board).columns).toBe(4);
+    expect(draftBanLayout({ width: 1728, height: 1117, touch: false }, scaleFor(1728, 1117), board).columns).toBe(2);
+    expect(draftBanLayout({ width: 1440, height: 900, touch: false }, scaleFor(1440, 900), board).docked).toBe(false);
 });
 
 test.each([

@@ -300,8 +300,10 @@ export const PremiumSetupPanel: React.FC<{
     stageKey: string;
     auto?: boolean;
     setupView?: boolean;
+    draft?: PremiumDraftState;
+    plannerContainer?: HTMLElement | null;
     children?: React.ReactNode;
-}> = ({ gameId, stageKey, auto = false, setupView = false, children }) => {
+}> = ({ gameId, stageKey, auto = false, setupView = false, draft, plannerContainer, children }) => {
     const enabled = usePremiumCapability("setup");
     const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
     const impression = usePremiumAdviceView(gameId, advice?.adviceId);
@@ -316,6 +318,9 @@ export const PremiumSetupPanel: React.FC<{
     if (!advice || advice.stage === "fight") return <>{children}</>;
     return (
         <PremiumContext.Provider value={advice}>
+            {setupView && draft && advice.entitlement.active && (
+                <PremiumDraftPlanner advice={advice} draft={draft} portalContainer={plannerContainer} />
+            )}
             <Box
                 data-testid={setupView ? "premium-setup-layout" : undefined}
                 sx={

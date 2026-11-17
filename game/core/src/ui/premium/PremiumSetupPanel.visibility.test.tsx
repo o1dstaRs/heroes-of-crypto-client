@@ -10,9 +10,9 @@ const preferences = await import("./usePremiumPreference");
 mock.module("./usePremiumPreference", () => ({ ...preferences, usePremiumCapability: () => true }));
 const { PremiumSetupPanel } = await import("./PremiumAdvisor");
 
-const render = (stage: "setup" | "board") => {
+const render = (stage: "setup" | "board", active = true) => {
     const advice = {
-        entitlement: { active: true, reason: "test" },
+        entitlement: { active, reason: "test" },
         stage,
         canUndo: true,
         reasons: ["Formation spacing"],
@@ -20,7 +20,19 @@ const render = (stage: "setup" | "board") => {
     return renderToStaticMarkup(
         <CacheProvider value={createCache({ key: "premium-controls" })}>
             <PremiumPreviewContext.Provider value={advice}>
-                <PremiumSetupPanel gameId="fixture" stageKey={stage} setupView={stage === "setup"}>
+                <PremiumSetupPanel
+                    gameId="fixture"
+                    stageKey={stage}
+                    setupView={stage === "setup"}
+                    draft={{
+                        picked: [],
+                        opponentPicked: [],
+                        artifactTier1: 0,
+                        artifactTier2: 0,
+                        isYourTurn: false,
+                        setup: { placement: 0, amounts: {}, augments: [] },
+                    }}
+                >
                     <span>BOARD CONTENT</span>
                 </PremiumSetupPanel>
             </PremiumPreviewContext.Provider>
@@ -39,4 +51,11 @@ test("the setup view retains its build action and comparison layout beside the a
     expect(html).toContain("Use recommended build");
     expect(html).toContain("premium-setup-layout");
     expect(html).toContain("BOARD CONTENT");
+    expect(html).toContain("data-premium-draft-planner");
+    expect(html).toContain("Army planner");
+});
+
+test("the projected setup remains gated by Premium and does not cover the actual placement board", () => {
+    expect(render("setup", false)).not.toContain("data-premium-draft-planner");
+    expect(render("board")).not.toContain("data-premium-draft-planner");
 });

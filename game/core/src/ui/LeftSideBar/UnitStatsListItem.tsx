@@ -518,9 +518,6 @@ const AbilityCell: React.FC<{
                             {`includes +${ability.amplifiedBy.percent}% from ${ability.amplifiedBy.name}`}
                         </Box>
                     )}
-                    <Box sx={{ display: "flex", mt: 0.5 }}>
-                        <PremiumUnitQuestionButton topic={{ kind: "ability", name: ability.name }} />
-                    </Box>
                 </>
             }
             describeChild
@@ -1097,14 +1094,7 @@ const EffectTiles: React.FC<{
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
-                        title={
-                            <>
-                                {`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
-                                <Box sx={{ display: "flex", mt: 0.5 }}>
-                                    <PremiumUnitQuestionButton topic={{ kind: "status", name: effect.name }} />
-                                </Box>
-                            </>
-                        }
+                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
                         describeChild
                         sx={commonTooltipSx}
                     >
