@@ -1538,11 +1538,30 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         "@media (max-height: 820px)": { flex: "0 0 auto", minHeight: "auto", overflow: "visible" },
                     }}
                 >
-                    <CasualtyChartPanel
-                        series={stats.series}
-                        deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
-                        ornateResultsFrame
-                    />
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: { xs: "column", md: "row" },
+                            alignItems: { xs: "stretch", md: "center" },
+                            gap: { xs: 0, md: 1.5 },
+                            flexShrink: 0,
+                        }}
+                    >
+                        <Box data-result-chart sx={{ flex: "1 1 auto", minWidth: 0 }}>
+                            <CasualtyChartPanel
+                                series={stats.series}
+                                deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
+                                ornateResultsFrame
+                            />
+                        </Box>
+                        {/* Keep the global icons beside the plot; on phones they sit below its right edge. */}
+                        <Box
+                            data-result-synergy-side
+                            sx={{ flex: "0 0 auto", alignSelf: { xs: "flex-end", md: "center" } }}
+                        >
+                            <FightSetupSummary setup={stats.setup} />
+                        </Box>
+                    </Box>
 
                     {/* Both armies share one scroll area, used only when the screen is too short. */}
                     <Box
@@ -1563,7 +1582,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             },
                         }}
                     >
-                        <FightSetupSummary setup={stats.setup} />
                         <ResultsSectionPlaque label="DAMAGE DEALT" />
                         <DamageBreakdown entries={stats.damageByUnit ?? []} />
                     </Box>
