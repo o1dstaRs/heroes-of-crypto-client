@@ -5,6 +5,15 @@ export const STUN_STAR_COUNT = 5;
 const TAIL_COUNT = 4;
 const TAU = Math.PI * 2;
 
+/** Small persistent body tremor; the flag, floor anchor and logical battlefield position stay still. */
+export function stunBodyShake(nowMs: number, cell: number, phaseRatio = 0): { x: number; y: number } {
+    const phase = phaseRatio * TAU;
+    return {
+        x: cell * 0.022 * (Math.sin(nowMs * 0.041 + phase) * 0.72 + Math.sin(nowMs * 0.067 + phase * 2) * 0.28),
+        y: cell * 0.006 * Math.sin(nowMs * 0.033 + phase),
+    };
+}
+
 /** Screen-facing ellipse, with a small independent bob and a slow metal-face tumble. */
 export function stunStarPose(index: number, nowMs: number, lag = 0) {
     const phase = nowMs * 0.0028 + (index * TAU) / STUN_STAR_COUNT - lag;

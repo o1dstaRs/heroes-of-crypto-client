@@ -320,7 +320,7 @@ import {
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
-import { StunStars } from "./StunStars";
+import { StunStars, stunBodyShake } from "./StunStars";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import {
     EMBER_COVENANT_STATUS,
@@ -4535,9 +4535,7 @@ export class RenderableUnit extends Unit {
             spriteVisible &&
             this.visualMode === "normal" &&
             this.getDisplayedAmount() > 0 &&
-            this.shouldShowStunIndicator() &&
-            !this.hasPresentedStatus("Blindness") &&
-            !this.hasPresentedStatus("Whirlpool") &&
+            this.shouldShowStunFeedback() &&
             this.badgeContainer &&
             this.badgeDrawState &&
             this.oneShotAnim?.stateName !== "death"
@@ -4550,6 +4548,16 @@ export class RenderableUnit extends Unit {
                 this.badgeDrawState.geometry.headerWidth,
                 this.badgeDrawState.geometry.flagHeight,
             );
+            // INTENDED: Blindness and authoritative skip-only snapshots use the same feedback as Stun.
+            // Use presented status, so neither stars nor shaking can precede projectile contact.
+            // This is a body-only offset applied after the frame's base pose, never a movement/recoil.
+            const shake = stunBodyShake(
+                now,
+                gs.getCellSize() * battlefieldPerspectiveScale,
+                this.refreshedIdlePhaseRatio,
+            );
+            this.sprite.x += shake.x * this.stunStars.root.alpha;
+            this.sprite.y += shake.y * this.stunStars.root.alpha;
         } else this.stunStars?.hide();
         if (battleMageDeathAlpha === 0) {
             if (this.badgeContainer) this.badgeContainer.visible = false;
@@ -12972,7 +12980,7 @@ export class RenderableUnit extends Unit {
     }
     private refreshTurnStatusIndicators(): void {
         if (isAiSearchSimulating()) return;
-        if (!this.shouldShowStunIndicator()) this.stunStars?.hide();
+        if (!this.shouldShowStunFeedback()) this.stunStars?.hide();
         if (this.badgeContainer && this.badgeDrawState) this.ensureFlagStatusIndicators();
     }
     public override setWebMovementLocked(locked: boolean): void {
@@ -13014,6 +13022,15 @@ export class RenderableUnit extends Unit {
     }
     private shouldShowStunIndicator(): boolean {
         return this.isSkippingForDisplay() && !this.hasPresentedStatus("Freeze");
+    }
+    private shouldShowStunFeedback(): boolean {
+        // Whirlpool keeps its own visual, but must not hide an accompanying Stun or Blindness.
+        return (
+            this.shouldShowStunIndicator() &&
+            (!this.hasPresentedStatus("Whirlpool") ||
+                this.hasPresentedStatus("Stun") ||
+                this.hasPresentedStatus("Blindness"))
+        );
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
