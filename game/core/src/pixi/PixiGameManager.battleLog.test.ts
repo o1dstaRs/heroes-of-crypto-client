@@ -16,6 +16,7 @@ const fixture = () => {
         narrowing: false,
         liveReplay: false,
         fullReplay: false,
+        ability: false,
     };
     const log = new SceneLog();
     const scene = Object.assign(Object.create(Sandbox.prototype), {
@@ -35,6 +36,7 @@ const fixture = () => {
         narrowingPresentation: { get: () => state.narrowing },
         replayPlaybackActive: { get: () => state.liveReplay || state.fullReplay },
         fightReplayPlaybackActive: { get: () => state.fullReplay },
+        pendingAbilityPresentations: { get: () => (state.ability ? new Set([{}]) : undefined) },
     });
     const manager = new PixiGameManager();
     Object.assign(manager, { m_scene: scene });
@@ -54,6 +56,7 @@ const busyStates = [
     "death",
     "narrowing",
     "liveReplay",
+    "ability",
 ] as const;
 
 test.each(busyStates)("battle log retains outcomes until %s presentation finishes", (busy) => {

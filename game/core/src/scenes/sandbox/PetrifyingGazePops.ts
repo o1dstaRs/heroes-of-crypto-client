@@ -6,6 +6,7 @@ import { images } from "../../imageAssets";
 
 type Anchor = Readonly<{ x: number; y: number }>;
 export const PETRIFYING_GAZE_DURATION_MS = OVERHEAD_EFFECT_DURATION_MS;
+export const PETRIFYING_GAZE_REACTION_TIMEOUT_MS = 3000;
 const MAX_POPS = 24;
 const ART = animationAtlases["Vfx Petrifying Gaze"].pop;
 const FRAME_DURATIONS = ART.frameDurationsMs ?? Array<number>(ART.frameCount).fill(1000 / ART.frameCount);
@@ -79,7 +80,8 @@ export class PetrifyingGazePops {
             const offset = cell * 0.07;
             container.position.set(position.x, position.y + offset);
             this.attach(container, 5520, follow);
-            this.pops.set(id, { container, sprite, frames, started: this.now(), follow, offset });
+            // Contact owns the clock, even if a cold atlas arrives partway through the cue.
+            this.pops.set(id, { container, sprite, frames, started: requested, follow, offset });
             this.update();
         } finally {
             if (generation === this.generation) this.pending.delete(id);

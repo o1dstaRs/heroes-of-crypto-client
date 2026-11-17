@@ -3,6 +3,7 @@ import { Container, Graphics } from "pixi.js";
 import { GridConstants, GridSettings, type GameEvent, type UnitsHolder } from "@heroesofcrypto/common";
 import { Sandbox } from "../Sandbox";
 import { CombatVisuals } from "./CombatVisuals";
+import { RESURRECTION_BURST_DURATION_MS } from "../../settings/statusEffectTiming";
 
 function fixture(ranked = false) {
     const root = new Container();
@@ -58,6 +59,8 @@ function cast(amount: number, hp: number): GameEvent {
 for (const ranked of [false, true]) {
     test(`${ranked ? "ranked" : "local"} HP-only resurrection draws recipient feedback without claiming raised creatures`, () => {
         const f = fixture(ranked);
+        let now = 0;
+        const clock = spyOn(performance, "now").mockImplementation(() => now);
         const count = spyOn(f.visuals, "showResurrectedCount");
         try {
             // The engine also emits a resurrection record when only restored HP is positive.
@@ -70,14 +73,17 @@ for (const ranked of [false, true]) {
             expect(burst.context.instructions.length).toBeGreaterThan(0);
             f.visuals.clear({ keepDetachedOverlays: true });
             expect(burst.destroyed).toBe(false);
+            now = RESURRECTION_BURST_DURATION_MS - 1;
             f.visuals.update(1.39);
             expect(burst.destroyed).toBe(false);
-            f.visuals.update(0.02);
+            now = RESURRECTION_BURST_DURATION_MS;
+            f.visuals.update(0);
             expect(burst.destroyed).toBe(true);
             expect(f.root.children).toHaveLength(0);
         } finally {
             count.mockRestore();
             f.visuals.clear();
+            clock.mockRestore();
         }
     });
 }

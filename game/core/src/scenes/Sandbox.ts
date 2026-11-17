@@ -9,11 +9,11 @@ import {
     isBlacksmithSpell,
     type BlacksmithFlagKind,
 } from "./blacksmithFlagEffects";
-import { OVERHEAD_EFFECT_DURATION_MS } from "../settings/statusEffectTiming";
+import { OVERHEAD_EFFECT_DURATION_MS, RESURRECTION_RISE_DELAY_MS } from "../settings/statusEffectTiming";
 import { stunRecipients } from "./stunFlagEffects";
 import { troglodyteFlagApplications } from "./troglodyteFlagEffects";
 import { terrifyingGazeRecipients } from "./terrifyingGazeFlagEffects";
-import { PETRIFYING_GAZE_DURATION_MS } from "./sandbox/PetrifyingGazePops";
+import { PETRIFYING_GAZE_DURATION_MS, PETRIFYING_GAZE_REACTION_TIMEOUT_MS } from "./sandbox/PetrifyingGazePops";
 import { BEHOLDER_DEBUFFS, isBeholderDebuff, beholderDebuffTextureName } from "./sandbox/BeholderDebuffPops";
 import { resetWyvernPoisonAuras } from "./WyvernPoisonAura";
 import { resetSatyrSylvanAuras } from "./SatyrSylvanAura";
@@ -3619,12 +3619,27 @@ export class Sandbox extends PixiScene {
         // reconciled to server truth — we deliberately do NOT re-apply events here to avoid double
         // application; ranked is snapshot-authoritative).
         let timedOut = false;
+        // Recorded gaze procs deliberately add a head cue and a secondary hit. Budget those
+        // bounded phases explicitly instead of letting the generic five-second watchdog cut them off.
+        const gazeBudget = events.reduce(
+            (budget, event) =>
+                event.type === "unit_attacked"
+                    ? budget +
+                      (event.damage?.secondary ?? []).filter(
+                          (hit) => hit.source === "petrifying_gaze" && (hit.amount > 0 || hit.unitsDied > 0),
+                      ).length *
+                          (PETRIFYING_GAZE_DURATION_MS + PETRIFYING_GAZE_REACTION_TIMEOUT_MS)
+                    : budget,
+            0,
+        );
         let hangTimer: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<boolean>((resolve) => {
             hangTimer = this.scheduleSceneTimeout(
                 () => {
                     timedOut = true;
                     this.moveAnimManager.forceFinish();
+                    this.abilityPresentationEpoch = (this.abilityPresentationEpoch ?? 0) + 1;
+                    this.pendingAbilityPresentations?.clear();
                     this.combatVisuals?.cancelPendingSpellImpacts?.();
                     this.sc_isAnimating = false;
                     this.narrowingPlaybackEpoch = (this.narrowingPlaybackEpoch ?? 0) + 1;
@@ -3634,6 +3649,7 @@ export class Sandbox extends PixiScene {
                     resolve(false);
                 },
                 Sandbox.REPLAY_HANG_WATCHDOG_MS +
+                    gazeBudget +
                     (events.some((event) => event.type === "narrowing_applied")
                         ? 2 * Sandbox.NARROWING_EFFECT_LIMIT_MS
                         : 0),
@@ -5158,11 +5174,13 @@ export class Sandbox extends PixiScene {
     }
     /** Present recorded blows, reactions and casualties in order; never apply engine damage here. */
     private presentedPetrifyingGaze?: WeakSet<object>;
+    private pendingAbilityPresentations?: Set<object>;
+    private abilityPresentationEpoch = 0;
     protected async presentPetrifyingGaze(
         entry: NonNullable<IVisibleDamage["secondary"]>[number],
         attackerCenter: HoCMath.XY,
         unit?: RenderableUnit,
-        primaryReaction: Promise<void> = Promise.resolve(),
+        primaryReaction: Promise<void> | (() => Promise<void>) = Promise.resolve(),
         onDeath?: () => void,
         preview = false,
     ): Promise<void> {
@@ -5172,31 +5190,68 @@ export class Sandbox extends PixiScene {
         if (shown.has(entry)) return;
         shown.add(entry);
         if (!preview) {
-            // The head and its caption start at contact, without delaying the recorded result or next strike.
-            if (unit) void this.combatVisuals.spawnPetrifyingGazePop?.(unit);
-            const gs = this.sc_sceneSettings.getGridSettings();
-            const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
-            const style = this.getSecondaryDamageStyle(entry.source);
-            unit?.presentDamageCasualties?.(entry.unitsDied);
-            this.combatVisuals.showFloatingDamage(
-                position,
-                entry.amount,
-                { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y },
-                entry.unitsDied,
-                style.fill,
-                style.stroke,
-                unit?.getDamagePredictionAnchor(gs),
-            );
-            onDeath?.();
+            const pending = (this.pendingAbilityPresentations ??= new Set());
+            const token = {};
+            const epoch = this.abilityPresentationEpoch ?? 0;
+            pending.add(token);
+            this.aiController?.noteActionPresentationProgress?.();
+            let finishHead: (() => void) | undefined;
+            let settled = false;
+            const casualties = unit?.captureDamageCasualties?.(entry.unitsDied);
+            try {
+                // The ordinary blow stays at contact. The recorded gaze is a separate visual hit
+                // after its head finishes; a cold/missing cosmetic atlas must never stall that clock.
+                if (unit)
+                    void Promise.resolve(this.combatVisuals.spawnPetrifyingGazePop?.(unit)).then(
+                        (finish) => {
+                            if (settled) finish?.();
+                            else finishHead = finish;
+                        },
+                        () => undefined,
+                    );
+                await this.delayReplay(PETRIFYING_GAZE_DURATION_MS);
+                await (typeof primaryReaction === "function" ? primaryReaction() : primaryReaction);
+                if (this.isSceneDestroyed() || epoch !== (this.abilityPresentationEpoch ?? 0)) return;
+                settled = true;
+                finishHead?.();
+                finishHead = undefined;
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
+                const style = this.getSecondaryDamageStyle(entry.source);
+                this.aiController?.noteActionPresentationProgress?.();
+                if (casualties) casualties();
+                else unit?.presentDamageCasualties?.(entry.unitsDied);
+                this.combatVisuals.showFloatingDamage(
+                    position,
+                    entry.amount,
+                    { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y },
+                    entry.unitsDied,
+                    style.fill,
+                    style.stroke,
+                    unit?.getDamagePredictionAnchor(gs),
+                );
+                if (unit) {
+                    this.playUnitCombatSound(unit, "hurt");
+                    if (onDeath) onDeath();
+                    else await this.playReplayOneShot(unit, "hit", PETRIFYING_GAZE_REACTION_TIMEOUT_MS, true);
+                } else onDeath?.();
+            } finally {
+                settled = true;
+                finishHead?.();
+                pending.delete(token);
+            }
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
         const direction = { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y };
-        // Explicit lab preview only: archived head/re-hit art must not retime real combat.
+        // The explicit lab preview uses the same ordered head -> damage sequence.
         const finishPrimaryNumbers =
             preview && unit ? await this.combatVisuals.spawnPetrifyingGazePop?.(unit, "preview") : undefined;
-        await Promise.all([primaryReaction, ...(preview ? [this.delayReplay(PETRIFYING_GAZE_DURATION_MS)] : [])]);
+        await Promise.all([
+            typeof primaryReaction === "function" ? primaryReaction() : primaryReaction,
+            this.delayReplay(PETRIFYING_GAZE_DURATION_MS),
+        ]);
         if (this.isSceneDestroyed()) return;
         finishPrimaryNumbers?.();
         unit?.presentDamageCasualties?.(entry.unitsDied);
@@ -5229,25 +5284,28 @@ export class Sandbox extends PixiScene {
         deadIds: ReadonlySet<string>,
         onDeath: (unitId: string) => void,
         moreBlows = false,
-    ): void {
+        primaryReaction: () => Promise<void> = () => Promise.resolve(),
+    ): Promise<void> {
         const hits = (secondary ?? []).filter(
             (hit) =>
                 hit.source === "petrifying_gaze" && hit.unitId === unitId && !this.presentedPetrifyingGaze?.has(hit),
         );
         // Legacy secondary records are ordered but lack hit indices; leave the next proc to the next blow.
         if (moreBlows) hits.splice(1);
-        for (const hit of hits) {
-            const before = remaining.get(unitId);
-            const left = before === undefined ? undefined : Math.max(0, before - hit.unitsDied);
-            if (left !== undefined) remaining.set(unitId, left);
-            void this.presentPetrifyingGaze(
-                hit,
-                from,
-                unit,
-                Promise.resolve(),
-                left === 0 && deadIds.has(unitId) ? () => onDeath(unitId) : undefined,
-            );
-        }
+        return Promise.all(
+            hits.map((hit) => {
+                const before = remaining.get(unitId);
+                const left = before === undefined ? undefined : Math.max(0, before - hit.unitsDied);
+                if (left !== undefined) remaining.set(unitId, left);
+                return this.presentPetrifyingGaze(
+                    hit,
+                    from,
+                    unit,
+                    primaryReaction,
+                    left === 0 && deadIds.has(unitId) ? () => onDeath(unitId) : undefined,
+                );
+            }),
+        ).then(() => {});
     }
     private async playCombatExchange(
         attacker: RenderableUnit,
@@ -5610,6 +5668,7 @@ export class Sandbox extends PixiScene {
                           )
                         : undefined;
                     let reaction = Promise.resolve();
+                    let gazeReaction = Promise.resolve();
                     let shieldReaction = Promise.resolve();
                     let shieldingOwners: ReadonlySet<string> = new Set();
                     let chakramFlight = Promise.resolve();
@@ -5753,7 +5812,7 @@ export class Sandbox extends PixiScene {
                             );
                         }
                         if (receivedDamage) {
-                            this.presentGazeAtImpact(
+                            gazeReaction = this.presentGazeAtImpact(
                                 event.damage?.secondary,
                                 strike.targetId,
                                 from,
@@ -5768,6 +5827,7 @@ export class Sandbox extends PixiScene {
                                         next.hitIndex > strike.hitIndex &&
                                         !next.missed,
                                 ),
+                                () => Promise.all([reaction, shieldReaction]).then(() => {}),
                             );
                         }
                         // Primary and all rear stacks lose their displayed casualties and react on the
@@ -5932,7 +5992,7 @@ export class Sandbox extends PixiScene {
                                 zenaCutTargets,
                             );
                         }
-                        if (strike.lethal) {
+                        if (strike.lethal && (remaining === undefined || remaining === 0)) {
                             if (
                                 receivedDamage &&
                                 remaining === 0 &&
@@ -6052,7 +6112,7 @@ export class Sandbox extends PixiScene {
                             pendingDeaths.delete(source.getId());
                         }
                     }
-                    await Promise.all([reaction, shieldReaction]);
+                    await Promise.all([reaction, shieldReaction, gazeReaction]);
                 }),
             );
         }
@@ -6189,6 +6249,7 @@ export class Sandbox extends PixiScene {
         }
         for (const hit of splash) {
             const unit = context.units.get(hit.unitId) as RenderableUnit | undefined;
+            let primaryReaction = Promise.resolve();
             const before = context.remainingAmounts.get(hit.unitId) ?? unit?.getAmountAlive() ?? 0;
             const remaining = Math.max(0, before - hit.unitsDied);
             context.remainingAmounts.set(hit.unitId, remaining);
@@ -6239,15 +6300,18 @@ export class Sandbox extends PixiScene {
                     undefined,
                     unit,
                 );
-                this.presentGazeAtImpact(
-                    context.damage.secondary,
-                    hit.unitId,
-                    from,
-                    unit,
-                    context.remainingAmounts,
-                    context.deadIds,
-                    context.onDeath,
-                    true,
+                reactions.push(
+                    this.presentGazeAtImpact(
+                        context.damage.secondary,
+                        hit.unitId,
+                        from,
+                        unit,
+                        context.remainingAmounts,
+                        context.deadIds,
+                        context.onDeath,
+                        true,
+                        () => primaryReaction,
+                    ),
                 );
             }
             if (unit && hit.unitsDied > 0 && remaining === 0 && context.deadIds.has(hit.unitId)) {
@@ -6268,7 +6332,8 @@ export class Sandbox extends PixiScene {
                     return reaction;
                 };
                 const attack = context.activeAttacks?.get(hit.unitId);
-                reactions.push(attack ? attack.then(react) : react());
+                primaryReaction = attack ? attack.then(react) : react();
+                reactions.push(primaryReaction);
             }
         }
         return Promise.all(reactions).then(() => {});
@@ -6371,6 +6436,7 @@ export class Sandbox extends PixiScene {
                 }),
                 (hit) => {
                     if (this.isSceneDestroyed()) return;
+                    let primaryReaction = Promise.resolve();
                     const unit = units.get(hit.unitId);
                     if (hit.missed) {
                         this.playSceneGameSound(
@@ -6432,21 +6498,24 @@ export class Sandbox extends PixiScene {
                             undefined,
                             unit,
                         );
-                        this.presentGazeAtImpact(
-                            event.damage?.secondary,
-                            hit.unitId,
-                            from,
-                            unit,
-                            remaining,
-                            deadIds,
-                            (id) => {
-                                const killed = units.get(id);
-                                if (killed && !shownDeaths.has(id)) {
-                                    shownDeaths.add(id);
-                                    onDeath(killed);
-                                }
-                            },
-                            hitIndex + 1 < waves.length,
+                        reactions.push(
+                            this.presentGazeAtImpact(
+                                event.damage?.secondary,
+                                hit.unitId,
+                                from,
+                                unit,
+                                remaining,
+                                deadIds,
+                                (id) => {
+                                    const killed = units.get(id);
+                                    if (killed && !shownDeaths.has(id)) {
+                                        shownDeaths.add(id);
+                                        onDeath(killed);
+                                    }
+                                },
+                                hitIndex + 1 < waves.length,
+                                () => primaryReaction,
+                            ),
                         );
                     }
                     if (unit && hit.unitsDied > 0 && amount === 0 && deadIds.has(hit.unitId)) {
@@ -6455,7 +6524,8 @@ export class Sandbox extends PixiScene {
                             onDeath(unit);
                         }
                     } else if (unit && hit.amount > 0 && !shownDeaths.has(hit.unitId)) {
-                        reactions.push(this.playReplayOneShot(unit, "hit", 3000, true));
+                        primaryReaction = this.playReplayOneShot(unit, "hit", 3000, true);
+                        reactions.push(primaryReaction);
                         if (unit.getUnitProperties().level > 2)
                             this.applyReplayHitKnockback(unit, attacker, hit.amount);
                     }
@@ -8186,17 +8256,7 @@ export class Sandbox extends PixiScene {
                 if (utd.getName() === "Angel") this.combatVisuals?.spawnAngelResurrectionPop(utd);
                 const resurrectionMsg = `${utd.getName()} is resurrecting!`;
                 this.sc_sceneLog.updateLog(resurrectionMsg);
-                // Visual Resurrection Sequence: Death -> Wait -> Spawn(Idle)
-                utd.playOneShotAnimation("death", () => {
-                    // Enter ghost mode during the wait
-                    utd.setVisualGhost(true);
-                    this.scheduleSceneTimeout(() => {
-                        const currentScale = utd.getCurrentVisualScale();
-                        // Exit ghost mode and start spawn animation
-                        utd.setVisualGhost(false);
-                        utd.startSpawnAnimation(currentScale);
-                    }, 2500);
-                });
+                this.playResurrectionRise(utd, utd.getPosition(), utd.getAmountAlive());
             }
         }
         this.unitsHolder.refreshStackPowerForAllUnits();
@@ -16239,6 +16299,7 @@ export class Sandbox extends PixiScene {
             this.isActiveUnitMoving ||
             this.isAnimating() ||
             this.moveAnimManager.isMoving() ||
+            !!this.pendingAbilityPresentations?.size ||
             !!this.combatVisuals?.hasPendingSpellImpacts?.()
         );
     }
@@ -16279,6 +16340,7 @@ export class Sandbox extends PixiScene {
             this.isActiveUnitMoving ||
             this.moveAnimManager.isMoving() ||
             this.rangedProjectiles.hasActive() ||
+            !!this.pendingAbilityPresentations?.size ||
             !!this.combatVisuals?.hasPendingSpellImpacts?.() ||
             this.hasForegroundCombatAnimation()
         );
@@ -20753,15 +20815,38 @@ export class Sandbox extends PixiScene {
         const stackTotal = unit.getAmountAlive() + unit.getAmountDied();
         unit.setRemainingStats(event.amount, event.hp, Math.max(0, stackTotal - event.amount));
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-        this.renderResurrectionVfx(event.position, event.amount);
-        unit.playOneShotAnimation("death", () => {
+        this.playResurrectionRise(unit, event.position, event.amount);
+    }
+    private playResurrectionRise(unit: RenderableUnit, position: HoCMath.XY, raisedCount: number): void {
+        let scheduled = false;
+        const epoch = this.abilityPresentationEpoch ?? 0;
+        const rise = () => {
+            if (scheduled || this.isSceneDestroyed() || unit.isDead() || epoch !== (this.abilityPresentationEpoch ?? 0))
+                return;
+            scheduled = true;
+            const pending = (this.pendingAbilityPresentations ??= new Set());
+            const token = {};
+            pending.add(token);
             unit.setVisualGhost(true);
-            this.scheduleSceneTimeout(() => {
-                const currentScale = unit.getCurrentVisualScale();
-                unit.setVisualGhost(false);
-                unit.startSpawnAnimation(currentScale);
-            }, 2500);
-        });
+            this.scheduleSceneTimeout(
+                () => {
+                    try {
+                        if (this.isSceneDestroyed() || unit.isDead() || epoch !== (this.abilityPresentationEpoch ?? 0))
+                            return;
+                        const scale = unit.getCurrentVisualScale();
+                        unit.setVisualGhost(false);
+                        unit.startSpawnAnimation(scale);
+                        // Light, sound and raised count belong to the rise, after the death pose.
+                        this.renderResurrectionVfx(position, raisedCount);
+                    } finally {
+                        pending.delete(token);
+                    }
+                },
+                RESURRECTION_RISE_DELAY_MS,
+                () => pending.delete(token),
+            );
+        };
+        if (!unit.playOneShotAnimation("death", rise)) rise();
     }
     protected getUpNextUnitIds(): string[] | undefined {
         return undefined;

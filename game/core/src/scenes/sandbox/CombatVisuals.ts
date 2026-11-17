@@ -7,7 +7,11 @@ import {
 import { SkewerSpears, type SkewerSpearPose } from "./SkewerSpear";
 import { WindSpears } from "./WindSpear";
 import { bitterExperienceTriggered } from "../bitterExperienceFlagEffects";
-import { OVERHEAD_EFFECT_DURATION_MS, FLOATING_RESULT_DURATION_MS } from "../../settings/statusEffectTiming";
+import {
+    OVERHEAD_EFFECT_DURATION_MS,
+    FLOATING_RESULT_DURATION_MS,
+    RESURRECTION_BURST_DURATION_MS,
+} from "../../settings/statusEffectTiming";
 import { WildRegenerationEngine } from "./WildRegenerationEngine";
 import { HealCrossPops } from "./HealCrossPops";
 import { PetrifyingGazePops } from "./PetrifyingGazePops";
@@ -675,10 +679,9 @@ interface IHealBurst {
     moteColor: number;
     motes: { angle: number; radius: number; speed: number }[];
 }
-// Resurrection: the heal burst's bigger, golden sibling. Longer-lived and taller because a raise is a far
-// rarer, more consequential event than a top-up — it should read from across the board.
+// Resurrection rises promptly on a real-time clock, independent of the slower battle simulation.
 const RESURRECT_BURST_Z = 2160;
-const RESURRECT_BURST_LIFE = 1.5; // seconds
+const RESURRECT_BURST_LIFE = RESURRECTION_BURST_DURATION_MS / 1000;
 const RESURRECT_GOLD = 0xffd76a;
 const RESURRECT_PALE = 0xfff3c4;
 
@@ -686,6 +689,7 @@ interface IResurrectBurst {
     graphics: Graphics;
     pos: HoCMath.XY;
     age: number;
+    startedAtMs: number;
     life: number;
     /** Height of the light column, in world units — scaled off the cell size at spawn. */
     columnHeight: number;
@@ -1435,13 +1439,12 @@ export class CombatVisuals {
         };
         this.petrifyingGazePops ??= new PetrifyingGazePops(this.namedFlagAttach("Petrifying Gaze"));
         await this.petrifyingGazePops.spawn(unit.getId(), gs.getCellSize(), follow);
-        // Combat shows its recorded result at contact. Only the lab stages a second number afterwards.
-        if (presentation !== "preview") return () => undefined;
         // Replace only the numbers captured at this impact. Slow render frames must not
         // leave the first hit underneath the passive's new number/kill row.
         return () => {
             // Remove immediately before the secondary number, even if the renderer skipped its expiry frame.
             this.petrifyingGazePops?.finish(unit.getId());
+            if (presentation !== "preview") return;
             this.floatingTexts = this.floatingTexts.filter((text) => {
                 if (!primaryNumbers.has(text)) return true;
                 text.container.destroy({ children: true });
@@ -4465,6 +4468,7 @@ export class CombatVisuals {
             graphics,
             pos: { x: pos.x, y: pos.y },
             age: 0,
+            startedAtMs: performance.now(),
             life: RESURRECT_BURST_LIFE,
             columnHeight: cellSize * 2.6,
             motes: Array.from({ length: 16 }, (_, i) => ({
@@ -4476,10 +4480,10 @@ export class CombatVisuals {
             })),
         });
     }
-    private stepResurrectBursts(dt: number): void {
+    private stepResurrectBursts(_dt: number): void {
         for (let i = this.resurrectBursts.length - 1; i >= 0; i--) {
             const burst = this.resurrectBursts[i];
-            burst.age += dt;
+            burst.age = Math.max(0, performance.now() - burst.startedAtMs) / 1000;
             if (burst.age >= burst.life) {
                 burst.graphics.destroy();
                 this.resurrectBursts.splice(i, 1);

@@ -1,7 +1,7 @@
 import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { Container, DOMAdapter, Sprite, Texture, TextureSource } from "pixi.js";
-import { PetrifyingGazePops } from "./PetrifyingGazePops";
+import { PetrifyingGazePops, PETRIFYING_GAZE_DURATION_MS } from "./PetrifyingGazePops";
 
 const adapter = DOMAdapter.get();
 beforeAll(() =>
@@ -10,6 +10,34 @@ beforeAll(() =>
 afterAll(() => DOMAdapter.set(adapter));
 
 const texture = () => new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) });
+
+test("a cold atlas joins the contact clock and cannot extend the gaze past its delayed damage", async () => {
+    const root = new Container();
+    const art = texture();
+    let now = 0,
+        resolve!: (t: Texture) => void;
+    const layer = new PetrifyingGazePops(
+        (c) => root.addChild(c),
+        () => now,
+        () =>
+            new Promise((done) => {
+                resolve = done;
+            }),
+    );
+    const pending = layer.spawn("victim", 64, () => ({ x: 0, y: 0 }));
+    now = PETRIFYING_GAZE_DURATION_MS / 2;
+    resolve(art);
+    await pending;
+    expect(layer.active).toBe(true);
+    const sprite = root.children[0].children[0] as Sprite;
+    expect(sprite.texture.frame.y).toBeGreaterThan(0);
+    now = PETRIFYING_GAZE_DURATION_MS;
+    layer.update();
+    expect(layer.active).toBe(false);
+    layer.clear();
+    root.destroy();
+    art.destroy(true);
+});
 
 test.each([1, -1])(
     "gaze follows the flag, corrects projection and expires on wall time (mirror %s)",

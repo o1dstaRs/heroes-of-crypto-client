@@ -3,6 +3,7 @@ import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { createCombatSoundPlayer, type ICombatSoundSource } from "../ui/audio/combatSounds";
+import { PETRIFYING_GAZE_DURATION_MS } from "./sandbox/PetrifyingGazePops";
 
 const strike = (response = false, hitIndex = 0, lethal = false): CombatExchangeStrike => ({
     attackerId: response ? "B" : "A",
@@ -55,9 +56,13 @@ const flush = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 
-test.each([false, true])(
-    "gaze head, amount and casualties appear once at projectile contact; lethal=%s",
-    async (lethal) => {
+test.each([
+    { lethal: false, primaryLethal: false },
+    { lethal: true, primaryLethal: false },
+    { lethal: true, primaryLethal: true },
+])(
+    "gaze owns its delayed hit: lethal=$lethal, classified primary lethal=$primaryLethal",
+    async ({ lethal, primaryLethal }) => {
         const { scene, a, b } = setup();
         const losses: number[] = [],
             amounts: number[] = [],
@@ -72,7 +77,13 @@ test.each([false, true])(
         };
         scene.playReplayOneShot = async () => {};
         scene.waitForProjectileHitReaction = async () => {};
-        scene.delayReplay = async () => {};
+        let releaseGaze!: () => void;
+        scene.delayReplay = (ms: number) =>
+            ms === PETRIFYING_GAZE_DURATION_MS
+                ? new Promise<void>((resolve) => {
+                      releaseGaze = resolve;
+                  })
+                : Promise.resolve();
         let contact!: () => void, land!: () => void;
         scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, impact: () => void) => {
             contact = impact;
@@ -90,7 +101,7 @@ test.each([false, true])(
                 damage,
                 unitIdsDied: lethal ? ["B"] : [],
             },
-            [strike()],
+            [{ ...strike(), lethal: primaryLethal }],
             (unit: typeof b) => deaths.push(unit.getId()),
             undefined,
             undefined,
@@ -105,16 +116,83 @@ test.each([false, true])(
         expect(amounts).toEqual([]);
         contact();
         contact();
-        expect(amounts).toEqual([10, 45]);
-        expect(losses).toEqual([0, 1]);
+        expect(amounts).toEqual([10]);
+        expect(losses).toEqual([0]);
         expect(shown).toEqual(["B"]);
         scene.showSecondaryDamageNumbers([gaze], { x: 0, y: 0 });
-        expect(amounts).toEqual([10, 45]);
+        expect(amounts).toEqual([10]);
         land();
+        await flush();
+        expect(deaths).toEqual([]);
+        releaseGaze();
         await pending;
+        expect(amounts).toEqual([10, 45]);
+        expect(losses).toEqual([0, 1]);
         expect(deaths).toEqual(lethal ? ["B"] : []);
     },
 );
+
+test("double-shot gaze waits per proc while the recorded counter still starts alongside the first shot", async () => {
+    const { scene, a, b } = setup();
+    const amounts: number[] = [],
+        contacts: (() => void)[] = [],
+        landings: (() => void)[] = [],
+        gazes: (() => void)[] = [];
+    scene.combatVisuals.showFloatingDamage = (_position: unknown, amount: number) => amounts.push(amount);
+    scene.combatVisuals.spawnPetrifyingGazePop = async () => () => {};
+    scene.playReplayOneShot = async () => {};
+    scene.waitForProjectileHitReaction = async () => {};
+    scene.delayReplay = (ms: number) =>
+        ms === PETRIFYING_GAZE_DURATION_MS ? new Promise<void>((resolve) => gazes.push(resolve)) : Promise.resolve();
+    scene.playReplayProjectile = (_source: unknown, _target: unknown, _position: unknown, contact: () => void) => {
+        contacts.push(contact);
+        return new Promise<void>((resolve) => landings.push(resolve));
+    };
+    const secondary = [32, 45].map((amount) => ({
+        source: "petrifying_gaze",
+        unitId: "B",
+        amount,
+        unitsDied: 1,
+        position: { x: 100, y: 0 },
+    }));
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "range", damage: { secondary }, unitIdsDied: [] },
+        [strike(), strike(true), strike(false, 1)],
+        () => {},
+        undefined,
+        undefined,
+        undefined,
+        {
+            amountsBefore: new Map([
+                ["B", 3],
+                ["A", 3],
+            ]),
+            deadIds: new Set(),
+        },
+    );
+    await flush();
+    expect(contacts).toHaveLength(2);
+    contacts[0]();
+    contacts[1]();
+    landings[0]();
+    landings[1]();
+    await flush();
+    expect(amounts).toEqual([10, 10]);
+    expect(contacts).toHaveLength(2);
+    gazes.shift()!();
+    await flush();
+    expect(amounts).toEqual([10, 10, 32]);
+    expect(contacts).toHaveLength(3);
+    contacts[2]();
+    landings[2]();
+    await flush();
+    expect(amounts).toEqual([10, 10, 32, 10]);
+    gazes.shift()!();
+    await pending;
+    expect(amounts).toEqual([10, 10, 32, 10, 45]);
+});
 
 test.each(
     ["melee", "range"].flatMap((attackType) =>

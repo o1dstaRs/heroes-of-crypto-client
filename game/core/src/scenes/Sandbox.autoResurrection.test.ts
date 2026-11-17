@@ -20,6 +20,7 @@ import { animationAtlases } from "../generated/animation_atlases";
 import { RenderableUnit } from "./RenderableUnit";
 import { RankedPlayScene } from "./RankedPlayScene";
 import { Sandbox } from "./Sandbox";
+import { RESURRECTION_RISE_DELAY_MS } from "../settings/statusEffectTiming";
 
 beforeAll(() => {
     if (typeof document === "undefined")
@@ -81,6 +82,7 @@ function fixture(mode: "legacy" | "sandbox" | "ranked", team: TeamType, amount: 
     const idleScale = view.sprite.scale.clone();
     const idleAnchor = view.sprite.anchor.clone();
     const pending: (() => void)[] = [];
+    const delays: number[] = [];
     const scene = Object.assign(Object.create(mode === "ranked" ? RankedPlayScene.prototype : Sandbox.prototype), {
         unitsHolder,
         grid,
@@ -90,7 +92,11 @@ function fixture(mode: "legacy" | "sandbox" | "ranked", team: TeamType, amount: 
         sc_sceneLog: { updateLog: () => {} },
         combatVisuals: { spawnAngelResurrectionPop: mock() },
         renderResurrectionVfx: mock(),
-        scheduleSceneTimeout: (callback: () => void) => pending.push(callback),
+        isSceneDestroyed: () => false,
+        scheduleSceneTimeout: (callback: () => void, ms: number) => {
+            delays.push(ms);
+            return pending.push(callback);
+        },
     }) as Scene;
 
     const resurrect = () => {
@@ -120,6 +126,7 @@ function fixture(mode: "legacy" | "sandbox" | "ranked", team: TeamType, amount: 
         idleScale,
         idleAnchor,
         pending,
+        delays,
         resurrect,
         cleanup: () => {
             unit.destroyVisuals();
@@ -140,6 +147,8 @@ describe("Angel automatic resurrection presentation", () => {
                     expect(f.unit.isPlayingOneShotAnimation("death")).toBe(true);
                     f.unit.stepOneShotAnimation(10_000);
                     expect(f.pending).toHaveLength(1);
+                    expect(f.delays).toEqual([RESURRECTION_RISE_DELAY_MS]);
+                    expect(RESURRECTION_RISE_DELAY_MS).toBeLessThanOrEqual(150);
                     expect(f.view.sprite.alpha).toBe(0.25);
                     const corpseTexture = f.view.sprite.texture;
 
@@ -167,4 +176,44 @@ describe("Angel automatic resurrection presentation", () => {
                     f.cleanup();
                 }
             });
+});
+
+test.each(["death", "destroy", "recovery", "cancel"])("%s cancels a pending resurrection rise", (reason) => {
+    let dead = false,
+        destroyed = false;
+    const rises: (() => void)[] = [],
+        cancellations: (() => void)[] = [];
+    const spawn = mock(() => undefined),
+        burst = mock(() => undefined);
+    const unit = {
+        isDead: () => dead,
+        playOneShotAnimation: (_state: string, complete: () => void) => {
+            complete();
+            return false;
+        },
+        setVisualGhost: () => {},
+        getCurrentVisualScale: () => 1,
+        startSpawnAnimation: spawn,
+    };
+    const scene = Object.assign(Object.create(Sandbox.prototype), {
+        isSceneDestroyed: () => destroyed,
+        scheduleSceneTimeout: (rise: () => void, ms: number, cancel: () => void) => {
+            expect(ms).toBe(RESURRECTION_RISE_DELAY_MS);
+            rises.push(rise);
+            cancellations.push(cancel);
+        },
+        renderResurrectionVfx: burst,
+    });
+    scene.playResurrectionRise(unit, { x: 100, y: 200 }, 3);
+    // Missing authored death art may complete synchronously and return false: schedule the rise once.
+    expect(rises).toHaveLength(1);
+    expect(scene.pendingAbilityPresentations.size).toBe(1);
+    if (reason === "death") dead = true;
+    if (reason === "destroy") destroyed = true;
+    if (reason === "recovery") scene.abilityPresentationEpoch = 1;
+    if (reason === "cancel") cancellations[0]();
+    else rises[0]();
+    expect(spawn).not.toHaveBeenCalled();
+    expect(burst).not.toHaveBeenCalled();
+    expect(scene.pendingAbilityPresentations.size).toBe(0);
 });
