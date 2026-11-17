@@ -203,8 +203,15 @@ server README's **Matchmaking handoff** section documents the invariant and regr
 
 ## AI tournament analyser
 
+The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026. The default remains
+locked v0.9 V3/contextual draft plus A19-backed v0.8 combat, now profile v11. Read common's
+`docs/terrain_placement_adoption.md` before changing it. Preserve its +7.638889-point exploratory
+estimate and 95% interval 0 to +16.666667 as uncertain evidence, not a passed qualification.
+The serving rule covers default AI and Premium formation, uses only public neutral barrels,
+and leaves normal/lava placement unchanged.
+
 The user explicitly adopted `nightmare-wall-movement-coverage-v1` into the A19-backed v0.8 default
-on November 17, 2026. Common's production profile is v10; the locked V3/contextual draft and accepted
+on November 17, 2026, establishing profile v10 before the terrain adoption above. The locked V3/contextual draft and accepted
 neural models retain their identities. Read
 `game/heroes-of-crypto-common/docs/nightmare_wall_movement_adoption.md` before iterating on it.
 Preserve the exact ground-wall plus omitted-movement comparison policy and its original failed
