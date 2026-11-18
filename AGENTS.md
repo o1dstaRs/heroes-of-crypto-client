@@ -203,6 +203,15 @@ server README's **Matchmaking handoff** section documents the invariant and regr
 
 ## AI tournament analyser
 
+The user explicitly adopted the separate revealed-ranged draft/setup candidates on November 18, 2026 UTC.
+The authoritative default is now profile v12, `revealed-ranged-exclusive-delivery-v1`: after consuming
+its delivery draft override, a seat keeps native setup; otherwise the funded delivery setup can apply.
+Read common's `docs/revealed_ranged_delivery_adoption.md`. Keep the uncertain +7.407407 pp and +9.259259 pp
+component results, failed −1.851852 pp combination, immutable checkpoints and exclusions intact.
+The estimates are not additive or fresh qualification. Preserve public visibility, persisted independent
+budgets, Premium routing and atomic collision/restart behavior. The wire default remains v0.8 with
+locked V3/contextual draft and A19 combat. New default comparisons use v12.
+
 The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026. The default remains
 locked v0.9 V3/contextual draft plus A19-backed v0.8 combat, now profile v11. Read common's
 `docs/terrain_placement_adoption.md` before changing it. Preserve its +7.638889-point exploratory
