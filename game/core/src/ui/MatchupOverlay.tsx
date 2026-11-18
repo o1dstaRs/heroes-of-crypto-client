@@ -599,8 +599,11 @@ const Side: React.FC<{
     tone: MatchupTeamTone;
     profile?: PublicPlayerStats;
     reversed?: boolean;
-}> = ({ player, tone, profile, reversed = false }) => {
+    compact?: boolean;
+}> = ({ player, tone, profile, reversed = false, compact = false }) => {
     const text = profileFor(player, profile);
+    const portraitSize = compact ? 36 : 52;
+    const socketSize = portraitSize + 4;
     return (
         <MatchupPlayerTooltip
             player={player}
@@ -627,7 +630,44 @@ const Side: React.FC<{
                     },
                 }}
             >
-                <PlayerAvatar player={player} profile={profile} size={player.isAi ? 43 : 42} text={text} tone={tone} />
+                <Box
+                    data-matchup-portrait-socket
+                    sx={{
+                        position: "relative",
+                        zIndex: 1,
+                        width: socketSize,
+                        height: socketSize,
+                        flex: `0 0 ${socketSize}px`,
+                        boxSizing: "border-box",
+                        p: "1px",
+                        border: "1px solid #d8ad66",
+                        borderRadius: "50%",
+                        background: "#18120b",
+                        boxShadow: "0 3px 7px #000b",
+                    }}
+                >
+                    <Box
+                        sx={{
+                            width: "100%",
+                            height: "100%",
+                            display: "grid",
+                            placeItems: "center",
+                            overflow: "visible",
+                            borderRadius: "50%",
+                            background: "radial-gradient(circle at 45% 30%, #22251f, #080a08 75%)",
+                            boxShadow: "0 0 0 1px #18120b, inset 0 0 5px #000",
+                        }}
+                    >
+                        <PlayerAvatar
+                            player={player}
+                            profile={profile}
+                            size={portraitSize}
+                            text={text}
+                            tone={tone}
+                            clipArtwork
+                        />
+                    </Box>
+                </Box>
                 <Box sx={{ minWidth: 0, flex: "1 1 auto" }}>
                     <Typography
                         level="body-sm"
@@ -701,8 +741,8 @@ const MatchupToggle: React.FC<{
                 },
                 position: "absolute",
                 zIndex: 2,
-                top: collapsed ? 0 : 16,
-                right: collapsed ? 0 : -7,
+                top: collapsed ? 0 : 20,
+                right: collapsed ? 0 : -17,
                 width: collapsed ? 36 : 16,
                 height: collapsed ? 30 : 21,
                 p: 0,
@@ -862,8 +902,8 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                       ? "min(400px, calc(100vw - 24px))"
                       : connectionAlert
                         ? "min(440px, calc(100vw - 24px))"
-                        : "min(298px, calc(100vw - 24px))",
-                height: collapsed ? 30 : 54,
+                        : "min(360px, calc(100vw - 40px))",
+                height: collapsed ? 30 : 60,
                 maxWidth:
                     placement === "fight" && !collapsed
                         ? `${(fightPosition?.maxWidth ?? 298) + (action ? 74 : 0)}px`
@@ -873,36 +913,37 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
         >
             {!collapsed && (
                 <Box
+                    data-matchup-design="bronze-round-portraits"
                     sx={{
                         position: "relative",
                         width: "100%",
                         height: "100%",
-                        px: 1,
-                        py: 0.75,
-                        overflow: "hidden",
+                        px: 0,
+                        py: 0,
+                        overflow: "visible",
+                        isolation: "isolate",
                         display: "grid",
                         gridTemplateColumns: action
                             ? "minmax(0, 1fr) 40px minmax(0, 1fr) auto"
                             : "minmax(0, 1fr) 40px minmax(0, 1fr)",
                         alignItems: "center",
                         gap: 0.5,
-                        border: "1px solid rgba(211,173,92,.62)",
-                        borderBottom: "2px solid rgba(180,140,67,.92)",
-                        clipPath:
-                            "polygon(0 0, 5% 0, 7% 7%, 93% 7%, 95% 0, 100% 0, 100% 88%, 97% 100%, 3% 100%, 0 88%)",
-                        background: `linear-gradient(90deg, ${leftTone.panel}, rgba(13,18,16,.97) 39%, rgba(30,19,18,.97) 61%, ${rightTone.panel})`,
-                        boxShadow: "0 9px 22px rgba(0,0,0,.62), inset 0 1px rgba(255,238,189,.16)",
                         "&::before": {
                             content: '\"\"',
                             position: "absolute",
-                            inset: "3px",
+                            zIndex: -1,
+                            inset: "9px 25px",
                             pointerEvents: "none",
-                            border: "1px solid rgba(255,232,174,.09)",
-                            clipPath: "inherit",
+                            border: "1px solid #d3a65c",
+                            borderRadius: "3px",
+                            background: `linear-gradient(90deg, ${leftTone.panel}, #10130ff5 40%, #19100df5 60%, ${rightTone.panel})`,
+                            boxShadow:
+                                "0 4px 9px #0009, inset 0 0 0 1px #34210e, inset 0 0 0 2px #9d723e, inset 0 3px 5px #0009",
                         },
                     }}
                 >
                     <Side
+                        compact={(fightPosition?.maxWidth ?? 360) < 300 || (windowSize?.width ?? 360) < 340}
                         player={left}
                         tone={leftTone}
                         profile={(left.playerId ? profiles[left.playerId] : undefined) ?? left.previewProfile}
@@ -910,7 +951,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                     <Box
                         sx={{
                             minWidth: 0,
-                            height: 38,
+                            height: 28,
                             display: "grid",
                             placeItems: "center",
                             borderLeft: "1px solid rgba(234,204,133,.17)",
@@ -952,6 +993,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                         </Box>
                     </Box>
                     <Side
+                        compact={(fightPosition?.maxWidth ?? 360) < 300 || (windowSize?.width ?? 360) < 340}
                         player={right}
                         tone={rightTone}
                         profile={(right.playerId ? profiles[right.playerId] : undefined) ?? right.previewProfile}
@@ -1033,7 +1075,7 @@ export const PickMatchupOverlay: React.FC<{
 
     useEffect(() => {
         setPlayers(fallbackPlayers);
-        if (!gameId) {
+        if (!gameId || isBackendFreePreview) {
             return undefined;
         }
         let cancelled = false;
@@ -1055,7 +1097,7 @@ export const PickMatchupOverlay: React.FC<{
         return () => {
             cancelled = true;
         };
-    }, [fallbackPlayers, gameId]);
+    }, [fallbackPlayers, gameId, isBackendFreePreview]);
 
     const mirrored = shouldMirrorBoard({
         viewerTeam: normalizedUserTeam,

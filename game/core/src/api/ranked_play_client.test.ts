@@ -76,3 +76,32 @@ describe("co-op sandbox snapshot flags", () => {
         ).toBe(false);
     });
 });
+
+test("live and recorded scene conversion retain both doctrines and both artifact tiers, including empty slots", () => {
+    const snapshot = decodePlaySnapshot(new Uint8Array());
+    Object.assign(snapshot, {
+        gameId: "result-setup-routing",
+        leftDoctrine: 2,
+        rightDoctrine: 3,
+        leftArtifactTier1: 0,
+        leftArtifactTier2: 5,
+        rightArtifactTier1: 4,
+        rightArtifactTier2: 0,
+    });
+    const routed = JSON.parse(JSON.stringify(toAuthoritativeGameSnapshot(snapshot))) as ReturnType<
+        typeof toAuthoritativeGameSnapshot
+    >;
+    expect([routed.leftDoctrine, routed.rightDoctrine]).toEqual([2, 3]);
+    expect([
+        routed.leftArtifactTier1,
+        routed.leftArtifactTier2,
+        routed.rightArtifactTier1,
+        routed.rightArtifactTier2,
+    ]).toEqual([0, 5, 4, 0]);
+    // The server can deliberately redact a setup field before combat. Conversion must not fill it
+    // from another match, a local default doctrine, or a selection for the next game.
+    delete snapshot.rightDoctrine;
+    delete snapshot.rightArtifactTier1;
+    expect(toAuthoritativeGameSnapshot(snapshot).rightDoctrine).toBeUndefined();
+    expect(toAuthoritativeGameSnapshot(snapshot).rightArtifactTier1).toBeUndefined();
+});

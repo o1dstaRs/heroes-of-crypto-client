@@ -420,7 +420,7 @@ export const UpNext: React.FC = () => {
                                                 amount={unit.amount}
                                                 teamType={unit.teamType}
                                                 right="0"
-                                                scale={0.85}
+                                                scale={Math.min(1, metrics.avatarPx / 48)}
                                             />
                                         </Box>
                                     </motion.div>

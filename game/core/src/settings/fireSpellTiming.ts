@@ -1,6 +1,9 @@
 import { readAnimationSetting } from "./animationLabProfile";
 /** Both renderers use authored time, sped up by 50%, including staggered meteor launches. */
 export const FIRE_SPELL_PLAYBACK_SPEED = 1.5;
+/** Projectiles leave before the cast's recovery, without skipping the remaining creature frames. */
+export const SPELL_PROJECTILE_CAST_RELEASE_FRACTION = 0.8;
+export const FIRE_STRIKE_RELEASE_MS = 360;
 export type FireSpellRenderMode = "sprites" | "particles";
 
 /** Scale only airborne meteor bodies/trails; impact footprints remain unchanged. */

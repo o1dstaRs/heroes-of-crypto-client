@@ -19,14 +19,19 @@ export function ogreSpellFlagKind(name: string): OgreSpellFlagKind | undefined {
 export function ogreSpellFlagApplications(events: readonly GameEvent[] | undefined): {
     unitId: string;
     kind: OgreSpellFlagKind;
+    name: string;
 }[] {
-    const recipients = new Map<string, { unitId: string; kind: OgreSpellFlagKind }>();
+    const recipients = new Map<string, { unitId: string; kind: OgreSpellFlagKind; name: string }>();
     for (const event of events ?? []) {
         if (event.type !== "effects_applied") continue;
         for (const application of event.applications) {
             const kind = ogreSpellFlagKind(application.name);
             if (!kind || application.kind !== "buff" || application.resisted) continue;
-            recipients.set(`${application.unitId}:${kind}`, { unitId: application.unitId, kind });
+            recipients.set(`${application.unitId}:${kind}`, {
+                unitId: application.unitId,
+                kind,
+                name: application.name,
+            });
         }
     }
     return [...recipients.values()];

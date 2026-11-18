@@ -27,10 +27,23 @@ describe("touch inspection", () => {
         expect(split).not.toHaveBeenCalled();
         expect(Reflect.get(scene, "hasActiveSelection")).toBe(false);
     });
-    test("a placement in progress always requires confirmation, including during a visual animation", () => {
+    test.each([false, true])("placement drops need no confirmation (visual animation: %s)", (sc_isAnimating) => {
         const scene = Object.create(Sandbox.prototype) as Sandbox;
-        Object.assign(scene, { hasActiveSelection: true, sc_isAnimating: true });
-        expect(scene.getTouchConfirmationLabel({ x: 100, y: 200 })).toBe("Place here");
+        Object.assign(scene, {
+            hasActiveSelection: true,
+            pendingBarrelPlacement: { team: 2, index: 0 },
+            sc_isAnimating,
+        });
+        expect(scene.getTouchConfirmationLabel({ x: 100, y: 200 })).toBeNull();
+    });
+    test("combat moves, attacks and spell casts retain their confirmation", () => {
+        FightStateManager.getInstance().getFightProperties().startFight();
+        const scene = Object.create(Sandbox.prototype) as Sandbox;
+        expect(scene.getTouchConfirmationLabel({ x: 100, y: 200 })).toBe("Confirm action");
+        Object.assign(scene, { currentActiveSpell: {} });
+        expect(scene.getTouchConfirmationLabel({ x: 100, y: 200 })).toBe("Cast spell");
+        Object.assign(scene, { sc_renderSpellBookOverlay: true });
+        expect(scene.getTouchConfirmationLabel({ x: 100, y: 200 })).toBeNull();
     });
     test("cosmetic animation does not invalidate an otherwise unchanged confirmation", () => {
         const scene = Object.create(Sandbox.prototype) as Sandbox;

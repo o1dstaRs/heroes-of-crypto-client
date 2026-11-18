@@ -62,7 +62,7 @@ describe("Petrifying Gaze attack preview", () => {
             expect(preview.killsMax).toBe(1);
             expect(preview.chanceMin).toBe(6);
             expect(preview.chanceMax).toBe(6);
-            expect(petrifyingGazePreviewText(preview)).toBe("Gaze: 6%");
+            expect(petrifyingGazePreviewText(preview)).toBe(`Gaze: 6% · +${formatCombatRange(0, 1)} kills`);
             expect(petrifyingGazePreview(attacker, target, { min: 10, max: 20 }, 0)!.chanceMax).toBe(14);
         } finally {
             level.mockRestore();
@@ -74,7 +74,7 @@ describe("Petrifying Gaze attack preview", () => {
         const preview = petrifyingGazePreview(unit(true), unit(false, 1000, 1), { min: 100, max: 100 }, 0)!;
         expect(preview.killsMin).toBe(40);
         expect(preview.killsMax).toBe(60);
-        expect(petrifyingGazePreviewText(preview)).toBe(`Gaze: +${formatCombatRange(40, 60)} kills`);
+        expect(petrifyingGazePreviewText(preview)).toBe(`Gaze: 100% · +${formatCombatRange(40, 60)} kills`);
         expect(petrifyingGazePreviewText(preview, true)).toEndWith("(first hit)");
     });
 
@@ -117,7 +117,7 @@ describe("Petrifying Gaze attack preview", () => {
         const immune = spyOn(target, "hasMindAttackResistance").mockReturnValue(true);
         try {
             expect(petrifyingGazePreviewText(petrifyingGazePreview(unit(true), target, { min: 1, max: 2 }, 0)!)).toBe(
-                "Gaze: 0%",
+                "Gaze: 0% · +0 kills",
             );
         } finally {
             immune.mockRestore();

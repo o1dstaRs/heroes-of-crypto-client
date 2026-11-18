@@ -2,8 +2,9 @@ import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
-import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
-import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
+import type { PremiumDraftState } from "./premiumDraftAssessment";
+import { PremiumDraftPlanner } from "./PremiumDraftPlanner";
+import { PremiumThumbIcon, PremiumThumbStyleContext, type PremiumThumbMedal } from "./PremiumThumbIcon";
 
 import {
     applyPremium,
@@ -18,9 +19,10 @@ import { usePremiumCapability } from "./usePremiumPreference";
 import { PremiumIcon } from "../PremiumIcon";
 import { PremiumButton } from "./PremiumButton";
 import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
-import { premiumChoiceQuestion } from "./premiumQuestions";
 import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
+import { PremiumPreviewContext } from "./PremiumPreviewContext";
+import { premiumDraftChoices } from "./premiumDraftChoices";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -28,6 +30,7 @@ export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined
 const orange = "var(--hoc-premium-accent)";
 
 export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number, enabled = true) => {
+    const preview = useContext(PremiumPreviewContext);
     const { authenticated, user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
@@ -36,7 +39,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     const requests = useRef(createPremiumRequestGate());
     const refresh = useCallback(
         async (signal?: AbortSignal) => {
-            if (!enabled || !authenticated || gameId?.startsWith("preview")) return;
+            if (preview || !enabled || !authenticated || gameId?.startsWith("preview")) return;
             const request = requests.current.begin("read");
             if (!request) return;
             try {
@@ -55,7 +58,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 requests.current.finish(request);
             }
         },
-        [authenticated, gameId, enabled],
+        [authenticated, gameId, enabled, preview],
     );
     useLayoutEffect(() => {
         requests.current.reset();
@@ -65,7 +68,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
         return () => requests.current.reset();
     }, [authenticated, accountKey, gameId, refreshKey, enabled]);
     useEffect(() => {
-        if (!enabled || !authenticated) return;
+        if (preview || !enabled || !authenticated) return;
         const controller = new AbortController();
         void refresh(controller.signal);
         const timer = setInterval(
@@ -78,10 +81,10 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
             controller.abort();
             clearInterval(timer);
         };
-    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated]);
+    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated, preview]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
-            if (!enabled || !gameId || !advice || busy) return;
+            if (preview || !enabled || !gameId || !advice || busy) return;
             const request = requests.current.begin("apply");
             if (!request) return;
             let refreshAfterFailure = false;
@@ -117,16 +120,16 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 }
             }
         },
-        [gameId, advice, busy, refresh, enabled],
+        [gameId, advice, busy, refresh, enabled, preview],
     );
-    return { advice: enabled ? advice : undefined, apply, busy, error };
+    return { advice: enabled ? (preview ?? advice) : undefined, apply, busy, error };
 };
 
-const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
-    const askQuestion = useAskPremiumQuestion();
+const ChoiceExplanation: React.FC<{ choice: PremiumChoice; rank?: number }> = ({ choice, rank }) => {
     return (
         <Box sx={{ maxWidth: 350, p: 0.5 }}>
             <Typography level="title-sm" sx={{ color: orange }}>
+                {rank && `${rank}. `}
                 {choice.label}
             </Typography>
             {choice.reasons.map((reason) => (
@@ -137,57 +140,31 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
             <Box sx={{ mt: 1 }}>
                 <EvidenceText evidence={choice.evidence} />
             </Box>
-            {askQuestion && (
-                <PremiumButton
-                    size="sm"
-                    variant="plain"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        askQuestion(premiumChoiceQuestion(choice));
-                    }}
-                    sx={{ mt: 0.75, px: 0.5 }}
-                >
-                    Explain this choice
-                </PremiumButton>
-            )}
         </Box>
     );
 };
 
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
-    const askQuestion = useAskPremiumQuestion();
-    const index = advice?.choices?.findIndex((choice) => choice.kind === kind && choice.value === value) ?? -1;
-    const choice = index >= 0 ? advice?.choices?.[index] : undefined;
-    if (!choice) {
-        const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
-        if (!offer || !askQuestion) return null;
-        return (
-            <PremiumButton
-                size="sm"
-                variant="outlined"
-                aria-label={`Explain ${offer.label} with Premium`}
-                onClick={(event) => {
-                    event.stopPropagation();
-                    askQuestion(premiumChoiceQuestion(offer));
-                }}
-                sx={{ position: "absolute", zIndex: 9, top: 5, left: 5, minHeight: 24, px: 0.7, fontSize: 11 }}
-            >
-                Explain choice
-            </PremiumButton>
-        );
-    }
+    const thumbStyle = useContext(PremiumThumbStyleContext);
+    const ranked = premiumDraftChoices(advice?.choices).filter((item) => item.kind === kind);
+    const thumb = kind === "creature" || kind === "bundle" || kind === "artifact";
+    const index = ranked.findIndex((choice) => choice.value === value);
+    const choice = index >= 0 ? ranked[index] : undefined;
+    const medal: PremiumThumbMedal = index === 0 ? "gold" : "silver";
+    if (!choice) return null;
     return (
         <Box
             data-testid={`premium-${kind}-${value}`}
+            data-recommendation-medal={thumb ? medal : undefined}
             sx={{
                 position: "absolute",
                 inset: 0,
                 zIndex: 9,
                 pointerEvents: "none",
-                border: `${index === 0 ? 3 : 2}px solid ${index === 0 ? orange : "#a95825"}`,
+                border: thumb ? undefined : `${index === 0 ? 3 : 2}px solid ${index === 0 ? orange : "#a95825"}`,
                 borderRadius: "inherit",
-                boxShadow: index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
+                boxShadow: !thumb && index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
             }}
         >
             <Tooltip
@@ -207,13 +184,15 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                 <Box
                     component="button"
                     type="button"
-                    aria-label={`Premium: ${index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
-                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Premium: ${thumb ? `${medal}, #${index + 1}` : index === 0 ? "preferred" : "alternative"} ${choice.label}. Why?`}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                    }}
                     sx={{
                         pointerEvents: "auto",
                         position: "absolute",
-                        top: 5,
-                        left: 5,
+                        top: thumb && kind === "bundle" ? 16 : 5,
+                        left: thumb && kind === "bundle" ? 16 : 5,
                         border: "1px solid #cb702c",
                         borderRadius: "5px",
                         px: 0.7,
@@ -223,10 +202,36 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                         fontSize: 11,
                         fontWeight: 700,
                         cursor: "help",
+                        ...(thumb
+                            ? {
+                                  width: 30,
+                                  height: 30,
+                                  p: 0,
+                                  border: 0,
+                                  borderRadius: 0,
+                                  background: "transparent",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  filter: "drop-shadow(0 2px 2px #000) drop-shadow(0 0 3px #000)",
+                                  animation: index === 0 ? "hocGoldThumbPulse 1800ms ease-in-out infinite" : undefined,
+                                  "@keyframes hocGoldThumbPulse": {
+                                      "0%, 100%": { transform: "scale(1)" },
+                                      "50%": { transform: "scale(1.13)" },
+                                  },
+                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                  "&:focus-visible": { outline: "1px solid #e8c476", outlineOffset: 2 },
+                              }
+                            : {}),
                     }}
                 >
-                    <PremiumIcon size={14} style={{ marginRight: 4 }} />
-                    {index === 0 ? "Preferred" : "Alternative"}
+                    {thumb ? (
+                        <PremiumThumbIcon medal={medal} variant={thumbStyle} />
+                    ) : (
+                        <>
+                            <PremiumIcon size={14} style={{ marginRight: 4 }} />
+                            {index === 0 ? "Preferred" : "Alternative"}
+                        </>
+                    )}
                 </Box>
             </Tooltip>
         </Box>
@@ -270,87 +275,23 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
 }) => {
     const impression = usePremiumAdviceView(advice?.gameId, advice?.adviceId);
     if (!advice?.entitlement.active) return null;
-    const assessment = premiumDraftAssessment({ ...draft, scouting: advice.scouting });
-    const preferred = draft.isYourTurn ? advice.choices?.[0] : undefined;
+    const recommendations = draft.isYourTurn ? premiumDraftChoices(advice.choices).slice(0, 3) : [];
     return (
-        <Tooltip
-            placement="top-start"
-            describeChild
-            arrow
-            title={
-                <Box sx={{ maxHeight: "min(560px, 65vh)", overflowY: "auto", p: 0.5 }}>
-                    <Typography level="title-sm" sx={{ color: "var(--hoc-premium-accent)" }}>
-                        Draft so far · {assessment.roster}
-                    </Typography>
-                    <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
-                        {assessment.headline}.
-                        {assessment.focus !== assessment.routeWarning ? ` ${assessment.focus}` : ""}
-                    </Typography>
-                    <PremiumDraftRoutes
-                        routes={assessment.routes}
-                        remaining={assessment.remaining}
-                        routeWarning={assessment.routeWarning}
-                    />
-                    {assessment.notes.map((note) => (
-                        <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
-                            <strong>{note.label}:</strong> {note.text}
-                        </Typography>
-                    ))}
-                    {preferred && (
-                        <Box sx={{ mt: 1, pt: 0.75, borderTop: "1px solid #a9582555" }}>
-                            <Typography level="body-xs" sx={{ color: "var(--hoc-premium-accent)" }}>
-                                Next recommendation
-                            </Typography>
-                            <ChoiceExplanation choice={preferred} />
+        <PremiumDraftPlanner advice={advice} draft={draft} impression={impression}>
+            {recommendations.length > 0 && (
+                <Box component="ol" aria-label="Recommended draft choices" sx={{ m: 0, p: 0, listStyle: "none" }}>
+                    {recommendations.map((choice, index) => (
+                        <Box
+                            component="li"
+                            key={`${choice.kind}:${choice.value}`}
+                            sx={{ mt: 1, pt: 0.75, borderTop: "1px solid #a9582555" }}
+                        >
+                            <ChoiceExplanation choice={choice} rank={index + 1} />
                         </Box>
-                    )}
+                    ))}
                 </Box>
-            }
-            sx={{
-                maxWidth: "min(400px, calc(100vw - 32px))",
-                bgcolor: "#21150f",
-                color: "#f3dfcb",
-                border: "1px solid #a95825",
-                boxShadow: "0 8px 24px #0009",
-                "--Tooltip-arrowBackground": "#21150f",
-            }}
-        >
-            <Box
-                tabIndex={0}
-                role="region"
-                ref={impression}
-                aria-label="Premium draft assessment"
-                sx={{
-                    position: "fixed",
-                    left: 18,
-                    bottom: 16,
-                    zIndex: 35,
-                    maxWidth: "min(340px, 42vw)",
-                    boxSizing: "border-box",
-                    px: 1.2,
-                    py: 0.8,
-                    border: "1px solid #aa5424",
-                    borderRadius: 8,
-                    bgcolor: "#26160fed",
-                    color: "#ffd5ad",
-                    boxShadow: "0 3px 16px #0008",
-                    fontSize: 12,
-                    lineHeight: 1.4,
-                    cursor: "help",
-                    "&:focus-visible": { outline: "2px solid var(--hoc-premium-accent)", outlineOffset: 3 },
-                }}
-            >
-                <strong>
-                    <PremiumIcon size={16} style={{ marginRight: 5 }} />
-                    Premium · Draft so far
-                </strong>
-                <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
-                <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
-                {assessment.scouting && (
-                    <Box sx={{ mt: 0.5, color: "#e7bc83", fontSize: 11 }}>{assessment.scouting}</Box>
-                )}
-            </Box>
-        </Tooltip>
+            )}
+        </PremiumDraftPlanner>
     );
 };
 
@@ -359,8 +300,10 @@ export const PremiumSetupPanel: React.FC<{
     stageKey: string;
     auto?: boolean;
     setupView?: boolean;
+    draft?: PremiumDraftState;
+    plannerContainer?: HTMLElement | null;
     children?: React.ReactNode;
-}> = ({ gameId, stageKey, auto = false, setupView = false, children }) => {
+}> = ({ gameId, stageKey, auto = false, setupView = false, draft, plannerContainer, children }) => {
     const enabled = usePremiumCapability("setup");
     const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
     const impression = usePremiumAdviceView(gameId, advice?.adviceId);
@@ -375,6 +318,9 @@ export const PremiumSetupPanel: React.FC<{
     if (!advice || advice.stage === "fight") return <>{children}</>;
     return (
         <PremiumContext.Provider value={advice}>
+            {setupView && draft && advice.entitlement.active && (
+                <PremiumDraftPlanner advice={advice} draft={draft} portalContainer={plannerContainer} />
+            )}
             <Box
                 data-testid={setupView ? "premium-setup-layout" : undefined}
                 sx={

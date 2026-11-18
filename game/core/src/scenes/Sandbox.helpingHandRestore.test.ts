@@ -115,12 +115,14 @@ function fixture() {
         unitsHolder.refreshStackPowerForAllUnits();
     };
     const capture = (holder = unitsHolder, board = grid) =>
-        prototype.captureSceneState.call({
-            unitsHolder: holder,
-            grid: board,
-            dungeonVisuals: { isCenterDried: () => false },
-            captureScatteredMountains: () => [],
-        });
+        prototype.captureSceneState.call(
+            Object.assign(Object.create(Sandbox.prototype), {
+                unitsHolder: holder,
+                grid: board,
+                dungeonVisuals: { isCenterDried: () => false },
+                captureScatteredMountains: () => [],
+            }),
+        );
     const restore = (snapshot = capture()) => {
         const serialized = JSON.parse(JSON.stringify(snapshot)) as SandboxSceneState;
         const board = new Grid(settings, serialized.gridType);

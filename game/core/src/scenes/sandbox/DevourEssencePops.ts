@@ -1,3 +1,4 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { statusEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
@@ -36,7 +37,7 @@ export class DevourEssencePops {
         offsetY: number;
     }[] = [];
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -101,7 +102,7 @@ export class DevourEssencePops {
             const offsetY = cellSize * 0.07;
             container.position.set(position.x, position.y + offsetY);
             container.scale.set(1, -1);
-            this.attach(container, 5520);
+            this.attach(container, 5520, follow ?? (() => anchor));
             this.pops.push({ unitId, container, sprite, startedAtMs: this.now(), follow, offsetY });
             this.update(0);
         } finally {

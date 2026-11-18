@@ -20,7 +20,7 @@ function fixture() {
         units: [
             { id: "attacker", debuffs: ["Weakness"], buffs: [], dead: false },
             { id: "target", debuffs: ["Sadness"], buffs: [], dead: false },
-            { id: "support", debuffs: [], buffs: ["Courage"], dead: false },
+            { id: "support", debuffs: [], buffs: ["Blessing"], dead: false },
         ],
     } as unknown as AuthoritativeGameSnapshot;
     const record = {
@@ -79,7 +79,7 @@ test("replay statuses land on each recipient's own hit and response, not the fol
     expect(f.pops[1]).toEqual({ id: "attacker", names: ["Weakness"], at: 350 });
     f.at(700);
     f.scene.onReplayRecordPresented(f.record);
-    expect(f.pops[2]).toEqual({ id: "support", names: ["Courage"], at: 700 });
+    expect(f.pops[2]).toEqual({ id: "support", names: ["Blessing"], at: 700 });
     expect(f.scene.pendingEffectPops).toEqual([]);
     expect(f.pops).toHaveLength(3);
 });

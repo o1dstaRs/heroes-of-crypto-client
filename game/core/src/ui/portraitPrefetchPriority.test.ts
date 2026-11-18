@@ -11,6 +11,7 @@ import {
     warmDecodedImage,
     type PortraitImageStub,
 } from "./decodedImageCache";
+import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 import {
     clearLeftSidebarPortraitPrefetch,
     enqueueLeftSidebarPortraits,
@@ -116,7 +117,7 @@ test("replacing a level drops its old queued files and starts the new level on t
         .filter((src) => level4.some((id) => leftSidebarPortraitSources(id).creature === src));
     expect(requestedCutouts).toHaveLength(SIDEBAR_PORTRAIT_PREFETCH_LIMIT);
     expect(controlled.sources()).not.toContain(leftSidebarPortraitSources(level1[1]).creature!);
-    expect(controlled.sources()).not.toContain(leftSidebarPortraitSources(CreatureVals.PEASANT).atlas!);
+    expect(controlled.sources()).not.toContain(resolveLeftSidebarPortraitAnimation(CreatureVals.PEASANT)!.src);
 });
 
 test("one owner's cleanup retains another owner's shared queued URL and leaves started work alive", async () => {
@@ -191,8 +192,8 @@ test("a superseded selection does not enqueue its large optional atlas", async (
     await controlled.settle(peasant.creature!);
     await controlled.settle(peasant.background!);
     expect(await first).toBe(true);
-    expect(controlled.sources()).not.toContain(peasant.atlas!);
+    expect(controlled.sources().filter((src) => src === peasant.atlas)).toHaveLength(1);
     await controlled.settle(champion.creature!);
     expect(await second).toBe(true);
-    expect(controlled.sources()).not.toContain(peasant.atlas!);
+    expect(controlled.sources().filter((src) => src === peasant.atlas)).toHaveLength(1);
 });

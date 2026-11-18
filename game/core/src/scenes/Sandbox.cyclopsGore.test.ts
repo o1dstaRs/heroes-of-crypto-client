@@ -36,6 +36,8 @@ const fixture = (ranked = false) => {
             getDamagePredictionAnchor: () => ({ x, y: 128 }),
             getStaticBattlefieldPreviewAt: () => pose,
             getAmountAlive: () => 3,
+            isDead: () => false,
+            hasAbilityActive: (_name: string) => false,
             getUnitProperties: () => ({ level: 3 }),
             presentDamageCasualties: mock(),
             hasAnimationState: () => true,

@@ -30,6 +30,7 @@ import {
 
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
+import { createGameActionFromPlayAction } from "./game_action_play_codec";
 import {
     PlayActionType,
     PlayPhase,
@@ -516,6 +517,15 @@ export const applyPreviewPlayAction = (action: PlayAction): PlayActionResponse =
     }
 
     switch (action.type) {
+        case PlayActionType.AUGMENT: {
+            const augment = createGameActionFromPlayAction(action);
+            if (augment?.type !== "augment") {
+                return rejected(action, current.latestSequence, "invalid_augment");
+            }
+            const side = augment.team === TeamVals.LEFT ? "left" : "right";
+            session = { ...bump(current), [`${side}Augment${augment.augmentKind}`]: augment.augmentValue };
+            break;
+        }
         case PlayActionType.PLACE_UNIT: {
             const cells = action.cells ?? [];
             if (!action.unitId || !cells.length) {
@@ -560,7 +570,7 @@ export const applyPreviewPlayAction = (action: PlayAction): PlayActionResponse =
         case PlayActionType.PING:
             return accepted(action, current.latestSequence);
         default:
-            // Augments, synergies, extra time, aim hints: nothing on this screen reads them back off the
+            // Synergies, extra time, aim hints: nothing on this screen reads them back off the
             // snapshot, so accepting without a state change keeps the client's sequence in step.
             session = bump(current);
             break;

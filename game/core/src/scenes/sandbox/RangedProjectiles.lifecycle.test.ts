@@ -30,6 +30,34 @@ const setup = () => {
     return { attachments, projectiles };
 };
 
+test("Through Shot travels 20 percent faster while progress and impact follow the projectile", async () => {
+    const { projectiles } = setup();
+    let normalProgress = 0;
+    let piercingProgress = 0;
+    let impacts = 0;
+    try {
+        const common = { from: { x: 0, y: 0 }, to: { x: 1000, y: 0 }, big: true, onImpact: () => impacts++ };
+        const normal = projectiles.fire({ ...common, onProgress: (progress) => (normalProgress = progress) });
+        const piercing = projectiles.fire({
+            ...common,
+            cannonPiercing: true,
+            onProgress: (progress) => (piercingProgress = progress),
+        });
+        await Promise.resolve();
+        projectiles.update(0.01);
+        expect(normalProgress).toBeGreaterThan(0);
+        expect(piercingProgress / normalProgress).toBeCloseTo(1.2, 8);
+        expect(impacts).toBe(0);
+        projectiles.update(10);
+        await Promise.all([normal, piercing]);
+        expect(normalProgress).toBe(1);
+        expect(piercingProgress).toBe(1);
+        expect(impacts).toBe(2);
+    } finally {
+        projectiles.destroy();
+    }
+});
+
 test("Medusa serpent changes painted flight cels at a fixed scale and cancels without impact", async () => {
     const { projectiles } = setup();
     const frames = Array.from(

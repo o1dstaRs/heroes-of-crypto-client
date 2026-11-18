@@ -148,3 +148,39 @@ test("water deformation stays within five percent and keeps the centre fixed", (
         }
     expect(max - min).toBeGreaterThan(0.07);
 });
+
+test("hollow dragon ring starts on the perimeter and never emits a central atmosphere patch", async () => {
+    const load = spyOn(Assets, "load").mockResolvedValue(
+        new Texture({ source: new TextureSource({ width: 1448, height: 724 }) }) as never,
+    );
+    const root = new Container();
+    let now = 0;
+    const samples: { x: number; y: number; width: number; height: number }[] = [];
+    const area = { center: { x: 300, y: 200 }, width: 180, height: 150 };
+    const layer = new SpellFireSprites(
+        (c) => root.addChild(c),
+        () => now,
+        (sample) => samples.push(sample),
+    );
+    try {
+        await layer.ring(footprint, area, true);
+        const node = root.children[0],
+            sprite = node.children[0] as Sprite;
+        for (now = 30; now < 900; now += 70) {
+            layer.update();
+            expect(sprite.width).toBeCloseTo(area.width / 0.94);
+            expect(node.position.x).toBe(area.center.x);
+        }
+        expect(samples.length).toBeGreaterThan(8);
+        for (const s of samples) {
+            expect(Math.hypot((s.x - area.center.x) / area.width, (s.y - area.center.y) / area.height)).toBeCloseTo(
+                0.43,
+            );
+            expect(s.width).toBeLessThan(area.width * 0.25);
+        }
+    } finally {
+        layer.clear();
+        load.mockRestore();
+        root.destroy({ children: true });
+    }
+});

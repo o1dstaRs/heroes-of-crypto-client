@@ -1,4 +1,4 @@
-import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { Artifact, Doctrine, TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
@@ -16,7 +16,7 @@ import { PlayerRankedRecord } from "../PlayerRankedRecord";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
+import { IFightDeathEntry, IFightResultSetup, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { MatchupPlayerTooltip, type MatchupPlayer } from "../MatchupOverlay";
 import { matchupTeamTone } from "../matchupOverlayTone";
@@ -28,6 +28,7 @@ import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
+import { FightArmySetupIcons, FightSetupSummary } from "./FightSetupSummary";
 import { canShowFightResults } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
@@ -51,6 +52,23 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     teamWin: UPPER_TEAM,
     fightStats: {
         winner: UPPER_TEAM,
+        setup: {
+            armies: [
+                {
+                    team: LOWER_TEAM,
+                    doctrine: Doctrine.Doctrine.SEE_ALL,
+                    artifactTier1: Artifact.Tier1Artifact.WINGED_BOOTS,
+                    artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+                },
+                {
+                    team: UPPER_TEAM,
+                    doctrine: Doctrine.Doctrine.SEE_NONE,
+                    artifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
+                    artifactTier2: Artifact.Tier2Artifact.PENDANT_OF_VITALITY,
+                },
+            ],
+            synergyVariants: { Life: 2, Nature: 2, Chaos: 1, Might: 2 },
+        },
         series: [
             { lap: 1, leftKilled: 0, rightKilled: 0, leftKilledPct: 0, rightKilledPct: 0 },
             {
@@ -233,7 +251,8 @@ const CasualtyColumn: React.FC<{
     killedTotal: number;
     startTotal: number;
     fallbackPct: number;
-}> = ({ team, deaths, killedTotal, startTotal, fallbackPct }) => {
+    setup?: IFightResultSetup;
+}> = ({ team, deaths, killedTotal, startTotal, fallbackPct, setup }) => {
     const color = teamColor(team);
     const fellPct = Math.round(
         Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)),
@@ -283,122 +302,148 @@ const CasualtyColumn: React.FC<{
             </Stack>
             <Box
                 sx={{
-                    position: "relative",
                     display: "flex",
-                    flexWrap: "nowrap",
-                    gap: 1,
-                    p: 0.75,
-                    borderRadius: "14px",
-                    border: "2px solid rgba(55,52,49,.9)",
-                    backgroundColor: "transparent",
-                    height: 92,
-                    minHeight: 92,
-                    maxHeight: 92,
-                    overflowX: "auto",
-                    overflowY: "hidden",
-                    overscrollBehaviorX: "contain",
-                    scrollbarWidth: "thin",
-                    scrollbarColor: "rgba(74,67,60,.58) transparent",
-                    boxShadow:
-                        "inset 0 0 0 1px rgba(6,6,6,.98), inset 0 0 0 3px rgba(82,72,62,.12), 0 3px 8px rgba(0,0,0,.7)",
-                    "&::-webkit-scrollbar": { height: "4px" },
-                    "&::-webkit-scrollbar-track": { background: "transparent" },
-                    "&::-webkit-scrollbar-thumb": {
-                        backgroundColor: "rgba(74,67,60,.58)",
-                        borderRadius: "2px",
-                    },
-                    "&::before": {
-                        content: '\"\"',
-                        position: "absolute",
-                        inset: "4px",
-                        zIndex: 0,
-                        pointerEvents: "none",
-                        background: "linear-gradient(160deg, rgba(30,18,7,.62), rgba(9,6,2,.62))",
-                        // Combined with the 62%-alpha warm gradient, this leaves the loss well about 51%
-                        // transparent without fading its portraits, counters or forged frame.
-                        opacity: 0.79,
-                        borderRadius: "10px",
-                    },
-                    "&::after": {
-                        content: '""',
-                        position: "absolute",
-                        inset: "3px",
-                        zIndex: 3,
-                        pointerEvents: "none",
-                        boxSizing: "border-box",
-                        border: "1px solid rgba(40,39,37,.92)",
-                        borderRadius: "11px",
-                    },
+                    flexDirection: team === UPPER_TEAM ? "row-reverse" : "row",
+                    alignItems: "center",
+                    gap: 0.75,
                 }}
             >
-                {deaths.length === 0 && (
-                    <Typography
-                        sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
-                    >
-                        No casualties — flawless.
-                    </Typography>
-                )}
-                {deaths.map((d) => (
-                    <Tooltip
-                        key={d.name}
-                        title={`${d.name}: ${d.died} of ${d.start} lost`}
-                        placement="top"
-                        sx={{
-                            backgroundColor: "#2d1606",
-                            border: `2px solid ${GOLD}`,
-                            color: PARCHMENT,
-                            zIndex: 10001,
-                        }}
-                    >
-                        <Box sx={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
-                            {UNIT_NAME_TO_ID[d.name.trim()] !== undefined ? (
-                                <CreaturePortraitImage
-                                    creatureId={UNIT_NAME_TO_ID[d.name.trim()]}
-                                    alt={d.name}
-                                    sx={{
-                                        width: 60,
-                                        height: 80,
-                                        borderRadius: "7px",
-                                        border: "none",
-                                        filter: "grayscale(55%) brightness(0.82)",
-                                    }}
-                                />
-                            ) : (
-                                <Avatar
-                                    src={creatureImgSrc(d.smallTextureName, d.name)}
-                                    variant="plain"
-                                    sx={{
-                                        width: 60,
-                                        height: 80,
-                                        borderRadius: "7px",
-                                        border: "none",
-                                        filter: "grayscale(55%) brightness(0.82)",
-                                    }}
-                                />
-                            )}
+                {/* The completed build belongs beside its army, with the opposing rail mirrored outward. */}
+                <FightArmySetupIcons team={team} army={setup?.armies.find((army) => army.team === team)} />
+                <Box
+                    data-result-army-roster={team}
+                    sx={{
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        position: "relative",
+                        display: "flex",
+                        flexWrap: "nowrap",
+                        gap: 1,
+                        p: 0.75,
+                        borderRadius: "14px",
+                        border: "2px solid rgba(55,52,49,.9)",
+                        backgroundColor: "transparent",
+                        height: 92,
+                        minHeight: 92,
+                        maxHeight: 92,
+                        overflowX: "auto",
+                        overflowY: "hidden",
+                        overscrollBehaviorX: "contain",
+                        scrollbarWidth: "thin",
+                        scrollbarColor: "rgba(74,67,60,.58) transparent",
+                        boxShadow:
+                            "inset 0 0 0 1px rgba(6,6,6,.98), inset 0 0 0 3px rgba(82,72,62,.12), 0 3px 8px rgba(0,0,0,.7)",
+                        "&::-webkit-scrollbar": { height: "4px" },
+                        "&::-webkit-scrollbar-track": { background: "transparent" },
+                        "&::-webkit-scrollbar-thumb": {
+                            backgroundColor: "rgba(74,67,60,.58)",
+                            borderRadius: "2px",
+                        },
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            inset: "4px",
+                            zIndex: 0,
+                            pointerEvents: "none",
+                            background: "linear-gradient(160deg, rgba(30,18,7,.62), rgba(9,6,2,.62))",
+                            // Combined with the 62%-alpha warm gradient, this leaves the loss well about 51%
+                            // transparent without fading its portraits, counters or forged frame.
+                            opacity: 0.79,
+                            borderRadius: "10px",
+                        },
+                        "&::after": {
+                            content: '""',
+                            position: "absolute",
+                            inset: "3px",
+                            zIndex: 3,
+                            pointerEvents: "none",
+                            boxSizing: "border-box",
+                            border: "1px solid rgba(40,39,37,.92)",
+                            borderRadius: "11px",
+                        },
+                    }}
+                >
+                    {deaths.length === 0 && (
+                        <Typography
+                            sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
+                        >
+                            No casualties — flawless.
+                        </Typography>
+                    )}
+                    {deaths.map((d) => (
+                        <Tooltip
+                            key={d.name}
+                            title={`${d.name}: ${d.died} of ${d.start} lost`}
+                            placement="top"
+                            sx={{
+                                backgroundColor: "#2d1606",
+                                border: `2px solid ${GOLD}`,
+                                color: PARCHMENT,
+                                zIndex: 10001,
+                            }}
+                        >
                             <Box
                                 sx={{
-                                    position: "absolute",
-                                    bottom: -4,
-                                    right: -4,
-                                    px: 0.5,
-                                    minWidth: 20,
-                                    height: 20,
-                                    borderRadius: "10px",
-                                    backgroundColor: WOOD_DARK,
-                                    border: `1.5px solid ${color}`,
-                                    color: PARCHMENT,
-                                    fontSize: "0.72rem",
-                                    fontWeight: 800,
-                                    lineHeight: "17px",
-                                    textAlign: "center",
+                                    position: "relative",
+                                    zIndex: 1,
+                                    // Reclaim absent build-rail space without stretching the portraits;
+                                    // summoned rosters keep readable cards and scroll instead.
+                                    flex: deaths.length <= 6 ? "1 1 0" : "0 0 60px",
+                                    minWidth: 40,
+                                    maxWidth: 60,
+                                    aspectRatio: "3 / 4",
+                                    alignSelf: "center",
                                 }}
                             >
-                                ×{d.died}
+                                {UNIT_NAME_TO_ID[d.name.trim()] !== undefined ? (
+                                    <CreaturePortraitImage
+                                        creatureId={UNIT_NAME_TO_ID[d.name.trim()]}
+                                        alt={d.name}
+                                        sx={{
+                                            width: "100%",
+                                            height: "100%",
+                                            borderRadius: "7px",
+                                            border: "none",
+                                            filter: "grayscale(55%) brightness(0.82)",
+                                        }}
+                                    />
+                                ) : (
+                                    <Avatar
+                                        src={creatureImgSrc(d.smallTextureName, d.name)}
+                                        variant="plain"
+                                        sx={{
+                                            width: "100%",
+                                            height: "100%",
+                                            borderRadius: "7px",
+                                            border: "none",
+                                            filter: "grayscale(55%) brightness(0.82)",
+                                        }}
+                                    />
+                                )}
+                                <Box
+                                    sx={{
+                                        position: "absolute",
+                                        bottom: -4,
+                                        right: -4,
+                                        px: 0.5,
+                                        minWidth: 20,
+                                        height: 20,
+                                        borderRadius: "10px",
+                                        backgroundColor: WOOD_DARK,
+                                        border: `1.5px solid ${color}`,
+                                        color: PARCHMENT,
+                                        fontSize: "0.72rem",
+                                        fontWeight: 800,
+                                        lineHeight: "17px",
+                                        textAlign: "center",
+                                    }}
+                                >
+                                    ×{d.died}
+                                </Box>
                             </Box>
-                        </Box>
-                    </Tooltip>
-                ))}
+                        </Tooltip>
+                    ))}
+                </Box>
             </Box>
         </Box>
     );
@@ -970,62 +1015,6 @@ export const ResultParticipantCard: React.FC<{
     );
 };
 
-const CompactBattleStat: React.FC<{ label: string; value: string; valueColor?: string }> = ({
-    label,
-    value,
-    valueColor = "#d8bd83",
-}) => (
-    <Box
-        sx={{
-            position: "relative",
-            flex: 1,
-            minWidth: 0,
-            height: 35,
-            px: 1.1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 0.55,
-            textAlign: "center",
-            borderRadius: "7px",
-            border: "1px solid rgba(53,51,48,.86)",
-            background: "linear-gradient(180deg, rgba(17,17,16,.88), rgba(7,7,7,.94))",
-            boxShadow: "inset 0 0 0 1px rgba(0,0,0,.82), 0 3px 7px rgba(0,0,0,.62)",
-        }}
-    >
-        <Typography
-            sx={{
-                color: "#bfa56f",
-                fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: "0.6rem",
-                fontWeight: 800,
-                letterSpacing: "0.035em",
-                lineHeight: 1,
-                whiteSpace: "nowrap",
-            }}
-        >
-            {label}
-        </Typography>
-        <Typography
-            sx={{
-                color: valueColor,
-                fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: "0.8rem",
-                fontWeight: 900,
-                letterSpacing: "0.025em",
-                lineHeight: 1,
-                textShadow: `0 0 8px ${valueColor}35, 0 1px 2px #000`,
-                whiteSpace: "nowrap",
-            }}
-        >
-            {value}
-        </Typography>
-    </Box>
-);
-
-const fellPercentage = (killedTotal: number, startTotal: number, fallbackPct: number): number =>
-    Math.round(Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)));
-
 interface FightResultPlayerRef {
     playerId?: string;
     team: TeamType;
@@ -1221,14 +1210,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
-    const finalSample = stats.series.at(-1);
-    const leftFellPct = fellPercentage(stats.leftKilledTotal, stats.leftStartTotal, finalSample?.leftKilledPct ?? 0);
-    const rightFellPct = fellPercentage(
-        stats.rightKilledTotal,
-        stats.rightStartTotal,
-        finalSample?.rightKilledPct ?? 0,
-    );
-    const topDamage = Math.max(0, ...(stats.damageByUnit ?? []).map((entry) => entry.damage));
     const resultParticipants = ([LOWER_TEAM, UPPER_TEAM] as TeamType[]).map((team): ResultParticipant => {
         const side = team === LOWER_TEAM ? "lower" : "upper";
         const settlement = activeMatch?.players.find((player) => player.side === side);
@@ -1365,16 +1346,25 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     display: "flex",
                     flexDirection: "column",
                     overflow: { xs: "auto", sm: "hidden" },
+                    // Actual borders/background stay at the viewport while short/mobile content scrolls.
+                    // Absolutely positioned ornamental layers otherwise scroll away halfway through setup.
+                    "@media (max-height: 820px)": {
+                        overflowY: "auto",
+                        backgroundColor: "rgba(17,13,9,.82)",
+                        border: "2px solid rgba(48,47,45,.94)",
+                    },
                     overscrollBehavior: "contain",
                     isolation: "isolate",
                     textTransform: "uppercase",
                     borderRadius: "11px",
-                    border: "none",
-                    backgroundColor: "transparent",
+                    border: { xs: "2px solid rgba(48,47,45,.94)", sm: "none" },
+                    backgroundColor: { xs: "rgba(17,13,9,.82)", sm: "transparent" },
                     boxShadow: "0 22px 60px rgba(0,0,0,.92), 0 0 24px rgba(0,0,0,.72)",
                     padding: "18px 22px 16px",
                     "&::before": {
                         content: '""',
+                        display: { xs: "none", sm: "block" },
+                        "@media (max-height: 820px)": { display: "none" },
                         position: "absolute",
                         inset: 0,
                         zIndex: -1,
@@ -1391,6 +1381,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     },
                     "&::after": {
                         content: '""',
+                        display: { xs: "none", sm: "block" },
+                        "@media (max-height: 820px)": { display: "none" },
                         position: "absolute",
                         inset: 0,
                         zIndex: 5,
@@ -1408,6 +1400,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     sx={{
                         position: "absolute",
                         inset: 9,
+                        display: { xs: "none", sm: "block" },
+                        "@media (max-height: 820px)": { display: "none" },
                         zIndex: 4,
                         pointerEvents: "none",
                         border: "1px solid rgba(42,41,39,.66)",
@@ -1542,29 +1536,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <ExitResultBanner exit={matchExit} ranked={exit?.ranked} viewerPlayerId={viewerPlayerId} />
                     </Box>
                 )}
-                <Box
-                    sx={{
-                        display: "grid",
-                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" },
-                        gap: 0.75,
-                        flexShrink: 0,
-                        mb: 1.25,
-                        px: 0.25,
-                    }}
-                >
-                    <CompactBattleStat label="LENGTH" value={`${Math.max(0, stats.totalLaps)} LAPS`} />
-                    <CompactBattleStat
-                        label="GREEN LOST"
-                        value={`${leftFellPct}%`}
-                        valueColor={teamColor(LOWER_TEAM)}
-                    />
-                    <CompactBattleStat label="RED LOST" value={`${rightFellPct}%`} valueColor={teamColor(UPPER_TEAM)} />
-                    <CompactBattleStat
-                        label="TOP DAMAGE"
-                        value={Math.round(topDamage).toLocaleString("en-US")}
-                        valueColor="#d5ad61"
-                    />
-                </Box>
 
                 {/* Only the damage list shrinks and scrolls when the card reaches the viewport limit.
                     Keep the chart, casualty rosters and action buttons visible. */}
@@ -1576,13 +1547,30 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         flexDirection: "column",
                         overflow: { xs: "visible", sm: "hidden" },
                         pb: 1.5,
+                        "@media (max-height: 820px)": { flex: "0 0 auto", minHeight: "auto", overflow: "visible" },
                     }}
                 >
-                    <CasualtyChartPanel
-                        series={stats.series}
-                        deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
-                        ornateResultsFrame
-                    />
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 1.5,
+                            flexShrink: 0,
+                        }}
+                    >
+                        <Box data-result-chart sx={{ flex: "1 1 auto", minWidth: 0 }}>
+                            <CasualtyChartPanel
+                                series={stats.series}
+                                deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
+                                ornateResultsFrame
+                            />
+                        </Box>
+                        {/* One global icon column stays beside the plot at every viewport size. */}
+                        <Box data-result-synergy-side sx={{ flex: "0 0 28px", alignSelf: "center" }}>
+                            <FightSetupSummary setup={stats.setup} />
+                        </Box>
+                    </Box>
 
                     {/* Both armies share one scroll area, used only when the screen is too short. */}
                     <Box
@@ -1594,6 +1582,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             overscrollBehavior: "contain",
                             scrollbarWidth: "thin",
                             scrollbarColor: "rgba(74,67,60,.58) transparent",
+                            "@media (max-height: 820px)": { flex: "0 0 auto", overflow: "visible" },
                             "&::-webkit-scrollbar": { width: "5px" },
                             "&::-webkit-scrollbar-track": { background: "transparent" },
                             "&::-webkit-scrollbar-thumb": {
@@ -1611,6 +1600,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={3} sx={{ px: 1, pt: 2 }}>
                             <CasualtyColumn
                                 team={LOWER_TEAM}
+                                setup={stats.setup}
                                 deaths={stats.leftDeaths}
                                 killedTotal={stats.leftKilledTotal}
                                 startTotal={stats.leftStartTotal}
@@ -1618,6 +1608,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             />
                             <CasualtyColumn
                                 team={UPPER_TEAM}
+                                setup={stats.setup}
                                 deaths={stats.rightDeaths}
                                 killedTotal={stats.rightKilledTotal}
                                 startTotal={stats.rightStartTotal}

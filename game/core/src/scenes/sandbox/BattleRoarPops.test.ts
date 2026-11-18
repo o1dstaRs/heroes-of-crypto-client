@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
@@ -38,7 +39,7 @@ describe("Battle Roar painted flag effect", () => {
             let now = 0;
             const layer = new BattleRoarPops(
                 (container) => root.addChild(container),
-                () => now,
+                () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
             );
             layers.push(layer);
             let anchor = { x: 100, y: 200 };
@@ -48,7 +49,7 @@ describe("Battle Roar painted flag effect", () => {
             const scale = { x: sprite.scale.x, y: sprite.scale.y };
             const y = container.y;
             for (let i = 0; i < 14; i++) {
-                now += 100;
+                now += 45;
                 layer.update(0.1);
                 expect(container.x).toBe(anchor.x);
                 expect(container.y).toBe(y);
@@ -61,7 +62,7 @@ describe("Battle Roar painted flag effect", () => {
             layer.update(0);
             expect(container.x).toBe(150);
             expect(container.y).toBe(y + 50);
-            now += 100;
+            now += 45;
             layer.update(0.1);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);
@@ -98,7 +99,7 @@ describe("Battle Roar painted flag effect", () => {
 
     test("ranked hydration keeps the running effect and follows the rebuilt recipient flag", async () => {
         let now = 0;
-        const clock = spyOn(performance, "now").mockImplementation(() => now);
+        const clock = spyOn(performance, "now").mockImplementation(() => now / OVERHEAD_EFFECT_PLAYBACK_SPEED);
         const meta = animationAtlases["Vfx Battle Roar"].short;
         const atlas = new Texture({ source: new TextureSource({ width: meta.atlasWidth, height: meta.atlasHeight }) });
         const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
@@ -134,7 +135,9 @@ describe("Battle Roar painted flag effect", () => {
             now = 600;
             visuals.update(0.4);
             expect(pop.x).toBe(150);
-            expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
+            const bounds = pop.getLocalBounds();
+            const lower = Math.min(bounds.minY * pop.scale.y, bounds.maxY * pop.scale.y);
+            expect(pop.y + lower).toBeCloseTo(250 + 6);
             now = 1000;
             visuals.update(0.7);
             expect(pop.destroyed).toBe(true);
@@ -162,7 +165,7 @@ describe("Battle Roar painted flag effect", () => {
                 let now = 5000;
                 const layer = new BattleRoarPops(
                     (container) => root.addChild(container),
-                    () => now,
+                    () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
                 );
                 layers.push(layer);
                 await layer.spawn({ x: 100, y: 200 }, 64, durationMs);
@@ -172,14 +175,14 @@ describe("Battle Roar painted flag effect", () => {
                 layer.update(1 / 60);
                 expect(pop.alpha).toBeGreaterThan(0);
                 expect(pop.alpha).toBeLessThan(1);
-                now = 5000 + durationMs * 0.5;
+                now = 5000 + 650 * 0.5;
                 layer.update(1 / 60);
                 expect(pop.alpha).toBe(1);
-                now = 5000 + durationMs - 50;
+                now = 5000 + 650 - 30;
                 layer.update(0);
                 expect(pop.alpha).toBeGreaterThan(0);
                 expect(pop.alpha).toBeLessThan(0.2);
-                now = 5000 + durationMs;
+                now = 5000 + 650;
                 layer.update(0);
                 expect(layer.active).toBe(false);
                 expect(pop.destroyed).toBe(true);

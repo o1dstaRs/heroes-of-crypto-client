@@ -1,3 +1,4 @@
+import { PIKEMAN_SPEAR_TIPS, PIKEMAN_SPEAR_BUTTS, PIKEMAN_SPEAR_EXTENSION_RATIO } from "./PikemanSkewerMotion";
 import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
@@ -21,6 +22,7 @@ import {
 } from "./TrollLabAttackVisuals";
 import { syncWhiteTigerLabWalk } from "./WhiteTigerLabWalkVisuals";
 import { syncWhiteTigerIdleTail } from "./WhiteTigerIdleTailVisuals";
+import { isPegasusCombatState, pegasusCombatCanvasScale } from "./PegasusCombat";
 import {
     PEGASUS_FLIGHT_SCALE,
     PEGASUS_FLIGHT_ANCHOR_X,
@@ -30,6 +32,7 @@ import {
 import { CANNON_BALL_SIZE_MULTIPLIER } from "./TsarCannonImpact";
 import { whirlpoolEdgeScale } from "./sandbox/WhirlpoolWaterEdge";
 import { HIT_REACTION_ADDITIONAL_SPEED } from "../settings/hitTiming";
+import { SPELL_PROJECTILE_CAST_RELEASE_FRACTION } from "../settings/fireSpellTiming";
 import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
 import {
     MAGIC_DRAGON_LAB_DEATH_SPEED,
@@ -94,6 +97,7 @@ import { syncUnicornLabIdle } from "./UnicornLabIdleVisuals";
 
 import { syncHydraIdleTail } from "./HydraIdleTailVisuals";
 import { syncHydraCrestFire } from "./HydraCrestFireVisuals";
+import { WaterShieldVisual } from "./WaterShieldVisual";
 import { championIdleFrame } from "./ChampionLabIdleMotion";
 import { syncChampionPlume } from "./ChampionLabPlume";
 import { syncNomadIdleVisuals } from "./NomadIdleVisuals";
@@ -317,6 +321,7 @@ import {
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
+import { StunStars, stunBodySway } from "./StunStars";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import {
     EMBER_COVENANT_STATUS,
@@ -469,16 +474,6 @@ const shouldRedrawContinuousEffect = (
     return true;
 };
 
-let sharedRevealedRosterDesaturateFilter: ColorMatrixFilter | undefined;
-
-/** Every revealed opponent uses the same immutable grayscale matrix, so one filter serves the whole roster. */
-const revealedRosterDesaturateFilter = (): ColorMatrixFilter => {
-    if (sharedRevealedRosterDesaturateFilter) return sharedRevealedRosterDesaturateFilter;
-    sharedRevealedRosterDesaturateFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
-    sharedRevealedRosterDesaturateFilter.desaturate();
-    return sharedRevealedRosterDesaturateFilter;
-};
-
 const battlefieldShadowSegmentTextureCache = new WeakMap<Texture, readonly Texture[]>();
 
 /** Four untrimmed atlas slices that meet at the original sprite centre without changing its source texture. */
@@ -561,7 +556,7 @@ const THIEF_WALK_VISIBLE_HEIGHT_RATIO = 185 / 192;
 // high. Match it to the current static figure's measured 757px height, including that figure's
 // existing legacy idle scale, instead of fitting the old narrower Thief walk canvas.
 const SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO = (247 / 256) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
-const SCAVENGER_LAB_ACTIONS = ["hit", "death", "attack", "attack_up", "attack_down"];
+const SCAVENGER_LAB_ACTIONS = ["hit", "dodge", "death", "attack", "attack_up", "attack_down"];
 const scavengerLabCanvasScale = (state?: string): number => (state?.startsWith("attack") ? 1024 / 768 : 1);
 const SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO = (700 / 768) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
 const ORC_UNIT_NAME = "Orc";
@@ -1410,6 +1405,7 @@ function troglodyteActionCanvasScale(stateName: string | undefined): number {
 
 /** Keep individually approved one-shot animations active while the global art freeze remains in place. */
 export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateName: string): boolean {
+    if (unitName === SCAVENGER_UNIT_NAME && stateName === "dodge") return true;
     if (unitName === BLACKSMITH_UNIT_NAME && ["attack", "attack_up", "attack_down"].includes(stateName)) return false;
     return (
         (unitName === "Cyclops" &&
@@ -1489,7 +1485,11 @@ export function creatureGenericWholeSpriteMotionEnabledForLevel(_unitLevel: numb
 }
 
 export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
-    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && unitName !== PEASANT_UNIT_NAME;
+    return (
+        creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) &&
+        unitName !== PEASANT_UNIT_NAME &&
+        unitName !== "Pegasus"
+    );
 }
 
 /** Keep individually approved idle loops active while other creature atlases remain frozen. */
@@ -2745,6 +2745,8 @@ interface SpawnAnimState {
 }
 
 interface OneShotAnimState {
+    /** One adjustment per dying attack; damage/contact and every authored frame remain intact. */
+    lethalMeleeRecoveryHastened?: boolean;
     externallyDriven?: boolean;
     zenaCatching?: boolean;
     stateName: string;
@@ -3122,6 +3124,7 @@ export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
     private hasHourglassedThisLap = false;
     private skippingThisTurnSynced = false;
+    private pendingRegenerationHp = 0;
     private sprite?: Sprite;
     private motionBlurFilter?: BlurFilter;
     private shadow?: Graphics;
@@ -3167,6 +3170,7 @@ export class RenderableUnit extends Unit {
     private projectedStackPower?: number;
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
+    private stunStars?: StunStars;
     private stunContainer?: Container;
     private stunSprite?: Sprite;
     private immobilizedContainer?: Container;
@@ -3207,7 +3211,6 @@ export class RenderableUnit extends Unit {
     private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
     private badgeEmphasisScale = 1;
     private badgeAmountOverride?: number;
-    private desaturateFilter?: ColorMatrixFilter;
     private battlefieldAlphaHoleFillFilter?: ReturnType<typeof getBattlefieldAlphaHoleFillFilter>;
     private battlefieldContourFilter?: ReturnType<typeof getBattlefieldCreatureContourFilter>;
     private battlefieldStyleFilter?: ColorMatrixFilter;
@@ -3249,6 +3252,9 @@ export class RenderableUnit extends Unit {
     private activeTurnFireFrameIndex = -1;
     private activeAuraColor = 0xffffff;
     private waterShieldAura?: Graphics;
+    private waterShieldVisual?: WaterShieldVisual;
+    private waterShieldLabPreview = false;
+    private waterShieldLabBroken = false;
     private waterShieldAuraDrawState?: ContinuousEffectDrawState;
     private whirlpoolAura?: Graphics;
     private whirlpoolAuraDrawState?: ContinuousEffectDrawState;
@@ -3320,6 +3326,7 @@ export class RenderableUnit extends Unit {
         ru.facingDirection = placementFacingDirectionForTeam(ru.getTeam());
         ru.stackForcedHidden = false;
         ru.isActiveTurn = false;
+        ru.pendingRegenerationHp = 0;
         ru.isDestroyed = false;
         ru.visualMode = "normal";
         // fromBase() bypasses the constructor (it re-prototypes an existing Unit), so class field
@@ -3360,6 +3367,9 @@ export class RenderableUnit extends Unit {
         ru.activeTurnFireFrameIndex = -1;
         ru.activeAuraColor = 0xffffff;
         ru.waterShieldAura = undefined;
+        ru.waterShieldVisual = undefined;
+        ru.waterShieldLabPreview = false;
+        ru.waterShieldLabBroken = false;
         ru.waterShieldAuraDrawState = undefined;
         ru.whirlpoolAura = undefined;
         ru.whirlpoolAuraDrawState = undefined;
@@ -3962,6 +3972,7 @@ export class RenderableUnit extends Unit {
             this.cannonLabCanvasScale() *
             (this.walkAnim ? 1 : this.championLabCanvasScale()) *
             harpyActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
+            pegasusCombatCanvasScale(props.name, this.oneShotAnim?.stateName) *
             nomadReactionCanvasScale(props.name, this.oneShotAnim?.stateName) *
             trentActionCanvasScale(props.name, this.oneShotAnim?.stateName) *
             satyrCastCanvasScale(props.name, this.oneShotAnim?.stateName) *
@@ -4198,19 +4209,14 @@ export class RenderableUnit extends Unit {
         // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
         const isHidden = this.hasBuffActive("Hidden");
         const normalSpriteAlpha = isHidden ? 0.4 : 1;
-        const spriteAlpha =
-            this.visualMode === "ghost" ? 0.25 : this.visualMode === "revealed" ? 0.9 : normalSpriteAlpha;
+        const spriteAlpha = this.visualMode === "ghost" ? 0.25 : normalSpriteAlpha;
         if (this.sprite.alpha !== spriteAlpha) this.sprite.alpha = spriteAlpha;
         const spriteTint = this.currentEffectTint(now);
         if (this.sprite.tint !== spriteTint) this.sprite.tint = spriteTint;
-        // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
-        // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
-        if (this.visualMode === "revealed") {
-            this.desaturateFilter ??= revealedRosterDesaturateFilter();
-        }
+        // Revealed opponents retain their full colour; team flags distinguish the two armies.
         // Retire the experimental shared colour grade. The purpose-built contour pass below is deliberately
         // edge-only: it leaves interior colour untouched while matching the approved level-three baked rim.
-        // Gameplay-only filters (motion blur, revealed-roster grayscale) remain intact.
+        // Gameplay motion-blur filters remain intact.
         const retiredBattlefieldStyleFilter = this.battlefieldStyleFilter;
         const retiredBattlefieldAlphaHoleFillFilter = this.battlefieldAlphaHoleFillFilter;
         const retiredBattlefieldContourFilter = this.battlefieldContourFilter;
@@ -4239,10 +4245,10 @@ export class RenderableUnit extends Unit {
             retiredBattlefieldStyleFilter,
             retiredBattlefieldAlphaHoleFillFilter,
             retiredBattlefieldContourFilter,
-            this.desaturateFilter,
+            undefined,
             runtimeAlphaHoleFillFilter,
             runtimeContourFilter,
-            this.visualMode === "revealed",
+            false,
         );
         this.battlefieldAlphaHoleFillFilter = runtimeAlphaHoleFillFilter;
         this.battlefieldContourFilter = runtimeContourFilter;
@@ -4528,6 +4534,34 @@ export class RenderableUnit extends Unit {
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicators: grouped immediately left of the amount flag ---
         this.ensureFlagStatusIndicators(now);
+        if (
+            spriteVisible &&
+            this.visualMode === "normal" &&
+            this.getDisplayedAmount() > 0 &&
+            this.shouldShowStunFeedback() &&
+            this.badgeContainer &&
+            this.badgeDrawState &&
+            this.oneShotAnim?.stateName !== "death"
+        ) {
+            this.stunStars ??= new StunStars();
+            this.stunStars.update(
+                this.badgeContainer,
+                now,
+                gs.getCellSize(),
+                this.badgeDrawState.geometry.headerWidth,
+                this.badgeDrawState.geometry.flagHeight,
+            );
+            // INTENDED: Blindness and authoritative skip-only snapshots use the same feedback as Stun.
+            // Use presented status, so neither stars nor swaying can precede projectile contact.
+            // This is a body-only offset applied after the frame's base pose, never a movement/recoil.
+            const sway = stunBodySway(
+                now,
+                gs.getCellSize() * battlefieldPerspectiveScale,
+                this.refreshedIdlePhaseRatio,
+            );
+            this.sprite.x += sway.x * this.stunStars.root.alpha;
+            this.sprite.y += sway.y * this.stunStars.root.alpha;
+        } else this.stunStars?.hide();
         if (battleMageDeathAlpha === 0) {
             if (this.badgeContainer) this.badgeContainer.visible = false;
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
@@ -4830,6 +4864,7 @@ export class RenderableUnit extends Unit {
     }
     public setVisualVisible(visible: boolean): void {
         this.visualMode = visible ? "normal" : "hidden";
+        if (!visible) this.stunStars?.hide();
         if (this.sprite) this.sprite.visible = visible;
         if (this.shadow) this.shadow.visible = visible;
         this.setSilhouetteShadowVisibility(visible && this.useBattlefieldVisualProjection);
@@ -4844,7 +4879,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = visible && this.shouldShowStunIndicator();
+            this.stunContainer.visible = false;
         }
         if (this.immobilizedContainer)
             this.immobilizedContainer.visible = visible && this.shouldShowImmobilizedIndicator();
@@ -4854,6 +4889,7 @@ export class RenderableUnit extends Unit {
     }
     public setVisualGhost(active: boolean): void {
         this.visualMode = active ? "ghost" : "normal";
+        if (active) this.stunStars?.hide();
         const visible = active || this.visualMode === "normal";
         const alpha = active ? 0.25 : 1;
 
@@ -4878,7 +4914,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = !active && visible && this.shouldShowStunIndicator();
+            this.stunContainer.visible = false;
         }
         if (this.immobilizedContainer)
             this.immobilizedContainer.visible = !active && visible && this.shouldShowImmobilizedIndicator();
@@ -4984,11 +5020,13 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer) this.stackPowerContainer.zIndex = depth + 1;
         if (this.hourglassContainer) this.hourglassContainer.zIndex = depth + 2;
         if (this.stunContainer) this.stunContainer.zIndex = depth + 2;
+        if (this.stunStars) this.stunStars.root.zIndex = depth + 1.05;
         // Response swords are a local badge child; their layer is controlled by child order, not world depth.
         if (this.respondContainer) this.respondContainer.zIndex = 0;
         if (this.freezeCrust) this.freezeCrust.zIndex = depth + 0.5;
         if (this.freezeLight) this.freezeLight.zIndex = depth + 0.55;
         if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.zIndex = depth + 0.6;
+        this.waterShieldVisual?.setDepth(depth);
         for (const ghost of this.dodgeAnim?.ghosts ?? []) ghost.sprite.zIndex = depth - 1;
     }
     public syncVisual(worldRoot: Container, gs: GridSettings, _movementInProgress = false): void {
@@ -4996,6 +5034,9 @@ export class RenderableUnit extends Unit {
         const logicalPos = this.getPosition();
         const inGrid = GridMath.isPositionWithinGrid(gs, logicalPos);
         if (!inGrid) {
+            this.stunStars?.hide();
+            this.waterShieldVisual?.hide();
+            if (this.waterShieldAura) this.waterShieldAura.visible = false;
             if (this.sprite) this.sprite.visible = false;
             if (this.shadow) this.shadow.visible = false;
             this.setSilhouetteShadowVisibility(false);
@@ -5067,10 +5108,11 @@ export class RenderableUnit extends Unit {
         // Arachna Queen assimilated off a Mermaid — is then present in the authoritative applied_buffs list
         // and completely invisible on the board. hasStatusBuff ORs both, so the ring follows the server.
         const waterShieldActive = this.getDisplayedAmount() > 0 && this.hasPresentedBuff("Water Shield");
-        if (waterShieldActive) {
+        if (!this.waterShieldLabBroken && (waterShieldActive || (this.waterShieldLabPreview && !this.isDead()))) {
             this.updateWaterShieldAura(worldRoot, gs, pos, now);
-        } else if (this.waterShieldAura) {
-            this.waterShieldAura.visible = false;
+        } else {
+            if (this.waterShieldAura) this.waterShieldAura.visible = false;
+            this.waterShieldVisual?.hide();
         }
 
         // Whirlpool is a one-lap movement/turn lock. Keep its vortex visible for exactly as long as the
@@ -5150,6 +5192,16 @@ export class RenderableUnit extends Unit {
         this.activeTurnFireSprite.visible = true;
     }
     private updateWaterShieldAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
+        if (this.getName() === MERMAID_UNIT_NAME) {
+            if (this.waterShieldAura) this.waterShieldAura.visible = false;
+            if (!this.sprite || this.oneShotAnim?.stateName === "death") {
+                this.waterShieldVisual?.hide();
+                return;
+            }
+            this.waterShieldVisual ??= new WaterShieldVisual(this.sprite);
+            this.waterShieldVisual.update(this.sprite, nowMs, gs.getStep());
+            return;
+        }
         if (!this.waterShieldAura) {
             this.waterShieldAura = new Graphics();
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
@@ -5455,6 +5507,21 @@ export class RenderableUnit extends Unit {
         if (this.waterShieldBreakStartMs === undefined) return;
         // A later shot can already have killed the model. The first shield rupture belongs to the
         // still-presented living stack until that later projectile actually lands.
+        if (this.getName() === MERMAID_UNIT_NAME) {
+            if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.visible = false;
+            if (this.getDisplayedAmount() <= 0 || !this.sprite || this.oneShotAnim?.stateName === "death") {
+                this.waterShieldVisual?.hide();
+                this.waterShieldBreakStartMs = undefined;
+                return;
+            }
+            this.waterShieldVisual ??= new WaterShieldVisual(this.sprite);
+            if (
+                !this.waterShieldVisual.updateBreak(this.sprite, nowMs, this.waterShieldBreakStartMs, gs.getStep(), pos)
+            ) {
+                this.waterShieldBreakStartMs = undefined;
+            }
+            return;
+        }
         const DURATION_MS = 550;
         const elapsed = nowMs - this.waterShieldBreakStartMs;
         if (elapsed >= DURATION_MS || this.getDisplayedAmount() <= 0) {
@@ -5549,7 +5616,16 @@ export class RenderableUnit extends Unit {
             ? ARBALESTER_LAB_FOOT_ANCHOR_Y
             : tallBoardModelFootAnchorY(this.getName(), stateName, meta);
     }
+    /** Visual-only lab control: uses the combat rupture without consuming or granting a gameplay buff. */
+    public setWaterShieldBreakPreview(broken: boolean): void {
+        if (this.getName() !== MERMAID_UNIT_NAME) return;
+        this.waterShieldLabBroken = broken;
+        this.waterShieldBreakStartMs = broken ? performance.now() : undefined;
+    }
     public setCreatureAnimationLabPreviewEnabled(enabled: boolean): void {
+        // Explicit lab-only artwork preview; never seeds a buff or changes shield consumption in combat.
+        this.waterShieldLabPreview = enabled && this.getName() === MERMAID_UNIT_NAME;
+        if (!enabled) this.waterShieldLabBroken = false;
         enabled = enabled || usesApprovedBaseAnimations(this.getName());
         if (!enabled) this.cancelArbalesterRangedShot();
         if (!enabled) this.cancelDryadRangedShot();
@@ -8542,7 +8618,9 @@ export class RenderableUnit extends Unit {
             );
             syncScavengerIdleColorFilter(
                 this.sprite,
-                this.scavengerLabAnimationsEnabled && !this.walkAnim && !this.oneShotAnim,
+                this.scavengerLabAnimationsEnabled &&
+                    !this.walkAnim &&
+                    (!this.oneShotAnim || this.oneShotAnim.stateName === "dodge"),
             );
         }
         if (!this.sprite || this.getUnitProperties().name !== BLACKSMITH_UNIT_NAME) return;
@@ -9184,6 +9262,35 @@ export class RenderableUnit extends Unit {
         if (this.sprite) return { x: this.sprite.x, y: this.sprite.y };
         return this.getBattlefieldGroundReference(this.getPosition(), gs);
     }
+    /** Painted steel tip in the six-cel Pikeman attack, transformed with the live sprite. */
+    public getSkewerSpearPose(): { origin: HoCMath.XY; end: HoCMath.XY; phase: number } | undefined {
+        const action = this.oneShotAnim;
+        const sprite = this.sprite;
+        if (this.getName() !== "Pikeman" || !action || !sprite?.parent || !sprite.visible || action.finished)
+            return undefined;
+        const state = action.stateName.replace(/^melee_attack/, "attack");
+        if (!["attack", "attack_up", "attack_down"].includes(state) || action.frames.length !== 6) return undefined;
+        const tip = PIKEMAN_SPEAR_TIPS[state][action.frameIndex];
+        const butt = PIKEMAN_SPEAR_BUTTS[state][action.frameIndex - 2] ?? tip;
+        const duration = action.frameDurationsMs?.[action.frameIndex] ?? action.durationPerFrame;
+        const transform = (point: readonly [number, number]) =>
+            sprite.parent!.toLocal(
+                sprite.toGlobal({
+                    x: (point[0] / 1280 - sprite.anchor.x) * sprite.texture.width,
+                    y: (point[1] / 768 - sprite.anchor.y) * sprite.texture.height,
+                }),
+            );
+        const origin = transform(tip);
+        const rear = transform(butt);
+        return {
+            origin,
+            end: {
+                x: origin.x + (origin.x - rear.x) * PIKEMAN_SPEAR_EXTENSION_RATIO,
+                y: origin.y + (origin.y - rear.y) * PIKEMAN_SPEAR_EXTENSION_RATIO,
+            },
+            phase: action.frameIndex + Math.min(0.999, action.elapsed / Math.max(1, duration)),
+        };
+    }
     public hasPendingDryadRangedShot(): boolean {
         return !!this.dryadRangedShot && !this.dryadRangedShot.signal.aborted;
     }
@@ -9345,6 +9452,18 @@ export class RenderableUnit extends Unit {
     }
     public getProjectileGroundPoint(gs: GridSettings): HoCMath.XY {
         return this.getBattlefieldGroundReference(this.getPosition(), gs);
+    }
+    /** Painted page centre, transformed with the live body (including cast canvas and mirroring). */
+    public getSpellProjectileOrigin(gs: GridSettings): HoCMath.XY {
+        const sprite = this.sprite;
+        if (this.getName() !== "Battle Mage" || !sprite?.parent || !sprite.visible) return this.getVisualCenter(gs);
+        const casting = this.oneShotAnim?.stateName === "cast";
+        return sprite.parent.toLocal(
+            sprite.toGlobal({
+                x: ((casting ? 0.67 : 0.72) - sprite.anchor.x) * sprite.texture.width,
+                y: (0.37 - sprite.anchor.y) * sprite.texture.height,
+            }),
+        );
     }
     public getProjectileImpactPoint(gs: GridSettings): HoCMath.XY {
         const sprite = this.sprite;
@@ -10739,6 +10858,67 @@ export class RenderableUnit extends Unit {
             getAnimationStateConfig(props.name, stateName, this.getFootprintWidth(), this.getFootprintHeight()) !== null
         );
     }
+    /** Release during the cast, allowing the projectile and the creature's recovery to overlap.
+     * Fire Arrow has its own book charge, so start that lead-in early enough for the same release point. */
+    public onCastProjectileRelease(onRelease: () => void, projectileWindupMs = 0): boolean {
+        const anim = this.oneShotAnim;
+        if (
+            !anim ||
+            anim.stateName !== "cast" ||
+            anim.finished ||
+            anim.externallyDriven ||
+            anim.frames.length < 2 ||
+            !Number.isFinite(projectileWindupMs) ||
+            projectileWindupMs < 0
+        )
+            return false;
+        const durations = anim.frames.map((_frame, index) => anim.frameDurationsMs?.[index] ?? anim.durationPerFrame);
+        const releaseMs = Math.max(
+            0,
+            durations.reduce((sum, ms) => sum + ms, 0) * SPELL_PROJECTILE_CAST_RELEASE_FRACTION - projectileWindupMs,
+        );
+        let releaseFrame = 0;
+        let elapsed = 0;
+        while (releaseFrame < anim.frames.length - 1 && elapsed < releaseMs) {
+            elapsed += durations[releaseFrame++];
+        }
+        if (releaseFrame <= anim.frameIndex) onRelease();
+        else {
+            anim.projectileReleaseFrame = releaseFrame;
+            anim.projectileRelease = onRelease;
+        }
+        return true;
+    }
+    /** A mortally wounded melee actor still finishes its counter, with at most 150 ms less recovery.
+     * Keep the current frame's phase and all remaining cels: starting death by replacing the attack
+     * would cancel its callback and could strand the exchange or erase the recorded counter. */
+    public hastenLethalMeleeRecovery(): boolean {
+        const anim = this.oneShotAnim;
+        if (
+            !anim ||
+            !isAttackAnimationStateName(anim.stateName) ||
+            anim.externallyDriven ||
+            anim.finished ||
+            anim.lethalMeleeRecoveryHastened ||
+            anim.projectileRelease ||
+            anim.orcRelease
+        )
+            return false;
+        const remaining = anim.frames
+            .slice(anim.frameIndex)
+            .reduce(
+                (sum, _frame, index) =>
+                    sum + (anim.frameDurationsMs?.[anim.frameIndex + index] ?? anim.durationPerFrame),
+                -anim.elapsed,
+            );
+        if (!(remaining > 0)) return false;
+        const scale = 1 - Math.min(150, remaining * 0.2) / remaining;
+        anim.durationPerFrame *= scale;
+        anim.frameDurationsMs = anim.frameDurationsMs?.map((ms) => ms * scale);
+        anim.elapsed *= scale;
+        anim.lethalMeleeRecoveryHastened = true;
+        return true;
+    }
     public isPlayingOneShotAnimation(stateName?: string): boolean {
         if (this.unicornBlindnessFlash && (!stateName || stateName === "cast")) return true;
         return !!this.oneShotAnim && (!stateName || this.oneShotAnim.stateName === stateName);
@@ -11025,6 +11205,7 @@ export class RenderableUnit extends Unit {
         const previousCannonCanvasScale = this.cannonLabCanvasScale();
         const previousScavengerCanvasScale = scavengerLabCanvasScale(this.oneShotAnim?.stateName);
         const previousHarpyCanvasScale = harpyActionCanvasScale(props.name, this.oneShotAnim?.stateName);
+        const previousPegasusCanvasScale = pegasusCombatCanvasScale(props.name, this.oneShotAnim?.stateName);
         const previousNomadCanvasScale = nomadReactionCanvasScale(props.name, this.oneShotAnim?.stateName);
         const previousTrentCanvasScale = trentActionCanvasScale(props.name, this.oneShotAnim?.stateName);
         const previousSatyrCanvasScale = satyrCastCanvasScale(props.name, this.oneShotAnim?.stateName);
@@ -11203,6 +11384,7 @@ export class RenderableUnit extends Unit {
                         : meta.frameDurationsMs
                     : undefined,
             authoredRealTime:
+                (!!labConfig && stateName === "dodge") ||
                 !!magicDragonLabConfig ||
                 !!championLabConfig ||
                 !!queenLabConfig ||
@@ -11291,8 +11473,21 @@ export class RenderableUnit extends Unit {
                     props.name === MERMAID_UNIT_NAME),
         };
 
+        // INTENDED main parity: all three Wandering Mage melee clips take 720 ms. The
+        // generated registry has shipped differing loop durations; preserve the approved runtime
+        // duration without replacing artwork, dropping cels, or changing their relative holds.
+        if (props.name === WANDERING_MAGE_UNIT_NAME && /^melee_attack(?:_up|_down)?$/.test(stateName)) {
+            const duration =
+                this.oneShotAnim.frameDurationsMs?.reduce((sum, ms) => sum + ms, 0) ??
+                this.oneShotAnim.durationPerFrame * frames.length;
+            const scale = 720 / duration;
+            this.oneShotAnim.durationPerFrame *= scale;
+            this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map((ms) => ms * scale);
+        }
         if (stateName === "hit") {
             // Apply after all creature-specific timing, including authored uneven frame durations.
+            // Intentional main parity: Pegasus uses the same final hit-reaction multiplier as
+            // every other creature. Creature-specific authored timings above remain authoritative.
             this.oneShotAnim.durationPerFrame /= HIT_REACTION_ADDITIONAL_SPEED;
             this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map(
                 (ms) => ms / HIT_REACTION_ADDITIONAL_SPEED,
@@ -11308,6 +11503,7 @@ export class RenderableUnit extends Unit {
             (championLabConfig ? openingFrame.height / this.sprite.texture.height : 1) *
             (this.cannonLabCanvasScale(stateName) / previousCannonCanvasScale) *
             (harpyActionCanvasScale(props.name, stateName) / previousHarpyCanvasScale) *
+            (pegasusCombatCanvasScale(props.name, stateName) / previousPegasusCanvasScale) *
             (nomadReactionCanvasScale(props.name, stateName) / previousNomadCanvasScale) *
             (trentActionCanvasScale(props.name, stateName) / previousTrentCanvasScale) *
             (satyrCastCanvasScale(props.name, stateName) / previousSatyrCanvasScale) *
@@ -11503,6 +11699,13 @@ export class RenderableUnit extends Unit {
             const ratio =
                 textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
                 harpyActionCanvasScale(this.getName(), previousAction.stateName);
+            this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
+            this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
+        }
+        if (previousAction && this.sprite && isPegasusCombatState(this.getName(), previousAction.stateName)) {
+            const ratio =
+                textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) /
+                pegasusCombatCanvasScale(this.getName(), previousAction.stateName);
             this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
         }
@@ -11847,6 +12050,7 @@ export class RenderableUnit extends Unit {
                     isSatyrAuthoredAction(this.getName(), anim.stateName) ||
                     isNomadAuthoredAction(this.getName(), anim.stateName) ||
                     isHarpyAuthoredAction(this.getName(), anim.stateName) ||
+                    isPegasusCombatState(this.getName(), anim.stateName) ||
                     isTrentAuthoredAction(this.getName(), anim.stateName) ||
                     isBeholderAuthoredAction(this.getName(), anim.stateName) ||
                     (this.getUnitProperties().name === ORC_UNIT_NAME && isOrcAuthoredAction(anim.stateName)) ||
@@ -11954,7 +12158,6 @@ export class RenderableUnit extends Unit {
         this.silhouetteShadowBlurFilter?.destroy();
         this.motionBlurFilter = undefined;
         this.dodgeBlurFilter = undefined;
-        this.desaturateFilter = undefined;
         this.battlefieldStyleFilter = undefined;
         this.silhouetteShadowBlurFilter = undefined;
     }
@@ -12004,6 +12207,8 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer = undefined;
             this.hourglassSprite = undefined;
         }
+        this.stunStars?.destroy();
+        this.stunStars = undefined;
         if (this.stunContainer) {
             this.stunContainer.destroy({ children: true });
             this.stunContainer = undefined;
@@ -12058,6 +12263,8 @@ export class RenderableUnit extends Unit {
             this.waterShieldAura.destroy({ children: true });
             this.waterShieldAura = undefined;
         }
+        this.waterShieldVisual?.destroy();
+        this.waterShieldVisual = undefined;
         if (this.whirlpoolAura) {
             this.whirlpoolAura.destroy({ children: true });
             this.whirlpoolAura = undefined;
@@ -12695,10 +12902,11 @@ export class RenderableUnit extends Unit {
             Boolean(badge?.visible && geometry);
 
         this.syncFlagStatusIcon("hourglass", "hourglass", canRender && this.shouldShowHourglassIndicator(), badge);
-        this.syncFlagStatusIcon("stun", "stun_hand_forged", canRender && this.shouldShowStunIndicator(), badge);
+        // Stun is represented by orbiting stars around the flag, without a hand badge.
+        if (this.stunContainer) this.stunContainer.visible = false;
         this.syncFlagStatusIcon(
             "immobilized",
-            "immobilized_boot_forged",
+            "immobilized_chain_ball",
             canRender && this.shouldShowImmobilizedIndicator(),
             badge,
         );
@@ -12728,7 +12936,9 @@ export class RenderableUnit extends Unit {
             const flippedScaleY = -Math.abs(hourglassSprite.scale.y);
             if (hourglassSprite.scale.y !== flippedScaleY) hourglassSprite.scale.y = flippedScaleY;
             const hourglassTransparentInset = iconSide * (9 / 64);
-            const x = geometry.bannerLeft - iconSide * 0.5 + hourglassTransparentInset;
+            const x = this.immobilizedContainer?.visible
+                ? geometry.bannerLeft - iconSide * 2.3
+                : geometry.bannerLeft - iconSide * 0.5 + hourglassTransparentInset;
             if (hourglassContainer.x !== x || hourglassContainer.y !== 0) hourglassContainer.position.set(x, 0);
         }
 
@@ -12743,17 +12953,15 @@ export class RenderableUnit extends Unit {
         }
 
         if (this.immobilizedContainer?.visible && this.immobilizedSprite) {
-            const layout = stunBadgeLayout(iconSide, geometry.bannerLeft);
-            // Use the same forged-sign proportions; keep simultaneous status signs separate.
-            let centerX = layout.centerX;
-            if (stunContainer?.visible && stunSprite)
-                centerX = stunContainer.x - stunSprite.width * 0.5 - layout.width * 0.55;
-            else if (hourglassContainer?.visible && hourglassSprite)
-                centerX = hourglassContainer.x - hourglassSprite.width * 0.5 - layout.width * 0.55;
-            this.immobilizedSprite.width = layout.width;
-            this.immobilizedSprite.height = layout.height;
+            // The round iron eyelet pierces the left cloth at its midline. Anchor the hardware
+            // there so the chain and hanging iron ball stay outside the count, including on resize.
+            this.immobilizedSprite.anchor.set(0.86, 0.208);
+            // Calibrated against the previous artwork: the visible ball diameter is 20% larger.
+            this.immobilizedSprite.width = iconSide * 2.492;
+            this.immobilizedSprite.height = iconSide * 2.492;
+            this.immobilizedSprite.tint = 0x999999;
             this.immobilizedSprite.scale.y = -Math.abs(this.immobilizedSprite.scale.y);
-            this.immobilizedContainer.position.set(centerX, 0);
+            this.immobilizedContainer.position.set(geometry.bannerLeft - iconSide * 0.18, 0);
         }
 
         if (respondContainer?.visible && respondSprite?.visible) {
@@ -12836,14 +13044,23 @@ export class RenderableUnit extends Unit {
     }
     private refreshTurnStatusIndicators(): void {
         if (isAiSearchSimulating()) return;
+        if (!this.shouldShowStunFeedback()) this.stunStars?.hide();
         if (this.badgeContainer && this.badgeDrawState) this.ensureFlagStatusIndicators();
     }
     public override setWebMovementLocked(locked: boolean): void {
         super.setWebMovementLocked(locked);
         this.refreshTurnStatusIndicators();
     }
+    public consumeRegenerationHp(): number {
+        const healed = this.pendingRegenerationHp ?? 0;
+        this.pendingRegenerationHp = 0;
+        return healed;
+    }
     public override refreshPreTurnState(sceneLog: ISceneLog): void {
+        const hpBefore = this.getHp();
         super.refreshPreTurnState(sceneLog);
+        // AI search also activates real renderables. Its speculative heals must never queue VFX.
+        if (!isAiSearchSimulating()) this.pendingRegenerationHp = Math.max(0, this.getHp() - hpBefore);
         // Sandbox latches Web at activation; ranked supplies the same lock through the setter above.
         this.refreshTurnStatusIndicators();
     }
@@ -12869,6 +13086,15 @@ export class RenderableUnit extends Unit {
     }
     private shouldShowStunIndicator(): boolean {
         return this.isSkippingForDisplay() && !this.hasPresentedStatus("Freeze");
+    }
+    private shouldShowStunFeedback(): boolean {
+        // Whirlpool keeps its own visual, but must not hide an accompanying Stun or Blindness.
+        return (
+            this.shouldShowStunIndicator() &&
+            (!this.hasPresentedStatus("Whirlpool") ||
+                this.hasPresentedStatus("Stun") ||
+                this.hasPresentedStatus("Blindness"))
+        );
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
@@ -13014,6 +13240,14 @@ export class RenderableUnit extends Unit {
     }
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
+        if (this.isPlayingOneShotAnimation("death")) return;
+        if (this.hasAnimationState("dodge")) {
+            this.clearGenericCombatRecoil();
+            this.currentRecoilX = this.currentRecoilY = 0;
+            this.clearGenericDodgeAnimation();
+            this.playOneShotAnimation("dodge");
+            return;
+        }
         const props = this.getUnitProperties();
         if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
             this.clearGenericDodgeAnimation();
@@ -13034,7 +13268,7 @@ export class RenderableUnit extends Unit {
         };
     }
     public isDodging(): boolean {
-        return !!this.dodgeAnim;
+        return this.isPlayingOneShotAnimation("dodge") || !!this.dodgeAnim;
     }
     private removeDodgeBlur(): void {
         if (this.sprite && this.dodgeBlurFilter) {

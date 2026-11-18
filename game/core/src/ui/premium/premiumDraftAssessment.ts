@@ -15,6 +15,8 @@ import { synergyNextLevel } from "../LeftSideBar/synergyLadder";
 
 export interface PremiumDraftState {
     gameId?: string;
+    doctrine?: number;
+    revealedMap?: number;
     picked: readonly number[];
     /** Only the roster revealed to this player by the pick stream; zeroes are hidden slots. */
     opponentPicked: readonly number[];
@@ -22,6 +24,8 @@ export interface PremiumDraftState {
     artifactTier2: number;
     isYourTurn: boolean | null;
     scouting?: IDraftScoutingContext;
+    /** Authoritative setup selections; absent while the army is still being drafted. */
+    setup?: { placement: number; augments: { kind: string; value: number }[]; amounts: Record<number, number> };
 }
 
 export interface PremiumDraftAssessment {

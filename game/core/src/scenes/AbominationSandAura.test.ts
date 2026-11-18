@@ -20,10 +20,11 @@ const gs = new GridSettings(
 );
 const center = { x: (gs.getMinX() + gs.getMaxX()) / 2, y: (gs.getMinY() + gs.getMaxY()) / 2 };
 
-test("engine sand keeps full projected reach, corners and board-edge crop", () => {
+test("engine sand preserves original projected dimensions and board-edge crop", () => {
     const cell = gs.getCellSize();
     const normal = arachnaWebBounds(center, { width: 2, height: 2 }, 2, gs)!;
     expect(normal.right - normal.left).toBe(6 * cell);
+    expect(normal.top - normal.bottom).toBe(6 * cell);
     const root = new Container();
     const edge = { x: gs.getMinX() + cell, y: gs.getMinY() + cell };
     drawAbominationSandAura(root, undefined, edge, { width: 2, height: 2 }, 2, gs, "abom", 1, 1, 0);

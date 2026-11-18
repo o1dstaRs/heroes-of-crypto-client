@@ -1,12 +1,58 @@
 import { GlProgram, Shader } from "pixi.js";
 
 export const ABOMINATION_STORM_REVOLUTION_MS = 16000;
-export type AbominationSandVariant = 0 | 1 | 2 | 3;
+export type AbominationSandVariant = 0 | 1 | 2 | 3 | 4;
 export const ABOMINATION_SAND_VARIANTS = [
-    { title: "Текущая спираль", arms: 1, pitch: 10.5, tightness: 1, background: 0.025, gain: 2.3, scale: 1 },
-    { title: "Двойная спираль", arms: 2, pitch: 18, tightness: 0.9, background: 0.18, gain: 1.7, scale: 1 },
-    { title: "Широкий виток", arms: 1, pitch: 12.5, tightness: 0.45, background: 0.25, gain: 1.6, scale: 0.9 },
-    { title: "Три тонких рукава", arms: 3, pitch: 29, tightness: 1.6, background: 0.14, gain: 2, scale: 1.15 },
+    {
+        title: "Текущая спираль",
+        arms: 1,
+        pitch: 10.5,
+        tightness: 1,
+        background: 0.025,
+        gain: 2.3,
+        scale: 1,
+        squareShape: 0,
+    },
+    {
+        title: "Двойная спираль",
+        arms: 2,
+        pitch: 18,
+        tightness: 0.9,
+        background: 0.18,
+        gain: 1.7,
+        scale: 1,
+        squareShape: 0,
+    },
+    {
+        title: "Широкий виток",
+        arms: 1,
+        pitch: 12.5,
+        tightness: 0.45,
+        background: 0.25,
+        gain: 1.6,
+        scale: 0.9,
+        squareShape: 0,
+    },
+    {
+        title: "Три тонких рукава",
+        arms: 3,
+        pitch: 29,
+        tightness: 1.6,
+        background: 0.14,
+        gain: 2,
+        scale: 1.15,
+        squareShape: 0,
+    },
+    {
+        title: "Квадратная спираль",
+        arms: 1,
+        pitch: 10.5,
+        tightness: 1,
+        background: 0.025,
+        gain: 2.3,
+        scale: 1,
+        squareShape: 1,
+    },
 ] as const;
 
 const vertex = /* glsl */ `#version 300 es
@@ -39,6 +85,7 @@ uniform float uTightness;
 uniform float uBackground;
 uniform float uGain;
 uniform float uScale;
+uniform float uSquareShape;
 uniform float uBaseLayer;
 uniform float uFrontLayer;
 uniform float uAirLayer;
@@ -75,7 +122,7 @@ float grains(vec2 field, float scale, float seed, float occupancy, float stretch
     vec2 cell = floor(p);
     float variation = hash(cell + seed);
     vec2 jitter = vec2(hash(cell + 17.3), hash(cell + 53.7));
-    vec2 center = 0.42 + jitter * 0.16;
+    vec2 center = 0.24 + jitter * 0.52;
     center += 0.035 * vec2(sin(uTime * 0.7 + variation * 27.0), cos(uTime * 0.9 + jitter.x * 31.0));
     // Elliptical grains leave short trails tangent to the local wind, not sparkling dots.
     float direction = atan(field.y, field.x + 0.00001) + 1.570796;
@@ -120,7 +167,7 @@ vec4 footBillows(vec2 p) {
         float alpha = shape * shape * (0.08 + texture * 0.18);
         vec3 normal = normalize(vec3(d.x, -d.y, sqrt(shape) + 0.15));
         float lighting = clamp(dot(normal, normalize(vec3(-0.45, 0.65, 0.75))), 0.0, 1.0);
-        vec3 color = mix(vec3(0.40, 0.32, 0.22), vec3(0.75, 0.64, 0.45), lighting);
+        vec3 color = mix(vec3(0.43, 0.27, 0.10), vec3(0.82, 0.60, 0.26), lighting);
         result = vec4(color * alpha, alpha) + result * (1.0 - alpha);
     }
     return result;
@@ -130,7 +177,7 @@ vec4 footBillows(vec2 p) {
 float saltatingGrains(vec2 p) {
     float result = 0.0;
     float aa = max(length(fwidth(p)) * 0.5, 0.0008);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 24; i++) {
         float seed = hash(vec2(float(i), 91.7));
         float life = fract(uTime * (0.42 + seed * 0.28) + seed * 17.0);
         float theta = float(i) * 2.399963 - life * 1.8 - uTime * 0.16;
@@ -152,31 +199,41 @@ float saltatingGrains(vec2 p) {
 }
 void main() {
     vec2 p = vUV * 2.0 - 1.0;
+    float radius = length(p);
+    // L8 contours keep each turn aligned to the aura square, with soft corners.
+    // Circular flow coordinates make the grains follow those same contours.
+    vec2 p4 = p * p * p * p;
+    float squareRadius = pow(dot(p4, p4), 0.125);
+    float spiralRadius = mix(radius, squareRadius, uSquareShape);
+    vec2 flowP = p * (spiralRadius / max(radius, 0.00001));
     float angle = -uTime * ${((Math.PI * 2 * 1000) / ABOMINATION_STORM_REVOLUTION_MS).toFixed(12)} + uPhaseOffset / uArms;
     vec2 drift = vec2(uTime * 0.16, -uTime * 0.10);
-    vec2 cloudField = rotate(p, angle * 0.65) * 3.7 + drift;
+    vec2 cloudField = rotate(flowP, angle * 0.65) * 3.7 + drift;
     float broad = dustNoise(cloudField);
     float detail = noise(cloudField * 3.7 - drift * 1.6);
     float density = smoothstep(0.26, 0.72, broad * 0.8 + detail * 0.2);
     float gust = smoothstep(0.35, 0.78, noise(p * 2.8 + vec2(-uTime * 0.30, uTime * 0.18)));
     vec2 eddy = vec2(noise(cloudField + 31.2), noise(cloudField - 19.7)) - 0.5;
-    vec2 warped = p + eddy * (0.05 + gust * 0.10);
+    vec2 warped = flowP + eddy * (0.05 + gust * 0.10);
     float edge = min(min(vUV.x, 1.0 - vUV.x), min(vUV.y, 1.0 - vUV.y));
+    // Let the spiral's outer turns reach the square's corners, softly fading
+    // only at the actual aura boundary.
     float boundary = smoothstep(0.0, 0.018, edge);
-    vec3 sand = mix(vec3(0.48, 0.38, 0.24), vec3(0.76, 0.64, 0.43), broad);
+    // Ochre and warm earth match the creature's skin; normal alpha blending
+    // keeps the grains matte rather than turning them into golden sparks.
+    vec3 sand = mix(vec3(0.53, 0.33, 0.10), vec3(0.86, 0.64, 0.28), broad);
     // Directional self-shadow: dense cloud interiors absorb light, thin windward edges catch it.
     float litNeighbour = noise(cloudField + vec2(-0.12, -0.18));
     float shade = clamp(0.97 + (broad - litNeighbour) * 1.1 - density * 0.24, 0.62, 1.12);
     sand *= shade;
 
-    // Preserve the approved centreline, while wind erodes only the edges of each arm.
-    float radius = length(p);
+    // Wind erodes the arm edges without breaking the rounded-square centreline.
     if (uFrontLayer > 0.5 && radius > 0.49) {
         finalColor = vec4(0.0);
         return;
     }
-    float phase = atan(p.y, p.x + 0.000001) * uArms + radius * uPitch + angle * uArms;
-    phase += 0.10 * sin(radius * 24.0 - angle);
+    float phase = atan(p.y, p.x + 0.000001) * uArms + spiralRadius * uPitch + angle * uArms;
+    phase += 0.10 * sin(spiralRadius * 24.0 - angle);
     float erosion = (detail - 0.5) * 0.34 + (noise(cloudField * 7.0 - drift) - 0.5) * 0.12;
     float coil = pow(max(0.0, cos(phase)), uTightness);
     float spiral = smoothstep(0.30 + erosion, 0.78 + erosion * 0.5, coil);
@@ -190,32 +247,36 @@ void main() {
 
     // Fast sand travels through the slowly turning arms, with three separate depths/sizes.
     vec2 nearField = rotate(warped, angle * 2.4) + eddy * 0.07;
-    vec2 farField = rotate(p + eddy * 0.06, angle * 3.1) - drift * 0.18;
-    float fineGrains = grains(farField, 40.0 * uScale, 39.1, 1.0, 1.35);
+    vec2 farField = rotate(flowP + eddy * 0.06, angle * 3.1) - drift * 0.18;
+    float fineGrains = grains(farField, 58.0 * uScale, 39.1, 1.0, 1.45);
     if (uAirLayer > 0.5) {
         // Confine shredded plumes to the original ground square. Lifting the whole
         // projected sheet creates an unwanted second strip above the aura.
-        float rising = dustNoise(rotate(p, angle * 1.3) * vec2(6.0, 10.0) + vec2(uTime * 0.12, uTime * 0.6));
+        float rising = dustNoise(rotate(flowP, angle * 1.3) * vec2(6.0, 10.0) + vec2(uTime * 0.12, uTime * 0.6));
         float plume = smoothstep(0.32, 0.70, rising) * (0.50 + gust * 0.50);
         float trail = smoothstep(0.04, 0.68, max(0.0, cos(phase - 0.32)));
-        float alpha = (plume * (trail * 0.32 + torn * 0.22) + fineGrains * plume * 0.30 + movementWake(p) * 0.12) * boundary;
+        vec2 suspendedField = rotate(warped, angle * 2.0) + vec2(-uTime * 0.045, uTime * 0.065);
+        float suspendedSand = grains(suspendedField, 86.0 * uScale, 163.2, 1.0, 1.6 + gust * 0.8);
+        float alpha = (plume * (trail * 0.30 + torn * 0.22)
+                    + (fineGrains * 0.55 + suspendedSand * 1.25) * (0.18 + plume * trail * 0.82)
+                    + movementWake(p) * 0.12) * boundary;
         finalColor = vec4(sand * alpha, alpha) * vColor;
         return;
     }
     if (uBaseLayer > 0.5) {
         // Low dust between coils, but a visibly denser sand source under the feet.
-        float coreSand = grains(rotate(p + eddy * 0.025, -uTime * 1.3), 46.0, 121.4, 1.0, 1.8);
+        float coreSand = grains(rotate(p + eddy * 0.025, -uTime * 1.3), 64.0, 121.4, 1.0, 1.8);
         float source = epicentre * (0.24 + density * 0.20 + coreJets * 0.17 + coreSand * 0.65);
         float wake = movementWake(p) * 0.36 + footfall(p) * 0.40;
         float alpha = min(0.78, 0.018 + density * 0.05 + fineGrains * 0.16 * gust + source + wake) * boundary;
-        sand = mix(sand, vec3(0.73, 0.60, 0.39), epicentre * (0.30 + coreJets * 0.20));
+        sand = mix(sand, vec3(0.79, 0.54, 0.18), epicentre * (0.30 + coreJets * 0.20));
         finalColor = vec4(sand * alpha, alpha) * vColor;
         return;
     }
     float mediumGrains = grains(nearField, 23.0 * uScale, 7.4, 0.85, 1.5 + gust * 0.6);
     // Broken wind filaments, much finer than the arms, sweep through the dust.
     vec2 filamentField = rotate(p / max(radius, 0.04), -uTime * 0.75) * 3.0;
-    float filaments = smoothstep(0.56, 0.79, noise(filamentField + vec2(radius * 36.0, radius * 11.0)));
+    float filaments = smoothstep(0.56, 0.79, noise(filamentField + vec2(spiralRadius * 36.0, spiralRadius * 11.0)));
     if (uFrontLayer > 0.5) {
         vec2 foot = (p - vec2(0.0, 0.015)) / vec2(0.44, 0.25);
         float veil = 1.0 - smoothstep(0.25, 1.0, length(foot + eddy * 0.25));
@@ -223,23 +284,30 @@ void main() {
         float rollingDust = veil * (0.05 + density * 0.18 + mediumGrains * 0.35 + coreJets * epicentre * 0.09)
                           + footfall(p) * 0.26;
         float alpha = (1.0 - (1.0 - rollingDust) * (1.0 - hops * 0.65)) * boundary;
-        sand = mix(sand, vec3(0.80, 0.70, 0.51), hops * 0.50);
+        sand = mix(sand, vec3(0.88, 0.69, 0.36), hops * 0.50);
         vec4 billows = footBillows(p);
         vec4 dust = vec4(sand * alpha, alpha);
         finalColor = (billows + dust * (1.0 - billows.a)) * vColor;
         return;
     }
     // Heavy grains lag the fine airborne dust and gradually settle along the floor.
-    vec2 heavyField = rotate(p + eddy * 0.018, angle * 0.85) - vec2(0.0, uTime * 0.012);
+    vec2 heavyField = rotate(flowP + eddy * 0.018, angle * 0.85) - vec2(0.0, uTime * 0.012);
     float coarseGrains = grains(heavyField, 14.0 * uScale, 73.8, 0.18, 1.8 + gust * 0.3);
     vec2 sprayField = rotate(warped, angle * 3.7 + sin(uTime * 1.3) * gust * 0.08) + vec2(uTime * 0.035, -uTime * 0.022) - uMotion.xy * 0.018;
-    float fineSpray = grains(sprayField, 53.0 * uScale, 107.3, 1.0, 1.5);
-    float grainAlpha = (fineGrains * 0.72 + fineSpray * 0.50 + mediumGrains * 0.95 + coarseGrains * 0.75)
-                    * (uBackground + band * uGain + torn * 0.65 + epicentre * coreJets * 0.45);
-    float haze = band * (0.17 + density * 0.23 + filaments * (0.06 + gust * 0.16)) + torn * 0.12;
+    float fineSpray = grains(sprayField, 79.0 * uScale, 107.3, 1.0, 1.7 + gust * 0.6);
+    // Independent, densely seeded micrograins travel through the arms in uneven
+    // sheets. Their continuous advection and subpixel coverage avoid flicker.
+    vec2 microField = rotate(flowP + eddy * 0.035, angle * 2.8) - drift * 0.32;
+    float microSand = grains(microField, 112.0 * uScale, 219.6, 1.0, 1.35);
+    float sandSheet = smoothstep(0.25, 0.68, detail + gust * 0.16);
+    float grainAlpha = (fineGrains * 0.95 + fineSpray * 1.05 + microSand * 0.70
+                      + mediumGrains * 0.78 + coarseGrains * 0.52)
+                    * (uBackground + band * uGain + torn * 0.85 + epicentre * coreJets * 0.65)
+                    * (0.24 + sandSheet * 0.62 + density * 0.42);
+    float haze = band * (0.12 + density * 0.23 + filaments * (0.06 + gust * 0.16)) + torn * 0.12;
     float alpha = (1.0 - (1.0 - min(grainAlpha, 0.75)) * (1.0 - haze)) * boundary;
     // A restrained sunlit edge gives grains contrast without additive gold sparkle.
-    sand = mix(sand, vec3(0.79, 0.69, 0.50), min(0.45, grainAlpha * 0.6));
+    sand = mix(sand, vec3(0.89, 0.69, 0.33), min(0.45, grainAlpha * 0.6));
     finalColor = vec4(sand * alpha, alpha) * vColor;
 }`;
 
@@ -263,6 +331,7 @@ export function createAbominationSandShader(
                 uBackground: { value: style.background, type: "f32" },
                 uGain: { value: style.gain, type: "f32" },
                 uScale: { value: style.scale, type: "f32" },
+                uSquareShape: { value: style.squareShape, type: "f32" },
                 uBaseLayer: { value: baseLayer ? 1 : 0, type: "f32" },
                 uFrontLayer: { value: frontLayer ? 1 : 0, type: "f32" },
                 uAirLayer: { value: airLayer ? 1 : 0, type: "f32" },

@@ -122,7 +122,7 @@ describe("Boar Saliva recipient flag wiring", () => {
             f.scene.unitsHolder = { getAllUnits: () => units };
             const result = f.scene.playCreatureAnimationLabState("boar_saliva");
             expect(result.ok).toBe(true);
-            expect(result.message).toBe("Frenzied Boar: Boar Saliva · 1 с");
+            expect(result.message).toBe("Frenzied Boar: Boar Saliva · 0,65 с");
             expect(f.spawnBoarSalivaPop).toHaveBeenLastCalledWith(caster);
         }
         expect(f.spawnBoarSalivaPop).toHaveBeenCalledTimes(2);

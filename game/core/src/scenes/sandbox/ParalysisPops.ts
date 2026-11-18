@@ -1,4 +1,4 @@
-import type { Container } from "pixi.js";
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
 import { CommonFlagPops } from "./CommonFlagPops";
 
 type Anchor = Readonly<{ x: number; y: number }>;
@@ -6,10 +6,7 @@ type Anchor = Readonly<{ x: number; y: number }>;
 /** Painted cels derived from the Paralysis icon, using the same playback as Ogre Mage's symbols. */
 export class ParalysisPops {
     private readonly layer: CommonFlagPops;
-    public constructor(
-        attach: (container: Container, zIndex: number) => void,
-        now: () => number = () => performance.now(),
-    ) {
+    public constructor(attach: FlagOverlayAttach, now: () => number = () => performance.now()) {
         this.layer = new CommonFlagPops("paralysis", attach, now);
     }
     public async spawn(id: string, cell: number, follow: () => Anchor | undefined): Promise<void> {

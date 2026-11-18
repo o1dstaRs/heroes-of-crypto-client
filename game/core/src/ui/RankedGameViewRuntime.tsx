@@ -1,3 +1,4 @@
+import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { TouchSplitAmount } from "./mobile/TouchSplitAmount";
 import { useGameLayout } from "./mobile/GameViewport";
 import { readGameViewport } from "../viewport/gameViewport";
@@ -11,6 +12,7 @@ import {
     sendRankedReadinessWithRetry,
 } from "./rankedReadiness";
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
+import { premiumSetupDraft } from "./premium/premiumSetupDraft";
 import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
 import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
@@ -98,7 +100,6 @@ import { exitStandingFromSnapshot, type IExitStanding } from "./exitRules/exitRu
 import { useLeaveGuard } from "./exitRules/useLeaveGuard";
 import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
-import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
@@ -121,9 +122,9 @@ import {
     useDraftScale,
 } from "./PickAndBan/runtime";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
+import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import { SynergySlots } from "./RightSideBar/SynergySlots";
-import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
@@ -134,7 +135,7 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
 import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { startVisibleInterval } from "./visibleInterval";
-import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
+import { isOlderRankedSnapshot, playMissingRankedSnapshotRecords, waitForRankedPlayback } from "./rankedSnapshotSync";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -588,7 +589,8 @@ export const RankedGameView: React.FC<Props> = ({
             for (const [sequence, pendingRecord] of pending) {
                 const played = await playAuthoritativeRecordData(
                     pendingRecord.record,
-                    pendingRecord.stateAfterSnapshot ?? stateAfterSnapshot,
+                    pendingRecord.stateAfterSnapshot ??
+                        (sequence === stateAfterSnapshot.latestSequence ? stateAfterSnapshot : undefined),
                 );
                 pendingAuthoritativeRecordsRef.current.delete(sequence);
                 playedAny ||= played;
@@ -598,17 +600,26 @@ export const RankedGameView: React.FC<Props> = ({
         [playAuthoritativeRecordData],
     );
 
+    const reconcileLiveSnapshot = useCallback(
+        async (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
+            // Polls, reconnect snapshots and HTTP responses can beat the action delivery channel.
+            // Present missing journal entries before hydration makes their sequence look already played.
+            await waitForAuthoritativePlayback();
+            const presented = await playMissingRankedSnapshotRecords(
+                nextSnapshot,
+                snapshotRef.current,
+                playAuthoritativeRecord,
+            );
+            await waitForAuthoritativePlayback();
+            applySnapshot(nextSnapshot, { ...options, skipBoardRebuild: !!options?.skipBoardRebuild || presented });
+        },
+        [applySnapshot, playAuthoritativeRecord, waitForAuthoritativePlayback],
+    );
     const refreshSnapshot = useCallback(async () => {
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
         // undefined = the game is still drafting (204); there is nothing to reconcile against yet.
-        if (nextSnapshot) {
-            // A poll sees the final exchange while we may still be presenting its first blow. Applying
-            // it now can remove a fighter and cancel their animation callback, delaying the next blow
-            // until the replay timeout. Let the exchange settle before reconciling the board and UI.
-            await waitForAuthoritativePlayback();
-            applySnapshot(nextSnapshot);
-        }
-    }, [applySnapshot, gameId, waitForAuthoritativePlayback]);
+        if (nextSnapshot) await reconcileLiveSnapshot(nextSnapshot);
+    }, [gameId, reconcileLiveSnapshot]);
 
     const clearReplayTimers = useCallback(() => {
         replayTimersRef.current.forEach(window.clearTimeout);
@@ -831,7 +842,8 @@ export const RankedGameView: React.FC<Props> = ({
                                     });
                                 if (event.snapshot) {
                                     await waitForAuthoritativePlayback();
-                                    if (!closed) applySnapshot(event.snapshot, { skipBoardRebuild: played });
+                                    if (!closed)
+                                        await reconcileLiveSnapshot(event.snapshot, { skipBoardRebuild: played });
                                 }
                                 const sseError = rejectionErrorFromPlayEvent(event);
                                 if (sseError && !closed) setError(sseError);
@@ -868,6 +880,7 @@ export const RankedGameView: React.FC<Props> = ({
         manager,
         playAuthoritativeRecord,
         rememberAuthoritativeRecord,
+        reconcileLiveSnapshot,
         waitForAuthoritativePlayback,
         replayOnly,
     ]);
@@ -1045,7 +1058,7 @@ export const RankedGameView: React.FC<Props> = ({
             if (!canSubmitRankedBoardAction(snapshotRef.current, payload)) {
                 await waitForAuthoritativePlayback();
                 const current = snapshotRef.current;
-                if (current && !isModelSubmission) applySnapshot(current, { forceBoardRebuild: true });
+                if (current && !isModelSubmission) await reconcileLiveSnapshot(current, { forceBoardRebuild: true });
                 return false;
             }
             // Placement drops are already on the board. Waiting on the spinner here disabled the next
@@ -1078,7 +1091,7 @@ export const RankedGameView: React.FC<Props> = ({
                         send: (action) => sendRankedPlayAction(gameId, action, options),
                         refresh: async () => {
                             const fresh = await fetchRankedPlaySnapshot(gameId);
-                            if (fresh) applySnapshot(fresh);
+                            if (fresh) await reconcileLiveSnapshot(fresh);
                         },
                         getSnapshot: () => snapshotRef.current,
                         newActionId: uuidv4,
@@ -1125,14 +1138,17 @@ export const RankedGameView: React.FC<Props> = ({
                     shouldApplyActionResponseSnapshotToViewer(responseSnapshot, { isModelSubmission })
                 ) {
                     await waitForAuthoritativePlayback();
-                    applySnapshot(responseSnapshot, { skipBoardRebuild: played, forceBoardRebuild: rejected });
+                    await reconcileLiveSnapshot(responseSnapshot, {
+                        skipBoardRebuild: played,
+                        forceBoardRebuild: rejected,
+                    });
                 } else {
                     await waitForAuthoritativePlayback();
                     const fresh = await fetchRankedPlaySnapshot(gameId);
                     // A fight in progress always has a snapshot; undefined would mean the game left PLAY
                     // under us (finished/abandoned), in which case there is nothing to apply.
                     if (fresh) {
-                        applySnapshot(fresh, { forceBoardRebuild: rejected });
+                        await reconcileLiveSnapshot(fresh, { forceBoardRebuild: rejected });
                     }
                 }
                 if (
@@ -1257,6 +1273,7 @@ export const RankedGameView: React.FC<Props> = ({
             effectiveLocalModelConfig.modelTeam,
             playAuthoritativeRecord,
             refreshSnapshot,
+            reconcileLiveSnapshot,
             rememberAuthoritativeRecord,
             waitForAuthoritativePlayback,
             sandboxCoop,
@@ -2249,7 +2266,7 @@ export const RankedGameView: React.FC<Props> = ({
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             gameId={gameId}
                             exit={snapshot.exit}
-                            mode="ranked"
+                            mode={sandboxCoop ? "sandbox" : isVsAiMatch ? "vs-ai" : "ranked"}
                             players={snapshot.players.map((player) => ({
                                 playerId: player.playerId,
                                 team: player.team as TeamType,
@@ -2302,7 +2319,7 @@ interface RankedOverlayProps {
 
 interface RankedPlacementStackActionsProps {
     canSubmit: boolean;
-    selectedUnit: PlayUnitState;
+    selectedUnit?: PlayUnitState;
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
     userTeam: TeamType;
@@ -2359,7 +2376,7 @@ const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
 };
 
 export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
-    canSubmit,
+    canSubmit: submissionEnabled,
     selectedUnit,
     snapshot,
     submitGameAction,
@@ -2367,8 +2384,11 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     immediateDelete = false,
 }) => {
     const manager = usePixiManager();
+    const canSubmit = submissionEnabled && !!selectedUnit;
+    const selectedUnitId = selectedUnit?.id ?? "";
     const requestStackAction = useCallback(
         (action: GameAction) => {
+            if (!canSubmit) return;
             const run = () => {
                 void submitGameAction(action);
             };
@@ -2379,9 +2399,9 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                 );
             else run();
         },
-        [manager, submitGameAction],
+        [canSubmit, manager, submitGameAction],
     );
-    const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
+    const amountAlive = Math.max(0, Math.floor(selectedUnit?.amountAlive ?? 0));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
     // Delete permanently destroys the stack — no bench, no undo — so one stray click must not be
     // enough. The first press arms the button; only a second press on the SAME unit commits, and
@@ -2389,7 +2409,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     const [deleteArmed, setDeleteArmed] = useState(false);
     useEffect(() => {
         setDeleteArmed(false);
-    }, [selectedUnit.id]);
+    }, [selectedUnitId]);
     useEffect(() => {
         if (!deleteArmed) {
             return undefined;
@@ -2405,16 +2425,16 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
     const teamUnitCount = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead).length;
     const hasStackCapacity = teamUnitCount < effectiveMaxUnits;
     const canSplit = canSubmit && maxSplitAmount >= 1 && hasStackCapacity;
-    const sliderValue = Math.min(Math.max(1, splitAmount), Math.max(1, maxSplitAmount));
+    const sliderValue = selectedUnit ? Math.min(Math.max(1, splitAmount), Math.max(1, maxSplitAmount)) : 0;
 
     useEffect(() => {
         // Reset to a single-unit split (1 / N-1) whenever a different stack is selected — see above.
         setSplitAmount(1);
-    }, [amountAlive, selectedUnit.id]);
+    }, [amountAlive, selectedUnitId]);
 
     // A 1-unit stack cannot split, but it can still be DELETED — with auto-deploy there is no
     // bench, so hiding the whole panel here removed the only way to act on single-unit screens.
-    const canShowSplit = maxSplitAmount >= 1;
+    const canShowSplit = !selectedUnit || maxSplitAmount >= 1;
     // The sandbox's keyboard shortcuts here too: S splits the selected stack by the slider's amount, D
     // deletes it — at once in the co-op sandbox, arm-then-confirm (like the button) in ranked.
     useEffect(() => {
@@ -2433,7 +2453,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
             event.preventDefault();
             event.stopPropagation();
             if (key === "s") {
-                void requestStackAction({ type: "split_unit", unitId: selectedUnit.id, amount: sliderValue });
+                void requestStackAction({ type: "split_unit", unitId: selectedUnitId, amount: sliderValue });
                 return;
             }
             if (!immediateDelete && !deleteArmed) {
@@ -2441,11 +2461,11 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                 return;
             }
             setDeleteArmed(false);
-            void requestStackAction({ type: "delete_unit", unitId: selectedUnit.id });
+            void requestStackAction({ type: "delete_unit", unitId: selectedUnitId });
         };
         window.addEventListener("keydown", onKeyDown, { capture: true });
         return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnit.id, sliderValue, requestStackAction]);
+    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnitId, sliderValue, requestStackAction]);
 
     return (
         <Box
@@ -2488,14 +2508,14 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     (readGameViewport().touch ? (
                         <TouchSplitAmount
                             value={sliderValue}
-                            max={maxSplitAmount}
+                            max={Math.max(1, maxSplitAmount)}
                             disabled={!canSplit}
                             onChange={setSplitAmount}
                         />
                     ) : (
                         <Slider
                             sx={hocSplitterSliderSx}
-                            min={1}
+                            min={selectedUnit ? 1 : 0}
                             max={Math.max(1, maxSplitAmount)}
                             value={sliderValue}
                             disabled={!canSplit}
@@ -2514,7 +2534,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         onClick={() =>
                             void requestStackAction({
                                 type: "split_unit",
-                                unitId: selectedUnit.id,
+                                unitId: selectedUnitId,
                                 amount: sliderValue,
                             })
                         }
@@ -2538,7 +2558,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     disabled={!canSubmit}
                     onClick={() => {
                         if (readGameViewport().touch) {
-                            requestStackAction({ type: "delete_unit", unitId: selectedUnit.id });
+                            requestStackAction({ type: "delete_unit", unitId: selectedUnitId });
                             return;
                         }
                         if (!deleteArmed) {
@@ -2548,7 +2568,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         setDeleteArmed(false);
                         void requestStackAction({
                             type: "delete_unit",
-                            unitId: selectedUnit.id,
+                            unitId: selectedUnitId,
                         });
                     }}
                     sx={{
@@ -2566,7 +2586,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                     {deleteArmed ? "Sure?" : "Delete"}
                 </Button>
             </Stack>
-            {!hasStackCapacity && maxUnits > 0 && (
+            {selectedUnit && !hasStackCapacity && maxUnits > 0 && (
                 <Typography level="body-xs" sx={{ mt: 0.75, px: 1.5, textAlign: "center", color: hocColors.muted }}>
                     Board stack limit reached ({teamUnitCount}/{maxUnits})
                 </Typography>
@@ -2946,7 +2966,7 @@ const augmentEffectText = (label: string, level: number): string => {
     }
 };
 
-// Recap the selected build throughout placement, including while the sidebar editor is available.
+// Recap the authoritative build, including while the placement editor is available.
 // Augment levels come from the authoritative snapshot; faction synergies come from FightProperties.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
@@ -3235,9 +3255,8 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     );
 };
 
-// The READY action occupies the same bottom-centre footer slot as EXIT FIGHT. Unlike the compact exit
-// control it stretches across the complete centre column, while the green halo makes the positive lock-in
-// action unmistakable against the dark sidebar material.
+// INTENDED main parity: Ready fills the centred footer slot and stays at least 44px tall,
+// growing with text scaling. Do not shrink it to the smaller corner-medallion plate height.
 const rankedReadyPlacementButtonSx = {
     ...hocSidebarImageButtonSx("neutral"),
     width: "100%",
@@ -3451,7 +3470,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine;
     const augmentBudget = Doctrine.getUpgradePoints(userDoctrineId);
     // Ranked placement opens the augment step as its own screen; the player picks there, locks in, and
-    // the chosen upgrades collapse to a read-only sidebar summary. null = not yet interacted -> open by
+    // board placement then shows the committed build without editing. null = not yet interacted -> open by
     // default at placement start.
     const [touchRosterOpen, setTouchRosterOpen] = useState(false);
     const [augmentOverlayOpenState, setAugmentOverlayOpen] = useState<boolean | null>(null);
@@ -3470,6 +3489,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
           : (augmentOverlayOpenState ?? true);
     // Same fit-to-window scale the pick/ban board uses, so the augment step never re-flows either.
     const draftScale = useDraftScale();
+    const [augmentPlannerHost, setAugmentPlannerHost] = useState<HTMLDivElement | null>(null);
     // Placement countdown for the header chip.
     const [augmentNowMs, setAugmentNowMs] = useState(Date.now());
     useEffect(() => {
@@ -3492,7 +3512,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         allSynergiesSelected: false,
     });
     // The committed augment build, straight from the authoritative snapshot. Shared by the Setup step's
-    // full-screen picker and the sidebar picker below so the two can never describe different builds.
+    // full-screen picker, where all upgrade choices are made before board placement.
     const augmentAuthoritativeSelections = useMemo(
         () => ({
             placement:
@@ -3519,20 +3539,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             snapshot.rightAugmentMovement,
         ],
     );
-    /**
-     * Augments stay adjustable in the sidebar while you position the board.
-     *
-     * The SERVER has always allowed this — validateAction gates AUGMENT only on team ownership, and
-     * play_session says so outright: "Setup choices (augments/synergies) stay EDITABLE through the board
-     * stage — a player may re-spend their points while positioning, right up until their own board-ready",
-     * noting that "the client hides those controls after ready, so only the UI was holding the rule up".
-     * When the augment step became its own screen the sidebar was left with a read-only recap, which took
-     * that ability away for no reason on the server's side. This puts the picker back beside the board.
-     *
-     * Not shown while the Setup step's own full-screen picker is up (that would be two live pickers on one
-     * build), and it collapses to the read-only recap once you lock in — which is exactly where the server
-     * stops accepting changes.
-     */
+    // The server permits build changes until this player's board-ready; Setup retains its own picker.
     const augmentsEditableInSidebar = shouldShowRankedAugmentPicker(snapshot, augmentOverlayOpen, isObserver, ready);
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
     const augmentInspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3736,17 +3743,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 disabled={ready || (snapshot.placementSplit === true && snapshot.placementStage === 0)}
                             />
                         )}
-                        {/* The augment/synergy picker lives HERE in the sidebar — the pre-#129 home,
-                            restored by owner request: pick augments beside the board instead of inside a
-                            fullscreen draft step. Interactive while augments are still editable (the split
-                            Setup stage before lock-in, or the whole legacy combined window), a read-only
-                            recap afterwards. The picker routes to the authoritative server via
-                            RankedPlayScene.propagateAugmentation (the AUGMENT play-action); artifacts are
-                            drafted in pick/ban (read-only above), so the sandbox-only artifact picker
-                            stays hidden. */}
-                        {/* The Setup step picks augments on its own screen, but they stay EDITABLE while you
-                            position — so the sidebar carries the live picker until you lock in, then the
-                            read-only recap. See augmentsEditableInSidebar for why the server allows it. */}
                         {augmentsEditableInSidebar ? (
                             // The SIDEBAR uses the compact sandbox shape: one row of augment icons with only
                             // the chosen augment's options underneath. SideToggleContainer expands every
@@ -3799,6 +3795,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             }}
                         >
                             <ModalDialog
+                                ref={setAugmentPlannerHost}
                                 layout="fullscreen"
                                 variant="plain"
                                 sx={{ ...draftShellSx, height: "100%", border: "none" }}
@@ -3960,6 +3957,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                 >
                                                     <PremiumSetupPanel
                                                         setupView
+                                                        draft={premiumSetupDraft(snapshot, userTeam)}
+                                                        plannerContainer={augmentPlannerHost}
                                                         gameId={snapshot.gameId}
                                                         stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
                                                     >
@@ -4032,11 +4031,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                         {/* The board-stage Ready (start the fight) + per-stack split/unplace controls are hidden
                             during the split Setup stage, when the board is locked. */}
-                        {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
+                        {inBoardStage && (
                             <RankedPlacementStackActions
                                 immediateDelete={skipAugmentStep}
                                 canSubmit={canSubmit && !ready}
-                                selectedUnit={selectedUnit}
+                                selectedUnit={
+                                    selectedUnit?.placed && selectedUnit.team === userTeam ? selectedUnit : undefined
+                                }
                                 snapshot={snapshot}
                                 submitGameAction={submitGameAction}
                                 userTeam={userTeam}

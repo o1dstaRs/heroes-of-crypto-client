@@ -1,13 +1,16 @@
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { Container, Text } from "pixi.js";
 
 import { releaseBoardMirror, setBoardMirror } from "../../pixi/boardMirror";
 import { CombatVisuals } from "./CombatVisuals";
 
 test("Devour Essence shows the gained HP immediately above its essence cue with a body heal burst", () => {
+    let now = 0;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
     const root = new Container();
     const visuals = new CombatVisuals({
+        legacyEffectsEnabled: false,
         getGridSettings: () => ({ getCellSize: () => 64 }) as GridSettings,
         getUnitsHolder: () => ({ getAllUnits: () => new Map() }) as unknown as UnitsHolder,
         attachToWorldRoot: (node, z) => {
@@ -27,10 +30,12 @@ test("Devour Essence shows the gained HP immediately above its essence cue with 
         expect(label.zIndex).toBe(5521);
         const burst = root.children.find((node) => node !== label)!;
         expect(burst).toBeDefined();
+        now = 100;
         visuals.update(0.1);
         expect(burst.renderable).toBe(true);
         visuals.clear({ keepDetachedOverlays: true });
         expect(label.destroyed).toBe(false);
+        now += 3_000;
         visuals.update(3);
         expect(label.destroyed).toBe(true);
         visuals.showHealPop({ x: 100, y: 200 }, 0);
@@ -39,6 +44,7 @@ test("Devour Essence shows the gained HP immediately above its essence cue with 
     } finally {
         visuals.clear();
         root.destroy({ children: true });
+        clock.mockRestore();
     }
 });
 

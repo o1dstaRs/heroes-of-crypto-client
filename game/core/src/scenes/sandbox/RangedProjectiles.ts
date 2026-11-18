@@ -538,7 +538,9 @@ export class RangedProjectiles {
                               ? 52.2
                               : opts.chakram
                                 ? CHAKRAM_SPEED_FACTOR
-                                : PROJECTILE_SPEED_FACTOR),
+                                : PROJECTILE_SPEED_FACTOR) *
+                    // Through Shot is 20% faster; distance progress keeps all pierced impacts with the projectile.
+                    (opts.cannonPiercing ? 1.2 : 1),
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,

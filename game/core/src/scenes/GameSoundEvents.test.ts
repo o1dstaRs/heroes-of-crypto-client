@@ -124,16 +124,25 @@ test("passive resurrection restores the unit and plays the same sound as the Ang
         },
         syncVisual: () => {},
         playOneShotAnimation: () => {},
+        isDead: () => false,
+        setVisualGhost: () => {},
+        getCurrentVisualScale: () => ({ x: 1, y: 1 }),
+        startSpawnAnimation: () => {},
     };
+    const rises: (() => void)[] = [];
     const scene = Object.assign(Object.create(Sandbox.prototype), {
         sc_sceneSettings: { getGridSettings: () => gs },
         drawer: { getUnitsContainer: () => undefined },
         unitsHolder: { getAllUnits: () => new Map([["u", unit]]) },
         combatVisuals: { spawnResurrectionBurst: () => {}, showResurrectedCount: () => {} },
         playSceneGameSound: (name: string) => sounds.push(name),
+        isSceneDestroyed: () => false,
+        scheduleSceneTimeout: (rise: () => void) => rises.push(rise),
     });
     scene.syncResurrectedUnit({ unitId: "u", position: { x: 100, y: 100 }, amount: 2, hp: 10 }, new Map());
     expect(restored).toBe(2);
+    expect(sounds).toEqual([]);
+    rises.shift()!();
     expect(sounds).toEqual(["resurrection"]);
     scene.renderResurrectionVfx({ x: 100, y: 100 }, 2);
     expect(sounds).toEqual(["resurrection", "resurrection"]);

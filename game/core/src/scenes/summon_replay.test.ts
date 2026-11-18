@@ -71,7 +71,7 @@ describe("authoritative summon replay", () => {
     test("summon spells bypass the local random-id engine and apply authoritative cleanup", () => {
         const body = sliceFrom(sandboxSource(), "private async playReplayCastSpellAction(", 12_000);
         const summonBranch = body.indexOf("if (authoritativeSummons.length)");
-        const localEngineApply = body.indexOf("const result = this.createActionEngine().apply(action)");
+        const localEngineApply = body.indexOf("this.createActionEngine().apply(action)");
 
         expect(summonBranch).toBeGreaterThan(-1);
         expect(localEngineApply).toBeGreaterThan(summonBranch);

@@ -99,14 +99,15 @@ describe("Cemetery barrel danger highlights", () => {
         expect(hover.slice(drawAim, drawAim + 300)).toContain("projectedCasingJoint");
     });
 
-    test("moves the terminal arrowhead to the barrel that actually stops a creature-targeted shot", () => {
-        const hover = sliceFrom(sceneSource(), "if (blockedByObstacle) {", 2_000);
+    test("ends the creature-targeted arrow at the first barrel without a continuation", () => {
+        const hover = sliceFrom(sceneSource(), "const firstImpact = obstaclePreview?.firstImpact;", 2_000);
         const drawTerminal = hover.indexOf("this.hoverManager.drawRangeTerminalArrowhead(");
         const drawAim = hover.indexOf("this.hoverManager.drawAttackArrow(");
 
         expect(drawTerminal).toBeGreaterThan(-1);
         expect(drawAim).toBeGreaterThan(drawTerminal);
         expect(hover.slice(drawTerminal, drawAim)).toContain("blockedVisual");
+        expect(hover.slice(drawAim, drawAim + 300)).toMatch(/blockedCasingJoint \?\? tVis,\s*undefined,/);
         expect(hover.slice(drawAim, drawAim + 300)).toContain("blockedCasingJoint");
     });
 

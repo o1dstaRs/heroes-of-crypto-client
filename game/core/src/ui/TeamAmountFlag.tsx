@@ -31,7 +31,7 @@ export const getTeamFlagBackground = (teamType: TeamType): string => {
 export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px", scale = 1 }: TeamAmountFlagProps) => {
     const label = String(amount);
     const width = Math.max(26, label.length * 8 + 16);
-    const height = 18;
+    const height = 20;
 
     return (
         <Box
@@ -75,9 +75,10 @@ export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px", 
                     clipPath: "polygon(0 0, 100% 0, calc(100% - 4px) 50%, 100% 100%, 0 100%)",
                     background: getTeamFlagBackground(teamType),
                     color: "#ffffff",
-                    fontSize: "0.76rem",
+                    fontSize: "0.9rem",
                     lineHeight: 1,
-                    fontWeight: 800,
+                    fontWeight: 900,
+                    WebkitTextStroke: "0.2px currentColor",
                     textShadow:
                         "0 1px 1px rgba(0, 0, 0, 0.95), 1px 0 1px rgba(0, 0, 0, 0.95), -1px 0 1px rgba(0, 0, 0, 0.95), 0 -1px 1px rgba(0, 0, 0, 0.95)",
                     filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6))",

@@ -59,6 +59,8 @@ Set `HOC_IMAGES_LOC` to the canonical local WebP directory and `HOC_ANIMATIONS_L
 
 Real deployment installs frozen dependencies locally, builds common, runs the client `check` gate, and invokes the server deployer for each phase. The deployer runs server lint, typecheck and non-DB unit tests, builds the appropriate game/site modes, installs the pinned common dependency on the host, and checks the deployed services and pages. Development-mode builds and CI stub builds cannot be released through the coordinator.
 
+For a 2,400 MiB process-tree RSS budget, set `HOC_WORKSPACE_TEST_BATCH_SIZE=1` during validation and deployment. This recycles the common test process after each file instead of the default ten-file batch. Every discovered test still runs with its normal timeout.
+
 ## Shared assistant configuration
 
 The assistant runs on the test host in `/root/hoc-knowledge-ai` with its own `/root/ecosystem.test.config.cjs` entry and private `/root/heroes-of-crypto-knowledge.env`. Deploying it updates the service used by both environments, including when you select `deploy:test`.

@@ -1,8 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { Texture, Mesh, RopeGeometry } from "pixi.js";
+import { Texture, Mesh, RopeGeometry, DOMAdapter } from "pixi.js";
 
 import { VineLayer } from "./VineLayer";
+
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 type VineLayerInternals = {
     time: number;

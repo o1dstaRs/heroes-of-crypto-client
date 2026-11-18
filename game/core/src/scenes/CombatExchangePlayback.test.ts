@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { createCombatSoundPlayer, type ICombatSoundSource } from "../ui/audio/combatSounds";
+import { PETRIFYING_GAZE_IMPACT_MS } from "./sandbox/PetrifyingGazePops";
 
 const strike = (response = false, hitIndex = 0, lethal = false): CombatExchangeStrike => ({
     attackerId: response ? "B" : "A",
@@ -24,6 +25,7 @@ const setup = () => {
         getAnimationTextureKey: (_state: string): string | undefined => undefined,
         getVisualCenter: () => ({ x: id === "A" ? 0 : 100, y: 0 }),
         getDamagePredictionAnchor: () => ({ x: 0, y: 100 }),
+        presentDamageCasualties: (_loss: number) => {},
     });
     const a = unit("A"),
         b = unit("B");
@@ -53,6 +55,205 @@ const setup = () => {
 const flush = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
 };
+
+test.each([
+    { lethal: false, primaryLethal: false },
+    { lethal: true, primaryLethal: false },
+    { lethal: true, primaryLethal: true },
+])(
+    "gaze owns its delayed hit: lethal=$lethal, classified primary lethal=$primaryLethal",
+    async ({ lethal, primaryLethal }) => {
+        const { scene, a, b } = setup();
+        const losses: number[] = [],
+            amounts: number[] = [],
+            deaths: string[] = [];
+        const shown: string[] = [];
+        b.presentDamageCasualties = (loss: number) => losses.push(loss);
+        scene.combatVisuals.showFloatingDamage = (_pos: unknown, amount: number) => amounts.push(amount);
+        scene.combatVisuals.spawnPetrifyingGazePop = (unit: typeof b) => {
+            shown.push(unit.getId());
+            // A cold cosmetic atlas may never complete. It cannot own the attack barrier.
+            return new Promise(() => {});
+        };
+        scene.playReplayOneShot = async () => {};
+        scene.waitForProjectileHitReaction = async () => {};
+        let releaseGaze!: () => void;
+        scene.delayReplay = (ms: number) =>
+            ms === PETRIFYING_GAZE_IMPACT_MS
+                ? new Promise<void>((resolve) => {
+                      releaseGaze = resolve;
+                  })
+                : Promise.resolve();
+        let contact!: () => void, land!: () => void;
+        scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, impact: () => void) => {
+            contact = impact;
+            return new Promise<void>((resolve) => {
+                land = resolve;
+            });
+        };
+        const gaze = { source: "petrifying_gaze", unitId: "B", position: { x: 100, y: 0 }, amount: 45, unitsDied: 1 };
+        const damage = { secondary: [gaze] };
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            {
+                attackType: "range",
+                damage,
+                unitIdsDied: lethal ? ["B"] : [],
+            },
+            [{ ...strike(), lethal: primaryLethal }],
+            (unit: typeof b) => deaths.push(unit.getId()),
+            undefined,
+            undefined,
+            undefined,
+            {
+                amountsBefore: new Map([["B", lethal ? 1 : 2]]),
+                deadIds: new Set(lethal ? ["B"] : []),
+            },
+        );
+        await flush();
+        expect(shown).toEqual([]);
+        expect(amounts).toEqual([]);
+        contact();
+        contact();
+        expect(amounts).toEqual([10]);
+        expect(losses).toEqual([0]);
+        expect(shown).toEqual([]);
+        scene.showSecondaryDamageNumbers([gaze], { x: 0, y: 0 });
+        expect(amounts).toEqual([10]);
+        land();
+        await flush();
+        expect(shown).toEqual(["B"]);
+        expect(deaths).toEqual([]);
+        releaseGaze();
+        await pending;
+        expect(amounts).toEqual([10, 45]);
+        expect(losses).toEqual([0, 1]);
+        expect(deaths).toEqual(lethal ? ["B"] : []);
+    },
+);
+
+test("gaze reads the primary reaction after contact installs the simultaneous counter's recovery", async () => {
+    const { scene, a, b } = setup();
+    const contacts: (() => void)[] = [],
+        landings: (() => void)[] = [],
+        shown: string[] = [];
+    let finishCounter!: () => void, releaseGaze!: () => void;
+    const recovery = new Promise<void>((resolve) => {
+        finishCounter = resolve;
+    });
+    scene.playReplayOneShot = async () => {};
+    scene.waitForProjectileHitReaction = (unit: typeof b) => (unit === b ? recovery : Promise.resolve());
+    scene.combatVisuals.spawnPetrifyingGazePop = async () => {
+        shown.push("head");
+        return () => {};
+    };
+    scene.combatVisuals.showFloatingDamage = (_position: unknown, amount: number) => {
+        if (amount === 45) shown.push("gaze damage");
+    };
+    scene.delayReplay = (ms: number) =>
+        ms === PETRIFYING_GAZE_IMPACT_MS
+            ? new Promise<void>((resolve) => {
+                  releaseGaze = resolve;
+              })
+            : Promise.resolve();
+    scene.playReplayProjectile = (_source: unknown, _victim: unknown, _position: unknown, impact: () => void) => {
+        contacts.push(impact);
+        return new Promise<void>((resolve) => landings.push(resolve));
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        {
+            attackType: "range",
+            damage: {
+                secondary: [
+                    { source: "petrifying_gaze", unitId: "B", position: { x: 100, y: 0 }, amount: 45, unitsDied: 0 },
+                ],
+            },
+            unitIdsDied: [],
+        },
+        [strike(), strike(true)],
+        () => {},
+    );
+    await flush();
+    contacts[0]();
+    landings[0]();
+    await flush();
+    expect(shown).toEqual([]);
+    contacts[1]();
+    landings[1]();
+    await flush();
+    expect(shown).toEqual([]);
+    finishCounter();
+    await flush();
+    expect(shown).toEqual(["head"]);
+    releaseGaze();
+    await pending;
+    expect(shown).toEqual(["head", "gaze damage"]);
+});
+
+test("double-shot gaze waits per proc while the recorded counter still starts alongside the first shot", async () => {
+    const { scene, a, b } = setup();
+    const amounts: number[] = [],
+        contacts: (() => void)[] = [],
+        landings: (() => void)[] = [],
+        gazes: (() => void)[] = [];
+    scene.combatVisuals.showFloatingDamage = (_position: unknown, amount: number) => amounts.push(amount);
+    scene.combatVisuals.spawnPetrifyingGazePop = async () => () => {};
+    scene.playReplayOneShot = async () => {};
+    scene.waitForProjectileHitReaction = async () => {};
+    scene.delayReplay = (ms: number) =>
+        ms === PETRIFYING_GAZE_IMPACT_MS ? new Promise<void>((resolve) => gazes.push(resolve)) : Promise.resolve();
+    scene.playReplayProjectile = (_source: unknown, _target: unknown, _position: unknown, contact: () => void) => {
+        contacts.push(contact);
+        return new Promise<void>((resolve) => landings.push(resolve));
+    };
+    const secondary = [32, 45].map((amount) => ({
+        source: "petrifying_gaze",
+        unitId: "B",
+        amount,
+        unitsDied: 1,
+        position: { x: 100, y: 0 },
+    }));
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "range", damage: { secondary }, unitIdsDied: [] },
+        [strike(), strike(true), strike(false, 1)],
+        () => {},
+        undefined,
+        undefined,
+        undefined,
+        {
+            amountsBefore: new Map([
+                ["B", 3],
+                ["A", 3],
+            ]),
+            deadIds: new Set(),
+        },
+    );
+    await flush();
+    expect(contacts).toHaveLength(2);
+    contacts[0]();
+    contacts[1]();
+    landings[0]();
+    landings[1]();
+    await flush();
+    expect(amounts).toEqual([10, 10]);
+    expect(contacts).toHaveLength(2);
+    gazes.shift()!();
+    await flush();
+    expect(amounts).toEqual([10, 10, 32]);
+    expect(contacts).toHaveLength(3);
+    contacts[2]();
+    landings[2]();
+    await flush();
+    expect(amounts).toEqual([10, 10, 32, 10]);
+    gazes.shift()!();
+    await pending;
+    expect(amounts).toEqual([10, 10, 32, 10, 45]);
+});
 
 test.each(
     ["melee", "range"].flatMap((attackType) =>
@@ -172,7 +373,7 @@ test.each([false, true])(
     },
 );
 
-test("melee attacks and counters start together; double strike waits for both attacks and reactions", async () => {
+test("simultaneous melee uses attack poses; a later single-sided strike still flinches", async () => {
     const { scene, a, b, events, finish } = setup();
     const pending = scene.playCombatExchange(
         a,
@@ -186,18 +387,13 @@ test("melee attacks and counters start together; double strike waits for both at
     const [finishA, finishB] = finish.splice(0);
     finishA();
     await flush();
-    expect(events.slice(4)).toEqual(["A:hit"]);
+    expect(events).toHaveLength(4);
     finishB();
     await flush();
-    expect(events.slice(4)).toEqual(["A:hit", "B:hit"]);
-    const [finishAHit, finishBHit] = finish.splice(0);
-    finishBHit();
-    await flush();
-    expect(events).toHaveLength(6);
-    finishAHit();
-    await flush();
-    expect(events.slice(6)).toEqual(["A:attack", "damage", "B:hit"]);
-    finish.splice(0).forEach((fn) => fn());
+    expect(events.slice(4)).toEqual(["A:attack", "damage", "B:hit"]);
+    expect(events.filter((event) => event === "A:hit")).toHaveLength(0);
+    expect(events.filter((event) => event === "B:hit")).toHaveLength(1);
+    finish.splice(0).forEach((done) => done());
     await pending;
 });
 test.each([
@@ -220,22 +416,22 @@ test.each([
         const [finishA, finishB] = finish.splice(0);
         finishA();
         await flush();
-        expect(events.slice(4)).toEqual([counterLethal ? "A:death" : "A:hit"]);
+        expect(events.slice(4)).toEqual(counterLethal ? ["A:death"] : []);
         finishB();
         await flush();
-        expect(events.slice(5)).toEqual([primaryLethal ? "B:death" : "B:hit"]);
+        expect(events.filter((event) => event.endsWith(":hit"))).toEqual([]);
         finish.splice(0).forEach((fn) => fn());
         const deaths = await pending;
         expect([...deaths].sort()).toEqual([...(counterLethal ? ["A"] : []), ...(primaryLethal ? ["B"] : [])]);
         expect(events.filter((event) => event.endsWith(":attack"))).toHaveLength(2);
     },
 );
-test("ranged attack and counter fly together; contacts own damage and double shot waits for the exchange", async () => {
+test("ranged actors never queue a late hit, even when the counter lands and recovers first", async () => {
     const { scene, a, b, events, finish } = setup();
-    const flights: { contact: () => void; land: () => void }[] = [];
-    scene.playReplayProjectile = (source: { getId(): string }, _b: unknown, _pos: unknown, onImpact: () => void) => {
+    const flights: { contact(): void; land(): void }[] = [];
+    scene.playReplayProjectile = (source: { getId(): string }, _b: unknown, _pos: unknown, contact: () => void) => {
         events.push(source.getId() + ":projectile");
-        return new Promise<void>((resolve) => flights.push({ contact: onImpact, land: resolve }));
+        return new Promise<void>((land) => flights.push({ contact, land }));
     };
     const pending = scene.playCombatExchange(
         a,
@@ -246,28 +442,22 @@ test("ranged attack and counter fly together; contacts own damage and double sho
     );
     await flush();
     expect(events).toEqual(["A:projectile", "B:projectile"]);
-    // The counter may arrive first because it has a different release frame or travel distance.
     flights[1].contact();
     flights[1].land();
     await flush();
     expect(events).toEqual(["A:projectile", "B:projectile", "damage"]);
     flights[0].contact();
-    await flush();
-    expect(events.slice(3)).toEqual(["damage", "B:hit"]);
     flights[0].land();
     await flush();
-    expect(events.at(-1)).toBe("A:hit");
-    expect(flights).toHaveLength(2);
-    finish.splice(0).forEach((fn) => fn());
-    await flush();
-    expect(events.at(-1)).toBe("A:projectile");
+    expect(events).toEqual(["A:projectile", "B:projectile", "damage", "damage", "A:projectile"]);
     expect(flights).toHaveLength(3);
     flights[2].contact();
     flights[2].land();
     await flush();
-    finish.splice(0).forEach((fn) => fn());
-    await pending;
     expect(events.slice(-2)).toEqual(["damage", "B:hit"]);
+    expect(events).not.toContain("A:hit");
+    finish.splice(0).forEach((done) => done());
+    await pending;
 });
 
 test("both combatants' textures are ready before either attack starts", async () => {
@@ -353,7 +543,7 @@ test("an intercepted counter starts alongside the attack and reacts on the scree
     finish.splice(0).forEach((resolve) => resolve());
     await pending;
     expect(events).not.toContain("A:hit");
-    expect(events.filter((entry) => entry.endsWith(":hit"))).toEqual(["screen:hit", "B:hit"]);
+    expect(events.filter((entry) => entry.endsWith(":hit"))).toEqual(["screen:hit"]);
 });
 
 test("a removed replay victim uses its captured impact point without hitting a different figure", async () => {
@@ -589,3 +779,294 @@ test.each([false, true])("Covenant absorbs wait for their own contact, first sho
     flights[1].land();
     await pending;
 });
+
+// Preserve approved PR popup-policy coverage alongside main’s intentional combat timing.
+test.each([
+    { active: true, missed: false, amount: 10, lethal: false, response: false },
+    { active: false, missed: false, amount: 10, lethal: false, response: false },
+    { active: true, missed: true, amount: 0, lethal: false, response: false },
+    { active: true, missed: false, amount: 0, lethal: false, response: false },
+    { active: true, missed: false, amount: 10, lethal: true, response: false },
+    { active: true, missed: false, amount: 10, lethal: false, response: true },
+])("Shadow Touch stays passive without an above-unit popup: %j", async (options) => {
+    const { scene, a, b, events, finish } = setup();
+    a.hasAbilityActive = (name?: string) => options.active && name === "Shadow Touch";
+    const preparePop = mock((_kind: string) => undefined);
+    scene.combatVisuals.prepareCommonFlagPop = preparePop;
+    scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) => events.push(`${unit.getId()}:${kind}`);
+    scene.showAttackMissedVfx = () => events.push("miss");
+    const plan: CombatExchangeStrike[] = [
+        { ...strike(false, 0, options.lethal), amount: options.amount, missed: options.missed },
+    ];
+    if (options.response) plan.push(strike(true));
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, plan, () => {});
+    await flush();
+    finish.splice(0).forEach((done) => done());
+    await flush();
+    for (let i = 0; i < 5; i++) {
+        finish.splice(0).forEach((resolve) => resolve());
+        await flush();
+    }
+    await pending;
+    expect(events).not.toContain("A:shadow_touch");
+    expect(events).not.toContain("B:shadow_touch");
+    expect(preparePop).not.toHaveBeenCalledWith("shadow_touch");
+    expect(events.includes("B:attack")).toBe(options.response);
+    expect(events.filter((event) => event === "damage")).toHaveLength(
+        (options.missed || options.amount <= 0 ? 0 : 1) + (options.response ? 1 : 0),
+    );
+});
+
+test.each(["melee", "range"])(
+    "%s extra strikes pop above their source without delaying attacks",
+    async (attackType) => {
+        const { scene, a, b, events, finish } = setup();
+        // An unresolved effect preload must never hold up either combatant or any later strike.
+        scene.combatVisuals.prepareCommonFlagPop = () => new Promise(() => {});
+        scene.combatVisuals.spawnCommonFlagPop = (unit: typeof a, kind: string) =>
+            events.push(`${unit.getId()}:${kind}`);
+        scene.playReplayProjectile = (unit: typeof a) => {
+            events.push(`${unit.getId()}:projectile`);
+            return new Promise<void>((resolve) => finish.push(resolve));
+        };
+        const pending = scene.playCombatExchange(
+            a,
+            b,
+            { attackType },
+            orderCombatExchange([strike(), strike(false, 1), strike(false, 2), strike(false, 3)], strike(true)),
+            () => {},
+        );
+        await flush();
+        expect(events.filter((event) => event.endsWith(":multi_attack"))).toHaveLength(0);
+        for (let i = 0; i < 10; i++) {
+            finish.splice(0).forEach((resolve) => resolve());
+            await flush();
+        }
+        await pending;
+        expect(events.filter((event) => event.endsWith(":multi_attack"))).toEqual(Array(3).fill("A:multi_attack"));
+        for (const [i, event] of events.entries()) {
+            if (event === "A:multi_attack")
+                expect(events[i + 1]).toBe(attackType === "melee" ? "A:attack" : "A:projectile");
+        }
+    },
+);
+
+test("each strike reports actual playback progress without advancing while a reaction is held", async () => {
+    const { scene, a, b, finish } = setup();
+    let progress = 0;
+    scene.aiController = {
+        noteActionPresentationProgress: () => {
+            progress++;
+        },
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        orderCombatExchange([strike()], strike(true)),
+        () => {},
+    );
+    await flush();
+    // The group plus both simultaneous contacts report real progress; waiting for either
+    // outgoing attack or hit reaction must not manufacture additional progress notifications.
+    expect(progress).toBe(3);
+    for (let i = 0; i < 4; i++) {
+        finish.splice(0).forEach((resolve) => resolve());
+        await flush();
+        expect(progress).toBe(3);
+    }
+    await pending;
+    expect(progress).toBe(3);
+});
+
+test("INTENDED: cold status art cannot delay the opening exchange or move melee damage past attack completion", async () => {
+    const { scene, a, b, events, finish } = setup();
+    scene.pendingEffectPops = [{ unit: b, debuffs: ["Curse"], buffs: [] }];
+    scene.waitForTexture = () => new Promise(() => {});
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, [strike(), strike(true)], () => {});
+    await flush();
+    expect(events.filter((event: string) => event.endsWith(":attack"))).toEqual(["A:attack", "B:attack"]);
+    expect(events.filter((event: string) => event === "damage")).toHaveLength(2);
+    expect(events.some((event: string) => event.endsWith(":hit"))).toBe(false);
+    // The outgoing attack owns the body for this simultaneous exchange. Damage is already
+    // visible at contact; no generic hit pose is queued behind either attack.
+    finish[0]();
+    await flush();
+    expect(events).not.toContain("A:hit");
+    expect(events).not.toContain("B:hit");
+    finish[1]();
+    await flush();
+    expect(events).not.toContain("B:hit");
+    for (let i = 0; i < 4; i++) {
+        finish.splice(0).forEach((done) => done());
+        await flush();
+    }
+    await pending;
+});
+
+test("a barrel consumes the first projectile before the remaining unit hit, without stealing its damage", async () => {
+    const { scene, a, b, events } = setup();
+    const barrel = {
+        type: "obstacle_attacked",
+        attackerId: "A",
+        targetPosition: { x: 50, y: 0 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    };
+    const order: string[] = [],
+        flags: number[] = [];
+    const units = new Map([
+        ["A", a],
+        ["B", b],
+    ]);
+    Object.assign(a, { getRangedProjectileOrigin: () => ({ x: 0, y: 0 }) });
+    scene.snapshotRenderableUnits = () => units;
+    scene.dungeonVisuals = { getObstacleProjectileImpactPoint: () => ({ x: 50, y: 20 }) };
+    scene.showRepeatedAttackFlag = (_unit: unknown, index: number) => flags.push(index);
+    scene.playReplayOneShot = async () => {};
+    scene.presentRangedObstacleAtContact = (applied: unknown) => {
+        expect(applied).toBe(barrel);
+        (scene.presentedRangedSplashObstacles ??= new WeakSet()).add(barrel);
+        order.push("barrel contact");
+    };
+    let releaseBarrel!: () => void;
+    scene.fireUnitProjectile = (_unit: unknown, options: { to: unknown; onImpact(): void }) => {
+        expect(options.to).toEqual({ x: 50, y: 20 });
+        order.push("barrel projectile");
+        return new Promise<void>((resolve) => {
+            releaseBarrel = () => {
+                options.onImpact();
+                resolve();
+            };
+        });
+    };
+    scene.playReplayProjectile = async (_a: unknown, _b: unknown, _pos: unknown, contact: () => void) => {
+        order.push("unit projectile");
+        contact();
+    };
+    const pending = scene.playCombatExchange(a, b, { attackType: "range" }, [strike()], () => {}, units, [barrel]);
+    await flush();
+    expect(order).toEqual(["barrel projectile"]);
+    expect(events).not.toContain("damage");
+    releaseBarrel();
+    await pending;
+    expect(order).toEqual(["barrel projectile", "barrel contact", "unit projectile"]);
+    expect(flags).toEqual([0, 1]);
+    expect(events.filter((entry) => entry === "damage")).toHaveLength(1);
+    expect(scene.presentedRangedSplashObstacles.has(barrel)).toBe(true);
+});
+
+test("ranked/replay renders both barrel-bound shots even when the record has no unit attack", async () => {
+    const { scene, a, b } = setup();
+    const barrels = [50, 80].map((x) => ({
+        type: "obstacle_attacked",
+        attackerId: "A",
+        targetPosition: { x, y: 0 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    }));
+    const record = {
+        action: { type: "range_attack", attackerId: "A", targetId: "B" },
+        events: [...barrels, { type: "turn_completed", unitId: "A" }],
+        stateAfter: {},
+    };
+    const order: string[] = [],
+        releases: (() => void)[] = [];
+    Object.assign(a, {
+        setActiveTurn: () => {},
+        syncVisual: () => {},
+        getRangedProjectileOrigin: () => ({ x: 0, y: 0 }),
+    });
+    Object.assign(scene, {
+        drawer: { getUnitsContainer: () => ({}) },
+        beginDullingDefensePresentation: () => {},
+        snapshotRenderableUnits: () =>
+            new Map([
+                ["A", a],
+                ["B", b],
+            ]),
+        dungeonVisuals: { getObstacleProjectileImpactPoint: (position: unknown) => position },
+        showRepeatedAttackFlag: () => {},
+        presentRangedObstacleAtContact: (event: { targetPosition: { x: number } }) =>
+            order.push(`contact:${event.targetPosition.x}`),
+        applyReplayEvents: () => order.push("turn complete"),
+        fireUnitProjectile: (_source: unknown, options: { to: { x: number }; onImpact(): void }) => {
+            order.push(`shot:${options.to.x}`);
+            return new Promise<void>((resolve) =>
+                releases.push(() => {
+                    options.onImpact();
+                    resolve();
+                }),
+            );
+        },
+    });
+    const pending = scene.playReplayAttackRecord(record);
+    await flush();
+    expect(order).toEqual(["shot:50"]);
+    releases.shift()!();
+    await flush();
+    expect(order).toEqual(["shot:50", "contact:50", "shot:80"]);
+    expect(scene.sc_moveBlocked).toBe(true);
+    releases.shift()!();
+    expect(await pending).toBe(true);
+    expect(order).toEqual(["shot:50", "contact:50", "shot:80", "contact:80", "turn complete"]);
+    expect(scene.sc_moveBlocked).toBe(false);
+});
+
+test("mortally wounded melee actors shorten recovery only after their own attack starts", async () => {
+    const { scene, a, b, finish, events } = setup();
+    const started = new Set<string>(),
+        shortened = new Set<string>();
+    for (const unit of [a, b])
+        Object.assign(unit, {
+            hastenLethalMeleeRecovery: () => {
+                if (started.has(unit.getId())) shortened.add(unit.getId());
+            },
+        });
+    const play = scene.playReplayOneShot;
+    scene.playReplayOneShot = (unit: typeof a, state: string) => {
+        if (state === "attack") started.add(unit.getId());
+        return play(unit, state);
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        orderCombatExchange([strike(false, 0, true)], strike(true, 0, true)),
+        (unit: typeof a) => events.push(`${unit.getId()}:death`),
+    );
+    await flush();
+    expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
+    expect([...shortened].sort()).toEqual(["A", "B"]);
+    expect(events.some((event) => event.endsWith(":death"))).toBe(false);
+    finish.splice(0).forEach((done) => done());
+    await pending;
+    expect(events.filter((event) => event.endsWith(":death")).sort()).toEqual(["A:death", "B:death"]);
+});
+
+test.each(["melee", "range"])(
+    "%s simultaneous actors skip both the hit pose and knockback, passive recipients keep them",
+    async (attackType) => {
+        const { scene, a, b } = setup();
+        const hits: string[] = [],
+            knockbacks: string[] = [];
+        for (const unit of [a, b])
+            Object.assign(unit, { getName: () => "Fixture actor", getUnitProperties: () => ({ level: 3 }) });
+        scene.applyReplayLunge = () => {};
+        scene.delayReplay = async () => {};
+        scene.playReplayOneShot = async (unit: typeof a, state: string) => {
+            if (state === "hit") hits.push(unit.getId());
+        };
+        scene.applyReplayHitKnockback = (unit: typeof a) => knockbacks.push(unit.getId());
+        scene.playReplayProjectile = async (_a: unknown, _b: unknown, _position: unknown, contact: () => void) =>
+            contact();
+        await scene.playCombatExchange(a, b, { attackType }, orderCombatExchange([strike()], strike(true)), () => {});
+        expect(hits).toEqual([]);
+        expect(knockbacks).toEqual([]);
+        await scene.playCombatExchange(a, b, { attackType }, [strike()], () => {});
+        expect(hits).toEqual(["B"]);
+        expect(knockbacks).toEqual(["B"]);
+    },
+);

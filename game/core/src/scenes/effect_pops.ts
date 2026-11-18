@@ -10,6 +10,7 @@
 
 import { HoCConfig, type GameEvent } from "@heroesofcrypto/common";
 import { ogreSpellFlagKind } from "./ogreSpellFlagEffects";
+import { satyrSpellFlagKind } from "./satyrSpellFlagEffects";
 
 /**
  * Aura effects (continuous, radius-based) are applied to and removed from a unit as it / its neighbours
@@ -35,18 +36,46 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
 const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Pegasus Light",
     "Sharpened Weapons Blessing",
+    "Tie up the Horses Blessing",
     "Luck Blessing",
     "Sylvan Focus Blessing",
-    "Tie up the Horses Blessing",
+    "Pegasus Might Blessing",
     "Wolf Trail Blessing",
 ]);
 const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([
+    "Spiritual Armor",
+    "Misfortune",
+    "Fireforged Sword",
+    "Wind Flow",
     "Gravebound",
     "Dulling Defense",
+    "Shatter Armor",
+    "Hamstrung",
+    "Miner",
     "Battle Roar",
     "Empower",
     "Blindness",
+    "Terrifying Gaze",
 ]);
+
+/** Explicit casts also animate refreshes. Borrowed Grace owns its separate transfer presentation. */
+export function spiritualArmorAppliedUnitIds(events: readonly GameEvent[] | undefined): string[] {
+    const ids = new Set<string>();
+    for (const event of events ?? []) {
+        if (event.type !== "effects_applied") continue;
+        for (const application of event.applications) {
+            if (
+                application.name === "Spiritual Armor" &&
+                application.kind === "buff" &&
+                !application.resisted &&
+                !application.sourceUnitId &&
+                application.unitId
+            )
+                ids.add(application.unitId);
+        }
+    }
+    return [...ids];
+}
 
 /** Successful recipients, including refreshed buffs; snapshots alone cannot describe a recast. */
 export function battleRoarAppliedUnitIds(events: readonly GameEvent[] | undefined): string[] {
@@ -85,6 +114,7 @@ export function animatableEffectNames(names: Iterable<string>): Set<string> {
             !isMoraleEffectName(name) &&
             !NON_ANIMATABLE_PASSIVE_EFFECT_NAMES.has(name) &&
             !ogreSpellFlagKind(name) &&
+            !satyrSpellFlagKind(name) &&
             !EVENT_DRIVEN_EFFECT_NAMES.has(name)
         ) {
             result.add(name);

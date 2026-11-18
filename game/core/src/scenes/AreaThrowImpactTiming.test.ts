@@ -281,12 +281,16 @@ test.each([false, true])("free Double Throw honors a single recorded projectile,
     expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual(["damage:11", "damage:22"]);
 });
 
-test.each(["targeted", "free"])(
+test.each(["targeted", "free", "replay"])(
     "%s Double Throw lands every victim's damage and reaction at each rock's impact",
     async (mode) => {
         const f = fixture();
-        const pending = mode === "targeted" ? f.playTargeted() : f.playFree();
+        const pops: string[] = [];
+        f.scene.combatVisuals.spawnCommonFlagPop = (unit: typeof f.giant, kind: string) =>
+            pops.push(`${unit.getId()}:${kind}`);
+        const pending = mode === "targeted" ? f.playTargeted() : f.playFree(mode === "replay");
         await flush();
+        expect(pops).toEqual([]);
         f.advance(0.99);
         expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual([]);
         expect([f.near.getDisplayedAmount(), f.far.getDisplayedAmount()]).toEqual([3, 3]);
@@ -298,6 +302,7 @@ test.each(["targeted", "free"])(
         expect(f.shots).toHaveLength(1);
         await flush();
         expect(f.shots).toHaveLength(2);
+        expect(pops).toEqual(["giant:multi_attack"]);
         f.advance(0.99);
         expect(f.near.getDisplayedAmount()).toBe(2);
         f.advance(0.02);
@@ -307,6 +312,7 @@ test.each(["targeted", "free"])(
         expect(f.events.filter((entry) => entry.startsWith("damage:"))).toEqual(["damage:11", "damage:22", "damage:7"]);
         expect(f.events.filter((entry) => entry === "far:death")).toHaveLength(1);
         expect(f.events.filter((entry) => entry.startsWith("blast:"))).toEqual(["blast:2", "blast:1"]);
+        expect(pops).toHaveLength(1);
     },
 );
 
@@ -627,6 +633,7 @@ test("a Cyclops counter owns only its enemy splash deaths at its boulder's conta
         { amountsBefore: new Map([...f.units.keys()].map((id) => [id, 3])), deadIds: new Set(["near", "far"]) },
     );
     await flush();
+    // Both opening boulders launch together; each contact still owns its own deaths.
     expect(f.shots).toHaveLength(2);
     f.shots[0].onImpact?.();
     expect(f.grid.getOccupantUnitId(barrel)).toBe("B");
@@ -669,3 +676,36 @@ for (const name of ["Cyclops", "Gargantuan"]) {
         },
     );
 }
+
+test("a splash impact keeps numbers and passive hit reactions but never appends a counterattacker's flinch", async () => {
+    const f = fixture();
+    for (const unit of [f.near, f.far]) unit.continueDamagePresentation(3);
+    const hits = [f.near, f.far].map((unit) => ({
+        unitId: unit.getId(),
+        position: unit.getPosition(),
+        amount: 11,
+        unitsDied: 1,
+    }));
+    let finishCounter!: () => void;
+    const counter = new Promise<void>((resolve) => {
+        finishCounter = resolve;
+    });
+    const pending = f.scene.playAreaThrowImpact(f.giant, hits, {
+        damage: { splash: hits },
+        hitIndex: 0,
+        units: f.units,
+        remainingAmounts: new Map(hits.map((hit) => [hit.unitId, 3])),
+        deadIds: new Set(),
+        onDeath: () => {},
+        simultaneousAttackers: new Set([f.near.getId()]),
+        activeAttacks: new Map([[f.near.getId(), counter]]),
+    });
+    await flush();
+    expect(f.events.filter((event) => event.startsWith("damage:"))).toEqual(["damage:11", "damage:11"]);
+    expect(f.events).not.toContain("near:hit");
+    expect(f.events).toContain("far:hit");
+    expect(f.near.getDisplayedAmount()).toBe(2);
+    finishCounter();
+    await pending;
+    expect(f.events).not.toContain("near:hit");
+});

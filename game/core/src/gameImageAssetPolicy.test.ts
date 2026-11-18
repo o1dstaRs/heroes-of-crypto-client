@@ -45,7 +45,13 @@ describe("game image asset policy", () => {
     test("does not hard-code public game-image URLs in source", () => {
         const violations: string[] = [];
 
-        for (const filePath of filesUnder(SOURCE_DIR).filter((candidate) => SOURCE_FILE.test(candidate))) {
+        // Test fixtures and ignored local previews are not application source.
+        const applicationFiles = filesUnder(SOURCE_DIR).filter((candidate) => {
+            const path = relative(SOURCE_DIR, candidate);
+            return SOURCE_FILE.test(path) && !/\.test\.[cm]?[jt]sx?$/.test(path) && !path.split("/").includes("tmp");
+        });
+        expect(applicationFiles.length).toBeGreaterThan(0);
+        for (const filePath of applicationFiles) {
             const contents = readFileSync(filePath, "utf8");
             for (const match of contents.matchAll(DIRECT_PUBLIC_IMAGE_URL)) {
                 if (match[1] !== "/favicon.ico") {

@@ -1,3 +1,5 @@
+import type { FlagOverlayAttach } from "./FlagOverlayLayout";
+import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -44,7 +46,7 @@ export class BattleRoarPops {
         offsetY: number;
     }[] = [];
     public constructor(
-        private readonly attach: (container: Container, zIndex: number) => void,
+        private readonly attach: FlagOverlayAttach,
         private readonly now: () => number = () => performance.now(),
     ) {}
     public get active(): boolean {
@@ -103,16 +105,19 @@ export class BattleRoarPops {
         const position = follow?.() ?? anchor;
         container.position.set(position.x, position.y + offsetY);
         container.scale.set(1, -1);
-        this.attach(container, 5520);
+        this.attach(container, 5520, follow ?? (() => anchor));
         this.pops.push({ container, sprite, startedAtMs: this.now(), durationMs, follow, offsetY });
         this.update(0);
     }
     public update(_dtSeconds: number): void {
-        // Scene steps are fixed and capped under load. A one-second UI effect must use real elapsed time.
+        // Scene steps are fixed and capped under load. An overhead UI effect must use real elapsed time.
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const ageMs = statusEffectAppearanceElapsedMs(now - pop.startedAtMs, pop.durationMs);
+            const ageMs = statusEffectAppearanceElapsedMs(
+                overheadEffectElapsedMs(now - pop.startedAtMs, pop.durationMs),
+                pop.durationMs,
+            );
             const frame = battleRoarFrameAt(ageMs, pop.durationMs);
             if (frame === undefined) {
                 pop.container.destroy({ children: true });

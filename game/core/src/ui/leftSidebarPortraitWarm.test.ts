@@ -57,7 +57,7 @@ test("a sidebar portrait stays on the previous creature until the next pair is d
 });
 
 test("left sidebar art keeps the cutout and the faction plate as two files", () => {
-    const champion = leftSidebarPortraitSources(CreatureVals.CHAMPION);
+    const champion = leftSidebarPortraitSources(CreatureVals.CHAMPION, false);
     expect(champion.creature).toContain("champion_left_screen_x2.webp");
     expect(champion.background).toBeTruthy();
     expect(champion.background).not.toContain("champion_left_screen_x2");

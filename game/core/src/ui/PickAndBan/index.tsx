@@ -1,9 +1,11 @@
 import type { TeamType } from "@heroesofcrypto/common";
 import React from "react";
+import type { DraftBanPlacement } from "./DraftBanPlacement";
 
 const DraftRuntime = React.lazy(() => import("./runtime"));
 
 interface Props {
+    banPlacement?: DraftBanPlacement;
     userTeam: TeamType;
     gameId?: string;
     opponentLabel?: string;

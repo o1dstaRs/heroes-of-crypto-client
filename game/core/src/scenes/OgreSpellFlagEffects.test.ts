@@ -44,13 +44,13 @@ describe("Ogre Mage spell flag effects", () => {
             expect(ogreSpellFlagApplications([event])).toHaveLength(4);
             scene.renderCastOutcomes([event]);
             expect<unknown>(spawnCommonFlagPop.mock.calls).toEqual([
-                [unit, kind],
-                [second, kind],
+                [unit, kind, "combat", undefined, name],
+                [second, kind, "combat", undefined, name],
             ]);
             scene.renderCastOutcomes([event]);
             expect(spawnCommonFlagPop).toHaveBeenCalledTimes(4);
             expect(scene.playCreatureAnimationLabState(kind).ok).toBe(true);
-            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, kind);
+            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, kind, "preview");
             expect(animatableEffectNames([name])).toEqual(new Set());
         });
 
@@ -139,10 +139,10 @@ describe("Ogre Mage spell flag effects", () => {
                 },
             ]),
         ).toEqual([
-            { unitId: "one", kind: "ogre_riot" },
-            { unitId: "two", kind: "ogre_riot" },
-            { unitId: "one", kind: "ogre_magic_mirror" },
-            { unitId: "two", kind: "ogre_magic_mirror" },
+            { unitId: "one", kind: "ogre_riot", name: "Riot" },
+            { unitId: "two", kind: "ogre_riot", name: "Mass Riot" },
+            { unitId: "one", kind: "ogre_magic_mirror", name: "Mass Magic Mirror" },
+            { unitId: "two", kind: "ogre_magic_mirror", name: "Mass Magic Mirror" },
         ]);
     });
     test("unrelated effects remain generic and missing events stay silent", () => {

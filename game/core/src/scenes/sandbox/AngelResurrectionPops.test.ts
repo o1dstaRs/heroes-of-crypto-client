@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 
@@ -30,7 +31,7 @@ describe("Angel resurrection above flag", () => {
         let anchor = { x: 100, y: 200 };
         const layer = new AngelResurrectionPops(
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             const pending = [

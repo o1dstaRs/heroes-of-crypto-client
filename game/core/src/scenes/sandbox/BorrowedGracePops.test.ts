@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GameEvent, IVisibleDamage } from "@heroesofcrypto/common";
@@ -50,7 +51,7 @@ test("hand stays on the victim, then the actual card follows the rebuilt monk fl
     let monk: { x: number; y: number } | undefined = { x: 500, y: 400 };
     const layer = new BorrowedGracePops(
         (container) => root.addChild(container),
-        () => now,
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
     );
     try {
         await layer.spawn(
@@ -130,6 +131,63 @@ test("scene teardown cancels an in-flight hand load and never reveals the card l
         await pending;
         expect(root.children).toHaveLength(0);
         expect(layer.active).toBe(false);
+    } finally {
+        layer.clear();
+        await Promise.resolve();
+        load.mockRestore();
+        unload.mockRestore();
+    }
+});
+
+test("animated buff takes over after the hand without creating an icon, even after a delayed frame", async () => {
+    const atlas = new Texture({ source: new TextureSource({ width: 1152, height: 1152 }) });
+    const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
+    const unload = spyOn(Assets, "unload").mockResolvedValue();
+    const root = new Container();
+    let now = 0,
+        reveals = 0;
+    let recipient: { x: number; y: number } | undefined = { x: 500, y: 400 };
+    const layer = new BorrowedGracePops(
+        (container) => root.addChild(container),
+        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
+    );
+    const spawn = () =>
+        layer.spawn(
+            { x: 100, y: 200 },
+            64,
+            undefined,
+            () => ({ x: 100, y: 200 }),
+            () => recipient,
+            () => reveals++,
+        );
+    try {
+        await spawn();
+        expect(root.children[1].children).toHaveLength(0);
+        now = 649;
+        layer.update(0);
+        expect(reveals).toBe(0);
+        now = 650;
+        layer.update(0);
+        expect(reveals).toBe(1);
+        expect(root.children).toHaveLength(0);
+        expect(layer.active).toBe(false);
+        layer.update(0);
+        expect(reveals).toBe(1);
+        await spawn();
+        now = 4000;
+        layer.update(0);
+        expect(reveals).toBe(2);
+        await spawn();
+        recipient = undefined;
+        now = 5000;
+        layer.update(0);
+        expect(reveals).toBe(2);
+        recipient = { x: 500, y: 400 };
+        await spawn();
+        layer.clear();
+        now = 6000;
+        layer.update(0);
+        expect(reveals).toBe(2);
     } finally {
         layer.clear();
         await Promise.resolve();

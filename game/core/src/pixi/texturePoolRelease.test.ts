@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { FilterSystem, TexturePool, type Texture } from "pixi.js";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { FilterSystem, Texture, TexturePool, type BindGroup } from "pixi.js";
 
 import { releaseIdlePooledTextures } from "./texturePoolRelease";
 
@@ -27,6 +27,34 @@ const frameWithNestedFilter = (): { filter: IFilterSlots; lastFrameNestedTexture
 describe("releasing Pixi's idle pooled textures", () => {
     afterEach(() => {
         TexturePool.clear();
+    });
+
+    test("unbinds returned filter targets before destroying their sources and samplers", () => {
+        const filter = new FilterSystem({} as never);
+        const bindings = (filter as unknown as { _globalFilterBindGroup: BindGroup })._globalFilterBindGroup;
+        const idle = TexturePool.getOptimalTexture({ width: 256, height: 256, resolution: 1, antialias: false });
+        const borrowed = TexturePool.getOptimalTexture({ width: 128, height: 128, resolution: 1, antialias: false });
+        bindings.setResource(idle.source, 1);
+        bindings.setResource(idle.source.style, 2);
+        bindings.setResource(borrowed.source, 3);
+        const warning = spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            TexturePool.returnTexture(idle);
+            releaseIdlePooledTextures({ filter });
+            expect(idle.destroyed).toBe(true);
+            expect(bindings.getResource(1)).toBe(Texture.EMPTY.source);
+            expect(bindings.getResource(2)).toBe(Texture.EMPTY.source.style);
+            expect(bindings.getResource(3)).toBe(borrowed.source);
+            expect(borrowed.destroyed).toBe(false);
+            TexturePool.returnTexture(borrowed);
+            releaseIdlePooledTextures({ filter });
+            expect(bindings.getResource(3)).toBe(Texture.EMPTY.source);
+            expect(warning).not.toHaveBeenCalled();
+        } finally {
+            warning.mockRestore();
+            bindings.destroy();
+            filter.destroy();
+        }
     });
 
     test("destroys what sits idle but lets a texture still in use come back to its bucket", () => {

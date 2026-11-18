@@ -31,7 +31,7 @@ function fixture() {
 
 test("magic lab previews without a creature, through the shared renderer and with zero damage", () => {
     const { scene, render } = fixture();
-    for (const spell of ["Lightning Strike", "Whirlpool", "Ring of Fire", "Meteor Shower"] as const) {
+    for (const spell of ["Lightning Strike", "Whirlpool", "Ring of Fire", "Fireball", "Meteor Shower"] as const) {
         scene.setCreatureAnimationLabSpell(spell);
         expect(scene.castCreatureAnimationLabSpell().ok).toBe(true);
         const event = render.mock.calls.at(-1)![0][0] as Extract<GameEvent, { type: "spell_cast" }>;
@@ -109,4 +109,15 @@ test("fire wall lab previews four cells, rotates with Shift and clears on leavin
     expect(scene.castCreatureAnimationLabSpell().ok).toBe(false);
     scene.setCreatureAnimationLabSpell(undefined);
     expect(scene.creatureAnimationLabFireCells).toEqual([]);
+});
+
+test("Smoke lab uses its isolated preview cells and never casts a gameplay spell", () => {
+    const { scene, render } = fixture();
+    scene.setCreatureAnimationLabSpell("Smoke");
+    expect(scene.castCreatureAnimationLabSpell().ok).toBe(true);
+    expect(scene.creatureAnimationLabSmokeCells).toHaveLength(9);
+    expect(render).not.toHaveBeenCalled();
+    expect(scene.creatureAnimationLabSmokeUntil).toBeGreaterThan(performance.now());
+    scene.setCreatureAnimationLabSpell("Fireball");
+    expect(scene.creatureAnimationLabSmokeCells).toEqual([]);
 });

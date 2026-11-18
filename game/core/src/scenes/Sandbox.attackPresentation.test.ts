@@ -4,6 +4,7 @@ import {
     EffectFactory,
     GridSettings,
     HoCConfig,
+    Spell,
     TeamVals,
     Unit,
     UnitVals,
@@ -69,6 +70,10 @@ const fixture = ({ fairy = false, noMelee = false, ranged = false } = {}) => {
         sc_sceneSettings: { getGridSettings: () => grid },
         sc_sceneLog: { getLogSize: () => 0 },
         shownBuffsByUnit: new Map(),
+        shownDebuffsByUnit: new Map(),
+        pendingEffectPops: [],
+        isStrikeInFlight: () => false,
+        waitForTexture: async () => ({}),
         clearCommittedBoardActionPreview: () => undefined,
         snapshotRenderableUnits: () => units,
         noteDeathBlowsFromAttackEvent: () => undefined,
@@ -252,4 +257,66 @@ describe("live attack presentation", () => {
         ];
         expect(await h.run()).toEqual({ amount: 12, unitsDied: 1 });
     });
+});
+
+test("live first attack queues newly applied debuffs before exchange playback", async () => {
+    const h = fixture({ ranged: true });
+    h.scene.createActionEngine = () => ({
+        apply: () => {
+            h.target.applyDebuff(
+                new Spell({ spellProperties: HoCConfig.getSpellConfig("Death", "Quagmire"), amount: 1 }),
+            );
+            return { completed: true, events: h.events };
+        },
+    });
+    await h.run();
+    expect(h.scene.pendingEffectPops).toHaveLength(1);
+    expect(h.scene.pendingEffectPops[0].unit).toBe(h.target);
+    expect(h.scene.pendingEffectPops[0].debuffs).toEqual(["Quagmire"]);
+    expect(h.scene.shownDebuffsByUnit.get(h.target.getId())).toEqual(new Set(["Quagmire"]));
+});
+
+test("live double shot completes two barrel contacts before applying the turn, without requiring unit damage", async () => {
+    const h = fixture({ ranged: true });
+    const barrels: GameEvent[] = [128, 256].map((x) => ({
+        type: "obstacle_attacked",
+        attackerId: h.attacker.getId(),
+        targetPosition: { x, y: 128 },
+        hitsBefore: 8,
+        hitsAfter: 8,
+        animations: [],
+    }));
+    h.events.splice(0, h.events.length, ...barrels);
+    const order: string[] = [];
+    h.scene.animateObstacleStrikeSequence = async (
+        _unit: unknown,
+        positions: unknown[],
+        _from: unknown,
+        contact: (index: number) => void,
+    ) => {
+        expect(positions).toEqual(
+            barrels.map((event) => (event.type === "obstacle_attacked" ? event.targetPosition : undefined)),
+        );
+        positions.forEach((_position, index) => {
+            order.push(`shot:${index}`);
+            contact(index);
+        });
+    };
+    h.scene.presentRangedObstacleAtContact = () => order.push("barrel contact");
+    h.scene.applyTurnEngineEvents = () => order.push("turn cleanup");
+    expect(
+        await h.scene.executeAttackSequence(
+            h.attacker,
+            h.target,
+            { x: 0, y: 0 },
+            {
+                type: "range_attack",
+                attackerId: h.attacker.getId(),
+                targetId: h.target.getId(),
+            },
+        ),
+    ).toBe(true);
+    expect(order).toEqual(["shot:0", "barrel contact", "shot:1", "barrel contact", "turn cleanup"]);
+    expect(h.scene.sc_moveBlocked).toBe(false);
+    expect(h.scene.buildCombatExchange).not.toHaveBeenCalled();
 });

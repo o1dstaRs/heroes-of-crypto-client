@@ -1,5 +1,7 @@
 import { SpellElement } from "@heroesofcrypto/common";
 
+import type { ImageKey } from "../generated/image_imports";
+
 /**
  * How a spell's ELEMENT is presented on its spell-book card.
  *
@@ -18,7 +20,7 @@ export interface SpellElementStyle {
     /** Soft background behind the chip, keyed to the same hue. */
     background: string;
     border: string;
-    mark: string;
+    imageKey: ImageKey;
 }
 
 const STYLES: Readonly<Partial<Record<SpellElement, SpellElementStyle>>> = {
@@ -27,28 +29,28 @@ const STYLES: Readonly<Partial<Record<SpellElement, SpellElementStyle>>> = {
         color: "#ff9d4d",
         background: "rgba(255, 122, 26, 0.14)",
         border: "rgba(255, 122, 26, 0.5)",
-        mark: "🔥",
+        imageKey: "fire_element_256",
     },
     [SpellElement.WATER]: {
         label: "Water",
         color: "#6fc7ff",
         background: "rgba(56, 165, 255, 0.14)",
         border: "rgba(56, 165, 255, 0.5)",
-        mark: "💧",
+        imageKey: "water_element_256",
     },
     [SpellElement.AIR]: {
         label: "Air",
         color: "#d9d2ff",
         background: "rgba(180, 168, 255, 0.14)",
         border: "rgba(180, 168, 255, 0.5)",
-        mark: "⚡",
+        imageKey: "wind_element_256",
     },
     [SpellElement.EARTH]: {
         label: "Earth",
         color: "#d3b07c",
         background: "rgba(168, 124, 62, 0.16)",
         border: "rgba(168, 124, 62, 0.5)",
-        mark: "⛰️",
+        imageKey: "earth_element_256",
     },
 };
 

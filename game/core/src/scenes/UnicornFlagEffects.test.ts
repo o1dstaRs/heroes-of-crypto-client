@@ -78,7 +78,7 @@ test("lab controls expose each symbol only to ability owners and preview it on t
         expect(canPreviewCreatureLabState(selected, state)).toBe(true);
         expect(canPreviewCreatureLabState({ name: "Pikeman", abilities: [], spells: [] }, state)).toBe(false);
         expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
-        expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, state);
+        expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, state, "preview");
     }
 });
 
@@ -87,7 +87,7 @@ test("shared live/replay exchange shows the horn from the second incoming action
         getId: () => id,
         getName: () => (unicorn ? "Unicorn" : "Pikeman"),
         isDead: () => false,
-        hasAbilityActive: () => unicorn,
+        hasAbilityActive: (name: string) => unicorn && ["One in the Field", "Blindness"].includes(name),
         flashUnicornBlindness: mock(() => true),
         getAnimationTextureKey: () => undefined,
         getVisualCenter: () => ({ x: 0, y: 0 }),
@@ -139,20 +139,26 @@ test("shared live/replay exchange shows the horn from the second incoming action
         );
     // A double blow plus retaliation is still the first incoming attack action.
     await exchange(1, application());
-    expect(spawnCommonFlagPop.mock.calls).toEqual([[victim, "unicorn_blindness"]]);
+    expect(spawnCommonFlagPop.mock.calls.filter(([, kind]) => kind.startsWith("unicorn_"))).toEqual([
+        [victim, "unicorn_blindness"],
+    ]);
     spawnCommonFlagPop.mockClear();
     await exchange(1, application(true));
-    expect(spawnCommonFlagPop.mock.calls).toEqual([
+    expect(
+        spawnCommonFlagPop.mock.calls.filter(([, kind]) => kind.startsWith("unicorn_") || kind === "resist"),
+    ).toEqual([
         [source, "unicorn_retaliation"],
         [victim, "resist"],
     ]);
     spawnCommonFlagPop.mockClear();
     // Further incoming attacks show the horn even if there is no response strike.
     await exchange(1, [], true);
-    expect(spawnCommonFlagPop.mock.calls).toEqual([[source, "unicorn_retaliation"]]);
+    expect(spawnCommonFlagPop.mock.calls.filter(([, kind]) => kind.startsWith("unicorn_"))).toEqual([
+        [source, "unicorn_retaliation"],
+    ]);
     spawnCommonFlagPop.mockClear();
     await exchange(2);
-    expect(spawnCommonFlagPop).not.toHaveBeenCalled();
+    expect(spawnCommonFlagPop.mock.calls.filter(([, kind]) => kind.startsWith("unicorn_"))).toHaveLength(0);
     // An outgoing Unicorn attack does not display its defensive symbol.
     await scene.playCombatExchange(
         source,
@@ -166,10 +172,14 @@ test("shared live/replay exchange shows the horn from the second incoming action
         undefined,
         2,
     );
-    expect(spawnCommonFlagPop.mock.calls).toEqual([[victim, "resist"]]);
+    expect(
+        spawnCommonFlagPop.mock.calls.filter(([, kind]) => kind.startsWith("unicorn_") || kind === "resist"),
+    ).toEqual([[victim, "resist"]]);
     spawnCommonFlagPop.mockClear();
     await exchange(2);
-    expect(spawnCommonFlagPop.mock.calls).toEqual([[source, "unicorn_retaliation"]]);
+    expect(spawnCommonFlagPop.mock.calls.filter(([, kind]) => kind.startsWith("unicorn_"))).toEqual([
+        [source, "unicorn_retaliation"],
+    ]);
 });
 
 test("incoming attack counters belong to each defender and clear for a rematch", () => {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
+import { isOlderRankedSnapshot, playMissingRankedSnapshotRecords, waitForRankedPlayback } from "./rankedSnapshotSync";
+import type { PlaySnapshot } from "../api/play_protocol";
 
 const snapshot = (latestSequence: number, serverTimeMs = 1000, gameId = "game-1") => ({
     gameId,
@@ -40,6 +41,55 @@ describe("ranked snapshot ordering", () => {
 });
 
 describe("ranked poll reconciliation during combat", () => {
+    test("a poll winning the Fire Arrow race presents the journal before its narrowed snapshot", async () => {
+        const delivery = deferred();
+        const next = { ...snapshot(42), journalTail: [{ sequence: 42 }] } as PlaySnapshot;
+        const timeline: string[] = [];
+        const reconcile = playMissingRankedSnapshotRecords(next, snapshot(41), async (_entry, stateAfter) => {
+            expect(stateAfter).toBe(next);
+            timeline.push("cast");
+            await delivery.promise;
+            timeline.push("impact");
+            return true;
+        }).then((presented) => {
+            timeline.push("narrowed snapshot");
+            return presented;
+        });
+        await flush();
+        expect(timeline).toEqual(["cast"]);
+        delivery.resolve();
+        expect(await reconcile).toBe(true);
+        expect(timeline).toEqual(["cast", "impact", "narrowed snapshot"]);
+    });
+
+    test("missing records play in sequence without giving an intermediate action the final stats", async () => {
+        const next = {
+            ...snapshot(44),
+            journalTail: [{ sequence: 44 }, { sequence: 42 }, { sequence: 43 }, { sequence: 42 }],
+        } as PlaySnapshot;
+        const played: number[] = [];
+        expect(
+            await playMissingRankedSnapshotRecords(next, snapshot(41), async (entry, stateAfter) => {
+                played.push(entry.sequence);
+                expect(stateAfter).toBe(entry.sequence === 44 ? next : undefined);
+                return true;
+            }),
+        ).toBe(true);
+        expect(played).toEqual([42, 43, 44]);
+    });
+
+    test("initial loads, reconnect history and a different game do not replay old turns", async () => {
+        const next = { ...snapshot(44), journalTail: [{ sequence: 44 }] } as PlaySnapshot;
+        let calls = 0;
+        const play = async () => {
+            calls++;
+            return true;
+        };
+        for (const current of [null, snapshot(44), snapshot(45), snapshot(43, 1000, "other")])
+            expect(await playMissingRankedSnapshotRecords(next, current, play)).toBe(false);
+        expect(calls).toBe(0);
+    });
+
     test("keeps a lethal poll from removing a fighter before its exchange finishes", async () => {
         const attack = deferred();
         let fighterOnBoard = true;

@@ -532,7 +532,8 @@ export default function RightSideBar({
             </Box>
             {touch && <div id="hoc-touch-panel-system-slot" />}
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
-            {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
+            {/* INTENDED main parity: keep the full wrapped-footer clearance in setup and combat,
+                even while the measured row is temporarily only one line tall. */}
             {showSystemControls && !touch && (
                 <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
             )}
@@ -543,6 +544,7 @@ export default function RightSideBar({
                     onHeightChange={setFooterHeight}
                     sidebarWidth={barSize}
                     rightStack
+                    // Main centres every placement plate, including Ready without a leading guide.
                     centerInRow={Boolean(rankedFooter)}
                     centerMinWidth={rankedFooter ? 224 : premiumFightVisible ? 176 : undefined}
                     center={

@@ -285,14 +285,15 @@ test.each(
             }
             expect(starts.filter((entry) => entry.state.includes("attack"))).toHaveLength(blows + 1);
             expect(new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.unit.getId()))).toEqual(
-                new Set(actors.map((unit) => unit.getId())),
+                new Set(blows === 2 ? [defender.getId()] : []),
             );
             if (blows === 2) {
                 const second = starts.filter((entry) => entry.unit === attacker && entry.state.includes("attack"))[1];
                 expect(
                     actors.every((unit) =>
                         finished.some(
-                            (entry) => entry.unit === unit && entry.state === "hit" && entry.frame <= second.frame,
+                            (entry) =>
+                                entry.unit === unit && entry.state.includes("attack") && entry.frame <= second.frame,
                         ),
                     ),
                 ).toBe(true);

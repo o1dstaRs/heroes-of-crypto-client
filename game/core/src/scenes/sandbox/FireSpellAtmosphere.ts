@@ -4,14 +4,28 @@ import type { WhirlpoolFootprint } from "./WhirlpoolSprites";
 /** Authored milliseconds shared with sprite and procedural timelines. */
 export function emitFireAtmosphere(
     emit: SpellAtmosphereEmitter | undefined,
-    kind: "ring" | "meteor",
+    kind: "ring" | "hollow" | "meteor",
     age: number,
     target: WhirlpoolFootprint,
     area: WhirlpoolFootprint,
 ): void {
     if (!emit || age < 0) return;
     const clamp = (x: number) => Math.max(0, Math.min(1, x));
-    if (kind === "ring") {
+    if (kind === "hollow") {
+        const strength = clamp(age / 120) * clamp((1400 - age) / 450);
+        // Eight small rim sources: no broad centre light/heat patch on the spared target.
+        for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI) / 4;
+            emit({
+                x: area.center.x + Math.cos(angle) * area.width * 0.43,
+                y: area.center.y + Math.sin(angle) * area.height * 0.43,
+                width: area.width * 0.19,
+                height: area.height * 0.22,
+                light: 0.22 * strength,
+                heat: 0.4 * strength,
+            });
+        }
+    } else if (kind === "ring") {
         const expansion = clamp((age - 310) / 240),
             fade = clamp((1400 - age) / 450);
         const burst = Math.exp(-Math.max(0, age - 310) / 130) * (age >= 310 ? 1 : 0);

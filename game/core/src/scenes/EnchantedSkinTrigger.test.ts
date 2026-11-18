@@ -96,6 +96,6 @@ test("a dead or broken immunity does not show the shield; lab uses the real flag
     const f = fixture();
     expect(showsEnchantedSkinShield({ ...f.unit, isDead: () => true })).toBe(false);
     expect(f.scene.playCreatureAnimationLabState("enchanted_skin").ok).toBe(true);
-    expect(f.pops).toEqual([[f.unit, "enchanted_skin"]]);
+    expect(f.pops).toEqual([[f.unit, "enchanted_skin", "preview"]]);
     expect(fixture(false).scene.playCreatureAnimationLabState("enchanted_skin").ok).toBe(false);
 });

@@ -1,3 +1,4 @@
+import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 
@@ -41,7 +42,7 @@ describe("painted Deep Wounds flag effects", () => {
         let anchor: { x: number; y: number } | undefined = { x: 100, y: 200 };
         const layer = new DeepWoundsPops(
             (container) => root.addChild(container),
-            () => now,
+            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
         );
         try {
             await Promise.all([
@@ -65,11 +66,14 @@ describe("painted Deep Wounds flag effects", () => {
             expect(sprite.scale.x).toBe(scale.x);
             expect(sprite.scale.y).toBe(scale.y);
             expect(sprite.texture.width).toBe(384);
-            // At 500ms the accelerated opening has reached cel 5; the readable lifetime stays 1800ms.
-            expect(sprite.texture.frame.x).toBe(384);
-            expect(sprite.texture.frame.y).toBe(384);
+            // At 500ms the readable tail has reached cel 12; the complete cue remains 650ms.
+            expect(sprite.texture.frame.x).toBe(0);
+            expect(sprite.texture.frame.y).toBe(1152);
             expect(container.alpha).toBe(1); // The sprite already carries its fade.
-            now = 1800;
+            now = 649;
+            layer.update(1 / 240);
+            expect(layer.active).toBe(true);
+            now = 650;
             layer.update(1 / 240);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);

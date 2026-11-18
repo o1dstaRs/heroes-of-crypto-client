@@ -15,7 +15,7 @@ afterEach(() => setLanguage(language));
 const render = (node: React.ReactNode): string =>
     renderToStaticMarkup(<CacheProvider value={createCache({ key: "starting-map" })}>{node}</CacheProvider>);
 
-test("starting map preview shows the real terrain image, name and description in both languages", () => {
+test("starting map preview shows only the terrain icon with accessible map details in both languages", () => {
     for (const lang of ["en", "ru"]) {
         setLanguage(lang);
         for (const mapType of [GridVals.NORMAL, GridVals.BLOCK_CENTER, GridVals.LAVA_CENTER]) {
@@ -25,7 +25,8 @@ test("starting map preview shows the real terrain image, name and description in
             expect(html).toContain("<img");
             expect(html).toContain(t(display.name));
             expect(html).toContain(t(display.blurb));
-            expect(html).toContain(t("Spymaster"));
+            expect(html).not.toContain(t("Spymaster"));
+            expect(html).not.toMatch(/<p[ >]|<h[1-6][ >]/);
             expect(html).not.toContain("<button");
             expect(html).not.toContain('role="dialog"');
         }

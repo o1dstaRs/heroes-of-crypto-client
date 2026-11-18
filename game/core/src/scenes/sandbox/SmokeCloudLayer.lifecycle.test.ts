@@ -1,15 +1,20 @@
-import { expect, test } from "bun:test";
-import type { Graphics } from "pixi.js";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { DOMAdapter } from "pixi.js";
 
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./SmokeCloudLayer";
+
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
 
 const cloud = { x: 5, y: 6, l: 3 };
 const project = ({ x, y }: { x: number; y: number }) => ({ x: x * 64, y: y * 64 });
 const advance = (layer: SmokeCloudLayer, frames: number, cells: readonly ISmokeCloudCell[]) => {
     for (let frame = 0; frame < frames; frame++) layer.update(1 / 240, cells, 64, project);
 };
-const hasSmoke = (layer: SmokeCloudLayer) =>
-    layer.getContainer().getChildAt<Graphics>(0).context.instructions.length > 0;
+const hasSmoke = (layer: SmokeCloudLayer) => layer.getContainer().children.length > 0;
 
 test("dispersed smoke finishes fading within 0.8 real seconds at the scene's 60 Hz timestep", () => {
     const layer = new SmokeCloudLayer();

@@ -22,12 +22,7 @@ import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { placementFootprintCandidates } from "./placementFootprintCandidates";
-import {
-    projectBattlefieldPoint,
-    projectedPolyline,
-    projectedRangeAttackCellSideCenter,
-    projectedRectPoints,
-} from "./sandbox/BattlefieldVisualGrid";
+import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import {
     CREATURE_ATTACK_FOREGROUND_Z_INDEX,
     placementFacingDirectionForTeam,
@@ -844,8 +839,8 @@ export class HoverManager {
         if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
             this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
         if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
-        for (const graphics of [this.hoverAttackOrigin, this.hoverShotGuide]) {
-            if (this.isGraphicsUsable(graphics)) this.safeAttachGraphics(graphics, ATTACK_GEOMETRY_Z_INDEX);
+        if (this.isGraphicsUsable(this.hoverAttackOrigin)) {
+            this.safeAttachGraphics(this.hoverAttackOrigin, ATTACK_GEOMETRY_Z_INDEX);
         }
         this.attachSpellBadge(this.localSpellBadge);
         this.attachSpellBadge(this.opponentSpellBadge);
@@ -1039,8 +1034,8 @@ export class HoverManager {
         if (!cells || cells.length === 0) return;
         this.drawFootprintCells(gfx, cells, false);
     }
-    private ensureAttackGeometry(kind: "origin" | "shot"): Graphics | undefined {
-        const existing = kind === "origin" ? this.hoverAttackOrigin : this.hoverShotGuide;
+    private ensureMeleeAttackOrigin(): Graphics | undefined {
+        const existing = this.hoverAttackOrigin;
         if (this.isGraphicsUsable(existing)) return existing;
         const graphics = new Graphics();
         graphics.eventMode = "none";
@@ -1048,14 +1043,11 @@ export class HoverManager {
             graphics.destroy();
             return undefined;
         }
-        if (kind === "origin") this.hoverAttackOrigin = graphics;
-        else this.hoverShotGuide = graphics;
+        this.hoverAttackOrigin = graphics;
         return graphics;
     }
     private clearAttackGeometry(): void {
-        for (const graphics of [this.hoverAttackOrigin, this.hoverShotGuide]) {
-            if (this.safeClearGraphics(graphics)) graphics!.visible = false;
-        }
+        if (this.safeClearGraphics(this.hoverAttackOrigin)) this.hoverAttackOrigin!.visible = false;
     }
     private drawMeleeAttackOrigin(): void {
         const active = this.context.getCurrentActiveUnit?.();
@@ -1064,7 +1056,7 @@ export class HoverManager {
         if (!anchor || !props) return;
         const cells = combatFootprintCellsForBase(anchor, footprintWidthOf(props), footprintHeightOf(props));
         this.hoverBattlefieldFootprintCells = cells;
-        const graphics = this.ensureAttackGeometry("origin");
+        const graphics = this.ensureMeleeAttackOrigin();
         if (!graphics) return;
         const gs = this.context.sceneSettings.getGridSettings();
         const inset = Math.max(2, gs.getCellSize() * 0.055) / gs.getCellSize();
@@ -1080,33 +1072,6 @@ export class HoverManager {
             .stroke({ width: width + 3, color: 0x17120b, alpha: 0.9, join: "round" })
             .poly(polygon)
             .stroke({ width, color: 0xffe2a0, alpha: 1, join: "round" });
-    }
-    private drawRangeShotGuide(from: HoCMath.XY, to: HoCMath.XY, edge?: RangeTargetEdgeVisual): void {
-        const graphics = this.ensureAttackGeometry("shot");
-        if (!graphics) return;
-        graphics.clear();
-        graphics.visible = true;
-        // Unlike the decorative arrow's socket, this endpoint is the selected target-cell seam.
-        // A thin continuous sightline makes its precise contact readable between the moving casings.
-        graphics
-            .moveTo(from.x, from.y)
-            .lineTo(to.x, to.y)
-            .stroke({ width: 4, color: 0x17120b, alpha: 0.65 })
-            .moveTo(from.x, from.y)
-            .lineTo(to.x, to.y)
-            .stroke({ width: 1.5, color: 0xffe2a0, alpha: 0.85 });
-        if (edge) {
-            const dx = (edge.to.x - edge.from.x) * 0.3;
-            const dy = (edge.to.y - edge.from.y) * 0.3;
-            graphics
-                .moveTo(to.x - dx, to.y - dy)
-                .lineTo(to.x + dx, to.y + dy)
-                .stroke({ width: 6, color: 0x17120b, alpha: 0.9, cap: "round" })
-                .moveTo(to.x - dx, to.y - dy)
-                .lineTo(to.x + dx, to.y + dy)
-                .stroke({ width: 3, color: 0xffe2a0, alpha: 1, cap: "round" });
-        }
-        graphics.circle(to.x, to.y, 3).fill({ color: 0xfff2cf, alpha: 1 });
     }
     public isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
@@ -1315,7 +1280,6 @@ export class HoverManager {
     };
     private hoverAttackSword?: Sprite;
     private hoverAttackOrigin?: Graphics;
-    private hoverShotGuide?: Graphics;
     private silhouetteLocked = false;
     public setSilhouetteLocked(locked: boolean): void {
         this.silhouetteLocked = locked;
@@ -1621,6 +1585,7 @@ export class HoverManager {
             this.silhouettePool.push(s);
         }
         this.hoverTargetSilhouettes = [];
+        this.targetHighlightUnits.clear();
 
         // Hide the per-unit AOE damage labels (Gargantuan Area Throw preview) and return them to the pool,
         // exactly like the silhouettes above. updateAreaThrowHover calls clearAttackVisuals() at the top of
@@ -1657,18 +1622,13 @@ export class HoverManager {
         this.hoverAttackTargetUnit = undefined;
     }
     public drawRangeTargetEdge(edge: RangeTargetEdgeVisual, trajectoryFrom: HoCMath.XY): void {
-        this.drawRangeTerminalArrowhead(edge.markerCenter, trajectoryFrom, edge.markerScale, edge);
+        this.drawRangeTerminalArrowhead(edge.markerCenter, trajectoryFrom, edge.markerScale);
     }
     public drawRangeTerminalArrowhead(
         markerCenter: HoCMath.XY,
         trajectoryFrom: HoCMath.XY,
         markerScale = 1,
-        edge?: RangeTargetEdgeVisual,
     ): HoCMath.XY {
-        const impact = edge
-            ? projectedRangeAttackCellSideCenter(edge.cell, edge.side, this.context.sceneSettings.getGridSettings())
-            : markerCenter;
-        this.drawRangeShotGuide(trajectoryFrom, impact, edge);
         const useOrcPalette = shotTrajectoryUsesOrcPalette(this.context.getCurrentActiveUnit()?.getName());
         const texture = useOrcPalette
             ? (this.hoverRangeTargetEdgeOrcTexture ??
@@ -1848,6 +1808,7 @@ export class HoverManager {
         }
     }
     private hoverTargetSilhouettes: Sprite[] = [];
+    private targetHighlightUnits = new Map<Sprite, Unit>();
     private silhouettePool: Sprite[] = [];
     private highlightedUnits: Unit[] = [];
     public addTargetHighlight(targetUnit: Unit, tint: number = 0xff3030): void {
@@ -1915,6 +1876,20 @@ export class HoverManager {
         silhouette.tint = tint;
 
         this.hoverTargetSilhouettes.push(silhouette);
+        this.targetHighlightUnits.set(silhouette, targetUnit);
+    }
+    /** Run after creature animation so the tint uses the exact frame rendered this tick. */
+    public syncTargetHighlights(): void {
+        for (const [silhouette, unit] of this.targetHighlightUnits) {
+            if (silhouette.destroyed) continue;
+            const preview = this.getLiveUnitPreview(unit.getUnitProperties(), unit.getPosition(), unit);
+            if (!preview) continue;
+            silhouette.texture = preview.texture;
+            silhouette.anchor.set(preview.anchorX, preview.anchorY);
+            silhouette.scale.set(preview.scaleX, preview.scaleY);
+            silhouette.position.set(preview.x, preview.y);
+            silhouette.rotation = preview.rotation;
+        }
     }
     private aoeDamageLabels: Text[] = [];
     private aoeDamageLabelPool: Text[] = [];
@@ -2200,8 +2175,8 @@ export class HoverManager {
                 drawDashes(0, arrowLen, 1.5, 0xffffe9, 0.9);
                 break;
             case "gold-casings": {
-                // The authored arrow pieces carry the animation. The separate precision guide ends at
-                // the real target edge rather than this decorative arrowhead's socket.
+                // The authored arrow pieces remain the only trajectory rail. Graphics are reserved for
+                // moving golden sparks distributed over its full length; no line, glow rail or dots are drawn.
                 g.visible = true;
                 const ux = Math.cos(angle);
                 const uy = Math.sin(angle);

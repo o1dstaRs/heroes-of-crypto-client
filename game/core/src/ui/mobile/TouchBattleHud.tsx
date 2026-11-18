@@ -8,6 +8,7 @@ import { useButtonContext } from "../context/ButtonContext";
 import { useGameLayout } from "./GameViewport";
 import { toggleFullscreen } from "../fullscreen";
 import { useFullscreenActive } from "../useFullscreenActive";
+import { TouchActionBubble } from "./TouchActionBubble";
 
 const buttonLabel = (button: IVisibleButton): string => {
     switch (button.name) {
@@ -64,7 +65,7 @@ export default function TouchBattleHud() {
     const { buttons, propagateClick } = useButtonContext();
     const [loading, setLoading] = useState(manager.isLoading);
     const [started, setStarted] = useState(manager.hasStarted);
-    const [pending, setPending] = useState(manager.GetTouchActionLabel());
+    const [pending, setPending] = useState(manager.GetTouchActionPreview());
     const [inspect, setInspect] = useState(false);
     const fullscreen = useFullscreenActive(true);
     const [fullscreenNotice, setFullscreenNotice] = useState(false);
@@ -76,7 +77,7 @@ export default function TouchBattleHud() {
             manager.onHasStarted.connect(setStarted),
             manager.onVisibleStateUpdated.connect(setVisible),
             manager.onTouchActionChanged.connect((label) => {
-                setPending(label);
+                setPending(manager.GetTouchActionPreview());
                 if (label) {
                     setInspect(false);
                     setPanel(null);
@@ -98,6 +99,7 @@ export default function TouchBattleHud() {
     };
     const seconds = visible?.secondsRemaining;
     const active = visible?.upNext?.[0]?.name;
+    const dockedConfirmation = pending && !pending.anchor ? pending : null;
 
     return (
         <>
@@ -165,13 +167,25 @@ export default function TouchBattleHud() {
                     </button>
                 </div>
             )}
+            {pending?.anchor && (
+                <TouchActionBubble
+                    label={pending.label}
+                    anchor={pending.anchor}
+                    confirm={() => manager.ConfirmTouchAction()}
+                    cancel={() => manager.CancelTouchAction()}
+                />
+            )}
             <div className="hoc-touch-actionbar" role="toolbar" aria-label={t("Turn actions")}>
                 {/* Keep this portal target mounted while confirming, so ranked ready/search controls
                     return to the same live dock when the player cancels or finishes an action. */}
-                <div id="hoc-touch-primary-slot" className="hoc-touch-primary-slot" hidden={started || !!pending} />
-                {pending ? (
+                <div
+                    id="hoc-touch-primary-slot"
+                    className="hoc-touch-primary-slot"
+                    hidden={started || !!dockedConfirmation}
+                />
+                {dockedConfirmation ? (
                     <div className="hoc-touch-confirm" role="region" aria-label={t("Confirm battle action")}>
-                        <span aria-live="polite">{t(pending)}</span>
+                        <span aria-live="polite">{t(dockedConfirmation.label)}</span>
                         <button onClick={() => manager.CancelTouchAction()}>{t("Cancel")}</button>
                         <button className="hoc-touch-primary" onClick={() => manager.ConfirmTouchAction()}>
                             {t("Confirm")}

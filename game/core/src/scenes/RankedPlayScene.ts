@@ -47,6 +47,7 @@ import type {
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { SandboxReplay, SandboxReplayActionRecord } from "../replay/sandbox_replay";
 import { buildFightDamageEntries } from "./FightStatsTracker";
+import { fightResultSetupFromSnapshot } from "./fightResultSetup";
 import type {
     IFightDeathEntry,
     IFightCreatureElimination,
@@ -536,6 +537,7 @@ export const authoritativeSnapshotToSandboxSceneState = (
     snapshot: AuthoritativeGameSnapshot,
     options: { hideOpponentPlacements?: boolean } = {},
 ): SandboxSceneState => ({
+    resultSetup: fightResultSetupFromSnapshot(snapshot),
     gridType: snapshot.gridType as GridType,
     currentLap: snapshot.currentLap,
     fightStarted: snapshot.fightStarted,
@@ -2232,6 +2234,7 @@ export class RankedPlayScene extends Sandbox {
         // that arrives while an action is still playing never reaches the log — and the next quiet apply
         // can be late enough that those lines have already fallen out of the 64-entry tail. Spectators hit
         // this for a whole fight: their snapshots land during the animation they just watched.
+        // Keep ingesting here; PixiGameManager publishes the retained lines only once presentation is ready.
         if (snapshot.latestSequence >= this.lastAuthoritativeSequence) {
             this.applyRankedDamageStatistics(snapshot.damageStats);
             this.applyAuthoritativeSceneLog(snapshot);
@@ -3930,7 +3933,7 @@ export class RankedPlayScene extends Sandbox {
         // wiping both sides on the same lap) and must be published as TeamVals.NO_TEAM — collapsing it to
         // undefined here (as before) discarded the draw signal and the results overlay never showed.
         this.sc_visibleState.teamWin = fightOver ? winner : undefined;
-        this.sc_visibleState.fightStats = fightStats;
+        this.sc_visibleState.fightStats = { ...fightStats, setup: fightResultSetupFromSnapshot(snapshot) };
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;
     }

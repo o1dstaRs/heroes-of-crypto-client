@@ -1,4 +1,13 @@
 import type { GameEvent, IVisibleDamage } from "@heroesofcrypto/common";
+import { ogreSpellFlagKind } from "../ogreSpellFlagEffects";
+
+/** Reuse the buff's authored flag animation for the second phase of the transfer. */
+export function borrowedGraceFlagKind(buffName: string) {
+    if (buffName === "Battle Roar") return "battle_roar" as const;
+    if (buffName === "Empower") return "empower" as const;
+    if (buffName === "Made of Fire") return "made_of_fire" as const;
+    return ogreSpellFlagKind(buffName);
+}
 
 export function borrowedGraceTransfers(damage?: IVisibleDamage, thiefId?: string) {
     const seen = new Set<string>();

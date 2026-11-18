@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { CreatureVals, GridConstants, GridMath, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
 
 import { PlayActionType } from "./play_protocol";
+import { createPlayActionFromGameAction } from "./game_action_play_codec";
 import { applyPreviewPlayAction, getPreviewPlaySnapshot, startPreviewPlaySession } from "./previewPlaySession";
 
 describe("battlefield framing comparison layout", () => {
@@ -180,6 +181,26 @@ describe("battlefield framing comparison layout", () => {
 });
 
 describe("preview placement round trip", () => {
+    test.each([TeamVals.LEFT, TeamVals.RIGHT])("keeps augment edits after the next snapshot for team %s", (team) => {
+        startPreviewPlaySession({ userTeam: team, gridType: GridVals.NORMAL });
+        const before = getPreviewPlaySnapshot()!;
+        const response = applyPreviewPlayAction(
+            createPlayActionFromGameAction(
+                { type: "augment", team, augmentKind: "Armor", augmentValue: 1 },
+                {
+                    actionId: "armor-1",
+                    team,
+                    gameId: "preview-placement",
+                    playerId: team === TeamVals.LEFT ? "preview-player-lower" : "preview-player-upper",
+                    expectedSequence: before.latestSequence,
+                },
+            ),
+        );
+        expect(response.accepted).toBe(true);
+        const after = getPreviewPlaySnapshot()!;
+        expect(team === TeamVals.LEFT ? after.leftAugmentArmor : after.rightAugmentArmor).toBe(1);
+        expect(after.latestSequence).toBe(before.latestSequence + 1);
+    });
     test("a two-cell placement comes back with the same cells and a max-corner base cell", () => {
         // The fake server is the only end-to-end exercise of a rectangular PLACE_UNIT the client has: the
         // action carries the cell LIST and the base cell is re-derived from it. Deriving the wrong corner

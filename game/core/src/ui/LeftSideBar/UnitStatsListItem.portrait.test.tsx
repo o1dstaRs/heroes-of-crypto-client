@@ -65,6 +65,9 @@ const renderPortrait = async (animatePortrait = true, name = "Arbalester", facti
     const atlasElements: Array<{ tag: string; source: string | null }> = [];
     let stillStyle: string | null = null;
     let animatedStyle: string | null = null;
+    let posterStyle: string | null = null;
+    let posterSource: string | null = null;
+    let posterViewBox: string | null = null;
     await new HTMLRewriter()
         .on("[data-creature-portrait]", {
             element(element) {
@@ -82,6 +85,13 @@ const renderPortrait = async (animatePortrait = true, name = "Arbalester", facti
                 if (element.getAttribute("alt") === name) stillStyle = element.getAttribute("style");
             },
         })
+        .on("[data-sidebar-first-frame]", {
+            element(element) {
+                posterStyle = element.getAttribute("style");
+                posterSource = element.getAttribute("data-sidebar-first-frame");
+                posterViewBox = element.getAttribute("viewBox") ?? element.getAttribute("viewbox");
+            },
+        })
         .on("[data-sidebar-atlas]", {
             element(element) {
                 atlasElements.push({ tag: element.tagName, source: element.getAttribute("data-sidebar-atlas") });
@@ -89,7 +99,17 @@ const renderPortrait = async (animatePortrait = true, name = "Arbalester", facti
         })
         .transform(new Response(html))
         .text();
-    return { html, ids, animatedLabels, atlasElements, stillStyle, animatedStyle };
+    return {
+        html,
+        ids,
+        animatedLabels,
+        atlasElements,
+        stillStyle,
+        animatedStyle,
+        posterStyle,
+        posterSource: posterSource as string | null,
+        posterViewBox: posterViewBox as string | null,
+    };
 };
 
 test("a first cold selection waits for its complete portrait pair instead of painting a partial creature", async () => {
@@ -105,7 +125,7 @@ test("a decoded creature still waits for its faction background before the portr
 
 test("a ready portrait preserves the integrated animation and inspection can display only its still", async () => {
     installImages();
-    expect(await warmLeftSidebarPortrait(CreatureVals.ARBALESTER, false)).toBe(true);
+    expect(await warmLeftSidebarPortrait(CreatureVals.ARBALESTER)).toBe(true);
     const animated = await renderPortrait();
     expect(animated.ids).toEqual([String(CreatureVals.ARBALESTER)]);
     expect(animated.animatedLabels).toEqual(["Arbalester animated portrait"]);
@@ -113,6 +133,7 @@ test("a ready portrait preserves the integrated animation and inspection can dis
     expect(animated.atlasElements).toEqual([
         { tag: "canvas", source: resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src },
     ]);
+    expect(await warmLeftSidebarPortrait(CreatureVals.ARBALESTER, false)).toBe(true);
     const inspected = await renderPortrait(false);
     expect(inspected.ids).toEqual([String(CreatureVals.ARBALESTER)]);
     expect(inspected.animatedLabels).toEqual([]);
@@ -132,23 +153,35 @@ const styleProperties = (style: string | null) =>
             .map((property) => property.split(":")),
     );
 
-test.each(animatedCreatures)("$name keeps its still's facing and framing when animation starts", async (creature) => {
-    installImages();
-    expect(await warmLeftSidebarPortrait(creature.id, false)).toBe(true);
-    const animated = await renderPortrait(true, creature.name, creature.faction);
-    const still = styleProperties(animated.stillStyle);
-    const motion = styleProperties(animated.animatedStyle);
-    expect(animated.animatedLabels).toEqual([`${creature.name} animated portrait`]);
-    expect(still.transform).toContain(`scaleX(${isCreaturePortraitMirrored(creature.id) ? -1 : 1})`);
-    const placement = ["transform", "position", "left", "top", "width", "height", "transform-origin"];
-    for (const property of placement) {
-        expect(motion[property], `${creature.name}: ${property}`).toBe(still[property]);
-    }
-    expect(still.opacity).toBe("1");
-    expect(motion.opacity).toBe("0");
-    const inspected = await renderPortrait(false, creature.name, creature.faction);
-    for (const property of placement) {
-        expect(styleProperties(inspected.stillStyle)[property]).toBe(still[property]);
-    }
-    expect(inspected.animatedLabels).toEqual([]);
-});
+test.each(animatedCreatures)(
+    "$name uses frame zero with the same facing and framing before playback",
+    async (creature) => {
+        installImages();
+        expect(await warmLeftSidebarPortrait(creature.id)).toBe(true);
+        const animated = await renderPortrait(true, creature.name, creature.faction);
+        const still = styleProperties(animated.stillStyle);
+        const motion = styleProperties(animated.animatedStyle);
+        const poster = styleProperties(animated.posterStyle);
+        const animation = resolveIntegratedArbalesterPortrait(
+            creature.id,
+            resolveLeftSidebarPortraitAnimation(creature.id),
+        )!;
+        expect(animated.posterSource).toBe(animation.pages?.[0]?.src ?? animation.src);
+        expect(animated.posterViewBox).toBe(`0 0 ${animation.meta.frameWidth} ${animation.meta.frameHeight}`);
+        expect(animated.animatedLabels).toEqual([`${creature.name} animated portrait`]);
+        expect(still.transform).toContain(`scaleX(${isCreaturePortraitMirrored(creature.id) ? -1 : 1})`);
+        const placement = ["transform", "position", "left", "top", "width", "height", "transform-origin"];
+        for (const property of placement) {
+            expect(motion[property], `${creature.name}: ${property}`).toBe(poster[property]);
+        }
+        expect(still.opacity).toBe("0");
+        expect(poster.opacity).toBe("1");
+        expect(motion.opacity).toBe("0");
+        expect(await warmLeftSidebarPortrait(creature.id, false)).toBe(true);
+        const inspected = await renderPortrait(false, creature.name, creature.faction);
+        for (const property of placement) {
+            expect(styleProperties(inspected.stillStyle)[property]).toBe(still[property]);
+        }
+        expect(inspected.animatedLabels).toEqual([]);
+    },
+);

@@ -98,7 +98,7 @@ test.each(cases)(
         expect(f.caster.playOneShotAnimation).toHaveBeenCalledWith("cast");
         if (kind) {
             expect(f.spawnCommonFlagPop).toHaveBeenCalledTimes(1);
-            expect(f.spawnCommonFlagPop).toHaveBeenCalledWith(f.ally, kind);
+            expect(f.spawnCommonFlagPop).toHaveBeenCalledWith(f.ally, kind, "combat", undefined, name);
             expect(f.spawnBattleRoarPop).not.toHaveBeenCalled();
         } else {
             expect(f.spawnBattleRoarPop).toHaveBeenCalledTimes(1);
@@ -157,7 +157,9 @@ test("an authoritative mass cast waits for its replay before presenting flag eff
 test.each(buffCases)("local AI and Premium $name casts present their confirmed recipients", ({ name, kind }) => {
     const f = fixture(name);
     expect(f.scene.applyGameAction({ type: "cast_spell", casterId: "caster", spellName: name })).toBe(true);
-    if (kind) expect(f.spawnCommonFlagPop).toHaveBeenCalledWith(f.ally, kind);
+    if (kind === "ogre_riot" || kind === "ogre_magic_mirror")
+        expect(f.spawnCommonFlagPop).toHaveBeenCalledWith(f.ally, kind, "combat", undefined, name);
+    else if (kind) expect(f.spawnCommonFlagPop).toHaveBeenCalledWith(f.ally, kind);
     else expect(f.spawnBattleRoarPop).toHaveBeenCalledWith(f.ally);
     expect(f.ally.flashBuffApplied).toHaveBeenCalledTimes(1);
     expect(f.dead.flashBuffApplied).not.toHaveBeenCalled();

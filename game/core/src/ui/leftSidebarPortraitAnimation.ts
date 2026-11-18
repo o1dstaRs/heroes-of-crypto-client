@@ -13,6 +13,19 @@ export interface LeftSidebarPortraitAnimation {
     pages?: readonly SidebarPortraitPage[];
 }
 
+/** The first cel is the loading poster too, so playback never replaces a different pose. */
+export const sidebarPortraitFirstFrame = (animation: Readonly<LeftSidebarPortraitAnimation>) => {
+    const page = animation.pages?.[0];
+    const { frameWidth, frameHeight, layout } = animation.meta;
+    return {
+        src: page?.src ?? animation.src,
+        frameWidth,
+        frameHeight,
+        atlasWidth: (page?.cols ?? layout.cols) * frameWidth,
+        atlasHeight: (page?.rows ?? layout.rows) * frameHeight,
+    };
+};
+
 const PEASANT_LEFT_SCREEN_IDLE: Readonly<LeftSidebarPortraitAnimation> = Object.freeze({
     src: images.peasant_left_screen_idle_atlas,
     meta: Object.freeze({
