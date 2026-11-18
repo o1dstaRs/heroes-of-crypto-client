@@ -63,6 +63,8 @@ test.each(cases)("%s reveals its own effect on the current monk after the hand",
     reveal();
     expect(rebuilt.flashBuffApplied).toHaveBeenCalledTimes(1);
     if (kind === "battle_roar") expect(roar).toHaveBeenCalledWith(rebuilt);
+    else if (kind === "ogre_riot" || kind === "ogre_magic_mirror")
+        expect(common).toHaveBeenCalledWith(rebuilt, kind, "combat", undefined, name);
     else if (kind) expect(common).toHaveBeenCalledWith(rebuilt, kind);
     else {
         expect(common).not.toHaveBeenCalled();

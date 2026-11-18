@@ -113,18 +113,26 @@ const Choice: React.FC<{ choice: SetupChoice; iconOnly?: boolean }> = ({ choice,
 );
 
 /** Compact build icons sit on the outer edge of each army; names and effects stay in the hovers. */
-export const FightArmySetupIcons: React.FC<{ team: TeamType; army?: IFightResultArmySetup }> = ({ team, army }) => (
-    <Box
-        component="section"
-        aria-label={`${teamName(team)} ${t("army setup")}`}
-        data-result-army={team}
-        sx={{ display: "flex", flexDirection: "column", gap: 0.25, flex: "0 0 28px", textTransform: "none" }}
-    >
-        <Choice iconOnly choice={doctrineChoice(army?.doctrine)} />
-        <Choice iconOnly choice={artifactChoice(Artifact.ArtifactTier.TIER_1, army?.artifactTier1)} />
-        <Choice iconOnly choice={artifactChoice(Artifact.ArtifactTier.TIER_2, army?.artifactTier2)} />
-    </Box>
-);
+export const FightArmySetupIcons: React.FC<{ team: TeamType; army?: IFightResultArmySetup }> = ({ team, army }) => {
+    const choices = [
+        army?.doctrine ? doctrineChoice(army.doctrine) : undefined,
+        army?.artifactTier1 ? artifactChoice(Artifact.ArtifactTier.TIER_1, army.artifactTier1) : undefined,
+        army?.artifactTier2 ? artifactChoice(Artifact.ArtifactTier.TIER_2, army.artifactTier2) : undefined,
+    ].filter((choice): choice is SetupChoice => !!choice);
+    if (!choices.length) return null;
+    return (
+        <Box
+            component="section"
+            aria-label={`${teamName(team)} ${t("army setup")}`}
+            data-result-army={team}
+            sx={{ display: "flex", flexDirection: "column", gap: 0.25, flex: "0 0 28px", textTransform: "none" }}
+        >
+            {choices.map((choice) => (
+                <Choice key={choice.label} iconOnly choice={choice} />
+            ))}
+        </Box>
+    );
+};
 
 /** Read-only match facts. In particular, this must never read the next-game doctrine chooser. */
 export const FightSetupSummary: React.FC<{ setup?: IFightResultSetup }> = ({ setup }) => (

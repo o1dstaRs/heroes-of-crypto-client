@@ -1,7 +1,7 @@
 import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { Container, DOMAdapter, Sprite, Texture, TextureSource } from "pixi.js";
-import { PetrifyingGazePops, PETRIFYING_GAZE_DURATION_MS } from "./PetrifyingGazePops";
+import { PetrifyingGazePops, PETRIFYING_GAZE_DURATION_MS, PETRIFYING_GAZE_IMPACT_MS } from "./PetrifyingGazePops";
 
 const adapter = DOMAdapter.get();
 beforeAll(() =>
@@ -11,7 +11,7 @@ afterAll(() => DOMAdapter.set(adapter));
 
 const texture = () => new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) });
 
-test("a cold atlas joins the contact clock and cannot extend the gaze past its delayed damage", async () => {
+test("a cold atlas joins the contact clock and retains a visible tail after damage", async () => {
     const root = new Container();
     const art = texture();
     let now = 0,
@@ -25,12 +25,16 @@ test("a cold atlas joins the contact clock and cannot extend the gaze past its d
             }),
     );
     const pending = layer.spawn("victim", 64, () => ({ x: 0, y: 0 }));
-    now = PETRIFYING_GAZE_DURATION_MS / 2;
+    now = PETRIFYING_GAZE_IMPACT_MS / 2;
     resolve(art);
     await pending;
     expect(layer.active).toBe(true);
     const sprite = root.children[0].children[0] as Sprite;
     expect(sprite.texture.frame.y).toBeGreaterThan(0);
+    now = PETRIFYING_GAZE_IMPACT_MS;
+    layer.update();
+    expect(layer.active).toBe(true);
+    expect(root.children[0].alpha).toBe(1);
     now = PETRIFYING_GAZE_DURATION_MS;
     layer.update();
     expect(layer.active).toBe(false);
@@ -94,14 +98,14 @@ test.each([1, -1])(
     },
 );
 
-test.each(["clear", "late"])("pending gaze never resurrects after %s", async (reason) => {
+test.each(["clear", "impact", "late"])("pending gaze never resurrects after %s", async (reason) => {
     const root = new Container();
     const art = texture();
     let now = 0,
         resolve!: (t: Texture) => void;
     const layer = new PetrifyingGazePops(
         (c) => root.addChild(c),
-        () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
+        () => now,
         () =>
             new Promise((done) => {
                 resolve = done;
@@ -109,7 +113,7 @@ test.each(["clear", "late"])("pending gaze never resurrects after %s", async (re
     );
     const pending = layer.spawn("victim", 64, () => ({ x: 0, y: 0 }));
     if (reason === "clear") layer.clear();
-    else now = 1100;
+    else now = reason === "impact" ? PETRIFYING_GAZE_IMPACT_MS : PETRIFYING_GAZE_DURATION_MS + 1;
     resolve(art);
     await pending;
     expect(root.children).toHaveLength(0);

@@ -382,14 +382,26 @@ const CasualtyColumn: React.FC<{
                                 zIndex: 10001,
                             }}
                         >
-                            <Box sx={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
+                            <Box
+                                sx={{
+                                    position: "relative",
+                                    zIndex: 1,
+                                    // Reclaim absent build-rail space without stretching the portraits;
+                                    // summoned rosters keep readable cards and scroll instead.
+                                    flex: deaths.length <= 6 ? "1 1 0" : "0 0 60px",
+                                    minWidth: 40,
+                                    maxWidth: 60,
+                                    aspectRatio: "3 / 4",
+                                    alignSelf: "center",
+                                }}
+                            >
                                 {UNIT_NAME_TO_ID[d.name.trim()] !== undefined ? (
                                     <CreaturePortraitImage
                                         creatureId={UNIT_NAME_TO_ID[d.name.trim()]}
                                         alt={d.name}
                                         sx={{
-                                            width: 60,
-                                            height: 80,
+                                            width: "100%",
+                                            height: "100%",
                                             borderRadius: "7px",
                                             border: "none",
                                             filter: "grayscale(55%) brightness(0.82)",
@@ -400,8 +412,8 @@ const CasualtyColumn: React.FC<{
                                         src={creatureImgSrc(d.smallTextureName, d.name)}
                                         variant="plain"
                                         sx={{
-                                            width: 60,
-                                            height: 80,
+                                            width: "100%",
+                                            height: "100%",
                                             borderRadius: "7px",
                                             border: "none",
                                             filter: "grayscale(55%) brightness(0.82)",

@@ -27,13 +27,13 @@ const gridSettings = new GridSettings(
 );
 
 for (const [school, name, generic] of [
-    ["Life", "Spiritual Armor", true],
+    ["Life", "Spiritual Armor", false],
     ["Life", "Blessing", true],
     ["Life", "Helping Hand", false],
     ["Life", "Courage", false],
     ["Chaos", "Fireforged Sword", false],
 ] as const) {
-    test(`${name} ${generic ? "uses the generic buff animation" : "leaves presentation to its recorded flag cue"}`, () => {
+    test(`${name} ${generic ? "uses the generic buff animation" : "leaves presentation to its recorded spell cue"}`, () => {
         const effects = new EffectFactory();
         const unit = Unit.createUnit(
             HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Peasant", "", 10),

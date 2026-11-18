@@ -87,7 +87,41 @@ test("the global synergies appear once per faction, using the match's selected v
     expect(html).not.toContain("lvl 1");
 });
 
-test("missing legacy data has an explicit placeholder and unknown ids do not masquerade as an empty slot", () => {
+test("unselected and unrecorded army builds leave all available space to the army portraits", () => {
+    for (const value of [
+        undefined,
+        {
+            armies: [
+                { team: TeamVals.LEFT, doctrine: 0, artifactTier1: 0, artifactTier2: 0 },
+                { team: TeamVals.RIGHT, doctrine: 0, artifactTier1: 0, artifactTier2: 0 },
+            ],
+            synergyVariants: {},
+        },
+    ]) {
+        const html = render(value);
+        expect(html).not.toContain("data-result-army=");
+        expect(html).not.toContain('aria-label="Doctrine:');
+        expect(html).not.toContain('aria-label="Tier 1 artifact:');
+        expect(html).not.toContain('aria-label="Tier 2 artifact:');
+    }
+    const partial = render({
+        armies: [
+            {
+                team: TeamVals.LEFT,
+                doctrine: 0,
+                artifactTier1: 0,
+                artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+            },
+        ],
+        synergyVariants: {},
+    });
+    expect(partial.match(/data-result-army=/g)).toHaveLength(1);
+    expect(partial).toContain('aria-label="Tier 2 artifact: Crown of Command"');
+    expect(partial).not.toContain('aria-label="Doctrine:');
+    expect(partial).not.toContain('aria-label="Tier 1 artifact:');
+});
+
+test("unknown nonzero choices stay explicit and legacy synergies never borrow current choices", () => {
     const legacy = render();
     expect(legacy).toContain('aria-label="Life: Not recorded"');
     expect(legacy).not.toContain('aria-label="Life: Supply"');
@@ -99,9 +133,8 @@ test("missing legacy data has an explicit placeholder and unknown ids do not mas
     expect(html).toContain("Unknown doctrine");
     expect(html).toContain("Unknown artifact");
     expect(html).toContain("Not recorded");
-    const none = Artifact.getArtifactProperties(Artifact.ArtifactTier.TIER_2, 0).name;
-    expect(html).toContain(`Tier 2 artifact: ${none}`);
-    expect(html.match(/data-result-army=/g)).toHaveLength(2);
+    expect(html).not.toContain("Tier 2 artifact:");
+    expect(html.match(/data-result-army=/g)).toHaveLength(1);
 });
 
 test("completed results are independent of the doctrine preference for the next game", () => {

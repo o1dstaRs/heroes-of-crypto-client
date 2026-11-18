@@ -3,7 +3,7 @@ import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { createCombatSoundPlayer, type ICombatSoundSource } from "../ui/audio/combatSounds";
-import { PETRIFYING_GAZE_DURATION_MS } from "./sandbox/PetrifyingGazePops";
+import { PETRIFYING_GAZE_IMPACT_MS } from "./sandbox/PetrifyingGazePops";
 
 const strike = (response = false, hitIndex = 0, lethal = false): CombatExchangeStrike => ({
     attackerId: response ? "B" : "A",
@@ -79,7 +79,7 @@ test.each([
         scene.waitForProjectileHitReaction = async () => {};
         let releaseGaze!: () => void;
         scene.delayReplay = (ms: number) =>
-            ms === PETRIFYING_GAZE_DURATION_MS
+            ms === PETRIFYING_GAZE_IMPACT_MS
                 ? new Promise<void>((resolve) => {
                       releaseGaze = resolve;
                   })
@@ -118,11 +118,12 @@ test.each([
         contact();
         expect(amounts).toEqual([10]);
         expect(losses).toEqual([0]);
-        expect(shown).toEqual(["B"]);
+        expect(shown).toEqual([]);
         scene.showSecondaryDamageNumbers([gaze], { x: 0, y: 0 });
         expect(amounts).toEqual([10]);
         land();
         await flush();
+        expect(shown).toEqual(["B"]);
         expect(deaths).toEqual([]);
         releaseGaze();
         await pending;
@@ -131,6 +132,66 @@ test.each([
         expect(deaths).toEqual(lethal ? ["B"] : []);
     },
 );
+
+test("gaze reads the primary reaction after contact installs the simultaneous counter's recovery", async () => {
+    const { scene, a, b } = setup();
+    const contacts: (() => void)[] = [],
+        landings: (() => void)[] = [],
+        shown: string[] = [];
+    let finishCounter!: () => void, releaseGaze!: () => void;
+    const recovery = new Promise<void>((resolve) => {
+        finishCounter = resolve;
+    });
+    scene.playReplayOneShot = async () => {};
+    scene.waitForProjectileHitReaction = (unit: typeof b) => (unit === b ? recovery : Promise.resolve());
+    scene.combatVisuals.spawnPetrifyingGazePop = async () => {
+        shown.push("head");
+        return () => {};
+    };
+    scene.combatVisuals.showFloatingDamage = (_position: unknown, amount: number) => {
+        if (amount === 45) shown.push("gaze damage");
+    };
+    scene.delayReplay = (ms: number) =>
+        ms === PETRIFYING_GAZE_IMPACT_MS
+            ? new Promise<void>((resolve) => {
+                  releaseGaze = resolve;
+              })
+            : Promise.resolve();
+    scene.playReplayProjectile = (_source: unknown, _victim: unknown, _position: unknown, impact: () => void) => {
+        contacts.push(impact);
+        return new Promise<void>((resolve) => landings.push(resolve));
+    };
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        {
+            attackType: "range",
+            damage: {
+                secondary: [
+                    { source: "petrifying_gaze", unitId: "B", position: { x: 100, y: 0 }, amount: 45, unitsDied: 0 },
+                ],
+            },
+            unitIdsDied: [],
+        },
+        [strike(), strike(true)],
+        () => {},
+    );
+    await flush();
+    contacts[0]();
+    landings[0]();
+    await flush();
+    expect(shown).toEqual([]);
+    contacts[1]();
+    landings[1]();
+    await flush();
+    expect(shown).toEqual([]);
+    finishCounter();
+    await flush();
+    expect(shown).toEqual(["head"]);
+    releaseGaze();
+    await pending;
+    expect(shown).toEqual(["head", "gaze damage"]);
+});
 
 test("double-shot gaze waits per proc while the recorded counter still starts alongside the first shot", async () => {
     const { scene, a, b } = setup();
@@ -143,7 +204,7 @@ test("double-shot gaze waits per proc while the recorded counter still starts al
     scene.playReplayOneShot = async () => {};
     scene.waitForProjectileHitReaction = async () => {};
     scene.delayReplay = (ms: number) =>
-        ms === PETRIFYING_GAZE_DURATION_MS ? new Promise<void>((resolve) => gazes.push(resolve)) : Promise.resolve();
+        ms === PETRIFYING_GAZE_IMPACT_MS ? new Promise<void>((resolve) => gazes.push(resolve)) : Promise.resolve();
     scene.playReplayProjectile = (_source: unknown, _target: unknown, _position: unknown, contact: () => void) => {
         contacts.push(contact);
         return new Promise<void>((resolve) => landings.push(resolve));

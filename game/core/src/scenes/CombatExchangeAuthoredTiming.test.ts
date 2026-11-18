@@ -40,6 +40,7 @@ const factions: Record<string, string> = {
     Manticore: "Chaos",
     Centaur: "Might",
     Zena: "Might",
+    Hydra: "Chaos",
 };
 const flush = async () => {
     for (let index = 0; index < 24; index++) await Promise.resolve();
@@ -53,6 +54,8 @@ test.each([
     { attackerName: "Centaur", defenderName: "Orc", attackType: "range" },
     { attackerName: "Wolf", defenderName: "Manticore", attackType: "melee" },
     { attackerName: "Orc", defenderName: "Medusa", attackType: "melee" },
+    { attackerName: "Orc", defenderName: "Hydra", attackType: "melee" },
+    { attackerName: "Hydra", defenderName: "Orc", attackType: "melee" },
 ])(
     "$attackerName / $defenderName $attackType keep both authored attacks without a late hit pose",
     async ({ attackerName, defenderName, attackType }) => {
@@ -82,6 +85,7 @@ test.each([
                 });
                 const [attacker, defender] = actors;
                 let frame = 0;
+                let hydraAdvanced = false;
                 const starts: { actor: RenderableUnit; state: string; frame: number }[] = [];
                 for (const actor of actors) {
                     const play = actor.playOneShotAnimation.bind(actor);
@@ -181,8 +185,14 @@ test.each([
                     expect(new Set(attacks.map((entry) => entry.actor))).toEqual(new Set(actors));
                     expect(attacks.map((entry) => entry.frame)).toEqual([0, 0]);
                     expect(starts.some((entry) => entry.state === "hit" || entry.state === "death")).toBe(false);
+                    const hydra = actors.find((actor) => actor.getName() === "Hydra");
+                    const hydraAnimation = (
+                        hydra as unknown as { oneShotAnim?: { frames: Texture[]; frameIndex: number } } | undefined
+                    )?.oneShotAnim;
+                    if (hydra) expect(hydraAnimation!.frames.length).toBeGreaterThan(1);
                     for (frame = 1; frame <= 400 && !completed; frame++) {
                         for (const actor of actors) actor.stepOneShotAnimation(16);
+                        if (hydraAnimation && hydraAnimation.frameIndex > 0) hydraAdvanced = true;
                         sleeps.splice(0).forEach((resolve) => resolve());
                         await flush();
                     }
@@ -196,6 +206,7 @@ test.each([
                     ).toEqual(new Set());
                     expect(new Set(deaths)).toEqual(new Set(lethal ? actors : []));
                     expect(damage).toEqual([10, 10]);
+                    if (hydra) expect(hydraAdvanced).toBe(true);
                 } finally {
                     for (const actor of actors) actor.destroyVisuals();
                     world.destroy({ children: true });

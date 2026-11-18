@@ -13,7 +13,11 @@ import { OVERHEAD_EFFECT_DURATION_MS, RESURRECTION_RISE_DELAY_MS } from "../sett
 import { stunRecipients } from "./stunFlagEffects";
 import { troglodyteFlagApplications } from "./troglodyteFlagEffects";
 import { terrifyingGazeRecipients } from "./terrifyingGazeFlagEffects";
-import { PETRIFYING_GAZE_DURATION_MS, PETRIFYING_GAZE_REACTION_TIMEOUT_MS } from "./sandbox/PetrifyingGazePops";
+import {
+    PETRIFYING_GAZE_DURATION_MS,
+    PETRIFYING_GAZE_IMPACT_MS,
+    PETRIFYING_GAZE_REACTION_TIMEOUT_MS,
+} from "./sandbox/PetrifyingGazePops";
 import { BEHOLDER_DEBUFFS, isBeholderDebuff, beholderDebuffTextureName } from "./sandbox/BeholderDebuffPops";
 import { resetWyvernPoisonAuras } from "./WyvernPoisonAura";
 import { resetSatyrSylvanAuras } from "./SatyrSylvanAura";
@@ -220,6 +224,7 @@ import {
     diffUnitEffects,
     dullingDefenseApplicationCount,
     battleRoarAppliedUnitIds,
+    spiritualArmorAppliedUnitIds,
     type EffectFlash,
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
@@ -5143,12 +5148,21 @@ export class Sandbox extends PixiScene {
             !ranged &&
             event.damage.secondary?.some((hit) => hit.source === "fire_breath") &&
             fireBreathHitsForStrike(event.damage.secondary, target.getPosition(), attacker.getPosition()).length > 0;
+        // Lightning Spin replaces the responder's physical blow. Its hits were correctly subtracted
+        // from the HP diff, but that left no ordinary damage from which to infer Hydra's response.
+        // A spin recorded on the initiating attacker proves the answer, including an absorbed hit.
+        // Keep its amount at zero here: the secondary record still owns its damage and casualties.
+        const recordedSpinResponse =
+            !ranged &&
+            event.damage.secondary?.some((hit) => hit.source === "lightning_spin" && hit.unitId === attacker.getId()) &&
+            meleeRetaliationEverPossible(attacker, target);
         const response: CombatExchangeStrike | undefined =
             responseDamage ||
             responseFlight ||
             event.damage.missedResponse ||
             recordedSplashMiss ||
-            recordedBreathResponse
+            recordedBreathResponse ||
+            recordedSpinResponse
                 ? {
                       attackerId: responseFlight?.attackerId ?? target.getId(),
                       targetId: responseTargetId,
@@ -5223,38 +5237,62 @@ export class Sandbox extends PixiScene {
         const shown = (this.presentedPetrifyingGaze ??= new WeakSet());
         if (shown.has(entry)) return;
         shown.add(entry);
-        if (!preview) {
-            const pending = (this.pendingAbilityPresentations ??= new Set());
-            const token = {};
-            const epoch = this.abilityPresentationEpoch ?? 0;
-            pending.add(token);
+        const pending = (this.pendingAbilityPresentations ??= new Set());
+        const token = {};
+        const epoch = this.abilityPresentationEpoch ?? 0;
+        pending.add(token);
+        this.aiController?.noteActionPresentationProgress?.();
+        let finishHead: (() => void) | undefined;
+        let settled = false;
+        const casualties = unit?.captureDamageCasualties?.(entry.unitsDied);
+        const current = () => !this.isSceneDestroyed() && epoch === (this.abilityPresentationEpoch ?? 0);
+        try {
+            // Finish the ordinary hit/counter first, so its recovery cannot postpone the gaze's own
+            // hit until after the head has faded. The whole gaze phase shares one contact clock.
+            this.combatVisuals?.preparePetrifyingGazePop?.();
+            // Impact installs its reaction promise later in the same call stack. Read that promise
+            // only after contact finishes, including an outgoing simultaneous counter's recovery.
+            await Promise.resolve();
+            if (!current()) return;
+            await (typeof primaryReaction === "function" ? primaryReaction() : primaryReaction);
+            if (!current()) return;
+            if (unit) {
+                const cue = preview
+                    ? this.combatVisuals.spawnPetrifyingGazePop?.(unit, "preview")
+                    : this.combatVisuals.spawnPetrifyingGazePop?.(unit);
+                void Promise.resolve(cue).then(
+                    (finish) => {
+                        if (settled) finish?.();
+                        else finishHead = finish;
+                    },
+                    () => undefined,
+                );
+            }
+            // Cosmetic loading is bounded by the renderer; it never owns authoritative delivery.
+            const cueEnd = this.delayReplay(PETRIFYING_GAZE_DURATION_MS);
+            await this.delayReplay(PETRIFYING_GAZE_IMPACT_MS);
+            if (!current()) return;
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
+            const style = this.getSecondaryDamageStyle(entry.source);
             this.aiController?.noteActionPresentationProgress?.();
-            let finishHead: (() => void) | undefined;
-            let settled = false;
-            const casualties = unit?.captureDamageCasualties?.(entry.unitsDied);
-            try {
-                // The ordinary blow stays at contact. The recorded gaze is a separate visual hit
-                // after its head finishes; a cold/missing cosmetic atlas must never stall that clock.
-                if (unit)
-                    void Promise.resolve(this.combatVisuals.spawnPetrifyingGazePop?.(unit)).then(
-                        (finish) => {
-                            if (settled) finish?.();
-                            else finishHead = finish;
-                        },
-                        () => undefined,
-                    );
-                await this.delayReplay(PETRIFYING_GAZE_DURATION_MS);
-                await (typeof primaryReaction === "function" ? primaryReaction() : primaryReaction);
-                if (this.isSceneDestroyed() || epoch !== (this.abilityPresentationEpoch ?? 0)) return;
-                settled = true;
-                finishHead?.();
-                finishHead = undefined;
-                const gs = this.sc_sceneSettings.getGridSettings();
-                const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
-                const style = this.getSecondaryDamageStyle(entry.source);
-                this.aiController?.noteActionPresentationProgress?.();
-                if (casualties) casualties();
-                else unit?.presentDamageCasualties?.(entry.unitsDied);
+            if (casualties) casualties();
+            else unit?.presentDamageCasualties?.(entry.unitsDied);
+            if (preview) {
+                this.combatVisuals.showFloatingDamage(
+                    position,
+                    entry.amount,
+                    { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y },
+                    entry.unitsDied,
+                    style.fill,
+                    style.stroke,
+                    unit?.getDamagePredictionAnchor(gs),
+                    undefined,
+                    undefined,
+                    undefined,
+                    unit,
+                );
+            } else {
                 this.combatVisuals.showFloatingDamage(
                     position,
                     entry.amount,
@@ -5264,49 +5302,17 @@ export class Sandbox extends PixiScene {
                     style.stroke,
                     unit?.getDamagePredictionAnchor(gs),
                 );
-                if (unit) {
-                    this.playUnitCombatSound(unit, "hurt");
-                    if (onDeath) onDeath();
-                    else await this.playReplayOneShot(unit, "hit", PETRIFYING_GAZE_REACTION_TIMEOUT_MS, true);
-                } else onDeath?.();
-            } finally {
-                settled = true;
-                finishHead?.();
-                pending.delete(token);
             }
-            return;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const position = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
-        const direction = { x: position.x - attackerCenter.x, y: position.y - attackerCenter.y };
-        // The explicit lab preview uses the same ordered head -> damage sequence.
-        const finishPrimaryNumbers =
-            preview && unit ? await this.combatVisuals.spawnPetrifyingGazePop?.(unit, "preview") : undefined;
-        await Promise.all([
-            typeof primaryReaction === "function" ? primaryReaction() : primaryReaction,
-            this.delayReplay(PETRIFYING_GAZE_DURATION_MS),
-        ]);
-        if (this.isSceneDestroyed()) return;
-        finishPrimaryNumbers?.();
-        unit?.presentDamageCasualties?.(entry.unitsDied);
-        const style = this.getSecondaryDamageStyle(entry.source);
-        this.combatVisuals.showFloatingDamage(
-            position,
-            entry.amount,
-            direction,
-            entry.unitsDied,
-            style.fill,
-            style.stroke,
-            unit?.getDamagePredictionAnchor(gs),
-            undefined,
-            undefined,
-            undefined,
-            unit,
-        );
-        if (unit) {
-            this.playUnitCombatSound(unit, "hurt");
-            if (onDeath) onDeath();
-            else await this.playReplayOneShot(unit, "hit", 3000, true);
+            if (unit) {
+                this.playUnitCombatSound(unit, "hurt");
+                if (onDeath) onDeath();
+                else await this.playReplayOneShot(unit, "hit", PETRIFYING_GAZE_REACTION_TIMEOUT_MS, true);
+            } else onDeath?.();
+            await cueEnd;
+        } finally {
+            settled = true;
+            finishHead?.();
+            pending.delete(token);
         }
     }
     private presentGazeAtImpact(
@@ -10450,11 +10456,19 @@ export class Sandbox extends PixiScene {
             recipient.flashBuffApplied();
             this.combatVisuals?.spawnCommonFlagPop(recipient, "empower");
         }
-        for (const { unitId, kind } of [
-            ...ogreSpellFlagApplications(events),
-            ...satyrSpellFlagApplications(events),
-            ...mageSpellFlagApplications(events),
-        ]) {
+        for (const unitId of spiritualArmorAppliedUnitIds(events)) {
+            const recipient = this.renderableForEffectPop(unitId);
+            if (!recipient || recipient.isDead()) continue;
+            recipient.flashBuffApplied();
+            this.popEffectOnUnit(recipient, "Spiritual Armor", 0, "buff");
+        }
+        for (const { unitId, kind, name } of ogreSpellFlagApplications(events)) {
+            const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            if (!recipient || recipient.isDead()) continue;
+            recipient.flashBuffApplied();
+            this.combatVisuals?.spawnCommonFlagPop(recipient, kind, "combat", undefined, name);
+        }
+        for (const { unitId, kind } of [...satyrSpellFlagApplications(events), ...mageSpellFlagApplications(events)]) {
             const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             if (!recipient || recipient.isDead()) continue;
             if (kind === "mage_misfortune") recipient.flashDebuffDarken();

@@ -57,6 +57,7 @@ import { UnyieldingPowerPops } from "./UnyieldingPowerPops";
 import { showsEnchantedSkinShield } from "../enchantedSkinVisual";
 import { CommonFlagPops, type FlagPopKind } from "./CommonFlagPops";
 import { shouldShowStatusFlagPop, statusFlagName, type FlagPopPresentation } from "./combatStatusPopups";
+import { ogreSpellFlagKind } from "../ogreSpellFlagEffects";
 import { addEffectCaption, updateEffectCaption, type EffectCaptionView } from "./EffectCaption";
 import type { EffectFaction } from "../effectCaptions";
 import { MagicReflectionPops } from "./MagicReflectionPops";
@@ -494,6 +495,7 @@ const DP_START_SCALE = 0.25; // scale the pop springs in from
 const DP_FADE_IN = (DP_LIFE * (0.16 / 1.8)) / STATUS_EFFECT_APPEARANCE_SPEED; // opening fade only; readable hold is unchanged
 const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
 const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
+const ICON_STATUS_EFFECTS: ReadonlySet<string> = new Set(["Spiritual Armor", "Morale", "Dismorale"]);
 
 // Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
 // of the victim and carry it into Arachna Queen. The palette deliberately matches the permanent
@@ -1290,11 +1292,16 @@ export class CombatVisuals {
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
         });
     }
-    private getCommonFlagPopLayer(kind: FlagPopKind, sourceFaction?: EffectFaction): CommonFlagPops {
-        const key = sourceFaction ? `${kind}:${sourceFaction}` : kind;
+    private getCommonFlagPopLayer(
+        kind: FlagPopKind,
+        sourceFaction?: EffectFaction,
+        captionName = statusFlagName(kind),
+    ): CommonFlagPops {
+        // Mass and single-target spells share art, but must retain their recorded names.
+        const key = `${kind}:${sourceFaction ?? ""}:${captionName}`;
         let layer = this.commonFlagPops.get(key);
         if (!layer) {
-            layer = new CommonFlagPops(kind, this.namedFlagAttach(statusFlagName(kind), sourceFaction));
+            layer = new CommonFlagPops(kind, this.namedFlagAttach(captionName, sourceFaction));
             this.commonFlagPops.set(key, layer);
         }
         return layer;
@@ -1328,12 +1335,13 @@ export class CombatVisuals {
         kind: FlagPopKind,
         presentation: FlagPopPresentation = "combat",
         sourceFaction?: EffectFaction,
+        captionName?: string,
     ): void {
         if (!shouldShowStatusFlagPop(kind, presentation)) return;
         if (kind === "resist" && showsEnchantedSkinShield(unit)) kind = "enchanted_skin";
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        const layer = this.getCommonFlagPopLayer(kind, sourceFaction);
+        const layer = this.getCommonFlagPopLayer(kind, sourceFaction, captionName);
         void layer.spawn(id, unit.getFlagEffectAnchor(gs), gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
             return current && !current.isDead() ? this.flagOverlayAnchor(current, gs) : undefined;
@@ -1465,7 +1473,7 @@ export class CombatVisuals {
             ),
         );
         // Final engine HP may already be zero. The presentation still owns this victim's flag.
-        // Use the same flag anchor as luck; damage gets its usual lane after the head finishes.
+        // Use the same flag anchor as luck while the gaze's damage/reaction overlaps its stare.
         const follow = (): FlagOverlayAnchor => {
             const current = this.context.getUnitsHolder?.().getAllUnits().get(unit.getId()) as
                 RenderableUnit | undefined;
@@ -1476,7 +1484,7 @@ export class CombatVisuals {
         // Replace only the numbers captured at this impact. Slow render frames must not
         // leave the first hit underneath the passive's new number/kill row.
         return () => {
-            // Remove immediately before the secondary number, even if the renderer skipped its expiry frame.
+            // Cleanup at the end of the shared gaze phase (or cancellation), after the recorded hit.
             this.petrifyingGazePops?.finish(unit.getId());
             if (presentation !== "preview") return;
             this.floatingTexts = this.floatingTexts.filter((text) => {
@@ -1535,14 +1543,17 @@ export class CombatVisuals {
         const container = new Container();
 
         const iconSize = cell * 0.72;
-        // Confirmed effects without bespoke art still get a name; static icon tiles stay lab-only.
-        if (this.context.legacyEffectsEnabled) {
+        // These confirmed spell/lap effects have no dedicated atlas. Retain their visible motif
+        // without bringing archived passive tiles back over ordinary attacks.
+        if (this.context.legacyEffectsEnabled || ICON_STATUS_EFFECTS.has(name)) {
             const icon = new Sprite(iconTexture);
+            icon.label = `effect-icon:${name}`;
             icon.anchor.set(0.5);
             icon.width = iconSize;
             icon.height = iconSize;
             container.addChild(icon);
         }
+        container.alpha = 0;
         this.effectCaptions.push(addEffectCaption(container, name, cell));
 
         const gs = this.context.getGridSettings();
@@ -1637,6 +1648,8 @@ export class CombatVisuals {
                 if (!unit || unit.isDead()) return;
                 unit.flashBuffApplied();
                 if (kind === "battle_roar") this.spawnBattleRoarPop(unit);
+                else if (kind && ogreSpellFlagKind(buffName))
+                    this.spawnCommonFlagPop(unit, kind, "combat", undefined, buffName);
                 else if (kind) this.spawnCommonFlagPop(unit, kind);
             },
         );

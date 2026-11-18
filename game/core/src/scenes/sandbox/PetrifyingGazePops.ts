@@ -6,6 +6,8 @@ import { images } from "../../imageAssets";
 
 type Anchor = Readonly<{ x: number; y: number }>;
 export const PETRIFYING_GAZE_DURATION_MS = OVERHEAD_EFFECT_DURATION_MS;
+/** The stare lands while the head is fully visible, leaving its fade to overlap the hit/death. */
+export const PETRIFYING_GAZE_IMPACT_MS = PETRIFYING_GAZE_DURATION_MS / 2;
 export const PETRIFYING_GAZE_REACTION_TIMEOUT_MS = 3000;
 const MAX_POPS = 24;
 const ART = animationAtlases["Vfx Petrifying Gaze"].pop;
@@ -67,7 +69,8 @@ export class PetrifyingGazePops {
         try {
             const texture = await this.load().catch(() => undefined);
             if (!texture) return;
-            if (generation !== this.generation || this.now() - requested >= PETRIFYING_GAZE_DURATION_MS) return;
+            // A late cosmetic atlas must never appear after its recorded hit has already landed.
+            if (generation !== this.generation || this.now() - requested >= PETRIFYING_GAZE_IMPACT_MS) return;
             const position = follow();
             if (!position) return;
             const frames = this.framesFor(texture);
