@@ -10,7 +10,9 @@ mock.module("react-router", () => ({
 mock.module("./PlayerPortal/mockPortal", () => ({ isMockPortalEnabled: () => true }));
 mock.module("./auth/context/auth_context", () => ({ useAuthContext: () => ({ user: { is_active: true } }) }));
 mock.module("./useRankedSeason", () => ({ useRankedSeason: () => ({ currency: {}, snapshot: null }) }));
-mock.module("./PlayerPortal/useRankedStanding", () => ({ useRankedStanding: () => undefined }));
+mock.module("./PlayerPortal/useRankedStanding", () => ({
+    useRankedStandingState: () => ({ data: null, loading: false, error: "" }),
+}));
 mock.module("./GameSystemControls", () => ({ FULLSCREEN_CORNER_CLEARANCE: "3.5rem", FullscreenCorner: () => null }));
 mock.module("./PlayerPortal/PlayerPortalSidebar", () => ({ PlayerPortalSidebar: () => null }));
 mock.module("./ArenaChatPanel", () => ({ ArenaChatPanel: () => null }));

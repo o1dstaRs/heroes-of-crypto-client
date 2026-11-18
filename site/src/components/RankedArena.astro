@@ -3,9 +3,10 @@ import { rankedArenaCopy, type RankedArenaLanguage } from "../lib/ranked-arena-c
 
 interface Props {
     lang: RankedArenaLanguage;
+    deferApi?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, deferApi = false } = Astro.props;
 const copy = rankedArenaCopy[lang];
 const playHref = lang === "ru" ? "/ru/play/" : "/play/ranked/";
 const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
@@ -21,6 +22,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     class="ranked-arena section"
     id="arena"
     data-ranked-arena
+    data-defer-api={deferApi ? "true" : undefined}
     data-state="connecting"
     data-language={lang}
     data-play-href={playHref}

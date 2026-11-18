@@ -26,7 +26,7 @@ import { installStaleChunkRecovery } from "./staleChunkRecovery";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 
-import { hocJoyTheme } from "./hocTheme";
+import { hocColors, hocJoyTheme } from "./hocTheme";
 import { GameViewport } from "./mobile/GameViewport";
 import { SEAT_RECLAIM_ATTEMPTS, SEAT_RECLAIM_INTERVAL_MS, seatReclaimDecision } from "./seatReclaim";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
@@ -69,8 +69,6 @@ import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { AuthContext, useAuthContext } from "./auth/context/auth_context";
-import { LobbiesBrowse } from "./LobbiesBrowse";
-import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { MatchmakingRoute } from "./MatchmakingRoute";
@@ -85,14 +83,53 @@ import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked
 import ObserverPickView from "./PickAndBan/ObserverPickView";
 import { t } from "../i18n/i18n";
 import { useStopWatching } from "./useStopWatching";
-import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { PlayerPortalLoadingPage } from "./PlayerPortal/PlayerPortalLoading";
+import { GameErrorBoundary } from "./GameErrorBoundary";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { preloadRankedGameView, RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 import { PickExitFightControl } from "./PickExitFightControl";
 
 const fightMatchupPreviewTransport: SceneGameActionTransport = () => ({ handled: false });
+
+const LobbiesBrowse = React.lazy(() => import("./LobbiesBrowse").then((m) => ({ default: m.LobbiesBrowse })));
+const LobbyView = React.lazy(() => import("./LobbyViewRuntime").then((m) => ({ default: m.LobbyView })));
+const PlayerPortalPage = React.lazy(() =>
+    import("./PlayerPortal/PlayerPortalPage").then((m) => ({ default: m.PlayerPortalPage })),
+);
+
+/** Keep optional screens out of game startup, with visible progress and chunk-error recovery. */
+const DeferredScreen: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({
+    children,
+    fallback,
+}) => {
+    const { pathname } = useLocation();
+    return (
+        <GameErrorBoundary key={pathname} context={pathname}>
+            <React.Suspense
+                fallback={
+                    fallback ?? (
+                        <div
+                            role="status"
+                            style={{
+                                position: "fixed",
+                                inset: 0,
+                                display: "grid",
+                                placeItems: "center",
+                                background: hocColors.black,
+                                color: hocColors.parchment,
+                            }}
+                        >
+                            {t("Loading…")}
+                        </div>
+                    )
+                }
+            >
+                {children}
+            </React.Suspense>
+        </GameErrorBoundary>
+    );
+};
 
 const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
 // Editors are lazy and gated by build mode. Only the animation lab also ships in the test build;
@@ -1627,7 +1664,9 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/lobbies"
                 element={
                     activated || isMockPortalEnabled() ? (
-                        <LobbiesBrowse />
+                        <DeferredScreen>
+                            <LobbiesBrowse />
+                        </DeferredScreen>
                     ) : (
                         <>
                             <LoginScreen />
@@ -1639,7 +1678,9 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/lobby/:lobbyId"
                 element={
                     activated ? (
-                        <LobbyView />
+                        <DeferredScreen>
+                            <LobbyView />
+                        </DeferredScreen>
                     ) : (
                         <>
                             <LoginScreen />
@@ -1652,7 +1693,9 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/portal"
                 element={
                     activated || isMockPortalEnabled() ? (
-                        <PlayerPortalPage />
+                        <DeferredScreen fallback={<PlayerPortalLoadingPage />}>
+                            <PlayerPortalPage />
+                        </DeferredScreen>
                     ) : (
                         <>
                             <LoginScreen />

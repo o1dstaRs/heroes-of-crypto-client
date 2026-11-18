@@ -1,4 +1,5 @@
 import { initPremiumAi } from "./premium-ai-panel";
+import { verifiedParallelRead } from "./verified-parallel-read";
 import { initPremiumCrew } from "./premium-crew-panel";
 import { renderPremiumMatchups } from "./premium-insights";
 import { getAuthToken, onAuthStateChange } from "./auth-state";
@@ -169,22 +170,32 @@ export function initPremiumPage(): void {
         if (select("snapshot").value) params.set("snapshot", select("snapshot").value);
         if (!recheckOnly || sessionChanged || !data) content.setAttribute("aria-busy", "true");
         let accountVerified = false;
-        try {
+        const verifyAccount = async () => {
             const account = (await request(url("account"), token, signal)) as { entitlement: PremiumEntitlement };
-            if (!isCurrent()) return;
+            if (!isCurrent()) return false;
             signal.throwIfAborted();
             if (typeof account.entitlement?.active !== "boolean") throw new Error("invalid account response");
             entitlement = account.entitlement;
             if (!entitlement.active) {
                 locked(true);
-                return;
+                return false;
             }
             accountVerified = true;
+            return true;
+        };
+        try {
             if (recheckOnly && !sessionChanged && data) {
-                status.textContent = activeStatus();
+                if (await verifyAccount()) status.textContent = activeStatus();
                 return;
             }
-            const result = (await request(`${url("library")}?${params}`, token, signal)) as PremiumLibraryResponse;
+            const read = await verifiedParallelRead(
+                verifyAccount,
+                (librarySignal) =>
+                    request(`${url("library")}?${params}`, token, librarySignal) as Promise<PremiumLibraryResponse>,
+                signal,
+            );
+            if (!read.verified) return;
+            const result = read.value;
             if (!isCurrent()) return;
             signal.throwIfAborted();
             if (!result.entitlement?.active) {

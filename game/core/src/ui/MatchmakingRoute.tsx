@@ -54,9 +54,9 @@ import { ARENA_IDLE_WASH, arenaBackgroundUrl } from "./arenaBackdrop";
 import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { getDoctrineCopy } from "./doctrineCopy";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
-import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
+import { GameErrorBoundary } from "./GameErrorBoundary";
 import { useRankedSeason } from "./useRankedSeason";
-import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
+import { useRankedStandingState } from "./PlayerPortal/useRankedStanding";
 import { PracticeAiIcon, RankedSearchIcon, StatsPanelIcon } from "./svg/navigation";
 import {
     isAcceptedMatchHandoff,
@@ -217,6 +217,10 @@ const PracticeVsAiButton: React.FC<{ loading: boolean; onClick: () => void }> = 
 /** How far the room's label steps right to clear the fullscreen button pinned in the corner beneath it. */
 const ARENA_CHAT_HEADER_INSET = FULLSCREEN_CORNER_CLEARANCE;
 
+const PlayerPortalSidebar = React.lazy(() =>
+    import("./PlayerPortal/PlayerPortalSidebar").then((m) => ({ default: m.PlayerPortalSidebar })),
+);
+
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -248,15 +252,18 @@ export const MatchmakingRoute: React.FC = () => {
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
     // Only a PLACED player may stake. Treated as "cannot" until the standing actually loads, so the
     // control never flashes into view for a calibrating player on a slow request.
-    const rankedStanding = useRankedStanding();
+    const { data: rankedStanding, loading: standingLoading } = useRankedStandingState();
     const canStake = rankedStanding?.state === "placed";
 
     // Arena idle time is the cheapest place to pull board art: queue, chat, and browsing all happen
-    // before a match exists. Do not abort on leave — this is once per tab and low-priority, and aborting
+    // before a match exists. Let the initial standing request settle first so these downloads do not
+    // compete with the player's account data. An API error must not block the prefetch.
+    // Do not abort on leave — this is once per tab and low-priority, and aborting
     // would also drop remaining URLs if the player hops to the portal then queues.
     useEffect(() => {
+        if (standingLoading) return;
         startBackgroundAssetPrefetch();
-    }, []);
+    }, [standingLoading]);
 
     useEffect(() => {
         if (isMockPortalEnabled()) {
@@ -2025,7 +2032,13 @@ export const MatchmakingRoute: React.FC = () => {
 
                     {profileSummaryOpen && (
                         <Box id="ranked-profile-summary" sx={{ minWidth: 0 }}>
-                            <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                            <GameErrorBoundary context="ranked player stats">
+                                <React.Suspense
+                                    fallback={<Typography role="status">{t("Loading your profile…")}</Typography>}
+                                >
+                                    <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                                </React.Suspense>
+                            </GameErrorBoundary>
                         </Box>
                     )}
 

@@ -1,4 +1,5 @@
 import { arenaPanelRenderKey } from "./arena-render";
+import { observeViewportActivity } from "./viewport-activity";
 import { arenaEndpoints as endpointByResource, predictionEndpoints, gameClientRoot } from "./arena-endpoints";
 export { gameClientRoot } from "./arena-endpoints";
 import {
@@ -1176,6 +1177,7 @@ const renderLeagues = (
 };
 
 const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController | null): void => {
+    if (root.dataset.enhanced === "true") return;
     const lang: "en" | "ru" = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
     const copy = rankedArenaCopy[lang];
     const panel = root.querySelector<HTMLElement>("[data-arena-panel]");
@@ -1635,22 +1637,32 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
     }
     root.dataset.enhanced = "true";
     render();
-    refreshAll();
+    let active = false;
+    let requested = false;
+    let inactiveAt = Date.now();
+    observeViewportActivity(root, root.dataset.deferApi === "true", (visible) => {
+        active = visible;
+        if (!active) {
+            inactiveAt = Date.now();
+            return;
+        }
+        if (!requested || Date.now() - inactiveAt >= LADDER_REFRESH_MS) {
+            requested = true;
+            refreshAll();
+        } else if (Date.now() - state.lastSuccessfulAt > LIVE_REFRESH_MS) {
+            void fetchResource("games");
+        }
+    });
 
     window.setInterval(() => {
-        if (!document.hidden) void fetchResource("games");
+        if (active) void fetchResource("games");
     }, LIVE_REFRESH_MS);
     window.setInterval(() => {
-        if (!document.hidden) {
+        if (active) {
             void fetchResource("top");
             void fetchResource("standings");
         }
     }, LADDER_REFRESH_MS);
-    document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && Date.now() - state.lastSuccessfulAt > LIVE_REFRESH_MS) {
-            void fetchResource("games");
-        }
-    });
 };
 
 export function initRankedArenas(): void {
