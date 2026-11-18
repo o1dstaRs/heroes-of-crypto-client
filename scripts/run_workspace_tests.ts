@@ -1,11 +1,22 @@
 import { resolve } from "node:path";
 import { workspaceTestBatchSize } from "./workspace_test_batches";
 
-// Recycle the process as well as each test VM. A single process retaining hundreds of isolated
-// Pixi/React module graphs can exhaust workstation memory before the final test files run.
 const workspace = process.argv[2] ?? "core";
 if (workspace !== "core" && workspace !== "common") throw new Error("Expected core or common workspace");
 const root = resolve(import.meta.dir, workspace === "core" ? "../game/core" : "../game/heroes-of-crypto-common");
+if (workspace === "common" && process.env.HOC_WORKSPACE_TEST_BATCH_SIZE === undefined) {
+    const result = Bun.spawnSync({
+        cmd: [process.execPath, "scripts/run_tests.ts"],
+        cwd: root,
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+    });
+    process.exit(result.exitCode);
+}
+
+// Recycle the process as well as each test VM for core or an explicit memory-limited common run.
+// Retained Pixi/React module graphs can exhaust workstation memory before the final files run.
 const pattern =
     workspace === "core" ? "src/**/*.{test,spec}.{ts,tsx,js,jsx}" : "{src,test}/**/*.{test,spec}.{ts,tsx,js,jsx}";
 const files = [...new Bun.Glob(pattern).scanSync({ cwd: root })].sort();

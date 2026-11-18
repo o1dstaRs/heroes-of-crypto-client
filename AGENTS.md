@@ -71,6 +71,12 @@ Keep profiling output in `game/core/tmp`; only deliberately update `game/core/sc
 when changing the scheduling profile. Animation tests should advance a controlled clock instead
 of sleeping through real animation time.
 
+`bun run test:common` reuses common's bounded parallel runner and timing profile: up to 12 local
+workers and 2 on CI. Use `HOC_TEST_WORKERS=2` on a busy shared machine. For an explicitly
+memory-limited release run, set `HOC_WORKSPACE_TEST_BATCH_SIZE=1` through `10` to retain serial
+process recycling instead. Both modes discover the complete common suite; never drop tests to
+meet a runtime or memory budget.
+
 ## Before you push
 
 ### Sync with the remote first — always
@@ -203,17 +209,29 @@ server README's **Matchmaking handoff** section documents the invariant and regr
 
 ## AI tournament analyser
 
+Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strategy_status.md) for the
+current serving profile, adopted improvements and research priorities. Versioned draft,
+combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
+
+The user adopted the confirmed `a19-preserve-sniper-20261118` checkpoint on November 18, 2026.
+Current default is profile v13, revision suffix `terrain-v1-delivery-v1-sniper-v1`. Read common's
+`docs/sniper_donor_adoption.md`. Preserve the conditional +8.10-point held-out evidence and exact
+eligibility: protect native Sniper >= 2 before delivery previews in public complete funded setup,
+with an unused delivery draft budget and standard own draft quantities. Keep A19 combat and V3/contextual
+draft intact, preserve older funded plans through restart, and retain Premium apply/undo. New default
+comparisons use v13; frozen studies and seed exclusions remain unchanged.
+
 The user explicitly adopted the separate revealed-ranged draft/setup candidates on November 18, 2026 UTC.
-The authoritative default is now profile v12, `revealed-ranged-exclusive-delivery-v1`: after consuming
+This established profile v12, `revealed-ranged-exclusive-delivery-v1`, retained in v13: after consuming
 its delivery draft override, a seat keeps native setup; otherwise the funded delivery setup can apply.
 Read common's `docs/revealed_ranged_delivery_adoption.md`. Keep the uncertain +7.407407 pp and +9.259259 pp
 component results, failed −1.851852 pp combination, immutable checkpoints and exclusions intact.
 The estimates are not additive or fresh qualification. Preserve public visibility, persisted independent
 budgets, Premium routing and atomic collision/restart behavior. The wire default remains v0.8 with
-locked V3/contextual draft and A19 combat. New default comparisons use v12.
+locked V3/contextual draft and A19 combat.
 
-The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026. The default remains
-locked v0.9 V3/contextual draft plus A19-backed v0.8 combat, now profile v11. Read common's
+The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026, establishing profile
+v11; that layer remains part of current v13 with locked V3/contextual draft and A19 combat. Read common's
 `docs/terrain_placement_adoption.md` before changing it. Preserve its +7.638889-point exploratory
 estimate and 95% interval 0 to +16.666667 as uncertain evidence, not a passed qualification.
 The serving rule covers default AI and Premium formation, uses only public neutral barrels,
@@ -225,7 +243,8 @@ neural models retain their identities. Read
 `game/heroes-of-crypto-common/docs/nightmare_wall_movement_adoption.md` before iterating on it.
 Preserve the exact ground-wall plus omitted-movement comparison policy and its original failed
 qualification evidence. New experiments compare against the adopted default; already-running frozen
-studies keep their registered comparator. The server's revision ends in `barrel-v1-nightmare-v1`.
+studies keep their registered comparator. That adoption's revision ended in `barrel-v1-nightmare-v1`;
+the current v13 revision ends in `terrain-v1-delivery-v1-sniper-v1`.
 
 For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
 `src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
@@ -243,7 +262,9 @@ Negative or inconclusive explorations stay outside shipped profiles. Extra early
 or a positive subgroup cannot replace a fully funded gain against both current behavior and a matched free
 formation, followed by fresh held-out confirmation. Keep `placement_research_isolation.test.ts` passing.
 
-Benchmarks the versioned AI (`common/src/ai`: `v0.1`/`v0.2`/`v0.3`) in headless mirrored battles.
+For legacy version-to-version benchmarks, the following runs headless mirrored battles
+(`common/src/ai`: `v0.1`/`v0.2`/`v0.3`). Current ranked strategy screens use the server's
+`docs/ai_iteration.md`, fixed independent families and each study's registered promotion gates.
 Run from `game/heroes-of-crypto-common`:
 
 ```bash
@@ -253,7 +274,9 @@ bun src/simulation/run_match.ts v0.2 v0.3 <seed>   # single game, per-lap log
 ```
 
 This is an **M4 Max (12 perf + 4 efficiency cores)** — use concurrency `12`. Output: `sim-out/*.jsonl` +
-`.summary.json`. Mirror self-play is variance-heavy; use 6000+ games and treat sub-1% deltas as noise.
+`.summary.json`. Legacy mirror self-play is variance-heavy; 6000+ games is a rough planning baseline,
+not a promotion gate. Judge small gains by paired family intervals, activation and fresh confirmation,
+not an automatic 1% cutoff or raw battle count.
 
 ## Local E2E testing
 
