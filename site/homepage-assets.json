@@ -1,0 +1,85 @@
+{
+  "release": "homepage-20261107",
+  "assets": [
+    {
+      "path": "/assets/images/home/features/battle_cinematic_abomination_v2_20261024.webp",
+      "sha256": "deed5be2a342e58a73247d679b7fa0450b62e5a2c366c7783fd7f5b698fba66a",
+      "bytes": 476250
+    },
+    {
+      "path": "/assets/images/home/features/feature_smoke.webp",
+      "sha256": "40176e2fff50059ce63f8b665bdc81bd19b7b9a2307382c1e436313d5f627cdb",
+      "bytes": 64824
+    },
+    {
+      "path": "/assets/images/home/features/portraits/chaos_bg.webp",
+      "sha256": "0e3621891771b2c9e9a6910967483597606c8027d1b128a4c41de24151e2e331",
+      "bytes": 186330
+    },
+    {
+      "path": "/assets/images/home/features/portraits/hyena_left_screen_x2.webp",
+      "sha256": "de438d203b2bd01f42ade24f8d3fd7f1f926d004811f67fa90e266a3d3c0e94e",
+      "bytes": 153468
+    },
+    {
+      "path": "/assets/images/home/features/portraits/life_bg.webp",
+      "sha256": "c6d9b37454574d2d8624d5a5ee9fdfc520fc1d70c6c9910a05269c7c5e85acf8",
+      "bytes": 85390
+    },
+    {
+      "path": "/assets/images/home/features/portraits/might_bg.webp",
+      "sha256": "a9371ea77e471f337cdedfdf17672e8f7f6786d7ce0573d1b6d118f53ef640b5",
+      "bytes": 80770
+    },
+    {
+      "path": "/assets/images/home/features/portraits/nature_bg.webp",
+      "sha256": "b475b927c9e81a5c55d08eddfed18c9070c4fcb555310dfc0f359841a5312cda",
+      "bytes": 52528
+    },
+    {
+      "path": "/assets/images/home/features/portraits/orc_left_screen_x2.webp",
+      "sha256": "f73d476b183dfdaee7172854329b1735d00bbb2516172840b668404e189244c6",
+      "bytes": 137134
+    },
+    {
+      "path": "/assets/images/home/features/portraits/squire_left_screen_x2.webp",
+      "sha256": "a882cbf1a40fd75ebbd328c0460778886aa1eb38cfd5edde9c945d7c9f13c783",
+      "bytes": 132062
+    },
+    {
+      "path": "/assets/images/home/features/portraits/trent_left_screen_x2.webp",
+      "sha256": "46f95c286ab01d0524a60646fb9135069b54c4898feb28bac96e7b7ae48434f7",
+      "bytes": 141056
+    },
+    {
+      "path": "/assets/images/home/features/spells_variant_6.webp",
+      "sha256": "21c45651dd3c920256262d686faf3bc4df978f9c5a5ac37aa1770b31cf96c5a7",
+      "bytes": 491394
+    },
+    {
+      "path": "/assets/images/home/hero/taverns/22-mountain-snug.webp",
+      "sha256": "a238a03bbbf0dff68be16b77103cb6dbd4a767d3f38519b2414e8ba7b9ed4573",
+      "bytes": 460734
+    },
+    {
+      "path": "/assets/images/home/hero/taverns/39-forge-frost-no-flags-20261107.webp",
+      "sha256": "6734b898a4eeb9c930c7f6537821e058b5967164d3803dc7a4609cc4ca8de543",
+      "bytes": 1723594
+    },
+    {
+      "path": "/assets/images/home/modes/ranked.webp",
+      "sha256": "f3982cc754fabcb31b07e7ceb63b44673215c89788c444c91b415f94ed006af6",
+      "bytes": 262424
+    },
+    {
+      "path": "/assets/images/home/modes/sandbox.webp",
+      "sha256": "4d21b826ac4d2e9191ad41411bf4e9955099fc50714a58c223db28b1328b94cc",
+      "bytes": 227986
+    },
+    {
+      "path": "/assets/images/ui/ui_draft_action_stone_texture_v1.webp",
+      "sha256": "7cba2ad3cab2b35edde847b2c54ed9e6077afe2255f47629d68992935645d9ce",
+      "bytes": 107930
+    }
+  ]
+}

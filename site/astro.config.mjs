@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
+import featureArtEditor from "./plugins/feature-art-editor.mjs";
 
 const isKnownDependencyWarning = (log) => {
     const id = typeof log?.id === "string" ? log.id : "";
@@ -14,6 +15,9 @@ const legacyKnowledgePaths = new Set(
 
 export default defineConfig({
     site: "https://heroesofcrypto.io",
+    devToolbar: {
+        enabled: false,
+    },
     // Blog and Research merged into News (owner 2026-08-08): every old URL keeps working.
     redirects: {
         "/blog": "/news",
@@ -52,6 +56,7 @@ export default defineConfig({
         }),
     ],
     vite: {
+        plugins: [featureArtEditor()],
         // The ranked-arena client reads VITE_HOST_* API origins (shared convention with game/core);
         // Astro's default only exposes PUBLIC_* to client code, which silently dropped those
         // overrides and pinned every build to the production origins.

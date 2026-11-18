@@ -1,0 +1,315 @@
+[
+  {
+    "faction": "Chaos",
+    "color": "#f28c28",
+    "background": "/assets/images/home/features/portraits/chaos_bg.webp",
+    "units": [
+      {
+        "name": "Orc",
+        "slug": "orc",
+        "src": "/assets/images/home/features/portraits/orc_left_screen_x2.webp"
+      },
+      {
+        "name": "Scavenger",
+        "slug": "scavenger",
+        "src": "/assets/images/home/features/portraits/scavenger_left_screen_x2.webp"
+      },
+      {
+        "name": "Troglodyte",
+        "slug": "troglodyte",
+        "src": "/assets/images/home/features/portraits/troglodyte_left_screen_x2.webp"
+      },
+      {
+        "name": "Wandering Mage",
+        "slug": "wandering_mage",
+        "src": "/assets/images/home/features/portraits/wandering_mage_left_screen_x2.webp"
+      },
+      {
+        "name": "Beholder",
+        "slug": "beholder",
+        "src": "/assets/images/home/features/portraits/beholder_left_screen_x2.webp"
+      },
+      {
+        "name": "Manticore",
+        "slug": "manticore",
+        "src": "/assets/images/home/features/portraits/manticore_left_screen_x2.webp"
+      },
+      {
+        "name": "Medusa",
+        "slug": "medusa",
+        "src": "/assets/images/home/features/portraits/medusa_left_screen_x2.webp"
+      },
+      {
+        "name": "Troll",
+        "slug": "troll",
+        "src": "/assets/images/home/features/portraits/troll_left_screen_x2.webp"
+      },
+      {
+        "name": "Efreet",
+        "slug": "efreet",
+        "src": "/assets/images/home/features/portraits/efreet_left_screen_x2.webp"
+      },
+      {
+        "name": "Goblin Knight",
+        "slug": "goblin_knight",
+        "src": "/assets/images/home/features/portraits/goblin_knight_left_screen_x2.webp"
+      },
+      {
+        "name": "Nightmare",
+        "slug": "nightmare",
+        "src": "/assets/images/home/features/portraits/nightmare_left_screen_x2.webp"
+      },
+      {
+        "name": "Abomination",
+        "slug": "abomination",
+        "src": "/assets/images/home/features/portraits/abomination_left_screen_x2.webp"
+      },
+      {
+        "name": "Black Dragon",
+        "slug": "black_dragon",
+        "src": "/assets/images/home/features/portraits/black_dragon_left_screen_x2.webp"
+      },
+      {
+        "name": "Hydra",
+        "slug": "hydra",
+        "src": "/assets/images/home/features/portraits/hydra_left_screen_x2.webp"
+      }
+    ]
+  },
+  {
+    "faction": "Life",
+    "color": "#e0b04a",
+    "background": "/assets/images/home/features/portraits/life_bg.webp",
+    "units": [
+      {
+        "name": "Arbalester",
+        "slug": "arbalester",
+        "src": "/assets/images/home/features/portraits/arbalester_left_screen_x2.webp"
+      },
+      {
+        "name": "Blacksmith",
+        "slug": "blacksmith",
+        "src": "/assets/images/home/features/portraits/blacksmith_left_screen_x2.webp"
+      },
+      {
+        "name": "Peasant",
+        "slug": "peasant",
+        "src": "/assets/images/home/features/portraits/peasant_left_screen_x2.webp"
+      },
+      {
+        "name": "Squire",
+        "slug": "squire",
+        "src": "/assets/images/home/features/portraits/squire_left_screen_x2.webp"
+      },
+      {
+        "name": "Battle Mage",
+        "slug": "battle_mage",
+        "src": "/assets/images/home/features/portraits/battle_mage_left_screen_x2.webp"
+      },
+      {
+        "name": "Healer",
+        "slug": "healer",
+        "src": "/assets/images/home/features/portraits/healer_left_screen_x2.webp"
+      },
+      {
+        "name": "Pikeman",
+        "slug": "pikeman",
+        "src": "/assets/images/home/features/portraits/pikeman_left_screen_x2.webp"
+      },
+      {
+        "name": "Valkyrie",
+        "slug": "valkyrie",
+        "src": "/assets/images/home/features/portraits/valkyrie_left_screen_x2.webp"
+      },
+      {
+        "name": "Crusader",
+        "slug": "crusader",
+        "src": "/assets/images/home/features/portraits/crusader_left_screen_x2.webp"
+      },
+      {
+        "name": "Griffin",
+        "slug": "griffin",
+        "src": "/assets/images/home/features/portraits/griffin_left_screen_x2.webp"
+      },
+      {
+        "name": "Monk",
+        "slug": "monk",
+        "src": "/assets/images/home/features/portraits/monk_left_screen_x2.webp"
+      },
+      {
+        "name": "Angel",
+        "slug": "angel",
+        "src": "/assets/images/home/features/portraits/angel_left_screen_x2.webp"
+      },
+      {
+        "name": "Champion",
+        "slug": "champion",
+        "src": "/assets/images/home/features/portraits/champion_left_screen_x2.webp"
+      },
+      {
+        "name": "Tsar Cannon",
+        "slug": "tsar_cannon",
+        "src": "/assets/images/home/features/portraits/tsar_cannon_left_screen_x2.webp"
+      }
+    ]
+  },
+  {
+    "faction": "Might",
+    "color": "#e24b43",
+    "background": "/assets/images/home/features/portraits/might_bg.webp",
+    "units": [
+      {
+        "name": "Berserker",
+        "slug": "berserker",
+        "src": "/assets/images/home/features/portraits/berserker_left_screen_x2.webp"
+      },
+      {
+        "name": "Centaur",
+        "slug": "centaur",
+        "src": "/assets/images/home/features/portraits/centaur_left_screen_x2.webp"
+      },
+      {
+        "name": "Mermaid",
+        "slug": "mermaid",
+        "src": "/assets/images/home/features/portraits/mermaid_left_screen_x2.webp"
+      },
+      {
+        "name": "Wolf Rider",
+        "slug": "wolf_rider",
+        "src": "/assets/images/home/features/portraits/wolf_rider_left_screen_x2.webp"
+      },
+      {
+        "name": "Harpy",
+        "slug": "harpy",
+        "src": "/assets/images/home/features/portraits/harpy_left_screen_x2.webp"
+      },
+      {
+        "name": "Hyena",
+        "slug": "hyena",
+        "src": "/assets/images/home/features/portraits/hyena_left_screen_x2.webp"
+      },
+      {
+        "name": "Nomad",
+        "slug": "nomad",
+        "src": "/assets/images/home/features/portraits/nomad_left_screen_x2.webp"
+      },
+      {
+        "name": "Wyvern",
+        "slug": "wyvern",
+        "src": "/assets/images/home/features/portraits/wyvern_left_screen_x2.webp"
+      },
+      {
+        "name": "Cyclops",
+        "slug": "cyclops",
+        "src": "/assets/images/home/features/portraits/cyclops_left_screen_x2.webp"
+      },
+      {
+        "name": "Ogre Mage",
+        "slug": "ogre_mage",
+        "src": "/assets/images/home/features/portraits/ogre_mage_left_screen_x2.webp"
+      },
+      {
+        "name": "Zena",
+        "slug": "zena",
+        "src": "/assets/images/home/features/portraits/zena_left_screen_x2.webp"
+      },
+      {
+        "name": "Behemoth",
+        "slug": "behemoth",
+        "src": "/assets/images/home/features/portraits/behemoth_left_screen_x2.webp"
+      },
+      {
+        "name": "Frenzied Boar",
+        "slug": "frenzied_boar",
+        "src": "/assets/images/home/features/portraits/frenzied_boar_left_screen_x2.webp"
+      },
+      {
+        "name": "Thunderbird",
+        "slug": "thunderbird",
+        "src": "/assets/images/home/features/portraits/thunderbird_left_screen_x2.webp"
+      }
+    ]
+  },
+  {
+    "faction": "Nature",
+    "color": "#59b875",
+    "background": "/assets/images/home/features/portraits/nature_bg.webp",
+    "units": [
+      {
+        "name": "Dryad",
+        "slug": "dryad",
+        "src": "/assets/images/home/features/portraits/dryad_left_screen_x2.webp"
+      },
+      {
+        "name": "Fairy",
+        "slug": "fairy",
+        "src": "/assets/images/home/features/portraits/fairy_left_screen_x2.webp"
+      },
+      {
+        "name": "Leprechaun",
+        "slug": "leprechaun",
+        "src": "/assets/images/home/features/portraits/leprechaun_left_screen_x2.webp"
+      },
+      {
+        "name": "Wolf",
+        "slug": "wolf",
+        "src": "/assets/images/home/features/portraits/wolf_left_screen_x2.webp"
+      },
+      {
+        "name": "Elf",
+        "slug": "elf",
+        "src": "/assets/images/home/features/portraits/elf_left_screen_x2.webp"
+      },
+      {
+        "name": "Satyr",
+        "slug": "satyr",
+        "src": "/assets/images/home/features/portraits/satyr_left_screen_x2.webp"
+      },
+      {
+        "name": "Trent",
+        "slug": "trent",
+        "src": "/assets/images/home/features/portraits/trent_left_screen_x2.webp"
+      },
+      {
+        "name": "White Tiger",
+        "slug": "white_tiger",
+        "src": "/assets/images/home/features/portraits/white_tiger_left_screen_x2.webp"
+      },
+      {
+        "name": "Arachna Spider",
+        "slug": "arachna_spider",
+        "src": "/assets/images/home/features/portraits/arachna_spider_left_screen_x2.webp"
+      },
+      {
+        "name": "Mantis",
+        "slug": "mantis",
+        "src": "/assets/images/home/features/portraits/mantis_left_screen_x2.webp"
+      },
+      {
+        "name": "Pegasus",
+        "slug": "pegasus",
+        "src": "/assets/images/home/features/portraits/pegasus_left_screen_x2.webp"
+      },
+      {
+        "name": "Unicorn",
+        "slug": "unicorn",
+        "src": "/assets/images/home/features/portraits/unicorn_left_screen_x2.webp"
+      },
+      {
+        "name": "Arachna Queen",
+        "slug": "arachna_queen",
+        "src": "/assets/images/home/features/portraits/arachna_queen_left_screen_x2.webp"
+      },
+      {
+        "name": "Gargantuan",
+        "slug": "gargantuan",
+        "src": "/assets/images/home/features/portraits/gargantuan_left_screen_x2.webp"
+      },
+      {
+        "name": "Magic Dragon",
+        "slug": "magic_dragon",
+        "src": "/assets/images/home/features/portraits/magic_dragon_left_screen_x2.webp"
+      }
+    ]
+  }
+]

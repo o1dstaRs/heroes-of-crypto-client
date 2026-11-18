@@ -1,0 +1,307 @@
+/* Shared site action language: cut corners for filled actions, an underline for secondary actions.
+   Header controls and the artwork-based hero CTA retain their original component styles.
+   Keep component geometry and behavior; palettes inherit from the surrounding section. */
+body.site-button-theme {
+    --action-start: #e0c28b;
+    --action-end: #b89250;
+    --action-edge: #f0d49f;
+    --action-ink: #21190e;
+    --action-text: #efe4cd;
+    --action-line: #8c7750;
+    --action-surface: #242017;
+    --action-cut: 8px;
+}
+
+body.site-button-theme
+    :is(
+        button:not(:where(.site-header *)),
+        .button:not(:where(.hero-play, .site-header *)),
+        .button.primary,
+        .button.secondary,
+        .footer-play,
+        .footer-play-secondary,
+        .profile-btn,
+        .seasons-btn,
+        .premium-button,
+        .premium-secondary,
+        .premium-nav-play,
+        .game-mode__link,
+        .replay-button,
+        .match-replay,
+        .match-detail-link,
+        .ranked-arena__detail-action,
+        .ranked-arena__league-action,
+        .kb-result-action a
+    ):not(:where(.unit-card, .match-card-hit-target, [role="switch"])) {
+    border: 1px solid var(--action-line);
+    border-radius: 0;
+    background: var(--action-surface);
+    color: var(--action-text);
+    clip-path: polygon(
+        var(--action-cut) 0,
+        100% 0,
+        100% calc(100% - var(--action-cut)),
+        calc(100% - var(--action-cut)) 100%,
+        0 100%,
+        0 var(--action-cut)
+    );
+    font-family: var(--hoc-font-display);
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: 0.07em;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: none;
+    filter: none;
+    backdrop-filter: none;
+    transition:
+        filter 160ms ease,
+        transform 160ms ease,
+        border-color 160ms ease;
+}
+
+body.site-button-theme
+    :is(
+        .button.primary,
+        .footer-play,
+        .profile-btn,
+        .seasons-btn,
+        .premium-button,
+        .premium-nav-play,
+        .game-mode__link,
+        .replay-button,
+        .match-replay,
+        .kb-ai-ask,
+        .ranked-arena__league-action
+    ) {
+    border-color: var(--action-edge);
+    background: linear-gradient(110deg, var(--action-start), var(--action-end));
+    color: var(--action-ink);
+}
+
+body.site-button-theme
+    :is(
+        .button.secondary,
+        .footer-play-secondary,
+        .premium-secondary,
+        .premium-text-button,
+        .match-detail-link,
+        .matches-more,
+        .ranked-arena__refresh,
+        .ranked-arena__detail-action,
+        .kb-result-action a,
+        [role="tab"],
+        .kind-pill,
+        .book-pill,
+        .tier-pill,
+        .faction-pill,
+        .kb-section-tab,
+        .seasons-view__option,
+        .premium-segmented button:not(:where(.site-header *)),
+        .ranked-arena__column-sort
+    ) {
+    border: 0;
+    border-bottom: 1px solid var(--action-line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--action-text);
+    clip-path: none;
+    box-shadow: none;
+}
+
+body.site-button-theme
+    :is(
+        button[aria-selected="true"]:not(:where(.site-header *)),
+        button[aria-pressed="true"]:not(:where(.site-header *)),
+        .kind-pill.active,
+        .faction-pill.active,
+        .kb-section-tab.active
+    ):not(:where(.unit-card, .match-card-hit-target, [role="switch"])) {
+    background: linear-gradient(110deg, var(--action-start), var(--action-end));
+    color: var(--action-ink);
+    border: 1px solid var(--action-edge);
+    clip-path: polygon(
+        var(--action-cut) 0,
+        100% 0,
+        100% calc(100% - var(--action-cut)),
+        calc(100% - var(--action-cut)) 100%,
+        0 100%,
+        0 var(--action-cut)
+    );
+}
+
+body.site-button-theme
+    :is(
+        button:not(:where(.site-header *)),
+        .button:not(:where(.hero-play, .site-header *)),
+        .button.primary,
+        .button.secondary,
+        .footer-play,
+        .footer-play-secondary,
+        .profile-btn,
+        .seasons-btn,
+        .premium-button,
+        .premium-secondary,
+        .premium-nav-play,
+        .game-mode__link,
+        .replay-button,
+        .match-replay,
+        .match-detail-link,
+        .ranked-arena__detail-action,
+        .ranked-arena__league-action,
+        .kb-result-action a
+    ):not(:where(.unit-card, .match-card-hit-target, [role="switch"])):hover:not(:disabled):not(
+        [aria-disabled="true"]
+    ) {
+    filter: brightness(1.13);
+    transform: translateY(-1px);
+}
+
+body.site-button-theme
+    :is(
+        button:not(:where(.site-header *)),
+        .button:not(:where(.hero-play, .site-header *)),
+        .button.primary,
+        .button.secondary,
+        .footer-play,
+        .profile-btn,
+        .seasons-btn,
+        .premium-button,
+        .premium-secondary,
+        .premium-nav-play,
+        .game-mode__link,
+        .replay-button,
+        .match-replay,
+        .match-detail-link
+    ):focus-visible {
+    outline: 2px solid var(--action-edge);
+    outline-offset: 4px;
+    box-shadow:
+        inset 0 0 0 2px var(--action-edge),
+        inset 0 0 0 4px var(--action-ink);
+}
+
+body.site-button-theme
+    :is(
+        button:not(:where(.site-header *)),
+        .button:not(:where(.hero-play, .site-header *)),
+        .premium-button,
+        .premium-secondary
+    ):is(:disabled, [aria-disabled="true"]) {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.45);
+    transform: none;
+}
+
+/* Compact utility actions keep their existing hit areas. */
+body.site-button-theme
+    :is(.unit-dialog-close, .auth-password-toggle, .ranked-arena__clear, .kb-search-clear, .theme-music-toggle) {
+    --action-cut: 5px;
+}
+
+body.site-button-theme :is(.button.primary, .footer-play) > img {
+    filter: none;
+}
+
+body.site-button-theme .game-mode__link {
+    justify-content: center;
+    padding: 13px 18px;
+    text-transform: uppercase;
+}
+
+/* Each palette is tuned for its surface, with dark ink on light action fills. */
+body.site-button-theme .game-mode--sandbox {
+    --action-start: #aed8c5;
+    --action-end: #72ac98;
+    --action-edge: #d1eee0;
+    --action-ink: #102b24;
+    --action-text: #d1eee0;
+    --action-line: #668b7a;
+}
+body.site-button-theme .game-mode--lobby {
+    --action-start: #d5c3ea;
+    --action-end: #a48abe;
+    --action-edge: #e7d9f8;
+    --action-ink: #281c35;
+    --action-text: #e7d9f8;
+    --action-line: #89729e;
+}
+body.site-button-theme .premium-page {
+    --action-start: #f1c497;
+    --action-end: #cd8b56;
+    --action-edge: #ffdbb6;
+    --action-ink: #311d0f;
+    --action-text: #f4d9be;
+    --action-line: #b18861;
+    --action-surface: #2b2119;
+}
+body.site-button-theme :is(.kb-search, .kb-ai, .match-page) {
+    --action-start: #c5d9e2;
+    --action-end: #8caebf;
+    --action-edge: #dbeaf2;
+    --action-ink: #172834;
+    --action-text: #dbeaf2;
+    --action-line: #7c98a8;
+    --action-surface: #1b252c;
+}
+/* Local previews share the approved shape while retaining their color choices. */
+body.site-button-theme .final-cta[data-cta-design] {
+    --action-start: #e0c28b;
+    --action-end: #b89250;
+    --action-edge: var(--cta-button-edge);
+    --action-ink: #21190e;
+    --action-text: var(--cta-ink);
+    --action-line: var(--cta-secondary-edge);
+}
+body.site-button-theme .final-cta[data-cta-design="forge"] {
+    --action-start: #e3ad7c;
+    --action-end: #ba794b;
+}
+body.site-button-theme .final-cta[data-cta-design="war-table"] {
+    --action-start: #ecdda4;
+    --action-end: #bdaa6b;
+}
+body.site-button-theme .final-cta[data-cta-design="moonsteel"] {
+    --action-start: #cbdde5;
+    --action-end: #8ca9bc;
+    --action-ink: #142334;
+}
+body.site-button-theme .final-cta[data-cta-design="royal"] {
+    --action-start: #e3c58e;
+    --action-end: #bd9657;
+}
+body.site-button-theme .final-cta[data-cta-design="parchment"] {
+    --action-start: #394236;
+    --action-end: #1e2c25;
+    --action-ink: #f5e7c5;
+}
+body.site-button-theme .final-cta[data-cta-design="parchment"] .button.primary > img {
+    filter: invert(90%) sepia(20%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.site-button-theme
+        :is(
+            button:not(:where(.site-header *)),
+            .button:not(:where(.hero-play, .site-header *)),
+            .footer-play,
+            .game-mode__link,
+            .premium-button,
+            .premium-secondary,
+            .profile-btn,
+            .seasons-btn,
+            .replay-button,
+            .match-replay
+        ) {
+        transition: none;
+    }
+}
+
+body.site-button-theme button[aria-selected="true"] :is(.ranked-arena__tab-count, em) {
+    color: inherit;
+}
+
+body.site-button-theme .premium-page .premium-button:disabled {
+    color: var(--action-ink);
+}

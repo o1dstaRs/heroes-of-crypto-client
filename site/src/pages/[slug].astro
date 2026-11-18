@@ -2,6 +2,7 @@
 import ContentPage from "../components/ContentPage.astro";
 import HomePage from "../components/HomePage.astro";
 import KnowledgeBasePage from "../components/KnowledgeBasePage.astro";
+import TopPage from "../components/TopPage.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { content, pageSlugs, type PageSlug } from "../lib/site-data";
 
@@ -22,6 +23,8 @@ const page = copy.pages[slug];
     {
         slug === "game" ? (
             <HomePage lang={lang} />
+        ) : slug === "top" ? (
+            <TopPage lang={lang} />
         ) : slug === "knowledge-base" ? (
             <KnowledgeBasePage lang={lang} />
         ) : (

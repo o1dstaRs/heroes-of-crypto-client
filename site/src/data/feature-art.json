@@ -1,0 +1,37 @@
+{
+  "spellVariant": 6,
+  "slots": [
+    {
+      "faction": "Chaos",
+      "creature": "orc",
+      "x": 0.5,
+      "y": 7.980726839081152,
+      "scale": 1.4,
+      "flip": false
+    },
+    {
+      "faction": "Life",
+      "creature": "squire",
+      "x": 1,
+      "y": 3,
+      "scale": 1.4,
+      "flip": false
+    },
+    {
+      "faction": "Might",
+      "creature": "hyena",
+      "x": 33,
+      "y": -0.5,
+      "scale": 1.06,
+      "flip": true
+    },
+    {
+      "faction": "Nature",
+      "creature": "trent",
+      "x": 4.5,
+      "y": -2,
+      "scale": 1.01,
+      "flip": false
+    }
+  ]
+}
