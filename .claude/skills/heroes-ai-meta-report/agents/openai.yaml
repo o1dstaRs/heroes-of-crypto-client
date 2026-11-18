@@ -1,0 +1,4 @@
+interface:
+    display_name: "Heroes AI Meta Report"
+    short_description: "Run balance cohorts and build visual reports"
+    default_prompt: "Use $heroes-ai-meta-report to run non-mirrored AI balance cohorts and generate a validated HTML report."
