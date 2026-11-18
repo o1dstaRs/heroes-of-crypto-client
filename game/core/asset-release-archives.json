@@ -1,5 +1,5 @@
 {
-    "version": "2026-11-07-main-portraits",
+    "version": "2026-11-18-canonical-icons",
     "format": 2,
     "baselineFolder": "https://drive.google.com/drive/folders/1K0HdVnGuX3HJqMX7zPKKy19nrZMrcMo9",
     "archives": [
@@ -445,11 +445,10 @@
             "path": "images/armor_piercing_bolt.webp"
         },
         "heroesofcrypto-assets/images/armor_rune_256.webp": {
-            "sha256": "653f19515a366b60893a108634767c92a24e5b78582087f2318a57486c39e060",
-            "bytes": 27870,
-            "source": "archive",
-            "path": "blobs/653f19515a366b60893a108634767c92a24e5b78582087f2318a57486c39e060",
-            "archive": "resources-03.zip"
+            "sha256": "8a1268be71fbf6d3376c982499bbc37bb4cf6cce306b7bb7c809346d1d515b35",
+            "bytes": 28742,
+            "source": "drive",
+            "path": "images/armor_rune_256.webp"
         },
         "heroesofcrypto-assets/images/army_icon.webp": {
             "sha256": "a9997385ea348e126b13522d128d268dd41eb5a2c332679db7e9916e15fc7654",
@@ -1018,11 +1017,10 @@
             "path": "images/blacksmith_portrait_full.webp"
         },
         "heroesofcrypto-assets/images/blacksmith_tools_256.webp": {
-            "sha256": "7a90f82601df26e1f7cb87ab833006097e222b5aedf3d1d0a7a8497de71ddd88",
-            "bytes": 28150,
-            "source": "archive",
-            "path": "blobs/7a90f82601df26e1f7cb87ab833006097e222b5aedf3d1d0a7a8497de71ddd88",
-            "archive": "resources-04.zip"
+            "sha256": "00b75ca39df7b708ccf7be87a993354e411554c57a5bbcbefebef3cc25def1c5",
+            "bytes": 27496,
+            "source": "drive",
+            "path": "images/blacksmith_tools_256.webp"
         },
         "heroesofcrypto-assets/images/blessing_256.webp": {
             "sha256": "164b51017075cafcefe4de4444dbad5b66f5ac38034190af6f3e9d904381ae91",
@@ -1343,11 +1341,10 @@
             "path": "images/cowardice_256.webp"
         },
         "heroesofcrypto-assets/images/craft_256.webp": {
-            "sha256": "7a90f82601df26e1f7cb87ab833006097e222b5aedf3d1d0a7a8497de71ddd88",
-            "bytes": 28150,
-            "source": "archive",
-            "path": "blobs/7a90f82601df26e1f7cb87ab833006097e222b5aedf3d1d0a7a8497de71ddd88",
-            "archive": "resources-04.zip"
+            "sha256": "96762dc367a6e7f825444bdba5bb001661ade611179e82d75ea7335ea61925c7",
+            "bytes": 16230,
+            "source": "drive",
+            "path": "images/craft_256.webp"
         },
         "heroesofcrypto-assets/images/craft_anvil.webp": {
             "sha256": "b812f561370cc9bee55520c98582d02b193dfa8c73845ef2eb385218c57534b3",
@@ -1852,11 +1849,10 @@
             "path": "images/dungeon_volumetric_fog_v1.webp"
         },
         "heroesofcrypto-assets/images/earth_element_256.webp": {
-            "sha256": "3a1e90aea43d90db3818eeb8ab594e07df31b90a0c8637430d97c6e71b4b1da9",
-            "bytes": 27068,
-            "source": "archive",
-            "path": "blobs/3a1e90aea43d90db3818eeb8ab594e07df31b90a0c8637430d97c6e71b4b1da9",
-            "archive": "resources-02.zip"
+            "sha256": "224cc9e7086c78e0904ce4ced32cafa05bb617e9f894bd3c62553bdaf814eefd",
+            "bytes": 92662,
+            "source": "drive",
+            "path": "images/earth_element_256.webp"
         },
         "heroesofcrypto-assets/images/efreet_512.webp": {
             "sha256": "2b43b81d1eed06d813d022718ea475fb5ef4ae72bb46502110ef7ee9857351d6",
@@ -2050,11 +2046,10 @@
             "path": "images/enchanted_skin_256.webp"
         },
         "heroesofcrypto-assets/images/enchants_256.webp": {
-            "sha256": "c775aaadd6bba779c8588110604a9475a90244c994a296fbd90bc71d252531a8",
-            "bytes": 33060,
-            "source": "archive",
-            "path": "blobs/c775aaadd6bba779c8588110604a9475a90244c994a296fbd90bc71d252531a8",
-            "archive": "resources-05.zip"
+            "sha256": "c9e61b624661072864cf104b4fd78ccd9e138157acd30d0f44695d8c3df31557",
+            "bytes": 25508,
+            "source": "drive",
+            "path": "images/enchants_256.webp"
         },
         "heroesofcrypto-assets/images/endless_quiver_256.webp": {
             "sha256": "9a6127c9c0d186ba9ede9ed1b658cab07dbfee26c506bdc24da16bf85ab1fdfa",
@@ -2154,11 +2149,10 @@
             "path": "images/fire_breath_256.webp"
         },
         "heroesofcrypto-assets/images/fire_element_256.webp": {
-            "sha256": "8efd817f271b5f66548b95b055a794a0dac9adfc590cb153d0f631846ddb41a7",
-            "bytes": 22980,
-            "source": "archive",
-            "path": "blobs/8efd817f271b5f66548b95b055a794a0dac9adfc590cb153d0f631846ddb41a7",
-            "archive": "resources-04.zip"
+            "sha256": "129ab478a6f557e27ba7a00a721f795accb2b62c4a78939f9ebdc489f03ec070",
+            "bytes": 101228,
+            "source": "drive",
+            "path": "images/fire_element_256.webp"
         },
         "heroesofcrypto-assets/images/fire_pit_center_clean_fire_v2_512.webp": {
             "sha256": "93442d02ebcc6d5f663bc280b06ba62eb8f9237f294ec3f5de9577ea40884245",
@@ -2613,11 +2607,10 @@
             "path": "images/harpy_portrait_full.webp"
         },
         "heroesofcrypto-assets/images/heal_256.webp": {
-            "sha256": "a1f6fb84d1e7764718a8968844ab14d5914b31a3b07a107a2190345004f2eb86",
-            "bytes": 430188,
-            "source": "archive",
-            "path": "blobs/a1f6fb84d1e7764718a8968844ab14d5914b31a3b07a107a2190345004f2eb86",
-            "archive": "resources-04.zip"
+            "sha256": "a200ac8ae6be25ea2438bd78231705e9180ba4f6da3c937fd26a13d3bdec43fc",
+            "bytes": 40270,
+            "source": "drive",
+            "path": "images/heal_256.webp"
         },
         "heroesofcrypto-assets/images/healer_512.webp": {
             "sha256": "2bc08f73311f72f147845bd47abeb48d418a775b4f6a6ab4ea63aac524830b7f",
@@ -2919,11 +2912,10 @@
             "path": "images/imp_512.webp"
         },
         "heroesofcrypto-assets/images/in_its_own_world_256.webp": {
-            "sha256": "3c236370da274a54284e6438abac0536e1ce6483a0ee7081f45a8e1e3e7f5d90",
-            "bytes": 37348,
-            "source": "archive",
-            "path": "blobs/3c236370da274a54284e6438abac0536e1ce6483a0ee7081f45a8e1e3e7f5d90",
-            "archive": "resources-02.zip"
+            "sha256": "9cde6542945a79273c595c472194eb30c8811db3908a79b6cd9e3789c4f8431a",
+            "bytes": 30472,
+            "source": "drive",
+            "path": "images/in_its_own_world_256.webp"
         },
         "heroesofcrypto-assets/images/infest_256.webp": {
             "sha256": "3c99f2c14208fb186ad3246758d5f2c1c9b62ddf7c15653b47b4e080ab64859f",
@@ -3334,11 +3326,10 @@
             "path": "images/map_badge_normal_4x4_actual_style_v4.webp"
         },
         "heroesofcrypto-assets/images/mass_heal_256.webp": {
-            "sha256": "1b93107596aff4fbc2f2860ab0c2c2f4e97fa0496705b2f7118b8991bd76473c",
-            "bytes": 424868,
-            "source": "archive",
-            "path": "blobs/1b93107596aff4fbc2f2860ab0c2c2f4e97fa0496705b2f7118b8991bd76473c",
-            "archive": "resources-01.zip"
+            "sha256": "95520dbc8d0e85dbc88deb46851a4794ea7bf9601b68bbed5c91eda56e350b12",
+            "bytes": 44870,
+            "source": "drive",
+            "path": "images/mass_heal_256.webp"
         },
         "heroesofcrypto-assets/images/mass_magic_mirror_256.webp": {
             "sha256": "0947b578568f0bc78e55c9726ae6f78e6337ac9b633d6d40adda6dd10266992c",
@@ -4960,11 +4951,10 @@
             "path": "images/rallying_volley_blessing_256.webp"
         },
         "heroesofcrypto-assets/images/range_null_field_aura_256.webp": {
-            "sha256": "c3613d60ec9426c2157947894e82d337b25b1dadb5dea9d32faddb3b392d7de5",
-            "bytes": 33378,
-            "source": "archive",
-            "path": "blobs/c3613d60ec9426c2157947894e82d337b25b1dadb5dea9d32faddb3b392d7de5",
-            "archive": "resources-05.zip"
+            "sha256": "a562e4701e33740751fe5f0e480edebd3ed7b832dd97772b3eec9a79ff5fa43c",
+            "bytes": 21802,
+            "source": "drive",
+            "path": "images/range_null_field_aura_256.webp"
         },
         "heroesofcrypto-assets/images/range_target_arrow_v7_gold_wide_crisp.webp": {
             "sha256": "15c6acb5f000c3b1574627490eed7243a6ef02efeb787c336fe9a9a07e61cbd5",
@@ -7342,11 +7332,10 @@
             "archive": "resources-03.zip"
         },
         "heroesofcrypto-assets/images/vine_throw_256.webp": {
-            "sha256": "e097e96febd31b2451d0741931b20f58ac345361ffbc75a1973b95b0ab976c05",
-            "bytes": 29158,
-            "source": "archive",
-            "path": "blobs/e097e96febd31b2451d0741931b20f58ac345361ffbc75a1973b95b0ab976c05",
-            "archive": "resources-06.zip"
+            "sha256": "b394229d8d9412819591df4fa66352c33b9bd1c2b3856fd05baae5e816c4b314",
+            "bytes": 30816,
+            "source": "drive",
+            "path": "images/vine_throw_256.webp"
         },
         "heroesofcrypto-assets/images/visible_256.webp": {
             "sha256": "e068b66aac81c0f9879283f9223300b244c0b079f114aad2e64b01baf187e82c",
@@ -7436,11 +7425,10 @@
             "path": "images/water_dry_256.webp"
         },
         "heroesofcrypto-assets/images/water_element_256.webp": {
-            "sha256": "daa6e0ed0ef0da51518c489c3224cf50c37bf594ee83f404e664ae063a7512f5",
-            "bytes": 24958,
-            "source": "archive",
-            "path": "blobs/daa6e0ed0ef0da51518c489c3224cf50c37bf594ee83f404e664ae063a7512f5",
-            "archive": "resources-05.zip"
+            "sha256": "a26f67b95dc113cfd562cf05833e5d54e90cede01618fb8e433f6a3fc1b1303a",
+            "bytes": 109980,
+            "source": "drive",
+            "path": "images/water_element_256.webp"
         },
         "heroesofcrypto-assets/images/water_shield_256.webp": {
             "sha256": "60b0cc55f65e0b05e8cb61c47208b880575de301ad6fd656edfe9835b8fb2de4",
@@ -7551,11 +7539,10 @@
             "path": "images/wealth_vanguard_whale_512.webp"
         },
         "heroesofcrypto-assets/images/weapon_rune_256.webp": {
-            "sha256": "d70d7774909183fa7217ed29012d061d2b8342ee65cf7dfcc8e316276a756e29",
-            "bytes": 25396,
-            "source": "archive",
-            "path": "blobs/d70d7774909183fa7217ed29012d061d2b8342ee65cf7dfcc8e316276a756e29",
-            "archive": "resources-05.zip"
+            "sha256": "8e528a4de762a6a25be66cf842d3e75e4ea7603519b6e30ff157c31e8315b258",
+            "bytes": 27970,
+            "source": "drive",
+            "path": "images/weapon_rune_256.webp"
         },
         "heroesofcrypto-assets/images/web_aura_256.webp": {
             "sha256": "8637d68e000027c9fb9c8713b66adc03482dde12d660ffbd27978f3b6a193451",
@@ -7619,11 +7606,10 @@
             "path": "images/wild_regeneration_256.webp"
         },
         "heroesofcrypto-assets/images/wind_element_256.webp": {
-            "sha256": "9557454c793950dee3d29ef952e21359b751595a564d38ad79cd0c8cc7d29656",
-            "bytes": 22022,
-            "source": "archive",
-            "path": "blobs/9557454c793950dee3d29ef952e21359b751595a564d38ad79cd0c8cc7d29656",
-            "archive": "resources-04.zip"
+            "sha256": "ceb8f5c4eadaf556a6c572015bedc7dfe6183380d6fbf94ec0ef0fc907b21b63",
+            "bytes": 95160,
+            "source": "drive",
+            "path": "images/wind_element_256.webp"
         },
         "heroesofcrypto-assets/images/wind_flow_256.webp": {
             "sha256": "5d85b7c4a8fc3e19055c4fd8fb81b2a511a757f894d0a75c7dc843e0c2da57c4",

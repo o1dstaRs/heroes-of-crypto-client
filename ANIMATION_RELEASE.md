@@ -36,6 +36,15 @@ its existing shared source. Its former `background_stone_tiles_sinister_16x16.we
 the portable restore manifest now points to the surviving filename with the exact same approved hash.
 The release-verifier regression also requires every runtime pin to have a matching reproducible source.
 
+## Canonical icon pins — 2026-11-18
+
+Fourteen shared ability/spell icon pins now match the approved canonical Drive files and the fifteen
+website exports published by `0420d78e`. Their portable restore records name those exact Drive sources.
+The release check previously restored older archive copies, then correctly rejected their mismatch
+with the current website. The catalog test now checks shared icons against the versioned game-art
+pins even when CI has no private art directory. Website exports and shared artwork are unchanged;
+the existing animation and portrait pins remain intact.
+
 ## Portrait baseline — main retained
 
 PR #205 retains the portraits from client main `c8284894ac22e0049336a0e05de9ddc1b63a7995`. Roster and draft cards

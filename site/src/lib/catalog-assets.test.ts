@@ -5,6 +5,7 @@ import { artifacts } from "./artifacts-data";
 import { spells } from "./spells-data";
 import { synergyIcons } from "./synergy-icons";
 import { abilities, allUnits, factionUnits } from "./units-data";
+import runtimeArt from "../../../game/core/animation-release.json";
 
 interface AssetReference {
     owner: string;
@@ -38,6 +39,28 @@ const assetReferences = (): AssetReference[] => [
 ];
 
 describe("public codex assets", () => {
+    test("shared flat icons match the published game-art pins without a private art checkout", async () => {
+        const pins: Record<string, { sha256: string; bytes: number }> = runtimeArt.files;
+        const mismatches: string[] = [];
+        const checked = new Set<string>();
+        for (const reference of assetReferences()) {
+            const filename = reference.url.split("?", 1)[0].split("/").at(-1)!;
+            const sourceName =
+                filename === "rallying_volley_blessing_256.webp" ? "rallying_volley_aura_256.webp" : filename;
+            const pin = pins[`images/${sourceName}`];
+            if (!pin || checked.has(reference.url)) continue;
+            checked.add(reference.url);
+            const bytes = await Bun.file(publicAssetPath(reference.url)).arrayBuffer();
+            if (
+                bytes.byteLength !== pin.bytes ||
+                new Bun.CryptoHasher("sha256").update(bytes).digest("hex") !== pin.sha256
+            )
+                mismatches.push(`${reference.owner}: ${reference.url}`);
+        }
+        expect(checked.size).toBeGreaterThan(0);
+        expect(mismatches).toEqual([]);
+    });
+
     test("has a non-empty image for every game-derived faction, unit, ability, spell, artifact, and synergy", async () => {
         const missing: string[] = [];
 
