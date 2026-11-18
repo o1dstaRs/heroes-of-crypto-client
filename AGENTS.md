@@ -270,6 +270,11 @@ under `.claude/skills/heroes-e2e`; `.agents/skills/heroes-e2e` is a relative sym
 
 ## Canonical agent and simulation tools
 
+- Paired AI strategy screens now have a shared server workflow: `bun run ai:iterate` from
+  `../heroes-of-crypto-server`. Read its `docs/ai_iteration.md` for sealed development banks, persistent
+  workers, resumable exact-input caching, failure reports and optional confirmation. Reuse this tooling
+  for server lifecycle experiments; retain common's existing meta runners, seed ledgers and promotion
+  gates. The included timing bank is development-only and is not strategy-strength evidence.
 - Keep each repo skill's canonical files in `.claude/skills/<name>`. Every canonical skill must also have a
   relative directory symlink at `.agents/skills/<name>` pointing to `../../.claude/skills/<name>`. Claude
   discovers the canonical path, Codex discovers and follows the `.agents` symlink, and opencode discovers
