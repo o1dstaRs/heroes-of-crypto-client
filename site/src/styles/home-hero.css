@@ -1,0 +1,24 @@
+@media (min-width: 1081px) {
+    /* Fill the first screen regardless of its aspect ratio. Keep the logo at
+       the top while the proportional artwork crops to cover the viewport. */
+    section.hero:has(.hero-bg[data-board-layout="true"]) {
+        height: calc(100svh - 68px);
+        min-height: 0;
+    }
+
+    section.hero .hero-bg[data-board-layout="true"] {
+        top: -68px;
+        height: calc(100% + 68px);
+        aspect-ratio: auto;
+        object-fit: cover;
+        object-position: center top;
+    }
+
+    section.hero:has(.hero-bg[data-board-layout="true"]) .hero-shade {
+        top: -68px;
+    }
+
+    section.hero .hero-grid-bottom {
+        bottom: clamp(96px, 14svh, 200px);
+    }
+}

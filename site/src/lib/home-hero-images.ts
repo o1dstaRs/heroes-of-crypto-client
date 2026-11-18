@@ -2,10 +2,10 @@ import { getImage } from "astro:assets";
 import hero from "../../public/assets/images/home/hero/taverns/39-forge-frost-no-flags-20261107.webp";
 import { HOME_HERO_IMAGE } from "./hero-media";
 
-// The image covers the full hero height on smaller viewports. Its download width
-// must account for that crop, rather than choosing a blurry 390px-wide landscape.
+// Cover can scale the artwork by height, including on tall desktop screens.
+// Match that rendered width so the browser does not choose a blurry landscape.
 export const HERO_IMAGE_SIZES =
-    "(min-width: 1081px) 100vw, (min-width: 721px) max(1080px, calc((100svh - 68px) * 2)), max(1080px, calc((100svh - 102px) * 2))";
+    "(min-width: 1081px) max(100vw, 200svh), (min-width: 721px) max(1080px, calc((100svh - 68px) * 2)), max(1080px, calc((100svh - 102px) * 2))";
 export const NARROW_HERO_IMAGE_SIZES = "max(540px, calc(100svh - 102px))";
 export const NARROW_HERO_MEDIA = "(max-width: 400px)";
 export const WIDE_HERO_MEDIA = "(min-width: 400.01px)";
