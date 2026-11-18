@@ -6,7 +6,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
 import type { IFightResultSetup } from "../../scenes/VisibleState";
-import { FightArmySetupIcons, FightSetupSummary } from "./FightSetupSummary";
+import { FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
 
 const setup: IFightResultSetup = {
     // Deliberately reversed: ordering must follow the player columns, not incoming map/array order.
@@ -16,12 +16,14 @@ const setup: IFightResultSetup = {
             doctrine: Doctrine.Doctrine.SEE_NONE,
             artifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
             artifactTier2: Artifact.Tier2Artifact.PENDANT_OF_VITALITY,
+            synergies: ["Chaos:2:2", "Life:2:1"],
         },
         {
             team: TeamVals.LEFT,
             doctrine: Doctrine.Doctrine.SEE_ALL,
             artifactTier1: Artifact.Tier1Artifact.WINGED_BOOTS,
             artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+            synergies: ["Nature:1:3", "Life:2:2", "Might:1:0"],
         },
     ],
     synergyVariants: { Life: 2, Nature: 1, Chaos: 2, Might: 1 },
@@ -37,7 +39,9 @@ const render = (value?: IFightResultSetup) =>
                 team={TeamVals.RIGHT}
                 army={value?.armies.find((army) => army.team === TeamVals.RIGHT)}
             />
-            <FightSetupSummary setup={value} />
+            {[TeamVals.LEFT, TeamVals.RIGHT].map((team) => (
+                <FightArmySynergies key={team} team={team} army={value?.armies.find((army) => army.team === team)} />
+            ))}
         </CacheProvider>,
     );
 
@@ -49,7 +53,7 @@ test("army icon rails retain the correct completed doctrine and both artifact ti
     );
     const right = html.slice(
         html.indexOf(`data-result-army="${TeamVals.RIGHT}"`),
-        html.indexOf("data-result-synergy="),
+        html.indexOf("data-result-army-synergies="),
     );
     for (const name of ["Spymaster", "Winged Boots", "Crown of Command"]) expect(left).toContain(name);
     for (const name of ["Battle Trance", "Barrel Barricade", "Pendant of Vitality"]) expect(right).toContain(name);
@@ -58,7 +62,7 @@ test("army icon rails retain the correct completed doctrine and both artifact ti
     expect(html.match(/aria-label="Doctrine:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 1 artifact:/g)).toHaveLength(2);
     expect(html.match(/aria-label="Tier 2 artifact:/g)).toHaveLength(2);
-    const armies = html.slice(0, html.indexOf('aria-label="Synergies"'));
+    const armies = html.slice(0, html.indexOf("data-result-army-synergies="));
     const icons = [...armies.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)].map(
         (match) => match[1],
     );
@@ -66,25 +70,32 @@ test("army icon rails retain the correct completed doctrine and both artifact ti
     expect(icons.every((icon) => icon.includes("<img") && !icon.includes("<p"))).toBe(true);
 });
 
-test("the global synergies appear once per faction, using the match's selected variants", () => {
+test("each army shows only its recorded active synergies with one, two or three dots beneath the icon", () => {
     const html = render(setup);
-    expect(html.match(/data-result-synergy=/g)).toHaveLength(4);
-    for (const name of [
-        "Life: Morale &amp; luck",
-        "Nature: Board units",
-        "Chaos: Break on attack",
-        "Might: Aura range",
-    ])
-        expect(html).toContain(`aria-label="${name}"`);
-    expect(html).toContain('aria-label="Synergies"');
+    const synergies = html.slice(html.indexOf("data-result-army-synergies="));
+    const left = synergies.slice(0, synergies.indexOf(`data-result-army-synergies="${TeamVals.RIGHT}"`));
+    const right = synergies.slice(synergies.indexOf(`data-result-army-synergies="${TeamVals.RIGHT}"`));
+    expect(left).toContain('data-result-synergy="Life:2:2"');
+    expect(left).toContain('data-result-synergy="Nature:1:3"');
+    expect(left.match(/data-result-synergy-dot=/g)).toHaveLength(5);
+    expect(right).toContain('data-result-synergy="Life:2:1"');
+    expect(right).toContain('data-result-synergy="Chaos:2:2"');
+    expect(right.match(/data-result-synergy-dot=/g)).toHaveLength(3);
+    expect(left).not.toContain('data-result-synergy="Chaos:');
+    expect(right).not.toContain('data-result-synergy="Nature:');
+    expect(html).not.toContain('data-result-synergy="Might:1:0"');
+    expect(html).toContain('aria-label="Nature: Board units · Level 3"');
+    expect(html).not.toContain("data-result-global-synergies");
     expect(html).not.toContain("Synergies:");
-    const synergies = html.slice(html.indexOf('aria-label="Synergies"'));
-    const icons = [...synergies.matchAll(/<span\b[^>]*data-result-choice="icon"[^>]*>(.*?)<\/span>/gs)];
-    expect(icons).toHaveLength(4);
-    expect(icons.every(([, contents]) => contents.includes("<img") && !contents.includes("<p"))).toBe(true);
-    expect(html).not.toContain("Level 1 artifact");
-    // No bogus team-wide level is inferred from survivors or one team's final synergy buffs.
-    expect(html).not.toContain("lvl 1");
+});
+
+test("unrecorded, inactive and unrecognized synergy levels do not invent result badges", () => {
+    expect(render()).not.toContain("data-result-army-synergies=");
+    const html = render({
+        armies: [{ team: TeamVals.LEFT, synergies: ["Life:2:0", "Nature:1:4", "Chaos:3:1", "Might:2:NaN"] }],
+        synergyVariants: setup.synergyVariants,
+    });
+    expect(html).not.toContain("data-result-army-synergies=");
 });
 
 test("unselected and unrecorded army builds leave all available space to the army portraits", () => {
@@ -123,7 +134,7 @@ test("unselected and unrecorded army builds leave all available space to the arm
 
 test("unknown nonzero choices stay explicit and legacy synergies never borrow current choices", () => {
     const legacy = render();
-    expect(legacy).toContain('aria-label="Life: Not recorded"');
+    expect(legacy).not.toContain("data-result-army-synergies=");
     expect(legacy).not.toContain('aria-label="Life: Supply"');
     expect(legacy).not.toContain("Fight setup not recorded");
     const html = render({
@@ -132,7 +143,6 @@ test("unknown nonzero choices stay explicit and legacy synergies never borrow cu
     });
     expect(html).toContain("Unknown doctrine");
     expect(html).toContain("Unknown artifact");
-    expect(html).toContain("Not recorded");
     expect(html).not.toContain("Tier 2 artifact:");
     expect(html.match(/data-result-army=/g)).toHaveLength(1);
 });

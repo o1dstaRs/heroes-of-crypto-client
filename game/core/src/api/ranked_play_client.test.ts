@@ -105,3 +105,20 @@ test("live and recorded scene conversion retain both doctrines and both artifact
     expect(toAuthoritativeGameSnapshot(snapshot).rightDoctrine).toBeUndefined();
     expect(toAuthoritativeGameSnapshot(snapshot).rightArtifactTier1).toBeUndefined();
 });
+
+test("normal ranked and replay conversion preserves active team synergies without rebuilding from survivors", () => {
+    const snapshot = decodePlaySnapshot(new Uint8Array());
+    snapshot.units = [];
+    snapshot.leftSynergies = ["Nature:1:3", "Life:2:1"];
+    snapshot.rightSynergies = ["Might:2:2"];
+    for (const coop of [false, true]) {
+        const routed = toAuthoritativeGameSnapshot(snapshot, undefined, undefined, coop);
+        expect(routed.leftSynergies).toEqual(["Nature:1:3", "Life:2:1"]);
+        expect(routed.rightSynergies).toEqual(["Might:2:2"]);
+        expect(routed.leftSynergies).not.toBe(snapshot.leftSynergies);
+    }
+    delete snapshot.leftSynergies;
+    snapshot.rightSynergies = [];
+    expect(toAuthoritativeGameSnapshot(snapshot).leftSynergies).toBeUndefined();
+    expect(toAuthoritativeGameSnapshot(snapshot).rightSynergies).toEqual([]);
+});

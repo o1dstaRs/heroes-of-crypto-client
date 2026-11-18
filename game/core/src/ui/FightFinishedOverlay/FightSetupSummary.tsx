@@ -4,7 +4,7 @@ import React from "react";
 
 import { images } from "../../generated/image_imports";
 import { t } from "../../i18n/i18n";
-import type { IFightResultArmySetup, IFightResultSetup } from "../../scenes/VisibleState";
+import type { IFightResultArmySetup } from "../../scenes/VisibleState";
 import { getDoctrineCopy, getDoctrineIconImage } from "../doctrineCopy";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
 import { synergyEffectAtLevel } from "../LeftSideBar/synergyLadder";
@@ -134,44 +134,62 @@ export const FightArmySetupIcons: React.FC<{ team: TeamType; army?: IFightResult
     );
 };
 
-/** Read-only match facts. In particular, this must never read the next-game doctrine chooser. */
-export const FightSetupSummary: React.FC<{ setup?: IFightResultSetup }> = ({ setup }) => (
-    <Box
-        component="section"
-        aria-label={t("Synergies")}
-        data-result-global-synergies
-        sx={{ display: "flex", flexDirection: "column", gap: 0.75, textTransform: "none", mb: 2 }}
-    >
-        {SYNERGY_FACTION_ORDER.map((faction) => {
-            const variant = setup?.synergyVariants[faction];
-            const label = synergyLabels[`${faction}:${variant}`];
-            return (
-                <Box key={faction} data-result-synergy={faction}>
+const synergyColors: Record<string, string> = {
+    Life: "#d5a74a",
+    Nature: "#51b660",
+    Chaos: "#d85c28",
+    Might: "#d3261f",
+};
+
+/** Each army keeps its recorded active levels, even when none of its faction stacks survived. */
+export const FightArmySynergies: React.FC<{ team: TeamType; army?: IFightResultArmySetup }> = ({ team, army }) => {
+    const active = SYNERGY_FACTION_ORDER.flatMap((faction) => {
+        const key = army?.synergies?.find((entry) => new RegExp(`^${faction}:[12]:[123]$`).test(entry));
+        if (!key) return [];
+        const [, variant, level] = key.split(":").map((value) => Number(value));
+        return [{ key, faction, variant, level }];
+    });
+    // Old recordings have no per-army levels. Never guess from the global variants or final survivors.
+    if (!active.length) return null;
+    return (
+        <Box
+            component="section"
+            aria-label={`${teamName(team)} ${t("Synergies")}`}
+            data-result-army-synergies={team}
+            sx={{ display: "flex", justifyContent: "center", gap: 1.25, mb: 1, textTransform: "none" }}
+        >
+            {active.map(({ key, faction, variant, level }) => (
+                <Box
+                    key={key}
+                    data-result-synergy={key}
+                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}
+                >
                     <Choice
                         iconOnly
                         choice={{
                             label: t(faction),
-                            name: label ? t(label) : t("Not recorded"),
-                            image: (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[`${faction}:${variant}:1`],
-                            // Global variants have no shared activation level. Missing legacy data stays
-                            // unknown, with compact placeholders rather than borrowing today's choices.
-                            detail:
-                                label && variant !== undefined ? (
-                                    <>
-                                        <Typography level="body-xs" sx={{ mb: 0.5 }}>
-                                            {t("Shared by both armies; levels depend on each army's drafted factions.")}
-                                        </Typography>
-                                        {[1, 2, 3].map((level) => (
-                                            <Typography key={level} level="body-xs" sx={{ mb: 0.5 }}>
-                                                {t("Level")} {level}: {t(synergyEffectAtLevel(faction, variant, level))}
-                                            </Typography>
-                                        ))}
-                                    </>
-                                ) : undefined,
+                            name: `${t(synergyLabels[`${faction}:${variant}`])} · ${t("Level")} ${level}`,
+                            image: (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[key],
+                            detail: t(synergyEffectAtLevel(faction, variant, level)),
                         }}
                     />
+                    <Box aria-hidden sx={{ display: "flex", gap: "3px", height: 4 }}>
+                        {Array.from({ length: level }, (_, index) => (
+                            <Box
+                                key={index}
+                                data-result-synergy-dot
+                                sx={{
+                                    width: 4,
+                                    height: 4,
+                                    borderRadius: "50%",
+                                    backgroundColor: synergyColors[faction],
+                                    boxShadow: `0 0 3px ${synergyColors[faction]}66`,
+                                }}
+                            />
+                        ))}
+                    </Box>
                 </Box>
-            );
-        })}
-    </Box>
-);
+            ))}
+        </Box>
+    );
+};

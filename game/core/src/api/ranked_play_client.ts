@@ -428,10 +428,12 @@ export const toAuthoritativeGameSnapshot = (
               sandboxCoopBothReady:
                   snapshot.players.length > 0 &&
                   snapshot.players.every((player) => snapshot.readyPlayerIds.includes(player.playerId)),
-              leftSynergies: snapshot.leftSynergies ?? [],
-              rightSynergies: snapshot.rightSynergies ?? [],
           }
         : {}),
+    // The authority freezes these at fight start. Results and replays must retain each army's actual
+    // levels even after its faction stacks die; the global variant table alone cannot supply them.
+    leftSynergies: snapshot.leftSynergies ? [...snapshot.leftSynergies] : undefined,
+    rightSynergies: snapshot.rightSynergies ? [...snapshot.rightSynergies] : undefined,
     winnerTeam: winnerTeamFromSnapshot(snapshot),
     phase: snapshot.phase,
     gridType: snapshot.gridType,

@@ -10,6 +10,7 @@ export const captureFightResultSetup = (fight: FightProperties): IFightResultSet
         doctrine: fight.getDoctrine(team),
         artifactTier1: fight.getArtifactTier1(team),
         artifactTier2: fight.getArtifactTier2(team),
+        synergies: [...fight.getSynergiesPerTeam(team)],
     })),
     synergyVariants: fight.getSynergyVariants(),
 });
@@ -26,12 +27,14 @@ export const fightResultSetupFromSnapshot = (snapshot: AuthoritativeGameSnapshot
             doctrine: snapshot.leftDoctrine,
             artifactTier1: snapshot.leftArtifactTier1,
             artifactTier2: snapshot.leftArtifactTier2,
+            synergies: snapshot.leftSynergies ? [...snapshot.leftSynergies] : undefined,
         },
         {
             team: TeamVals.RIGHT,
             doctrine: snapshot.rightDoctrine,
             artifactTier1: snapshot.rightArtifactTier1,
             artifactTier2: snapshot.rightArtifactTier2,
+            synergies: snapshot.rightSynergies ? [...snapshot.rightSynergies] : undefined,
         },
     ],
     synergyVariants: synergyVariantsForSeed(snapshot.gameId),

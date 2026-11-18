@@ -134,7 +134,7 @@ export interface AuthoritativeGameSnapshot {
      */
     sandboxCoop?: boolean;
     sandboxCoopBothReady?: boolean;
-    /** Co-op sandbox: each team's applied synergies ("Faction:variant:level") already during placement. */
+    /** Recorded active "Faction:variant:level" keys; revealed in combat (also during co-op placement). */
     leftSynergies?: string[];
     rightSynergies?: string[];
     winnerTeam?: TeamType | number;

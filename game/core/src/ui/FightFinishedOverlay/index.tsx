@@ -28,7 +28,7 @@ import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
-import { FightArmySetupIcons, FightSetupSummary } from "./FightSetupSummary";
+import { FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
 import { canShowFightResults } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
@@ -59,12 +59,14 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
                     doctrine: Doctrine.Doctrine.SEE_ALL,
                     artifactTier1: Artifact.Tier1Artifact.WINGED_BOOTS,
                     artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+                    synergies: ["Life:2:1", "Nature:2:3", "Might:2:2"],
                 },
                 {
                     team: UPPER_TEAM,
                     doctrine: Doctrine.Doctrine.SEE_NONE,
                     artifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
                     artifactTier2: Artifact.Tier2Artifact.PENDANT_OF_VITALITY,
+                    synergies: ["Chaos:1:2", "Might:2:1"],
                 },
             ],
             synergyVariants: { Life: 2, Nature: 2, Chaos: 1, Might: 2 },
@@ -259,6 +261,7 @@ const CasualtyColumn: React.FC<{
     );
     return (
         <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 220 } }}>
+            <FightArmySynergies team={team} army={setup?.armies.find((army) => army.team === team)} />
             <Stack
                 direction="row"
                 spacing={1}
@@ -1565,10 +1568,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
                                 ornateResultsFrame
                             />
-                        </Box>
-                        {/* One global icon column stays beside the plot at every viewport size. */}
-                        <Box data-result-synergy-side sx={{ flex: "0 0 28px", alignSelf: "center" }}>
-                            <FightSetupSummary setup={stats.setup} />
                         </Box>
                     </Box>
 

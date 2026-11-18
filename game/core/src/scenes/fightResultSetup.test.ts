@@ -28,6 +28,8 @@ const configure = () => {
     fight.setArtifactPerTeam(TeamVals.LEFT, Artifact.ArtifactTier.TIER_2, Artifact.Tier2Artifact.CROWN_OF_COMMAND);
     fight.setArtifactPerTeam(TeamVals.RIGHT, Artifact.ArtifactTier.TIER_2, Artifact.Tier2Artifact.PENDANT_OF_VITALITY);
     fight.setSynergyVariants({ Life: 2, Nature: 1, Chaos: 2, Might: 1 });
+    fight.setSynergiesPerTeam(TeamVals.LEFT, ["Nature:1:3", "Life:2:1"]);
+    fight.setSynergiesPerTeam(TeamVals.RIGHT, ["Chaos:2:2"]);
     return fight;
 };
 
@@ -54,6 +56,8 @@ const terminalSnapshot = (): AuthoritativeGameSnapshot => ({
     leftArtifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
     rightArtifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
     rightArtifactTier2: Artifact.Tier2Artifact.NO_ARTIFACT,
+    leftSynergies: ["Nature:1:3", "Life:2:1"],
+    rightSynergies: ["Chaos:2:2"],
 });
 
 test("local results copy both armies and the single global variant table, detached from next fight changes", () => {
@@ -65,17 +69,21 @@ test("local results copy both armies and the single global variant table, detach
             doctrine: Doctrine.Doctrine.SEE_ALL,
             artifactTier1: Artifact.Tier1Artifact.WINGED_BOOTS,
             artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+            synergies: ["Nature:1:3", "Life:2:1"],
         },
         {
             team: TeamVals.RIGHT,
             doctrine: Doctrine.Doctrine.SEE_NONE,
             artifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
             artifactTier2: Artifact.Tier2Artifact.PENDANT_OF_VITALITY,
+            synergies: ["Chaos:2:2"],
         },
     ]);
     fight.setDoctrinePerTeam(TeamVals.LEFT, Doctrine.Doctrine.SEE_NONE);
     fight.setArtifactPerTeam(TeamVals.RIGHT, Artifact.ArtifactTier.TIER_2, 0);
     fight.setSynergyVariants({ Life: 1, Nature: 2, Chaos: 1, Might: 2 });
+    fight.setSynergiesPerTeam(TeamVals.LEFT, ["Might:2:1"]);
+    expect(setup.armies[0].synergies).toEqual(["Nature:1:3", "Life:2:1"]);
     expect(setup.armies[0].doctrine).toBe(Doctrine.Doctrine.SEE_ALL);
     expect(setup.armies[1].artifactTier2).toBe(Artifact.Tier2Artifact.PENDANT_OF_VITALITY);
     expect(setup.synergyVariants).toEqual({ Life: 2, Nature: 1, Chaos: 2, Might: 1 });
@@ -90,28 +98,35 @@ test("ranked and replay results read the recorded snapshot even when the engine 
         doctrine: snapshot.leftDoctrine,
         artifactTier1: 0,
         artifactTier2: snapshot.leftArtifactTier2,
+        synergies: ["Nature:1:3", "Life:2:1"],
     });
     expect(setup.armies[1]).toEqual({
         team: TeamVals.RIGHT,
         doctrine: snapshot.rightDoctrine,
         artifactTier1: snapshot.rightArtifactTier1,
         artifactTier2: 0,
+        synergies: ["Chaos:2:2"],
     });
     expect(setup.synergyVariants).toEqual(synergyVariantsForSeed(snapshot.gameId));
     expect(authoritativeSnapshotToSandboxSceneState(snapshot).resultSetup).toEqual(setup);
     const original = JSON.stringify(setup);
     snapshot.leftDoctrine = Doctrine.Doctrine.SEE_NONE;
     snapshot.rightArtifactTier1 = 0;
+    snapshot.leftSynergies!.push("Might:1:1");
     expect(JSON.stringify(setup)).toBe(original);
 });
 
 test("legacy authority fields stay unknown, while explicit empty slots remain zero", () => {
     configure();
     const snapshot = terminalSnapshot();
+    delete snapshot.leftSynergies;
+    snapshot.rightSynergies = [];
     delete snapshot.leftDoctrine;
     delete snapshot.leftArtifactTier1;
     delete snapshot.leftArtifactTier2;
     const setup = fightResultSetupFromSnapshot(snapshot);
+    expect(setup.armies[0].synergies).toBeUndefined();
+    expect(setup.armies[1].synergies).toEqual([]);
     expect(setup.armies[0].doctrine).toBeUndefined();
     expect(setup.armies[0].artifactTier1).toBeUndefined();
     expect(setup.armies[0].artifactTier2).toBeUndefined();

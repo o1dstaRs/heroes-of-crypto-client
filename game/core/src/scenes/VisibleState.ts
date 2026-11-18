@@ -124,6 +124,8 @@ export interface IFightResultArmySetup {
     readonly doctrine?: number;
     readonly artifactTier1?: number;
     readonly artifactTier2?: number;
+    /** Recorded active "Faction:variant:level" keys, frozen at fight start, never recounted from survivors. */
+    readonly synergies?: readonly string[];
 }
 
 export interface IFightResultSetup {
