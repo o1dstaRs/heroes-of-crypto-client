@@ -48,6 +48,10 @@ test.each([true, false])("draft guidance stays available while isYourTurn=%s", (
     expect(html).toContain('aria-label="Premium draft assessment"');
     expect(html).toContain("Draft planner");
     expect(html).toContain("Live draft projected battlefield");
+    expect(html).toContain('data-board-side="own"');
+    expect(html).toContain('data-board-side="enemy"');
+    expect(html).toContain("Your side: left. Enemy side: right.");
+    expect(html.indexOf("data-board-sides=")).toBeLessThan(html.indexOf('role="group"'));
     expect(html).toContain("Collapse draft planner");
     expect(html).toContain("Move draft planner with arrow keys or drag");
     expect(html).toContain("Match synergies");

@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 
 import type { PremiumAdvice } from "../../api/premium_client";
 import { images } from "../../generated/image_imports";
+import { useTranslation } from "../../i18n/i18n";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
 import { DoctrineIcon } from "../DoctrineIcon";
@@ -33,6 +34,7 @@ export const DraftPlannerBoard: React.FC<{
     selected?: string;
     onSelect?: (key: string) => void;
 }> = ({ plan, showPlan, selected, onSelect }) => {
+    const { t } = useTranslation();
     const marker = useId().replaceAll(":", "");
     const token = (unit: DraftProjectedStack, enemy: boolean) => {
         const key = `${enemy ? "enemy" : "own"}:${unit.creature}`;
@@ -87,100 +89,132 @@ export const DraftPlannerBoard: React.FC<{
         );
     };
     return (
-        <Box
-            role="group"
-            aria-label="Live draft projected battlefield"
-            sx={{
-                position: "relative",
-                aspectRatio: "1",
-                width: "100%",
-                bgcolor: "#1e2119",
-                border: "1px solid #63523a",
-                borderRadius: "4px",
-                isolation: "isolate",
-            }}
-        >
-            <svg
-                viewBox="0 0 160 160"
-                width="100%"
-                height="100%"
-                aria-hidden="true"
-                style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+        <Box>
+            <Box
+                data-board-sides
+                sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    mb: 0.6,
+                    px: 0.25,
+                    fontSize: 11,
+                    fontWeight: 600,
+                }}
             >
-                <defs>
-                    <marker
-                        id={`${marker}-advance`}
-                        viewBox="0 0 10 10"
-                        refX="8"
-                        refY="5"
-                        markerWidth="4"
-                        markerHeight="4"
-                        orient="auto-start-reverse"
-                    >
-                        <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#bcd47d" strokeWidth="2" />
-                    </marker>
-                    <marker
-                        id={`${marker}-support`}
-                        viewBox="0 0 10 10"
-                        refX="8"
-                        refY="5"
-                        markerWidth="4"
-                        markerHeight="4"
-                        orient="auto-start-reverse"
-                    >
-                        <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#88cbe0" strokeWidth="2" />
-                    </marker>
-                </defs>
-                <rect x="10" y="10" width="30" height="140" fill="#77a66c" opacity=".14" />
-                <rect x="120" y="10" width="30" height="140" fill="#b66f5b" opacity=".12" />
-                {Array.from({ length: 17 }, (_, i) => (
-                    <path key={i} d={`M ${i * 10} 0 V 160 M 0 ${i * 10} H 160`} stroke="#aa9d7840" strokeWidth=".3" />
-                ))}
-                {plan.map === 3 && <rect x="60" y="60" width="40" height="40" fill="#e16c2766" stroke="#eea35466" />}
-                {plan.map === 4 &&
-                    [5, 6, 9, 10].flatMap((x) =>
-                        [7, 8].map((y) => (
-                            <rect
-                                key={`${x}:${y}`}
-                                x={x * 10}
-                                y={(15 - y) * 10}
-                                width="10"
-                                height="10"
-                                fill="#918676aa"
-                            />
-                        )),
-                    )}
-                {showPlan &&
-                    plan.arrows.map((arrow) => (
+                <Box component="span" data-board-side="own" sx={{ color: "#b3cf9f" }}>
+                    <span aria-hidden="true">← </span>
+                    {t("Your side")}
+                </Box>
+                <Box component="span" data-board-side="enemy" sx={{ color: "#e0a18f", textAlign: "right" }}>
+                    {t("Enemy side")}
+                    <span aria-hidden="true"> →</span>
+                </Box>
+            </Box>
+            <Box
+                role="group"
+                aria-label={t("Live draft projected battlefield. Your side: left. Enemy side: right.")}
+                sx={{
+                    position: "relative",
+                    aspectRatio: "1",
+                    width: "100%",
+                    bgcolor: "#1e2119",
+                    border: "1px solid #63523a",
+                    borderRadius: "4px",
+                    isolation: "isolate",
+                }}
+            >
+                <svg
+                    viewBox="0 0 160 160"
+                    width="100%"
+                    height="100%"
+                    aria-hidden="true"
+                    style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+                >
+                    <defs>
+                        <marker
+                            id={`${marker}-advance`}
+                            viewBox="0 0 10 10"
+                            refX="8"
+                            refY="5"
+                            markerWidth="4"
+                            markerHeight="4"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#bcd47d" strokeWidth="2" />
+                        </marker>
+                        <marker
+                            id={`${marker}-support`}
+                            viewBox="0 0 10 10"
+                            refX="8"
+                            refY="5"
+                            markerWidth="4"
+                            markerHeight="4"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#88cbe0" strokeWidth="2" />
+                        </marker>
+                    </defs>
+                    <rect x="10" y="10" width="30" height="140" fill="#77a66c" opacity=".14" />
+                    <rect x="120" y="10" width="30" height="140" fill="#b66f5b" opacity=".12" />
+                    {Array.from({ length: 17 }, (_, i) => (
                         <path
-                            key={`${arrow.kind}:${arrow.creature}`}
-                            d={`M ${arrow.from.x * 10} ${(16 - arrow.from.y) * 10} L ${arrow.to.x * 10} ${(16 - arrow.to.y) * 10}`}
-                            fill="none"
-                            stroke={arrow.kind === "support" ? "#88cbe0" : "#bcd47d"}
-                            strokeWidth=".9"
-                            strokeDasharray={arrow.kind === "support" ? "1.5 1.2" : "3 1.8"}
-                            opacity=".85"
-                            markerEnd={`url(#${marker}-${arrow.kind})`}
+                            key={i}
+                            d={`M ${i * 10} 0 V 160 M 0 ${i * 10} H 160`}
+                            stroke="#aa9d7840"
+                            strokeWidth=".3"
                         />
                     ))}
-                {Array.from({ length: 16 }, (_, i) => (
-                    <React.Fragment key={i}>
-                        <text x={i * 10 + 5} y="3.5" textAnchor="middle" fill="#b8b092" fontSize="2.7">
-                            {String.fromCharCode(65 + i)}
-                        </text>
-                        <text x="1" y={i * 10 + 6} fill="#b8b092" fontSize="2.7">
-                            {16 - i}
-                        </text>
-                    </React.Fragment>
-                ))}
-            </svg>
-            {plan.own.map((unit) => token(unit, false))}
-            {plan.enemy.map((unit) => token(unit, true))}
-            {!plan.own.length && (
-                <Box sx={{ position: "absolute", inset: "35% 15%", textAlign: "center", color: muted, fontSize: 12 }}>
-                    Your projected army appears as you pick.
-                </Box>
-            )}
+                    {plan.map === 3 && (
+                        <rect x="60" y="60" width="40" height="40" fill="#e16c2766" stroke="#eea35466" />
+                    )}
+                    {plan.map === 4 &&
+                        [5, 6, 9, 10].flatMap((x) =>
+                            [7, 8].map((y) => (
+                                <rect
+                                    key={`${x}:${y}`}
+                                    x={x * 10}
+                                    y={(15 - y) * 10}
+                                    width="10"
+                                    height="10"
+                                    fill="#918676aa"
+                                />
+                            )),
+                        )}
+                    {showPlan &&
+                        plan.arrows.map((arrow) => (
+                            <path
+                                key={`${arrow.kind}:${arrow.creature}`}
+                                d={`M ${arrow.from.x * 10} ${(16 - arrow.from.y) * 10} L ${arrow.to.x * 10} ${(16 - arrow.to.y) * 10}`}
+                                fill="none"
+                                stroke={arrow.kind === "support" ? "#88cbe0" : "#bcd47d"}
+                                strokeWidth=".9"
+                                strokeDasharray={arrow.kind === "support" ? "1.5 1.2" : "3 1.8"}
+                                opacity=".85"
+                                markerEnd={`url(#${marker}-${arrow.kind})`}
+                            />
+                        ))}
+                    {Array.from({ length: 16 }, (_, i) => (
+                        <React.Fragment key={i}>
+                            <text x={i * 10 + 5} y="3.5" textAnchor="middle" fill="#b8b092" fontSize="2.7">
+                                {String.fromCharCode(65 + i)}
+                            </text>
+                            <text x="1" y={i * 10 + 6} fill="#b8b092" fontSize="2.7">
+                                {16 - i}
+                            </text>
+                        </React.Fragment>
+                    ))}
+                </svg>
+                {plan.own.map((unit) => token(unit, false))}
+                {plan.enemy.map((unit) => token(unit, true))}
+                {!plan.own.length && (
+                    <Box
+                        sx={{ position: "absolute", inset: "35% 15%", textAlign: "center", color: muted, fontSize: 12 }}
+                    >
+                        Your projected army appears as you pick.
+                    </Box>
+                )}
+            </Box>
         </Box>
     );
 };
@@ -436,14 +470,13 @@ export const PremiumDraftPlanner: React.FC<{
                         <Box
                             sx={{
                                 display: "flex",
-                                justifyContent: "space-between",
+                                justifyContent: "flex-end",
                                 alignItems: "center",
                                 color: muted,
                                 fontSize: 10,
                                 mt: 0.6,
                             }}
                         >
-                            <span>You · left / Enemy · right</span>
                             <Box
                                 component="label"
                                 sx={{ display: "flex", alignItems: "center", gap: 0.4, cursor: "pointer" }}

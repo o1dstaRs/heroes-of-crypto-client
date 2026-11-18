@@ -2368,6 +2368,24 @@ body:has(.premium-page) .site-header {
     font: inherit;
     font-size: 10px;
 }
+/* Orientation stays above the grid, so it remains visible with either army populated. */
+.premium-crew-board-sides {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+    padding: 0 2px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.premium-crew-board-sides [data-board-side="own"] {
+    color: #b3cf9f;
+}
+.premium-crew-board-sides [data-board-side="enemy"] {
+    color: #e0a18f;
+    text-align: right;
+}
 .premium-crew-board {
     display: grid;
     grid-template-columns: repeat(16, minmax(0, 1fr));
@@ -2494,14 +2512,6 @@ body:has(.premium-page) .site-header {
 }
 .premium-crew-token-enemy b {
     background: #e0a18f;
-}
-.premium-crew-enemy {
-    position: absolute;
-    top: 48%;
-    right: 9%;
-    color: #a3967977;
-    font-size: 10px;
-    pointer-events: none;
 }
 .premium-crew-recommendations {
     padding-top: 28px;

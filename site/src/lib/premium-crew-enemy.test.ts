@@ -137,6 +137,17 @@ test("the board exposes the randomizer and enemy hovers without treating enemy t
         expect(token).toContain("data-knowledge-reference");
         expect(token).not.toContain("data-crew-slot");
     }
+    for (const markup of [html, renderPremiumCrew([], catalog, "en", "screen", 1)]) {
+        expect(markup).toContain('data-board-side="own"');
+        expect(markup).toContain('data-board-side="enemy"');
+        expect(markup).toContain("Your side");
+        expect(markup).toContain("Enemy side");
+        expect(markup.indexOf("data-board-sides")).toBeLessThan(markup.indexOf('class="premium-crew-board"'));
+        expect(markup).toContain("your army on the left and enemy on the right");
+    }
+    const localized = renderPremiumCrew(own, catalog, "ru", "screen", 1, false, null, undefined, enemy);
+    expect(localized).toContain("Ваша сторона");
+    expect(localized).toContain("Сторона врага");
     expect(html).toContain("Game AI formation");
     expect(html).toContain("data-crew-randomize");
     expect(html).toContain("not odds against this opponent");

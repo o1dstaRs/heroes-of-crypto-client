@@ -91,6 +91,10 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Pick one doctrine to continue.": "Выберите перк, чтобы продолжить.",
     "Pick rejected — choose another.": "Выбор отклонён — выберите другое.",
     "Your army": "Ваша армия",
+    "Your side": "Ваша сторона",
+    "Enemy side": "Сторона врага",
+    "Live draft projected battlefield. Your side: left. Enemy side: right.":
+        "Проекция поля боя. Ваша сторона слева. Сторона врага справа.",
     "In your army": "В вашей армии",
     Taken: "Занято",
     "Taken by your opponent": "Занято противником",
