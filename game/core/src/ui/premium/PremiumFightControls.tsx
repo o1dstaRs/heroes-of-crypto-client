@@ -6,10 +6,9 @@ import { useTranslation } from "../../i18n/i18n";
 import { hocFontFamily } from "../hocTheme";
 import { PremiumIcon } from "../PremiumIcon";
 import { PremiumSearchSlot } from "./PremiumSearch";
-import { PremiumFightMoves } from "./PremiumFightMoves";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 
-/** The strategy guide stays available whether or not the player wants board suggestions. */
+/** Keep the combat footer compact: strategy guide and the board-suggestions switch. */
 export const PremiumFightControls: React.FC = () => {
     const suggestedMoves = usePremiumSuggestedMoves();
     const { t } = useTranslation();
@@ -56,7 +55,6 @@ export const PremiumFightControls: React.FC = () => {
                     "& .MuiSwitch-thumb": { bgcolor: suggestedMoves ? "#ffe0bf" : "#bca78e" },
                 }}
             />
-            <PremiumFightMoves />
         </Box>
     );
 };

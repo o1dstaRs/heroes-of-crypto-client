@@ -1,6 +1,5 @@
 import { PremiumSearchMatchProvider } from "./PremiumSearchMatchContext";
 import { PremiumSearchPromptContext, type PremiumInspectionFocus } from "./PremiumSearchPromptContext";
-import { PremiumTurnPreviewProvider } from "./PremiumTurnPreviewContext";
 import { PremiumGuide } from "./PremiumGuide";
 import { PremiumAccessProvider } from "./PremiumAccess";
 import { PremiumSearchAnchorContext } from "./PremiumSearchAnchorContext";
@@ -46,35 +45,33 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     useLayoutEffect(() => setPrompt(undefined), [pathname, accountKey, visible]);
     return (
         <PremiumAccessProvider>
-            <PremiumTurnPreviewProvider scope={JSON.stringify([pathname, accountKey])}>
-                <SetAnchorContext.Provider value={setAnchor}>
-                    <SetSearchVisibleContext.Provider value={setVisible}>
-                        <SearchVisibleContext.Provider value={visible}>
-                            <PremiumSearchMatchProvider>
-                                <SetDockAnchorContext.Provider value={setDockAnchor}>
-                                    <DockVisibleContext.Provider value={visible && !anchor}>
-                                        <PremiumSearchPromptContext.Provider
-                                            value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
+            <SetAnchorContext.Provider value={setAnchor}>
+                <SetSearchVisibleContext.Provider value={setVisible}>
+                    <SearchVisibleContext.Provider value={visible}>
+                        <PremiumSearchMatchProvider>
+                            <SetDockAnchorContext.Provider value={setDockAnchor}>
+                                <DockVisibleContext.Provider value={visible && !anchor}>
+                                    <PremiumSearchPromptContext.Provider
+                                        value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
+                                    >
+                                        <PremiumSearchAnchorContext.Provider
+                                            value={visible ? (anchor ?? dockAnchor) : null}
                                         >
-                                            <PremiumSearchAnchorContext.Provider
-                                                value={visible ? (anchor ?? dockAnchor) : null}
-                                            >
-                                                <PremiumGuide
-                                                    onAvailabilityChange={setVisible}
-                                                    anchor={anchor ?? dockAnchor}
-                                                    compact={Boolean(anchor) || pathname.startsWith("/game/")}
-                                                    prompt={prompt}
-                                                />
-                                                {children}
-                                            </PremiumSearchAnchorContext.Provider>
-                                        </PremiumSearchPromptContext.Provider>
-                                    </DockVisibleContext.Provider>
-                                </SetDockAnchorContext.Provider>
-                            </PremiumSearchMatchProvider>
-                        </SearchVisibleContext.Provider>
-                    </SetSearchVisibleContext.Provider>
-                </SetAnchorContext.Provider>
-            </PremiumTurnPreviewProvider>
+                                            <PremiumGuide
+                                                onAvailabilityChange={setVisible}
+                                                anchor={anchor ?? dockAnchor}
+                                                compact={Boolean(anchor) || pathname.startsWith("/game/")}
+                                                prompt={prompt}
+                                            />
+                                            {children}
+                                        </PremiumSearchAnchorContext.Provider>
+                                    </PremiumSearchPromptContext.Provider>
+                                </DockVisibleContext.Provider>
+                            </SetDockAnchorContext.Provider>
+                        </PremiumSearchMatchProvider>
+                    </SearchVisibleContext.Provider>
+                </SetSearchVisibleContext.Provider>
+            </SetAnchorContext.Provider>
         </PremiumAccessProvider>
     );
 };

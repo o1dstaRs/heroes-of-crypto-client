@@ -6,8 +6,6 @@ import { usePremiumAccess } from "./PremiumAccess";
 import { canSuggestPremiumTurn, premiumFightTurnKey } from "./premiumFightState";
 import { startPremiumTurnPreview } from "./premiumTurnRequest";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
-import { usePublishPremiumTurnReview } from "./PremiumTurnPreviewContext";
-import { premiumSearchPlayVersion } from "./premiumSearchFreshness";
 
 export const PremiumFightOverlay: React.FC<{
     snapshot: PlaySnapshot;
@@ -17,7 +15,6 @@ export const PremiumFightOverlay: React.FC<{
     const manager = usePixiManager();
     const access = usePremiumAccess();
     const suggestedMoves = usePremiumSuggestedMoves();
-    const publishReview = usePublishPremiumTurnReview();
     const key = premiumFightTurnKey(snapshot);
     const enabled = suggestedMoves && Boolean(access?.active) && canSuggestPremiumTurn(snapshot, userTeam) && !disabled;
     const latestSnapshot = useRef(snapshot);
@@ -26,23 +23,10 @@ export const PremiumFightOverlay: React.FC<{
     useLayoutEffect(() => {
         if (!enabled) {
             manager.SetPremiumTurnPreview(undefined);
-            publishReview(undefined);
             return;
         }
-        const current = latestSnapshot.current;
-        return startPremiumTurnPreview(current, (turn) => {
-            manager.SetPremiumTurnPreview(turn);
-            publishReview(
-                turn
-                    ? {
-                          ...turn,
-                          actorName: current.units.find((unit) => unit.id === turn.unitId)?.name ?? "Acting unit",
-                          versionKey: premiumSearchPlayVersion(current),
-                      }
-                    : undefined,
-            );
-        });
-    }, [enabled, key, manager, publishReview]);
+        return startPremiumTurnPreview(latestSnapshot.current, (turn) => manager.SetPremiumTurnPreview(turn));
+    }, [enabled, key, manager]);
 
     return null;
 };
