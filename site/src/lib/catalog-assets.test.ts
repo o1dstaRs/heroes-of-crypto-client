@@ -9,6 +9,7 @@ import { abilities, allUnits, factionUnits } from "./units-data";
 import runtimeArt from "../../../game/core/animation-release.json";
 import { abilityImageKey, ABILITY_IMAGE_ALIASES } from "../../../game/core/src/ui/abilityImage";
 import { spellIconTextureKey } from "../../../game/core/src/scenes/spellIcons";
+import { TIER1_ARTIFACT_LIST, TIER2_ARTIFACT_LIST } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 
 interface AssetReference {
     owner: string;
@@ -77,11 +78,19 @@ describe("public codex assets", () => {
         const pins: Record<string, { sha256: string; bytes: number }> = runtimeArt.files;
         const mismatches: string[] = [];
         const checked = new Set<string>();
+        const artifactSources = new Map(
+            [...TIER1_ARTIFACT_LIST, ...TIER2_ARTIFACT_LIST].map((artifact) => [
+                `artifact_t${artifact.tier}_${artifact.slug}_256.webp`,
+                `${artifact.imageKey}.webp`,
+            ]),
+        );
         for (const reference of assetReferences()) {
             const filename = reference.url.split("?", 1)[0].split("/").at(-1)!;
             const sourceName =
-                filename === "rallying_volley_blessing_256.webp" ? "rallying_volley_aura_256.webp" : filename;
+                artifactSources.get(filename) ??
+                (filename === "rallying_volley_blessing_256.webp" ? "rallying_volley_aura_256.webp" : filename);
             const pin = pins[`images/${sourceName}`];
+            if (reference.url.includes("/artifacts/")) expect(pin, sourceName).toBeDefined();
             if (!pin || checked.has(reference.url)) continue;
             checked.add(reference.url);
             const bytes = await Bun.file(publicAssetPath(reference.url)).arrayBuffer();

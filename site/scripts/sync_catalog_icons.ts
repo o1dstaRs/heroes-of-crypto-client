@@ -27,7 +27,12 @@ const VERSIONS_FILE = join(SITE, "src/lib/generated/catalog-icon-versions.json")
    component that renders nowhere, and an atlas must never be recompressed to claw that back (a crushed
    lava atlas shipped visibly broken once). Left out until something actually uses them. */
 const SKIP_DIRECTORIES = new Set(["portraits", "portrait-backgrounds", "anim"]);
-const LEGACY_SOURCE_FILENAMES = new Map([["rallying_volley_blessing_256.webp", "rallying_volley_aura_256.webp"]]);
+const LEGACY_SOURCE_FILENAMES = new Map([
+    ["rallying_volley_blessing_256.webp", "rallying_volley_aura_256.webp"],
+    // These artifacts moved to Tier 1; the approved masters retained their Tier-2 filenames.
+    ["artifact_t1_tome_of_amplification_256.webp", "artifact_t2_tome_of_amplification_256.webp"],
+    ["artifact_t1_rime_charm_256.webp", "artifact_t2_rime_charm_256.webp"],
+]);
 
 const checkOnly = process.argv.includes("--check");
 
