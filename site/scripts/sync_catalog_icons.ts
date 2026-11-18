@@ -12,11 +12,13 @@
  * Site-only art (the home page, knowledge-base screenshots, league emblems) has no counterpart in the art
  * source and is left alone — this only touches files that exist on both sides.
  */
-import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const SITE = new URL("..", import.meta.url).pathname;
 const IMAGE_ROOT = join(SITE, "public/assets/images");
+const VERSIONS_FILE = join(SITE, "src/lib/generated/catalog-icon-versions.json");
 /* Composed-portrait art is written by sync_portrait_art.ts under content-hashed names, so it has no
    same-named counterpart in the art source and must not be walked here.
 
@@ -36,13 +38,11 @@ if (!artSource) {
        it is a guard for the machines that DO have the art. Copying, on the other hand, must never guess
        where the art lives (see game/core/src/assetLocations.ts). */
     if (checkOnly) {
-        console.log(
-            "Skipping the site-art drift check: HOC_IMAGES_LOC is not set, so there is nothing to compare against.",
-        );
-        process.exit(0);
+        console.log("HOC_IMAGES_LOC is not set; checking exported icon versions without the private art source.");
+    } else {
+        console.error("HOC_IMAGES_LOC is not set. It must name the directory holding the game art.");
+        process.exit(1);
     }
-    console.error("HOC_IMAGES_LOC is not set. It must name the directory holding the game art.");
-    process.exit(1);
 }
 
 const walk = (dir: string): string[] =>
@@ -57,11 +57,12 @@ const drifted: string[] = [];
 const siteOnly: string[] = [];
 let matched = 0;
 
-for (const file of walk(IMAGE_ROOT)) {
+const files = walk(IMAGE_ROOT).sort();
+for (const file of artSource ? files : []) {
     const filename = file.split("/").pop()!;
-    let source = join(artSource, filename);
+    let source = join(artSource!, filename);
     const legacyFilename = LEGACY_SOURCE_FILENAMES.get(filename);
-    if (!existsSync(source) && legacyFilename) source = join(artSource, legacyFilename);
+    if (!existsSync(source) && legacyFilename) source = join(artSource!, legacyFilename);
     if (!existsSync(source)) {
         siteOnly.push(relative(IMAGE_ROOT, file));
         continue;
@@ -71,7 +72,7 @@ for (const file of walk(IMAGE_ROOT)) {
         matched += 1;
         // Art copied off Drive is mode 600. Leave it that way and the next site rsync ships a file
         // nginx cannot read, which is a 403 on the live page rather than a missing icon.
-        if ((statSync(file).mode & 0o044) !== 0o044) chmodSync(file, 0o644);
+        if (!checkOnly && (statSync(file).mode & 0o044) !== 0o044) chmodSync(file, 0o644);
         continue;
     }
     drifted.push(relative(IMAGE_ROOT, file));
@@ -79,6 +80,26 @@ for (const file of walk(IMAGE_ROOT)) {
         copyFileSync(source, file);
         chmodSync(file, 0o644);
     }
+}
+
+// Derive versions from the deployment exports, not a private mount or a hand-maintained revision list.
+// CI can verify these even without Drive. Portraits already carry their hash in the filename.
+const versions = Object.fromEntries(
+    files
+        .filter((file) => file.endsWith(".webp"))
+        .map((file) => [
+            `/assets/images/${relative(IMAGE_ROOT, file).replaceAll("\\", "/")}`,
+            createHash("sha256").update(readFileSync(file)).digest("hex").slice(0, 12),
+        ]),
+);
+const versionJson = `${JSON.stringify(versions, null, 4)}\n`;
+const versionsCurrent = existsSync(VERSIONS_FILE) && readFileSync(VERSIONS_FILE, "utf8") === versionJson;
+if (!versionsCurrent) {
+    if (checkOnly) {
+        console.error("Catalog icon cache versions are stale. Run `bun run --cwd site sync:icons`.");
+        process.exit(1);
+    }
+    writeFileSync(VERSIONS_FILE, versionJson);
 }
 
 const summary =

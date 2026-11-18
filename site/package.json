@@ -8,7 +8,7 @@
         "build": "bun run sync:hero && bun run test && bun scripts/astro_build.ts production && bun run build:knowledge",
         "build:knowledge": "bun scripts/build_knowledge_graph.ts",
         "build:test": "bun run sync:hero && bun run test && bun scripts/astro_build.ts test && bun run build:knowledge",
-        "check:art": "bun scripts/sync_catalog_icons.ts --check",
+        "check:art": "bun scripts/sync_catalog_icons.ts --check && bun scripts/sync_portrait_art.ts --check",
         "check:hero": "bun scripts/sync_hero_art.ts --check",
         "dev": "astro dev",
         "preview": "astro preview",

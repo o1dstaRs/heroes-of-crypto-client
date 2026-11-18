@@ -9,6 +9,7 @@ import {
     NARROW_HERO_MEDIA, WIDE_HERO_MEDIA,
 } from "../lib/home-hero-images";
 import { siteButtonImage } from "../lib/site-button-image";
+import { portraitFilterMarkup } from "../lib/portrait";
 import "../styles/global.css";
 import "../styles/buttons.css";
 
@@ -146,6 +147,7 @@ const jsonLd = {
         <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     </head>
     <body class:list={[{ "site-button-theme": isHomePage }]} style={`--site-button-image: url("${buttonImage}")`}>
+        <Fragment set:html={portraitFilterMarkup()} />
         <SiteHeader lang={lang} currentPath={Astro.url.pathname} />
         <main>
             <slot />

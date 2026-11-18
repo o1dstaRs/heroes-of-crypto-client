@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { factionUnits } from "./units-data";
 
 import {
     englishNameInSource,
@@ -45,7 +46,7 @@ describe("knowledge ai figures", () => {
 
     test("faction crests come from the id, including when the label is Russian", () => {
         expect(factionImagePath({ id: "faction:life", name: "Жизнь" })).toBe(
-            "/assets/images/units/factions/life_128.webp",
+            factionUnits.find((faction) => faction.faction === "Life")!.icon,
         );
         expect(factionImagePath({ id: "spell:heal", name: "Heal" })).toBeUndefined();
     });

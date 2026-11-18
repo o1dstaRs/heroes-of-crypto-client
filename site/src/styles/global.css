@@ -440,7 +440,6 @@ code {
     .hero-shade {
         top: -68px;
     }
-
 }
 
 .hero-bg {
@@ -786,7 +785,9 @@ code {
         url("/assets/images/home/features/feature_smoke.webp");
     background-position: center top;
     background-repeat: no-repeat;
-    background-size: 100% 100%, cover;
+    background-size:
+        100% 100%,
+        cover;
 }
 
 .hero-intro-section .hero-pitch-band {
@@ -838,7 +839,9 @@ code {
     letter-spacing: 0.09em;
     line-height: 1.35;
     text-transform: uppercase;
-    text-shadow: 0 1px 2px #080503, 0 0 7px rgba(8, 5, 3, 0.95);
+    text-shadow:
+        0 1px 2px #080503,
+        0 0 7px rgba(8, 5, 3, 0.95);
 }
 
 .hero-claims li + li::before {
@@ -2103,7 +2106,6 @@ code {
     font-size: clamp(1.65rem, 1.6vw + 1.1rem, 2.2rem);
 }
 
-
 .subhero {
     padding: 82px 0 62px;
     background:
@@ -3359,16 +3361,36 @@ html.reveal-on .patches-section {
 }
 
 /* Introduce the cards above the row. */
-.hero-intro-section .hero-pitch-band { padding-top: clamp(36px, 4vw, 64px); }
-.feature-intro-heading { padding-top: 12px; text-align: center; }
-.feature-intro-heading .section-heading { max-width: 1100px; margin-bottom: 0; }
-.feature-intro-heading .eyebrow { margin-bottom: 40px; }
-.hero-intro-section .hero-feature-content { padding-top: 8px; padding-bottom: clamp(40px,6vw,80px); }
-.mechanic-factions > .faction-artwork { grid-column: 1 / -1; }
+.hero-intro-section .hero-pitch-band {
+    padding-top: clamp(36px, 4vw, 64px);
+}
+.feature-intro-heading {
+    padding-top: 12px;
+    text-align: center;
+}
+.feature-intro-heading .section-heading {
+    max-width: 1100px;
+    margin-bottom: 0;
+}
+.feature-intro-heading .eyebrow {
+    margin-bottom: 40px;
+}
+.hero-intro-section .hero-feature-content {
+    padding-top: 8px;
+    padding-bottom: clamp(40px, 6vw, 80px);
+}
+.mechanic-factions > .faction-artwork {
+    grid-column: 1 / -1;
+}
 
 /* Keep the editor composition identical to every responsive feature card. */
-.mechanic-card { grid-template-rows: auto 1fr; }
-.mechanic-visual { aspect-ratio: 680 / 415; min-height: 0; }
+.mechanic-card {
+    grid-template-rows: auto 1fr;
+}
+.mechanic-visual {
+    aspect-ratio: 680 / 415;
+    min-height: 0;
+}
 
 /* Frame the supplied gameplay screenshot at x=544,y=425,w=2330,h=1520.
    Preserve the original pixels and exclude both game interface sidebars. */
@@ -3390,11 +3412,17 @@ html.reveal-on .patches-section {
     top: -27.960526%;
     filter: none;
 }
-.mechanic-board-gameplay::after { background: none; }
+.mechanic-board-gameplay::after {
+    background: none;
+}
 
 /* The close-up artwork already contains only the battlefield. */
-.mechanic-board-closeup > img { filter: none; }
-.mechanic-board-closeup::after { background: none; }
+.mechanic-board-closeup > img {
+    filter: none;
+}
+.mechanic-board-closeup::after {
+    background: none;
+}
 
 /* ---------------------------------------------------------------------------
    Creature portraits (CreaturePortrait.astro)
@@ -3423,6 +3451,7 @@ html.reveal-on .patches-section {
 
 .portrait__bg,
 .portrait__art,
+.portrait__palette,
 .portrait__blur {
     position: absolute;
     inset: 0;
@@ -3457,6 +3486,11 @@ html.reveal-on .patches-section {
     z-index: 3;
     object-position: center;
     transform-origin: center;
+}
+
+/* Grade only Hydra's art, preserving the warm mouth/horns and luminous eyes, never its environment. */
+.portrait__palette {
+    z-index: 3;
 }
 
 /* The six creatures with no game recipe keep a plain, uncropped image. */

@@ -1,4 +1,5 @@
 import { portraitArtUrl } from "./portrait";
+import { catalogIconUrl } from "./catalog-icon";
 import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.json";
 import abilitiesJson from "@heroesofcrypto/common/src/configuration/abilities.json";
 import effectsJson from "@heroesofcrypto/common/src/configuration/effects.json";
@@ -63,7 +64,7 @@ const abilityIconOverrides: Readonly<Record<string, string>> = {
 };
 
 const abilityIcon = (name: string): string =>
-    abilityIconOverrides[name] ?? `/assets/images/units/abilities/${slug(name)}_256.webp`;
+    catalogIconUrl(abilityIconOverrides[name] ?? `/assets/images/units/abilities/${slug(name)}_256.webp`);
 
 // Mirrors common's MAX_UNIT_STACK_POWER (constants.ts) — the ceiling chakramBounceBudget clamps to.
 const MAX_UNIT_STACK_POWER = 5;
@@ -547,7 +548,7 @@ export const factionUnits: FactionUnits[] = factionOrder
     .map((faction) => ({
         faction,
         color: factionColors[faction],
-        icon: `/assets/images/units/factions/${faction.toLowerCase()}_128.webp`,
+        icon: catalogIconUrl(`/assets/images/units/factions/${faction.toLowerCase()}_128.webp`),
         units: Object.values(creatures[faction])
             .filter((raw) => !hiddenUnits.has(raw.name))
             .map((raw) => buildUnit(faction, raw))

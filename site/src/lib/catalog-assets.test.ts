@@ -2,10 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 import { artifacts } from "./artifacts-data";
+import { catalogIconUrl } from "./catalog-icon";
 import { spells } from "./spells-data";
 import { synergyIcons } from "./synergy-icons";
 import { abilities, allUnits, factionUnits } from "./units-data";
 import runtimeArt from "../../../game/core/animation-release.json";
+import { abilityImageKey, ABILITY_IMAGE_ALIASES } from "../../../game/core/src/ui/abilityImage";
+import { spellIconTextureKey } from "../../../game/core/src/scenes/spellIcons";
 
 interface AssetReference {
     owner: string;
@@ -18,6 +21,10 @@ const publicAssetPath = (url: string): string => {
 };
 
 const assetReferences = (): AssetReference[] => [
+    ...["armor", "might", "empower", "sniper", "movement", "board"].map((augment) => ({
+        owner: `${augment} augment`,
+        url: catalogIconUrl(`/assets/images/units/abilities/${augment}_augment_256.webp`),
+    })),
     ...artifacts.map((artifact) => ({ owner: `${artifact.name} artifact`, url: artifact.icon })),
     ...factionUnits.map((faction) => ({
         owner: `${faction.faction} faction`,
@@ -39,6 +46,33 @@ const assetReferences = (): AssetReference[] => [
 ];
 
 describe("public codex assets", () => {
+    test("spell and ability icon selections follow the game's current art and rename aliases", () => {
+        const pins: Record<string, unknown> = runtimeArt.files;
+        const filenameFor = (key: string): string =>
+            `${pins[`images/${key}.webp`] ? key : (ABILITY_IMAGE_ALIASES[key] ?? key)}.webp`;
+        for (const ability of abilities) {
+            expect(ability.icon.split("?", 1)[0].split("/").at(-1), ability.name).toBe(
+                filenameFor(abilityImageKey(ability.name)),
+            );
+        }
+        for (const spell of spells) {
+            expect(spell.icon.split("?", 1)[0].split("/").at(-1), spell.name).toBe(
+                filenameFor(spellIconTextureKey(spell.name)),
+            );
+        }
+    });
+
+    test("every flat catalog icon URL changes with its exported image bytes", async () => {
+        const references = assetReferences().filter((reference) => !reference.url.includes("/portraits/"));
+        for (const reference of references) {
+            const url = new URL(reference.url, "https://heroesofcrypto.io");
+            const bytes = await Bun.file(publicAssetPath(reference.url)).arrayBuffer();
+            expect(url.searchParams.get("v"), reference.owner).toBe(
+                new Bun.CryptoHasher("sha256").update(bytes).digest("hex").slice(0, 12),
+            );
+        }
+    });
+
     test("shared flat icons match the published game-art pins without a private art checkout", async () => {
         const pins: Record<string, { sha256: string; bytes: number }> = runtimeArt.files;
         const mismatches: string[] = [];
@@ -80,7 +114,7 @@ describe("public codex assets", () => {
     // with what it was guarding. Assert the property instead: distinct art, shared with no other spell.
     test("gives Empower spell art of its own", async () => {
         const empower = spells.find((spell) => spell.name === "Empower");
-        expect(empower?.icon).toBe("/assets/images/spells/empower_256.webp");
+        expect(empower?.icon.split("?", 1)[0]).toBe("/assets/images/spells/empower_256.webp");
 
         const digestOf = async (url: string): Promise<string> => {
             const asset = Bun.file(publicAssetPath(url));

@@ -3,6 +3,8 @@
  * the picture the catalog already rendered for them.
  */
 
+import { catalogIconUrl } from "./catalog-icon";
+
 const VISUAL_SOURCE_TYPES = new Set(["unit", "faction", "ability", "artifact", "spell"]);
 const FACTION_SLUGS = new Set(["life", "chaos", "might", "nature"]);
 
@@ -45,5 +47,5 @@ export const factionImagePath = (source: { id: string; name: string }): string |
     const fromId = source.id.startsWith("faction:") ? source.id.slice("faction:".length) : "";
     const slug = (fromId || source.name).toLowerCase().replace(/[^a-z]/g, "");
     if (!FACTION_SLUGS.has(slug)) return undefined;
-    return `/assets/images/units/factions/${slug}_128.webp`;
+    return catalogIconUrl(`/assets/images/units/factions/${slug}_128.webp`);
 };

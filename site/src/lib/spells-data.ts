@@ -13,6 +13,7 @@ import { TIER1_ARTIFACTS, TIER2_ARTIFACTS } from "@heroesofcrypto/common/src/art
 import { getSniperPower, SniperAugment } from "@heroesofcrypto/common/src/augments/augment_properties";
 
 import { allUnits, factionColors, type FactionName } from "./units-data";
+import { catalogIconUrl } from "./catalog-icon";
 
 const sniperAugmentPowers = [SniperAugment.LEVEL_1, SniperAugment.LEVEL_2, SniperAugment.LEVEL_3].map(getSniperPower);
 
@@ -103,6 +104,8 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
+    "Chaos:Fire Strike": "/assets/images/spells/fire_strike_chaos_256_v1.webp",
+    "Chaos:Meteorite": "/assets/images/spells/meteorite_chaos_256_v1.webp",
     "System:Luck Blessing": "/assets/images/units/abilities/luck_aura_256.webp",
     "System:Sylvan Focus Blessing": "/assets/images/units/abilities/sylvan_focus_aura_256.webp",
     "System:Tie up the Horses Blessing": "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
@@ -462,8 +465,9 @@ export const spells: Spell[] = bookOrder
                     book: displayBook,
                     kind: spellKind(book, raw, casters.length),
                     level: raw.level,
-                    icon:
+                    icon: catalogIconUrl(
                         spellIconOverrides[`${book}:${raw.name}`] ?? `/assets/images/spells/${slug(raw.name)}_256.webp`,
+                    ),
                     description,
                     descriptionRu: russianDescription(book, raw, description),
                     target: raw.target,

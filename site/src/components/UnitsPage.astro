@@ -1,7 +1,6 @@
 ---
 import CreaturePortrait from "./CreaturePortrait.astro";
 import UnitFootprint from "./UnitFootprint.astro";
-import recipes from "../lib/generated/portrait-recipes.json";
 import { content, type Language } from "../lib/site-data";
 import { knowledgeEntryId } from "../lib/knowledge-base";
 import { localizedFactionName } from "../lib/localization";
@@ -23,7 +22,6 @@ const allUnitsDisplay = [...unitIndex]
     .map((unit, dataIndex) => ({ unit, dataIndex }))
     .sort((a, b) => a.unit.name.localeCompare(b.unit.name) || a.unit.faction.localeCompare(b.unit.faction));
 const alphaOrder = new Map(allUnitsDisplay.map(({ dataIndex }, order) => [dataIndex, order]));
-const portraitRecipes = JSON.stringify(recipes.creatures);
 const serialized = JSON.stringify(
     unitIndex.map((unit) => ({
         ...unit,
@@ -263,15 +261,7 @@ function unitSearchText(unit: Unit) {
     <div class="unit-dialog-inner">
         <button class="unit-dialog-close" type="button" data-close aria-label={labels.close}>×</button>
         <header class="unit-dialog-head">
-            <span class="unit-dialog-portrait portrait">
-                <img class="portrait__bg" alt="" aria-hidden="true" hidden />
-                <span class="portrait__shade" hidden></span>
-                <img
-                    class="portrait__art"
-                    alt=""
-                    onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
-                />
-            </span>
+            <span class="unit-dialog-portrait"></span>
             <div class="unit-dialog-title">
                 <p class="unit-dialog-faction"><img alt="" width="20" height="20" /> <span></span></p>
                 <h2 id="unit-dialog-name"></h2>
@@ -316,11 +306,12 @@ function unitSearchText(unit: Unit) {
 </dialog>
 
 <script type="application/json" id="units-data" data-no-abilities={ui.noAbilities} set:html={serialized} />
-<script type="application/json" id="portrait-recipes" set:html={portraitRecipes} />
 </div>
 
 <script>
     import { decorateUnitCards } from "../lib/meta-stats-client";
+    import { portraitMarkup } from "../lib/portrait";
+    import { catalogIconUrl } from "../lib/catalog-icon";
 
     const catalog = document.querySelector<HTMLElement>("[data-units-catalog]");
     void decorateUnitCards();
@@ -363,19 +354,6 @@ function unitSearchText(unit: Unit) {
         icon: string;
     };
 
-    /** One creature's composed-portrait recipe, mirroring site/src/lib/generated/portrait-recipes.json. */
-    type PortraitRecipe = {
-        art: string;
-        background: string | null;
-        backgroundOpacity: number;
-        shadeAlpha: number;
-        blurBackdrop: boolean;
-        fit: "cover" | "contain";
-        scale: number;
-        offsetX: number;
-        offsetY: number;
-    };
-
     const LANG = document.documentElement.lang;
     const LEVEL_LABEL = LANG === "ru" ? "Уровень" : "Level";
     const AURA_LABEL = LANG === "ru" ? "аура" : "aura";
@@ -416,42 +394,11 @@ function unitSearchText(unit: Unit) {
 
     const dialog = catalog?.querySelector<HTMLDialogElement>("#unit-dialog") ?? null;
     if (dialog) {
-        const RECIPES = JSON.parse(
-            catalog?.querySelector<HTMLElement>("#portrait-recipes")?.textContent ?? "{}",
-        ) as Record<string, PortraitRecipe | undefined>;
-        const portraitBg = dialog.querySelector<HTMLImageElement>(".unit-dialog-portrait .portrait__bg")!;
-        const portraitShade = dialog.querySelector<HTMLElement>(".unit-dialog-portrait .portrait__shade")!;
-        const portraitArt = dialog.querySelector<HTMLImageElement>(".unit-dialog-portrait .portrait__art")!;
-
-        /* The dialog is built client-side, so it composes the portrait the same way CreaturePortrait.astro
-           does on the server: faction background, shade, then the art under its approved crop. A creature
-           with no recipe (the Death four, Phoenix, Faerie Dragon) falls back to its plain image. */
+        const portrait = dialog.querySelector<HTMLElement>(".unit-dialog-portrait")!;
+        // Use the same compositor as cards and Premium. A separate painter silently lost mirroring,
+        // Hydra's palette and Chaos tones when those were added to the game's portrait recipe.
         const paintPortrait = (unit: Unit): void => {
-            const recipe = RECIPES[unit.slug];
-            portraitArt.alt = unit.name;
-            if (!recipe) {
-                portraitBg.hidden = true;
-                portraitShade.hidden = true;
-                portraitArt.classList.add("portrait__art--plain");
-                portraitArt.removeAttribute("style");
-                portraitArt.src = unit.portrait;
-                return;
-            }
-            portraitArt.classList.remove("portrait__art--plain");
-            if (recipe.background) {
-                portraitBg.src = `/assets/images/units/portrait-backgrounds/${recipe.background}`;
-                portraitBg.style.opacity = String(recipe.backgroundOpacity);
-                portraitBg.hidden = false;
-                portraitShade.style.opacity = String(recipe.shadeAlpha);
-                portraitShade.hidden = false;
-            } else {
-                portraitBg.hidden = true;
-                portraitShade.hidden = true;
-            }
-            portraitArt.style.objectFit = recipe.fit;
-            portraitArt.style.transform =
-                `translate(${recipe.offsetX}%, ${recipe.offsetY}%) scale(${recipe.scale})`;
-            portraitArt.src = `/assets/images/units/portraits/${recipe.art}`;
+            portrait.innerHTML = portraitMarkup(unit.slug, unit.name, { eager: true });
         };
         const nameEl = dialog.querySelector<HTMLHeadingElement>("#unit-dialog-name")!;
         const metaEl = dialog.querySelector<HTMLParagraphElement>(".unit-dialog-meta")!;
@@ -473,7 +420,7 @@ function unitSearchText(unit: Unit) {
             paintPortrait(unit);
             metaEl.textContent = `${LEVEL_LABEL} ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}${unit.summonedOnly ? ` · ${SUMMONED_ONLY_LABEL}` : ""}`;
             factionP.style.setProperty("--faction", factionColor(unit.faction));
-            factionImg.src = FACTION_ICON[unit.faction] ?? "";
+            factionImg.src = catalogIconUrl(FACTION_ICON[unit.faction] ?? "");
             factionTxt.textContent = unit.factionLabel ?? FACTION_LABEL[unit.faction] ?? unit.faction;
 
             statEls.hp.textContent = String(unit.hp);
@@ -1114,11 +1061,18 @@ function unitSearchText(unit: Unit) {
        190x256 pick-card proportions instead of the square tile it used to be. The head grid column stays
        220px wide; only the row grows. object-fit belongs to the composed layers now, never to this box. */
     .unit-dialog-portrait {
+        position: relative;
+        overflow: hidden;
         width: 220px;
         aspect-ratio: 190 / 256;
         height: auto;
         border-radius: 8px;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .unit-dialog-portrait :global(.portrait) {
+        position: absolute;
+        inset: 0;
     }
 
     .unit-dialog-faction {

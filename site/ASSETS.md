@@ -6,6 +6,20 @@ See [the complete restore and verification instructions](../ANIMATION_RELEASE.md
 The versioned `site/public` exports build without access to any developer's machine or Google session.
 The sections below document earlier releases and are retained as history.
 
+## Knowledge Base art
+
+`bun run --cwd site sync:art` exports the canonical `HOC_IMAGES_LOC` artwork and the game's current
+portrait settings. Generate the full development image manifest first with
+`bun run --cwd game/core generate:images`. The portrait export includes mirroring, faction shades,
+Chaos background contrast and Hydra's selective green scale palette. It validates every source before
+changing existing exports; it never writes to the canonical art directory.
+
+Flat catalog icons receive a content-derived `?v=` URL from `catalog-icon-versions.json`; portraits and
+their backgrounds have content-hashed filenames. Updating artwork therefore invalidates browser caches
+without waiting for the website's one-day image cache to expire. Run `bun run --cwd site check:art`
+after syncing. CI checks exported hashes, icon selections and portrait settings without private Drive
+access; a configured art checkout additionally verifies byte parity with the masters.
+
 ## Responsive delivery
 
 Astro generates responsive WebP derivatives of the selected tavern during the build. The approved
