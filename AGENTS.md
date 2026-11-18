@@ -59,6 +59,11 @@ Use **`bun fmt`**, not a separate Prettier invocation, for formatting. Run it on
 formatting stays targeted. Use `bun fmt --no-script --check <paths>` for a read-only formatting check;
 the repository's lint/check commands remain the validation gate. Do not format a peer's in-flight files.
 
+Run focused tests while editing, then the full `bun run check` once for the finalized source. That
+command already runs the common suite; do not also start a separate full common test run alongside
+it. Repeat a passed gate when code, dependency pins or relevant configuration change. Consolidate
+shared fixtures around observable behavior, and keep full simulations for assertions that need them.
+
 Core tests run in isolated worker processes: up to 12 locally and 2 on CI. Run `bun run test:core` for
 the full suite; its timing profile schedules slow files first without limiting test discovery. To collect
 fresh per-file timings, use `bun run test:core --timings tmp/core-test-timings.json --update-timings`.
@@ -197,6 +202,30 @@ server README's **Matchmaking handoff** section documents the invariant and regr
   restarted, while Linux CI stays green. `bun run check:case` (part of `bun run check`) fails on any such pair.
 
 ## AI tournament analyser
+
+The user explicitly adopted the separate revealed-ranged draft/setup candidates on November 18, 2026 UTC.
+The authoritative default is now profile v12, `revealed-ranged-exclusive-delivery-v1`: after consuming
+its delivery draft override, a seat keeps native setup; otherwise the funded delivery setup can apply.
+Read common's `docs/revealed_ranged_delivery_adoption.md`. Keep the uncertain +7.407407 pp and +9.259259 pp
+component results, failed −1.851852 pp combination, immutable checkpoints and exclusions intact.
+The estimates are not additive or fresh qualification. Preserve public visibility, persisted independent
+budgets, Premium routing and atomic collision/restart behavior. The wire default remains v0.8 with
+locked V3/contextual draft and A19 combat. New default comparisons use v12.
+
+The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026. The default remains
+locked v0.9 V3/contextual draft plus A19-backed v0.8 combat, now profile v11. Read common's
+`docs/terrain_placement_adoption.md` before changing it. Preserve its +7.638889-point exploratory
+estimate and 95% interval 0 to +16.666667 as uncertain evidence, not a passed qualification.
+The serving rule covers default AI and Premium formation, uses only public neutral barrels,
+and leaves normal/lava placement unchanged.
+
+The user explicitly adopted `nightmare-wall-movement-coverage-v1` into the A19-backed v0.8 default
+on November 17, 2026, establishing profile v10 before the terrain adoption above. The locked V3/contextual draft and accepted
+neural models retain their identities. Read
+`game/heroes-of-crypto-common/docs/nightmare_wall_movement_adoption.md` before iterating on it.
+Preserve the exact ground-wall plus omitted-movement comparison policy and its original failed
+qualification evidence. New experiments compare against the adopted default; already-running frozen
+studies keep their registered comparator. The server's revision ends in `barrel-v1-nightmare-v1`.
 
 For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
 `src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall

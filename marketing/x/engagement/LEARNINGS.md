@@ -369,3 +369,42 @@ Weekly X research refresh (2–8 Nov 2026 PT). Read-only. About 55 public X API 
 - 2026-11-14: Reach is ~8-19 views per post regardless of slot or format (rule explainer, question, dev diary); 0 likes and 0 outside replies for 5+ days at 90 followers. Distribution, not wording, is the bottleneck; post-side tweaks cannot be judged until reach moves. Posting is also blocked by the X account check since Fri 4:48 PM.
 
 - 2026-11-15 (daily): No new snapshots due; no posts since Fri 13 midday because of the X email check (about 2 days, 7 slots missed). Followers flat at 90, tactics replies 0, token replies 0. Best recent 24h: Wed 11 morning 24 views, 0 ER. Nothing to learn until posting resumes.
+
+## 2026-11-16 (weekly)
+
+Weekly X research refresh (9–15 Nov 2026 PT). Read-only. About 30 public X API reads. Full report: research/2026-11-16-weekly.md (+ .html).
+
+### Market findings
+
+- "Then vs now" is the new studio format: @Look_behindyou "how our indie game started vs. how it looks today" 413 / 9 replies / 15,560 https://x.com/Look_behindyou/status/2120915037279928798 (about 4–6x its other recent posts). Klukva and Lavapotion ("YEARS of iterations" 107 / 3,534 https://x.com/Lavapotion/status/2120510435623354389) ran the same idea.
+- Finished character art + one opinion question keeps compounding: @SynthWave6666 2,104 → 2,404 followers (+14%); Severine 2,519 / 17,651 https://x.com/SynthWave6666/status/2119845808543859054, new design 1,343 / 13,795. A sketch asking for feedback got only 932 views; finished art wins.
+- The "removing AI" meme faded. Tactics accounts switched to "The algorithm thinks you'd like my indie game" + clip: @WishseekerGame (1,084) 198 / 7,068 https://x.com/WishseekerGame/status/2120087568218010032, @wintersong_game (1,372) 95 / 5,539. @NextaleGames' "If you are into Triangle Strategy, FFTA2…" got 156 / 5,038.
+- HoMM3 Remake: @MightMagicGame Angels 3D model 69 / 9 replies / 2,335; Playstyles dev showcase Tue 17 Nov; Closed Playtest Wed 18 Nov. Heroes III / Olden Era keyword volume is small on the counts endpoint (273 posts in 7 days).
+- AI disclosure backlash: X news 16 Nov, an indie horror game boycotted over its Steam AI disclosure (https://x.com/i/trending/2122273057653809539). X now allows up to 20 images per post (https://x.com/i/trending/2121318266949845114).
+- #TurnBasedThursday 12 Nov was smaller: host @SpiralChris (personal) 6 replies; @ihobogames Bazaar thread 23 replies / 2,926 (382 followers). Best game post @RuneCipherGame (675) 360 / 5,047. Next is Thu 19 Nov.
+- Quiet: @OverhypeStudios (no originals since 5 Nov), @TeamWoodGames, @Unfrozen_Studio, @shirogames, @Midjiwan, @vampiretactics, @WickedNightGame, @StudioDraconis. Astra + game 1,469 (1,767). Browser "turn-based PvP" is still spam/Web3 (@ShadowCityGame, Hall of Ash).
+
+### Our comparison
+
+- Followers 90 (flat). Pin 211 (189). 14 of 21 slots posted. The X "Review your email" check blocked Fri 13 4:48 PM → Sun 15 4:48 PM, and Mon 16 6:48 AM also failed (8 slots in a row). All text-only, 0 media since 17 Oct.
+- Avg 24h views 13.2 (n=14, median 12), flat vs 13.1. Slots: morning 15.0 (n=5), midday 12.8, evening 11.5. That flips last week's order, so slot order is noise at this n. Statements 13.9 (n=10) vs question framing 11.5 (n=4), with 0 replies either way. The one dev diary (Zena chakram) got 8.
+- Best "now": Valkyrie Wind Flow 13 → 33, War Anger 11 → 29, Dryad Hamstring 21. All three open with a one-line expectation flip about a named unit. 0 outside likes (1 in each of the two prior weeks), 0 outside replies for 33 days, 0 mentions, outreach.csv still empty.
+- Lesson: every account our size that broke out this week used an image, gallery or clip; text-tip accounts (quasimorph, MeltedGames) sit near our numbers. Wording is no longer the test. Media, outreach, and posting reliability (the account check) are the levers.
+
+### Proposed changes for Stepan (proposals only, no edits to XCOM.md / CALENDAR.md / IMAGES.md)
+
+1. Clear the "Review your email" prompt (confirm only). Add an XCOM.md rule: on any account check, flag Stepan once and hold the queue; when cleared, post the make-up first; never change the number or email.
+2. Portrait-gallery post with existing art: "Meet the [faction] line. Which one do you draft first?" + 4 real portraits from site/public/assets/images/units/portraits/ (58 files), one per faction, evening slot. IMAGES.md would allow 2–4 real portraits as a gallery with one opinion question. No claim about how the art was made.
+3. "Then vs now" post: an old battle-board screenshot next to the current one (needs one old screenshot from Stepan).
+4. Heroes III dev diary on Wed 18 Nov midday (playtest day), from Stepan's facts; skip it if they don't arrive.
+5. Media arm: three 5–10 s real-match clips (Wind Flow, White Tiger Hidden/Visible, board shrink); optional "The algorithm thinks you'd like a turn-based PvP game" hook on one.
+6. Outreach: one text-only reply a day (Stepan posts, or standing permission). Targets: @MightMagicGame playtest posts, TBT 19 Nov, @NextaleGames, @gr8_rebellion.
+7. Copy: keep slot times (withdraw the 9:30 AM test); statements by default with questions in the self-reply; lead with a one-line expectation flip.
+8. Profile: drop "(HOCAI)" and the 🟦, add the final period; delete or redo the garbled Quiver self-reply.
+
+### Routine target list additions
+
+- **Added @Hybrid_Fiction** (1,539; official *Stratagem Lost* tactical RPG account; active, joined TBT 12 Nov https://x.com/Hybrid_Fiction/status/2120927729684029754).
+- **@gr8_rebellion back from skip** (8,049; review-bomb drama over, normal Dverghold dev posts 2,055–2,114 views).
+- Priority this week: @MightMagicGame, TBT host 19 Nov, @SynthWave6666, @NextaleGames, @WishseekerGame, @wintersong_game, @Look_behindyou.
+- Not added: @RuneCipherGame (675, recheck at 1K), @ihobogames (382), @SpiralChris (personal), @KolaCape (642), @telestians (548), @DadduDev, @Inkarn8Game, @DieCastTogether (under floor), @ShadowCityGame (spam-like), @after_strategy / @gamerankreport / @RespawningUK (press/aggregators). Watch-only: @TurnBasedThurs (7,517).
