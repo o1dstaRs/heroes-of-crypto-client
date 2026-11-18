@@ -4799,107 +4799,7 @@ export class CombatVisuals {
         return this.boardStretchCache;
     }
     public spawnFireforgedSwordBurn(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
-        const container = new Container();
-        this.attachEffect(container, FIRE_Z);
-        const tex = this.getFireTexture();
-        const texW = tex.width || 64;
-        const size = Math.max(1, cellSize);
-        const particles: IFireBurnParticle[] = [];
-
-        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
-            sprite.anchor.set(0.5);
-            sprite.scale.set(0.001);
-            sprite.alpha = 0;
-            sprite.visible = false;
-            container.addChild(sprite);
-            particles.push({ sprite, ...particle });
-        };
-
-        // The cut runs perpendicular to the blow, so a strike coming from the left lands a vertical slash.
-        const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
-        const swing = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) + Math.PI / 2 : Math.random() * Math.PI * 2;
-        const ux = Math.cos(swing);
-        const uy = Math.sin(swing);
-        // Perpendicular to the cut: what the crescent bows along, so the arc curves like a swung edge.
-        const px = -uy;
-        const py = ux;
-        const length = size * FF_SWORD_ARC_LENGTH;
-        const bow = size * FF_SWORD_ARC_BOW * (Math.random() < 0.5 ? -1 : 1);
-
-        // Flames along the arc, ignited in order so the edge appears to travel through the unit.
-        for (let i = 0; i < FF_SWORD_FLAME_COUNT; i++) {
-            const t = i / (FF_SWORD_FLAME_COUNT - 1);
-            const along = (t - 0.5) * length;
-            // Fat in the middle, tapering to nothing at the tips — the shape of a swung edge.
-            const taper = Math.sin(Math.PI * t);
-            const curve = bow * taper;
-            const jitter = size * 0.05;
-            const rand = Math.random();
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-            push(sprite, {
-                // The whole sweep takes FF_SWORD_SWEEP_S; each flame waits its turn along the blade.
-                age: -t * FF_SWORD_SWEEP_S,
-                life: FF_SWORD_FLAME_LIFE * (0.75 + 0.5 * rand),
-                x: center.x + ux * along + px * curve + (Math.random() - 0.5) * jitter,
-                y: center.y + uy * along + py * curve + (Math.random() - 0.5) * jitter,
-                riseY: size * (0.22 + 0.3 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.22,
-                // Biggest at the belly of the cut, slim at the tips.
-                startScale: (size * (0.16 + 0.3 * taper) * (0.85 + 0.3 * rand)) / texW,
-                endScale: (size * (0.06 + 0.1 * rand)) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.07,
-                rot: swing + (Math.random() - 0.5) * 0.6,
-                spin: (Math.random() - 0.5) * 3.5,
-            });
-        }
-
-        // A hot core flash at the belly of the cut, timed to the middle of the sweep — the moment the
-        // edge bites rather than the moment it arrives.
-        const flash = new Sprite(tex);
-        flash.blendMode = "add";
-        flash.tint = 0xffe2a0;
-        push(flash, {
-            age: -FF_SWORD_SWEEP_S * 0.5,
-            life: FF_SWORD_FLASH_LIFE,
-            x: center.x,
-            y: center.y,
-            riseY: size * 0.06,
-            driftX: 0,
-            startScale: (size * 0.3) / texW,
-            endScale: (size * 0.95) / texW,
-            peakAlpha: 0.8,
-            fadeInFraction: 0.12,
-            rot: swing,
-            spin: 0,
-        });
-
-        // Soot rising off the cut once the edge has passed.
-        for (let i = 0; i < FF_SWORD_SMOKE_COUNT; i++) {
-            const rand = Math.random();
-            const t = 0.25 + Math.random() * 0.5;
-            const along = (t - 0.5) * length;
-            const sprite = new Sprite(tex);
-            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
-            push(sprite, {
-                age: -(FF_SWORD_SWEEP_S + 0.05 + Math.random() * 0.16),
-                life: BURN_SMOKE_LIFE * (0.7 + 0.4 * rand),
-                x: center.x + ux * along + (Math.random() - 0.5) * size * 0.3,
-                y: center.y + uy * along + (Math.random() - 0.5) * size * 0.2,
-                riseY: size * (0.7 + 0.45 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.45,
-                startScale: (size * (0.22 + 0.14 * rand)) / texW,
-                endScale: (size * (0.62 + 0.35 * rand)) / texW,
-                peakAlpha: 0.38,
-                fadeInFraction: 0.25,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 1.4,
-            });
-        }
-
-        this.fireBurns.push({ container, particles });
+        this.fireParticleLayer().swordImpact(center, cellSize, dir);
     }
     public spawnFireWallCrossing(
         center: HoCMath.XY,
@@ -5342,21 +5242,6 @@ export class CombatVisuals {
         if (this.context.legacyEffectsEnabled) this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
     }
 }
-
-const FF_SWORD_FLAME_COUNT = 16;
-
-// The burn still starts on contact; its blade sweep and embers need time to read as a separate fire hit.
-const FF_SWORD_SWEEP_S = 0.3;
-
-const FF_SWORD_FLAME_LIFE = 0.7;
-
-const FF_SWORD_FLASH_LIFE = 0.35;
-
-const FF_SWORD_SMOKE_COUNT = 5;
-
-const FF_SWORD_ARC_LENGTH = 1.25;
-
-const FF_SWORD_ARC_BOW = 0.3;
 
 const WALL_CROSS_FLAME_COUNT = 28;
 

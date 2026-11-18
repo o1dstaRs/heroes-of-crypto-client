@@ -8,12 +8,13 @@ import type { WhirlpoolFootprint as Footprint } from "./WhirlpoolSprites";
 type Material = "flame" | "smoke" | "glow" | "rock" | "tongue";
 type Materials = Record<Exclude<Material, "tongue">, Texture[]> & { tongue?: Texture[] };
 type Cast = {
-    kind: "ring" | "meteor" | "strike" | "fireball";
+    kind: "ring" | "meteor" | "strike" | "fireball" | "sword";
     target: Footprint;
     area: Footprint;
     start: number;
     delay: number;
     seed: number;
+    direction?: { x: number; y: number };
     hollow?: boolean;
     hotImpact?: boolean;
     from?: { x: number; y: number };
@@ -33,6 +34,7 @@ export const fireStrikeFlightMs = (from: { x: number; y: number }, to: { x: numb
     Math.max(390, Math.min(780, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * 72));
 export const fireballFlightMs = (from: { x: number; y: number }, to: { x: number; y: number }, cell: number) =>
     Math.max(340, Math.min(780, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * 76));
+export const FIREFORGED_SWORD_BURN_MS = 1450;
 const TAU = Math.PI * 2;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const valid = (f: Footprint) =>
@@ -149,6 +151,8 @@ export class SpellFireParticles {
     private groundPool: Sprite[] = [];
     private arrows: Graphics[] = [];
     private arrowsUsed = 0;
+    private swordCuts: Graphics[] = [];
+    private swordCutsUsed = 0;
     private airUsed = 0;
     private groundUsed = 0;
     public constructor(
@@ -205,6 +209,133 @@ export class SpellFireParticles {
         const casts = new Set([...(this.updateQueue ?? []), ...this.casts]);
         this.casts = [...casts].filter((cast) => !cast.onImpact);
         this.updateQueue = undefined;
+    }
+    /** A confirmed blade burn: no delivery callback and no ownership of the next action. */
+    public swordImpact(center: { x: number; y: number }, cellSize: number, direction?: { x: number; y: number }): void {
+        const target = { center, width: cellSize, height: cellSize };
+        if (!valid(target)) return;
+        this.add([
+            {
+                kind: "sword",
+                target: copy(target),
+                area: copy(target),
+                direction: direction ? { ...direction } : undefined,
+                start: this.now(),
+                delay: 0,
+                seed: Math.floor(Math.random() * 200),
+            },
+        ]);
+    }
+    private drawSword(cast: Cast, ms: number): void {
+        const age = ms / 1000;
+        const { center, width: size } = cast.target;
+        const direction = cast.direction;
+        const angle =
+            direction &&
+            Number.isFinite(direction.x) &&
+            Number.isFinite(direction.y) &&
+            Math.hypot(direction.x, direction.y) > 0.001
+                ? Math.atan2(direction.y, direction.x) + Math.PI / 2
+                : Math.PI / 3;
+        const ux = Math.cos(angle),
+            uy = Math.sin(angle);
+        const point = (t: number) => {
+            const along = (t - 0.5) * size * 1.25;
+            const bow = Math.sin(t * Math.PI) * size * 0.24;
+            return { x: center.x + ux * along - uy * bow, y: center.y + uy * along + ux * bow };
+        };
+        // A tapered white-hot edge gives the impact a blade shape; the tongues below leave fire in
+        // its wake. Both are drawn immediately at contact, with no image download or delayed timer.
+        if (age < 0.58 && this.swordCutsUsed < 48) {
+            let cut = this.swordCuts[this.swordCutsUsed++];
+            if (!cut) {
+                cut = new Graphics();
+                cut.blendMode = "add";
+                this.air!.addChild(cut);
+                this.swordCuts.push(cut);
+            }
+            cut.clear();
+            cut.visible = true;
+            const head = clamp((age + 0.035) / 0.25),
+                tail = Math.max(0, head - 0.7);
+            for (const [width, color] of [
+                [0.11, 0xe94908],
+                [0.052, 0xffb12c],
+                [0.018, 0xfff1c4],
+            ]) {
+                const sides: number[][] = [[], []];
+                for (let i = 0; i <= 18; i++) {
+                    const t = tail + ((head - tail) * i) / 18;
+                    const p = point(t);
+                    const half = Math.sin((Math.PI * i) / 18) * size * width;
+                    sides[0].push(p.x - uy * half, -(p.y + ux * half));
+                    sides[1].push(p.x + uy * half, -(p.y - ux * half));
+                }
+                // Reverse coordinate PAIRS along the second edge, rather than reversing x and y.
+                const back: number[] = [];
+                for (let i = sides[1].length - 2; i >= 0; i -= 2) back.push(sides[1][i], sides[1][i + 1]);
+                cut.poly([...sides[0], ...back]).fill({ color, alpha: clamp((0.58 - age) / 0.3) });
+            }
+        }
+        for (let i = 0; i < 24; i++) {
+            const p = seeds[(cast.seed + i) % seeds.length];
+            const along = i / 23,
+                born = along * 0.25,
+                life = 0.65 + p.life * 0.35;
+            const t = (age - born) / life;
+            if (t < 0 || t >= 1) continue;
+            const origin = point(along);
+            const flame = clamp(t / 0.07) * (1 - t) ** 0.7;
+            const sway = Math.sin(age * 17 + p.phase) * size * 0.04 * t;
+            this.puff(
+                "tongue",
+                origin.x + sway,
+                origin.y + size * t * 0.32,
+                size * (0.16 + p.radius * 0.16) * (1 - t * 0.5),
+                size * (0.35 + p.speed * 0.42) * (1 - t * 0.6),
+                flame * 0.95,
+                0xffffff,
+                i,
+                Math.sin(age * 11 + p.phase) * 0.22,
+            );
+            this.puff(
+                "flame",
+                origin.x,
+                origin.y + size * t * 0.16,
+                size * 0.22 * (1 - t),
+                size * 0.26 * (1 - t),
+                flame * 0.8,
+                0xff8b23,
+                i,
+            );
+        }
+        const soot = clamp((age - 0.32) / 1.1);
+        if (age > 0.32)
+            for (let i = 0; i < 7; i++) {
+                const p = seeds[(cast.seed + i + 48) % seeds.length];
+                const origin = point(0.2 + p.radius * 0.6);
+                this.puff(
+                    "smoke",
+                    origin.x + Math.sin(p.phase + age) * size * soot * 0.2,
+                    origin.y + size * soot * 0.85,
+                    size * (0.18 + soot * 0.3),
+                    size * (0.22 + soot * 0.4),
+                    Math.sin(soot * Math.PI) * 0.23,
+                    0x655047,
+                    i,
+                    p.phase + age * 0.3,
+                );
+            }
+        this.embers(cast.target, age, cast.seed, 26);
+        this.puff("glow", center.x, center.y, size * 0.75, size * 0.65, Math.exp(-age * 12) * 0.85, 0xffb343, 0);
+        this.emitAtmosphere?.({
+            x: center.x,
+            y: center.y,
+            width: size * 1.6,
+            height: size * 1.4,
+            light: Math.exp(-age * 8) * 0.5,
+            heat: clamp(1 - age) * 0.25,
+        });
     }
     public fireballImpact(target: Footprint, area: Footprint): void {
         if (!valid(target) || !valid(area)) return;
@@ -865,13 +996,14 @@ export class SpellFireParticles {
         const queue = this.casts;
         this.casts = [];
         this.updateQueue = queue;
-        this.airUsed = this.groundUsed = this.arrowsUsed = 0;
+        this.airUsed = this.groundUsed = this.arrowsUsed = this.swordCutsUsed = 0;
         const now = this.now();
         try {
             // Impact can enqueue the explosion into this same frame; it must not overwrite or lose it.
             for (let index = 0; index < queue.length && generation === this.generation; index++) {
                 const cast = queue[index];
-                const age = (now - cast.start) * FIRE_SPELL_PLAYBACK_SPEED - cast.delay;
+                // Blade damage keeps its readable duration independent of spell-flight speed settings.
+                const age = (now - cast.start) * (cast.kind === "sword" ? 1 : FIRE_SPELL_PLAYBACK_SPEED) - cast.delay;
                 const contact = cast.kind === "strike" ? FIRE_STRIKE_RELEASE_MS + cast.flight! : cast.flight!;
                 if ((cast.kind === "strike" || cast.kind === "fireball") && age >= contact && cast.onImpact) {
                     const impact = cast.onImpact;
@@ -880,13 +1012,15 @@ export class SpellFireParticles {
                     if (generation !== this.generation) break;
                 }
                 const life =
-                    cast.kind === "strike"
-                        ? contact + FIRE_STRIKE_BURN_MS / FIRE_STRIKE_EXPLOSION_SPEED
-                        : cast.kind === "fireball"
-                          ? contact
-                          : cast.kind === "ring"
-                            ? FIRE_RING_LIFE_MS
-                            : METEOR_FALL_MS + METEOR_IMPACT_MS;
+                    cast.kind === "sword"
+                        ? FIREFORGED_SWORD_BURN_MS
+                        : cast.kind === "strike"
+                          ? contact + FIRE_STRIKE_BURN_MS / FIRE_STRIKE_EXPLOSION_SPEED
+                          : cast.kind === "fireball"
+                            ? contact
+                            : cast.kind === "ring"
+                              ? FIRE_RING_LIFE_MS
+                              : METEOR_FALL_MS + METEOR_IMPACT_MS;
                 if (age >= life) continue;
                 if (age >= 0) {
                     if (cast.kind === "ring" || cast.kind === "meteor")
@@ -897,7 +1031,8 @@ export class SpellFireParticles {
                             cast.target,
                             cast.area,
                         );
-                    if (cast.kind === "ring") this.drawRing(cast, age);
+                    if (cast.kind === "sword") this.drawSword(cast, age);
+                    else if (cast.kind === "ring") this.drawRing(cast, age);
                     else if (cast.kind === "meteor") this.drawMeteor(cast, age);
                     else if (cast.kind === "fireball") this.drawFireball(cast, age);
                     else this.drawStrike(cast, age);
@@ -913,6 +1048,7 @@ export class SpellFireParticles {
             if (this.updateQueue === queue) this.updateQueue = undefined;
             this.updating = false;
         }
+        for (let i = this.swordCutsUsed; i < this.swordCuts.length; i++) this.swordCuts[i].visible = false;
         for (let i = this.arrowsUsed; i < this.arrows.length; i++) this.arrows[i].visible = false;
         for (let i = this.airUsed; i < this.airPool.length; i++) this.airPool[i].visible = false;
         for (let i = this.groundUsed; i < this.groundPool.length; i++) this.groundPool[i].visible = false;
@@ -927,6 +1063,7 @@ export class SpellFireParticles {
         this.air = this.ground = undefined;
         this.airPool = [];
         this.arrows = [];
+        this.swordCuts = [];
         this.groundPool = [];
         for (const textures of Object.values(this.materials ?? {}))
             for (const texture of textures ?? []) texture.destroy(true);

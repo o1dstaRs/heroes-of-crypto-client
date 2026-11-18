@@ -282,3 +282,49 @@ test("preview cast eviction cancels the evicted contact, and cancellation preser
     expect(hits).toBe(0);
     layer.clear();
 });
+
+test("Fireforged damage draws a hot edge and textured flames at contact, keeps a readable tail, and never owns a delivery", async () => {
+    const { root, textures, layer, at } = fixture();
+    layer.swordImpact(footprint.center, 64, { x: 1, y: 0 });
+    expect(layer.active).toBe(true);
+    expect(layer.hasPendingImpacts).toBe(false);
+    expect(await layer.waitForPendingImpacts()).toBe(true);
+    const air = root.children[0];
+    expect(air.children.some((c) => c.visible && c.alpha > 0)).toBe(true);
+    at(160);
+    expect(air.children.some((c) => c instanceof Sprite && c.texture === textures[4] && c.visible)).toBe(true);
+    const edge = air.children.find((c) => !(c instanceof Sprite));
+    expect(edge?.visible).toBe(true);
+    at(750);
+    expect(edge?.visible).toBe(false);
+    expect(air.children.some((c) => c instanceof Sprite && c.texture === textures[4] && c.visible && c.alpha > 0)).toBe(
+        true,
+    );
+    at(1450);
+    expect(layer.active).toBe(false);
+    expect(air.children.every((c) => !c.visible)).toBe(true);
+    const pool = [...air.children];
+    layer.swordImpact({ x: 220, y: 150 }, 64, { x: -1, y: 1 });
+    at(1610);
+    expect(pool.every((c) => air.children.includes(c))).toBe(true);
+    expect(textures).toHaveLength(5);
+    layer.clear();
+    expect(root.children).toHaveLength(0);
+    expect(textures.every((t) => t.destroyed)).toBe(true);
+});
+
+test("Fireforged bursts reject bad impact points and remain finite for vertical, coincident and missing directions", () => {
+    const { root, layer, at } = fixture();
+    layer.swordImpact({ x: NaN, y: 10 }, 64);
+    layer.swordImpact(footprint.center, Infinity);
+    expect(root.children).toHaveLength(0);
+    for (const dir of [undefined, { x: 0, y: 0 }, { x: 0, y: 1 }, { x: Infinity, y: NaN }])
+        layer.swordImpact(footprint.center, 64, dir);
+    for (const time of [0, 100, 250, 700, 1200, 1450]) {
+        at(time);
+        for (const c of root.children[0].children)
+            expect([c.x, c.y, c.scale.x, c.scale.y, c.rotation, c.alpha].every(Number.isFinite)).toBe(true);
+    }
+    expect(layer.active).toBe(false);
+    layer.clear();
+});

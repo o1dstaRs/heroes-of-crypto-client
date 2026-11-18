@@ -3,6 +3,7 @@ import { Container, Sprite, Texture, TextureSource } from "pixi.js";
 import { GridConstants, GridSettings, type GameEvent, type UnitsHolder } from "@heroesofcrypto/common";
 import { Sandbox } from "../Sandbox";
 import { CombatVisuals } from "./CombatVisuals";
+import { SpellFireParticles } from "./SpellFireParticles";
 
 function fixture() {
     const root = new Container();
@@ -41,6 +42,16 @@ function fixture() {
         showShieldAbsorbs: () => {},
     });
     let now = 1000;
+    Object.assign(visuals, {
+        spellFireParticles: new SpellFireParticles(
+            (node) => root.addChild(node),
+            () => now,
+            () => {
+                const material = () => [new Texture({ source: new TextureSource({ width: 64, height: 64 }) })];
+                return { flame: material(), smoke: material(), glow: material(), rock: material(), tongue: material() };
+            },
+        ),
+    });
     const clock = spyOn(performance, "now").mockImplementation(() => now);
     const random = spyOn(Math, "random").mockReturnValue(0.5);
     return {
@@ -190,20 +201,17 @@ test("Fireforged Sword has a readable sweep and lingering flames that finish acr
     const f = fixture();
     try {
         f.visuals.spawnFireforgedSwordBurn({ x: 240, y: 160 }, 64, { x: 1, y: 0 });
-        const burn = f.internals.fireBurns[0].container;
-        const flames = (burn.children as Sprite[]).filter(
-            (sprite) => sprite.blendMode === "add" && sprite.tint !== 0xffe2a0,
-        );
+        const air = f.root.children[0];
         f.step(0.2);
-        expect(flames.some((sprite) => sprite.visible && sprite.alpha > 0)).toBe(true);
-        expect(flames.some((sprite) => !sprite.visible)).toBe(true);
+        expect(air.children.some((sprite) => sprite.visible && sprite.alpha > 0)).toBe(true);
         f.step(0.55);
-        expect(flames.some((sprite) => sprite.visible && sprite.alpha > 0)).toBe(true);
+        expect(air.children.some((sprite) => sprite.visible && sprite.alpha > 0)).toBe(true);
         f.visuals.clear({ keepDetachedOverlays: true });
-        expect(burn.destroyed).toBe(false);
+        expect(air.destroyed).toBe(false);
+        // These tails are cosmetic: the accepted damage has already landed.
+        expect(f.visuals.hasPendingSpellImpacts()).toBe(false);
         f.step(2);
-        expect(burn.destroyed).toBe(true);
-        expect(f.root.children).toHaveLength(0);
+        expect(air.children.every((sprite) => !sprite.visible)).toBe(true);
     } finally {
         f.dispose();
     }
