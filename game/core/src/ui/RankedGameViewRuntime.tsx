@@ -137,6 +137,7 @@ import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { startVisibleInterval } from "./visibleInterval";
 import { isOlderRankedSnapshot, playMissingRankedSnapshotRecords, waitForRankedPlayback } from "./rankedSnapshotSync";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
+import { RankedActionQueue, submitRankedHeartbeat } from "./rankedActionQueue";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
@@ -368,7 +369,7 @@ export const RankedGameView: React.FC<Props> = ({
     const snapshotRef = useRef<PlaySnapshot | null>(null);
     const aimSenderRef = useRef<LiveAimSender | undefined>(undefined);
     const synergyGameIdRef = useRef<string | undefined>(undefined);
-    const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const actionQueueRef = useRef(new RankedActionQueue());
     const replayTimersRef = useRef<number[]>([]);
     const storedReplayRef = useRef<RankedReplay | undefined>(undefined);
     const replayAutoplayStartedRef = useRef(false);
@@ -1305,9 +1306,7 @@ export const RankedGameView: React.FC<Props> = ({
     const readinessSubmissions = useRef(new RankedReadinessSubmissions());
 
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
-        const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
-        actionQueueRef.current = nextSubmission.catch(() => undefined);
-        return nextSubmission;
+        return actionQueueRef.current.submit(submit);
     }, []);
 
     const submitProtocolActionForTeam = useCallback(
@@ -1315,10 +1314,18 @@ export const RankedGameView: React.FC<Props> = ({
             const send = async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return false;
-                return sendPlayAction(
-                    { ...envelope, type: PlayActionType.UNKNOWN, ...action },
-                    { authorization, silent: options?.silent },
-                );
+                const payload = { ...envelope, type: PlayActionType.UNKNOWN, ...action };
+                if (payload.type === PlayActionType.PING) {
+                    // Keep-alives run alongside gameplay, so their failures must not use the turn
+                    // rejection handler (which can unlock/rebuild a board or request END_TURN).
+                    return submitRankedHeartbeat(
+                        () => sendRankedPlayAction(gameId, payload, { authorization }),
+                        (sequence) => {
+                            latestSequenceRef.current = Math.max(latestSequenceRef.current, sequence);
+                        },
+                    );
+                }
+                return sendPlayAction(payload, { authorization, silent: options?.silent });
             };
             if (!sandboxCoop && isRankedReadinessAction(action.type)) {
                 const intent = captureRankedReadinessIntent(snapshotRef.current, team, action.type);
@@ -1334,13 +1341,9 @@ export const RankedGameView: React.FC<Props> = ({
                 }
                 return false;
             }
-            let accepted = false;
-            await queueActionSubmission(async () => {
-                accepted = await send();
-            });
-            return accepted;
+            return actionQueueRef.current.submit(send, action.type);
         },
-        [buildActionEnvelope, queueActionSubmission, sendPlayAction, sandboxCoop],
+        [buildActionEnvelope, gameId, queueActionSubmission, sendPlayAction, sandboxCoop],
     );
 
     const submitProtocolAction = useCallback(
