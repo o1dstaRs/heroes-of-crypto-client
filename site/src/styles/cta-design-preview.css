@@ -1,0 +1,205 @@
+/* Local design exploration: activated only by the dev-only data attribute. */
+.final-cta[data-cta-design] {
+    position: relative;
+    isolation: isolate;
+    scroll-margin-top: 90px;
+    color: var(--cta-ink);
+    border-color: var(--cta-edge);
+    background: var(--cta-background);
+}
+
+.final-cta[data-cta-design]::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background: var(--cta-texture);
+}
+
+.final-cta[data-cta-design] h2 {
+    color: var(--cta-ink);
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+}
+.final-cta[data-cta-design] .eyebrow {
+    color: var(--cta-accent);
+}
+.final-cta[data-cta-design="forge"] {
+    --cta-ink: #ead5b5;
+    --cta-accent: #cf9a51;
+    --cta-edge: #604327;
+    --cta-background:
+        radial-gradient(ellipse at 80% 120%, #6d3219, transparent 65%), linear-gradient(110deg, #1b1713, #100e0b);
+    --cta-texture: repeating-linear-gradient(118deg, transparent 0 6px, #c4a47707 7px 8px);
+    --cta-primary: linear-gradient(#a56032, #653518 49%, #45210f 51%, #754321);
+    --cta-button-ink: #ffe7b8;
+    --cta-button-edge: #c98c48;
+    --cta-button-shadow: inset 0 0 0 3px #2f170c, inset 0 0 0 4px #a46a32, 0 4px 16px #0009, 0 0 24px #c46c2426;
+    --cta-secondary: linear-gradient(#29251e, #14130f);
+    --cta-secondary-edge: #776043;
+    --cta-text-shadow: 0 2px 2px #170a00;
+    --cta-icon-filter: invert(90%) sepia(20%);
+}
+
+.final-cta[data-cta-design="war-table"] {
+    --cta-ink: #e2e5cb;
+    --cta-accent: #c7bd87;
+    --cta-edge: #58664e;
+    --cta-background:
+        radial-gradient(ellipse at 80% 70%, #2d4030, transparent 65%), linear-gradient(120deg, #0c1815, #13251e);
+    --cta-texture:
+        repeating-linear-gradient(115deg, transparent 0 70px, #c5c39c08 71px 72px),
+        repeating-linear-gradient(25deg, transparent 0 70px, #c5c39c08 71px 72px);
+    --cta-primary: linear-gradient(115deg, #c2ab6d, #ecdda4 48%, #bdab70);
+    --cta-button-ink: #172019;
+    --cta-button-edge: #eee0a5;
+    --cta-button-shadow: 0 4px 0 #514a2d, 0 8px 18px #0005;
+    --cta-secondary: #101f19c9;
+    --cta-secondary-edge: #7b8766;
+    --cta-radius: 3px;
+}
+
+.final-cta[data-cta-design="obsidian"] {
+    --cta-ink: #efe4cd;
+    --cta-accent: #bba578;
+    --cta-edge: #806b42;
+    --cta-background: linear-gradient(115deg, #111115, #17171c 60%, #242020);
+    --cta-texture:
+        linear-gradient(135deg, transparent 50%, #cfad5d12 50.1%, transparent 50.4%),
+        linear-gradient(160deg, transparent 25%, #ffffff04 25.2%, transparent 57%);
+    --cta-primary: linear-gradient(110deg, #e0c28b, #b89250);
+    --cta-button-ink: #21190e;
+    --cta-button-edge: #f0d49f;
+    --cta-secondary: transparent;
+    --cta-secondary-edge: #8c7750;
+    --cta-radius: 0;
+}
+.final-cta[data-cta-design="moonsteel"] {
+    --cta-ink: #e1eaf3;
+    --cta-accent: #9cb9ca;
+    --cta-edge: #526d7f;
+    --cta-background:
+        radial-gradient(ellipse at 75% 0%, #30495c, transparent 60%), linear-gradient(110deg, #10131b, #152432);
+    --cta-texture:
+        repeating-linear-gradient(165deg, transparent 0 30px, #b8e4ff05 31px 32px),
+        radial-gradient(ellipse at 70% 100%, #87b7d619, transparent 55%);
+    --cta-primary: linear-gradient(#cbdde5, #8ca9bc 48%, #607c93 51%, #a2bdcb);
+    --cta-button-ink: #142334;
+    --cta-button-edge: #d9f0fa;
+    --cta-button-shadow: inset 0 0 0 3px #a4bfca, inset 0 0 0 4px #486478, 0 0 24px #8ad5ff1f;
+    --cta-secondary: linear-gradient(#203341, #111d29);
+    --cta-secondary-edge: #6c8ca1;
+    --cta-radius: 4px;
+}
+
+.final-cta[data-cta-design="royal"] {
+    --cta-ink: #f4dfc5;
+    --cta-accent: #e0b86f;
+    --cta-edge: #916f38;
+    --cta-background: linear-gradient(90deg, #210e13, #471825 65%, #260e18);
+    --cta-texture: repeating-linear-gradient(92deg, #0000 0, #0002 65px, #f9bd9108 90px, #0000 125px);
+    --cta-primary: linear-gradient(#d4ae68, #ad773a 48%, #895729 51%, #c29a58);
+    --cta-button-ink: #24120c;
+    --cta-button-edge: #efd396;
+    --cta-button-shadow: inset 0 0 0 3px #80572f, inset 0 0 0 4px #e0bc78, 0 5px 12px #14040ba6;
+    --cta-secondary: #260d17;
+    --cta-secondary-edge: #b89154;
+    --cta-radius: 0;
+}
+.final-cta[data-cta-design="royal"]::before {
+    box-shadow:
+        inset 0 6px #1b0b10,
+        inset 0 7px #bb965359,
+        inset 0 -6px #1b0b10,
+        inset 0 -7px #bb965359;
+}
+
+.final-cta[data-cta-design="parchment"] {
+    --cta-ink: #3b2d1f;
+    --cta-accent: #71522d;
+    --cta-edge: #a99061;
+    --cta-background: radial-gradient(ellipse at 50% 45%, #e9dfc5, #c7b58d);
+    --cta-texture:
+        repeating-linear-gradient(13deg, transparent 0 3px, #6d471208 4px 5px),
+        radial-gradient(ellipse at 0 100%, #92662c33, transparent 50%);
+    --cta-primary: linear-gradient(#394236, #1e2c25);
+    --cta-button-ink: #f5e7c5;
+    --cta-button-edge: #655b3e;
+    --cta-button-shadow: inset 0 0 0 3px #293329, inset 0 0 0 4px #a2976a, 0 4px 10px #46331b33;
+    --cta-secondary: #f3e7c54d;
+    --cta-secondary-edge: #7c6845;
+    --cta-radius: 2px;
+    --cta-icon-filter: invert(90%) sepia(20%);
+}
+
+cta-design-picker {
+    display: block;
+    margin-top: -32px;
+    margin-bottom: 30px;
+}
+.cta-picker-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    color: #d5c8b6;
+    font:
+        13px/1.4 system-ui,
+        sans-serif;
+}
+.cta-picker-label {
+    margin-right: 6px;
+}
+.cta-picker-controls button,
+.cta-picker-controls select {
+    min-height: 36px;
+    border: 1px solid #6c5b43;
+    border-radius: 6px;
+    background: #181511;
+    color: #f0e5d2;
+    font: inherit;
+    padding: 7px 10px;
+    cursor: pointer;
+}
+.cta-picker-controls select {
+    max-width: 100%;
+}
+.cta-picker-controls button {
+    min-width: 36px;
+}
+.cta-picker-controls button:hover {
+    background: #403426;
+}
+.cta-picker-controls :focus-visible {
+    outline: 2px solid #d5b16c;
+    outline-offset: 3px;
+}
+.cta-picker-controls [data-cta-count] {
+    min-width: 34px;
+    font-variant-numeric: tabular-nums;
+}
+.final-cta[data-cta-design="parchment"] .cta-picker-controls {
+    color: #514029;
+}
+@media (max-width: 600px) {
+    .cta-picker-controls {
+        justify-content: flex-start;
+    }
+    .cta-picker-label {
+        width: 100%;
+    }
+    .cta-picker-controls select {
+        flex: 1;
+        min-width: 0;
+    }
+    .final-cta[data-cta-design] .final-cta-actions {
+        justify-content: flex-start;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .final-cta[data-cta-design] .button {
+        transition: none;
+    }
+}

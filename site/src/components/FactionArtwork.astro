@@ -1,0 +1,27 @@
+---
+import roster from '../data/feature-roster.json';
+import config from '../data/feature-art.json';
+import { localizedFactionName } from '../lib/localization';
+const { editable = false, lang = 'en' } = Astro.props;
+---
+<div class="faction-artwork" data-faction-artwork>
+  {config.slots.map((slot, index) => {
+    const group = roster[index];
+    const unit = group.units.find(unit => unit.slug === slot.creature)!;
+    return <div class="faction-art-slot" data-slot={index} tabindex={editable ? 0 : undefined} role={editable ? 'button' : undefined} aria-label={editable ? `Редактировать ${group.faction}` : undefined} style={`--faction:${group.color};background-image:url(${group.background})`}>
+      <img draggable="false" src={unit.src} alt="" loading={editable ? 'eager' : 'lazy'} style={`left:${50+slot.x}%;top:${50+slot.y}%;transform:translate(-50%,-50%) scale(${slot.flip ? -slot.scale : slot.scale},${slot.scale})`} />
+      <em>{localizedFactionName(lang, slot.faction)}</em>
+    </div>;
+  })}
+</div>
+<style>
+.faction-artwork{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;height:100%;overflow:hidden;background:#140e0c}
+.faction-art-slot{position:relative;min-width:0;overflow:hidden;background-size:cover;background-position:center;border-right:1px solid #ba893835}
+.faction-art-slot:last-child{border-right:0}
+.faction-art-slot img{position:absolute;height:100%;width:auto;aspect-ratio:304/430;max-width:none;object-fit:fill;pointer-events:none;user-select:none}
+.faction-art-slot em{position:absolute;z-index:1;bottom:7px;left:7px;right:7px;padding:7px 2px;background:#080706db;color:var(--faction);font:normal 10px Georgia,serif;text-align:center;text-transform:uppercase;pointer-events:none}
+.faction-art-slot[role=button]{cursor:grab;touch-action:none}
+.faction-art-slot[role=button]:active{cursor:grabbing}
+.faction-art-slot[aria-pressed=true]{outline:2px solid #e8bc70;outline-offset:-2px}
+.faction-art-slot:focus-visible{outline:3px solid white;outline-offset:-3px}
+</style>

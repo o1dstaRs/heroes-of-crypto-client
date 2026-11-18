@@ -2493,6 +2493,13 @@ body:has(.premium-page) .site-header {
 .premium-crew-token-enemy b {
     background: #e0a18f;
 }
+.premium-crew-token-enemy {
+    border-color: #d38a79;
+    background: #51342d;
+}
+.premium-crew-token-enemy b {
+    background: #e0a18f;
+}
 .premium-crew-enemy {
     position: absolute;
     top: 48%;

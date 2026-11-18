@@ -1,0 +1,516 @@
+{
+  "release": "feature-cards-20260924",
+  "files": [
+    {
+      "file": "runtime/portraits/abomination_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/abomination_left_screen_x2.webp",
+      "sha256": "060943e3707baabb9ce31a9128f04da73cedb2b65237664f259a1e85443d2958",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/satyr_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/satyr_left_screen_x2.webp",
+      "sha256": "6e1f2b5a17cf81ca1036acd2849c8ae8ec9bc209df62dd5561f97542664bb813",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/chaos_bg.webp",
+      "destination": "site/public/assets/images/home/features/portraits/chaos_bg.webp",
+      "sha256": "0e3621891771b2c9e9a6910967483597606c8027d1b128a4c41de24151e2e331",
+      "width": 657,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/medusa_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/medusa_left_screen_x2.webp",
+      "sha256": "4292ea1b18ba7bd8ce04f103a0488936e72a67cafbc7ae0044c0ee923b43e9be",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/white_tiger_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/white_tiger_left_screen_x2.webp",
+      "sha256": "704533642e43e6761908bd127ed62aa979cd34bb30a89490af2a4783bafc5510",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/life_bg.webp",
+      "destination": "site/public/assets/images/home/features/portraits/life_bg.webp",
+      "sha256": "c6d9b37454574d2d8624d5a5ee9fdfc520fc1d70c6c9910a05269c7c5e85acf8",
+      "width": 657,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/trent_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/trent_left_screen_x2.webp",
+      "sha256": "46f95c286ab01d0524a60646fb9135069b54c4898feb28bac96e7b7ae48434f7",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/blacksmith_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/blacksmith_left_screen_x2.webp",
+      "sha256": "fef956293e41d8b4231f973b7f8f9ee135a5830bd63d54236dd4a8d499fc892b",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/zena_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/zena_left_screen_x2.webp",
+      "sha256": "28b24a918430eb737dd087b11e8e1bf5561665759c7242f9d373b320cf57152d",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/squire_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/squire_left_screen_x2.webp",
+      "sha256": "a882cbf1a40fd75ebbd328c0460778886aa1eb38cfd5edde9c945d7c9f13c783",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/wolf_rider_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/wolf_rider_left_screen_x2.webp",
+      "sha256": "4a6973d2a3884608f9a46b1f62324075a1cd98fda7f7acb38481ef362e3a4bbc",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/scavenger_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/scavenger_left_screen_x2.webp",
+      "sha256": "13b60ad1eaaf024d64bef366c0f7400e14956a4da40ac46b46fa5e852cf9f923",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/champion_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/champion_left_screen_x2.webp",
+      "sha256": "4e680f74aa02309761dd74e46e2cbd6ddcc4814427e4d8c0fb9a074c18b8046f",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/valkyrie_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/valkyrie_left_screen_x2.webp",
+      "sha256": "4cc877aaedcb22da7abbe1e978ddc551f7c4bf4648f31be6bc73f8c15a5a1986",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/gargantuan_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/gargantuan_left_screen_x2.webp",
+      "sha256": "bfa68c5f9e43d3f2e3e2ef6f85964e06c1940be64f6fe7bab2d9862058476f94",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/manticore_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/manticore_left_screen_x2.webp",
+      "sha256": "74d064a4d92bdb170e46b60bb764d64645c6d0c25129f62934524e9e439165a3",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/wyvern_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/wyvern_left_screen_x2.webp",
+      "sha256": "7346e38fe5cb6d9bd2d00e3fca4f08badf2b79499a22df9e3daefb1ee913a4bc",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/ogre_mage_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/ogre_mage_left_screen_x2.webp",
+      "sha256": "e12da3d515058e2f93820c681e5de4f5607fc3ad23dc9b20b711ba432f8d0807",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/black_dragon_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/black_dragon_left_screen_x2.webp",
+      "sha256": "b2c31efa8d353d800fcc2fc826a0b2f9137bee4041101ee968a41a49377f0311",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/berserker_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/berserker_left_screen_x2.webp",
+      "sha256": "c607dc3282ed5729d2b1fa5ed01314a5b98b0ec4fcfa89920e722cf493d26315",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/harpy_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/harpy_left_screen_x2.webp",
+      "sha256": "2a3e5d5d2b684c6654b8ae378b754ecaa31a3a4c90d75a390b7d9a28e9a466ee",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/unicorn_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/unicorn_left_screen_x2.webp",
+      "sha256": "81c94d62eaf2228f4850bbda1368187adc19ecdf75a85fab9d6c9cb6d97dab8a",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/arbalester_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/arbalester_left_screen_x2.webp",
+      "sha256": "5061c8cb33cc42735c0eaec0018f02bfbb55887a570684cf3a30e319f14bbb87",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/griffin_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/griffin_left_screen_x2.webp",
+      "sha256": "5c3b1bb0d5011b5cee7f5869286d718b8843bb6250d44280173d3452239cae18",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/arachna_queen_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/arachna_queen_left_screen_x2.webp",
+      "sha256": "b6301b5e7b171ce869c2393342608f44e4fde9848a85b4062a0441450625b80c",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/dryad_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/dryad_left_screen_x2.webp",
+      "sha256": "29a3c6fa4d0a424daecc78df8ffc2ab664b4f26439b8e09ac6822b27bab17b15",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/nature_bg.webp",
+      "destination": "site/public/assets/images/home/features/portraits/nature_bg.webp",
+      "sha256": "b475b927c9e81a5c55d08eddfed18c9070c4fcb555310dfc0f359841a5312cda",
+      "width": 540,
+      "height": 720
+    },
+    {
+      "file": "runtime/portraits/pegasus_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/pegasus_left_screen_x2.webp",
+      "sha256": "39c3747229bf6716832b4a2036841803b0ef96b6fb13961db194636e1e74ce84",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/fairy_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/fairy_left_screen_x2.webp",
+      "sha256": "918780180bf78ccd3e1b84475a2be9c616535f27a8aae4f83ccce2bafcd9c8e7",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/behemoth_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/behemoth_left_screen_x2.webp",
+      "sha256": "6ca1130cc649feea265807050cd9c3a1d6c423129e76100840dba73411e49a49",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/frenzied_boar_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/frenzied_boar_left_screen_x2.webp",
+      "sha256": "646cb9ab2f8f6fd1738bf3cb9adcb55d5948d389d51a80282fc6cf7e6aa0c9e8",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/leprechaun_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/leprechaun_left_screen_x2.webp",
+      "sha256": "d7bbbf0bf7a484ff71ac9ff194a70a5504458240cd33788eed45157939640547",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/hyena_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/hyena_left_screen_x2.webp",
+      "sha256": "de438d203b2bd01f42ade24f8d3fd7f1f926d004811f67fa90e266a3d3c0e94e",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/wolf_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/wolf_left_screen_x2.webp",
+      "sha256": "bff53328aed76079f8a21b25e0ddfe5c05fff4a63d50a4f3dfa5692c93b143a0",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/hydra_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/hydra_left_screen_x2.webp",
+      "sha256": "bbcf5c14170de255d9ef64ef37c569e2950da9eec68e27ba795aced109caec71",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/orc_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/orc_left_screen_x2.webp",
+      "sha256": "f73d476b183dfdaee7172854329b1735d00bbb2516172840b668404e189244c6",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/troglodyte_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/troglodyte_left_screen_x2.webp",
+      "sha256": "9a8ade36c31cd992a87895a4f9ac003eb7e7a1068ce11eb1dd32bc2447c84761",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/might_bg.webp",
+      "destination": "site/public/assets/images/home/features/portraits/might_bg.webp",
+      "sha256": "a9371ea77e471f337cdedfdf17672e8f7f6786d7ce0573d1b6d118f53ef640b5",
+      "width": 645,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/pikeman_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/pikeman_left_screen_x2.webp",
+      "sha256": "424ddf2bf6bbd491bcce47e9b536366237b2470cce811b79a6801dd6b5ac3b88",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/beholder_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/beholder_left_screen_x2.webp",
+      "sha256": "275e5e0c886aed9d6c76d3ffde01912c136cc0c6599cc9e4d76667f5cdcfbb2d",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/efreet_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/efreet_left_screen_x2.webp",
+      "sha256": "1e049971e4e0a0504f314ddb74d2925238bc81a2d0dee6c7e61e3598225c0fc5",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/nomad_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/nomad_left_screen_x2.webp",
+      "sha256": "d08c50812cbe161e8fc0a358b0b2cf41db4aad6a9a4a61fe07dbce96e70e31ec",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/thunderbird_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/thunderbird_left_screen_x2.webp",
+      "sha256": "5171b618f1d5bc8ddcf14d61e9a02776bc3fe6b4cb90723499488c762afe612e",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/healer_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/healer_left_screen_x2.webp",
+      "sha256": "53b09e0303436b2cc3510e04a4d908471591d185e1d57258fc341594063208b3",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/battle_mage_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/battle_mage_left_screen_x2.webp",
+      "sha256": "2774064d26956b15cf92d5d9fc259842caeffc8f4ee440edc089b84e23cc86c8",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/cyclops_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/cyclops_left_screen_x2.webp",
+      "sha256": "c6aa0ef1245216cc139578b7cb6e0d02949845ee93a9ced79e872b309779e5e8",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/elf_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/elf_left_screen_x2.webp",
+      "sha256": "29b56469fb217064239afb970b145c9918973b7ba36c3fabe067bb080a2acc58",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/tsar_cannon_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/tsar_cannon_left_screen_x2.webp",
+      "sha256": "533e988fe49aac59e61175cc0809d0238af0ba5d841ec571155ea3eaacb85389",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/mantis_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/mantis_left_screen_x2.webp",
+      "sha256": "b14446b6a36ca7228eefd5bcaf3190c4f2dd11113fdfc585a34b57c5ef5e5523",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/nightmare_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/nightmare_left_screen_x2.webp",
+      "sha256": "e2379a9f3bd0941043ef32b2c99faee17f98c07cbacaa97286dbf534eb30d169",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/goblin_knight_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/goblin_knight_left_screen_x2.webp",
+      "sha256": "ec95410c2cc454dcb0ae6113f3d9b3ba8cb17b522db518d0252a5d1fb3d19db1",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/crusader_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/crusader_left_screen_x2.webp",
+      "sha256": "605302c9860f3c7a00db632006b385281daf9cb811bccffed67fcf2ec890042d",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/troll_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/troll_left_screen_x2.webp",
+      "sha256": "693f8c77b3f6dac57f398aae3305d09573b49c745b8e7c6c3a9f865fc71e9ea3",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/monk_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/monk_left_screen_x2.webp",
+      "sha256": "0502dd598891035851ef90720049bd3fd6f5bcd5cc5a9d97ba1941837d2ae3c4",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/magic_dragon_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/magic_dragon_left_screen_x2.webp",
+      "sha256": "135ed5c4b65de6a16044d431bd16b451725a1e414754dd7564d9b089519325e0",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/angel_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/angel_left_screen_x2.webp",
+      "sha256": "de79b7669a6f17adbb9bb48f305a41920aae1a5ef8b1789cac5065bd32f56bec",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/wandering_mage_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/wandering_mage_left_screen_x2.webp",
+      "sha256": "217559e140c1ecafbc95d055deaaf55d6e1e72301a1f4e2767dd3402591a9b82",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/mermaid_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/mermaid_left_screen_x2.webp",
+      "sha256": "72509c4d4fa475ad1724db738a8b7e377e4dfeb7b9767b1a33956c2667bf57b6",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/centaur_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/centaur_left_screen_x2.webp",
+      "sha256": "bba04386e2a00b6a9ade981611dbeb05e8d6a16b620d95984f36ea208baac91f",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/peasant_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/peasant_left_screen_x2.webp",
+      "sha256": "38ef6c10ef5269f6bdc69d2bae1244fe0e1321513e80637cfcbf3e04c500983d",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/portraits/arachna_spider_left_screen_x2.webp",
+      "destination": "site/public/assets/images/home/features/portraits/arachna_spider_left_screen_x2.webp",
+      "sha256": "737d59ecbf0cf71a46946817a8b7bb34f06abfa060fb3f22f9632f9eb159cc8e",
+      "width": 609,
+      "height": 860
+    },
+    {
+      "file": "runtime/arbalester_2v2.webp",
+      "destination": "site/public/assets/images/home/features/arbalester_2v2.webp",
+      "sha256": "9b9e45f3e9c2cdc0b6182167dc5f6a74cd3ec0ee0d7fe8f4067dcc5cd7127be2",
+      "width": 1606,
+      "height": 979
+    },
+    {
+      "file": "runtime/spells_variant_1.webp",
+      "destination": "site/public/assets/images/home/features/spells_variant_1.webp",
+      "sha256": "7919e3ef92c3967bef083edf96392a24e7b9d8074b5e449755fc50d21ab480b6",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "file": "runtime/spells_variant_2.webp",
+      "destination": "site/public/assets/images/home/features/spells_variant_2.webp",
+      "sha256": "b38ec98d5a637a2ed758a6657c6fc57950fb085b7cd96e764480f2e7bca15a7c",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "file": "runtime/spells_variant_3.webp",
+      "destination": "site/public/assets/images/home/features/spells_variant_3.webp",
+      "sha256": "6eb2ddc9e3a789419d41ed6876152204526635ec5237e17e6b1ea88b5bbe4980",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "file": "runtime/spells_variant_4.webp",
+      "destination": "site/public/assets/images/home/features/spells_variant_4.webp",
+      "sha256": "21273aa950b8214b11b66a0979f105be504161d8ac98303c210972a4c5896cc0",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "file": "runtime/spells_variant_5.webp",
+      "destination": "site/public/assets/images/home/features/spells_variant_5.webp",
+      "sha256": "eb022ff3e4d74617d7de2b10c7abb44accd57317d1390ac4b1b045cf662f2b8b",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "file": "runtime/spells_cinematic.webp",
+      "destination": "site/public/assets/images/home/features/spells_cinematic.webp",
+      "sha256": "0cab963fcba75e92fbf48c8c8c487faf797ee9c04fe989444f8823a8dd70fc14",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "file": "runtime/battle_screenshot_20260925.webp",
+      "destination": "site/public/assets/images/home/features/battle_screenshot_20260925.webp",
+      "sha256": "43fa6eee630c207b096c5f9cbd5d55275c9fe493108c2140cfb6d60613a37e72",
+      "width": 3420,
+      "height": 2214
+    },
+    {
+      "file": "runtime/spells_variant_6.webp",
+      "destination": "site/public/assets/images/home/features/spells_variant_6.webp",
+      "sha256": "21c45651dd3c920256262d686faf3bc4df978f9c5a5ac37aa1770b31cf96c5a7",
+      "width": 1602,
+      "height": 982
+    },
+    {
+      "file": "runtime/battle_gameplay_closeup_20261024.webp",
+      "destination": "site/public/assets/images/home/features/battle_gameplay_closeup_20261024.webp",
+      "sha256": "708dec5c69132b27278255cf0eaa05997d778e80c09a5076dd597824ac50e416",
+      "width": 1583,
+      "height": 993
+    },
+    {
+      "file": "runtime/battle_cinematic_closeup_20261024.webp",
+      "destination": "site/public/assets/images/home/features/battle_cinematic_closeup_20261024.webp",
+      "sha256": "c904c451a8d5e2f08756b90e6264b84a4ed20cb2b2076974d4b1725129852665",
+      "width": 1619,
+      "height": 971
+    },
+    {
+      "file": "runtime/battle_cinematic_abomination_v2_20261024.webp",
+      "destination": "site/public/assets/images/home/features/battle_cinematic_abomination_v2_20261024.webp",
+      "sha256": "deed5be2a342e58a73247d679b7fa0450b62e5a2c366c7783fd7f5b698fba66a",
+      "width": 1619,
+      "height": 971
+    }
+  ]
+}

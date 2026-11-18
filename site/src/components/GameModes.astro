@@ -1,0 +1,271 @@
+---
+import { links, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = {
+    en: {
+        eyebrow: "Game modes",
+        title: "Choose your battlefield",
+        body: "Chase the next rank, test a bold idea, or challenge a friend. Every battle starts your way.",
+        modes: [
+            {
+                id: "ranked",
+                name: "Ranked",
+                label: "Fight for glory",
+                description:
+                    "Draft your army, outplay your opponent, and climb the leagues. Every decision counts on your way to the top.",
+                tags: ["Matchmaking", "Rating & leagues"],
+                cta: "Enter ranked",
+                href: links.rankedApp,
+            },
+            {
+                id: "sandbox",
+                name: "Sandbox",
+                label: "Master your strategy",
+                description:
+                    "Build armies, explore spells, and experiment with positioning. A battlefield of your own to turn ideas into winning tactics.",
+                tags: ["Free experimentation", "No rating at stake"],
+                cta: "Open sandbox",
+                href: links.sandboxApp,
+            },
+            {
+                id: "lobby",
+                name: "Lobby",
+                label: "Bring your rivals",
+                description:
+                    "Create a room and invite a friend, or join an open lobby. Set up a friendly battle and find out whose strategy wins.",
+                tags: ["Public & private", "Invite by link"],
+                cta: "Find a lobby",
+                href: links.lobbiesApp,
+            },
+        ],
+    },
+    ru: {
+        eyebrow: "Режимы игры",
+        title: "Выбери своё поле битвы",
+        body: "Покоряй рейтинг, проверяй смелые идеи или бросай вызов друзьям. Здесь каждый найдёт свой бой.",
+        modes: [
+            {
+                id: "ranked",
+                name: "Ранкед",
+                label: "Сражайся за славу",
+                description:
+                    "Собери армию на драфте, переиграй соперника и поднимайся по лигам. На пути к вершине каждое решение имеет значение.",
+                tags: ["Подбор соперника", "Рейтинг и лиги"],
+                cta: "Войти в рейтинг",
+                href: links.rankedApp,
+            },
+            {
+                id: "sandbox",
+                name: "Песочница",
+                label: "Оттачивай тактику",
+                description:
+                    "Собирай армии, изучай заклинания и пробуй новые расстановки. Твоё поле для экспериментов, где идеи становятся тактикой.",
+                tags: ["Свобода экспериментов", "Без риска для рейтинга"],
+                cta: "Открыть песочницу",
+                href: "/ru/sandbox/",
+            },
+            {
+                id: "lobby",
+                name: "Лобби",
+                label: "Бросай вызов друзьям",
+                description:
+                    "Создай комнату и пригласи друга или присоединись к открытому лобби. Устройте дружеский бой и узнайте, чья стратегия сильнее.",
+                tags: ["Открытые и приватные", "Приглашение по ссылке"],
+                cta: "Найти лобби",
+                href: links.lobbiesApp,
+            },
+        ],
+    },
+}[lang];
+---
+
+<section class="game-modes section" id="game-modes" aria-labelledby="game-modes-title">
+    <div class="page-shell">
+        <header class="game-modes__heading">
+            <p class="eyebrow">{copy.eyebrow}</p>
+            <h2 id="game-modes-title">{copy.title}</h2>
+            <p class="game-modes__intro">{copy.body}</p>
+        </header>
+        <div class="game-modes__grid">
+            {copy.modes.map((mode, index) => (
+                <article class={`game-mode game-mode--${mode.id}`}>
+                    <div class="game-mode__art" aria-hidden="true">
+                        <img
+                            src={mode.id === "lobby" ? "/assets/images/home/hero/taverns/22-mountain-snug.webp" : `/assets/images/home/modes/${mode.id}.webp`}
+                            alt=""
+                            width="1200"
+                            height="800"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                        <span class="game-mode__number">0{index + 1}</span>
+                    </div>
+                    <div class="game-mode__content">
+                        <p class="game-mode__label">{mode.label}</p>
+                        <h3>{mode.name}</h3>
+                        <p class="game-mode__description">{mode.description}</p>
+                        <ul class="game-mode__tags">
+                            {mode.tags.map((tag) => <li>{tag}</li>)}
+                        </ul>
+                        <a class="game-mode__link" href={mode.href}>
+                            {mode.cta}
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg>
+                        </a>
+                    </div>
+                </article>
+            ))}
+        </div>
+    </div>
+</section>
+
+<style>
+    .game-modes {
+        position: relative;
+    }
+    .game-modes__heading {
+        max-width: 850px;
+        margin: 0 auto 36px;
+        text-align: center;
+    }
+    .game-modes__heading h2 {
+        margin-bottom: 18px;
+    }
+    .game-modes__intro {
+        max-width: 600px;
+        margin: 0 auto;
+        text-wrap: balance;
+    }
+    .game-modes__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+    .game-mode {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        background: linear-gradient(180deg, #1b1109, #0a0704);
+        box-shadow:
+            inset 0 1px #efe4cc0b,
+            0 12px 30px #0003;
+        transition:
+            border-color 200ms ease,
+            transform 200ms ease;
+    }
+    .game-mode:hover,
+    .game-mode:focus-within {
+        border-color: var(--line-strong);
+        transform: translateY(-4px);
+    }
+    .game-mode__art {
+        position: relative;
+        aspect-ratio: 1.64;
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background: #100b07;
+    }
+    .game-mode__art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .game-mode--lobby .game-mode__art img {
+        object-position: center 65%;
+    }
+    .game-mode__number {
+        position: absolute;
+        bottom: 12px;
+        left: 18px;
+        color: #e5c29a;
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        padding: 3px 10px;
+        border: 1px solid #b8884b66;
+        background: #100b08d9;
+    }
+    .game-mode__content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        padding: 24px;
+    }
+    .game-mode__label {
+        margin: 0 0 10px;
+        color: #b1936e;
+        font-size: 0.7rem;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+    }
+    .game-mode h3 {
+        margin-bottom: 16px;
+        color: var(--hoc-bronze);
+        font-size: 1.65rem;
+    }
+    .game-mode__description {
+        flex: 1;
+        margin-bottom: 22px;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.75;
+    }
+    .game-mode__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px 14px;
+        margin: 0 0 22px;
+        padding: 0;
+        list-style: none;
+        color: #b2a18c;
+        font-size: 0.72rem;
+    }
+    .game-mode__tags li::before {
+        content: "◆";
+        color: #a57a44;
+        font-size: 0.45rem;
+        margin-right: 7px;
+        vertical-align: middle;
+    }
+    .game-mode__link {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 0.88rem;
+    }
+    .game-mode__link svg {
+        flex: 0 0 auto;
+    }
+    @media (max-width: 1000px) and (min-width: 761px) {
+        .game-mode__content {
+            padding: 20px;
+        }
+    }
+    @media (max-width: 760px) {
+        .game-modes__grid {
+            grid-template-columns: 1fr;
+            max-width: 520px;
+            margin-inline: auto;
+            gap: 24px;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .game-mode {
+            transition: none;
+        }
+        .game-mode:hover,
+        .game-mode:focus-within {
+            transform: none;
+        }
+    }
+</style>
