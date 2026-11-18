@@ -1088,3 +1088,21 @@ Official originals in window (PT, views / likes / replies at read ~7:42 PM PST):
 Thread open vs peak (this run only): Monday evening PT was again near-silent; the one indie SRPG unit reveal drew its first outside reply about 50 minutes after posting and a second after 90 minutes.
 
 Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT; Monday afternoon and evening PT add little. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+
+
+
+## Tue 17 Nov 2026, 7:43 AM PT run (new posts checked since 7:38 PM PT Mon)
+
+Official originals in window (PT, views / likes / replies at read ~7:45 AM PST): @FE_Heroes_EN 11:00 PM Mon: 6,935 / 27 / 1. @HOI_Game 2:01 AM: 2,372 / 31 / 4 (replies 2:13–3:23 AM); 5:56 AM: 1,665 / 21 / 1. @Epic7_Global 2:00 AM: 7,561 / 465 / 10. @SynthWave6666 2:15 AM: 4,225 / 393 / 1 (reply 3:04 AM). @vampiretactics 2:31 AM: 725 / 19 / 0. @AOE_Mobile 3:00 AM: 771 / 8 / 0. @TFT 5:00 AM: 12,098 / 91 / 9; 6:02 AM: 10,515 / 146 / 4; 6:05 AM: 11,992 / 125 / 6. @gr8_rebellion 5:41 AM: 354 / 17 / 1. @OfBladesNTails 5:59 AM: 104 / 2 / 1. @preludethegame 7:00 AM: 135 / 3 / 0. @MeltedGames 7:06 AM: 7 / 1 / 0. @Rainbow6Game 6:30 AM: 39,060 / 520 / 22; 7:30 AM: 12,795 / 75 / 7.
+
+Thread open vs peak (this run only): Tuesday followed the weekday pattern: nothing from 7:38 PM to 11 PM PT, then EU-morning posts 2–3 AM PT and US/EU-midday posts 5–7:30 AM PT. Indie tactics posts again sat at 0–1 outside replies after hours (SynthWave 393 likes but 1 reply in 5.5 h), so a reply posted in the 9:30 AM PT window would still be near the top.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+
+## Tue 17 Nov 2026, 11:39 AM PT run (new posts checked since 7:30 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~11:42 AM PST): @Rainbow6Game 7:30 AM: 46,308 / 366 / 25; 11:00 AM: 22,117 / 139 / 23. @Wartales_Game 7:56 AM: 2,475 / 65 / 3 (replies 8:34–8:51 AM). @NextaleGames 9:00 AM: 998 / 49 / 3 (replies 9:43 AM–11:08 AM). @TFT 9:02 AM: 9,199 / 45 / 0; 11:00 AM: 13,148 / 147 / 7. @gr8_rebellion 9:09 AM: 295 / 21 / 2 (replies 10:45, 11:07 AM). @Mount_and_Blade 10:58 AM: 1,415 / 29 / 2. @PlayHearthstone 11:30 AM: 1,752 / 13 / 1.
+
+Thread open vs peak (this run only): Tuesday US-morning posts opened on or near the hour (9 and 11 AM PT), plus Wartales at 7:56 AM (EU afternoon). Mid-size tactics threads got their first outside replies 40–90 minutes after posting and were still at 2–3 replies by 11:40 AM, so a reply landing 9:30 AM–1 PM PT stays near the top. #TrailerTuesday drove the 9 AM indie trailer slot.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
