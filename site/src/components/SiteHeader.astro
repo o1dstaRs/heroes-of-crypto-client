@@ -30,7 +30,6 @@ const navItems = [
 
 const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? currentPath.slice(0, -1) : currentPath;
 const localePrefix = lang === "ru" ? "/ru" : "";
-const isHomeHeader = ["", "/", "/game", "/ru", "/ru/game"].includes(normalizedPath);
 const loginPath = `${localePrefix}/auth/login/`;
 const loginHref =
     normalizedPath === `${localePrefix}/premium` ? `${loginPath}?redirect=${encodeURIComponent(currentPath)}` : loginPath;
@@ -60,7 +59,7 @@ const legacyKnowledgePaths = new Set(
 
                 return (
                     <a class:list={["nav-link", { active: isActive, "nav-premium": item.label === "Premium" }]} href={item.href}>
-                        {isHomeHeader && item.label === "Premium" && <PremiumIcon size="18px" />}
+                        {item.label === "Premium" && <PremiumIcon size="18px" />}
                         {item.label}
                     </a>
                 );

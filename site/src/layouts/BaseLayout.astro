@@ -4,6 +4,11 @@ import SiteHeader from "../components/SiteHeader.astro";
 import { content, languageSwitchPath, type Language } from "../lib/site-data";
 import { abilityCount, unitCount } from "../lib/units-data";
 import { HOME_HERO_IMAGE } from "../lib/hero-media";
+import {
+    homeHeroImages, HERO_IMAGE_SIZES, NARROW_HERO_IMAGE_SIZES,
+    NARROW_HERO_MEDIA, WIDE_HERO_MEDIA,
+} from "../lib/home-hero-images";
+import { siteButtonImage } from "../lib/site-button-image";
 import "../styles/global.css";
 import "../styles/buttons.css";
 
@@ -24,6 +29,8 @@ const resolvedDescription = description ?? copy.meta.description;
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
 const isHomePage = /^\/(?:ru\/)?(?:game\/?)?$/.test(Astro.url.pathname);
+const heroImages = isHomePage ? await homeHeroImages() : undefined;
+const buttonImage = await siteButtonImage();
 const gameURL = new URL(lang === "ru" ? "/ru/" : "/", siteOrigin);
 const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
 // hreflang alternates: every page mirrors EN <-> RU, so map this URL to both and let search
@@ -119,7 +126,10 @@ const jsonLd = {
         {publishedTime && <meta property="article:published_time" content={publishedTime} />}
         {tags.map((tag) => <meta property="article:tag" content={tag} />)}
 
-        {isHomePage && <link rel="preload" as="image" href={HOME_HERO_IMAGE} fetchpriority="high" />}
+        {heroImages && <>
+            <link rel="preload" as="image" href={HOME_HERO_IMAGE} imagesrcset={heroImages.narrow} imagesizes={NARROW_HERO_IMAGE_SIZES} media={NARROW_HERO_MEDIA} fetchpriority="high" />
+            <link rel="preload" as="image" href={HOME_HERO_IMAGE} imagesrcset={heroImages.wide} imagesizes={HERO_IMAGE_SIZES} media={WIDE_HERO_MEDIA} fetchpriority="high" />
+        </>}
         <link
             rel="preload"
             as="font"
@@ -135,7 +145,7 @@ const jsonLd = {
         <title>{resolvedTitle}</title>
         <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     </head>
-    <body class:list={[{ "site-button-theme": isHomePage }]}>
+    <body class:list={[{ "site-button-theme": isHomePage }]} style={`--site-button-image: url("${buttonImage}")`}>
         <SiteHeader lang={lang} currentPath={Astro.url.pathname} />
         <main>
             <slot />

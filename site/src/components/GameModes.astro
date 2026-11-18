@@ -1,5 +1,6 @@
 ---
 import { links, type Language } from "../lib/site-data";
+import DeferredMedia from "./DeferredMedia.astro";
 
 interface Props {
     lang: Language;
@@ -95,6 +96,7 @@ const copy = {
             {copy.modes.map((mode, index) => (
                 <article class={`game-mode game-mode--${mode.id}`}>
                     <div class="game-mode__art" aria-hidden="true">
+                        <DeferredMedia>
                         <img
                             src={mode.id === "lobby" ? "/assets/images/home/hero/taverns/22-mountain-snug.webp" : `/assets/images/home/modes/${mode.id}.webp`}
                             alt=""
@@ -103,6 +105,7 @@ const copy = {
                             loading="lazy"
                             decoding="async"
                         />
+                        </DeferredMedia>
                         <span class="game-mode__number">0{index + 1}</span>
                     </div>
                     <div class="game-mode__content">

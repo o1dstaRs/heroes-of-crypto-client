@@ -10,6 +10,8 @@ body:has(.premium-page) .site-header {
     --premium-line: rgba(223, 167, 117, 0.2);
     --premium-muted: #b3a59a;
     max-width: 1440px;
+    /* Keep the footer below the first viewport while access is checked. */
+    min-height: calc(100svh - 68px);
     margin: 0 auto;
     padding: 30px 48px 80px;
     color: #f4e9df;
@@ -2485,13 +2487,6 @@ body:has(.premium-page) .site-header {
     font: 600 9px sans-serif;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-.premium-crew-token-enemy {
-    border-color: #d38a79;
-    background: #51342d;
-}
-.premium-crew-token-enemy b {
-    background: #e0a18f;
 }
 .premium-crew-token-enemy {
     border-color: #d38a79;

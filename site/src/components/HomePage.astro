@@ -5,6 +5,7 @@ import { knowledgePath } from "../lib/knowledge-base";
 import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
 import FactionArtwork from "./FactionArtwork.astro";
 import featureArt from "../data/feature-art.json";
+import { featureSpellImage } from "../lib/feature-art";
 import GameModes from "./GameModes.astro";
 import TavernBackdrop from "./TavernBackdrop.astro";
 import "../styles/hero-button.css";
@@ -91,7 +92,7 @@ const playHref = lang === "ru" ? "/ru/play/" : links.play;
                                 item.visual.variant === "abilities" && (
                                     <div class="mechanic-abilities">
                                         <img
-                                            src={`/assets/images/home/features/spells_variant_${featureArt.spellVariant}.webp`}
+                                            src={featureSpellImage(featureArt.spellVariant)}
                                             alt=""
                                             width="1586"
                                             height="992"

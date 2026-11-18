@@ -22,7 +22,7 @@
     "dependencies": {
         "@astrojs/sitemap": "^3.7.4",
         "@heroesofcrypto/common": "workspace:*",
-        "astro": "^7.4.8",
+        "astro": "^7.4.12",
         "katex": "0.19.1",
         "mermaid": "12.2.0"
     },

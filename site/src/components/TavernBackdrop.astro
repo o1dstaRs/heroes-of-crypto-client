@@ -1,4 +1,19 @@
 ---
 import { HOME_HERO_IMAGE } from "../lib/hero-media";
+import { homeHeroImages, HERO_IMAGE_SIZES, NARROW_HERO_IMAGE_SIZES, NARROW_HERO_MEDIA } from "../lib/home-hero-images";
+const images = await homeHeroImages();
 ---
-<img class="hero-bg" data-board-layout="true" data-logo-baked="true" src={HOME_HERO_IMAGE} alt="" width="5322" height="2661" fetchpriority="high" />
+<picture>
+    <source media={NARROW_HERO_MEDIA} srcset={images.narrow} sizes={NARROW_HERO_IMAGE_SIZES} />
+    <img class="hero-bg" data-board-layout="true" data-logo-baked="true" src={HOME_HERO_IMAGE} srcset={images.wide} sizes={HERO_IMAGE_SIZES} alt="" width="5322" height="2661" fetchpriority="high" decoding="async" />
+</picture>
+
+<style>
+    @media (max-width: 400px) {
+        /* The original 2:1 art is positioned at 58%. Removing half its width
+           symmetrically needs another 8% of the rendered height of translation. */
+        .hero-bg {
+            object-position: calc(58% - max(43.2px, calc((100svh - 102px) * 0.08))) center;
+        }
+    }
+</style>

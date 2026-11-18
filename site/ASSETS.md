@@ -6,6 +6,23 @@ See [the complete restore and verification instructions](../ANIMATION_RELEASE.md
 The versioned `site/public` exports build without access to any developer's machine or Google session.
 The sections below document earlier releases and are retained as history.
 
+## Responsive delivery
+
+Astro generates responsive WebP derivatives of the selected tavern during the build. The approved
+files in `public` and their manifest checksums remain unchanged;
+generated `_astro` files are delivery exports and must never replace the Drive masters.
+
+The hero uses quality 94. The shared button plate uses a 960px, quality-96 export. Matching image
+preloads and `srcset` attributes let the browser download the appropriate size without first fetching
+the full-size hero. Viewports up to 400px receive a square hero crop with a CSS offset that preserves
+the original mobile framing at 58%. Retain both the crop and its offset when changing that layout.
+Feature illustrations and game-mode artwork retain their exact original bytes; deferred media
+loads them as their sections approach the viewport after the hero has painted.
+
+The original images remain the fallback for older browsers and the largest display sizes. Artwork
+verification still checks every release manifest byte-for-byte; responsive exports are reproducible
+build outputs rather than independently edited artwork.
+
 # Homepage asset handoff
 
 The approved artwork and sprites are stored in the shared Google Drive:

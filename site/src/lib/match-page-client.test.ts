@@ -1,8 +1,16 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { normalizeRankedMatchExit, rankedExitLabel, rankedExitPreviewLabel } from "./ranked-exit";
 
-test("the shipped match page renders damage portraits from a public API response", async () => {
+const matchPageCopy = (lang: "en" | "ru") => {
+    const source = readFileSync(resolve(import.meta.dir, "../components/MatchPage.astro"), "utf8");
+    const expression = source.match(/const copy = ([\s\S]*?);\s*---/)?.[1];
+    if (!expression) throw new Error("Match page copy is missing");
+    return new Function("isRu", `return (${expression});`)(lang === "ru") as Record<string, unknown>;
+};
+
+test.each(["en", "ru"] as const)("the shipped match page renders portraits and exit labels (%s)", async (lang) => {
     const components = resolve(import.meta.dir, "../components");
     const source = readFileSync(resolve(components, "MatchPage.astro"), "utf8");
     const script = source.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
@@ -42,10 +50,7 @@ test("the shipped match page renders damage portraits from a public API response
             const node = {
                 hidden: name !== "loading",
                 innerHTML: "",
-                textContent:
-                    name === "copy"
-                        ? JSON.stringify({ maps: ["Unknown", "Normal"], errorBody: "Report unavailable" })
-                        : "",
+                textContent: name === "copy" ? JSON.stringify(matchPageCopy(lang)) : "",
                 href: "",
                 setAttribute(name: string) {
                     if (name === "hidden") this.hidden = true;
@@ -58,6 +63,8 @@ test("the shipped match page renders damage portraits from a public API response
         const payload = {
             gameId,
             outcome: "win",
+            reason: "abandon",
+            exit: { kind: "abandon", phase: "fight", scored: true, boardBp: 3100, enforced: true },
             players: [
                 { playerId: "22222222-2222-4222-8222-222222222222", username: "Alice", side: "lower", result: "win" },
                 { playerId: "33333333-3333-4333-8333-333333333333", username: "Bob", side: "upper", result: "loss" },
@@ -74,7 +81,7 @@ test("the shipped match page renders damage portraits from a public API response
         let requested = "";
         const run = new Function("document", "window", "fetch", await bundle.outputs[0].text());
         run(
-            { querySelector: (selector: string) => nodes.get(selector), documentElement: { lang: "en" } },
+            { querySelector: (selector: string) => nodes.get(selector), documentElement: { lang } },
             { location: { href: `https://site.test/match/?gameId=${gameId}` } },
             async (url: string) => {
                 requested = url;
@@ -91,7 +98,48 @@ test("the shipped match page renders damage portraits from a public API response
         expect(content.innerHTML).toContain("damage-row");
         expect(content.innerHTML).toContain("portrait__art");
         expect(content.innerHTML).toContain("Alice");
+        expect(content.innerHTML).toContain(lang === "ru" ? "Выход при потерях 31%" : "Abandoned at 31% casualties");
+        expect(content.innerHTML).toContain(lang === "ru" ? "Как работает выход" : "How leaving works");
     } finally {
         rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test.each(["en", "ru"] as const)("match page explains every early result in its shipped language (%s)", (lang) => {
+    const copy = matchPageCopy(lang);
+    const labels = (key: string) => (typeof copy[key] === "string" ? copy[key] : "");
+    for (const key of ["abandon", "unscored", "void", "exitRules"]) expect(labels(key).length).toBeGreaterThan(0);
+    const cases = [
+        [{ kind: "concede", boardBp: 6500 }, ["Conceded at 65% casualties", "Сдача при потерях 65%"]],
+        [{ kind: "abandon", phase: "placement" }, ["Abandoned before the fight", "Выход до начала боя"]],
+        [{ kind: "void" }, ["Voided: server problem", "Аннулирован: проблема сервера"]],
+        [
+            { kind: "abandon", cause: "double", scored: false },
+            ["Unscored: both players left", "Без результата: оба игрока вышли"],
+        ],
+        [
+            { kind: "abandon", scored: false, unscoredReason: "leaver_calibrating" },
+            ["Unscored: abandoned during calibration", "Без результата: выход во время калибровки"],
+        ],
+        [
+            { kind: "abandon", cause: "absence" },
+            ["Abandoned at 31% casualties (away time ran out)", "Выход при потерях 31% (закончилось время отсутствия)"],
+        ],
+        [
+            { kind: "abandon", cause: "afk" },
+            ["Abandoned at 31% casualties (missed turns)", "Выход при потерях 31% (пропущенные ходы)"],
+        ],
+    ] as const;
+    for (const [fields, expected] of cases) {
+        const exit = normalizeRankedMatchExit({
+            phase: "fight",
+            scored: true,
+            boardBp: 3100,
+            enforced: true,
+            ...fields,
+        });
+        expect(rankedExitLabel(exit, labels)).toBe(expected[lang === "ru" ? 1 : 0]);
+        const preview = rankedExitPreviewLabel({ ...exit!, enforced: false, kind: "abandon" }, labels);
+        expect(preview).toContain(lang === "ru" ? "По новым правилам выхода:" : "Under the new leaving rules:");
     }
 });
