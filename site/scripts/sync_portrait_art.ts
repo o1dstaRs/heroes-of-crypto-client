@@ -5,15 +5,12 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { images } from "../../game/core/src/generated/image_imports";
-import { CREATURE_PORTRAIT_ASPECT, resolveCreaturePortraitVisual } from "../../game/core/src/ui/creaturePortraitVisual";
 import {
     CHAOS_PORTRAIT_BACKGROUND_FILTER,
     HYDRA_PORTRAIT_NON_EMISSIVE_MASK,
     HYDRA_PORTRAIT_SCALE_MATRIX,
     HYDRA_PORTRAIT_WARM_MASK,
 } from "../../game/core/src/ui/creaturePortraitPalette";
-import { UNIT_ID_TO_NAME } from "../../game/core/src/ui/unit_ui_constants";
 import type { PortraitRecipe } from "../src/lib/portrait";
 
 const SITE = fileURLToPath(new URL("..", import.meta.url));
@@ -21,7 +18,15 @@ const ART_DIR = "public/assets/images/units/portraits";
 const BACKGROUND_DIR = "public/assets/images/units/portrait-backgrounds";
 const RECIPE_FILE = "src/lib/generated/portrait-recipes.json";
 
-export function syncPortraitArt(artSource: string, siteDirectory = SITE, checkOnly = false): void {
+export async function syncPortraitArt(artSource: string, siteDirectory = SITE, checkOnly = false): Promise<void> {
+    // Canonical comparison needs the game's full manifest. A clean website-only build has neither
+    // that generated module nor private art; --check without HOC_IMAGES_LOC must never import it.
+    const [{ images }, { CREATURE_PORTRAIT_ASPECT, resolveCreaturePortraitVisual }, { UNIT_ID_TO_NAME }] =
+        await Promise.all([
+            import("../../game/core/src/generated/image_imports"),
+            import("../../game/core/src/ui/creaturePortraitVisual"),
+            import("../../game/core/src/ui/unit_ui_constants"),
+        ]);
     // Framing is authored against the full manifest. A pruned one silently selects a different image
     // under the same crop, producing a giant head or an empty corner instead of the approved portrait.
     if (!Object.keys(images).some((key) => key.endsWith("_portrait_full"))) {
@@ -134,7 +139,7 @@ export function syncPortraitArt(artSource: string, siteDirectory = SITE, checkOn
 if (import.meta.main) {
     const checkOnly = process.argv.includes("--check");
     const source = process.env.HOC_IMAGES_LOC;
-    if (source) syncPortraitArt(source, SITE, checkOnly);
+    if (source) await syncPortraitArt(source, SITE, checkOnly);
     else if (checkOnly) console.log("Skipping canonical portrait byte comparison: HOC_IMAGES_LOC is not set.");
     else throw new Error("HOC_IMAGES_LOC must name the canonical game art directory.");
 }
