@@ -24,18 +24,18 @@ const fixture = (durations = [100, 200, 300]) => {
     return { unit, anim, callback, frames };
 };
 
-test("a dying counter keeps every remaining frame and callback, finishing 20% sooner", () => {
+test("a dying counter keeps every remaining frame and callback, finishing 40% sooner", () => {
     const { unit, anim, callback, frames } = fixture();
     expect(unit.hastenLethalMeleeRecovery()).toBe(true);
-    expect(anim.frameDurationsMs).toEqual([80, 160, 240]);
-    expect(anim.elapsed).toBe(40); // same quarter-frame phase; no visual jump
+    expect(anim.frameDurationsMs).toEqual([60, 120, 180]);
+    expect(anim.elapsed).toBe(30); // same quarter-frame phase; no visual jump
     expect(anim.frameIndex).toBe(1);
     expect(callback).not.toHaveBeenCalled();
-    unit.stepOneShotAnimation(119);
+    unit.stepOneShotAnimation(89);
     expect(anim.frameIndex).toBe(1);
     unit.stepOneShotAnimation(1);
     expect(anim.frameIndex).toBe(2);
-    unit.stepOneShotAnimation(239);
+    unit.stepOneShotAnimation(179);
     expect(callback).not.toHaveBeenCalled();
     unit.stepOneShotAnimation(1);
     expect(callback).toHaveBeenCalledTimes(1);
@@ -43,15 +43,33 @@ test("a dying counter keeps every remaining frame and callback, finishing 20% so
     unit.sprite.destroy();
 });
 
-test("long counters gain at most 150 ms and repeated lethal notifications cannot accelerate them again", () => {
+test("long counters gain at most 300 ms and repeated lethal notifications cannot accelerate them again", () => {
     const { unit, anim } = fixture(Array(8).fill(300));
     const before = anim.frameDurationsMs.slice(1).reduce((a, b) => a + b, 0) - anim.elapsed;
     expect(unit.hastenLethalMeleeRecovery()).toBe(true);
     const after = anim.frameDurationsMs.slice(1).reduce((a, b) => a + b, 0) - anim.elapsed;
-    expect(before - after).toBeCloseTo(150);
+    expect(before - after).toBeCloseTo(300);
     const durations = [...anim.frameDurationsMs];
     expect(unit.hastenLethalMeleeRecovery()).toBe(false);
     expect(anim.frameDurationsMs).toEqual(durations);
+    unit.sprite.destroy();
+});
+
+test("uniform-rate counters keep their current frame phase and complete once", () => {
+    const { unit, anim, callback } = fixture([100, 100, 100]);
+    Object.assign(anim, { frameDurationsMs: undefined });
+    expect(unit.hastenLethalMeleeRecovery()).toBe(true);
+    expect(anim.durationPerFrame).toBe(60);
+    expect(anim.elapsed).toBe(30);
+    unit.stepOneShotAnimation(29);
+    expect(anim.frameIndex).toBe(1);
+    expect(callback).not.toHaveBeenCalled();
+    unit.stepOneShotAnimation(1);
+    expect(anim.frameIndex).toBe(2);
+    unit.stepOneShotAnimation(59);
+    expect(callback).not.toHaveBeenCalled();
+    unit.stepOneShotAnimation(1);
+    expect(callback).toHaveBeenCalledTimes(1);
     unit.sprite.destroy();
 });
 

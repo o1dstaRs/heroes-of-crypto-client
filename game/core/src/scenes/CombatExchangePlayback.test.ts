@@ -1015,6 +1015,50 @@ test("ranked/replay renders both barrel-bound shots even when the record has no 
     expect(scene.sc_moveBlocked).toBe(false);
 });
 
+test.each([false, true])(
+    "an authored lethal counter falls on its own completion before the generic hold; counter finishes first=%s",
+    async (counterFirst) => {
+        const { scene, a, b, finish, events } = setup();
+        for (const unit of [a, b])
+            Object.assign(unit, { getName: () => "Hydra", getUnitProperties: () => ({ level: 4 }) });
+        const holds: (() => void)[] = [];
+        scene.delayReplay = (ms: number) => {
+            expect(ms).toBe(220);
+            return new Promise<void>((resolve) => holds.push(resolve));
+        };
+        let completed = false;
+        const pending = scene
+            .playCombatExchange(
+                a,
+                b,
+                { attackType: "melee" },
+                orderCombatExchange([strike(false, 0, true)], strike(true)),
+                (unit: typeof a) => events.push(`${unit.getId()}:death`),
+            )
+            .then(() => {
+                completed = true;
+            });
+        await flush();
+        expect(events).toEqual(["A:attack", "damage", "B:attack", "damage"]);
+        const [finishPrimary, finishCounter] = finish.splice(0);
+        if (!counterFirst) {
+            finishPrimary();
+            await flush();
+            expect(events.some((event) => event.endsWith(":death"))).toBe(false);
+        }
+        finishCounter();
+        await flush();
+        expect(events.filter((event) => event.endsWith(":death"))).toEqual(["B:death"]);
+        expect(completed).toBe(false); // The exchange still owns its normal presentation barrier.
+        if (counterFirst) finishPrimary();
+        holds.splice(0).forEach((done) => done());
+        await pending;
+        expect(events.filter((event) => event.endsWith(":death"))).toEqual(["B:death"]);
+        expect(events.filter((event) => event.endsWith(":attack"))).toHaveLength(2);
+        expect(events.filter((event) => event.endsWith(":hit"))).toEqual([]);
+    },
+);
+
 test("mortally wounded melee actors shorten recovery only after their own attack starts", async () => {
     const { scene, a, b, finish, events } = setup();
     const started = new Set<string>(),

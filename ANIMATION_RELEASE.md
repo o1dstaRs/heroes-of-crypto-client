@@ -16,6 +16,9 @@ so it cannot cancel an authored shot. Extra blows wait for both opening attacks 
 
 These are intentional presentation rules for already-authoritative results, not changes to damage,
 retaliation eligibility, ammunition or turn order. Optional status/popup art cannot hold up an attack.
+For a mortally wounded melee actor, shorten the remaining counter animation by 40%, capped at 300 ms,
+while retaining its current frame phase, all remaining cels and completion callback. An authored
+counter's completion starts death immediately; the exchange's generic lunge hold must not delay it.
 Secondary Petrifying Gaze damage does not create a new hit sequence or cosmetic pause in combat;
 the archived preview remains available in the animation lab. Pegasus keeps main's final hit multiplier,
 and Wandering Mage keeps main's 720 ms authored melee duration in all three directions.

@@ -10889,7 +10889,7 @@ export class RenderableUnit extends Unit {
         }
         return true;
     }
-    /** A mortally wounded melee actor still finishes its counter, with at most 150 ms less recovery.
+    /** A mortally wounded melee actor still finishes its counter, with at most 300 ms less recovery.
      * Keep the current frame's phase and all remaining cels: starting death by replacing the attack
      * would cancel its callback and could strand the exchange or erase the recorded counter. */
     public hastenLethalMeleeRecovery(): boolean {
@@ -10912,7 +10912,9 @@ export class RenderableUnit extends Unit {
                 -anim.elapsed,
             );
         if (!(remaining > 0)) return false;
-        const scale = 1 - Math.min(150, remaining * 0.2) / remaining;
+        // The previous 20% / 150 ms reduction still left a noticeable pause before falling.
+        // Retain every cel and its current phase, but shorten only this dying actor's remainder.
+        const scale = 1 - Math.min(300, remaining * 0.4) / remaining;
         anim.durationPerFrame *= scale;
         anim.frameDurationsMs = anim.frameDurationsMs?.map((ms) => ms * scale);
         anim.elapsed *= scale;

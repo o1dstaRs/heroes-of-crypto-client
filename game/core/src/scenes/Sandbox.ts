@@ -5505,6 +5505,12 @@ export class Sandbox extends PixiScene {
             remainingAmounts.set(unitId, remaining);
             return remaining;
         };
+        const finishPendingDeath = (unitId: string): void => {
+            const dying = pendingDeaths.get(unitId);
+            if (!dying || futureAttackers.has(unitId)) return;
+            pendingDeaths.delete(unitId);
+            if (!this.isSceneDestroyed()) onDeath(dying);
+        };
         const presentDeath = (unitId: string): void => {
             if (shownDeaths.has(unitId)) return;
             shownDeaths.add(unitId);
@@ -6154,7 +6160,12 @@ export class Sandbox extends PixiScene {
                             // opening attacks remain in flight. Do not move this below the await.
                             impact();
                             await Promise.all([
-                                attack,
+                                attack.then(() => {
+                                    // A completed authored counter can fall immediately. The generic
+                                    // lunge's minimum hold belongs to the exchange, not this death pose.
+                                    if (usesApprovedBaseAnimations(source.getName()))
+                                        finishPendingDeath(source.getId());
+                                }),
                                 (source.getUnitProperties?.().level ?? 0) > 2
                                     ? this.delayReplay(220)
                                     : Promise.resolve(),
@@ -6184,11 +6195,7 @@ export class Sandbox extends PixiScene {
                     } finally {
                         activeAttacks.delete(source.getId());
                         finishAttacks.get(source.getId())?.();
-                        const dying = pendingDeaths.get(source.getId());
-                        if (dying && !futureAttackers.has(source.getId())) {
-                            if (!this.isSceneDestroyed()) onDeath(dying);
-                            pendingDeaths.delete(source.getId());
-                        }
+                        finishPendingDeath(source.getId());
                     }
                     await Promise.all([reaction, shieldReaction, gazeReaction]);
                 }),
