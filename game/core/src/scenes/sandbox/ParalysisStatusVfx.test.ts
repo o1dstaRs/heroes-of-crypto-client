@@ -61,7 +61,9 @@ test("Paralysis remains visible for the status duration, follows hydration and c
         f.layer.update(0.1);
         expect(f.root.children).toHaveLength(1);
         expect(node.x).toBe(250);
-        expect(node.scale.x).toBe(128);
+        // Drawn in world pixels: a wider footprint repaints wider rather than stretching the strokes.
+        expect(node.scale.x).toBe(1);
+        expect(node.getLocalBounds().width).toBeGreaterThan(120);
         expect(node.zIndex).toBe(4100);
         f.units.set("victim", { isDead: () => false, getUnitProperties: () => ({ applied_debuffs: [] }) });
         f.layer.update(0.1);

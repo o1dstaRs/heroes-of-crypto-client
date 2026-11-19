@@ -741,7 +741,8 @@ export class CombatVisuals {
                 ...center,
                 width: cell * Math.max(1, renderable.getFootprintWidth?.() ?? 1),
                 height: cell * 1.25,
-                zIndex: 4000 - (renderable.getPosition?.().y ?? center.y) + 0.6,
+                // A floor field: above the unit's own shadow (-0.5), beneath its sprite.
+                zIndex: 4000 - (renderable.getPosition?.().y ?? center.y) - 0.4,
             };
         },
         attach: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),

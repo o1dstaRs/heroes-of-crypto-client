@@ -25,9 +25,17 @@ interface Field {
     node: Graphics;
     phase: number;
     frame: number;
+    width: number;
+    height: number;
 }
 
 const TAU = Math.PI * 2;
+
+/** Deterministic 0..1 noise, so a crackle keeps its shape for its whole strike instead of shimmering. */
+function hash(seed: number): number {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+}
 
 export class ParalysisStatusVfx {
     private readonly fields = new Map<string, Field>();
@@ -72,7 +80,7 @@ export class ParalysisStatusVfx {
                 node.label = "paralysis-status-field";
                 node.eventMode = "none";
                 node.blendMode = "add";
-                field = { node, phase: this.fields.size * 1.618, frame: -1 };
+                field = { node, phase: this.fields.size * 1.618, frame: -1, width: 0, height: 0 };
                 this.fields.set(id, field);
                 node.once("destroyed", () => {
                     if (this.fields.get(id)?.node === node) this.fields.delete(id);
@@ -81,12 +89,13 @@ export class ParalysisStatusVfx {
             }
             field.node.visible = true;
             field.node.position.set(frame.x, frame.y);
-            field.node.scale.set(frame.width, frame.height);
             field.node.zIndex = frame.zIndex;
-            const tick = Math.floor(this.elapsed * 12);
-            if (field.frame !== tick) {
+            const tick = Math.floor(this.elapsed * 30);
+            if (field.frame !== tick || field.width !== frame.width || field.height !== frame.height) {
                 field.frame = tick;
-                this.paint(field);
+                field.width = frame.width;
+                field.height = frame.height;
+                this.paint(field, frame.width, frame.height);
             }
         }
         for (const [id, field] of this.fields) {
@@ -94,35 +103,92 @@ export class ParalysisStatusVfx {
         }
         this.presented.clear();
     }
-    private paint(field: Field): void {
+    /**
+     * A floor field beneath the paralysed unit's feet, drawn in world pixels (never a stretched unit square,
+     * which distorted every stroke): a soft electric pool, a clean glowing rim with currents running around
+     * it, short crackles hugging the rim and a few motes drifting up. y-up world: negative y is toward the floor.
+     */
+    private paint(field: Field, width: number, height: number): void {
         const g = field.node;
-        const pulse = 0.65 + Math.sin(this.elapsed * 3 + field.phase) * 0.16;
+        const t = this.elapsed + field.phase;
+        const rx = width * 0.5;
+        const ry = rx * 0.3;
+        const cy = -height * 0.36;
+        const pulse = 0.78 + Math.sin(t * 3.2) * 0.14;
+        const at = (angle: number, scale = 1): [number, number] => [
+            Math.cos(angle) * rx * scale,
+            cy + Math.sin(angle) * ry * scale,
+        ];
         g.clear();
-        g.ellipse(0, -0.35, 0.51, 0.12).stroke({ width: 0.035, color: 0x207bdd, alpha: 0.26 });
-        g.ellipse(0, -0.35, 0.5, 0.12).stroke({ width: 0.008, color: 0x9beaff, alpha: pulse });
-        for (let arc = 0; arc < 4; arc++) {
-            const side = arc % 2 ? -1 : 1;
-            const high = arc < 2;
-            const x = side * (high ? 0.23 : 0.42);
-            const y = high ? 0.2 : -0.12;
-            for (let layer = 0; layer < 2; layer++) {
-                g.moveTo(x, y - 0.21);
-                for (let part = 1; part <= 6; part++) {
-                    const jitter = Math.sin(field.frame * 1.9 + arc * 2.4 + part * 4.1) * 0.045;
-                    g.lineTo(x + jitter, y - 0.21 + part * 0.07);
-                }
+
+        // 1. Soft pool: a faint floor tint, with glow bleeding inward from the rim and fading toward the centre.
+        g.ellipse(0, cy, rx, ry).fill({ color: 0x0f3fb0, alpha: 0.1 * pulse });
+        for (let i = 0; i < 5; i++) {
+            const k = 0.96 - i * 0.08;
+            g.ellipse(0, cy, rx * k, ry * k).stroke({
+                width: Math.max(2, rx * 0.08),
+                color: 0x1f6bff,
+                alpha: (0.14 - i * 0.025) * pulse,
+            });
+        }
+
+        // 2. Rim: a wide soft halo under a crisp bright line.
+        g.ellipse(0, cy, rx, ry).stroke({ width: Math.max(4, rx * 0.16), color: 0x1f6bff, alpha: 0.3 * pulse });
+        g.ellipse(0, cy, rx, ry).stroke({ width: Math.max(1.5, rx * 0.03), color: 0x5cc8ff, alpha: 0.75 * pulse });
+        g.ellipse(0, cy, rx * 0.72, ry * 0.72).stroke({ width: 1, color: 0x3fa4ff, alpha: 0.3 * pulse });
+
+        // 3. Currents: three bright comets chase each other around the rim, tails fading behind them.
+        const SEGMENTS = 14;
+        for (let c = 0; c < 3; c++) {
+            const head = t * 2.1 + (c * TAU) / 3;
+            for (let s = 0; s < SEGMENTS; s++) {
+                const a0 = head - (s + 1) * 0.07;
+                const a1 = head - s * 0.07;
+                const fade = 1 - s / SEGMENTS;
+                const [x0, y0] = at(a0);
+                const [x1, y1] = at(a1);
+                g.moveTo(x0, y0).lineTo(x1, y1);
                 g.stroke({
-                    width: layer ? 0.009 : 0.04,
-                    color: layer ? 0xc4f5ff : 0x318bff,
-                    alpha: layer ? pulse : 0.19,
+                    width: Math.max(2, rx * 0.05) * fade,
+                    color: fade > 0.8 ? 0xf2fdff : 0x7fdcff,
+                    alpha: 0.9 * fade * pulse,
                 });
             }
         }
-        for (let i = 0; i < 5; i++) {
-            const angle = this.elapsed * 0.8 + field.phase + (i * TAU) / 5;
-            const x = Math.cos(angle) * 0.48;
-            const y = Math.sin(angle) * 0.11 - 0.35;
-            g.circle(x, y, 0.014).fill({ color: 0xcaf8ff, alpha: pulse });
+
+        // 4. Crackles: short forked arcs that follow the rim and re-strike several times a second.
+        const strike = Math.floor(t * 9);
+        for (let b = 0; b < 3; b++) {
+            const seed = strike * 7.31 + b * 13.7 + field.phase * 3.1;
+            const life = (t * 9) % 1;
+            const start = hash(seed) * TAU;
+            const span = 0.45 + hash(seed + 1) * 0.4;
+            const points: [number, number][] = [];
+            for (let i = 0; i <= 7; i++) {
+                const a = start + (span * i) / 7;
+                const lift = i === 0 || i === 7 ? 1 : 1 + (hash(seed + i * 2.7) - 0.5) * 0.5;
+                points.push(at(a, lift));
+            }
+            const alpha = (1 - life) * 0.95;
+            for (const [w, color, a] of [
+                [Math.max(4, rx * 0.09), 0x2f7bff, alpha * 0.45],
+                [Math.max(1.4, rx * 0.025), 0xf2fdff, alpha],
+            ] as const) {
+                g.moveTo(points[0][0], points[0][1]);
+                for (let i = 1; i < points.length; i++) g.lineTo(points[i][0], points[i][1]);
+                g.stroke({ width: w, color, alpha: a, join: "round", cap: "round" });
+            }
+        }
+
+        // 5. Motes: sparks lift off the rim and fade as they rise.
+        for (let m = 0; m < 7; m++) {
+            const cycle = (t * 0.55 + m / 7) % 1;
+            const [x, y] = at(field.phase * 5 + m * 2.39);
+            const rise = cycle * height * 0.32;
+            g.circle(x * (1 - cycle * 0.15), y + rise, Math.max(1, rx * 0.022) * (1 - cycle * 0.5)).fill({
+                color: 0x9fe6ff,
+                alpha: (1 - cycle) * 0.85 * pulse,
+            });
         }
     }
     public clear(): void {
