@@ -66,6 +66,7 @@ const fixture = () => {
     };
     const caster = add("Nature", "Satyr", 3);
     const target = add("Life", "Squire", 6);
+    const originalMaxHp = { caster: caster.getMaxHp(), target: target.getMaxHp() };
     const log = { updateLog: mock(), getLog: () => "", hasBeenUpdated: () => false, clear: mock() };
     const handler = new AttackHandler(settings, grid, log, {
         add: mock(),
@@ -101,7 +102,7 @@ const fixture = () => {
         playCustomDeathAnimation(unit: RenderableUnit): boolean;
         renderPyreExplosion: (event: unknown, delay: number, removeBody: () => void) => void;
     };
-    return { caster, target, unitsHolder, links, root, scene };
+    return { caster, target, originalMaxHp, unitsHolder, links, root, scene };
 };
 
 describe("Helping Hand impact presentation", () => {
@@ -117,8 +118,8 @@ describe("Helping Hand impact presentation", () => {
                 expect(f.target.getUnitProperties().helping_hand_caster_id).toBeUndefined();
                 expect(f.target.hasBuffActive("Helping Hand")).toBe(false);
                 expect(f.caster.hasDebuffActive("Helping Hand")).toBe(false);
-                expect(f.target.getMaxHp()).toBe(9);
-                expect(f.caster.getMaxHp()).toBe(15);
+                expect(f.target.getMaxHp()).toBe(f.originalMaxHp.target);
+                expect(f.caster.getMaxHp()).toBe(f.originalMaxHp.caster);
                 expect(f[endpoint].destroyVisuals).toHaveBeenCalledTimes(1);
                 expect(f.unitsHolder.getAllUnits().has(f[endpoint].getId())).toBe(true);
                 f.links.update(1 / 60);
