@@ -1095,6 +1095,8 @@ export class Sandbox extends PixiScene {
     private narrowingPresentation?: Promise<void>;
     private narrowingPlaybackEpoch = 0;
     private shownFireBreathHits?: WeakSet<object>;
+    /** Units whose Lightning Spin / Skewer Strike hit already played its flinch at contact this exchange. */
+    private reactedSweepHitUnitIds?: Set<string>;
     private pyreDeaths?: LastFuseDeaths<RenderableUnit>;
     /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
     private readonly depthSortableUnitsScratch: RenderableUnit[] = [];
@@ -5360,6 +5362,7 @@ export class Sandbox extends PixiScene {
         attackLap = FightStateManager.getInstance().getFightProperties().getCurrentLap(),
     ): Promise<Set<string>> {
         this.shownFireBreathHits = new WeakSet();
+        this.reactedSweepHitUnitIds = new Set();
         if ([attacker, target].some((unit) => unit.hasAbilityActive?.("Bitter Experience")))
             this.combatVisuals?.prepareCommonFlagPop?.("bitter_experience");
         if (attacker.hasAbilityActive?.("Small Specie") || target.hasAbilityActive?.("Small Specie"))
@@ -5436,6 +5439,11 @@ export class Sandbox extends PixiScene {
         units.set(target.getId(), target);
         const pendingFireShieldDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_shield");
         const pendingFireBreathDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_breath");
+        // Lightning Spin and Skewer Strike damage lives only in `secondary` (a spin replaces the swing, so even
+        // the clicked victim's damage is there). Their numbers land later; the flinch belongs to the contact.
+        const pendingSweepHits = (event.damage?.secondary ?? []).filter(
+            (hit) => hit.source === "lightning_spin" || hit.source === "skewer_strike",
+        );
         const breathVictims = new Set(pendingFireBreathDamage.map((hit) => hit.unitId));
         const fireShieldOwners = new Set(fireShieldCasterIds(attacker.getId(), target.getId(), event.damage));
         this.preparePyreDeaths?.(dullingEvents ?? [], capturedUnits ?? this.snapshotRenderableUnits());
@@ -5929,6 +5937,38 @@ export class Sandbox extends PixiScene {
                                 return Promise.all([animation, this.delayReplay(330)]).then(() => {});
                             };
                             // A victim may still own a simultaneous outgoing action; do not cancel it.
+                            const outgoing = activeAttacks.get(hit.unitId);
+                            breathReactions.push(outgoing ? outgoing.then(showReaction) : showReaction());
+                        }
+                        // Every surviving unit a spin/skewer struck flinches with this blow, not only the
+                        // clicked one. One sweep per side: consume its hits so a later blow can't replay them.
+                        const sweep = melee
+                            ? pendingSweepHits.filter((hit) => units.get(hit.unitId)?.getTeam?.() === victimTeam)
+                            : [];
+                        for (const hit of sweep) {
+                            pendingSweepHits.splice(pendingSweepHits.indexOf(hit), 1);
+                            if (hit.amount <= 0 || (hit.unitId === strike.targetId && receivedDamage)) continue;
+                            if (deathState?.deadIds.has(hit.unitId) || this.reactedSweepHitUnitIds?.has(hit.unitId))
+                                continue;
+                            const struck = units.get(hit.unitId) as RenderableUnit | undefined;
+                            if (!struck) continue;
+                            this.reactedSweepHitUnitIds?.add(hit.unitId);
+                            const showReaction = (): Promise<void> => {
+                                if (
+                                    this.isSceneDestroyed() ||
+                                    shownDeaths.has(hit.unitId) ||
+                                    simultaneousAttackers.has(hit.unitId)
+                                )
+                                    return Promise.resolve();
+                                const animation = this.playReplayOneShot(struck, "hit", 3000, true);
+                                if (
+                                    (struck.getUnitProperties?.().level ?? 0) <= 2 ||
+                                    usesApprovedBaseAnimations(struck.getName())
+                                )
+                                    return animation;
+                                this.applyReplayHitKnockback(struck, source, hit.amount);
+                                return Promise.all([animation, this.delayReplay(330)]).then(() => {});
+                            };
                             const outgoing = activeAttacks.get(hit.unitId);
                             breathReactions.push(outgoing ? outgoing.then(showReaction) : showReaction());
                         }
@@ -7321,6 +7361,7 @@ export class Sandbox extends PixiScene {
         const breathVictims = new Set(
             attackEvent.damage.secondary?.filter((hit) => this.shownFireBreathHits?.has(hit)).map((hit) => hit.unitId),
         );
+        for (const id of this.reactedSweepHitUnitIds ?? []) breathVictims.add(id);
         for (const animation of attackEvent.animations) {
             const unitId = animation.affectedUnitId ?? animation.bodyUnitId;
             const unit = unitId
@@ -14598,9 +14639,9 @@ export class Sandbox extends PixiScene {
                 !damageForAnimation.splash?.length &&
                 !damageForAnimation.missed &&
                 damageForAnimation.amount > 0;
-            const breathReactionAlreadyPlayed = damageForAnimation.secondary?.some(
-                (hit) => hit.unitId === uId && this.shownFireBreathHits?.has(hit),
-            );
+            const breathReactionAlreadyPlayed =
+                damageForAnimation.secondary?.some((hit) => hit.unitId === uId && this.shownFireBreathHits?.has(hit)) ||
+                this.reactedSweepHitUnitIds?.has(uId);
             if (diff > 0 && !primaryReactionAlreadyPlayed && !exchangeDamage.has(uId) && !breathReactionAlreadyPlayed) {
                 // Splash and other secondary victims recoil away from the attack origin too. Missing or
                 // dead units are ignored by the helper, leaving lethal hits to the death animation.
