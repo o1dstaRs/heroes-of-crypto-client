@@ -54,7 +54,7 @@ export function normalizePremiumCrewDraft(value: unknown, catalog: PremiumCatalo
     return {
         version: 1,
         ids: premiumCrewSlots(ids, catalog).filter((id): id is number => id !== undefined),
-        layout: raw.layout === "spread" ? "spread" : "screen",
+        layout: "auto",
         battlefield: ["all", "1", "3", "4"].includes(raw.battlefield ?? "") ? raw.battlefield! : "all",
         ...(enemyIds.length === 6
             ? { enemyIds: premiumCrewSlots(enemyIds, catalog).filter((id): id is number => id !== undefined) }
@@ -84,7 +84,6 @@ export function readPremiumCrewDraft(url: URL, stored: string | null, catalog: P
                 synergiesAutomatic: url.searchParams.has("auto-synergies")
                     ? url.searchParams.get("auto-synergies") === "1"
                     : undefined,
-                layout: url.searchParams.get("formation"),
                 battlefield: url.searchParams.get("battlefield"),
             },
             catalog,
@@ -100,7 +99,6 @@ export function readPremiumCrewDraft(url: URL, stored: string | null, catalog: P
 export function premiumCrewShareUrl(current: URL, draft: PremiumCrewDraft): string {
     const url = new URL(current.pathname, current.origin);
     url.searchParams.set("crew", draft.ids.join(","));
-    if (draft.layout !== "screen") url.searchParams.set("formation", draft.layout);
     if (draft.battlefield !== "all") url.searchParams.set("battlefield", draft.battlefield);
     if (draft.enemyIds?.length) url.searchParams.set("enemy", draft.enemyIds.join(","));
     if (draft.artifactIds?.some(Boolean)) url.searchParams.set("artifacts", draft.artifactIds.join(","));

@@ -191,7 +191,7 @@ test("equipped artifacts survive saved/shared drafts and are the planner's actua
     const draft = {
         version: 1 as const,
         ids: own,
-        layout: "screen" as const,
+        layout: "auto" as const,
         battlefield: "all" as const,
         artifactIds,
     };

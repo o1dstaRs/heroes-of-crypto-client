@@ -1,4 +1,4 @@
-import { cells, valid, propose, type PublicInput, type Point } from "@heroesofcrypto/common/src/ai/placement/layout";
+import { cells, valid, type PublicInput, type Point } from "@heroesofcrypto/common/src/ai/placement/layout";
 import type { finalizeA19Placement } from "@heroesofcrypto/common/src/ai/placement/adapter";
 import { applyTacticalSplitPlacement } from "@heroesofcrypto/common/src/ai/tactical_split_placement";
 import {
@@ -30,7 +30,8 @@ import { portraitMarkup } from "./portrait";
 import { compareCrewHistory, type PremiumCrewHistory } from "./premium-crew-history";
 
 type Lang = "en" | "ru";
-export type CrewLayout = "screen" | "spread";
+/** Old style values remain readable, but only the AI chooses the formation. */
+export type CrewLayout = "auto" | "screen" | "spread";
 export const CREW_SIZE = 6;
 export const CREW_LEVELS = [1, 1, 2, 2, 3, 4] as const;
 export type PremiumCrewPlanner = typeof finalizeA19Placement;
@@ -121,7 +122,7 @@ export function samplePremiumCrew(
 export function premiumCrewFormation(
     ids: readonly number[],
     catalog: PremiumCatalog,
-    layout: CrewLayout = "screen",
+    _legacyLayout: CrewLayout = "auto",
     map = 1,
     opponent: readonly number[] = [],
     left = true,
@@ -216,7 +217,7 @@ export function premiumCrewFormation(
         cells(body, anchor).forEach((c) => occupied.add((c.x << 4) | c.y));
     }
     if (!valid(input, positions)) throw new Error("Invalid crew formation");
-    let baseline = ids.length && layout === "spread" ? propose(input, positions, 2) : positions;
+    let baseline = positions;
     if (splitStacks.length) {
         const splitPlacement = applyTacticalSplitPlacement(
             new Map(input.bodies.map((body, i) => [body.id, baseline[i]])),
@@ -312,7 +313,7 @@ export function premiumCrewBoardPlan(
         synergies,
         enemySynergies,
         own: premiumCrewFormation(ids, catalog, layout, map, enemyIds, true, planner, artifacts, synergies),
-        enemy: premiumCrewFormation(enemyIds, catalog, "screen", map, ids, false, planner, [1, 1], enemySynergies),
+        enemy: premiumCrewFormation(enemyIds, catalog, "auto", map, ids, false, planner, [1, 1], enemySynergies),
     };
 }
 export type PremiumCrewBoardPlan = ReturnType<typeof premiumCrewBoardPlan>;
@@ -509,7 +510,7 @@ export function renderPremiumCrew(
         .join("");
     const synergyMarkup = renderCrewSynergyChoices(plan.synergies, plan.enemySynergies, lang);
     return `<div class="premium-crew-toolbar"><span role="status" aria-live="polite">${ids.length} / 6 ${t("units", "юнитов")}</span><div>${library?.units.length ? `<button type="button" class="premium-text-button" data-crew-sample>${t("Fill from battle data", "Взять из записанных боёв")}</button>` : ""}${ids.length ? `<button type="button" class="premium-text-button" data-crew-share>${t("Copy crew link", "Скопировать состав")}</button><button type="button" class="premium-text-button" data-crew-clear>${t("Clear", "Очистить")}</button>` : ""}</div></div><div class="premium-crew-slots" role="group" aria-label="${t("Your six crew slots", "Шесть слотов армии")}">${slots}</div><div data-crew-roster class="premium-crew-roster"></div><section class="premium-crew-picks" data-crew-recommendations aria-label="${t("Best next picks", "Что выбрать дальше")}"></section><div data-crew-share-fallback hidden><label>${t("Crew link", "Ссылка на состав")}<input type="text" readonly data-crew-share-link /></label></div>
-    <div class="premium-crew-layout"><div><div class="premium-subheading"><h3>${formation.planned ? t("Game AI formation", "Расстановка игрового ИИ") : t("Starting formation", "Начальная расстановка")}</h3><select data-crew-layout aria-label="${t("Formation style", "Стиль расстановки")}"><option value="screen" ${layout === "screen" ? "selected" : ""}>${t("Protect back line", "Прикрыть тыл")}</option><option value="spread" ${layout === "spread" ? "selected" : ""}>${t("Spread out", "Разнести юнитов")}</option></select></div>${
+    <div class="premium-crew-layout"><div><div class="premium-subheading"><h3>${formation.planned ? t("AI-recommended formation", "Расстановка по рекомендации ИИ") : t("Starting formation", "Начальная расстановка")}</h3><small>${t("Automatic", "Автоматически")}</small></div>${
         ids.length
             ? `<div class="premium-crew-equipped" role="group" aria-label="${t("Equipped artifacts", "Выбранные артефакты")}">${formation.input.artifacts
                   .map((id, index) => {

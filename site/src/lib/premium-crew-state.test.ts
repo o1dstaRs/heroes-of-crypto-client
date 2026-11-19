@@ -8,7 +8,7 @@ const units = Object.entries(catalog.units).filter(([, item]) => item.kit?.amoun
 const ids: number[] = [];
 for (const level of CREW_LEVELS)
     ids.push(Number(units.find(([id, item]) => item.level === level && !ids.includes(Number(id)))![0]));
-const saved = { version: 1 as const, ids, layout: "spread" as const, battlefield: "3" as const };
+const saved = { version: 1 as const, ids, layout: "auto" as const, battlefield: "3" as const };
 
 test("saved and shared crews enforce current draft quotas and discard unavailable picks", () => {
     const level3 = units.filter(([, item]) => item.level === 3).map(([id]) => Number(id));
@@ -19,10 +19,10 @@ test("saved and shared crews enforce current draft quotas and discard unavailabl
     expect(result.ids.map((id) => catalog.units[id].level)).toEqual([1, 1, 2, 2, 3, 4]);
     expect(JSON.stringify(input)).toBe(before);
     const future = normalizePremiumCrewDraft({ ...saved, version: 2 }, catalog);
-    expect(future).toEqual({ version: 1, ids: [], layout: "screen", battlefield: "all" });
+    expect(future).toEqual({ version: 1, ids: [], layout: "auto", battlefield: "all" });
 });
 
-test("crew links round-trip formation and battlefield without unrelated query data", () => {
+test("crew links round-trip the crew and battlefield without a manual formation preference", () => {
     for (const path of ["/premium/", "/ru/premium/"]) {
         const link = new URL(
             premiumCrewShareUrl(
@@ -34,6 +34,7 @@ test("crew links round-trip formation and battlefield without unrelated query da
         expect(link.hash).toBe("#premium-crew");
         expect(link.searchParams.has("redirect")).toBe(false);
         expect(link.searchParams.has("token")).toBe(false);
+        expect(link.searchParams.has("formation")).toBe(false);
         expect(readPremiumCrewDraft(link, null, catalog)).toEqual(saved);
     }
 });
@@ -60,7 +61,22 @@ test("explicit shared crews override storage, including an empty crew; damaged s
             stored,
             catalog,
         ),
-    ).toEqual({ version: 1, ids: [], layout: "screen", battlefield: "all" });
+    ).toEqual({ version: 1, ids: [], layout: "auto", battlefield: "all" });
+});
+
+test("old stored and shared formation styles migrate to automatic without losing the crew", () => {
+    for (const layout of ["screen", "spread"]) {
+        const old = { ...saved, layout };
+        expect(
+            readPremiumCrewDraft(new URL("https://heroesofcrypto.io/premium/"), JSON.stringify(old), catalog),
+        ).toEqual(saved);
+        const link = new URL(premiumCrewShareUrl(new URL("https://heroesofcrypto.io/premium/"), saved));
+        link.searchParams.set("formation", layout);
+        expect(readPremiumCrewDraft(link, null, catalog)).toEqual(saved);
+        expect(new URL(premiumCrewShareUrl(link, { ...saved, layout: "spread" })).searchParams.has("formation")).toBe(
+            false,
+        );
+    }
 });
 
 test("artifact explanations name only the supplied eligible units", () => {

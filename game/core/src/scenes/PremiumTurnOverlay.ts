@@ -265,7 +265,7 @@ export const premiumMoveDrawing = (
     return drawing.label && drawing.cells.every(validCell) ? drawing : undefined;
 };
 
-const COLORS = [0xffc65a, 0x80d9ec] as const;
+const RECOMMENDED_COLOR = 0xffc65a;
 
 /** Floor paths and non-interactive labels live on the board, so camera fitting and mirroring follow it. */
 export class PremiumTurnOverlay {
@@ -284,16 +284,16 @@ export class PremiumTurnOverlay {
         this.floor.clear();
         for (const child of this.labels.removeChildren()) child.destroy({ children: true });
         const step = gs.getStep();
-        // Paint the preferred path last so a shared approach remains gold and legible.
-        for (let index = Math.min(COLORS.length, turn.options.length) - 1; index >= 0; index -= 1) {
+        // Retain the single-best display even when an older server sends comparison options.
+        for (let index = 0; index < Math.min(1, turn.options.length); index += 1) {
             const drawing = premiumMoveDrawing(turn.options[index], actor, units, gs, rangeContext);
             if (!drawing) continue;
-            const color = COLORS[index];
-            const alpha = index === 0 ? 0.95 : 0.7;
+            const color = RECOMMENDED_COLOR;
+            const alpha = 0.95;
             for (const cell of drawing.cells) {
                 this.floor
                     .poly(projectedCellPoints(cell, gs, 0.06))
-                    .fill({ color, alpha: index === 0 ? 0.14 : 0.07 })
+                    .fill({ color, alpha: 0.14 })
                     .stroke({ color, width: step * 0.035, alpha });
             }
             for (const path of drawing.paths) {
@@ -301,26 +301,9 @@ export class PremiumTurnOverlay {
                 this.floor
                     .poly(points, false)
                     .stroke({ color: 0x130e09, width: step * 0.09, alpha: 0.8, cap: "round", join: "round" });
-                if (index === 0) {
-                    this.floor
-                        .poly(points, false)
-                        .stroke({ color, width: step * 0.045, alpha, cap: "round", join: "round" });
-                } else {
-                    for (let i = 2; i < points.length; i += 2) {
-                        const x = points[i - 2],
-                            y = points[i - 1];
-                        const dx = points[i] - x,
-                            dy = points[i + 1] - y;
-                        const length = Math.hypot(dx, dy);
-                        for (let offset = 0; offset < length; offset += step * 0.22) {
-                            const end = Math.min(length, offset + step * 0.12);
-                            this.floor
-                                .moveTo(x + (dx * offset) / length, y + (dy * offset) / length)
-                                .lineTo(x + (dx * end) / length, y + (dy * end) / length)
-                                .stroke({ color, width: step * 0.035, alpha, cap: "round" });
-                        }
-                    }
-                }
+                this.floor
+                    .poly(points, false)
+                    .stroke({ color, width: step * 0.045, alpha, cap: "round", join: "round" });
                 const end = projectBattlefieldPoint(path[path.length - 1], gs);
                 const previous = [...path]
                     .reverse()

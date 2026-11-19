@@ -105,9 +105,22 @@ test("the shipped AI accepts the preview setup and changes our formation for a d
     );
 });
 
+test("old manual styles cannot change the automatically selected AI formation", () => {
+    const enemy = randomPremiumEnemy(own, catalog, () => 0.2);
+    for (const map of [1, 3, 4]) {
+        const automatic = premiumCrewFormation(own, catalog, "auto", map, enemy, true, finalizeA19Placement);
+        expect(automatic.planned).toBe(true);
+        for (const oldStyle of ["screen", "spread"] as const) {
+            expect(premiumCrewFormation(own, catalog, oldStyle, map, enemy, true, finalizeA19Placement)).toEqual(
+                automatic,
+            );
+        }
+    }
+});
+
 test("enemy picks persist and share safely; malformed, overlapping and over-quota enemies are dropped", () => {
     const enemyIds = randomPremiumEnemy(own, catalog, () => 0.4);
-    const draft = { version: 1 as const, ids: own, layout: "spread" as const, battlefield: "4" as const, enemyIds };
+    const draft = { version: 1 as const, ids: own, layout: "auto" as const, battlefield: "4" as const, enemyIds };
     const page = new URL("https://heroesofcrypto.io/premium/?token=private");
     expect(readPremiumCrewDraft(page, JSON.stringify(draft), catalog)).toEqual(draft);
     const shared = new URL(premiumCrewShareUrl(page, draft));
@@ -148,7 +161,12 @@ test("the board exposes the randomizer and enemy hovers without treating enemy t
     const localized = renderPremiumCrew(own, catalog, "ru", "screen", 1, false, null, undefined, enemy);
     expect(localized).toContain("Ваша сторона");
     expect(localized).toContain("Сторона врага");
-    expect(html).toContain("Game AI formation");
+    expect(localized).not.toContain("data-crew-layout");
+    expect(html).toContain("AI-recommended formation");
+    expect(html).toContain("Automatic");
+    expect(html).not.toContain("data-crew-layout");
+    expect(html).not.toContain("Protect back line");
+    expect(html).not.toContain("Spread out");
     expect(html).toContain("data-crew-randomize");
     expect(html).toContain("not odds against this opponent");
     expect(renderPremiumCrew([], catalog, "en", "screen", 1)).toContain("data-crew-randomize");

@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 for (const damage of [1, 400]) {
-    test(`A19 Healer advice compares Blessing with ${damage} missing HP and restores the board`, () => {
+    test(`A19 Healer advice returns its best spell with ${damage} missing HP and restores the board`, () => {
         HoCLib.setDeterministicRandomSource(makeRng(42));
         FightStateManager.getInstance().reset();
         const fight = FightStateManager.getInstance().getFightProperties();
@@ -127,7 +127,9 @@ for (const damage of [1, 400]) {
             clock.mockRestore();
         }
         expect(advice.status).toBe("ready");
-        expect(advice.options).toHaveLength(2);
+        // Premium now exposes one recommendation. Keep the tactical choice and read-only
+        // board assertions below: hiding comparisons must not change A19's selected spell.
+        expect(advice.options).toHaveLength(1);
         const cast = advice.options[0]?.actions?.find((action) => action.type === "cast_spell");
         if (damage === 1) {
             expect(cast).toMatchObject({ spellName: "Blessing", targetId: carry.getId() });

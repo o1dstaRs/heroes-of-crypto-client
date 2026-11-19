@@ -12,7 +12,6 @@ import {
 } from "@heroesofcrypto/common";
 import {
     cells,
-    propose,
     valid,
     type Body,
     type Point,
@@ -20,9 +19,9 @@ import {
 } from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import { synergyEffectAtLevel, synergyNextLevel } from "../LeftSideBar/synergyLadder";
 import type { PremiumDraftState } from "./premiumDraftAssessment";
+import { recommendPremiumDraftFormation } from "./premiumDraftFormation";
 
 export const DRAFT_PLANNER_FACTIONS = ["Life", "Nature", "Chaos", "Might"] as const;
-export type DraftFormationStyle = "screen" | "spread";
 export type DraftProjectedStack = Body & { position: Point; role: string };
 export interface DraftPlanStep {
     title: string;
@@ -49,7 +48,7 @@ const synergyLabels: Record<string, readonly string[]> = {
 
 /** Detached public-information projection. Never reads a fight, predicts enemy positions as fact,
  * applies a loadout, or supplies actions/placements to the match or the shipped AI. */
-export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormationStyle = "screen") {
+export function projectPremiumDraft(draft: PremiumDraftState) {
     const own = distinctUnits(draft.picked),
         enemy = distinctUnits(draft.opponentPicked);
     const variants = draft.gameId ? synergyVariantsForSeed(draft.gameId) : undefined;
@@ -82,17 +81,25 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
     const formation = (units: typeof own, opposing: typeof enemy, left: boolean): DraftProjectedStack[] => {
         if (!units.length) return [];
         const { GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA } = GridConstants;
+        const settings = new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA);
+        const depth = left && draft.setup ? 3 + Math.max(0, Math.min(3, draft.setup.placement)) : 3;
         const zone = new RectanglePlacement(
-            new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
+            settings,
             left ? PlacementPositionType.LEFT_BOTTOM : PlacementPositionType.RIGHT_TOP,
-            left && draft.setup ? 3 + Math.max(0, Math.min(3, draft.setup.placement)) : 3,
+            depth,
             true,
         );
+        const life = synergies.find((item) => item.faction === "Life")!;
+        const supplyLevel = left ? life.level : life.enemyLevel;
+        const supply = life.variant === 1 && supplyLevel ? (SynergyKeysToPower[`Life:1:${supplyLevel}`]?.[0] ?? 0) : 0;
         const bodies: Body[] = units.map((unit) => ({
             id: String(unit.id),
             creature: unit.id,
             name: unit.name,
-            amount: Math.ceil(1000 / unit.exp),
+            amount:
+                left && draft.setup
+                    ? (draft.setup.amounts[unit.id] ?? Math.ceil(1000 / unit.exp))
+                    : Math.floor(Math.ceil(1000 / unit.exp) * (1 + supply / 100)),
             width: unit.footprintWidth,
             height: unit.footprintHeight,
             ranged: unit.ranged,
@@ -114,7 +121,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
             enemyKits: opposing.map((unit) => unit.abilities),
             map: map ?? GridVals.NORMAL,
             artifacts: left ? [draft.artifactTier1, draft.artifactTier2] : [],
-            doctrine: draft.doctrine ?? 0,
+            doctrine: left ? (draft.doctrine ?? 0) : 0,
             augments: left ? (draft.setup?.augments ?? []) : [],
             left,
             legal: [...zone.possibleCellHashes()],
@@ -141,17 +148,17 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
             cells(body, anchors[0]).forEach((p) => occupied.add((p.x << 4) | p.y));
         }
         if (!valid(input, positions)) return [];
-        // Same public-kit/spread proposal family as the website; this remains an illustrative preview.
-        const planned = propose(input, positions, style === "spread" ? 2 : 6);
-        const life = synergies.find((item) => item.faction === "Life")!;
-        const supplyLevel = left ? life.level : life.enemyLevel;
-        const supply = life.variant === 1 && supplyLevel ? (SynergyKeysToPower[`Life:1:${supplyLevel}`]?.[0] ?? 0) : 0;
+        const planned = recommendPremiumDraftFormation(
+            input,
+            positions,
+            settings,
+            depth,
+            variants,
+            map ? draft.gameId : undefined,
+        );
+        if (!planned) return [];
         return bodies.map((body, index) => ({
             ...body,
-            amount:
-                left && draft.setup
-                    ? (draft.setup.amounts[body.creature] ?? body.amount)
-                    : Math.floor(body.amount * (1 + supply / 100)),
             position: planned[index],
             role: body.ranged
                 ? "Ranged pressure"
@@ -220,6 +227,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, style: DraftFormat
         arrows,
         artifacts,
         setup: !!draft.setup,
+        formationUnavailable: own.length > 0 && ownStacks.length === 0,
         hiddenEnemy: Math.max(0, 6 - enemy.length),
     };
 }

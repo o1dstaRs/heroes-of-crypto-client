@@ -55,6 +55,10 @@ test.each([true, false])("draft guidance stays available while isYourTurn=%s", (
     expect(html).toContain("Collapse draft planner");
     expect(html).toContain("Move draft planner with arrow keys or drag");
     expect(html).toContain("Match synergies");
+    expect(html).toContain("AI-recommended formation");
+    expect(html).not.toContain("Projected formation style");
+    expect(html).not.toContain("Protect back line</option>");
+    expect(html).not.toContain("Spread out</option>");
     expect(html).toContain("position:fixed");
     expect(html).toContain("right:18px");
     expect(html).toContain("bottom:72px");

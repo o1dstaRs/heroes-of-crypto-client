@@ -50,14 +50,11 @@ test("late advice cannot survive a move, repeated activation, changed unit, or r
     expect(premiumFightTurnKey({ ...snapshot, gameId: "another" })).not.toBe(premiumFightTurnKey(snapshot));
 });
 
-test("older responses are capped at two without mutating the server's advice", () => {
+test("older responses show only the best move without mutating the server's advice", () => {
     const turn = {
         ...advice.turn!,
         options: ["best", "comparison", "extra"].map((id) => ({ id, label: id, reasons: [] })),
     };
-    expect(currentPremiumTurn({ ...advice, turn }, snapshot)?.options.map((option) => option.id)).toEqual([
-        "best",
-        "comparison",
-    ]);
+    expect(currentPremiumTurn({ ...advice, turn }, snapshot)?.options.map((option) => option.id)).toEqual(["best"]);
     expect(turn.options).toHaveLength(3);
 });

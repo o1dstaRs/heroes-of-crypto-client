@@ -214,7 +214,7 @@ for (const { renderer, render, creatureId } of scenarios) {
             expect(context.sceneLog.hasBeenUpdated()).toBe(false);
             expect(context.damageStatisticHolder.get()).toEqual([]);
             expect(advice.status).toBe("ready");
-            expect(advice.options.length).toBeGreaterThan(0);
+            expect(advice.options).toHaveLength(1);
             expect(sandboxPremiumAdvice(actor, decision, 4, context.host)).toEqual(advice);
             if (creatureId === CreatureVals.PEASANT && distance === "adjacent") {
                 const searched: GameAction[] = [{ type: "defend_turn", unitId: actor.getId() }];

@@ -30,35 +30,29 @@ const enemy = [
     CreatureVals.BLACK_DRAGON,
 ];
 
-test.each(["screen", "spread"] as const)(
-    "%s preview fits partial and full armies without overlap, with their actual footprints",
-    (style) => {
-        for (let n = 0; n <= 6; n++) {
-            const plan = projectPremiumDraft(
-                state({ picked: own.slice(0, n), opponentPicked: enemy.slice(0, n) }),
-                style,
-            );
-            expect(plan.own).toHaveLength(n);
-            expect(plan.enemy).toHaveLength(n);
-            for (const [army, left] of [
-                [plan.own, true],
-                [plan.enemy, false],
-            ] as const) {
-                const occupied = new Set<string>();
-                for (const body of army)
-                    for (const p of cells(body, body.position)) {
-                        expect(p.x).toBeGreaterThanOrEqual(left ? 1 : 12);
-                        expect(p.x).toBeLessThanOrEqual(left ? 3 : 14);
-                        expect(p.y).toBeGreaterThanOrEqual(1);
-                        expect(p.y).toBeLessThanOrEqual(14);
-                        const key = `${p.x}:${p.y}`;
-                        expect(occupied.has(key)).toBe(false);
-                        occupied.add(key);
-                    }
-            }
+test("AI preview fits partial and full armies without overlap, with their actual footprints", () => {
+    for (let n = 0; n <= 6; n++) {
+        const plan = projectPremiumDraft(state({ picked: own.slice(0, n), opponentPicked: enemy.slice(0, n) }));
+        expect(plan.own).toHaveLength(n);
+        expect(plan.enemy).toHaveLength(n);
+        for (const [army, left] of [
+            [plan.own, true],
+            [plan.enemy, false],
+        ] as const) {
+            const occupied = new Set<string>();
+            for (const body of army)
+                for (const p of cells(body, body.position)) {
+                    expect(p.x).toBeGreaterThanOrEqual(left ? 1 : 12);
+                    expect(p.x).toBeLessThanOrEqual(left ? 3 : 14);
+                    expect(p.y).toBeGreaterThanOrEqual(1);
+                    expect(p.y).toBeLessThanOrEqual(14);
+                    const key = `${p.x}:${p.y}`;
+                    expect(occupied.has(key)).toBe(false);
+                    occupied.add(key);
+                }
         }
-    },
-);
+    }
+});
 
 test("all level-correct rosters keep large bodies in bounds", () => {
     for (let i = 0; i < 16; i++) {

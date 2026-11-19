@@ -17,7 +17,6 @@ import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAs
 import {
     clampDraftPanel,
     projectPremiumDraft,
-    type DraftFormationStyle,
     type DraftPanelRect,
     type DraftProjectedStack,
 } from "./premiumDraftProjection";
@@ -211,7 +210,9 @@ export const DraftPlannerBoard: React.FC<{
                     <Box
                         sx={{ position: "absolute", inset: "35% 15%", textAlign: "center", color: muted, fontSize: 12 }}
                     >
-                        Your projected army appears as you pick.
+                        {plan.formationUnavailable
+                            ? "AI formation is unavailable for this army. Your picks are unchanged."
+                            : "Your projected army appears as you pick."}
                     </Box>
                 )}
             </Box>
@@ -229,7 +230,6 @@ export const PremiumDraftPlanner: React.FC<{
     // Pick timers rerender the shell every second. Re-plan only when the public draft changes.
     const sourceKey = JSON.stringify({ ...draft, scouting: advice.scouting ?? draft.scouting });
     const source = useMemo(() => JSON.parse(sourceKey) as PremiumDraftState, [sourceKey]);
-    const [style, setStyle] = useState<DraftFormationStyle>("screen");
     const [showPlan, setShowPlan] = useState(true),
         [collapsed, setCollapsed] = useState(false);
     const [selected, setSelected] = useState<string>();
@@ -238,7 +238,7 @@ export const PremiumDraftPlanner: React.FC<{
     const gesture = useRef<
         { pointer: number; x: number; y: number; rect: DraftPanelRect; resize: boolean } | undefined
     >(undefined);
-    const plan = useMemo(() => projectPremiumDraft(source, style), [source, style]);
+    const plan = useMemo(() => projectPremiumDraft(source), [source]);
     const assessment = useMemo(() => premiumDraftAssessment(source), [source]);
     const selectedUnit = [
         ...plan.own.map((u) => ({ ...u, key: `own:${u.creature}` })),
@@ -446,25 +446,8 @@ export const PremiumDraftPlanner: React.FC<{
                             }}
                         >
                             <Typography level="title-sm" sx={{ color: ink, fontSize: 12 }}>
-                                Projected formation
+                                AI-recommended formation
                             </Typography>
-                            <Box
-                                component="select"
-                                aria-label="Projected formation style"
-                                value={style}
-                                onChange={(e) => setStyle(e.target.value as DraftFormationStyle)}
-                                sx={{
-                                    bgcolor: "#2a2117",
-                                    color: ink,
-                                    border: "1px solid #6c5036",
-                                    borderRadius: "4px",
-                                    fontSize: 11,
-                                    p: 0.4,
-                                }}
-                            >
-                                <option value="screen">Protect back line</option>
-                                <option value="spread">Spread out</option>
-                            </Box>
                         </Box>
                         <DraftPlannerBoard plan={plan} showPlan={showPlan} selected={selected} onSelect={setSelected} />
                         <Box
@@ -502,7 +485,8 @@ export const PremiumDraftPlanner: React.FC<{
                             · {plan.enemy.length}/6 enemy picks revealed
                         </Box>
                         <Box sx={{ fontSize: 10, color: "#9e907d", mt: 0.4 }}>
-                            Positions and arrows are a projection; deployment is chosen after the draft.
+                            AI placement updates with your army and revealed information. Final setup can change it.
+                            Enemy positions and arrows are illustrative.
                         </Box>
                         {selectedUnit && (
                             <Box

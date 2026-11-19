@@ -26,7 +26,6 @@ import {
     randomPremiumEnemy,
     premiumCrewBoardPlan,
     premiumCrewArtifactBenefit,
-    type CrewLayout,
     type PremiumCrewPlanner,
 } from "./premium-crew";
 import {
@@ -55,7 +54,6 @@ export function initPremiumCrew(
     }
     const saved = readPremiumCrewDraft(new URL(location.href), stored, catalog);
     let ids = saved.ids,
-        layout: CrewLayout = saved.layout,
         battlefield: CrewBattlefield = saved.battlefield,
         slot = 0;
     let faction: string | undefined;
@@ -96,7 +94,7 @@ export function initPremiumCrew(
     const draft = () => ({
         version: 1 as const,
         ids: [...ids],
-        layout,
+        layout: "auto" as const,
         battlefield,
         ...(enemyIds.length ? { enemyIds: [...enemyIds] } : {}),
         ...(artifactIds.some(Boolean) ? { artifactIds: [...artifactIds] as [number, number] } : {}),
@@ -335,7 +333,7 @@ export function initPremiumCrew(
             ids,
             enemyIds,
             catalog,
-            layout,
+            "auto",
             battlefield === "all" ? 1 : Number(battlefield),
             planner,
             data?.library,
@@ -348,7 +346,7 @@ export function initPremiumCrew(
             ids,
             catalog,
             lang,
-            layout,
+            "auto",
             battlefield === "all" ? 1 : Number(battlefield),
             !!getData()?.library,
             getData()?.library,
@@ -604,13 +602,6 @@ export function initPremiumCrew(
             setCrew(slots.filter((value): value is number => value !== undefined));
             root.querySelector("#premium-crew")?.scrollIntoView({ block: "start", behavior: "smooth" });
         }
-    });
-    root.addEventListener("change", (event) => {
-        const target = event.target as HTMLSelectElement;
-        if (!target.matches("[data-crew-layout]")) return;
-        layout = target.value === "spread" ? "spread" : "screen";
-        refresh();
-        root.querySelector<HTMLSelectElement>("[data-crew-layout]")?.focus();
     });
     return {
         battlefield: saved.battlefield,

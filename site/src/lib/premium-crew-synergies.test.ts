@@ -228,7 +228,7 @@ test("selected synergies persist and share while rejecting invalid variants and 
     const draft = {
         version: 1 as const,
         ids: nature,
-        layout: "screen" as const,
+        layout: "auto" as const,
         battlefield: "3" as const,
         synergyVariants: selected,
     };
