@@ -147,3 +147,60 @@ test("new temporary statuses render before older effects, permanent bonuses and 
         .text();
     expect(icons).toEqual(["Spiritual Armor", "Riot", "Water Shield", "synergy", "Quagmire", "Weakness"]);
 });
+
+test.each(["Disguise", "Disguise Aura"])(
+    "White Tiger shows active %s without duplicate Hidden/Visible markers",
+    async (auraName) => {
+        const unit = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Nature", "White Tiger", "white_tiger_512", 10);
+        for (const hidden of [true, false]) {
+            const effect = (name: string) => ({
+                name,
+                description: `${name}.`,
+                smallTextureName: "riot_256",
+                laps: 2,
+                stackPower: 0,
+                isStackPowered: false,
+                isAura: name === auraName,
+            });
+            const impact = {
+                abilities: [],
+                buffs: [...(hidden ? [effect("Hidden")] : []), effect(auraName), effect("Riot")],
+                debuffs: [effect("Visible"), effect("Weakness")],
+            };
+            const before = structuredClone(impact);
+            const labels: string[] = [];
+            await new HTMLRewriter()
+                .on("[aria-label]", {
+                    element(element) {
+                        labels.push(element.getAttribute("aria-label")!);
+                    },
+                })
+                .transform(new Response(renderedUnit(unit, impact)))
+                .text();
+            expect(labels).not.toContain("Hidden");
+            expect(labels).not.toContain("Visible");
+            expect(labels.includes(auraName)).toBe(hidden);
+            expect(labels).toContain("Riot");
+            expect(labels).toContain("Weakness");
+            expect(impact).toEqual(before);
+        }
+    },
+);
+
+test.each([1, 2, 3])("synergy buffs show %i level dots below their own icon", async (level) => {
+    const unit = shooter(6);
+    unit.synergies = [`Chaos:1:${level}`];
+    const dots: string[] = [];
+    await new HTMLRewriter()
+        .on(
+            `[data-sidebar-synergy="Chaos:1:${level}"] [aria-label="Synergy level ${level}"] [data-synergy-level-dot]`,
+            {
+                element() {
+                    dots.push("dot");
+                },
+            },
+        )
+        .transform(new Response(renderedUnit(unit)))
+        .text();
+    expect(dots).toHaveLength(level);
+});

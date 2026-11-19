@@ -48,7 +48,7 @@ import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
-import SynergiesRow from "./SynergiesRow";
+import SynergiesRow, { SYNERGY_LEVEL_INDICATOR_HEIGHT_PX } from "./SynergiesRow";
 import {
     SYNERGY_KEY_TO_IMAGE,
     SYNERGY_NAME_TO_DESCRIPTION,
@@ -1663,6 +1663,7 @@ const UnitStatsLayout: React.FC<{
     // A viewport shows exactly one complete row, including its gap. Keep the fractional CSS pitch
     // so long lists never drift between wheel steps; the final padding lets the last row align too.
     const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
+    const buffRowStep = effectRowStep + (shownSynergies.length ? SYNERGY_LEVEL_INDICATOR_HEIGHT_PX : 0);
     const effectWellHeight = effectRowStep;
     const effectsRef = React.useRef<HTMLDivElement>(null);
     const [effectsHeight, setEffectsHeight] = React.useState<number>();
@@ -1690,16 +1691,16 @@ const UnitStatsLayout: React.FC<{
             observer.disconnect();
             card?.removeEventListener("transitionend", measure);
         };
-    }, [unitProperties.name, metrics.gapPx, effectRowStep]);
+    }, [unitProperties.name, metrics.gapPx, effectRowStep, buffRowStep]);
 
     const buffCount = orderedBuffs.length + shownSynergies.length;
     // The empty Buffs heading stays visible, but it must not reserve two rows above Debuffs.
     const buffWellHeight =
         buffCount === 0
             ? 0
-            : buffCount > 4 && (effectsHeight ?? Infinity) >= effectRowStep * 3 + metrics.gapPx * 8
-              ? effectRowStep * 2
-              : effectRowStep;
+            : buffCount > 4 && (effectsHeight ?? Infinity) >= buffRowStep * 2 + effectRowStep + metrics.gapPx * 8
+              ? buffRowStep * 2
+              : buffRowStep;
     React.useLayoutEffect(() => {
         // Start at the Buffs plaque instead of scrolling it underneath the ability row.
         if (effectsRef.current) effectsRef.current.scrollTop = 0;
@@ -1957,7 +1958,7 @@ const UnitStatsLayout: React.FC<{
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     {buffCount > 0 && (
-                        <IconScrollWell height={buffWellHeight} offsetY={2} vertical rowStepPx={effectRowStep}>
+                        <IconScrollWell height={buffWellHeight} offsetY={2} vertical rowStepPx={buffRowStep}>
                             {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
                             <Box
                                 sx={{
@@ -2090,15 +2091,13 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const rawBuffs: IVisibleImpact[] = overallImpact.buffs || [];
     const rawDebuffs: IVisibleImpact[] = overallImpact.debuffs || [];
-    // White Tiger's Disguise Aura is modelled as a pair the engine flips as enemies come and go: the
-    // "Hidden" buff while nothing stands inside the aura's range, the "Visible" debuff the moment
-    // something does. "Visible" is not a debuff — every stack on the board is visible to begin with, so
-    // listing it reads as a penalty the tiger is under rather than as the plain default it is. It never
-    // shows. The aura itself only means anything while it is actually hiding the stack, so it joins the
-    // Buffs only then: a tiger standing in the open carries neither icon, and the card says what is true
-    // right now instead of what the creature could do from somewhere else.
+    // Hidden/Visible are the engine's Disguise state markers. The active Disguise aura already explains
+    // concealment, so omit its duplicate Hidden tile and the default Visible marker from this sidebar.
+    // Keep reading Hidden to decide whether the aura currently belongs in Buffs; never mutate game state.
     const isHidden = rawBuffs.some((buff) => buff.name === "Hidden");
-    const buffs: IVisibleImpact[] = isHidden ? rawBuffs : rawBuffs.filter((buff) => !isDisguise(buff.name));
+    const buffs: IVisibleImpact[] = rawBuffs.filter(
+        (buff) => buff.name !== "Hidden" && (isHidden || !isDisguise(buff.name)),
+    );
     const debuffs: IVisibleImpact[] = rawDebuffs.filter((debuff) => debuff.name !== "Visible");
     const hasHandymanAbility = abilities.some((ability) => ability.name === "Handyman");
     const hasBreakApplied = debuffs.some((d) => d.name === "Break" && d.laps > 0);

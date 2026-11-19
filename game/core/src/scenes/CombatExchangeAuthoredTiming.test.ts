@@ -12,6 +12,7 @@ import {
 } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { Sandbox } from "./Sandbox";
+import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { orderCombatExchange } from "./sandbox/combat_exchange";
 import type { IFireProjectileOptions } from "./sandbox/RangedProjectiles";
 
@@ -41,12 +42,22 @@ const factions: Record<string, string> = {
     Centaur: "Might",
     Zena: "Might",
     Hydra: "Chaos",
+    Scavenger: "Chaos",
+    Troglodyte: "Chaos",
 };
 const flush = async () => {
     for (let index = 0; index < 24; index++) await Promise.resolve();
 };
 
-test.each([
+type AuthoredExchangeCase = {
+    attackerName: string;
+    defenderName: string;
+    attackType: "range" | "melee";
+    missedPrimary?: boolean;
+    missedResponse?: boolean;
+};
+
+test.each<AuthoredExchangeCase>([
     { attackerName: "Elf", defenderName: "Zena", attackType: "range" },
     { attackerName: "Zena", defenderName: "Elf", attackType: "range" },
     { attackerName: "Orc", defenderName: "Dryad", attackType: "range" },
@@ -56,9 +67,18 @@ test.each([
     { attackerName: "Orc", defenderName: "Medusa", attackType: "melee" },
     { attackerName: "Orc", defenderName: "Hydra", attackType: "melee" },
     { attackerName: "Hydra", defenderName: "Orc", attackType: "melee" },
+    { attackerName: "Scavenger", defenderName: "Troglodyte", attackType: "melee", missedResponse: true },
+    { attackerName: "Troglodyte", defenderName: "Scavenger", attackType: "melee", missedPrimary: true },
+    {
+        attackerName: "Scavenger",
+        defenderName: "Scavenger",
+        attackType: "melee",
+        missedPrimary: true,
+        missedResponse: true,
+    },
 ])(
     "$attackerName / $defenderName $attackType keep both authored attacks without a late hit pose",
-    async ({ attackerName, defenderName, attackType }) => {
+    async ({ attackerName, defenderName, attackType, missedPrimary = false, missedResponse = false }) => {
         // Test pre-action replay figures and the already-resolved, mutually lethal local-engine state.
         for (const lethal of [false, true])
             for (const direction of [-1, 0, 1]) {
@@ -96,15 +116,23 @@ test.each([
                 }
                 const captured = new Map(actors.map((unit) => [unit.getId(), unit]));
                 const current = new Map(captured);
-                if (lethal)
-                    for (const actor of actors) {
-                        actor.setAmountAlive(0);
-                        current.delete(actor.getId());
-                    }
+                const dying = lethal ? actors.filter((_actor, index) => !(index ? missedPrimary : missedResponse)) : [];
+                for (const actor of dying) {
+                    actor.setAmountAlive(0);
+                    current.delete(actor.getId());
+                }
                 const sleeps: (() => void)[] = [];
                 const projectiles: IFireProjectileOptions[] = [];
                 const deaths: RenderableUnit[] = [];
                 const damage: number[] = [];
+                const misses: RenderableUnit[] = [];
+                // Exercise the real MISS → authored dodge path; floating text does not need a renderer.
+                const missVisuals = Object.assign(Object.create(CombatVisuals.prototype), {
+                    context: { getGridSettings: () => gs },
+                    getMissStyle: () => ({}),
+                    flagOverlayAnchor: () => ({ x: 0, y: 0 }),
+                    enqueueFloatingContainer: (container: Container) => container.destroy({ children: true }),
+                });
                 let prepareCount = 0;
                 let loadCounterProjectile!: () => void;
                 const scene = Object.assign(Object.create(Sandbox.prototype), {
@@ -117,12 +145,21 @@ test.each([
                     clearSceneTimeout: () => {},
                     delayReplay: () => new Promise<void>((resolve) => sleeps.push(resolve)),
                     playUnitCombatSound: () => {},
+                    playSceneGameSound: () => {},
                     popRecordedDullingDefense: () => {},
                     combatVisuals: {
                         spawnCommonFlagPop: () => {},
                         showFloatingDamage: (_position: unknown, amount: number) => damage.push(amount),
                         spawnBloodSpray: () => {},
                         spawnSlash: () => {},
+                        showMissLabel: (
+                            position: { x: number; y: number },
+                            direction: undefined,
+                            unit: RenderableUnit,
+                        ) => {
+                            misses.push(unit);
+                            missVisuals.showMissLabel(position, direction, unit);
+                        },
                     },
                     rangedProjectiles: {
                         prepare: () =>
@@ -140,15 +177,19 @@ test.each([
                         fireAlongPath: async () => {},
                     },
                 });
-                const makeStrike = (source: RenderableUnit, victim: RenderableUnit, response: boolean) => ({
-                    attackerId: source.getId(),
-                    targetId: victim.getId(),
-                    amount: 10,
-                    unitsDied: lethal ? 10 : 0,
-                    lethal,
-                    response,
-                    hitIndex: 0,
-                });
+                const makeStrike = (source: RenderableUnit, victim: RenderableUnit, response: boolean) => {
+                    const missed = response ? missedResponse : missedPrimary;
+                    return {
+                        attackerId: source.getId(),
+                        targetId: victim.getId(),
+                        amount: missed ? 0 : 10,
+                        unitsDied: lethal && !missed ? 10 : 0,
+                        lethal: lethal && !missed,
+                        missed,
+                        response,
+                        hitIndex: 0,
+                    };
+                };
                 let completed = false;
                 const playback = scene
                     .playCombatExchange(
@@ -168,7 +209,7 @@ test.each([
                         undefined,
                         {
                             amountsBefore: new Map(actors.map((unit) => [unit.getId(), 10])),
-                            deadIds: new Set(lethal ? captured.keys() : []),
+                            deadIds: new Set(dying.map((actor) => actor.getId())),
                         },
                     )
                     .then(() => {
@@ -204,8 +245,12 @@ test.each([
                     expect(
                         new Set(starts.filter((entry) => entry.state === "hit").map((entry) => entry.actor.getName())),
                     ).toEqual(new Set());
-                    expect(new Set(deaths)).toEqual(new Set(lethal ? actors : []));
-                    expect(damage).toEqual([10, 10]);
+                    expect(new Set(deaths)).toEqual(new Set(dying));
+                    expect(damage).toEqual([missedPrimary, missedResponse].filter((missed) => !missed).map(() => 10));
+                    expect(misses).toEqual([
+                        ...(missedPrimary ? [defender] : []),
+                        ...(missedResponse ? [attacker] : []),
+                    ]);
                     if (hydra) expect(hydraAdvanced).toBe(true);
                 } finally {
                     for (const actor of actors) actor.destroyVisuals();

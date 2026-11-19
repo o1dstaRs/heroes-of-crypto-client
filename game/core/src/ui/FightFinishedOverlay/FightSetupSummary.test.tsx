@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server.node";
 
 import type { IFightResultSetup } from "../../scenes/VisibleState";
 import { FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
+import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 
 const setup: IFightResultSetup = {
     // Deliberately reversed: ordering must follow the player columns, not incoming map/array order.
@@ -164,3 +165,39 @@ test("completed results are independent of the doctrine preference for the next 
         else Reflect.deleteProperty(globalThis, "localStorage");
     }
 });
+
+test.each(["both", "enemy only", "neither"])(
+    "each army's synergies follow its damage rows even when %s armies dealt damage",
+    (mode) => {
+        const entries = [
+            { team: TeamVals.RIGHT, name: "Dryad", smallTextureName: "dryad_512", damage: 30 },
+            { team: TeamVals.LEFT, name: "Scavenger", smallTextureName: "scavenger_512", damage: 10 },
+        ].filter((entry) => mode === "both" || (mode === "enemy only" && entry.team === TeamVals.RIGHT));
+        const html = renderToStaticMarkup(
+            <CacheProvider value={createCache({ key: "result-damage-setup" })}>
+                <DamageBreakdown
+                    entries={entries}
+                    armyFooter={(team) => (
+                        <FightArmySynergies team={team} army={setup.armies.find((army) => army.team === team)} />
+                    )}
+                />
+            </CacheProvider>,
+        );
+        const leftStart = html.indexOf(`data-result-damage-army="${TeamVals.LEFT}"`);
+        const rightStart = html.indexOf(`data-result-damage-army="${TeamVals.RIGHT}"`);
+        expect(leftStart).toBeGreaterThan(-1);
+        expect(rightStart).toBeGreaterThan(leftStart);
+        const left = html.slice(leftStart, rightStart);
+        const right = html.slice(rightStart);
+        expect(left).toContain('data-result-synergy="Nature:1:3"');
+        expect(right).toContain('data-result-synergy="Chaos:2:2"');
+        expect(left).not.toContain('data-result-synergy="Chaos:');
+        expect(right).not.toContain('data-result-synergy="Nature:');
+        for (const entry of entries) {
+            const column = entry.team === TeamVals.LEFT ? left : right;
+            expect(column.indexOf(`${entry.name} (`)).toBeGreaterThan(-1);
+            expect(column.indexOf(`${entry.name} (`)).toBeLessThan(column.indexOf("data-result-army-synergies="));
+        }
+        if (mode === "neither") expect(html).toContain("No damage was dealt.");
+    },
+);

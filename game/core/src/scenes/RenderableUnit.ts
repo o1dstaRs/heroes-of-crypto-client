@@ -13243,6 +13243,15 @@ export class RenderableUnit extends Unit {
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
         if (this.isPlayingOneShotAnimation("death")) return;
+        // A missed retaliation still shows MISS, but must not replace the outgoing attack/cast.
+        // Replacing its one-shot discards the completion callback and stalls the turn until timeout.
+        // Keep the full dodge for passive recipients and later strikes after recovery finishes.
+        if (
+            this.oneShotAnim &&
+            !this.oneShotAnim.finished &&
+            (isAttackAnimationStateName(this.oneShotAnim.stateName) || this.oneShotAnim.stateName === "cast")
+        )
+            return;
         if (this.hasAnimationState("dodge")) {
             this.clearGenericCombatRecoil();
             this.currentRecoilX = this.currentRecoilY = 0;

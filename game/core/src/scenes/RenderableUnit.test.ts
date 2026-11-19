@@ -7680,6 +7680,33 @@ describe("Scavenger thief visual replacement", () => {
         return unit;
     };
 
+    assetTest.each(["attack", "attack_up", "attack_down"])(
+        "a missed counter cannot replace Scavenger's %s or lose its completion callback",
+        (state) => {
+            const unit = createScavenger();
+            let completions = 0;
+            try {
+                expect(unit.playOneShotAnimation(state, () => completions++, true)).toBe(true);
+                unit.stepOneShotAnimation(20);
+                const before = (unit as unknown as AnimationInternals).oneShotAnim;
+                unit.playDodgeAnimation(0, 0);
+                expect((unit as unknown as AnimationInternals).oneShotAnim).toBe(before);
+                expect(unit.isPlayingOneShotAnimation(state)).toBe(true);
+                expect(completions).toBe(0);
+                unit.stepOneShotAnimation(5000);
+                expect(completions).toBe(1);
+                // A passive/later missed blow still has the complete approved dodge.
+                unit.playDodgeAnimation(0, 0);
+                expect(unit.isPlayingOneShotAnimation("dodge")).toBe(true);
+                unit.stepOneShotAnimation(5000);
+                expect(unit.isPlayingOneShotAnimation()).toBe(false);
+                expect(completions).toBe(1);
+            } finally {
+                unit.destroyVisuals();
+            }
+        },
+    );
+
     assetTest("keeps the restyled static figure undistorted on the existing foot line", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;
         const figure = new Texture({

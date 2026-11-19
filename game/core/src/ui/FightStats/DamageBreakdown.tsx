@@ -172,67 +172,78 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
  * Per-creature damage breakdown for the end-of-fight overlay: every creature that was
  * fielded, both armies on one scale, ordered by damage dealt.
  */
-export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ entries }) => {
-    if (!entries.length) {
-        return (
-            <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", fontSize: "0.82rem" }}>
-                No damage was dealt.
-            </Typography>
-        );
-    }
+export const DamageBreakdown: React.FC<{
+    entries: IFightDamageEntry[];
+    armyFooter?: (team: IFightDamageEntry["team"]) => React.ReactNode;
+}> = ({ entries, armyFooter }) => {
+    const noDamage = !entries.length ? (
+        <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", fontSize: "0.82rem" }}>
+            No damage was dealt.
+        </Typography>
+    ) : null;
+    if (noDamage && !armyFooter) return noDamage;
 
     const max = entries.reduce((acc, e) => Math.max(acc, e.damage), 0);
     // Keep one army per column, matching the green-left / red-right comparison used throughout
     // the results plaque. Each army remains ordered by damage dealt.
     const columns = [TeamVals.LEFT, TeamVals.RIGHT]
-        .map((team) => entries.filter((entry) => entry.team === team).sort((a, b) => b.damage - a.damage))
-        .filter((column) => column.length > 0);
+        .map((team) => ({
+            team,
+            entries: entries.filter((entry) => entry.team === team).sort((a, b) => b.damage - a.damage),
+        }))
+        // A recorded build still belongs to its own side when that army dealt no damage.
+        .filter((column) => column.entries.length > 0 || armyFooter);
 
     return (
-        <Stack
-            direction="row"
-            spacing={3}
-            sx={{
-                position: "relative",
-                alignItems: "flex-start",
-                ...(columns.length > 1
-                    ? {
-                          "&::before": {
-                              content: '\"\"',
-                              position: "absolute",
-                              top: 3,
-                              bottom: 3,
-                              left: "50%",
-                              width: "1px",
-                              transform: "translateX(-50%)",
-                              background:
-                                  "linear-gradient(180deg, transparent, rgba(70,62,54,.5) 26%, rgba(70,62,54,.5) 74%, transparent)",
-                              boxShadow: "0 0 4px rgba(0,0,0,.34)",
-                              pointerEvents: "none",
-                          },
-                      }
-                    : {}),
-            }}
-        >
-            {columns.map((column, ci) => (
-                <Box
-                    key={`dmgcol_${ci}`}
-                    sx={{
-                        flex: 1,
-                        minWidth: 0,
-                        width: "100%",
-                    }}
-                >
-                    {column.map((entry, i) => (
-                        <DamageRow
-                            key={`${entry.team}_${entry.name}`}
-                            entry={entry}
-                            max={max}
-                            index={ci * columns[0].length + i}
-                        />
-                    ))}
-                </Box>
-            ))}
-        </Stack>
+        <>
+            {noDamage}
+            <Stack
+                direction="row"
+                spacing={3}
+                sx={{
+                    position: "relative",
+                    alignItems: "flex-start",
+                    ...(columns.length > 1
+                        ? {
+                              "&::before": {
+                                  content: '\"\"',
+                                  position: "absolute",
+                                  top: 3,
+                                  bottom: 3,
+                                  left: "50%",
+                                  width: "1px",
+                                  transform: "translateX(-50%)",
+                                  background:
+                                      "linear-gradient(180deg, transparent, rgba(70,62,54,.5) 26%, rgba(70,62,54,.5) 74%, transparent)",
+                                  boxShadow: "0 0 4px rgba(0,0,0,.34)",
+                                  pointerEvents: "none",
+                              },
+                          }
+                        : {}),
+                }}
+            >
+                {columns.map((column, ci) => (
+                    <Box
+                        key={column.team}
+                        data-result-damage-army={column.team}
+                        sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            width: "100%",
+                        }}
+                    >
+                        {column.entries.map((entry, i) => (
+                            <DamageRow
+                                key={`${entry.team}_${entry.name}`}
+                                entry={entry}
+                                max={max}
+                                index={ci * columns[0].entries.length + i}
+                            />
+                        ))}
+                        {armyFooter?.(column.team)}
+                    </Box>
+                ))}
+            </Stack>
+        </>
     );
 };

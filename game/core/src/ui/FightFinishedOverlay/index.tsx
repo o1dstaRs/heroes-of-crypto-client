@@ -261,7 +261,6 @@ const CasualtyColumn: React.FC<{
     );
     return (
         <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 220 } }}>
-            <FightArmySynergies team={team} army={setup?.armies.find((army) => army.team === team)} />
             <Stack
                 direction="row"
                 spacing={1}
@@ -1591,7 +1590,15 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         }}
                     >
                         <ResultsSectionPlaque label="DAMAGE DEALT" />
-                        <DamageBreakdown entries={stats.damageByUnit ?? []} />
+                        <DamageBreakdown
+                            entries={stats.damageByUnit ?? []}
+                            armyFooter={(team) => (
+                                <FightArmySynergies
+                                    team={team}
+                                    army={stats.setup?.armies.find((army) => army.team === team)}
+                                />
+                            )}
+                        />
                     </Box>
 
                     {/* Casualty rosters remain pinned to the bottom. */}

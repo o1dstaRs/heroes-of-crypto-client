@@ -7,6 +7,9 @@ import React, { useMemo } from "react";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
+
+export const SYNERGY_LEVEL_INDICATOR_HEIGHT_PX = 8;
+
 const SynergiesRow = ({
     synergies,
     wrap = false,
@@ -31,10 +34,7 @@ const SynergiesRow = ({
     inline?: boolean;
 }) => {
     const metrics = useSidebarMetrics();
-    // In the Buffs well `size` is the common authored image edge used by an ordinary effect tile beside
-    // it. Level pips overlay the lower edge instead of reserving a separate band, so they do not enlarge
-    // the synergy badge's layout footprint.
-    const overlayLevelIndicator = inline && size !== undefined;
+    // Reserve a band below the art: overlaying pips on its rim hides the level against the icon.
     const badgeSize = size ?? (wrap ? 36 : metrics.synergyIcon);
     const iconSize = badgeSize;
     const sortedSynergies = useMemo(
@@ -73,7 +73,7 @@ const SynergiesRow = ({
                 let dotColor: string;
 
                 if (synergyKey.startsWith("Nature:")) {
-                    dotColor = "green";
+                    dotColor = "#51b660";
                 } else if (synergyKey.startsWith("Life:")) {
                     dotColor = "rgb(213, 167, 74)";
                 } else if (synergyKey.startsWith("Chaos:")) {
@@ -87,10 +87,13 @@ const SynergiesRow = ({
                 return (
                     <Box
                         key={synergyKey}
+                        data-sidebar-synergy={synergyKey}
                         sx={{
                             width: inline && size !== undefined ? `${badgeSize}px` : "auto",
-                            height: inline && size !== undefined ? `${badgeSize}px` : "auto",
-                            position: overlayLevelIndicator ? "relative" : "static",
+                            height:
+                                inline && size !== undefined
+                                    ? `${badgeSize + SYNERGY_LEVEL_INDICATOR_HEIGHT_PX}px`
+                                    : "auto",
                             textAlign: "center",
                             flex: "none",
                         }}
@@ -121,29 +124,23 @@ const SynergiesRow = ({
                             />
                         </Tooltip>
                         <Box
+                            aria-label={`Synergy level ${level}`}
                             sx={{
                                 display: "flex",
                                 justifyContent: "center",
-                                ...(overlayLevelIndicator
-                                    ? {
-                                          position: "absolute",
-                                          zIndex: 2,
-                                          right: 0,
-                                          bottom: "2px",
-                                          left: 0,
-                                          height: "4px",
-                                          marginTop: 0,
-                                      }
-                                    : { height: "auto", mt: size ? 0.25 : 0.5 }),
+                                height: "4px",
+                                mt: "4px",
                             }}
                         >
                             {Array.from({ length: level }, (_, dotIndex) => (
                                 <Box
                                     key={dotIndex}
+                                    data-synergy-level-dot
                                     sx={{
                                         width: "4px",
                                         height: "4px",
                                         backgroundColor: dotColor,
+                                        boxShadow: `0 0 2px ${dotColor}, 0 0 0 1px rgba(255,235,190,.25)`,
                                         borderRadius: "50%",
                                         margin: "0 2px",
                                     }}

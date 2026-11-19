@@ -19,6 +19,9 @@ retaliation eligibility, ammunition or turn order. Optional status/popup art can
 For a mortally wounded melee actor, shorten the remaining counter animation by 40%, capped at 300 ms,
 while retaining its current frame phase, all remaining cels and completion callback. An authored
 counter's completion starts death immediately; the exchange's generic lunge hold must not delay it.
+A missed retaliation keeps its MISS label without replacing an unfinished outgoing attack or cast
+with a dodge pose. In particular, Scavenger must retain its attack completion callback rather than
+holding the turn until the safety timeout; passive recipients still play the approved full dodge.
 Secondary Petrifying Gaze damage does not create a new hit sequence or cosmetic pause in combat;
 the archived preview remains available in the animation lab. Pegasus keeps main's final hit multiplier,
 and Wandering Mage keeps main's 720 ms authored melee duration in all three directions.
