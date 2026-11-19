@@ -7722,7 +7722,7 @@ export class Sandbox extends PixiScene {
         deferTurnAdvance = false,
     ): Promise<boolean> {
         const action = record.action;
-        if (action.type !== "cast_spell") {
+        if (action.type !== "cast_spell" || this.isSceneDestroyed()) {
             return false;
         }
         const caster = this.unitsHolder.getAllUnits().get(action.casterId) as RenderableUnit | undefined;
@@ -7741,6 +7741,13 @@ export class Sandbox extends PixiScene {
             caster.faceBoardTarget(facingTarget);
         }
         this.playUnitCastSound(caster, action.spellName, record.events);
+        const isCraftCast = action.spellName === "Craft";
+        if (isCraftCast) {
+            // A recorded cast is already accepted. Start its forge with the cast/sound, even if
+            // the later local re-apply is rejected; recipient outcomes still wait for delivery.
+            this.prepareBlacksmithCast(action.spellName);
+            this.showBlacksmithCraft(caster);
+        }
         if (action.spellName === "Vine Throw" && caster.getName() === "Trent") {
             const targetCell = action.targetId
                 ? this.unitsHolder.getAllUnits().get(action.targetId)?.getBaseCell()
@@ -7904,7 +7911,8 @@ export class Sandbox extends PixiScene {
         const [delivered] = await Promise.all([this.waitForSpellDamageDelivery(), castCompletion]);
         if (!delivered) return false;
         // The record is authoritative even if the local re-apply was rejected after turn handover.
-        const castSequenceMs = this.renderSpellCastSequence(caster, action.spellName, record.events);
+        const castSequenceMs = isCraftCast ? 0 : this.renderSpellCastSequence(caster, action.spellName, record.events);
+        if (isCraftCast) this.renderCastOutcomes(record.events);
         this.onReplaySpellImpact(record);
         this.renderReplayBuffApplications(record.events);
         // The magic-armor save on a Vine Throw is exactly such a stated roll.
@@ -10537,8 +10545,8 @@ export class Sandbox extends PixiScene {
     }
     private prepareBlacksmithCast(spellName: string, preview = false): void {
         if (!isBlacksmithSpell(spellName)) return;
-        if (preview || spellName === "Craft")
-            this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft", preview ? "preview" : "combat");
+        if (preview) this.combatVisuals?.prepareCommonFlagPop("blacksmith_craft", "preview");
+        else if (spellName === "Craft") this.combatVisuals?.prepareCraftForge?.();
         const rune = blacksmithRuneFlagKind(spellName);
         for (const kind of rune ? [rune] : Object.values(BLACKSMITH_CRAFT_FLAGS)) {
             this.combatVisuals?.prepareCommonFlagPop(kind);
@@ -10567,8 +10575,20 @@ export class Sandbox extends PixiScene {
         return forgeMs + 80 + OVERHEAD_EFFECT_DURATION_MS;
     }
     private showBlacksmithCraft(caster: RenderableUnit, preview = false): number {
-        this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft", preview ? "preview" : "combat");
-        return OVERHEAD_EFFECT_DURATION_MS;
+        if (preview) {
+            this.combatVisuals?.spawnCommonFlagPop(caster, "blacksmith_craft", "preview");
+            return OVERHEAD_EFFECT_DURATION_MS;
+        }
+        if (!this.combatVisuals?.spawnCraftForge) return 0;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const anchor = caster.getFlagEffectAnchor(gs);
+        const unitId = caster.getId();
+        // Craft's cast cue is the anvil and striking hammer, not a generic ability badge.
+        // Resolve the live flag by id so ranked hydration cannot detach it from its caster.
+        return this.combatVisuals.spawnCraftForge(anchor, gs.getCellSize(), () => {
+            const current = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            return { ...(current?.getFlagEffectAnchor(gs) ?? anchor), unitId };
+        });
     }
     private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean): void {
         const kind = blacksmithRuneFlagKind(spellName);

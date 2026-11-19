@@ -47,6 +47,10 @@ export const DraftBanSidebar: React.FC<{
                 overflowY: "auto",
                 overflowX: "hidden",
                 scrollbarWidth: "thin",
+                scrollbarColor: "rgba(178,138,77,.6) transparent",
+                "&::-webkit-scrollbar": { width: "4px" },
+                "&::-webkit-scrollbar-track": { background: "transparent" },
+                "&::-webkit-scrollbar-thumb": { backgroundColor: "rgba(178,138,77,.6)", borderRadius: "3px" },
                 [side]: `${-width - DRAFT_BAN_SIDE_OFFSET}px`,
                 width: `${width}px`,
                 height: "auto",
@@ -64,7 +68,9 @@ export const DraftBanSidebar: React.FC<{
                     height: "auto",
                     minHeight: 0,
                     p: `${BAN_ICON_GAP}px`,
-                    pb: "8px",
+                    // The diagonal cut extends about 9px below the portrait. Reserve that overhang so
+                    // fitting bans cannot create a one-pixel scroll range and a full-height thumb.
+                    pb: "12px",
                     background: "linear-gradient(90deg, transparent, #100c0877 12%, #100c0877 88%, transparent)",
                     color: "#efe4cc",
                     boxSizing: "border-box",

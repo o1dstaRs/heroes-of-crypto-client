@@ -26,6 +26,12 @@ Secondary Petrifying Gaze damage does not create a new hit sequence or cosmetic 
 the archived preview remains available in the animation lab. Pegasus keeps main's final hit multiplier,
 and Wandering Mage keeps main's 720 ms authored melee duration in all three directions.
 
+Craft retains the anvil and striking hammer above its caster's live flag. A recorded cast starts the
+forge with its cast animation and sound, even if local re-application is rejected. Only recorded
+outcomes announce recipient buffs; the forge adds no extra turn hold. Armed Craft can warm its two
+textures, and pending downloads survive ordinary animation ticks and ranked board hydration. Full
+scene cleanup cancels them. The generic Craft atlas remains available for explicit lab previews.
+
 `combat_exchange.test.ts`, `CombatExchangePlayback.test.ts`, `CombatExchangeAuthoredTiming.test.ts`,
 `RankedCombatTiming.test.ts`, the frozen 57-creature `MainCombatTimingParity.test.ts` fixture, and the
 Chakram and Fire Shield regressions lock this behavior with controlled

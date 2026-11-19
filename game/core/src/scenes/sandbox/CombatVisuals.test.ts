@@ -5,6 +5,7 @@ import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 
 import { images } from "../../generated/image_imports";
 import { CombatVisuals } from "./CombatVisuals";
+import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "../../pixi/imageAssetTiers";
 
 // spawnDeathVfx / the death animations only touch attachToWorldRoot; the rest of the context is
 // never reached by these paths.
@@ -618,7 +619,111 @@ describe("fire damage burst VFX", () => {
 });
 
 describe("Blacksmith Craft forge VFX", () => {
+    const flushAssets = async () => {
+        for (let index = 0; index < 12; index++) await Promise.resolve();
+    };
+
+    test("a cold forge survives animation ticks and ranked hydration until both textures arrive", async () => {
+        const { visuals, attached } = makeVisuals();
+        const texture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        let resolveLoad!: (texture: Texture) => void;
+        const pending = new Promise<Texture>((resolve) => {
+            resolveLoad = resolve;
+        });
+        const load = spyOn(Assets, "load").mockImplementation(() => pending);
+        const unload = spyOn(Assets, "unload").mockResolvedValue();
+        try {
+            // A prior floating result makes the frame advance procedural overlays while the forge
+            // list is still empty. This used to release/cancel the first texture download.
+            visuals.showCraftFail({ x: 20, y: 30 });
+            visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+            visuals.update(1 / 240);
+            visuals.clear({ keepDetachedOverlays: true });
+            visuals.update(1 / 240);
+            expect(unload).not.toHaveBeenCalled();
+            expect(internals(visuals).craftForges).toHaveLength(0);
+            resolveLoad(texture);
+            await flushAssets();
+            expect(internals(visuals).craftForges).toHaveLength(1);
+            expect(attached).toContain(internals(visuals).craftForges[0].container);
+            visuals.update(0.126);
+            expect(internals(visuals).craftForges[0].container.alpha).toBeGreaterThan(0);
+        } finally {
+            visuals.clear();
+            await flushAssets();
+            load.mockRestore();
+            unload.mockRestore();
+            texture.destroy(true);
+        }
+    });
+
+    test("arming Craft retains warm textures until the accepted cast and releases them after its forge", async () => {
+        const { visuals } = makeVisuals();
+        const texture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        const load = spyOn(Assets, "load").mockResolvedValue(texture as never);
+        const unload = spyOn(Assets, "unload").mockResolvedValue();
+        try {
+            visuals.prepareCraftForge();
+            await flushAssets();
+            visuals.showCraftFail({ x: 20, y: 30 });
+            visuals.update(0.1);
+            expect(internals(visuals).craftForges).toHaveLength(0);
+            expect(unload).not.toHaveBeenCalled();
+            visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+            await flushAssets();
+            expect(internals(visuals).craftForges).toHaveLength(1);
+            visuals.update(1);
+            await flushAssets();
+            expect(internals(visuals).craftForges).toHaveLength(0);
+            expect(unload).toHaveBeenCalledTimes(2);
+        } finally {
+            visuals.clear();
+            await flushAssets();
+            load.mockRestore();
+            unload.mockRestore();
+            texture.destroy(true);
+        }
+    });
+
+    test("a unit forge sits above the flag and follows it without changing height during the hammer swing", async () => {
+        const { visuals } = makeVisuals();
+        const texture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        const load = spyOn(Assets, "load").mockResolvedValue(texture as never);
+        const unload = spyOn(Assets, "unload").mockResolvedValue();
+        const anchor = { x: 100, y: 200, unitId: "smith" };
+        try {
+            visuals.spawnCraftForge(anchor, 80, () => anchor);
+            await flushAssets();
+            const forge = internals(visuals).craftForges[0];
+            expect(forge.container.getBounds().minY).toBeGreaterThanOrEqual(anchor.y + 5.9);
+            const firstX = forge.container.x;
+            const firstY = forge.container.y;
+            visuals.update(0.126);
+            visuals.update(0);
+            expect(forge.container.y).toBeCloseTo(firstY);
+            expect(forge.container.x).toBeCloseTo(firstX);
+            const before = { x: forge.container.x, y: forge.container.y };
+            anchor.x += 80;
+            anchor.y += 100;
+            visuals.clear({ keepDetachedOverlays: true });
+            visuals.update(0);
+            expect(forge.container.x).toBeCloseTo(before.x + 80);
+            expect(forge.container.y).toBeCloseTo(before.y + 100);
+            expect(forge.container.destroyed).toBe(false);
+        } finally {
+            visuals.clear();
+            await flushAssets();
+            load.mockRestore();
+            unload.mockRestore();
+            texture.destroy(true);
+        }
+    });
+
     test("loads the exact forge art on first cast and preserves its authored proportions", async () => {
+        for (const key of ["craft_anvil", "craft_hammer"]) {
+            expect(isProductionOmittedAssetKey(key)).toBe(false);
+            expect(isLazyCombatEffectAssetKey(key)).toBe(true);
+        }
         const { visuals, attached } = makeVisuals();
         const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
         const assetLoad = spyOn(Assets, "load").mockImplementation(() => Promise.resolve(forgeTexture));
@@ -698,7 +803,7 @@ describe("Blacksmith Craft forge VFX", () => {
         assetUnload.mockRestore();
     });
 
-    test("a full clear cancels a pending first load before it can attach a late forge", async () => {
+    test.each([false, true])("a full clear cancels pending forge textures, armed-only=%s", async (armedOnly) => {
         const { visuals, attached } = makeVisuals();
         const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
         let resolveLoad: ((texture: Texture) => void) | undefined;
@@ -708,7 +813,8 @@ describe("Blacksmith Craft forge VFX", () => {
         const assetLoad = spyOn(Assets, "load").mockImplementation(() => pending);
         const assetUnload = spyOn(Assets, "unload").mockImplementation(() => Promise.resolve());
 
-        visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+        if (armedOnly) visuals.prepareCraftForge();
+        else visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
         visuals.clear();
         resolveLoad?.(forgeTexture);
         await new Promise((resolve) => setTimeout(resolve, 0));

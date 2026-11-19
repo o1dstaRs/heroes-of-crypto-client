@@ -592,7 +592,7 @@ const AbilityCell: React.FC<{
                         isAura={ability.isAura}
                     />
                 )}
-                <StackCountBadge stacks={ability.stacks} minimum={0} />
+                <StackCountBadge stacks={ability.stacks} minimum={0} tileSize={size} />
             </Box>
         </Tooltip>
     );
@@ -628,27 +628,41 @@ const AbilityStack: React.FC<IAbilityStackProps & { metrics: ISidebarMetrics; ha
 /**
  * Effects show a badge after stacking; accumulating abilities also show their initial zero and first stack.
  */
-const StackCountBadge: React.FC<{ stacks?: number; minimum?: number }> = ({ stacks, minimum = 2 }) => {
+const StackCountBadge: React.FC<{ stacks?: number; minimum?: number; tileSize: number }> = ({
+    stacks,
+    minimum = 2,
+    tileSize,
+}) => {
     if (stacks === undefined || stacks < minimum) return null;
+    const fontSize = Math.min(15, Math.max(10, Math.round(tileSize * 0.24)));
+    const badgeHeight = fontSize + 6;
 
     return (
         <Box
             aria-label={`Current stacks: ${stacks}`}
             sx={{
                 position: "absolute",
-                top: "-2px",
-                right: "-2px",
-                zIndex: 4,
-                minWidth: "1.15em",
-                height: "1.15em",
-                paddingX: "0.15em",
-                borderRadius: "0.6em",
-                backgroundColor: "rgba(12, 12, 12, 0.92)",
-                border: "1px solid rgba(255, 255, 255, 0.75)",
-                color: "rgba(255, 255, 255, 0.95)",
-                fontSize: "9px",
-                lineHeight: "1.15em",
-                fontWeight: 700,
+                // Keep the larger count inside the tile so the icon well cannot clip its top edge.
+                top: "1px",
+                right: "1px",
+                zIndex: 11,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: `${badgeHeight}px`,
+                height: `${badgeHeight}px`,
+                paddingX: fontSize > 12 ? "4px" : "2px",
+                boxSizing: "border-box",
+                borderRadius: "7px",
+                backgroundColor: "#17120e",
+                border: "1px solid #d8bd84",
+                boxShadow: "0 1px 4px #000c",
+                color: "#fff1cc",
+                fontSize: `${fontSize}px`,
+                lineHeight: 1,
+                fontWeight: 900,
+                fontStyle: "normal",
+                fontVariantNumeric: "tabular-nums",
                 textAlign: "center",
                 pointerEvents: "none",
             }}
@@ -1135,7 +1149,7 @@ const EffectTiles: React.FC<{
                                     willChange: "opacity, transform",
                                 }}
                             />
-                            <StackCountBadge stacks={effect.stacks} />
+                            <StackCountBadge stacks={effect.stacks} tileSize={effectTileSize(metrics)} />
                         </Box>
                     </Tooltip>
                 ))}

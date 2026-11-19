@@ -11,6 +11,11 @@ function fixture() {
     const failures: { x: number; y: number }[] = [];
     const scheduled: { callback: () => void; delay: number }[] = [];
     const prepared: string[] = [];
+    const forges: {
+        center: { x: number; y: number };
+        cellSize: number;
+        follow: () => { x: number; y: number; unitId: string };
+    }[] = [];
     const makeUnit = (id: string, dead = false) => ({
         getId: () => id,
         isDead: () => dead,
@@ -28,16 +33,25 @@ function fixture() {
                     ["dead", makeUnit("dead", true)],
                 ]),
         },
-        sc_sceneSettings: { getGridSettings: () => ({}) },
+        sc_sceneSettings: { getGridSettings: () => ({ getCellSize: () => 64 }) },
         texAny: () => undefined,
         scheduleSceneTimeout: (callback: () => void, delay: number) => scheduled.push({ callback, delay }),
         combatVisuals: {
             prepareCommonFlagPop: (kind: string) => prepared.push(kind),
+            prepareCraftForge: () => prepared.push("forge"),
+            spawnCraftForge: (
+                center: { x: number; y: number },
+                cellSize: number,
+                follow: () => { x: number; y: number; unitId: string },
+            ) => {
+                forges.push({ center, cellSize, follow });
+                return 900;
+            },
             spawnCommonFlagPop: (unit: typeof caster, kind: string) => pops.push(`${unit.getId()}:${kind}`),
             showCraftFail: (pos: { x: number; y: number }) => failures.push(pos),
         },
     });
-    return { scene, caster, pops, flashes, failures, scheduled, prepared };
+    return { scene, caster, pops, flashes, failures, scheduled, prepared, forges };
 }
 const cast = (spellName: string, outcome: string, unitId = "ally") =>
     [
@@ -63,7 +77,20 @@ test("only successful recorded runes announce their recipient, without a smith b
 test("Craft retains its source animation independently of the recorded rune results", () => {
     const f = fixture();
     expect(f.scene.showBlacksmithCraft(f.caster)).toBeGreaterThan(0);
-    expect(f.pops).toEqual(["smith:blacksmith_craft"]);
+    expect(f.forges).toHaveLength(1);
+    expect(f.forges[0].center).toEqual({ x: 100, y: 200 });
+    expect(f.forges[0].cellSize).toBe(64);
+    expect(f.pops).toEqual([]);
+});
+
+test("the forge follows its caster's replacement flag after ranked hydration", () => {
+    const f = fixture();
+    f.scene.showBlacksmithCraft(f.caster);
+    expect(f.forges[0].follow()).toEqual({ x: 100, y: 200, unitId: "smith" });
+    f.scene.unitsHolder.getAllUnits = () => new Map([["smith", { getFlagEffectAnchor: () => ({ x: 320, y: 460 }) }]]);
+    expect(f.forges[0].follow()).toEqual({ x: 320, y: 460, unitId: "smith" });
+    f.scene.unitsHolder.getAllUnits = () => new Map();
+    expect(f.forges[0].follow()).toEqual({ x: 100, y: 200, unitId: "smith" });
 });
 
 test("failed, absent and dead recipients never receive a successful rune cue", () => {
@@ -100,7 +127,8 @@ test.each(Object.entries(BLACKSMITH_CRAFT_FLAGS))(
         const events = cast("Craft", ability.includes("Frozen") ? "frozen" : "double");
         (events[0] as Extract<GameEvent, { type: "spell_cast" }>).outcomes![0].grantedAbility = ability;
         expect(f.scene.renderSpellCastSequence(f.caster, "Craft", events)).toBe(0);
-        expect(f.pops).toEqual(["smith:blacksmith_craft", `ally:${kind}`]);
+        expect(f.forges).toHaveLength(1);
+        expect(f.pops).toEqual([`ally:${kind}`]);
         expect(f.flashes).toEqual(["ally"]);
         expect(f.scheduled).toEqual([]);
     },
@@ -118,7 +146,8 @@ test("Craft backfire presents confirmed stun while an empty result keeps its tex
     const f = fixture();
     const events = [...cast("Craft", "stun", "smith"), ...cast("Craft", "nothing")];
     f.scene.renderSpellCastSequence(f.caster, "Craft", events);
-    expect(f.pops).toEqual(["smith:blacksmith_craft", "smith:stun"]);
+    expect(f.forges).toHaveLength(1);
+    expect(f.pops).toEqual(["smith:stun"]);
     expect(f.scheduled).toEqual([]);
     expect(f.failures).toEqual([{ x: 100, y: 200 }]);
     expect(f.flashes).toEqual([]);

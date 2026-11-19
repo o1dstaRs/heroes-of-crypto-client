@@ -561,6 +561,10 @@ const CRAFT_STRIKE_CYCLE = 0.42 * CRAFT_TIME_SCALE;
 const CRAFT_FADE_IN = 0.12 * CRAFT_TIME_SCALE;
 const CRAFT_HAMMER_RAISED_ANGLE = -0.45;
 const CRAFT_HAMMER_IMPACT_ANGLE = -2.1;
+// Visible pixel extents of the approved bitmaps. Transparent canvas margins must not push the
+// overhead forge away from its flag, and the swinging hammer must not re-center the anvil each frame.
+const CRAFT_ANVIL_VISIBLE = { left: 20 / 1254, top: 330 / 1254, right: 1226 / 1254, bottom: 921 / 1254 };
+const CRAFT_HAMMER_VISIBLE = { left: 272 / 1190, top: 42 / 1190, right: 919 / 1190, bottom: 1150 / 1190 };
 const ENCHANT_Z = 2066; // Armor Rune/Weapon attempt-then-resolve VFX, just over the craft forge
 const ENCHANT_LIFE = 1.45; // seconds — full attempt -> resolve
 const ENCHANT_GATHER = 0.5; // seconds of the "trying" gather before it resolves (caller passes the per-spell tint)
@@ -852,6 +856,7 @@ export class CombatVisuals {
     private craftTextureLoad?: Promise<readonly [Texture, Texture] | undefined>;
     private craftTextureLeaseHeld = false;
     private craftTextureGeneration = 0;
+    private craftForgePrepared = false;
     private enchants: IEnchant[] = [];
     private abilitySteals: IAbilitySteal[] = [];
     private debuffStyle?: TextStyle;
@@ -2033,7 +2038,7 @@ export class CombatVisuals {
         });
         // Craft's large anvil/hammer bitmaps are intentionally not touched here. Texture.from() begins
         // fetching URL-backed assets immediately, so warming a rare spell kept both images decoded for
-        // every battle. spawnCraftForge resolves them only when the spell is actually cast.
+        // every battle. They load only when Craft is armed or its accepted cast is presented.
     }
     public captureHelpingHandPresentation(): void {
         this.helpingHandLinks.capturePresentation();
@@ -3649,6 +3654,7 @@ export class CombatVisuals {
         return load;
     }
     private releaseCraftTextures(): void {
+        this.craftForgePrepared = false;
         if (!this.craftTextureLeaseHeld) return;
         this.craftTextureLeaseHeld = false;
         this.craftTextureGeneration += 1;
@@ -3661,19 +3667,31 @@ export class CombatVisuals {
             }
         });
     }
-    public spawnCraftForge(center: HoCMath.XY, cellSize: number): number {
+    /** Warm only an armed Craft; never decode the rare forge art for every battle. */
+    public prepareCraftForge(): void {
+        this.craftForgePrepared = true;
+        void this.loadCraftTextures();
+    }
+    public spawnCraftForge(center: HoCMath.XY, cellSize: number, follow?: () => FlagOverlayAnchor | undefined): number {
+        this.craftForgePrepared = false;
+        const generation = this.craftTextureGeneration;
         void this.loadCraftTextures().then((textures) => {
-            if (textures) this.createCraftForge(center, cellSize, textures);
+            if (textures && generation === this.craftTextureGeneration && this.craftTextureLeaseHeld)
+                this.createCraftForge(center, cellSize, textures, follow);
         });
         return Math.round(CRAFT_FORGE_LIFE * 1000);
     }
-    private createCraftForge(center: HoCMath.XY, cellSize: number, textures: readonly [Texture, Texture]): void {
+    private createCraftForge(
+        center: HoCMath.XY,
+        cellSize: number,
+        textures: readonly [Texture, Texture],
+        follow?: () => FlagOverlayAnchor | undefined,
+    ): void {
         const container = new Container();
         // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
         // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
         container.scale.set(glyphScaleX(1), -1);
         container.position.set(center.x, center.y);
-        this.attachEffect(container, CRAFT_Z);
 
         const [anvilTex, hammerTex] = textures;
 
@@ -3708,6 +3726,35 @@ export class CombatVisuals {
 
         container.addChild(anvil, hammer);
         container.alpha = 0;
+        if (follow) {
+            const points: { x: number; y: number }[] = [];
+            const include = (sprite: Sprite, visible: typeof CRAFT_ANVIL_VISIBLE, angle = 0) => {
+                const cosine = Math.cos(angle),
+                    sine = Math.sin(angle);
+                for (const x of [visible.left, visible.right])
+                    for (const y of [visible.top, visible.bottom]) {
+                        const px = (x - sprite.anchor.x) * sprite.width;
+                        const py = (y - sprite.anchor.y) * sprite.height;
+                        points.push({ x: sprite.x + px * cosine - py * sine, y: sprite.y + px * sine + py * cosine });
+                    }
+            };
+            include(anvil, CRAFT_ANVIL_VISIBLE);
+            for (let step = 0; step <= 32; step++)
+                include(
+                    hammer,
+                    CRAFT_HAMMER_VISIBLE,
+                    CRAFT_HAMMER_RAISED_ANGLE + ((CRAFT_HAMMER_IMPACT_ANGLE - CRAFT_HAMMER_RAISED_ANGLE) * step) / 32,
+                );
+            const left = Math.min(...points.map((point) => point.x));
+            const top = Math.min(...points.map((point) => point.y));
+            const right = Math.max(...points.map((point) => point.x));
+            const bottom = Math.max(...points.map((point) => point.y)) + cellSize * 0.04;
+            // Reserve one fixed visible envelope, including the anvil's recoil. Sparks may fly beyond
+            // it without moving the cue. The old world forge spanned a 2x2 target; a caster cue is smaller.
+            container.boundsArea = new Rectangle(left, top, right - left, bottom - top);
+            container.scale.set(glyphScaleX(0.55), -0.55);
+            this.attachFlagOverlay(container, 5520, follow);
+        } else this.attachEffect(container, CRAFT_Z);
 
         this.craftForges.push({
             container,
@@ -3818,7 +3865,10 @@ export class CombatVisuals {
                 sp.gfx.alpha = 1 - sp.age / sp.life;
             }
         }
-        if (this.craftForges.length === 0) this.releaseCraftTextures();
+        // An empty list during the first download is not completion. Releasing here used to invalidate
+        // the pending generation, so a cold cast could disappear before either bitmap arrived.
+        if (this.craftForges.length === 0 && !this.craftTextureLoad && !this.craftForgePrepared)
+            this.releaseCraftTextures();
     }
     public spawnEnchantResult(
         center: HoCMath.XY,
