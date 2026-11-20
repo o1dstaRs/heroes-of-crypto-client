@@ -42,7 +42,6 @@ import {
     Typography,
 } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
-import { CssVarsProvider } from "@mui/joy/styles";
 import BarrelPlacementControls from "./BarrelPlacementControls";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
@@ -158,7 +157,6 @@ import {
     hocDangerAlertSx,
     hocDisplayFontFamily,
     hocDisplayLetterSpacing,
-    hocJoyTheme,
     hocPanelSx,
     hocPrimaryButtonSx,
     hocSidebarImageButtonSx,
@@ -2149,7 +2147,8 @@ export const RankedGameView: React.FC<Props> = ({
                     backgroundColor: "#07090d",
                 }}
             >
-                <CssVarsProvider theme={hocJoyTheme}>
+                {/* The Joy theme is provided by RankedGameView, outside this frequently re-rendering view. */}
+                <>
                     <CssBaseline />
                     {!pixiReady && <LoadingFullscreenToggle />}
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
@@ -2284,7 +2283,7 @@ export const RankedGameView: React.FC<Props> = ({
                             onBackToLobby={sandboxCoop ? () => navigate("/") : handleBackToLobby}
                         />
                     )}
-                </CssVarsProvider>
+                </>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
             </div>

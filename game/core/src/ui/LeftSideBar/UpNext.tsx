@@ -88,7 +88,20 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
-export const UpNext: React.FC = () => {
+interface IUpNextProps {
+    /**
+     * personalArmyPaintKey() as of the parent's render. Not read here: the queue is memoized, and a
+     * changed army paint must still repaint its flags.
+     */
+    paintKey: string;
+}
+
+/**
+ * Memoized: the sidebar re-renders several times a second in a fight, and every render of the queue gave
+ * its popLayout AnimatePresence a fresh presence context, which re-rendered every portrait card (measured
+ * 2026-11-20). The queue's own data arrives through its visible-state subscription.
+ */
+const UpNextView: React.FC<IUpNextProps> = () => {
     const [visibleState, setVisibleState] = useState<UpNextVisibleState>({
         upNext: [],
         hasFinished: false,
@@ -478,3 +491,6 @@ export const UpNext: React.FC = () => {
         </>
     );
 };
+
+export const UpNext = React.memo(UpNextView);
+UpNext.displayName = "UpNext";

@@ -1,4 +1,8 @@
 import { TeamType, TeamVals } from "@heroesofcrypto/common";
+
+import { t } from "../../i18n/i18n";
+import { drawnSideOf } from "../../pixi/boardMirror";
+import { personalArmyPaintKey } from "../../scenes/personalArmyTint";
 /**
  * The fight log names each actor in its army's own colour instead of printing a coloured bead beside it.
  *
@@ -88,3 +92,11 @@ export const fightLogMarkTeam = (mark: string): TeamType | undefined => {
     if (bare === RED_TEAM_MARK) return TeamVals.RIGHT;
     return undefined;
 };
+
+/**
+ * Everything a painted log row reads besides its own text: each army's personal colour, the side it is
+ * drawn on, and the language of the side labels. These live in module state the scene sets (entering a
+ * replay changes the paint mid-fight); the memoized log receives this key from its parent's render.
+ */
+export const fightLogPaintKey = (): string =>
+    [personalArmyPaintKey(), drawnSideOf(TeamVals.LEFT), drawnSideOf(TeamVals.RIGHT), t("Left side")].join("|");

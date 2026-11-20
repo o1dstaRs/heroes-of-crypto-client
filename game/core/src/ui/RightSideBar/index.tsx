@@ -5,6 +5,7 @@ import { usePremiumAccess } from "../premium/PremiumAccess";
 import { usePremiumPreference } from "../premium/usePremiumPreference";
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { FIGHT_LOG_SURFACE_BACKGROUND } from "./fightLogLayout";
+import { fightLogPaintKey } from "./fightLogTeamNames";
 import { toolbarColumnHeightPx, toolbarSlotCount } from "../DraggableToolbar/toolbarMetrics";
 import { ButtonContext } from "../context/ButtonContextDefs";
 import {
@@ -519,7 +520,7 @@ export default function RightSideBar({
                         >
                             <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
                                 <React.Suspense fallback={null}>
-                                    <FightLog text={attackText} />
+                                    <FightLog text={attackText} paintKey={fightLogPaintKey()} />
                                 </React.Suspense>
                             </Box>
                         </Box>

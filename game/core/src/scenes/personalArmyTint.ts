@@ -101,6 +101,13 @@ export const personalArmyCssColor = (team: TeamType): string | undefined => {
     return preset === undefined ? undefined : `#${preset.color.toString(16).padStart(6, "0")}`;
 };
 
+/**
+ * Changes whenever either army's painted colour does. React panels memoized against their parent's
+ * re-renders take it as a prop so a repaint (for example entering a replay) still reaches them.
+ */
+export const personalArmyPaintKey = (): string =>
+    `${personalArmyCssColor(TeamVals.LEFT) ?? ""}|${personalArmyCssColor(TeamVals.RIGHT) ?? ""}`;
+
 /** The preset to draw `team` with — the viewer's own choice, or the opponent's red — or undefined for the
  * canonical team colour. */
 export const personalArmyPresetFor = (team: TeamType): IArmyColorPreset | undefined => {

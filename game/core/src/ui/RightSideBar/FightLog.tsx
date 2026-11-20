@@ -86,7 +86,102 @@ const renderFightLogMarkers = (text: string): React.ReactNode =>
         );
     });
 
-export const FightLog = ({ text }: { text: string }) => {
+const headerSx = {
+    mx: "8px",
+    px: "2px",
+    pt: "2px",
+    pb: "3px",
+    fontSize: "10.5px",
+    fontWeight: 600,
+    lineHeight: 1.3,
+    letterSpacing: "0.04em",
+    color: "rgba(217, 179, 108, 0.82)",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    background: "none",
+    border: "none",
+    borderBottom: "1px solid rgba(186, 148, 90, 0.22)",
+    borderRadius: 0,
+    boxShadow: "none",
+    animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1)`,
+} as const;
+const firstHeaderSx = { ...headerSx, mt: 0 } as const;
+const laterHeaderSx = { ...headerSx, mt: "6px" } as const;
+
+const rowSx = {
+    position: "relative",
+    // Keep events indented beneath their turn header without decorative bullets.
+    pl: "10px",
+    pr: "10px",
+    py: "3px",
+    fontSize: "10.5px",
+    lineHeight: 1.32,
+    letterSpacing: "0.015em",
+    color: "rgba(220, 177, 100, .94)",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    // Only freshly-mounted rows run the entrance + ember flash; existing rows keep their key, so React
+    // never remounts them and they stay calm.
+    animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
+} as const;
+// The very newest line glows a touch hotter than the rest.
+const newestSx = { color: "#d4ae6c", textShadow: "0 0 4px rgba(188, 143, 75, 0.22)" } as const;
+const rowVariantSx = {
+    plain: { ...rowSx, ml: 0 },
+    indented: { ...rowSx, ml: "14px" },
+    plainNewest: { ...rowSx, ml: 0, ...newestSx },
+    indentedNewest: { ...rowSx, ml: "14px", ...newestSx },
+} as const;
+
+interface IFightLogHeaderProps {
+    label: string;
+    first: boolean;
+    /** Not read here: a changed paint re-renders the memoized header (see fightLogPaintKey). */
+    paintKey: string;
+}
+
+/**
+ * Rows and turn headers are memoized: the log's parent re-renders several times a second during a
+ * fight, and re-resolving every row's styles each time was the largest share of the sidebar's React
+ * work (measured 2026-11-20). A new line now renders only itself and the previously newest row.
+ */
+const FightLogHeader = React.memo((props: IFightLogHeaderProps) => (
+    <Box sx={props.first ? firstHeaderSx : laterHeaderSx}>{renderFightLogMarkers(props.label)}</Box>
+));
+FightLogHeader.displayName = "FightLogHeader";
+
+interface IFightLogRowProps {
+    text: string;
+    newest: boolean;
+    indented: boolean;
+    /** Not read here: a changed paint re-renders the memoized row (see fightLogPaintKey). */
+    paintKey: string;
+}
+
+const FightLogRow = React.memo((props: IFightLogRowProps) => (
+    <Box
+        sx={
+            rowVariantSx[
+                props.indented ? (props.newest ? "indentedNewest" : "indented") : props.newest ? "plainNewest" : "plain"
+            ]
+        }
+    >
+        {renderFightLogMarkers(formatFightLogLine(props.text))}
+    </Box>
+));
+FightLogRow.displayName = "FightLogRow";
+
+interface IFightLogProps {
+    text: string;
+    /** fightLogPaintKey() as of the parent's render: the log is memoized, so a repaint arrives through it. */
+    paintKey: string;
+}
+
+/**
+ * Memoized: the sidebar re-renders several times a second in a fight while the log text changes once per
+ * event. Rows and turn headers are memoized again inside, so a new line renders only itself.
+ */
+export const FightLog = React.memo(({ text, paintKey }: IFightLogProps) => {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
     const prevLinesRef = useRef<string[]>([]);
     const idRef = useRef(0);
@@ -298,61 +393,20 @@ export const FightLog = ({ text }: { text: string }) => {
                                 sx={{ pb: groupIdx === groups.length - 1 ? 0 : "4px" }}
                             >
                                 {group.headerEntry && (
-                                    <Box
-                                        sx={{
-                                            mt: groupIdx === 0 ? 0 : "6px",
-                                            mx: "8px",
-                                            px: "2px",
-                                            pt: "2px",
-                                            pb: "3px",
-                                            fontSize: "10.5px",
-                                            fontWeight: 600,
-                                            lineHeight: 1.3,
-                                            letterSpacing: "0.04em",
-                                            color: "rgba(217, 179, 108, 0.82)",
-                                            whiteSpace: "normal",
-                                            wordBreak: "break-word",
-                                            background: "none",
-                                            border: "none",
-                                            borderBottom: "1px solid rgba(186, 148, 90, 0.22)",
-                                            borderRadius: 0,
-                                            boxShadow: "none",
-                                            animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1)`,
-                                        }}
-                                    >
-                                        {renderFightLogMarkers(group.headerLabel ?? "")}
-                                    </Box>
+                                    <FightLogHeader
+                                        label={group.headerLabel ?? ""}
+                                        first={groupIdx === 0}
+                                        paintKey={paintKey}
+                                    />
                                 )}
                                 {group.entries.map((entry) => (
-                                    <Box
+                                    <FightLogRow
                                         key={entry.id}
-                                        sx={{
-                                            position: "relative",
-                                            // Keep events indented beneath their turn header without decorative bullets.
-                                            pl: "10px",
-                                            ml: group.headerEntry ? "14px" : 0,
-                                            pr: "10px",
-                                            py: "3px",
-                                            fontSize: "10.5px",
-                                            lineHeight: 1.32,
-                                            letterSpacing: "0.015em",
-                                            color: "rgba(220, 177, 100, .94)",
-                                            whiteSpace: "normal",
-                                            wordBreak: "break-word",
-                                            // The very newest line glows a touch hotter than the rest.
-                                            ...(entry.id === newestEntryId
-                                                ? {
-                                                      color: "#d4ae6c",
-                                                      textShadow: "0 0 4px rgba(188, 143, 75, 0.22)",
-                                                  }
-                                                : {}),
-                                            // Only freshly-mounted rows run the entrance + ember flash; existing rows
-                                            // keep their key, so React never remounts them and they stay calm.
-                                            animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
-                                        }}
-                                    >
-                                        {renderFightLogMarkers(formatFightLogLine(entry.text))}
-                                    </Box>
+                                        text={entry.text}
+                                        newest={entry.id === newestEntryId}
+                                        indented={!!group.headerEntry}
+                                        paintKey={paintKey}
+                                    />
                                 ))}
                             </Box>
                         ))
@@ -362,4 +416,5 @@ export const FightLog = ({ text }: { text: string }) => {
             <ImageScrollbar viewportRef={scrollViewportRef} />
         </Box>
     );
-};
+});
+FightLog.displayName = "FightLog";

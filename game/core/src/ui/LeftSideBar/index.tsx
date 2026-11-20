@@ -98,6 +98,7 @@ import {
 import type { IUnitInspection, IVisibleImpact } from "../../scenes/VisibleState";
 import { useFitScale } from "./useFitScale";
 import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
+import { personalArmyPaintKey } from "../../scenes/personalArmyTint";
 
 const UpNext = React.lazy(() => import("./UpNext").then(({ UpNext }) => ({ default: UpNext })));
 
@@ -491,7 +492,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     </Box>
                     {gameStarted && (
                         <React.Suspense fallback={null}>
-                            <UpNext />
+                            <UpNext paintKey={personalArmyPaintKey()} />
                         </React.Suspense>
                     )}
                 </Box>
