@@ -119,9 +119,14 @@ test("the battle visual layer holds damage and every debuff at fixed positions",
         const motif = root.children[1];
         expect(motif.visible).toBe(true);
         visuals.update(0);
+        // The debuff row fades in; once it shows, the number and the row are placed for good.
+        now = 1020;
+        visuals.update(0);
         const initialDamage = { x: damage.x, y: damage.y };
         const initialMotif = { x: motif.x, y: motif.y };
-        for (const age of [20, 65, 125, 350, 600]) {
+        // However wide the debuff row, the number stays close to its own flag.
+        expect(Math.abs(damage.x - flag.x)).toBeLessThanOrEqual(60);
+        for (const age of [65, 125, 350, 600]) {
             now = 1000 + age;
             visuals.update(0);
             expect(damage.destroyed).toBe(false);

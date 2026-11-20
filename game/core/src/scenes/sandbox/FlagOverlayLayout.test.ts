@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Container, Rectangle, Sprite, Texture } from "pixi.js";
-import { FlagOverlayLayout } from "./FlagOverlayLayout";
+import { FlagOverlayLayout, MAX_NUMBER_SHIFT } from "./FlagOverlayLayout";
 
 test.each([1, -1])(
     "damage and its cues form one row centred on the flag, icons level with the number, x scale %s",
@@ -41,10 +41,10 @@ test.each([1, -1])(
         // Each icon is vertically centred on the damage block instead of floating above it.
         expect(centreY(firstBox)).toBeCloseTo(centreY(numberBox));
         expect(centreY(secondBox)).toBeCloseTo(centreY(numberBox));
-        // The whole row is centred on the unit's flag (world x; the cue art is 84 and 100 wide).
-        const rowLeft = Math.min(damage.x - 50, first.x - 42, second.x - 50);
-        const rowRight = Math.max(damage.x + 50, first.x + 42, second.x + 50);
-        expect((rowLeft + rowRight) / 2).toBeCloseTo(flag.x);
+        // The row leans toward centring on the flag: the number steps away from the cues' side, but never more
+        // than MAX_NUMBER_SHIFT (this two-cue row would want 98), so it stays close to its own unit.
+        expect(Math.abs(damage.x - flag.x)).toBeCloseTo(MAX_NUMBER_SHIFT);
+        expect(Math.sign(damage.x - flag.x)).toBe(-Math.sign(first.x - flag.x));
         // Expiry keeps the cues where they are; they never slide back under a later number.
         const before = first.x;
         damage.destroy();
@@ -199,4 +199,37 @@ test("only a board edge sends a cue to the left of the damage, and centring neve
     expect(damage.x + 50).toBeLessThanOrEqual(512);
     for (const pop of [first, second]) pop.destroy();
     damage.destroy();
+});
+
+test("a cue that is attached but not showing yet never moves the damage number", () => {
+    const layout = new FlagOverlayLayout();
+    const flag = { x: 100, y: 200, unitId: "victim" };
+    const pending = new Container();
+    const art = new Container();
+    art.boundsArea = new Rectangle(-40, -80, 80, 80);
+    art.alpha = 0;
+    pending.addChild(art);
+    pending.scale.y = -1;
+    layout.add(pending, () => flag);
+    const faded = new Container();
+    faded.boundsArea = new Rectangle(-40, -80, 80, 80);
+    faded.alpha = 0;
+    faded.scale.y = -1;
+    layout.add(faded, () => flag);
+    const damage = new Container();
+    damage.position.set(100, 320);
+    const number = { container: damage, flagAnchor: flag, halfWidth: 30 } as {
+        container: Container;
+        flagAnchor: typeof flag;
+        halfWidth: number;
+        shiftX?: number;
+    };
+    layout.update([number], 6);
+    expect(damage.x).toBe(100);
+    expect(number.shiftX).toBeUndefined();
+    // Once the cue actually appears it joins the row and both centre on the flag.
+    art.alpha = 1;
+    layout.update([number], 6);
+    expect(damage.x).toBe(100 - 43);
+    for (const container of [pending, faded, damage]) container.destroy({ children: true });
 });

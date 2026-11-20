@@ -15,13 +15,31 @@ export interface FlagNumber {
     bottomExtent?: number;
     /** Written by the layout: how far this number moved sideways so it and its cues centre on the flag. */
     shiftX?: number;
+    /** Seconds since the number appeared; it only moves aside while it is still fading in. */
+    age?: number;
 }
+
+/** A number may join a cue row only while it fades in; afterwards it never moves. */
+const NUMBER_SETTLE_SECONDS = 0.25;
+/**
+ * The pair is centred on the flag, but the number never moves further than this from its own flag: a wide cue
+ * row (seven Beholder debuffs) used to drag the number a third of the board away from the unit it belongs to.
+ */
+export const MAX_NUMBER_SHIFT = 60;
 
 /** Repeated flag numbers sit in 160 px columns, so one number fits within half of that either side. */
 export const FLAG_NUMBER_HALF_WIDTH = 80;
 
 /** EffectCaption's root: a fixed word-wrap box much wider than the art it names. */
 const EFFECT_CAPTION_LABEL = "effect-caption";
+
+/** Whether the cue's art is actually visible: its own opacity times its brightest non-caption child. */
+function isShowing(container: Container): boolean {
+    let art = container.children.length ? 0 : 1;
+    for (const child of container.children)
+        if (child.label !== EFFECT_CAPTION_LABEL && child.visible) art = Math.max(art, child.alpha);
+    return container.alpha * art > 0.02;
+}
 
 /**
  * A cue's art bounds without its caption, in the cue's local space. A captioned cue is about 1.9 cells wide,
@@ -173,7 +191,9 @@ export class FlagOverlayLayout {
                     return limit - clearance - gap - used;
                 };
                 for (const b of bounds) {
-                    if (b.overlay.side) continue;
+                    // A cue waiting for its impact window (or already faded) is attached at zero opacity. It keeps
+                    // its normal place but never pulls the damage number aside for something not shown.
+                    if (b.overlay.side || !isShowing(b.container)) continue;
                     b.overlay.side =
                         room(screenRight) >= b.artRight - b.artLeft ? screenRight : (-screenRight as -1 | 1);
                     // The icon's centre meets the damage block's centre, so the pair reads as one row.
@@ -211,6 +231,7 @@ export class FlagOverlayLayout {
             // Centre the numbers and their cues on the flag, as one row. The shift only grows, so a cue that
             // ends, or a number that expires, never slides the rest of the row back mid-presentation.
             let wanted = -(spanLeft + spanRight) / 2;
+            wanted = Math.max(-MAX_NUMBER_SHIFT, Math.min(MAX_NUMBER_SHIFT, wanted));
             if (board) {
                 // Never centre the row off the board: near an edge it stays as close to centred as fits.
                 const lowest = board.minX - (anchor.x + spanLeft);
@@ -221,15 +242,19 @@ export class FlagOverlayLayout {
             // The row is centred once, when a cue joins it beside live damage, and then held: animated cels
             // change their bounds every frame and must not nudge the numbers, and expiry must not slide them.
             const joined = damaged && placed.some(({ b }) => b.overlay.shift === undefined);
-            const shift =
+            let shift =
                 previous === undefined ? wanted : joined && Math.abs(wanted) > Math.abs(previous) ? wanted : previous;
+            // A number that has finished fading in stays exactly where the player first read it, and the row
+            // lines up beside it instead.
+            const settled = own.find((number) => (number.age ?? 0) > NUMBER_SETTLE_SECONDS);
+            if (settled) shift = settled.shiftX ?? 0;
             for (const { b, x: local } of placed) {
                 b.overlay.shift = shift;
                 b.container.position.set(anchor.x + local + shift, anchor.y + (b.overlay.dy ?? gap - b.lower));
             }
             for (const number of own) {
                 const previous = number.shiftX ?? 0;
-                if (Math.abs(shift) < Math.abs(previous)) continue;
+                if ((number.age ?? 0) > NUMBER_SETTLE_SECONDS) continue;
                 number.container.x += shift - previous;
                 number.shiftX = shift;
             }
