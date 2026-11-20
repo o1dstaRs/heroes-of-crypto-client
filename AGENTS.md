@@ -213,16 +213,26 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
-The user adopted the confirmed `a19-preserve-sniper-20261118` checkpoint on November 18, 2026.
-Current default is profile v13, revision suffix `terrain-v1-delivery-v1-sniper-v1`. Read common's
+The user adopted `a19-neutral-barrel-deliberation-v1` on November 19, 2026. Current default is
+profile v14, revision suffix `delivery-v1-sniper-v1-neutral-barrel-v1`. Read common's
+`docs/neutral_barrel_deliberation_adoption.md`. On Cemetery, A19 now searches a scripted strike on a
+neutral barrel against the other legal actions instead of returning it. Preserve the +3.58-point
+held-out estimate against v13 (95% +2.44 to +4.75) together with its two failed registered gates,
+quality and serial cost: the adoption did not pass, waive or re-run them. The estimate changes one
+seat on Cemetery only and is not a global win rate. Keep the native cleanup, forecasts,
+deployment-barrel handling and other maps unchanged. New default comparisons use v14; frozen studies
+and seed exclusions remain unchanged.
+
+The user adopted the confirmed `a19-preserve-sniper-20261118` checkpoint on November 18, 2026,
+establishing profile v13, retained in v14. Read common's
 `docs/sniper_donor_adoption.md`. Preserve the conditional +8.10-point held-out evidence and exact
 eligibility: protect native Sniper >= 2 before delivery previews in public complete funded setup,
 with an unused delivery draft budget and standard own draft quantities. Keep A19 combat and V3/contextual
-draft intact, preserve older funded plans through restart, and retain Premium apply/undo. New default
-comparisons use v13; frozen studies and seed exclusions remain unchanged.
+draft intact, preserve older funded plans through restart, and retain Premium apply/undo. Frozen
+studies and seed exclusions remain unchanged.
 
 The user explicitly adopted the separate revealed-ranged draft/setup candidates on November 18, 2026 UTC.
-This established profile v12, `revealed-ranged-exclusive-delivery-v1`, retained in v13: after consuming
+This established profile v12, `revealed-ranged-exclusive-delivery-v1`, retained in v14: after consuming
 its delivery draft override, a seat keeps native setup; otherwise the funded delivery setup can apply.
 Read common's `docs/revealed_ranged_delivery_adoption.md`. Keep the uncertain +7.407407 pp and +9.259259 pp
 component results, failed −1.851852 pp combination, immutable checkpoints and exclusions intact.
@@ -231,7 +241,7 @@ budgets, Premium routing and atomic collision/restart behavior. The wire default
 locked V3/contextual draft and A19 combat.
 
 The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026, establishing profile
-v11; that layer remains part of current v13 with locked V3/contextual draft and A19 combat. Read common's
+v11; that layer remains part of current v14 with locked V3/contextual draft and A19 combat. Read common's
 `docs/terrain_placement_adoption.md` before changing it. Preserve its +7.638889-point exploratory
 estimate and 95% interval 0 to +16.666667 as uncertain evidence, not a passed qualification.
 The serving rule covers default AI and Premium formation, uses only public neutral barrels,
@@ -244,7 +254,7 @@ neural models retain their identities. Read
 Preserve the exact ground-wall plus omitted-movement comparison policy and its original failed
 qualification evidence. New experiments compare against the adopted default; already-running frozen
 studies keep their registered comparator. That adoption's revision ended in `barrel-v1-nightmare-v1`;
-the current v13 revision ends in `terrain-v1-delivery-v1-sniper-v1`.
+the current v14 revision ends in `delivery-v1-sniper-v1-neutral-barrel-v1`.
 
 For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
 `src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
