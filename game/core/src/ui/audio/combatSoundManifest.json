@@ -182,8 +182,8 @@
     "Wolf": {
         "slug": "wolf",
         "attack": {
-            "durationMs": 880,
-            "revision": "79532842b2"
+            "durationMs": 604,
+            "revision": "64a4a7f496"
         },
         "hurt": {
             "durationMs": 680,

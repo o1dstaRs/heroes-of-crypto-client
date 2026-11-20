@@ -968,5 +968,33 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
         }
+    },
+    "wolf/attack": {
+        "source_id": "provided-73e8f1904ec698b2fc49-0-610",
+        "path": "tmp/audio/raw/provided/73e8f1904ec698b2/excerpt-0-610.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "wolf-attack-growl-gfx-sounds-2-2-00-03 (1).mp3",
+            "title": "Wolf attack growl",
+            "author": "GFX Sounds",
+            "sha256": "73e8f1904ec698b2fc494137d0d8753026eec8b1955053119230f6ab24ee38b0",
+            "label": "Wolf attack snarl",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Wolf attack",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 610,
+                "original_duration_ms": 3859,
+                "original_path": "tmp/audio/raw/provided/73e8f1904ec698b2/wolf-attack-growl-gfx-sounds-2-2-00-03 (1).mp3",
+                "sha256": "c95954cc5d82dac883d1bf01741ab386734ecde83d62d9b3c9c463fd8f5a10e3",
+                "speed": 1,
+                "pitch_shift_semitones": 0,
+                "selection": "Opening snarl, ending at its quiet point before the long growl",
+                "fade_out_ms": 30
+            },
+            "source_id": "provided-73e8f1904ec698b2fc49-0-610"
+        }
     }
 }
