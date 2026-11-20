@@ -144,6 +144,10 @@ function exchangeFixture({ counter = false, shieldOnAttacker = false, double = f
         dyingVisualUnits: new Set(),
         waitForTexture: mock(async () => true),
         isSceneDestroyed: () => false,
+        delayReplay: (ms: number) => {
+            events.push(`pause:${ms}`);
+            return Promise.resolve();
+        },
         prepareDirectionalAttackState: () => "melee_attack",
         offsetReplayDamagePosition: (position: unknown) => position,
         combatVisuals: {
@@ -187,60 +191,60 @@ function exchangeFixture({ counter = false, shieldOnAttacker = false, double = f
     return { scene, efreet, striker, units, hit, plan, events, run, finish };
 }
 
-test("live/replay reflection damage, flames and shield cast start at contact without a counter", async () => {
+test("without a counter the Efreet flinches first; the burn and shield cast follow a beat later", async () => {
     const h = exchangeFixture();
     let settled = false;
     const pending = h.run().then(() => {
         settled = true;
     });
     await flush();
-    expect(h.events).toEqual(["striker:melee_attack", "physical:10", "burn", "reflection:4", "efreet:cast"]);
-    expect(settled).toBe(false);
+    expect(h.events).toEqual(["striker:melee_attack", "physical:10", "efreet:hit"]);
     await h.finish("striker", "melee_attack");
+    expect(h.events).not.toContain("reflection:4");
+    await h.finish("efreet", "hit");
+    expect(h.events.slice(3)).toEqual(["pause:280", "burn", "reflection:4", "efreet:cast"]);
     expect(settled).toBe(false);
     await h.finish("efreet", "cast");
     await pending;
     expect(settled).toBe(true);
     expect(h.events.filter((event) => event === "reflection:4")).toHaveLength(1);
-    expect(h.events).not.toContain("efreet:hit");
 });
 
-test.each([false, true])(
-    "reflection preserves the owner's swing but overlaps the other fighter, attacking=%s",
-    async (shieldOnAttacker) => {
-        const h = exchangeFixture({ counter: true, shieldOnAttacker });
-        const pending = h.run();
-        await flush();
-        expect(h.events).toContain("reflection:4");
-        expect(h.events).toContain("efreet:melee_attack");
-        expect(h.events).toContain("striker:melee_attack");
-        expect(h.events).not.toContain("efreet:cast");
-        await h.finish("efreet", "melee_attack");
-        expect(h.events).toContain("efreet:cast");
-        expect(h.events).not.toContain("striker:hit");
-        expect(h.events).not.toContain("efreet:hit");
-        await h.finish("efreet", "cast");
-        await h.finish("striker", "melee_attack");
-        expect(h.events).not.toContain("striker:hit");
-        await pending;
-        expect(h.events.filter((event) => event === "reflection:4")).toHaveLength(1);
-    },
-);
+test.each([false, true])("the burn waits for the normal response to finish, attacking=%s", async (shieldOnAttacker) => {
+    const h = exchangeFixture({ counter: true, shieldOnAttacker });
+    const pending = h.run();
+    await flush();
+    expect(h.events).toContain("efreet:melee_attack");
+    expect(h.events).toContain("striker:melee_attack");
+    expect(h.events).not.toContain("reflection:4");
+    await h.finish("efreet", "melee_attack");
+    expect(h.events).not.toContain("reflection:4");
+    await h.finish("striker", "melee_attack");
+    const burn = h.events.indexOf("reflection:4");
+    expect(h.events.slice(burn - 2, burn + 2)).toEqual(["pause:280", "burn", "reflection:4", "efreet:cast"]);
+    await h.finish("efreet", "cast");
+    await pending;
+    expect(h.events.filter((event) => event === "reflection:4")).toHaveLength(1);
+});
 
-test("each double strike presents its own reflection at its own contact", async () => {
+test("each double strike burns after its own blow, before the next one starts", async () => {
     const h = exchangeFixture({ double: true });
     const pending = h.run();
     await flush();
-    expect(h.events).toContain("reflection:4");
+    expect(h.events).not.toContain("reflection:4");
+    await h.finish("striker", "melee_attack");
+    await h.finish("efreet", "hit");
+    expect(h.events.slice(-4)).toEqual(["pause:280", "burn", "reflection:4", "efreet:cast"]);
+    expect(h.events.filter((event) => event === "striker:melee_attack")).toHaveLength(1);
+    await h.finish("efreet", "cast");
+    expect(h.events.filter((event) => event === "striker:melee_attack")).toHaveLength(2);
     expect(h.events).not.toContain("reflection:7");
     await h.finish("striker", "melee_attack");
-    await h.finish("efreet", "cast");
-    expect(h.events).toContain("reflection:7");
-    await h.finish("striker", "melee_attack");
+    await h.finish("efreet", "hit");
+    expect(h.events.slice(-4)).toEqual(["pause:280", "burn", "reflection:7", "efreet:cast"]);
     await h.finish("efreet", "cast");
     await pending;
     expect(h.events.filter((event) => event.startsWith("reflection:"))).toEqual(["reflection:4", "reflection:7"]);
-    expect(h.events.filter((event) => event === "efreet:cast")).toHaveLength(2);
 });
 
 test("the shield atlas is ready before the physical exchange begins", async () => {
@@ -256,14 +260,15 @@ test("the shield atlas is ready before the physical exchange begins", async () =
     expect(h.events).toEqual([]);
     ready();
     await flush();
-    expect(h.events).toContain("reflection:4");
-    expect(h.events).toContain("efreet:cast");
+    expect(h.events).toContain("striker:melee_attack");
     await h.finish("striker", "melee_attack");
+    await h.finish("efreet", "hit");
+    expect(h.events).toContain("efreet:cast");
     await h.finish("efreet", "cast");
     await pending;
 });
 
-test("a lethal reflection shows on the captured attacker and defers its death until its swing finishes", async () => {
+test("a lethal reflection shows on the captured attacker and its death comes with the burn", async () => {
     const h = exchangeFixture();
     h.hit.secondary![0].unitsDied = 1;
     h.units.delete("striker");
@@ -276,10 +281,12 @@ test("a lethal reflection shows on the captured attacker and defers its death un
         deadIds: new Set(["striker"]),
     });
     await flush();
+    expect(h.events).not.toContain("reflection:4");
+    await h.finish("striker", "melee_attack");
+    expect(onDeath).not.toHaveBeenCalled();
+    await h.finish("efreet", "hit");
     expect(h.events).toContain("reflection:4");
     expect(h.scene.combatVisuals.showFloatingDamage.mock.calls.at(-1)[7]).toBe(h.striker);
-    expect(onDeath).not.toHaveBeenCalled();
-    await h.finish("striker", "melee_attack");
     expect(onDeath).toHaveBeenCalledTimes(1);
     expect(onDeath).toHaveBeenCalledWith(h.striker);
     await h.finish("efreet", "cast");

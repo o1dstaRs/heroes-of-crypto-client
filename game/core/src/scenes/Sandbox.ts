@@ -5532,8 +5532,21 @@ export class Sandbox extends PixiScene {
             } else onDeath(unit);
         };
         const initialChakramActive = initialChakram ?? attacker.hasAbilityActive?.("Chakram");
+        // Fire Shield reflects on contact, but its burn reads as a consequence: it lands a beat after the
+        // victim's response (or after the blow when nothing answers), never on top of the hit itself.
+        const deferredFireShields: Array<() => Promise<void>> = [];
+        const flushFireShields = async (): Promise<void> => {
+            if (!deferredFireShields.length || this.isSceneDestroyed()) return;
+            const presentations = deferredFireShields.splice(0);
+            await this.delayReplay(FIRE_SHIELD_REFLECTION_DELAY_MS);
+            if (this.isSceneDestroyed()) return;
+            for (const present of presentations) await present();
+        };
         const groups = groupCombatExchange(plan);
         for (const [groupIndex, group] of groups.entries()) {
+            if (this.isSceneDestroyed()) break;
+            // A burn waits only for a response; the attacker's own next blow follows it.
+            if (deferredFireShields.length && !group.some((strike) => strike.response)) await flushFireShields();
             if (this.isSceneDestroyed()) break;
             this.aiController?.noteActionPresentationProgress?.();
             futureAttackers = new Set(
@@ -5745,8 +5758,6 @@ export class Sandbox extends PixiScene {
                         : undefined;
                     let reaction = Promise.resolve();
                     let gazeReaction = Promise.resolve();
-                    let shieldReaction = Promise.resolve();
-                    let shieldingOwners: ReadonlySet<string> = new Set();
                     let chakramFlight = Promise.resolve();
                     let impacted = false;
                     const impact = (): void => {
@@ -5904,7 +5915,7 @@ export class Sandbox extends PixiScene {
                                         next.hitIndex > strike.hitIndex &&
                                         !next.missed,
                                 ),
-                                () => Promise.all([reaction, shieldReaction]).then(() => {}),
+                                () => reaction,
                             );
                         }
                         // Primary and all rear stacks lose their displayed casualties and react on the
@@ -5986,24 +5997,27 @@ export class Sandbox extends PixiScene {
                                 )
                             )
                                 reflections.splice(1);
-                            for (const hit of reflections) {
+                            for (const hit of reflections)
                                 pendingFireShieldDamage.splice(pendingFireShieldDamage.indexOf(hit), 1);
-                                const remaining = consumeLoss(hit.unitId, hit.unitsDied);
-                                if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(hit.unitId))
-                                    presentDeath(hit.unitId);
-                            }
                             if (reflections.length) {
-                                this.showFireShieldDamageAtImpact(reflections, to, units);
                                 const reflectedDamage = { ...event.damage, secondary: reflections };
-                                shieldingOwners = new Set(
-                                    fireShieldCasterIds(attacker.getId(), target.getId(), reflectedDamage),
-                                );
-                                shieldReaction = this.playFireShieldPassives(
-                                    attacker.getId(),
-                                    target.getId(),
-                                    reflectedDamage,
-                                    activeAttacks,
-                                );
+                                const burnAt = { ...to };
+                                // The Efreet flinches from this blow now; its shield cast and the attacker's
+                                // burn (with any casualties it causes) follow the response.
+                                deferredFireShields.push(async () => {
+                                    for (const hit of reflections) {
+                                        const remaining = consumeLoss(hit.unitId, hit.unitsDied);
+                                        if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(hit.unitId))
+                                            presentDeath(hit.unitId);
+                                    }
+                                    this.showFireShieldDamageAtImpact(reflections, burnAt, units);
+                                    await this.playFireShieldPassives(
+                                        attacker.getId(),
+                                        target.getId(),
+                                        reflectedDamage,
+                                        activeAttacks,
+                                    );
+                                });
                             }
                         }
                         if (strike.missed) {
@@ -6138,15 +6152,6 @@ export class Sandbox extends PixiScene {
                                     simultaneousAttackers.has(strike.targetId)
                                 )
                                     return Promise.resolve();
-                                // The shield cast is this Efreet's reaction. A generic hit animation would
-                                // cancel it (or insert another whole animation before the reflection).
-                                if (
-                                    shieldingOwners.has(strike.targetId) &&
-                                    victim.getName() === "Efreet" &&
-                                    !victim.isDead() &&
-                                    victim.hasAbilityActive("Fire Shield")
-                                )
-                                    return Promise.resolve();
                                 // Final engine HP can already be zero after a later blow. This hit still precedes it.
                                 const hit = this.playReplayOneShot(victim, "hit", 3000, true);
                                 if (
@@ -6237,7 +6242,7 @@ export class Sandbox extends PixiScene {
                         finishAttacks.get(source.getId())?.();
                         finishPendingDeath(source.getId());
                     }
-                    await Promise.all([reaction, shieldReaction, gazeReaction]);
+                    await Promise.all([reaction, gazeReaction]);
                 }),
             );
         }
@@ -6248,12 +6253,15 @@ export class Sandbox extends PixiScene {
             }
         }
         if (pendingFireShieldDamage.length && !this.isSceneDestroyed()) {
-            this.showFireShieldDamageAtImpact(pendingFireShieldDamage, target.getVisualCenter(gs), units);
-            await this.playFireShieldPassives(attacker.getId(), target.getId(), {
-                ...event.damage,
-                secondary: pendingFireShieldDamage,
+            deferredFireShields.push(async () => {
+                this.showFireShieldDamageAtImpact(pendingFireShieldDamage, target.getVisualCenter(gs), units);
+                await this.playFireShieldPassives(attacker.getId(), target.getId(), {
+                    ...event.damage,
+                    secondary: pendingFireShieldDamage,
+                });
             });
         }
+        if (deferredFireShields.length) await flushFireShields();
         return shownDeaths;
     }
     private splitTargetedAreaThrowWaves(
@@ -23765,5 +23773,7 @@ export class Sandbox extends PixiScene {
 registerScene("Heroes", "Sandbox", Sandbox);
 
 const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
+/** Pause between a contact's response (or the unanswered blow) and its Fire Shield burn. */
+const FIRE_SHIELD_REFLECTION_DELAY_MS = 280;
 
 const NO_TEAM_ALT_INSPECT_COLOR = 0xd0d0d0;
