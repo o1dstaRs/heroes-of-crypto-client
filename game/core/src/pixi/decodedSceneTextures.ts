@@ -13,6 +13,8 @@ import {
 interface DecodePlatform {
     fetchBlob(url: string): Promise<Blob>;
     decode(blob: Blob, options: ImageBitmapOptions): Promise<ImageBitmap>;
+    /** Resample decoded pixels to a smaller bitmap before they ever reach the GPU. */
+    resize?(bitmap: ImageBitmap, width: number, height: number): Promise<ImageBitmap>;
     supported(): boolean;
     fallback(url: string, asset: ResolvedAsset, loader: Loader): Promise<Texture>;
 }
@@ -24,6 +26,8 @@ const browserPlatform: DecodePlatform = {
         return response.blob();
     },
     decode: (blob, options) => createImageBitmap(blob, options),
+    resize: (bitmap, width, height) =>
+        createImageBitmap(bitmap, { resizeWidth: width, resizeHeight: height, resizeQuality: "high" }),
     supported: () => typeof createImageBitmap === "function",
     fallback: (url, asset, loader) => loadTextures.load!<Texture>(url, asset, loader),
 };
@@ -34,6 +38,8 @@ const assetPath = (url: string): string => new URL(url, "https://scene.invalid")
 export function createDecodedSceneTextureParser(
     urls: readonly string[],
     platform: DecodePlatform = browserPlatform,
+    /** Selected atlases are uploaded at half size; their slicing measures the decoded width. */
+    halve: (url: string) => boolean = () => false,
 ): LoaderParser<Texture> {
     const paths = new Set(urls.map(assetPath));
     let decodeTail = Promise.resolve();
@@ -52,11 +58,26 @@ export function createDecodedSceneTextureParser(
                     release = resolve;
                 });
                 bitmap = await previous
-                    .then(() =>
-                        platform.decode(blob, {
+                    .then(async () => {
+                        const decoded = await platform.decode(blob, {
                             premultiplyAlpha: asset.data?.alphaMode === "premultiplied-alpha" ? "none" : "premultiply",
-                        }),
-                    )
+                        });
+                        if (!halve(url) || !platform.resize || decoded.width < 2 || decoded.height < 2) return decoded;
+                        // Resize inside the serial decode slot so only one full-size copy is ever alive. A failed
+                        // resample keeps the full-size pixels; slicing measures the width either way.
+                        let halved: ImageBitmap;
+                        try {
+                            halved = await platform.resize(
+                                decoded,
+                                Math.round(decoded.width / 2),
+                                Math.round(decoded.height / 2),
+                            );
+                        } catch {
+                            return decoded;
+                        }
+                        decoded.close();
+                        return halved;
+                    })
                     .finally(release);
                 const source = new ImageSource({
                     resource: bitmap,

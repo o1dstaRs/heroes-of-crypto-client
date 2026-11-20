@@ -1,5 +1,6 @@
 import { Assets, Texture, extensions, loadTextures } from "pixi.js";
 import { createDecodedSceneTextureParser } from "./decodedSceneTextures";
+import { isRuntimeHalvedAtlasKey, isRuntimeHalvedAtlasUrl } from "./runtimeAtlasScale";
 import { images as rawImages } from "../imageAssets";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import {
@@ -63,9 +64,13 @@ extensions.add(
                     isLazyBattlefieldCreatureAssetKey(key) ||
                     isDeferredUnitCardAssetKey(key) ||
                     key.startsWith("portrait_aaa_front_") ||
-                    isLazyRosterAssetKey(key),
+                    isLazyRosterAssetKey(key) ||
+                    isRuntimeHalvedAtlasKey(key),
             )
             .map(([, url]) => url),
+        undefined,
+        // Large-frame creature atlases upload at half size; see runtimeAtlasScale.ts.
+        isRuntimeHalvedAtlasUrl,
     ),
 );
 

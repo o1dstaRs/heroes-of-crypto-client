@@ -168,6 +168,7 @@ import {
 import { ANGEL_LAB_FLIGHT_CANVAS_SCALE, ANGEL_LAB_FLIGHT_ANCHOR_X, angelLabFlightAnchorY } from "./AngelLabFlight";
 import { syncAngelSwordGlow } from "./AngelSwordGlow";
 import { calibratedAngelActionCanvas } from "./AngelActionRegistration";
+import { runtimeAtlasDivider } from "../pixi/runtimeAtlasScale";
 import { syncAngelActionPalette } from "./AngelActionPalette";
 import { syncWyvernLabWalkPalette } from "./WyvernLabWalkPalette";
 import {
@@ -2654,8 +2655,9 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
         source.scaleMode = "linear";
     }
     // Detect the actually loaded atlas variant. Dedicated static battlefield sprites are one complete
-    // frame and carry neither suffix, so only explicit quarter/half atlas keys may be divided.
-    const divider = imageKey.endsWith("_half") ? 2 : imageKey.endsWith("_quarter") ? 4 : 1;
+    // frame and carry neither suffix, so only explicit quarter/half atlas keys may be divided. Large-frame
+    // atlases decoded at half size are measured instead (runtimeAtlasScale.ts).
+    const divider = runtimeAtlasDivider(imageKey, meta, source.pixelWidth);
     const frameWidth = meta.frameWidth / divider;
     const frameHeight = meta.frameHeight / divider;
     const cols = meta.layout?.cols ?? 1;
