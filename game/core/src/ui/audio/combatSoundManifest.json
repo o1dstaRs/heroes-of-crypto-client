@@ -573,6 +573,10 @@
         "hurt": {
             "durationMs": 605,
             "revision": "743692b2d0"
+        },
+        "move": {
+            "durationMs": 1457,
+            "revision": "6b995c27c5"
         }
     },
     "Wolf Rider": {

@@ -11,6 +11,7 @@ test("movement recordings are limited to the creatures given a selected movement
         "Arachna Queen",
         "Arachna Spider",
         "Battle Mage",
+        "Centaur",
         "Champion",
         "Healer",
         "Magic Dragon",
