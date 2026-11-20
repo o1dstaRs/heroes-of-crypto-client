@@ -27724,7 +27724,7 @@
             "path": "blobs/4f6f268ea3b5352c63916a6a60b1c81658a334e81960b94b15acecfb2ef23823",
             "archive": "resources-02.zip"
         },
-        "heroesofcrypto-assets/config/\u0422\u0415\u041d\u0418.json": {
+        "heroesofcrypto-assets/config/ТЕНИ.json": {
             "sha256": "8e76082e9fab7aff8b1d4f6110a71c3e49381dbdbe4ac305d89712456e1b09c7",
             "bytes": 1627,
             "source": "archive",
@@ -43237,30 +43237,6 @@
             "bytes": 209588,
             "source": "drive",
             "path": "animations/output/half_body_atlases_v1/wyvern_lab_hit_atlas/atlas/wyvern_lab_hit_atlas.webp"
-        },
-        "heroesofcrypto-assets/animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_atlas/atlas/wyvern_lab_melee_attack_atlas.webp": {
-            "sha256": "2690e7e01a5147874f1d6ebf5f028205d6e33515b1b77cdae2f9e886563636f2",
-            "bytes": 177394,
-            "source": "drive",
-            "path": "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_atlas/atlas/wyvern_lab_melee_attack_atlas.webp"
-        },
-        "heroesofcrypto-assets/animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_down_atlas/atlas/wyvern_lab_melee_attack_down_atlas.webp": {
-            "sha256": "05094ae0acca65ac7dae1ebfb4da016d58d994c7e559df940fdbc3b87cd3c652",
-            "bytes": 185008,
-            "source": "drive",
-            "path": "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_down_atlas/atlas/wyvern_lab_melee_attack_down_atlas.webp"
-        },
-        "heroesofcrypto-assets/animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_up_atlas/atlas/wyvern_lab_melee_attack_up_atlas.webp": {
-            "sha256": "439464d32d464f4b1c68d38bc85bcab4b277aae922a61eb253d99fec1fe5adef",
-            "bytes": 191654,
-            "source": "drive",
-            "path": "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_up_atlas/atlas/wyvern_lab_melee_attack_up_atlas.webp"
-        },
-        "heroesofcrypto-assets/animations/output/half_body_atlases_v1/wyvern_lab_walk_atlas/atlas/wyvern_lab_walk_atlas.webp": {
-            "sha256": "73586d3143d9adf0f2983e113339783f176c09df8254ae6b833ce8023c988fca",
-            "bytes": 631054,
-            "source": "drive",
-            "path": "animations/output/half_body_atlases_v1/wyvern_lab_walk_atlas/atlas/wyvern_lab_walk_atlas.webp"
         },
         "heroesofcrypto-assets/animations/output/half_body_atlases_v1/wyvern_walk_atlas/atlas/wyvern_walk_atlas.webp": {
             "sha256": "7e6b49780482634e88096051b79ace3169bffcb3d8484a0bfad85238fc634b1c",

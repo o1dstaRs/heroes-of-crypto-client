@@ -2,7 +2,12 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import catalog from "../pixi/halfBodyAtlases.json";
-import { HALF_BODY_ATLAS_MIN_PSNR, HALF_BODY_ATLAS_RECIPE, halfBodyAtlasReleasePath } from "./halfBodyAtlases";
+import {
+    COLOUR_THRESHOLD_ATLAS_KEYS,
+    HALF_BODY_ATLAS_MIN_PSNR,
+    HALF_BODY_ATLAS_RECIPE,
+    halfBodyAtlasReleasePath,
+} from "./halfBodyAtlases";
 
 type Pin = { bytes: number; sha256: string };
 const release = JSON.parse(readFileSync(new URL("../../animation-release.json", import.meta.url), "utf8")) as {
@@ -15,6 +20,8 @@ const restore = JSON.parse(readFileSync(new URL("../../asset-release-archives.js
 test("every shipped half-size body atlas is pinned, restorable and derived from an approved master", () => {
     expect(catalog.recipe).toEqual(HALF_BODY_ATLAS_RECIPE);
     for (const [key, atlas] of Object.entries(catalog.atlases)) {
+        // A shader that thresholds source colour keeps its lossless master.
+        expect(COLOUR_THRESHOLD_ATLAS_KEYS.has(key), key).toBe(false);
         // Same basename as the master: the flattened image key, and every caller, stay unchanged.
         expect(atlas.releasePath, key).toBe(halfBodyAtlasReleasePath(key));
         expect(atlas.sourcePath.endsWith(`/atlas/${key}.webp`), key).toBe(true);

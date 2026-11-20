@@ -6367,46 +6367,6 @@
             "releasePath": "animations/output/half_body_atlases_v1/wyvern_lab_hit_atlas/atlas/wyvern_lab_hit_atlas.webp",
             "psnr": 36.1
         },
-        "wyvern_lab_melee_attack_atlas": {
-            "sourcePath": "animations/output/wyvern_lab_melee_attack/atlas/wyvern_lab_melee_attack_atlas.webp",
-            "sourceSha256": "9fa1b25d1d0d2c1c187302721bd2e52d4571c5bc1f263658648f79feaca86bf9",
-            "width": 2048,
-            "height": 1024,
-            "bytes": 177394,
-            "sha256": "2690e7e01a5147874f1d6ebf5f028205d6e33515b1b77cdae2f9e886563636f2",
-            "releasePath": "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_atlas/atlas/wyvern_lab_melee_attack_atlas.webp",
-            "psnr": 36.76
-        },
-        "wyvern_lab_melee_attack_down_atlas": {
-            "sourcePath": "animations/output/wyvern_lab_melee_attack_down/atlas/wyvern_lab_melee_attack_down_atlas.webp",
-            "sourceSha256": "7e232cef5f458aa39e019ad942ba3b496bcd33c6234f8a69ff2a29dc61921753",
-            "width": 2048,
-            "height": 1024,
-            "bytes": 185008,
-            "sha256": "05094ae0acca65ac7dae1ebfb4da016d58d994c7e559df940fdbc3b87cd3c652",
-            "releasePath": "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_down_atlas/atlas/wyvern_lab_melee_attack_down_atlas.webp",
-            "psnr": 37.02
-        },
-        "wyvern_lab_melee_attack_up_atlas": {
-            "sourcePath": "animations/output/wyvern_lab_melee_attack_up/atlas/wyvern_lab_melee_attack_up_atlas.webp",
-            "sourceSha256": "00b6013c1ebf4f9d21289b3b2a7c194205cb203318aa464d49bf20565a3727c3",
-            "width": 2048,
-            "height": 1024,
-            "bytes": 191654,
-            "sha256": "439464d32d464f4b1c68d38bc85bcab4b277aae922a61eb253d99fec1fe5adef",
-            "releasePath": "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_up_atlas/atlas/wyvern_lab_melee_attack_up_atlas.webp",
-            "psnr": 36.9
-        },
-        "wyvern_lab_walk_atlas": {
-            "sourcePath": "animations/output/wyvern_lab_walk/atlas/wyvern_lab_walk_atlas.webp",
-            "sourceSha256": "cdd98e92f378bf03f7a1391f71e05d8ed24242d292af6e91484814d9644afc39",
-            "width": 1536,
-            "height": 1920,
-            "bytes": 631054,
-            "sha256": "73586d3143d9adf0f2983e113339783f176c09df8254ae6b833ce8023c988fca",
-            "releasePath": "animations/output/half_body_atlases_v1/wyvern_lab_walk_atlas/atlas/wyvern_lab_walk_atlas.webp",
-            "psnr": 34.51
-        },
         "wyvern_walk_atlas": {
             "sourcePath": "animations/output/wyvern_walk/atlas/wyvern_walk_atlas.webp",
             "sourceSha256": "0803ca7c6bb607950223e07f4c34d732bdb930beccec04a34450507988380c22",

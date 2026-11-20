@@ -34,18 +34,21 @@ test("the divider measures halved atlases and keeps suffix variants and fallback
 test("an atlas the release ships at half size is sliced at half and never halved again", async () => {
     const scale = await import("./runtimeAtlasScale");
     const catalog = (await import("./halfBodyAtlases.json")).default as { atlases: Record<string, unknown> };
-    const candidates = scale.halvedAtlasCandidateKeys();
+    const rules = scale.halvedAtlasCandidateKeys();
     for (const key of Object.keys(catalog.atlases)) {
-        // Every catalogued file stands for a known body atlas, and the browser leaves it alone.
-        expect(candidates.has(key)).toBe(true);
-        expect(scale.isPrebuiltHalfAtlasKey(key)).toBe(true);
-        expect(scale.isRuntimeHalvedAtlasKey(key)).toBe(false);
-        expect(scale.isHalfSizeAtlasKey(key)).toBe(true);
+        // Every catalogued file stands for a body atlas by rule, whatever this build's image map holds,
+        // and the browser never halves it again.
+        expect(rules.has(key), key).toBe(true);
+        expect(scale.isRuntimeHalvedAtlasKey(key), key).toBe(false);
+        // Loaded by this build: decoded off the main thread and sliced from the measured half.
+        if (scale.isHalfSizeAtlasKey(key)) {
+            expect(scale.isPrebuiltHalfAtlasKey(key), key).toBe(true);
+            expect(scale.runtimeAtlasDivider(key, { atlasWidth: 4096 }, 2048), key).toBe(2);
+        }
     }
-    // Both halves of the split are body atlases decoded off the main thread, and they never overlap.
+    // The browser halves only body atlases the release does not already ship halved.
     for (const key of scale.runtimeHalvedAtlasKeys()) {
-        expect(candidates.has(key)).toBe(true);
-        expect(scale.isPrebuiltHalfAtlasKey(key)).toBe(false);
+        expect(rules.has(key)).toBe(true);
+        expect(key in catalog.atlases).toBe(false);
     }
-    expect(candidates.size).toBe(scale.runtimeHalvedAtlasKeys().size + Object.keys(catalog.atlases).length);
 });

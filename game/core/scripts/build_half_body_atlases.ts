@@ -8,6 +8,7 @@ import {
     HALF_BODY_ATLAS_FOLDER,
     HALF_BODY_ATLAS_MIN_PSNR,
     HALF_BODY_ATLAS_RECIPE,
+    COLOUR_THRESHOLD_ATLAS_KEYS,
     halfBodyAtlasReleasePath,
     type HalfBodyAtlasCatalog,
     type HalfBodyAtlasDescriptor,
@@ -52,7 +53,11 @@ async function buildHalfBodyAtlases(
         throw new Error("The catalog was built with a different recipe; bump the folder version instead.");
     }
     const atlases: Record<string, HalfBodyAtlasDescriptor> = { ...previous?.atlases };
-    const keys = [...halvedAtlasCandidateKeys()].filter((key) => !only || only.has(key)).sort();
+    // A colour-keyed atlas keeps its lossless master (the browser halves it); drop any earlier copy.
+    for (const key of COLOUR_THRESHOLD_ATLAS_KEYS) delete atlases[key];
+    const keys = [...halvedAtlasCandidateKeys()]
+        .filter((key) => !COLOUR_THRESHOLD_ATLAS_KEYS.has(key) && (!only || only.has(key)))
+        .sort();
     sharp.concurrency(1);
     let next = 0;
     let built = 0;

@@ -16,6 +16,20 @@ export const HALF_BODY_ATLAS_RECIPE = SIDEBAR_PAGE_RECIPE;
 export const HALF_BODY_ATLAS_FOLDER = "half_body_atlases_v1";
 export const HALF_BODY_ATLAS_MIN_PSNR = 30;
 
+/**
+ * Atlases whose shader makes a hard decision on source colour stay lossless. WyvernLabWalkPalette grades
+ * every walk and melee-attack pixel except "acid" (`rgb.g > rgb.r * 0.98 && rgb.r > 100/255 && ...`);
+ * Q93's chroma error flipped that test on 0.3–0.8% of visible pixels — a third as many as the acid area
+ * itself (measured 2026-11-20). Other creature shaders map colour continuously or test only alpha and
+ * geometry, where the error stays as small as in the art.
+ */
+export const COLOUR_THRESHOLD_ATLAS_KEYS: ReadonlySet<string> = new Set([
+    "wyvern_lab_walk_atlas",
+    "wyvern_lab_melee_attack_atlas",
+    "wyvern_lab_melee_attack_up_atlas",
+    "wyvern_lab_melee_attack_down_atlas",
+]);
+
 export interface HalfBodyAtlasDescriptor {
     /** The approved full-size master this file was derived from. */
     sourcePath: string;

@@ -24561,22 +24561,6 @@
             "sha256": "0bc7710e91c3c99e8876a8fe491e94afe91c066120afc3ad4144c1fcc2ba744e",
             "bytes": 209588
         },
-        "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_atlas/atlas/wyvern_lab_melee_attack_atlas.webp": {
-            "sha256": "2690e7e01a5147874f1d6ebf5f028205d6e33515b1b77cdae2f9e886563636f2",
-            "bytes": 177394
-        },
-        "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_down_atlas/atlas/wyvern_lab_melee_attack_down_atlas.webp": {
-            "sha256": "05094ae0acca65ac7dae1ebfb4da016d58d994c7e559df940fdbc3b87cd3c652",
-            "bytes": 185008
-        },
-        "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_up_atlas/atlas/wyvern_lab_melee_attack_up_atlas.webp": {
-            "sha256": "439464d32d464f4b1c68d38bc85bcab4b277aae922a61eb253d99fec1fe5adef",
-            "bytes": 191654
-        },
-        "animations/output/half_body_atlases_v1/wyvern_lab_walk_atlas/atlas/wyvern_lab_walk_atlas.webp": {
-            "sha256": "73586d3143d9adf0f2983e113339783f176c09df8254ae6b833ce8023c988fca",
-            "bytes": 631054
-        },
         "animations/output/half_body_atlases_v1/wyvern_walk_atlas/atlas/wyvern_walk_atlas.webp": {
             "sha256": "7e6b49780482634e88096051b79ace3169bffcb3d8484a0bfad85238fc634b1c",
             "bytes": 322244
