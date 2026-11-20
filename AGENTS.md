@@ -219,7 +219,16 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
-Current default is profile v18, revision suffix `shooterless-v1-matchup-v1-rush-mixed-v1`.
+Current default is profile v19, revision suffix `matchup-v1-rush-mixed-v1-one-shooter-v1`.
+`a19-striker-rush-one-shooter-v1` was adopted on November 20, 2026, under the same standing
+instruction: an army with exactly four strikers is rushed from one shooter instead of two; casters
+do not count (`HOC_A19_STRIKER_RUSH_ONE_SHOOTER`). Read common's
+`docs/striker_rush_one_shooter_adoption.md`. Preserve the registered +4.64-point estimate (95% +0.91
+to +8.40; 927 changed games on a fresh sealed bank); its quality gate (G4: two candidate games
+against one with a declined scripted melee proposal) failed and stays recorded as failed: do not
+waive, re-run or relabel it. New default comparisons use v19.
+
+Profile v18, retained in v19:
 `a19-striker-rush-mixed-v1` was adopted on November 20, 2026, under the user's standing instruction
 of November 19: “always lock in wins and continue”. Read common's
 `docs/striker_rush_mixed_adoption.md`. The striker rush used to stop at three enemy strikers; it now
@@ -229,7 +238,7 @@ bring most (`HOC_A19_STRIKER_RUSH_MIXED`; it also goes off with the striker rush
 registered +9.20-point estimate against mixed armies (95% +6.81 to +11.68; 576 sealed tasks)
 together with its failed quality gate, four candidate games against one with a declined scripted
 melee proposal: do not pass, waive or re-run it. The estimate is against mixed armies drafted by
-the AI, not a win rate against people. New default comparisons use v18.
+the AI, not a win rate against people.
 
 `a19-striker-matchup-v1` was adopted on November 20, 2026, as profile v17, retained in v18, under
 the same standing instruction. Read common's `docs/striker_matchup_adoption.md`.
