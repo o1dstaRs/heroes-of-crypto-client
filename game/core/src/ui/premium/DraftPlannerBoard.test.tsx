@@ -37,3 +37,20 @@ test("rectangular bodies show one square portrait per cell; square bodies show o
         'data-portrait-tiles="2"',
     ]);
 });
+
+test("the board never grows past the size that fits the planner window", () => {
+    const plan = {
+        own: [],
+        enemy: [],
+        arrows: [],
+        synergies: [],
+        artifacts: [],
+        steps: [],
+    } as unknown as React.ComponentProps<typeof DraftPlannerBoard>["plan"];
+    const html = renderToStaticMarkup(
+        <CacheProvider value={createCache({ key: "planner-fit" })}>
+            <DraftPlannerBoard plan={plan} showPlan={false} maxSize={420} />
+        </CacheProvider>,
+    );
+    expect(html).toContain("max-width:420px");
+});

@@ -32,7 +32,9 @@ export const DraftPlannerBoard: React.FC<{
     showPlan: boolean;
     selected?: string;
     onSelect?: (key: string) => void;
-}> = ({ plan, showPlan, selected, onSelect }) => {
+    /** Largest board side, in px, that fits the planner window without scrolling. */
+    maxSize?: number;
+}> = ({ plan, showPlan, selected, onSelect, maxSize }) => {
     const { t } = useTranslation();
     const marker = useId().replaceAll(":", "");
     const token = (unit: DraftProjectedStack, enemy: boolean) => {
@@ -109,7 +111,7 @@ export const DraftPlannerBoard: React.FC<{
         );
     };
     return (
-        <Box>
+        <Box sx={{ width: "100%", maxWidth: maxSize === undefined ? undefined : `${maxSize}px`, mx: "auto" }}>
             <Box
                 data-board-sides
                 sx={{
@@ -337,6 +339,10 @@ export const PremiumDraftPlanner: React.FC<{
         setRect(next);
         remember(next);
     };
+    // The whole board, its title, side labels and the overlay toggle fit the window without scrolling.
+    // Chrome above and below the board: header 40, padding 22, title 24, side labels 21, toggle row 26.
+    const panelHeight = rect?.height ?? (typeof window === "undefined" ? 640 : Math.min(640, window.innerHeight - 100));
+    const boardMax = Math.max(160, panelHeight - 140);
     const wide = (rect?.width ?? (typeof window === "undefined" ? 640 : Math.min(640, window.innerWidth - 24))) >= 560;
     const content = (
         <Box
@@ -471,7 +477,13 @@ export const PremiumDraftPlanner: React.FC<{
                                 AI-recommended formation
                             </Typography>
                         </Box>
-                        <DraftPlannerBoard plan={plan} showPlan={showPlan} selected={selected} onSelect={setSelected} />
+                        <DraftPlannerBoard
+                            plan={plan}
+                            showPlan={showPlan}
+                            selected={selected}
+                            onSelect={setSelected}
+                            maxSize={boardMax}
+                        />
                         <Box
                             sx={{
                                 display: "flex",
@@ -480,6 +492,8 @@ export const PremiumDraftPlanner: React.FC<{
                                 color: muted,
                                 fontSize: 10,
                                 mt: 0.6,
+                                maxWidth: `${boardMax}px`,
+                                mx: "auto",
                             }}
                         >
                             <Box
