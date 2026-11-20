@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { Container, Sprite, Texture } from "pixi.js";
 import { addEffectCaption, updateEffectCaption } from "./EffectCaption";
-import { FlagOverlayLayout } from "./FlagOverlayLayout";
+import { FLAG_NUMBER_HALF_WIDTH, FlagOverlayLayout } from "./FlagOverlayLayout";
 import { releaseBoardMirror, setBoardMirror } from "../../pixi/boardMirror";
 import { EFFECT_FACTION_COLORS } from "../effectCaptions";
 
-test.each([false, true])("names stay beneath art, above damage, and readable with board mirror=%s", (mirror) => {
+test.each([false, true])("names stay beneath art, beside damage, and readable with board mirror=%s", (mirror) => {
     const world = new Container();
     world.scale.set(mirror ? -1 : 1, -0.7);
     const art = new Container();
@@ -31,7 +31,11 @@ test.each([false, true])("names stay beneath art, above damage, and readable wit
         expect(caption.root.getGlobalTransform().a).toBeGreaterThan(0);
         expect(caption.root.getGlobalTransform().d).toBeGreaterThan(0);
         const bounds = art.getLocalBounds();
-        expect(art.y + Math.min(bounds.minY * art.scale.y, bounds.maxY * art.scale.y)).toBeGreaterThanOrEqual(256);
+        // Damage owns the space above the flag; the named cue keeps its height and moves beside it.
+        expect(art.y + Math.min(bounds.minY * art.scale.y, bounds.maxY * art.scale.y)).toBeCloseTo(206);
+        expect(art.x + Math.max(bounds.minX * art.scale.x, bounds.maxX * art.scale.x)).toBeLessThanOrEqual(
+            100 - FLAG_NUMBER_HALF_WIDTH,
+        );
         // Beholder rows already counter the board mirror. They must not flip their text twice.
         art.scale.x = mirror ? -1 : 1;
         updateEffectCaption(caption);

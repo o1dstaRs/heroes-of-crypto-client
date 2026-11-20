@@ -841,7 +841,14 @@ export class CombatVisuals {
             const art = caption.owner.children.find((child) => child !== caption.root);
             caption.root.alpha = art?.alpha ?? 1;
         }
-        this.flagOverlayLayout.update(this.floatingTexts, 6);
+        const grid = this.context.getGridSettings?.();
+        const minX = grid?.getMinX?.(),
+            maxX = grid?.getMaxX?.();
+        this.flagOverlayLayout.update(
+            this.floatingTexts,
+            6,
+            minX !== undefined && maxX !== undefined ? { minX, maxX } : undefined,
+        );
     }
     private flagOverlayAnchor(unit: RenderableUnit, gs: GridSettings): FlagOverlayAnchor {
         return { ...unit.getFlagEffectAnchor(gs), unitId: unit.getId() };

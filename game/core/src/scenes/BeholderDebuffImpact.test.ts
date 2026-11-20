@@ -126,9 +126,10 @@ test("the battle visual layer holds damage and every debuff at fixed positions",
             expect(motif.visible).toBe(true);
             expect({ x: damage.x, y: damage.y }).toEqual(initialDamage);
             expect({ x: motif.x, y: motif.y }).toEqual(initialMotif);
+            // The debuff row keeps its height and sits beside the damage instead of above it.
             const bounds = motif.getBounds();
-            expect((bounds.minX + bounds.maxX) / 2).toBeCloseTo(100);
-            expect(motif.getBounds().maxY).toBeLessThan(damage.getBounds().minY);
+            const number = damage.getBounds();
+            expect(bounds.maxX <= number.minX || bounds.minX >= number.maxX).toBe(true);
         }
     } finally {
         visuals.clear();

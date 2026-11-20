@@ -9,16 +9,28 @@ export interface FlagNumber {
     flagAnchor?: Anchor;
     /** Authored upper extent, including text stroke and shadow; avoids measuring text on impact. */
     topExtent?: number;
+    /** Authored half width; measuring Pixi text per frame would redo the canvas/font work prewarm removes. */
+    halfWidth?: number;
 }
+
+/** Repeated flag numbers sit in 160 px columns, so one number fits within half of that either side. */
+export const FLAG_NUMBER_HALF_WIDTH = 80;
 
 interface FlagOverlay {
     container: Container;
     follow: () => Anchor | undefined;
-    bottomOffset?: number;
     lowerExtent?: number;
+    /** Once a cue shares its flag with damage it moves beside the numbers, and stays there until it ends. */
+    side?: -1 | 1;
+    /** Distance from the flag centre to this side's inner edge; it only grows, so expiry never slides cues in. */
+    clearance?: number;
 }
 
-/** One horizontal row per flag, retaining its reserved height until the last cue finishes. */
+/**
+ * Effect cues sit in one centred row just above their flag. While damage numbers own that space, cues move
+ * to the numbers' left and right at the same height instead of climbing above them, so they never float
+ * several cells away from their unit.
+ */
 export class FlagOverlayLayout {
     private overlays: FlagOverlay[] = [];
     public add(container: Container, follow: () => Anchor | undefined): void {
@@ -27,7 +39,7 @@ export class FlagOverlayLayout {
     public clear(): void {
         this.overlays.length = 0;
     }
-    public update(numbers: readonly FlagNumber[], gap: number): void {
+    public update(numbers: readonly FlagNumber[], gap: number, board?: Readonly<{ minX: number; maxX: number }>): void {
         this.overlays = this.overlays.filter(({ container }) => !container.destroyed);
         const groups = new Map<string, { anchor: Anchor; overlays: FlagOverlay[] }>();
         for (const overlay of this.overlays) {
@@ -41,13 +53,10 @@ export class FlagOverlayLayout {
             group.overlays.push(overlay);
         }
         for (const { anchor, overlays } of groups.values()) {
-            // Damage reads for 650 ms; effects can remain for 1300 ms. Releasing its space early
-            // made every surviving effect drop mid-animation. Keep the row's height relative to
-            // its flag, including when that flag moves or is replaced by an authoritative snapshot.
-            let bottom = anchor.y + gap;
-            for (const overlay of overlays) {
-                bottom = Math.max(bottom, anchor.y + (overlay.bottomOffset ?? gap));
-            }
+            // Horizontal extent of this flag's live damage, relative to the flag centre. Numbers are captured
+            // at contact, so measure them against their own anchor; a returning responder keeps its cues close.
+            let numbersLeft = Infinity,
+                numbersRight = -Infinity;
             for (const number of numbers) {
                 if (!number.flagAnchor || number.container.destroyed) continue;
                 // Identity keeps a responding/moving stack's stable number anchor and live flag together.
@@ -58,20 +67,14 @@ export class FlagOverlayLayout {
                         : Math.abs(number.flagAnchor.x - anchor.x) <= gap * 2 &&
                           Math.abs(number.flagAnchor.y - anchor.y) <= gap * 2;
                 if (!sameFlag) continue;
-                bottom = Math.max(
-                    bottom,
-                    // Damage is captured at contact and may stay behind while a responder returns
-                    // home. Reserve its authored height relative to its original flag, not that stale
-                    // world position; otherwise a moving flag drags its effects far above the unit.
-                    anchor.y +
-                        (number.container.y - number.flagAnchor.y) +
-                        (number.topExtent ?? 36) * Math.abs(number.container.scale.y) +
-                        gap,
-                );
+                const half = (number.halfWidth ?? FLAG_NUMBER_HALF_WIDTH) * Math.abs(number.container.scale.x);
+                const centre = number.container.x - number.flagAnchor.x;
+                numbersLeft = Math.min(numbersLeft, centre - half);
+                numbersRight = Math.max(numbersRight, centre + half);
             }
+            const damaged = numbersLeft <= numbersRight;
             const bounds = overlays.map((overlay) => {
                 const { container } = overlay;
-                overlay.bottomOffset = bottom - anchor.y;
                 const b = container.getLocalBounds();
                 const left = Math.min(b.minX * container.scale.x, b.maxX * container.scale.x);
                 const right = Math.max(b.minX * container.scale.x, b.maxX * container.scale.x);
@@ -80,13 +83,44 @@ export class FlagOverlayLayout {
                     b.minY * container.scale.y,
                     b.maxY * container.scale.y,
                 ));
-                return { container, left, width: right - left, lower };
+                return { overlay, container, left, width: right - left, lower };
             });
-            const width = bounds.reduce((sum, b) => sum + b.width, 0) + gap * (bounds.length - 1);
+            const bottom = anchor.y + gap;
+            if (damaged) {
+                // Each new cue takes the side with more free room, so a stack at the board edge flanks inward.
+                // Without board bounds the emptier side wins; ties start on the left.
+                const room = (side: -1 | 1) => {
+                    const used = bounds
+                        .filter((other) => other.overlay.side === side)
+                        .reduce((sum, other) => sum + other.width + gap, 0);
+                    const clearance = side < 0 ? -numbersLeft : numbersRight;
+                    const limit = board ? (side < 0 ? anchor.x - board.minX : board.maxX - anchor.x) : 0;
+                    return limit - clearance - used;
+                };
+                for (const b of bounds) {
+                    if (b.overlay.side) continue;
+                    b.overlay.side = room(1) > room(-1) ? 1 : -1;
+                }
+            }
+            const centred = bounds.filter((b) => !b.overlay.side);
+            const width = centred.reduce((sum, b) => sum + b.width, 0) + gap * Math.max(0, centred.length - 1);
             let x = anchor.x - width / 2;
-            for (const b of bounds) {
+            for (const b of centred) {
                 b.container.position.set(x - b.left, bottom - b.lower);
                 x += b.width + gap;
+            }
+            for (const side of [-1, 1] as const) {
+                const flank = bounds.filter((b) => b.overlay.side === side);
+                if (!flank.length) continue;
+                const current = damaged ? (side < 0 ? -numbersLeft : numbersRight) : 0;
+                const clearance = Math.max(current, ...flank.map((b) => b.overlay.clearance ?? 0), 0);
+                let edge = anchor.x + side * (clearance + gap);
+                for (const b of flank) {
+                    b.overlay.clearance = clearance;
+                    const left = side < 0 ? edge - b.width : edge;
+                    b.container.position.set(left - b.left, bottom - b.lower);
+                    edge += side * (b.width + gap);
+                }
             }
         }
     }

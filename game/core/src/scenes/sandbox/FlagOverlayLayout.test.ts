@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { FlagOverlayLayout } from "./FlagOverlayLayout";
 
-test.each([1, -1])("flag row clears rising stacked damage and remains centered with board x scale %s", (mirror) => {
+test.each([1, -1])("cues flank live damage at their normal height with board x scale %s", (mirror) => {
     const root = new Container();
     root.scale.set(mirror * 0.8, -0.5);
     const layout = new FlagOverlayLayout();
@@ -21,35 +21,37 @@ test.each([1, -1])("flag row clears rising stacked damage and remains centered w
     };
     const left = add(84, 84),
         right = add(100, 70);
+    layout.update([], 6);
+    const restingY = left.y;
+    expect(right.y).toBeCloseTo(restingY);
     const damage = new Container();
     damage.boundsArea = new Rectangle(-50, -36, 100, 116);
     damage.scale.set(1, -1);
     root.addChild(damage);
-    const numbers = [{ container: damage, flagAnchor: flag, topExtent: 36 }];
+    const numbers = [{ container: damage, flagAnchor: flag, topExtent: 36, halfWidth: 50 }];
     for (const rise of [0, 10, 35, 50]) {
         damage.position.set(flag.x, flag.y + 86 + rise);
         layout.update(numbers, 6);
-        expect(right.x - 50 - (left.x + 42)).toBeCloseTo(6);
-        expect((left.x - 42 + right.x + 50) / 2).toBeCloseTo(flag.x);
-        expect(left.y).toBeCloseTo(damage.y + 42);
-        expect(right.y).toBeCloseTo(left.y);
+        // Never pushed above the numbers: same height as without damage, one cue on each side.
+        expect(left.y).toBeCloseTo(restingY);
+        expect(right.y).toBeCloseTo(restingY);
+        expect(left.x + 42).toBeCloseTo(flag.x - 50 - 6);
+        expect(right.x - 50).toBeCloseTo(flag.x + 50 + 6);
         const numberBounds = damage.getBounds();
         for (const overlay of [left, right]) {
             const b = overlay.getBounds();
-            expect(b.maxY).toBeLessThan(numberBounds.minY);
+            expect(b.maxX <= numberBounds.minX || b.minX >= numberBounds.maxX).toBe(true);
         }
     }
-    // Expiry or a neighboring stack's numbers must not collapse the reserved height.
-    const heldOffset = left.y - flag.y;
-    numbers[0].flagAnchor = { x: flag.x + 64, y: flag.y };
-    layout.update(numbers, 6);
-    expect(left.y).toBeCloseTo(flag.y + heldOffset);
-    // Expiry recenters the survivor; hydration/movement follows the replacement flag.
-    left.destroy({ children: true });
+    // Expiry keeps the cues where they are; they never slide back under a later number.
+    damage.destroy();
+    layout.update([], 6);
+    expect(left.x + 42).toBeCloseTo(flag.x - 56);
+    // The flanks follow a moving or replaced flag.
     flag = { x: 320, y: 180 };
     layout.update([], 6);
-    expect(right.x).toBeCloseTo(320);
-    expect(right.y).toBeCloseTo(flag.y + heldOffset);
+    expect(right.x - 50).toBeCloseTo(320 + 56);
+    expect(right.y).toBeCloseTo(restingY + 80);
     root.destroy({ children: true });
 });
 
@@ -82,13 +84,19 @@ test("stack identity associates a live flag with its separate stable damage anch
     pop.scale.y = -1;
     layout.add(pop, () => ({ x: 300, y: 150, unitId: "victim" }));
     damage.position.set(280, 320);
-    const number = { container: damage, flagAnchor: { x: 280, y: 210, unitId: "victim" } };
+    const number = { container: damage, flagAnchor: { x: 280, y: 210, unitId: "victim" }, halfWidth: 30 };
     layout.update([number], 6);
-    expect(pop.x).toBe(300);
-    expect(pop.y).toBe(302);
-    number.flagAnchor = { x: 300, y: 150, unitId: "neighbor" };
+    // Measured against its own stable anchor, the number is centred on the live flag; the cue flanks it.
+    expect(pop.x + 40).toBe(300 - 30 - 6);
+    expect(pop.y).toBe(156);
+    const other = new Container();
+    layout.add(other, () => ({ x: 500, y: 150, unitId: "neighbor" }));
+    other.boundsArea = new Rectangle(-40, -80, 80, 80);
+    other.scale.y = -1;
     layout.update([number], 6);
-    expect(pop.y).toBe(302);
+    // Another stack's damage never displaces this neighbour's cue.
+    expect(other.x).toBe(500);
+    other.destroy();
     pop.destroy();
     damage.destroy();
 });
@@ -114,7 +122,7 @@ test("damage expiry and changing animation bounds retain the effect's original Y
     pop.destroy();
 });
 
-test("a fresh effect row releases the previous row's height after its last cue ends or the scene clears", () => {
+test("a fresh effect returns to the centre after the previous flanking cue ends or the scene clears", () => {
     const layout = new FlagOverlayLayout();
     const flag = { x: 100, y: 200, unitId: "victim" };
     const add = () => {
@@ -127,20 +135,22 @@ test("a fresh effect row releases the previous row's height after its last cue e
     const old = add();
     const damage = new Container();
     damage.position.set(100, 320);
-    layout.update([{ container: damage, flagAnchor: flag }], 6);
-    expect(old.y).toBe(362);
+    layout.update([{ container: damage, flagAnchor: flag, halfWidth: 30 }], 6);
+    expect(old.y).toBe(206);
+    expect(old.x + 40).toBe(100 - 30 - 6);
     old.destroy();
     layout.update([], 6);
+    damage.destroy();
     const fresh = add();
     layout.update([], 6);
     expect(fresh.y).toBe(206);
+    expect(fresh.x).toBe(100);
     layout.clear();
     const nextGame = add();
     layout.update([], 6);
     expect(nextGame.y).toBe(206);
     fresh.destroy();
     nextGame.destroy();
-    damage.destroy();
 });
 
 test("a returning responder keeps its effect close when damage remains at the captured contact", () => {
@@ -160,5 +170,26 @@ test("a returning responder keeps its effect close when damage remains at the ca
     expect(pop.y - flag.y).toBe(offset);
     expect(pop.y).toBeLessThan(damage.y);
     pop.destroy();
+    damage.destroy();
+});
+
+test("a stack at the board edge flanks its damage on the inward side", () => {
+    const layout = new FlagOverlayLayout();
+    const flag = { x: -460, y: 200, unitId: "edge" };
+    const add = () => {
+        const pop = new Container();
+        pop.boundsArea = new Rectangle(-40, -80, 80, 80);
+        pop.scale.y = -1;
+        layout.add(pop, () => flag);
+        return pop;
+    };
+    const first = add(),
+        second = add();
+    const damage = new Container();
+    damage.position.set(flag.x, 300);
+    layout.update([{ container: damage, flagAnchor: flag, halfWidth: 50 }], 6, { minX: -512, maxX: 512 });
+    for (const pop of [first, second]) expect(pop.x - 40).toBeGreaterThanOrEqual(flag.x + 50);
+    expect(second.x - 40).toBeCloseTo(first.x + 40 + 6);
+    for (const pop of [first, second]) pop.destroy();
     damage.destroy();
 });
