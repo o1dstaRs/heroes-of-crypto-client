@@ -225,6 +225,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Behemoth attack                        | `anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3`                                                                                                                 |
 | Behemoth hurt                          | Opening growl, 0–0.775 s of `monkey-growl-gfx-sounds-1-1-00-02.mp3` (before its brighter second phrase)                                                          |
 | Behemoth idle (turn loop)              | `monkey-growling-aggressively-felix-blume-1-00-04.mp3`                                                                                                           |
+| Wolf Rider idle (turn loop)            | `werewolf-howl-distant-dark-locran-2-2-00-07.mp3` (silent lead-in and tail trimmed)                                                                              |
 | Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                                                                                   |
 
 **Turn idle loops.** The optional `idle` role loops for the active creature while its turn waits for a

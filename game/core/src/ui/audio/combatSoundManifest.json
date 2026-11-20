@@ -568,6 +568,10 @@
         "hurt": {
             "durationMs": 509,
             "revision": "3cfb7399e3"
+        },
+        "idle": {
+            "durationMs": 5414,
+            "revision": "96fa47a10d"
         }
     },
     "Nomad": {

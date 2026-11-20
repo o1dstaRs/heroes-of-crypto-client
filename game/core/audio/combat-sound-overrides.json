@@ -996,5 +996,22 @@
             },
             "source_id": "provided-73e8f1904ec698b2fc49-0-610"
         }
+    },
+    "wolf-rider/idle": {
+        "source_id": "provided-30c85a9a3f114adb23d7",
+        "path": "tmp/audio/raw/provided/30c85a9a3f114adb/werewolf-howl-distant-dark-locran-2-2-00-07.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-30c85a9a3f114adb23d7",
+            "filename": "werewolf-howl-distant-dark-locran-2-2-00-07.mp3",
+            "title": "Werewolf howl (Distant & dark)",
+            "author": "Locran",
+            "sha256": "30c85a9a3f114adb23d74edb536f1f117689a8a20109a982e1eb435f0ed75bb5",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Wolf Rider idle",
+            "selection": "Explicitly selected by the user for Wolf Rider idle",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 8000
+        }
     }
 }
