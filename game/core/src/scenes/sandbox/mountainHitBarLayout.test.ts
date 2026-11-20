@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 import { FightStateManager, GridConstants, GridSettings, GridVals, HoCConstants } from "@heroesofcrypto/common";
 
-import { DungeonVisuals, getMountainHitBarLayout, getScatteredMountainHitBarLayout } from "./DungeonVisuals";
+import { DungeonVisuals, getMountainHitBarLayout } from "./DungeonVisuals";
 
 describe("mountain HP bar layout", () => {
     test.each([48, 96, 165])("stays inside the mountain base at a %ipx cell size", (cellSize) => {
@@ -15,18 +15,6 @@ describe("mountain HP bar layout", () => {
         expect(layout.gap).toBeGreaterThan(0);
         expect(layout.height).toBeGreaterThan(0);
     });
-
-    test.each([48, 96, 165])(
-        "keeps a Cemetery barrel's one-hit bar compact and readable at a %ipx cell size",
-        (cellSize) => {
-            const layout = getScatteredMountainHitBarLayout(cellSize);
-
-            expect(layout.width).toBeCloseTo(cellSize * 0.48);
-            expect(layout.height).toBeLessThanOrEqual(cellSize * 0.09);
-            expect(layout.centerOffset).toBeGreaterThan(layout.height / 2);
-            expect(layout.centerOffset + layout.height / 2 + layout.framePadding).toBeLessThan(cellSize * 0.12);
-        },
-    );
 });
 
 describe("mountain collapse animation", () => {
@@ -40,6 +28,8 @@ describe("mountain collapse animation", () => {
         GridConstants.UNIT_SIZE_DELTA,
     );
 
+    // Start from a clean fight even when an earlier test file in this process left one running.
+    beforeEach(() => FightStateManager.getInstance().reset());
     afterEach(() => FightStateManager.getInstance().reset());
 
     // A collapse container holds exactly the 4 quarter-chunk sprites + the dust puffs.

@@ -23,7 +23,8 @@ const createScreen = async () => {
             querySelector: () => null,
         };
     }
-    if (!("requestAnimationFrame" in globalThis)) {
+    // Another file may leave the key present but undefined, so test the value rather than the key.
+    if (typeof globalThis.requestAnimationFrame !== "function") {
         (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = () => 1;
         (globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = () => undefined;
     }

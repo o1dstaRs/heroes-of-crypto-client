@@ -64,9 +64,15 @@ command already runs the common suite; do not also start a separate full common 
 it. Repeat a passed gate when code, dependency pins or relevant configuration change. Consolidate
 shared fixtures around observable behavior, and keep full simulations for assertions that need them.
 
-Core tests run in isolated worker processes: up to 12 locally and 2 on CI. Run `bun run test:core` for
-the full suite; its timing profile schedules slow files first without limiting test discovery. To collect
-fresh per-file timings, use `bun run test:core --timings tmp/core-test-timings.json --update-timings`.
+Core tests run in a few long-lived processes (up to 12 locally, 2 on CI; `HOC_TEST_WORKERS` overrides):
+scene/logic files are packed into one shard per worker, React UI files run in their own processes, and
+files that call `mock.module()` stay `--isolate`d. Per-file isolation re-parsed the Sandbox/RenderableUnit
+module graph (~0.6 s) for every file; sharing it cut the suite from ~110 s to ~25 s of CPU. A test must
+therefore set up and restore any global it relies on (reset `FightStateManager` in `beforeEach`, check a
+stubbed global's value rather than its key) and must not depend on file order. Run `bun run test:core` for
+the full suite. Passing any argument (a file filter, `--parallel`, `--timings`) selects bun's per-file
+isolated scheduler instead; use it to debug a suspected cross-file leak. To collect fresh per-file timings,
+use `bun run test:core --timings tmp/core-test-timings.json --update-timings`.
 Keep profiling output in `game/core/tmp`; only deliberately update `game/core/scripts/test_timings.json`
 when changing the scheduling profile. Animation tests should advance a controlled clock instead
 of sleeping through real animation time.
