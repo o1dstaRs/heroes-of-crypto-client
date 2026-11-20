@@ -1,5 +1,6 @@
 import {
     AbilityFactory,
+    applyTacticalSplitPlacement,
     createAIStrategy,
     creatureInfo,
     DEFAULT_AI_VERSION,
@@ -13,13 +14,16 @@ import {
     HoCLib,
     PathHelper,
     PlacementPositionType,
+    planA19SupportSplits,
     RectanglePlacement,
+    tacticalSplitUnitFromUnit,
     TeamVals,
     ToFactionName,
     Unit,
     UnitsHolder,
     UnitVals,
     type Augment,
+    type ITacticalSplitStack,
     type SpecificSynergy,
     type TeamType,
 } from "@heroesofcrypto/common";
@@ -27,12 +31,26 @@ import { finalizeA19Placement } from "../../../../heroes-of-crypto-common/src/ai
 import {
     cells,
     valid,
+    type Body,
     type Point,
     type PublicInput,
 } from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import { chooseA19TerrainPlacement } from "../../../../heroes-of-crypto-common/src/ai/placement/terrain_reflection";
 
-/** Run the shipped placement strategy on detached, public-only draft units. Nothing is applied to the match. */
+export interface PremiumDraftFormation {
+    /** Every input body in input order (amounts reduced by any split), followed by the split-off stacks. */
+    bodies: Body[];
+    positions: Point[];
+    /** The split-off stacks in planner order, as the server records them for split placement. */
+    splitStacks: ITacticalSplitStack[];
+}
+
+/**
+ * Run the shipped placement strategy on detached, public-only draft units. Nothing is applied to the match.
+ * With `withSplits`, spare Placement/Nature stack slots are first spent on the tactical splits Premium's
+ * "Arrange army" makes on the server (`premiumApply` → `planAiTacticalSplits`): `planA19SupportSplits` over
+ * this army only, capped by `getNumberOfUnitsAvailableForPlacement`, then `applyTacticalSplitPlacement`.
+ */
 export function recommendPremiumDraftFormation(
     input: PublicInput,
     baseline: readonly Point[],
@@ -40,8 +58,9 @@ export function recommendPremiumDraftFormation(
     depth: number,
     variants?: Record<string, SpecificSynergy>,
     publicMapSeed?: string,
-): Point[] | undefined {
-    if (!input.bodies.length) return [];
+    withSplits = false,
+): PremiumDraftFormation | undefined {
+    if (!input.bodies.length) return { bodies: [], positions: [], splitStacks: [] };
     if (!valid(input, baseline)) return undefined;
     const manager = FightStateManager.getInstance();
     const previousFight = manager.getFightProperties();
@@ -62,36 +81,6 @@ export function recommendPremiumDraftFormation(
         input.artifacts.forEach((artifact, index) => fight.setArtifactPerTeam(team, index + 1, artifact));
         for (const augment of input.augments)
             fight.setAugmentPerTeam(team, { type: augment.kind, value: augment.value } as Augment.AugmentType);
-
-        const grid = new Grid(settings, input.map);
-        const holder = new UnitsHolder(grid);
-        const effects = new EffectFactory();
-        const abilities = new AbilityFactory(effects);
-        const makeUnit = (creature: number, amount: number, id: string, unitTeam: TeamType, position: Point) => {
-            const info = creatureInfo(creature)!;
-            const config = {
-                ...HoCConfig.getCreatureConfig(unitTeam, ToFactionName[info.faction], info.name, "", amount),
-                id,
-            };
-            const unit = Unit.createUnit(config, settings, unitTeam, UnitVals.CREATURE, abilities, effects, false);
-            const center = GridMath.getPositionForCells(
-                settings,
-                GridMath.getFootprintCellsForAnchor(position, info.footprintWidth, info.footprintHeight),
-            );
-            if (!center) throw new Error("Invalid projected footprint");
-            unit.setPosition(center.x, center.y, false);
-            holder.addUnit(unit);
-            return unit;
-        };
-        const own = input.bodies.map((body, index) =>
-            makeUnit(body.creature, body.amount, body.id, team, baseline[index]),
-        );
-        // Only revealed identities enter. These are neutral projected stacks, never actual enemy setup.
-        for (const [index, id] of input.enemyIds.entries()) {
-            const info = creatureInfo(id);
-            if (info)
-                makeUnit(id, Math.ceil(1000 / info.exp), `enemy:${index}`, enemyTeam, { x: input.left ? 14 : 3, y: 3 });
-        }
         if (variants) {
             for (const side of [team, enemyTeam]) {
                 const ids = side === team ? input.bodies.map((body) => body.creature) : input.enemyIds;
@@ -101,9 +90,78 @@ export function recommendPremiumDraftFormation(
                 fight.setSynergyUnitsPerFactions(side, count("Life"), count("Chaos"), count("Might"), count("Nature"));
             }
         }
-        holder.applyAugments(fight);
-        holder.applyArtifacts(fight);
-        holder.refreshStackPowerForAllUnits();
+
+        const army = (armyBodies: readonly Body[], starts: readonly Point[]) => {
+            const grid = new Grid(settings, input.map);
+            const holder = new UnitsHolder(grid);
+            const effects = new EffectFactory();
+            const abilities = new AbilityFactory(effects);
+            const makeUnit = (creature: number, amount: number, id: string, unitTeam: TeamType, position: Point) => {
+                const info = creatureInfo(creature)!;
+                const config = {
+                    ...HoCConfig.getCreatureConfig(unitTeam, ToFactionName[info.faction], info.name, "", amount),
+                    id,
+                };
+                const unit = Unit.createUnit(config, settings, unitTeam, UnitVals.CREATURE, abilities, effects, false);
+                const center = GridMath.getPositionForCells(
+                    settings,
+                    GridMath.getFootprintCellsForAnchor(position, info.footprintWidth, info.footprintHeight),
+                );
+                if (!center) throw new Error("Invalid projected footprint");
+                unit.setPosition(center.x, center.y, false);
+                holder.addUnit(unit);
+                return unit;
+            };
+            const own = armyBodies.map((body, index) =>
+                makeUnit(body.creature, body.amount, body.id, team, starts[index]),
+            );
+            // Only revealed identities enter. These are neutral projected stacks, never actual enemy setup.
+            for (const [index, id] of input.enemyIds.entries()) {
+                const info = creatureInfo(id);
+                if (info)
+                    makeUnit(id, Math.ceil(1000 / info.exp), `enemy:${index}`, enemyTeam, {
+                        x: input.left ? 14 : 3,
+                        y: 3,
+                    });
+            }
+            holder.applyAugments(fight);
+            holder.applyArtifacts(fight);
+            holder.refreshStackPowerForAllUnits();
+            return { grid, holder, own };
+        };
+
+        let bodies = input.bodies.map((body) => ({ ...body }));
+        let starts = [...baseline];
+        let { grid, holder, own } = army(bodies, starts);
+        const splitStacks: ITacticalSplitStack[] = [];
+        if (withSplits) {
+            // The planner the server picks for a Premium (human, non-persistent) seat on the default v0.8 AI,
+            // over this army's own detached stacks and the same stack capacity rule.
+            const plans = planA19SupportSplits(
+                own.map(tacticalSplitUnitFromUnit),
+                fight.getNumberOfUnitsAvailableForPlacement(team),
+            );
+            const children: Body[] = [];
+            const childStarts: Point[] = [];
+            for (const plan of plans) {
+                const index = bodies.findIndex((body) => body.id === plan.sourceUnitId);
+                const source = bodies[index];
+                // The authoritative split action's own legality: a split leaves at least one creature behind.
+                if (!source || !Number.isSafeInteger(plan.amount) || plan.amount <= 0 || plan.amount >= source.amount)
+                    continue;
+                source.amount -= plan.amount;
+                const id = `${source.id}:split:${children.length + 1}`;
+                children.push({ ...source, id, amount: plan.amount });
+                childStarts.push(starts[index]);
+                splitStacks.push({ unitId: id, role: plan.role });
+            }
+            if (children.length) {
+                bodies = [...bodies, ...children];
+                starts = [...starts, ...childStarts];
+                ({ grid, holder, own } = army(bodies, starts));
+            }
+        }
+
         const placement = new RectanglePlacement(
             settings,
             input.left ? PlacementPositionType.LEFT_BOTTOM : PlacementPositionType.RIGHT_BOTTOM,
@@ -130,7 +188,7 @@ export function recommendPremiumDraftFormation(
         const rotated = new Map<string, Point>();
         // Native strategies use the classic board frame. Retain real rectangular footprints when rotating
         // into the displayed side board, repairing only collisions/zone edges to the nearest legal anchor.
-        for (const body of [...input.bodies].sort((a, b) => b.width * b.height - a.width * a.height)) {
+        for (const body of [...bodies].sort((a, b) => b.width * b.height - a.width * a.height)) {
             const anchor = selected.get(body.id);
             if (!anchor) return undefined;
             const target = { x: anchor.y, y: settings.getGridSize() - anchor.x + body.width - 2 };
@@ -148,6 +206,26 @@ export function recommendPremiumDraftFormation(
             rotated.set(body.id, legal[0]);
             for (const cell of cells(body, legal[0])) occupied.add((cell.x << 4) | cell.y);
         }
+        // Server order (strategyPlaceTeam): strategy layout, then the split-stack overlay, then the learned
+        // final placement and terrain reflection below.
+        const split = splitStacks.length
+            ? applyTacticalSplitPlacement(
+                  rotated,
+                  bodies.map((body) => ({
+                      id: body.id,
+                      small: body.width === 1 && body.height === 1,
+                      footprintWidth: body.width,
+                      footprintHeight: body.height,
+                  })),
+                  {
+                      team,
+                      gridType: input.map,
+                      legalCellHashes: zone.possibleCellHashes(),
+                      splitStacks,
+                      sideOrientedPlacement: true,
+                  },
+              )
+            : rotated;
         const envelope = {
             team,
             gridType: input.map,
@@ -159,15 +237,17 @@ export function recommendPremiumDraftFormation(
             augments: input.augments,
         };
         // Keep the model's serving-domain guard; incomplete drafts and unsupported builds use native A19.
-        let final = finalizeA19Placement(own, envelope, rotated);
+        let final = finalizeA19Placement(own, envelope, split);
         if (publicMapSeed)
             final = chooseA19TerrainPlacement(
                 own,
                 { ...envelope, gridSettings: settings, publicMapSeed },
                 final,
             ).positions;
-        const result = input.bodies.map((body) => final.get(body.id)!);
-        return result.every(Boolean) && valid(input, result) ? result : undefined;
+        const positions = bodies.map((body) => final.get(body.id)!);
+        return positions.every(Boolean) && valid({ ...input, bodies }, positions)
+            ? { bodies, positions, splitStacks }
+            : undefined;
     } catch {
         return undefined;
     } finally {

@@ -31,7 +31,9 @@ test("setup retains the viewer's army, artifacts and doctrine from either seat",
         expect(draft.doctrine).toBe(left ? 1 : 2);
         expect(draft.artifactTier1).toBe(left ? 1 : 2);
         expect(draft.isYourTurn).toBe(false);
-        expect(projectPremiumDraft(draft).own[0].amount).toBe(left ? 100 : 40);
+        // The right seat's Placement 2 opens spare slots that Arrange army spends on splits; totals hold.
+        const own = projectPremiumDraft(draft).own;
+        expect(own.reduce((sum, unit) => sum + unit.amount, 0)).toBe(left ? 100 : 40);
     }
 });
 

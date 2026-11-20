@@ -38,7 +38,8 @@ export const DraftPlannerBoard: React.FC<{
     const { t } = useTranslation();
     const marker = useId().replaceAll(":", "");
     const token = (unit: DraftProjectedStack, enemy: boolean) => {
-        const key = `${enemy ? "enemy" : "own"}:${unit.creature}`;
+        // A split creature has several stacks on the board, so the stack id (not the creature) is the key.
+        const key = `${enemy ? "enemy" : "own"}:${unit.id}`;
         // A 1x2 body shows its square portrait once per square cell instead of one stretched frame.
         const side = Math.max(1, Math.min(unit.width, unit.height));
         const tiles = {
@@ -263,9 +264,11 @@ export const PremiumDraftPlanner: React.FC<{
     >(undefined);
     const plan = useMemo(() => projectPremiumDraft(source), [source]);
     const assessment = useMemo(() => premiumDraftAssessment(source), [source]);
+    // Picks out of six count creatures; a split adds a stack, never a pick.
+    const ownCreatures = new Set(plan.own.map((unit) => unit.creature)).size;
     const selectedUnit = [
-        ...plan.own.map((u) => ({ ...u, key: `own:${u.creature}` })),
-        ...plan.enemy.map((u) => ({ ...u, key: `enemy:${u.creature}` })),
+        ...plan.own.map((u) => ({ ...u, key: `own:${u.id}` })),
+        ...plan.enemy.map((u) => ({ ...u, key: `enemy:${u.id}` })),
     ].find((unit) => unit.key === selected);
     const fit = (next: DraftPanelRect, compact = collapsed) => {
         const fitted = clampDraftPanel(next, { width: window.innerWidth, height: window.innerHeight });
@@ -409,7 +412,7 @@ export const PremiumDraftPlanner: React.FC<{
                 <Typography level="title-sm" sx={{ flex: 1, color: ink, fontSize: 13 }}>
                     {source.setup ? "Army planner" : "Draft planner"}{" "}
                     <Box component="span" sx={{ color: muted, fontSize: 11 }}>
-                        · {plan.own.length}/6
+                        · {ownCreatures}/6
                     </Box>
                 </Typography>
                 <IconButton
@@ -603,7 +606,7 @@ export const PremiumDraftPlanner: React.FC<{
                                                 />
                                             ))}
                                         </Box>
-                                        {item.next && item.count > 0 && plan.own.length < 6 && (
+                                        {item.next && item.count > 0 && ownCreatures < 6 && (
                                             <Box sx={{ color: accent, fontSize: 10, mt: 0.4 }}>
                                                 {item.next.unitsAway} more for L{item.next.level}
                                             </Box>
@@ -653,11 +656,11 @@ export const PremiumDraftPlanner: React.FC<{
                             type="button"
                             key={step.title}
                             onClick={() => {
-                                const unit = plan.own.find((u) => step.unitIds.includes(u.creature));
+                                const unit =
+                                    plan.own.find((u) => step.stackIds?.includes(u.id)) ??
+                                    plan.own.find((u) => step.unitIds.includes(u.creature));
                                 const enemy = plan.enemy.find((u) => step.unitIds.includes(u.creature));
-                                setSelected(
-                                    unit ? `own:${unit.creature}` : enemy ? `enemy:${enemy.creature}` : undefined,
-                                );
+                                setSelected(unit ? `own:${unit.id}` : enemy ? `enemy:${enemy.id}` : undefined);
                             }}
                             sx={{
                                 display: "block",

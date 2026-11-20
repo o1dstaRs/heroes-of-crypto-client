@@ -6,7 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server.node";
 
 import { DraftPlannerBoard } from "./PremiumDraftPlanner";
 
-const stack = (creature: number, width: number, height: number, x: number, y: number) => ({
+const stack = (creature: number, width: number, height: number, x: number, y: number, id = String(creature)) => ({
+    id,
     creature,
     name: `Unit ${creature}`,
     role: "Front line",
@@ -53,4 +54,26 @@ test("the board never grows past the size that fits the planner window", () => {
         </CacheProvider>,
     );
     expect(html).toContain("max-width:420px");
+});
+
+test("a split creature renders one board token per stack, each with its own amount", () => {
+    const plan = {
+        own: [stack(36, 1, 1, 1, 7), { ...stack(36, 1, 1, 1, 12, "36:split:1"), amount: 1 }],
+        enemy: [],
+        arrows: [],
+        synergies: [],
+        artifacts: [],
+        steps: [],
+    } as unknown as React.ComponentProps<typeof DraftPlannerBoard>["plan"];
+    const html = renderToStaticMarkup(
+        <CacheProvider value={createCache({ key: "planner-split" })}>
+            <DraftPlannerBoard plan={plan} showPlan={false} selected="own:36:split:1" />
+        </CacheProvider>,
+    );
+    expect(html.match(/aria-label="Your Unit 36, Front line, projected \d+ creatures"/g)).toEqual([
+        'aria-label="Your Unit 36, Front line, projected 12 creatures"',
+        'aria-label="Your Unit 36, Front line, projected 1 creatures"',
+    ]);
+    // Selection is per stack: only the split-off token is pressed.
+    expect(html.match(/aria-pressed="(true|false)"/g)).toEqual(['aria-pressed="false"', 'aria-pressed="true"']);
 });

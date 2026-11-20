@@ -61,7 +61,9 @@ test("all level-correct rosters keep large bodies in bounds", () => {
             return pool[(i + slot) % pool.length];
         });
         const plan = projectPremiumDraft(state({ picked: ids }));
-        expect(plan.own).toHaveLength(new Set(ids).size);
+        // A Nature extra-stack slot can add split stacks; every picked creature still appears.
+        expect(new Set(plan.own.map((u) => u.creature)).size).toBe(new Set(ids).size);
+        expect(plan.own.filter((u) => !u.split)).toHaveLength(new Set(ids).size);
     }
 });
 

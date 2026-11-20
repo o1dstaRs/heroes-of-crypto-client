@@ -7,6 +7,7 @@ import {
     RectanglePlacement,
     SynergyKeysToPower,
     ToFactionName,
+    type TacticalSplitRole,
     creatureInfo,
     synergyVariantsForSeed,
 } from "@heroesofcrypto/common";
@@ -22,11 +23,18 @@ import type { PremiumDraftState } from "./premiumDraftAssessment";
 import { recommendPremiumDraftFormation } from "./premiumDraftFormation";
 
 export const DRAFT_PLANNER_FACTIONS = ["Life", "Nature", "Chaos", "Might"] as const;
-export type DraftProjectedStack = Body & { position: Point; role: string };
+export type DraftProjectedStack = Body & {
+    position: Point;
+    role: string;
+    /** Set on a stack Premium's arrangement splits off its creature's main stack to use a spare slot. */
+    split?: TacticalSplitRole;
+};
 export interface DraftPlanStep {
     title: string;
     text: string;
     unitIds: number[];
+    /** Exact projected stacks to highlight when one creature has more than one stack. */
+    stackIds?: string[];
 }
 export interface DraftPlanArrow {
     from: Point;
@@ -39,6 +47,13 @@ const distinctUnits = (ids: readonly number[]) =>
         const info = Number.isSafeInteger(id) && id > 0 ? creatureInfo(id) : undefined;
         return info ? [info] : [];
     });
+const splitRoles: Record<TacticalSplitRole, string> = {
+    aura: "Split aura carrier",
+    support: "Split spell support",
+    shield: "Split shield",
+    cover: "Split ranged cover",
+    bait: "Split decoy",
+};
 const synergyLabels: Record<string, readonly string[]> = {
     Life: ["Supply", "Morale & luck"],
     Nature: ["Extra stacks", "Flying armor"],
@@ -155,19 +170,30 @@ export function projectPremiumDraft(draft: PremiumDraftState) {
             depth,
             variants,
             map ? draft.gameId : undefined,
+            // Own army only: Premium's arrangement spends this seat's spare slots. An opponent's split
+            // depends on setup they have not revealed, so revealed enemy stacks stay whole.
+            left,
         );
         if (!planned) return [];
-        return bodies.map((body, index) => ({
-            ...body,
-            position: planned[index],
-            role: body.ranged
-                ? "Ranged pressure"
-                : body.caster && !units[index].melee
-                  ? "Support"
-                  : body.fly
-                    ? "Flank"
-                    : "Front line",
-        }));
+        const splits = new Map(planned.splitStacks.map((split) => [split.unitId, split.role]));
+        return planned.bodies.map((body, index) => {
+            const split = splits.get(body.id);
+            const melee = creatureInfo(body.creature)?.melee;
+            return {
+                ...body,
+                position: planned.positions[index],
+                ...(split ? { split } : {}),
+                role: split
+                    ? splitRoles[split]
+                    : body.ranged
+                      ? "Ranged pressure"
+                      : body.caster && !melee
+                        ? "Support"
+                        : body.fly
+                          ? "Flank"
+                          : "Front line",
+            };
+        });
     };
     const ownStacks = formation(own, enemy, true),
         enemyStacks = formation(enemy, own, false);
@@ -193,6 +219,14 @@ export function projectPremiumDraft(draft: PremiumDraftState) {
             title: "Keep support safe",
             text: `${supports.map((u) => u.name).join(", ")} start behind the screen. Keep useful spell targets in reach.`,
             unitIds: supports.map((u) => u.creature),
+        });
+    const splitOff = ownStacks.filter((unit) => unit.split);
+    if (splitOff.length)
+        steps.push({
+            title: "Split stacks",
+            text: `Arrange army splits ${splitOff.map((u) => `${u.amount} ${u.name}`).join(", ")} into spare slots as separate stacks.`,
+            unitIds: [...new Set(splitOff.map((u) => u.creature))],
+            stackIds: splitOff.map((u) => u.id),
         });
     if (threats.length)
         steps.push({
