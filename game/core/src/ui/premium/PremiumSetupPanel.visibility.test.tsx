@@ -8,7 +8,9 @@ import { PremiumPreviewContext } from "./PremiumPreviewContext";
 
 const preferences = await import("./usePremiumPreference");
 mock.module("./usePremiumPreference", () => ({ ...preferences, usePremiumCapability: () => true }));
-const { PremiumSetupPanel } = await import("./PremiumAdvisor");
+const { PremiumSetupPanel, loadPremiumDraftPlanner } = await import("./PremiumAdvisor");
+// The app loads the planner as Premium advice arrives; render it synchronously as the app does after that.
+await loadPremiumDraftPlanner();
 
 const render = (stage: "setup" | "board", active = true) => {
     const advice = {

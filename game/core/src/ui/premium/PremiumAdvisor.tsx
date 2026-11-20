@@ -3,7 +3,6 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
 import type { PremiumDraftState } from "./premiumDraftAssessment";
-import { PremiumDraftPlanner } from "./PremiumDraftPlanner";
 import { PremiumThumbIcon, PremiumThumbStyleContext, type PremiumThumbMedal } from "./PremiumThumbIcon";
 
 import {
@@ -23,6 +22,36 @@ import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
 import { PremiumPreviewContext } from "./PremiumPreviewContext";
 import { premiumDraftChoices } from "./premiumDraftChoices";
+
+/**
+ * The draft planner projects formations with common's A19 placement model, whose weights are 4.3 MB of
+ * the bundle. Every ranked fight imports this module for its advice hooks, so a static import made all
+ * players download the planner's model before the board appeared. It now loads only where advice can
+ * show it: the draft and setup panels start the download as they mount, before their advice arrives, and
+ * once loaded the planner renders synchronously (no Suspense frame, no remount between picks).
+ */
+type PlannerModule = typeof import("./PremiumDraftPlanner");
+let plannerModule: PlannerModule | undefined;
+let plannerLoad: Promise<PlannerModule> | undefined;
+export const loadPremiumDraftPlanner = (): Promise<PlannerModule> =>
+    (plannerLoad ??= import("./PremiumDraftPlanner").then((module) => (plannerModule = module)));
+const LazyPremiumDraftPlanner = React.lazy(() =>
+    loadPremiumDraftPlanner().then((module) => ({ default: module.PremiumDraftPlanner })),
+);
+/** Start the planner download once a Premium entitlement is known; non-Premium players never fetch it. */
+const usePremiumDraftPlannerPreload = (entitled: boolean): void => {
+    useEffect(() => {
+        if (entitled) void loadPremiumDraftPlanner().catch(() => undefined);
+    }, [entitled]);
+};
+const PremiumDraftPlanner: React.FC<React.ComponentProps<PlannerModule["PremiumDraftPlanner"]>> = (props) => {
+    if (plannerModule) return <plannerModule.PremiumDraftPlanner {...props} />;
+    return (
+        <React.Suspense fallback={null}>
+            <LazyPremiumDraftPlanner {...props} />
+        </React.Suspense>
+    );
+};
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -304,6 +333,7 @@ export const PremiumDraftBanner: React.FC<{
 }> = ({ advice, retainedAdvice, draft }) => {
     const shown = advice?.entitlement.active ? advice : retainedAdvice?.entitlement.active ? retainedAdvice : undefined;
     const impression = usePremiumAdviceView(advice?.gameId, advice?.adviceId);
+    usePremiumDraftPlannerPreload(!!shown);
     if (!shown) return null;
     // Choices only ever come from current advice; the retained copy carries the planner's context alone.
     const recommendations =
@@ -342,6 +372,7 @@ export const PremiumSetupPanel: React.FC<{
     // which remounts them and flashes the whole view. Applying is refused until current advice lands.
     const advice = currentAdvice ?? retainedAdvice;
     const impression = usePremiumAdviceView(gameId, advice?.adviceId);
+    usePremiumDraftPlannerPreload(setupView && !!draft && !!advice?.entitlement.active);
     const askQuestion = useAskPremiumQuestion();
     const autoAttempt = useRef<string | undefined>(undefined);
     useEffect(() => {

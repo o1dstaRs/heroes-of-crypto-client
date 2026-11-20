@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import {
     getCreatureLevel,
     LIVE_AUTO_BANS_BY_LEVEL,
@@ -14,10 +14,14 @@ import {
     PremiumDraftBanner,
     PremiumMark,
     PremiumShield,
+    loadPremiumDraftPlanner,
     usePremiumAdvisor,
 } from "./premium/PremiumAdvisor";
 import { PremiumPreviewContext } from "./premium/PremiumPreviewContext";
 import { createRankedPickPreview, rankedPickPreviewAdvice, rankedPickPreviewView } from "./rankedPickPreviewState";
+
+// The app loads the planner as Premium advice arrives; render it synchronously as the app does after that.
+beforeAll(() => loadPremiumDraftPlanner());
 
 for (const level of [1, 2, 3, 4]) {
     test(`L${level} preview follows ranked bans, private information and legal recommendations`, () => {

@@ -1,12 +1,15 @@
 import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
 import type { PremiumAdvice, PremiumChoice } from "../../api/premium_client";
-import { PremiumDraftBanner } from "./PremiumAdvisor";
+import { PremiumDraftBanner, loadPremiumDraftPlanner } from "./PremiumAdvisor";
 import { PremiumSearchPromptContext } from "./PremiumSearchPromptContext";
+
+// The app loads the planner as Premium advice arrives; render it synchronously as the app does after that.
+beforeAll(() => loadPremiumDraftPlanner());
 
 const render = (
     active: boolean,
