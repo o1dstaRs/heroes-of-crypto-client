@@ -11980,6 +11980,17 @@ export class Sandbox extends PixiScene {
             }
         }
     }
+    /**
+     * Auras project only while their owner stands still. Walking is not the only motion: the gap after an
+     * approach and the strike itself re-projected the aura right before every attack. An action in flight
+     * (approach, strike, recorded attack) keeps moves blocked until it completes.
+     */
+    protected isAuraOwnerInMotion(ownerId: string): boolean {
+        const unit = this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined;
+        if (!unit) return false;
+        if (this.moveAnimManager.isUnitMoving(unit) || unit.hasUnfinishedCombatAnimation()) return true;
+        return this.sc_moveBlocked && this.currentActiveUnit?.getId() === ownerId;
+    }
     protected isStrikeInFlight(): boolean {
         // Cold textures are part of an attack's windup, before a projectile or one-shot exists.
         return this.sc_moveBlocked || this.replayPlaybackActive || this.isPlayingActionAnimation();
@@ -19730,10 +19741,7 @@ export class Sandbox extends PixiScene {
                 (
                     this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined
                 )?.getBoardFacingDirection() ?? 1,
-            isAuraOwnerMoving: (ownerId) => {
-                const unit = this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined;
-                return !!unit && this.moveAnimManager.isUnitMoving(unit);
-            },
+            isAuraOwnerMoving: (ownerId) => this.isAuraOwnerInMotion(ownerId),
             getAbominationSandForeground: (ownerId) => {
                 const unit = this.unitsHolder.getAllUnits().get(ownerId) as RenderableUnit | undefined;
                 const depth = unit?.getCreatureDepthSortCandidate(0)?.baseDepth;
