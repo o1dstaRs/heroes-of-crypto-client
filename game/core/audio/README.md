@@ -222,7 +222,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Battle Mage attack (melee)             | `punch-body-hit-joshua-chivers-2-2-00-00.mp3`                                                                                                                        |
 | Battle Mage hurt                       | `combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3`                                                                                                                   |
 | Behemoth attack                        | `anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3`                                                                                                                     |
-| Behemoth hurt                          | Opening growl, 0–1.080 s of `monkey-growl-gfx-sounds-1-1-00-02.mp3` (before the big roar)                                                                            |
+| Behemoth hurt                          | Opening growl, 0–0.775 s of `monkey-growl-gfx-sounds-1-1-00-02.mp3` (before its brighter second phrase)                                                              |
 | Behemoth idle (turn loop)              | `monkey-growling-aggressively-felix-blume-1-00-04.mp3`                                                                                                               |
 | Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                                                                                       |
 

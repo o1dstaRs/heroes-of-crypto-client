@@ -665,8 +665,8 @@
             "revision": "b83f148309"
         },
         "hurt": {
-            "durationMs": 1049,
-            "revision": "043b996eb2"
+            "durationMs": 744,
+            "revision": "0a46b3cb46"
         },
         "idle": {
             "durationMs": 4764,

@@ -874,8 +874,8 @@
         }
     },
     "behemoth/hurt": {
-        "source_id": "provided-bea26faade14358269e2-0-1080",
-        "path": "tmp/audio/raw/provided/bea26faade143582/excerpt-0-1080.wav",
+        "source_id": "provided-bea26faade14358269e2-0-775",
+        "path": "tmp/audio/raw/provided/bea26faade143582/excerpt-0-775.wav",
         "source": {
             "kind": "user-provided",
             "filename": "monkey-growl-gfx-sounds-1-1-00-02.mp3",
@@ -889,15 +889,16 @@
             "source_site": "https://uppbeat.io/",
             "excerpt": {
                 "start_ms": 0,
-                "end_ms": 1080,
+                "end_ms": 775,
                 "original_duration_ms": 2554,
                 "original_path": "tmp/audio/raw/provided/bea26faade143582/monkey-growl-gfx-sounds-1-1-00-02.mp3",
-                "sha256": "55e3a9d25319fc69b5b1c5c90184efafbf3b2ae4eb02320867d2d0692d92b3eb",
+                "sha256": "56bcd43fe46140e96434f15bfe7ac6258a7dd2504f644edd7c99b408da26f90f",
                 "speed": 1,
                 "pitch_shift_semitones": 0,
-                "selection": "Opening growl phrase, ending at the quiet point before the big roar"
+                "selection": "Opening growl only, ending at its quiet point before the brighter second phrase at 0.79 s",
+                "fade_out_ms": 40
             },
-            "source_id": "provided-bea26faade14358269e2-0-1080"
+            "source_id": "provided-bea26faade14358269e2-0-775"
         }
     },
     "behemoth/idle": {
