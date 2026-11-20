@@ -3071,73 +3071,80 @@ assetTest("White Tiger combat idle and walk preserve scale when lab preview is d
 });
 
 assetTest("White Tiger reactions keep idle scale, recover after a hit and hold the death pose", () => {
-    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
-    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-    const texture = (width: number, height: number) =>
-        new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
-    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
-        const base = texture(768, 768);
-        const idle = texture(4608, 2304);
-        const action = texture(3072, 1536);
-        const unit = createRenderableUnit(team, "Nature", "White Tiger", "white_tiger_512", (key) =>
-            key === "white_tiger_lab_idle_atlas" ? idle : key.startsWith("white_tiger_lab_") ? action : base,
-        );
-        const world = new Container();
-        const internal = unit as unknown as {
-            sprite: Sprite;
-            walkAnim?: unknown;
-            oneShotAnim?: { frames: Texture[]; frameDurationsMs: number[]; authoredRealTime: boolean };
-        };
-        unit.setPosition(0, 1024);
-        unit.ensureVisual(world, gridSettings);
-        expect(unit.getAnimationTextureKey("hit")).toBe("white_tiger_lab_hit_atlas");
-        unit.setCreatureAnimationLabPreviewEnabled(false);
-        unit.ensureVisual(world, gridSettings);
-        const sprite = internal.sprite;
-        const resting = sprite.texture;
-        const sx = Math.abs(sprite.scale.x);
-        const sy = Math.abs(sprite.scale.y);
-        const anchor = sprite.anchor.y;
-        const tail = sprite.filters?.[0];
-        for (const state of ["hit", "death"] as const) {
-            expect(unit.getAnimationTextureKey(state)).toBe(`white_tiger_lab_${state}_atlas`);
-            unit.startBoardWalkAnimation(team === TeamVals.LEFT ? 1 : -1, 1);
-            unit.setBoardWalkDistanceCells(0.4);
-            let completed = 0;
-            expect(unit.playOneShotAnimation(state, () => completed++)).toBe(true);
-            expect(internal.walkAnim).toBeUndefined();
-            expect(sprite.filters ?? []).not.toContain(tail!);
-            const animation = internal.oneShotAnim!;
-            expect(animation.authoredRealTime).toBe(true);
-            expect(animation.frames).toHaveLength(state === "hit" ? 6 : 7);
-            expect(animation.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
-                state === "hit" ? 410 / 0.75 / 1.17 : 810 / 1.15,
-                8,
+    // The idle loop picks its frame from the wall clock. On a busy shared test shard enough real time
+    // passed between capturing the resting frame and comparing against it to advance the loop.
+    const clock = spyOn(performance, "now").mockReturnValue(10000);
+    try {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const texture = (width: number, height: number) =>
+            new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            const base = texture(768, 768);
+            const idle = texture(4608, 2304);
+            const action = texture(3072, 1536);
+            const unit = createRenderableUnit(team, "Nature", "White Tiger", "white_tiger_512", (key) =>
+                key === "white_tiger_lab_idle_atlas" ? idle : key.startsWith("white_tiger_lab_") ? action : base,
             );
-            for (let i = 0; i < animation.frames.length; i++) {
-                unit.ensureVisual(world, gridSettings);
-                expect(sprite.texture).toBe(animation.frames[i]);
-                expect(sprite.texture.width).toBe(768);
-                expect(sprite.texture.height).toBe(768);
-                expect(Math.abs(sprite.scale.x)).toBeCloseTo(sx, 6);
-                expect(Math.abs(sprite.scale.y)).toBeCloseTo(sy, 6);
-                expect(sprite.anchor.y).toBeCloseTo(anchor, 8);
-                unit.stepOneShotAnimation(animation.frameDurationsMs[i]);
-            }
-            expect(completed).toBe(1);
-            expect<unknown>(sprite.texture).toBe(state === "hit" ? resting : animation.frames.at(-1));
-            if (state === "death") {
-                unit.stepOneShotAnimation(10_000);
-                expect<unknown>(sprite.texture).toBe(animation.frames.at(-1));
+            const world = new Container();
+            const internal = unit as unknown as {
+                sprite: Sprite;
+                walkAnim?: unknown;
+                oneShotAnim?: { frames: Texture[]; frameDurationsMs: number[]; authoredRealTime: boolean };
+            };
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(world, gridSettings);
+            expect(unit.getAnimationTextureKey("hit")).toBe("white_tiger_lab_hit_atlas");
+            unit.setCreatureAnimationLabPreviewEnabled(false);
+            unit.ensureVisual(world, gridSettings);
+            const sprite = internal.sprite;
+            const resting = sprite.texture;
+            const sx = Math.abs(sprite.scale.x);
+            const sy = Math.abs(sprite.scale.y);
+            const anchor = sprite.anchor.y;
+            const tail = sprite.filters?.[0];
+            for (const state of ["hit", "death"] as const) {
+                expect(unit.getAnimationTextureKey(state)).toBe(`white_tiger_lab_${state}_atlas`);
+                unit.startBoardWalkAnimation(team === TeamVals.LEFT ? 1 : -1, 1);
+                unit.setBoardWalkDistanceCells(0.4);
+                let completed = 0;
+                expect(unit.playOneShotAnimation(state, () => completed++)).toBe(true);
+                expect(internal.walkAnim).toBeUndefined();
                 expect(sprite.filters ?? []).not.toContain(tail!);
+                const animation = internal.oneShotAnim!;
+                expect(animation.authoredRealTime).toBe(true);
+                expect(animation.frames).toHaveLength(state === "hit" ? 6 : 7);
+                expect(animation.frameDurationsMs.reduce((a, b) => a + b, 0)).toBeCloseTo(
+                    state === "hit" ? 410 / 0.75 / 1.17 : 810 / 1.15,
+                    8,
+                );
+                for (let i = 0; i < animation.frames.length; i++) {
+                    unit.ensureVisual(world, gridSettings);
+                    expect(sprite.texture).toBe(animation.frames[i]);
+                    expect(sprite.texture.width).toBe(768);
+                    expect(sprite.texture.height).toBe(768);
+                    expect(Math.abs(sprite.scale.x)).toBeCloseTo(sx, 6);
+                    expect(Math.abs(sprite.scale.y)).toBeCloseTo(sy, 6);
+                    expect(sprite.anchor.y).toBeCloseTo(anchor, 8);
+                    unit.stepOneShotAnimation(animation.frameDurationsMs[i]);
+                }
                 expect(completed).toBe(1);
-                unit.returnToIdleAnimation();
+                expect<unknown>(sprite.texture).toBe(state === "hit" ? resting : animation.frames.at(-1));
+                if (state === "death") {
+                    unit.stepOneShotAnimation(10_000);
+                    expect<unknown>(sprite.texture).toBe(animation.frames.at(-1));
+                    expect(sprite.filters ?? []).not.toContain(tail!);
+                    expect(completed).toBe(1);
+                    unit.returnToIdleAnimation();
+                }
+                expect(sprite.texture).toBe(resting);
+                expect(sprite.filters).toContain(tail!);
             }
-            expect(sprite.texture).toBe(resting);
-            expect(sprite.filters).toContain(tail!);
+            unit.setCreatureAnimationLabPreviewEnabled(false);
+            expect(unit.getAnimationTextureKey("death")).toBe("white_tiger_lab_death_atlas");
         }
-        unit.setCreatureAnimationLabPreviewEnabled(false);
-        expect(unit.getAnimationTextureKey("death")).toBe("white_tiger_lab_death_atlas");
+    } finally {
+        clock.mockRestore();
     }
 });
 
