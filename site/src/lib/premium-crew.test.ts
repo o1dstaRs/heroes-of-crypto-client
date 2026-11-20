@@ -176,3 +176,25 @@ test("crew evidence checks access and forwards the exact roster, map and trainin
         ).status,
     ).toBe(400);
 });
+
+test("a 1x2 board token repeats the square portrait instead of stretching one frame", () => {
+    const ids = samplePremiumCrew(null, catalog);
+    const wide = Object.entries(catalog.units).find(
+        ([id, item]) => item.kit?.amount && item.kit.width === 2 && item.kit.height === 1 && !ids.includes(Number(id)),
+    )!;
+    ids[CREW_LEVELS.indexOf(catalog.units[wide[0]].level)] = Number(wide[0]);
+    const html = renderPremiumCrew(ids, catalog, "en", "screen", 1, false);
+    const tokens = html.match(/<button[^>]*class="premium-crew-token"[\s\S]*?<\/button>/g)!;
+    const wideToken = tokens.find((token) =>
+        token.includes(`data-knowledge-reference="${catalog.units[wide[0]].anchor}"`),
+    )!;
+    expect(wideToken).toContain("premium-crew-token-tiles");
+    expect(wideToken.match(/class="premium-crew-token-tile"/g)).toHaveLength(2);
+    for (const token of tokens.filter((token) => token !== wideToken)) {
+        const id = Object.keys(catalog.units).find((key) =>
+            token.includes(`data-knowledge-reference="${catalog.units[key].anchor}"`),
+        )!;
+        const kit = catalog.units[id].kit!;
+        if (kit.width === kit.height) expect(token).not.toContain("premium-crew-token-tile");
+    }
+});

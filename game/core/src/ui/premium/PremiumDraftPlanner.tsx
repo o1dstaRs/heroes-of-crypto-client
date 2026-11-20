@@ -37,6 +37,12 @@ export const DraftPlannerBoard: React.FC<{
     const marker = useId().replaceAll(":", "");
     const token = (unit: DraftProjectedStack, enemy: boolean) => {
         const key = `${enemy ? "enemy" : "own"}:${unit.creature}`;
+        // A 1x2 body shows its square portrait once per square cell instead of one stretched frame.
+        const side = Math.max(1, Math.min(unit.width, unit.height));
+        const tiles = {
+            columns: Math.max(1, Math.round(unit.width / side)),
+            rows: Math.max(1, Math.round(unit.height / side)),
+        };
         return (
             <Box
                 component="button"
@@ -63,11 +69,26 @@ export const DraftPlannerBoard: React.FC<{
                     "&:hover": { zIndex: 4, filter: "brightness(1.15)" },
                 }}
             >
-                <CreaturePortraitImage
-                    creatureId={unit.creature}
-                    alt=""
-                    sx={{ width: "100%", height: "100%", borderRadius: "2px", overflow: "hidden" }}
-                />
+                <Box
+                    data-portrait-tiles={tiles.columns * tiles.rows}
+                    sx={{
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${tiles.columns}, minmax(0, 1fr))`,
+                        gridTemplateRows: `repeat(${tiles.rows}, minmax(0, 1fr))`,
+                        gap: "1px",
+                        width: "100%",
+                        height: "100%",
+                    }}
+                >
+                    {Array.from({ length: tiles.columns * tiles.rows }, (_, i) => (
+                        <CreaturePortraitImage
+                            key={i}
+                            creatureId={unit.creature}
+                            alt=""
+                            sx={{ width: "100%", height: "100%", minWidth: 0, borderRadius: "2px", overflow: "hidden" }}
+                        />
+                    ))}
+                </Box>
                 <Box
                     component="b"
                     sx={{
@@ -78,7 +99,7 @@ export const DraftPlannerBoard: React.FC<{
                         borderRadius: "2px",
                         color: "#241a10",
                         bgcolor: enemy ? "#d9a18c" : "#d6bc8c",
-                        fontSize: 9,
+                        fontSize: 10,
                         lineHeight: 1.2,
                     }}
                 >
@@ -431,7 +452,8 @@ export const PremiumDraftPlanner: React.FC<{
                 <Box
                     sx={{
                         display: "grid",
-                        gridTemplateColumns: wide ? "minmax(0, 1.25fr) minmax(0, 1fr)" : "minmax(0, 1fr)",
+                        // The board takes the full width; synergies and artifacts follow beneath it.
+                        gridTemplateColumns: "minmax(0, 1fr)",
                         gap: 1.5,
                     }}
                 >
@@ -507,62 +529,73 @@ export const PremiumDraftPlanner: React.FC<{
                         <Box sx={{ fontSize: 10, color: muted, mb: 0.8 }}>
                             Shared match variants · enemy levels use revealed picks
                         </Box>
-                        {plan.synergies.map((item) => (
-                            <Box
-                                key={item.faction}
-                                title={`${item.effect}. Enemy: ${item.enemyEffect}.`}
-                                sx={{
-                                    display: "flex",
-                                    gap: 0.7,
-                                    alignItems: "center",
-                                    py: 0.8,
-                                    borderBottom: "1px solid #61482d55",
-                                }}
-                            >
-                                {item.variant && (
-                                    <Box
-                                        component="img"
-                                        src={
-                                            (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
-                                                `${item.faction}:${item.variant}:1`
-                                            ]
-                                        }
-                                        alt=""
-                                        sx={{ width: 30, height: 30, opacity: item.level ? 1 : 0.5 }}
-                                    />
-                                )}
-                                <Box sx={{ flex: 1 }}>
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 0.5 }}>
-                                        <strong>{item.faction}</strong>
-                                        <span style={{ fontSize: 10, color: muted }}>
-                                            You: {item.level ? `L${item.level}` : "—"} · Enemy:{" "}
-                                            {item.enemyLevel ? `≥L${item.enemyLevel}` : "—"}
-                                        </span>
-                                    </Box>
-                                    <Box sx={{ color: item.level ? "#dec394" : muted, fontSize: 11 }}>{item.label}</Box>
-                                    {!!item.level && (
-                                        <Box sx={{ color: muted, fontSize: 10, mt: 0.3 }}>{item.effect}</Box>
+                        <Box
+                            data-planner-synergies
+                            sx={{
+                                display: "grid",
+                                gridTemplateColumns: wide ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+                                columnGap: 2,
+                            }}
+                        >
+                            {plan.synergies.map((item) => (
+                                <Box
+                                    key={item.faction}
+                                    title={`${item.effect}. Enemy: ${item.enemyEffect}.`}
+                                    sx={{
+                                        display: "flex",
+                                        gap: 0.7,
+                                        alignItems: "center",
+                                        py: 0.8,
+                                        borderBottom: "1px solid #61482d55",
+                                    }}
+                                >
+                                    {item.variant && (
+                                        <Box
+                                            component="img"
+                                            src={
+                                                (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
+                                                    `${item.faction}:${item.variant}:1`
+                                                ]
+                                            }
+                                            alt=""
+                                            sx={{ width: 30, height: 30, opacity: item.level ? 1 : 0.5 }}
+                                        />
                                     )}
-                                    <Box sx={{ display: "flex", gap: "3px", mt: 0.4 }}>
-                                        {Array.from({ length: 6 }, (_, i) => (
-                                            <Box
-                                                key={i}
-                                                sx={{
-                                                    height: 3,
-                                                    flex: 1,
-                                                    bgcolor: i < item.count ? "#bd995e" : "#4c3b2b",
-                                                }}
-                                            />
-                                        ))}
-                                    </Box>
-                                    {item.next && item.count > 0 && plan.own.length < 6 && (
-                                        <Box sx={{ color: accent, fontSize: 10, mt: 0.4 }}>
-                                            {item.next.unitsAway} more for L{item.next.level}
+                                    <Box sx={{ flex: 1 }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 0.5 }}>
+                                            <strong>{item.faction}</strong>
+                                            <span style={{ fontSize: 10, color: muted }}>
+                                                You: {item.level ? `L${item.level}` : "—"} · Enemy:{" "}
+                                                {item.enemyLevel ? `≥L${item.enemyLevel}` : "—"}
+                                            </span>
                                         </Box>
-                                    )}
+                                        <Box sx={{ color: item.level ? "#dec394" : muted, fontSize: 11 }}>
+                                            {item.label}
+                                        </Box>
+                                        {!!item.level && (
+                                            <Box sx={{ color: muted, fontSize: 10, mt: 0.3 }}>{item.effect}</Box>
+                                        )}
+                                        <Box sx={{ display: "flex", gap: "3px", mt: 0.4 }}>
+                                            {Array.from({ length: 6 }, (_, i) => (
+                                                <Box
+                                                    key={i}
+                                                    sx={{
+                                                        height: 3,
+                                                        flex: 1,
+                                                        bgcolor: i < item.count ? "#bd995e" : "#4c3b2b",
+                                                    }}
+                                                />
+                                            ))}
+                                        </Box>
+                                        {item.next && item.count > 0 && plan.own.length < 6 && (
+                                            <Box sx={{ color: accent, fontSize: 10, mt: 0.4 }}>
+                                                {item.next.unitsAway} more for L{item.next.level}
+                                            </Box>
+                                        )}
+                                    </Box>
                                 </Box>
-                            </Box>
-                        ))}
+                            ))}
+                        </Box>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.7, mt: 1.1, flexWrap: "wrap" }}>
                             {!!draft.doctrine && <DoctrineIcon doctrineId={draft.doctrine} size={30} />}
                             {plan.artifacts.map((item) => (

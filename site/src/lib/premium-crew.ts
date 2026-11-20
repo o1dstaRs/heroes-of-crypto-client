@@ -82,6 +82,15 @@ export const crewRole = (role: string | undefined, lang: Lang) =>
     })[role ?? "melee"];
 const unitPortrait = (item: PremiumCatalog["units"][string], eager = false) =>
     portraitMarkup(item.slug, item.name, { className: "premium-portrait", eager });
+/** A board token shows the square portrait once per square cell: a 1x2 body reads as two portraits, not one stretched frame. */
+const tokenPortraits = (item: PremiumCatalog["units"][string], body: { width: number; height: number }) => {
+    const side = Math.max(1, Math.min(body.width, body.height));
+    const columns = Math.max(1, Math.round(body.width / side)),
+        rows = Math.max(1, Math.round(body.height / side));
+    if (columns * rows === 1) return `<span class="premium-crew-token-crop">${unitPortrait(item)}</span>`;
+    const tile = `<span class="premium-crew-token-tile">${unitPortrait(item)}</span>`;
+    return `<span class="premium-crew-token-crop premium-crew-token-tiles" style="grid-template-columns:repeat(${columns},minmax(0,1fr));grid-template-rows:repeat(${rows},minmax(0,1fr))">${tile.repeat(columns * rows)}</span>`;
+};
 const kb = (anchor: string, lang: Lang) => `${lang === "ru" ? "/ru" : ""}/knowledge-base/#${e(anchor)}`;
 
 /** Fill a legal starting crew, retaining saved picks and using current rules when battle data is missing. */
@@ -465,7 +474,7 @@ export function renderPremiumCrew(
                 point = formation.positions[index];
             const coordinate = `${String.fromCharCode(65 + point.x)}${point.y + 1}`;
             const slot = premiumCrewSlots(ids, catalog).indexOf(id);
-            return `<button type="button" class="premium-crew-token" data-crew-slot="${slot}" data-knowledge-reference="${e(item.anchor)}" data-premium-reference-note="${e(t(`Board stack: ${body.amount} creatures`, `Отряд на поле: ${body.amount} бойцов`) + (body.id.includes("-split-") ? t(" · AI split stack", " · ИИ разделил отряд") : "") + (formation.effects.supply ? t(` · Life supply +${formation.effects.supply}%`, ` · Численность Жизни +${formation.effects.supply}%`) : ""))}" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(t(`Replace ${item.name} at ${coordinate} · ${body.amount} units`, `Заменить ${item.name} на ${coordinate} · ${body.amount} бойцов`))}"><span class="premium-crew-token-crop">${unitPortrait(item)}</span><b aria-hidden="true">${body.amount}</b></button>`;
+            return `<button type="button" class="premium-crew-token" data-crew-slot="${slot}" data-knowledge-reference="${e(item.anchor)}" data-premium-reference-note="${e(t(`Board stack: ${body.amount} creatures`, `Отряд на поле: ${body.amount} бойцов`) + (body.id.includes("-split-") ? t(" · AI split stack", " · ИИ разделил отряд") : "") + (formation.effects.supply ? t(` · Life supply +${formation.effects.supply}%`, ` · Численность Жизни +${formation.effects.supply}%`) : ""))}" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(t(`Replace ${item.name} at ${coordinate} · ${body.amount} units`, `Заменить ${item.name} на ${coordinate} · ${body.amount} бойцов`))}">${tokenPortraits(item, body)}<b aria-hidden="true">${body.amount}</b></button>`;
         })
         .join("");
     const enemyTokens = enemy.displayBodies
@@ -474,7 +483,7 @@ export function renderPremiumCrew(
             const item = catalog.units[id],
                 point = enemy.positions[index];
             const coordinate = `${String.fromCharCode(65 + point.x)}${point.y + 1}`;
-            return `<button type="button" class="premium-crew-token premium-crew-token-enemy" data-crew-enemy="${id}" data-knowledge-reference="${e(item.anchor)}" data-premium-reference-note="${e(t(`Board stack: ${body.amount} creatures`, `Отряд на поле: ${body.amount} бойцов`) + (body.id.includes("-split-") ? t(" · AI split stack", " · ИИ разделил отряд") : "") + (enemy.effects.supply ? t(` · Life supply +${enemy.effects.supply}%`, ` · Численность Жизни +${enemy.effects.supply}%`) : ""))}" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(t(`Enemy ${item.name} at ${coordinate} · ${body.amount} units`, `Враг ${item.name} на ${coordinate} · ${body.amount} бойцов`))}"><span class="premium-crew-token-crop">${unitPortrait(item)}</span><b aria-hidden="true">${body.amount}</b></button>`;
+            return `<button type="button" class="premium-crew-token premium-crew-token-enemy" data-crew-enemy="${id}" data-knowledge-reference="${e(item.anchor)}" data-premium-reference-note="${e(t(`Board stack: ${body.amount} creatures`, `Отряд на поле: ${body.amount} бойцов`) + (body.id.includes("-split-") ? t(" · AI split stack", " · ИИ разделил отряд") : "") + (enemy.effects.supply ? t(` · Life supply +${enemy.effects.supply}%`, ` · Численность Жизни +${enemy.effects.supply}%`) : ""))}" style="grid-column:${point.x - body.width + 2} / span ${body.width};grid-row:${16 - point.y} / span ${body.height}" aria-label="${e(t(`Enemy ${item.name} at ${coordinate} · ${body.amount} units`, `Враг ${item.name} на ${coordinate} · ${body.amount} бойцов`))}">${tokenPortraits(item, body)}<b aria-hidden="true">${body.amount}</b></button>`;
         })
         .join("");
     const axes = Array.from(
