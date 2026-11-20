@@ -460,7 +460,7 @@ def game_rows_for_review(work):
 def write_review(work, results):
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     art_references = {u["slug"]: u.get("art_reference") for u in design["units"]}
-    results = [clip for clip in results if clip.get("slug") in art_references and clip.get("role") in ("attack", "hurt", "move")]
+    results = [clip for clip in results if clip.get("slug") in art_references and clip.get("role") in COMBAT_ROLES]
     prompts = {u["slug"] + "/" + role: u[role]["prompt"] for u in design["units"] for role in ("attack", "hurt")}
     searches = {u["slug"] + "/" + role: u[role].get("library_query") for u in design["units"] for role in ("attack", "hurt")}
     for clip in results:
@@ -472,7 +472,8 @@ def write_review(work, results):
         if base.with_suffix(".webm").exists() and base.with_suffix(".mp3").exists():
             clip["revision"] = hashlib.sha256(base.with_suffix(".webm").read_bytes()
                                                + base.with_suffix(".mp3").read_bytes()).hexdigest()[:10]
-    clips = [clip for clip in results if clip.get("role") in ("attack", "hurt")] + movement_rows_for_review(results)
+    clips = ([clip for clip in results if clip.get("role") in ("attack", "hurt")] + movement_rows_for_review(results)
+             + [clip for clip in results if clip.get("role") == "idle" and clip.get("encoded")])
     clips.sort(key=lambda clip: (clip["unit"], clip["role"]))
     data = json.dumps(clips + spell_rows_for_review(work) + game_rows_for_review(work)).replace("</", "<\\/")
     template = (CORE / "audio" / "combat-sound-review.html").read_text()

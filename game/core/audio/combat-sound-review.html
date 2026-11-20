@@ -158,6 +158,7 @@
         <option value="attack">Attacks</option>
         <option value="hurt">Damage received</option>
         <option value="move">Movement</option>
+        <option value="idle">Turn idle loops</option>
         <option value="cast">Spell casts</option>
         <option value="event">Game effects</option>
     </select>
@@ -333,7 +334,7 @@
                         "<tr><td>" +
                         escape(c.unit) +
                         "</td><td>" +
-                        (c.role === "move" ? "movement" : c.role) +
+                        (c.role === "move" ? "movement" : c.role === "idle" ? "turn idle" : c.role) +
                         '</td><td><div class="row-actions"><button data-play="' +
                         c.slug +
                         "/" +
@@ -345,7 +346,7 @@
                         '"' +
                         (c.source_file ? "" : ' disabled title="Original recording is not available locally"') +
                         ">Original</button>" +
-                        (c.role === "event" || c.role === "move"
+                        (c.role === "event" || c.role === "move" || c.role === "idle"
                             ? ""
                             : c.role === "cast"
                               ? '<button data-regenerate="' + c.slug + '/cast">Next sound</button>'
