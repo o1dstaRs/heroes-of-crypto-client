@@ -35,10 +35,18 @@ test("an atlas the release ships at half size is sliced at half and never halved
     const scale = await import("./runtimeAtlasScale");
     const catalog = (await import("./halfBodyAtlases.json")).default as { atlases: Record<string, unknown> };
     const rules = scale.halvedAtlasCandidateKeys();
+    const transport = scale.halfTransportCandidateKeys();
     for (const key of Object.keys(catalog.atlases)) {
         // Every catalogued file stands for a body atlas by rule, whatever this build's image map holds,
         // and the browser never halves it again.
-        expect(rules.has(key), key).toBe(true);
+        expect(rules.has(key) || transport.has(key), key).toBe(true);
+        expect(rules.has(key) && transport.has(key), key).toBe(false);
+        if (transport.has(key)) {
+            // Fixed-pixel creatures: restored to their authored size, sliced as authored.
+            expect(scale.isPrebuiltHalfAtlasKey(key), key).toBe(false);
+            expect(scale.runtimeAtlasDivider(key, { atlasWidth: 4096 }, 4096), key).toBe(1);
+            continue;
+        }
         expect(scale.isRuntimeHalvedAtlasKey(key), key).toBe(false);
         // Loaded by this build: decoded off the main thread and sliced from the measured half.
         if (scale.isHalfSizeAtlasKey(key)) {
@@ -50,5 +58,16 @@ test("an atlas the release ships at half size is sliced at half and never halved
     for (const key of scale.runtimeHalvedAtlasKeys()) {
         expect(rules.has(key)).toBe(true);
         expect(key in catalog.atlases).toBe(false);
+    }
+});
+
+test("fixed-pixel creatures are shipped halved for transport only", async () => {
+    const scale = await import("./runtimeAtlasScale");
+    const transport = [...scale.halfTransportCandidateKeys()];
+    expect(transport.length).toBeGreaterThan(20);
+    for (const key of transport) {
+        expect(/^(leprechaun_lab_|troll_|tsar_cannon)/.test(key), key).toBe(true);
+        expect(scale.halvedAtlasCandidateKeys().has(key), key).toBe(false);
+        expect(scale.isRuntimeHalvedAtlasKey(key), key).toBe(false);
     }
 });

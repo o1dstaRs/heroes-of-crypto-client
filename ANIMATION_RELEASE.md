@@ -65,7 +65,12 @@ halved on arrival. The release now also carries a half-size copy of each, under
 `animations/output/half_body_atlases_v1/<key>/atlas/<key>.webp`, derived from the pinned master with
 Lanczos-3 and the sidebar pages' Q93 recipe (alpha exact). The owner approved the quality on
 2026-11-20. The Wyvern lab walk and melee-attack sheets stay lossless: their palette shader tests source
-colour with a hard threshold. `game/core/src/pixi/halfBodyAtlases.json` pins each copy; the atlas copy step ships it in
+colour with a hard threshold.
+
+Tsar Cannon, Troll and Leprechaun-lab helpers slice their body atlases in fixed full-size pixels, so
+their half copies are for transport only: the scene decoder resamples them back to the authored size off
+the main thread before upload (`isRestoredHalfAtlasUrl`). Their download shrinks; their GPU size and every
+helper's pixel geometry are unchanged. Their full-size Q93 copies are no longer made. `game/core/src/pixi/halfBodyAtlases.json` pins each copy; the atlas copy step ships it in
 place of its master, and the runtime slices frames from the measured size. A sheet below 30 dB stays at
 full size and is halved in the browser, as before. Masters are unchanged.
 

@@ -44,7 +44,7 @@ async function buildHalfBodyAtlases(
     releaseFile?: string,
     releaseVersion?: string,
 ) {
-    const { halvedAtlasCandidateKeys } = await import("../src/pixi/runtimeAtlasScale");
+    const { halfTransportCandidateKeys, halvedAtlasCandidateKeys } = await import("../src/pixi/runtimeAtlasScale");
     const files = release.files as Record<string, { sha256: string; bytes: number }>;
     const previous: HalfBodyAtlasCatalog | undefined = await readFile(catalogFile, "utf8")
         .then((text) => JSON.parse(text) as HalfBodyAtlasCatalog)
@@ -55,7 +55,8 @@ async function buildHalfBodyAtlases(
     const atlases: Record<string, HalfBodyAtlasDescriptor> = { ...previous?.atlases };
     // A colour-keyed atlas keeps its lossless master (the browser halves it); drop any earlier copy.
     for (const key of COLOUR_THRESHOLD_ATLAS_KEYS) delete atlases[key];
-    const keys = [...halvedAtlasCandidateKeys()]
+    // Fixed-pixel creatures ship halved for transport too; the decoder restores their authored size.
+    const keys = [...halvedAtlasCandidateKeys(), ...halfTransportCandidateKeys()]
         .filter((key) => !COLOUR_THRESHOLD_ATLAS_KEYS.has(key) && (!only || only.has(key)))
         .sort();
     sharp.concurrency(1);

@@ -25,13 +25,11 @@ const BODY_STATES = /^(idle|walk|flight_walk|hit|death|cast|(melee_)?attack(_up|
 /**
  * Creatures whose helpers slice body atlases with fixed full-resolution pixels: Leprechaun's lab idle
  * requires a 4096x3072 sheet, Troll's attack guard pads its idle frame to 1152/768 px, and Tsar Cannon's
- * wheel and lab visuals cut 768 px cells. They keep their authored size.
+ * wheel and lab visuals cut 768 px cells. They upload at their authored size (see transportRuleKeys).
  */
 const FIXED_PIXEL_PREFIXES = ["leprechaun_lab_", "troll_", "tsar_cannon"];
-const isBodyAtlasKey = (key: string): boolean =>
-    !key.startsWith("vfx_") &&
-    !key.includes("left_screen") &&
-    !FIXED_PIXEL_PREFIXES.some((prefix) => key.startsWith(prefix));
+const isAnyBodyAtlasKey = (key: string): boolean => !key.startsWith("vfx_") && !key.includes("left_screen");
+const isFixedPixelAtlasKey = (key: string): boolean => FIXED_PIXEL_PREFIXES.some((prefix) => key.startsWith(prefix));
 
 const assetPath = (url: string): string => new URL(url, "https://scene.invalid").pathname;
 
@@ -43,6 +41,13 @@ const prebuiltHalfKeys = new Set(Object.keys(halfBodyAtlases.atlases));
  * variant, so the release pipeline and its tests read this set, never the map-dependent one below.
  */
 const ruleKeys = new Set<string>();
+/**
+ * Large body atlases of the fixed-pixel creatures. The release ships them halved for transport only: the
+ * decoder restores their authored size before upload, so their helpers keep slicing full-size pixels and
+ * only the download shrinks (measured 2026-11-20: 37 MB of a match's images, 28 MB of it saved).
+ */
+const transportRuleKeys = new Set<string>();
+const restoredPaths = new Set<string>();
 /** The rule set as loaded by this build: halved by the release or by the browser. */
 const candidateKeys = new Set<string>();
 const halvedKeys = new Set<string>();
@@ -53,7 +58,16 @@ for (const [unit, states] of Object.entries(animationAtlases as Record<string, R
         if (!meta?.frameWidth || !meta.frameHeight || !BODY_STATES.test(state)) continue;
         if (Math.max(meta.frameWidth, meta.frameHeight) < RUNTIME_HALVED_MIN_FRAME_PX) continue;
         const key = `${unit.toLowerCase().replace(/ /g, "_")}_${state}_atlas`;
-        if (!isBodyAtlasKey(key)) continue;
+        if (!isAnyBodyAtlasKey(key)) continue;
+        if (isFixedPixelAtlasKey(key)) {
+            transportRuleKeys.add(key);
+            const url = (images as Record<string, unknown>)[key];
+            if (typeof url === "string" && prebuiltHalfKeys.has(key)) {
+                candidateKeys.add(key);
+                restoredPaths.add(assetPath(url));
+            }
+            continue;
+        }
         ruleKeys.add(key);
         const url = (images as Record<string, unknown>)[key];
         if (typeof url !== "string") continue;
@@ -69,9 +83,13 @@ export const isRuntimeHalvedAtlasKey = (key: string): boolean => halvedKeys.has(
 export const isRuntimeHalvedAtlasUrl = (url: string): boolean => halvedPaths.has(assetPath(url));
 export const runtimeHalvedAtlasKeys = (): ReadonlySet<string> => halvedKeys;
 /** Shipped already halved; decoded off the main thread like the others, never halved again. */
-export const isPrebuiltHalfAtlasKey = (key: string): boolean => prebuiltHalfKeys.has(key) && candidateKeys.has(key);
+export const isPrebuiltHalfAtlasKey = (key: string): boolean =>
+    prebuiltHalfKeys.has(key) && candidateKeys.has(key) && !transportRuleKeys.has(key);
 /** Every large body atlas by rule, independent of the image map. The release derives files for these. */
 export const halvedAtlasCandidateKeys = (): ReadonlySet<string> => ruleKeys;
+/** Large body atlases of fixed-pixel creatures: shipped halved, restored to full size on decode. */
+export const halfTransportCandidateKeys = (): ReadonlySet<string> => transportRuleKeys;
+export const isRestoredHalfAtlasUrl = (url: string): boolean => restoredPaths.has(assetPath(url));
 /** Decode these off the main thread (see decodedSceneTextures.ts). */
 export const isHalfSizeAtlasKey = (key: string): boolean => candidateKeys.has(key);
 

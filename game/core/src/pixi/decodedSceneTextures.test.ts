@@ -115,7 +115,9 @@ test("selected atlases are decoded and halved off the main thread when the platf
         fetchBlob: mock(async () => new Blob(["atlas"])),
         decode: mock(async () => pixels() as unknown as ImageBitmap),
         resize: mock(async () => half as unknown as ImageBitmap),
-        decodeHalved: mock(async (_blob: Blob, _options: ImageBitmapOptions) => half as unknown as ImageBitmap),
+        decodeScaled: mock(
+            async (_blob: Blob, _options: ImageBitmapOptions, _factor: number) => half as unknown as ImageBitmap,
+        ),
         supported: () => true,
         fallback: mock(async () => Texture.WHITE),
     };
@@ -124,14 +126,15 @@ test("selected atlases are decoded and halved off the main thread when the platf
     );
     const loader = new Loader();
     const texture = (await parser.load!("/assets/atlas.webp", { src: "/assets/atlas.webp" }, loader)) as Texture;
-    expect(platform.decodeHalved).toHaveBeenCalledTimes(1);
-    expect(platform.decodeHalved.mock.calls[0][1]).toEqual({ premultiplyAlpha: "premultiply" });
+    expect(platform.decodeScaled).toHaveBeenCalledTimes(1);
+    expect(platform.decodeScaled.mock.calls[0][1]).toEqual({ premultiplyAlpha: "premultiply" });
+    expect(platform.decodeScaled.mock.calls[0][2]).toBe(0.5);
     expect(platform.decode).not.toHaveBeenCalled();
     expect(platform.resize).not.toHaveBeenCalled();
     expect(texture.source.resource).toBe(half);
     // Atlases that keep their authored size never go through the worker.
     await parser.load!("/assets/other.webp", { src: "/assets/other.webp" }, loader);
-    expect(platform.decodeHalved).toHaveBeenCalledTimes(1);
+    expect(platform.decodeScaled).toHaveBeenCalledTimes(1);
     expect(platform.decode).toHaveBeenCalledTimes(1);
 });
 
@@ -142,7 +145,7 @@ test("a failed off-thread halving falls back to resampling in place", async () =
         fetchBlob: mock(async () => new Blob(["atlas"])),
         decode: mock(async () => full as unknown as ImageBitmap),
         resize: mock(async () => half as unknown as ImageBitmap),
-        decodeHalved: mock(async () => {
+        decodeScaled: mock(async () => {
             throw new Error("worker unavailable");
         }),
         supported: () => true,
@@ -155,4 +158,62 @@ test("a failed off-thread halving falls back to resampling in place", async () =
     expect(full.close).toHaveBeenCalledTimes(1);
     expect(texture.source.resource).toBe(half);
     expect(platform.fallback).not.toHaveBeenCalled();
+});
+
+test("an atlas shipped halved for transport is restored to its authored size before upload", async () => {
+    const shipped = { width: 1536, height: 768, close: mock(() => undefined) };
+    const restored = { width: 3072, height: 1536, close: mock(() => undefined) };
+    const platform = {
+        fetchBlob: mock(async () => new Blob(["atlas"])),
+        decode: mock(async () => shipped as unknown as ImageBitmap),
+        resize: mock(
+            async (_bitmap: ImageBitmap, _width: number, _height: number) => restored as unknown as ImageBitmap,
+        ),
+        decodeScaled: mock(async () => {
+            throw new Error("worker unavailable");
+        }),
+        supported: () => true,
+        fallback: mock(async () => Texture.WHITE),
+    };
+    const parser = createDecodedSceneTextureParser(
+        ["/assets/cannon.webp"],
+        platform,
+        () => false,
+        (url) => url.includes("cannon"),
+    );
+    const texture = (await parser.load!(
+        "/assets/cannon.webp",
+        { src: "/assets/cannon.webp" },
+        new Loader(),
+    )) as Texture;
+    // The worker was asked first, then the in-place fallback doubled the shipped pixels.
+    expect(platform.decodeScaled).toHaveBeenCalledTimes(1);
+    expect(platform.resize.mock.calls[0].slice(1)).toEqual([3072, 1536]);
+    expect(shipped.close).toHaveBeenCalledTimes(1);
+    expect(texture.source.resource).toBe(restored);
+    expect([texture.width, texture.height]).toEqual([3072, 1536]);
+});
+
+test("a restore that cannot resample at all goes to the last-resort loader instead of this parser's upload", async () => {
+    // Unreachable in browsers with a 2D canvas (see browserPlatform.resize); kept explicit for the rest.
+    const shipped = { width: 1536, height: 768, close: mock(() => undefined) };
+    const platform = {
+        fetchBlob: mock(async () => new Blob(["atlas"])),
+        decode: mock(async () => shipped as unknown as ImageBitmap),
+        resize: mock(async () => {
+            throw new Error("no resampling");
+        }),
+        supported: () => true,
+        fallback: mock(async () => Texture.WHITE),
+    };
+    const parser = createDecodedSceneTextureParser(
+        ["/assets/cannon.webp"],
+        platform,
+        () => false,
+        () => true,
+    );
+    const texture = await parser.load!("/assets/cannon.webp", { src: "/assets/cannon.webp" }, new Loader());
+    expect(shipped.close).toHaveBeenCalledTimes(1);
+    expect(platform.fallback).toHaveBeenCalledTimes(1);
+    expect(texture).toBe(Texture.WHITE);
 });

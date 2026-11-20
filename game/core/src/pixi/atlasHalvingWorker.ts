@@ -1,5 +1,6 @@
 /**
- * Decodes a scene atlas and resamples it to half size off the main thread.
+ * Decodes a scene atlas and resamples it off the main thread: to half size, or (for an atlas the release
+ * ships halved but whose code slices fixed full-size pixels) back up to its authored size.
  *
  * Chrome resamples an ImageBitmap (`createImageBitmap(bitmap, { resizeWidth })`) synchronously on the
  * calling thread, and applies the resize options of a Blob decode there as well: on the main thread
@@ -11,6 +12,8 @@ interface HalvingRequest {
     id: number;
     blob: Blob;
     options: ImageBitmapOptions;
+    /** 0.5 halves a full-size atlas; 2 restores an atlas the release ships halved for transport. */
+    factor?: number;
 }
 
 type HalvingResponse = { id: number; bitmap: ImageBitmap } | { id: number; error: string };
@@ -21,17 +24,17 @@ const scope = self as unknown as {
 };
 
 scope.onmessage = (event) => {
-    const { id, blob, options } = event.data;
+    const { id, blob, options, factor = 0.5 } = event.data;
     void (async () => {
         let full: ImageBitmap | undefined;
         try {
             full = await createImageBitmap(blob, options);
-            const half = await createImageBitmap(full, {
-                resizeWidth: Math.max(1, Math.round(full.width / 2)),
-                resizeHeight: Math.max(1, Math.round(full.height / 2)),
+            const scaled = await createImageBitmap(full, {
+                resizeWidth: Math.max(1, Math.round(full.width * factor)),
+                resizeHeight: Math.max(1, Math.round(full.height * factor)),
                 resizeQuality: "high",
             });
-            scope.postMessage({ id, bitmap: half }, [half]);
+            scope.postMessage({ id, bitmap: scaled }, [scaled]);
         } catch (error) {
             scope.postMessage({ id, error: String(error) });
         } finally {

@@ -15,15 +15,15 @@ interface DecodePlatform {
     decode(blob: Blob, options: ImageBitmapOptions): Promise<ImageBitmap>;
     /** Resample decoded pixels to a smaller bitmap before they ever reach the GPU. */
     resize?(bitmap: ImageBitmap, width: number, height: number): Promise<ImageBitmap>;
-    /** Decode and halve in one step off the main thread; a rejection falls back to decode + resize. */
-    decodeHalved?(blob: Blob, options: ImageBitmapOptions): Promise<ImageBitmap>;
+    /** Decode and resample by `factor` off the main thread; a rejection falls back to decode + resize. */
+    decodeScaled?(blob: Blob, options: ImageBitmapOptions, factor: number): Promise<ImageBitmap>;
     supported(): boolean;
     fallback(url: string, asset: ResolvedAsset, loader: Loader): Promise<Texture>;
 }
 
 type HalvingResponse = { id: number; bitmap: ImageBitmap } | { id: number; error: string };
 interface HalvingWorkerClient {
-    halve(blob: Blob, options: ImageBitmapOptions): Promise<ImageBitmap>;
+    scale(blob: Blob, options: ImageBitmapOptions, factor: number): Promise<ImageBitmap>;
 }
 
 /**
@@ -60,11 +60,11 @@ const getHalvingWorker = (): HalvingWorkerClient | null => {
     };
     worker.onerror = () => failAll("Atlas halving worker failed");
     halvingWorker = {
-        halve: (blob, options) =>
+        scale: (blob, options, factor) =>
             new Promise<ImageBitmap>((resolve, reject) => {
                 const id = nextId++;
                 pending.set(id, { resolve, reject });
-                worker.postMessage({ id, blob, options });
+                worker.postMessage({ id, blob, options, factor });
             }),
     };
     return halvingWorker;
@@ -77,11 +77,26 @@ const browserPlatform: DecodePlatform = {
         return response.blob();
     },
     decode: (blob, options) => createImageBitmap(blob, options),
-    resize: (bitmap, width, height) =>
-        createImageBitmap(bitmap, { resizeWidth: width, resizeHeight: height, resizeQuality: "high" }),
-    decodeHalved: (blob, options) => {
+    resize: async (bitmap, width, height) => {
+        try {
+            return await createImageBitmap(bitmap, { resizeWidth: width, resizeHeight: height, resizeQuality: "high" });
+        } catch {
+            // Engines without ImageBitmap resize options still draw a bitmap onto a canvas at any size.
+            const canvas =
+                typeof OffscreenCanvas === "function"
+                    ? new OffscreenCanvas(width, height)
+                    : Object.assign(document.createElement("canvas"), { width, height });
+            const context = canvas.getContext("2d") as
+                CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+            if (!context) throw new Error("No 2D canvas to resample the atlas");
+            context.imageSmoothingQuality = "high";
+            context.drawImage(bitmap, 0, 0, width, height);
+            return createImageBitmap(canvas);
+        }
+    },
+    decodeScaled: (blob, options, factor) => {
         const worker = getHalvingWorker();
-        return worker ? worker.halve(blob, options) : Promise.reject(new Error("No atlas halving worker"));
+        return worker ? worker.scale(blob, options, factor) : Promise.reject(new Error("No atlas halving worker"));
     },
     supported: () => typeof createImageBitmap === "function",
     fallback: (url, asset, loader) => loadTextures.load!<Texture>(url, asset, loader),
@@ -95,6 +110,11 @@ export function createDecodedSceneTextureParser(
     platform: DecodePlatform = browserPlatform,
     /** Selected atlases are uploaded at half size; their slicing measures the decoded width. */
     halve: (url: string) => boolean = () => false,
+    /**
+     * Atlases the release ships halved although their code slices fixed full-size pixels: restore the
+     * authored size before upload, so only the download shrinks.
+     */
+    restoreFullSize: (url: string) => boolean = () => false,
 ): LoaderParser<Texture> {
     const paths = new Set(urls.map(assetPath));
     let decodeTail = Promise.resolve();
@@ -117,29 +137,35 @@ export function createDecodedSceneTextureParser(
                 };
                 bitmap = await previous
                     .then(async () => {
-                        if (halve(url) && platform.decodeHalved) {
+                        const factor = halve(url) ? 0.5 : restoreFullSize(url) ? 2 : 1;
+                        if (factor !== 1 && platform.decodeScaled) {
                             try {
-                                return await platform.decodeHalved(blob, decodeOptions);
+                                return await platform.decodeScaled(blob, decodeOptions, factor);
                             } catch {
                                 // Worker unavailable or failed: resample on this thread below.
                             }
                         }
                         const decoded = await platform.decode(blob, decodeOptions);
-                        if (!halve(url) || !platform.resize || decoded.width < 2 || decoded.height < 2) return decoded;
-                        // Resize inside the serial decode slot so only one full-size copy is ever alive. A failed
-                        // resample keeps the full-size pixels; slicing measures the width either way.
-                        let halved: ImageBitmap;
+                        if (factor === 1 || !platform.resize || decoded.width < 2 || decoded.height < 2) return decoded;
+                        // Resize inside the serial decode slot so only one large copy is ever alive. A failed
+                        // halving keeps the full-size pixels, which slicing measures; a failed restore keeps
+                        // the half-size pixels, which only a size-measuring slicer could use, so fall back.
+                        let scaled: ImageBitmap;
                         try {
-                            halved = await platform.resize(
+                            scaled = await platform.resize(
                                 decoded,
-                                Math.round(decoded.width / 2),
-                                Math.round(decoded.height / 2),
+                                Math.round(decoded.width * factor),
+                                Math.round(decoded.height * factor),
                             );
-                        } catch {
+                        } catch (error) {
+                            if (factor > 1) {
+                                decoded.close();
+                                throw error;
+                            }
                             return decoded;
                         }
                         decoded.close();
-                        return halved;
+                        return scaled;
                     })
                     .finally(release);
                 const source = new ImageSource({

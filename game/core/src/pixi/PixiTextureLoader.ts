@@ -1,6 +1,6 @@
 import { Assets, Texture, extensions, loadTextures } from "pixi.js";
 import { createDecodedSceneTextureParser } from "./decodedSceneTextures";
-import { isHalfSizeAtlasKey, isRuntimeHalvedAtlasUrl } from "./runtimeAtlasScale";
+import { isHalfSizeAtlasKey, isRestoredHalfAtlasUrl, isRuntimeHalvedAtlasUrl } from "./runtimeAtlasScale";
 import { images as rawImages } from "../imageAssets";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import {
@@ -72,6 +72,8 @@ extensions.add(
         // Large-frame creature atlases upload at half size: most ship halved, the rest are halved
         // here. See runtimeAtlasScale.ts.
         isRuntimeHalvedAtlasUrl,
+        // Fixed-pixel creatures ship halved for transport and are restored to their authored size here.
+        isRestoredHalfAtlasUrl,
     ),
 );
 

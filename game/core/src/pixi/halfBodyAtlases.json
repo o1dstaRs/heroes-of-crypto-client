@@ -3657,6 +3657,76 @@
             "releasePath": "animations/output/half_body_atlases_v1/leprechaun_hit_atlas/atlas/leprechaun_hit_atlas.webp",
             "psnr": 30.95
         },
+        "leprechaun_lab_death_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_death/atlas/leprechaun_lab_death_atlas.webp",
+            "sourceSha256": "9eeb1884f739ab3463395a1a46f27952d3bd4e85e1804a900c3a2df55f96443c",
+            "width": 1536,
+            "height": 768,
+            "bytes": 153322,
+            "sha256": "9be53220398269b1dfe1c45fd4d08eba8fa559e75b532cf9829ddf3dceec6d40",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_death_atlas/atlas/leprechaun_lab_death_atlas.webp",
+            "psnr": 33.21
+        },
+        "leprechaun_lab_hit_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_hit/atlas/leprechaun_lab_hit_atlas.webp",
+            "sourceSha256": "f02dd5ae763a4717cedd31cfdd9d4e2081bd28cff25d3480a6ff69e7ab9c819d",
+            "width": 1536,
+            "height": 768,
+            "bytes": 222616,
+            "sha256": "75239ba71aefb5275e2c2cb74d40d1dbe4ca0e28c5c5c1a458b70ff89abbf7ea",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_hit_atlas/atlas/leprechaun_lab_hit_atlas.webp",
+            "psnr": 32.97
+        },
+        "leprechaun_lab_idle_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_idle/atlas/leprechaun_lab_idle_atlas.webp",
+            "sourceSha256": "7db0c78eac5f75de99c961b4804ddef1ff3146030364fbec1fa391e69839133d",
+            "width": 2048,
+            "height": 1536,
+            "bytes": 318724,
+            "sha256": "38a3ea485304e21dc866fc514da6cb59a5f84d33aa48588990255f425791c53f",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_idle_atlas/atlas/leprechaun_lab_idle_atlas.webp",
+            "psnr": 34.25
+        },
+        "leprechaun_lab_melee_attack_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_melee_attack/atlas/leprechaun_lab_melee_attack_atlas.webp",
+            "sourceSha256": "5501362d19b95258fa629b3f96eb26f0bdd518800f7d66ffd231b3546d205f32",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 219606,
+            "sha256": "23247a12847af28603fbfb5822d0d173541b07f513a053daa1766f96caec3f9d",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_melee_attack_atlas/atlas/leprechaun_lab_melee_attack_atlas.webp",
+            "psnr": 33.32
+        },
+        "leprechaun_lab_melee_attack_down_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_melee_attack_down/atlas/leprechaun_lab_melee_attack_down_atlas.webp",
+            "sourceSha256": "619106a138d863399c61240cf2df7e9ffe8954816a3dd711c8915167c98ad814",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 218568,
+            "sha256": "0fad49acb07fd76b6cde98747d1782ed566ca9ce0eb6c809e4f41187cb8ef757",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_melee_attack_down_atlas/atlas/leprechaun_lab_melee_attack_down_atlas.webp",
+            "psnr": 32.87
+        },
+        "leprechaun_lab_melee_attack_up_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_melee_attack_up/atlas/leprechaun_lab_melee_attack_up_atlas.webp",
+            "sourceSha256": "41850bec3f96178886316e91e5ea2f263f7cd1cf49475a297c7fdf44b7cd4090",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 223066,
+            "sha256": "9aba058d137edec2cd791c63d2adb0b920049445de45bc9175fa5c52ed893a0c",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_melee_attack_up_atlas/atlas/leprechaun_lab_melee_attack_up_atlas.webp",
+            "psnr": 33.16
+        },
+        "leprechaun_lab_walk_atlas": {
+            "sourcePath": "animations/output/leprechaun_lab_walk/atlas/leprechaun_lab_walk_atlas.webp",
+            "sourceSha256": "9a0b8a93e57f52070443ef2cd8e0810a5f28146e951f59d0813d3b5ad033c5a0",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 216972,
+            "sha256": "4bd5986e8da2ed44e5d8b8e996bcf683a19f08518bbab69ccea8fb46f8452ba4",
+            "releasePath": "animations/output/half_body_atlases_v1/leprechaun_lab_walk_atlas/atlas/leprechaun_lab_walk_atlas.webp",
+            "psnr": 35.87
+        },
         "leprechaun_walk_atlas": {
             "sourcePath": "animations/output/leprechaun_walk/atlas/leprechaun_walk_atlas.webp",
             "sourceSha256": "fcb04f9b9fd2d3f1c88f68f4ea7e5f01c572cde9789627de4eb0a23c4610c753",
@@ -5756,6 +5826,516 @@
             "sha256": "1fb4e154cf543b2b2205758b29fe7a29abf1b99aae38a72bf8173d626f7e2ff1",
             "releasePath": "animations/output/half_body_atlases_v1/troglodyte_walk_atlas/atlas/troglodyte_walk_atlas.webp",
             "psnr": 36.67
+        },
+        "troll_attack_atlas": {
+            "sourcePath": "animations/output/troll_attack/atlas/troll_attack_atlas.webp",
+            "sourceSha256": "1f6bf2435abb6f9999b3ae15c0c53fb3655d469e962a22c360c180b48f53b8f7",
+            "width": 1536,
+            "height": 768,
+            "bytes": 349026,
+            "sha256": "0eb2b4a4445bde633059e75f144b8ed7c46262841bcd5f974eb897d0c786bb5b",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_attack_atlas/atlas/troll_attack_atlas.webp",
+            "psnr": 35.9
+        },
+        "troll_attack_down_atlas": {
+            "sourcePath": "animations/output/troll_attack_down/atlas/troll_attack_down_atlas.webp",
+            "sourceSha256": "8266285704c3e1968b1270fa99f4f29e906602c26e9f3c331a4acb9846ee4612",
+            "width": 1536,
+            "height": 768,
+            "bytes": 345268,
+            "sha256": "b0edd679cb7d0109177e638984dec4c99c29fa901960062612c3387a042fb295",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_attack_down_atlas/atlas/troll_attack_down_atlas.webp",
+            "psnr": 35.88
+        },
+        "troll_attack_up_atlas": {
+            "sourcePath": "animations/output/troll_attack_up/atlas/troll_attack_up_atlas.webp",
+            "sourceSha256": "5a2626e09f667dfcade25b4aea0cc1add28fa7100dd4b88688ca00f861ff3e2f",
+            "width": 1536,
+            "height": 768,
+            "bytes": 348646,
+            "sha256": "38351e797f225bad6d7d2b5e720bd80f726209940b8cbd3e3e1e5bdf914ada64",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_attack_up_atlas/atlas/troll_attack_up_atlas.webp",
+            "psnr": 35.86
+        },
+        "troll_death_atlas": {
+            "sourcePath": "animations/output/troll_death/atlas/troll_death_atlas.webp",
+            "sourceSha256": "cbc33e45298f2a675ba05d5dc227ec17b5d3fe626d06f7b714142a7d1fddbe0a",
+            "width": 1536,
+            "height": 768,
+            "bytes": 261514,
+            "sha256": "6760df74470e4f0a4d937394765fdf057e0070b384ae5779705d0a1925606ec1",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_death_atlas/atlas/troll_death_atlas.webp",
+            "psnr": 36.21
+        },
+        "troll_hit_atlas": {
+            "sourcePath": "animations/output/troll_hit/atlas/troll_hit_atlas.webp",
+            "sourceSha256": "ede1dc746896af4fca1a76f959fa38739a86d0de6d12e254cc864629c46cb1b5",
+            "width": 1536,
+            "height": 768,
+            "bytes": 338480,
+            "sha256": "891db9f8d21c7d80f15791f925f2c5817518daad178c9f59621f95c1a7ad97f6",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_hit_atlas/atlas/troll_hit_atlas.webp",
+            "psnr": 36.07
+        },
+        "troll_idle_atlas": {
+            "sourcePath": "animations/output/troll_idle/atlas/troll_idle_atlas.webp",
+            "sourceSha256": "6c17957ebc12676421ba266077eb7d23faa24274822c53d5a2a5859a6c1fc233",
+            "width": 1536,
+            "height": 768,
+            "bytes": 313974,
+            "sha256": "e56ec74a013990791cb180f9699964ca71016bd4d454c1e5766bda32ea0d280a",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_idle_atlas/atlas/troll_idle_atlas.webp",
+            "psnr": 35.84
+        },
+        "troll_lab_cast_atlas": {
+            "sourcePath": "animations/output/troll_lab_cast/atlas/troll_lab_cast_atlas.webp",
+            "sourceSha256": "7d547bc8b771a90fa9a46d0cdfe40616eacbe019af794087ed79ea9afa1b9471",
+            "width": 1728,
+            "height": 1728,
+            "bytes": 324504,
+            "sha256": "1d4d775ee505f034006284e2104a8d1d15663f1e9e6c0181bee3323803ec7e8a",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_cast_atlas/atlas/troll_lab_cast_atlas.webp",
+            "psnr": 37.99
+        },
+        "troll_lab_death_atlas": {
+            "sourcePath": "animations/output/troll_lab_death/atlas/troll_lab_death_atlas.webp",
+            "sourceSha256": "48fe8bd5134beb34f0a85d6e04a60513cd6cda169f9863dedfa5900be24be402",
+            "width": 1536,
+            "height": 768,
+            "bytes": 215630,
+            "sha256": "29999be47ca9d5b53ebbd695aa99ae398d3f506716a1deef13351aea89ca7d6d",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_death_atlas/atlas/troll_lab_death_atlas.webp",
+            "psnr": 36.82
+        },
+        "troll_lab_hit_atlas": {
+            "sourcePath": "animations/output/troll_lab_hit/atlas/troll_lab_hit_atlas.webp",
+            "sourceSha256": "c87864f63cef9df3bb0b708c9aec8dc56a4c4db3c22d9ac94df56ebe93c52b22",
+            "width": 1536,
+            "height": 384,
+            "bytes": 154822,
+            "sha256": "1ee42ff450b54d71ab988c84270ec8ab31c74d15f1ea6d1d923c57c305b524dd",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_hit_atlas/atlas/troll_lab_hit_atlas.webp",
+            "psnr": 37.79
+        },
+        "troll_lab_idle_atlas": {
+            "sourcePath": "animations/output/troll_lab_idle/atlas/troll_lab_idle_atlas.webp",
+            "sourceSha256": "5a0d466e081a649354e7e4bf027f7ddc3967064b49c0c04ba131e01735a379a9",
+            "width": 1536,
+            "height": 768,
+            "bytes": 273920,
+            "sha256": "33a01629d97d4ae2bc8d4c37a6b3ee8634d633d63ab08e2c195b88e6a8f75583",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_idle_atlas/atlas/troll_lab_idle_atlas.webp",
+            "psnr": 37.42
+        },
+        "troll_lab_melee_attack_atlas": {
+            "sourcePath": "animations/output/troll_lab_melee_attack/atlas/troll_lab_melee_attack_atlas.webp",
+            "sourceSha256": "cbd0d4164244f5a28f868821870e15e670f377651b7b534f3c4fc72924078156",
+            "width": 1728,
+            "height": 1152,
+            "bytes": 221622,
+            "sha256": "a550cc6a34971ad14f0144249f01fe0e36ee89ff99826829bc3d54ed75b25c48",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_melee_attack_atlas/atlas/troll_lab_melee_attack_atlas.webp",
+            "psnr": 37.88
+        },
+        "troll_lab_melee_attack_down_atlas": {
+            "sourcePath": "animations/output/troll_lab_melee_attack_down/atlas/troll_lab_melee_attack_down_atlas.webp",
+            "sourceSha256": "7b6093b552248a1d6700dc62056f303a77c03b49676f5d404b5b0c49d6ba885e",
+            "width": 1728,
+            "height": 1152,
+            "bytes": 218032,
+            "sha256": "7991ae25020d287d13d30aac6c3a80e3d02bf9564e642c2e37cddb6d478c7259",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_melee_attack_down_atlas/atlas/troll_lab_melee_attack_down_atlas.webp",
+            "psnr": 38.25
+        },
+        "troll_lab_melee_attack_up_atlas": {
+            "sourcePath": "animations/output/troll_lab_melee_attack_up/atlas/troll_lab_melee_attack_up_atlas.webp",
+            "sourceSha256": "4a5e1c76ae37dcd6a663a41694fcf4bbcab4c1bbdb09e86c36a5a112b68ca3db",
+            "width": 1728,
+            "height": 1152,
+            "bytes": 210880,
+            "sha256": "d0ff01f0e21009ac93f374ebb7c1f92b2c37bf7725248b9b77cc34038915e183",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_melee_attack_up_atlas/atlas/troll_lab_melee_attack_up_atlas.webp",
+            "psnr": 38.28
+        },
+        "troll_lab_walk_atlas": {
+            "sourcePath": "animations/output/troll_lab_walk/atlas/troll_lab_walk_atlas.webp",
+            "sourceSha256": "3a9d9b43799dda246f3c8f01c0e1a02b28f547ae2f37c28d5568af76be9480c3",
+            "width": 1536,
+            "height": 768,
+            "bytes": 192508,
+            "sha256": "4b25ba809c7c48f7c4b9112e9b12ea2b5f8fedb8ecd048649017020006847332",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_lab_walk_atlas/atlas/troll_lab_walk_atlas.webp",
+            "psnr": 37.5
+        },
+        "troll_walk_atlas": {
+            "sourcePath": "animations/output/troll_walk/atlas/troll_walk_atlas.webp",
+            "sourceSha256": "2eeadd645371ed9b7be2d77e8b1bf81319d0191dfdebae2c20669f3146e932bb",
+            "width": 1152,
+            "height": 1152,
+            "bytes": 374698,
+            "sha256": "3df32959e28fa6a2259903bf233d043a30167e94f3c3c4a5c4d73a8f48b4f74c",
+            "releasePath": "animations/output/half_body_atlases_v1/troll_walk_atlas/atlas/troll_walk_atlas.webp",
+            "psnr": 35.86
+        },
+        "tsar_cannon_attack_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_attack/atlas/tsar_cannon_attack_atlas.webp",
+            "sourceSha256": "5c9d3eab6a14c7eba9ee26ddc49d2ec39548fff007f84c07487f7ef88c66b25c",
+            "width": 1536,
+            "height": 768,
+            "bytes": 382456,
+            "sha256": "993f7137ba6e082e8a205f521609b1af5fa46c4dd8d155cdd6ac29421e177f90",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_attack_atlas/atlas/tsar_cannon_attack_atlas.webp",
+            "psnr": 33.45
+        },
+        "tsar_cannon_attack_down_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_attack_down/atlas/tsar_cannon_attack_down_atlas.webp",
+            "sourceSha256": "6edec3af3e955770b7c6c50a0d75c3a8dae378faadca380579e97f4b70e90c84",
+            "width": 1536,
+            "height": 768,
+            "bytes": 385600,
+            "sha256": "bd96be7b52b623a568e85b9fc7b6e88f19674af3e28e86228b0e385d791ab339",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_attack_down_atlas/atlas/tsar_cannon_attack_down_atlas.webp",
+            "psnr": 33.45
+        },
+        "tsar_cannon_attack_up_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_attack_up/atlas/tsar_cannon_attack_up_atlas.webp",
+            "sourceSha256": "49eb2ae860c4397b66edb1c6eb2b626d76003d0cdee7734cafdeb24d6cfda47f",
+            "width": 1536,
+            "height": 768,
+            "bytes": 382720,
+            "sha256": "f9000f4b1639ef6372ec408afd7bfa9d1a603c019f1965ee01391ee2e8e701c9",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_attack_up_atlas/atlas/tsar_cannon_attack_up_atlas.webp",
+            "psnr": 33.45
+        },
+        "tsar_cannon_bronze_v14_walk_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_bronze_v14_walk/atlas/tsar_cannon_bronze_v14_walk_atlas.webp",
+            "sourceSha256": "7ab1364c0d19fa45c7227a699a1a23aee9f44b3afcc2fe22bbe96a271e5fae32",
+            "width": 3072,
+            "height": 3072,
+            "bytes": 2163870,
+            "sha256": "0ab4b1946e26ad485ae0eb09af456b04d64212b89a25f9b4b9db0149989e4e8b",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_bronze_v14_walk_atlas/atlas/tsar_cannon_bronze_v14_walk_atlas.webp",
+            "psnr": 35.3
+        },
+        "tsar_cannon_death_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_death/atlas/tsar_cannon_death_atlas.webp",
+            "sourceSha256": "9d4cb36918b63004be728f8ff5dfbc07356add6bba8ef728d9a890396e8a678a",
+            "width": 1536,
+            "height": 768,
+            "bytes": 302416,
+            "sha256": "8ba6477b024b05e9f6b34e321b14732f53d6b3c4e8449efc1756c5f663f711b4",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_death_atlas/atlas/tsar_cannon_death_atlas.webp",
+            "psnr": 33.44
+        },
+        "tsar_cannon_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_hit/atlas/tsar_cannon_hit_atlas.webp",
+            "sourceSha256": "78a5efb8dc0a8b11451c70fa49e0c578e983effb95ef40e9c97b34c2b8acbe49",
+            "width": 1536,
+            "height": 768,
+            "bytes": 374688,
+            "sha256": "2262fdcc45414be12e03825fbccb62d961fe7a656bf09b5955adbe38f8124594",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_hit_atlas/atlas/tsar_cannon_hit_atlas.webp",
+            "psnr": 34.05
+        },
+        "tsar_cannon_idle_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_idle/atlas/tsar_cannon_idle_atlas.webp",
+            "sourceSha256": "8f766433d1383c2ba061c3f3f4f99ae3ca25df054abb171afe9dc5d50987fcbd",
+            "width": 1536,
+            "height": 768,
+            "bytes": 357372,
+            "sha256": "6e08dec6bbd2cf64d34ca0c8ef82a091e8cbf90f933da952b95d4bc7d97f9dbb",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_idle_atlas/atlas/tsar_cannon_idle_atlas.webp",
+            "psnr": 33.39
+        },
+        "tsar_cannon_lab_idle_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_idle/atlas/tsar_cannon_lab_idle_atlas.webp",
+            "sourceSha256": "acee301753f4201d2da85fe34e5a0a3dc8c0605ac8e497a1c4103a6727605284",
+            "width": 1920,
+            "height": 3840,
+            "bytes": 1451372,
+            "sha256": "e65fc4c7cb3d6efd73102542960006c14095a4988132547e96a99485752e600e",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_idle_atlas/atlas/tsar_cannon_lab_idle_atlas.webp",
+            "psnr": 36.42
+        },
+        "tsar_cannon_lab_v13_death_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v13_death/atlas/tsar_cannon_lab_v13_death_atlas.webp",
+            "sourceSha256": "a5b2bb051fe166cfed91f811216e2c3bf4f72d7d6cd55ebce08b7315be072bb2",
+            "width": 1536,
+            "height": 1152,
+            "bytes": 401660,
+            "sha256": "f60db4039d7bfe24f562cc04a4c2b1071045df76c3a5eabd99879f05ce4e001b",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v13_death_atlas/atlas/tsar_cannon_lab_v13_death_atlas.webp",
+            "psnr": 35.96
+        },
+        "tsar_cannon_lab_v13_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v13_hit/atlas/tsar_cannon_lab_v13_hit_atlas.webp",
+            "sourceSha256": "824438f03794f3c8773fe02ba4bebf609caca9bd362b71c6a0b18a1570efbba9",
+            "width": 1536,
+            "height": 768,
+            "bytes": 309232,
+            "sha256": "0ab3b144e810d09037ff1acadb1cc0a48baadfc1014dce0fcbd3e41a739b486c",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v13_hit_atlas/atlas/tsar_cannon_lab_v13_hit_atlas.webp",
+            "psnr": 35.54
+        },
+        "tsar_cannon_lab_v14_death_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v14_death/atlas/tsar_cannon_lab_v14_death_atlas.webp",
+            "sourceSha256": "dcd35c05f52250567bc9f1ec96c9061b924bed90ac134378cc18cc021f0c95e9",
+            "width": 2048,
+            "height": 1536,
+            "bytes": 444238,
+            "sha256": "25821aa92d9221fcfa51338cb87264a6b520c26942a6530b5958da9385ebf244",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v14_death_atlas/atlas/tsar_cannon_lab_v14_death_atlas.webp",
+            "psnr": 35.15
+        },
+        "tsar_cannon_lab_v14_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v14_hit/atlas/tsar_cannon_lab_v14_hit_atlas.webp",
+            "sourceSha256": "df07a45cebfc31ff600e7fc6f7dc926f5b6be02bb6dc8e5bd9373e72b0f809ec",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 344244,
+            "sha256": "ea1a62fd1021c91f343656e57a83e91608d8cd710046684d107ccda2e79965ef",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v14_hit_atlas/atlas/tsar_cannon_lab_v14_hit_atlas.webp",
+            "psnr": 34.55
+        },
+        "tsar_cannon_lab_v15_death_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v15_death/atlas/tsar_cannon_lab_v15_death_atlas.webp",
+            "sourceSha256": "4c6d409d1e5059af766adf6e346edd7022bb9d09a33d34df532675a29adb7ecb",
+            "width": 2048,
+            "height": 1536,
+            "bytes": 422444,
+            "sha256": "20d385fe17b0bcf6437c639d5f32f53c04ffc72b83435d23aa514a6e037fad0f",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v15_death_atlas/atlas/tsar_cannon_lab_v15_death_atlas.webp",
+            "psnr": 35.2
+        },
+        "tsar_cannon_lab_v15_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v15_hit/atlas/tsar_cannon_lab_v15_hit_atlas.webp",
+            "sourceSha256": "15abcd622805aee6def2af639af6adbd82a304bcae9f5821c115a01f077ca4bf",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 344940,
+            "sha256": "dcfeb08a20c78a3629c0f974257f1939869041ea92dc5043224ed5ffce927455",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v15_hit_atlas/atlas/tsar_cannon_lab_v15_hit_atlas.webp",
+            "psnr": 34.52
+        },
+        "tsar_cannon_lab_v18_attack_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v18_attack/atlas/tsar_cannon_lab_v18_attack_atlas.webp",
+            "sourceSha256": "d7894f0159d01b5914d19e7b03f1ac8865acbc153a7d5cbf8017e470075cd142",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 882938,
+            "sha256": "add797d25b9c0820f852d4a890e51ac2a9657224024faac7fbcd78cdf2b0ef45",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v18_attack_atlas/atlas/tsar_cannon_lab_v18_attack_atlas.webp",
+            "psnr": 35.3
+        },
+        "tsar_cannon_lab_v18_attack_down_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v18_attack_down/atlas/tsar_cannon_lab_v18_attack_down_atlas.webp",
+            "sourceSha256": "589075cb4c71b87ae7905bfcf8f973bc4d86048732aa5b50c5cc1c002ba6d598",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 929352,
+            "sha256": "27674d9957bec9ac6769b665c80cd3c26ea4ac3b0aefa71082ba1bed8c6eb254",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v18_attack_down_atlas/atlas/tsar_cannon_lab_v18_attack_down_atlas.webp",
+            "psnr": 35.46
+        },
+        "tsar_cannon_lab_v18_attack_up_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v18_attack_up/atlas/tsar_cannon_lab_v18_attack_up_atlas.webp",
+            "sourceSha256": "2bbed23c2240ad963b9d992c1a52f5fb4bdac23b5907c61a261b24485d0bcac4",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 908344,
+            "sha256": "e10d7fd94a3d65b1d99e3cf2fca7bf45f772caa91f10fdc4f117891a9bbd59a9",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v18_attack_up_atlas/atlas/tsar_cannon_lab_v18_attack_up_atlas.webp",
+            "psnr": 35.34
+        },
+        "tsar_cannon_lab_v18_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v18_hit/atlas/tsar_cannon_lab_v18_hit_atlas.webp",
+            "sourceSha256": "2995a31068b31d36ec1104776f9532385200fefeb806b375c12f7a64b849c3d4",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 296668,
+            "sha256": "d931fdfe3232e69a15cbe33bffed8ab1f87c6260aab5e8e9db45f5aae90ff915",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v18_hit_atlas/atlas/tsar_cannon_lab_v18_hit_atlas.webp",
+            "psnr": 34.79
+        },
+        "tsar_cannon_lab_v20_death_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v20_death/atlas/tsar_cannon_lab_v20_death_atlas.webp",
+            "sourceSha256": "8802f6af4386409791241c19f0db7aaa55225cdcd85cb21710ffc7af99443d1a",
+            "width": 2048,
+            "height": 1536,
+            "bytes": 441796,
+            "sha256": "4ddbbc24ed83e28fc0e6cd72848b9d7981e05b578f12d17f2ed9b7870a94260a",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v20_death_atlas/atlas/tsar_cannon_lab_v20_death_atlas.webp",
+            "psnr": 34.77
+        },
+        "tsar_cannon_lab_v20_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v20_hit/atlas/tsar_cannon_lab_v20_hit_atlas.webp",
+            "sourceSha256": "e2d6092aa710a5912a344564ddac3b1cf1c972e61776e5245805bf1b0470eec5",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 267982,
+            "sha256": "835a3f63eb2b546e9b0dfad1360503b93e5bb04488e9f0f219566df291657835",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v20_hit_atlas/atlas/tsar_cannon_lab_v20_hit_atlas.webp",
+            "psnr": 36.31
+        },
+        "tsar_cannon_lab_v21_death_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v21_death/atlas/tsar_cannon_lab_v21_death_atlas.webp",
+            "sourceSha256": "677d68ffabf6dbd577481d4fcf88a9ef8117880ee4e8fd4f2998bee9c3230633",
+            "width": 2048,
+            "height": 1536,
+            "bytes": 418244,
+            "sha256": "ae51c80efcf4c9e58bc0f285e30750cabac133c2a470771355e204b4d67e0804",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v21_death_atlas/atlas/tsar_cannon_lab_v21_death_atlas.webp",
+            "psnr": 34.77
+        },
+        "tsar_cannon_lab_v21_hit_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v21_hit/atlas/tsar_cannon_lab_v21_hit_atlas.webp",
+            "sourceSha256": "fa2e2959bb7fb42752f523d20c7ecb11109b7aa23d1eee8b034cf568153e78dd",
+            "width": 2048,
+            "height": 1024,
+            "bytes": 272214,
+            "sha256": "10c66943069412de6a1acae5ed505b97924479c0d83db1113ef948cc4b713702",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v21_hit_atlas/atlas/tsar_cannon_lab_v21_hit_atlas.webp",
+            "psnr": 35.78
+        },
+        "tsar_cannon_lab_v24_melee_attack_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v24_melee_attack/atlas/tsar_cannon_lab_v24_melee_attack_atlas.webp",
+            "sourceSha256": "82e212369c72f5614633c1daa2fbc5ed4f632a23edd78d90837c422baf969466",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 782472,
+            "sha256": "3550d74f926925460c11736a73c95baf0b44a0356a698e139e0fb811327945c5",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v24_melee_attack_atlas/atlas/tsar_cannon_lab_v24_melee_attack_atlas.webp",
+            "psnr": 35.26
+        },
+        "tsar_cannon_lab_v24_melee_attack_down_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v24_melee_attack_down/atlas/tsar_cannon_lab_v24_melee_attack_down_atlas.webp",
+            "sourceSha256": "f7968f8956335c770fe21a8ac01df7421753fc676dc795f686ce708086c2e693",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 832212,
+            "sha256": "2ef34a91c1b09872616fa3203a605dc9f174fcde796ca725fe957386b211be48",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v24_melee_attack_down_atlas/atlas/tsar_cannon_lab_v24_melee_attack_down_atlas.webp",
+            "psnr": 35.42
+        },
+        "tsar_cannon_lab_v24_melee_attack_up_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v24_melee_attack_up/atlas/tsar_cannon_lab_v24_melee_attack_up_atlas.webp",
+            "sourceSha256": "15c8138455f3a7c0501db66ac9bc66d40c4020f884f0dfb19dbfa92e126770d9",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 808226,
+            "sha256": "b6b98204e7899ec03d9f6e0984cc1a0d34bc2848a7797c5ccdd6b077a065b528",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v24_melee_attack_up_atlas/atlas/tsar_cannon_lab_v24_melee_attack_up_atlas.webp",
+            "psnr": 35.3
+        },
+        "tsar_cannon_lab_v25_melee_attack_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v25_melee_attack/atlas/tsar_cannon_lab_v25_melee_attack_atlas.webp",
+            "sourceSha256": "8189df3e89ed11ce83ffd61e63ddb41c170c3ad052c863bd5f02b642f22fb3b8",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 783552,
+            "sha256": "3ce984e05652278d4b0965130d6101c8eb6c0f33943b105d6828de60a7528dfa",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v25_melee_attack_atlas/atlas/tsar_cannon_lab_v25_melee_attack_atlas.webp",
+            "psnr": 35.26
+        },
+        "tsar_cannon_lab_v25_melee_attack_down_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v25_melee_attack_down/atlas/tsar_cannon_lab_v25_melee_attack_down_atlas.webp",
+            "sourceSha256": "bf4d20eb6640a4bfe85ee68e74c2b01007d9d59ea6bec3e121066bf596e6b268",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 832404,
+            "sha256": "70cdbf07b81820dfd61e46cdea8af0f8aebb4415c113183744f33306c2e4c331",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v25_melee_attack_down_atlas/atlas/tsar_cannon_lab_v25_melee_attack_down_atlas.webp",
+            "psnr": 35.42
+        },
+        "tsar_cannon_lab_v25_melee_attack_up_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v25_melee_attack_up/atlas/tsar_cannon_lab_v25_melee_attack_up_atlas.webp",
+            "sourceSha256": "bc8c5709a787e6371e59551b36c2e2ee924dc65b715716c07a202effc6c4ab06",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 810684,
+            "sha256": "e04f4464c3fe9f2c37f5ec6856eab0135c0c447555a419565e30bf83517dbd2a",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v25_melee_attack_up_atlas/atlas/tsar_cannon_lab_v25_melee_attack_up_atlas.webp",
+            "psnr": 35.31
+        },
+        "tsar_cannon_lab_v26_attack_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v26_attack/atlas/tsar_cannon_lab_v26_attack_atlas.webp",
+            "sourceSha256": "82e212369c72f5614633c1daa2fbc5ed4f632a23edd78d90837c422baf969466",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 782472,
+            "sha256": "3550d74f926925460c11736a73c95baf0b44a0356a698e139e0fb811327945c5",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v26_attack_atlas/atlas/tsar_cannon_lab_v26_attack_atlas.webp",
+            "psnr": 35.26
+        },
+        "tsar_cannon_lab_v26_attack_down_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v26_attack_down/atlas/tsar_cannon_lab_v26_attack_down_atlas.webp",
+            "sourceSha256": "f7968f8956335c770fe21a8ac01df7421753fc676dc795f686ce708086c2e693",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 832212,
+            "sha256": "2ef34a91c1b09872616fa3203a605dc9f174fcde796ca725fe957386b211be48",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v26_attack_down_atlas/atlas/tsar_cannon_lab_v26_attack_down_atlas.webp",
+            "psnr": 35.42
+        },
+        "tsar_cannon_lab_v26_attack_up_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_v26_attack_up/atlas/tsar_cannon_lab_v26_attack_up_atlas.webp",
+            "sourceSha256": "15c8138455f3a7c0501db66ac9bc66d40c4020f884f0dfb19dbfa92e126770d9",
+            "width": 2048,
+            "height": 3072,
+            "bytes": 808226,
+            "sha256": "b6b98204e7899ec03d9f6e0984cc1a0d34bc2848a7797c5ccdd6b077a065b528",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_v26_attack_up_atlas/atlas/tsar_cannon_lab_v26_attack_up_atlas.webp",
+            "psnr": 35.3
+        },
+        "tsar_cannon_lab_walk_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_lab_walk/atlas/tsar_cannon_lab_walk_atlas.webp",
+            "sourceSha256": "449785cd4f4268a59467be3cdb588f8d57e0859b7ae3eb1b74065f87b4b8c0c4",
+            "width": 1536,
+            "height": 768,
+            "bytes": 202486,
+            "sha256": "7945dbdf2e88292a72ed302e651466c63abb92cda3256ade1e3bc74f1c294fa7",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_lab_walk_atlas/atlas/tsar_cannon_lab_walk_atlas.webp",
+            "psnr": 39
+        },
+        "tsar_cannon_original_wheels_v11_walk_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_original_wheels_v11_walk/atlas/tsar_cannon_original_wheels_v11_walk_atlas.webp",
+            "sourceSha256": "0146c5fa68730b5b9936364adb15d0f21ac54d1013cdcb45b177a4f1c67f784f",
+            "width": 3072,
+            "height": 3072,
+            "bytes": 1933408,
+            "sha256": "988c4e57454c38e130a4a670c6a60cfe765258563eb88ae98ac54b7a04a3fa0a",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_original_wheels_v11_walk_atlas/atlas/tsar_cannon_original_wheels_v11_walk_atlas.webp",
+            "psnr": 36.88
+        },
+        "tsar_cannon_original_wheels_walk_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_original_wheels_walk/atlas/tsar_cannon_original_wheels_walk_atlas.webp",
+            "sourceSha256": "39a6120c2f7a4ea94bea24e9ff93d43ffa1dc2311be132c9ada631196d8a8148",
+            "width": 3072,
+            "height": 3072,
+            "bytes": 1941632,
+            "sha256": "9b61a8bb214f308f552631d4584f2cf7fa3c55130f34634a4446481b931f11f7",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_original_wheels_walk_atlas/atlas/tsar_cannon_original_wheels_walk_atlas.webp",
+            "psnr": 36.95
+        },
+        "tsar_cannon_round_wheels_v12_walk_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_round_wheels_v12_walk/atlas/tsar_cannon_round_wheels_v12_walk_atlas.webp",
+            "sourceSha256": "748be86ee63682058fc8d8e217fa9c001a9574eff79d77e9b7c1bf4fcc5e69b3",
+            "width": 3072,
+            "height": 3072,
+            "bytes": 1972580,
+            "sha256": "b12ffa64db7488d19f9e810567895e0eafa41d100611eba5dbcc52ce648c1ce2",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_round_wheels_v12_walk_atlas/atlas/tsar_cannon_round_wheels_v12_walk_atlas.webp",
+            "psnr": 36.32
+        },
+        "tsar_cannon_walk_atlas": {
+            "sourcePath": "animations/output/tsar_cannon_walk/atlas/tsar_cannon_walk_atlas.webp",
+            "sourceSha256": "fe209ff7fe6a2564b620cfc113d5e04c752ba50e0112de3c22eafd2d91affe9c",
+            "width": 1152,
+            "height": 1152,
+            "bytes": 418622,
+            "sha256": "22d6aca9cb3360ff6a3ff3a2b7c70ea60a104a3ce6253ed847d41668cd392197",
+            "releasePath": "animations/output/half_body_atlases_v1/tsar_cannon_walk_atlas/atlas/tsar_cannon_walk_atlas.webp",
+            "psnr": 33.46
         },
         "unicorn_attack_atlas": {
             "sourcePath": "animations/output/unicorn_attack/atlas/unicorn_attack_atlas.webp",
