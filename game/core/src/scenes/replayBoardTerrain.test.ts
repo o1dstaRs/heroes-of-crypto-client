@@ -1,12 +1,19 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
-import { CreatureVals, GridConstants, GridVals, TeamVals, scatteredMountainsForSeed } from "@heroesofcrypto/common";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+    CreatureVals,
+    FightStateManager,
+    Grid,
+    GridConstants,
+    GridSettings,
+    GridVals,
+    TeamVals,
+    scatteredMountainsForSeed,
+} from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import { PlayTransientCellKind } from "../api/play_protocol";
-import { authoritativeSnapshotToSandboxSceneState } from "./RankedPlayScene";
+import { RankedPlayScene, authoritativeSnapshotToSandboxSceneState } from "./RankedPlayScene";
+import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState } from "./Sandbox";
 
 /**
  * The BOARD in a replay: the Cemetery's barrels, and the terrain spells lay on it (smoke, vines, fire walls).
@@ -17,8 +24,8 @@ import { authoritativeSnapshotToSandboxSceneState } from "./RankedPlayScene";
  * pair over any scattered layout; reset() builds a fresh FightProperties whose terrain stores are empty). So
  * a replayed fight showed no barrels and no fire wall at all — the board they were fought on was gone.
  *
- * These pin the two halves of the fix: the state CARRIES them (mapper + sandbox capture), and the hydrate
- * puts them back before anything paths on the rebuilt board.
+ * These cover the two halves of the fix: the state CARRIES them (mapper + sandbox capture), and the hydrate
+ * puts them back. The scattered stones' hydrate is driven on every map in RankedPlayScene.barrelPlacement.test.ts.
  */
 const snapshotWith = (overrides: Partial<AuthoritativeGameSnapshot>): AuthoritativeGameSnapshot => ({
     gameId: "game-1",
@@ -37,6 +44,8 @@ const snapshotWith = (overrides: Partial<AuthoritativeGameSnapshot>): Authoritat
     upNext: [],
     ...overrides,
 });
+
+const gridSettings = new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06);
 
 const packed = (cell: { x: number; y: number }): number => cell.x * GridConstants.GRID_SIZE + cell.y;
 
@@ -191,73 +200,168 @@ describe("replay board terrain", () => {
         });
     });
 
-    /**
-     * Source-level, in the same spirit as replayTurnStatusIcons.test.ts: capture and hydrate both build real
-     * Pixi sprites, so the wiring is pinned where it lives.
-     */
     describe("the sandbox's own replays record and restore the same board", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const sliceBetween = (from: string, to: string): string => {
-            const start = source.indexOf(from);
-            expect(start).toBeGreaterThanOrEqual(0);
-            const end = source.indexOf(to, start);
-            expect(end).toBeGreaterThan(start);
-            return source.slice(start, end);
-        };
-        const capture = sliceBetween(
-            "private captureSceneState(): SandboxSceneState {",
-            "private captureScatteredMountains(",
-        );
-        const hydrate = sliceBetween(
-            "protected hydrateSceneState(snapshot: SandboxSceneState): void {",
-            "private restoreInspectedUnit(",
-        );
+        const originalFight = FightStateManager.getInstance().getFightProperties();
+        beforeEach(() => FightStateManager.getInstance().reset());
+        afterEach(() => FightStateManager.getInstance().setFightProperties(originalFight));
+
+        const captureScene = (scattered: boolean, standing: { x: number; y: number }[]) =>
+            Object.assign(Object.create(Sandbox.prototype), {
+                unitsHolder: { getAllUnits: () => new Map() },
+                grid: {
+                    getOccupantUnitId: () => "",
+                    getArtifactBarrels: () => [],
+                    getScatteredMountainsStanding: () => standing,
+                },
+                dungeonVisuals: {
+                    isCenterDried: () => false,
+                    hasScatteredMountains: () => scattered,
+                    getScatteredMountains: () => [
+                        { x: 4, y: 4, variant: 1 },
+                        { x: 9, y: 3, variant: 2 },
+                    ],
+                },
+                getFightResultSetup: () => undefined,
+            }) as { captureSceneState(): SandboxSceneState };
 
         test("the capture records the board, not just the units on it", () => {
-            expect(capture).toContain("scatteredMountains: this.captureScatteredMountains()");
-            expect(capture).toContain("terrainCells: Sandbox.captureTerrainCells(fightProps)");
-            expect(capture).toContain("stepsMoraleMultiplier: fightProps.getStepsMoraleMultiplier()");
-            expect(capture).toContain("responded: unit.getResponded()");
-        });
+            const fightProps = FightStateManager.getInstance().getFightProperties();
+            fightProps.getSmokeClouds().add({ x: 1, y: 2 }, 3);
+            fightProps.getVines().add({ x: 3, y: 4 }, 2, TeamVals.RIGHT);
+            fightProps.getFireWalls().add({ x: 5, y: 6 }, 1);
+            fightProps.restoreStepsMoraleMultiplier(3);
 
-        test("a rebuilt unit is handed its retaliation state back", () => {
-            const rebuildUnit = sliceBetween(
-                "private createRenderableUnitFromSceneState(",
-                "private captureSceneState(",
-            );
-            expect(rebuildUnit).toContain("setResponded(unitState.responded ?? false)");
-        });
+            // Only STANDING stones: a destroyed one's cell may well be occupied by a unit by now.
+            const state = captureScene(true, [{ x: 9, y: 3 }]).captureSceneState();
 
-        test("the shield a rebuild re-grants is taken back from whoever already spent it", () => {
-            // trySeedWaterShield re-seeds every freshly built unit, so without this a replay re-lit the ring
-            // on units that absorbed their hit laps ago — twice per replayed action.
-            expect(hydrate).toContain("this.pruneRebuiltWaterShields(snapshot)");
-            const ranked = readFileSync(join(import.meta.dir, "RankedPlayScene.ts"), "utf8");
-            // One post-hydrate implementation, on the path a replay actually takes. (Ranked keeps its own
-            // no-rebuild reconcile for LIVE units, which is a different path and stays.)
-            expect(ranked).not.toContain("authoritativelyShielded");
+            expect(state.scatteredMountains).toEqual([{ x: 9, y: 3, variant: 2 }]);
+            expect(state.terrainCells).toEqual([
+                { kind: "smoke", x: 1, y: 2, lapsRemaining: 3 },
+                { kind: "vine", x: 3, y: 4, lapsRemaining: 2, team: TeamVals.RIGHT },
+                expect.objectContaining({ kind: "fire_wall", x: 5, y: 6, lapsRemaining: 1 }),
+            ]);
+            expect(state.stepsMoraleMultiplier).toBe(3);
         });
 
         test("scattered mode is read from the visuals, which still know it with every stone destroyed", () => {
-            const captureStones = sliceBetween(
-                "private captureScatteredMountains(",
-                "private static captureTerrainCells(",
-            );
-            expect(captureStones).toContain("this.dungeonVisuals?.hasScatteredMountains()");
-            // Only STANDING stones: a destroyed one's cell may well be occupied by a unit by now.
-            expect(captureStones).toContain("this.grid.getScatteredMountainsStanding()");
+            expect(captureScene(true, []).captureSceneState().scatteredMountains).toEqual([]);
+            expect(captureScene(false, []).captureSceneState().scatteredMountains).toBeUndefined();
         });
 
-        test("the hydrate re-stamps the board AFTER the reset that destroys it and BEFORE units occupy cells", () => {
-            const recarve = hydrate.indexOf("this.grid.refreshWithNewType(snapshot.gridType)");
-            const stones = hydrate.indexOf("this.applySceneStateScatteredMountains(snapshot.scatteredMountains)");
-            const terrain = hydrate.indexOf("Sandbox.applySceneStateTerrainCells(fightProps, snapshot.terrainCells)");
-            const occupy = hydrate.indexOf("this.grid.occupyCells(cells, unit.getId()");
-            expect(recarve).toBeGreaterThanOrEqual(0);
-            expect(stones).toBeGreaterThan(recarve);
-            expect(terrain).toBeGreaterThan(recarve);
-            expect(occupy).toBeGreaterThan(stones);
-            expect(occupy).toBeGreaterThan(terrain);
+        /**
+         * A real hydrate on a real grid. Presentation dependencies are stubbed; the reset, the re-carve, the
+         * terrain/queue restores and the post-rebuild Water Shield prune run through production code.
+         */
+        const hydrateScene = (units: Map<string, unknown>) => {
+            const scene = Object.create(RankedPlayScene.prototype);
+            const activations: string[][] = [];
+            Object.assign(scene, {
+                grid: new Grid(gridSettings, GridVals.NORMAL),
+                sc_sceneSettings: { getGridSettings: () => gridSettings },
+                unitsHolder: {
+                    getAllUnits: () => units,
+                    addUnit: () => undefined,
+                    refreshStackPowerForAllUnits: () => undefined,
+                },
+                // Rebuilding sprites is not under test: the rebuild hands back the scripted board unit.
+                createRenderableUnitFromSceneState: (state: SandboxSceneUnitState) => units.get(state.properties.id),
+                dungeonVisuals: {
+                    setScatteredMountains: () => undefined,
+                    clearHoleLayers: () => undefined,
+                    setCenterDried: () => undefined,
+                },
+                placementManager: { rebuildFromFightProps: () => undefined },
+                hoverManager: { clear: () => undefined },
+                combatVisuals: { clear: () => undefined },
+                rangedProjectiles: { clear: () => undefined },
+                drawnNarrowingLaps: new Set(),
+                revealedOpponentUnitIds: new Set(),
+                drawer: { getUnitsContainer: () => undefined },
+                layoutVersion: 0,
+                destroySpecificUnits: () => undefined,
+                clearPlacementBench: () => undefined,
+                renderNarrowingLayers: () => undefined,
+                refreshUnits: () => undefined,
+                refreshVisibleStateIfNeeded: () => undefined,
+                updateUnitsOverlayVisibility: () => undefined,
+                destroyTempFixtures: () => undefined,
+                updateDungeonAtmosphere: () => undefined,
+                fightStatsTracker: { start: () => undefined },
+                updateLiveFightStats: () => undefined,
+                // The activation reads the queue, so record what it would have seen.
+                handleNextUnitActivation: () =>
+                    activations.push([
+                        ...FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable(),
+                    ]),
+            });
+            return {
+                scene: scene as { hydrateSceneState(state: SandboxSceneState): void; getUpNextUnitIds(): unknown },
+                activations,
+            };
+        };
+
+        test("the hydrate restores the terrain, queue and movement penalty its reset destroyed, before activation", () => {
+            const active = { getId: () => "active", isDead: () => false, hasAbilityActive: () => false };
+            const { scene, activations } = hydrateScene(new Map([["active", active]]));
+            const fightProps = FightStateManager.getInstance().getFightProperties();
+            fightProps.getSmokeClouds().add({ x: 9, y: 9 }, 2);
+
+            scene.hydrateSceneState({
+                ...authoritativeSnapshotToSandboxSceneState(snapshotWith({ currentUnitId: "active" })),
+                terrainCells: [
+                    { kind: "smoke", x: 1, y: 2, lapsRemaining: 3 },
+                    { kind: "vine", x: 3, y: 4, lapsRemaining: 2, team: TeamVals.RIGHT },
+                    { kind: "fire_wall", x: 5, y: 6, lapsRemaining: 1 },
+                ],
+                upNext: ["u2", "u1"],
+                stepsMoraleMultiplier: 2,
+            });
+
+            const restored = FightStateManager.getInstance().getFightProperties();
+            expect(restored.getSmokeClouds().has({ x: 1, y: 2 })).toBe(true);
+            // Wholesale replacement: the previous board's smoke does not linger.
+            expect(restored.getSmokeClouds().has({ x: 9, y: 9 })).toBe(false);
+            expect(restored.getVines().toJSON()).toEqual([{ x: 3, y: 4, l: 2, t: TeamVals.RIGHT }]);
+            expect(restored.getFireWalls().toJSON()).toEqual([expect.objectContaining({ x: 5, y: 6, l: 1 })]);
+            expect(restored.getStepsMoraleMultiplier()).toBe(2);
+            expect(activations).toEqual([["u2", "u1"]]);
+            // Ranked overrides getUpNextUnitIds(), so it keeps its own authoritative copy of the queue too.
+            expect(scene.getUpNextUnitIds()).toEqual(["u2", "u1"]);
+        });
+
+        test.each([
+            ["absorbed its hit laps ago", [], true],
+            ["still holds it", ["Water Shield"], false],
+        ])("the shield a rebuild re-grants is taken back from a unit that %s", (_case, appliedBuffs, pruned) => {
+            // trySeedWaterShield re-seeds every freshly built unit, so without this a replay re-lit the ring
+            // on units that absorbed their hit laps ago — twice per replayed action.
+            const calls: string[] = [];
+            const mermaid = {
+                getId: () => "mermaid",
+                isDead: () => false,
+                hasAbilityActive: (name: string) => name === "Water Shield",
+                hasBuffActive: (name: string) => name === "Water Shield",
+                deleteBuff: (name: string) => calls.push(`delete ${name}`),
+                markWaterShieldSpent: () => calls.push("spent"),
+            };
+            const { scene } = hydrateScene(new Map([["mermaid", mermaid]]));
+            const state = authoritativeSnapshotToSandboxSceneState(snapshotWith({}));
+
+            scene.hydrateSceneState({
+                ...state,
+                units: [
+                    {
+                        properties: { id: "mermaid", amount_alive: 1, applied_buffs: appliedBuffs },
+                        team: TeamVals.LEFT,
+                        placed: false,
+                        dead: false,
+                        cells: [],
+                        baseCell: { x: 0, y: 0 },
+                    } as unknown as SandboxSceneUnitState,
+                ],
+            });
+
+            expect(calls).toEqual(pruned ? ["delete Water Shield", "spent"] : []);
         });
     });
 });

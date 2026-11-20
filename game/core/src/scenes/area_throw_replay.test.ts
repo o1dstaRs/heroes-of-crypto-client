@@ -1,74 +1,111 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { describe, expect, mock, test } from "bun:test";
+import { GridSettings, type GameEvent } from "@heroesofcrypto/common";
 
+import { Sandbox } from "./Sandbox";
 import { FIGHT_EVENT_VFX } from "./testSupport/fightVfxCatalog";
 
 /**
  * The area throw was the LAST replay path still driving its visuals off a local engine re-run instead of
- * the recorded event. That cost two things, and both are what these assertions pin:
+ * the recorded event. That cost two things:
  *
  *   - damage is `getRandomInt(min, max)` plus luck/crit rolls, so each client re-rolled its own numbers.
- *     The figures on screen were not the damage the server dealt and the two players disagreed. Every
- *     other replay path (attack, cast, obstacle) renders from `record.events` for exactly this reason.
+ *     The figures on screen were not the damage the server dealt and the two players disagreed.
  *   - a re-apply the engine REJECTS — `unit_already_acted` once a snapshot has synced the actor,
  *     `fight_finished`, spent shots — returned early and swallowed the whole action: no numbers, no
  *     deaths, and none of the events riding along with it (turn advance, lap flip, Armageddon, narrowing).
  *
- * Read from the SOURCE, in the style of magic_mirror_vfx.test.ts: the failure mode here is a later edit
- * quietly dropping the wiring while the helper and the prose stay put, which a behavioural test of the
- * pure helpers would not catch.
+ * AreaThrowImpactTiming.test.ts plays the recorded damage waves and the rejected-but-recorded exit; this
+ * file covers the record's hand-off and the exit that has no recorded area event to draw.
  */
-const sandboxSource = (): string => readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+const gs = new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06);
 
-const sliceFrom = (source: string, anchor: string, length: number): string => {
-    const start = source.indexOf(anchor);
-    expect(start).toBeGreaterThan(-1);
-    return source.slice(start, start + length);
+const thrower = {
+    getId: () => "giant",
+    getName: () => "Gargantuan",
+    hasAbilityActive: (name: string) => name === "Area Throw",
+    getRangedProjectileOrigin: () => ({ x: 0, y: 0 }),
+    getCumulativeHp: () => 100,
+    getAmountAlive: () => 10,
 };
 
-const areaThrowSource = (): string => {
-    const source = sandboxSource();
-    const start = source.indexOf("private async performAreaThrow(");
-    const end = source.indexOf("\n    protected renderIncomingThreatPreview(", start);
-    expect(start).toBeGreaterThan(-1);
-    expect(end).toBeGreaterThan(start);
-    return source.slice(start, end);
-};
+const recordWith = (events: GameEvent[]) => ({
+    sequence: 1,
+    clientTimeMs: 0,
+    action: { type: "area_throw_attack" as const, attackerId: "giant", targetCell: { x: 4, y: 5 } },
+    events,
+    stateAfter: { units: [], gridType: 0, currentLap: 1, fightStarted: true, fightFinished: false },
+});
+
+const sceneWith = (overrides: Record<string, unknown> = {}) =>
+    Object.assign(Object.create(Sandbox.prototype), {
+        sc_sceneSettings: { getGridSettings: () => gs },
+        unitsHolder: { getAllUnits: () => new Map([["giant", thrower]]) },
+        shouldDeferActionToAuthoritativeReplay: () => false,
+        getAreaThrowImpactCell: (_unit: unknown, cell: unknown) => cell,
+        snapshotRenderableUnits: () => new Map(),
+        reportRefusedLocalAction: () => {},
+        createActionEngine: () => ({ apply: () => ({ completed: false, events: [] }) }),
+        applyReplayEvents: mock(() => {}),
+        ...overrides,
+    });
 
 describe("area throw replay reads the authoritative record", () => {
-    test("the replay dispatcher hands down the whole record, not just the action", () => {
-        const source = sandboxSource();
+    test("an area-throw replay hands down the whole record, not just the action", async () => {
+        const performAreaThrow = mock(async () => {});
+        const scene = sceneWith({ performAreaThrow });
+        const record = recordWith([]);
 
+        expect(await scene.playReplayAreaThrowAction(record)).toBe(true);
+
+        expect(performAreaThrow).toHaveBeenCalledTimes(1);
+        const [unit, cell, , handedDown] = performAreaThrow.mock.calls[0] as unknown[];
+        expect(unit).toBe(thrower);
+        expect(cell).toEqual(record.action.targetCell);
         // Without the record there is nothing authoritative to read — this is the wiring that broke.
-        expect(source).toContain("return this.playReplayAreaThrowAction(record);");
-        expect(source).toContain(
-            'private async playReplayAreaThrowAction(record: SandboxReplay["actions"][number]): Promise<boolean>',
-        );
-        expect(sliceFrom(source, "private async playReplayAreaThrowAction(", 1400)).toContain(
-            "this.performAreaThrow(unit, action.targetCell, cellPosition, record)",
-        );
+        expect(handedDown).toBe(record);
     });
 
-    test("performAreaThrow prefers the recorded area_attacked over its own re-roll", () => {
-        const body = areaThrowSource();
+    test("the recorded area_attacked wins over the local re-run's re-rolled one", async () => {
+        const areaEvent = (amount: number) =>
+            ({
+                type: "area_attacked",
+                attackerId: "giant",
+                targetCell: { x: 4, y: 5 },
+                targetPosition: { x: 0, y: 0 },
+                unitIdsDied: [],
+                damage: { amount, splash: [] },
+                animations: [],
+            }) as unknown as GameEvent;
+        const recorded = areaEvent(30);
+        const rerolled = areaEvent(12);
+        const stop = new Error("first presented area event captured");
+        const presented: GameEvent[] = [];
+        const scene = sceneWith({
+            createActionEngine: () => ({ apply: () => ({ completed: true, events: [rerolled] }) }),
+            noteDeathBlowsFromAttackEvent: (event: GameEvent) => {
+                presented.push(event);
+                throw stop;
+            },
+        });
 
-        expect(body).toContain('replayRecord?: SandboxReplay["actions"][number]');
-        expect(body).toContain("findAreaEvent(replayRecord.events)");
-        // The record first, the local re-run only as the fallback (sandbox live play has no record).
-        expect(body).toContain("recordedAreaEvent ?? findAreaEvent(result.events)");
+        await expect(
+            scene.performAreaThrow(thrower, { x: 4, y: 5 }, { x: 0, y: 0 }, recordWith([recorded])),
+        ).rejects.toBe(stop);
+        expect(presented).toEqual([recorded]);
+        expect(presented[0]).toBe(recorded);
     });
 
-    test("a rejected re-apply still lands the recorded events", () => {
-        const body = areaThrowSource();
+    test("a rejected re-apply with no recorded area event still lands the recorded events", async () => {
+        const turn: GameEvent = { type: "turn_ended", unitId: "giant" } as unknown as GameEvent;
+        const record = recordWith([turn]);
+        const replay = sceneWith();
+        await replay.performAreaThrow(thrower, record.action.targetCell, { x: 0, y: 0 }, record);
+        expect(replay.applyReplayEvents).toHaveBeenCalledWith(record.events);
 
-        // Both exits matter: the one that draws nothing (no recorded event either) and the one that drew
-        // the recorded numbers but never mutated local state.
-        expect(body.match(/this\.applyReplayEvents\(replayRecord\.events\)/g) ?? []).toHaveLength(2);
-        // The local events are applied ONLY when the local engine actually completed, so the two paths
-        // can never both run and double-advance the turn.
-        expect(body).toContain("if (result.completed) {");
-        expect(body).toContain("this.applyTurnEngineEvents(result.events, unitSnapshot);");
+        // A live sandbox throw has no record: a refusal there changes nothing.
+        const live = sceneWith();
+        await live.performAreaThrow(thrower, record.action.targetCell, { x: 0, y: 0 });
+        expect(live.applyReplayEvents).not.toHaveBeenCalled();
     });
 
     test("area_attacked is still classified as a replay-routed event", () => {

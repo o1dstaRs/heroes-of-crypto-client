@@ -66,22 +66,29 @@ describe("what gets prefetched", () => {
             .map(([, url]) => url);
 
         expect(urls).toEqual(expected);
-        expect(urls.some((url) => url.includes("wolf_walk_atlas"))).toBe(false);
-        expect(urls.some((url) => url.includes("wolf_pick_sandbox_x2"))).toBe(false);
-        expect(urls.some((url) => url.includes("wolf_battlefield_side_right_final_v1"))).toBe(false);
-        expect(urls.some((url) => url.includes("ambient_fire_video_torch_left_natural"))).toBe(false);
-        expect(urls.some((url) => url.includes("placement_carpet_green_uniform"))).toBe(false);
-        expect(urls.some((url) => url.includes("artifact_t1_"))).toBe(false);
-        expect(urls.some((url) => url.includes("combat_toolbar_"))).toBe(false);
-        expect(urls.some((url) => url.includes("pick_ban_slash_variant2_atlas"))).toBe(false);
-        expect(urls.some((url) => url.includes("vfx_dust_smoky_ash_atlas"))).toBe(false);
-        expect(urls.some((url) => url.includes("book_1024_clean_pages_v1"))).toBe(false);
-        expect(urls.some((url) => url.includes("craft_anvil"))).toBe(false);
-        expect(urls.some((url) => url.includes("craft_hammer"))).toBe(false);
-        expect(urls.some((url) => url.includes("range_target_arrow_v7_gold_wide_crisp"))).toBe(false);
-        expect(urls.some((url) => url.includes("shot_range_corner_aaa_v4_green"))).toBe(false);
-        expect(urls.some((url) => url.includes("efreet_board_128"))).toBe(false);
-        expect(urls.some((url) => url.includes("units_overlay_toggle_square_v1"))).toBe(false);
+        for (const optional of [
+            "wolf_walk_atlas",
+            "wolf_pick_sandbox_x2",
+            "wolf_battlefield_side_right_final_v1",
+            "ambient_fire_video_torch_left_natural",
+            "placement_carpet_green_uniform",
+            "artifact_t1_",
+            "combat_toolbar_",
+            "pick_ban_slash_variant2_atlas",
+            "vfx_dust_smoky_ash_atlas",
+            "book_1024_clean_pages_v1",
+            "craft_anvil",
+            "craft_hammer",
+            "range_target_arrow_v7_gold_wide_crisp",
+            "shot_range_corner_aaa_v4_green",
+            "efreet_board_128",
+            "units_overlay_toggle_square_v1",
+        ]) {
+            expect(
+                urls.some((url) => url.includes(optional)),
+                optional,
+            ).toBe(false);
+        }
     });
 
     test("a match's art goes in the order it is needed: core, every board image, draft portraits, icons", () => {
@@ -223,6 +230,9 @@ describe("running it", () => {
     });
 });
 
+// OWNER (playable-first loading, 2026-09-13): the ranked arena prefetches a match's art with a progress
+// readout, and the draft pauses it when the board takes over. Route effects need a React/DOM harness this
+// repo lacks, so the wiring stays pinned against the source.
 describe("where it is started", () => {
     test("the ranked arena arms it, keeps it running after leave, and shows its progress", () => {
         const source = readFileSync(join(import.meta.dir, "MatchmakingRoute.tsx"), "utf8");

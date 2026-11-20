@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { GridConstants, GridMath, GridSettings } from "@heroesofcrypto/common";
-import { Container, DOMAdapter, Graphics, Texture } from "pixi.js";
+import { Container, DOMAdapter, Graphics, Texture, TextureSource } from "pixi.js";
 
 import {
     ALLY_HOVERED_SHOT_RANGE_COLOR,
@@ -226,6 +226,7 @@ describe("the full-damage shot square", () => {
 
         // One opaque path gives every side the exact same hue instead of blending layers over the floor.
         expect(polygons).toEqual([expectedFrame]);
+        expect(strokes).toHaveLength(1);
         expect(expectedFrame.slice(0, 2)).toEqual(expectedFrame.slice(-2));
         expect(polygonClosed).toEqual([undefined]);
         expect(strokes[0].width).toBeLessThanOrEqual(1.5);
@@ -347,22 +348,12 @@ describe("the full-damage shot square", () => {
         }
     });
 
-    test("renders the selected corner as a bitmap instead of rebuilding it from vector strokes", () => {
-        const source = readFileSync(join(import.meta.dir, "SandboxDrawer.ts"), "utf8");
-        expect(source).toContain("new Sprite(cornerTexture)");
-        expect(source).toContain("cornerContainer.addChild(corner)");
-        expect(source).toContain("cornerPool?.sprites[cornerIndex]");
-        expect(source).toContain("cornerPool.sprites[cornerIndex] = corner");
-        expect(source).toContain("corner.setFromMatrix(shotRangeCornerSpriteMatrix");
-        expect(source).toContain("corner.alpha = cornerAlpha");
-        expect(source).toContain("const cornerAlpha = 0.8");
+    test("uses the selected concept-06 corner artwork at its approved size and anchor", () => {
         expect(SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS).toBeCloseTo(0.92 * 0.85 * 0.8 * 0.6 * 1.15);
         expect(SHOT_RANGE_CORNER_SPRITE_ANCHOR).toEqual({ x: 0.137, y: 0.891 });
-        expect(source).not.toContain("corner.tint = color");
         const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         expect(sandboxSource).toContain('this.texAny("shot_range_corner_aaa_v4_green")');
         expect(sandboxSource).toContain('this.texAny("shot_range_corner_aaa_v4_red")');
-        expect(sandboxSource).not.toContain("shotRangeCornerContainer?.removeChildren()");
     });
 
     test("reuses the same four ornament sprites across animated redraws", () => {
@@ -390,6 +381,12 @@ describe("the full-damage shot square", () => {
         const firstMatrices = [...cornerPool.matrices];
         const firstPlacements = [...cornerPool.placements];
         expect(firstSprites).toHaveLength(4);
+        for (const corner of firstSprites) {
+            // The authored bitmap carries its own palette: never tinted, drawn at a fixed 80%.
+            expect(corner.ornament.texture).toBe(Texture.WHITE);
+            expect(corner.ornament.tint).toBe(0xffffff);
+            expect(corner.alpha).toBe(0.8);
+        }
         expect(firstMatrices).toHaveLength(4);
         expect(firstPlacements).toHaveLength(4);
         expect(cornerContainer.children).toHaveLength(8);
@@ -428,60 +425,64 @@ describe("the full-damage shot square", () => {
     });
 
     test("downsamples the detailed corner without camera shimmer", () => {
-        const source = readFileSync(join(import.meta.dir, "SandboxDrawer.ts"), "utf8");
-        expect(source).toContain('source.scaleMode = "linear"');
-        expect(source).toContain("source.autoGenerateMipmaps = true");
-        expect(source).toContain("source.unload()");
-        expect(source).toContain("ornament.roundPixels = false");
+        const source = new TextureSource({ width: 512, height: 512, scaleMode: "nearest", autoGenerateMipmaps: false });
+        const cornerTexture = new Texture({ source });
+        const cornerContainer = new Container();
+        const cornerPool: ShotRangeCornerSpritePool = { sprites: [], matrices: [], placements: [], used: 0 };
+        const context = {
+            fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
+            currentActiveShotRange: { xy: cellCenter({ x: 5, y: 5 }), distance: 3.5 * GridConstants.STEP },
+            isActiveUnitMoving: false,
+            gridSettings,
+            hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+            hoverGlowPhase: 0,
+            sc_isAnimating: false,
+            shotRangeCornerContainer: cornerContainer,
+            shotRangeCornerPool: cornerPool,
+            shotRangeCornerTexture: cornerTexture,
+        } as unknown as IGameplayDrawContext;
+
+        SandboxDrawer.drawGameplayVisuals(recorder().graphics as never, context);
+
+        // Mipmapped linear sampling keeps the tiny highlights from flickering while the camera moves.
+        expect(source.scaleMode).toBe("linear");
+        expect(source.autoGenerateMipmaps).toBe(true);
+        cornerContainer.destroy({ children: true });
+        cornerTexture.destroy(true);
     });
 
-    test("does not render the four midpoint ornaments", () => {
-        const drawerSource = readFileSync(join(import.meta.dir, "SandboxDrawer.ts"), "utf8");
-        const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        expect(drawerSource).not.toContain("new Sprite(markerTexture)");
-        expect(sandboxSource).not.toContain("shotRangeMarkerTexture");
-    });
-
-    test("keeps enemy hover ranges read-only while AI locks active board input", () => {
+    // Sandbox.hover() is a ~1,900-line method that needs a full scene; these pins guard past regressions in it.
+    test("keeps the hover() range guards that fixed past regressions", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const hoverStart = source.indexOf("protected override hover(): void");
-        const genericHoverStart = source.indexOf("Generic Hover Logic", hoverStart);
-        const beforeGenericHover = source.slice(hoverStart, genericHoverStart);
+        const slice = (start: string, end: string) => {
+            const from = source.indexOf(start);
+            expect(from).toBeGreaterThan(-1);
+            return source.slice(from, source.indexOf(end, from + 1));
+        };
 
+        // Enemy hover ranges stay read-only while the AI locks board input.
+        const beforeGenericHover = slice("protected override hover(): void", "Generic Hover Logic");
         expect(beforeGenericHover).toContain("const boardInputLockedByAI = this.isBoardInputLockedByAI()");
         expect(beforeGenericHover).not.toContain("this.clearBoardHoverPreviews()");
         expect(beforeGenericHover).toContain("!boardInputLockedByAI &&");
-    });
 
-    test("does not erase a directly hovered enemy range during attack targeting", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const fallbackStart = source.indexOf("The generic block above resolves the unit directly");
-        const movementStart = source.indexOf("Movement Visualization", fallbackStart);
-        const fallback = source.slice(fallbackStart, movementStart);
-
+        // Attack targeting does not erase a directly hovered enemy range.
+        const fallback = slice("The generic block above resolves the unit directly", "Movement Visualization");
         expect(fallback).toContain(
             "if (!this.sc_hoveredShotRange && targetUnit && targetUnit.getAttackType() === AttackVals.RANGE)",
         );
         expect(fallback).toContain("else if (!this.sc_hoveredShotRange)");
-    });
 
-    test("shows the enemy shot frame for Handyman shooters such as Centaur and Zena", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const genericRangeStart = source.indexOf("// Range Attack Visuals (Only if Ranged)");
-        const movementRangeStart = source.indexOf("// Movement range:", genericRangeStart);
-        const genericRange = source.slice(genericRangeStart, movementRangeStart);
-
+        // Handyman shooters (Centaur, Zena) still show the enemy shot frame.
+        const genericRange = slice("// Range Attack Visuals (Only if Ranged)", "// Movement range:");
         expect(genericRange).toContain("hoverTargetUnit.getAttackType() === AttackVals.RANGE");
         expect(genericRange).not.toContain('hasAbilityActive("Handyman")');
-    });
 
-    test("does not revive an unreachable target trajectory from the geometric edge fallback", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const guardStart = source.indexOf("if (isRangeAttackContext && shootableRangeEdges.length === 0)");
-        const rangedDrawStart = source.indexOf("if (isRangeAttackContext) {", guardStart + 1);
-        const guard = source.slice(guardStart, rangedDrawStart);
-
-        expect(guardStart).toBeGreaterThan(-1);
+        // An unreachable target does not revive its trajectory from the geometric edge fallback.
+        const guard = slice(
+            "if (isRangeAttackContext && shootableRangeEdges.length === 0)",
+            "if (isRangeAttackContext) {",
+        );
         expect(guard).toContain("this.attackHandler.evaluateRangeAttack(");
         expect(guard).toContain("if (!fallbackEvaluation.attackObstacle)");
         expect(guard).toContain("this.hoverManager.clearAttackVisuals()");
@@ -527,13 +528,5 @@ describe("the full-damage shot square", () => {
         expect(bounds.bottom).toBe(gridSettings.getMinY());
         expect(bounds.right).toBeLessThanOrEqual(gridSettings.getMaxX());
         expect(bounds.top).toBeLessThanOrEqual(gridSettings.getMaxY());
-    });
-
-    test("keeps corner ornaments out of the single-layer vector perimeter", () => {
-        const { polygons, polygonClosed, strokes } = drawRange(3.5, 1, { x: 5, y: 5 });
-
-        expect(polygons).toHaveLength(1);
-        expect(strokes).toHaveLength(1);
-        expect(polygonClosed).toEqual([undefined]);
     });
 });

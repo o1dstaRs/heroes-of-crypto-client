@@ -29,33 +29,16 @@ describe("placement click priority", () => {
         expect(shouldCommitPlacementBeforeUnitSelection(validPlacement)).toBe(true);
     });
 
-    test("keeps selection priority for a unit that actually occupies the clicked cell", () => {
-        expect(
-            shouldCommitPlacementBeforeUnitSelection({
-                ...validPlacement,
-                clickedOccupiedUnit: true,
-            }),
-        ).toBe(false);
+    test.each([
+        ["keeps selection priority for a unit that actually occupies the clicked cell", { clickedOccupiedUnit: true }],
+        ["keeps placement-bench creatures selectable", { clickedBenchUnit: true }],
+        ["never commits a red or missing placement preview", { hasValidPlacementCells: false }],
+    ])("%s", (_, override) => {
+        expect(shouldCommitPlacementBeforeUnitSelection({ ...validPlacement, ...override })).toBe(false);
     });
 
-    test("keeps placement-bench creatures selectable", () => {
-        expect(
-            shouldCommitPlacementBeforeUnitSelection({
-                ...validPlacement,
-                clickedBenchUnit: true,
-            }),
-        ).toBe(false);
-    });
-
-    test("never commits a red or missing placement preview", () => {
-        expect(
-            shouldCommitPlacementBeforeUnitSelection({
-                ...validPlacement,
-                hasValidPlacementCells: false,
-            }),
-        ).toBe(false);
-    });
-
+    // OWNER RULE (2026-08-28): a unit is picked — to select it or to attack it — by the cells it stands on,
+    // never by its drawn sprite. The click handler is not drivable without a live scene, so this pins it.
     test("checks the green placement target before falling back to full-sprite unit selection", () => {
         const sandbox = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const placementInput = sandbox.slice(

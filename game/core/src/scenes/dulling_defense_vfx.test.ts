@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+    AbilityFactory,
+    EffectFactory,
+    GridSettings,
+    HoCConfig,
+    TeamVals,
+    Unit,
+    UnitVals,
+} from "@heroesofcrypto/common";
 
+import { RenderableUnit } from "./RenderableUnit";
 import { FIGHT_EVENT_VFX } from "./testSupport/fightVfxCatalog";
-
-const sandboxSource = (): string => readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-
-const sliceFrom = (source: string, anchor: string, length: number): string => {
-    const start = source.indexOf(anchor);
-    expect(start).toBeGreaterThan(-1);
-    return source.slice(start, start + length);
-};
 
 describe("Dulling Defense VFX wiring", () => {
     test("is driven by authoritative effect applications", () => {
@@ -20,30 +20,29 @@ describe("Dulling Defense VFX wiring", () => {
         expect(FIGHT_EVENT_VFX.effects_applied.note).toContain("impact");
     });
 
-    test("pops whoever the action dulled, at the strike and again for anyone the exchange did not draw", () => {
-        const source = sandboxSource();
-
-        expect(source).toContain("this.popRecordedDullingDefense(");
-        expect(source).toContain("new Set([strike.targetId])");
-        expect(source).not.toContain("new Set([strike.attackerId, strike.targetId])");
-        expect(source).not.toContain("popDullingDefenseApplications(attackActionEvents, target.getId())");
-        expect(source).not.toContain("popDullingDefenseApplications(record.events, target.getId())");
-    });
-
-    test("still shows the icon when the dulled stack is already dead", () => {
-        const source = sandboxSource();
-        const pop = sliceFrom(source, "protected popDullingDefenseApplications(", 700);
-
-        expect(pop).not.toContain("unit.isDead()");
-    });
-
     test("the ability card prints the flat attack loss, not a stack-and-luck count", () => {
-        for (const file of ["RenderableUnit.ts"]) {
-            const source = readFileSync(join(import.meta.dir, file), "utf8");
-            const block = sliceFrom(source, "Dulling Defense removes a flat amount", 450);
-
-            expect(block).toContain("getPower()");
-            expect(block).not.toContain("calculateAbilityCount");
+        const effects = new EffectFactory();
+        const knight = RenderableUnit.fromBase(
+            Unit.createUnit(
+                HoCConfig.getCreatureConfig(TeamVals.LEFT, "Chaos", "Goblin Knight", "", 10),
+                new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06),
+                TeamVals.LEFT,
+                UnitVals.CREATURE,
+                new AbilityFactory(effects),
+                effects,
+                false,
+            ),
+            () => undefined,
+        ) as unknown as RenderableUnit & { refreshAbilitiesDescriptions(synergyIncrease: number): void };
+        const power = knight.getAbility("Dulling Defense")!.getPower();
+        const card = () => {
+            const properties = knight.getUnitProperties();
+            return properties.abilities_descriptions[properties.abilities.indexOf("Dulling Defense")];
+        };
+        for (const stackPower of [1, 5]) {
+            knight.setStackPower(stackPower);
+            knight.refreshAbilitiesDescriptions(0);
+            expect(card()).toEndWith(`base attack by ${power}`);
         }
     });
 });

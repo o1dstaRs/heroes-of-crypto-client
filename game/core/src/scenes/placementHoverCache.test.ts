@@ -1,8 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
-import { GridConstants, GridSettings } from "@heroesofcrypto/common";
-import { describe, expect, test } from "bun:test";
+import { FightStateManager, GridConstants, GridSettings } from "@heroesofcrypto/common";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { Sandbox } from "./Sandbox";
 
@@ -54,6 +51,10 @@ const hoverScene = () => {
     };
 };
 
+const originalFight = FightStateManager.getInstance().getFightProperties();
+beforeEach(() => FightStateManager.getInstance().reset());
+afterEach(() => FightStateManager.getInstance().setFightProperties(originalFight));
+
 describe("placement hover cache", () => {
     test("a still pointer does not rescan the board, and a new cell does", () => {
         const { scene, updates } = hoverScene();
@@ -89,14 +90,63 @@ describe("placement hover cache", () => {
         expect(lastPoint()).toEqual({ x: 0, y: 64 });
     });
 
+    const clickScene = () => {
+        const { scene } = hoverScene();
+        const calls: string[] = [];
+        Object.assign(scene, {
+            hoverManager: {
+                hoverSelectedCells: [{ x: 1, y: 1 }],
+                hoverSelectedCellsSwitchToRed: false,
+                hoverPlacementCellTeam: 1,
+                updateHoverPlacementCell: (point: { x: number; y: number }) =>
+                    calls.push(`hover ${point.x},${point.y}`),
+                setLastPlacement: () => undefined,
+                resetBoardHoverState: () => undefined,
+            },
+            grid: { getArtifactBarrels: () => [] },
+            getLogicalBattlefieldPoint: (point: { x: number; y: number }) => point,
+            handleCreatureAnimationLabBoardClick: () => false,
+            handlePlacementBenchToggleAt: () => false,
+            getGridUnitAtPosition: () => undefined,
+            getBenchUnitAtPosition: () => undefined,
+            tryPlaceUnit: () => calls.push("place"),
+        });
+        return { scene: scene as typeof scene & { MouseDown(point: { x: number; y: number }): void }, calls };
+    };
+
     test("a click still aims at the pointer, not the cached preview", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const mouseDown = source.slice(
-            source.indexOf("// 2. PRE-FIGHT PLACEMENT INTERACTION"),
-            source.indexOf("private closeSpellBook"),
-        );
-        expect(mouseDown).toContain("this.hoverManager.updateHoverPlacementCell(p)");
-        expect(mouseDown).toContain("this.hoverManager.updateHoverPlacementCell(unit.getPosition())");
-        expect(mouseDown).not.toContain("refreshPlacementHover");
+        const { scene, calls } = clickScene();
+        // The cached preview is still the one drawn under the unit before the drag threshold.
+        scene.placementDragPointerMoved = false;
+        scene.refreshPlacementHover();
+        calls.length = 0;
+
+        scene.MouseDown({ x: 0, y: 400 });
+
+        expect(calls).toEqual(["hover 0,400", "place"]);
+    });
+
+    test("picking a unit up previews it where it stands, not under the clicked torso", () => {
+        const { scene, calls } = clickScene();
+        const unit = {
+            getId: () => "other",
+            getTeam: () => 1,
+            getPosition: () => ({ x: 0, y: 128 }),
+            getUnitProperties: () => ({ id: "other" }),
+            setBoardSelected: () => undefined,
+        };
+        scene.hasActiveSelection = false;
+        Object.assign(scene, {
+            draggingUnitId: undefined,
+            placementBenchHitBoxes: new Map(),
+            getUnitAtPosition: () => unit,
+            canSelectUnitForPlacement: () => true,
+            setSelectedUnitProperties: () => undefined,
+            hover: () => undefined,
+        });
+
+        scene.MouseDown({ x: 10, y: 150 });
+
+        expect(calls).toEqual(["hover 0,128"]);
     });
 });

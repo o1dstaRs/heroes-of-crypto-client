@@ -1,10 +1,8 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { describe, expect, mock, test } from "bun:test";
 
 import { TeamVals, type GameEvent, type UnitProperties } from "@heroesofcrypto/common";
 
-import { getMissingReplaySummons, type SandboxSceneUnitState } from "./Sandbox";
+import { Sandbox, getMissingReplaySummons, type SandboxSceneUnitState } from "./Sandbox";
 
 type SummonEvent = Extract<GameEvent, { type: "unit_summoned" }>;
 
@@ -28,14 +26,6 @@ const summonEvent = (unitId = "server-wolf", merged = false): SummonEvent => ({
     cells: [{ x: 3, y: 4 }],
     merged,
 });
-
-const sandboxSource = (): string => readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-
-const sliceFrom = (source: string, anchor: string, length: number): string => {
-    const start = source.indexOf(anchor);
-    expect(start).toBeGreaterThan(-1);
-    return source.slice(start, start + length);
-};
 
 describe("authoritative summon replay", () => {
     test("materializes the server summon id even when a client-random id is present", () => {
@@ -68,36 +58,101 @@ describe("authoritative summon replay", () => {
         );
     });
 
-    test("summon spells bypass the local random-id engine and apply authoritative cleanup", () => {
-        const body = sliceFrom(sandboxSource(), "private async playReplayCastSpellAction(", 12_000);
-        const summonBranch = body.indexOf("if (authoritativeSummons.length)");
-        const localEngineApply = body.indexOf("this.createActionEngine().apply(action)");
+    test("summon spells bypass the local random-id engine and apply authoritative cleanup", async () => {
+        const event = summonEvent();
+        const caster = {
+            getId: () => "satyr",
+            getName: () => "Satyr",
+            getPosition: () => ({ x: 0, y: 0 }),
+            hasAnimationState: () => false,
+        };
+        const record = {
+            sequence: 1,
+            clientTimeMs: 0,
+            action: { type: "cast_spell", casterId: "satyr", spellName: "Summon Wolves" },
+            events: [event],
+            stateAfter: { units: [unitState(event.unitId)] },
+        };
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            isSceneDestroyed: () => false,
+            unitsHolder: { getAllUnits: () => new Map([["satyr", caster]]) },
+            sc_sceneSettings: { getGridSettings: () => ({}) },
+            sc_sceneLog: { updateLog: () => {} },
+            snapshotRenderableUnits: () => new Map(),
+            playUnitCastSound: () => {},
+            renderHealVfx: () => {},
+            renderSpellDamageVfx: () => {},
+            waitForSpellDamageDelivery: async () => true,
+            renderCastOutcomes: () => {},
+            renderSnareResistVfx: () => {},
+            delayReplay: async () => {},
+            createActionEngine: mock(() => ({ apply: () => ({ completed: true, events: [] }) })),
+            materializeReplaySummons: mock(() => {}),
+            cleanupAfterSpell: mock(() => {}),
+        });
 
-        expect(summonBranch).toBeGreaterThan(-1);
-        expect(localEngineApply).toBeGreaterThan(summonBranch);
-        expect(body).toContain("this.materializeReplaySummons(record.events, record.stateAfter)");
-        expect(body).toContain("this.cleanupAfterSpell(record.events, this.snapshotRenderableUnits())");
+        expect(await scene.playReplayCastSpellAction(record)).toBe(true);
+
+        expect(scene.createActionEngine).not.toHaveBeenCalled();
+        expect(scene.materializeReplaySummons).toHaveBeenCalledWith(record.events, record.stateAfter);
+        expect(scene.cleanupAfterSpell.mock.calls[0]?.[0]).toBe(record.events);
     });
 
     test("Infest attack events seed the authoritative body before the existing spawn-animation route", () => {
-        const source = sandboxSource();
-        const attackBody = sliceFrom(source, "private async playReplayAttackRecord(", 18_000);
-        const applyBody = sliceFrom(source, "protected applyReplayEvents(", 1_000);
-        const materializer = sliceFrom(source, "private materializeReplaySummons(", 3_000);
-        // The whole of syncSummonedUnit: it grew when the authoritative occupy stopped discarding a
-        // refusal, and every assertion below has to see the tail of the function.
-        const syncBody = sliceFrom(source, "private syncSummonedUnit(", 3_200);
+        const event = summonEvent("server-spider");
+        const order: string[] = [];
+        const units = new Map<string, unknown>();
+        const body = {
+            getId: () => event.unitId,
+            setPosition: mock(() => {}),
+            ensureVisual: () => 1,
+            startSpawnAnimation: mock(() => order.push("spawn")),
+            syncVisual: mock(() => {}),
+            getAttackRange: () => 1,
+            isSmallSize: () => true,
+            getTeam: () => TeamVals.LEFT,
+            getSpellsCount: () => 0,
+        };
+        const grid = {
+            cleanupAll: () => {},
+            occupyCells: mock((_cells: unknown) => {
+                order.push("occupy");
+                return true;
+            }),
+            getMatrix: () => [],
+            getMatrixNoUnits: () => [],
+        };
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            grid,
+            unitsHolder: { getAllUnits: () => units, addUnit: (unit: typeof body) => units.set(unit.getId(), unit) },
+            createRenderableUnitFromSceneState: mock(() => {
+                order.push("create");
+                return body;
+            }),
+            snapshotRenderableUnits: () => new Map(),
+            applyTurnEngineEvents: (events: GameEvent[]) => {
+                order.push("events");
+                for (const applied of events) if (applied.type === "unit_summoned") scene.syncSummonedUnit(applied);
+            },
+            dispelSmokeUnderRegisteredUnit: () => {},
+            drawer: { getUnitsContainer: () => undefined },
+            sc_sceneSettings: { getGridSettings: () => ({}) },
+            refreshUnits: () => {},
+        });
+        const state = unitState(event.unitId);
 
-        expect(attackBody).toContain("this.applyReplayEvents(replayEvents, record.stateAfter)");
-        expect(applyBody.indexOf("this.materializeReplaySummons(visibleEvents, stateAfter)")).toBeGreaterThan(-1);
-        expect(applyBody.indexOf("this.applyTurnEngineEvents(visibleEvents")).toBeGreaterThan(
-            applyBody.indexOf("this.materializeReplaySummons(visibleEvents, stateAfter)"),
-        );
-        expect(materializer).toContain("this.createRenderableUnitFromSceneState(unitState, true)");
-        expect(materializer).toContain("this.unitsHolder.addUnit(unit)");
-        expect(materializer).not.toContain("this.grid.occupyCells(");
-        expect(syncBody).toContain("this.grid.occupyCells(event.cells");
-        expect(syncBody).toContain("if (!event.merged && scale)");
-        expect(syncBody).toContain("unit.startSpawnAnimation(scale)");
+        scene.applyReplayEvents([event], { units: [state] });
+
+        // The body is created from post-action truth and registered, but claims no cells until its event is
+        // reached in journal order (Infest frees the corpse's cells in the unit_destroyed just before it).
+        expect(scene.createRenderableUnitFromSceneState).toHaveBeenCalledWith(state, true);
+        expect(body.setPosition).toHaveBeenCalledWith(event.position.x, event.position.y);
+        expect(order).toEqual(["create", "events", "occupy", "spawn"]);
+        expect(grid.occupyCells.mock.calls[0]?.[0]).toEqual(event.cells);
+
+        // A merged summon refreshes the existing stack instead of hatching a new one.
+        scene.syncSummonedUnit({ ...event, merged: true });
+        expect(body.startSpawnAnimation).toHaveBeenCalledTimes(1);
+        expect(body.syncVisual).toHaveBeenCalledTimes(1);
     });
 });

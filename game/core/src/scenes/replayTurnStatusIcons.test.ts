@@ -1,6 +1,20 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
+import {
+    AbilityFactory,
+    EffectFactory,
+    FightStateManager,
+    GridSettings,
+    HoCConfig,
+    TeamVals,
+    Unit,
+    UnitVals,
+} from "@heroesofcrypto/common";
+
+import { RenderableUnit } from "./RenderableUnit";
+import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState } from "./Sandbox";
 
 /**
  * The hourglass and stun badges in a REPLAY.
@@ -13,69 +27,142 @@ import { join } from "node:path";
  *                      from a unit's properties, so the stun badge could never light up in a replay,
  *   - `upNext`       — a hydrate resets FightStateManager, so the strip kept the queue it was last given.
  *
- * Behavioural coverage of the badges themselves lives in RenderableUnit.test.ts (which drives setSkipping /
- * setOnHourglass and asserts the sprites). What can't be exercised there is the plumbing inside
- * hydrateSceneState/captureSceneState: both build real Pixi sprites, so this pins the wiring at the source
- * level, in the same spirit as inspectionSurvivesHydrate.test.ts.
+ * Behavioural coverage of the badges themselves lives in RenderableUnit.test.ts. The queue's restore inside a
+ * full hydrate is driven in replayBoardTerrain.test.ts.
  */
-describe("replay turn-status icons", () => {
-    const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-    const sliceBetween = (from: string, to: string): string => {
-        const start = source.indexOf(from);
-        expect(start).toBeGreaterThanOrEqual(0);
-        const end = source.indexOf(to, start);
-        expect(end).toBeGreaterThan(start);
-        return source.slice(start, end);
-    };
-    const rebuildUnit = sliceBetween("private createRenderableUnitFromSceneState(", "private captureSceneState(");
-    const capture = sliceBetween("private captureSceneState(", "public override getCurrentSandboxReplay(");
-    const hydrate = sliceBetween(
-        "protected hydrateSceneState(snapshot: SandboxSceneState): void {",
-        "private restoreInspectedUnit(",
-    );
+const settings = new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06);
+const originalFight = FightStateManager.getInstance().getFightProperties();
+beforeEach(() => FightStateManager.getInstance().reset());
+afterEach(() => FightStateManager.getInstance().setFightProperties(originalFight));
 
-    test("a rebuilt unit is given back both flags", () => {
-        expect(rebuildUnit).toContain("setOnHourglass(unitState.onHourglass ?? false)");
-        expect(rebuildUnit).toContain("setSkipping(unitState.skipping ?? false)");
+const createUnit = (name = "Squire"): RenderableUnit => {
+    const effects = new EffectFactory();
+    return RenderableUnit.fromBase(
+        Unit.createUnit(
+            HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", name, "", 1),
+            settings,
+            TeamVals.LEFT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            false,
+        ),
+        () => undefined,
+    );
+};
+
+interface SceneInternals {
+    createRenderableUnitFromSceneState(state: SandboxSceneUnitState): RenderableUnit;
+    captureSceneState(): SandboxSceneState;
+}
+
+const scene = (units: RenderableUnit[] = []): SceneInternals => {
+    const effects = new EffectFactory();
+    return Object.assign(Object.create(Sandbox.prototype), {
+        sc_sceneSettings: { getGridSettings: () => settings },
+        abilityFactory: new AbilityFactory(effects),
+        texAny: () => undefined,
+        unitsHolder: { getAllUnits: () => new Map(units.map((unit) => [unit.getId(), unit])) },
+        grid: {
+            getOccupantUnitId: () => "",
+            getArtifactBarrels: () => [],
+            getScatteredMountainsStanding: () => [],
+        },
+        dungeonVisuals: { isCenterDried: () => false, hasScatteredMountains: () => false },
+        getFightResultSetup: () => undefined,
+    }) as SceneInternals;
+};
+
+const skippingForDisplay = (unit: Unit): boolean =>
+    (Sandbox as unknown as { skippingForDisplay(unit: Unit): boolean }).skippingForDisplay(unit);
+
+describe("replay turn-status icons", () => {
+    test.each([true, false])("a rebuilt unit is given back its wait, stun and retaliation flags (%p)", (flag) => {
+        const source = createUnit();
+        const restored = scene().createRenderableUnitFromSceneState({
+            properties: source.getAllProperties(),
+            team: TeamVals.LEFT,
+            placed: true,
+            dead: false,
+            cells: [{ x: 2, y: 2 }],
+            baseCell: { x: 2, y: 2 },
+            onHourglass: flag,
+            skipping: flag,
+            responded: flag,
+        });
+
+        expect(restored.isOnHourglass()).toBe(flag);
+        expect(restored.isSkippingApplied()).toBe(flag);
+        expect(skippingForDisplay(restored)).toBe(flag);
+        expect(restored.getResponded()).toBe(flag);
+        restored.destroyVisuals();
+        source.destroyVisuals();
     });
 
     test("the capture records what a rebuild cannot recompute", () => {
-        // Effects and FightProperties are both gone after a hydrate, so a sandbox replay needs all three.
-        expect(capture).toContain("onHourglass: unit.isOnHourglass()");
-        expect(capture).toContain("skipping: Sandbox.skippingForCapture(unit)");
-        expect(capture).toContain("hasHourglassed: fightProps.hasAlreadyHourglass(unit.getId())");
-        expect(capture).toContain("upNext: [...fightProps.getUpNextQueueIterable()]");
+        // Effects and FightProperties are both gone after a hydrate, so a sandbox replay needs all of these.
+        // (The board half of the capture is covered in replayBoardTerrain.test.ts.)
+        const waiting = createUnit();
+        const stunned = createUnit("Peasant");
+        waiting.setOnHourglass(true);
+        stunned.setSkipping(true);
+        stunned.setResponded(true);
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        fightProps.enqueueHourglass(waiting.getId());
+        fightProps.enqueueUpNext(stunned.getId());
+        fightProps.enqueueUpNext(waiting.getId());
+
+        const state = scene([waiting, stunned]).captureSceneState();
+
+        const byId = new Map(state.units.map((unit) => [unit.properties.id, unit]));
+        expect(byId.get(waiting.getId())).toMatchObject({
+            onHourglass: true,
+            hasHourglassed: true,
+            skipping: false,
+            responded: false,
+        });
+        expect(byId.get(stunned.getId())).toMatchObject({
+            onHourglass: false,
+            hasHourglassed: false,
+            skipping: true,
+            responded: true,
+        });
+        expect(state.upNext).toEqual([...fightProps.getUpNextQueueIterable()]);
+        expect(state.upNext).toHaveLength(2);
+        waiting.destroyVisuals();
+        stunned.destroyVisuals();
     });
 
-    test("the hydrate restores the queue AFTER the reset that empties it, and before the activation that reads it", () => {
-        const reset = hydrate.indexOf("FightStateManager.getInstance().reset()");
-        const restore = hydrate.indexOf("this.applySceneStateUpNext(snapshot.upNext)");
-        const activation = hydrate.indexOf("this.handleNextUnitActivation(activeUnit)");
-        expect(reset).toBeGreaterThanOrEqual(0);
-        expect(restore).toBeGreaterThan(reset);
-        expect(activation).toBeGreaterThan(restore);
-    });
+    test("the Up Next strip reads the DISPLAYED skip state, which tolerates an engine-summoned plain Unit", () => {
+        // In ranked (live and replay) the Stun effect never reaches the client, so the effect-only
+        // isSkippingThisTurn() is always false there; the strip must read the synced flag a snapshot set.
+        const synced = createUnit();
+        synced.setSkipping(true);
+        expect(synced.isSkippingThisTurn()).toBe(false);
+        expect(skippingForDisplay(synced)).toBe(true);
 
-    test("the Up Next strip asks for the DISPLAYED skip state, not the effect-only one", () => {
-        // In ranked (live and replay) the Stun effect never reaches the client, so isSkippingThisTurn() is
-        // always false there and the queue's stun marker stayed dark whatever the board showed.
-        const upNextEntries = sliceBetween("private handleNextUnitActivation(", "private updateLiveFightStats(");
-        expect(upNextEntries).not.toContain("isSkipping: unitNext.isSkippingThisTurn()");
-        expect(upNextEntries).not.toContain("isSkipping: nextUnit.isSkippingThisTurn()");
-        expect(upNextEntries).toContain("isSkipping: Sandbox.skippingForDisplay(unitNext)");
-        expect(upNextEntries).toContain("isSkipping: Sandbox.skippingForDisplay(nextUnit)");
-    });
+        const effects = new EffectFactory();
+        const plain = Unit.createUnit(
+            HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "", 1),
+            settings,
+            TeamVals.LEFT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            true,
+        );
+        expect(skippingForDisplay(plain)).toBe(false);
+        synced.destroyVisuals();
 
-    test("the display helper tolerates a unit the ENGINE summoned (a plain Unit, no badges yet)", () => {
-        const helper = sliceBetween("private static skippingForDisplay(", "protected applySceneStateUpNext(");
-        expect(helper).toContain('typeof renderable.isSkippingDisplayed === "function"');
-        expect(helper).toContain("unit.isSkippingThisTurn()");
-    });
-
-    test("ranked extends the queue restore to its own authoritative copy", () => {
-        // Ranked overrides getUpNextUnitIds(), so restoring only FightProperties would leave the strip stale.
-        const ranked = readFileSync(join(import.meta.dir, "RankedPlayScene.ts"), "utf8");
-        expect(ranked).toContain("protected override applySceneStateUpNext(");
-        expect(ranked).toContain("this.upNextUnitIds = [...upNext]");
+        // Building the strip needs the whole activation path, so its read is guarded at the source: no
+        // queue entry may fall back to the effect-only check.
+        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+        const activation = source.indexOf("private handleNextUnitActivation(");
+        const strip = source.slice(
+            source.indexOf("const unitsNext: IVisibleUnit[] = [];", activation),
+            source.indexOf("this.sc_visibleState.upNext = unitsNext;", activation),
+        );
+        expect(strip.match(/isSkipping: Sandbox\.skippingForDisplay\(/g)).toHaveLength(2);
+        expect(strip).not.toContain(".isSkippingThisTurn()");
     });
 });

@@ -1,9 +1,7 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Texture, TextureSource } from "pixi.js";
 import { PixiScene } from "./PixiScene";
+import { isBoardMirrored, releaseBoardMirror, setBoardMirror } from "./boardMirror";
 import { boardFirstTextureLoads, type TextureLoadOptions } from "./boardFirstTextureLoads";
 
 const SceneConstructor = PixiScene as unknown as new (settings: object) => {
@@ -154,98 +152,209 @@ test("refreshes synchronously when no browser frame scheduler is available", () 
 });
 
 describe("PixiScene teardown", () => {
-    test("reuses one viewport result on the 240 Hz visual path", () => {
-        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        const viewportGetter = source.slice(
-            source.indexOf("public getViewportSize()"),
-            source.indexOf("// ------- Drawer"),
-        );
+    const sceneWithApp = () => {
+        const scene = new SceneConstructor({});
+        scene.textures = {};
+        const [world, camera, ui, cursor] = Array.from({ length: 4 }, () => new Container());
+        const order: string[] = [];
+        scene.pixiApp = {
+            getWorldRoot: () => world,
+            getCamera: () => camera,
+            getUIContainer: () => ui,
+            getCursorOverlayRoot: () => cursor,
+        };
+        const owned = scene as unknown as {
+            drawer: { destroy(): void };
+            scheduleSceneTimeout(callback: () => void, delayMs: number, onCancel?: () => void): unknown;
+            delayForScene(delayMs: number): Promise<void>;
+            sc_lazyTextureUrls: Map<string, string>;
+        };
+        owned.drawer = { destroy: () => order.push("drawer") };
+        const dispose = () => {
+            scene.Destroy();
+            [world, camera, ui, cursor].forEach((container) => container.destroy({ children: true }));
+        };
+        return { scene, owned, ui, cursor, order, dispose };
+    };
+    const ownedChild = (host: Container, label: string, order: string[]) => {
+        const child = host.addChild(new Container());
+        const destroy = child.destroy.bind(child);
+        child.destroy = (options) => {
+            order.push(label);
+            destroy(options);
+        };
+        return child;
+    };
 
-        expect(source).toContain("private readonly sc_viewportSize");
-        expect(viewportGetter).toContain("return this.sc_viewportSize");
-        expect(viewportGetter).not.toContain("return { width:");
+    test("reuses one viewport result on the 240 Hz visual path", () => {
+        const scene = new SceneConstructor({});
+        const renderer = { width: 800, height: 600 };
+        (scene.pixiApp as unknown as { getApplication(): unknown }) = { getApplication: () => ({ renderer }) };
+        const viewport = (scene as unknown as { getViewportSize(): { width: number; height: number } }).getViewportSize;
+        try {
+            const first = viewport.call(scene);
+            expect(first).toEqual({ width: 800, height: 600 });
+            renderer.width = 1024;
+            const second = viewport.call(scene);
+            expect(second).toBe(first);
+            expect(second).toEqual({ width: 1024, height: 600 });
+        } finally {
+            scene.sc_destroyed = true;
+        }
     });
 
-    test("releases scene-owned children from both persistent app overlay roots", () => {
-        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
-
-        expect(destroy).toContain("destroyContainerChildren(this.pixiApp.getCursorOverlayRoot())");
-        expect(destroy).toContain("destroyContainerChildren(this.pixiApp.getUIContainer())");
-        expect(destroy.indexOf("getUIContainer()")).toBeLessThan(destroy.indexOf("this.drawer.destroy()"));
+    test("releases scene-owned children from both persistent app overlay roots before the drawer", () => {
+        const { scene, ui, cursor, order, dispose } = sceneWithApp();
+        try {
+            ownedChild(cursor, "cursor overlay child", order);
+            ownedChild(ui, "ui child", order);
+            scene.Destroy();
+            expect(cursor.children).toHaveLength(0);
+            expect(ui.children).toHaveLength(0);
+            expect(order).toEqual(["cursor overlay child", "ui child", "drawer"]);
+        } finally {
+            dispose();
+        }
     });
 
     test("hands a board it mirrored back, so the next scene starts with the true sides", () => {
-        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
-
-        expect(destroy).toContain("releaseBoardMirror(this)");
+        const owner = sceneWithApp();
+        const bystander = sceneWithApp();
+        try {
+            setBoardMirror(owner.scene, true);
+            // A scene that never took the board over leaves the owner's mirror alone.
+            bystander.scene.Destroy();
+            expect(isBoardMirrored()).toBe(true);
+            owner.scene.Destroy();
+            expect(isBoardMirrored()).toBe(false);
+        } finally {
+            releaseBoardMirror(owner.scene);
+            owner.dispose();
+            bystander.dispose();
+        }
     });
 
-    test("cancels scene-owned delayed work before tearing down Pixi resources", () => {
-        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
-
-        expect(source).toContain("private readonly sc_sceneTimeouts");
-        expect(source).toContain("protected scheduleSceneTimeout(");
-        expect(source).toContain("protected delayForScene(");
-        expect(destroy).toContain("this.cancelSceneTimeouts()");
-        expect(destroy.indexOf("cancelSceneTimeouts()")).toBeLessThan(destroy.indexOf("releaseLazyTextures()"));
+    test("cancels scene-owned delayed work before tearing down Pixi resources", async () => {
+        const { scene, owned, order, dispose } = sceneWithApp();
+        const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
+        try {
+            owned.sc_lazyTextureUrls.set("leased", "leased.webp");
+            let fired = false;
+            owned.scheduleSceneTimeout(
+                () => (fired = true),
+                0,
+                () => order.push(`timeout cancelled with ${owned.sc_lazyTextureUrls.size} lease`),
+            );
+            let delayed = false;
+            const delay = owned.delayForScene(0).then(() => (delayed = true));
+            scene.Destroy();
+            expect(order[0]).toBe("timeout cancelled with 1 lease");
+            expect(owned.sc_lazyTextureUrls.size).toBe(0);
+            await delay;
+            expect(delayed).toBe(true);
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            expect(fired).toBe(false);
+            // A retired scene runs no new delayed work either.
+            let late = false;
+            owned.scheduleSceneTimeout(
+                () => (late = true),
+                0,
+                () => order.push("late cancelled"),
+            );
+            expect(order.at(-1)).toBe("late cancelled");
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            expect(late).toBe(false);
+        } finally {
+            dispose();
+            unload.mockRestore();
+        }
     });
 
-    test("releases scene-leased creature, map, effect, ability, and spell textures before persistent roots are cleared", () => {
-        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
+    test("releases scene-leased textures before persistent roots are cleared", async () => {
+        const { scene, owned, ui, order, dispose } = sceneWithApp();
+        const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
+        try {
+            owned.sc_lazyTextureUrls.set("leased", "leased.webp");
+            const child = ui.addChild(new Container());
+            child.destroy = () => order.push(`ui child with ${owned.sc_lazyTextureUrls.size} leases`);
+            scene.Destroy();
+            expect(order).toEqual(["ui child with 0 leases", "drawer"]);
+            await Promise.resolve();
+            expect(unload).toHaveBeenCalledWith("leased.webp");
+        } finally {
+            dispose();
+            unload.mockRestore();
+        }
+    });
 
-        expect(destroy).toContain("this.releaseLazyTextures()");
-        expect(destroy.indexOf("releaseLazyTextures()")).toBeLessThan(destroy.indexOf("destroyContainerChildren"));
-        expect(source).toContain("isLazyBattlefieldCreatureAssetKey(key)");
-        expect(source).toContain("isLazyCombatEffectAssetKey(key)");
-        expect(source).toContain("isLazyMapTextureAssetKey(key)");
-        expect(source).toContain("isLazyAbilityAssetKey(key)");
-        expect(source).toContain("isLazySpellAssetKey(key)");
-        expect(source).toContain("this.releaseLateUnclaimedTexture(key, url)");
+    test("a scene-leased load that lands after teardown is unloaded", async () => {
+        const key = "troll_board_128";
+        const { scene, dispose } = sceneWithApp();
+        let release: (texture: Texture) => void = () => undefined;
+        const load = spyOn(Assets, "load").mockImplementation(
+            (() => new Promise<Texture>((resolve) => (release = resolve))) as unknown as typeof Assets.load,
+        );
+        const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
+        try {
+            expect(scene.texAny(key, { priority: "visible" })).toBeUndefined();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(load).toHaveBeenCalledTimes(1);
+            scene.Destroy();
+            release(Texture.WHITE);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(unload).toHaveBeenCalledTimes(1);
+            expect(scene.textures[key]).toBeUndefined();
+        } finally {
+            dispose();
+            load.mockRestore();
+            unload.mockRestore();
+        }
     });
 });
 
-test.each(["ambient_fire_video_torch_left_natural_v4_64_atlas", "book_1024_clean_pages_v1"])(
-    "Start over transfers the %s lease before the old scene evicts its texture",
-    async (key) => {
-        const first = new SceneConstructor({});
-        const second = new SceneConstructor({});
-        first.textures = {};
-        second.textures = first.textures;
-        const containers = Array.from({ length: 4 }, () => new Container());
-        const app = {
-            getWorldRoot: () => containers[0],
-            getCamera: () => containers[1],
-            getUIContainer: () => containers[2],
-            getCursorOverlayRoot: () => containers[3],
-        };
-        first.pixiApp = app;
-        second.pixiApp = app;
-        const texture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
-        const load = spyOn(Assets, "load").mockImplementation((async () => texture) as typeof Assets.load);
-        const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
-        try {
-            first.texAny(key, { priority: "visible" });
-            await new Promise((resolve) => setTimeout(resolve, 0));
-            expect(first.texAny(key)).toBe(texture);
-            first.Destroy();
-            expect(second.texAny(key)).toBe(texture);
-            await Promise.resolve();
-            expect(unload).not.toHaveBeenCalled();
-            second.Destroy();
-            await Promise.resolve();
-            expect(unload).toHaveBeenCalledTimes(1);
-            expect(second.textures[key]).toBeUndefined();
-        } finally {
-            first.Destroy();
-            second.Destroy();
-            load.mockRestore();
-            unload.mockRestore();
-            texture.destroy(true);
-            containers.forEach((container) => container.destroy());
-        }
-    },
-);
+// One key per scene-leased family: environment, combat effect, battlefield creature, map, ability and spell art.
+test.each([
+    "ambient_fire_video_torch_left_natural_v4_64_atlas",
+    "book_1024_clean_pages_v1",
+    "troll_board_128",
+    "lava_center_anim_atlas",
+    "limited_supply_256",
+    "armor_augment_256",
+])("Start over transfers the %s lease before the old scene evicts its texture", async (key) => {
+    const first = new SceneConstructor({});
+    const second = new SceneConstructor({});
+    first.textures = {};
+    second.textures = first.textures;
+    const containers = Array.from({ length: 4 }, () => new Container());
+    const app = {
+        getWorldRoot: () => containers[0],
+        getCamera: () => containers[1],
+        getUIContainer: () => containers[2],
+        getCursorOverlayRoot: () => containers[3],
+    };
+    first.pixiApp = app;
+    second.pixiApp = app;
+    const texture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
+    const load = spyOn(Assets, "load").mockImplementation((async () => texture) as typeof Assets.load);
+    const unload = spyOn(Assets, "unload").mockImplementation((async () => {}) as typeof Assets.unload);
+    try {
+        first.texAny(key, { priority: "visible" });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(first.texAny(key)).toBe(texture);
+        first.Destroy();
+        expect(second.texAny(key)).toBe(texture);
+        await Promise.resolve();
+        expect(unload).not.toHaveBeenCalled();
+        second.Destroy();
+        await Promise.resolve();
+        expect(unload).toHaveBeenCalledTimes(1);
+        expect(second.textures[key]).toBeUndefined();
+    } finally {
+        first.Destroy();
+        second.Destroy();
+        load.mockRestore();
+        unload.mockRestore();
+        texture.destroy(true);
+        containers.forEach((container) => container.destroy());
+    }
+});

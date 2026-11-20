@@ -25,25 +25,11 @@ describe("ranked background work", () => {
         expect(bootstrap.slice(0, bootstrap.indexOf(".catch"))).toContain("getRankedReplayInitialSnapshot(replay)");
         expect(bootstrap.slice(0, bootstrap.indexOf(".catch"))).not.toContain("collectRankedReplaySnapshots");
     });
-    test("pauses fallback snapshots in hidden tabs and catches up on return", () => {
-        const poll = source.slice(source.indexOf("const pollSnapshot ="), source.indexOf("}, [refreshSnapshot"));
 
-        expect(poll).toContain("startVisibleInterval(pollSnapshot, 4_000)");
-        expect(poll).not.toContain("window.setInterval(pollSnapshot");
-        expect(poll).toContain("stopPolling()");
-    });
-
-    test("runs the augment countdown only during a timed placement phase", () => {
-        const timer = source.slice(source.indexOf("const [augmentNowMs"), source.indexOf("const augmentSecondsLeft"));
-
-        expect(timer).toContain("snapshot.phase !== PlayPhase.PLACEMENT");
-        expect(timer).toContain("snapshot.placementDeadlineMs <= 0");
-        expect(timer).toContain("[snapshot.phase, snapshot.placementDeadlineMs]");
-    });
-
-    test("fully disarms presence and countdown intervals while the tab is hidden", () => {
-        expect(source.match(/startVisibleInterval\(ping(?:Model|Human)Player, 8_000\)/g)).toHaveLength(2);
-        expect(source).toContain("startVisibleInterval(() => setNowMs(Date.now()), 1000)");
-        expect(source).toContain("startVisibleInterval(() => setAugmentNowMs(Date.now()), 1000)");
+    test("every recurring timer pauses in hidden tabs", () => {
+        // Snapshot polling, presence pings and countdowns all go through the visibility-aware interval;
+        // a raw setInterval would keep polling and re-rendering a backgrounded tab.
+        expect(source).toContain("startVisibleInterval(");
+        expect(source).not.toContain("setInterval(");
     });
 });

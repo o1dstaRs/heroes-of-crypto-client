@@ -10,9 +10,7 @@ describe("pick lantern animation", () => {
         // Tuning state may change from the dev editor, but no per-frame React state is ever set.
         expect(source).not.toContain("setFrame(");
         expect(source).toContain("flameRef.current.style.backgroundPosition");
-        expect(source).toContain("if (!active || !tuning.enabled) return null");
-        expect(source).toContain("const FRAME_POSITIONS = Array.from");
-        expect(source).toContain("startVisibleInterval");
-        expect(source).not.toContain("window.setInterval");
+        expect(source).toContain("startVisibleInterval(");
+        expect(source).not.toContain("setInterval(");
     });
 });

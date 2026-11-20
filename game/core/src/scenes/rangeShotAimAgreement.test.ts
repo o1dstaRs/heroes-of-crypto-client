@@ -16,7 +16,7 @@ import { describe, expect, test } from "bun:test";
 
 import { GridMath } from "@heroesofcrypto/common";
 
-import { optimalRangeTargetEdge } from "./rangeTargetEdges";
+import { Sandbox } from "./Sandbox";
 
 /**
  * The projectile must fly the line the hover drew.
@@ -29,59 +29,37 @@ import { optimalRangeTargetEdge } from "./rangeTargetEdges";
  * firing resolves the two against different points, and whenever two edges retain the same damage the
  * tie-break then picks a different edge for the projectile than the arrow promised.
  */
-describe("the firing point decides the edge", () => {
-    // The candidate carries the exterior edge it came from (cell + side); neither participates in the
-    // choice — damage retention and the distance to aimPosition do — so they are filled in consistently
-    // with the aim point and left alone.
-    const edge = (id: string, x: number, y: number, rangeDivisor = 1) => ({
-        id,
-        rangeDivisor,
-        shootable: true,
-        aimPosition: { x, y },
-        cell: { x: Math.sign(x), y: Math.sign(y) },
-        side: x < 0 ? GridMath.RangeAttackCellSide.LEFT : GridMath.RangeAttackCellSide.RIGHT,
-    });
-
-    test("two equally-good edges are separated only by which point we measure from", () => {
-        // A target with a west and an east edge; damage retention identical, so the tie-break decides.
-        const west = edge("west", -100, 0);
-        const east = edge("east", 100, 0);
-
-        // Standing to the west (where the shooter is now) picks west...
-        expect(optimalRangeTargetEdge([west, east], { x: -500, y: 0 })?.id).toBe("west");
-        // ...while firing from the east landing cell picks east. Same candidates, different answer:
-        // this is precisely the divergence between the drawn arrow and the flown projectile.
-        expect(optimalRangeTargetEdge([west, east], { x: 500, y: 0 })?.id).toBe("east");
-    });
-
-    test("damage retention still outranks the firing point", () => {
-        // A nearer edge that costs damage must never win over a full-damage one, whichever point we use.
-        const near = edge("near-but-halved", -100, 0, 2);
-        const far = edge("far-but-full", 100, 0, 1);
-        expect(optimalRangeTargetEdge([near, far], { x: -500, y: 0 })?.id).toBe("far-but-full");
-    });
+// The tie-break itself (damage first, then distance to the firing point) is optimalRangeTargetEdge's, and
+// rangeTargetEdges.test.ts covers it. Cell and side do not take part in the choice.
+const edge = (id: string, x: number, y: number, rangeDivisor = 1) => ({
+    id,
+    rangeDivisor,
+    shootable: true,
+    aimPosition: { x, y },
+    cell: { x: Math.sign(x), y: Math.sign(y) },
+    side: x < 0 ? GridMath.RangeAttackCellSide.LEFT : GridMath.RangeAttackCellSide.RIGHT,
 });
 
 describe("the shot is aimed from where it is fired", () => {
-    const sandboxSource = (): string => readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+    const shotAim = (edges: ReturnType<typeof edge>[], firedFrom: { x: number; y: number }, doubleShot = false) => {
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            rangeTargetEdgeVisuals: () => edges,
+        }) as {
+            resolveRangeShotAim(attacker: unknown, target: unknown, firedFrom: { x: number; y: number }): unknown;
+        };
+        const attacker = {
+            hasAbilityActive: (name: string) => doubleShot && name === "Double Shot",
+            getPosition: () => ({ x: -500, y: 0 }),
+        };
+        return scene.resolveRangeShotAim(attacker, {}, firedFrom) as { cell: unknown; position: unknown } | undefined;
+    };
 
-    test("resolveRangeShotAim takes the firing point as an argument, not the live position", () => {
-        const source = sandboxSource();
-        const start = source.indexOf("private resolveRangeShotAim(");
-        expect(start).toBeGreaterThan(-1);
-        const fn = source.slice(start, start + 2000);
-        const code = fn
-            .split("\n")
-            .filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*"))
-            .join("\n");
-
-        // Whitespace-insensitive: the call's line breaks are the formatter's business, not this pin's.
-        const dense = code.replace(/\s/g, "");
-
-        expect(code).toContain("firedFrom: HoCMath.XY");
-        expect(dense).toContain("optimalRangeTargetEdge(this.rangeTargetEdgeVisuals(attacker,target),firedFrom");
-        // The live position is exactly what made the projectile disagree with the arrow.
-        expect(dense).not.toContain("this.rangeTargetEdgeVisuals(attacker,target),attacker.getPosition()");
+    test("resolveRangeShotAim breaks the tie from the firing point it is handed, not the live position", () => {
+        const west = edge("west", -100, 0);
+        const east = edge("east", 100, 0);
+        // The attacker stands west (-500, 0); it fires from the east landing cell.
+        expect(shotAim([west, east], { x: 500, y: 0 })?.position).toEqual(east.aimPosition);
+        expect(shotAim([west, east], { x: -500, y: 0 })?.position).toEqual(west.aimPosition);
     });
 
     // A disagreement about WHICH EDGES may be aimed at is silent in a way the firing-point one is not: the
@@ -89,27 +67,23 @@ describe("the shot is aimed from where it is fired", () => {
     // The hover learned to aim past a screen (a Double Shot's first arrow takes the screen, the second
     // carries on) and the shot did not — so a screened creature showed the bow cursor and a damage forecast
     // while clicking it did nothing at all (owner report 2026-09-19).
-    test("both ask the same aim policy, so the shot takes the edge the cursor offered", () => {
-        const source = sandboxSource();
-        const shotAim = source
-            .slice(
-                source.indexOf("private resolveRangeShotAim("),
-                source.indexOf("private async executeAttackSequence("),
-            )
-            .replace(/\s/g, "");
-        expect(shotAim).toContain("rangeAimOptions(AbilityHelper.hasDoubleShotAbility(attacker))");
+    test("a Double Shot fires at the screened edge the cursor offered; a single shot does not", () => {
+        const screened = { ...edge("screened", 100, 0), shootable: false };
+        expect(shotAim([screened], { x: 500, y: 0 }, true)?.position).toEqual(screened.aimPosition);
+        expect(shotAim([screened], { x: 500, y: 0 })).toBeUndefined();
+    });
 
+    test("the hover asks the same aim policy, and the caller hands the shot the landing cell", () => {
+        // hover() and executeAttackSequence are not drivable in isolation, so these two seams stay pinned
+        // against the source (whitespace-insensitive; line breaks are the formatter's business).
+        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const hoverAim = source.slice(source.indexOf("optimalRangeEdge = optimalRangeTargetEdge(")).replace(/\s/g, "");
         expect(hoverAim.slice(0, hoverAim.indexOf(");"))).toContain(
             "rangeAimOptions(AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit))",
         );
-    });
-
-    test("the caller hands it the landing cell, through the hover's own transform", () => {
-        const source = sandboxSource();
-        const call = source.slice(source.indexOf("const aim = this.resolveRangeShotAim("));
         // footprintCenterForAnchor is what the hover uses to turn the landing ANCHOR into a body centre,
         // so a large shooter agrees with its own preview rather than being half a body off.
-        expect(call.slice(0, 400)).toContain("this.footprintCenterForAnchor(attacker, attackFrom)");
+        const call = source.slice(source.indexOf("const aim = this.resolveRangeShotAim(")).replace(/\s/g, "");
+        expect(call.slice(0, call.indexOf(");"))).toContain("this.footprintCenterForAnchor(attacker,attackFrom)");
     });
 });

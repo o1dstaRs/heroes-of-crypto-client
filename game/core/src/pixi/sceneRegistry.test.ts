@@ -5,8 +5,10 @@ import { join } from "node:path";
 test("the app-shell scene registry does not pull PixiScene into non-battle routes", () => {
     const manager = readFileSync(join(import.meta.dir, "PixiGameManager.ts"), "utf8");
     const registry = readFileSync(join(import.meta.dir, "sceneRegistry.ts"), "utf8");
+    // Type-only imports are erased; any value import would bundle the Pixi runtime into the app shell.
+    const valueImportFromPixiScene = /^import (?!type )[^;]*from "\.\/PixiScene";/m;
 
     expect(manager).toContain('import { getScenesGrouped } from "./sceneRegistry"');
-    expect(manager).not.toContain('import { getScenesGrouped } from "./PixiScene"');
-    expect(registry).toContain('import type { SceneConstructor, SceneEntry, SceneGroup } from "./PixiScene"');
+    expect(manager).not.toMatch(valueImportFromPixiScene);
+    expect(registry).not.toMatch(valueImportFromPixiScene);
 });

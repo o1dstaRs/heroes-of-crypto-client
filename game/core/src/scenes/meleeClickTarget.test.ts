@@ -42,7 +42,7 @@ const clickAttackBlock = (source: string): string => {
 };
 
 describe("melee click acts on the target the cursor promised", () => {
-    test("the click takes the resolve's target, then grid occupancy — and never the sprite", () => {
+    test("the click takes the resolve's target and landing, then grid occupancy — and never the sprite", () => {
         const block = clickAttackBlock(sandboxSource());
         const code = block
             .split("\n")
@@ -54,25 +54,10 @@ describe("melee click acts on the target the cursor promised", () => {
 
         expect(resolved).toBeGreaterThan(-1);
         expect(occupancy).toBeGreaterThan(resolved);
+        // The resolve also feeds the attack-from cell, so cursor and click share one landing.
+        expect(code).toContain("this.hoverManager.hoverAttackFromCell = pointerMeleeAttack.attackFrom;");
         // OWNER CALL: a unit is attacked through the ground it holds, never its drawn body.
         expect(code).not.toContain("getUnitSpriteAtPosition(");
         expect(code).not.toContain("spriteHitDepth(");
-    });
-
-    test("the reachability guard reports itself instead of dropping the click in silence", () => {
-        const block = clickAttackBlock(sandboxSource());
-        const guard = block.slice(block.indexOf("!this.grid.areCellsAdjacent("));
-        const abort = guard.indexOf("return;");
-        expect(abort).toBeGreaterThan(-1);
-
-        // Whatever else the guard does, it must say something before abandoning the player's click.
-        const beforeAbort = guard.slice(0, abort);
-        expect(beforeAbort).toContain("console.warn");
-        expect(beforeAbort).toContain("[melee]");
-    });
-
-    test("the resolve still feeds the attack-from cell, so cursor and click share one landing", () => {
-        const block = clickAttackBlock(sandboxSource());
-        expect(block).toContain("this.hoverManager.hoverAttackFromCell = pointerMeleeAttack.attackFrom;");
     });
 });

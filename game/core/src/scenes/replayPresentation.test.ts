@@ -1,6 +1,11 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { FightStateManager, GridVals, TeamVals } from "@heroesofcrypto/common";
+
+import type { AuthoritativeGameSnapshot } from "../game_action_transport";
+import { releaseBoardMirror } from "../pixi/boardMirror";
+import type { SandboxReplay, SandboxReplayActionRecord } from "../replay/sandbox_replay";
+import { RankedPlayScene } from "./RankedPlayScene";
+import { Sandbox, type SandboxSceneState } from "./Sandbox";
 
 /**
  * What a replay SHOWS beyond the board: the combat log, the fight-stats graph, the turn clock, the
@@ -8,136 +13,239 @@ import { join } from "node:path";
  *
  * None of those can travel inside a SandboxSceneState — they are built from the snapshot's journal tail,
  * damage stats and server clocks. Live play runs them around every snapshot; a replay only ever hydrated
- * scene states, so it played a silent fight: no log (or the engine's unflagged wording), an empty graph, a
- * locally invented countdown, and no armageddon or morale pops at all.
- *
- * The fix keeps each record's whole snapshot beside its scene state and hands it to the ranked scene
- * through two hooks on the replay loop. These pin that wiring at the source, the way
- * replayTurnStatusIcons.test.ts pins the hydrate's: both sides build real Pixi sprites.
+ * scene states, so it played a silent fight. The fix keeps each record's whole snapshot beside its scene
+ * state and hands it to the ranked scene through two hooks on the replay loop.
  */
+const originalFight = FightStateManager.getInstance().getFightProperties();
+beforeEach(() => FightStateManager.getInstance().reset());
+afterEach(() => FightStateManager.getInstance().setFightProperties(originalFight));
+
+const sceneState = (currentLap: number): SandboxSceneState => ({
+    units: [],
+    gridType: GridVals.NORMAL,
+    currentLap,
+    fightStarted: currentLap > 0,
+    fightFinished: false,
+});
+
+const snapshotFor = (overrides: Partial<AuthoritativeGameSnapshot> = {}): AuthoritativeGameSnapshot => ({
+    gameId: "replay-game",
+    phase: 1,
+    gridType: GridVals.NORMAL,
+    currentLap: 1,
+    fightStarted: true,
+    fightFinished: false,
+    currentUnitId: "",
+    currentTurnTeam: TeamVals.LEFT,
+    latestSequence: 1,
+    narrowingLayers: 0,
+    centerDried: false,
+    units: [],
+    ...overrides,
+});
+
+const recordFor = (
+    sequence: number,
+    action: SandboxReplayActionRecord["action"],
+    authoritativeSnapshot?: AuthoritativeGameSnapshot,
+): SandboxReplayActionRecord => ({
+    sequence,
+    clientTimeMs: sequence,
+    action,
+    events: [],
+    stateAfter: sceneState(sequence),
+    authoritativeSnapshot,
+});
+
+const replayOf = (actions: SandboxReplayActionRecord[]): SandboxReplay => ({
+    version: 1,
+    kind: "sandbox",
+    id: "presentation",
+    createdAtMs: 0,
+    updatedAtMs: 0,
+    initialState: sceneState(0),
+    actions,
+});
+
 describe("replay presentation", () => {
-    const sandbox = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-    const ranked = readFileSync(join(import.meta.dir, "RankedPlayScene.ts"), "utf8");
-    const runtime = readFileSync(join(import.meta.dir, "..", "ui", "RankedGameViewRuntime.tsx"), "utf8");
+    test("the replay loop presents checkpoints and fires both hooks around the state each action lands on", async () => {
+        const timeline: string[] = [];
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            isSceneDestroyed: () => false,
+            sc_visibleState: {},
+            sc_sceneLog: { clear: () => {} },
+            preloadTextureKeys: async () => {},
+            prepareMapTextures: async () => {},
+            onSupplementaryTexturesLoaded: () => {},
+            hydrateSceneState: (state: SandboxSceneState) => timeline.push(`hydrate ${state.currentLap}`),
+            playSandboxReplayRecord: async (record: SandboxReplayActionRecord) => {
+                timeline.push(`play ${record.sequence}`);
+                return true;
+            },
+            onReplayRecordSettling: (record: SandboxReplayActionRecord) => timeline.push(`settle ${record.sequence}`),
+            onReplayRecordPresented: (record: SandboxReplayActionRecord) => timeline.push(`present ${record.sequence}`),
+            delayReplay: async () => {},
+            onReplayCompleted: () => {},
+        });
+        const replay = replayOf([
+            recordFor(1, { type: "start_fight" }),
+            recordFor(2, { type: "wait_turn", unitId: "a" }),
+        ]);
 
-    const sliceBetween = (source: string, from: string, to: string): string => {
-        const start = source.indexOf(from);
-        expect(start).toBeGreaterThanOrEqual(0);
-        const end = source.indexOf(to, start);
-        expect(end).toBeGreaterThan(start);
-        return source.slice(start, end);
-    };
-
-    test("the replay loop fires the hooks around the state it lands on", () => {
-        const loop = sliceBetween(
-            sandbox,
-            "public override async playSandboxReplay(",
-            "public override async playAuthoritativeActionRecord(",
-        );
-        const settling = loop.indexOf("this.onReplayRecordSettling(record)");
-        const hydrate = loop.indexOf("this.hydrateSceneState(cloneReplayData(record.stateAfter))", settling);
-        const presented = loop.indexOf("this.onReplayRecordPresented(record)", hydrate);
-        expect(settling).toBeGreaterThanOrEqual(0);
-        // Settling runs while the pre-action board still stands (a death with no event of its own has no
-        // other moment to be seen); presenting runs once the new state is in.
-        expect(hydrate).toBeGreaterThan(settling);
-        expect(presented).toBeGreaterThan(hydrate);
+        expect(await scene.playSandboxReplay(replay)).toBe(true);
+        expect(timeline).toEqual([
+            "hydrate 0",
+            // A checkpoint (placement-era) record is hydrated and presented, so its log lines are not lost.
+            "hydrate 1",
+            "present 1",
+            // An action plays on the board it started from; settling runs while that board still stands
+            // (a death with no event of its own has no other moment to be seen), presenting once the new
+            // state is in.
+            "hydrate 1",
+            "play 2",
+            "settle 2",
+            "hydrate 2",
+            "present 2",
+            "hydrate 2",
+        ]);
     });
 
-    test("a checkpoint record is presented too, so placement-era lines are not lost", () => {
-        const loop = sliceBetween(
-            sandbox,
-            "public override async playSandboxReplay(",
-            "public override async playAuthoritativeActionRecord(",
-        );
-        const checkpoint = loop.indexOf("shouldApplyReplayRecordAsCheckpoint");
-        const presentedAtCheckpoint = loop.indexOf("this.onReplayRecordPresented(record)", checkpoint);
-        const continued = loop.indexOf("continue;", checkpoint);
-        expect(presentedAtCheckpoint).toBeGreaterThan(checkpoint);
-        expect(continued).toBeGreaterThan(presentedAtCheckpoint);
+    test("ranked settles and presents every live step that is not the board itself", () => {
+        const steps = [
+            "processDebuffPops",
+            "applyAuthoritativeSceneLog",
+            "renderNewlyAppliedMorale",
+            "renderNewlyAppliedPoison",
+            "renderNewlyAppliedArmageddon",
+            "reconcileAuraEffectsFromSnapshot",
+            "applyRankedTimer",
+            "applyRankedFightStats",
+            "shatterNewlyDeadUnits",
+        ] as const;
+        const calls = Object.fromEntries(steps.map((step) => [step, mock((..._args: unknown[]) => {})]));
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), calls, {
+            rememberStatusSnapshot: () => {},
+            rememberStatusApplications: () => {},
+            flushEffectPops: () => {},
+            renderNewlyAppliedPyre: () => {},
+        });
+        const snapshot = snapshotFor();
+        const record = recordFor(1, { type: "wait_turn", unitId: "a" }, snapshot);
+
+        // A record without a journal has nothing to present beyond the board.
+        scene.onReplayRecordSettling(recordFor(1, { type: "wait_turn", unitId: "a" }));
+        scene.onReplayRecordPresented(recordFor(1, { type: "wait_turn", unitId: "a" }));
+        for (const step of steps) expect(calls[step]).not.toHaveBeenCalled();
+
+        // A death the events never announced is shattered before the rebuild hides it.
+        scene.onReplayRecordSettling(record);
+        expect(calls.shatterNewlyDeadUnits).toHaveBeenCalledWith(snapshot);
+        expect(calls.applyAuthoritativeSceneLog).not.toHaveBeenCalled();
+
+        scene.onReplayRecordPresented(record);
+        for (const step of steps) expect(calls[step].mock.calls[0]?.[0]).toBe(snapshot);
+        expect(calls.applyRankedFightStats).toHaveBeenCalledWith(snapshot, record.stateAfter.units);
     });
 
-    test("ranked presents every live step that is not the board itself", () => {
-        const present = sliceBetween(
-            ranked,
-            "protected override onReplayRecordPresented(",
-            "protected override getPlacementOwnerTeam(",
-        );
-        for (const step of [
-            "this.processDebuffPops(snapshot)",
-            "this.applyAuthoritativeSceneLog(snapshot)",
-            "this.renderNewlyAppliedMorale(snapshot)",
-            "this.renderNewlyAppliedPoison(snapshot)",
-            "this.renderNewlyAppliedArmageddon(snapshot)",
-            "this.reconcileAuraEffectsFromSnapshot(snapshot)",
-            "this.applyRankedTimer(snapshot)",
-            "this.applyRankedFightStats(snapshot, record.stateAfter.units)",
-        ]) {
-            expect(present).toContain(step);
+    test("playback re-baselines presentation and mutes the engine log only while a journal replaces it", async () => {
+        const suppressedDuringPlayback: boolean[] = [];
+        let suppressed = false;
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            resetRankedReplayPresentation: mock(() => {}),
+            sc_sceneLog: {
+                isSuppressed: () => suppressed,
+                setSuppressed: (value: boolean) => (suppressed = value),
+            },
+        });
+        let failPlayback = false;
+        const play = spyOn(Sandbox.prototype, "playSandboxReplay").mockImplementation(async () => {
+            suppressedDuringPlayback.push(suppressed);
+            if (failPlayback) throw new Error("playback failed");
+            return true;
+        });
+        try {
+            const journal = replayOf([recordFor(1, { type: "start_fight" }, snapshotFor())]);
+            expect(await scene.playSandboxReplay(journal)).toBe(true);
+            // A sandbox replay (no snapshots) keeps the engine channel — muting it would leave an empty log.
+            expect(await scene.playSandboxReplay(replayOf([recordFor(1, { type: "start_fight" })]))).toBe(true);
+            // And the channel is always put back, whatever the playback did.
+            failPlayback = true;
+            await expect(scene.playSandboxReplay(journal)).rejects.toThrow("playback failed");
+
+            expect(suppressedDuringPlayback).toEqual([true, false, true]);
+            expect(suppressed).toBe(false);
+            // Otherwise a replay started from a live fight continues that fight's log and graph.
+            expect(scene.resetRankedReplayPresentation).toHaveBeenCalledTimes(3);
+        } finally {
+            play.mockRestore();
+            releaseBoardMirror(scene);
         }
     });
 
-    test("a death the events never announced is shattered before the rebuild hides it", () => {
-        const settling = sliceBetween(
-            ranked,
-            "protected override onReplayRecordSettling(",
-            "protected override onReplayRecordPresented(",
-        );
-        expect(settling).toContain("this.shatterNewlyDeadUnits(snapshot)");
-    });
+    test("snapshot-by-snapshot replay re-baselines a new playback but continues one already running", () => {
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            replayViewingActive: false,
+            rankedSceneLogGameId: "",
+            rankedSceneLogSequence: -1,
+            lastPlacementStateByUnitId: new Map(),
+            resetRankedReplayPresentation: mock(() => {}),
+            applyAuthoritativeSnapshot: mock(() => {}),
+        });
 
-    test("playback re-baselines the log, stats and VFX high-water marks", () => {
-        // Otherwise a replay started from a live fight continues that fight's log and graph.
-        const play = sliceBetween(
-            ranked,
-            "public override async playSandboxReplay(",
-            "public override playAuthoritativeActionRecord(",
-        );
-        expect(play).toContain("this.resetRankedReplayPresentation()");
-        // Shared with the snapshot-by-snapshot replay path, which needs exactly the same re-baselining.
-        expect(ranked).toContain("private resetRankedReplayPresentation(): void {");
-        const fallback = sliceBetween(
-            ranked,
-            "public override applyAuthoritativeReplaySnapshot(",
-            "public override startScene(",
-        );
-        expect(fallback).toContain("this.resetRankedReplayPresentation()");
-    });
-
-    test("the engine text channel is muted only while a journal is there to replace it", () => {
-        const play = sliceBetween(
-            ranked,
-            "public override async playSandboxReplay(",
-            "public override playAuthoritativeActionRecord(",
-        );
-        // A sandbox replay (no snapshots) keeps the engine channel — muting it would leave an empty log.
-        expect(play).toContain("replay.actions.some((record) => !!record.authoritativeSnapshot)");
-        expect(play).toContain("this.sc_sceneLog.setSuppressed(true)");
-        // And it is always put back, whatever the playback did.
-        const restore = play.indexOf("this.sc_sceneLog.setSuppressed(wasSceneLogSuppressed)");
-        expect(restore).toBeGreaterThan(play.indexOf("} finally {"));
-    });
-
-    test("the view hands the replay builder the unnarrowed snapshot", () => {
-        expect(runtime).toContain("snapshotToAuthoritative: (playSnapshot) => toSceneSnapshot(playSnapshot)");
+        scene.applyAuthoritativeReplaySnapshot(snapshotFor({ latestSequence: 3 }));
+        expect(scene.resetRankedReplayPresentation).toHaveBeenCalledTimes(1);
+        Object.assign(scene, { rankedSceneLogGameId: "replay-game", rankedSceneLogSequence: 3 });
+        scene.applyAuthoritativeReplaySnapshot(snapshotFor({ latestSequence: 4 }));
+        expect(scene.resetRankedReplayPresentation).toHaveBeenCalledTimes(1);
+        scene.applyAuthoritativeReplaySnapshot(snapshotFor({ latestSequence: 2 }));
+        expect(scene.resetRankedReplayPresentation).toHaveBeenCalledTimes(2);
+        expect(scene.applyAuthoritativeSnapshot).toHaveBeenCalledTimes(3);
     });
 
     test("a snapshot skipped mid-animation still updates the battle log", () => {
-        const apply = sliceBetween(
-            ranked,
-            "public override applyAuthoritativeSnapshot(",
-            "public override applyAuthoritativeReplaySnapshot(",
-        );
-        const log = apply.indexOf("this.applyAuthoritativeSceneLog(snapshot)");
-        const bail = apply.indexOf("this.isPlayingActionAnimation()");
-        expect(log).toBeGreaterThanOrEqual(0);
-        expect(bail).toBeGreaterThan(log);
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            fullReplayPlaybackActive: false,
+            lastAuthoritativeSequence: 1,
+            sandboxCoop: false,
+            sc_visibleState: undefined,
+            rememberStatusSnapshot: () => {},
+            processDebuffPops: () => {},
+            applyRankedDamageStatistics: () => {},
+            applyAuthoritativeSceneLog: mock(() => {}),
+            isPlayingActionAnimation: () => true,
+            shatterNewlyDeadUnits: () => {},
+            hydrateSceneState: mock(() => {}),
+        });
+        const snapshot = snapshotFor({ latestSequence: 2 });
+
+        scene.applyAuthoritativeSnapshot(snapshot);
+
+        expect(scene.applyAuthoritativeSceneLog).toHaveBeenCalledWith(snapshot);
+        expect(scene.hydrateSceneState).not.toHaveBeenCalled();
     });
 
-    test("replay playback opens the fight chrome once the fight is on screen", () => {
-        // The React snapshot stays on the opening board, so the battle log (mounted with the fight
-        // chrome) has to follow the scene, and only while that playback is running.
-        expect(runtime).toContain("replayPlaybackActive && replayFightVisible");
-        expect(ranked).toContain("replayFightVisible");
+    test("replay playback opens the fight chrome once the fight is on screen, and only during playback", () => {
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            fullReplayPlaybackActive: false,
+            replayViewingActive: false,
+            sc_visibleState: { replayFightVisible: false },
+            sc_visibleStateUpdateNeeded: false,
+            resetStatusApplicationOrder: () => {},
+            resetRankedFightStats: () => {},
+        });
+
+        scene.publishReplayFightChrome(snapshotFor());
+        expect(scene.sc_visibleState.replayFightVisible).toBe(false);
+
+        scene.fullReplayPlaybackActive = true;
+        scene.publishReplayFightChrome(snapshotFor({ fightStarted: false }));
+        expect(scene.sc_visibleState.replayFightVisible).toBe(false);
+        scene.publishReplayFightChrome(snapshotFor());
+        expect(scene.sc_visibleState.replayFightVisible).toBe(true);
+        expect(scene.sc_visibleStateUpdateNeeded).toBe(true);
+
+        // A new playback starts on the opening board with the chrome closed again.
+        scene.resetRankedReplayPresentation();
+        expect(scene.sc_visibleState.replayFightVisible).toBe(false);
     });
 });

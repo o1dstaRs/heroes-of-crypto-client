@@ -1,11 +1,9 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { TeamVals } from "@heroesofcrypto/common";
 import { describe, expect, spyOn, test } from "bun:test";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import { RankedPlayScene } from "./RankedPlayScene";
+import { Sandbox } from "./Sandbox";
 
 /**
  * The drop glitch is not the pure compare. It is applyAuthoritativeSnapshot deciding to destroy every
@@ -317,10 +315,29 @@ describe("ranked placement snapshots", () => {
     });
 
     test("only a landed place_unit arms the rewind hold", () => {
-        const source = readFileSync(join(import.meta.dir, "RankedPlayScene.ts"), "utf8");
-        const arm = source.indexOf('if (result.completed && (action.type === "place_unit"');
-        const slice = source.slice(arm, arm + 500);
-        expect(slice).toContain('if (action.type === "place_unit") this.noteOptimisticPlacement();');
-        expect(slice).not.toContain('select_attack_type") this.noteOptimisticPlacement');
+        let serverAccepts = true;
+        let localAccepts = true;
+        const local = spyOn(Sandbox.prototype as unknown as { createActionEngine(): unknown }, "createActionEngine");
+        local.mockImplementation(() => ({ apply: () => ({ completed: localAccepts, events: [] }) }));
+        let holds = 0;
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            isPlayingAuthoritativeReplay: () => false,
+            dispatchExternalGameAction: () => ({ handled: true, completed: serverAccepts }),
+            noteOptimisticPlacement: () => holds++,
+        }) as { createActionEngine(): { apply(action: { type: string }): { completed: boolean } } };
+        try {
+            const apply = (type: string) => scene.createActionEngine().apply({ type });
+            expect(apply("place_unit").completed).toBe(true);
+            expect(holds).toBe(1);
+            expect(apply("select_attack_type").completed).toBe(true);
+            serverAccepts = false;
+            expect(apply("place_unit").completed).toBe(false);
+            serverAccepts = true;
+            localAccepts = false;
+            expect(apply("place_unit").completed).toBe(false);
+            expect(holds).toBe(1);
+        } finally {
+            local.mockRestore();
+        }
     });
 });

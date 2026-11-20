@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { describe, expect, mock, test } from "bun:test";
+import { GridSettings } from "@heroesofcrypto/common";
 
-import { describe, expect, test } from "bun:test";
+import { Sandbox } from "./Sandbox";
 
 import {
     formatAggrBlockedActionHint,
@@ -74,20 +74,44 @@ describe("Aggr blocked-action hint", () => {
     // exception: its hover refused (hint, or no area drawn at all) while attemptAreaThrowAttack had no Aggr
     // check of any kind, so the throw the cursor had just forbidden went out anyway — to be refused by the
     // engine, or on a local board to simply land (audit 2026-09-19).
-    test("the splash throw gates its click on Aggr, exactly as its siblings do", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const click = source.slice(
-            source.indexOf("private attemptAreaThrowAttack("),
-            source.indexOf("private async performAreaThrow("),
-        );
-        // The same gate the hover asks, so the cursor and the throw judge one blast the same way.
-        expect(click).toContain("this.aggrBlockedSplashTarget(");
-        expect(click).toContain("this.showAggrBlockedActionHint(aggrBlockedAreaTarget)");
+    test.each([
+        ["a neighbour", ["squire"], true],
+        ["the provoker", ["squire", "pikeman"], false],
+    ] as const)("the splash throw's hover and click judge a blast catching %s the same way", (_, caught, blocked) => {
+        const cells = caught.map((_id, index) => ({ x: 5 + index, y: 5 }));
+        const units = new Map(caught.map((id) => [id, { getId: () => id, hasAbilityActive: () => false }]));
+        const provoker = { getId: () => forcedTargetId };
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            // The hover's gate runs before anything about the thrower; leave it out of the hover's forecasts.
+            currentActiveUnit: undefined as unknown,
+            sc_mouseWorld: { x: 0, y: 0 },
+            sc_hoverInfoArr: [],
+            sc_sceneSettings: { getGridSettings: () => new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06) },
+            grid: { getOccupantUnitId: (cell: { x: number }) => caught[cell.x - 5] },
+            unitsHolder: { getAllUnits: () => units },
+            getAreaThrowCells: () => cells,
+            getLiveAggrForcedTarget: () => provoker,
+            showAggrBlockedActionHint: mock(() => {}),
+            clearAggrBlockedActionHint: () => {},
+            hoverManager: {
+                clearAOEArea: () => {},
+                clearAttackVisuals: () => {},
+                drawAOEArea: mock(() => {}),
+                addTargetHighlight: () => {},
+                drawDamagePrediction: () => {},
+            },
+        });
 
-        const hover = source.slice(
-            source.indexOf("private updateAreaThrowHover("),
-            source.indexOf("private getAreaThrowCells("),
-        );
-        expect(hover).toContain("this.aggrBlockedSplashTarget(affectedGroups)");
+        expect(scene.updateAreaThrowHover()).toBe(true);
+        expect(scene.hoverManager.drawAOEArea).toHaveBeenCalledTimes(blocked ? 0 : 1);
+        expect(scene.showAggrBlockedActionHint).toHaveBeenCalledTimes(blocked ? 1 : 0);
+
+        // The click gates on the same blast, so the throw the cursor forbade never goes out.
+        scene.currentActiveUnit = { getId: () => "gargantuan" };
+        scene.performAreaThrow = mock(async () => {});
+        scene.attemptAreaThrowAttack({ x: 0, y: 0 });
+        expect(scene.showAggrBlockedActionHint).toHaveBeenCalledTimes(blocked ? 2 : 0);
+        if (blocked) expect(scene.showAggrBlockedActionHint).toHaveBeenLastCalledWith(provoker);
+        expect(scene.performAreaThrow).toHaveBeenCalledTimes(blocked ? 0 : 1);
     });
 });

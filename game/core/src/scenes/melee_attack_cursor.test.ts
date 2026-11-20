@@ -1,8 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { AttackVals } from "@heroesofcrypto/common";
+import { AttackVals, GridSettings } from "@heroesofcrypto/common";
+import { CanvasTextMetrics, type Container, type Sprite, type Text, Texture } from "pixi.js";
 
 import {
     rangedDamageModifierIcon,
@@ -11,6 +12,8 @@ import {
     resolveMeleeCursorDirection,
 } from "./Sandbox";
 import {
+    HoverManager,
+    type ISandboxHoverContext,
     meleeSwordDisplayLength,
     meleeSwordFacingAngle,
     meleeSwordSpriteCenter,
@@ -35,36 +38,63 @@ const params = (overrides: Partial<Parameters<typeof resolveMeleeAttackFromPoint
 });
 
 describe("pointer-driven unit melee targeting", () => {
-    test("renders the sword in a camera sibling after the entire battlefield", () => {
-        const hoverManagerSource = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
+    test("renders the sword and every damage prediction in the cursor overlay, after the entire battlefield", () => {
+        // The overlay is a camera sibling rendered after worldRoot, so nothing on the board (barrels, units,
+        // target silhouettes) can cover it. Building that tree needs a real renderer, so its order is pinned.
         const pixiAppSource = readFileSync(join(import.meta.dir, "../pixi/PixiApp.ts"), "utf8");
-
-        expect(hoverManagerSource).toContain("this.context.attachToCursorOverlay(sword)");
         expect(pixiAppSource).toContain("this.camera.addChild(this.worldRoot, this.cursorOverlayRoot)");
-    });
 
-    test("renders every damage prediction above barrels, units and target silhouettes", () => {
-        const hoverManagerSource = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
-        const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-
-        expect(hoverManagerSource).toContain(
-            "this.context.attachToCursorOverlay(obj, DAMAGE_PREDICTION_OVERLAY_Z_INDEX)",
+        const overlay: { object: unknown; zIndex?: number }[] = [];
+        const world: unknown[] = [];
+        const hover = new HoverManager({
+            sceneSettings: { getGridSettings: () => new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06) },
+            getCameraScale: () => ({ x: 1, y: 1 }),
+            attachToCursorOverlay: (object: Container, zIndex?: number) => overlay.push({ object, zIndex }),
+            attachToWorldRoot: (object: Container) => world.push(object),
+            texAny: () => Texture.WHITE,
+            getCurrentActiveUnit: () => undefined,
+        } as unknown as ISandboxHoverContext);
+        const visuals = hover as unknown as {
+            hoverAttackSwordTexture?: Texture;
+            hoverAttackSword?: Sprite;
+            hoverDamageText?: Text;
+            hoverKillText?: Text;
+            hoverDamageIcon?: Sprite;
+            hoverRangeModifierIcon?: Sprite;
+        };
+        const metrics = spyOn(CanvasTextMetrics, "measureText").mockImplementation(
+            (text) => ({ width: text.length * 12, height: 24 }) as ReturnType<typeof CanvasTextMetrics.measureText>,
         );
-        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(damageText)");
-        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(this.hoverRangeModifierIcon)");
-        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(this.hoverKillText)");
-        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(this.hoverDamageIcon)");
-        expect(sandboxSource).toContain("cursorOverlayRoot.sortableChildren = true");
-    });
+        try {
+            visuals.hoverAttackSwordTexture = Texture.WHITE;
+            // Reasserted on every draw: a rebuilt container must never leave the sword in a stale world layer.
+            for (const to of [
+                { x: 100, y: 100 },
+                { x: 140, y: 60 },
+            ]) {
+                hover.drawAttackArrow({ x: 20, y: 20 }, to, undefined, undefined, "melee");
+                expect(visuals.hoverAttackSword?.visible).toBe(true);
+                expect(overlay.at(-1)?.object).toBe(visuals.hoverAttackSword);
+            }
+            expect(world).not.toContain(visuals.hoverAttackSword);
 
-    test("uses the live range context when choosing the damage-preview attack origin", () => {
-        const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-
-        // `isMelee` was removed when hover projection was unified. Leaving this stale reference made
-        // every valid target hover throw after its highlight, before either damage or the attack marker
-        // could be drawn.
-        expect(sandboxSource).toContain("if (!isRangeAttackContext) {");
-        expect(sandboxSource).not.toMatch(/\bif \(isMelee\) \{/);
+            overlay.length = 0;
+            hover.drawDamagePrediction("126 - 314", "1–3", { x: 100, y: 150 }, false, "kills", "range_penalty");
+            const predictions = [
+                visuals.hoverDamageText,
+                visuals.hoverKillText,
+                visuals.hoverDamageIcon,
+                visuals.hoverRangeModifierIcon,
+            ];
+            for (const prediction of predictions) {
+                expect(prediction).toBeDefined();
+                expect(overlay).toContainEqual({ object: prediction, zIndex: 100 });
+                expect(world).not.toContain(prediction);
+            }
+        } finally {
+            metrics.mockRestore();
+            hover.clearAttackVisuals();
+        }
     });
 
     test("shows the broken-arrow badge for every penalized ranged band", () => {

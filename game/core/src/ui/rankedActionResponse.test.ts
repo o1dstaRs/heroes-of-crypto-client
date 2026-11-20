@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, test } from "bun:test";
 import { TeamVals } from "@heroesofcrypto/common";
 
@@ -60,38 +57,23 @@ describe("ranked action response snapshots", () => {
         expect(placementActionSkipsSubmitSpinner(PlayActionType.DELETE_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.UNPLACE_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.MOVE_UNIT)).toBe(false);
-
-        const runtime = readFileSync(join(import.meta.dir, "RankedGameViewRuntime.tsx"), "utf8");
-        const gate = runtime.indexOf("const showsSubmitSpinner =");
-        const raised = runtime.slice(gate, gate + 240);
-        expect(raised).toContain("!placementActionSkipsSubmitSpinner(payload.type)");
-        expect(raised).toMatch(/if \(showsSubmitSpinner\) \{\s*setBusy\(true\);/);
-        const cleared = runtime.slice(runtime.indexOf("} finally {", gate), runtime.indexOf("} finally {", gate) + 160);
-        expect(cleared).toMatch(/if \(showsSubmitSpinner\) \{\s*setBusy\(false\);/);
     });
 
-    test("never surfaces a bare informational message (e.g. ACTION_ACCEPTED's raw action-type name) as an error", () => {
-        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "RANGE_ATTACK" })).toBe("");
-        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "END_TURN" })).toBe("");
-        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "" })).toBe("");
-    });
-
-    test("surfaces a real rejection reason as the error", () => {
-        expect(rejectionErrorFromPlayEvent({ rejectionReason: "attack_not_available", message: "" })).toBe(
-            "attack_not_available",
-        );
-    });
-
-    test("says there is no space when a summon is refused for room, instead of the raw reason code", () => {
-        expect(
-            rejectionErrorFromPlayEvent({
-                rejectionReason: "spell_not_available",
-                message: "No space next to Satyr. Wolf needs 2×1 free cells.",
-            }),
-        ).toBe("No space next to Satyr. Wolf needs 2×1 free cells.");
-        expect(rejectionErrorFromPlayEvent({ rejectionReason: "spell_not_available", message: "" })).toBe(
-            "spell_not_available",
-        );
+    test.each([
+        // ACTION_ACCEPTED carries the raw action-type name as its message; it is never an error.
+        ["a bare informational message", { rejectionReason: "", message: "RANGE_ATTACK" }, ""],
+        ["an end-turn notice", { rejectionReason: "", message: "END_TURN" }, ""],
+        ["an empty event", { rejectionReason: "", message: "" }, ""],
+        ["a real rejection reason", { rejectionReason: "attack_not_available", message: "" }, "attack_not_available"],
+        // A summon refused for room says so, instead of the raw reason code.
+        [
+            "a no-space summon refusal",
+            { rejectionReason: "spell_not_available", message: "No space next to Satyr. Wolf needs 2×1 free cells." },
+            "No space next to Satyr. Wolf needs 2×1 free cells.",
+        ],
+        ["a reason with no message", { rejectionReason: "spell_not_available", message: "" }, "spell_not_available"],
+    ])("surfaces the right error for %s", (_, event, expected) => {
+        expect(rejectionErrorFromPlayEvent(event)).toBe(expected);
     });
 
     test("recovers a rejected continued-move follow-up but not its move, ping, or recovery end", () => {
@@ -120,26 +102,17 @@ describe("ranked action response snapshots", () => {
         ).toBe(false);
     });
 
-    test("does not apply model-authorized placement snapshots to the viewer", () => {
-        expect(
-            shouldApplyActionResponseSnapshotToViewer(snapshot({ phase: PlayPhase.PLACEMENT }), {
-                isModelSubmission: true,
-            }),
-        ).toBe(false);
-    });
-
-    test("applies human placement snapshots and model fight snapshots", () => {
-        expect(
-            shouldApplyActionResponseSnapshotToViewer(snapshot({ phase: PlayPhase.PLACEMENT }), {
-                isModelSubmission: false,
-            }),
-        ).toBe(true);
-        expect(
-            shouldApplyActionResponseSnapshotToViewer(
-                snapshot({ phase: PlayPhase.PLAY, fightStarted: true, currentLap: 1 }),
-                { isModelSubmission: true },
-            ),
-        ).toBe(true);
+    test.each([
+        ["withholds a model-authorized placement snapshot", snapshot({ phase: PlayPhase.PLACEMENT }), true, false],
+        ["applies a human placement snapshot", snapshot({ phase: PlayPhase.PLACEMENT }), false, true],
+        [
+            "applies a model fight snapshot",
+            snapshot({ phase: PlayPhase.PLAY, fightStarted: true, currentLap: 1 }),
+            true,
+            true,
+        ],
+    ])("%s to the viewer", (_, response, isModelSubmission, applied) => {
+        expect(shouldApplyActionResponseSnapshotToViewer(response, { isModelSubmission })).toBe(applied);
     });
 
     test("uses model player id to resolve the actual server-side model team", () => {

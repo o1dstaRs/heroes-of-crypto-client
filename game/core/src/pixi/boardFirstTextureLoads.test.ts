@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
+import { Assets, Texture } from "pixi.js";
+
+import { images } from "../generated/image_imports";
 
 import {
+    boardFirstTextureLoads,
     boardImageRetryDelayMs,
     createBoardFirstLoads,
     EXTRA_TEXTURE_MAX_WAIT_MS,
@@ -11,6 +15,14 @@ import {
     MAX_CONCURRENT_EXTRA_TEXTURE_LOADS,
     MAX_CONCURRENT_VISIBLE_TEXTURE_LOADS,
 } from "./boardFirstTextureLoads";
+import { PixiScene } from "./PixiScene";
+
+const SceneConstructor = PixiScene as unknown as new (settings: object) => {
+    textures: Record<string, Texture>;
+    texAny(key: string): Texture | undefined;
+    scheduleBoardImageRetry(url: string): void;
+    sc_destroyed: boolean;
+};
 
 const BOARD = "peasant_battlefield_side_right_distance_readable_v1";
 const EXTRA = "squire_idle_atlas_quarter";
@@ -311,14 +323,33 @@ describe("board-first texture loading", () => {
 });
 
 describe("where the board-first order is applied", () => {
-    test("every on-demand scene texture loads through it, and a failed board image schedules a repaint to retry", () => {
-        const scene = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        expect(scene).toContain("boardFirstTextureLoads.load(key, () => Assets.load<Texture>(url), options)");
-        expect(scene).toContain("boardFirstTextureLoads.promote(pending, options)");
-        expect(scene).not.toContain("pending = Assets.load<Texture>(url);");
-        expect(scene).toContain("this.scheduleBoardImageRetry(url)");
+    test("every on-demand scene texture loads through it, and a failed board image schedules a repaint to retry", async () => {
+        const scene = new SceneConstructor({});
+        scene.textures = {};
+        const retries: string[] = [];
+        scene.scheduleBoardImageRetry = (url) => retries.push(url);
+        const queued = spyOn(boardFirstTextureLoads, "load");
+        const load = spyOn(Assets, "load").mockImplementation((async (url: string) => {
+            if (url === images.thief_board_128) throw new Error("network");
+            return Texture.WHITE;
+        }) as typeof Assets.load);
+        try {
+            expect(scene.texAny("thief_board_128")).toBeUndefined();
+            expect(scene.texAny(EXTRA)).toBeUndefined();
+            expect(queued.mock.calls.map(([key]) => key)).toEqual(["thief_board_128", EXTRA]);
+            await tick(5);
+            expect(load).toHaveBeenCalledTimes(2);
+            expect(retries).toEqual([images.thief_board_128]);
+            expect(scene.texAny(EXTRA)).toBe(Texture.WHITE);
+        } finally {
+            scene.sc_destroyed = true;
+            queued.mockRestore();
+            load.mockRestore();
+        }
     });
 
+    // OWNER (playable-first loading): idle/animation sheets wait for the board images. PixiGameManager's
+    // init needs a live WebGL app, so this ordering stays pinned against the source.
     test("the idle and animation bundles start only after the board images", () => {
         const manager = readFileSync(join(import.meta.dir, "PixiGameManager.ts"), "utf8");
         const waitAt = manager.indexOf("boardFirstTextureLoads.afterBoardImages()");

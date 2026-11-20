@@ -15,44 +15,15 @@ import {
 } from "./rankedPlacementStage";
 
 describe("ranked Setup opponent-roster policy", () => {
-    test("keeps public/default Setup visible", () => {
+    test.each([
+        ["keeps public/default Setup visible", true, 0, false, false],
+        ["hides only an explicitly private split Setup", true, 0, true, true],
+        ["does not extend Setup privacy into Board placement", true, 1, true, false],
+        ["ignores an out-of-scope privacy flag on legacy combined placement", false, 0, true, false],
+    ] as const)("%s", (_case, placementSplit, placementStage, hideOpponentRosterDuringSetup, hidden) => {
         expect(
-            shouldHideRankedSetupOpponentRoster({
-                placementSplit: true,
-                placementStage: 0,
-                hideOpponentRosterDuringSetup: false,
-            }),
-        ).toBe(false);
-    });
-
-    test("hides only an explicitly private split Setup", () => {
-        expect(
-            shouldHideRankedSetupOpponentRoster({
-                placementSplit: true,
-                placementStage: 0,
-                hideOpponentRosterDuringSetup: true,
-            }),
-        ).toBe(true);
-    });
-
-    test("does not extend Setup privacy into Board placement", () => {
-        expect(
-            shouldHideRankedSetupOpponentRoster({
-                placementSplit: true,
-                placementStage: 1,
-                hideOpponentRosterDuringSetup: true,
-            }),
-        ).toBe(false);
-    });
-
-    test("ignores an out-of-scope privacy flag on legacy combined placement", () => {
-        expect(
-            shouldHideRankedSetupOpponentRoster({
-                placementSplit: false,
-                placementStage: 0,
-                hideOpponentRosterDuringSetup: true,
-            }),
-        ).toBe(false);
+            shouldHideRankedSetupOpponentRoster({ placementSplit, placementStage, hideOpponentRosterDuringSetup }),
+        ).toBe(hidden);
     });
 });
 
@@ -161,27 +132,22 @@ describe("ranked board placement stage (fail-open)", () => {
  * says setup choices "stay EDITABLE through the board stage ... right up until their own board-ready").
  */
 describe("shouldShowRankedAugmentPicker", () => {
-    const placement = { phase: PlayPhase.PLACEMENT };
-
-    test("shows the live picker while positioning the board", () => {
-        expect(shouldShowRankedAugmentPicker(placement, false, false, false)).toBe(true);
-    });
-
-    test("stays hidden behind the Setup step's own full-screen picker", () => {
+    test.each([
+        ["shows the live picker while positioning the board", PlayPhase.PLACEMENT, false, false, false, true],
         // Two live pickers on one build would let the same points be spent twice over.
-        expect(shouldShowRankedAugmentPicker(placement, true, false, false)).toBe(false);
-    });
-
-    test("collapses to the recap once the player locks in, which is where the server stops accepting", () => {
-        expect(shouldShowRankedAugmentPicker(placement, false, false, true)).toBe(false);
-    });
-
-    test("never offers picking to an observer", () => {
-        expect(shouldShowRankedAugmentPicker(placement, false, true, false)).toBe(false);
-    });
-
-    test("is placement-only — never during the fight", () => {
-        expect(shouldShowRankedAugmentPicker({ phase: PlayPhase.PLAY }, false, false, false)).toBe(false);
+        ["stays hidden behind the Setup step's own full-screen picker", PlayPhase.PLACEMENT, true, false, false, false],
+        [
+            "collapses to the recap once the player locks in, which is where the server stops accepting",
+            PlayPhase.PLACEMENT,
+            false,
+            false,
+            true,
+            false,
+        ],
+        ["never offers picking to an observer", PlayPhase.PLACEMENT, false, true, false, false],
+        ["is placement-only — never during the fight", PlayPhase.PLAY, false, false, false, false],
+    ] as const)("%s", (_case, phase, augmentOverlayOpen, observer, ready, shown) => {
+        expect(shouldShowRankedAugmentPicker({ phase }, augmentOverlayOpen, observer, ready)).toBe(shown);
     });
 });
 
@@ -196,7 +162,7 @@ describe("shouldShowRankedAugmentPicker", () => {
 describe("the ranked sidebar uses the compact augment picker", () => {
     const source = readFileSync(join(import.meta.dir, "RankedGameViewRuntime.tsx"), "utf8");
 
-    test("the sidebar mounts the compact container and the full-screen step keeps the expanded one", () => {
+    test("the sidebar mounts the compact container, still wired to the authoritative build and commit gate", () => {
         const sidebar = source.slice(
             source.indexOf("augmentsEditableInSidebar ? ("),
             source.indexOf("{/* The augment step is its own full screen"),
@@ -205,18 +171,13 @@ describe("the ranked sidebar uses the compact augment picker", () => {
         expect(sidebar).not.toContain("<SideToggleContainer");
         // The Setup step still gets the expanded cards — it has the room for them.
         expect(source).toContain("<SideToggleContainer");
-    });
 
-    test("the compact picker is still wired to the authoritative build and the commit gate", () => {
         // Layout change only: dropping either prop would silently show a blank picker with a full budget,
         // or leave the "Lock in augments" button unable to tell when the points are spent.
-        const sidebar = source.slice(
-            source.indexOf("<SandboxToggleContainer"),
-            source.indexOf("{/* The augment step is its own full screen"),
-        );
-        expect(sidebar).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
-        expect(sidebar).toContain("onReadyChange={setAugmentReady}");
+        const compact = sidebar.slice(sidebar.indexOf("<SandboxToggleContainer"));
+        expect(compact).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
+        expect(compact).toContain("onReadyChange={setAugmentReady}");
         // Ranked hides the free artifact picker (artifacts are drafted); the co-op sandbox shows it.
-        expect(sidebar).toContain("showArtifactPicker={skipAugmentStep}");
+        expect(compact).toContain("showArtifactPicker={skipAugmentStep}");
     });
 });
