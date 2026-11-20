@@ -47,8 +47,9 @@ function fixture(spellName = "Fire Strike", amount = 7, unitsDied = 0) {
         destroyed = false;
     const clock = spyOn(performance, "now").mockImplementation(() => now);
     const root = new Container();
-    const unit = (id: string, x: number) => ({
+    const unit = (id: string, x: number, cells: { x: number; y: number }[] = []) => ({
         getId: () => id,
+        getCells: () => cells,
         getName: () => (id === "caster" ? "Battle Mage" : "Peasant"),
         hasAbilityActive: () => false,
         isDead: () => false,
@@ -63,7 +64,7 @@ function fixture(spellName = "Fire Strike", amount = 7, unitsDied = 0) {
         captureDamageCasualties: mock(() => mock(() => undefined)),
     });
     const caster = { ...unit("caster", 50), getSpellProjectileOrigin: () => ({ x: 50, y: 100 }) };
-    const victim = unit("victim", 250),
+    const victim = unit("victim", 250, [{ x: 4, y: 6 }]),
         splash = unit("splash", 310);
     const units = new Map<string, ReturnType<typeof unit>>([
         ["caster", caster],
@@ -342,7 +343,9 @@ test("Fireball has one flight and one filled explosion for its complete recorded
         ];
         f.scene.renderSpellDamageVfx([f.event]);
         expect(launch).toHaveBeenCalledTimes(1);
-        expect(launch.mock.calls[0][1]).toEqual(spellFootprint([f.event.targetCell!], gs).center);
+        // Like a ranged shot, the fireball lands on the body of the creature on its centre cell.
+        expect(launch.mock.calls[0][1]).toEqual(f.victim.getProjectileImpactPoint());
+        expect(launch.mock.calls[0][2].center).toEqual(spellFootprint([f.event.targetCell!], gs).center);
         expect(f.explosion).not.toHaveBeenCalled();
         expect(mirror).not.toHaveBeenCalled();
         expect(f.scene.showFleshShieldAbsorbedDamage).not.toHaveBeenCalled();
@@ -407,6 +410,39 @@ test("a recorded fire kill cannot materialize its authoritative summon before im
     }
 });
 
+test("a Fireball on an empty centre cell flies to the cell, not to a splashed creature", async () => {
+    const f = fixture("Fireball");
+    try {
+        f.event.targetCell = { x: 9, y: 9 };
+        const launch = spyOn(f.visuals, "spawnFireballFlight");
+        f.scene.renderSpellDamageVfx([f.event]);
+        expect(launch.mock.calls[0][1]).toEqual(spellFootprint([{ x: 9, y: 9 }], gs).center);
+        f.at(1000);
+        await flush();
+    } finally {
+        f.dispose();
+    }
+});
+
+test("Fire Strike lands on the struck creature's body, like a ranged shot, not on its cell", async () => {
+    const f = fixture();
+    try {
+        f.event.animations.push({
+            fromPosition: { x: 50, y: 1024 },
+            toPosition: { x: 250, y: 1024 },
+            affectedUnitId: "victim",
+        });
+        const launch = spyOn(f.visuals, "spawnFireStrikeArrow");
+        f.scene.renderSpellDamageVfx([f.event]);
+        expect(launch.mock.calls[0][1]).toEqual(f.victim.getProjectileImpactPoint());
+        expect(launch.mock.calls[0][2]).toEqual(projectBattlefieldPoint({ x: 250, y: 1024 }, gs));
+        f.at(1000);
+        await flush();
+    } finally {
+        f.dispose();
+    }
+});
+
 test("recorded origin and impact still deliver after a victim has left the holder", async () => {
     const f = fixture();
     try {
@@ -419,7 +455,9 @@ test("recorded origin and impact still deliver after a victim has left the holde
         });
         const launch = spyOn(f.visuals, "spawnFireStrikeArrow");
         f.scene.renderSpellDamageVfx([f.event], undefined, snapshot);
-        expect(launch.mock.calls[0][1]).toEqual(projectBattlefieldPoint({ x: 250, y: 1024 }, gs));
+        // The captured victim still owns the landing point: its body, as for a ranged shot.
+        expect(launch.mock.calls[0][1]).toEqual(f.victim.getProjectileImpactPoint());
+        expect(launch.mock.calls[0][2]).toEqual(projectBattlefieldPoint({ x: 250, y: 1024 }, gs));
         f.at(1000);
         await flush();
         expect(f.contacts).toHaveLength(1);

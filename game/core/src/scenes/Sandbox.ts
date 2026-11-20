@@ -11564,12 +11564,24 @@ export class Sandbox extends PixiScene {
                   : event.targetCell
                     ? spellFootprint([event.targetCell], gs)
                     : undefined;
+        // Like a ranged shot, the projectile lands on the struck creature's body, not on its cell: the
+        // Fire Strike victim, or the creature standing on Fireball's centre cell. The burst stays on the
+        // ground footprint. Only an empty cell or a departed victim falls back to the recorded point.
+        const unitOf = (id?: string) =>
+            id ? ((units.get(id) ?? capturedUnits?.get(id)) as RenderableUnit | undefined) : undefined;
+        const centreCell = event.targetCell;
+        const fireballCentre = centreCell
+            ? [...(event.damaged ?? []).filter((hit) => !hit.rebounded).map((hit) => hit.unitId), event.targetId]
+                  .map(unitOf)
+                  .find((unit) => unit?.getCells?.().some((cell) => cell.x === centreCell.x && cell.y === centreCell.y))
+            : undefined;
         const to =
             event.spellName === "Fireball"
-                ? ground?.center
-                : flight?.toPosition
-                  ? projectBattlefieldPoint(flight.toPosition, gs)
-                  : (victim?.getProjectileImpactPoint?.(gs) ?? ground?.center);
+                ? (fireballCentre?.getProjectileImpactPoint?.(gs) ?? ground?.center)
+                : ((primary ? victim?.getProjectileImpactPoint?.(gs) : undefined) ??
+                  (flight?.toPosition ? projectBattlefieldPoint(flight.toPosition, gs) : undefined) ??
+                  victim?.getProjectileImpactPoint?.(gs) ??
+                  ground?.center);
         if (!from || !to || !ground || ![from.x, from.y, to.x, to.y].every(Number.isFinite)) return false;
         // Capture before cleanup/hydration can replace the presentation objects. One delivery owns all
         // AOE, reflected, absorbed and zero-damage entries; never launch one projectile per recipient.
