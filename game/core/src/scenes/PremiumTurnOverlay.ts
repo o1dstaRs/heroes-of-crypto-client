@@ -195,6 +195,14 @@ export const premiumMoveDrawing = (
                     } else if (victim && !through && !area) {
                         cells = victim.getCells();
                         if (target && victim.getId() !== target.getId()) point = victim.getPosition();
+                    } else if (singleBlocked && through) {
+                        // A barrel stops Through Shot without being struck. End the ray at the units it
+                        // actually pierces: the aimed edge when the target is among them, else the last hit.
+                        const pierced = projection.evaluation.affectedUnits.flat();
+                        if (!target || !pierced.some((unit) => unit.getId() === target.getId())) {
+                            const last = pierced.at(-1);
+                            if (last) point = last.getPosition();
+                        }
                     } else if (singleBlocked && projection.blocker) {
                         point = projection.blocker.position;
                     }
