@@ -6,7 +6,7 @@
     },
     "Fire Strike": {
         "slug": "spell-fire-strike",
-        "durationMs": 1724,
-        "revision": "e8151c53e4"
+        "durationMs": 694,
+        "revision": "2dd031bf56"
     }
 }
