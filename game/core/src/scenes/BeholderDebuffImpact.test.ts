@@ -218,3 +218,47 @@ test("committed attack keeps effect pops held while textures are loading", () =>
     scene.sc_moveBlocked = false;
     expect(scene.isStrikeInFlight()).toBe(false);
 });
+
+test("a status cue that re-seats itself every frame ends each frame to the right of the damage", async () => {
+    const { Container, Rectangle } = await import("pixi.js");
+    const { CombatVisuals } = await import("./sandbox/CombatVisuals");
+    const root = new Container();
+    root.scale.y = -1;
+    const flag = { x: 100, y: 200 };
+    const unit = {
+        getId: () => "victim",
+        isDead: () => false,
+        getFlagEffectAnchor: () => flag,
+        getDamagePredictionAnchor: () => flag,
+    } as unknown as import("./RenderableUnit").RenderableUnit;
+    const visuals = new CombatVisuals({
+        getGridSettings: () => ({ getCellSize: () => 64 }),
+        getUnitsHolder: () => ({ getAllUnits: () => new Map([["victim", unit]]) }),
+        attachToWorldRoot: (node: InstanceType<typeof Container>) => {
+            root.addChild(node);
+        },
+        getSelectedUnitProperties: () => undefined,
+        updateSelectedUnitProperties: () => undefined,
+        setUnitPropertiesUpdateNeeded: () => undefined,
+    } as unknown as import("./sandbox/CombatVisuals").ICombatVisualsContext);
+    try {
+        visuals.showFloatingDamage(flag, 25, undefined, 0, undefined, undefined, flag);
+        // Dulling Defense and the other common pops snap their container onto the flag in update().
+        const cue = new Container();
+        cue.boundsArea = new Rectangle(-40, -80, 80, 80);
+        cue.scale.y = -1;
+        const internals = visuals as unknown as {
+            attachFlagOverlay: (container: unknown, zIndex: number, follow: () => unknown) => void;
+            commonFlagPops: Map<string, { update(dt: number): void; clear(): void }>;
+        };
+        internals.attachFlagOverlay(cue, 5520, () => ({ ...flag, unitId: "victim" }));
+        internals.commonFlagPops.set("dulling", {
+            update: () => cue.position.set(flag.x, flag.y),
+            clear: () => undefined,
+        });
+        visuals.update(0);
+        expect(cue.x - 40).toBeGreaterThanOrEqual(flag.x + 80);
+    } finally {
+        visuals.clear();
+    }
+});

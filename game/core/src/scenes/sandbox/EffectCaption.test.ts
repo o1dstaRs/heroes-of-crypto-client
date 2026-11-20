@@ -33,9 +33,11 @@ test.each([false, true])("names stay beneath art, beside damage, and readable wi
         const bounds = art.getLocalBounds();
         // Damage owns the space above the flag; the named cue keeps its height and moves beside it.
         expect(art.y + Math.min(bounds.minY * art.scale.y, bounds.maxY * art.scale.y)).toBeCloseTo(206);
-        expect(art.x + Math.max(bounds.minX * art.scale.x, bounds.maxX * art.scale.x)).toBeLessThanOrEqual(
-            100 - FLAG_NUMBER_HALF_WIDTH,
-        );
+        // To the player's right of the number, whichever way the board is mirrored.
+        const artLeft = art.x + Math.min(bounds.minX * art.scale.x, bounds.maxX * art.scale.x);
+        const artRight = art.x + Math.max(bounds.minX * art.scale.x, bounds.maxX * art.scale.x);
+        if (mirror) expect(artRight).toBeLessThanOrEqual(100 - FLAG_NUMBER_HALF_WIDTH);
+        else expect(artLeft).toBeGreaterThanOrEqual(100 + FLAG_NUMBER_HALF_WIDTH);
         // Beholder rows already counter the board mirror. They must not flip their text twice.
         art.scale.x = mirror ? -1 : 1;
         updateEffectCaption(caption);

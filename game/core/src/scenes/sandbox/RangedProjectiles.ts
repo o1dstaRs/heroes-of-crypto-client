@@ -196,6 +196,8 @@ const PROJECTILE_SPEED_FACTOR = 64; // ~16 cells/real-second — snappy
 // The chakram flies slower than a bolt on purpose: its whole show is the ricochet path, and at bolt
 // speed the eye can't follow which victim it curls to next. Slow enough to track, fast enough to cut.
 const CHAKRAM_SPEED_FACTOR = 42; // ~10.5 cells/real-second
+/** The Arbalester's heavy bolt is loosed 20% faster than an ordinary shot. */
+const ARBALESTER_BOLT_SPEED_MULTIPLIER = 1.2;
 const BIG_RADIUS_FACTOR = 0.32; // cannonball radius relative to cell
 const BIG_ARC_FACTOR = 0.4; // cannonball lob height relative to cell
 const BOLT_LEN_FACTOR = 0.55; // default bolt length relative to cell
@@ -540,7 +542,8 @@ export class RangedProjectiles {
                                 ? CHAKRAM_SPEED_FACTOR
                                 : PROJECTILE_SPEED_FACTOR) *
                     // Through Shot is 20% faster; distance progress keeps all pierced impacts with the projectile.
-                    (opts.cannonPiercing ? 1.2 : 1),
+                    (opts.cannonPiercing ? 1.2 : 1) *
+                    (opts.arbalesterBolt ? ARBALESTER_BOLT_SPEED_MULTIPLIER : 1),
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,

@@ -28,8 +28,8 @@ interface FlagOverlay {
 
 /**
  * Effect cues sit in one centred row just above their flag. While damage numbers own that space, cues move
- * to the numbers' left and right at the same height instead of climbing above them, so they never float
- * several cells away from their unit.
+ * to the numbers' right (on screen) at the same height instead of climbing above them, so they never float
+ * several cells away from their unit. Only a board edge sends them to the left.
  */
 export class FlagOverlayLayout {
     private overlays: FlagOverlay[] = [];
@@ -87,19 +87,22 @@ export class FlagOverlayLayout {
             });
             const bottom = anchor.y + gap;
             if (damaged) {
-                // Each new cue takes the side with more free room, so a stack at the board edge flanks inward.
-                // Without board bounds the emptier side wins; ties start on the left.
+                // Cues read to the right of the damage, on screen: a mirrored board flips world x. A cue
+                // moves to the left only when the board edge leaves no room for it on the right.
+                const parent = overlays[0].container.parent?.getGlobalTransform?.();
+                const screenRight: -1 | 1 = parent && parent.a < 0 ? -1 : 1;
                 const room = (side: -1 | 1) => {
+                    if (!board) return Infinity;
                     const used = bounds
                         .filter((other) => other.overlay.side === side)
                         .reduce((sum, other) => sum + other.width + gap, 0);
                     const clearance = side < 0 ? -numbersLeft : numbersRight;
-                    const limit = board ? (side < 0 ? anchor.x - board.minX : board.maxX - anchor.x) : 0;
-                    return limit - clearance - used;
+                    const limit = side < 0 ? anchor.x - board.minX : board.maxX - anchor.x;
+                    return limit - clearance - gap - used;
                 };
                 for (const b of bounds) {
                     if (b.overlay.side) continue;
-                    b.overlay.side = room(1) > room(-1) ? 1 : -1;
+                    b.overlay.side = room(screenRight) >= b.width ? screenRight : (-screenRight as -1 | 1);
                 }
             }
             const centred = bounds.filter((b) => !b.overlay.side);
