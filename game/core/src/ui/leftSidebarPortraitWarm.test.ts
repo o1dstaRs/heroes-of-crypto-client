@@ -14,8 +14,9 @@ import {
     displayedSidebarCreatureId,
     leftSidebarPortraitSources,
     resetLeftSidebarPortraitWarmForTests,
+    showsSidebarAnimationFrame,
 } from "./leftSidebarPortraitWarm";
-import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
+import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "./leftSidebarPortraitAnimation";
 
 test("a sidebar portrait stays on the previous creature until the next pair is decoded", () => {
     expect(displayedSidebarCreatureId(7, 5, false)).toBe(5);
@@ -25,11 +26,20 @@ test("a sidebar portrait stays on the previous creature until the next pair is d
     expect(displayedSidebarCreatureId(undefined, 5, true)).toBeUndefined();
 });
 
-test("left sidebar art keeps the cutout and the faction plate as two files", () => {
-    const champion = leftSidebarPortraitSources(CreatureVals.CHAMPION, false);
-    expect(champion.creature).toContain("champion_left_screen_x2.webp");
-    expect(champion.background).toBeTruthy();
-    expect(champion.background).not.toContain("champion_left_screen_x2");
+test("a still inspection shows the animation's frame zero, with the faction plate as its own file", () => {
+    const animation = resolveLeftSidebarPortraitAnimation(CreatureVals.CHAMPION)!;
+    const still = leftSidebarPortraitSources(CreatureVals.CHAMPION, false);
+    const playing = leftSidebarPortraitSources(CreatureVals.CHAMPION, true);
+    // The same picture whether inspected or selected, so starting playback never swaps the image.
+    expect(still.creature).toBe(sidebarPortraitFirstFrame(animation).src);
+    expect(playing.creature).toBe(still.creature);
+    expect(still.background).toBeTruthy();
+    expect(still.background).not.toBe(still.creature);
+    // An unpaged sheet is too large to decode on hover: a still inspection keeps the cutout for it.
+    const unpaged = { ...animation, pages: undefined };
+    expect(showsSidebarAnimationFrame(unpaged, false)).toBe(false);
+    expect(showsSidebarAnimationFrame(unpaged, true)).toBe(true);
+    expect(showsSidebarAnimationFrame(null, true)).toBe(false);
     for (const id of [CreatureVals.PEASANT, CreatureVals.CHAMPION]) {
         const animation = resolveLeftSidebarPortraitAnimation(id)!;
         expect(leftSidebarPortraitSources(id).atlas).toBe(animation.pages?.[0]?.src ?? animation.src);

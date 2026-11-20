@@ -5,6 +5,7 @@ import {
     isLeftSidebarPortraitReady,
     pinLeftSidebarPortrait,
     warmLeftSidebarPortrait,
+    showsSidebarAnimationFrame,
 } from "../leftSidebarPortraitWarm";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import {
@@ -256,12 +257,15 @@ const SidebarPortraitAnimation = ({
     maxHeight,
     onLoaded,
     playback,
+    play = true,
 }: {
     art: React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>;
     config: Readonly<LeftSidebarPortraitAnimation>;
     maxHeight: number;
     onLoaded: () => void;
     playback: "ping-pong" | "loop";
+    /** A still inspection shows frame zero only; selecting the unit then plays from that same frame. */
+    play?: boolean;
 }) => {
     const [ready, setReady] = useState(false);
     const poster = sidebarPortraitFirstFrame(config);
@@ -269,6 +273,11 @@ const SidebarPortraitAnimation = ({
         setReady(true);
         onLoaded();
     }, [onLoaded]);
+    // Stopping hands the picture back to the poster; the next start waits for its own first painted frame.
+    React.useEffect(() => {
+        if (!play) setReady(false);
+    }, [play]);
+    const playing = play && ready;
     return (
         <>
             {React.cloneElement(art, { style: { ...art.props.style, opacity: 0 } })}
@@ -277,36 +286,38 @@ const SidebarPortraitAnimation = ({
                 data-sidebar-first-frame={poster.src}
                 viewBox={`0 0 ${poster.frameWidth} ${poster.frameHeight}`}
                 preserveAspectRatio="xMidYMid meet"
-                style={{ ...art.props.style, overflow: "hidden", opacity: ready ? 0 : 1 }}
+                style={{ ...art.props.style, overflow: "hidden", opacity: playing ? 0 : 1 }}
             >
                 <image href={poster.src} width={poster.atlasWidth} height={poster.atlasHeight} />
             </svg>
-            <Box
-                aria-label={`${art.props.alt} animated portrait`}
-                // Reuse the poster's complete placement at the first painted animation frame.
-                style={{
-                    ...art.props.style,
-                    zIndex: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                    opacity: ready ? 1 : 0,
-                }}
-            >
-                {config.pages ? (
-                    <PagedPortraitCanvas config={config} playback={playback} onLoaded={markLoaded} />
-                ) : (
-                    <AtlasAnimation
-                        meta={config.meta}
-                        src={config.src}
-                        onLoaded={markLoaded}
-                        maxHeight={maxHeight}
-                        playback={playback}
-                        fillHeight
-                    />
-                )}
-            </Box>
+            {play && (
+                <Box
+                    aria-label={`${art.props.alt} animated portrait`}
+                    // Reuse the poster's complete placement at the first painted animation frame.
+                    style={{
+                        ...art.props.style,
+                        zIndex: 4,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        pointerEvents: "none",
+                        opacity: playing ? 1 : 0,
+                    }}
+                >
+                    {config.pages ? (
+                        <PagedPortraitCanvas config={config} playback={playback} onLoaded={markLoaded} />
+                    ) : (
+                        <AtlasAnimation
+                            meta={config.meta}
+                            src={config.src}
+                            onLoaded={markLoaded}
+                            maxHeight={maxHeight}
+                            playback={playback}
+                            fillHeight
+                        />
+                    )}
+                </Box>
+            )}
         </>
     );
 };
@@ -1380,13 +1391,18 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
     }, [displayedCreatureId, animatePortrait]);
     const sidebarPortraitArt =
         displayedCreatureId === undefined ? {} : resolveLeftSidebarPortraitArt(displayedCreatureId);
-    const portraitAnimationConfig =
-        !animatePortrait || displayedCreatureId === undefined
+    // A still inspection shows the same frame-zero poster a selection starts from, so selecting the unit only
+    // starts playback instead of swapping a separate cutout for the animation.
+    const resolvedAnimation =
+        displayedCreatureId === undefined
             ? null
             : resolveIntegratedArbalesterPortrait(
                   displayedCreatureId,
                   resolveLeftSidebarPortraitAnimation(displayedCreatureId),
               );
+    const portraitAnimationConfig = showsSidebarAnimationFrame(resolvedAnimation, animatePortrait)
+        ? resolvedAnimation
+        : null;
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
         displayedCreatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
@@ -1468,6 +1484,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
                                       onLoaded={onImageLoaded}
                                       maxHeight={portraitHeight}
                                       playback={portraitPlayback}
+                                      play={animatePortrait}
                                   />
                               )
                             : undefined
@@ -1493,6 +1510,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
             portraitHeight,
             portraitPlayback,
             onImageLoaded,
+            animatePortrait,
         ],
     );
     return sidebarPortrait ?? <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />;

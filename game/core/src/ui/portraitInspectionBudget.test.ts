@@ -22,7 +22,7 @@ afterEach(() => {
     resetPortraitImageCacheForTests();
 });
 
-test("hover inspection warms only the still pair and leaves large idle sheets cold", async () => {
+test("hover inspection warms only the still pair (a first page of at most five frames), never the idle sheet", async () => {
     resetPortraitImageCacheForTests();
     const requested: string[] = [];
     installPortraitImageFactoryForTests(() => ({
@@ -41,9 +41,14 @@ test("hover inspection warms only the still pair and leaves large idle sheets co
     }));
     for (const id of [CreatureVals.HEALER, CreatureVals.BATTLE_MAGE, CreatureVals.MANTICORE]) {
         const sources = leftSidebarPortraitSources(id, false);
+        const animation = resolveIntegratedArbalesterPortrait(id, resolveLeftSidebarPortraitAnimation(id))!;
         expect(await warmLeftSidebarPortrait(id, false)).toBe(true);
+        // The still is frame zero's page: as small as a cutout, and the picture playback starts from.
         expect(requested).toContain(sources.creature!);
-        expect(requested).not.toContain(sources.atlas!);
+        expect(sources.creature).toBe(animation.pages![0].src);
+        expect(animation.pages![0].frameCount).toBeLessThanOrEqual(5);
+        // The complete idle sheet stays cold until the unit is selected and actually plays.
+        expect(requested).not.toContain(animation.src);
     }
 });
 

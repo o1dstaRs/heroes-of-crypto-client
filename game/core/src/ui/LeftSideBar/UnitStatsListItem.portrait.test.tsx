@@ -106,7 +106,7 @@ const renderPortrait = async (animatePortrait = true, name = "Arbalester", facti
         atlasElements,
         stillStyle,
         animatedStyle,
-        posterStyle,
+        posterStyle: posterStyle as string | null,
         posterSource: posterSource as string | null,
         posterViewBox: posterViewBox as string | null,
     };
@@ -138,6 +138,13 @@ test("a ready portrait preserves the integrated animation and inspection can dis
     expect(inspected.ids).toEqual([String(CreatureVals.ARBALESTER)]);
     expect(inspected.animatedLabels).toEqual([]);
     expect(inspected.atlasElements).toEqual([]);
+    // The inspected still IS the selection's frame zero, in the same place: selecting the unit only starts
+    // playback behind it instead of swapping a different cutout for the animation.
+    expect(inspected.posterSource).toBe(animated.posterSource);
+    expect(inspected.posterViewBox).toBe(animated.posterViewBox);
+    expect(inspected.posterStyle?.replace(/opacity:[^;]*;?/, "")).toBe(
+        animated.posterStyle?.replace(/opacity:[^;]*;?/, ""),
+    );
 });
 
 const animatedCreatures = Object.entries(CREATURES_JSON).flatMap(([faction, creatures]) =>

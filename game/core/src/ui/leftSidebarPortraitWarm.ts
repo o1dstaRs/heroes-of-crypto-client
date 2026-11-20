@@ -12,7 +12,11 @@ import {
     type PortraitImagePrefetch,
 } from "./decodedImageCache";
 import { resolveIntegratedArbalesterPortrait } from "./integratedArbalesterPortrait";
-import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "./leftSidebarPortraitAnimation";
+import {
+    type LeftSidebarPortraitAnimation,
+    resolveLeftSidebarPortraitAnimation,
+    sidebarPortraitFirstFrame,
+} from "./leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "./leftSidebarPortraitArt";
 
 export interface LeftSidebarPortraitSources {
@@ -30,13 +34,25 @@ let selectedRetention: { creatureId: number; release: () => void; readiness?: Pr
 /** Each full-size cutout is over a megabyte; only speculate on the next likely inspections. */
 export const SIDEBAR_PORTRAIT_PREFETCH_LIMIT = 2;
 
-/** Animated selections warm frame zero; static inspections keep their existing cutout. */
+/**
+ * Whether the portrait shows its animation's frame zero. A selection always does; a still inspection does too
+ * when frame zero comes from a small first page, so starting playback never swaps the picture. An unpaged
+ * sheet (up to 100 frames) is too large to decode on hover, so that inspection keeps its cutout.
+ */
+export const showsSidebarAnimationFrame = (
+    animation: Readonly<LeftSidebarPortraitAnimation> | null,
+    animate: boolean,
+): animation is Readonly<LeftSidebarPortraitAnimation> => !!animation && (animate || !!animation.pages?.length);
+
+/** The portrait's still picture (frame zero or cutout), faction background, glow and first atlas page. */
 export const leftSidebarPortraitSources = (creatureId: number, animate = true): LeftSidebarPortraitSources => {
     const art = resolveLeftSidebarPortraitArt(creatureId);
     const visual = resolveCreaturePortraitVisual(creatureId);
     const animation = resolveIntegratedArbalesterPortrait(creatureId, resolveLeftSidebarPortraitAnimation(creatureId));
     return {
-        creature: animate && animation ? sidebarPortraitFirstFrame(animation).src : (art.source ?? visual?.source),
+        creature: showsSidebarAnimationFrame(animation, animate)
+            ? sidebarPortraitFirstFrame(animation).src
+            : (art.source ?? visual?.source),
         background: visual?.background,
         glow: resolveCreaturePortraitBackgroundMotion(creatureId)?.glowSrc,
         atlas: animation?.pages?.[0]?.src ?? animation?.src,
