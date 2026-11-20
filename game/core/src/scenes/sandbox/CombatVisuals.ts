@@ -1070,6 +1070,7 @@ export class CombatVisuals {
             flagLane,
             flagAnchor: flagTopAnchor,
             topExtent,
+            bottomExtent: flagTopAnchor ? screenBottomExtent : undefined,
             immediate,
             container,
             startedAtMs: performance.now(),
@@ -2235,7 +2236,7 @@ export class CombatVisuals {
 
             // Free labels drift; flag-anchored results retain their initial position.
             const e = easeOutCubic(t);
-            ft.container.x = ft.startX + ft.driftX * e;
+            ft.container.x = ft.startX + (ft.shiftX ?? 0) + ft.driftX * e;
             ft.container.y = ft.startY + (ft.riseY + ft.driftY) * e;
 
             // Spawn "pop" (slight overshoot), preserving the Y-up flip (negative scale.y).

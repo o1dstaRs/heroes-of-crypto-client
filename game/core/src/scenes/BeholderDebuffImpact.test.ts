@@ -252,6 +252,7 @@ test("a status cue that re-seats itself every frame ends each frame to the right
         const internals = visuals as unknown as {
             attachFlagOverlay: (container: unknown, zIndex: number, follow: () => unknown) => void;
             commonFlagPops: Map<string, { update(dt: number): void; clear(): void }>;
+            floatingTexts: { container: InstanceType<typeof Container> }[];
         };
         internals.attachFlagOverlay(cue, 5520, () => ({ ...flag, unitId: "victim" }));
         internals.commonFlagPops.set("dulling", {
@@ -259,7 +260,10 @@ test("a status cue that re-seats itself every frame ends each frame to the right
             clear: () => undefined,
         });
         visuals.update(0);
-        expect(cue.x - 40).toBeGreaterThanOrEqual(flag.x + 80);
+        // The number and the cue are centred on the flag together; the cue still starts past the number.
+        const damageX = internals.floatingTexts[0].container.x;
+        expect(cue.x - 40).toBeGreaterThanOrEqual(damageX + 80);
+        expect(damageX).toBeLessThan(flag.x);
     } finally {
         visuals.clear();
     }

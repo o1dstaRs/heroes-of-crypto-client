@@ -2,59 +2,61 @@ import { expect, test } from "bun:test";
 import { Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { FlagOverlayLayout } from "./FlagOverlayLayout";
 
-test.each([1, -1])("cues sit to the screen-right of live damage at their normal height, x scale %s", (mirror) => {
-    const root = new Container();
-    root.scale.set(mirror * 0.8, -0.5);
-    const layout = new FlagOverlayLayout();
-    let flag = { x: 200, y: 100 };
-    const add = (width: number, height: number) => {
-        const container = new Container();
-        const sprite = new Sprite(Texture.WHITE);
-        sprite.anchor.set(0.5, 1);
-        sprite.width = width;
-        sprite.height = height;
-        container.addChild(sprite);
-        container.scale.set(1, -1.6);
-        root.addChild(container);
-        layout.add(container, () => flag);
-        return container;
-    };
-    const first = add(84, 84),
-        second = add(100, 70);
-    layout.update([], 6);
-    const restingY = first.y;
-    expect(second.y).toBeCloseTo(restingY);
-    const damage = new Container();
-    damage.boundsArea = new Rectangle(-50, -36, 100, 116);
-    damage.scale.set(1, -1);
-    root.addChild(damage);
-    const numbers = [{ container: damage, flagAnchor: flag, topExtent: 36, halfWidth: 50 }];
-    // World x runs the other way on a mirrored board; "right" is always the player's screen right.
-    const side = mirror;
-    for (const rise of [0, 10, 35, 50]) {
-        damage.position.set(flag.x, flag.y + 86 + rise);
+test.each([1, -1])(
+    "damage and its cues form one row centred on the flag, icons level with the number, x scale %s",
+    (mirror) => {
+        const root = new Container();
+        root.scale.set(mirror * 0.8, -0.5);
+        const layout = new FlagOverlayLayout();
+        let flag = { x: 200, y: 100 };
+        const add = (width: number, height: number) => {
+            const container = new Container();
+            const sprite = new Sprite(Texture.WHITE);
+            sprite.anchor.set(0.5, 1);
+            sprite.width = width;
+            sprite.height = height;
+            container.addChild(sprite);
+            container.scale.set(1, -1.6);
+            root.addChild(container);
+            layout.add(container, () => flag);
+            return container;
+        };
+        const first = add(84, 84),
+            second = add(100, 70);
+        layout.update([], 6);
+        const damage = new Container();
+        damage.boundsArea = new Rectangle(-50, -36, 100, 116);
+        damage.scale.set(1, -1);
+        damage.position.set(flag.x, flag.y + 86);
+        root.addChild(damage);
+        const numbers = [{ container: damage, flagAnchor: flag, topExtent: 36, bottomExtent: 80, halfWidth: 50 }];
         layout.update(numbers, 6, { minX: -1000, maxX: 1000 });
-        expect(first.y).toBeCloseTo(restingY);
-        expect(second.y).toBeCloseTo(restingY);
-        expect(first.x - side * 42).toBeCloseTo(flag.x + side * (50 + 6));
-        expect(second.x - side * 50).toBeCloseTo(first.x + side * (42 + 6));
-        const numberBounds = damage.getBounds();
-        for (const overlay of [first, second]) {
-            const b = overlay.getBounds();
-            expect(b.minX).toBeGreaterThanOrEqual(numberBounds.maxX - 0.001);
-        }
-    }
-    // Expiry keeps the cues where they are; they never slide back under a later number.
-    damage.destroy();
-    layout.update([], 6);
-    expect(first.x - side * 42).toBeCloseTo(flag.x + side * 56);
-    // The flank follows a moving or replaced flag.
-    flag = { x: 320, y: 180 };
-    layout.update([], 6);
-    expect(first.x - side * 42).toBeCloseTo(320 + side * 56);
-    expect(second.y).toBeCloseTo(restingY + 80);
-    root.destroy({ children: true });
-});
+        const centreY = (b: { minY: number; maxY: number }) => (b.minY + b.maxY) / 2;
+        const numberBox = damage.getBounds();
+        const firstBox = first.getBounds(),
+            secondBox = second.getBounds();
+        // Screen right, whatever the board's mirroring: global x is screen x. 6 world px of gap at 0.8 scale.
+        expect(firstBox.minX - numberBox.maxX).toBeCloseTo(6 * 0.8);
+        expect(secondBox.minX - firstBox.maxX).toBeCloseTo(6 * 0.8);
+        // Each icon is vertically centred on the damage block instead of floating above it.
+        expect(centreY(firstBox)).toBeCloseTo(centreY(numberBox));
+        expect(centreY(secondBox)).toBeCloseTo(centreY(numberBox));
+        // The whole row is centred on the unit's flag (world x; the cue art is 84 and 100 wide).
+        const rowLeft = Math.min(damage.x - 50, first.x - 42, second.x - 50);
+        const rowRight = Math.max(damage.x + 50, first.x + 42, second.x + 50);
+        expect((rowLeft + rowRight) / 2).toBeCloseTo(flag.x);
+        // Expiry keeps the cues where they are; they never slide back under a later number.
+        const before = first.x;
+        damage.destroy();
+        layout.update([], 6);
+        expect(first.x).toBeCloseTo(before);
+        // The row follows a moving or replaced flag.
+        flag = { x: 320, y: 180 };
+        layout.update([], 6);
+        expect(first.x).toBeCloseTo(before + 120);
+        root.destroy({ children: true });
+    },
+);
 
 test("hidden cues reserve no row space, and mixed anchor/scale conventions share one bottom edge", () => {
     const layout = new FlagOverlayLayout();
@@ -87,9 +89,11 @@ test("stack identity associates a live flag with its separate stable damage anch
     damage.position.set(280, 320);
     const number = { container: damage, flagAnchor: { x: 280, y: 210, unitId: "victim" }, halfWidth: 30 };
     layout.update([number], 6);
-    // Measured against its own stable anchor, the number is centred on the live flag; the cue sits to its right.
-    expect(pop.x - 40).toBe(300 + 30 + 6);
-    expect(pop.y).toBe(156);
+    // Measured against its own stable anchor: number [-30, 30] and the cue (6 px gap, 80 wide) span
+    // [-30, 116] around the live flag, so the row shifts 43 left. The icon centre meets the number's.
+    expect(pop.x - 40).toBe(300 + 30 + 6 - 43);
+    expect(damage.x).toBe(280 - 43);
+    expect(pop.y + 40).toBe(150 + (320 - 210));
     const other = new Container();
     layout.add(other, () => ({ x: 500, y: 150, unitId: "neighbor" }));
     other.boundsArea = new Rectangle(-40, -80, 80, 80);
@@ -137,8 +141,8 @@ test("a fresh effect returns to the centre after the previous flanking cue ends 
     const damage = new Container();
     damage.position.set(100, 320);
     layout.update([{ container: damage, flagAnchor: flag, halfWidth: 30 }], 6);
-    expect(old.y).toBe(206);
-    expect(old.x - 40).toBe(100 + 30 + 6);
+    expect(old.y + 40).toBe(320);
+    expect(old.x - 40).toBe(100 + 30 + 6 - 43);
     old.destroy();
     layout.update([], 6);
     damage.destroy();
@@ -174,7 +178,7 @@ test("a returning responder keeps its effect close when damage remains at the ca
     damage.destroy();
 });
 
-test("only a board edge sends a cue to the left of the damage", () => {
+test("only a board edge sends a cue to the left of the damage, and centring never leaves the board", () => {
     const layout = new FlagOverlayLayout();
     const flag = { x: 460, y: 200, unitId: "edge" };
     const add = () => {
@@ -189,8 +193,10 @@ test("only a board edge sends a cue to the left of the damage", () => {
     const damage = new Container();
     damage.position.set(flag.x, 300);
     layout.update([{ container: damage, flagAnchor: flag, halfWidth: 50 }], 6, { minX: -512, maxX: 512 });
-    for (const pop of [first, second]) expect(pop.x + 40).toBeLessThanOrEqual(flag.x - 50);
-    expect(second.x + 40).toBeCloseTo(first.x - 40 - 6);
+    // Both cues sit to the left of the number, 6 px apart, and the number stays on the board.
+    expect(first.x + 40 + 6).toBeCloseTo(damage.x - 50);
+    expect(second.x + 40 + 6).toBeCloseTo(first.x - 40);
+    expect(damage.x + 50).toBeLessThanOrEqual(512);
     for (const pop of [first, second]) pop.destroy();
     damage.destroy();
 });

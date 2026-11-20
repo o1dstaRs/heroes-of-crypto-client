@@ -30,14 +30,12 @@ test.each([false, true])("names stay beneath art, beside damage, and readable wi
         expect(caption.root.y).toBeGreaterThan(0);
         expect(caption.root.getGlobalTransform().a).toBeGreaterThan(0);
         expect(caption.root.getGlobalTransform().d).toBeGreaterThan(0);
-        const bounds = art.getLocalBounds();
-        // Damage owns the space above the flag; the named cue keeps its height and moves beside it.
-        expect(art.y + Math.min(bounds.minY * art.scale.y, bounds.maxY * art.scale.y)).toBeCloseTo(206);
-        // To the player's right of the number, whichever way the board is mirrored.
-        const artLeft = art.x + Math.min(bounds.minX * art.scale.x, bounds.maxX * art.scale.x);
-        const artRight = art.x + Math.max(bounds.minX * art.scale.x, bounds.maxX * art.scale.x);
-        if (mirror) expect(artRight).toBeLessThanOrEqual(100 - FLAG_NUMBER_HALF_WIDTH);
-        else expect(artLeft).toBeGreaterThanOrEqual(100 + FLAG_NUMBER_HALF_WIDTH);
+        // Beside damage the icon is level with the number block (origin 220, 30 above, 36 below), and the
+        // caption may run beneath it. The sprite is 64 tall, bottom-anchored, so its centre is 32 above art.y.
+        expect(art.y + 32).toBeCloseTo(220 + (30 - 36) / 2);
+        // The icon itself sits to the player's right of the number, whichever way the board is mirrored.
+        if (mirror) expect(art.x + 32).toBeLessThanOrEqual(number.x - FLAG_NUMBER_HALF_WIDTH);
+        else expect(art.x - 32).toBeGreaterThanOrEqual(number.x + FLAG_NUMBER_HALF_WIDTH);
         // Beholder rows already counter the board mirror. They must not flip their text twice.
         art.scale.x = mirror ? -1 : 1;
         updateEffectCaption(caption);
