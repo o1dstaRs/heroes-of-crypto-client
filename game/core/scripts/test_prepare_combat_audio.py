@@ -84,6 +84,20 @@ class CombatMasteringTests(unittest.TestCase):
                 master("test/attack", [record], work, work / "output")
             self.assertFalse((work / "output").exists())
 
+    def test_idle_loop_keeps_a_whole_breathing_phrase_that_a_one_shot_rejects(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
+            work = Path(folder)
+            source = work / "breathing.wav"
+            write_wave(source, array.array("f", self.tone(4.0)))
+            record = {"path": source, "unit": "test", "slug": "test", "role": "idle", "source_id": "breath",
+                      "source": {"kind": "user-provided", "duration_limit_ms": 8000}}
+            result = master("test/idle", [record], work, work / "output")
+            for encoded in result["encoded"].values():
+                self.assertGreater(encoded["duration_ms"], 3900)
+                self.assertLess(abs(encoded["lufs"] + 20), 0.75)
+            with self.assertRaisesRegex(ValueError, "exceeds the 1600 ms limit"):
+                master("test/attack", [{**record, "role": "attack"}], work / "one-shot", work / "one-shot-output")
+
     def test_long_silence_padding_does_not_reject_a_short_complete_event(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
             work = Path(folder)

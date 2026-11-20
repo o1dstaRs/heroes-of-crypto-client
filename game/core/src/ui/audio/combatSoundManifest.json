@@ -241,8 +241,8 @@
             "revision": "3952260a19"
         },
         "hurt": {
-            "durationMs": 615,
-            "revision": "d148f6f66b"
+            "durationMs": 1224,
+            "revision": "26cd102ac1"
         }
     },
     "Unicorn": {
@@ -453,6 +453,10 @@
         "hurt": {
             "durationMs": 815,
             "revision": "4fbe3f48ba"
+        },
+        "idle": {
+            "durationMs": 6269,
+            "revision": "9281a59368"
         }
     },
     "Hydra": {
@@ -583,12 +587,12 @@
     "Hyena": {
         "slug": "hyena",
         "attack": {
-            "durationMs": 740,
-            "revision": "996edb52f8"
+            "durationMs": 1108,
+            "revision": "b6a0c4d06e"
         },
         "hurt": {
-            "durationMs": 685,
-            "revision": "f0802c52c0"
+            "durationMs": 769,
+            "revision": "785d58fec0"
         }
     },
     "Wyvern": {

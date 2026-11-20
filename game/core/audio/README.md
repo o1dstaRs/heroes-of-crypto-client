@@ -199,7 +199,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Healer hurt                            | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                                      |
 | Champion hurt                          | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                              |
 | Zena attack                            | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                             |
-| Angel attack                           | `sword-impact-swing-joshua-chivers-1-00-00.mp3`                                                              |
+| Angel attack                           | `sword-impact-swing-joshua-chivers-1-00-00.mp3`                                                             |
 | Blacksmith attack                      | `metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3`                                               |
 | Troll attack                           | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                                      |
 | Dryad hurt                             | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                               |
@@ -212,6 +212,17 @@ excerpt hashes, so later mastering uses the same selected event.
 | Hydra attack                           | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3`         |
 | Champion, Unicorn, Nightmare movement  | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                          |
 | Arachna Queen, Arachna Spider movement | 0.850–2.270 s of `insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3` |
+| Hyena attack                           | `beast-bite-joshua-chivers-3-3-00-01.mp3`                                                                   |
+| Hyena hurt                             | Opening snarl, 0–0.780 s of `beast-bite-joshua-chivers-3-3-00-01.mp3` (before the two jaw snaps)            |
+| Trent hurt                             | `tree-monster-painful-groan-epic-stock-media-1-00-01.mp3`                                                   |
+| Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                              |
+
+**Turn idle loops.** The optional `idle` role loops for the active creature while its turn waits for a
+decision (the player or the AI is still thinking), at half the level of the hits, and stops the moment the
+creature starts acting, the turn passes, or the fight ends. Replays stay silent. An idle loop keeps its
+whole phrase (up to 8 s and 160 KB per codec, `ROLE_LIMITS` in `scripts/prepare_combat_audio.py`) instead
+of the 1.6 s one-shot budget; it shares the loudness target and true-peak ceiling. Creatures without an
+idle recording stay silent while thinking.
 
 Angel’s attack uses `sword-impact-swing-joshua-chivers-1-00-00.mp3`, replacing the earlier
 SmartSound sword swish. The 0.909-second master preserves its speed and pitch.

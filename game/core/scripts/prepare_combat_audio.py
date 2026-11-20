@@ -37,6 +37,10 @@ RATE = 48000
 TARGET_LUFS = -20.0
 PEAK_CEILING = -3.0
 MAX_BYTES = 32768
+# Every per-creature role. "idle" loops while the creature's turn waits for a decision (breathing, growling);
+# like "move" it is optional, and it keeps its whole phrase instead of the one-shot 1.6 s budget.
+COMBAT_ROLES = ("attack", "hurt", "move", "idle")
+ROLE_LIMITS = {"idle": (8000, 160 * 1024)}  # (duration ms, encoded bytes); one-shots use (1600, MAX_BYTES)
 
 
 def record_id(record):
@@ -264,7 +268,7 @@ def collect_sources(receipts, units, raw_dir, only=None):
         units_by_slug = {u["slug"]: u for u in units}
         for key, selected in json.loads(override_path.read_text()).items():
             slug, role = key.split("/")
-            if slug not in units_by_slug or role not in ("attack", "hurt", "move"):
+            if slug not in units_by_slug or role not in COMBAT_ROLES:
                 raise ValueError("Unknown selected sound: " + key)
             if only and slug not in only:
                 continue
@@ -280,7 +284,9 @@ def collect_sources(receipts, units, raw_dir, only=None):
     return groups
 
 
-def master(key, records, work, output, max_duration_ms=1600):
+def master(key, records, work, output, max_duration_ms=None):
+    default_duration_ms, max_bytes = ROLE_LIMITS.get(key.rsplit("/", 1)[-1], (1600, MAX_BYTES))
+    max_duration_ms = max_duration_ms or default_duration_ms
     candidates, rejected = [], []
     for record in records:
         try:
@@ -355,7 +361,7 @@ def master(key, records, work, output, max_duration_ms=1600):
     else:
         raise ValueError(key + ": loudness/peak target could not be met: " + str({"master": measurement, "encoded": encoded}))
     for codec, m in encoded.items():
-        if m["bytes"] > MAX_BYTES or m["duration_ms"] > duration_limit_ms or m["leading_quiet_ms"] > 25 or m["trailing_quiet_ms"] > 65:
+        if m["bytes"] > max_bytes or m["duration_ms"] > duration_limit_ms or m["leading_quiet_ms"] > 25 or m["trailing_quiet_ms"] > 65:
             raise ValueError(key + ": encoded QA failed: " + str(m))
     pcm = decode(destination.with_suffix(".webm"))
     step = max(1, len(pcm) // 120)
@@ -488,7 +494,7 @@ def main():
         return
     required = {u["slug"] + "/" + role for u in spec["units"] if not only or u["slug"] in only
                 for role in ("attack", "hurt")}
-    required.update(key for key in groups if key.endswith("/move"))
+    required.update(key for key in groups if key.endswith(("/move", "/idle")))
     missing = required - groups.keys()
     if missing:
         raise ValueError("Missing generated sources: " + ", ".join(sorted(missing)))
@@ -511,7 +517,7 @@ def main():
         manifest = {u["name"]: {"slug": u["slug"],
                     **{role: {"durationMs": next(c for c in results if c["slug"] == u["slug"] and c["role"] == role)["encoded"]["webm"]["duration_ms"],
                               "revision": hashlib.sha256((args.output / (u["slug"] + "_" + role + ".webm")).read_bytes() + (args.output / (u["slug"] + "_" + role + ".mp3")).read_bytes()).hexdigest()[:10]}
-                       for role in ("attack", "hurt", "move")
+                       for role in COMBAT_ROLES
                        if any(c["slug"] == u["slug"] and c["role"] == role for c in results)}} for u in spec["units"]}
         (CORE / "src/ui/audio/combatSoundManifest.json").write_text(json.dumps(manifest, indent=4) + "\n")
     print(json.dumps({"effects": len(results), "bytes": {codec: sum(c["encoded"][codec]["bytes"] for c in results)

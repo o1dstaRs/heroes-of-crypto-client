@@ -1692,25 +1692,38 @@
             "unit": "Hyena",
             "slug": "hyena",
             "role": "attack",
-            "generation_id": "dYk7SSWZcnERhNamfWw6",
+            "source_id": "provided-13f43dfe0d65b185b6b4",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-13f43dfe0d65b185b6b4",
+                "filename": "beast-bite-joshua-chivers-3-3-00-01.mp3",
+                "title": "Beast bite",
+                "author": "Joshua Chivers",
+                "sha256": "13f43dfe0d65b185b6b49b5ae39964faf7b6ce6854d9740deedff0877bc564b3",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Hyena attack",
+                "selection": "Explicitly selected by the user for Hyena attack",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.0,
-                    "true_peak_db": -9.57,
-                    "bytes": 7450,
-                    "duration_ms": 740,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.03,
+                    "true_peak_db": -3.9,
+                    "bytes": 10812,
+                    "duration_ms": 1108,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.62
+                    "rms_db": -21.02
                 },
                 "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -9.97,
-                    "bytes": 9548,
-                    "duration_ms": 740,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.46,
+                    "true_peak_db": -4.33,
+                    "bytes": 14156,
+                    "duration_ms": 1108,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.06
+                    "rms_db": -21.45
                 }
             }
         },
@@ -1718,25 +1731,47 @@
             "unit": "Hyena",
             "slug": "hyena",
             "role": "hurt",
-            "generation_id": "EVSiSBtPwgMzkpT46SLI",
+            "source_id": "provided-13f43dfe0d65b185b6b4-0-780",
+            "source": {
+                "kind": "user-provided",
+                "filename": "beast-bite-joshua-chivers-3-3-00-01.mp3",
+                "title": "Beast bite",
+                "author": "Joshua Chivers",
+                "sha256": "13f43dfe0d65b185b6b49b5ae39964faf7b6ce6854d9740deedff0877bc564b3",
+                "label": "Opening snarl",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Hyena hurt (the first part of the bite)",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 0,
+                    "end_ms": 780,
+                    "original_duration_ms": 1119,
+                    "original_path": "tmp/audio/raw/provided/13f43dfe0d65b185/beast-bite-joshua-chivers-3-3-00-01.mp3",
+                    "sha256": "34994f6898de6962c0d42cdea7200486133f4ff54c9b44dedad1820c7c57c72e",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
+                "source_id": "provided-13f43dfe0d65b185b6b4-0-780"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -11.02,
-                    "bytes": 6135,
-                    "duration_ms": 685,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.23,
+                    "true_peak_db": -4.03,
+                    "bytes": 7750,
+                    "duration_ms": 769,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.25
+                    "rms_db": -20.29
                 },
                 "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -11.5,
-                    "bytes": 8972,
-                    "duration_ms": 685,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.54,
+                    "true_peak_db": -4.34,
+                    "bytes": 10124,
+                    "duration_ms": 769,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.7
+                    "rms_db": -20.68
                 }
             }
         },
@@ -2832,25 +2867,38 @@
             "unit": "Trent",
             "slug": "trent",
             "role": "hurt",
-            "generation_id": "N9zfyQ6bTzV6AJJQskiX",
+            "source_id": "provided-39331e527674ea765a7d",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-39331e527674ea765a7d",
+                "filename": "tree-monster-painful-groan-epic-stock-media-1-00-01.mp3",
+                "title": "Tree monster - painful groan",
+                "author": "Epic Stock Media",
+                "sha256": "39331e527674ea765a7d3c72785eb0fbf64c30c418d8c386ec2c86755b6db80b",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Trent hurt",
+                "selection": "Explicitly selected by the user for Trent hurt",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.98,
-                    "true_peak_db": -5.17,
-                    "bytes": 8624,
-                    "duration_ms": 615,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.09,
+                    "true_peak_db": -4.21,
+                    "bytes": 11332,
+                    "duration_ms": 1224,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.49
+                    "rms_db": -20.1
                 },
                 "mp3": {
-                    "lufs": -20.4,
-                    "true_peak_db": -5.6,
-                    "bytes": 8108,
-                    "duration_ms": 615,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.49,
+                    "true_peak_db": -4.33,
+                    "bytes": 15308,
+                    "duration_ms": 1224,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.92
+                    "rms_db": -20.51
                 }
             }
         },
@@ -3776,6 +3824,45 @@
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
                     "rms_db": -23.73
+                }
+            }
+        },
+        {
+            "unit": "Black Dragon",
+            "slug": "black-dragon",
+            "role": "idle",
+            "source_id": "provided-543de547b712886ecdd4",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-543de547b712886ecdd4",
+                "filename": "t-rex-breathing-epic-stock-media-1-00-06.mp3",
+                "title": "T-Rex breathing",
+                "author": "Epic Stock Media",
+                "sha256": "543de547b712886ecdd4e4cb12ef3f926a0ac891de3bff8205c935c50f4489f2",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Black Dragon idle",
+                "selection": "Explicitly selected by the user for Black Dragon idle",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 8000
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.23,
+                    "true_peak_db": -3.3,
+                    "bytes": 47937,
+                    "duration_ms": 6269,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.51
+                },
+                "mp3": {
+                    "lufs": -20.69,
+                    "true_peak_db": -4.3,
+                    "bytes": 76076,
+                    "duration_ms": 6269,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.97
                 }
             }
         }

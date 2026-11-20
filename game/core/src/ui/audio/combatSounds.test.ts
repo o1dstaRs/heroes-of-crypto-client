@@ -64,17 +64,20 @@ describe("combat sounds", () => {
             );
             expect([...webm.subarray(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
             expect(mp3.subarray(0, 3).toString()).toBe("ID3");
+            // Same budgets as scripts/prepare_combat_audio.py ROLE_LIMITS: one-shots stay short; an idle loop
+            // keeps its whole breathing phrase.
+            const [maxDurationMs, maxBytes] = clip.role === "idle" ? [8000, 160 * 1024] : [1600, 32768];
             for (const [codec, bytes] of [
                 ["webm", webm],
                 ["mp3", mp3],
             ] as const) {
                 const measured = clip.encoded[codec];
                 expect(bytes.length).toBe(measured.bytes);
-                expect(bytes.length).toBeLessThanOrEqual(32768);
+                expect(bytes.length).toBeLessThanOrEqual(maxBytes);
                 expect(bytes.length).toBeGreaterThan(500);
                 expect(Math.abs(measured.lufs + 20)).toBeLessThanOrEqual(0.75);
                 expect(measured.true_peak_db).toBeLessThanOrEqual(-3);
-                expect(measured.duration_ms).toBeLessThanOrEqual(1600);
+                expect(measured.duration_ms).toBeLessThanOrEqual(maxDurationMs);
             }
             const revision = new Bun.CryptoHasher("sha256").update(webm).update(mp3).digest("hex").slice(0, 10);
             const source = resolveCombatSound(clip.unit, clip.role as CombatSoundRole);

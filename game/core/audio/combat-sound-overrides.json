@@ -719,5 +719,82 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
         }
+    },
+    "hyena/attack": {
+        "source_id": "provided-13f43dfe0d65b185b6b4",
+        "path": "tmp/audio/raw/provided/13f43dfe0d65b185/beast-bite-joshua-chivers-3-3-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-13f43dfe0d65b185b6b4",
+            "filename": "beast-bite-joshua-chivers-3-3-00-01.mp3",
+            "title": "Beast bite",
+            "author": "Joshua Chivers",
+            "sha256": "13f43dfe0d65b185b6b49b5ae39964faf7b6ce6854d9740deedff0877bc564b3",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Hyena attack",
+            "selection": "Explicitly selected by the user for Hyena attack",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
+    },
+    "hyena/hurt": {
+        "source_id": "provided-13f43dfe0d65b185b6b4-0-780",
+        "path": "tmp/audio/raw/provided/13f43dfe0d65b185/excerpt-0-780.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "beast-bite-joshua-chivers-3-3-00-01.mp3",
+            "title": "Beast bite",
+            "author": "Joshua Chivers",
+            "sha256": "13f43dfe0d65b185b6b49b5ae39964faf7b6ce6854d9740deedff0877bc564b3",
+            "label": "Opening snarl",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Hyena hurt (the first part of the bite)",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 780,
+                "original_duration_ms": 1119,
+                "original_path": "tmp/audio/raw/provided/13f43dfe0d65b185/beast-bite-joshua-chivers-3-3-00-01.mp3",
+                "sha256": "34994f6898de6962c0d42cdea7200486133f4ff54c9b44dedad1820c7c57c72e",
+                "speed": 1,
+                "pitch_shift_semitones": 0
+            },
+            "source_id": "provided-13f43dfe0d65b185b6b4-0-780"
+        }
+    },
+    "trent/hurt": {
+        "source_id": "provided-39331e527674ea765a7d",
+        "path": "tmp/audio/raw/provided/39331e527674ea76/tree-monster-painful-groan-epic-stock-media-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-39331e527674ea765a7d",
+            "filename": "tree-monster-painful-groan-epic-stock-media-1-00-01.mp3",
+            "title": "Tree monster - painful groan",
+            "author": "Epic Stock Media",
+            "sha256": "39331e527674ea765a7d3c72785eb0fbf64c30c418d8c386ec2c86755b6db80b",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Trent hurt",
+            "selection": "Explicitly selected by the user for Trent hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
+    },
+    "black-dragon/idle": {
+        "source_id": "provided-543de547b712886ecdd4",
+        "path": "tmp/audio/raw/provided/543de547b712886e/t-rex-breathing-epic-stock-media-1-00-06.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-543de547b712886ecdd4",
+            "filename": "t-rex-breathing-epic-stock-media-1-00-06.mp3",
+            "title": "T-Rex breathing",
+            "author": "Epic Stock Media",
+            "sha256": "543de547b712886ecdd4e4cb12ef3f926a0ac891de3bff8205c935c50f4489f2",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Black Dragon idle",
+            "selection": "Explicitly selected by the user for Black Dragon idle",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 8000
+        }
     }
 }

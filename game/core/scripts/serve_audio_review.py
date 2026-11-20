@@ -24,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from prepare_combat_audio import CORE, game_rows_for_review, master, movement_rows_for_review, spell_placeholders, spell_rows_for_review, write_review
+from prepare_combat_audio import COMBAT_ROLES, CORE, game_rows_for_review, master, movement_rows_for_review, spell_placeholders, spell_rows_for_review, write_review
 from suno_mcp import SunoMcp, SunoToolError
 from sound_prompt_director import SoundPromptDirector, sound_context, validate_direction
 
@@ -70,15 +70,15 @@ def load_combat_report():
     if not isinstance(clips, list):
         raise ValueError("The audition page has invalid sound data")
     active = {unit["slug"] for unit in json.loads((CORE / "audio/combat-sound-design.json").read_text())["units"]}
-    clips = [clip for clip in clips if clip.get("role") in ("attack", "hurt", "move") and clip.get("slug") in active
-             and (clip.get("role") != "move" or clip.get("encoded"))]
+    clips = [clip for clip in clips if clip.get("role") in COMBAT_ROLES and clip.get("slug") in active
+             and (clip.get("role") not in ("move", "idle") or clip.get("encoded"))]
     if not clips:
         raise ValueError("The audition page has no saved creature sounds")
     return {**report, "clips": clips}
 
 
 def design_entry(slug, role):
-    if role not in ("attack", "hurt", "move"):
+    if role not in COMBAT_ROLES:
         raise ValueError("Unknown combat sound role")
     design = json.loads((CORE / "audio/combat-sound-design.json").read_text())
     unit = next((u for u in design["units"] if u["slug"] == slug), None)

@@ -1,7 +1,9 @@
 import { effectsGain, subscribeAudioLevels } from "../../settings/audioLevels";
 import manifest from "./combatSoundManifest.json";
 
-export type CombatSoundRole = "attack" | "hurt" | "move";
+export type CombatSoundRole = "attack" | "hurt" | "move" | "idle";
+/** Roles that loop while a state lasts: movement while walking, idle while the unit's turn awaits a decision. */
+export type CombatLoopRole = "move" | "idle";
 export interface ICombatSoundSource {
     key: string;
     webm: string;
@@ -14,6 +16,7 @@ interface ICombatSoundEntry {
     attack: { durationMs: number; revision: string };
     hurt: { durationMs: number; revision: string };
     move?: { durationMs: number; revision: string };
+    idle?: { durationMs: number; revision: string };
 }
 
 const catalog: Readonly<Record<string, ICombatSoundEntry>> = manifest;
@@ -116,7 +119,15 @@ export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
             requests.clear();
             for (const stop of loops.values()) stop();
         },
-        loop(name: string, identity: string, alive = () => true): () => void {
+        loop(
+            name: string,
+            identity: string,
+            alive = () => true,
+            role: CombatLoopRole = "move",
+            gain = 0.65,
+            // A step loop that decodes late would play after the walk; an idle loop is still right while alive().
+            maxStartDelayMs = 150,
+        ): () => void {
             loops.get(identity)?.();
             let stopped = false;
             let stopVoice: (() => void) | undefined;
@@ -126,7 +137,7 @@ export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
                 stopVoice?.();
                 if (loops.get(identity) === stop) loops.delete(identity);
             };
-            const source = resolveCombatSound(name, "move");
+            const source = resolveCombatSound(name, role);
             if (!source || deps.gain() <= 0 || !deps.available() || !alive()) return stop;
             const at = deps.now();
             const startedEpoch = epoch;
@@ -136,7 +147,7 @@ export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
                     if (
                         stopped ||
                         epoch !== startedEpoch ||
-                        deps.now() - at > 150 ||
+                        deps.now() - at > maxStartDelayMs ||
                         deps.gain() <= 0 ||
                         !deps.available() ||
                         !alive()
@@ -144,7 +155,7 @@ export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
                         stop();
                         return;
                     }
-                    const result = deps.start(buffer, { loop: true, gain: 0.65 });
+                    const result = deps.start(buffer, { loop: true, gain });
                     if (typeof result === "function") stopVoice = result;
                     else stop();
                 })
@@ -154,7 +165,7 @@ export const createCombatSoundPlayer = (deps: ICombatSoundPlayerDeps) => {
         preload(names: Iterable<string>): void {
             if (deps.gain() <= 0 || !deps.available()) return;
             for (const name of new Set(names)) {
-                for (const role of ["attack", "hurt", "move"] as const) {
+                for (const role of ["attack", "hurt", "move", "idle"] as const) {
                     for (const melee of role === "attack" ? [false, true] : [false]) {
                         const source = resolveCombatSound(name, role, melee);
                         if (source) void load(source).catch(() => undefined);
@@ -269,6 +280,16 @@ export const preloadCombatSounds = (names: Iterable<string>): void => player.pre
 /** The move animation owns this handle, including cancellation before decoding completes. */
 export const startMovementSound = (name: string, identity: string, alive?: () => boolean): (() => void) =>
     player.loop(name, identity, alive);
+
+/** Idle loops sit under the hits: they play for as long as a turn waits, so they stay at half level. */
+export const TURN_IDLE_GAIN = 0.5;
+
+/**
+ * The active creature's idle loop (breathing, growling) while its turn awaits a decision. The scene owns the
+ * handle and stops it the moment the creature acts or the turn passes; units without an idle sound stay silent.
+ */
+export const startTurnIdleSound = (name: string, identity: string, alive?: () => boolean): (() => void) =>
+    player.loop(name, `${identity}:idle`, alive, "idle", TURN_IDLE_GAIN, Number.POSITIVE_INFINITY);
 
 /** Provided game effects share the same decoded cache, effects bus, and scene cancellation. */
 export const preloadEffectSounds = (sources: Iterable<ICombatSoundSource>): void => player.preloadSources(sources);

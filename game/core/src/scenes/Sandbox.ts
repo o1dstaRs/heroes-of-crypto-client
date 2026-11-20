@@ -1,5 +1,6 @@
 import { publishBattleUnitFacings, releaseBattleUnitFacings } from "../pixi/battleUnitFacing";
 import { defaultSummonCell } from "./defaultSummonCell";
+import { TurnIdleSound } from "./turnIdleSound";
 import { effectSourceFaction } from "./effectCaptions";
 import {
     BLACKSMITH_CRAFT_FLAGS,
@@ -41,6 +42,7 @@ import {
     playCombatSound,
     preloadCombatSounds,
     startMovementSound,
+    startTurnIdleSound,
     stopCombatSounds,
     type CombatSoundRole,
 } from "../ui/audio/combatSounds";
@@ -18928,6 +18930,7 @@ export class Sandbox extends PixiScene {
         this.sandboxPremiumOverlay?.destroy();
         this.sandboxPremiumOverlay = undefined;
         stopCombatSounds();
+        this.turnIdleSound?.clear();
         // Movement callbacks can be awaited by replay playback. Cancel them before the ticker stops so
         // retired scenes cannot remain retained behind a move/swap promise that will never finish.
         this.moveAnimManager.cancel();
@@ -19041,6 +19044,28 @@ export class Sandbox extends PixiScene {
         this.sc_onHasStarted.emit(false);
         return true;
     }
+    // Created on first use: scene test harnesses build the prototype without running field initializers.
+    private turnIdleSound?: TurnIdleSound;
+    /**
+     * The active creature's idle sound loops while its turn waits for a decision (the player or the AI is still
+     * thinking) and stops the moment it starts acting, the turn passes, or the fight ends. Replays and the
+     * animation lab stay silent.
+     */
+    private updateTurnIdleSound(fightStarted: boolean, fightFinished: boolean): void {
+        const unit = this.currentActiveUnit;
+        const thinking =
+            fightStarted &&
+            !fightFinished &&
+            unit &&
+            !unit.isDead() &&
+            // Any move, strike, projectile, spell impact or replay still presenting means it is not thinking.
+            !this.isPlayingActionAnimation() &&
+            !this.hasPendingCombatPresentation() &&
+            !this.creatureAnimationLabEnabled;
+        if (!thinking && !this.turnIdleSound) return;
+        this.turnIdleSound ??= new TurnIdleSound(startTurnIdleSound, () => !this.isSceneDestroyed());
+        this.turnIdleSound.sync(thinking ? { id: unit.getId(), name: unit.getName() } : undefined);
+    }
     private updateAiTurnBrain(fightStarted: boolean, fightFinished: boolean): void {
         if (this.creatureAnimationLabEnabled) {
             const selected = this.getCreatureAnimationLabUnit();
@@ -19098,6 +19123,7 @@ export class Sandbox extends PixiScene {
         }
         if (this.combatVisuals) {
             this.updateAiTurnBrain(fightStarted, fightProps.hasFightFinished());
+            this.updateTurnIdleSound(fightStarted, fightProps.hasFightFinished());
             this.combatVisuals.update(timeStep);
         }
         this.updateScreenShake(timeStep);
