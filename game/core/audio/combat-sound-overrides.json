@@ -1159,5 +1159,33 @@
             "source_id": "provided-f93c5c2d738d51e7d122-3160-6080",
             "keep_edges": true
         }
+    },
+    "wolf/move": {
+        "source_id": "provided-2b4f052088cd8d02e507-180-1420",
+        "path": "tmp/audio/raw/provided/2b4f052088cd8d02/excerpt-180-1420.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "footsteps-walking-on-wet-leaves-vadi-sound-1-00-06.mp3",
+            "title": "Footsteps walking on wet leaves",
+            "author": "Vadi Sound",
+            "sha256": "2b4f052088cd8d02e507da51b196ff5720e649c6d101c05cb6af90da93c26646",
+            "label": "Wolf footsteps loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Wolf move",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 180,
+                "end_ms": 1420,
+                "original_duration_ms": 6800,
+                "original_path": "tmp/audio/raw/provided/2b4f052088cd8d02/footsteps-walking-on-wet-leaves-vadi-sound-1-00-06.mp3",
+                "sha256": "078b15d3ccc7151270fc75a9b1dcd55ddf9b2cb9b0cc7d6ca25f73c4ce40724d",
+                "speed": 1.0,
+                "pitch_shift_semitones": 0,
+                "selection": "Two leaf-crunch steps (0.19, 0.79 s) cut one step period apart so the loop keeps an even rhythm"
+            },
+            "source_id": "provided-2b4f052088cd8d02e507-180-1420",
+            "keep_edges": true
+        }
     }
 }

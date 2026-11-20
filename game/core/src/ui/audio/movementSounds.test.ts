@@ -20,6 +20,7 @@ test("movement recordings are limited to the creatures given a selected movement
         "Nightmare",
         "Unicorn",
         "Wandering Mage",
+        "Wolf",
     ]);
     for (const name of ["Battle Mage", "Healer", "Wandering Mage"])
         expect(resolveCombatSound(name, "move")?.durationMs).toBe(1530);

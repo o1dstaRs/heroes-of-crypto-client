@@ -196,6 +196,10 @@
         "hurt": {
             "durationMs": 680,
             "revision": "05d80a8628"
+        },
+        "move": {
+            "durationMs": 1240,
+            "revision": "42a2ccdc99"
         }
     },
     "Leprechaun": {
