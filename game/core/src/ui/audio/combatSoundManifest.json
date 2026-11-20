@@ -455,8 +455,8 @@
     "Black Dragon": {
         "slug": "black-dragon",
         "attack": {
-            "durationMs": 1585,
-            "revision": "f3f7f8381d"
+            "durationMs": 1575,
+            "revision": "c062219875"
         },
         "hurt": {
             "durationMs": 815,

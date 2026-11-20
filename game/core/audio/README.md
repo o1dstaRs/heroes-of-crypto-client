@@ -190,7 +190,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Mantis attack                          | `combat-bloody-hit-epic-stock-media-1-00-00.mp3`                                                            |
 | Mermaid attack                         | `underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3`                                                       |
 | Elf attack                             | `punch-block-hit-gfx-sounds-1-00-00.mp3`                                                                    |
-| Black Dragon attack                    | `dragon-breathing-fire-gregor-quendel-1-00-03.mp3`                                                          |
+| Black Dragon attack                    | Blast and natural fade, 0.041–1.616 s of `swoosh-dragon-breathing-fire-gregor-quendel-1-00-02.mp3`          |
 | Wyvern attack                          | `gore-blood-splatter-epic-stock-media-1-00-01.mp3`                                                          |
 | Nomad attack                           | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                               |
 | Squire attack                          | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                                    |
