@@ -28,7 +28,7 @@ heroes-of-crypto-client/
 
 ## Tech stack
 
-- **Runtime:** Bun >= 1.4.4
+- **Runtime:** Bun >= 1.4.5
 - **Game render:** PixiJS v8 (y-up world, sprite atlases, container depth-sorting)
 - **UI:** React + MUI Joy (sidebars, toolbar, overlays)
 - **Site:** Astro 7 (static, sitemap, content collections)

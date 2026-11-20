@@ -94,7 +94,7 @@ folders with their directory structure intact. The old compact archive and sourc
 
 Archive 08 retains frontal portrait background alternatives for source history; the release UI uses main's existing faction backgrounds.
 
-Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.4+). The eleven archives
+Use the client PR checkout and its pinned Bun lockfile (Bun 1.4.5+). The eleven archives
 and the verified shared files contain the required runtime assets, settings reference and site exports.
 No older compact archive, source ZIP or superseded patch ZIP is required. Follow the restore commands below; the pinned masters reproduce the portrait pages exactly.
 

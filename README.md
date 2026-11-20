@@ -8,7 +8,7 @@
     <img src="https://github.com/o1dstaRs/heroes-of-crypto-common/actions/workflows/ci.yml/badge.svg" alt="Common CI">
   </a>
   <a href="https://bun.sh/">
-    <img src="https://img.shields.io/badge/Bun-1.4.4-fa9b3b.svg?logo=bun&logoColor=white" alt="Bun">
+    <img src="https://img.shields.io/badge/Bun-1.4.5-fa9b3b.svg?logo=bun&logoColor=white" alt="Bun">
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
@@ -23,7 +23,7 @@ This repository contains the PixiJS 8 and React game client in `game/core`, the 
 
 ## Build & Test
 
-Requires Bun 1.4.4 or newer
+Requires Bun 1.4.5 or newer
 
 Prerequisites:
 
