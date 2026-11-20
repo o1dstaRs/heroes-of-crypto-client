@@ -535,6 +535,10 @@
         "hurt": {
             "durationMs": 675,
             "revision": "d778927ba9"
+        },
+        "move": {
+            "durationMs": 1059,
+            "revision": "80386502f8"
         }
     },
     "Berserker": {

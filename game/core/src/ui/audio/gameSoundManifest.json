@@ -30,5 +30,9 @@
     "miss": {
         "durationMs": 314,
         "revision": "836aaf98a0"
+    },
+    "water_shield_dissolve": {
+        "durationMs": 1670,
+        "revision": "add0b070be"
     }
 }

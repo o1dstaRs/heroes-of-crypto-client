@@ -15,6 +15,7 @@ test("provided effects ship both measured codecs with matching cache revisions",
         "spellbook_close",
         "spellbook_open",
         "summon",
+        "water_shield_dissolve",
     ]);
     for (const name of Object.keys(manifest) as GameSoundName[]) {
         const clip = provenance.sounds.find((sound) => sound.id === name)!;

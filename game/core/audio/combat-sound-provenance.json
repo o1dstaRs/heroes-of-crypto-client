@@ -4146,6 +4146,45 @@
                     "rms_db": -20.48
                 }
             }
+        },
+        {
+            "unit": "Mermaid",
+            "slug": "mermaid",
+            "role": "move",
+            "source_id": "provided-feb547f21399edc23267",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-feb547f21399edc23267",
+                "filename": "splash-small-rock-thrown-in-water-mechanical-wave-15-00-01.mp3",
+                "title": "Splash - small rock thrown in water",
+                "author": "Mechanical Wave",
+                "sha256": "feb547f21399edc23267932aad988e2dc6f99a8d0bab050433888a4069878be2",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Mermaid move",
+                "selection": "Explicitly selected by the user for Mermaid move",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -3.76,
+                    "bytes": 10990,
+                    "duration_ms": 1059,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.24
+                },
+                "mp3": {
+                    "lufs": -20.35,
+                    "true_peak_db": -3.91,
+                    "bytes": 13580,
+                    "duration_ms": 1059,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.64
+                }
+            }
         }
     ]
 }

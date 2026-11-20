@@ -30,28 +30,40 @@ function fixture() {
 
 test("authoritative shield removal starts one rupture clock, never on an unshielded hit or death", () => {
     const { status, unit, aura, burst, root, sync } = fixture();
-    sync();
-    expect(burst).not.toHaveBeenCalled();
-    status.active = true;
-    sync();
-    expect(aura).toHaveBeenCalledTimes(1);
-    expect(burst).not.toHaveBeenCalled();
-    status.active = false;
-    sync();
-    const started = unit.waterShieldBreakStartMs;
-    expect(typeof started).toBe("number");
-    sync();
-    expect(unit.waterShieldBreakStartMs).toBe(started);
-    expect(burst).toHaveBeenCalledTimes(2);
-    unit.waterShieldBreakStartMs = undefined;
-    status.active = true;
-    sync();
-    status.active = false;
-    status.dead = true;
-    sync();
-    expect(unit.waterShieldBreakStartMs).toBeUndefined();
-    expect(burst).toHaveBeenCalledTimes(2);
-    root.destroy();
+    const playHook = RenderableUnit.onWaterShieldDissolve;
+    const dissolved = mock((_unit: RenderableUnit) => undefined);
+    RenderableUnit.onWaterShieldDissolve = dissolved;
+    try {
+        sync();
+        expect(burst).not.toHaveBeenCalled();
+        status.active = true;
+        sync();
+        expect(aura).toHaveBeenCalledTimes(1);
+        expect(burst).not.toHaveBeenCalled();
+        status.active = false;
+        sync();
+        const started = unit.waterShieldBreakStartMs;
+        expect(typeof started).toBe("number");
+        // The dissolve sound starts with the burst, once.
+        expect(dissolved).toHaveBeenCalledTimes(1);
+        expect(dissolved).toHaveBeenCalledWith(unit);
+        sync();
+        expect(unit.waterShieldBreakStartMs).toBe(started);
+        expect(burst).toHaveBeenCalledTimes(2);
+        unit.waterShieldBreakStartMs = undefined;
+        status.active = true;
+        sync();
+        status.active = false;
+        status.dead = true;
+        sync();
+        expect(unit.waterShieldBreakStartMs).toBeUndefined();
+        expect(burst).toHaveBeenCalledTimes(2);
+        // Losing the shield by dying is not a dissolve: still only the one sound.
+        expect(dissolved).toHaveBeenCalledTimes(1);
+    } finally {
+        RenderableUnit.onWaterShieldDissolve = playHook;
+        root.destroy();
+    }
 });
 
 test("lab rupture suppresses only artwork, keeps the real buff and restores through idle", () => {

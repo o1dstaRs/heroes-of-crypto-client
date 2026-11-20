@@ -1013,5 +1013,22 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 8000
         }
+    },
+    "mermaid/move": {
+        "source_id": "provided-feb547f21399edc23267",
+        "path": "tmp/audio/raw/provided/feb547f21399edc2/splash-small-rock-thrown-in-water-mechanical-wave-15-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-feb547f21399edc23267",
+            "filename": "splash-small-rock-thrown-in-water-mechanical-wave-15-00-01.mp3",
+            "title": "Splash - small rock thrown in water",
+            "author": "Mechanical Wave",
+            "sha256": "feb547f21399edc23267932aad988e2dc6f99a8d0bab050433888a4069878be2",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Mermaid move",
+            "selection": "Explicitly selected by the user for Mermaid move",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
     }
 }

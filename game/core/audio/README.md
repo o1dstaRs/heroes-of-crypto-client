@@ -219,6 +219,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Trent attack                           | `zombie-death-impact-gfx-sounds-1-00-00.mp3`                                                                                                                     |
 | Trent hurt                             | `tree-monster-painful-groan-epic-stock-media-1-00-01.mp3`                                                                                                        |
 | Magic Dragon movement                  | First wing swoosh, 0–1.200 s of `swoosh-dragon-flight-gregor-quendel-1-00-03.mp3`                                                                                |
+| Mermaid movement                       | `splash-small-rock-thrown-in-water-mechanical-wave-15-00-01.mp3`                                                                                                 |
 | Mantis movement                        | Continuous chirping, 0–1.300 s of `insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3`                                                                          |
 | Battle Mage attack (melee)             | `punch-body-hit-joshua-chivers-2-2-00-00.mp3`                                                                                                                    |
 | Battle Mage hurt                       | `combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3`                                                                                                               |
@@ -288,6 +289,11 @@ speed and pitch. Armor and Weapon Runes use the Blacksmith's own strike sound, l
 a dedicated spell sound. Both apply to direct AI/Premium actions and authoritative replay. Rejected casts stay
 quiet, and ranked submissions wait for replay, so the craft cue plays once instead of the
 attack cue. Both use the shared effects bus, mute/volume controls, and scene cancellation.
+
+The Mermaid's Water Shield dissolving (the burst when the shield absorbs a hit and breaks, and the
+animation lab's dissolve preview) plays betacut's `object-hits-water-betacut-1-00-02.mp3` once, as the
+`water_shield_dissolve` game sound (1.670 seconds; speed and pitch kept). Dying with the shield up is not a
+dissolve and stays quiet.
 
 All positive `unit_summoned` events use
 `magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3`, trimmed to 2.092 seconds.

@@ -203,27 +203,10 @@
                 "edit": {
                     "original_filename": "blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3",
                     "original_sha256": "ccdf1c0f0d896aa0c77453f3f6e31b3f1229439e9c78f8afa6acb617a6ff034e",
-                    "strike_onsets_ms": [
-                        71.0,
-                        625.0
-                    ],
-                    "strike_window_ms": [
-                        -5,
-                        295
-                    ],
-                    "sequence": [
-                        "strike1",
-                        "strike2",
-                        "strike1",
-                        "strike2",
-                        "strike1",
-                        "strike2",
-                        "sizzle"
-                    ],
-                    "sizzle_ms": [
-                        1180,
-                        1780
-                    ],
+                    "strike_onsets_ms": [71.0, 625.0],
+                    "strike_window_ms": [-5, 295],
+                    "sequence": ["strike1", "strike2", "strike1", "strike2", "strike1", "strike2", "sizzle"],
+                    "sizzle_ms": [1180, 1780],
                     "sizzle_fade_out_ms": 300,
                     "speed": 1,
                     "pitch_shift_semitones": 0
@@ -343,6 +326,48 @@
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
                     "rms_db": -22.0
+                }
+            }
+        },
+        {
+            "id": "water_shield_dissolve",
+            "source": {
+                "title": "Object hits water",
+                "author": "betacut",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for the Mermaid's Water Shield dissolving",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "object-hits-water-betacut-1-00-02.mp3",
+                "sha256": "f14a9e8ad4a0ad506bd5bd80c67d156f536468138ad1c24835f2d3d6fdd4f066",
+                "score": 0.3201,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 2093,
+                "leading_trim_ms": 0,
+                "trailing_trim_ms": 423,
+                "raw_rms_db": -17.01,
+                "raw_peak_db": 3.51
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.25,
+                    "true_peak_db": -3.89,
+                    "bytes": 12496,
+                    "duration_ms": 1670,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.08
+                },
+                "mp3": {
+                    "lufs": -20.6,
+                    "true_peak_db": -3.85,
+                    "bytes": 20780,
+                    "duration_ms": 1670,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.5
                 }
             }
         }

@@ -98,6 +98,7 @@ import { syncUnicornLabIdle } from "./UnicornLabIdleVisuals";
 import { syncHydraIdleTail } from "./HydraIdleTailVisuals";
 import { syncHydraCrestFire } from "./HydraCrestFireVisuals";
 import { WaterShieldVisual } from "./WaterShieldVisual";
+import { playGameSound } from "../ui/audio/gameSounds";
 import { championIdleFrame } from "./ChampionLabIdleMotion";
 import { syncChampionPlume } from "./ChampionLabPlume";
 import { syncNomadIdleVisuals } from "./NomadIdleVisuals";
@@ -3235,6 +3236,14 @@ export class RenderableUnit extends Unit {
     private useBattlefieldVisualProjection = false;
     private activeTurnFireSprite?: Sprite;
     private activeTurnFireFrameIndex = -1;
+    /**
+     * Fired once when the dissolve burst starts (a real break, or the lab's preview). A static, not an
+     * instance field: fromBase() units never run field initializers. Tests swap it to observe the trigger.
+     */
+    public static onWaterShieldDissolve: (unit: RenderableUnit) => void = (unit) => {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playGameSound("water_shield_dissolve", undefined, `water_shield_dissolve:${unit.getId()}`);
+    };
     private waterShieldAura?: Graphics;
     private waterShieldVisual?: WaterShieldVisual;
     private waterShieldLabPreview = false;
@@ -5102,6 +5111,7 @@ export class RenderableUnit extends Unit {
         // just broke — kick off the one-shot dissolve burst at that instant.
         if (this.waterShieldWasActive && !waterShieldActive && this.getDisplayedAmount() > 0) {
             this.waterShieldBreakStartMs = now;
+            RenderableUnit.onWaterShieldDissolve(this);
         }
         this.waterShieldWasActive = waterShieldActive;
         if (this.waterShieldBreakStartMs !== undefined) {
@@ -5566,6 +5576,7 @@ export class RenderableUnit extends Unit {
         if (this.getName() !== MERMAID_UNIT_NAME) return;
         this.waterShieldLabBroken = broken;
         this.waterShieldBreakStartMs = broken ? performance.now() : undefined;
+        if (broken) RenderableUnit.onWaterShieldDissolve(this);
     }
     public setCreatureAnimationLabPreviewEnabled(enabled: boolean): void {
         // Explicit lab-only artwork preview; never seeds a buff or changes shield consumption in combat.
