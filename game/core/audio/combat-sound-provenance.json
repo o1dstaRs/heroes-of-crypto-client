@@ -4198,6 +4198,156 @@
                     "rms_db": -22.64
                 }
             }
+        },
+        {
+            "unit": "Battle Mage",
+            "slug": "battle-mage",
+            "role": "move",
+            "source_id": "provided-9fbb7b16fd7ad891fa70-520-2050",
+            "source": {
+                "kind": "user-provided",
+                "filename": "footsteps-walking-on-parquet-floor-hard-slippers-vadi-sound-2-2-00-02.mp3",
+                "title": "Footsteps walking on parquet floor - hard slippers",
+                "author": "Vadi Sound",
+                "sha256": "9fbb7b16fd7ad891fa70f8dd29fe26f2d6d18588fe8c800596b780b6b0edaed5",
+                "label": "Battle Mage footsteps loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Battle Mage move",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 520,
+                    "end_ms": 2050,
+                    "original_duration_ms": 2745,
+                    "original_path": "tmp/audio/raw/provided/9fbb7b16fd7ad891/footsteps-walking-on-parquet-floor-hard-slippers-vadi-sound-2-2-00-02.mp3",
+                    "sha256": "e8e58eed9516a47a71d0915f4d3097c5f443df3de5c3d9c0e688fb55b3728eab",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0,
+                    "selection": "Four steps, cut exactly one step period apart (steps at 530, 880, 1280, 1670 ms) so the loop keeps its walking rhythm"
+                },
+                "source_id": "provided-9fbb7b16fd7ad891fa70-520-2050",
+                "keep_edges": true
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.09,
+                    "true_peak_db": -3.59,
+                    "bytes": 13306,
+                    "duration_ms": 1530,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.15
+                },
+                "mp3": {
+                    "lufs": -20.55,
+                    "true_peak_db": -4.35,
+                    "bytes": 19052,
+                    "duration_ms": 1530,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.61
+                }
+            }
+        },
+        {
+            "unit": "Healer",
+            "slug": "healer",
+            "role": "move",
+            "source_id": "provided-9fbb7b16fd7ad891fa70-520-2050",
+            "source": {
+                "kind": "user-provided",
+                "filename": "footsteps-walking-on-parquet-floor-hard-slippers-vadi-sound-2-2-00-02.mp3",
+                "title": "Footsteps walking on parquet floor - hard slippers",
+                "author": "Vadi Sound",
+                "sha256": "9fbb7b16fd7ad891fa70f8dd29fe26f2d6d18588fe8c800596b780b6b0edaed5",
+                "label": "Healer footsteps loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Healer move",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 520,
+                    "end_ms": 2050,
+                    "original_duration_ms": 2745,
+                    "original_path": "tmp/audio/raw/provided/9fbb7b16fd7ad891/footsteps-walking-on-parquet-floor-hard-slippers-vadi-sound-2-2-00-02.mp3",
+                    "sha256": "e8e58eed9516a47a71d0915f4d3097c5f443df3de5c3d9c0e688fb55b3728eab",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0,
+                    "selection": "Four steps, cut exactly one step period apart (steps at 530, 880, 1280, 1670 ms) so the loop keeps its walking rhythm"
+                },
+                "source_id": "provided-9fbb7b16fd7ad891fa70-520-2050",
+                "keep_edges": true
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.09,
+                    "true_peak_db": -3.59,
+                    "bytes": 13306,
+                    "duration_ms": 1530,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.15
+                },
+                "mp3": {
+                    "lufs": -20.55,
+                    "true_peak_db": -4.35,
+                    "bytes": 19052,
+                    "duration_ms": 1530,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.61
+                }
+            }
+        },
+        {
+            "unit": "Wandering Mage",
+            "slug": "wandering-mage",
+            "role": "move",
+            "source_id": "provided-9fbb7b16fd7ad891fa70-520-2050",
+            "source": {
+                "kind": "user-provided",
+                "filename": "footsteps-walking-on-parquet-floor-hard-slippers-vadi-sound-2-2-00-02.mp3",
+                "title": "Footsteps walking on parquet floor - hard slippers",
+                "author": "Vadi Sound",
+                "sha256": "9fbb7b16fd7ad891fa70f8dd29fe26f2d6d18588fe8c800596b780b6b0edaed5",
+                "label": "Wandering Mage footsteps loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Wandering Mage move",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 520,
+                    "end_ms": 2050,
+                    "original_duration_ms": 2745,
+                    "original_path": "tmp/audio/raw/provided/9fbb7b16fd7ad891/footsteps-walking-on-parquet-floor-hard-slippers-vadi-sound-2-2-00-02.mp3",
+                    "sha256": "e8e58eed9516a47a71d0915f4d3097c5f443df3de5c3d9c0e688fb55b3728eab",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0,
+                    "selection": "Four steps, cut exactly one step period apart (steps at 530, 880, 1280, 1670 ms) so the loop keeps its walking rhythm"
+                },
+                "source_id": "provided-9fbb7b16fd7ad891fa70-520-2050",
+                "keep_edges": true
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.09,
+                    "true_peak_db": -3.59,
+                    "bytes": 13306,
+                    "duration_ms": 1530,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.15
+                },
+                "mp3": {
+                    "lufs": -20.55,
+                    "true_peak_db": -4.35,
+                    "bytes": 19052,
+                    "duration_ms": 1530,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.61
+                }
+            }
         }
     ]
 }

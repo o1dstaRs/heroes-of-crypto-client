@@ -291,6 +291,10 @@ def master(key, records, work, output, max_duration_ms=None):
     for record in records:
         try:
             samples, start, end, metrics = quality(record["path"])
+            if record.get("source", {}).get("keep_edges") is True:
+                # A rhythmic loop (footsteps) is cut to an exact period; trimming its closing gap would make
+                # every repeat stumble. Keep the whole cut, silences included.
+                start, end = 0, len(samples)
             limit = record.get("source", {}).get("duration_limit_ms", max_duration_ms)
             if not isinstance(limit, (int, float)) or not math.isfinite(limit) or limit < 75:
                 raise ValueError("Invalid sound duration limit")
@@ -360,8 +364,10 @@ def master(key, records, work, output, max_duration_ms=None):
         gain_db += TARGET_LUFS - sum(m["lufs"] for m in encoded.values()) / len(encoded)
     else:
         raise ValueError(key + ": loudness/peak target could not be met: " + str({"master": measurement, "encoded": encoded}))
+    keeps_edges = record.get("source", {}).get("keep_edges") is True
     for codec, m in encoded.items():
-        if m["bytes"] > max_bytes or m["duration_ms"] > duration_limit_ms or m["leading_quiet_ms"] > 25 or m["trailing_quiet_ms"] > 65:
+        quiet_edges = not keeps_edges and (m["leading_quiet_ms"] > 25 or m["trailing_quiet_ms"] > 65)
+        if m["bytes"] > max_bytes or m["duration_ms"] > duration_limit_ms or quiet_edges:
             raise ValueError(key + ": encoded QA failed: " + str(m))
     pcm = decode(destination.with_suffix(".webm"))
     step = max(1, len(pcm) // 120)

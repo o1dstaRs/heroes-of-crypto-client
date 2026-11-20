@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createCombatSoundPlayer, resolveCombatSound } from "./combatSounds";
 import manifest from "./combatSoundManifest.json";
 
-test("movement recordings are limited to the selected horses, spiders, Mantis, Magic Dragon and Mermaid", () => {
+test("movement recordings are limited to the creatures given a selected movement sound", () => {
     expect(
         Object.keys(manifest)
             .filter((name) => resolveCombatSound(name, "move"))
@@ -10,13 +10,18 @@ test("movement recordings are limited to the selected horses, spiders, Mantis, M
     ).toEqual([
         "Arachna Queen",
         "Arachna Spider",
+        "Battle Mage",
         "Champion",
+        "Healer",
         "Magic Dragon",
         "Mantis",
         "Mermaid",
         "Nightmare",
         "Unicorn",
+        "Wandering Mage",
     ]);
+    for (const name of ["Battle Mage", "Healer", "Wandering Mage"])
+        expect(resolveCombatSound(name, "move")?.durationMs).toBe(1530);
     expect(resolveCombatSound("Magic Dragon", "move")?.webm).toContain("magic-dragon_move.webm");
     expect(resolveCombatSound("Mantis", "move")?.webm).toContain("mantis_move.webm");
     expect(resolveCombatSound("Champion", "move", true)?.webm).toContain("champion_move.webm");

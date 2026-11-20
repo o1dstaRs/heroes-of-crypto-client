@@ -74,6 +74,10 @@
         "hurt": {
             "durationMs": 514,
             "revision": "f53d391b74"
+        },
+        "move": {
+            "durationMs": 1530,
+            "revision": "0e20332ea6"
         }
     },
     "Battle Mage": {
@@ -85,6 +89,10 @@
         "hurt": {
             "durationMs": 454,
             "revision": "5b169c27cb"
+        },
+        "move": {
+            "durationMs": 1530,
+            "revision": "7a92d5f20b"
         }
     },
     "Crusader": {
@@ -498,6 +506,10 @@
         "hurt": {
             "durationMs": 660,
             "revision": "9090f5b59d"
+        },
+        "move": {
+            "durationMs": 1530,
+            "revision": "b59cec1c6d"
         }
     },
     "Manticore": {

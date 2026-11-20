@@ -98,6 +98,22 @@ class CombatMasteringTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "exceeds the 1600 ms limit"):
                 master("test/attack", [{**record, "role": "attack"}], work / "one-shot", work / "one-shot-output")
 
+    def test_keep_edges_preserves_a_rhythmic_loop_period_including_its_gaps(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
+            work = Path(folder)
+            source = work / "steps.wav"
+            step, gap = self.tone(0.08), [0] * int(RATE * 0.32)
+            write_wave(source, array.array("f", (step + gap) * 4))  # four 400 ms step periods
+            record = {"path": source, "unit": "test", "slug": "test", "role": "move", "source_id": "steps",
+                      "source": {"kind": "user-provided", "duration_limit_ms": 1600, "keep_edges": True}}
+            result = master("test/move", [record], work, work / "output")
+            for encoded in result["encoded"].values():
+                self.assertAlmostEqual(encoded["duration_ms"], 1600, delta=8)
+            # Without the flag the closing gap is trimmed, shortening the period.
+            plain = {**record, "source": {**record["source"], "keep_edges": False}}
+            trimmed = master("test/move", [plain], work / "plain", work / "plain-output")
+            self.assertLess(trimmed["encoded"]["webm"]["duration_ms"], 1400)
+
     def test_long_silence_padding_does_not_reject_a_short_complete_event(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
             work = Path(folder)
