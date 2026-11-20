@@ -317,6 +317,10 @@
         "hurt": {
             "durationMs": 825,
             "revision": "2a5d44c6cc"
+        },
+        "move": {
+            "durationMs": 1169,
+            "revision": "53293f0857"
         }
     },
     "Gargantuan": {

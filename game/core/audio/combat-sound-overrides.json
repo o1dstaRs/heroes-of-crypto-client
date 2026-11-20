@@ -840,5 +840,32 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
         }
+    },
+    "magic-dragon/move": {
+        "source_id": "provided-e19669f187c887c5b798-0-1200",
+        "path": "tmp/audio/raw/provided/e19669f187c887c5/excerpt-0-1200.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "swoosh-dragon-flight-gregor-quendel-1-00-03.mp3",
+            "title": "Swoosh - dragon flight",
+            "author": "Gregor Quendel",
+            "sha256": "e19669f187c887c5b7985edef4070a5f1ea4850f49e84212a5711195ae5bcb31",
+            "label": "Magic Dragon wingbeat movement loop",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Magic Dragon move",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 1200,
+                "original_duration_ms": 3359,
+                "original_path": "tmp/audio/raw/provided/e19669f187c887c5/swoosh-dragon-flight-gregor-quendel-1-00-03.mp3",
+                "sha256": "124586453dc49a3242b75f258e5dde180d990fa7ead2f672e12390c61beb24df",
+                "speed": 1,
+                "pitch_shift_semitones": 0,
+                "selection": "First complete wing swoosh, quiet to quiet"
+            },
+            "source_id": "provided-e19669f187c887c5b798-0-1200"
+        }
     }
 }
