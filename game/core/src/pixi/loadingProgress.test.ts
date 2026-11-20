@@ -3,6 +3,9 @@ import { describe, expect, it } from "bun:test";
 import {
     advanceLoadingProgress,
     displayedLoadingProgress,
+    LOADING_EXIT_FADE_MS,
+    LOADING_EXIT_SWEEP_MS,
+    loadingExitFrame,
     minimumLoadingScreenDurationMs,
     MINIMUM_LOADING_SCREEN_DURATION_MS,
 } from "./loadingProgress";
@@ -81,5 +84,35 @@ describe("displayedLoadingProgress", () => {
     it("reports real progress immediately when no minimum duration is requested", () => {
         expect(displayedLoadingProgress(0.42, 0, 0)).toBe(0.42);
         expect(displayedLoadingProgress(1, 0, 0)).toBe(1);
+    });
+});
+
+describe("loadingExitFrame", () => {
+    it("sweeps a half-full bar to 100% before fading, then reports done", () => {
+        const sweep = LOADING_EXIT_SWEEP_MS * 0.5;
+        let previous = 0.5;
+        for (let elapsed = 0; elapsed < sweep; elapsed += 16) {
+            const frame = loadingExitFrame(0.5, elapsed);
+            expect(frame.progress).toBeGreaterThanOrEqual(previous);
+            expect(frame.progress).toBeLessThan(1);
+            expect(frame.alpha).toBe(1);
+            expect(frame.done).toBe(false);
+            previous = frame.progress;
+        }
+        expect(loadingExitFrame(0.5, sweep)).toEqual({ progress: 1, alpha: 1, done: false });
+        expect(loadingExitFrame(0.5, sweep + LOADING_EXIT_FADE_MS / 2)).toEqual({
+            progress: 1,
+            alpha: 0.5,
+            done: false,
+        });
+        expect(loadingExitFrame(0.5, sweep + LOADING_EXIT_FADE_MS)).toEqual({ progress: 1, alpha: 0, done: true });
+    });
+
+    it("fades a full bar at once and tolerates invalid input", () => {
+        expect(loadingExitFrame(1, 0)).toEqual({ progress: 1, alpha: 1, done: false });
+        expect(loadingExitFrame(1, Number.NaN)).toEqual({ progress: 1, alpha: 1, done: false });
+        expect(loadingExitFrame(Number.NaN, 0).progress).toBe(0);
+        expect(loadingExitFrame(0.2, 10_000)).toEqual({ progress: 1, alpha: 0, done: true });
+        expect(loadingExitFrame(0.2, 0, 0, 0)).toEqual({ progress: 1, alpha: 0, done: true });
     });
 });

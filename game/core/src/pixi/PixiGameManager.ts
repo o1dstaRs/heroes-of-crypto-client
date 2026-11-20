@@ -46,6 +46,7 @@ import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { PixiApp } from "./PixiApp";
 import type { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
+import { collectStageTextureSources, prewarmTextureSources } from "./prewarmStageTextures";
 
 import type {
     CreatureAnimationLabResult,
@@ -464,9 +465,39 @@ export class PixiGameManager {
             pixiApp.destroy();
             return;
         }
+        actualLoadingProgress = 0.95;
+        renderLoadingProgress();
+        // Upload the board's textures behind the loading screen, a few per frame, so its first visible
+        // frame does not hand them all to the GPU at once (a freeze right after the bar disappeared).
+        const renderer = this.pixiApp.getApplication().renderer;
+        await prewarmTextureSources({
+            sources: collectStageTextureSources(stage, loadingScreen),
+            upload: (source) => renderer.texture.initSource(source),
+            onProgress: (fraction) => {
+                actualLoadingProgress = 0.95 + 0.05 * fraction;
+                renderLoadingProgress();
+            },
+            // A background tab runs no frames: continue on a short timer there instead of stalling.
+            nextFrame: () =>
+                new Promise((resolve) => {
+                    const timeout = window.setTimeout(resolve, 100);
+                    window.requestAnimationFrame(() => {
+                        window.clearTimeout(timeout);
+                        resolve();
+                    });
+                }),
+            isCancelled: () => !isCurrentLifecycle(),
+        });
         actualLoadingProgress = 1;
         renderLoadingProgress();
         await minimumLoadingScreenDuration;
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
+        // Sweep the bar to 100% and fade the screen over the board instead of cutting to it mid-bar.
+        await loadingScreen?.playExit();
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();

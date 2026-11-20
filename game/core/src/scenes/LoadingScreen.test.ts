@@ -11,6 +11,7 @@ type LoadingScreenInternals = {
     progressTarget: number;
     progressAnimating: boolean;
     advanceProgress: (ticker: Ticker) => void;
+    advanceExit: (ticker: Ticker) => void;
 };
 
 const texture = (width: number, height: number): Texture =>
@@ -121,6 +122,47 @@ describe("LoadingScreen resource lifecycle", () => {
             screen.destroy();
             unregister.mockRestore();
             register.mockRestore();
+        }
+    });
+    test("the exit sweeps the bar to 100%, fades the screen out, then resolves; destroy ends it early", async () => {
+        const screen = await createScreen();
+        const state = screen as unknown as LoadingScreenInternals;
+        const register = spyOn(Ticker.shared, "add");
+        try {
+            screen.animateProgress(0.5);
+            for (let frame = 0; frame < 120; frame++) state.advanceProgress({ deltaMS: 1000 / 60 } as Ticker);
+            expect(state.progress).toBe(0.5);
+            let resolved = false;
+            const exit = screen.playExit().then(() => (resolved = true));
+            expect(screen.playExit()).toBe(screen.playExit());
+            expect(state.progressAnimating).toBe(false);
+            // Late progress reports no longer move the bar once the exit owns it.
+            screen.animateProgress(0.7);
+            expect(state.progressTarget).toBe(0.5);
+
+            const alphas: number[] = [];
+            for (let frame = 0; frame < 60 && !resolved; frame++) {
+                state.advanceExit({ deltaMS: 1000 / 60 } as Ticker);
+                alphas.push(screen.alpha);
+                await Promise.resolve();
+            }
+            await exit;
+            expect(state.progress).toBe(1);
+            expect(screen.alpha).toBe(0);
+            // The bar finishes before the fade begins, and the fade only ever decreases.
+            expect(alphas[0]).toBe(1);
+            expect(alphas.every((alpha, index) => index === 0 || alpha <= alphas[index - 1])).toBe(true);
+            // A stalled frame does not jump the sequence to its end.
+            const second = await createScreen();
+            const secondState = second as unknown as LoadingScreenInternals;
+            const secondExit = second.playExit();
+            secondState.advanceExit({ deltaMS: 5000 } as Ticker);
+            expect(second.alpha).toBe(1);
+            second.destroy();
+            await secondExit;
+        } finally {
+            register.mockRestore();
+            screen.destroy();
         }
     });
 });

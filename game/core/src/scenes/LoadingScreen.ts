@@ -13,7 +13,12 @@ import {
 } from "pixi.js";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
-import { advanceLoadingProgress } from "../pixi/loadingProgress";
+import {
+    advanceLoadingProgress,
+    LOADING_EXIT_FADE_MS,
+    LOADING_EXIT_SWEEP_MS,
+    loadingExitFrame,
+} from "../pixi/loadingProgress";
 import {
     normalizeLoadingScreenFireTuning,
     readStoredLoadingScreenFireTuning,
@@ -119,6 +124,13 @@ export class LoadingScreen extends Container {
     private progress = 0;
     private progressTarget = 0;
     private progressAnimating = false;
+    private exit?: {
+        from: number;
+        elapsedMs: number;
+        resolve: () => void;
+        promise: Promise<void>;
+        fallback: ReturnType<typeof setTimeout>;
+    };
     private constructor(
         screenWidth: number,
         screenHeight: number,
@@ -320,6 +332,7 @@ export class LoadingScreen extends Container {
     public override destroy(): void {
         if (this.destroyed) return;
         this.stopProgressAnimation();
+        this.endExit();
         this.unloadedBarLayer.filters = null;
         this.unloadedBarFilter.destroy();
         // Container.destroy() does not recurse unless explicitly requested. The fire sprites are registered
@@ -609,8 +622,41 @@ export class LoadingScreen extends Container {
         }
         this.drawCircleClippedAtX(mask, rightPocketCenterX, pocketCenterY, TRACK_START_POCKET_RADIUS, revealX);
     }
+    /**
+     * Finish once loading is done: sweep the bar to 100%, then fade out over the board. Resolves when the
+     * screen is fully transparent (or destroyed); the caller then removes it.
+     */
+    public playExit(): Promise<void> {
+        if (this.exit) return this.exit.promise;
+        if (this.destroyed) return Promise.resolve();
+        this.stopProgressAnimation();
+        let resolve!: () => void;
+        const promise = new Promise<void>((done) => (resolve = done));
+        // A background tab runs no frames; finish on a timer then, as the minimum-duration wait does.
+        const fallback = setTimeout(() => this.endExit(), LOADING_EXIT_SWEEP_MS + LOADING_EXIT_FADE_MS + 500);
+        this.exit = { from: this.progress, elapsedMs: 0, resolve, promise, fallback };
+        Ticker.shared.add(this.advanceExit, this);
+        return promise;
+    }
+    private advanceExit(ticker: Ticker): void {
+        const exit = this.exit;
+        if (!exit) return;
+        // A stalled frame must not skip the sweep: advance by at most a few frames' worth of time.
+        exit.elapsedMs += Math.min(Math.max(0, ticker.deltaMS), 50);
+        const frame = loadingExitFrame(exit.from, exit.elapsedMs);
+        if (frame.progress !== this.progress) this.setProgress(frame.progress);
+        this.alpha = frame.alpha;
+        if (frame.done) this.endExit();
+    }
+    private endExit(): void {
+        const exit = this.exit;
+        if (!exit) return;
+        Ticker.shared.remove(this.advanceExit, this);
+        clearTimeout(exit.fallback);
+        exit.resolve();
+    }
     public animateProgress(value: number): void {
-        if (this.destroyed || !Number.isFinite(value)) return;
+        if (this.destroyed || this.exit || !Number.isFinite(value)) return;
         this.progressTarget = Math.max(this.progress, this.progressTarget, Math.min(1, value));
         if (this.progressAnimating || this.progressTarget === this.progress) return;
         this.progressAnimating = true;
