@@ -661,8 +661,8 @@
     "Behemoth": {
         "slug": "behemoth",
         "attack": {
-            "durationMs": 1100,
-            "revision": "6a3867bf7a"
+            "durationMs": 869,
+            "revision": "b83f148309"
         },
         "hurt": {
             "durationMs": 1049,

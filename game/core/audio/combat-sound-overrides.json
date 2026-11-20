@@ -911,5 +911,22 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 8000
         }
+    },
+    "behemoth/attack": {
+        "source_id": "provided-f2258bbcd9db83cc3d71",
+        "path": "tmp/audio/raw/provided/f2258bbcd9db83cc/anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-f2258bbcd9db83cc3d71",
+            "filename": "anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3",
+            "title": "Anime punch - cinematic",
+            "author": "GFX Sounds",
+            "sha256": "f2258bbcd9db83cc3d71e53601f50c0a409108d6e2153017f7dfca5678d7ce74",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Behemoth attack",
+            "selection": "Explicitly selected by the user for Behemoth attack",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
     }
 }

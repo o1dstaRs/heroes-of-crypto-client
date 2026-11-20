@@ -218,6 +218,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Trent hurt                             | `tree-monster-painful-groan-epic-stock-media-1-00-01.mp3`                                                   |
 | Magic Dragon movement                  | First wing swoosh, 0–1.200 s of `swoosh-dragon-flight-gregor-quendel-1-00-03.mp3`                           |
 | Mantis movement                        | Continuous chirping, 0–1.300 s of `insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3`                     |
+| Behemoth attack                        | `anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3`                                                            |
 | Behemoth hurt                          | Opening growl, 0–1.080 s of `monkey-growl-gfx-sounds-1-1-00-02.mp3` (before the big roar)                   |
 | Behemoth idle (turn loop)              | `monkey-growling-aggressively-felix-blume-1-00-04.mp3`                                                      |
 | Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                              |

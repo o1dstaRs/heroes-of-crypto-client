@@ -414,25 +414,38 @@
             "unit": "Behemoth",
             "slug": "behemoth",
             "role": "attack",
-            "generation_id": "tNK3PfRYl8g7og38bIRK",
+            "source_id": "provided-f2258bbcd9db83cc3d71",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-f2258bbcd9db83cc3d71",
+                "filename": "anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3",
+                "title": "Anime punch - cinematic",
+                "author": "GFX Sounds",
+                "sha256": "f2258bbcd9db83cc3d71e53601f50c0a409108d6e2153017f7dfca5678d7ce74",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Behemoth attack",
+                "selection": "Explicitly selected by the user for Behemoth attack",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.94,
-                    "true_peak_db": -4.5,
-                    "bytes": 10387,
-                    "duration_ms": 1100,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -22.6
+                    "lufs": -20.34,
+                    "true_peak_db": -4.12,
+                    "bytes": 8586,
+                    "duration_ms": 869,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.27
                 },
                 "mp3": {
-                    "lufs": -20.39,
-                    "true_peak_db": -5.38,
-                    "bytes": 13868,
-                    "duration_ms": 1100,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -23.03
+                    "lufs": -20.7,
+                    "true_peak_db": -4.6,
+                    "bytes": 11276,
+                    "duration_ms": 869,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.62
                 }
             }
         },
