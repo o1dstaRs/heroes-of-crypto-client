@@ -174,14 +174,15 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
  */
 export const DamageBreakdown: React.FC<{
     entries: IFightDamageEntry[];
-    armyFooter?: (team: IFightDamageEntry["team"]) => React.ReactNode;
-}> = ({ entries, armyFooter }) => {
+    /** Rendered at the top of each army column, directly under the section heading. */
+    armyHeader?: (team: IFightDamageEntry["team"]) => React.ReactNode;
+}> = ({ entries, armyHeader }) => {
     const noDamage = !entries.length ? (
         <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", fontSize: "0.82rem" }}>
             No damage was dealt.
         </Typography>
     ) : null;
-    if (noDamage && !armyFooter) return noDamage;
+    if (noDamage && !armyHeader) return noDamage;
 
     const max = entries.reduce((acc, e) => Math.max(acc, e.damage), 0);
     // Keep one army per column, matching the green-left / red-right comparison used throughout
@@ -192,7 +193,7 @@ export const DamageBreakdown: React.FC<{
             entries: entries.filter((entry) => entry.team === team).sort((a, b) => b.damage - a.damage),
         }))
         // A recorded build still belongs to its own side when that army dealt no damage.
-        .filter((column) => column.entries.length > 0 || armyFooter);
+        .filter((column) => column.entries.length > 0 || armyHeader);
 
     return (
         <>
@@ -232,6 +233,7 @@ export const DamageBreakdown: React.FC<{
                             width: "100%",
                         }}
                     >
+                        {armyHeader?.(column.team)}
                         {column.entries.map((entry, i) => (
                             <DamageRow
                                 key={`${entry.team}_${entry.name}`}
@@ -240,7 +242,6 @@ export const DamageBreakdown: React.FC<{
                                 index={ci * columns[0].entries.length + i}
                             />
                         ))}
-                        {armyFooter?.(column.team)}
                     </Box>
                 ))}
             </Stack>

@@ -177,7 +177,7 @@ test.each(["both", "enemy only", "neither"])(
             <CacheProvider value={createCache({ key: "result-damage-setup" })}>
                 <DamageBreakdown
                     entries={entries}
-                    armyFooter={(team) => (
+                    armyHeader={(team) => (
                         <FightArmySynergies team={team} army={setup.armies.find((army) => army.team === team)} />
                     )}
                 />
@@ -196,7 +196,8 @@ test.each(["both", "enemy only", "neither"])(
         for (const entry of entries) {
             const column = entry.team === TeamVals.LEFT ? left : right;
             expect(column.indexOf(`${entry.name} (`)).toBeGreaterThan(-1);
-            expect(column.indexOf(`${entry.name} (`)).toBeLessThan(column.indexOf("data-result-army-synergies="));
+            // Synergies sit directly under the section heading, above the army's damage rows.
+            expect(column.indexOf(`${entry.name} (`)).toBeGreaterThan(column.indexOf("data-result-army-synergies="));
         }
         if (mode === "neither") expect(html).toContain("No damage was dealt.");
     },

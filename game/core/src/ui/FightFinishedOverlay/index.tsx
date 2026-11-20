@@ -1592,7 +1592,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <ResultsSectionPlaque label="DAMAGE DEALT" />
                         <DamageBreakdown
                             entries={stats.damageByUnit ?? []}
-                            armyFooter={(team) => (
+                            armyHeader={(team) => (
                                 <FightArmySynergies
                                     team={team}
                                     army={stats.setup?.armies.find((army) => army.team === team)}

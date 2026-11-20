@@ -3120,6 +3120,9 @@ const NO_TEAM_ROSTER_COLOR = 0xd0d0d0;
 const RESPOND_EMBLEM_CANVAS_SCALE = 2.25;
 /** Selected mockup variant: compress only the crossed-swords emblem vertically by 20%. */
 const RESPOND_EMBLEM_HEIGHT_SCALE = 0.8;
+/** Longest a melee swing may continue once its own attacker is already dead, before the death clip. */
+const LETHAL_MELEE_FOLLOW_THROUGH_MS = 150;
+
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
     private hasHourglassedThisLap = false;
@@ -10912,13 +10915,15 @@ export class RenderableUnit extends Unit {
                 -anim.elapsed,
             );
         if (!(remaining > 0)) return false;
-        // The previous 20% / 150 ms reduction still left a noticeable pause before falling.
-        // Retain every cel and its current phase, but shorten only this dying actor's remainder.
-        const scale = 1 - Math.min(300, remaining * 0.4) / remaining;
+        // Its own blow has already been presented, so the rest of the swing only delays the fall. Earlier
+        // 20%/150 ms and 40%/300 ms reductions still read as a pause: compress whatever remains into a brief
+        // follow-through. Every cel, its current phase and the completion callback are retained.
+        anim.lethalMeleeRecoveryHastened = true;
+        if (remaining <= LETHAL_MELEE_FOLLOW_THROUGH_MS) return false;
+        const scale = LETHAL_MELEE_FOLLOW_THROUGH_MS / remaining;
         anim.durationPerFrame *= scale;
         anim.frameDurationsMs = anim.frameDurationsMs?.map((ms) => ms * scale);
         anim.elapsed *= scale;
-        anim.lethalMeleeRecoveryHastened = true;
         return true;
     }
     public isPlayingOneShotAnimation(stateName?: string): boolean {

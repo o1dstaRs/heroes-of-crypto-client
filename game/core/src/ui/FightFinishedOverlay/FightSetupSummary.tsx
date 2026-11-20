@@ -156,7 +156,7 @@ export const FightArmySynergies: React.FC<{ team: TeamType; army?: IFightResultA
             component="section"
             aria-label={`${teamName(team)} ${t("Synergies")}`}
             data-result-army-synergies={team}
-            sx={{ display: "flex", justifyContent: "center", gap: 1.25, mt: 1.25, mb: 0.25, textTransform: "none" }}
+            sx={{ display: "flex", justifyContent: "center", gap: 1.25, mt: 0.25, mb: 1.25, textTransform: "none" }}
         >
             {active.map(({ key, faction, variant, level }) => (
                 <Box
