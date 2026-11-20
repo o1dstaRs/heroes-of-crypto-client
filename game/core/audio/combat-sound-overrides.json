@@ -579,20 +579,20 @@
         }
     },
     "mermaid/attack": {
-        "source_id": "provided-cfbd8de6aed6a9a34b10",
-        "path": "tmp/audio/raw/provided/cfbd8de6aed6a9a3/underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3",
+        "source_id": "provided-88c5a6cd5672ab0d62cf",
+        "path": "tmp/audio/raw/provided/88c5a6cd5672ab0d/whoosh-splash-betacut-1-00-01.mp3",
         "source": {
             "kind": "user-provided",
-            "source_id": "provided-cfbd8de6aed6a9a34b10",
-            "filename": "underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3",
-            "title": "Underwater whoosh (Fast)",
-            "author": "Slava Pogorelsky",
-            "sha256": "cfbd8de6aed6a9a34b102ff93f773b5ac830d20a092121a8ee6e9d4be184add5",
-            "label": "Selected mermaid attack",
-            "selection": "Explicitly selected by the user",
+            "source_id": "provided-88c5a6cd5672ab0d62cf",
+            "filename": "whoosh-splash-betacut-1-00-01.mp3",
+            "title": "Whoosh - splash",
+            "author": "betacut",
+            "sha256": "88c5a6cd5672ab0d62cf8b504db9aa71f3fea161ff10645f1c2c20e833ed3fe2",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Mermaid attack",
+            "selection": "Explicitly selected by the user for Mermaid attack",
             "license": "License receipt not included in the supplied file",
-            "duration_limit_ms": 1600,
-            "source_site": "https://uppbeat.io/"
+            "duration_limit_ms": 1600
         }
     },
     "elf/attack": {
@@ -1027,6 +1027,23 @@
             "source_site": "https://uppbeat.io/",
             "label": "Selected Mermaid move",
             "selection": "Explicitly selected by the user for Mermaid move",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
+    },
+    "mermaid/hurt": {
+        "source_id": "provided-b1daffbc0c97ac6487ad",
+        "path": "tmp/audio/raw/provided/b1daffbc0c97ac64/splash-small-movement-in-water-mechanical-wave-11-00-02.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-b1daffbc0c97ac6487ad",
+            "filename": "splash-small-movement-in-water-mechanical-wave-11-00-02.mp3",
+            "title": "Splash - small movement in water",
+            "author": "Mechanical Wave",
+            "sha256": "b1daffbc0c97ac6487adf4c1658e5dde8675a448156887db3a9ec5ee82a81684",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Mermaid hurt",
+            "selection": "Explicitly selected by the user for Mermaid hurt",
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
         }

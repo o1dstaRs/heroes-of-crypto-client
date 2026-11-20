@@ -529,12 +529,12 @@
     "Mermaid": {
         "slug": "mermaid",
         "attack": {
-            "durationMs": 769,
-            "revision": "4ce40bb236"
+            "durationMs": 1179,
+            "revision": "c5e6798573"
         },
         "hurt": {
-            "durationMs": 675,
-            "revision": "d778927ba9"
+            "durationMs": 1454,
+            "revision": "80cc97e286"
         },
         "move": {
             "durationMs": 1059,

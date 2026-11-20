@@ -2120,38 +2120,38 @@
             "unit": "Mermaid",
             "slug": "mermaid",
             "role": "attack",
-            "source_id": "provided-cfbd8de6aed6a9a34b10",
+            "source_id": "provided-88c5a6cd5672ab0d62cf",
             "source": {
                 "kind": "user-provided",
-                "source_id": "provided-cfbd8de6aed6a9a34b10",
-                "filename": "underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3",
-                "title": "Underwater whoosh (Fast)",
-                "author": "Slava Pogorelsky",
-                "sha256": "cfbd8de6aed6a9a34b102ff93f773b5ac830d20a092121a8ee6e9d4be184add5",
-                "label": "Selected mermaid attack",
-                "selection": "Explicitly selected by the user",
+                "source_id": "provided-88c5a6cd5672ab0d62cf",
+                "filename": "whoosh-splash-betacut-1-00-01.mp3",
+                "title": "Whoosh - splash",
+                "author": "betacut",
+                "sha256": "88c5a6cd5672ab0d62cf8b504db9aa71f3fea161ff10645f1c2c20e833ed3fe2",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Mermaid attack",
+                "selection": "Explicitly selected by the user for Mermaid attack",
                 "license": "License receipt not included in the supplied file",
-                "duration_limit_ms": 1600,
-                "source_site": "https://uppbeat.io/"
+                "duration_limit_ms": 1600
             },
             "encoded": {
                 "webm": {
-                    "lufs": -19.97,
-                    "true_peak_db": -4.5,
-                    "bytes": 7318,
-                    "duration_ms": 769,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.15,
+                    "true_peak_db": -3.5,
+                    "bytes": 10125,
+                    "duration_ms": 1179,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -18.73
+                    "rms_db": -22.15
                 },
                 "mp3": {
-                    "lufs": -20.43,
-                    "true_peak_db": -4.79,
-                    "bytes": 10124,
-                    "duration_ms": 769,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.55,
+                    "true_peak_db": -4.47,
+                    "bytes": 15020,
+                    "duration_ms": 1179,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.19
+                    "rms_db": -22.57
                 }
             }
         },
@@ -2159,25 +2159,38 @@
             "unit": "Mermaid",
             "slug": "mermaid",
             "role": "hurt",
-            "generation_id": "z6VrFrESNmoUBfG9aQVB",
+            "source_id": "provided-b1daffbc0c97ac6487ad",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-b1daffbc0c97ac6487ad",
+                "filename": "splash-small-movement-in-water-mechanical-wave-11-00-02.mp3",
+                "title": "Splash - small movement in water",
+                "author": "Mechanical Wave",
+                "sha256": "b1daffbc0c97ac6487adf4c1658e5dde8675a448156887db3a9ec5ee82a81684",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Mermaid hurt",
+                "selection": "Explicitly selected by the user for Mermaid hurt",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -8.86,
-                    "bytes": 6884,
-                    "duration_ms": 675,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.02,
+                    "true_peak_db": -3.34,
+                    "bytes": 15881,
+                    "duration_ms": 1454,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.53
+                    "rms_db": -22.19
                 },
                 "mp3": {
-                    "lufs": -20.42,
-                    "true_peak_db": -10.12,
-                    "bytes": 8972,
-                    "duration_ms": 675,
+                    "lufs": -20.46,
+                    "true_peak_db": -3.69,
+                    "bytes": 18188,
+                    "duration_ms": 1454,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.97
+                    "rms_db": -22.64
                 }
             }
         },
