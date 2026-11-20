@@ -51,7 +51,7 @@
             "unit": "Abomination",
             "slug": "abomination",
             "role": "hurt",
-            "source_id": "provided-55c8d9598183dad0b31d-0-1025",
+            "source_id": "provided-55c8d9598183dad0b31d-235-1810",
             "source": {
                 "kind": "user-provided",
                 "filename": "wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
@@ -64,36 +64,36 @@
                 "duration_limit_ms": 1600,
                 "source_site": "https://uppbeat.io/",
                 "excerpt": {
-                    "start_ms": 0,
-                    "end_ms": 1025,
+                    "start_ms": 235,
+                    "end_ms": 1810,
                     "original_duration_ms": 3737,
                     "original_path": "tmp/audio/raw/provided/55c8d9598183dad0/wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
-                    "sha256": "5b367aa6ada79db526f1bbf9092e2c49ce8d2ad1b3df9d29593f5bf8f19dd882",
+                    "sha256": "244be00feda54504cbb2a9be000f06fd82009892fa383a30a35ab4b304671383",
                     "speed": 1,
                     "pitch_shift_semitones": 0,
-                    "selection": "Main growl, ending before the bright crackle that starts at 1.03 s",
-                    "fade_out_ms": 80
+                    "selection": "Whole growl from its onset (no quiet lead-in) to its decay's quiet point before the next burst at 1.82 s",
+                    "fade_out_ms": 120
                 },
-                "source_id": "provided-55c8d9598183dad0b31d-0-1025"
+                "source_id": "provided-55c8d9598183dad0b31d-235-1810"
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.2,
-                    "true_peak_db": -4.03,
-                    "bytes": 10164,
-                    "duration_ms": 1025,
+                    "lufs": -20.07,
+                    "true_peak_db": -4.22,
+                    "bytes": 13270,
+                    "duration_ms": 1360,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.27
+                    "rms_db": -19.98
                 },
                 "mp3": {
-                    "lufs": -20.62,
-                    "true_peak_db": -4.42,
-                    "bytes": 13004,
-                    "duration_ms": 1025,
+                    "lufs": -20.51,
+                    "true_peak_db": -4.36,
+                    "bytes": 17036,
+                    "duration_ms": 1360,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.69
+                    "rms_db": -20.45
                 }
             }
         },

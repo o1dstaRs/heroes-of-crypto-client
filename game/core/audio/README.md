@@ -182,49 +182,49 @@ Selections preserve speed and pitch and use the normal 3 ms attack / 20 ms relea
 loudness and codec checks. Excerpts also record their exact original bounds and the original and
 excerpt hashes, so later mastering uses the same selected event.
 
-| Unit / role                            | Provided recording                                                                                                                                                   |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Abomination hurt                       | Main growl, 0–1.025 s of `wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3`, 80 ms fade before its closing crackle |
-| Abomination attack                     | `punch-blood-crunch-betacut-1-00-01.mp3`                                                                                                                             |
-| Valkyrie attack                        | `crowbar-swing-attack-joshua-chivers-1-00-00.mp3`                                                                                                                    |
-| Tsar Cannon attack                     | `cannon-fired-gamemaster-audio-4-4-00-01.mp3`                                                                                                                        |
-| Mantis attack                          | `combat-bloody-hit-epic-stock-media-1-00-00.mp3`                                                                                                                     |
-| Mermaid attack                         | `underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3`                                                                                                                |
-| Elf attack                             | `punch-block-hit-gfx-sounds-1-00-00.mp3`                                                                                                                             |
-| Black Dragon attack                    | Blast and natural fade, 0.041–1.616 s of `swoosh-dragon-breathing-fire-gregor-quendel-1-00-02.mp3`                                                                   |
-| Wyvern attack                          | `gore-blood-splatter-epic-stock-media-1-00-01.mp3`                                                                                                                   |
-| Nomad attack                           | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                                                                                        |
-| Squire attack                          | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                                                                                             |
-| Berserker attack                       | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                                                                                               |
-| Champion attack                        | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`                                                                                                              |
-| Healer hurt                            | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                                                                                               |
-| Champion hurt                          | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                                                                                       |
-| Zena attack                            | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                                                                                      |
-| Angel attack                           | `sword-impact-swing-joshua-chivers-1-00-00.mp3`                                                                                                                      |
-| Blacksmith attack                      | `metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3`                                                                                                        |
-| Troll attack                           | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                                                                                               |
-| Dryad hurt                             | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                                                                                        |
-| Arachna Queen attack                   | `spider-monster-angry-screech-epic-stock-media-1-00-01.mp3`                                                                                                          |
-| Arachna Queen hurt                     | `spider-monster-scream-epic-stock-media-1-00-00.mp3`                                                                                                                 |
-| Arachna Spider hurt                    | `spider-monster-growl-epic-stock-media-1-00-01.mp3`                                                                                                                  |
-| White Tiger attack                     | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                                                                                         |
-| Thunderbird hurt                       | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                                                                                     |
-| Unicorn hurt                           | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`                                                                    |
-| Hydra attack                           | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3`                                                                  |
-| Champion, Unicorn, Nightmare movement  | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                                                                                   |
-| Arachna Queen, Arachna Spider movement | 0.850–2.270 s of `insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3`                                                          |
-| Hyena attack                           | `beast-bite-joshua-chivers-3-3-00-01.mp3`                                                                                                                            |
-| Hyena hurt                             | Opening snarl, 0–0.780 s of `beast-bite-joshua-chivers-3-3-00-01.mp3` (before the two jaw snaps)                                                                     |
-| Trent attack                           | `zombie-death-impact-gfx-sounds-1-00-00.mp3`                                                                                                                         |
-| Trent hurt                             | `tree-monster-painful-groan-epic-stock-media-1-00-01.mp3`                                                                                                            |
-| Magic Dragon movement                  | First wing swoosh, 0–1.200 s of `swoosh-dragon-flight-gregor-quendel-1-00-03.mp3`                                                                                    |
-| Mantis movement                        | Continuous chirping, 0–1.300 s of `insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3`                                                                              |
-| Battle Mage attack (melee)             | `punch-body-hit-joshua-chivers-2-2-00-00.mp3`                                                                                                                        |
-| Battle Mage hurt                       | `combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3`                                                                                                                   |
-| Behemoth attack                        | `anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3`                                                                                                                     |
-| Behemoth hurt                          | Opening growl, 0–0.775 s of `monkey-growl-gfx-sounds-1-1-00-02.mp3` (before its brighter second phrase)                                                              |
-| Behemoth idle (turn loop)              | `monkey-growling-aggressively-felix-blume-1-00-04.mp3`                                                                                                               |
-| Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                                                                                       |
+| Unit / role                            | Provided recording                                                                                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Abomination hurt                       | Whole growl, 0.235–1.810 s of `wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3` (onset to decay, 120 ms fade) |
+| Abomination attack                     | `punch-blood-crunch-betacut-1-00-01.mp3`                                                                                                                         |
+| Valkyrie attack                        | `crowbar-swing-attack-joshua-chivers-1-00-00.mp3`                                                                                                                |
+| Tsar Cannon attack                     | `cannon-fired-gamemaster-audio-4-4-00-01.mp3`                                                                                                                    |
+| Mantis attack                          | `combat-bloody-hit-epic-stock-media-1-00-00.mp3`                                                                                                                 |
+| Mermaid attack                         | `underwater-whoosh-fast-slava-pogorelsky-1-00-02.mp3`                                                                                                            |
+| Elf attack                             | `punch-block-hit-gfx-sounds-1-00-00.mp3`                                                                                                                         |
+| Black Dragon attack                    | Blast and natural fade, 0.041–1.616 s of `swoosh-dragon-breathing-fire-gregor-quendel-1-00-02.mp3`                                                               |
+| Wyvern attack                          | `gore-blood-splatter-epic-stock-media-1-00-01.mp3`                                                                                                               |
+| Nomad attack                           | `sword-stab-flesh-joshua-chivers-1-00-01.mp3`                                                                                                                    |
+| Squire attack                          | `metal-weapon-impact-heavy-joshua-chivers-1-1-00-00.mp3`                                                                                                         |
+| Berserker attack                       | `sword-stab-puncture-flesh-joshua-chivers-1-00-01.mp3`                                                                                                           |
+| Champion attack                        | `bullet-impacting-flesh-gamemaster-audio-5-5-00-00.mp3`                                                                                                          |
+| Healer hurt                            | `ouch-female-gfx-sounds-2-2-00-00.mp3`                                                                                                                           |
+| Champion hurt                          | `groan-painful-male-smartsound-fx-1-00-00.mp3`                                                                                                                   |
+| Zena attack                            | `whoosh-blade-throw-joshua-chivers-1-00-01.mp3`                                                                                                                  |
+| Angel attack                           | `sword-impact-swing-joshua-chivers-1-00-00.mp3`                                                                                                                  |
+| Blacksmith attack                      | `metallic-anvil-impact-jam-fx-metal-anvil-impact-1-0m04s.mp3`                                                                                                    |
+| Troll attack                           | `bullet-impacting-body-gamemaster-audio-1-1-00-00.mp3`                                                                                                           |
+| Dryad hurt                             | `groan-pain-female-smartsound-fx-1-00-00.mp3`                                                                                                                    |
+| Arachna Queen attack                   | `spider-monster-angry-screech-epic-stock-media-1-00-01.mp3`                                                                                                      |
+| Arachna Queen hurt                     | `spider-monster-scream-epic-stock-media-1-00-00.mp3`                                                                                                             |
+| Arachna Spider hurt                    | `spider-monster-growl-epic-stock-media-1-00-01.mp3`                                                                                                              |
+| White Tiger attack                     | Last growl, 4.080–5.500 s of `lion-attacking-growl-gfx-sounds-2-2-00-05.mp3`                                                                                     |
+| Thunderbird hurt                       | Opening 0–1.050 s of `tropical-bird-squawk-ra-music-1-00-03.mp3`                                                                                                 |
+| Unicorn hurt                           | `horse-whinny-cartoon-squeal-epic-stock-media-farmgameanimalhorsecartoonwhinnyneigh1-1-0m01s.mp3`                                                                |
+| Hydra attack                           | Opening 0.050–1.400 s of `snake-hissing-long-smartsound-fx-animal-snake-snake-large-02-1-0m02s.mp3`                                                              |
+| Champion, Unicorn, Nightmare movement  | 1.350–2.820 s of `horse-galloping-ambient-loop-bosnow-1-00-16.mp3`                                                                                               |
+| Arachna Queen, Arachna Spider movement | 0.850–2.270 s of `insects-skittering-scratching-gfx-sounds-insect-creature-fast-movement-sharp-1-0m02s.mp3`                                                      |
+| Hyena attack                           | `beast-bite-joshua-chivers-3-3-00-01.mp3`                                                                                                                        |
+| Hyena hurt                             | Opening snarl, 0–0.780 s of `beast-bite-joshua-chivers-3-3-00-01.mp3` (before the two jaw snaps)                                                                 |
+| Trent attack                           | `zombie-death-impact-gfx-sounds-1-00-00.mp3`                                                                                                                     |
+| Trent hurt                             | `tree-monster-painful-groan-epic-stock-media-1-00-01.mp3`                                                                                                        |
+| Magic Dragon movement                  | First wing swoosh, 0–1.200 s of `swoosh-dragon-flight-gregor-quendel-1-00-03.mp3`                                                                                |
+| Mantis movement                        | Continuous chirping, 0–1.300 s of `insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3`                                                                          |
+| Battle Mage attack (melee)             | `punch-body-hit-joshua-chivers-2-2-00-00.mp3`                                                                                                                    |
+| Battle Mage hurt                       | `combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3`                                                                                                               |
+| Behemoth attack                        | `anime-punch-cinematic-gfx-sounds-1-1-00-01.mp3`                                                                                                                 |
+| Behemoth hurt                          | Opening growl, 0–0.775 s of `monkey-growl-gfx-sounds-1-1-00-02.mp3` (before its brighter second phrase)                                                          |
+| Behemoth idle (turn loop)              | `monkey-growling-aggressively-felix-blume-1-00-04.mp3`                                                                                                           |
+| Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                                                                                   |
 
 **Turn idle loops.** The optional `idle` role loops for the active creature while its turn waits for a
 decision (the player or the AI is still thinking), at half the level of the hits, and stops the moment the

@@ -500,8 +500,8 @@
         }
     },
     "abomination/hurt": {
-        "source_id": "provided-55c8d9598183dad0b31d-0-1025",
-        "path": "tmp/audio/raw/provided/55c8d9598183dad0/excerpt-0-1025.wav",
+        "source_id": "provided-55c8d9598183dad0b31d-235-1810",
+        "path": "tmp/audio/raw/provided/55c8d9598183dad0/excerpt-235-1810.wav",
         "source": {
             "kind": "user-provided",
             "filename": "wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
@@ -514,17 +514,17 @@
             "duration_limit_ms": 1600,
             "source_site": "https://uppbeat.io/",
             "excerpt": {
-                "start_ms": 0,
-                "end_ms": 1025,
+                "start_ms": 235,
+                "end_ms": 1810,
                 "original_duration_ms": 3737,
                 "original_path": "tmp/audio/raw/provided/55c8d9598183dad0/wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
-                "sha256": "5b367aa6ada79db526f1bbf9092e2c49ce8d2ad1b3df9d29593f5bf8f19dd882",
+                "sha256": "244be00feda54504cbb2a9be000f06fd82009892fa383a30a35ab4b304671383",
                 "speed": 1,
                 "pitch_shift_semitones": 0,
-                "selection": "Main growl, ending before the bright crackle that starts at 1.03 s",
-                "fade_out_ms": 80
+                "selection": "Whole growl from its onset (no quiet lead-in) to its decay's quiet point before the next burst at 1.82 s",
+                "fade_out_ms": 120
             },
-            "source_id": "provided-55c8d9598183dad0b31d-0-1025"
+            "source_id": "provided-55c8d9598183dad0b31d-235-1810"
         }
     },
     "valkyrie/attack": {
