@@ -198,39 +198,67 @@
                 "title": "Blacksmith crafting metal",
                 "author": "Epic Stock Media",
                 "source_site": "https://uppbeat.io/",
-                "selection": "Explicitly selected by the user for every Blacksmith spell cast",
+                "selection": "Explicitly selected by the user for the Blacksmith's Craft cast: its first two hammer strikes, repeated three times",
                 "license": "License receipt not included in the supplied file",
+                "edit": {
+                    "original_filename": "blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3",
+                    "original_sha256": "ccdf1c0f0d896aa0c77453f3f6e31b3f1229439e9c78f8afa6acb617a6ff034e",
+                    "strike_onsets_ms": [
+                        71.0,
+                        625.0
+                    ],
+                    "strike_window_ms": [
+                        -5,
+                        295
+                    ],
+                    "sequence": [
+                        "strike1",
+                        "strike2",
+                        "strike1",
+                        "strike2",
+                        "strike1",
+                        "strike2",
+                        "sizzle"
+                    ],
+                    "sizzle_ms": [
+                        1180,
+                        1780
+                    ],
+                    "sizzle_fade_out_ms": 300,
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                },
                 "kind": "user-provided",
-                "filename": "blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3",
-                "sha256": "ccdf1c0f0d896aa0c77453f3f6e31b3f1229439e9c78f8afa6acb617a6ff034e",
-                "score": -0.5918,
-                "bursts_to_review": 2,
-                "raw_duration_ms": 3315,
-                "leading_trim_ms": 66,
-                "trailing_trim_ms": 905,
-                "raw_rms_db": -27.05,
-                "raw_peak_db": 1.18
+                "filename": "blacksmith-craft-two-strikes-x3.wav",
+                "sha256": "699fae0a7dbdd5705bb06ddefbcc58e039dddf0fae7b41e6d5078fb45c8c97a7",
+                "score": -1.1605,
+                "bursts_to_review": 6,
+                "raw_duration_ms": 2400,
+                "leading_trim_ms": 1,
+                "trailing_trim_ms": 35,
+                "raw_rms_db": -23.01,
+                "raw_peak_db": 1.19
             },
             "time_stretch_factor": 1.0,
             "max_duration_ms": 2500,
             "encoded": {
                 "webm": {
-                    "lufs": -20.23,
-                    "true_peak_db": -3.82,
-                    "bytes": 20213,
-                    "duration_ms": 2324,
+                    "lufs": -20.2,
+                    "true_peak_db": -3.17,
+                    "bytes": 23380,
+                    "duration_ms": 2358,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -23.37
+                    "rms_db": -22.77
                 },
                 "mp3": {
-                    "lufs": -20.57,
-                    "true_peak_db": -3.9,
-                    "bytes": 28556,
-                    "duration_ms": 2324,
+                    "lufs": -20.61,
+                    "true_peak_db": -3.51,
+                    "bytes": 29132,
+                    "duration_ms": 2358,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -23.73
+                    "rms_db": -23.18
                 }
             }
         },

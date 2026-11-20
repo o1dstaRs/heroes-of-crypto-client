@@ -16,16 +16,44 @@
         },
         {
             "id": "blacksmith_cast",
-            "label": "Blacksmith casting",
-            "source_filename": "blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3",
-            "target_duration_ms": 2350,
+            "label": "Blacksmith Craft cast",
+            "source_filename": "blacksmith-craft-two-strikes-x3.wav",
+            "target_duration_ms": 2450,
             "max_duration_ms": 2500,
             "source_metadata": {
                 "title": "Blacksmith crafting metal",
                 "author": "Epic Stock Media",
                 "source_site": "https://uppbeat.io/",
-                "selection": "Explicitly selected by the user for every Blacksmith spell cast",
-                "license": "License receipt not included in the supplied file"
+                "selection": "Explicitly selected by the user for the Blacksmith's Craft cast: its first two hammer strikes, repeated three times",
+                "license": "License receipt not included in the supplied file",
+                "edit": {
+                    "original_filename": "blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3",
+                    "original_sha256": "ccdf1c0f0d896aa0c77453f3f6e31b3f1229439e9c78f8afa6acb617a6ff034e",
+                    "strike_onsets_ms": [
+                        71.0,
+                        625.0
+                    ],
+                    "strike_window_ms": [
+                        -5,
+                        295
+                    ],
+                    "sequence": [
+                        "strike1",
+                        "strike2",
+                        "strike1",
+                        "strike2",
+                        "strike1",
+                        "strike2",
+                        "sizzle"
+                    ],
+                    "sizzle_ms": [
+                        1180,
+                        1780
+                    ],
+                    "sizzle_fade_out_ms": 300,
+                    "speed": 1,
+                    "pitch_shift_semitones": 0
+                }
             }
         },
         {

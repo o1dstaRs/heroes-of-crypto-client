@@ -117,18 +117,28 @@ test.each([true, false])("recorded spell audio survives a local reapply complete
 });
 
 const blacksmithSpells = ["Craft", "Armor Rune", "Weapon Rune"];
+// Craft plays the crafting recording; the runes fall back to the Blacksmith's own strike sound.
+const expectBlacksmithCue = (f: ReturnType<typeof fixture>, spellName: string, times = 1) => {
+    if (spellName === "Craft") {
+        expect(f.gameSound).toHaveBeenCalledTimes(times);
+        if (times) expect(f.gameSound).toHaveBeenCalledWith("blacksmith_cast");
+        expect(f.sound).not.toHaveBeenCalled();
+    } else {
+        expect(f.gameSound).not.toHaveBeenCalled();
+        expect(f.sound).toHaveBeenCalledTimes(times);
+        if (times) expect(f.sound).toHaveBeenCalledWith(f.caster, "attack");
+    }
+};
 const castBlacksmithSpell = (f: ReturnType<typeof fixture>) =>
     f.record.action.spellName === "Craft"
         ? f.scene.castAreaSpellAtCell({ x: 2, y: 2 })
         : f.scene.castSpellOnTarget(f.target);
 
 for (const animated of [true, false]) {
-    test.each(blacksmithSpells)(`Blacksmith %s uses crafting audio with animation=${animated}`, (spellName) => {
+    test.each(blacksmithSpells)(`Blacksmith %s plays its cast audio once with animation=${animated}`, (spellName) => {
         const f = fixture(true, false, animated, { casterName: "Blacksmith", spellName });
         expect(castBlacksmithSpell(f)).toBe(true);
-        expect(f.gameSound).toHaveBeenCalledTimes(1);
-        expect(f.gameSound).toHaveBeenCalledWith("blacksmith_cast");
-        expect(f.sound).not.toHaveBeenCalled();
+        expectBlacksmithCue(f, spellName);
     });
 }
 
@@ -146,9 +156,7 @@ test.each(blacksmithSpells)("ranked Blacksmith %s plays once at authoritative re
     expect(f.gameSound).not.toHaveBeenCalled();
     expect(f.sound).not.toHaveBeenCalled();
     expect(await f.scene.playReplayCastSpellAction(f.record)).toBe(true);
-    expect(f.gameSound).toHaveBeenCalledTimes(1);
-    expect(f.gameSound).toHaveBeenCalledWith("blacksmith_cast");
-    expect(f.sound).not.toHaveBeenCalled();
+    expectBlacksmithCue(f, spellName);
 });
 
 for (const [completed, authoritative] of [
@@ -161,8 +169,7 @@ for (const [completed, authoritative] of [
         (spellName) => {
             const f = fixture(completed, authoritative, true, { casterName: "Blacksmith", spellName });
             expect(f.scene.applyGameAction(f.record.action)).toBe(completed);
-            expect(f.gameSound).toHaveBeenCalledTimes(completed && !authoritative ? 1 : 0);
-            expect(f.sound).not.toHaveBeenCalled();
+            expectBlacksmithCue(f, spellName, completed && !authoritative ? 1 : 0);
         },
     );
 }

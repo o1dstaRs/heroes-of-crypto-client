@@ -5153,7 +5153,8 @@ export class Sandbox extends PixiScene {
         spellName: string,
         castEvents: readonly GameEvent[],
     ): void {
-        if (caster.getName() === "Blacksmith") {
+        // The crafting recording is the Craft cast; the Blacksmith's runes use his own strike sound.
+        if (caster.getName() === "Blacksmith" && spellName === "Craft") {
             this.playSceneGameSound("blacksmith_cast");
         } else if (castEvents.some((event) => event.type === "unit_summoned")) {
             // The shared summon cue starts when the new or merged stack is presented.

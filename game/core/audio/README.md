@@ -278,9 +278,12 @@ placement and split gestures play the placement effect. Positive healing plays o
 fully resisted healing stays quiet. Both an Angel's resurrection cast and passive self-resurrection
 use the shared resurrection VFX trigger in sandbox and ranked replay.
 
-Blacksmith uses `blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3` for every cast
-(Craft and both runes), including direct AI/Premium actions and authoritative replay. The
-2.324-second master trims quiet edges without changing speed or pitch. Rejected casts stay
+Blacksmith's Craft cast uses `blacksmith-crafting-metal-epic-stock-media-1-00-03.mp3`, edited at the
+user's request: its first two hammer strikes (onsets 71 and 625 ms, 300 ms each) play three times in a
+row, then 0.6 s of the closing sizzle fades out (`audio/game-sound-design.json` records the exact recipe;
+the composite is rebuilt locally as `blacksmith-craft-two-strikes-x3.wav`). The 2.358-second master keeps
+speed and pitch. Armor and Weapon Runes use the Blacksmith's own strike sound, like other casts without
+a dedicated spell sound. Both apply to direct AI/Premium actions and authoritative replay. Rejected casts stay
 quiet, and ranked submissions wait for replay, so the craft cue plays once instead of the
 attack cue. Both use the shared effects bus, mute/volume controls, and scene cancellation.
 
