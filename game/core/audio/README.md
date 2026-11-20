@@ -215,6 +215,7 @@ excerpt hashes, so later mastering uses the same selected event.
 | Hyena attack                           | `beast-bite-joshua-chivers-3-3-00-01.mp3`                                                                   |
 | Hyena hurt                             | Opening snarl, 0–0.780 s of `beast-bite-joshua-chivers-3-3-00-01.mp3` (before the two jaw snaps)            |
 | Trent hurt                             | `tree-monster-painful-groan-epic-stock-media-1-00-01.mp3`                                                   |
+| Mantis movement                        | Continuous chirping, 0–1.300 s of `insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3`                     |
 | Black Dragon idle (turn loop)          | `t-rex-breathing-epic-stock-media-1-00-06.mp3`                                                              |
 
 **Turn idle loops.** The optional `idle` role loops for the active creature while its turn waits for a

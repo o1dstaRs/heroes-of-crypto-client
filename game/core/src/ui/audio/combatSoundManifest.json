@@ -269,6 +269,10 @@
         "hurt": {
             "durationMs": 650,
             "revision": "e711fcd5af"
+        },
+        "move": {
+            "durationMs": 1300,
+            "revision": "6b1098deb9"
         }
     },
     "Pegasus": {

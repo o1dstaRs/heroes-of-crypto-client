@@ -3865,6 +3865,55 @@
                     "rms_db": -20.97
                 }
             }
+        },
+        {
+            "unit": "Mantis",
+            "slug": "mantis",
+            "role": "move",
+            "source_id": "provided-1eb950f3ca508cd8d7b0-0-1300",
+            "source": {
+                "kind": "user-provided",
+                "filename": "insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3",
+                "title": "Insectoid monster chirping",
+                "author": "GFX Sounds",
+                "sha256": "1eb950f3ca508cd8d7b0628cca8e31c989d8d91c042efb133dcf3da65568e7f3",
+                "label": "Mantis chirping movement loop",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Mantis movement",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 0,
+                    "end_ms": 1300,
+                    "original_duration_ms": 1564,
+                    "original_path": "tmp/audio/raw/provided/1eb950f3ca508cd8/insectoid-monster-chirping-gfx-sounds-2-2-00-01.mp3",
+                    "sha256": "69d8ecc1d9863f2df9cabee592706f58abf905ac8d99330e8a2c0b73e0dc4806",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0,
+                    "selection": "Continuous chirping section, before the closing decay"
+                },
+                "source_id": "provided-1eb950f3ca508cd8d7b0-0-1300"
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.15,
+                    "true_peak_db": -3.89,
+                    "bytes": 18403,
+                    "duration_ms": 1300,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.36
+                },
+                "mp3": {
+                    "lufs": -20.52,
+                    "true_peak_db": -4.01,
+                    "bytes": 16460,
+                    "duration_ms": 1300,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.73
+                }
+            }
         }
     ]
 }
