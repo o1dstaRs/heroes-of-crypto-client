@@ -367,25 +367,38 @@
             "unit": "Battle Mage",
             "slug": "battle-mage",
             "role": "attack",
-            "generation_id": "PnLhvm0fqrXQorWKCmem",
+            "source_id": "provided-af117c296872ad6cf2c1",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-af117c296872ad6cf2c1",
+                "filename": "punch-body-hit-joshua-chivers-2-2-00-00.mp3",
+                "title": "Punch - body hit",
+                "author": "Joshua Chivers",
+                "sha256": "af117c296872ad6cf2c14d04ab07145f4bad65bf6dcc384c9f0d46814464e2e7",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Battle Mage attack",
+                "selection": "Explicitly selected by the user for Battle Mage attack",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.06,
-                    "true_peak_db": -3.72,
-                    "bytes": 8042,
-                    "duration_ms": 895,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.04,
+                    "true_peak_db": -4.93,
+                    "bytes": 4081,
+                    "duration_ms": 349,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -23.06
+                    "rms_db": -19.82
                 },
                 "mp3": {
-                    "lufs": -20.39,
-                    "true_peak_db": -4.03,
-                    "bytes": 11564,
-                    "duration_ms": 895,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.43,
+                    "true_peak_db": -4.89,
+                    "bytes": 4940,
+                    "duration_ms": 349,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -23.4
+                    "rms_db": -20.22
                 }
             }
         },
@@ -393,25 +406,38 @@
             "unit": "Battle Mage",
             "slug": "battle-mage",
             "role": "hurt",
-            "generation_id": "zHUbAQYXBq9iXQlgKaed",
+            "source_id": "provided-bb7f3a07e4d7712e6ea2",
+            "source": {
+                "kind": "user-provided",
+                "source_id": "provided-bb7f3a07e4d7712e6ea2",
+                "filename": "combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3",
+                "title": "Combat - male punch & groan",
+                "author": "GFX Sounds",
+                "sha256": "bb7f3a07e4d7712e6ea2ad1cfcb129e0d5637a1ba397831ec8c55e381392ceae",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Battle Mage hurt",
+                "selection": "Explicitly selected by the user for Battle Mage hurt",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.0,
-                    "true_peak_db": -7.38,
-                    "bytes": 5098,
-                    "duration_ms": 520,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.11,
+                    "true_peak_db": -4.24,
+                    "bytes": 4634,
+                    "duration_ms": 454,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.61
+                    "rms_db": -19.28
                 },
                 "mp3": {
-                    "lufs": -20.46,
-                    "true_peak_db": -7.98,
-                    "bytes": 6956,
-                    "duration_ms": 520,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.59,
+                    "true_peak_db": -4.45,
+                    "bytes": 6092,
+                    "duration_ms": 454,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.07
+                    "rms_db": -19.72
                 }
             }
         },

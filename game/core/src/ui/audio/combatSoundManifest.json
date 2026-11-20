@@ -79,12 +79,12 @@
     "Battle Mage": {
         "slug": "battle-mage",
         "attack": {
-            "durationMs": 895,
-            "revision": "861dee9fa4"
+            "durationMs": 349,
+            "revision": "b7710510bb"
         },
         "hurt": {
-            "durationMs": 520,
-            "revision": "4d2d624d09"
+            "durationMs": 454,
+            "revision": "5b169c27cb"
         }
     },
     "Crusader": {

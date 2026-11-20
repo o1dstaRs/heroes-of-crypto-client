@@ -933,5 +933,39 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
         }
+    },
+    "battle-mage/attack": {
+        "source_id": "provided-af117c296872ad6cf2c1",
+        "path": "tmp/audio/raw/provided/af117c296872ad6c/punch-body-hit-joshua-chivers-2-2-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-af117c296872ad6cf2c1",
+            "filename": "punch-body-hit-joshua-chivers-2-2-00-00.mp3",
+            "title": "Punch - body hit",
+            "author": "Joshua Chivers",
+            "sha256": "af117c296872ad6cf2c14d04ab07145f4bad65bf6dcc384c9f0d46814464e2e7",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Battle Mage attack",
+            "selection": "Explicitly selected by the user for Battle Mage attack",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
+    },
+    "battle-mage/hurt": {
+        "source_id": "provided-bb7f3a07e4d7712e6ea2",
+        "path": "tmp/audio/raw/provided/bb7f3a07e4d7712e/combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-bb7f3a07e4d7712e6ea2",
+            "filename": "combat-male-punch-groan-gfx-sounds-1-1-00-00.mp3",
+            "title": "Combat - male punch & groan",
+            "author": "GFX Sounds",
+            "sha256": "bb7f3a07e4d7712e6ea2ad1cfcb129e0d5637a1ba397831ec8c55e381392ceae",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Battle Mage hurt",
+            "selection": "Explicitly selected by the user for Battle Mage hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
     }
 }
