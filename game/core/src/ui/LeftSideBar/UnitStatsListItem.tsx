@@ -847,7 +847,9 @@ const IconScrollWell: React.FC<{
                 scrollbarGutter: vertical ? "stable" : "auto",
                 overscrollBehaviorY: vertical ? "contain" : "auto",
                 touchAction: vertical ? "pan-y" : "auto",
-                transform: offsetY ? `translateY(${offsetY}px)` : "none",
+                // Nudge with a margin, not a transform: a translated box still counts as overflow of the
+                // scrolling Buffs/Debuffs column, which painted a scrollbar beside two empty sections.
+                mt: offsetY ? `${offsetY}px` : 0,
                 ...hocScrollSx,
                 "&::-webkit-scrollbar": vertical ? { width: "7px" } : { height: "5px" },
             }}
@@ -1682,6 +1684,8 @@ const UnitStatsLayout: React.FC<{
     const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
     const buffRowStep = effectRowStep + (shownSynergies.length ? SYNERGY_LEVEL_INDICATOR_HEIGHT_PX : 0);
     const effectWellHeight = effectRowStep;
+    // The Debuffs well sits below its lowered plaque; the offset matches the visible gap under Buffs.
+    const debuffWellOffsetY = Math.round(metrics.gapPx * 0.5) + 2;
     const effectsRef = React.useRef<HTMLDivElement>(null);
     const [effectsHeight, setEffectsHeight] = React.useState<number>();
     const [effectsWidth, setEffectsWidth] = React.useState<number>();
@@ -2032,7 +2036,9 @@ const UnitStatsLayout: React.FC<{
                         sx={{
                             position: "relative",
                             width: "100%",
-                            height: `${effectWellHeight}px`,
+                            // Reserve the well's downward nudge too, or it spills past this box and the
+                            // Buffs/Debuffs column reports overflow (a scrollbar beside empty sections).
+                            height: `${effectWellHeight + debuffWellOffsetY}px`,
                             overflow: "visible",
                         }}
                     >
@@ -2042,7 +2048,7 @@ const UnitStatsLayout: React.FC<{
                             Include the lowered plaque in the offset so the visible gap matches Buffs. */}
                         <IconScrollWell
                             height={effectWellHeight}
-                            offsetY={Math.round(metrics.gapPx * 0.5) + 2}
+                            offsetY={debuffWellOffsetY}
                             vertical
                             rowStepPx={effectRowStep}
                         >
