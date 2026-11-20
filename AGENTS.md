@@ -213,18 +213,33 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
-The user adopted `a19-neutral-barrel-deliberation-v1` on November 19, 2026. Current default is
-profile v14, revision suffix `delivery-v1-sniper-v1-neutral-barrel-v1`. Read common's
+Current default is profile v15, revision suffix `sniper-v1-neutral-barrel-v1-striker-rush-v1`.
+`a19-striker-rush-v1` and the Tier-2 beneficiary rule (`artifact-fit-v8`) were adopted on November 20,
+2026, under the user's standing instruction of November 19: “always lock in wins and continue”. Read
+common's `docs/striker_rush_adoption.md`, `docs/striker_rush_research.md` and
+`docs/artifact_beneficiary_rule.md`. Default seats draft melee strikers and, with both rosters public
+and at least four strikers facing at most three, buy Placement 2 and Movement 2 and start their real
+striker stacks on the edge of the zone nearest the enemy; against a melee army they keep their native
+setup. The draft head and the setup rule are one policy with one switch (`HOC_A19_STRIKER_RUSH`): the
+draft head alone measured +0.0. Preserve the registered +28.80-point estimate against v14 (95% +23.52
+to +34.07; 540 sealed tasks, all three maps positive) together with its two failed registered gates,
+quality and cost: do not pass, waive or re-run them. Each searched decision costs about 39% more CPU
+offline and live latency under the decision deadline is unmeasured. The estimate is against a default
+that fields shooters; it is not a win rate against people. The artifact rule rests on a 239-pair
+changed-case diagnostic, not on a registered confirmation. A19 search, weights, models and budgets are
+unchanged. New default comparisons use v15; frozen studies and seed exclusions remain unchanged.
+
+The user adopted `a19-neutral-barrel-deliberation-v1` on November 19, 2026, as profile v14, revision
+suffix `delivery-v1-sniper-v1-neutral-barrel-v1`, retained in v15. Read common's
 `docs/neutral_barrel_deliberation_adoption.md`. On Cemetery, A19 now searches a scripted strike on a
 neutral barrel against the other legal actions instead of returning it. Preserve the +3.58-point
 held-out estimate against v13 (95% +2.44 to +4.75) together with its two failed registered gates,
 quality and serial cost: the adoption did not pass, waive or re-run them. The estimate changes one
 seat on Cemetery only and is not a global win rate. Keep the native cleanup, forecasts,
-deployment-barrel handling and other maps unchanged. New default comparisons use v14; frozen studies
-and seed exclusions remain unchanged.
+deployment-barrel handling and other maps unchanged.
 
 The user adopted the confirmed `a19-preserve-sniper-20261118` checkpoint on November 18, 2026,
-establishing profile v13, retained in v14. Read common's
+establishing profile v13, retained in v15. Read common's
 `docs/sniper_donor_adoption.md`. Preserve the conditional +8.10-point held-out evidence and exact
 eligibility: protect native Sniper >= 2 before delivery previews in public complete funded setup,
 with an unused delivery draft budget and standard own draft quantities. Keep A19 combat and V3/contextual
@@ -232,7 +247,7 @@ draft intact, preserve older funded plans through restart, and retain Premium ap
 studies and seed exclusions remain unchanged.
 
 The user explicitly adopted the separate revealed-ranged draft/setup candidates on November 18, 2026 UTC.
-This established profile v12, `revealed-ranged-exclusive-delivery-v1`, retained in v14: after consuming
+This established profile v12, `revealed-ranged-exclusive-delivery-v1`, retained in v15: after consuming
 its delivery draft override, a seat keeps native setup; otherwise the funded delivery setup can apply.
 Read common's `docs/revealed_ranged_delivery_adoption.md`. Keep the uncertain +7.407407 pp and +9.259259 pp
 component results, failed −1.851852 pp combination, immutable checkpoints and exclusions intact.
@@ -241,7 +256,7 @@ budgets, Premium routing and atomic collision/restart behavior. The wire default
 locked V3/contextual draft and A19 combat.
 
 The user adopted `public-terrain-formation-reflection-v1` on November 17, 2026, establishing profile
-v11; that layer remains part of current v14 with locked V3/contextual draft and A19 combat. Read common's
+v11; that layer remains part of current v15 with locked V3/contextual draft and A19 combat. Read common's
 `docs/terrain_placement_adoption.md` before changing it. Preserve its +7.638889-point exploratory
 estimate and 95% interval 0 to +16.666667 as uncertain evidence, not a passed qualification.
 The serving rule covers default AI and Premium formation, uses only public neutral barrels,
@@ -254,7 +269,7 @@ neural models retain their identities. Read
 Preserve the exact ground-wall plus omitted-movement comparison policy and its original failed
 qualification evidence. New experiments compare against the adopted default; already-running frozen
 studies keep their registered comparator. That adoption's revision ended in `barrel-v1-nightmare-v1`;
-the current v14 revision ends in `delivery-v1-sniper-v1-neutral-barrel-v1`.
+the current v15 revision ends in `sniper-v1-neutral-barrel-v1-striker-rush-v1`.
 
 For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
 `src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
