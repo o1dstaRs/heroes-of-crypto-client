@@ -288,7 +288,7 @@ export const PremiumDraftPlanner: React.FC<{
             const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null") as DraftPanelRect | null;
             if (saved && [saved.x, saved.y, saved.width, saved.height].every(Number.isFinite)) setRect(fit(saved));
         } catch {
-            /* Use the corner default. */
+            /* Use the left-centre default. */
         }
         // Geometry is restored once. Draft updates never reset a user's window position.
     }, []);
@@ -357,10 +357,10 @@ export const PremiumDraftPlanner: React.FC<{
             sx={{
                 position: "fixed",
                 zIndex: 1390,
-                right: rect ? undefined : 18,
-                bottom: rect ? undefined : 72,
-                left: rect?.x,
-                top: rect?.y,
+                // Default: the left edge, centred vertically. A dragged or resized window keeps its own rect.
+                left: rect ? rect.x : 18,
+                top: rect ? rect.y : "50%",
+                transform: rect ? undefined : "translateY(-50%)",
                 width: rect?.width ?? "min(640px, calc(100vw - 24px))",
                 height: collapsed ? 42 : (rect?.height ?? "min(640px, calc(100dvh - 100px))"),
                 maxWidth: "calc(100vw - 24px)",

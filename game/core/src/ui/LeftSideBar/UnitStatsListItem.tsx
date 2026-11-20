@@ -838,7 +838,9 @@ const IconScrollWell: React.FC<{
                 height: `${height}px`,
                 boxSizing: "border-box",
                 overflowX: vertical ? "hidden" : "auto",
-                overflowY: vertical ? "scroll" : "hidden",
+                // Only when rows actually overflow: a forced "scroll" painted a full-height thumb beside a
+                // single row of buffs. The stable gutter keeps the icons from shifting when a rail appears.
+                overflowY: vertical ? "auto" : "hidden",
                 whiteSpace: vertical ? "normal" : "nowrap",
                 pr: vertical ? "5px" : 0,
                 scrollbarGutter: vertical ? "stable" : "auto",
@@ -1681,6 +1683,7 @@ const UnitStatsLayout: React.FC<{
     const effectWellHeight = effectRowStep;
     const effectsRef = React.useRef<HTMLDivElement>(null);
     const [effectsHeight, setEffectsHeight] = React.useState<number>();
+    const [effectsWidth, setEffectsWidth] = React.useState<number>();
     React.useLayoutEffect(() => {
         const effects = effectsRef.current;
         const sidebar = effects?.closest(".Sidebar");
@@ -1694,6 +1697,7 @@ const UnitStatsLayout: React.FC<{
             if (!(scale > 0)) return;
             const next = Math.max(0, Math.floor((footer.getBoundingClientRect().top - rect.top) / scale) - 2);
             setEffectsHeight((current) => (current === next ? current : next));
+            setEffectsWidth((current) => (current === effects.offsetWidth ? current : effects.offsetWidth));
         };
         const observer = new ResizeObserver(measure);
         observer.observe(sidebar);
@@ -1709,10 +1713,19 @@ const UnitStatsLayout: React.FC<{
 
     const buffCount = orderedBuffs.length + shownSynergies.length;
     // The empty Buffs heading stays visible, but it must not reserve two rows above Debuffs.
+    // Icons per row in the vertical well: its 8px frame margin, 5px padding and 7px stable rail come off
+    // the width; each icon advances one tile plus the row gap. A second row opens only when one cannot hold
+    // them all. The old fixed "more than 4" rule reserved an empty row on wide sidebars, and that row
+    // pushed Debuffs past the card and put a scrollbar beside nothing.
+    const buffsPerRow =
+        effectsWidth === undefined
+            ? 4
+            : Math.max(1, Math.floor((effectsWidth - 20 + metrics.gapPx * 0.6) / effectRowStep));
     const buffWellHeight =
         buffCount === 0
             ? 0
-            : buffCount > 4 && (effectsHeight ?? Infinity) >= buffRowStep * 2 + effectRowStep + metrics.gapPx * 8
+            : buffCount > buffsPerRow &&
+                (effectsHeight ?? Infinity) >= buffRowStep * 2 + effectRowStep + metrics.gapPx * 8
               ? buffRowStep * 2
               : buffRowStep;
     React.useLayoutEffect(() => {

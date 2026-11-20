@@ -53,6 +53,11 @@ test.each([true, false])("draft guidance stays available while isYourTurn=%s", (
     expect(html).toContain("Your side: left. Enemy side: right.");
     expect(html.indexOf("data-board-sides=")).toBeLessThan(html.indexOf('role="group"'));
     expect(html).toContain("Collapse draft planner");
+    // Opens at the left edge, centred vertically, until the player moves it.
+    expect(html).toContain("left:18px");
+    expect(html).toContain("top:50%");
+    expect(html).toContain("transform:translateY(-50%)");
+    expect(html).not.toContain("bottom:72px");
     expect(html).toContain("Move draft planner with arrow keys or drag");
     expect(html).toContain("Match synergies");
     expect(html).toContain("AI-recommended formation");
@@ -60,9 +65,7 @@ test.each([true, false])("draft guidance stays available while isYourTurn=%s", (
     expect(html).not.toContain("Protect back line</option>");
     expect(html).not.toContain("Spread out</option>");
     expect(html).toContain("position:fixed");
-    expect(html).toContain("right:18px");
-    expect(html).toContain("bottom:72px");
-    expect(html).not.toContain("left:18px");
+    expect(html).not.toContain("right:18px");
 });
 
 test("draft guidance respects inactive Premium access", () => {
