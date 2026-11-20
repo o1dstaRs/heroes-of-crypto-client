@@ -8,18 +8,42 @@ export interface SidebarPortraitPage {
     rows: number;
 }
 
+/** What the canvas draws: a decoded bitmap, or the borrowed first-frame poster until its bitmap is ready. */
+export type SidebarPortraitDrawable = CanvasImageSource & { width: number; height: number; close?: () => void };
+
+/**
+ * Decode a downloaded page into an ImageBitmap off the main thread. The HTTP cache already holds the file
+ * (the page's <img> request fetched it), so this reads it back and decodes it on a worker thread.
+ */
+export type PreparePortraitPage = (src: string) => Promise<SidebarPortraitDrawable>;
+
+const prepareBitmap: PreparePortraitPage = async (src) => {
+    const response = await fetch(src, { cache: "force-cache" });
+    if (!response.ok) throw new Error(`Portrait page request failed: ${response.status}`);
+    return createImageBitmap(await response.blob());
+};
+
 type Entry = {
     src: string;
     owners: Set<object>;
     currentOwners: Set<object>;
-    image?: PortraitImageStub;
-    sharedImage?: boolean;
+    drawable?: SidebarPortraitDrawable;
+    /** The drawable is the shared first-frame poster: never closed here, and replaced by a bitmap. */
+    borrowedPoster?: boolean;
     loading?: PortraitImageStub;
+    preparing?: boolean;
     used: number;
     retryAt: number;
 };
 
-/** Current/lookahead pages share three download slots and a small return-to-unit cache. */
+/**
+ * Current/lookahead pages share three download slots and a small return-to-unit cache.
+ *
+ * Pages are drawn as ImageBitmaps. A 2D canvas that draws an <img> decodes it again, synchronously on the
+ * main thread, whenever the page is rasterized: with a page change every half second the playing portrait
+ * cost a 33-36 ms main-thread stall twice a second for as long as a unit was selected (measured
+ * 2026-11-20). A bitmap is decoded once, off the main thread, and draws in well under a millisecond.
+ */
 export class SidebarPortraitPagePool {
     private readonly entries = new Map<string, Entry>();
     private readonly active = new Set<Entry>();
@@ -29,6 +53,7 @@ export class SidebarPortraitPagePool {
         private readonly canDecode: () => boolean = () => !isPortraitForegroundDecodePending(),
         private readonly now: () => number = () => performance.now(),
         private readonly idleBytes = 16 * 1024 * 1024,
+        private readonly prepare: PreparePortraitPage = prepareBitmap,
     ) {}
     public update(owner: object, pages: readonly SidebarPortraitPage[]): void {
         const wanted = new Set(pages.map((page) => page.src));
@@ -37,9 +62,13 @@ export class SidebarPortraitPagePool {
             let entry = this.entries.get(src);
             if (!entry) {
                 entry = { src, owners: new Set(), currentOwners: new Set(), used: this.now(), retryAt: 0 };
-                // Frame zero was decoded as the poster before this canvas mounted. Reuse its bitmap.
-                entry.image = getDecodedImage(src);
-                entry.sharedImage = !!entry.image;
+                // Frame zero was decoded as the poster before this canvas mounted. Draw it at once and
+                // swap in its bitmap when that is ready.
+                const poster = getDecodedImage(src);
+                if (poster) {
+                    entry.drawable = poster as unknown as SidebarPortraitDrawable;
+                    entry.borrowedPoster = true;
+                }
                 this.entries.set(src, entry);
             }
             entry.owners.add(owner);
@@ -61,11 +90,11 @@ export class SidebarPortraitPagePool {
         this.trim();
         this.pump();
     }
-    public get(src: string): HTMLImageElement | undefined {
+    public get(src: string): SidebarPortraitDrawable | undefined {
         const entry = this.entries.get(src);
-        if (entry?.image) {
+        if (entry?.drawable) {
             entry.used = this.now();
-            return entry.image as HTMLImageElement;
+            return entry.drawable;
         }
         return undefined;
     }
@@ -73,29 +102,36 @@ export class SidebarPortraitPagePool {
         return [...this.entries.values()].reduce((sum, entry) => sum + this.bytes(entry), 0);
     }
     private bytes(entry: Entry): number {
-        return entry.image ? entry.image.naturalWidth * (entry.image.naturalHeight ?? 0) * 4 : 0;
+        return entry.drawable ? entry.drawable.width * entry.drawable.height * 4 : 0;
+    }
+    private drop(entry: Entry): void {
+        this.entries.delete(entry.src);
+        if (!entry.borrowedPoster) entry.drawable?.close?.();
+        entry.drawable = undefined;
     }
     private trim(): void {
         const idle: Entry[] = [];
         for (const entry of this.entries.values()) {
             if (entry.owners.size) continue;
             if (entry.loading) {
-                // Chromium can leave decode() pending after an in-flight request is cancelled.
-                // Release our slot now; a late completion cannot reclaim this removed entry.
+                // Chromium can leave a cancelled request pending. Release our slot now; a late
+                // completion cannot reclaim this removed entry.
                 this.entries.delete(entry.src);
                 this.active.delete(entry);
                 entry.loading.src = "";
                 entry.loading = undefined;
-            } else if (entry.image) idle.push(entry);
+            } else if (entry.preparing) {
+                // The bitmap still decoding is closed when it lands (see finishPrepare).
+                this.active.delete(entry);
+                this.drop(entry);
+            } else if (entry.drawable) idle.push(entry);
             else this.entries.delete(entry.src);
         }
         let bytes = idle.reduce((sum, entry) => sum + this.bytes(entry), 0);
         for (const entry of idle.sort((a, b) => a.used - b.used)) {
             if (bytes <= this.idleBytes) break;
             bytes -= this.bytes(entry);
-            this.entries.delete(entry.src);
-            if (!entry.sharedImage) entry.image!.src = "";
-            entry.image = undefined;
+            this.drop(entry);
         }
     }
     private schedule(delay: number): void {
@@ -107,7 +143,8 @@ export class SidebarPortraitPagePool {
     }
     private pump(): void {
         const waiting = [...this.entries.values()].filter(
-            (entry) => entry.owners.size && !entry.image && !entry.loading,
+            (entry) =>
+                entry.owners.size && !entry.loading && !entry.preparing && (!entry.drawable || entry.borrowedPoster),
         );
         if (!waiting.length) {
             if (this.timer !== undefined) clearTimeout(this.timer);
@@ -127,36 +164,69 @@ export class SidebarPortraitPagePool {
             this.schedule(Math.max(40, Math.min(...waiting.map((entry) => entry.retryAt - this.now()))));
             return;
         }
-        const image = this.createImage();
         this.active.add(next);
-        next.loading = image;
-        image.decoding = "async";
-        image.fetchPriority = next.currentOwners.size ? "high" : "low";
-        image.src = next.src;
-        const loaded =
-            typeof image.decode === "function"
-                ? image.decode()
-                : new Promise<void>((resolve, reject) => {
-                      image.onload = resolve;
-                      image.onerror = () => reject(new Error("Portrait page failed"));
-                  });
-        void loaded.then(
-            () => this.finish(next, image, image.naturalWidth > 0),
-            () => this.finish(next, image, false),
-        );
+        if (next.borrowedPoster) {
+            // The poster's file is already downloaded; only its bitmap is missing.
+            this.startPrepare(next);
+        } else {
+            const image = this.createImage();
+            next.loading = image;
+            image.decoding = "async";
+            image.fetchPriority = next.currentOwners.size ? "high" : "low";
+            // Wait for the download only: decoding through the element would decode the page a second
+            // time, and the canvas never draws it.
+            const loaded = new Promise<void>((resolve, reject) => {
+                image.onload = () => resolve();
+                image.onerror = () => reject(new Error("Portrait page failed"));
+            });
+            image.src = next.src;
+            void loaded.then(
+                () => this.finishDownload(next, image, image.naturalWidth > 0),
+                () => this.finishDownload(next, image, false),
+            );
+        }
         // Network latency used to serialize every multi-megabyte page with its predecessor.
         // Overlap the bounded lookahead window; decoded memory still follows the same page budget.
         this.pump();
     }
-    private finish(entry: Entry, image: PortraitImageStub, ready: boolean): void {
-        this.active.delete(entry);
+    private finishDownload(entry: Entry, image: PortraitImageStub, ready: boolean): void {
+        if (entry.loading !== image) return;
         entry.loading = undefined;
-        if (this.entries.get(entry.src) === entry && entry.owners.size) {
-            if (ready) {
-                entry.image = image;
-                entry.used = this.now();
-            } else entry.retryAt = this.now() + 2000;
-        } else image.src = "";
+        // The element only carried the request; the bitmap is decoded from the cached response.
+        image.src = "";
+        if (this.entries.get(entry.src) !== entry || !entry.owners.size) {
+            this.active.delete(entry);
+        } else if (ready) {
+            this.startPrepare(entry);
+            return;
+        } else {
+            this.active.delete(entry);
+            entry.retryAt = this.now() + 2000;
+        }
+        this.trim();
+        this.pump();
+    }
+    private startPrepare(entry: Entry): void {
+        entry.preparing = true;
+        void this.prepare(entry.src).then(
+            (bitmap) => this.finishPrepare(entry, bitmap),
+            () => this.finishPrepare(entry, undefined),
+        );
+    }
+    private finishPrepare(entry: Entry, bitmap: SidebarPortraitDrawable | undefined): void {
+        entry.preparing = false;
+        this.active.delete(entry);
+        if (this.entries.get(entry.src) !== entry || !entry.owners.size) {
+            bitmap?.close?.();
+        } else if (bitmap) {
+            if (!entry.borrowedPoster) entry.drawable?.close?.();
+            entry.drawable = bitmap;
+            entry.borrowedPoster = false;
+            entry.used = this.now();
+        } else {
+            // A poster keeps drawing meanwhile; either way the bitmap is retried later.
+            entry.retryAt = this.now() + 2000;
+        }
         this.trim();
         this.pump();
     }

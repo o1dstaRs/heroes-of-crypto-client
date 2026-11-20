@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 
-import { SidebarPortraitPagePool, type SidebarPortraitPage } from "./sidebarPortraitPagePool";
+import {
+    SidebarPortraitPagePool,
+    type SidebarPortraitDrawable,
+    type SidebarPortraitPage,
+} from "./sidebarPortraitPagePool";
 import {
     installPortraitImageFactoryForTests,
     isDecodedImageReady,
@@ -26,15 +30,21 @@ const fixture = (idleBytes = 16 * 1024 * 1024, rejectCancelled = true) => {
     const resolve: Array<() => void> = [];
     const reject: Array<() => void> = [];
     const owners = [{}, {}];
+    /** The bitmap each page decodes to; closed ones are recorded so eviction can be checked. */
+    const bitmaps = new Map<string, SidebarPortraitDrawable>();
+    const closed: string[] = [];
+    const prepare = async (src: string): Promise<SidebarPortraitDrawable> => {
+        const bitmap = {
+            width: 2860,
+            height: 808,
+            close: () => closed.push(src),
+        } as unknown as SidebarPortraitDrawable;
+        bitmaps.set(src, bitmap);
+        return bitmap;
+    };
     const pool = new SidebarPortraitPagePool(
         () => {
             let src = "";
-            let succeed!: () => void;
-            let fail!: () => void;
-            const promise = new Promise<void>((yes, no) => {
-                succeed = yes;
-                fail = () => no(new Error("decode aborted"));
-            });
             const image: PortraitImageStub = {
                 decoding: "",
                 naturalWidth: 2860,
@@ -46,18 +56,20 @@ const fixture = (idleBytes = 16 * 1024 * 1024, rejectCancelled = true) => {
                 },
                 set src(next: string) {
                     src = next;
-                    if (!next && rejectCancelled) fail();
+                    if (!next && rejectCancelled) image.onerror?.();
                 },
-                decode: () => promise,
+                // The pool must wait for the download only, never decode through the element.
+                decode: () => Promise.reject(new Error("pages are decoded as bitmaps, not through <img>")),
             };
             images.push(image);
-            resolve.push(succeed);
-            reject.push(fail);
+            resolve.push(() => image.onload?.());
+            reject.push(() => image.onerror?.());
             return image;
         },
         () => allowed,
         () => now,
         idleBytes,
+        prepare,
     );
     cleanups.push(() => {
         for (const owner of owners) pool.release(owner);
@@ -74,6 +86,8 @@ const fixture = (idleBytes = 16 * 1024 * 1024, rejectCancelled = true) => {
         owners,
         pages,
         images,
+        bitmaps,
+        closed,
         allow: (value: boolean) => {
             allowed = value;
         },
@@ -104,7 +118,7 @@ test("a cold portrait overlaps three page downloads and prioritizes its visible 
     expect(f.pool.get("page-1")).toBeDefined();
     expect(f.pool.get("page-2")).toBeDefined();
     await f.finish(0);
-    expect(f.pool.get("page-0")).toBe(f.images[0] as unknown as HTMLImageElement);
+    expect(f.pool.get("page-0")).toBe(f.bitmaps.get("page-0"));
     expect(f.images).toHaveLength(3);
 });
 
@@ -120,7 +134,7 @@ test("rapid switching aborts an obsolete download before decoding the new portra
     await f.finish(0);
     expect(f.pool.get("page-0")).toBeUndefined();
     await f.finish(1);
-    expect(f.pool.get("page-1")).toBe(f.images[1] as unknown as HTMLImageElement);
+    expect(f.pool.get("page-1")).toBe(f.bitmaps.get("page-1"));
 });
 
 test("held and incoming portraits share a bounded three-request budget", async () => {
@@ -176,7 +190,7 @@ test("a mounted owner keeps another owner from aborting its shared page", async 
     expect(f.images[0].src).toBe("page-0");
     expect(f.images).toHaveLength(1);
     await f.finish(0);
-    expect(f.pool.get("page-0")).toBe(f.images[0] as unknown as HTMLImageElement);
+    expect(f.pool.get("page-0")).toBe(f.bitmaps.get("page-0"));
     f.pool.release(f.owners[1]);
     expect(f.pool.decodedBytes).toBe(0);
     expect(f.images[0].src).toBe("");
@@ -247,4 +261,78 @@ test("playback borrows the decoded first-frame poster without another decode or 
     f.pool.update(f.owners[0], [page]);
     expect(f.images).toHaveLength(0);
     expect(f.pool.get(page.src)).toBe(image as HTMLImageElement);
+});
+
+test("the borrowed poster draws at once and is swapped for its bitmap without being closed", async () => {
+    const poster: PortraitImageStub = {
+        src: "",
+        decoding: "",
+        naturalWidth: 2860,
+        naturalHeight: 808,
+        onload: null,
+        onerror: null,
+        decode: () => Promise.resolve(),
+    };
+    installPortraitImageFactoryForTests(() => poster);
+    expect(await warmDecodedImage("poster-page")).toBe(true);
+    const f = fixture();
+    const page = { src: "poster-page", firstFrame: 0, frameCount: 5, cols: 5, rows: 1 };
+    f.pool.update(f.owners[0], [page]);
+    expect(f.pool.get(page.src)).toBe(poster as unknown as SidebarPortraitDrawable);
+    await flush();
+    // No second download: the bitmap is decoded from the poster's cached file.
+    expect(f.images).toHaveLength(0);
+    expect(f.pool.get(page.src)).toBe(f.bitmaps.get("poster-page"));
+    expect(poster.src).toBe("poster-page");
+    expect(f.closed).toEqual([]);
+});
+
+test("pages are decoded once as bitmaps and closed when evicted", async () => {
+    const f = fixture(0);
+    f.pool.update(f.owners[0], f.pages.slice(0, 2));
+    await f.finish(0);
+    await f.finish(1);
+    // The request element is released once its download is done; the canvas draws the bitmap.
+    expect(f.images.map((image) => image.src)).toEqual(["", ""]);
+    expect(f.pool.get("page-0")).toBe(f.bitmaps.get("page-0"));
+    f.pool.update(f.owners[0], [f.pages[1]]);
+    expect(f.closed).toEqual(["page-0"]);
+    expect(f.pool.get("page-0")).toBeUndefined();
+    expect(f.pool.get("page-1")).toBe(f.bitmaps.get("page-1"));
+});
+
+test("a bitmap that finishes decoding after its owner left is closed, not kept", async () => {
+    let finishDecode!: () => void;
+    const late = { width: 2860, height: 808, close: () => undefined } as unknown as SidebarPortraitDrawable;
+    let closed = 0;
+    (late as { close: () => void }).close = () => closed++;
+    const images: PortraitImageStub[] = [];
+    const pool = new SidebarPortraitPagePool(
+        () => {
+            const image: PortraitImageStub = {
+                decoding: "",
+                naturalWidth: 2860,
+                naturalHeight: 808,
+                onload: null,
+                onerror: null,
+                src: "",
+            };
+            images.push(image);
+            return image;
+        },
+        () => true,
+        () => 0,
+        0,
+        () => new Promise((resolve) => (finishDecode = () => resolve(late))),
+    );
+    const owner = {};
+    pool.update(owner, [{ src: "page-0", firstFrame: 0, frameCount: 5, cols: 5, rows: 1 }]);
+    images[0].onload?.();
+    await flush();
+    pool.release(owner);
+    finishDecode();
+    await flush();
+    expect(closed).toBe(1);
+    expect(pool.get("page-0")).toBeUndefined();
+    expect(pool.decodedBytes).toBe(0);
 });
