@@ -2,7 +2,7 @@ import { axiosGameInstance, endpoints } from "./axios";
 import type { GameAction, IDraftScoutingContext } from "@heroesofcrypto/common";
 
 import type { PremiumEvidence } from "./premium_search_stream";
-export type { PremiumEvidence, PremiumOutcomeEvidence, PremiumMetricEvidence } from "./premium_search_stream";
+export type { PremiumEvidence, PremiumMetricEvidence } from "./premium_search_stream";
 
 export interface PremiumChoice {
     kind: "creature" | "bundle" | "artifact" | "doctrine";

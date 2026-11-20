@@ -5,7 +5,7 @@ import { ArachnaContactField, attachArachnaFoot, type SilkContact } from "./Arac
 import { webWeaveAt } from "./ArachnaWebStructure";
 import { ARACHNA_WEB_DESIGN } from "./ArachnaWebDesign";
 import { arachnaWebSway } from "./ArachnaWebMotion";
-export { arachnaWebSway, ARACHNA_WEB_SWAY_MS } from "./ArachnaWebMotion";
+export { arachnaWebSway } from "./ArachnaWebMotion";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 
 export const ARACHNA_WEB_SPIDER_COUNT = 8;

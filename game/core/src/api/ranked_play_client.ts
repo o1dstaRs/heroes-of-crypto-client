@@ -1,12 +1,11 @@
-import { TeamVals, type GameAction, type IDamageStatistic, type TeamType } from "@heroesofcrypto/common";
+import { TeamVals, type IDamageStatistic, type TeamType } from "@heroesofcrypto/common";
 import { v4 as uuidv4 } from "uuid";
 
-import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
+import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
 import { appendBoundedDiagnosticLine } from "../utils/boundedDiagnosticLog";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
 import { deviceIdHeaders } from "./deviceId";
-import { createPlayActionFromGameAction } from "./game_action_play_codec";
 import { isPreviewPlayGame } from "./previewPlayGate";
 import {
     decodePlayActionResponse,
@@ -280,68 +279,6 @@ export const sendRankedPlayAction = async (
     }
 };
 
-/**
- * Broadcast the spell the local player has armed, so the opponent can show its name and icon.
- * Fire-and-forget, same as a move aim. Omit `spellName` to clear a previously armed spell.
- */
-export const sendRankedPlaySpellIntent = (
-    gameId: string,
-    args: { playerId: string; team: TeamType; unitId: string; spellName?: string },
-): void => {
-    if (isPreviewPlayGame(gameId)) {
-        return;
-    }
-    const payload: PlayAction = {
-        actionId: uuidv4(),
-        gameId,
-        playerId: args.playerId,
-        expectedSequence: 0,
-        type: PlayActionType.MOVE_INTENT,
-        unitId: args.unitId,
-        team: args.team,
-        spellName: args.spellName,
-        reason: PLAY_ARMED_SPELL_INTENT_REASON,
-    };
-    void axiosGameInstance
-        .post(playActionUrl(gameId), encodePlayAction(payload), {
-            responseType: "arraybuffer",
-            headers: authHeaders(),
-        })
-        .catch(() => undefined);
-};
-
-/**
- * Broadcast the local player's in-progress move aim so the opponent can preview a
- * silhouette of the active unit. Fire-and-forget: intents are ephemeral hints, so we
- * never advance the sequence or surface transport errors to the player. Omit
- * `targetCell` to clear a previously-sent aim.
- */
-export const sendRankedPlayMoveIntent = (
-    gameId: string,
-    args: { playerId: string; team: TeamType; unitId: string; targetCell?: PlayCell },
-): void => {
-    // Nobody is watching the preview's board from the other seat.
-    if (isPreviewPlayGame(gameId)) {
-        return;
-    }
-    const payload: PlayAction = {
-        actionId: uuidv4(),
-        gameId,
-        playerId: args.playerId,
-        expectedSequence: 0,
-        type: PlayActionType.MOVE_INTENT,
-        unitId: args.unitId,
-        team: args.team,
-        targetCell: args.targetCell,
-    };
-    void axiosGameInstance
-        .post(playActionUrl(gameId), encodePlayAction(payload), {
-            responseType: "arraybuffer",
-            headers: authHeaders(),
-        })
-        .catch(() => undefined);
-};
-
 export const parseRankedPlaySseFrame = (frame: string): PlayEvent | null => {
     let eventName = "message";
     const data: string[] = [];
@@ -489,53 +426,3 @@ export const toAuthoritativeGameSnapshot = (
         lap: stat.lap,
     })),
 });
-
-interface RankedGameActionTransportOptions {
-    gameId: string;
-    team: TeamType;
-    getPlayerId: () => string | undefined;
-    getExpectedSequence: () => number | undefined;
-    onAccepted?: (response: PlayActionResponse) => void;
-    onRejected?: (response: PlayActionResponse) => void;
-    onError?: (error: Error) => void;
-}
-
-export const createRankedGameActionTransport = ({
-    gameId,
-    team,
-    getPlayerId,
-    getExpectedSequence,
-    onAccepted,
-    onRejected,
-    onError,
-}: RankedGameActionTransportOptions): SceneGameActionTransport => {
-    return (action: GameAction) => {
-        const playerId = getPlayerId();
-        const expectedSequence = getExpectedSequence();
-        if (!playerId || expectedSequence === undefined) {
-            return { handled: true, completed: false, message: "Waiting for ranked game state" };
-        }
-
-        const payload = createPlayActionFromGameAction(action, {
-            actionId: uuidv4(),
-            gameId,
-            playerId,
-            expectedSequence,
-            team,
-        });
-
-        void sendRankedPlayAction(gameId, payload)
-            .then((response) => {
-                if (response.accepted) {
-                    onAccepted?.(response);
-                } else {
-                    onRejected?.(response);
-                }
-            })
-            .catch((err: unknown) => {
-                onError?.(err instanceof Error ? err : new Error(String(err)));
-            });
-
-        return { handled: true, completed: true };
-    };
-};

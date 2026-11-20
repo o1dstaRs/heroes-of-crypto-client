@@ -1,20 +1,11 @@
 import { BufferImageSource, Filter, GlProgram, Matrix, type Sprite } from "pixi.js";
 import { BERSERKER_IDLE_POSE_ORDER, BERSERKER_POSE_TONES, BERSERKER_REFERENCE_TONES } from "./BerserkerIdleCalibration";
 
-export const BERSERKER_IDLE_PAUSE_MS = 4200 * 0.75;
 export const BERSERKER_WAITING_SPEED = 1.3 * 1.2;
 
 // Pose 07 (playback frames 9 and 11) dips the crown by 22px while both boots remain fixed.
 // Translate its head intact and taper through the torso; never resize the complete figure.
 export const BERSERKER_INSPECTION_HEAD_OFFSET = 22;
-export function berserkerPoseSourceY(y: number, pose: number, x = 575): number {
-    if (pose !== 9 || y >= 650) return y;
-    const t = Math.max(0, Math.min(1, (y - 535) / 115));
-    const left = Math.max(0, Math.min(1, (x - 460) / 50));
-    const right = Math.max(0, Math.min(1, (x - 640) / 35));
-    const body = left * left * (3 - 2 * left) * (1 - right * right * (3 - 2 * right));
-    return y + BERSERKER_INSPECTION_HEAD_OFFSET * (1 - t * t * (3 - 2 * t)) * body;
-}
 
 export function berserkerPaletteValue(pose: number, channel: number, value: number): number {
     if (pose <= 0 || pose >= BERSERKER_POSE_TONES.length) return value;
@@ -42,14 +33,6 @@ export function berserkerWaitingMotion(elapsedMs: number, durations: readonly nu
     const envelope = Math.sin((Math.PI * time) / rest) ** 2;
     const phase = (2 * Math.PI * time * BERSERKER_WAITING_SPEED) / rest;
     return { x: 4 * Math.sin(phase) * envelope, y: Math.sin(phase * 2) * envelope };
-}
-
-/** Authoring-space displacement; both boots and the lower shins are exactly fixed. */
-export function berserkerWaitingOffset(y: number, motion: { x: number; y: number }): { x: number; y: number } {
-    if (y >= 820) return { x: 0, y: 0 };
-    const t = Math.max(0, Math.min(1, (y - 560) / 260));
-    const weight = 1 - t * t * (3 - 2 * t);
-    return { x: motion.x * weight, y: motion.y * weight };
 }
 
 let palette: BufferImageSource | undefined;

@@ -1,4 +1,3 @@
-import { ToFactionName } from "@heroesofcrypto/common";
 import { Box, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
@@ -13,8 +12,6 @@ import { hocColors } from "../hocTheme";
 // pick phase already shows them untranslated. Only the chrome around them is localized.
 export const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`;
 
-export const factionName = (faction: number): string => t(ToFactionName[faction] || "Neutral");
-
 export const winRatePct = (wins: number, games: number): number => (games > 0 ? Math.round((wins / games) * 100) : 0);
 
 /** Color-codes a win rate: green when winning, gold around even, red when losing. */
@@ -26,16 +23,6 @@ export const winRateColor = (pct: number): string => {
         return hocColors.gold;
     }
     return "#ff5a5a";
-};
-
-export const streakLabel = (currentStreak: number): string => {
-    if (currentStreak > 0) {
-        return tf("{count}W streak", { count: currentStreak });
-    }
-    if (currentStreak < 0) {
-        return tf("{count}L streak", { count: -currentStreak });
-    }
-    return t("No streak");
 };
 
 export const timeAgo = (ms: number): string => {
@@ -219,32 +206,3 @@ export const CreatureIcon: React.FC<{ creatureId: number; size?: number }> = ({ 
         />
     </Tooltip>
 );
-
-/** A horizontal win-rate bar with the percentage label. */
-export const WinRateBar: React.FC<{ wins: number; games: number; width?: number | string }> = ({
-    wins,
-    games,
-    width = 120,
-}) => {
-    const pct = winRatePct(wins, games);
-    const color = winRateColor(pct);
-    return (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, width }}>
-            <Box
-                sx={{
-                    position: "relative",
-                    flex: 1,
-                    height: 8,
-                    borderRadius: 4,
-                    bgcolor: "rgba(255,255,255,0.08)",
-                    overflow: "hidden",
-                }}
-            >
-                <Box sx={{ position: "absolute", inset: 0, width: `${pct}%`, bgcolor: color, borderRadius: 4 }} />
-            </Box>
-            <Typography level="body-xs" sx={{ color, minWidth: 34, textAlign: "right", fontWeight: 600 }}>
-                {pct}%
-            </Typography>
-        </Box>
-    );
-};

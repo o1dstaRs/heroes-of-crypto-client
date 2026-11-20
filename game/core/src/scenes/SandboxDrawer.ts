@@ -54,11 +54,6 @@ import { drawMovementArea, drawMovementAreaCalibration, ENEMY_MOVEMENT_HIGHLIGHT
 import { drawMovementPathPreview } from "./movementPathPreview";
 export { movementFillAlphaForPhase } from "./movementAreaVisual";
 
-/**
- * Red used across the board to signal "it is the enemy's turn" in ranked play — the active-unit
- * aura, the movement highlight, and the board-edge glow all share this color for a consistent cue.
- */
-export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff5b55;
 export const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
 /** Neutral cold-steel treatment selected for the active/shift-selected shooting range. */
 export const SHOT_RANGE_COLOR = 0xaeb9bd;

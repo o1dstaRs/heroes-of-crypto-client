@@ -5,7 +5,6 @@ import {
     GOBLIN_ETCH_BLADE_POSES,
     GoblinKnightIdleFilter,
     goblinIdleEtch,
-    goblinIdleOffset,
     syncGoblinKnightIdle,
 } from "./GoblinKnightIdleVisuals";
 
@@ -14,21 +13,6 @@ beforeAll(() =>
     DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
 );
 afterAll(() => DOMAdapter.set(adapter));
-
-test("Goblin idle keeps feet planted while the cape moves independently of the shoulder", () => {
-    for (const time of [0, 500, 1050, 2100, 4200, 8000]) {
-        expect(Math.hypot(...goblinIdleOffset(360, 720, time))).toBe(0);
-        expect(Math.hypot(...goblinIdleOffset(490, 732, time))).toBe(0);
-        const shoulder = goblinIdleOffset(390, 190, time);
-        const torso = goblinIdleOffset(460, 190, time);
-        expect(Math.hypot(shoulder[0] - torso[0], shoulder[1] - torso[1])).toBeLessThan(0.02);
-    }
-    expect(Math.abs(goblinIdleOffset(200, 400, 0)[0])).toBeGreaterThan(8);
-    expect(goblinIdleOffset(460, 400, 0)).toEqual([0, 0]);
-    const a = goblinIdleOffset(200, 400, 1000);
-    const b = goblinIdleOffset(200, 400, 1001);
-    expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeLessThan(0.1);
-});
 
 test("Goblin idle reuses its filter across walk transitions and preserves other effects", () => {
     const sprite = new Sprite(Texture.WHITE);
@@ -66,19 +50,4 @@ test("Goblin redrawn stroke emits only contacts already reached by the visible b
     filter.update(7700);
     expect(filter.resources.goblin.uniforms.uFrost).toBe(0);
     expect(filter.resources.goblin.uniforms.uReady).toBe(0);
-});
-
-test("Goblin wind never deforms the shoulder, forearm, gauntlet or sword", () => {
-    for (const t of [0, 500, 1050, 2100, 3700]) {
-        for (const [x, y] of [
-            [320, 280],
-            [315, 360],
-            [330, 420],
-            [355, 470],
-            [420, 530],
-        ]) {
-            expect(goblinIdleOffset(x, y, t)).toEqual(goblinIdleOffset(600, y, t));
-        }
-    }
-    expect(Math.abs(goblinIdleOffset(200, 400, 0)[0])).toBeGreaterThan(8);
 });

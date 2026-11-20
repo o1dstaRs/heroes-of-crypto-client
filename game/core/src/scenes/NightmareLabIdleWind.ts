@@ -15,16 +15,6 @@ export function nightmareWindWeights(x: number, y: number): [number, number] {
     return [tail, mane];
 }
 
-export function nightmareWindOffset(x: number, y: number, seconds: number, phase = 0): [number, number] {
-    const [tailMask, maneMask] = nightmareWindWeights(x, y);
-    const tailU = Math.max(0, Math.min(1, (y - 424) / 256));
-    const maneU = Math.max(0, Math.min(1, (640 - x) / 310));
-    const wave = (u: number) => Math.sin(Math.PI * 2 * 1.15 * u - NIGHTMARE_WIND_SPEED * seconds + phase);
-    const tail = tailMask * tailU ** 2 * wave(tailU);
-    const mane = maneMask * maneU ** 2 * wave(maneU);
-    return [24 * tail + 10 * mane, 7 * tail + 15 * mane];
-}
-
 export const NIGHTMARE_WIND_GLSL = /* glsl */ `
 vec2 windWeights(vec2 p) {
     float tailEdge = 244.0 - max(0.0, p.y - 430.0) * 0.28;

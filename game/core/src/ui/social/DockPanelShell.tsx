@@ -254,5 +254,3 @@ export const DockPanelHeader: React.FC<DockPanelHeaderProps> = ({ action, leadin
         </IconButton>
     </Stack>
 );
-
-export default DockPanelShell;

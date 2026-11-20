@@ -101,25 +101,3 @@ export const playCallSound = (): void => {
     }
     clack(ctx, 0, 1, 0.55);
 };
-
-/** RAISE: three quick chips, stepping up — the classic "sliding a stack in". */
-export const playRaiseSound = (): void => {
-    const ctx = audioContext();
-    if (!ctx) {
-        return;
-    }
-    clack(ctx, 0, 0.9, 0.4);
-    clack(ctx, 0.07, 1.05, 0.48);
-    clack(ctx, 0.15, 1.22, 0.55);
-};
-
-/** LOCK: the pot coming together — a little cascade settling down. */
-export const playLockSound = (): void => {
-    const ctx = audioContext();
-    if (!ctx) {
-        return;
-    }
-    clack(ctx, 0, 1.15, 0.4);
-    clack(ctx, 0.09, 1.0, 0.45);
-    clack(ctx, 0.19, 0.85, 0.5);
-};

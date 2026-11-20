@@ -167,56 +167,6 @@ export const hocActionSoftButtonSx = {
     },
 };
 
-/**
- * Start: the one "go" button in the bar, so it steps out of the ember palette into the portal's green and
- * breathes a soft halo to draw the eye. The glow is a box-shadow pulse rather than the old 73-frame sprite
- * animation — no atlas to decode, and it keeps working at any size. Held still for anyone who has asked the
- * system for reduced motion.
- */
-export const hocStartButtonSx = {
-    ...hocActionButtonBaseSx,
-    color: "#06210c",
-    // 1% transparent (was 10%, dialled back by 9 points): just enough for the leather to bleed through and
-    // stop the fill reading as a flat sticker. The fill alone is softened — dropping the element's own
-    // opacity would have dimmed the label and border with it.
-    bgcolor: "rgba(70, 209, 96, 0.99)",
-    border: `1px solid ${hocColors.greenDeep}`,
-    "@keyframes hocStartPulse": {
-        "0%, 100%": { boxShadow: `0 0 6px 0 rgba(70, 209, 96, 0.28)` },
-        "50%": { boxShadow: `0 0 16px 3px rgba(70, 209, 96, 0.62)` },
-    },
-    animation: "hocStartPulse 2.4s ease-in-out infinite",
-    "&:hover": {
-        bgcolor: "rgba(94, 224, 119, 0.99)",
-        color: "#06210c",
-        borderColor: hocColors.green,
-    },
-    "&.Mui-disabled": {
-        animation: "none",
-        boxShadow: "none",
-        bgcolor: "rgba(70, 209, 96, 0.16)",
-        color: "rgba(239, 228, 204, 0.45)",
-        border: `1px solid rgba(70, 209, 96, 0.28)`,
-    },
-    "@media (prefers-reduced-motion: reduce)": {
-        animation: "none",
-    },
-};
-
-/**
- * The obsidian shell the floating toolbar column wears: a dark vertical gradient inside a bronze outline,
- * with an inner rim and a drop shadow so it reads as a raised, framed control rather than a flat strip of
- * sidebar. Shared here so collapsible headers can be built to look like that toolbar instead of like plain
- * list rows. (DraggableToolbar still carries its own copy of these numbers; it can adopt this later.)
- */
-export const hocObsidianPanelSx = {
-    // Neutral fill to match the board-tinted sidebars; the bronze rim stays as the accent.
-    backgroundImage: "linear-gradient(180deg, rgba(21,21,19,.96), rgba(6,6,6,.96))",
-    borderRadius: "14px",
-    border: "2.34px solid #3a382f",
-    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
-};
-
 /** Exact OFF/ON radio artwork cropped from the user-selected concept sheet. */
 export const hocFantasyRadioSx = {
     "& .MuiRadio-radio": {
@@ -377,19 +327,6 @@ export const hocSplitterSliderSx = {
         boxShadow: "inset 0 1px 2px rgba(216,171,128,.26)",
     },
 } as const;
-
-/** Destructive action (Delete): the same frame in the palette's ember red. */
-export const hocActionDangerButtonSx = {
-    ...hocActionButtonBaseSx,
-    color: hocColors.parchment,
-    bgcolor: "rgba(255, 90, 63, 0.10)",
-    border: `1px solid rgba(255, 90, 63, 0.5)`,
-    "&:hover": {
-        bgcolor: "rgba(255, 90, 63, 0.22)",
-        borderColor: hocColors.danger,
-        color: hocColors.danger,
-    },
-};
 
 // Error/alert styling in the game's palette (MUI Joy's default `color="danger"` renders a pink that's
 // off-theme, especially on the un-themed loading/error screens). Uses hocColors.danger (an ember red-orange).

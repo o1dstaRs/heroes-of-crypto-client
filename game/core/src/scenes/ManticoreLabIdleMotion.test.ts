@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import { Sprite, Texture, ColorMatrixFilter } from "pixi.js";
-import { manticoreIdleMotion, manticoreIdleOffset, MANTICORE_IDLE_PERIOD_MS } from "./ManticoreLabIdleMotion";
+import { manticoreIdleMotion, MANTICORE_IDLE_PERIOD_MS } from "./ManticoreLabIdleMotion";
 import { syncManticoreLabIdle } from "./ManticoreLabIdleVisuals";
 
 beforeAll(() => {
@@ -10,32 +10,6 @@ beforeAll(() => {
             querySelector: () => null,
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
         };
-});
-
-test("idle preserves all four paw contacts through a complete loop", () => {
-    for (let time = 0; time <= 8800; time += 50) {
-        const motion = manticoreIdleMotion(time);
-        for (const [x, y] of [
-            [122, 727],
-            [360, 718],
-            [516, 734],
-            [686, 729],
-        ]) {
-            manticoreIdleOffset(x, y, motion).forEach((value) => expect(Math.abs(value)).toBe(0));
-        }
-        expect(motion[0]).toBeGreaterThanOrEqual(0);
-        expect(motion[0]).toBeLessThanOrEqual(16);
-    }
-});
-test("body lowers without changing head dimensions and tail reverses around its fixed root", () => {
-    const low = manticoreIdleMotion(6600 / (1.15 * 1.2));
-    expect(manticoreIdleOffset(450, 530, low)[1]).toBeCloseTo(16);
-    expect(manticoreIdleOffset(626, 492, low)).toEqual(manticoreIdleOffset(660, 520, low));
-    const forward = manticoreIdleOffset(100, 370, manticoreIdleMotion(5500 / (1.15 * 1.2)))[0];
-    const back = manticoreIdleOffset(100, 370, manticoreIdleMotion(7700 / (1.15 * 1.2)))[0];
-    expect(forward).toBeGreaterThan(15);
-    expect(back).toBeLessThan(-15);
-    expect(manticoreIdleOffset(183, 574, low)[0]).toBe(0);
 });
 test("motion and eye pulse have a smooth periodic seam and safe initial state", () => {
     expect(manticoreIdleMotion(Number.NaN)).toEqual(manticoreIdleMotion(0));

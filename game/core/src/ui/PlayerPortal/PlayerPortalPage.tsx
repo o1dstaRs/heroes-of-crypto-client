@@ -330,11 +330,6 @@ export const PLAYER_PORTAL_STRATEGY_TILE_SIZE = { xs: 46, sm: 54 } as const;
  */
 export const PLAYER_PORTAL_STRATEGY_TILE_OVERLAP = { xs: 9, sm: 10 } as const;
 
-/** Share of a covered portrait that stays visible. Pinned in PlayerPortalPage.test.tsx. */
-export const playerPortalStrategyVisibleShare = (breakpoint: "xs" | "sm"): number =>
-    (PLAYER_PORTAL_STRATEGY_TILE_SIZE[breakpoint] - PLAYER_PORTAL_STRATEGY_TILE_OVERLAP[breakpoint]) /
-    PLAYER_PORTAL_STRATEGY_TILE_SIZE[breakpoint];
-
 const CreatureStrategyArtwork: React.FC<{ creatureIds: readonly number[] }> = ({ creatureIds }) => {
     const uniqueIds = [...new Set(creatureIds)];
     return (

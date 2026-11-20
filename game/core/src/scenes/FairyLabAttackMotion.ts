@@ -1,5 +1,3 @@
-export const FAIRY_LAB_ATTACK_DURATIONS_MS = [100, 180, 110, 170, 200, 140] as const;
-
 // Milliseconds, hip translation X/Y, forward lean in radians. Whole upper-body
 // motion joins the authored hand poses; the boots remain on their contact row.
 const keys = [

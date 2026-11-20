@@ -5,8 +5,6 @@ import type { SandboxCoopSession } from "../api/sandbox_coop_client";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { GameErrorBoundary } from "./GameErrorBoundary";
 
-export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
-
 const loadRuntime = () => import("./RankedGameViewRuntime");
 
 const RankedGameViewRuntime = React.lazy(() => loadRuntime().then((module) => ({ default: module.RankedGameView })));

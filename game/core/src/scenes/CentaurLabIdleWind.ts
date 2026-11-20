@@ -19,28 +19,6 @@ export function centaurIdleWindMotion(elapsedMs: number): [number, number, numbe
     ];
 }
 
-/** Original 896×768 artwork coordinates. Body, helmet, arm, spear and hoof contacts stay fixed. */
-export function centaurIdleWindOffset(x: number, y: number, motion: readonly number[]): [number, number] {
-    const tailEdge = 248 - Math.max(0, Math.min(1, (y - 380) / 340)) * 78;
-    const tailMask = (1 - smoothstep(tailEdge - 12, tailEdge, x)) * smoothstep(374, 394, y);
-    const tailU = Math.max(0, Math.min(1, (y - 380) / 310));
-    // The flag's u^4 envelope anchors the root and lets the loose ends billow.
-    const tail = tailMask * tailU ** 4 * Math.sin(Math.PI * 2 * 1.15 * tailU - motion[0]);
-    const hairEdge =
-        y < 140 ? 468 - (y - 90) * 0.84 : y < 230 ? 426 - (y - 140) * (57 / 90) : 369 - (y - 230) * (19 / 80);
-    const hairMask =
-        (1 - smoothstep(hairEdge - 10, hairEdge, x)) * smoothstep(90, 116, y) * (1 - smoothstep(286, 310, y));
-    const hairU = Math.max(0, Math.min(1, (y - 90) / 210));
-    const hair = hairMask * Math.sqrt(hairU) * Math.sin(Math.PI * 2 * 1.05 * hairU - motion[1]) * motion[3];
-    // Only the soft black crest above the helmet moves. Its attached lower edge and height stay fixed.
-    const crestBase = 42 + 0.008 * (x - 520) ** 2;
-    const crestMask =
-        smoothstep(430, 444, x) * (1 - smoothstep(595, 608, x)) * (1 - smoothstep(crestBase - 14, crestBase - 3, y));
-    const crestU = Math.max(0, Math.min(1, (crestBase - y) / 38));
-    const crest = crestMask * crestU * Math.sin(0.025 * (x - 450) - motion[1] + 0.8);
-    return [(28 * tail + 28 * hair + 24 * crest) * motion[2], (10 * tail + 2.5 * hair) * motion[2]];
-}
-
 export const CENTAUR_IDLE_WIND_GLSL = /* glsl */ `
 vec2 centaurWindOffset(vec2 p) {
     float tailEdge = 248.0 - clamp((p.y - 380.0) / 340.0, 0.0, 1.0) * 78.0;

@@ -52,36 +52,6 @@ export const WOLF_HEAD_NEUTRAL_LANDMARKS = [
     [475, 270, 471, 270],
     [470, 390, 470, 390],
 ] as const;
-const smooth = (a: number, b: number, value: number): number => {
-    const t = Math.max(0, Math.min(1, (value - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-};
-
-/** Inverse head registration in the same upright coordinates as the body filter. */
-export function wolfHeadSourcePoint(x: number, y: number, pose: number): { x: number; y: number } {
-    const frame = WOLF_HEAD_FRAMES[pose];
-    if (!frame) return { x, y };
-    const [ex, ey, c, s] = frame,
-        rx = x - ex,
-        ry = y - ey;
-    const nx = 651 + c * rx + s * ry,
-        ny = 258 - s * rx + c * ry;
-    const weight = smooth(430, 510, nx) * (1 - smooth(420, 485, ny)) * (1 - smooth(350, 460, y));
-    if (weight <= 0) return { x, y };
-    let dx = 0,
-        dy = 0,
-        total = 0;
-    for (const [ax, ay, bx, by] of WOLF_HEAD_NEUTRAL_LANDMARKS) {
-        const d = Math.max(1, (nx - ax) ** 2 + (ny - ay) ** 2),
-            w = 1 / (d * d);
-        dx += (bx - ax) * w;
-        dy += (registeredY(by, 0) - ay) * w;
-        total += w;
-    }
-    dx = (dx / total) * weight;
-    dy = (dy / total) * weight;
-    return { x: x + c * dx - s * dy, y: y + s * dx + c * dy };
-}
 
 export const wolfHeadGeometryGlsl = /* glsl */ `
 void headLandmark(vec2 point,vec2 a,vec2 b,inout vec2 displacement,inout float total){

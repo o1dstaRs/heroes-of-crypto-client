@@ -134,21 +134,6 @@ export async function optimizePortraitBuildCopies(
     );
 }
 
-/** Encode only reachable, flattened atlas copies; authored Drive sheets and metadata stay pinned. */
-export async function optimizeAnimationBuildCopies(
-    imageDirectory: string,
-    canonicalLocation: string | undefined,
-    reachableFiles: ReadonlySet<string>,
-): Promise<PortraitEncodingSummary> {
-    return optimizeWebPBuildCopies(
-        imageDirectory,
-        canonicalLocation,
-        (filename) =>
-            /^[a-z0-9_]+(?:_atlas(?:_half|_quarter)?|_page_\d+)\.webp$/.test(filename) && reachableFiles.has(filename),
-        2,
-    );
-}
-
 async function optimizeWebPBuildCopies(
     imageDirectory: string,
     canonicalLocation: string | undefined,

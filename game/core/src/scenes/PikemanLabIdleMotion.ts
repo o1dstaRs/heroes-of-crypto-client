@@ -15,10 +15,6 @@ export function isPikemanIdleCanonicalFrame(frame: number): boolean {
     return frame < 7 || frame >= 58;
 }
 
-export const PIKEMAN_IDLE_FRAME_DURATIONS_MS = Array.from({ length: PIKEMAN_IDLE_FRAME_COUNT }, (_, frame) =>
-    isPikemanIdleCanonicalFrame(frame) ? PIKEMAN_IDLE_HOLD_FRAME_MS : PIKEMAN_IDLE_MOTION_FRAME_MS,
-);
-
 export function pikemanIdleFrame(elapsedMs: number): number {
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
     const phase = elapsedMs % PIKEMAN_IDLE_PERIOD_MS;

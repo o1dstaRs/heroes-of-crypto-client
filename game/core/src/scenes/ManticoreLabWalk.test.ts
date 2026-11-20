@@ -1,9 +1,4 @@
-import {
-    MANTICORE_LAB_MATERIAL_SAMPLES,
-    manticoreLabMaterialColor,
-    syncManticoreLabWalkPalette,
-} from "./ManticoreLabWalkPalette";
-import { syncManticoreLabPoseCalibration } from "./ManticoreLabPoseCalibration";
+import { syncManticoreLabWalkPalette } from "./ManticoreLabWalkPalette";
 import { manticoreLabAttackEye } from "./ManticoreLabAttackEyes";
 import { MANTICORE_LAB_DEATH_SPEED, MANTICORE_LAB_DEATH_OPENING_MS } from "./ManticoreLabReactionTiming";
 import { afterAll, beforeAll, expect, test } from "bun:test";
@@ -168,26 +163,6 @@ test("authored transitions retain the 35 percent speedup plus another 15 percent
     expect(internal.walkAnim!.frameIndex).toBe(0);
     unit.stepSpawnAnimation(1.01 / (4000 * 1.35 * 1.15));
     expect(internal.walkAnim!.frameIndex).toBe(1);
-});
-
-test("material correction matches source samples while canonical bookends stay unfiltered", () => {
-    for (const [source, target] of MANTICORE_LAB_MATERIAL_SAMPLES) {
-        const actual = manticoreLabMaterialColor(source);
-        actual.forEach((value, i) => expect(Math.abs(value - target[i])).toBeLessThan(1));
-    }
-    const { unit, internal } = make();
-    const idleFilter = internal.sprite.filters![0];
-    unit.startBoardWalkAnimation(1, 3);
-    const originalFilters = [...(internal.sprite.filters ?? [])];
-    expect(internal.sprite.filters ?? []).toEqual(originalFilters);
-    unit.stepSpawnAnimation(101 / (4000 * 1.35 * 1.15));
-    expect(internal.sprite.filters!.length).toBe(originalFilters.length + 3);
-    syncManticoreLabWalkPalette(internal.sprite, 17);
-    syncManticoreLabPoseCalibration(internal.sprite, 17, -1);
-    expect(internal.sprite.filters ?? []).toEqual(originalFilters);
-    unit.stopBoardWalkAnimation();
-    expect(internal.sprite.filters!.length).toBe(1);
-    expect(internal.sprite.filters![0]).toBe(idleFilter);
 });
 
 test("limb correction is local to transitions, isolated per unit, and removed for flight and idle", () => {

@@ -32,5 +32,3 @@ export const InviteFriendBadge: React.FC = () => (
         Invite a friend
     </Button>
 );
-
-export default InviteFriendBadge;

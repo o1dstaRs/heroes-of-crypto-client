@@ -1,11 +1,6 @@
 // Native camera scale with measured planted-sole registration (v15); burgundy curves retained from v14.
 import type { AngelMaterialPalette } from "./AngelActionPaletteCurves";
 type ClothCurve = AngelMaterialPalette[number];
-export const ANGEL_MELEE_CLOTH_TARGET: ClothCurve = [
-    [0.058824, 0.152941, 0.247059, 0.360784, 0.458824, 0.541176, 0.65098],
-    [0.003922, 0.023529, 0.054902, 0.098039, 0.160784, 0.231373, 0.32549],
-    [0.007843, 0.019608, 0.041176, 0.078431, 0.12549, 0.176471, 0.239216],
-];
 export const ANGEL_MELEE_CALIBRATION: Readonly<
     Record<string, readonly { widthScale: number; support: readonly [number, number]; cloth: ClothCurve }[]>
 > = {

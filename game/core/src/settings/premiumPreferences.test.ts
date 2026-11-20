@@ -5,10 +5,9 @@ import {
     getPremiumPreference,
     readPremiumPreference,
     setPremiumPreference,
-    subscribePremiumPreferences,
     type PremiumPreference,
 } from "./premiumPreferences";
-import { getPremiumSuggestedMoves, setPremiumSuggestedMoves } from "./premiumSuggestedMoves";
+import { setPremiumSuggestedMoves } from "./premiumSuggestedMoves";
 
 const preferences: PremiumPreference[] = ["enabled", "chat", "draft", "setup", "suggestedMoves"];
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
@@ -53,19 +52,6 @@ test("the overall switch suspends every capability without replacing individual 
     expect(getPremiumCapability("suggestedMoves")).toBe(false);
     expect(readPremiumPreference("chat")).toBe(false);
     expect(readPremiumPreference("suggestedMoves")).toBe(false);
-});
-
-test("settings and the existing fight switch publish the same move preference", () => {
-    const seen: boolean[] = [];
-    const stop = subscribePremiumPreferences(() => seen.push(getPremiumSuggestedMoves()));
-    try {
-        setPremiumPreference("suggestedMoves", false);
-        setPremiumSuggestedMoves(true);
-        expect(seen).toEqual([false, true]);
-        expect(readPremiumPreference("suggestedMoves")).toBe(true);
-    } finally {
-        stop();
-    }
 });
 
 test("blocked storage preserves separate capability choices for the session", () => {

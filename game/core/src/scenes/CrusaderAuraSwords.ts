@@ -1,6 +1,4 @@
-import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
-import { earcut } from "pixi.js";
-import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { type HoCMath } from "@heroesofcrypto/common";
 
 // Shared painted scale only; never feed this into the factual range boundary.
 const VISUAL_ENLARGEMENT = 1.05;
@@ -55,56 +53,4 @@ export function crusaderSwordPolygons(
             };
         });
     });
-}
-
-function clip(poly: Vertex[], axis: "x" | "y", edge: number, sign: number): Vertex[] {
-    const out: Vertex[] = [];
-    for (let i = 0; i < poly.length; i++) {
-        const a = poly[i];
-        const b = poly[(i + 1) % poly.length];
-        const insideA = (a[axis] - edge) * sign >= 0;
-        const insideB = (b[axis] - edge) * sign >= 0;
-        if (insideA) out.push(a);
-        if (insideA !== insideB) {
-            const t = (edge - a[axis]) / (b[axis] - a[axis]);
-            out.push({
-                x: a.x + (b.x - a.x) * t,
-                y: a.y + (b.y - a.y) * t,
-                u: a.u + (b.u - a.u) * t,
-                v: a.v + (b.v - a.v) * t,
-            });
-        }
-    }
-    return out;
-}
-
-export function crusaderSwordGeometry(
-    center: HoCMath.XY,
-    footprint: { width: number; height: number },
-    range: number,
-    rotation: number,
-    gs: GridSettings,
-    narrowing: number,
-    padding = 0,
-) {
-    const positions: number[] = [];
-    const uvs: number[] = [];
-    const indices: number[] = [];
-    const inset = Math.max(0, narrowing) * gs.getCellSize();
-    for (let poly of crusaderSwordPolygons(center, footprint, range, rotation, gs.getCellSize(), padding)) {
-        poly = clip(poly, "x", gs.getMinX() + inset, 1);
-        poly = clip(poly, "x", gs.getMaxX() - inset, -1);
-        poly = clip(poly, "y", gs.getMinY() + inset, 1);
-        poly = clip(poly, "y", gs.getMaxY() - inset, -1);
-        if (poly.length < 3) continue;
-        const offset = positions.length / 2;
-        const flat = poly.flatMap((p) => [p.x, p.y]);
-        indices.push(...earcut(flat).map((index: number) => index + offset));
-        for (const p of poly) {
-            const projected = projectBattlefieldPoint(p, gs);
-            positions.push(projected.x, projected.y);
-            uvs.push(p.u, p.v);
-        }
-    }
-    return { positions: new Float32Array(positions), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
 }

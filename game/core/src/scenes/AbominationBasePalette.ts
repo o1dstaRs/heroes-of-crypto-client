@@ -1,11 +1,9 @@
-import { ColorMatrixFilter, type Filter, type Sprite } from "pixi.js";
+import { ColorMatrixFilter, type Sprite } from "pixi.js";
 
 // Match the existing base cutout's skin to the mean palette of the eight authored
 // lab walk poses. Gain-only grading preserves black shadows, alpha and geometry.
 export const ABOMINATION_BASE_COLOR_GAINS = [1.014815, 0.9578, 0.894565] as const;
 let baseFilter: ColorMatrixFilter | undefined;
-
-export const isAbominationBasePalette = (filter: Filter): boolean => filter === baseFilter;
 
 export function syncAbominationBasePalette(sprite: Sprite, enabled: boolean): void {
     if (enabled && !baseFilter) {

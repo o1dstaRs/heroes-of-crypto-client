@@ -16,11 +16,7 @@ import { ImageScrollbar } from "./ImageScrollbar";
 import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";
 
 export { ImageScrollbar } from "./ImageScrollbar";
-export {
-    FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX,
-    FIGHT_LOG_SCROLLBAR_THUMB_WIDTH_PX,
-    FIGHT_LOG_SURFACE_BACKGROUND,
-} from "./fightLogLayout";
+export { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";
 
 const FIGHT_LOG_SCROLL_RAIL_EXTENSION_PX = FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX;
 

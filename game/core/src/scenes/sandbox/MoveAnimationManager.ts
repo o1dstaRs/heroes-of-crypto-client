@@ -807,7 +807,3 @@ export class MoveAnimationManager {
         return result;
     }
 }
-
-export const setMovementParticlesEnabled = (enabled: boolean): void => {
-    MOVEMENT_PARTICLES_ENABLED = enabled;
-};

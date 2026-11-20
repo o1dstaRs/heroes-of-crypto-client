@@ -48,8 +48,6 @@ import {
     centeredPlacementLineCells,
     placementFootprintOfUnitState,
     revealedOpponentRowScale,
-    revealedOpponentRowX,
-    revealedOpponentRowY,
     shouldPublishRankedFinish,
     spellAbilityTransferSceneLogSuffix,
     spellCastNarratedPairs,
@@ -1536,7 +1534,6 @@ describe("revealed opponent roster row", () => {
     // Real board geometry: 16 cells, x in [-1024, 1024], y in [0, 2048], step 128.
     const MIN_X = GridConstants.MIN_X;
     const MAX_X = GridConstants.MAX_X;
-    const STEP = GridConstants.MAX_Y / GridConstants.GRID_SIZE;
 
     // The five shipped shapes these layouts have to serve. Only the squares exist in the catalog today;
     // the rectangles are the shapes the layout must not collapse back into a square.
@@ -1654,54 +1651,6 @@ describe("revealed opponent roster row", () => {
 
         expect(footprints.map((cells) => cells.length)).toEqual([2, 1, 2]);
         expect(new Set(keys).size).toBe(keys.length);
-    });
-
-    test("spreads the army across the full board width, inside both edges", () => {
-        const xs = Array.from({ length: 6 }, (_, index) => revealedOpponentRowX(index, 6, MIN_X, MAX_X));
-
-        expect(xs).toEqual([...xs].sort((a, b) => a - b));
-        expect(xs[0]).toBeGreaterThan(MIN_X);
-        expect(xs[xs.length - 1]).toBeLessThan(MAX_X);
-        // Even slots, and the end margins match each other (half a slot at each edge).
-        const gaps = xs.slice(1).map((x, index) => x - xs[index]);
-        for (const gap of gaps) {
-            expect(gap).toBeCloseTo(gaps[0], 6);
-        }
-        expect(xs[0] - MIN_X).toBeCloseTo(MAX_X - xs[xs.length - 1], 6);
-        // Wider than the old zone-bounded row, which capped spacing at 2.5 cells.
-        expect(gaps[0]).toBeGreaterThan(STEP * 2.5);
-    });
-
-    test("keeps a single unit centered and never collapses on an empty roster", () => {
-        expect(revealedOpponentRowX(0, 1, MIN_X, MAX_X)).toBe((MIN_X + MAX_X) / 2);
-        expect(Number.isFinite(revealedOpponentRowX(0, 0, MIN_X, MAX_X))).toBe(true);
-    });
-
-    test("stands the row on the zone's outermost cell row (inside the placement area)", () => {
-        // RIGHT opponent: zone boundary at y=1920 -> half a step inside, the center of cell row 14.
-        expect(revealedOpponentRowY(2048, 1920, STEP, true)).toBe(1856);
-        // LEFT opponent mirrors it.
-        expect(revealedOpponentRowY(0, 128, STEP, false)).toBe(192);
-    });
-
-    test("sits on the opponent's half once their zone cells are converted to world coordinates", () => {
-        // The RIGHT rectangle zone occupies cell rows 12-14, so its outermost row is y = 14. Placement
-        // geometry hands back CELL INDICES; feeding those straight in (the old bug) put the whole row at
-        // y ≈ 14 — the far side of the board, in a pile.
-        const outermostCenterY = GridMath.getPositionForCell({ x: 1, y: 14 }, MIN_X, STEP, STEP / 2).y;
-        const zoneOuterEdgeY = outermostCenterY + STEP / 2;
-        expect(zoneOuterEdgeY).toBe(GridConstants.MAX_Y - STEP);
-
-        const rowY = revealedOpponentRowY(GridConstants.MAX_Y, zoneOuterEdgeY, STEP, true);
-        expect(rowY).toBe(1856);
-        expect(rowY).toBeGreaterThan(GridConstants.MAX_Y / 2);
-    });
-
-    test("stays on the board when the zone reaches the edge", () => {
-        expect(revealedOpponentRowY(2048, 2048, STEP, true)).toBe(2048 - STEP * 0.5);
-        expect(revealedOpponentRowY(0, 0, STEP, false)).toBe(STEP * 0.5);
-        // An edge-adjacent zone boundary still lands the row inside the zone, on a real cell row.
-        expect(revealedOpponentRowY(2048, 2000, STEP, true)).toBe(2000 - STEP * 0.5);
     });
 
     test("shrinks the silhouettes only once the slots get tighter than a large unit", () => {

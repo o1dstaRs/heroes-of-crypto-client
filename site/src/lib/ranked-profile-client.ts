@@ -855,16 +855,3 @@ export async function fetchOwnRankedPlayerId(
     const playerId = asString(asRecord(await response.json()).playerId);
     return isPublicRankedPlayerId(playerId) ? playerId : null;
 }
-
-export async function fetchPublicPlayerMetrics(
-    playerId: string,
-    mode: PlayerMetricsMode = "ranked",
-): Promise<PlayerMetricsSummary> {
-    const url = new URL(buildPublicRankedProfileUrl(playerId).replace("/ranked-profile/", "/player-metrics/"));
-    url.searchParams.set("mode", mode);
-    const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
-    if (!response.ok) throw new Error(`Player metrics request failed with status ${response.status}`);
-    const metrics = normalizePlayerMetrics(await response.json());
-    if (!metrics) throw new Error("Player metrics response was malformed");
-    return metrics;
-}

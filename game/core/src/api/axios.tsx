@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosInstance } from "axios";
+import axios, { AxiosInstance } from "axios";
 
 import { adoptRotatedStoredAccessToken, registerAccessTokenListener } from "./access_token";
 import { DEVICE_ID_HEADER, getDeviceId } from "./deviceId";
@@ -187,12 +187,6 @@ axiosGameInstance.interceptors.response.use(handleSuccessfulResponse, (error) =>
 });
 
 /* -------------------------------- Fetcher -------------------------------- */
-
-export const authFetcher = async (args: string | [string, AxiosRequestConfig]) => {
-    const [url, config] = Array.isArray(args) ? args : [args];
-    const res = await axiosAuthInstance.get(url, { ...config });
-    return res.data as unknown;
-};
 
 /* -------------------------------- Endpoints ------------------------------ */
 

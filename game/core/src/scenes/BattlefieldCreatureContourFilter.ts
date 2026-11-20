@@ -2,8 +2,6 @@ import { Filter } from "pixi.js";
 
 import { staticBattlefieldTextureNameForUnit } from "@/pixi/PixiUnitsFactory";
 
-/** Warm charcoal sampled from the dungeon's central stone tiles. */
-export const BATTLEFIELD_CREATURE_CONTOUR_COLOR = 0x241f19;
 /** Furnace-adjacent rows render the rim at 60%, i.e. forty percent more transparent. */
 export const BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY = 0.6;
 const runtimeContourDecisions = new Map<string, boolean>();

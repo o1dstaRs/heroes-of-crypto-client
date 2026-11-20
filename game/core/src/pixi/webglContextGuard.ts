@@ -113,8 +113,3 @@ export async function ensureCanvasContextUsable(
         }
     });
 }
-
-/** Test-only visibility: whether a canvas currently has a recorded force-lost context. */
-export function hasRecordedLostContext(canvas: object): boolean {
-    return lostContextByCanvas.has(canvas);
-}

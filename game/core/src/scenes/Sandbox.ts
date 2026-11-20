@@ -119,7 +119,6 @@ import {
     AttackType,
     Spell,
     SpellElement,
-    SpellMultiplierType,
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
@@ -173,7 +172,6 @@ import {
     GameEvent,
     isThrownOffensiveSpell,
     isOffensiveSpellMultiplier,
-    offensiveSpellDamageAgainstTarget,
     projectSpellDamageAgainstUnit,
     elementalSpellMultiplier,
     type IGameActionResult,
@@ -342,33 +340,6 @@ import {
 import { isGreenTeam } from "./teamColors";
 
 /**
- * Client-side aim projection for an offensive spell: what ONE target actually takes.
- *
- * Delegates to common so the number a player is shown and the number the cast deals come out of the same
- * arithmetic. Stack power is no longer part of that arithmetic at all — spell damage is head-count x power
- * (common af2ea3b) — so it is no longer taken here either.
- */
-export const offensiveSpellPreviewDamage = (
-    multiplierType: SpellMultiplierType,
-    spellPower: number,
-    casterAmountAlive: number,
-    casterMagicDamageBonusPercentage: number,
-    targetMagicResist: number,
-    // The target's own element answers the spell's before resistance does, exactly as the engine resolves it
-    // (see elementalDamageAgainst): a Fire Element previews a Ring of Fire as 0, a Water Element as half again
-    // as much. Defaulted so every non-elemental caller reads the same number it always did.
-    elementMultiplier = 1,
-): number =>
-    offensiveSpellDamageAgainstTarget(
-        multiplierType,
-        spellPower,
-        casterAmountAlive,
-        casterMagicDamageBonusPercentage,
-        targetMagicResist,
-        elementMultiplier,
-    );
-
-/**
  * Spell Flesh Shield damage was added to GameEvent after the original client event union. The structural
  * read keeps the client backward-compatible with older journals while giving both sandbox and ranked one
  * typed path to the optional secondary-damage payload.
@@ -377,20 +348,6 @@ export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["seco
     event.type === "spell_cast"
         ? (event as Extract<GameEvent, { type: "spell_cast" }> & { secondary?: IVisibleDamage["secondary"] }).secondary
         : undefined;
-
-export const shouldSuppressInspectedUnitRangesForSpell = (spell: Spell): boolean => {
-    const targetType = spell.getSpellTargetType();
-    const targetsOneUnit =
-        targetType === SpellTargetType.ANY_ALLY ||
-        targetType === SpellTargetType.ANY_ENEMY ||
-        targetType === SpellTargetType.ANY_UNIT ||
-        targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
-    return (
-        targetsOneUnit &&
-        spell.getPowerType() !== SpellPowerType.POSITION_CHANGE &&
-        !isOffensiveSpellMultiplier(spell.getMultiplierType())
-    );
-};
 
 /**
  * Setup choices are not part of SandboxSceneState, but ranked applies them to FightProperties immediately

@@ -43,9 +43,6 @@ function distanceFrom(start: number): Float32Array {
     distances.set(start, result);
     return result;
 }
-export function webNodeDistances(start: number): Float32Array {
-    return distanceFrom(start).slice();
-}
 type Influence = { cell: number; distance: number; reflection: number; weight: number };
 const footprints = new Map<number, Influence[]>();
 function nodeFootprint(start: number): Influence[] {

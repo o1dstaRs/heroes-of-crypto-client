@@ -61,30 +61,6 @@ const white = [245, 240, 229];
 function points(source: readonly number[], target: readonly number[], channel: number) {
     return { x: [0, ...source, 255], y: [0, ...target, white[channel]] };
 }
-function ramp(value: number, source: readonly number[], target: readonly number[], channel: number): number {
-    const { x, y } = points(source, target, channel);
-    for (let i = 1; i < x.length; i++)
-        if (value <= x[i]) return y[i - 1] + ((y[i] - y[i - 1]) * (value - x[i - 1])) / (x[i] - x[i - 1]);
-    return y[y.length - 1];
-}
-const smooth = (a: number, b: number, x: number) => {
-    const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-};
-export function valkyrieReactionColor(rgb: readonly number[], state: Reaction): number[] {
-    const chroma = (rgb[0] - rgb[2]) / Math.max(rgb[0], 1);
-    const steel = 1 - smooth(0.2, 0.32, chroma),
-        gold = smooth(0.37, 0.5, chroma);
-    const skin = smooth(1.42, 1.62, rgb[0] / Math.max(rgb[1], 1)) * smooth(0.55, 0.7, rgb[2] / Math.max(rgb[1], 1));
-    return rgb.map((v, c) => {
-        const samples = authored[state];
-        const color =
-            ramp(v, samples.steel[c], base.steel[c], c) * steel +
-            ramp(v, samples.gold[c], base.gold[c], c) * gold +
-            ramp(v, samples.wings[c], base.wings[c], c) * (1 - steel - gold);
-        return color * (1 - skin * 0.12);
-    });
-}
 function curve(name: string, source: Ramp, target: Ramp): string {
     return (
         source

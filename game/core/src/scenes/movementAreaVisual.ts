@@ -132,14 +132,6 @@ export function tunedCellFillCornerPoints(
     return cacheTunedCellGeometry(cache, cacheKey, result).slice();
 }
 
-export function movementTilePolygon(
-    cell: HoCMath.XY,
-    gs: GridSettings,
-    tuning: MovementAreaTuning = resolveMovementAreaTuning(),
-): number[] {
-    return tunedCellFillPolygon(cell, gs, MOVEMENT_TILE_INSET_CELLS, tuning);
-}
-
 /** Fill only cell interiors, preserving the painted seams between adjacent cells. */
 export function drawMovementArea(
     g: Graphics,

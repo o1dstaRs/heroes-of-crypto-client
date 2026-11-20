@@ -5,7 +5,6 @@ import {
     DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING,
     normalizePickLanternFireTuning,
     migrateLegacyLanternTunings,
-    pickLanternFireBounds,
 } from "./pickLanternFireTuning";
 
 describe("pick lantern fire tuning", () => {
@@ -40,15 +39,6 @@ describe("pick lantern fire tuning", () => {
         expect(migrated[1].enabled).toBe(false);
         expect(legacy[0].source).toBe("natural-atlas");
         expect(migrateLegacyLanternTunings(null)[0].source).toBe("engine");
-    });
-
-    test("keeps the lower edge fixed when height changes", () => {
-        const short = normalizePickLanternFireTuning({ anchorY: 22, height: 5 });
-        const tall = normalizePickLanternFireTuning({ anchorY: 22, height: 15 });
-
-        expect(pickLanternFireBounds(short).bottom).toBe(22);
-        expect(pickLanternFireBounds(tall).bottom).toBe(22);
-        expect(pickLanternFireBounds(tall).top).toBe(7);
     });
 
     test("accepts only supported fire sources", () => {

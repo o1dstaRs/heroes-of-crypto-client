@@ -131,5 +131,3 @@ export const ObserverRecentGames: React.FC<{ playerId: string; isBot: boolean }>
         </Box>
     );
 };
-
-export default ObserverRecentGames;

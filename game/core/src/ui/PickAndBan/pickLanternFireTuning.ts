@@ -179,11 +179,3 @@ export const writePickLanternFireTuning = (
 
 export const resetPickLanternFireTuning = (slot: PickLanternFireSlot = 0): PickLanternFireTuning =>
     writePickLanternFireTuning(DEFAULT_PICK_LANTERN_FIRE_TUNINGS[slot], slot);
-
-/** Geometry used by the editor guide; bottom remains exactly anchorY as height changes. */
-export const pickLanternFireBounds = (tuning: PickLanternFireTuning) => ({
-    left: tuning.anchorX - tuning.width / 2,
-    right: tuning.anchorX + tuning.width / 2,
-    top: tuning.anchorY - tuning.height,
-    bottom: tuning.anchorY,
-});

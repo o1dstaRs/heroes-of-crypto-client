@@ -9,13 +9,6 @@ const X0 = 405,
     X3 = 620,
     Y0 = 475,
     Y1 = 640;
-const smooth = (a: number, b: number, v: number) => {
-    const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-};
-export function angelMeleeSupportWeight(x: number, y: number): number {
-    return smooth(X0, X1, x) * (1 - smooth(X2, X3, x)) * smooth(Y0, Y1, y);
-}
 export function angelMeleeSecondSupportOffset(state: string, frame: number): readonly [number, number] {
     const contacts = ANGEL_MELEE_SECOND_SUPPORT[angelActionState(state)];
     const contact = contacts?.[frame];

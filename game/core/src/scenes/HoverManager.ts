@@ -264,21 +264,6 @@ const rangeTargetEdgeArtToWorld = (
     };
 };
 
-/** The blue-marked point where the broad arrowhead joins its shaft. */
-export const rangeTargetEdgeMarkerNeckPoint = (
-    edgeCenter: HoCMath.XY,
-    side: GridMath.RangeAttackCellSide,
-    cellSize: number,
-    cameraScale: HoCMath.XY,
-): HoCMath.XY =>
-    rangeTargetEdgeArtToWorld(
-        [RANGE_TARGET_EDGE_NECK_X, RANGE_TARGET_EDGE_ART_HEIGHT / 2],
-        edgeCenter,
-        side,
-        cellSize,
-        cameraScale,
-    );
-
 /**
  * Aim for the arrowhead/shaft join, but stop at the first opaque part of the marker encountered earlier.
  * This keeps a diagonal casing rail from painting across the head, shaft or fletching on its way there.

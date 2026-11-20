@@ -19,30 +19,6 @@ export function centaurMeleeMaterialWeights(y: number, rgb: readonly number[]): 
     const warm = smooth(8, 18, rgb[0] - rgb[1]) * smooth(5, 13, rgb[1] - rgb[2]);
     return [(1 - warm) * smooth(590, 625, y), warm * (1 - smooth(600, 640, y)), warm * smooth(620, 660, y)];
 }
-/** CPU equivalent used to verify the measured palette against each original frame. */
-export function centaurMeleePaletteRgb(
-    state: string | undefined,
-    frame: number,
-    y: number,
-    rgb: readonly number[],
-): number[] {
-    const source = paletteFor(state, frame);
-    if (!source) return [...rgb];
-    const weights = centaurMeleeMaterialWeights(y, rgb);
-    return rgb.map((value, channel) => {
-        let result = value;
-        for (let m = 0; m < materials.length; m++) {
-            const material = materials[m];
-            const xs = [0, ...source[material][channel], 255];
-            const ys = [0, ...CENTAUR_MELEE_IDLE_PALETTE[material][channel], 255];
-            let mapped = 0;
-            for (let i = 0; i < 8; i++)
-                mapped += (ys[i + 1] - ys[i]) * Math.max(0, Math.min(1, (value - xs[i]) / (xs[i + 1] - xs[i])));
-            result += (mapped - value) * weights[m];
-        }
-        return Math.max(0, Math.min(255, result));
-    });
-}
 
 const vertex = /* glsl */ `
 in vec2 aPosition;

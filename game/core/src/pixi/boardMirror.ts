@@ -80,9 +80,6 @@ export const glyphScaleX = (scale = 1): number => (mirrored ? -scale : scale);
 /** Which way a creature that faces `worldFacing` in world space faces on screen. */
 export const screenFacing = (worldFacing: -1 | 1): -1 | 1 => (mirrored ? (worldFacing === 1 ? -1 : 1) : worldFacing);
 
-/** Whether a sprite is drawn flipped on screen, counting both its own flip and the board's. */
-export const isFlippedOnScreen = (spriteScaleX: number): boolean => spriteScaleX < 0 !== mirrored;
-
 /** The screen side a team is drawn on for this viewer. Its seat stays whatever the match dealt. */
 export const drawnSideOf = (team: TeamType): TeamType => {
     if (!mirrored) {

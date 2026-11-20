@@ -1,10 +1,6 @@
 import { Filter, GlProgram, type Sprite } from "pixi.js";
 
-import {
-    WYVERN_ATTACK_BODY_SCALE,
-    wyvernAttackCurves,
-    calibrateWyvernAttackChannel,
-} from "./WyvernLabAttackCalibration";
+import { WYVERN_ATTACK_BODY_SCALE, wyvernAttackCurves } from "./WyvernLabAttackCalibration";
 
 type RGB = readonly [number, number, number];
 type Sample = readonly [RGB, RGB];
@@ -228,8 +224,6 @@ const framePose: readonly (Pose | undefined)[] = [
     undefined,
 ];
 
-export const WYVERN_LAB_FRAME_SIZE = 768;
-
 export function wyvernLabMaterialSamples(pose: Pose): readonly Sample[] {
     const source = poseSources[pose];
     const wing = pose.startsWith("attack_")
@@ -283,15 +277,6 @@ const attackExposure: Partial<Record<Pose, number>> = {
     attack_down: 0.76799593,
     attack_down_snap: 0.78082924,
 };
-
-export function wyvernLabDisplayColor(rgb: RGB, pose: Pose): RGB {
-    const graded = wyvernLabMaterialColor(rgb, pose);
-    const acid = rgb[1] > rgb[0] * 0.98 && rgb[0] > 100 && rgb[2] < rgb[1] * 0.5;
-    const exposure = acid ? 1 : (attackExposure[pose] ?? 1);
-    return graded.map((value, channel) =>
-        acid ? value : calibrateWyvernAttackChannel(value * exposure, pose, channel),
-    ) as unknown as RGB;
-}
 
 const vertex = /* glsl */ `
 in vec2 aPosition;

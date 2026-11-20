@@ -13,9 +13,7 @@ import {
     collectRankedReplaySnapshots,
     createRankedReplayFromJournal,
     createRankedReplayFromPayload,
-    createRankedReplayFromSnapshot,
     createSandboxReplayFromRankedReplay,
-    mergeRankedJournalEntries,
     parseRankedReplayAction,
     withReplayJournalTails,
 } from "./ranked_replay";
@@ -160,28 +158,6 @@ describe("ranked replay helpers", () => {
 
         expect(record?.action).toEqual({ type: "start_fight" });
         expect(record?.events.map((event) => event.type)).toEqual(["fight_started", "next_unit_selected"]);
-    });
-
-    it("merges journal entries by sequence", () => {
-        const merged = mergeRankedJournalEntries([createEntry(2), createEntry(1)], [createEntry(2), createEntry(3)]);
-
-        expect(merged.map((entry) => entry.sequence)).toEqual([1, 2, 3]);
-    });
-
-    it("marks snapshot replay as partial when it only has a journal tail", () => {
-        const replay = createRankedReplayFromSnapshot(createSnapshot([createEntry(9), createEntry(10)], 10));
-
-        expect(replay.completeJournal).toBe(false);
-        expect(replay.actions.map((action) => action.sequence)).toEqual([9, 10]);
-    });
-
-    it("can mark a full-journal snapshot as complete from the response metadata", () => {
-        const replay = createRankedReplayFromSnapshot(createSnapshot([createEntry(2), createEntry(3)], 3), {
-            completeJournal: true,
-        });
-
-        expect(replay.completeJournal).toBe(true);
-        expect(replay.actions.map((action) => action.sequence)).toEqual([2, 3]);
     });
 
     it("builds a complete replay from a server-provided full journal", () => {

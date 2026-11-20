@@ -66,5 +66,3 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
         </>
     );
 };
-
-export default PickExitFightControl;

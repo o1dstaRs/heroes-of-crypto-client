@@ -38,9 +38,6 @@ export const UNKNOWN_CREATURE_PORTRAIT = `${PLAIN_DIR}/unknown_creature_512.webp
 
 const CREATURES = recipes.creatures as Record<string, PortraitRecipe | undefined>;
 
-/** The game's approved pick-card proportions, 190x256, as a width/height ratio. */
-export const PORTRAIT_ASPECT_RATIO = recipes.aspectRatio;
-
 export const portraitRecipe = (slug: string): PortraitRecipe | undefined => CREATURES[slug];
 
 export const portraitArtUrl = (slug: string): string => {

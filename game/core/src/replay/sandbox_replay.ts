@@ -124,9 +124,6 @@ export const listSandboxReplays = (storage = getBrowserStorage()): SandboxReplay
     }
 };
 
-export const loadSandboxReplay = (id: string, storage = getBrowserStorage()): SandboxReplay | undefined =>
-    listSandboxReplays(storage).find((replay) => replay.id === id);
-
 /**
  * Store the newest replays that fit. A long fight snapshots the whole board per action and can outgrow the
  * browser's storage quota; a throwing save used to surface as an uncaught error on every action (37 error
@@ -161,23 +158,6 @@ export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserSto
         kept = kept.slice(0, -1);
     }
     storage.removeItem(SANDBOX_REPLAY_STORAGE_KEY);
-};
-
-export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): void => {
-    if (!storage) {
-        return;
-    }
-
-    const replays = listSandboxReplays(storage).filter((replay) => replay.id !== id);
-    try {
-        storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(replays));
-    } catch {
-        // A smaller list than the one already stored cannot exceed the quota; nothing useful to do if it did.
-    }
-};
-
-export const clearSandboxReplays = (storage = getBrowserStorage()): void => {
-    storage?.removeItem(SANDBOX_REPLAY_STORAGE_KEY);
 };
 
 export class SandboxReplayRecorder {

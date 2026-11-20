@@ -3,8 +3,6 @@ import { CreatureVals } from "@heroesofcrypto/common";
 
 import {
     PORTRAIT_DECODE_CACHE_LIMIT,
-    PORTRAIT_DECODE_CONCURRENCY,
-    enqueueDecodedImage,
     installPortraitImageFactoryForTests,
     isDecodedImageReady,
     pinDecodedImages,
@@ -18,35 +16,6 @@ import {
     resetLeftSidebarPortraitWarmForTests,
 } from "./leftSidebarPortraitWarm";
 import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
-
-const deferred = (): { images: PortraitImageStub[]; release: Array<() => void> } => {
-    const images: PortraitImageStub[] = [];
-    const release: Array<() => void> = [];
-    installPortraitImageFactoryForTests(() => {
-        let src = "";
-        let resolveDecode: (() => void) | undefined;
-        const image = {
-            decoding: "",
-            naturalWidth: 8,
-            onload: null,
-            onerror: null,
-            get src() {
-                return src;
-            },
-            set src(value: string) {
-                src = value;
-            },
-            decode: () =>
-                new Promise<void>((resolve) => {
-                    resolveDecode = resolve;
-                }),
-        } satisfies PortraitImageStub;
-        images.push(image);
-        release.push(() => resolveDecode?.());
-        return image;
-    });
-    return { images, release };
-};
 
 test("a sidebar portrait stays on the previous creature until the next pair is decoded", () => {
     expect(displayedSidebarCreatureId(7, 5, false)).toBe(5);
@@ -103,24 +72,6 @@ test("decoded portraits stay ready, and the cache drops the oldest cutout past t
     pinDecodedImages([urls[2]]);
     for (let extra = 0; extra < 3; extra++) await warmDecodedImage(`later-${extra}`);
     expect(isDecodedImageReady(urls[2])).toBe(true);
-});
-
-test("roster warming decodes a few cutouts at a time", async () => {
-    resetPortraitImageCacheForTests();
-    const pending = deferred();
-    const urls = ["a", "b", "c", "d"];
-    for (const url of urls) enqueueDecodedImage(url);
-    await Promise.resolve();
-    expect(pending.images).toHaveLength(PORTRAIT_DECODE_CONCURRENCY);
-
-    pending.release[0]?.();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(pending.images.length).toBeGreaterThan(PORTRAIT_DECODE_CONCURRENCY);
-    expect(pending.images.length).toBeLessThan(urls.length + 1);
-
-    for (const release of pending.release) release();
-    await Promise.resolve();
 });
 
 test("a failed decode does not count as ready", async () => {

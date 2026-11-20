@@ -52,8 +52,6 @@ export const GameCornerExitButton: React.FC<{
     </Tooltip>
 );
 
-export default GameCornerSlot;
-
 export const GameCornerStartOverButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <Tooltip title="Clear the board and start a new sandbox" describeChild variant="soft" size="sm" placement="bottom">
         <IconButton

@@ -78,7 +78,7 @@ import type { PremiumTurnPreview } from "../api/premium_client";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
 import { StatusApplicationOrder } from "./statusApplicationOrder";
 
-export { getScenesGrouped, registerScene } from "./sceneRegistry";
+export { registerScene } from "./sceneRegistry";
 
 /** Co-op sandbox setup picks that are not GameActions: a free artifact, or the shared board. */
 export type SandboxSetupPick =

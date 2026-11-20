@@ -33,6 +33,3 @@ export const SPELL_BOOK_FURNITURE = {
 export const spellBookTextureKeys = (spellNames: readonly string[]): string[] => [
     ...new Set([...Object.values(SPELL_BOOK_FURNITURE), ...spellNames.map(spellIconTextureKey)]),
 ];
-
-/** Spells drawn with a stand-in icon, so a missing-art audit can find them. Empty is the healthy state. */
-export const SPELLS_AWAITING_OWN_ICON: readonly string[] = [];

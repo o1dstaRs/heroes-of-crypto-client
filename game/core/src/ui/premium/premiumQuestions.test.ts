@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { PlayPhase, type PlaySnapshot } from "../../api/play_protocol";
-import { premiumChoiceQuestion, premiumQuestions } from "./premiumQuestions";
+import { premiumQuestions } from "./premiumQuestions";
 import { premiumSearchPlayStage } from "./premiumSearchFreshness";
 
 describe("Premium question context", () => {
@@ -21,13 +21,6 @@ describe("Premium question context", () => {
         for (const stage of ["draft", "setup", "board", "fight", "finished"] as const) {
             for (const item of premiumQuestions(true, stage)) expect(item.question.length).toBeLessThanOrEqual(600);
         }
-    });
-
-    test("recommendation questions name the choice and compare only current legal alternatives", () => {
-        const question = premiumChoiceQuestion({ label: "Hydra + Monk + Tome of Amplification" });
-        expect(question).toContain("Hydra + Monk + Tome of Amplification");
-        expect(question).toContain("currently legal offers");
-        expect(question).toContain("selected artifacts");
     });
 
     test("legacy placement stays on the board while split placement distinguishes setup and formation", () => {

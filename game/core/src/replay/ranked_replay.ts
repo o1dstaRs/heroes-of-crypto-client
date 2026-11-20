@@ -130,20 +130,6 @@ export const parseRankedReplayAction = (entry: PlayJournalEntry): RankedReplayAc
     };
 };
 
-export const mergeRankedJournalEntries = (
-    existing: PlayJournalEntry[],
-    incoming: PlayJournalEntry[],
-): PlayJournalEntry[] => {
-    const bySequence = new Map<number, PlayJournalEntry>();
-    for (const entry of existing) {
-        bySequence.set(entry.sequence, entry);
-    }
-    for (const entry of incoming) {
-        bySequence.set(entry.sequence, entry);
-    }
-    return [...bySequence.values()].sort((a, b) => a.sequence - b.sequence);
-};
-
 export const createRankedReplayFromJournal = ({
     completeJournal,
     entries,
@@ -212,19 +198,6 @@ export const withReplayJournalTails = (
         return journalTail.length > 0 ? { ...snapshot, journalTail } : snapshot;
     });
 };
-
-export const createRankedReplayFromSnapshot = (
-    snapshot: PlaySnapshot,
-    opts: { completeJournal?: boolean } = {},
-): RankedReplay =>
-    createRankedReplayFromJournal({
-        gameId: snapshot.gameId,
-        entries: snapshot.journalTail,
-        completeJournal: opts.completeJournal ?? false,
-        initialSnapshot: snapshot,
-        currentSnapshot: snapshot,
-        events: [],
-    });
 
 const decodeReplaySnapshot = (snapshot: RankedReplaySnapshotPayload): PlaySnapshot => {
     let decoded: PlaySnapshot | undefined;

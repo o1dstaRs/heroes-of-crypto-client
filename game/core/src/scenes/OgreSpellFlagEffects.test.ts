@@ -1,13 +1,8 @@
-import { describe, expect, mock, spyOn, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { GameEvent } from "@heroesofcrypto/common";
-import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
-import { images } from "../imageAssets";
-import { animationAtlases } from "../generated/animation_atlases";
-import { STATUS_EFFECT_DURATION_MULTIPLIER } from "../settings/statusEffectTiming";
 import { animatableEffectNames } from "./effect_pops";
 import { OGRE_SPELL_FLAG_EFFECTS, ogreSpellFlagApplications } from "./ogreSpellFlagEffects";
 import { Sandbox } from "./Sandbox";
-import { CommonFlagPops, commonFlagFrameAt } from "./sandbox/CommonFlagPops";
 
 describe("Ogre Mage spell flag effects", () => {
     for (const [name, kind] of Object.entries(OGRE_SPELL_FLAG_EFFECTS)) {
@@ -52,73 +47,6 @@ describe("Ogre Mage spell flag effects", () => {
             expect(scene.playCreatureAnimationLabState(kind).ok).toBe(true);
             expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(unit, kind, "preview");
             expect(animatableEffectNames([name])).toEqual(new Set());
-        });
-
-        test(`${name}: plays moving symbol cels above a rebuilt flag for the configured status lifetime`, async () => {
-            const meta = animationAtlases[kind === "ogre_riot" ? "Vfx Ogre Riot" : "Vfx Ogre Magic Mirror"].pop;
-            expect(meta.frameCount).toBe(9);
-            expect(meta.frameDurationsMs!.reduce((sum, ms) => sum + ms, 0)).toBe(1000);
-            expect(commonFlagFrameAt(kind, 0)).toBe(0);
-            expect(commonFlagFrameAt(kind, 999)).toBe(8);
-            expect(commonFlagFrameAt(kind, 1000)).toBeUndefined();
-            const atlas = new Texture({
-                source: new TextureSource({ width: meta.atlasWidth, height: meta.atlasHeight }),
-            });
-            const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
-            const unload = spyOn(Assets, "unload").mockResolvedValue();
-            const root = new Container();
-            root.scale.set(0.8, -0.5);
-            let now = 0;
-            let anchor: { x: number; y: number } | undefined = { x: 100, y: 200 };
-            const layer = new CommonFlagPops(
-                kind,
-                (container) => root.addChild(container),
-                () => now,
-            );
-            try {
-                await Promise.all([layer.spawn("first", anchor, 64, () => anchor), layer.spawn("first", anchor, 64)]);
-                const symbolAtlases = {
-                    ogre_riot: images.vfx_ogre_riot_pop_atlas,
-                    ogre_magic_mirror: images.vfx_ogre_magic_mirror_pop_atlas,
-                };
-                expect(load).toHaveBeenCalledWith(symbolAtlases[kind]);
-                expect(root.children).toHaveLength(1);
-                const pop = root.children[0];
-                const sprite = pop.children[0] as Sprite;
-                expect(sprite.texture.source).toBe(atlas.source);
-                expect(sprite.texture.frame).toMatchObject({ x: 0, y: 0, width: 384, height: 384 });
-                const firstCel = sprite.texture;
-                const width = sprite.width;
-                anchor = { x: 150, y: 250 };
-                now = 500 * STATUS_EFFECT_DURATION_MULTIPLIER;
-                layer.update(1 / 240);
-                expect(pop.x).toBe(150);
-                expect(pop.y).toBeCloseTo(250 + 64 * 0.07);
-                expect(pop.scale.y).toBeCloseTo(-1.6);
-                expect(sprite.width).toBe(width);
-                expect(sprite.texture).not.toBe(firstCel);
-                expect(sprite.alpha).toBe(1);
-                now = 999 * STATUS_EFFECT_DURATION_MULTIPLIER;
-                layer.update(0);
-                expect(pop.destroyed).toBe(false);
-                expect(layer.active).toBe(true);
-                expect(sprite.alpha).toBe(1);
-                now = 1000 * STATUS_EFFECT_DURATION_MULTIPLIER;
-                layer.update(0);
-                expect(pop.destroyed).toBe(true);
-                expect(layer.active).toBe(false);
-                await layer.spawn("first", anchor, 64, () => anchor);
-                anchor = undefined;
-                layer.update(0);
-                expect(layer.active).toBe(false);
-            } finally {
-                layer.clear();
-                await Promise.resolve();
-                expect(atlas.source.destroyed).toBe(false);
-                expect(unload).toHaveBeenCalled();
-                load.mockRestore();
-                unload.mockRestore();
-            }
         });
     }
     test("mass casts fan out the ordinary symbol to every successful recipient", () => {

@@ -153,5 +153,3 @@ export const ArenaNavBar: React.FC<ArenaNavBarProps> = ({
         </Box>
     );
 };
-
-export default ArenaNavBar;

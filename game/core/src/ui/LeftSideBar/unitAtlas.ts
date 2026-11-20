@@ -114,9 +114,3 @@ export function warmAtlas(src: string): Promise<boolean> {
 export function isAtlasReady(src: string): boolean {
     return isDecodedImageReady(src);
 }
-
-/** Pre-decode a unit's sidebar animation atlas so selecting it later is instant. */
-export function prefetchUnitAtlas(unitName?: string | null): void {
-    const config = getDefaultAnimationConfig(unitName);
-    if (config) void warmAtlas(config.imageSrc);
-}

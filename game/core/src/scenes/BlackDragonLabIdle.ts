@@ -1,7 +1,6 @@
 // The 1024px cel contains the unscaled 768px source at (128, 128).
 export const BLACK_DRAGON_LAB_IDLE_CANVAS_SCALE = 4 / 3;
 export const BLACK_DRAGON_LAB_IDLE_ANCHOR_Y = (128 + 730) / 1024;
-export const BLACK_DRAGON_LAB_IDLE_FRAME_COUNT = 32;
 export const BLACK_DRAGON_LAB_BREATH_MS = 2560;
 export const BLACK_DRAGON_LAB_IDLE_CYCLE_MS = BLACK_DRAGON_LAB_BREATH_MS;
 

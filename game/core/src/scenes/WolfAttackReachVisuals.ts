@@ -1,8 +1,5 @@
 import { Filter, GlProgram, Matrix, type Sprite, type Texture } from "pixi.js";
 
-const CANVAS = 1024;
-const PADDING = 128;
-
 function smoothstep(start: number, end: number, value: number): number {
     const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
     return t * t * (3 - 2 * t);
@@ -32,11 +29,6 @@ function weightDerivativeX(x: number, y: number): number {
     return smoothstep(470, 635, y) * (1 - smoothstep(635, 655, y)) * ((6 * t * (1 - t)) / 75);
 }
 
-/** Forward deformation for measurements: translate torso/head, flex lower legs, never move Y. */
-export function wolfAttackReachPoint(x: number, y: number, reach: number): { x: number; y: number } {
-    return { x: x + reach * wolfAttackReachWeight(x, y), y };
-}
-
 /** Invert the forward field so each output pixel samples one original, undissolved texel. */
 export function wolfAttackReachSourcePoint(x: number, y: number, reach: number): { x: number; y: number } {
     let sourceX = x;
@@ -52,23 +44,6 @@ function sliceRect(sliceIndex = 0, sliceCount = 1): [number, number, number, num
     const count = Number.isFinite(sliceCount) ? Math.max(1, Math.floor(sliceCount)) : 1;
     const index = Number.isFinite(sliceIndex) ? Math.max(0, Math.min(count - 1, Math.floor(sliceIndex))) : 0;
     return [index / count, 0, 1 / count, 1];
-}
-
-/** Full-frame UV sampling also crosses a shadow slice boundary without clipping its contents. */
-export function wolfAttackReachSourceUv(
-    localX: number,
-    localY: number,
-    reach: number,
-    sliceIndex = 0,
-    sliceCount = 1,
-): { x: number; y: number } {
-    const slice = sliceRect(sliceIndex, sliceCount);
-    const source = wolfAttackReachSourcePoint(
-        (slice[0] + localX * slice[2]) * CANVAS - PADDING,
-        localY * CANVAS - PADDING,
-        reach,
-    );
-    return { x: (source.x + PADDING) / CANVAS, y: (source.y + PADDING) / CANVAS };
 }
 
 const vertex = /* glsl */ `

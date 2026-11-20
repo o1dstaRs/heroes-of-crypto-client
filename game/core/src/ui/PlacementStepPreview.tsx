@@ -9,5 +9,3 @@ export const PlacementStepPreview: React.FC<{ windowSize: IWindowSize }> = (prop
         <PlacementStepPreviewRuntime {...props} />
     </Suspense>
 );
-
-export default PlacementStepPreview;

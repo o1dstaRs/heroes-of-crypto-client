@@ -3,19 +3,10 @@ import {
     isPikemanIdleCanonicalFrame,
     pikemanIdleFrame,
     PIKEMAN_IDLE_PERIOD_MS,
-    PIKEMAN_IDLE_HOLD_FRAME_MS,
     PIKEMAN_IDLE_MOTION_FRAME_MS,
     PIKEMAN_IDLE_START_HOLD_MS,
     PIKEMAN_IDLE_MOTION_MS,
-    PIKEMAN_IDLE_FRAME_DURATIONS_MS,
 } from "./PikemanLabIdleMotion";
-
-test("Pikeman shortens the pause 20% and speeds up inhale/exhale 15% independently", () => {
-    expect(13 * PIKEMAN_IDLE_HOLD_FRAME_MS).toBeCloseTo((13 / 19.2) * 1000 * 0.8);
-    expect(1000 / 19.2 / PIKEMAN_IDLE_MOTION_FRAME_MS).toBeCloseTo(1.15);
-    expect(PIKEMAN_IDLE_PERIOD_MS).toBeCloseTo(2851.449275);
-    expect(PIKEMAN_IDLE_FRAME_DURATIONS_MS.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(PIKEMAN_IDLE_PERIOD_MS);
-});
 
 test("Pikeman preserves canonical holds and the original middle pose", () => {
     for (const time of [

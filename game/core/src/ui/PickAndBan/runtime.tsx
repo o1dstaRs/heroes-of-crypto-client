@@ -485,8 +485,6 @@ export const ArtifactDetailPanel: React.FC<{ artifact: Artifact.ArtifactProperti
 // contents, and the step rail at the bottom. Both screens import these so the geometry lives in one place
 // and cannot drift apart.
 
-export const DRAFT_COLUMN = "min(1340px, 97vw)";
-
 // The draft is laid out once, at this exact size, and then scaled as a whole to fit the window. Nothing
 // re-flows: a bigger window (or fullscreen) only paints more background around the same board, a smaller
 // one shrinks the board uniformly instead of growing scrollbars.

@@ -136,5 +136,3 @@ export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boole
         />
     );
 };
-
-export { PremiumGuide as PremiumSearch } from "./PremiumGuide";

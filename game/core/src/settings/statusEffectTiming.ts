@@ -6,7 +6,6 @@ export const FLOATING_RESULT_DURATION_MS = 650;
 /** Revival has a brief pause after death, then a real-time burst rather than a multi-second ghost. */
 export const RESURRECTION_RISE_DELAY_MS = 150;
 export const RESURRECTION_BURST_DURATION_MS = 750;
-export const STATUS_EFFECT_DURATION_MULTIPLIER = OVERHEAD_EFFECT_DURATION_MS / 1000;
 
 /** Normalize authored atlases onto the shared overhead playback clock. */
 export const overheadEffectElapsedMs = (elapsedMs: number, authoredDurationMs: number): number =>

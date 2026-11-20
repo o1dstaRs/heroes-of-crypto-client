@@ -50,5 +50,3 @@ export const LiveMatchBanner: React.FC = () => {
         </Box>
     );
 };
-
-export default LiveMatchBanner;

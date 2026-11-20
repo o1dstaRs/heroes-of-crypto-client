@@ -8,8 +8,6 @@ export const VALKYRIE_LAB_TRANSITION_SPEED = 1.3 * 1.15 * 1.2;
 export const VALKYRIE_LAB_FLIGHT_SPEED = 1.07;
 // Convert the idle registration into the carrier, including its transparent top margin.
 export const valkyrieLabWalkAnchorY = (idleAnchorY: number): number => (49 + 435 * idleAnchorY) / 512;
-// Match the source forearm/torso length rather than the changing outstretched-wing bounds.
-export const VALKYRIE_LAB_BODY_SCALE = 1.12;
 // Match head/forearm size, not the height of the bent-leg silhouette. Spread the
 // correction over takeoff/landing so the neutral endpoints never change size.
 export const VALKYRIE_LAB_POSE_SCALES = [
@@ -20,7 +18,6 @@ export const VALKYRIE_LAB_WIDTH_SCALE = 0.94;
 const appliedBodyScales = new WeakMap<Sprite, readonly [number, number]>();
 const colorFilters = new Map<string, Filter>();
 const ownedColorFilters = new Set<Filter>();
-export const VALKYRIE_LAB_SOURCE_TEXTURE = "valkyrie_battlefield_side_right_distance_readable_v2";
 
 // Corresponding material samples from the ACTUAL battlefield texture (not valkyrie_final).
 // Both source sheets are mapped to this one palette so takeoff/flight/landing agree.
@@ -95,29 +92,6 @@ void main() {
     ${materialTransfers(samples)}
     finalColor = vec4(clamp(rgb * gain / total, 0.0, 1.0) * pixel.a, pixel.a);
 }`;
-
-export function valkyrieMaterialFilter(
-    samples: ReadonlyArray<readonly [readonly number[], readonly number[]]>,
-): Filter {
-    return new Filter({
-        glProgram: GlProgram.from({ vertex, fragment: fragment(samples) }),
-        resolution: "inherit",
-        antialias: "inherit",
-    });
-}
-
-/** CPU counterpart for checking the measured palette transfer, in 0..255 RGB. */
-export function valkyrieLabMaterialColor(rgb: readonly number[], frame = 4): number[] {
-    const gain = [0, 0, 0];
-    let total = 0;
-    for (const [source, target] of samplesForFrame(frame)) {
-        const distance = source.reduce((sum, v, i) => sum + ((rgb[i] - v) / 255) ** 2, 0) + 0.0001;
-        const weight = 1 / distance ** 2;
-        for (let i = 0; i < 3; i++) gain[i] += (target[i] / source[i]) * weight;
-        total += weight;
-    }
-    return rgb.map((v, i) => Math.max(0, Math.min(255, (v * gain[i]) / total)));
-}
 
 /** Endpoints are the canonical idle itself; only the redrawn poses need calibration. */
 export function syncValkyrieLabWalk(sprite: Sprite, frameIndex: number, scaleWasReset = false): void {

@@ -9,16 +9,6 @@
 let slot: HTMLElement | null = null;
 const listeners = new Set<() => void>();
 
-export const setSocialDockSlot = (element: HTMLElement | null): void => {
-    if (slot === element) {
-        return;
-    }
-    slot = element;
-    for (const listener of listeners) {
-        listener();
-    }
-};
-
 export const subscribeSocialDockSlot = (listener: () => void): (() => void) => {
     listeners.add(listener);
     return () => listeners.delete(listener);

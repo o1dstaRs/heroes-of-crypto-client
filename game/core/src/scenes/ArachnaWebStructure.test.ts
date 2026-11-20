@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { Container, DOMAdapter, Sprite, Texture } from "pixi.js";
-import { WEB_NODES, WEB_SPOKES, webSurfaceLift, webWeaveAt } from "./ArachnaWebStructure";
-import { addWebTension, webNodeDistances } from "./ArachnaWebTension";
+import { WEB_NODES, webSurfaceLift, webWeaveAt } from "./ArachnaWebStructure";
 import { publishWebFireLights, webFireLights } from "./ArachnaWebLighting";
 import { ARACHNA_WEB_DEW, arachnaDewLoads, arachnaDewPose } from "./ArachnaWebDew";
 import { ArachnaContactField } from "./ArachnaWebContacts";
@@ -21,25 +20,6 @@ test("crossings alternate over and under with original perimeter pinned", () => 
         expect(webWeaveAt(spoke, anchor.x, anchor.y)).toEqual({ lift: 0, under: 0 });
         expect(webWeaveAt(40 + 15 * 40 + spoke, anchor.x, anchor.y)).toEqual({ lift: 0, under: 0 });
     }
-});
-test("tension uses connected paths and transmits to radial and capture neighbours", () => {
-    const start = 10 * WEB_SPOKES + 7,
-        p = WEB_NODES[start];
-    const distances = webNodeDistances(start);
-    const cell = (i: number) => Math.floor(WEB_NODES[i].y / 5) * 128 + Math.floor(WEB_NODES[i].x / 5);
-    for (const next of [start + 1, start + 40]) {
-        expect(distances[next]).toBeGreaterThanOrEqual(
-            Math.hypot(WEB_NODES[next].x - p.x, WEB_NODES[next].y - p.y) - 0.01,
-        );
-        const before = new Float32Array(128 * 128),
-            arrived = new Float32Array(128 * 128);
-        addWebTension(before, p.x, p.y, 0.01, 1, 0);
-        addWebTension(arrived, p.x, p.y, distances[next] / 190, 1, 0);
-        expect(Math.abs(arrived[cell(next)])).toBeGreaterThan(Math.abs(before[cell(next)]) + 0.01);
-    }
-    const settled = new Float32Array(128 * 128);
-    addWebTension(settled, p.x, p.y, 1, 1, 0);
-    expect(settled.every((v) => v === 0)).toBe(true);
 });
 test("dew has small static mass, finite attached motion and independent phases", () => {
     const field = new ArachnaContactField();
@@ -82,15 +62,4 @@ test("fire lighting follows real sprite placement, alpha, visibility and stage i
     stage.destroy({ children: true });
     other.destroy();
     DOMAdapter.set(adapter);
-});
-
-test("fixed outer anchors return a smaller phase-inverted tension pulse", () => {
-    const source = 14 * WEB_SPOKES + 5;
-    const p = WEB_NODES[source];
-    const outward = webNodeDistances(source)[source + WEB_SPOKES];
-    const field = new Float32Array(128 * 128);
-    addWebTension(field, p.x, p.y, (outward * 2) / 190, 1, 0);
-    const echo = field[Math.floor(p.y / 5) * 128 + Math.floor(p.x / 5)];
-    expect(echo).toBeLessThan(-0.002);
-    expect(echo).toBeGreaterThan(-0.1);
 });

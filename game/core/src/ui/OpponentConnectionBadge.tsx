@@ -61,5 +61,3 @@ export const OpponentConnectionBadge: React.FC<{
         </Box>
     );
 };
-
-export default OpponentConnectionBadge;

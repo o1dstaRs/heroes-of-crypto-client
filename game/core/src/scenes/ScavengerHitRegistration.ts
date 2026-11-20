@@ -102,15 +102,6 @@ export function scavengerHitFootCorrection(frameIndex: number) {
     };
 }
 
-/** Source-to-output sole coordinates after the boot-only shader, in source pixels. */
-export function scavengerHitRegisteredSoles(frameIndex: number) {
-    const c = scavengerHitFootCorrection(frameIndex);
-    return SCAVENGER_HIT_SOLES[frameIndex].map(([x, y]) => [
-        c.centerX + (x - c.centerX) * c.widthScale,
-        y + c.shear * (x - c.centerX),
-    ]);
-}
-
 /** Remove the previous frame's translation and local correction before another state takes ownership. */
 export function clearScavengerHitRegistration(sprite: Sprite): void {
     const previous = registrations.get(sprite);

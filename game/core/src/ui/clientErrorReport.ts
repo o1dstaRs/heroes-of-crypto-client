@@ -92,9 +92,3 @@ export const installClientErrorReporting = (): void => {
         reportClientError(event.reason, "unhandledrejection");
     });
 };
-
-/** Test hook. */
-export const resetClientErrorReportingForTests = (): void => {
-    sentAtMs = [];
-    installed = false;
-};

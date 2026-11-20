@@ -95,19 +95,6 @@ void main() {
     finalColor = vec4(clamp(rgb * gain / total, 0.0, 1.0) * pixel.a, pixel.a);
 }`;
 
-/** CPU counterpart for checking the measured palette transfer, in 0..255 RGB. */
-export function manticoreLabMaterialColor(rgb: readonly number[]): number[] {
-    const gain = [0, 0, 0];
-    let total = 0;
-    for (const [source, target] of MANTICORE_LAB_MATERIAL_SAMPLES) {
-        const distance = source.reduce((sum, v, i) => sum + ((rgb[i] - v) / 255) ** 2, 0) + 0.0001;
-        const weight = 1 / distance ** 2;
-        for (let i = 0; i < 3; i++) gain[i] += (target[i] / source[i]) * weight;
-        total += weight;
-    }
-    return rgb.map((v, i) => Math.max(0, Math.min(255, (v * gain[i]) / total)));
-}
-
 /** The original first/last frames and resting figure retain their exact source colors. */
 export function syncManticoreLabWalkPalette(sprite: Sprite, frameIndex: number): void {
     syncManticoreLabLimbs(sprite, frameIndex);

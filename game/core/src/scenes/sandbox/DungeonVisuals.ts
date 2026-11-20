@@ -458,41 +458,6 @@ const createCemeteryEdgeDarkenFilter = (): Filter | undefined => {
     }
 };
 
-/** Keep splash births inside one of the twelve open grate windows marked by the user (4 columns × 3 rows). */
-export const lavaSplashOriginWithinGrateOpening = (
-    centerX: number,
-    centerY: number,
-    width: number,
-    height: number,
-    zoneNoise: number,
-    noiseX: number,
-    noiseY: number,
-): { x: number; y: number } => {
-    // Normalized source-pixel ranges (512×512). Each range stays inset from the metal edges and rivets.
-    const columns = [
-        [86, 136],
-        [183, 232],
-        [280, 328],
-        [376, 424],
-    ] as const;
-    const rows = [
-        [205, 243],
-        [287, 329],
-        [373, 415],
-    ] as const;
-    const clampedZone = Math.max(0, Math.min(0.999999, zoneNoise));
-    const zoneIndex = Math.floor(clampedZone * columns.length * rows.length);
-    const column = columns[zoneIndex % columns.length];
-    const row = rows[Math.floor(zoneIndex / columns.length)];
-    const sourceX = (column[0] + (column[1] - column[0]) * Math.max(0, Math.min(1, noiseX))) / 512;
-    const sourceY = (row[0] + (row[1] - row[0]) * Math.max(0, Math.min(1, noiseY))) / 512;
-    return {
-        x: centerX + (sourceX - 0.5) * width,
-        // World Y grows upward, opposite to texture-source Y.
-        y: centerY - (sourceY - 0.5) * height,
-    };
-};
-
 export type CemeteryObstacleShadowStyle = Readonly<{
     firelightExposure: number;
     alpha: number;
@@ -718,19 +683,6 @@ export const getMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout
         centerOffset: Math.min(cellSize * 0.8, bottomLimit - height / 2 - framePadding),
     };
 };
-
-export const TOP_BLANK_BACKGROUND_Z_INDEX = -5;
-
-export const getScatteredMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout => ({
-    // One clear red segment: every Cemetery barrel has exactly one hit point. Keep it narrower than the
-    // barrel itself, but large enough to remain readable on the far rows of the perspective board.
-    width: cellSize * 0.48,
-    height: Math.max(4, Math.round(cellSize * 0.055)),
-    gap: 0,
-    framePadding: Math.max(1, Math.round(cellSize * 0.01)),
-    // World Y grows upward, so subtracting this value puts the meter immediately BELOW the barrel base.
-    centerOffset: cellSize * 0.055,
-});
 
 export class DungeonVisuals {
     private context: IDungeonVisualsContext;

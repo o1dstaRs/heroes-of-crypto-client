@@ -181,56 +181,6 @@ const RADII = [
     [24, 29],
     [22, 22],
 ] as const;
-type RGB = readonly [number, number, number];
-const smooth = (a: number, b: number, value: number): number => {
-    const t = Math.max(0, Math.min(1, (value - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-};
-
-/** Continuous moving material correction. RGB uses 0..1; alpha is the fur-only blend weight. */
-export function wolfHeadPaletteColor(
-    raw: RGB,
-    x: number,
-    y: number,
-    pose: number,
-): {
-    color: [number, number, number];
-    weight: number;
-} {
-    const p = WOLF_HEAD_PALETTE[pose];
-    const vx = p.nose[0] - p.eye[0],
-        vy = p.nose[1] - p.eye[1];
-    const length = Math.hypot(vx, vy),
-        ex = vx / length,
-        ey = vy / length;
-    const weights = p.centers.map(([cx, cy], i) => {
-        const dx = x - cx,
-            dy = y - cy;
-        const u = i < 3 ? dx * ex + dy * ey : dx,
-            v = i < 3 ? -dx * ey + dy * ex : dy;
-        return Math.exp(-0.5 * ((u / RADII[i][0]) ** 2 + (v / RADII[i][1]) ** 2));
-    });
-    const total = Math.max(
-        weights.reduce((sum, w) => sum + w, 0),
-        1e-20,
-    );
-    const color = raw.map(
-        (value, c) => (value * weights.reduce((sum, w, i) => sum + w * p.gains[i][c], 0)) / total,
-    ) as [number, number, number];
-    const [ax, ay, bx, by] = p.collar;
-    const edge = ax + ((y - ay) * (bx - ax)) / (by - ay);
-    const fur = smooth(-10, 18, x - edge) * (1 - smooth(by + 2, by + 32, y));
-    const luma = raw[0] * 0.2126 + raw[1] * 0.7152 + raw[2] * 0.0722;
-    const dark = smooth(0.055, 0.13, luma);
-    const red = 1 - smooth(1.65, 1.9, raw[0] / Math.max(raw[1], 0.001));
-    const eye = smooth(5, 13, Math.hypot(x - p.eye[0], y - p.eye[1]));
-    const protectedColor = raw.map((value, c) => value + (color[c] - value) * dark * red * eye) as [
-        number,
-        number,
-        number,
-    ];
-    return { color: protectedColor, weight: fur };
-}
 
 // The shader and CPU helper use the same generated constants and masks.
 const glNumber = (value: number): string => (Number.isInteger(value) ? `${value}.0` : String(value));

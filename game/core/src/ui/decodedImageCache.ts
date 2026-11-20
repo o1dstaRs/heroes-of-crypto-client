@@ -34,8 +34,6 @@ export interface PortraitImagePrefetch {
     src: string | undefined;
     lock?: boolean;
 }
-
-const defaultPrefetchOwner = {};
 const defaultForegroundOwner = {};
 const queued: Array<{ src: string; lock: boolean; owners: Set<object> }> = [];
 const foreground = new Map<object, Set<string>>();
@@ -282,11 +280,5 @@ export function clearDecodedImagePrefetch(owner: object): void {
 export function replaceDecodedImagePrefetch(owner: object, requests: readonly PortraitImagePrefetch[]): void {
     clearDecodedImagePrefetch(owner);
     for (const request of requests) queueImage(request, owner);
-    pump();
-}
-
-/** Decode later, two at a time, so opening the roster does not decode every cutout on the click. */
-export function enqueueDecodedImage(src: string | undefined, options?: { lock?: boolean }): void {
-    queueImage({ src, ...options }, defaultPrefetchOwner);
     pump();
 }

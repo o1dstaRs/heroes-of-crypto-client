@@ -5,7 +5,6 @@ export const ZENA_IDLE_SHARPEN_DURATIONS_MS = [
     140, 140, 180, 250, 250, 250, 250, 250, 250, 250, 250, 180, 180, 180,
 ] as const;
 export const ZENA_IDLE_WIND_SUBFRAMES = 2;
-export const ZENA_IDLE_SHARPEN_FRAMES = ZENA_IDLE_SHARPEN_DURATIONS_MS.length * ZENA_IDLE_WIND_SUBFRAMES;
 export const ZENA_IDLE_SHARPEN_DURATION_MS = ZENA_IDLE_SHARPEN_DURATIONS_MS.reduce(
     (sum, duration) => sum + duration,
     0,

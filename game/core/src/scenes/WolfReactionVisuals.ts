@@ -7,23 +7,6 @@ export function wolfReactionPoseIndex(state: string | undefined, frame: number):
     return (state === "hit" ? HIT_POSES : state === "death" ? DEATH_POSES : [])[frame] ?? -1;
 }
 
-// The same smooth spatial field is used for numeric verification and GPU rendering.
-// One global exposure change cannot correct a dark ruff and an overly bright tail.
-export function wolfReactionPaletteGain(pose: number, x: number, y: number): number[] {
-    const patches = WOLF_REACTION_PALETTE[pose];
-    if (!patches) return [1, 1, 1];
-    let total = 0;
-    const sum = [0, 0, 0];
-    for (const [cx, cy, rx, ry, r, g, b] of patches) {
-        const weight = (1 + ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2) ** -3;
-        total += weight;
-        sum[0] += weight * r;
-        sum[1] += weight * g;
-        sum[2] += weight * b;
-    }
-    return sum.map((value) => value / total);
-}
-
 const vertex = /* glsl */ `
 in vec2 aPosition;
 out vec2 vTextureCoord;

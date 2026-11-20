@@ -1,10 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-    wolfAttackReachPixels,
-    wolfAttackReachPoint,
-    wolfAttackReachSourcePoint,
-    wolfAttackReachSourceUv,
-} from "./WolfAttackReachVisuals";
+import { wolfAttackReachPixels } from "./WolfAttackReachVisuals";
 
 describe("Wolf attack reach", () => {
     it("preserves the opening and final idle frames and every other action", () => {
@@ -31,56 +26,6 @@ describe("Wolf attack reach", () => {
                 expect(reach).toBeGreaterThanOrEqual(back);
                 expect(reach).toBeLessThanOrEqual(peak);
                 expect(Math.abs(reach - wolfAttackReachPixels(state, time + 1))).toBeLessThan(0.61);
-            }
-        }
-    });
-
-    it("keeps all paw contacts fixed throughout anticipation and recovery", () => {
-        for (const reach of [-6, -4, 8, 24, 28]) {
-            for (const x of [0, 180, 300, 535, 610, 768]) {
-                for (const y of [655, 680, 700, 730, 768]) {
-                    expect(wolfAttackReachPoint(x, y, reach)).toEqual({ x, y });
-                }
-            }
-        }
-    });
-
-    it("translates the torso and low-biting head without changing their proportions", () => {
-        for (const reach of [-6, 24, 28]) {
-            for (const [x, y] of [
-                [200, 300],
-                [540, 400],
-                [650, 550],
-                [700, 630],
-            ]) {
-                expect(wolfAttackReachPoint(x, y, reach)).toEqual({ x: x + reach, y });
-            }
-        }
-    });
-
-    it("inverse sampling recovers the same source across the flexible leg and neck regions", () => {
-        for (const reach of [-6, -4, 13, 24, 28]) {
-            for (let x = 490; x <= 680; x += 10) {
-                for (let y = 460; y <= 670; y += 10) {
-                    const destination = wolfAttackReachPoint(x, y, reach);
-                    const source = wolfAttackReachSourcePoint(destination.x, destination.y, reach);
-                    expect(source.x).toBeCloseTo(x, 8);
-                    expect(source.y).toBe(y);
-                }
-            }
-        }
-    });
-
-    it("samples identical texels on both sides of each segmented shadow seam", () => {
-        for (const reach of [-6, 24, 28]) {
-            for (let seam = 1; seam < 4; seam++) {
-                for (const y of [0.3, 0.5, 0.7, 0.8]) {
-                    const left = wolfAttackReachSourceUv(1, y, reach, seam - 1, 4);
-                    const right = wolfAttackReachSourceUv(0, y, reach, seam, 4);
-                    const whole = wolfAttackReachSourceUv(seam / 4, y, reach);
-                    expect(left).toEqual(right);
-                    expect(left).toEqual(whole);
-                }
             }
         }
     });

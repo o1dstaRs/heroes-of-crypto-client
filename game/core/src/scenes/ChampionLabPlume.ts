@@ -12,15 +12,7 @@ const WALK_ROOTS = [
     [361, 139],
 ] as const;
 
-export const CHAMPION_PLUME_PERIOD_MS = (Math.PI * 2 * 1000) / 5.2;
 const PLUME_SIZE = [96, 80] as const;
-
-/** A faster count-flag ripple; the socket and its first fibres are immobile. */
-export function championPlumeWave(u: number, seconds: number, height: number): number {
-    const free = Math.max(0, Math.min(1, u));
-    const pinned = Math.max(0, Math.min(1, (free - 0.12) / 0.88));
-    return height * 0.14 * pinned ** 2 * Math.sin(Math.PI * 2 * 1.15 * free - 5.2 * seconds);
-}
 
 export function championPlumePlacement(walkFrame: number): { root: readonly number[]; size: number[]; canvas: number } {
     const walking = walkFrame >= 0;

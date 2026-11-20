@@ -688,33 +688,6 @@ export function placementCarpetCellPolygon(
     return polygon;
 }
 
-/** Keep the sides/bottom on the test-server zone and raise only the outer top edge. */
-export function placementGoldBorderCellPolygon(
-    cell: HoCMath.XY,
-    gs: GridSettings,
-    cells: readonly HoCMath.XY[],
-): number[] {
-    const polygon = projectedCellPoints(cell, gs);
-    const minCellY = Math.min(...cells.map(({ y }) => y));
-    const maxCellY = Math.max(...cells.map(({ y }) => y));
-    if (cell.y !== minCellY && cell.y !== maxCellY) return polygon;
-
-    const fullPolygons = cells.map((zoneCell) => projectedCellPoints(zoneCell, gs));
-    const fullMinY = Math.min(...fullPolygons.flatMap((points) => [points[1], points[3], points[5], points[7]]));
-    const fullMaxY = Math.max(...fullPolygons.flatMap((points) => [points[1], points[3], points[5], points[7]]));
-    const topRise = (fullMaxY - fullMinY) * PLACEMENT_GOLD_BORDER_TOP_EXTENSION;
-    const bottomDrop = (fullMaxY - fullMinY) * PLACEMENT_GOLD_BORDER_BOTTOM_DROP;
-    if (cell.y === maxCellY) {
-        polygon[5] += topRise;
-        polygon[7] += topRise;
-    }
-    if (cell.y === minCellY) {
-        polygon[1] -= bottomDrop;
-        polygon[3] -= bottomDrop;
-    }
-    return polygon;
-}
-
 /** Map the complete raster frame to one zone quad so its ornament never bends at internal tile seams. */
 export function placementGoldBorderZonePolygon(cells: readonly HoCMath.XY[], gs: GridSettings): number[] {
     const polygon = placementZonePolygon(cells, gs);

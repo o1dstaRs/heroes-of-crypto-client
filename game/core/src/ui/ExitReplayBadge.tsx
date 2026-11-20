@@ -61,5 +61,3 @@ export const ExitReplayBadge: React.FC<{ left?: number; onExit: () => void }> = 
         </button>
     );
 };
-
-export default ExitReplayBadge;

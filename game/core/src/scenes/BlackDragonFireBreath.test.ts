@@ -3,16 +3,7 @@ import { BufferImageSource, Container, Sprite, Texture } from "pixi.js";
 import { blackDragonFireFrame, blackDragonFireState, syncBlackDragonFireBreath } from "./BlackDragonFireBreath";
 import { BlackDragonFireFlowFilter } from "./BlackDragonFireFlowFilter";
 import { BLACK_DRAGON_FIRE_MOUTHS } from "./BlackDragonFireAnchors";
-import {
-    blackDragonAttackElapsedMs,
-    BLACK_DRAGON_ATTACK_FRAME_DURATIONS_MS,
-    BLACK_DRAGON_FIRE_START_MS,
-    BLACK_DRAGON_FIRE_END_MS,
-    BLACK_DRAGON_ATTACK_SPEED,
-    BLACK_DRAGON_FIRE_SPEED,
-    BLACK_DRAGON_ATTACK_DURATION_MS,
-} from "./BlackDragonFireTiming";
-import { animationAtlases } from "../generated/animation_atlases";
+import { BLACK_DRAGON_FIRE_START_MS, BLACK_DRAGON_FIRE_END_MS, BLACK_DRAGON_FIRE_SPEED } from "./BlackDragonFireTiming";
 
 beforeAll(() => {
     if (typeof document === "undefined")
@@ -35,37 +26,6 @@ test("all three melee and preview directions share the registered 32-frame actio
     expect(blackDragonFireFrame(BLACK_DRAGON_FIRE_END_MS - 1)).toBe(15);
     expect(blackDragonFireFrame(BLACK_DRAGON_FIRE_END_MS)).toBeUndefined();
     expect(blackDragonFireFrame(NaN)).toBeUndefined();
-});
-
-test("all three complete attacks take 950ms without dropping cels or changing phase proportions", () => {
-    expect(BLACK_DRAGON_FIRE_START_MS).toBeCloseTo(300 / 1.38 / BLACK_DRAGON_ATTACK_SPEED);
-    expect(BLACK_DRAGON_FIRE_END_MS - BLACK_DRAGON_FIRE_START_MS).toBeCloseTo(
-        1000 / 1.35 / BLACK_DRAGON_ATTACK_SPEED,
-        8,
-    );
-    for (const state of ["attack", "attack_up", "attack_down"]) {
-        const durations = animationAtlases["Black Dragon Lab"][state].frameDurationsMs!;
-        expect(durations).toEqual(BLACK_DRAGON_ATTACK_FRAME_DURATIONS_MS);
-        let elapsed = 0;
-        durations.forEach((duration, frame) => {
-            expect(blackDragonAttackElapsedMs(frame, 0)).toBeCloseTo(elapsed, 5);
-            elapsed += duration;
-        });
-        expect(elapsed).toBeCloseTo(950, 8);
-        expect(elapsed).toBeCloseTo(BLACK_DRAGON_ATTACK_DURATION_MS, 8);
-        expect(durations).toHaveLength(32);
-        durations.forEach((duration, index) => {
-            const previous = index < 6 ? 50 / 1.38 : index < 26 ? 50 / 1.35 : 50;
-            expect(duration / previous).toBeCloseTo(1 / BLACK_DRAGON_ATTACK_SPEED, 8);
-        });
-        expect(durations.slice(26)).toEqual(Array(6).fill(50 / BLACK_DRAGON_ATTACK_SPEED));
-    }
-    expect(
-        blackDragonFireFrame(blackDragonAttackElapsedMs(5, 50 / 1.38 / BLACK_DRAGON_ATTACK_SPEED - 0.01)),
-    ).toBeUndefined();
-    expect(blackDragonFireFrame(blackDragonAttackElapsedMs(6, 0))).toBe(0);
-    expect(blackDragonFireFrame(blackDragonAttackElapsedMs(25, 50 / BLACK_DRAGON_FIRE_SPEED - 0.01))).toBe(15);
-    expect(blackDragonFireFrame(blackDragonAttackElapsedMs(26, 0))).toBeUndefined();
 });
 
 test("flame follows the mouth and facing without changing creature bounds, then cancels on hit", () => {

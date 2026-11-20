@@ -1,12 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { BufferImageSource, Container, DOMAdapter, Sprite, Texture } from "pixi.js";
-import {
-    CANNON_DUST_INTERVAL,
-    CANNON_DUST_LIFE_MS,
-    cannonWalkColor,
-    syncCannonWalkPalette,
-    syncCannonWheelDust,
-} from "./TsarCannonLabVisuals";
+import { CANNON_DUST_INTERVAL, CANNON_DUST_LIFE_MS, syncCannonWheelDust } from "./TsarCannonLabVisuals";
 const adapter = DOMAdapter.get();
 beforeAll(() =>
     DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
@@ -14,20 +8,6 @@ beforeAll(() =>
 afterAll(() => DOMAdapter.set(adapter));
 const texture = (width: number, height: number) =>
     new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
-
-test("cannon walk matches battlefield bronze midtones and preserves unrelated filters at rest", () => {
-    expect(cannonWalkColor([104, 79, 54])).toEqual([70, 50, 34]);
-    expect(cannonWalkColor([186, 151, 113])).toEqual([121, 99, 76]);
-    expect(cannonWalkColor([0, 0, 0])).toEqual([0, 0, 0]);
-    const s = new Sprite(texture(768, 768));
-    syncCannonWalkPalette(s, true);
-    const f = s.filters?.[0];
-    expect(f).toBeDefined();
-    syncCannonWalkPalette(s, true);
-    expect(s.filters).toHaveLength(1);
-    syncCannonWalkPalette(s, false);
-    expect(s.filters).toBeNull();
-});
 
 test("paired wheel dust follows distance, stays on the floor, and fades after stop", () => {
     const world = new Container();

@@ -34,5 +34,3 @@ export const PlayRankedBadge: React.FC = () => {
         </Button>
     );
 };
-
-export default PlayRankedBadge;

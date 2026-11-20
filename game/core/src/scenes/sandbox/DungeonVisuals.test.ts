@@ -16,7 +16,6 @@ import {
     cemeteryObstacleShadowStyle,
     cemeteryObstacleSpriteScale,
     DungeonVisuals,
-    lavaSplashOriginWithinGrateOpening,
     narrowingRingCells,
 } from "./DungeonVisuals";
 import { LAVA_PIT_ASSETS, lavaPitTextureKeys } from "./lavaPitAssets";
@@ -369,33 +368,6 @@ describe("Cemetery obstacle perspective", () => {
         expect(betweenLightLanes.firelightExposure).toBeLessThan(0.2);
         expect(sameLaneFartherFromFurnace.firelightExposure).toBeGreaterThan(0);
         expect(sameLaneFartherFromFurnace.lengthMultiplier).toBeLessThan(directlyUnderCenterFurnace.lengthMultiplier);
-    });
-});
-
-describe("Lava splash emission", () => {
-    test("keeps every birth point inside one of the twelve open grate windows", () => {
-        const columns = [
-            [86, 136],
-            [183, 232],
-            [280, 328],
-            [376, 424],
-        ] as const;
-        const rows = [
-            [205, 243],
-            [287, 329],
-            [373, 415],
-        ] as const;
-
-        for (let zone = 0; zone < 12; zone++) {
-            const zoneNoise = (zone + 0.5) / 12;
-            const topLeft = lavaSplashOriginWithinGrateOpening(500, 400, 512, 512, zoneNoise, 0, 0);
-            const bottomRight = lavaSplashOriginWithinGrateOpening(500, 400, 512, 512, zoneNoise, 1, 1);
-            const column = columns[zone % 4];
-            const row = rows[Math.floor(zone / 4)];
-
-            expect(topLeft).toEqual({ x: 500 + column[0] - 256, y: 400 - row[0] + 256 });
-            expect(bottomRight).toEqual({ x: 500 + column[1] - 256, y: 400 - row[1] + 256 });
-        }
     });
 });
 

@@ -7,8 +7,6 @@ export const GARGANTUAN_IMPACT_ANCHOR_Y = 0.5;
 // Symmetric alpha>=32 envelope around the authored contact (256,256).
 export const GARGANTUAN_IMPACT_PAINTED_EXTENT = 270;
 export const GARGANTUAN_IMPACT_AREA_CELLS = 3;
-// Every cel contains fractured debris; the projectile supplies the intact rock.
-export const GARGANTUAN_IMPACT_START_FRAME = 0;
 
 export function gargantuanImpactFrame(elapsedMs: number): number {
     let end = 0;

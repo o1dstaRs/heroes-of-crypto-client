@@ -11,13 +11,7 @@ import {
     UnitVals,
 } from "@heroesofcrypto/common";
 import { BufferImageSource, Container, Texture, type Filter } from "pixi.js";
-import {
-    hydraLabWalkColor,
-    hydraLabIdleColor,
-    HYDRA_LAB_WALK_WIDTH_SCALE,
-    HYDRA_LAB_WALK_HEIGHT_SCALE,
-    HYDRA_LAB_SCALE_SAMPLES,
-} from "../scenes/HydraLabWalkPalette";
+import { HYDRA_LAB_WALK_WIDTH_SCALE, HYDRA_LAB_WALK_HEIGHT_SCALE } from "../scenes/HydraLabWalkPalette";
 import { animationAtlases } from "../generated/animation_atlases";
 import { images } from "../imageAssets";
 import { RenderableUnit, creatureWalkAnimationEnabledForUnit } from "../scenes/RenderableUnit";
@@ -159,32 +153,5 @@ test("Hydra HD walk is shared by combat and the lab, retains eight native frames
         expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(scale, 8);
     } finally {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = previous;
-    }
-});
-
-test("Hydra walk matches olive scales while retaining flame and darkening rust-red tassels", () => {
-    for (const [source, target] of HYDRA_LAB_SCALE_SAMPLES) {
-        const graded = hydraLabWalkColor(source);
-        for (let channel = 0; channel < 3; channel++) expect(graded[channel]).toBeCloseTo(target[channel], 1);
-    }
-    expect(hydraLabWalkColor([255, 145, 8])).toEqual([255, 145, 8]);
-    const tassel = hydraLabWalkColor([94, 19, 13]);
-    expect(tassel[0]).toBeLessThan(94);
-    expect(tassel[1]).toBeGreaterThan(19);
-    expect(hydraLabWalkColor([0, 0, 0])).toEqual([0, 0, 0]);
-});
-
-test("Hydra idle scales match walk's dark olive midtones without grading fire twice", () => {
-    const color = hydraLabIdleColor([52, 50, 27]);
-    expect(color[0]).toBeCloseTo(37, 0);
-    expect(color[1]).toBeCloseTo(39, 0);
-    expect(color[2]).toBeCloseTo(16, 0);
-    expect(hydraLabIdleColor([255, 145, 8])).toEqual([255, 145, 8]);
-    expect(hydraLabIdleColor([94, 19, 13])).toEqual([94, 19, 13]);
-    for (const height of [559, 574, 580, 586, 568, 562, 571, 571]) {
-        expect(height * HYDRA_LAB_WALK_HEIGHT_SCALE).toBeGreaterThanOrEqual(594);
-    }
-    for (const width of [661, 664, 676, 688, 715, 715, 676, 658]) {
-        expect(width * HYDRA_LAB_WALK_WIDTH_SCALE).toBeGreaterThanOrEqual(723);
     }
 });

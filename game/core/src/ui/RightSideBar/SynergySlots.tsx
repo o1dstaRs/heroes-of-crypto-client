@@ -3,7 +3,6 @@ import {
     LifeSynergyNames,
     MightSynergyNames,
     NatureSynergyNames,
-    SynergyKeysToPower,
     SynergyWithLevel,
     TeamType,
 } from "@heroesofcrypto/common";
@@ -13,7 +12,7 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
 import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 
 const SYNERGIES = [
@@ -44,22 +43,6 @@ const levelsBySynergy = (
         }
     }
     return levels;
-};
-
-/**
- * Fill the description's `{}` placeholders with the synergy's real numbers for its level. The raw
- * templates rendered literally before ("The entire army gets +{} morale and +{} luck"), which read
- * as a broken tooltip — substitute each placeholder in order from the power table.
- */
-export const substitutedSynergyDescription = (imageKey: string): string => {
-    const template = (SYNERGY_NAME_TO_DESCRIPTION as Record<string, string>)[imageKey] ?? "";
-    const powers = (SynergyKeysToPower as Record<string, number[]>)[imageKey] ?? [];
-    let index = 0;
-    return template.replace(/\{\}/g, () => {
-        const value = powers[index];
-        index += 1;
-        return value !== undefined ? `${value}` : "?";
-    });
 };
 
 /** Applied entries arrive as "Faction:variantNumber:level" — index the ACTIVE level by "Faction:variant". */

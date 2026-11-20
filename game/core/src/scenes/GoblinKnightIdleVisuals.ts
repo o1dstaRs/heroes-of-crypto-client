@@ -11,21 +11,6 @@ const smoothstep = (a: number, b: number, x: number): number => {
     return t * t * (3 - 2 * t);
 };
 
-/** Wind is rooted at the shoulder; only the free feathered edge catches the full gust. */
-export function goblinIdleOffset(x: number, y: number, elapsedMs: number): [number, number] {
-    const t = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0) / 1000;
-    const phase = (t * Math.PI * 2) / (GOBLIN_IDLE_SWAY_PERIOD_MS / 1000);
-    const upper = 1 - smoothstep(500, 710, y);
-    const edge = 270 + 38 * smoothstep(430, 640, y);
-    const cape = (1 - smoothstep(edge - 35, edge, x)) * smoothstep(240, 330, y) * (1 - smoothstep(650, 708, y));
-    const free = Math.max(0, Math.min(1, (405 - x) / 235));
-    const wave = Math.sin(y * 0.019 - GOBLIN_IDLE_WIND_SPEED * t) + 0.3 * Math.sin(y * 0.038 - 3.7 * t);
-    return [
-        5 * Math.sin(phase) * upper + 15 * cape * free * wave,
-        2 * Math.sin(phase * 2) * upper + 5 * cape * free * wave,
-    ];
-}
-
 export const GOBLIN_ETCH_FRAME_MS = 100;
 export const GOBLIN_ETCH_START_MS = 7000;
 export const GOBLIN_ETCH_BLADE_POSES: readonly (readonly [number, number, number, number])[] = [

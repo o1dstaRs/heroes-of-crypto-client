@@ -6,10 +6,8 @@ import {
     drawnSideOf,
     glyphScaleX,
     isBoardMirrored,
-    isFlippedOnScreen,
     keepGlyphRowUpright,
     releaseBoardMirror,
-    screenFacing,
     setBoardMirror,
     subscribeBoardMirror,
     type IBoardGlyph,
@@ -61,16 +59,6 @@ describe("what stays readable on a mirrored board", () => {
         setBoardMirror(fight, true);
         expect(glyphScaleX(0.6)).toBe(-0.6);
         expect(glyphScaleX()).toBe(-1);
-    });
-
-    test("screen facing and screen flips count the board's own flip", () => {
-        expect(screenFacing(1)).toBe(1);
-        expect(isFlippedOnScreen(-1)).toBe(true);
-        setBoardMirror(fight, true);
-        expect(screenFacing(1)).toBe(-1);
-        expect(screenFacing(-1)).toBe(1);
-        expect(isFlippedOnScreen(-1)).toBe(false);
-        expect(isFlippedOnScreen(1)).toBe(true);
     });
 
     test("an army is named by the side it is drawn on", () => {

@@ -15,8 +15,6 @@ export type VsAiDifficulty = "easy" | "normal" | "hard" | "brutal";
 
 export const VS_AI_DIFFICULTIES: readonly VsAiDifficulty[] = ["easy", "normal", "hard", "brutal"];
 
-export const DEFAULT_VS_AI_DIFFICULTY: VsAiDifficulty = "brutal";
-
 export const VS_AI_DIFFICULTY_VERSIONS: Readonly<Record<VsAiDifficulty, string>> = {
     easy: "v0.4",
     normal: "v0.6",

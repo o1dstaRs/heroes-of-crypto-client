@@ -34,5 +34,4 @@ export function readEnvString(viteKey: keyof ImportMetaEnvLike, nodeKey: string)
     return undefined;
 }
 
-export const IS_PROD = readIsProd();
 export const PICK_EVENT_SOURCE = readEnvString("VITE_PICK_EVENT_SOURCE", "PICK_EVENT_SOURCE");

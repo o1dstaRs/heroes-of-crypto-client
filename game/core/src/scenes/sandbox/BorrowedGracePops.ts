@@ -1,5 +1,5 @@
 import type { FlagOverlayAttach } from "./FlagOverlayLayout";
-import { OVERHEAD_EFFECT_DURATION_MS, overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
+import { overheadEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
@@ -7,7 +7,6 @@ import { images } from "../../imageAssets";
 type Anchor = Readonly<{ x: number; y: number }>;
 const atlasUrl = images.vfx_borrowed_grace_pop_atlas;
 const meta = animationAtlases["Vfx Borrowed Grace"].pop;
-export const BORROWED_GRACE_REVEAL_MS = OVERHEAD_EFFECT_DURATION_MS;
 const AUTHORED_REVEAL_MS = 1000;
 const LIFE_MS = 2000;
 let leases = 0;

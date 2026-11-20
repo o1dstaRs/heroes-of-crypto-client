@@ -90,13 +90,6 @@ export const clearPersonalArmyTint = (): void => {
     state = undefined;
 };
 
-/** Re-read the stored preference so a change in the settings menu shows without reloading the page. */
-export const refreshPersonalArmyTint = (): void => {
-    if (state) {
-        state = resolveTintState(state.viewerTeam, readPlayerArmyColorId(), state.live);
-    }
-};
-
 /**
  * The paint as a CSS colour, for the React chrome (sidebars, top bar), or undefined when this team keeps its
  * team colour. The board draws through Pixi numbers and the panels through CSS strings, so both spellings

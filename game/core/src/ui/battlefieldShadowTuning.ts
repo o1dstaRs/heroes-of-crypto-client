@@ -653,30 +653,6 @@ export const writeStoredBattlefieldShadowTuning = (unitName: string, value: Batt
     patchSharedDevTuning(unitName, normalized);
 };
 
-/** Publish every editor draft from this origin to all dev servers on the same host, regardless of port. */
-export const publishStoredBattlefieldShadowTunings = (): void => {
-    const values = readStoredMap();
-    for (const [unitName, value] of Object.entries(values)) {
-        if (unitName !== "*") writeSharedCookieTuning(unitName, value);
-    }
-    // Publish the complete effective table, not only explicit editor overrides. This deliberately masks a
-    // stale localStorage draft left behind on a different port/browser even when the current editor has no
-    // per-creature override yet.
-    const normalized = normalizeTuningMap({
-        "*": values["*"] ?? DEFAULT_BATTLEFIELD_SHADOW_TUNING,
-        ...BATTLEFIELD_SHADOW_TUNING_BY_CREATURE,
-        ...Object.fromEntries(Object.entries(values).filter(([name]) => name !== "*")),
-    });
-    sharedDevTunings = normalized;
-    if (typeof window !== "undefined") {
-        void fetch(DEV_BATTLEFIELD_SHADOW_TUNING_ENDPOINT, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(normalized),
-        }).catch(() => undefined);
-    }
-};
-
 export const resetStoredBattlefieldShadowTuning = (unitName: string): void => {
     const values = { ...readStoredMap() };
     delete values[unitName];

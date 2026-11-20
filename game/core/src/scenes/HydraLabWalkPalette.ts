@@ -98,38 +98,6 @@ export const HYDRA_LAB_IDLE_SCALE_SAMPLES = [
 ] as const;
 type MaterialSamples = readonly (readonly [readonly number[], readonly number[]])[];
 
-const smoothstep = (lo: number, hi: number, value: number): number => {
-    const t = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
-    return t * t * (3 - 2 * t);
-};
-
-/** CPU counterpart, in 0..255 RGB, for checking canonical material anchors. */
-export function hydraLabWalkColor(rgb: readonly number[]): number[] {
-    return hydraLabColor(rgb, HYDRA_LAB_SCALE_SAMPLES, true);
-}
-export function hydraLabIdleColor(rgb: readonly number[]): number[] {
-    return hydraLabColor(rgb, HYDRA_LAB_IDLE_SCALE_SAMPLES, false);
-}
-function hydraLabColor(rgb: readonly number[], samples: MaterialSamples, gradeTassels: boolean): number[] {
-    const gain = [0, 0, 0];
-    let total = 0;
-    for (const [source, target] of samples) {
-        const distance = source.reduce((sum, value, i) => sum + ((rgb[i] - value) / 255) ** 2, 0) + 0.000001;
-        const weight = 1 / distance ** 2;
-        for (let i = 0; i < 3; i++) gain[i] += (target[i] / source[i]) * weight;
-        total += weight;
-    }
-    const warm = smoothstep(0.32, 0.58, (rgb[0] - rgb[1]) / Math.max(rgb[0], 1));
-    const flame = smoothstep(0.5, 0.75, (rgb[0] - rgb[2]) / Math.max(rgb[0], 1)) * smoothstep(100, 170, rgb[0]);
-    const preserve = Math.max(warm, flame);
-    const tassel = smoothstep(0.58, 0.8, (rgb[0] - rgb[1]) / Math.max(rgb[0], 1)) * (1 - smoothstep(150, 205, rgb[0]));
-    return rgb.map((value, i) => {
-        const graded = Math.max(0, Math.min(255, (value * gain[i]) / total));
-        const warmColor = value * (1 + ([0.88, 1.08, 0.55][i] - 1) * (gradeTassels ? tassel : 0));
-        return Math.min(255, graded * (1 - preserve) + warmColor * preserve);
-    });
-}
-
 const vertex = /* glsl */ `
 in vec2 aPosition;
 out vec2 vTextureCoord;

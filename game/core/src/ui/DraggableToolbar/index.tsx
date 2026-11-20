@@ -5,7 +5,6 @@ import { styled } from "@mui/system";
 
 import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
-export { toolbarColumnHeightPx } from "./toolbarMetrics";
 
 const spellbookIconImage = images.combat_toolbar_ember_spellbook;
 const hourglassIconImage = images.combat_toolbar_ember_hourglass;

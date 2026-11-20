@@ -3,7 +3,7 @@ import { getCreaturesByLevel } from "@heroesofcrypto/common";
 import release from "../../animation-release.json";
 import { images } from "../generated/image_imports";
 import { LEFT_SIDEBAR_PORTRAIT_ATLASES } from "../ui/leftSidebarPortraitAnimationSources";
-import { resolveLeftSidebarPortraitBackground } from "../ui/leftSidebarPortraitBackground";
+import { resolveCreaturePortraitBackground as resolveLeftSidebarPortraitBackground } from "../ui/creaturePortraitBackground";
 import { resolveLeftSidebarPortraitAnimation } from "../ui/leftSidebarPortraitAnimation";
 import { resolveIntegratedArbalesterPortrait } from "../ui/integratedArbalesterPortrait";
 import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";

@@ -83,5 +83,3 @@ export const SandboxCoopRoute: React.FC<{ windowSize: IWindowSize }> = ({ window
         />
     );
 };
-
-export default SandboxCoopRoute;

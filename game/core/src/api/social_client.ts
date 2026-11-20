@@ -556,22 +556,6 @@ export const fetchWagerIntent = async (): Promise<WagerIntentState> =>
 export const setWagerIntent = async (amount: number): Promise<WagerIntentState> =>
     post<WagerIntentState>(endpoints.social.wagerIntent, { amount });
 
-/** The live wager on one of MY games, or null when none formed / I am not a participant. */
-export const fetchWager = async (gameId: string): Promise<WagerState | null> => {
-    const result = await get<{ wager: WagerState | null }>(
-        `${endpoints.social.wager}?gameId=${encodeURIComponent(gameId)}`,
-    );
-    return result.wager;
-};
-
-export const callWager = async (gameId: string): Promise<void> => {
-    await post(endpoints.social.wagerCall, { gameId });
-};
-
-export const raiseWager = async (gameId: string, amount: number): Promise<void> => {
-    await post(endpoints.social.wagerRaise, { gameId, amount });
-};
-
 /* --------------------------------------------------------------- arena chat */
 
 export interface ArenaChatMessage {

@@ -1,4 +1,3 @@
-import type { PremiumChoice } from "../../api/premium_client";
 import type { PremiumSearchMatchVersion } from "./premiumSearchFreshness";
 
 export interface PremiumQuestion {
@@ -130,9 +129,6 @@ const questions: Record<NonNullable<PremiumSearchMatchVersion["stage"]> | "gener
 
 export const premiumQuestions = (inMatch: boolean, stage?: PremiumSearchMatchVersion["stage"]): PremiumQuestion[] =>
     questions[inMatch ? (stage ?? "match") : "general"];
-
-export const premiumChoiceQuestion = (choice: Pick<PremiumChoice, "label">): string =>
-    `How does ${choice.label} compare with the highlighted choices and other currently legal offers for my army? Include my selected artifacts and the revealed opponent, explain its main tradeoff, and do not assume it is recommended just because I inspected it.`;
 
 export const premiumUnitQuestion = (name: string, topic?: { kind: "ability" | "status"; name: string }): string =>
     topic?.kind === "status"

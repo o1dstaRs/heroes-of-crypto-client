@@ -27,19 +27,6 @@ export const CANNON_WALK_RGB_CURVES = [
         [255, 210],
     ],
 ] as const;
-export function cannonWalkColor(rgb: readonly number[]): number[] {
-    return rgb.map((value, channel) => {
-        const curve = CANNON_WALK_RGB_CURVES[channel];
-        for (let i = 1; i < curve.length; i++) {
-            if (value <= curve[i][0]) {
-                const [x0, y0] = curve[i - 1];
-                const [x1, y1] = curve[i];
-                return y0 + ((y1 - y0) * Math.max(0, value - x0)) / (x1 - x0);
-            }
-        }
-        return curve[curve.length - 1][1];
-    });
-}
 const vertex = `
 in vec2 aPosition;
 out vec2 vTextureCoord;

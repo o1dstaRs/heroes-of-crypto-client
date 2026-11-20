@@ -54,8 +54,6 @@ export const PlayInputSource = {
     LOCAL_MODEL: 6,
 } as const;
 
-export type PlayInputSourceValue = (typeof PlayInputSource)[keyof typeof PlayInputSource];
-
 // Existing `reason` field sentinel used only on MOVE_UNIT. It is intentionally not a new protobuf field:
 // old clients retain move-is-the-turn behavior, while a new client can request one planned follow-up.
 export const PLAY_MOVE_CONTINUE_TURN_REASON = "continue_turn";
@@ -711,24 +709,6 @@ const decodeCell = (bytes: Uint8Array): PlayCell => {
     return cell;
 };
 
-export const encodeDevCreatePlayGameRequest = (request: DevCreatePlayGameRequest): Uint8Array => {
-    const writer = new ProtoWriter();
-    writer.string(1, request.leftPlayerId);
-    writer.string(2, request.rightPlayerId);
-    for (const creatureId of request.lowerCreatureIds ?? []) {
-        writer.int32(3, creatureId);
-    }
-    for (const creatureId of request.upperCreatureIds ?? []) {
-        writer.int32(4, creatureId);
-    }
-    writer.int32(5, request.unitAmount);
-    writer.int32(6, request.placementSeconds);
-    writer.int32(7, request.gridType);
-    writer.int32(8, request.setupSeconds);
-    writer.bool(9, request.hideOpponentRosterDuringSetup);
-    return writer.finish();
-};
-
 export const encodePlayAction = (action: PlayAction): Uint8Array => {
     const writer = new ProtoWriter();
     writer.string(1, action.actionId);
@@ -771,22 +751,6 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.int32(28, action.aimDirection);
     if (action.aimCell) writer.message(29, encodeCell(action.aimCell));
     return writer.finish();
-};
-
-export const decodeDevCreatePlayGameResponse = (bytes: Uint8Array): DevCreatePlayGameResponse => {
-    const reader = new ProtoReader(bytes);
-    const response: DevCreatePlayGameResponse = { gameId: "" };
-    while (!reader.done()) {
-        const { field, wireType } = reader.tag();
-        if (field === 1) {
-            response.gameId = reader.string();
-        } else if (field === 2) {
-            response.snapshot = decodePlaySnapshot(reader.bytesValue());
-        } else {
-            reader.skip(wireType);
-        }
-    }
-    return response;
 };
 
 export const decodePlayActionResponse = (bytes: Uint8Array): PlayActionResponse => {

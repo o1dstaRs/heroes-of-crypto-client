@@ -106,19 +106,6 @@ export function rangeTargetEdgeMarkerAngle(side: GridMath.RangeAttackCellSide): 
     }
 }
 
-/** Preserve both the marker's screen size and its aspect ratio through the non-uniform battlefield camera. */
-export function rangeTargetEdgeMarkerLocalScaleRatios(
-    side: GridMath.RangeAttackCellSide,
-    cameraScale: HoCMath.XY,
-): HoCMath.XY {
-    const scaleX = Math.abs(cameraScale.x) || 1;
-    const scaleY = Math.abs(cameraScale.y) || scaleX;
-    const isVertical = side === GridMath.RangeAttackCellSide.DOWN || side === GridMath.RangeAttackCellSide.UP;
-    // A 90-degree marker's artwork length lies on local X but is transformed by camera Y. Increase that
-    // local X by X/Y so its on-screen length equals a horizontal marker. Local Y then only cancels stretch.
-    return isVertical ? { x: scaleX / scaleY, y: 1 } : { x: 1, y: scaleX / scaleY };
-}
-
 export function distanceToRangeTargetEdgeSegment(point: HoCMath.XY, from: HoCMath.XY, to: HoCMath.XY): number {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
@@ -155,35 +142,6 @@ export function closestRangeTargetEdge<T extends RangeTargetEdgeSegment>(
     return closest;
 }
 
-/**
- * Keep exactly one usable target edge active while the ranged target is hovered.
- *
- * The pointer wins as soon as it enters another edge's hit strip. The current choice then stays stable
- * between arrows; before the first choice, the first shootable edge is the default, so the player never
- * sees a set of available arrows with no green choice.
- */
-export function activeRangeTargetEdge<
-    T extends RangeTargetEdgeSegment & RangeTargetExteriorEdge & { shootable: boolean },
->(edges: readonly T[], point: HoCMath.XY, maxDistance: number, current?: T): T | undefined {
-    const shootableEdges = edges.filter((edge) => edge.shootable);
-    const currentEdge = current
-        ? shootableEdges.find(
-              (edge) => edge.cell.x === current.cell.x && edge.cell.y === current.cell.y && edge.side === current.side,
-          )
-        : undefined;
-    const hoveredEdge = closestRangeTargetEdge(shootableEdges, point, maxDistance);
-    if (!hoveredEdge) return currentEdge ?? shootableEdges[0];
-    if (!currentEdge || hoveredEdge === currentEdge) return hoveredEdge;
-
-    // A two-pixel dead band removes sub-pixel selection chatter at the seam between adjacent hit strips.
-    // It is deliberately tiny: moving onto another marker still wins immediately because that marker is
-    // much closer than the current one, while an almost-equal projected top edge keeps its current choice.
-    const switchMargin = Math.min(2, Math.max(0, maxDistance) * 0.15);
-    const hoveredDistance = distanceToRangeTargetEdge(point, hoveredEdge);
-    const currentDistance = distanceToRangeTargetEdge(point, currentEdge);
-    return hoveredDistance + switchMargin < currentDistance ? hoveredEdge : currentEdge;
-}
-
 const RANGE_TARGET_EDGE_NEIGHBOURS = [
     { side: GridMath.RangeAttackCellSide.LEFT, dx: -1, dy: 0 },
     { side: GridMath.RangeAttackCellSide.RIGHT, dx: 1, dy: 0 },
@@ -210,22 +168,6 @@ export function rangeTargetExteriorEdges(targetCells: readonly HoCMath.XY[]): Ra
     }
 
     return result;
-}
-
-/** Keep a centered fraction of an edge without changing its direction. */
-export function centeredRangeTargetEdgeSegment(
-    from: HoCMath.XY,
-    to: HoCMath.XY,
-    visibleFraction = 0.7,
-): RangeTargetEdgeSegment {
-    const fraction = Math.max(0, Math.min(1, visibleFraction));
-    const inset = (1 - fraction) / 2;
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    return {
-        from: { x: from.x + dx * inset, y: from.y + dy * inset },
-        to: { x: to.x - dx * inset, y: to.y - dy * inset },
-    };
 }
 
 /** Point a center sight notch outside the occupied cell for the requested edge. */

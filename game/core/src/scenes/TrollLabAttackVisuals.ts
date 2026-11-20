@@ -45,26 +45,6 @@ function smooth(a: number, b: number, value: number): number {
 export function trollAttackMaterialWeight(rgb: readonly number[]): number {
     return smooth(8, 22, rgb[0] - rgb[1]) * smooth(1.12, 1.28, rgb[0] / (rgb[1] + 1));
 }
-/** CPU equivalent of the shader, used by calibration tests. Alpha is never recolored. */
-export function trollAttackPaletteRgb(state: string | undefined, frame: number, rgb: readonly number[]): number[] {
-    const source = paletteFor(state, frame);
-    if (!source) return [...rgb];
-    const warm = trollAttackMaterialWeight(rgb);
-    return rgb.map((value, channel) => {
-        let result = 0;
-        for (const material of materials) {
-            const xs = [0, ...source[material][channel], 255];
-            const ys = [0, ...TROLL_ATTACK_IDLE_PALETTE[material][channel], 255];
-            let mapped = 0;
-            for (let i = 0; i < 8; i++)
-                mapped +=
-                    (ys[i + 1] - ys[i]) *
-                    Math.max(0, Math.min(1, (value - xs[i]) / Math.max(0.001, xs[i + 1] - xs[i])));
-            result += mapped * (material === "leather" ? warm : 1 - warm);
-        }
-        return Math.max(0, Math.min(255, result));
-    });
-}
 const vertex = /* glsl */ `
 in vec2 aPosition;
 out vec2 vTextureCoord;

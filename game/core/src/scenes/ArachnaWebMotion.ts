@@ -4,7 +4,6 @@
  */
 export const ARACHNA_WEB_SWAY_MS = 5600;
 export const ARACHNA_WEB_PULSE_MS = 4000;
-export const ARACHNA_WEB_MOTION_LOOP_MS = 28000;
 const smooth = (a: number, b: number, x: number) => {
     const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
     return t * t * (3 - 2 * t);

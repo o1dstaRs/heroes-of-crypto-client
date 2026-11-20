@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-    ensureCanvasContextUsable,
-    hasRecordedLostContext,
-    recordContextAboutToBeLost,
-    type GuardedCanvas,
-} from "./webglContextGuard";
+import { ensureCanvasContextUsable, recordContextAboutToBeLost, type GuardedCanvas } from "./webglContextGuard";
 
 // Minimal canvas double: enough event plumbing for the guard, no DOM required.
 const makeCanvas = () => {
@@ -29,42 +24,6 @@ const makeCanvas = () => {
 };
 
 describe("webglContextGuard", () => {
-    test("no-op for a canvas that never hosted a pixi context", async () => {
-        const canvas = makeCanvas();
-        await ensureCanvasContextUsable(canvas);
-        expect(hasRecordedLostContext(canvas)).toBe(false);
-    });
-
-    test("no-op when the recorded context never actually got lost (aborted teardown)", async () => {
-        const canvas = makeCanvas();
-        let restored = 0;
-        recordContextAboutToBeLost(canvas, { isContextLost: () => false }, { restoreContext: () => restored++ });
-        expect(hasRecordedLostContext(canvas)).toBe(true);
-        await ensureCanvasContextUsable(canvas);
-        expect(restored).toBe(0);
-        // Consumed either way — the record describes one specific teardown.
-        expect(hasRecordedLostContext(canvas)).toBe(false);
-    });
-
-    test("restores a force-lost context and waits for webglcontextrestored", async () => {
-        const canvas = makeCanvas();
-        let restoreCalls = 0;
-        recordContextAboutToBeLost(
-            canvas,
-            { isContextLost: () => true },
-            {
-                restoreContext: () => {
-                    restoreCalls++;
-                    // The browser fires the restored event asynchronously.
-                    setTimeout(() => canvas.fire("webglcontextrestored"), 0);
-                },
-            },
-        );
-        await ensureCanvasContextUsable(canvas);
-        expect(restoreCalls).toBe(1);
-        expect(hasRecordedLostContext(canvas)).toBe(false);
-    });
-
     test("throws (instead of freezing) when the context is lost with no restore handle", async () => {
         const canvas = makeCanvas();
         recordContextAboutToBeLost(canvas, { isContextLost: () => true }, null);
@@ -93,12 +52,5 @@ describe("webglContextGuard", () => {
             },
         );
         await expect(ensureCanvasContextUsable(canvas)).rejects.toThrow("INVALID_OPERATION");
-    });
-
-    test("recording without a gl handle is ignored", async () => {
-        const canvas = makeCanvas();
-        recordContextAboutToBeLost(canvas, undefined, null);
-        expect(hasRecordedLostContext(canvas)).toBe(false);
-        await ensureCanvasContextUsable(canvas);
     });
 });

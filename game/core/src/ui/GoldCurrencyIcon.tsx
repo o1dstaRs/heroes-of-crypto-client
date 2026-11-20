@@ -30,6 +30,3 @@ export const CurrencyIcon: React.FC<CurrencyIconProps> = ({ iconSvg, prominent =
         }}
     />
 );
-
-/** Backwards-compatible name for callers that still rely on the bundled gold fallback. */
-export const GoldCurrencyIcon = CurrencyIcon;

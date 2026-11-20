@@ -220,32 +220,6 @@ const isKnownPlacementOpponentUnit = (unitState: AuthoritativeUnitState): boolea
     unitState.creatureId > 0 && unitState.name !== "Unknown";
 
 /**
- * Where the opponent's revealed army sits during ranked placement: one row spread evenly across the
- * FULL board width on their side, mirroring the viewer's own placement bench. The old layout squeezed
- * the row into the opponent's placement-zone width with a 2.5-cell spacing cap, which piled a six-unit
- * army into an unreadable cluster. Exported (with the two helpers below) so the geometry is unit-tested
- * without standing up a scene.
- *
- * `(index + 0.5) / total` centers each unit in its own equal-width slot, which also leaves a half-slot
- * margin at both board edges, so the row never runs off the side however many units are revealed.
- */
-export const revealedOpponentRowX = (index: number, total: number, minX: number, maxX: number): number =>
-    minX + ((maxX - minX) * (index + 0.5)) / Math.max(1, total);
-
-/**
- * The row's Y: half a step INSIDE the opponent's placement zone — the roster stands on their zone's
- * outermost cell row (owner call 2026-08-01: show the army in its placement area, not hugging the board
- * edge). One formula covers every zone shape, including zones that reach the edge: half a step inside
- * the zone boundary is always a real cell row.
- */
-export const revealedOpponentRowY = (
-    _edgeY: number,
-    zoneOuterEdgeY: number,
-    step: number,
-    isRightEdge: boolean,
-): number => zoneOuterEdgeY + (isRightEdge ? -step * 0.5 : step * 0.5);
-
-/**
  * Sprite scale for the roster row. 0.85 keeps a large (2x2) silhouette inside the one-cell strip; past
  * six units the slots get narrower than a large unit, so shrink further to keep the row collision-free.
  */

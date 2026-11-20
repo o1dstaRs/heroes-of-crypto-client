@@ -100,5 +100,3 @@ export const SynergyLadderTip: React.FC<{
         </Box>
     );
 };
-
-export default SynergyLadderTip;

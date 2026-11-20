@@ -157,12 +157,6 @@ export const inheritedAbsoluteScaleOf = (container: { scale: { x: number; y: num
 };
 
 /**
- * Compatibility alias for callers that still need a single baseline size. New rendering code must use
- * boardFitWidth/boardFitHeight because the battlefield is intentionally rectangular now.
- */
-export const boardFitSize = legacyBoardFitSize;
-
-/**
  * Camera/background offset from the viewport centre. A negative value moves the battlefield down so its
  * bottom edge remains flush with the window and all freed vertical space becomes a black band above it.
  */

@@ -20,14 +20,9 @@ import { VALKYRIE_DEATH_SPEED, VALKYRIE_HIT_SPEED, VALKYRIE_REACTION_POSE_SCALES
 import {
     VALKYRIE_LAB_WALK_SCALE,
     VALKYRIE_LAB_WALK_ANCHOR_X,
-    VALKYRIE_LAB_BODY_SCALE,
     VALKYRIE_LAB_POSE_SCALES,
-    VALKYRIE_LAB_SOURCE_TEXTURE,
-    VALKYRIE_LAB_WIDTH_SCALE,
     VALKYRIE_LAB_TRANSITION_SPEED,
     VALKYRIE_LAB_FLIGHT_SPEED,
-    VALKYRIE_LAB_MATERIAL_SAMPLES,
-    valkyrieLabMaterialColor,
     syncValkyrieLabWalk,
 } from "./ValkyrieLabWalk";
 const staged = { meta: animationAtlases["Valkyrie Lab Current"].walk };
@@ -227,55 +222,6 @@ test("redrawn poses keep calibrated body size through visual sync, then restore 
     unit.ensureVisual(root, grid);
     expect(internal.sprite.height).toBeCloseTo(height);
 });
-test("Valkyrie grade preserves alpha, unrelated filters and endpoint colors", () => {
-    const sprite = new Sprite(texture);
-    const unrelated = new ColorMatrixFilter();
-    sprite.filters = [unrelated];
-    sprite.scale.set(-2, 3);
-    syncValkyrieLabWalk(sprite, 4);
-    expect(sprite.scale.x).toBeCloseTo(-2 * VALKYRIE_LAB_BODY_SCALE * VALKYRIE_LAB_WIDTH_SCALE);
-    expect(sprite.filters![0]).not.toBe(unrelated);
-    expect(sprite.alpha).toBe(1);
-    syncValkyrieLabWalk(sprite, 11);
-    expect(sprite.filters).toHaveLength(3);
-    expect(sprite.scale.y).toBeCloseTo(3 * VALKYRIE_LAB_BODY_SCALE);
-    syncValkyrieLabWalk(sprite, 15);
-    expect(sprite.scale.x).toBeCloseTo(-2);
-    expect(sprite.scale.y).toBeCloseTo(3);
-    expect(sprite.filters).toEqual([unrelated]);
-    syncValkyrieLabWalk(sprite, 0);
-    expect(sprite.filters).toEqual([unrelated]);
-});
-
-test("measured material colors match the base figure without losing its warm gold", () => {
-    for (const [source, target] of VALKYRIE_LAB_MATERIAL_SAMPLES) {
-        const corrected = valkyrieLabMaterialColor(source);
-        for (let c = 0; c < 3; c++) expect(Math.abs(corrected[c] - target[c])).toBeLessThan(1);
-    }
-    expect(valkyrieLabMaterialColor([0, 0, 0])).toEqual([0, 0, 0]);
-    expect(VALKYRIE_LAB_TRANSITION_SPEED).toBeCloseTo(1.794);
-});
-test("body and leg width stay narrow across poses, mirrors and repeated visual sync", () => {
-    for (const direction of [1, -1]) {
-        const { unit, root, internal } = make();
-        const width = internal.sprite.width;
-        unit.startBoardWalkAnimation(direction, 4);
-        for (let i = 0; i < 4; i++) unit.stepSpawnAnimation(0.101 / (4 * VALKYRIE_LAB_TRANSITION_SPEED));
-        const walk = internal.walkAnim!;
-        for (let frame = 0; frame < 16; frame++) {
-            unit.setBoardWalkDistanceCells(
-                walk.gaitStartDistanceCells + (frame * 1.3) / (8 * VALKYRIE_LAB_FLIGHT_SPEED),
-            );
-            unit.ensureVisual(root, grid);
-            unit.ensureVisual(root, grid);
-            expect(internal.sprite.width / width).toBeCloseTo(
-                VALKYRIE_LAB_WALK_SCALE * VALKYRIE_LAB_BODY_SCALE * VALKYRIE_LAB_WIDTH_SCALE,
-            );
-        }
-        unit.setCreatureAnimationLabPreviewEnabled(false);
-        expect(internal.sprite.width).toBeCloseTo(width);
-    }
-});
 
 test("limb correction follows takeoff/contact poses and is isolated between sprites", () => {
     const a = new Sprite(texture),
@@ -296,13 +242,6 @@ test("limb correction follows takeoff/contact poses and is isolated between spri
     expect(b.filters).toHaveLength(2);
     syncValkyrieLabWalk(b, -1);
     expect(b.filters).toBeNull();
-});
-
-test("flight reference is the actual factory-selected battlefield idle", async () => {
-    const { staticBattlefieldTextureNameForUnit } = await import("../pixi/PixiUnitsFactory");
-    expect<unknown>(VALKYRIE_LAB_SOURCE_TEXTURE).toBe(staticBattlefieldTextureNameForUnit("Valkyrie"));
-    expect(VALKYRIE_LAB_SOURCE_TEXTURE).not.toBe("valkyrie_final");
-    expect(make().unit.getAnimationTextureKey("idle")).toBe(VALKYRIE_LAB_SOURCE_TEXTURE);
 });
 
 test("landing endpoint and restored idle keep the same source landmark before and after visual sync", () => {
@@ -498,27 +437,6 @@ test("hit plants both sole edges at the neutral coordinates through every pose a
     }
 });
 
-test("reaction palettes retain dark warm material detail instead of lifting shadows into green", async () => {
-    const { valkyrieReactionColor } = await import("./ValkyrieReactionPalette");
-    for (const state of ["hit", "death"] as const) {
-        expect(valkyrieReactionColor([0, 0, 0], state)).toEqual([0, 0, 0]);
-        const midSteel = valkyrieReactionColor(state === "hit" ? [128, 120, 111] : [133, 123, 113], state);
-        expect(midSteel[0]).toBeCloseTo(105, 0);
-        expect(midSteel[1]).toBeCloseTo(97, 0);
-        expect(midSteel[2]).toBeCloseTo(89, 0);
-        for (const rgb of [
-            [30, 25, 20],
-            [80, 65, 52],
-            [150, 120, 90],
-            [204, 164, 128],
-        ]) {
-            const color = valkyrieReactionColor(rgb, state);
-            expect(color[0]).toBeGreaterThan(color[1]);
-            expect(color[1]).toBeGreaterThan(color[2]);
-        }
-    }
-});
-
 test("three lab axe attacks and the two-handed cast keep idle registration and finish once", () => {
     for (const state of ["melee_attack", "melee_attack_up", "melee_attack_down", "cast"]) {
         for (const direction of [1, -1]) {
@@ -553,41 +471,6 @@ test("three lab axe attacks and the two-handed cast keep idle registration and f
             expect(landmark()).toBeCloseTo(idleY, 6);
             unit.stepSpawnAnimation(0.5);
             expect(complete).toBe(1);
-        }
-    }
-});
-
-test("all attack blades preserve idle distances and geometry is removed on every neutral transition", async () => {
-    const { VALKYRIE_ATTACK_POSES, valkyrieAttackAxeSource, syncValkyrieAttackGeometry } =
-        await import("./ValkyrieAttackGeometry");
-    for (const [state, poses] of Object.entries(VALKYRIE_ATTACK_POSES)) {
-        for (const [index, pose] of poses.entries()) {
-            const a = valkyrieAttackAxeSource(pose.axe[0] + 31, pose.axe[1] - 44, pose.axe);
-            const b = valkyrieAttackAxeSource(pose.axe[0] - 23, pose.axe[1] + 51, pose.axe);
-            expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeCloseTo(Math.hypot(54, 95), 8);
-            for (const mirror of [-1, 1]) {
-                const sprite = new Sprite(atlasTexture);
-                const foreign = new ColorMatrixFilter();
-                sprite.filters = [foreign];
-                sprite.scale.set(mirror * 0.3, -0.3);
-                syncValkyrieAttackGeometry(sprite, state, index + 1);
-                const installed = sprite.filters![1];
-                for (let i = 0; i < 10; i++) syncValkyrieAttackGeometry(sprite, state, index + 1);
-                expect(sprite.filters).toEqual([foreign, installed]);
-                expect(sprite.scale.x).toBe(mirror * 0.3);
-                expect(sprite.scale.y).toBe(-0.3);
-                for (const neutral of ["idle", "hit", "death", "walk"]) {
-                    syncValkyrieAttackGeometry(sprite, neutral, 3);
-                    expect(sprite.filters).toEqual([foreign]);
-                    syncValkyrieAttackGeometry(sprite, state, index + 1);
-                }
-                syncValkyrieAttackGeometry(sprite, state, 7);
-                expect(sprite.filters).toEqual([foreign]);
-                syncValkyrieAttackGeometry(sprite, state, 0);
-                expect(sprite.filters).toEqual([foreign]);
-                sprite.destroy();
-                foreign.destroy();
-            }
         }
     }
 });

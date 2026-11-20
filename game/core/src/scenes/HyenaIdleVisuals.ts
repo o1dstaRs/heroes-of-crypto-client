@@ -25,18 +25,6 @@ export function hyenaIdleTailOffset(x: number, y: number, elapsedMs: number): [n
     return [7 * wag, 24 * wag];
 }
 
-/** Mirror of the shader's authoring-space displacement, used to guard contact geometry. */
-export function hyenaIdleOffset(x: number, y: number, elapsedMs: number): [number, number] {
-    const bend = hyenaIdleBend(elapsedMs);
-    const mass = 1 - smoothstep(500, 715, y);
-    const foreKnee = Math.exp(-(((x - 375) / 73) ** 2 + ((y - 625) / 68) ** 2));
-    const hindKnee = Math.exp(-(((x - 120) / 67) ** 2 + ((y - 620) / 70) ** 2));
-    const pawLock = 1 - smoothstep(668, 714, y);
-    const kneeX = bend * (4 * foreKnee - 3 * hindKnee) * pawLock;
-    const [tailX, tailY] = hyenaIdleTailOffset(x, y, elapsedMs);
-    return [kneeX + tailX, 12 * bend * mass + tailY];
-}
-
 const vertex = /* glsl */ `
 in vec2 aPosition;
 out vec2 vBodyCoord;

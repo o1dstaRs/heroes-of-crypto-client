@@ -10,21 +10,10 @@ import {
     UnitVals,
 } from "@heroesofcrypto/common";
 import { BufferImageSource, Container, Texture } from "pixi.js";
-
-import { animationAtlases } from "../generated/animation_atlases";
 import { shouldPreloadUnitAnimationAtlas } from "../pixi/creatureAnimationSettings";
 import { isRedundantFullResolutionUnitAtlasKey } from "../pixi/imageAssetTiers";
-import {
-    creatureWalkAnimationEnabledForUnit,
-    creatureOneShotAnimationEnabledForUnit,
-    RenderableUnit,
-} from "./RenderableUnit";
-import {
-    WYVERN_LAB_FRAME_SIZE,
-    wyvernLabMaterialColor,
-    wyvernLabMaterialSamples,
-    wyvernLabPoseForFrame,
-} from "./WyvernLabWalkPalette";
+import { creatureOneShotAnimationEnabledForUnit, RenderableUnit } from "./RenderableUnit";
+import { wyvernLabMaterialColor, wyvernLabMaterialSamples, wyvernLabPoseForFrame } from "./WyvernLabWalkPalette";
 
 beforeAll(() => {
     if (typeof document === "undefined")
@@ -33,110 +22,6 @@ beforeAll(() => {
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
             querySelector: () => null,
         };
-});
-
-test("Wyvern approved flight keeps combat scale, spatial cadence, and a separate landing", () => {
-    expect(creatureWalkAnimationEnabledForUnit("Wyvern", true)).toBe(true);
-    expect(creatureWalkAnimationEnabledForUnit("Wyvern", false)).toBe(true);
-    expect(shouldPreloadUnitAnimationAtlas("wyvern_lab_walk_atlas", false)).toBe(true);
-    expect(isRedundantFullResolutionUnitAtlasKey("wyvern_lab_walk_atlas")).toBe(false);
-
-    const meta = animationAtlases["Wyvern Lab"].walk;
-    expect(meta.frameCount).toBe(18);
-    expect(meta.frameWidth).toBe(WYVERN_LAB_FRAME_SIZE);
-    expect(meta.frameHeight).toBe(WYVERN_LAB_FRAME_SIZE);
-    expect(meta.phases?.intro.endFrame).toBe(2);
-    expect(meta.phases?.flight.endFrame).toBe(13);
-    expect(meta.phases?.landing.endFrame).toBe(17);
-
-    const grid = new GridSettings(
-        GridConstants.GRID_SIZE,
-        GridConstants.MAX_Y,
-        GridConstants.MIN_Y,
-        GridConstants.MAX_X,
-        GridConstants.MIN_X,
-        GridConstants.MOVEMENT_DELTA,
-        GridConstants.UNIT_SIZE_DELTA,
-    );
-    const effects = new EffectFactory();
-    const base = Unit.createUnit(
-        HoCConfig.getCreatureConfig(TeamVals.LEFT, "Might", "Wyvern", "wyvern_512", 1),
-        grid,
-        TeamVals.LEFT,
-        UnitVals.CREATURE,
-        new AbilityFactory(effects),
-        effects,
-        false,
-    );
-    const atlas = new Texture({
-        source: new BufferImageSource({ resource: new Uint8Array(4), width: 4096, height: 4096 }),
-    });
-    const idle = new Texture({
-        source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
-    });
-    const requested: string[] = [];
-    const unit = RenderableUnit.fromBase(base, (key) => {
-        requested.push(key);
-        return key.includes("_atlas") ? atlas : idle;
-    });
-    const root = new Container();
-    unit.setPosition(0, 1024);
-    unit.ensureVisual(root, grid);
-    const view = unit as unknown as {
-        sprite: import("pixi.js").Sprite;
-        walkAnim?: {
-            frameIndex: number;
-            loopStartFrame: number;
-            loopEndFrame: number;
-            gaitStartDistanceCells: number;
-            completedCycles: number;
-        };
-    };
-    const width = view.sprite.width;
-    const height = view.sprite.height;
-    const baseFilters: import("pixi.js").Filter[] = [];
-    expect(view.sprite.filters).toHaveLength(1);
-    unit.setCreatureAnimationLabPreviewEnabled(false);
-    unit.startBoardWalkAnimation(1, 8);
-    expect(requested).toContain("wyvern_lab_walk_atlas");
-    expect(view.walkAnim?.loopStartFrame).toBe(3);
-    expect(view.walkAnim?.loopEndFrame).toBe(13);
-    expect(view.sprite.width).toBeCloseTo(width);
-    expect(view.sprite.height).toBeCloseTo(height);
-    for (let i = 0; i < 3; i++) {
-        expect(view.walkAnim?.frameIndex).toBe(i);
-        expect(view.sprite.width).toBeCloseTo(width);
-        expect(view.sprite.height).toBeCloseTo(height);
-        expect((view.sprite.filters ?? []).length).toBe(baseFilters.length + (i === 0 ? 0 : 1));
-        unit.stepSpawnAnimation((meta.frameDurationsMs![i] + 0.01) / (4000 * 1.35 * 1.15));
-    }
-    const start = view.walkAnim!.gaitStartDistanceCells;
-    for (let step = 0; step <= 22; step++) {
-        unit.setBoardWalkDistanceCells(start + (step * 1.3) / 11);
-        expect(view.walkAnim?.frameIndex).toBe(3 + (step % 11));
-        expect(view.sprite.width).toBeCloseTo(width);
-        expect(view.sprite.height).toBeCloseTo(height);
-        expect((view.sprite.filters ?? []).length).toBe(baseFilters.length + 1);
-    }
-    expect(view.walkAnim?.completedCycles).toBe(2);
-    let landed = 0;
-    expect(unit.finishBoardWalkAnimationAfterFullCycle(() => landed++)).toBe(true);
-    for (let i = 14; i < 18; i++) {
-        expect(view.walkAnim?.frameIndex).toBe(i);
-        expect(landed).toBe(0);
-        expect(view.sprite.width).toBeCloseTo(width);
-        expect(view.sprite.height).toBeCloseTo(height);
-        expect((view.sprite.filters ?? []).length).toBe(baseFilters.length + (i === 17 ? 0 : 1));
-        unit.stepSpawnAnimation((meta.frameDurationsMs![i] + 0.01) / (4000 * 1.35 * 1.15));
-    }
-    expect(landed).toBe(1);
-    expect(view.walkAnim).toBeUndefined();
-    expect(view.sprite.width).toBeCloseTo(width);
-    expect(view.sprite.height).toBeCloseTo(height);
-    expect((view.sprite.filters ?? []).length).toBe(baseFilters.length + 1);
-    unit.setCreatureAnimationLabPreviewEnabled(false);
-    expect(view.sprite.filters).toHaveLength(1);
-    root.destroy({ children: true });
 });
 
 test("all redrawn Wyvern poses use the base figure's wing, scale, and acid material anchors", () => {

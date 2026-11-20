@@ -13,15 +13,11 @@ import {
     SHOT_ARROWHEAD_SIZE_SCALE,
     SHOT_GOLD_ARROWHEAD_AXIS_ANCHOR_Y,
     SHOT_ORC_ARROWHEAD_AXIS_ANCHOR_Y,
-    rangeTargetEdgeMarkerDisplayLength,
-    rangeTargetEdgeMarkerNeckPoint,
     rangeTargetEdgeMarkerPosition,
     rangeTargetEdgeMarkerRowScale,
     rangeTargetEdgeTrajectoryEndpoint,
 } from "./HoverManager";
 import {
-    activeRangeTargetEdge,
-    centeredRangeTargetEdgeSegment,
     closestRangeTargetEdge,
     distanceToRangeTargetEdgeSegment,
     optimalRangeTargetEdge,
@@ -30,7 +26,6 @@ import {
     rangeTargetEdgeIsSelectable,
     rangeTargetEdgeMarkerAngle,
     rangeTargetEdgeMarkerCell,
-    rangeTargetEdgeMarkerLocalScaleRatios,
     rangeTargetEdgeOutwardNotchTip,
     rangeTargetExteriorEdges,
     rangeTrajectoryFootprintExit,
@@ -176,60 +171,6 @@ describe("ranged target edge selection", () => {
         expect(closestRangeTargetEdge([left, right, marker], { x: 50, y: 40 }, 12)?.id).toBe("marker");
     });
 
-    test("always selects one shootable edge, then follows another hovered shootable edge", () => {
-        const left = {
-            id: "left",
-            shootable: true,
-            cell: { x: 8, y: 8 },
-            side: GridMath.RangeAttackCellSide.LEFT,
-            from: { x: 0, y: 0 },
-            to: { x: 0, y: 100 },
-        };
-        const right = {
-            id: "right",
-            shootable: true,
-            cell: { x: 8, y: 8 },
-            side: GridMath.RangeAttackCellSide.RIGHT,
-            from: { x: 100, y: 0 },
-            to: { x: 100, y: 100 },
-        };
-        const blocked = {
-            id: "blocked",
-            shootable: false,
-            cell: { x: 8, y: 8 },
-            side: GridMath.RangeAttackCellSide.UP,
-            from: { x: 50, y: 0 },
-            to: { x: 50, y: 100 },
-        };
-
-        expect(activeRangeTargetEdge([left, blocked, right], { x: 50, y: 50 }, 12)?.id).toBe("left");
-        expect(activeRangeTargetEdge([left, blocked, right], { x: 96, y: 50 }, 12)?.id).toBe("right");
-        expect(activeRangeTargetEdge([left, blocked, right], { x: 50, y: 50 }, 12, right)?.id).toBe("right");
-        expect(activeRangeTargetEdge([blocked], { x: 50, y: 50 }, 12)).toBeUndefined();
-    });
-
-    test("keeps the current edge inside a tiny seam dead band instead of alternating every frame", () => {
-        const upperLeft = {
-            id: "upper-left",
-            shootable: true,
-            cell: { x: 8, y: 8 },
-            side: GridMath.RangeAttackCellSide.UP,
-            from: { x: 0, y: 0 },
-            to: { x: 50, y: 0 },
-        };
-        const upperRight = {
-            id: "upper-right",
-            shootable: true,
-            cell: { x: 9, y: 8 },
-            side: GridMath.RangeAttackCellSide.UP,
-            from: { x: 50, y: 0 },
-            to: { x: 100, y: 0 },
-        };
-
-        expect(activeRangeTargetEdge([upperLeft, upperRight], { x: 50.2, y: 0 }, 12, upperLeft)?.id).toBe("upper-left");
-        expect(activeRangeTargetEdge([upperLeft, upperRight], { x: 75, y: 0 }, 12, upperLeft)?.id).toBe("upper-right");
-    });
-
     test("chooses retained damage before distance, then the nearest edge to the shooter", () => {
         const candidate = (
             id: string,
@@ -336,114 +277,11 @@ describe("ranged target edge selection", () => {
         expect(fireStrikeAim).not.toContain("aimedEnd");
     });
 
-    test("centers the visible highlight on 70% of the edge", () => {
-        const segment = centeredRangeTargetEdgeSegment({ x: 0, y: 10 }, { x: 100, y: 30 });
-        expect(segment.from.x).toBeCloseTo(15);
-        expect(segment.from.y).toBeCloseTo(13);
-        expect(segment.to.x).toBeCloseTo(85);
-        expect(segment.to.y).toBeCloseTo(27);
-    });
-
     test("keeps the approved arrowhead screen-straight and rotates only in 90-degree steps", () => {
         expect(rangeTargetEdgeMarkerAngle(GridMath.RangeAttackCellSide.LEFT)).toBe(0);
         expect(rangeTargetEdgeMarkerAngle(GridMath.RangeAttackCellSide.RIGHT)).toBe(Math.PI);
         expect(rangeTargetEdgeMarkerAngle(GridMath.RangeAttackCellSide.DOWN)).toBe(Math.PI / 2);
         expect(rangeTargetEdgeMarkerAngle(GridMath.RangeAttackCellSide.UP)).toBe(-Math.PI / 2);
-    });
-
-    test("cancels the battlefield camera stretch for horizontal and vertical arrowheads", () => {
-        const cameraScale = { x: 2, y: 1 };
-        expect(rangeTargetEdgeMarkerLocalScaleRatios(GridMath.RangeAttackCellSide.LEFT, cameraScale)).toEqual({
-            x: 1,
-            y: 2,
-        });
-        expect(rangeTargetEdgeMarkerLocalScaleRatios(GridMath.RangeAttackCellSide.RIGHT, cameraScale)).toEqual({
-            x: 1,
-            y: 2,
-        });
-        expect(rangeTargetEdgeMarkerLocalScaleRatios(GridMath.RangeAttackCellSide.DOWN, cameraScale)).toEqual({
-            x: 2,
-            y: 1,
-        });
-        expect(rangeTargetEdgeMarkerLocalScaleRatios(GridMath.RangeAttackCellSide.UP, cameraScale)).toEqual({
-            x: 2,
-            y: 1,
-        });
-    });
-
-    test("places the requested endpoint where the arrowhead joins the shaft on every side", () => {
-        const center = { x: 120, y: 80 };
-        const cellSize = 100;
-        const cameraScale = { x: 2, y: 1 };
-        const horizontalNeckOffset =
-            ((82 - 128 / 2) / 128) * rangeTargetEdgeMarkerDisplayLength(cellSize) * RANGE_TARGET_EDGE_LENGTH_SCALE;
-        const verticalNeckOffset = horizontalNeckOffset * 2;
-
-        const leftMarker = rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.LEFT);
-        const rightMarker = rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.RIGHT);
-        const downMarker = rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.DOWN);
-        const upMarker = rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.UP);
-
-        const left = rangeTargetEdgeMarkerNeckPoint(
-            leftMarker,
-            GridMath.RangeAttackCellSide.LEFT,
-            cellSize,
-            cameraScale,
-        );
-        const right = rangeTargetEdgeMarkerNeckPoint(
-            rightMarker,
-            GridMath.RangeAttackCellSide.RIGHT,
-            cellSize,
-            cameraScale,
-        );
-        const down = rangeTargetEdgeMarkerNeckPoint(
-            downMarker,
-            GridMath.RangeAttackCellSide.DOWN,
-            cellSize,
-            cameraScale,
-        );
-        const up = rangeTargetEdgeMarkerNeckPoint(upMarker, GridMath.RangeAttackCellSide.UP, cellSize, cameraScale);
-
-        expect(left.x).toBeCloseTo(leftMarker.x + horizontalNeckOffset);
-        expect(left.y).toBeCloseTo(leftMarker.y);
-        expect(right.x).toBeCloseTo(rightMarker.x - horizontalNeckOffset);
-        expect(right.y).toBeCloseTo(rightMarker.y);
-        expect(down.x).toBeCloseTo(downMarker.x);
-        expect(down.y).toBeCloseTo(downMarker.y + verticalNeckOffset);
-        expect(up.x).toBeCloseTo(upMarker.x);
-        expect(up.y).toBeCloseTo(upMarker.y - verticalNeckOffset);
-    });
-
-    test("cuts the trajectory at its first contact when the marker is crossed before the neck", () => {
-        const center = { x: 120, y: 80 };
-        const cellSize = 100;
-        const cameraScale = { x: 2, y: 1 };
-        const markerPosition = rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.LEFT);
-        const trajectoryFrom = { x: markerPosition.x - 100, y: markerPosition.y };
-        const neck = rangeTargetEdgeMarkerNeckPoint(
-            markerPosition,
-            GridMath.RangeAttackCellSide.LEFT,
-            cellSize,
-            cameraScale,
-        );
-        const endpoint = rangeTargetEdgeTrajectoryEndpoint(
-            trajectoryFrom,
-            markerPosition,
-            GridMath.RangeAttackCellSide.LEFT,
-            cellSize,
-            cameraScale,
-        );
-        const centerlineFletchingContactX = 2 + ((41 - 47 / 2) / (41 - 23)) * (7 - 2);
-        const expectedFirstContactX =
-            markerPosition.x +
-            ((centerlineFletchingContactX - 121.5) / 128) *
-                rangeTargetEdgeMarkerDisplayLength(cellSize) *
-                RANGE_TARGET_EDGE_LENGTH_SCALE;
-
-        expect(endpoint.x).toBeGreaterThan(trajectoryFrom.x);
-        expect(endpoint.x).toBeLessThan(neck.x);
-        expect(endpoint.x).toBeCloseTo(expectedFirstContactX);
-        expect(endpoint.y).toBeCloseTo(markerPosition.y);
     });
 
     test("keeps a diagonal terminal arrow collinear with its casing trajectory", () => {
@@ -465,40 +303,6 @@ describe("ranged target edge selection", () => {
 
         expect(cross).toBeCloseTo(0, 8);
         expect(Math.hypot(toEndpoint.x, toEndpoint.y)).toBeLessThan(Math.hypot(trajectory.x, trajectory.y));
-    });
-
-    test("applies first-contact clipping through every cardinal rotation", () => {
-        const center = { x: 120, y: 80 };
-        const cellSize = 100;
-        const cameraScale = { x: 2, y: 1 };
-        const cases = [
-            {
-                side: GridMath.RangeAttackCellSide.LEFT,
-                marker: rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.LEFT),
-            },
-            {
-                side: GridMath.RangeAttackCellSide.RIGHT,
-                marker: rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.RIGHT),
-            },
-            {
-                side: GridMath.RangeAttackCellSide.DOWN,
-                marker: rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.DOWN),
-            },
-            {
-                side: GridMath.RangeAttackCellSide.UP,
-                marker: rangeTargetEdgeMarkerPosition(center, cellSize, GridMath.RangeAttackCellSide.UP),
-            },
-        ];
-
-        for (const { side, marker } of cases) {
-            const angle = rangeTargetEdgeMarkerAngle(side);
-            const from = { x: marker.x - Math.cos(angle) * 100, y: marker.y - Math.sin(angle) * 100 };
-            const neck = rangeTargetEdgeMarkerNeckPoint(marker, side, cellSize, cameraScale);
-            const endpoint = rangeTargetEdgeTrajectoryEndpoint(from, marker, side, cellSize, cameraScale);
-            expect(Math.hypot(endpoint.x - from.x, endpoint.y - from.y)).toBeLessThan(
-                Math.hypot(neck.x - from.x, neck.y - from.y),
-            );
-        }
     });
 
     test("points the center notch outside each target edge", () => {

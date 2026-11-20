@@ -205,20 +205,10 @@ export const VALKYRIE_ATTACK_POSES = {
 } as const;
 
 type Attack = keyof typeof VALKYRIE_ATTACK_POSES;
-export const VALKYRIE_ATTACK_IDLE_SOLES = [339, 386, 597, 414, 474, 588] as const;
 export function valkyrieAttackPose(state: string | undefined, frame: number) {
     return state && Object.hasOwn(VALKYRIE_ATTACK_POSES, state)
         ? VALKYRIE_ATTACK_POSES[state as Attack][frame - 1]
         : undefined;
-}
-/** Rotation only: the source axe head retains its idle dimensions at every angle. */
-export function valkyrieAttackAxeSource(x: number, y: number, axe: readonly number[]): [number, number] {
-    const angle = (axe[2] * Math.PI) / 180;
-    const dx = x - axe[0],
-        dy = y - axe[1];
-    const along = dx * Math.cos(angle) + dy * Math.sin(angle);
-    const across = -dx * Math.sin(angle) + dy * Math.cos(angle);
-    return [500 + along * 0.6 + across * 0.8, 277 - along * 0.8 + across * 0.6];
 }
 const vertex = /* glsl */ `
 in vec2 aPosition;

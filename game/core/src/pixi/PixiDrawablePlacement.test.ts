@@ -16,7 +16,6 @@ import { projectedCellPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
 import {
     ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
     movementFillAlphaForPhase,
-    movementTilePolygon,
     tunedCellFillCornerPoints,
 } from "../scenes/movementAreaVisual";
 import {
@@ -24,9 +23,6 @@ import {
     GREEN_PLACEMENT_OPACITY_SCALE,
     GREEN_PLACEMENT_CARPET_TOP_EXTENSION,
     GREEN_PLACEMENT_GOLD_BORDER_OPACITY,
-    PLACEMENT_GOLD_BORDER_BOTTOM_DROP,
-    PLACEMENT_GOLD_BORDER_LEFT_EXTENSION,
-    PLACEMENT_GOLD_BORDER_RIGHT_EXTENSION,
     PLACEMENT_GOLD_BORDER_TOP_EXTENSION,
     RED_PLACEMENT_GOLD_BORDER_BOTTOM_OPACITY,
     RED_PLACEMENT_GOLD_BORDER_LEFT_OPACITY,
@@ -44,9 +40,7 @@ import {
     placementBoundarySides,
     placementCarpetCellPolygon,
     placementCarpetSeamEdges,
-    placementGoldBorderCellPolygon,
     placementGoldBorderTextureKey,
-    placementGoldBorderZonePolygon,
     placementGreenCarpetTextureKey,
     placementCarpetTextureFrame,
     placementCarpetOpacityForPhase,
@@ -216,52 +210,6 @@ describe("placement tile highlight", () => {
         }
     });
 
-    test("raises only the top of both raster borders while keeping the bottom on the test-server zone", () => {
-        const gs = settings();
-        const cells = [
-            { x: 10, y: 0 },
-            { x: 10, y: 1 },
-            { x: 10, y: 2 },
-        ];
-        const borderTop = placementGoldBorderCellPolygon(cells[0], gs, cells);
-        const borderBottom = placementGoldBorderCellPolygon(cells[2], gs, cells);
-        const topFull = projectedCellPoints(cells[2], gs);
-        const fullPolygons = cells.map((cell) => projectedCellPoints(cell, gs));
-        const fullMinY = Math.min(...fullPolygons.flatMap((points) => [points[1], points[3], points[5], points[7]]));
-        const fullMaxY = Math.max(...fullPolygons.flatMap((points) => [points[1], points[3], points[5], points[7]]));
-        const fullHeight = fullMaxY - fullMinY;
-
-        expect(PLACEMENT_GOLD_BORDER_TOP_EXTENSION).toBe(0.001);
-        expect(PLACEMENT_GOLD_BORDER_BOTTOM_DROP).toBe(0.001);
-        expect(PLACEMENT_GOLD_BORDER_LEFT_EXTENSION).toBe(0.003);
-        expect(PLACEMENT_GOLD_BORDER_RIGHT_EXTENSION).toBe(0.002);
-        const bottomFull = projectedCellPoints(cells[0], gs);
-        expect(borderTop[1]).toBeCloseTo(bottomFull[1] - fullHeight * PLACEMENT_GOLD_BORDER_BOTTOM_DROP, 8);
-        expect(borderTop[3]).toBeCloseTo(bottomFull[3] - fullHeight * PLACEMENT_GOLD_BORDER_BOTTOM_DROP, 8);
-        expect(borderTop.slice(4)).toEqual(bottomFull.slice(4));
-        expect(Math.min(borderBottom[5], borderBottom[7])).toBeCloseTo(
-            Math.min(topFull[5], topFull[7]) + fullHeight * PLACEMENT_GOLD_BORDER_TOP_EXTENSION,
-            8,
-        );
-        expect(borderBottom.slice(0, 4)).toEqual(topFull.slice(0, 4));
-
-        const zone = placementZonePolygon(cells, gs);
-        const completeFrame = placementGoldBorderZonePolygon(cells, gs);
-        const zoneMinX = Math.min(zone[0], zone[2], zone[4], zone[6]);
-        const zoneMaxX = Math.max(zone[0], zone[2], zone[4], zone[6]);
-        const width = zoneMaxX - zoneMinX;
-        const leftExtension = width * PLACEMENT_GOLD_BORDER_LEFT_EXTENSION;
-        const rightExtension = width * PLACEMENT_GOLD_BORDER_RIGHT_EXTENSION;
-        expect(completeFrame[0]).toBeCloseTo(zone[0] - leftExtension, 8);
-        expect(completeFrame[6]).toBeCloseTo(zone[6] - leftExtension, 8);
-        expect(completeFrame[2]).toBeCloseTo(zone[2] + rightExtension, 8);
-        expect(completeFrame[4]).toBeCloseTo(zone[4] + rightExtension, 8);
-        expect(completeFrame[1]).toBeCloseTo(zone[1] - fullHeight * PLACEMENT_GOLD_BORDER_BOTTOM_DROP, 8);
-        expect(completeFrame[3]).toBeCloseTo(zone[3] - fullHeight * PLACEMENT_GOLD_BORDER_BOTTOM_DROP, 8);
-        expect(completeFrame[5]).toBeCloseTo(zone[5] + fullHeight * PLACEMENT_GOLD_BORDER_TOP_EXTENSION, 8);
-        expect(completeFrame[7]).toBeCloseTo(zone[7] + fullHeight * PLACEMENT_GOLD_BORDER_TOP_EXTENSION, 8);
-    });
-
     test("extends the red and green wash to the raised frame at the top", () => {
         const gs = settings();
         const cells = [
@@ -415,15 +363,6 @@ describe("placement tile highlight", () => {
         expect(PLACEMENT_TILE_INSET_CELLS).toBeGreaterThan(0);
         expect(placementTilePolygon(cell, gs)).toEqual(projectedCellPoints(cell, gs, PLACEMENT_TILE_INSET_CELLS));
         expect(placementTilePolygon(cell, gs)).not.toEqual(projectedCellPoints(cell, gs));
-    });
-
-    test("uses the approved upper-row fill geometry for deployment tiles too", () => {
-        const gs = settings();
-        const topY = Math.round((gs.getMaxY() - gs.getMinY()) / gs.getStep()) - 1;
-        const topCell = { x: 7, y: topY };
-
-        expect(PLACEMENT_TILE_INSET_CELLS).toBe(0.028);
-        expect(placementTilePolygon(topCell, gs)).toEqual(movementTilePolygon(topCell, gs));
     });
 
     test("covers internal grout and extends the complete carpet height by 0.2 percent", () => {

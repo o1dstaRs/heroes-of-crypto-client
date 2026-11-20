@@ -1,5 +1,3 @@
-import { WOLF_POSE_BODY, WOLF_REFERENCE_BODY } from "./WolfIdleCalibration";
-
 // Opaque contour quantiles of each planted leg, from hind paw to front paw.
 // Only the lower body is registered; the authored torso/head motion is untouched.
 export const WOLF_GEOMETRY_ROWS = [570, 590, 615, 640, 660, 680, 700] as const;
@@ -148,19 +146,4 @@ export function wolfGeometryRegisteredSourcePoint(x: number, y: number, pose: nu
         x: x + (dx[segment] + (dx[segment + 1] - dx[segment]) * t) * smooth((y - 470) / 100),
         y: y + dy[segment] + (dy[segment + 1] - dy[segment]) * t,
     };
-}
-
-/** Output coordinates -> authored atlas pixels, including the existing rib registration. */
-export function wolfGeometrySourcePoint(x: number, y: number, pose: number): { x: number; y: number } {
-    if (pose < 0 || pose >= WOLF_POSE_BODY.length) return { x, y };
-    const point = wolfGeometryRegisteredSourcePoint(x, y, pose);
-    const [top, belly] = WOLF_POSE_BODY[pose];
-    const [baseTop, baseBelly] = WOLF_REFERENCE_BODY;
-    const sourceY =
-        point.y <= baseTop
-            ? point.y + top - baseTop
-            : point.y <= baseBelly
-              ? top + ((point.y - baseTop) * (belly - top)) / (baseBelly - baseTop)
-              : belly + ((point.y - baseBelly) * (697 - belly)) / (697 - baseBelly);
-    return { x: point.x, y: sourceY };
 }

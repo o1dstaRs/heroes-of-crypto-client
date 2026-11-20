@@ -17,12 +17,6 @@ export function manticoreIdleMotion(elapsedMs: number): [number, number, number,
     ];
 }
 
-/** Forward deformation in source coordinates. All four planted paws remain stationary. */
-export function manticoreIdleOffset(x: number, y: number, motion: readonly number[]): [number, number] {
-    const body = 1 - smoothstep(560, 690, y);
-    const tail = (1 - smoothstep(155, 205, x)) * (1 - smoothstep(490, 570, y));
-    return [motion[1] * tail, motion[0] * body + motion[2] * tail];
-}
 export const MANTICORE_IDLE_OFFSET_GLSL = /* glsl */ `
 vec2 idleOffset(vec2 p) {
     float body = 1.0 - smoothstep(560.0, 690.0, p.y);

@@ -6,18 +6,6 @@ import {
     straightAttackArmTarget,
 } from "./ArbalesterStraightAttackFit";
 
-/** Inverse pose registration: retain each bone's axis and only calibrate its thickness. */
-export interface ArbalesterAnatomyBone {
-    axis: readonly [number, number, number, number];
-    sourceHalfWidth: number;
-    targetHalfWidth: number;
-    outerHalfWidth: number;
-    endFadePx: number;
-    /** A signed side confines correction to the exposed contour away from an overlapping weapon. */
-    side?: -1 | 0 | 1;
-    horizontalOnly?: boolean;
-}
-
 export const ARBALESTER_ANATOMY_BONE_COUNT = 6;
 
 const profiles = Object.fromEntries(
