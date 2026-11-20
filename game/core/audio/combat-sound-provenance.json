@@ -12,34 +12,38 @@
             "unit": "Abomination",
             "slug": "abomination",
             "role": "attack",
-            "source_id": "source-74841b4dbfe49bda",
+            "source_id": "provided-e295b9c573c0a45d40d5",
             "source": {
-                "kind": "elevenlabs-mcp",
-                "model": "eleven_text_to_sound_v2",
-                "generation_id": "KNqNiYn5jtlzAUFt3Zq4",
-                "flow_id": "PgjbMnvUROqf3vUZorvN",
-                "prompt": "One explosive low guttural undead brute attack grunt, rough throat and chest, short forceful snort, close dry recording, immediate onset, no words, no music, no ambience.",
-                "sha256": "74841b4dbfe49bda5c30b32e111d3a29babe4980982c7bd9f2ecacf7c6ae6658",
-                "label": "New MCP take 4"
+                "kind": "user-provided",
+                "source_id": "provided-e295b9c573c0a45d40d5",
+                "filename": "punch-blood-crunch-betacut-1-00-01.mp3",
+                "title": "Punch - blood & crunch",
+                "author": "betacut",
+                "sha256": "e295b9c573c0a45d40d5deeb7ccabac2522185d7241147707c12d5cab35646c1",
+                "source_site": "https://uppbeat.io/",
+                "label": "Selected Abomination attack",
+                "selection": "Explicitly selected by the user for Abomination attack",
+                "license": "License receipt not included in the supplied file",
+                "duration_limit_ms": 1600
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.03,
-                    "true_peak_db": -5.07,
-                    "bytes": 7321,
-                    "duration_ms": 810,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.22,
+                    "true_peak_db": -3.84,
+                    "bytes": 11821,
+                    "duration_ms": 1159,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.7
+                    "rms_db": -20.73
                 },
                 "mp3": {
-                    "lufs": -20.42,
-                    "true_peak_db": -5.15,
-                    "bytes": 10412,
-                    "duration_ms": 810,
+                    "lufs": -20.62,
+                    "true_peak_db": -4.34,
+                    "bytes": 14732,
+                    "duration_ms": 1159,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -21.09
+                    "rms_db": -21.14
                 }
             }
         },
@@ -47,48 +51,49 @@
             "unit": "Abomination",
             "slug": "abomination",
             "role": "hurt",
-            "source_id": "provided-55c8d9598183dad0b31d",
+            "source_id": "provided-55c8d9598183dad0b31d-0-1025",
             "source": {
                 "kind": "user-provided",
-                "source_id": "provided-55c8d9598183dad0b31d",
                 "filename": "wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
                 "title": "Wendigo monster - fang growth",
                 "author": "GFX Sounds",
                 "sha256": "55c8d9598183dad0b31d9a72c5ba5ea351db972d8768e62ef75e62a483a5e4a0",
-                "label": "Selected abomination hurt",
-                "selection": "Explicitly selected by the user",
+                "label": "Abomination hurt growl",
                 "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Abomination hurt",
                 "duration_limit_ms": 1600,
-                "crop_to_duration": true,
                 "source_site": "https://uppbeat.io/",
-                "duration_edit": {
-                    "method": "event-crop-v1",
+                "excerpt": {
+                    "start_ms": 0,
+                    "end_ms": 1025,
                     "original_duration_ms": 3737,
-                    "start_ms": 6.0,
-                    "end_ms": 1551.188,
-                    "natural_ending": false,
-                    "fade_in_ms": 3,
-                    "fade_out_ms": 40
-                }
+                    "original_path": "tmp/audio/raw/provided/55c8d9598183dad0/wendigo-monster-fang-growth-gfx-sounds-wendigo-monster-fangs-growing-short-fang-growth-1-0m03s.mp3",
+                    "sha256": "5b367aa6ada79db526f1bbf9092e2c49ce8d2ad1b3df9d29593f5bf8f19dd882",
+                    "speed": 1,
+                    "pitch_shift_semitones": 0,
+                    "selection": "Main growl, ending before the bright crackle that starts at 1.03 s",
+                    "fade_out_ms": 80
+                },
+                "source_id": "provided-55c8d9598183dad0b31d-0-1025"
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.14,
-                    "true_peak_db": -3.54,
-                    "bytes": 14777,
-                    "duration_ms": 1545,
+                    "lufs": -20.2,
+                    "true_peak_db": -4.03,
+                    "bytes": 10164,
+                    "duration_ms": 1025,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.17
+                    "rms_db": -20.27
                 },
                 "mp3": {
-                    "lufs": -20.57,
-                    "true_peak_db": -4.36,
-                    "bytes": 19340,
-                    "duration_ms": 1545,
+                    "lufs": -20.62,
+                    "true_peak_db": -4.42,
+                    "bytes": 13004,
+                    "duration_ms": 1025,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.6
+                    "rms_db": -20.69
                 }
             }
         },

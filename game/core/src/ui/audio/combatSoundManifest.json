@@ -481,12 +481,12 @@
     "Abomination": {
         "slug": "abomination",
         "attack": {
-            "durationMs": 810,
-            "revision": "a07b44cde8"
+            "durationMs": 1159,
+            "revision": "aeb74f9aa0"
         },
         "hurt": {
-            "durationMs": 1545,
-            "revision": "41a8b3e639"
+            "durationMs": 1025,
+            "revision": "dedea5f512"
         }
     },
     "Wandering Mage": {
