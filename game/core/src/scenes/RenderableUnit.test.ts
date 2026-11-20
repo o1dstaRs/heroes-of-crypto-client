@@ -3149,56 +3149,67 @@ assetTest("White Tiger reactions keep idle scale, recover after a hit and hold t
 });
 
 assetTest("White Tiger directional attacks preserve idle scale on a padded canvas and recover immediately", () => {
-    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
-    const texture = (width: number, height: number) =>
-        new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
-    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
-        const base = texture(768, 768);
-        const idle = texture(4608, 2304);
-        const attack = texture(4096, 1536);
-        const unit = createRenderableUnit(team, "Nature", "White Tiger", "white_tiger_512", (key) =>
-            key === "white_tiger_lab_idle_atlas" ? idle : key.includes("white_tiger_lab_melee_attack") ? attack : base,
-        );
-        const world = new Container();
-        const internal = unit as unknown as {
-            sprite: Sprite;
-            oneShotAnim?: { frames: Texture[]; frameDurationsMs: number[]; authoredRealTime: boolean };
-        };
-        unit.setPosition(0, 1024);
-        unit.ensureVisual(world, gridSettings);
-        unit.setCreatureAnimationLabPreviewEnabled(false);
-        unit.ensureVisual(world, gridSettings);
-        const sprite = internal.sprite;
-        const idleTexture = sprite.texture;
-        const sx = Math.abs(sprite.scale.x);
-        const sy = Math.abs(sprite.scale.y);
-        const anchor = sprite.anchor.y;
-        for (const suffix of ["", "_up", "_down"]) {
-            const state = `melee_attack${suffix}`;
-            expect(unit.getAnimationTextureKey(`attack${suffix}`)).toBe(`white_tiger_lab_${state}_atlas`);
-            let completed = 0;
-            expect(unit.playOneShotAnimation(state, () => completed++)).toBe(true);
-            const anim = internal.oneShotAnim!;
-            expect(anim.authoredRealTime).toBe(true);
-            expect(anim.frames).toHaveLength(8);
-            expect(anim.frameDurationsMs.reduce((a, b) => a + b, 0)).toBe(630);
-            for (let i = 0; i < anim.frames.length; i++) {
-                unit.ensureVisual(world, gridSettings);
-                expect(sprite.texture).toBe(anim.frames[i]);
-                expect(sprite.texture.width).toBe(1024);
-                expect(sprite.texture.height).toBe(768);
+    // The idle loop picks its frame from the wall clock. On a busy shared test shard enough real time
+    // passed between capturing the idle frame and comparing against it to advance the loop.
+    const clock = spyOn(performance, "now").mockReturnValue(10000);
+    try {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+        const texture = (width: number, height: number) =>
+            new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width, height }) });
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            const base = texture(768, 768);
+            const idle = texture(4608, 2304);
+            const attack = texture(4096, 1536);
+            const unit = createRenderableUnit(team, "Nature", "White Tiger", "white_tiger_512", (key) =>
+                key === "white_tiger_lab_idle_atlas"
+                    ? idle
+                    : key.includes("white_tiger_lab_melee_attack")
+                      ? attack
+                      : base,
+            );
+            const world = new Container();
+            const internal = unit as unknown as {
+                sprite: Sprite;
+                oneShotAnim?: { frames: Texture[]; frameDurationsMs: number[]; authoredRealTime: boolean };
+            };
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(world, gridSettings);
+            unit.setCreatureAnimationLabPreviewEnabled(false);
+            unit.ensureVisual(world, gridSettings);
+            const sprite = internal.sprite;
+            const idleTexture = sprite.texture;
+            const sx = Math.abs(sprite.scale.x);
+            const sy = Math.abs(sprite.scale.y);
+            const anchor = sprite.anchor.y;
+            for (const suffix of ["", "_up", "_down"]) {
+                const state = `melee_attack${suffix}`;
+                expect(unit.getAnimationTextureKey(`attack${suffix}`)).toBe(`white_tiger_lab_${state}_atlas`);
+                let completed = 0;
+                expect(unit.playOneShotAnimation(state, () => completed++)).toBe(true);
+                const anim = internal.oneShotAnim!;
+                expect(anim.authoredRealTime).toBe(true);
+                expect(anim.frames).toHaveLength(8);
+                expect(anim.frameDurationsMs.reduce((a, b) => a + b, 0)).toBe(630);
+                for (let i = 0; i < anim.frames.length; i++) {
+                    unit.ensureVisual(world, gridSettings);
+                    expect(sprite.texture).toBe(anim.frames[i]);
+                    expect(sprite.texture.width).toBe(1024);
+                    expect(sprite.texture.height).toBe(768);
+                    expect(Math.abs(sprite.scale.x)).toBeCloseTo(sx, 6);
+                    expect(Math.abs(sprite.scale.y)).toBeCloseTo(sy, 6);
+                    expect(sprite.anchor.y).toBeCloseTo(anchor - 64 / 768, 8);
+                    expect(sprite.anchor.x).toBe(0.5);
+                    unit.stepOneShotAnimation(anim.frameDurationsMs[i]);
+                }
+                expect(completed).toBe(1);
+                expect(sprite.texture).toBe(idleTexture);
+                expect(sprite.anchor.y).toBeCloseTo(anchor, 8);
                 expect(Math.abs(sprite.scale.x)).toBeCloseTo(sx, 6);
                 expect(Math.abs(sprite.scale.y)).toBeCloseTo(sy, 6);
-                expect(sprite.anchor.y).toBeCloseTo(anchor - 64 / 768, 8);
-                expect(sprite.anchor.x).toBe(0.5);
-                unit.stepOneShotAnimation(anim.frameDurationsMs[i]);
             }
-            expect(completed).toBe(1);
-            expect(sprite.texture).toBe(idleTexture);
-            expect(sprite.anchor.y).toBeCloseTo(anchor, 8);
-            expect(Math.abs(sprite.scale.x)).toBeCloseTo(sx, 6);
-            expect(Math.abs(sprite.scale.y)).toBeCloseTo(sy, 6);
         }
+    } finally {
+        clock.mockRestore();
     }
 });
 
