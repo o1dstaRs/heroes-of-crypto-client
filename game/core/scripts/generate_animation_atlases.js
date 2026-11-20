@@ -8,9 +8,9 @@ const sidebarPortraitPages = Object.values(require("../src/ui/sidebarPortraitPag
     (animation) => animation.pages,
 );
 const sidebarPageByName = new Map(sidebarPortraitPages.map((page) => [`${page.key}.webp`, page]));
-// Large body atlases the release ships already halved (scripts/build_half_body_atlases.ts). Each derived
-// file keeps its master's basename and replaces the master in the flattened images directory.
-const HALF_BODY_ATLAS_DIR = `${path.sep}half_body_atlases_v1${path.sep}`;
+// Release copies derived from lossless masters (scripts/build_half_body_atlases.ts, build_q93_atlases.ts).
+// Each keeps its master's basename and replaces the master in the flattened images directory.
+const DERIVED_ATLAS_DIRS = [`${path.sep}half_body_atlases_v1${path.sep}`, `${path.sep}q93_atlases_v1${path.sep}`];
 
 // Approved animation art that must never be silently replaced by an older export. The Scavenger
 // walk uses the user-approved original eight-frame loop. Keep that selected version through
@@ -1128,7 +1128,7 @@ function main() {
                 f.endsWith(".webp") &&
                 !retiredImageFiles.has(path.basename(f)) &&
                 // Derived half-size copies are placed by the catalog pass below, never by name.
-                !f.includes(HALF_BODY_ATLAS_DIR) &&
+                !DERIVED_ATLAS_DIRS.some((dir) => f.includes(dir)) &&
                 f.includes(`${path.sep}atlas${path.sep}`) &&
                 (f.endsWith("_atlas.webp") || f.endsWith("_atlas_quarter.webp") || f.endsWith("_atlas_half.webp")),
         )
@@ -1386,7 +1386,7 @@ function main() {
 
     console.log(`✅ Copied ${copied} atlas .webp files into: ${imagesDir}`);
 
-    // --- Replace large body atlases with their release half-size copies -------------------------
+    // --- Replace lossless masters with their pinned release copies --------------------------------
     const { installed: halved, missing: missingHalves } =
         require("./install_half_body_atlases.ts").installHalfBodyAtlases(
             imagesDir,
@@ -1397,10 +1397,10 @@ function main() {
         // The runtime still halves a full-size master, so an older art checkout renders correctly; it only
         // downloads more. A release build verifies the half-size copies through animation-release.json.
         console.warn(
-            `⚠️ ${missingHalves.length} half-size body atlases are missing under ${root}; shipping their full-size masters.`,
+            `⚠️ ${missingHalves.length} derived release atlases are missing under ${root}; shipping their lossless masters.`,
         );
     }
-    console.log(`✅ Replaced ${halved} large body atlases with their half-size release copies.`);
+    console.log(`✅ Replaced ${halved} atlases with their pinned release copies (half-size and Q93).`);
 }
 
 main();

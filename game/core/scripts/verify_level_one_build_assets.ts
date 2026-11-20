@@ -4,7 +4,7 @@ import path from "node:path";
 import levelOneAssets from "../src/animations/levelOneAssets.json";
 import environmentAssets from "../src/animations/battlefieldEnvironmentAssets.json";
 import shotTrajectoryAssets from "../src/pixi/shotTrajectoryAssets.json";
-import halfBodyAtlases from "../src/pixi/halfBodyAtlases.json";
+import { releaseAtlasCopies } from "./install_half_body_atlases";
 const assets = [...levelOneAssets, ...environmentAssets, ...shotTrajectoryAssets];
 import { shouldPreloadUnitAnimationAtlas } from "../src/pixi/creatureAnimationSettings";
 import { verifyCreaturePortraitBuildAssets } from "../src/pixi/verifyCreaturePortraitBuildAssets";
@@ -22,10 +22,8 @@ export function verifyLevelOneBuildAssets(): void {
     for (const asset of assets) {
         const file = path.resolve(import.meta.dir, "../images", `${asset.key}.webp`);
         const hash = createHash("sha256").update(readFileSync(file)).digest("hex");
-        // A large body atlas ships as its pinned half-size release copy (scripts/build_half_body_atlases.ts).
-        const expected =
-            (halfBodyAtlases.atlases as Record<string, { sha256: string } | undefined>)[asset.key]?.sha256 ??
-            asset.sha256;
+        // A master with a derived release copy (half-size or Q93) ships as that pinned copy.
+        const expected = releaseAtlasCopies[asset.key]?.sha256 ?? asset.sha256;
         if (hash !== expected) throw new Error(`Stale level-one animation: ${asset.key}. Run build:images.`);
         if (
             (shouldPreloadUnitAnimationAtlas(asset.key, false) ||

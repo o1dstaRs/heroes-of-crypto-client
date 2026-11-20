@@ -1,5 +1,5 @@
 {
-    "version": "2026-11-20-half-body-atlases",
+    "version": "2026-11-20-q93-atlases",
     "files": {
         "animations/output/abomination_attack/atlas/abomination_attack_atlas.webp": {
             "sha256": "e1d60006c5d502a0b7f9a556acbca8cab0a1d0b37b5c33596606bf7ee79e24e8",
@@ -24632,6 +24632,2262 @@
         "animations/output/half_body_atlases_v1/zena_walk_atlas/atlas/zena_walk_atlas.webp": {
             "sha256": "0e6fcdba8fe73e5215f384ff68fe3085f8d38bc48e5bc2c471be8e25d0b4a788",
             "bytes": 221666
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_idle_atlas_quarter/atlas/abomination_lab_idle_atlas_quarter.webp": {
+            "sha256": "666980595dad5e72e81b08168b889bfc457f1f8b5ff84d08c8377dbde0d4726e",
+            "bytes": 13338
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_hit_atlas_quarter/atlas/abomination_lab_hit_atlas_quarter.webp": {
+            "sha256": "f00aa35cd49c5accbea4ba2cbd6a849d1ee923187989dc353e710dd1c7220f83",
+            "bytes": 75448
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_death_atlas_quarter/atlas/abomination_lab_death_atlas_quarter.webp": {
+            "sha256": "41de0e180759e83fc64eab04044b48ee5943969cab90adc5c952986b4c18b343",
+            "bytes": 170958
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_idle_page_00_atlas/atlas/abomination_lab_idle_page_00_atlas.webp": {
+            "sha256": "713152cfcee90dcf5884c40e8bbf442bbf61fd1aea14966b9553cb12ecac4194",
+            "bytes": 2854224
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_idle_page_01_atlas/atlas/abomination_lab_idle_page_01_atlas.webp": {
+            "sha256": "cc986cf0f37d7324a2fa9652952e0d765a68e3834e9fee37340dba3997398a5a",
+            "bytes": 2817078
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_idle_page_02_atlas/atlas/abomination_lab_idle_page_02_atlas.webp": {
+            "sha256": "e0e82d5af7feb32a878c44c346d7b43ebc7e591be2dfecf200174aa21cfe4736",
+            "bytes": 2803032
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_melee_attack_atlas_quarter/atlas/abomination_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "dbba8b5725f41cff9c6002c4bc4b733ed5333a9c60f8e802b6bd02ad295b4808",
+            "bytes": 179800
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_melee_attack_down_atlas_quarter/atlas/abomination_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "b1ca18413d4a38198a9950a67f1c7ab2c2582ca2549a25a91af23d28b568acf6",
+            "bytes": 175946
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_idle_page_03_atlas/atlas/abomination_lab_idle_page_03_atlas.webp": {
+            "sha256": "c0a468a2f165003bdaac2a9bb7569b3aec8a17df75ccec72012d694ce6d81786",
+            "bytes": 2806800
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_walk_atlas_quarter/atlas/abomination_lab_walk_atlas_quarter.webp": {
+            "sha256": "71ca43ceb35cf874bcbac3f88514eb2012b5436bd42aa8874da8a53515e4a244",
+            "bytes": 81758
+        },
+        "animations/output/q93_atlases_v1/abomination_lab_melee_attack_up_atlas_quarter/atlas/abomination_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "5f21213adfd8bb52a4bcc6291ad49f83d32e42ebf1aaa2ae9ac6d19aca671da4",
+            "bytes": 176786
+        },
+        "animations/output/q93_atlases_v1/angel_lab_cast_atlas_quarter/atlas/angel_lab_cast_atlas_quarter.webp": {
+            "sha256": "491842af9d7c418da9b83804edd406aed86e878cc82f006cf13e410432d5de34",
+            "bytes": 292438
+        },
+        "animations/output/q93_atlases_v1/angel_lab_death_atlas_quarter/atlas/angel_lab_death_atlas_quarter.webp": {
+            "sha256": "3c8f097f86b696d0a4850cd926fc388e3a865dddbe4fd76edb4a31a58464b369",
+            "bytes": 98830
+        },
+        "animations/output/q93_atlases_v1/angel_lab_death_atlas_half/atlas/angel_lab_death_atlas_half.webp": {
+            "sha256": "a93d3c1547690483e16d65ce3bdef6740518c9560be76c20a43e0d66008bda5d",
+            "bytes": 305374
+        },
+        "animations/output/q93_atlases_v1/angel_lab_hit_atlas_half/atlas/angel_lab_hit_atlas_half.webp": {
+            "sha256": "423aa62604f177ac483fc5471cf9882cbfe818e0ba2a1ac1ef9f21fdba0f2860",
+            "bytes": 237860
+        },
+        "animations/output/q93_atlases_v1/angel_lab_hit_atlas_quarter/atlas/angel_lab_hit_atlas_quarter.webp": {
+            "sha256": "0c9c95a7beade571b8e58d27110b9ee345a33f3040fe2ddff1c4001700e277d3",
+            "bytes": 78630
+        },
+        "animations/output/q93_atlases_v1/angel_lab_cast_atlas_half/atlas/angel_lab_cast_atlas_half.webp": {
+            "sha256": "16d1a33d6dbc1863779a6ef29508a2f9b27c9d6dcace7a0f4089bc55fafc02e8",
+            "bytes": 979300
+        },
+        "animations/output/q93_atlases_v1/angel_lab_melee_attack_atlas_half/atlas/angel_lab_melee_attack_atlas_half.webp": {
+            "sha256": "ac4b71bb68158fff1f0a7b68c662b6ce42d68ee71d48d8ed71657591e3f1edb5",
+            "bytes": 424422
+        },
+        "animations/output/q93_atlases_v1/angel_lab_melee_attack_atlas_quarter/atlas/angel_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "7727ab50f7c929ccff1080edc286840742cb0ea9895050038f03157d017022c8",
+            "bytes": 133830
+        },
+        "animations/output/q93_atlases_v1/angel_lab_idle_atlas_quarter/atlas/angel_lab_idle_atlas_quarter.webp": {
+            "sha256": "91c5f7beaf6932af08c241b381db0a1676ada61ef7216fffc86df66b4355c32e",
+            "bytes": 393610
+        },
+        "animations/output/q93_atlases_v1/angel_lab_melee_attack_down_atlas_quarter/atlas/angel_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "ccf5ed7658cdfc90bcc597494a0830b7a5230bf54392ce78214d9543a8fd09c2",
+            "bytes": 131638
+        },
+        "animations/output/q93_atlases_v1/angel_lab_idle_atlas_half/atlas/angel_lab_idle_atlas_half.webp": {
+            "sha256": "f14ceacbb3b05d33e2ab0640ad58f602f0e07446992c18a8dc3095dac455be2b",
+            "bytes": 1186324
+        },
+        "animations/output/q93_atlases_v1/angel_lab_melee_attack_down_atlas_half/atlas/angel_lab_melee_attack_down_atlas_half.webp": {
+            "sha256": "7c3c9cd123e7009450fa7c2e771e22eeca1801cedf334e7acfec020a29f2e5ec",
+            "bytes": 415014
+        },
+        "animations/output/q93_atlases_v1/angel_lab_melee_attack_up_atlas_quarter/atlas/angel_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "9824285ce0c595257f80bc85de4b6c18317ba2df91f6431d5773a55d5ec5add3",
+            "bytes": 132986
+        },
+        "animations/output/q93_atlases_v1/angel_lab_melee_attack_up_atlas_half/atlas/angel_lab_melee_attack_up_atlas_half.webp": {
+            "sha256": "f90b9d82b73c4c90e1f1354b786e051a67d66062a0b84788e5a80b3480a27ff7",
+            "bytes": 419448
+        },
+        "animations/output/q93_atlases_v1/angel_lab_walk_atlas_half/atlas/angel_lab_walk_atlas_half.webp": {
+            "sha256": "617930743fa7574c53d509d6f37c134ed9197157b4f0247c6095581120ed3ec4",
+            "bytes": 437194
+        },
+        "animations/output/q93_atlases_v1/angel_lab_walk_atlas_quarter/atlas/angel_lab_walk_atlas_quarter.webp": {
+            "sha256": "e140392620f717d8c2e34d79caeac63317ea66a1f936c46ed86dda40adf66764",
+            "bytes": 124302
+        },
+        "animations/output/q93_atlases_v1/arachna_queen_lab_melee_attack_atlas_quarter/atlas/arachna_queen_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "cb7253d9e09567c00874da6d2c2ab24ff16749c8f8f29a4d240fa03c2b2036e3",
+            "bytes": 70374
+        },
+        "animations/output/q93_atlases_v1/arachna_queen_lab_melee_attack_down_atlas_quarter/atlas/arachna_queen_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "b784c7b9a73adfc1e018f43ed83fd94707c0d4f6d24666bc9cb152d5b729b5cf",
+            "bytes": 72202
+        },
+        "animations/output/q93_atlases_v1/arachna_queen_lab_death_atlas_quarter/atlas/arachna_queen_lab_death_atlas_quarter.webp": {
+            "sha256": "98477c38b2fc6a268019011c7367b2c34852e4e7eb4c93b041580fd4cd592f37",
+            "bytes": 93208
+        },
+        "animations/output/q93_atlases_v1/arachna_queen_lab_melee_attack_up_atlas_quarter/atlas/arachna_queen_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "91607b024e3f20bdd2be2f7f98a4f5fdd6f1337359ed1a37273cc4278b766ddd",
+            "bytes": 70590
+        },
+        "animations/output/q93_atlases_v1/arachna_queen_lab_walk_atlas_quarter/atlas/arachna_queen_lab_walk_atlas_quarter.webp": {
+            "sha256": "95ed8f1e72ebf3356df0a98ca207527be1995c1830c98ab7933ef694f270d2fe",
+            "bytes": 65264
+        },
+        "animations/output/q93_atlases_v1/arbalester_attack_atlas/atlas/arbalester_attack_atlas.webp": {
+            "sha256": "8f374558f2c6aecd0b04ed62121337fe54bb47b4343586c346e83d7ad7d8c27d",
+            "bytes": 382548
+        },
+        "animations/output/q93_atlases_v1/arbalester_attack_atlas_quarter/atlas/arbalester_attack_atlas_quarter.webp": {
+            "sha256": "3f16860b1136ce39c172d5a1d04f48b68d65c61d842dc2908042d0b0f605cbef",
+            "bytes": 50528
+        },
+        "animations/output/q93_atlases_v1/arbalester_death_atlas/atlas/arbalester_death_atlas.webp": {
+            "sha256": "e45b8bd3aa9267322b9e37ccae63e38791710614d89b4cdcc0bfda018db9df8a",
+            "bytes": 314780
+        },
+        "animations/output/q93_atlases_v1/arbalester_death_atlas_quarter/atlas/arbalester_death_atlas_quarter.webp": {
+            "sha256": "7102c49d94f165b1464a6028bc5b0d8e9b13f02eb6c2d98060f612c95858ea46",
+            "bytes": 47332
+        },
+        "animations/output/q93_atlases_v1/arbalester_hit_atlas_quarter/atlas/arbalester_hit_atlas_quarter.webp": {
+            "sha256": "77d43b83b7baf78ee030dce8b97d76d3c48f5c93a6890de12625674d50279dbd",
+            "bytes": 105250
+        },
+        "animations/output/q93_atlases_v1/arbalester_hit_atlas/atlas/arbalester_hit_atlas.webp": {
+            "sha256": "4c5239e35da51b0c73a333c6a25bd41c18fcaa57d52f81f6d7e0219e59a33b2a",
+            "bytes": 736810
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_00_atlas/atlas/arbalester_idle_page_00_atlas.webp": {
+            "sha256": "28f453013ce46d74388d8b0806c667ab3ef7ec69efee246fa9902bb838a5740b",
+            "bytes": 1474258
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_01_atlas/atlas/arbalester_idle_page_01_atlas.webp": {
+            "sha256": "b4ae469e428ed1aea223ee7476e984b3ec41522d5f8b74edeaf57a22fb09a7be",
+            "bytes": 1457462
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_03_atlas/atlas/arbalester_idle_page_03_atlas.webp": {
+            "sha256": "fc207d313147ccbc44dc57efcaf2a39246c9700e26a5af94ebacc9cd07e769b1",
+            "bytes": 1459982
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_02_atlas/atlas/arbalester_idle_page_02_atlas.webp": {
+            "sha256": "cbee4b729fc3df3c4ad8f3888940845668a46ba6a969c59d5031aa5e4a6bb8e6",
+            "bytes": 1484748
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_04_atlas/atlas/arbalester_idle_page_04_atlas.webp": {
+            "sha256": "b98609dace8fb31481ac0d4e6c59f2d7388a93529fd41da80576e456ff2eba18",
+            "bytes": 1452108
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_05_atlas/atlas/arbalester_idle_page_05_atlas.webp": {
+            "sha256": "75b10d6492ec62ff9dc80e0bcbd112d3815711b9de9875c64ff305bca53478d3",
+            "bytes": 1481538
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_06_atlas/atlas/arbalester_idle_page_06_atlas.webp": {
+            "sha256": "d90d26d55942c6dd9990dda424f5c9ba475488df036ae98af5b9c7d95313b3d0",
+            "bytes": 1455416
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_07_atlas/atlas/arbalester_idle_page_07_atlas.webp": {
+            "sha256": "2d69559eb9aef9106088c67248db0ce25d3793da3f64945b098f3faca142430d",
+            "bytes": 1485016
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_08_atlas/atlas/arbalester_idle_page_08_atlas.webp": {
+            "sha256": "dc9b3ea12778763245c048afb4e1f66dbf313e1f91f42e8e200622216a536f4f",
+            "bytes": 1450944
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_09_atlas/atlas/arbalester_idle_page_09_atlas.webp": {
+            "sha256": "3f0e02409090a18c62bfd286b48533d2bf002ed83bdf0433ecfef643fa6311d0",
+            "bytes": 1462320
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_10_atlas/atlas/arbalester_idle_page_10_atlas.webp": {
+            "sha256": "c02328742c46499d6cddac565d858b7cbf17efd5c8b2f31ad92a30fd0858e905",
+            "bytes": 1482792
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_11_atlas/atlas/arbalester_idle_page_11_atlas.webp": {
+            "sha256": "51801bcf30d0da45e90d357733853a11637da3843a5ca6f8f4979775604993ef",
+            "bytes": 1456614
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_12_atlas/atlas/arbalester_idle_page_12_atlas.webp": {
+            "sha256": "bf5af4a67cdda1dc1820980f90ae9e196e3f9485887ce40a0d49d75db63ca695",
+            "bytes": 1490992
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_13_atlas/atlas/arbalester_idle_page_13_atlas.webp": {
+            "sha256": "c48d47d21c84cab86a5e961b9936c407e278de365c29e1cfab5cd5eceacb62ca",
+            "bytes": 1470366
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_14_atlas/atlas/arbalester_idle_page_14_atlas.webp": {
+            "sha256": "a899e44dc42b8850744b0ecbb95e6bb2bfb4b11487e85fcc2976e1451fffc23e",
+            "bytes": 1456270
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_15_atlas/atlas/arbalester_idle_page_15_atlas.webp": {
+            "sha256": "67a356090a31e263ef93230751e213794e951bd4554c4c647e1f8c22bf701a0a",
+            "bytes": 1484234
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_16_atlas/atlas/arbalester_idle_page_16_atlas.webp": {
+            "sha256": "f1ec500a5405494177656461548826f425ce1b279584f72a77b0e619082460ba",
+            "bytes": 1456440
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_17_atlas/atlas/arbalester_idle_page_17_atlas.webp": {
+            "sha256": "346c2fe63d324e877a2b68808c6932899e17fddb4f716b76d91444f265fb3070",
+            "bytes": 1455816
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_18_atlas/atlas/arbalester_idle_page_18_atlas.webp": {
+            "sha256": "8783280f5e49e8e7967c07fe989627bb9889ac8dd0c50764384836246df41db4",
+            "bytes": 1480280
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_21_atlas/atlas/arbalester_idle_page_21_atlas.webp": {
+            "sha256": "7d82c930e6fcc786a45dfa7eea55698538684189d92750c6ca6fa2b9e0c7e9cb",
+            "bytes": 218456
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_19_atlas/atlas/arbalester_idle_page_19_atlas.webp": {
+            "sha256": "09c0a1a88a4c8d6aea0164a900bb6fa39218dd0a46d50bdb497dc54e52e38042",
+            "bytes": 1455186
+        },
+        "animations/output/q93_atlases_v1/arbalester_melee_attack_atlas/atlas/arbalester_melee_attack_atlas.webp": {
+            "sha256": "4ae86ddf09c95032d784000f3f75df7b36fff7d685b4d646ba8d73f5482d10f0",
+            "bytes": 361164
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_page_20_atlas/atlas/arbalester_idle_page_20_atlas.webp": {
+            "sha256": "337521148af0531db252b5c6fe33c72ba3a4eee948934da8e2c9e149ec8b380a",
+            "bytes": 1484988
+        },
+        "animations/output/q93_atlases_v1/arbalester_melee_attack_atlas_quarter/atlas/arbalester_melee_attack_atlas_quarter.webp": {
+            "sha256": "12e5cca28fc5581c3750d7e0a90641485d6d3d3d3b11341ebc3a546df959bcd8",
+            "bytes": 48204
+        },
+        "animations/output/q93_atlases_v1/arbalester_v7_atlas/atlas/arbalester_v7_atlas.webp": {
+            "sha256": "d6f406d370615c7f6e9afde861cbeba17e5c776c089f6dd084169ab4c19a7701",
+            "bytes": 13701602
+        },
+        "animations/output/q93_atlases_v1/arbalester_v8_atlas/atlas/arbalester_v8_atlas.webp": {
+            "sha256": "7ab104c9beea8065c6d7a625258c8207422106522f76f11ba820094d44435822",
+            "bytes": 13636106
+        },
+        "animations/output/q93_atlases_v1/arbalester_walk_atlas_quarter/atlas/arbalester_walk_atlas_quarter.webp": {
+            "sha256": "f1da25d835685c7a1984e255e0b39bb50e3c2de23ebf18a157c31a5653d810ec",
+            "bytes": 74894
+        },
+        "animations/output/q93_atlases_v1/ash_moth_cast_atlas_quarter/atlas/ash_moth_cast_atlas_quarter.webp": {
+            "sha256": "6ef3e8d5f9bbffb2ab9873859d47548bf27b38ca91c5f10b1340c108089c5d9b",
+            "bytes": 118722
+        },
+        "animations/output/q93_atlases_v1/ash_moth_death_atlas_quarter/atlas/ash_moth_death_atlas_quarter.webp": {
+            "sha256": "e086c7e9326ae68b69a53b7d415bacdf3196825ebfab22e9e59e049d1cd29c9c",
+            "bytes": 155538
+        },
+        "animations/output/q93_atlases_v1/ash_moth_hit_atlas_quarter/atlas/ash_moth_hit_atlas_quarter.webp": {
+            "sha256": "c317a40e4f3d81ea633428972279c39a0dfa43729188a08cb686975885e1157c",
+            "bytes": 406518
+        },
+        "animations/output/q93_atlases_v1/ash_moth_melee_attack_atlas_quarter/atlas/ash_moth_melee_attack_atlas_quarter.webp": {
+            "sha256": "fb12b54cf80ba858b534088b455be487c8ec4dd588a44e74e7906f56379d07f9",
+            "bytes": 158180
+        },
+        "animations/output/q93_atlases_v1/arbalester_source_exact_repaired_v6_atlas/atlas/arbalester_source_exact_repaired_v6_atlas.webp": {
+            "sha256": "f2627b506b792c339aaa82d5ba717b3a0f26d174ae29d471a1d656eea562219f",
+            "bytes": 13417962
+        },
+        "animations/output/q93_atlases_v1/ash_moth_melee_attack_down_atlas_quarter/atlas/ash_moth_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "e4389916765454e454d1bb95543892ebacc653a844e82107adafc6d44711d6f0",
+            "bytes": 150522
+        },
+        "animations/output/q93_atlases_v1/ash_moth_melee_attack_up_atlas_quarter/atlas/ash_moth_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "ff02009ccad4761825a57406262787fa22bef6343e90e5b76ac20b09a97546af",
+            "bytes": 156784
+        },
+        "animations/output/q93_atlases_v1/ash_moth_walk_atlas_quarter/atlas/ash_moth_walk_atlas_quarter.webp": {
+            "sha256": "77540c110e81fe18cbbce6b5d2f3a2758f457ca86663dad0887719d40b998fbf",
+            "bytes": 103560
+        },
+        "animations/output/q93_atlases_v1/ash_moth_idle_atlas_quarter/atlas/ash_moth_idle_atlas_quarter.webp": {
+            "sha256": "a382bc485ea3e2c52662ee605a3ba3a9eef6e9ed72365782ab049606b5fe49fb",
+            "bytes": 1916496
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_cast_atlas_quarter/atlas/battle_mage_lab_cast_atlas_quarter.webp": {
+            "sha256": "5ca0c7410b1c6f5aa06cc1c6ab17c6654125964f07df17eae2379d4e01a8827f",
+            "bytes": 111766
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_death_atlas_quarter/atlas/battle_mage_lab_death_atlas_quarter.webp": {
+            "sha256": "3c85d9af47e2ffd365bf6c7b633fb9a128967e20ae20ad0041b26a42ebcdb20d",
+            "bytes": 91074
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_hit_atlas_quarter/atlas/battle_mage_lab_hit_atlas_quarter.webp": {
+            "sha256": "087d1b4fb8f32183257b6b8ee3d045b1c7fcd1fc0a6e1c3e8adcdd18839f1b4b",
+            "bytes": 86218
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_melee_attack_atlas_quarter/atlas/battle_mage_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "26ad365f75f25409562d3eb8cded6e76d421c5fab46904dfe15f41c7c0926930",
+            "bytes": 114688
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_melee_attack_down_atlas_quarter/atlas/battle_mage_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "06e6a86d21a205d32f8b4b81028f98efde81a5db123ccf932535b3d277f01e6b",
+            "bytes": 113402
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_melee_attack_up_atlas_quarter/atlas/battle_mage_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "bc41e5fb92646f0dac41b2d14c7a3972858205eaac4e021f341ae75194e97df6",
+            "bytes": 112104
+        },
+        "animations/output/q93_atlases_v1/battle_mage_lab_walk_atlas_quarter/atlas/battle_mage_lab_walk_atlas_quarter.webp": {
+            "sha256": "6ea6355e1e538d07da05157decdbed9639fa2b07358ee88d2aede674e6f65b10",
+            "bytes": 77208
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_cast_atlas_quarter/atlas/behemoth_lab_cast_atlas_quarter.webp": {
+            "sha256": "3be6129063ee9c9b3d7e434f4ea108889c4aad08cd9e7a99c2cb5b2743f9dd12",
+            "bytes": 220864
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_death_atlas_quarter/atlas/behemoth_lab_death_atlas_quarter.webp": {
+            "sha256": "6579819025f23f8679a0e2880d750a2996b7c57d474318eca5d99a366f46367a",
+            "bytes": 139676
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_hit_atlas_quarter/atlas/behemoth_lab_hit_atlas_quarter.webp": {
+            "sha256": "d14c303ffa1f39c03e6b35a5f9c531a1ad3379f5882d0c791ff00253368c20a8",
+            "bytes": 129310
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_melee_attack_atlas_quarter/atlas/behemoth_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "2e5dc6e5c8454000d5f8531db1ae00785a06fea607d5eb9bfa2ee492707021f1",
+            "bytes": 134018
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_melee_attack_down_atlas_quarter/atlas/behemoth_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "4d580580d7677cc9e6e39ad970f98f6a16df8717caf5767b4ae863b5455bdd55",
+            "bytes": 120566
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_melee_attack_up_atlas_quarter/atlas/behemoth_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "b7e1b27b609388f9271f636307cdc0cad18cde6b3d749d1c787201e90ff25e39",
+            "bytes": 122010
+        },
+        "animations/output/q93_atlases_v1/beholder_combat_melee_attack_atlas_quarter/atlas/beholder_combat_melee_attack_atlas_quarter.webp": {
+            "sha256": "ca2f1918b787077c2058128da3691945f4ef632f8f2e322a2fd594c39dbc0ebb",
+            "bytes": 79836
+        },
+        "animations/output/q93_atlases_v1/beholder_combat_melee_attack_down_atlas_quarter/atlas/beholder_combat_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "7781f7ce199333a4c6e3949328cae5a83f8ff72096a26482a2746910c834798f",
+            "bytes": 72740
+        },
+        "animations/output/q93_atlases_v1/beholder_combat_melee_attack_up_atlas_quarter/atlas/beholder_combat_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "770b722bddcd2053685aec983ebafd52d881f6563a63e9337107f70bffce0ad2",
+            "bytes": 79242
+        },
+        "animations/output/q93_atlases_v1/beholder_ranged_attack_atlas_quarter/atlas/beholder_ranged_attack_atlas_quarter.webp": {
+            "sha256": "5e2fa65635889cd6454b0a7fc41005ef10b3f57c5772a664230065b738614b25",
+            "bytes": 49164
+        },
+        "animations/output/q93_atlases_v1/beholder_flight_walk_atlas_quarter/atlas/beholder_flight_walk_atlas_quarter.webp": {
+            "sha256": "7bcd15b4da34f2379db80862400c753a0009b7d9340a2837ceefbe51f1f0261e",
+            "bytes": 156808
+        },
+        "animations/output/q93_atlases_v1/behemoth_lab_walk_atlas_quarter/atlas/behemoth_lab_walk_atlas_quarter.webp": {
+            "sha256": "3a0462972c285601a9e5752c1fb05dacebb82c623239f9f7188453ebde507d77",
+            "bytes": 541034
+        },
+        "animations/output/q93_atlases_v1/beholder_ranged_attack_down_atlas_quarter/atlas/beholder_ranged_attack_down_atlas_quarter.webp": {
+            "sha256": "a02535b78f120cc6e22d63a705fd19a6aab9a321d1be3c1979f55d6d6729da8f",
+            "bytes": 47926
+        },
+        "animations/output/q93_atlases_v1/beholder_ranged_attack_up_atlas_quarter/atlas/beholder_ranged_attack_up_atlas_quarter.webp": {
+            "sha256": "1aca8615c1fe29606de8a273de410df0b0c89d940d464dfd1a4a241fa3fbf31c",
+            "bytes": 49200
+        },
+        "animations/output/q93_atlases_v1/beholder_reactions_hit_atlas_quarter/atlas/beholder_reactions_hit_atlas_quarter.webp": {
+            "sha256": "d59513bf9fa782649bfbdf6854c283d2000cac5af524e901e4b8002063b3dab3",
+            "bytes": 65780
+        },
+        "animations/output/q93_atlases_v1/beholder_reactions_death_atlas_quarter/atlas/beholder_reactions_death_atlas_quarter.webp": {
+            "sha256": "973ee9df97d68126958beb2b2d962561e2b330f4ef34832abfea48c3a2807b38",
+            "bytes": 99400
+        },
+        "animations/output/q93_atlases_v1/berserker_sword_idle_atlas_quarter/atlas/berserker_sword_idle_atlas_quarter.webp": {
+            "sha256": "015982a930a97f005bc12475759c7a27df1a0cbfc41d408e8cd78865502bdb3b",
+            "bytes": 203412
+        },
+        "animations/output/q93_atlases_v1/berserker_walk_atlas_quarter/atlas/berserker_walk_atlas_quarter.webp": {
+            "sha256": "b0d29b5be8a36d34622ded30156a719138a476e8e9baaa4bc5261aa5246a983f",
+            "bytes": 135162
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_attack_atlas_quarter/atlas/black_dragon_lab_attack_atlas_quarter.webp": {
+            "sha256": "1bc55fc9a0716b90c3a10588caf390cb28c2230505c8f86c3004eaf3e005bf6e",
+            "bytes": 295694
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_attack_atlas_half/atlas/black_dragon_lab_attack_atlas_half.webp": {
+            "sha256": "c0659e788c8a1626e9ec86743ad41e6832706c9a58fad7d1bf9171eeaa18e79a",
+            "bytes": 1024656
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_attack_down_atlas_half/atlas/black_dragon_lab_attack_down_atlas_half.webp": {
+            "sha256": "6e7889a3478d769bd264510d96fa7117b315b8a9801197d88893341244169af6",
+            "bytes": 1089940
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_attack_down_atlas_quarter/atlas/black_dragon_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "8c281c2040d483d5d3f71f5add37db75635d80c9f4ed775775270084ed51a678",
+            "bytes": 322702
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_attack_up_atlas_half/atlas/black_dragon_lab_attack_up_atlas_half.webp": {
+            "sha256": "e36d0339cd68cbc882f6eb29271f30f35ce2848761c818826be99036660dd7c0",
+            "bytes": 1043950
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_attack_up_atlas_quarter/atlas/black_dragon_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "3320bbf0e74fdc47d7a64f1b3b29aeb210417714dadbe5884cbfd379c312af7b",
+            "bytes": 297946
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_death_atlas_quarter/atlas/black_dragon_lab_death_atlas_quarter.webp": {
+            "sha256": "50d8fe66274fa37e5887bb8646285824c6c16b82a51044928c875a8055a10c5c",
+            "bytes": 247272
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_death_atlas_half/atlas/black_dragon_lab_death_atlas_half.webp": {
+            "sha256": "37edfe59e77e6821c9fb2a366d7912b6d564379d9dcd89f36249d7c87abae58d",
+            "bytes": 770008
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_hit_atlas_half/atlas/black_dragon_lab_hit_atlas_half.webp": {
+            "sha256": "ed0ab205026b0b0006b6a2350551f4c67761b9f99065bd01ebecc2124ff3298c",
+            "bytes": 505318
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_hit_atlas_quarter/atlas/black_dragon_lab_hit_atlas_quarter.webp": {
+            "sha256": "adc8839fb47d6ca9a3ee0c1a7aa0954bd4d12200c28f17d99765b98a341c3599",
+            "bytes": 144274
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_idle_atlas_quarter/atlas/black_dragon_lab_idle_atlas_quarter.webp": {
+            "sha256": "b774d3772f2dcf94fd3344e3c7db37ed3111d4ca8ea85a59ea07924b12c3b75e",
+            "bytes": 326854
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_walk_atlas_half/atlas/black_dragon_lab_walk_atlas_half.webp": {
+            "sha256": "190ddae2a90c2affb702a62cf12a00d9e3c2098dd441166da956c8fdcb251efa",
+            "bytes": 534358
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_walk_atlas_quarter/atlas/black_dragon_lab_walk_atlas_quarter.webp": {
+            "sha256": "9a6b6f293084ef731e73620e9adecfe1d8aaacc7ad4de8e25a9198663aa68aab",
+            "bytes": 164204
+        },
+        "animations/output/q93_atlases_v1/blacksmith_death_atlas_quarter/atlas/blacksmith_death_atlas_quarter.webp": {
+            "sha256": "fc95d24d8633a38a7cef474d86f03b42cd305da9072e03e4f054becb4087160d",
+            "bytes": 73670
+        },
+        "animations/output/q93_atlases_v1/blacksmith_cast_atlas_quarter/atlas/blacksmith_cast_atlas_quarter.webp": {
+            "sha256": "6077a80a7492514137213a8b0db7da63f6e2ddbb29515d5680f02be53dc0743c",
+            "bytes": 78276
+        },
+        "animations/output/q93_atlases_v1/blacksmith_hit_atlas_quarter/atlas/blacksmith_hit_atlas_quarter.webp": {
+            "sha256": "1a2b244cbd81f1806d78e29a80f4c85bfbf676ee68ec667befc3bab45406b6d8",
+            "bytes": 56952
+        },
+        "animations/output/q93_atlases_v1/blacksmith_idle_atlas_quarter/atlas/blacksmith_idle_atlas_quarter.webp": {
+            "sha256": "1df626d944f3ed3d77023451a803c4319972dccd89358c1a5864fcaf21183946",
+            "bytes": 74438
+        },
+        "animations/output/q93_atlases_v1/black_dragon_lab_idle_atlas_half/atlas/black_dragon_lab_idle_atlas_half.webp": {
+            "sha256": "fe60fd3288a74cf38330f6a61a9dc24cde48fbeeacd9c8b35b668b6744177da4",
+            "bytes": 1051804
+        },
+        "animations/output/q93_atlases_v1/blacksmith_melee_attack_atlas_quarter/atlas/blacksmith_melee_attack_atlas_quarter.webp": {
+            "sha256": "bb043a956cc7f2a4f157c5a4743cfc65a8ac08e7e4b9921672501e5d5fc43a3f",
+            "bytes": 83416
+        },
+        "animations/output/q93_atlases_v1/blacksmith_melee_attack_down_atlas_quarter/atlas/blacksmith_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "bcb91b8c7dbcc98d4776f5353ce33e7ec23e380d14cb442453debbcf67a54808",
+            "bytes": 79036
+        },
+        "animations/output/q93_atlases_v1/blacksmith_melee_attack_up_atlas_quarter/atlas/blacksmith_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "0b85400f35ae3384c194436126ee3fa1e3496a1617ec4cd2e9b7808ed100b8b6",
+            "bytes": 83014
+        },
+        "animations/output/q93_atlases_v1/blacksmith_walk_atlas_quarter/atlas/blacksmith_walk_atlas_quarter.webp": {
+            "sha256": "d6501c5346db8117b6cfefaf91fc754ced05d1abe6424c665d718325932950ab",
+            "bytes": 69512
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_attack_atlas_quarter/atlas/centaur_lab_attack_atlas_quarter.webp": {
+            "sha256": "70bb506b962e025b108f1e2f1ef674de55282861260ca1fbd5237f103b5f0ceb",
+            "bytes": 94650
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_attack_down_atlas_quarter/atlas/centaur_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "857eb75b617954d2358d598568c220d311ea2114eb43c0635cd0875a4240011a",
+            "bytes": 90752
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_attack_up_atlas_quarter/atlas/centaur_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "3c158d8e6e0452e99f4cb7e7fc007a47e4ce19c86b6788504b4dbf60a538db0a",
+            "bytes": 92124
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_death_atlas_quarter/atlas/centaur_lab_death_atlas_quarter.webp": {
+            "sha256": "257e528dcfbf74db5f7185a69c23d337ffa33ad8a6487d7814933adb650479dc",
+            "bytes": 82482
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_hit_atlas_quarter/atlas/centaur_lab_hit_atlas_quarter.webp": {
+            "sha256": "44cc1be17a74c416b73e550c734972d0dc142f90e91a820092a0d3e119f8b19b",
+            "bytes": 83922
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_melee_attack_atlas_quarter/atlas/centaur_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "fa05290b5acc6e2039f11f18e1630fad212006ec4af1e0306fbbda597e240474",
+            "bytes": 91072
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_melee_attack_down_atlas_quarter/atlas/centaur_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "a20662b93f80324761004549f12ef965faf0f2ac58aeb6bd1169e80104ed359e",
+            "bytes": 89304
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_melee_attack_up_atlas_quarter/atlas/centaur_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "9f9bb53bc961d1b0452d883e67abd1f9e6e35440f376577f19a4805cf2bc9db9",
+            "bytes": 88770
+        },
+        "animations/output/q93_atlases_v1/champion_lab_hit_atlas_quarter/atlas/champion_lab_hit_atlas_quarter.webp": {
+            "sha256": "1b0c04fc7b721f37a02d240016667242e58958627bbb3e6baa4c32555c514712",
+            "bytes": 89820
+        },
+        "animations/output/q93_atlases_v1/centaur_lab_walk_atlas_quarter/atlas/centaur_lab_walk_atlas_quarter.webp": {
+            "sha256": "6da0048d3cc706e81d42bb52632b36be1af5105aec6ed1e4dfdba40d7289726d",
+            "bytes": 142890
+        },
+        "animations/output/q93_atlases_v1/champion_lab_idle_atlas_quarter/atlas/champion_lab_idle_atlas_quarter.webp": {
+            "sha256": "ba37e5d95fd813a891fe3690c2f35701d6de8e2242300deea2cb1f5055619e90",
+            "bytes": 218310
+        },
+        "animations/output/q93_atlases_v1/champion_lab_melee_attack_atlas_quarter/atlas/champion_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "119fa8bc448d9aed60ea13945047210adc0c372926bd662102b26666fb56ae2f",
+            "bytes": 367092
+        },
+        "animations/output/q93_atlases_v1/champion_lab_melee_attack_down_atlas_quarter/atlas/champion_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "1c7c2d776de78e9d0f7c92b8fe089e3f2e4c2886a6b9a62870ad7787c79f799a",
+            "bytes": 369108
+        },
+        "animations/output/q93_atlases_v1/champion_lab_walk_atlas_quarter/atlas/champion_lab_walk_atlas_quarter.webp": {
+            "sha256": "69c910628bf9bc920e7fde5ac95d14dfe0284147fca2912335470ed3dbddfd65",
+            "bytes": 115488
+        },
+        "animations/output/q93_atlases_v1/crusader_death_atlas_quarter/atlas/crusader_death_atlas_quarter.webp": {
+            "sha256": "22cc10f53136ec12339f0c9b88ee3e72bcb56b932eea0643b8575864d1e1a596",
+            "bytes": 61990
+        },
+        "animations/output/q93_atlases_v1/crusader_hit_atlas_quarter/atlas/crusader_hit_atlas_quarter.webp": {
+            "sha256": "787e2caeaa81cd3a3a06984644500125f15e79a64c5984c4cbbffa122c69e6c9",
+            "bytes": 76896
+        },
+        "animations/output/q93_atlases_v1/champion_lab_melee_attack_up_atlas_quarter/atlas/champion_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "cc28d1d5aa9afaf9dffef587a67c873584eb561b15ead05d4b7c989b7f80fd4d",
+            "bytes": 377412
+        },
+        "animations/output/q93_atlases_v1/crusader_melee_attack_atlas_quarter/atlas/crusader_melee_attack_atlas_quarter.webp": {
+            "sha256": "6f09bc6e4a5caba5365053d0739130d538e7a4f62a51b29b03187dabb92aa91b",
+            "bytes": 126854
+        },
+        "animations/output/q93_atlases_v1/crusader_melee_attack_down_atlas_quarter/atlas/crusader_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "e7790ca8f8e557c656f00d677d6d5bd1475ab58105818072f1b5a490ee502331",
+            "bytes": 83244
+        },
+        "animations/output/q93_atlases_v1/crusader_melee_attack_up_atlas_quarter/atlas/crusader_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "0c4f369abea06f1f209ae8c5f1dba8b46714ca46a71ba16ab58bc484348dea40",
+            "bytes": 81038
+        },
+        "animations/output/q93_atlases_v1/crusader_walk_atlas_quarter/atlas/crusader_walk_atlas_quarter.webp": {
+            "sha256": "b2d4c3e15f71650972889392d8bc9b0c274c11ec8fe66aad085a4aba9a734441",
+            "bytes": 86604
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_attack_atlas_quarter/atlas/dryad_lab_attack_atlas_quarter.webp": {
+            "sha256": "af9d2e90a5acf8c6f9134e9cf1397f9f56045751bb947a16a37d75771ec77ed2",
+            "bytes": 133824
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_attack_down_atlas_quarter/atlas/dryad_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "5708161fd92386989c8bcb1c821edee3e8446b20a5f56e10e6fdbd31c13cbedc",
+            "bytes": 136164
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_attack_up_atlas_quarter/atlas/dryad_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "384cd09c9d6b408bed5d27018db917b11748e5c0e15ddb90bd276665cc5020b1",
+            "bytes": 135064
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_death_atlas_quarter/atlas/dryad_lab_death_atlas_quarter.webp": {
+            "sha256": "cbbdfa4e002dc920b399d6d4923628cd66238b3c33fada762fe7a23e31864259",
+            "bytes": 61814
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_hit_atlas_quarter/atlas/dryad_lab_hit_atlas_quarter.webp": {
+            "sha256": "c9d9806d771bb7f1f0e822f472abdad88f2d4530cef8b4e9cdbbe10f5f39d9a0",
+            "bytes": 92586
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_melee_attack_atlas_quarter/atlas/dryad_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "0b2d33fe4f367ff7bddf5495a7dc5872dd30dad4b883e96739c836cc870a1a27",
+            "bytes": 71542
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_melee_attack_down_atlas_quarter/atlas/dryad_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "8176f0e01e5062decc6f80842502469be73a56711f055b1d80b4ad13f84c209d",
+            "bytes": 68722
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_melee_attack_up_atlas_quarter/atlas/dryad_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "957e968c24925b80e159946b950be62007c05e1dcf66b08e21cf702e357a4da5",
+            "bytes": 71110
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_walk_atlas_quarter/atlas/dryad_lab_walk_atlas_quarter.webp": {
+            "sha256": "6851ccb685ca0adc6d8b899116110c8f9ffc45cff11e466e6365a22313174ff4",
+            "bytes": 115464
+        },
+        "animations/output/q93_atlases_v1/arbalester_idle_atlas/atlas/arbalester_idle_atlas.webp": {
+            "sha256": "6914978d10817ccb99276ef3d964b1199875d12137137760e72344388231dd16",
+            "bytes": 32027466
+        },
+        "animations/output/q93_atlases_v1/dryad_painted_idle_atlas/atlas/dryad_painted_idle_atlas.webp": {
+            "sha256": "6037a3f4f60c2f4a20508475f76dffb6575eb0955c15271f752693ce81813738",
+            "bytes": 1291882
+        },
+        "animations/output/q93_atlases_v1/efreet_idle_aaa_v1_atlas/atlas/efreet_idle_aaa_v1_atlas.webp": {
+            "sha256": "3a4665f12bd7dd470f3fc26dd91a7a9dc9a4ac4ccbe0ff980fc4221241557c3b",
+            "bytes": 631738
+        },
+        "animations/output/q93_atlases_v1/dryad_lab_idle_atlas/atlas/dryad_lab_idle_atlas.webp": {
+            "sha256": "04e344734fc8773f8cb67a9e352a6660b7d17bca67042950ffa7036905416d0c",
+            "bytes": 2749362
+        },
+        "animations/output/q93_atlases_v1/efreet_idle_aaa_v2_atlas/atlas/efreet_idle_aaa_v2_atlas.webp": {
+            "sha256": "caba0f0f7a68b87ef4177d080cc6daa65371ff8864dabaed68ac6e1fab8f4b0a",
+            "bytes": 1015994
+        },
+        "animations/output/q93_atlases_v1/efreet_lab_death_atlas/atlas/efreet_lab_death_atlas.webp": {
+            "sha256": "5b234ec36ab0eff5478b62878a87f86bb7e5b858837d498c649f174eeb805711",
+            "bytes": 993978
+        },
+        "animations/output/q93_atlases_v1/efreet_lab_melee_attack_atlas/atlas/efreet_lab_melee_attack_atlas.webp": {
+            "sha256": "9cf82946f3711682995f1ca08b4fd34474feae6db43428e50485877ce32714e1",
+            "bytes": 611936
+        },
+        "animations/output/q93_atlases_v1/elf_lab_attack_atlas_quarter/atlas/elf_lab_attack_atlas_quarter.webp": {
+            "sha256": "da52372d0ff6d5c2adedaabb958fcd6daa0eca8715dd43910c3b1563be730075",
+            "bytes": 185086
+        },
+        "animations/output/q93_atlases_v1/elf_lab_death_atlas_quarter/atlas/elf_lab_death_atlas_quarter.webp": {
+            "sha256": "4feac8c43f6a37f4b5da6c4212211c3a838b1ec4ab043f9c9044e4b1ebf5e671",
+            "bytes": 66698
+        },
+        "animations/output/q93_atlases_v1/elf_lab_attack_down_atlas_quarter/atlas/elf_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "bec6def99de3c715c94d96fdfff61e859f1d48d46000d348193e69a74cb7de67",
+            "bytes": 186656
+        },
+        "animations/output/q93_atlases_v1/elf_lab_attack_up_atlas_quarter/atlas/elf_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "95db93aadbd1d173c9bd2802354f53452a24a4209f49d90a73071b749f4d54e4",
+            "bytes": 179432
+        },
+        "animations/output/q93_atlases_v1/elf_lab_hit_atlas_quarter/atlas/elf_lab_hit_atlas_quarter.webp": {
+            "sha256": "f66147206a74081eaa18741467a3565024f675783f53e6839918b49765a4446d",
+            "bytes": 257208
+        },
+        "animations/output/q93_atlases_v1/elf_lab_melee_attack_atlas_quarter/atlas/elf_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "5af73b5f7475fbaf47969eaf71e06249389bd7613eb2ca051428303e46b8d4c0",
+            "bytes": 92688
+        },
+        "animations/output/q93_atlases_v1/elf_lab_melee_attack_down_atlas_quarter/atlas/elf_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "0fdda4f62e4bc962d9fa2ce68afa61502965925fa63012e44339303701cc02fa",
+            "bytes": 101044
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_death_atlas_quarter/atlas/fairy_lab_death_atlas_quarter.webp": {
+            "sha256": "1039705aa7ab292224435b83bcddc08974b89ed801f3779427c8ca590d38d0cf",
+            "bytes": 57636
+        },
+        "animations/output/q93_atlases_v1/elf_lab_melee_attack_up_atlas_quarter/atlas/elf_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "86cfdf476e5255c50ab28160c578e6745d76bf46305d601ef400674dad31cdd8",
+            "bytes": 90760
+        },
+        "animations/output/q93_atlases_v1/elf_lab_walk_atlas_quarter/atlas/elf_lab_walk_atlas_quarter.webp": {
+            "sha256": "4265a6cf5c5a270296c1265d6ee98598eeb808d0d3e8ccfb34caf02b6fe8c78f",
+            "bytes": 104336
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_hit_atlas_quarter/atlas/fairy_lab_hit_atlas_quarter.webp": {
+            "sha256": "ab54d33b2abf9c13f53a3c51dbc9fc87bb04f4a674008822d734b5398e75c541",
+            "bytes": 53898
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_melee_attack_atlas_quarter/atlas/fairy_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "967be116626b954358f49053dfb84d945902b55467acf9529ff3cd25c07bf0f4",
+            "bytes": 50690
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_melee_attack_down_atlas_quarter/atlas/fairy_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "838c082488d76790e5948424f7ab28c3394f9cfebdcada1866c3c180316ea8a1",
+            "bytes": 50072
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_melee_attack_up_atlas_quarter/atlas/fairy_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "02ab9e7935ff89b897c22dfd49cca8fc9b8fdcf821817f8f123dd9343fff77d8",
+            "bytes": 51486
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_idle_atlas_quarter/atlas/fairy_lab_idle_atlas_quarter.webp": {
+            "sha256": "4e0f9268687882b35832eef4053621151c7877a5d6d4fa3fa29685532d14b05b",
+            "bytes": 40902
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_hit_atlas_quarter/atlas/frenzied_boar_lab_hit_atlas_quarter.webp": {
+            "sha256": "5d6d203aaa70fbee49ca4ad88035dd0e59b8c66941123d016cebad708a5aa9fc",
+            "bytes": 109088
+        },
+        "animations/output/q93_atlases_v1/fairy_lab_walk_atlas_quarter/atlas/fairy_lab_walk_atlas_quarter.webp": {
+            "sha256": "6d17ffb76f4ecce37182173dde97b404e40a6f2c581182c2490105981122d07b",
+            "bytes": 75758
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_death_atlas_quarter/atlas/frenzied_boar_lab_death_atlas_quarter.webp": {
+            "sha256": "4473c04e62731275ed4a7e2a6dc88d09b116f85311c32539ef75398472938248",
+            "bytes": 115302
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_melee_attack_down_atlas_quarter/atlas/frenzied_boar_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "357e2eb1a4afa62ed4921b124124222c4e578fd5b2fb4197aa05ef8859573148",
+            "bytes": 157068
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_melee_attack_atlas_quarter/atlas/frenzied_boar_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "5ccd9ef2e6a04fb2115a04a8b2e4ba25149841d40884706ea78e7458ca46945f",
+            "bytes": 164770
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_idle_atlas_quarter/atlas/frenzied_boar_lab_idle_atlas_quarter.webp": {
+            "sha256": "530c0243cbb55044591e63980bc1417f0f7086ff1b4edea967393a9a74b177b1",
+            "bytes": 633216
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_melee_attack_up_atlas_quarter/atlas/frenzied_boar_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "37004be888d99928a47c8d490f25143f20842051c9002aa0fd0a6bb3c1f125f6",
+            "bytes": 199100
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_attack_atlas_quarter/atlas/gargantuan_lab_attack_atlas_quarter.webp": {
+            "sha256": "61f89b40bebecd230860d092da546a719048e47187f0c1376011adf87fc98ee2",
+            "bytes": 94618
+        },
+        "animations/output/q93_atlases_v1/frenzied_boar_lab_walk_atlas_quarter/atlas/frenzied_boar_lab_walk_atlas_quarter.webp": {
+            "sha256": "39aa8f5a1511313767289b08126a35e5286454c9a016ff1d19207430e4b65ff0",
+            "bytes": 114924
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_attack_down_atlas_quarter/atlas/gargantuan_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "2f545f074a4dd5459cb790982972995e7076dcec58dce7da754112c265dd98ee",
+            "bytes": 94060
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_attack_up_atlas_quarter/atlas/gargantuan_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "c468691420d0c7166e65ca3949bf041191898d2cd690de961171db15e68078b5",
+            "bytes": 94896
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_death_atlas_quarter/atlas/gargantuan_lab_death_atlas_quarter.webp": {
+            "sha256": "2f67c9605cca1619eff80b0b90acffeb41a2aa76af9180578de42610e37b40fb",
+            "bytes": 121878
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_melee_attack_atlas_quarter/atlas/gargantuan_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "79592921c3e769892141668ae2ab10500b950fde662fdc6b9de97b3896d5403f",
+            "bytes": 94990
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_hit_atlas_quarter/atlas/gargantuan_lab_hit_atlas_quarter.webp": {
+            "sha256": "1888fd1ec5d9e9eb1ec8dda30fe35cd6694c1483718cbffaece9203bcad045a7",
+            "bytes": 142796
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_idle_atlas_quarter/atlas/gargantuan_lab_idle_atlas_quarter.webp": {
+            "sha256": "494729243fb64e3de826053e0cb1fa1172c18a396273cd268a8e4732998ccb3b",
+            "bytes": 186970
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_melee_attack_down_atlas_quarter/atlas/gargantuan_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "024abef935ffabe02aaabfb99b5178d45ccb4db602a5d6bdbfb3bd4c4e49856f",
+            "bytes": 94196
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_walk_atlas_quarter/atlas/gargantuan_lab_walk_atlas_quarter.webp": {
+            "sha256": "eb4da760be36e9a715d555cd3f53efa43fd0e063365664065804ed93b1f1d7d7",
+            "bytes": 82630
+        },
+        "animations/output/q93_atlases_v1/gargantuan_lab_melee_attack_up_atlas_quarter/atlas/gargantuan_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "384c118ffe46bd2027bd8b5f405dbce4cf63d842356d75ed85a93b137fae5e0b",
+            "bytes": 95534
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_lab_hit_atlas_quarter/atlas/goblin_knight_lab_hit_atlas_quarter.webp": {
+            "sha256": "95bfcd31116045242aabe35597d1e5e83327469ff0fa4cc9643316ec12df4b58",
+            "bytes": 101744
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_lab_death_atlas_quarter/atlas/goblin_knight_lab_death_atlas_quarter.webp": {
+            "sha256": "ac2b591deb14fc17680f930672d8ad1081bb3de92adccff6b5ceedf5db015083",
+            "bytes": 111568
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_etch_atlas_quarter/atlas/goblin_knight_etch_atlas_quarter.webp": {
+            "sha256": "e0846c06706192a21ab6dd1eb543b379cdbf013b01f3e53014b908ca70fe8231",
+            "bytes": 148932
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_lab_melee_attack_atlas_quarter/atlas/goblin_knight_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "6437e89b3133a19cf94b9254127ea59ae79c36b4f417c9646500801b0bad25de",
+            "bytes": 102534
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_lab_melee_attack_down_atlas_quarter/atlas/goblin_knight_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "d19450a75e5128cb319ceeb1936c5fc4369fccf44f566ac7a11da2f883df1274",
+            "bytes": 104842
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_lab_melee_attack_up_atlas_quarter/atlas/goblin_knight_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "1a5f1c2b06b69941690692cfb23e86c86f51e077663c92cd3d42c26c47fcccaa",
+            "bytes": 100120
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_walk_atlas_quarter/atlas/goblin_knight_walk_atlas_quarter.webp": {
+            "sha256": "19854241729f539e73960fb603d23669871c1ebbeb7a7cc50b2141911dcbf121",
+            "bytes": 83938
+        },
+        "animations/output/q93_atlases_v1/harpy_cast_atlas_quarter/atlas/harpy_cast_atlas_quarter.webp": {
+            "sha256": "c9eae3408359a817a93b56713e728d061496bcc9a2a643859f030e43e10f843a",
+            "bytes": 115460
+        },
+        "animations/output/q93_atlases_v1/griffin_flight_walk_atlas_quarter/atlas/griffin_flight_walk_atlas_quarter.webp": {
+            "sha256": "1e181665f49b1ca77c36534f598a8f763b177c7e13f17fddc75424a65fe2d433",
+            "bytes": 245390
+        },
+        "animations/output/q93_atlases_v1/harpy_death_atlas_quarter/atlas/harpy_death_atlas_quarter.webp": {
+            "sha256": "c830fa9b128f9ed5d6e155ba4c4cdcbb3f3cbb72c33859e682a948f7c7ae2e86",
+            "bytes": 76164
+        },
+        "animations/output/q93_atlases_v1/goblin_knight_etch_atlas/atlas/goblin_knight_etch_atlas.webp": {
+            "sha256": "b66fd3678329174ab1aa75e84364973a68394c948d304e709fb9b1d22a750cc6",
+            "bytes": 1216822
+        },
+        "animations/output/q93_atlases_v1/harpy_hit_atlas_quarter/atlas/harpy_hit_atlas_quarter.webp": {
+            "sha256": "9e2ac016b16d401f176f7a629d70e6700d32e5b5dfa7029795dccd4afa70328c",
+            "bytes": 65076
+        },
+        "animations/output/q93_atlases_v1/harpy_idle_atlas_quarter/atlas/harpy_idle_atlas_quarter.webp": {
+            "sha256": "e9f63a73136a620504e74b881e3b84a19a38334e80114998308ede2517d9aff0",
+            "bytes": 237062
+        },
+        "animations/output/q93_atlases_v1/harpy_melee_attack_atlas_quarter/atlas/harpy_melee_attack_atlas_quarter.webp": {
+            "sha256": "be0c502df8664377ea3b9b89ccdf30b973646d1b876be6e606caba0bce3082cd",
+            "bytes": 75382
+        },
+        "animations/output/q93_atlases_v1/harpy_melee_attack_down_atlas_quarter/atlas/harpy_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "7fb12b7e64fb8f850f274e45a29eacc6cacb101c6feeb0ea3797ad37ac482f3a",
+            "bytes": 77158
+        },
+        "animations/output/q93_atlases_v1/harpy_melee_attack_up_atlas_quarter/atlas/harpy_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "ae9df84c49695ac3745dd2b28224ba90c01604a9e1f39f5c5317afe557ad34a8",
+            "bytes": 76742
+        },
+        "animations/output/q93_atlases_v1/healer_lab_attack_atlas_quarter/atlas/healer_lab_attack_atlas_quarter.webp": {
+            "sha256": "36418173bb2a81b08c56f71b99c7e3758b50b05a0c4af3ce46d4fa1df608342f",
+            "bytes": 78100
+        },
+        "animations/output/q93_atlases_v1/healer_lab_attack_down_atlas_quarter/atlas/healer_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "d0e480fac211c12225e0582d334873788aaeaf76569dd77443b8b9698c97d54f",
+            "bytes": 77034
+        },
+        "animations/output/q93_atlases_v1/healer_lab_attack_up_atlas_quarter/atlas/healer_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "ba3d63356fdd9ac2c27a3ff5be7e44466a375a9220a53b812ba235a4d105e3d1",
+            "bytes": 77162
+        },
+        "animations/output/q93_atlases_v1/healer_lab_death_atlas_quarter/atlas/healer_lab_death_atlas_quarter.webp": {
+            "sha256": "b560c8abdbfc2af40756c6cb81bb8abf2d999ed537e329f54b2bf9a9f43fff50",
+            "bytes": 71530
+        },
+        "animations/output/q93_atlases_v1/healer_lab_cast_atlas_quarter/atlas/healer_lab_cast_atlas_quarter.webp": {
+            "sha256": "8281f7286df2720e3255a1dfbae2cab6e054904df6fcc7e1c1f411de95d32c2f",
+            "bytes": 77132
+        },
+        "animations/output/q93_atlases_v1/healer_lab_hit_atlas_quarter/atlas/healer_lab_hit_atlas_quarter.webp": {
+            "sha256": "531b1e521a7eb918dc24ab94f713ebb782464c2fa6571ca90bcc5d4632751e9b",
+            "bytes": 55084
+        },
+        "animations/output/q93_atlases_v1/healer_lab_idle_atlas_quarter/atlas/healer_lab_idle_atlas_quarter.webp": {
+            "sha256": "6e26b79276fb6939cde61eb5a6f850be06975286f78436ba67f06578da91920f",
+            "bytes": 81304
+        },
+        "animations/output/q93_atlases_v1/healer_lab_walk_atlas_quarter/atlas/healer_lab_walk_atlas_quarter.webp": {
+            "sha256": "def5ba7bf361a6b14cbaddaf1baaf93c8a4c84b7421a7b0d893f887dc7560880",
+            "bytes": 69146
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_crest_fire_atlas/atlas/hydra_lab_crest_fire_atlas.webp": {
+            "sha256": "270efc35a76aebb0b372cd13013567ba33a8f814501feb2db362a0a18fb4e044",
+            "bytes": 184844
+        },
+        "animations/output/q93_atlases_v1/griffin_lab_idle_atlas_quarter/atlas/griffin_lab_idle_atlas_quarter.webp": {
+            "sha256": "0cb38c011c946e4ca4613a580e1b8868ece3edf01d319722af35a925df068ee8",
+            "bytes": 2067788
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_crest_fire_atlas_half/atlas/hydra_lab_crest_fire_atlas_half.webp": {
+            "sha256": "41a07477c19df445dbb8e360004376738e8cda3dcb8daa9c915773cc1fb06fa0",
+            "bytes": 91636
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_death_atlas_quarter/atlas/hydra_lab_death_atlas_quarter.webp": {
+            "sha256": "2c929e4db3cecbb026a51ad5834c8bd2ced8a05195e8480f8142712bc166d76e",
+            "bytes": 456418
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_hit_atlas_quarter/atlas/hydra_lab_hit_atlas_quarter.webp": {
+            "sha256": "5953c46970231d1337a1e8f2d74474b6d5e23a62f0b65404f8074077274590d6",
+            "bytes": 187882
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_hit_atlas_half/atlas/hydra_lab_hit_atlas_half.webp": {
+            "sha256": "a35b15e4020e7d9fb1e41b2d387c4a6f2573eab7ea5a0c02b0633abecf960fa1",
+            "bytes": 616520
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_death_atlas_half/atlas/hydra_lab_death_atlas_half.webp": {
+            "sha256": "88340f912d8a9c92d96c083ea9cc46826957986c0add8929f0e23c8e2e0eea9a",
+            "bytes": 1539962
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_melee_attack_atlas_quarter/atlas/hydra_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "6526cabf5c50b8170105ac6d2dc637d8c8682ece6768fdcabbb29ed7ac8f3303",
+            "bytes": 281442
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_idle_atlas_quarter/atlas/hydra_lab_idle_atlas_quarter.webp": {
+            "sha256": "fca223319e9740f626d57db7e454abe65ebc1e4a11e408385f344b80a4bdf2a8",
+            "bytes": 982790
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_melee_attack_atlas_half/atlas/hydra_lab_melee_attack_atlas_half.webp": {
+            "sha256": "085d4b4d24dbb6a6e315675a113c98489030f653a9b040db445491cef41193b1",
+            "bytes": 983604
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_melee_attack_down_atlas_quarter/atlas/hydra_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "adfe69baff973c0b433d482beccdf9dc28c5000d5cd0684b58ac2722ead7d638",
+            "bytes": 493580
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_melee_attack_down_atlas_half/atlas/hydra_lab_melee_attack_down_atlas_half.webp": {
+            "sha256": "dd106fd7ad61f0420e0e5c1b0cde5985fd1de23328dc75dfdf24cf05430eb709",
+            "bytes": 1602982
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_melee_attack_up_atlas_quarter/atlas/hydra_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "8c65048008cf0f01cb64eb0033ff72d3df176c2ad86e6c198d693a509f37f97d",
+            "bytes": 513400
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_walk_atlas_half/atlas/hydra_lab_walk_atlas_half.webp": {
+            "sha256": "81bf84d84c2e2062f827cdacc8cccd52e9ef29088f9a077a145fa8bad5b8dcd9",
+            "bytes": 290476
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_melee_attack_up_atlas_half/atlas/hydra_lab_melee_attack_up_atlas_half.webp": {
+            "sha256": "10c7283b62ed7f81cf4339cce7dee9bfe8ff81ed0827b9fb7836699f3cbe2474",
+            "bytes": 1660532
+        },
+        "animations/output/q93_atlases_v1/hyena_walk_atlas_quarter/atlas/hyena_walk_atlas_quarter.webp": {
+            "sha256": "c9dee35ae6e8397ffb54d22716f344a6bbb433128961fd9da4eff7187e5a93e4",
+            "bytes": 89062
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_walk_atlas_quarter/atlas/hydra_lab_walk_atlas_quarter.webp": {
+            "sha256": "929865a3aab46ce7f909fbef2449846f9096475ff7bdeed57fde9156cde6112f",
+            "bytes": 105846
+        },
+        "animations/output/q93_atlases_v1/lava_chasm_glow_narrowing_level_1_atlas/atlas/lava_chasm_glow_narrowing_level_1_atlas.webp": {
+            "sha256": "fd7b9b39b096bea78109291c731c1cc1e6e601354a62b0e59d1b81c59a47a14b",
+            "bytes": 176246
+        },
+        "animations/output/q93_atlases_v1/lava_chasm_glow_narrowing_level_2_atlas/atlas/lava_chasm_glow_narrowing_level_2_atlas.webp": {
+            "sha256": "e2ba85c45976655ee725e08449cfce000393d7f0082eb4f231cda7fbf28550d8",
+            "bytes": 250568
+        },
+        "animations/output/q93_atlases_v1/lava_chasm_glow_narrowing_level_4_atlas/atlas/lava_chasm_glow_narrowing_level_4_atlas.webp": {
+            "sha256": "3366b89c8a33b26e74d10252b382fe1c8ce61e22bc0ea414b5969aa4582ead99",
+            "bytes": 306728
+        },
+        "animations/output/q93_atlases_v1/lava_chasm_glow_narrowing_level_5_atlas/atlas/lava_chasm_glow_narrowing_level_5_atlas.webp": {
+            "sha256": "5f7834b50201d2faa53dac00b99967e649c54ecd3909b8d344f7dfae9170dee0",
+            "bytes": 280354
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_death_atlas/atlas/leprechaun_lab_death_atlas.webp": {
+            "sha256": "4eab49f80b38bf0bd6ba4feebb4f648372155240d0ca1b3609948db1f6223ef9",
+            "bytes": 437282
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_death_atlas_quarter/atlas/leprechaun_lab_death_atlas_quarter.webp": {
+            "sha256": "51f1740f9e1d4934adfd580553907127d2f53db6780ee5bdda7a6ce3912cc31f",
+            "bytes": 60384
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_hit_atlas_quarter/atlas/leprechaun_lab_hit_atlas_quarter.webp": {
+            "sha256": "027f2b0c225d2117493e14cb750870187489de73636a7efed52cada4aa726461",
+            "bytes": 87046
+        },
+        "animations/output/q93_atlases_v1/hydra_lab_idle_atlas_half/atlas/hydra_lab_idle_atlas_half.webp": {
+            "sha256": "3030960bf1e5fb451559f74d28f30f15a6298f1b50e9d8aaeab153031ecaaa43",
+            "bytes": 3337956
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_hit_atlas/atlas/leprechaun_lab_hit_atlas.webp": {
+            "sha256": "86e762a7d756f44ff824ac061bb19f003927965d470c110635069618560cb30a",
+            "bytes": 701254
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_melee_attack_atlas_quarter/atlas/leprechaun_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "42c8b8006a761236da6df68d4d143d115eb7ea028de07472a15fbf3a5684317a",
+            "bytes": 80426
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_melee_attack_down_atlas_quarter/atlas/leprechaun_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "de47bddff14938d2dbfec1400b7af3e6e9c6fefb0a66b7fdb963068fe4a636a6",
+            "bytes": 80100
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_idle_atlas/atlas/leprechaun_lab_idle_atlas.webp": {
+            "sha256": "af84f3b7182a8501e2690b0689896a992b97f3d7a93148abfb92368731ecab2e",
+            "bytes": 976270
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_melee_attack_atlas/atlas/leprechaun_lab_melee_attack_atlas.webp": {
+            "sha256": "6e41345ea640da94d6938d863c6e4ecc2a71f1ba8ff39a9a6a4f99d4b1e0976d",
+            "bytes": 637666
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_melee_attack_up_atlas_quarter/atlas/leprechaun_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "7d5cc4c5a5cd9334f4ac991bc08503a103edb1e1182a62bd9335b04f9aa4bb99",
+            "bytes": 81830
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_melee_attack_down_atlas/atlas/leprechaun_lab_melee_attack_down_atlas.webp": {
+            "sha256": "33677932bf2848137c321ebe17ae7db001ebd2670ebf801e9fe69f6e415aefd6",
+            "bytes": 650464
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_walk_atlas/atlas/leprechaun_lab_walk_atlas.webp": {
+            "sha256": "8d138543acb7f04eaf8327db675c49e37210cffa60aab95bc17ff612b2477d06",
+            "bytes": 623644
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_walk_atlas_quarter/atlas/leprechaun_lab_walk_atlas_quarter.webp": {
+            "sha256": "8298b3c612061853849c91184887376cd97cd4224a1aaf562baffe7044d3945b",
+            "bytes": 100180
+        },
+        "animations/output/q93_atlases_v1/leprechaun_lab_melee_attack_up_atlas/atlas/leprechaun_lab_melee_attack_up_atlas.webp": {
+            "sha256": "d6138a5db304165fd9979466fb2aa96a5ec8fe01a21155314a211dcbdf28c8d1",
+            "bytes": 652974
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_death_atlas_quarter/atlas/magic_dragon_lab_death_atlas_quarter.webp": {
+            "sha256": "798a0eb647b7efe07ced3be4bd41ed854daf89d2b836b96b096cb72ef439891d",
+            "bytes": 129706
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_hit_atlas_quarter/atlas/magic_dragon_lab_hit_atlas_quarter.webp": {
+            "sha256": "7a184f7a2cee7ef24f59b92b1111bb66d7916c40d32eb83bf0d26b63546ee4a6",
+            "bytes": 115088
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_melee_attack_atlas_quarter/atlas/magic_dragon_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "8a609d4c91bc41f49ed18ebc789ef44c330a567b7a35bc8b01d7599f4b1e793b",
+            "bytes": 111326
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_melee_attack_down_atlas_quarter/atlas/magic_dragon_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "eae6f759ce274f9ab86df907eff7e4793e30e9706164bd9bfa2f05df47d10eed",
+            "bytes": 110120
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_melee_attack_up_atlas_quarter/atlas/magic_dragon_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "d812235bb3413c2ff9bb853d128f75a9e5b14b567eeb5dbfd70eed0dddb549d3",
+            "bytes": 110200
+        },
+        "animations/output/q93_atlases_v1/manticore_lab_death_atlas_quarter/atlas/manticore_lab_death_atlas_quarter.webp": {
+            "sha256": "7b70ecc49fd734e9d873b8d8c7c883b5c716ef33ee18ae15d1f863041b986e1c",
+            "bytes": 94616
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_idle_atlas_quarter/atlas/magic_dragon_lab_idle_atlas_quarter.webp": {
+            "sha256": "fe70f73ff3c6d6082ceae8e06767dba22b72e21ba16c9bb3b9d598b6f5978b9a",
+            "bytes": 808966
+        },
+        "animations/output/q93_atlases_v1/magic_dragon_lab_walk_atlas_quarter/atlas/magic_dragon_lab_walk_atlas_quarter.webp": {
+            "sha256": "4c435377541f571d0ace1d34597f37d441a86926b871a3a98b3d95ed2227ad11",
+            "bytes": 240154
+        },
+        "animations/output/q93_atlases_v1/manticore_lab_hit_atlas_quarter/atlas/manticore_lab_hit_atlas_quarter.webp": {
+            "sha256": "4793f1ff24016a77a7e1ec4e9daa8d18d46285c491dfb274e69466ad5c45fcf8",
+            "bytes": 108238
+        },
+        "animations/output/q93_atlases_v1/manticore_lab_melee_attack_atlas_quarter/atlas/manticore_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "b66d3cb8483e46b670b42a15670f060033e0d2c88dc0f643fd920c025a944750",
+            "bytes": 104664
+        },
+        "animations/output/q93_atlases_v1/manticore_lab_melee_attack_down_atlas_quarter/atlas/manticore_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "ae1c25970a9f1991b6de409c0c74cda9709f65091cda951a3fc25138d151fc6f",
+            "bytes": 99214
+        },
+        "animations/output/q93_atlases_v1/manticore_lab_melee_attack_up_atlas_quarter/atlas/manticore_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "19397e0f931a4c97bfc2846cd370d08efb64426b91045bcabe7c42700c7ba811",
+            "bytes": 97604
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_death_atlas_quarter/atlas/mantis_lab_death_atlas_quarter.webp": {
+            "sha256": "173a85e7232990ac747371174f036adf6696357b0276f7e4bf68ba66e3dca489",
+            "bytes": 55648
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_death_atlas/atlas/mantis_lab_death_atlas.webp": {
+            "sha256": "7ce19c88c6a080cb2f545093b36b3f04043fcd83e78eb12af6815b1f992532df",
+            "bytes": 372044
+        },
+        "animations/output/q93_atlases_v1/manticore_lab_walk_atlas_quarter/atlas/manticore_lab_walk_atlas_quarter.webp": {
+            "sha256": "7af92ea671eee7a0cd444014620bdf329bf869b20b24cf905144aa284fb0316e",
+            "bytes": 238690
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_hit_atlas_quarter/atlas/mantis_lab_hit_atlas_quarter.webp": {
+            "sha256": "df3052882e3f3cd0483ec5cdfe454ab5e6bdc6d1cfa1ae048941a892d247792b",
+            "bytes": 51890
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_idle_atlas_quarter/atlas/mantis_lab_idle_atlas_quarter.webp": {
+            "sha256": "5a15fdac3fa86dbc2b81da650f84506b8d53b947773d0d19d849e20d3dde5c89",
+            "bytes": 230866
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_walk_atlas/atlas/mantis_lab_walk_atlas.webp": {
+            "sha256": "069ce97a01f1df3c48dee1dd5c744fe931da69b9eaa22d4ac47036691d414117",
+            "bytes": 544916
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_idle_atlas/atlas/mantis_lab_idle_atlas.webp": {
+            "sha256": "2f7ae5752359c499300612129dd48d40c94dbe8da5e74f69af92b1bc671472cd",
+            "bytes": 1705678
+        },
+        "animations/output/q93_atlases_v1/mantis_lab_walk_atlas_quarter/atlas/mantis_lab_walk_atlas_quarter.webp": {
+            "sha256": "1276ad6106f282d0cc8fc109d4957f8236c527f77e74259ac34cce31cb4f9306",
+            "bytes": 70062
+        },
+        "animations/output/q93_atlases_v1/medusa_lab_death_atlas_quarter/atlas/medusa_lab_death_atlas_quarter.webp": {
+            "sha256": "c93680be4e7cef5890640c06eb4e0b8bf4f061ed3bbed6450c56e48d1b51134b",
+            "bytes": 124676
+        },
+        "animations/output/q93_atlases_v1/medusa_lab_projectile_atlas/atlas/medusa_lab_projectile_atlas.webp": {
+            "sha256": "ffdf7583f002a39c133a72dbaff8e5829979d63499b6f2bed2ebdca2d9418a54",
+            "bytes": 236418
+        },
+        "animations/output/q93_atlases_v1/medusa_lab_walk_atlas_quarter/atlas/medusa_lab_walk_atlas_quarter.webp": {
+            "sha256": "bb36e42d2ce3056976bd3987555e57d8c18b120267da9e9a7a4c0bbd650a5c45",
+            "bytes": 101816
+        },
+        "animations/output/q93_atlases_v1/mermaid_death_atlas/atlas/mermaid_death_atlas.webp": {
+            "sha256": "e4ce6bed94752a9ac4c38b5e7b07a909bdd5bcb6c5f2b14ff10e8b6bab713a02",
+            "bytes": 504524
+        },
+        "animations/output/q93_atlases_v1/mermaid_hit_atlas/atlas/mermaid_hit_atlas.webp": {
+            "sha256": "e18c8b2bdd5b62464d1f15d74963fc877c028a994842abcb602e0fe76ad9de5c",
+            "bytes": 1069824
+        },
+        "animations/output/q93_atlases_v1/mermaid_melee_attack_atlas/atlas/mermaid_melee_attack_atlas.webp": {
+            "sha256": "acc7706887044b9f75ba26b416f729c979c932a6a8ebeb35fce8548da2b70dc2",
+            "bytes": 990436
+        },
+        "animations/output/q93_atlases_v1/mermaid_melee_attack_down_atlas/atlas/mermaid_melee_attack_down_atlas.webp": {
+            "sha256": "4f8fd2d1de0d0b2b10aefbbe3fe0c2d1aa92086eb19340ebefe00a84159d8982",
+            "bytes": 993970
+        },
+        "animations/output/q93_atlases_v1/monk_lab_attack_atlas_quarter/atlas/monk_lab_attack_atlas_quarter.webp": {
+            "sha256": "57f9c07a9ac8dd0ecc4360ddb2652e39545a4f3dd1a4a4dde86caff3f6a3a067",
+            "bytes": 108412
+        },
+        "animations/output/q93_atlases_v1/monk_lab_attack_down_atlas_quarter/atlas/monk_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "d17bb3d15f995d0d9adb0d7c75d8e9a0d8c5cbcd106ba15104181a108d29c7f8",
+            "bytes": 109684
+        },
+        "animations/output/q93_atlases_v1/monk_lab_attack_up_atlas_quarter/atlas/monk_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "a9a178ccb0b4f239dc87a42256391f54305ecb5cbe01f421b71fad318ce2567b",
+            "bytes": 108584
+        },
+        "animations/output/q93_atlases_v1/mermaid_melee_attack_up_atlas/atlas/mermaid_melee_attack_up_atlas.webp": {
+            "sha256": "80769d6929f3b3f1ec4e4a5312e85acc3ea01e18fa8decf081de175533a90a37",
+            "bytes": 1000212
+        },
+        "animations/output/q93_atlases_v1/monk_lab_death_atlas_quarter/atlas/monk_lab_death_atlas_quarter.webp": {
+            "sha256": "ea6c12d021dcf1046d3735beeee2a401c30e10be9ce458c6f438adaa5d44b36d",
+            "bytes": 155078
+        },
+        "animations/output/q93_atlases_v1/monk_lab_idle_atlas_quarter/atlas/monk_lab_idle_atlas_quarter.webp": {
+            "sha256": "fd07a85dbad4f25f3efa4dcf18f46f1e6c19651efd4d9c760e4253be927ef2fc",
+            "bytes": 154232
+        },
+        "animations/output/q93_atlases_v1/monk_lab_hit_atlas_quarter/atlas/monk_lab_hit_atlas_quarter.webp": {
+            "sha256": "b7ea926f71831cb5acb7558ce0efa33c7468617aa753cd7d7fa65ec82a37bbf8",
+            "bytes": 185260
+        },
+        "animations/output/q93_atlases_v1/monk_lab_melee_attack_atlas_quarter/atlas/monk_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "2a6c2c894b6e5a79ee6f1062b0ef4978875719b833bde35ad0888f8b6d4ad729",
+            "bytes": 112112
+        },
+        "animations/output/q93_atlases_v1/monk_lab_melee_attack_down_atlas_quarter/atlas/monk_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "fff5e926cba7345dc420d5582e5241210aa7646df73ddbec25d865b272665238",
+            "bytes": 112170
+        },
+        "animations/output/q93_atlases_v1/monk_lab_melee_attack_up_atlas_quarter/atlas/monk_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "f5e2f3a6f658d179c11fd7e6154dc2ff544ffce5f01b4c9a5e43761800833cae",
+            "bytes": 110820
+        },
+        "animations/output/q93_atlases_v1/monk_lab_walk_atlas_quarter/atlas/monk_lab_walk_atlas_quarter.webp": {
+            "sha256": "e861f3be20bef6e5172fe676d049763127680e6df2b5b7f12b9d83183287abf5",
+            "bytes": 49272
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_death_atlas_quarter/atlas/nightmare_lab_death_atlas_quarter.webp": {
+            "sha256": "551848d891f36ac59992d502f87d0c4b6f2f055533ff29ea75014a65e73a9393",
+            "bytes": 57618
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_hit_atlas/atlas/nightmare_lab_hit_atlas.webp": {
+            "sha256": "65576f3b31439e04806ca7d89c2c2be212f1ccd1e9a509984f22b6a98179745e",
+            "bytes": 565356
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_melee_attack_atlas_quarter/atlas/nightmare_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "fa7062e4c0002c9168999f5a2c1b1ff1f25190454358b19c40d37a6620d3eee9",
+            "bytes": 73884
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_hit_atlas_quarter/atlas/nightmare_lab_hit_atlas_quarter.webp": {
+            "sha256": "7edd5c4a6fb2049a595111a3e6d40e630a724de3914c78f2b56ba9758e57b0e1",
+            "bytes": 69298
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_melee_attack_down_atlas_quarter/atlas/nightmare_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "d05d52a86ef780bc31e7bd46a8def5b9cd4cc2160213aa6356b954953fdfbe58",
+            "bytes": 73092
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_melee_attack_up_atlas_quarter/atlas/nightmare_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "583d825930543bd15336665999f5f6be7af53ed8d521f941d0c24dcf96f6c36b",
+            "bytes": 72658
+        },
+        "animations/output/q93_atlases_v1/nightmare_lab_smoke_cast_atlas_quarter/atlas/nightmare_lab_smoke_cast_atlas_quarter.webp": {
+            "sha256": "242d2d951f02efe018706d102fbd5b7ef2532a1c3c8a20852c573ea4ac966fe1",
+            "bytes": 52404
+        },
+        "animations/output/q93_atlases_v1/nightmare_walk_atlas_quarter/atlas/nightmare_walk_atlas_quarter.webp": {
+            "sha256": "5249fea2463dca32cdfe9cc006b5cd09c8ad89666e39470decc036a04d3476d1",
+            "bytes": 79276
+        },
+        "animations/output/q93_atlases_v1/nomad_death_atlas_quarter/atlas/nomad_death_atlas_quarter.webp": {
+            "sha256": "fb2698483b1f77ff6c5417a178aa05505b0942092830200a36d653bd661302de",
+            "bytes": 101186
+        },
+        "animations/output/q93_atlases_v1/nomad_hit_atlas_quarter/atlas/nomad_hit_atlas_quarter.webp": {
+            "sha256": "a31d255c48cb1ac76eff20cef5832c3c01754392e9d923b09aca80bb8d5d86d2",
+            "bytes": 92014
+        },
+        "animations/output/q93_atlases_v1/nomad_idle_atlas_quarter/atlas/nomad_idle_atlas_quarter.webp": {
+            "sha256": "ad0bd45a9af729344f91d14f6ffb68f9aee991c093f2d303e2c0bd574f3ef740",
+            "bytes": 150666
+        },
+        "animations/output/q93_atlases_v1/nomad_melee_attack_atlas_quarter/atlas/nomad_melee_attack_atlas_quarter.webp": {
+            "sha256": "68c7e474fb4a5af716a02e9111bac6d12d571614e1112aa4645d0990278244a2",
+            "bytes": 97326
+        },
+        "animations/output/q93_atlases_v1/nomad_melee_attack_down_atlas_quarter/atlas/nomad_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "47b9d170fe440a648081f2c9e4ed641e1772699a1154b403c301d1243bd345cb",
+            "bytes": 131354
+        },
+        "animations/output/q93_atlases_v1/nomad_walk_atlas_quarter/atlas/nomad_walk_atlas_quarter.webp": {
+            "sha256": "2cb8e68e18063d8e170dde5a778f3f3f43c28843c8d0296a23beac1a4c49edd6",
+            "bytes": 106370
+        },
+        "animations/output/q93_atlases_v1/ogre_mage_walk_atlas_quarter/atlas/ogre_mage_walk_atlas_quarter.webp": {
+            "sha256": "289d57f30ddf4ec8e7d5b735e681de80f516f8b95e0c8f10c9adf903b11a2cfb",
+            "bytes": 72958
+        },
+        "animations/output/q93_atlases_v1/orc_attack_atlas_quarter/atlas/orc_attack_atlas_quarter.webp": {
+            "sha256": "9fef44fdb08e4e22c238bde2e2e77febfd1115c5b08d9e227e4c9fc6493edda7",
+            "bytes": 84104
+        },
+        "animations/output/q93_atlases_v1/orc_attack_down_atlas_quarter/atlas/orc_attack_down_atlas_quarter.webp": {
+            "sha256": "07e5a3ef75c73f4b3ebf68c9dcad6997ae5389e60eadff1915716f61463fe9e6",
+            "bytes": 84752
+        },
+        "animations/output/q93_atlases_v1/orc_death_atlas_quarter/atlas/orc_death_atlas_quarter.webp": {
+            "sha256": "3857e60c6ad9dca1bc3bc48b94b32abc245383c687e54b205486e8dbc57d27b9",
+            "bytes": 72910
+        },
+        "animations/output/q93_atlases_v1/orc_attack_up_atlas_quarter/atlas/orc_attack_up_atlas_quarter.webp": {
+            "sha256": "3769edda11cd3114161d1f399eaf152ea8b150aac735c6f400f4bdc31b35c70b",
+            "bytes": 83372
+        },
+        "animations/output/q93_atlases_v1/orc_hit_atlas_quarter/atlas/orc_hit_atlas_quarter.webp": {
+            "sha256": "a9819fb15d69f577b30a667cfe1cc3be5371fd65c4353a141175fdc01f9edd72",
+            "bytes": 76868
+        },
+        "animations/output/q93_atlases_v1/orc_melee_attack_atlas_quarter/atlas/orc_melee_attack_atlas_quarter.webp": {
+            "sha256": "549cb0b52eec41f4391c5bcf8976ce76287cfaf5e47ef981a390dcefabb93e1b",
+            "bytes": 92164
+        },
+        "animations/output/q93_atlases_v1/orc_idle_atlas_quarter/atlas/orc_idle_atlas_quarter.webp": {
+            "sha256": "c1e3279c7f56b4ef371e2696ca9b7e28480fb79b3707015ecd0e90b7ed4eaab4",
+            "bytes": 254078
+        },
+        "animations/output/q93_atlases_v1/orc_melee_attack_down_atlas_quarter/atlas/orc_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "3310d20aa837f95fedf8c9ef9fcc58402c2d892444810012c64650a566f7258d",
+            "bytes": 93770
+        },
+        "animations/output/q93_atlases_v1/peasant_attack_atlas_quarter/atlas/peasant_attack_atlas_quarter.webp": {
+            "sha256": "bad0ac0b10658cc80c4b51ab1482fc8d538e9523416e4196491a759c65103a04",
+            "bytes": 43186
+        },
+        "animations/output/q93_atlases_v1/orc_walk_atlas_quarter/atlas/orc_walk_atlas_quarter.webp": {
+            "sha256": "1aa97c4e7a501ee84f8e553833beff93328fe534c99a3a684b110aaa0b517b2d",
+            "bytes": 78044
+        },
+        "animations/output/q93_atlases_v1/orc_melee_attack_up_atlas_quarter/atlas/orc_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "b91dd17aeb44bcf11af8eb248dc7abcacb185a10a42e7be1a904120cf89a0f6e",
+            "bytes": 90344
+        },
+        "animations/output/q93_atlases_v1/peasant_attack_down_atlas_quarter/atlas/peasant_attack_down_atlas_quarter.webp": {
+            "sha256": "1685c517452e2dc9d95a17b68b37b02044bae53c49225d5cd6c83ee9a6333332",
+            "bytes": 43780
+        },
+        "animations/output/q93_atlases_v1/peasant_attack_up_atlas_quarter/atlas/peasant_attack_up_atlas_quarter.webp": {
+            "sha256": "9fc8fb5546b9a28130c7bc8b4a3e0ea1e41dc1c2fe1c809a0d702527496705ee",
+            "bytes": 42734
+        },
+        "animations/output/q93_atlases_v1/peasant_death_atlas_quarter/atlas/peasant_death_atlas_quarter.webp": {
+            "sha256": "9252fb39a3a5cc521a64968b5ec154afb222f77950d991389e92a83c3b82042c",
+            "bytes": 104626
+        },
+        "animations/output/q93_atlases_v1/peasant_hit_atlas_quarter/atlas/peasant_hit_atlas_quarter.webp": {
+            "sha256": "2847d9e9c302274ba60df2d2d258292d088611437023298b496458521c02f014",
+            "bytes": 81452
+        },
+        "animations/output/q93_atlases_v1/peasant_walk_atlas_quarter/atlas/peasant_walk_atlas_quarter.webp": {
+            "sha256": "d9fda4102134c7c1bdb764bad2c736e78ede996c20b6416b2f9d74c85189d8ce",
+            "bytes": 74858
+        },
+        "animations/output/q93_atlases_v1/peasant_idle_red_atlas_quarter/atlas/peasant_idle_red_atlas_quarter.webp": {
+            "sha256": "95ae49b369696d9076632e4ae85499b73921af9b465d13ff078c7d707096f44a",
+            "bytes": 96564
+        },
+        "animations/output/q93_atlases_v1/pegasus_attack_atlas_quarter/atlas/pegasus_attack_atlas_quarter.webp": {
+            "sha256": "ea73c0c18eef56e6a9a43a03609e9c9ee66a984a3167358e3500d825c7a583e2",
+            "bytes": 150014
+        },
+        "animations/output/q93_atlases_v1/pegasus_attack_atlas_half/atlas/pegasus_attack_atlas_half.webp": {
+            "sha256": "b2918835a5b852165b6aef68a5f221f4672b203aa5f3df3927935db4c8c81bf3",
+            "bytes": 456538
+        },
+        "animations/output/q93_atlases_v1/peasant_idle_red_atlas/atlas/peasant_idle_red_atlas.webp": {
+            "sha256": "4b024c851e8fc7630332aeb65bf38d2e358ccdf58faf2161f58710d9bac942ad",
+            "bytes": 634998
+        },
+        "animations/output/q93_atlases_v1/pegasus_attack_down_atlas_quarter/atlas/pegasus_attack_down_atlas_quarter.webp": {
+            "sha256": "70b65bdefc8ded0a37df93085b1578375fc67208cd8a77a9391cb8827740363a",
+            "bytes": 128344
+        },
+        "animations/output/q93_atlases_v1/pegasus_attack_up_atlas_quarter/atlas/pegasus_attack_up_atlas_quarter.webp": {
+            "sha256": "f4d8ca16430b547ef648e2ea7970715e194582748def8fa0a2699b911afd4bed",
+            "bytes": 126980
+        },
+        "animations/output/q93_atlases_v1/pegasus_death_atlas_half/atlas/pegasus_death_atlas_half.webp": {
+            "sha256": "b047d5ea0ba5718dade7915ef4a5edb57e3f1090fc18f18af05392fd96053d86",
+            "bytes": 400754
+        },
+        "animations/output/q93_atlases_v1/pegasus_death_atlas_quarter/atlas/pegasus_death_atlas_quarter.webp": {
+            "sha256": "8426e73ca96e12d7c96405bd687e4f2d33272ef005bd7c788e7a85eaa8c645d6",
+            "bytes": 127652
+        },
+        "animations/output/q93_atlases_v1/pegasus_hit_atlas_quarter/atlas/pegasus_hit_atlas_quarter.webp": {
+            "sha256": "b9f040fafc3750fe776b2e9e2976d0cce55065719620342402102993341e5296",
+            "bytes": 134828
+        },
+        "animations/output/q93_atlases_v1/pegasus_hit_atlas_half/atlas/pegasus_hit_atlas_half.webp": {
+            "sha256": "273d8fc7067fbf8895b5c3e7dbf1f2d96132b50221df9846b59f34972dbad3b5",
+            "bytes": 434150
+        },
+        "animations/output/q93_atlases_v1/pikeman_lab_attack_atlas_quarter/atlas/pikeman_lab_attack_atlas_quarter.webp": {
+            "sha256": "dd63ca1c4b3f12bc3184b68d18eb71a67cab98c05eb9fb6a2cfa1a64e2fe39fa",
+            "bytes": 67144
+        },
+        "animations/output/q93_atlases_v1/pikeman_lab_attack_down_atlas_quarter/atlas/pikeman_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "0d2967196bfad7207f904aa985cf23180c67547d77aaf93394e307bb6805e605",
+            "bytes": 66252
+        },
+        "animations/output/q93_atlases_v1/pikeman_lab_attack_up_atlas_quarter/atlas/pikeman_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "1640e8887d1b2e31d143cd17e441279b4a68e64715e32a08a0c42983bde44921",
+            "bytes": 67144
+        },
+        "animations/output/q93_atlases_v1/pikeman_lab_death_atlas_quarter/atlas/pikeman_lab_death_atlas_quarter.webp": {
+            "sha256": "47d1b75a693780bea8868ba1714625fc2f755429f06ac008899af353bd006477",
+            "bytes": 77674
+        },
+        "animations/output/q93_atlases_v1/pikeman_lab_hit_atlas_quarter/atlas/pikeman_lab_hit_atlas_quarter.webp": {
+            "sha256": "7f66e624bd64443db34a2b87864eb3de47424cc3d6d4ae4ec32cbfdb15b40fc3",
+            "bytes": 118546
+        },
+        "animations/output/q93_atlases_v1/pikeman_walk_atlas_quarter/atlas/pikeman_walk_atlas_quarter.webp": {
+            "sha256": "17f64a9daa27f89b23944818a08ad1d6b6178b41d197ebd88de5025bfc49df8a",
+            "bytes": 69842
+        },
+        "animations/output/q93_atlases_v1/pegasus_idle_atlas_half/atlas/pegasus_idle_atlas_half.webp": {
+            "sha256": "f9ab94d514a0867a7d227529e02f1b0d473ea2449830e0623091c62a9df30579",
+            "bytes": 1895580
+        },
+        "animations/output/q93_atlases_v1/satyr_cast_atlas_quarter/atlas/satyr_cast_atlas_quarter.webp": {
+            "sha256": "97c05119d0dec335b61853bcccdff8c8af4994a59b6d1d09d8558d1fe81b2126",
+            "bytes": 127942
+        },
+        "animations/output/q93_atlases_v1/satyr_death_atlas_quarter/atlas/satyr_death_atlas_quarter.webp": {
+            "sha256": "7bef19b38a3d23166341d6a5258b4f48d928edbd1eac47ad251993566a7cc6b4",
+            "bytes": 109204
+        },
+        "animations/output/q93_atlases_v1/pikeman_lab_idle_atlas_quarter/atlas/pikeman_lab_idle_atlas_quarter.webp": {
+            "sha256": "2e84a4c49e7784fd1c0d2380614df34f2a6603c21715eff55d1dc0c6d94d85b6",
+            "bytes": 617590
+        },
+        "animations/output/q93_atlases_v1/satyr_idle_atlas_quarter/atlas/satyr_idle_atlas_quarter.webp": {
+            "sha256": "b3009a283ee4f731967e57035c1ec7e72ffaad8795304483316b724d1e36006b",
+            "bytes": 93462
+        },
+        "animations/output/q93_atlases_v1/satyr_hit_atlas_quarter/atlas/satyr_hit_atlas_quarter.webp": {
+            "sha256": "9056866dedb99beee1582ba9510657025e3a4ff5953f828adc891d1963a40b5b",
+            "bytes": 110600
+        },
+        "animations/output/q93_atlases_v1/satyr_melee_attack_atlas_quarter/atlas/satyr_melee_attack_atlas_quarter.webp": {
+            "sha256": "9b32a48bab1b81530d47ca2bf4e2cafc5e87e56e20cbbb164aa4b95827457a07",
+            "bytes": 117012
+        },
+        "animations/output/q93_atlases_v1/satyr_melee_attack_down_atlas_quarter/atlas/satyr_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "49c4f412ac5af3f4919c14920d9852cfc7dbff42cce4e35bc6113d08ecce1618",
+            "bytes": 118056
+        },
+        "animations/output/q93_atlases_v1/satyr_melee_attack_up_atlas_quarter/atlas/satyr_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "3b84923fe086e03e64f521cd035fe0a2b790887f7eb3ac631f79147bb64530ab",
+            "bytes": 115010
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_attack_down_atlas_quarter/atlas/scavenger_combat_attack_down_atlas_quarter.webp": {
+            "sha256": "30b4d9412d9d6e65d0051029e1f8b31d3f5fb209f9fa61e703b6a1d42dbf4b9c",
+            "bytes": 56800
+        },
+        "animations/output/q93_atlases_v1/satyr_walk_atlas_quarter/atlas/satyr_walk_atlas_quarter.webp": {
+            "sha256": "835670068671f1794aa5b04a09f67edb5a1bc570f343fe8533b789242b23f15a",
+            "bytes": 100006
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_attack_atlas_quarter/atlas/scavenger_combat_attack_atlas_quarter.webp": {
+            "sha256": "2c10b79ae3d382ec44bb98a504a25b84a5d88b860431c0afe941b2a3d52eaad2",
+            "bytes": 57982
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_death_atlas_quarter/atlas/scavenger_combat_death_atlas_quarter.webp": {
+            "sha256": "e921496b17c7372a1b4117bb02eb7c0ce2098b396851847a4cdcde57cc424512",
+            "bytes": 44302
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_attack_up_atlas_quarter/atlas/scavenger_combat_attack_up_atlas_quarter.webp": {
+            "sha256": "8e0206877423703248cf25c74bc335fa24ca09853d93193eb9405265c4f4dd06",
+            "bytes": 54952
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_hit_atlas_quarter/atlas/scavenger_combat_hit_atlas_quarter.webp": {
+            "sha256": "986e3ecb2d7f7104951d36a68beedd5f1b6f2fb2112fb72fb75cc4cb6a2f62aa",
+            "bytes": 52650
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_dodge_atlas_quarter/atlas/scavenger_combat_dodge_atlas_quarter.webp": {
+            "sha256": "73201b87366fc091d5c375e178b600ac51c1d220c025a46b5c484d7127083b65",
+            "bytes": 86482
+        },
+        "animations/output/q93_atlases_v1/scavenger_death_atlas_quarter/atlas/scavenger_death_atlas_quarter.webp": {
+            "sha256": "e717baa22c460e7bacbd8b87c60c442a7e343e300526209a13bc23e6ba6d259f",
+            "bytes": 48184
+        },
+        "animations/output/q93_atlases_v1/scavenger_homm_idle_atlas_quarter/atlas/scavenger_homm_idle_atlas_quarter.webp": {
+            "sha256": "128fa439e944a85c33acced6903e580109570847637133c5cbd6fa8059937d93",
+            "bytes": 80700
+        },
+        "animations/output/q93_atlases_v1/scavenger_hit_atlas_quarter/atlas/scavenger_hit_atlas_quarter.webp": {
+            "sha256": "46ac73b4e9894076fb1a952d4084f734b885826f2aaeff9b46070a215e8227c7",
+            "bytes": 56178
+        },
+        "animations/output/q93_atlases_v1/scavenger_idle_atlas_quarter/atlas/scavenger_idle_atlas_quarter.webp": {
+            "sha256": "423df5e1904b3b122436dc76d0fe4db9e188ca93f6303e66cfb09131d75784d9",
+            "bytes": 52786
+        },
+        "animations/output/q93_atlases_v1/scavenger_combat_dodge_atlas/atlas/scavenger_combat_dodge_atlas.webp": {
+            "sha256": "cc5ae05845bae292ffc936ad57444518a6678ec7fc4943acb28c3fc688211943",
+            "bytes": 646376
+        },
+        "animations/output/q93_atlases_v1/squire_attack_atlas_quarter/atlas/squire_attack_atlas_quarter.webp": {
+            "sha256": "4b3dcad5bcc9dcc08a16328b89cf8616cfb3743024c26eab014ff7aafd2ecc7b",
+            "bytes": 101348
+        },
+        "animations/output/q93_atlases_v1/squire_attack_down_atlas_quarter/atlas/squire_attack_down_atlas_quarter.webp": {
+            "sha256": "d9e2d322c62b305d7039e19fd577236f6a565677136655b18099c4a5e09c4736",
+            "bytes": 102004
+        },
+        "animations/output/q93_atlases_v1/squire_death_atlas_quarter/atlas/squire_death_atlas_quarter.webp": {
+            "sha256": "d7ccd85b65b285a652f164700bfcf870ff0799081b06d1f946a0fc0bb0bdb8c9",
+            "bytes": 91372
+        },
+        "animations/output/q93_atlases_v1/squire_hit_atlas_quarter/atlas/squire_hit_atlas_quarter.webp": {
+            "sha256": "719fbd5f50befc33ad17681a13e81b4dd006f611ed2a4287d61892dd8b84dc25",
+            "bytes": 94922
+        },
+        "animations/output/q93_atlases_v1/squire_attack_up_atlas_quarter/atlas/squire_attack_up_atlas_quarter.webp": {
+            "sha256": "2bf1b4b5217bcf4cc57c1d8c3f0988b40609417fa285176f6351bf26e56a41d5",
+            "bytes": 101272
+        },
+        "animations/output/q93_atlases_v1/thief_walk_atlas_quarter/atlas/thief_walk_atlas_quarter.webp": {
+            "sha256": "6c7485801f3855e73c01cb4f9ff97c147e7c092f5c4c88b498463a9db447bba9",
+            "bytes": 44348
+        },
+        "animations/output/q93_atlases_v1/squire_walk_atlas_quarter/atlas/squire_walk_atlas_quarter.webp": {
+            "sha256": "3ae45fb63fbca51eed1044c14d66d9dde58922b894de559a28b817db22555390",
+            "bytes": 96580
+        },
+        "animations/output/q93_atlases_v1/squire_idle_atlas_quarter/atlas/squire_idle_atlas_quarter.webp": {
+            "sha256": "e0677e100973d9d7ef87f7d49b31fb9ea217be12666df029913d4841c00db1e1",
+            "bytes": 177164
+        },
+        "animations/output/q93_atlases_v1/thunderbird_flight_walk_atlas_half/atlas/thunderbird_flight_walk_atlas_half.webp": {
+            "sha256": "29266e310faa28dbe5afdea24e95fb58b9058f72af3c515e536ea0b626040322",
+            "bytes": 561338
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_death_atlas_half/atlas/thunderbird_lab_death_atlas_half.webp": {
+            "sha256": "3afc35e4816674367b253978210d7833ea5a1967094779e62a3d3852e1adf8f5",
+            "bytes": 217842
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_hit_atlas_quarter/atlas/thunderbird_lab_hit_atlas_quarter.webp": {
+            "sha256": "010f464b22fa38d1dc2e281a18cba4ff61581a7d539c9dbddad708995007122a",
+            "bytes": 54012
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_hit_atlas_half/atlas/thunderbird_lab_hit_atlas_half.webp": {
+            "sha256": "27441468a4ae021720e972a705f5e7522295143f520b9b1b020fff42681dc523",
+            "bytes": 173140
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_melee_attack_atlas_half/atlas/thunderbird_lab_melee_attack_atlas_half.webp": {
+            "sha256": "b0fa4d9c58bfec05fbf4719709f675ddb7b6114f9f7702c3dec2fde6cc84162e",
+            "bytes": 189498
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_idle_atlas_quarter/atlas/thunderbird_lab_idle_atlas_quarter.webp": {
+            "sha256": "e583333594b69401e23929ddd589de883bebabb9bd03fc4807a32780253ca120",
+            "bytes": 451166
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_melee_attack_atlas_quarter/atlas/thunderbird_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "feb34724ae48235daba6b5e987c4e1e297c9ac700d1bfbd2e30f129be32f8455",
+            "bytes": 58574
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_melee_attack_down_atlas_quarter/atlas/thunderbird_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "9e858bc4597b34b8cc1542bceacef23c529bd044e963c97b364b463dfce67b5f",
+            "bytes": 55508
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_melee_attack_down_atlas_half/atlas/thunderbird_lab_melee_attack_down_atlas_half.webp": {
+            "sha256": "5c176c6f3151cf0dd654e42691dcfda14696c12a0a7ab91c7520e77790b79c8f",
+            "bytes": 176948
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_idle_atlas_half/atlas/thunderbird_lab_idle_atlas_half.webp": {
+            "sha256": "dc0863acae1bda398d3a0e3fcb25e20bace0ec0fab36241f756a82e090947fe8",
+            "bytes": 1446766
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_melee_attack_up_atlas_quarter/atlas/thunderbird_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "e2475aa6fd6c634195ac91936ffc3a4a4cdaf70e5eace7c6db9c769e15b39e95",
+            "bytes": 59282
+        },
+        "animations/output/q93_atlases_v1/thunderbird_lab_melee_attack_up_atlas_half/atlas/thunderbird_lab_melee_attack_up_atlas_half.webp": {
+            "sha256": "e17367795d3282c7e22706b2d1bb7bfbe6a217b2565723d52aedb1be17667213",
+            "bytes": 194038
+        },
+        "animations/output/q93_atlases_v1/trent_attack_atlas_quarter/atlas/trent_attack_atlas_quarter.webp": {
+            "sha256": "30cbda2675aa801564d661d11588ebdb0e357c7fb8bc914e1e44b291f092dab5",
+            "bytes": 117048
+        },
+        "animations/output/q93_atlases_v1/trent_attack_down_atlas_quarter/atlas/trent_attack_down_atlas_quarter.webp": {
+            "sha256": "738ef4c527883bd9220f85c964b980d8f496809b027b6d32c5f26d3cf25a9a51",
+            "bytes": 120988
+        },
+        "animations/output/q93_atlases_v1/trent_death_atlas_quarter/atlas/trent_death_atlas_quarter.webp": {
+            "sha256": "c5fd2ed750e75f9d003f5902926eea9cb3f518d7657fc099c111bc026e4e9b96",
+            "bytes": 78124
+        },
+        "animations/output/q93_atlases_v1/trent_cast_atlas_quarter/atlas/trent_cast_atlas_quarter.webp": {
+            "sha256": "6a6386f103df642013903c464b7fa07f9410b46f36b791d22b0b048d9701e7e6",
+            "bytes": 121780
+        },
+        "animations/output/q93_atlases_v1/trent_hit_atlas_quarter/atlas/trent_hit_atlas_quarter.webp": {
+            "sha256": "98bddabb1b92cbfab2fc2d592d56f6df543c80be0b72d560d27af0696e0b8e81",
+            "bytes": 61864
+        },
+        "animations/output/q93_atlases_v1/mermaid_idle_atlas/atlas/mermaid_idle_atlas.webp": {
+            "sha256": "31126a05383a163a5f334ab710c6dd73e358b7be6b3fa43e7fa48119d6b2a2d6",
+            "bytes": 24095702
+        },
+        "animations/output/q93_atlases_v1/trent_walk_atlas_quarter/atlas/trent_walk_atlas_quarter.webp": {
+            "sha256": "997c350e14c30d166498c08fd1e16fc4981679f2b3e6a53a8a41f3ef3deaa2ce",
+            "bytes": 100322
+        },
+        "animations/output/q93_atlases_v1/troglodyte_attack_atlas_quarter/atlas/troglodyte_attack_atlas_quarter.webp": {
+            "sha256": "7de2162f6fc9ec6ebd6db23981ddd8740d44f15102fae83dcd9848b7a39c8ee2",
+            "bytes": 100432
+        },
+        "animations/output/q93_atlases_v1/troglodyte_death_atlas_quarter/atlas/troglodyte_death_atlas_quarter.webp": {
+            "sha256": "f2ede0537164ec2cecc71926bc04e3e148de107878a2a50096932a4e02fde6e6",
+            "bytes": 85220
+        },
+        "animations/output/q93_atlases_v1/troglodyte_attack_down_atlas_quarter/atlas/troglodyte_attack_down_atlas_quarter.webp": {
+            "sha256": "d70bd3747463eebd2b9517c08b8c3ed5f6d6b4fe90d516533dcd9eaedc9da5ae",
+            "bytes": 98268
+        },
+        "animations/output/q93_atlases_v1/troglodyte_attack_up_atlas_quarter/atlas/troglodyte_attack_up_atlas_quarter.webp": {
+            "sha256": "4e5e38b5d852e0781659b82868166b47f1d4ceebccd2f767e50f76a3d07694be",
+            "bytes": 99100
+        },
+        "animations/output/q93_atlases_v1/troglodyte_hit_atlas_quarter/atlas/troglodyte_hit_atlas_quarter.webp": {
+            "sha256": "66ce26cb15ef4aa5b2d49f4ce811fb196b15bffcea7069b1a9c7e02a0ea683de",
+            "bytes": 78188
+        },
+        "animations/output/q93_atlases_v1/troglodyte_default_atlas_quarter/atlas/troglodyte_default_atlas_quarter.webp": {
+            "sha256": "f7d07d398899fbab7a8c03d43b423294cb3194f5af9700ae9d8aa95bcf2be180",
+            "bytes": 608168
+        },
+        "animations/output/q93_atlases_v1/troll_lab_cast_atlas_quarter/atlas/troll_lab_cast_atlas_quarter.webp": {
+            "sha256": "9210b1f9df123a96f4465ded49e28b94988b9ef1e0ac443ffbd552123f2bd145",
+            "bytes": 120506
+        },
+        "animations/output/q93_atlases_v1/troll_lab_death_atlas_quarter/atlas/troll_lab_death_atlas_quarter.webp": {
+            "sha256": "22354775cc9deab4f788f8723f0cfa444f7aed74feeb00b96ea27d8690693263",
+            "bytes": 75658
+        },
+        "animations/output/q93_atlases_v1/troll_lab_death_atlas/atlas/troll_lab_death_atlas.webp": {
+            "sha256": "b075318e85ff8dbb1c56ab9fbb86bd2bdd82bc0dd1cc7fa99435f7a668b59a05",
+            "bytes": 717284
+        },
+        "animations/output/q93_atlases_v1/troll_lab_hit_atlas_quarter/atlas/troll_lab_hit_atlas_quarter.webp": {
+            "sha256": "20d648d933dbd9312f5b78f13936bcf9c13ed6eec037b7e82b0539f2c7c0e3fa",
+            "bytes": 60128
+        },
+        "animations/output/q93_atlases_v1/troll_lab_idle_atlas_quarter/atlas/troll_lab_idle_atlas_quarter.webp": {
+            "sha256": "2c4b456f1b7d9b6f2f8f3d4155c8c510b9e417dce41c3e3c19004946aff4bbcb",
+            "bytes": 107870
+        },
+        "animations/output/q93_atlases_v1/troll_lab_hit_atlas/atlas/troll_lab_hit_atlas.webp": {
+            "sha256": "4bc21038e0a008c570d0669a1d0de618a8a49bc4813ed7882e9255c394e1fe4a",
+            "bytes": 432798
+        },
+        "animations/output/q93_atlases_v1/troll_lab_cast_atlas/atlas/troll_lab_cast_atlas.webp": {
+            "sha256": "f4b419f542f1a428133a095af66001fb882f31fd423a5aff45ae3c335c397db0",
+            "bytes": 841730
+        },
+        "animations/output/q93_atlases_v1/troll_lab_idle_atlas/atlas/troll_lab_idle_atlas.webp": {
+            "sha256": "e87bc6d5d01e58a479302240d74e3e303dd79d738b116575a1be590dceb55563",
+            "bytes": 779006
+        },
+        "animations/output/q93_atlases_v1/troll_lab_melee_attack_atlas_quarter/atlas/troll_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "e2824eddf9e2fb710ca735d60ba5e289d5e5105ea58cc71b5d46945f3485c105",
+            "bytes": 81510
+        },
+        "animations/output/q93_atlases_v1/troll_lab_melee_attack_down_atlas_quarter/atlas/troll_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "777ce1526ab6617c90d48f4bf030561df80071d80891713ad3540518e5ead779",
+            "bytes": 80556
+        },
+        "animations/output/q93_atlases_v1/troll_lab_melee_attack_up_atlas_quarter/atlas/troll_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "274f23499a110147fa0b63837605890ffd746601adcb05e25d5f5676c1601189",
+            "bytes": 78304
+        },
+        "animations/output/q93_atlases_v1/troll_lab_melee_attack_atlas/atlas/troll_lab_melee_attack_atlas.webp": {
+            "sha256": "8ecbcf6c99a880d21251d7fff1f4dee2cabea99082ddae46f53be095a2fcfeff",
+            "bytes": 685298
+        },
+        "animations/output/q93_atlases_v1/troll_lab_melee_attack_down_atlas/atlas/troll_lab_melee_attack_down_atlas.webp": {
+            "sha256": "1a4923b1ef20067c04bdbd04d5eeaa4ce0bd414111faddaaf1b3c2d86e85b319",
+            "bytes": 673526
+        },
+        "animations/output/q93_atlases_v1/troll_lab_walk_atlas_quarter/atlas/troll_lab_walk_atlas_quarter.webp": {
+            "sha256": "77e47a1825ded5447a988fb377832fc5a6e3e8534c62320a6c6f59b0750cc27e",
+            "bytes": 82472
+        },
+        "animations/output/q93_atlases_v1/troll_lab_melee_attack_up_atlas/atlas/troll_lab_melee_attack_up_atlas.webp": {
+            "sha256": "78f7c26e71c38da54814f4c175bee6b2fb5811ed4b7f79fc77ad128e25777d9b",
+            "bytes": 652828
+        },
+        "animations/output/q93_atlases_v1/troll_lab_walk_atlas/atlas/troll_lab_walk_atlas.webp": {
+            "sha256": "3d126a1e484177ecd0ed2dc2cd8f5d566b47442e776d4daa9b5763400dfcdae6",
+            "bytes": 618472
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v13_hit_atlas/atlas/tsar_cannon_lab_v13_hit_atlas.webp": {
+            "sha256": "63cc2140fbae1c6ecf93692fcb87fa33ad0dd78f97102f28139d7aa2708cf41d",
+            "bytes": 1066726
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v13_death_atlas/atlas/tsar_cannon_lab_v13_death_atlas.webp": {
+            "sha256": "a8bbe05e2e7f1572dc783380e1b53e91fabc143a7b94b87f4f5c5bae5adbbe59",
+            "bytes": 1339554
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v14_hit_atlas/atlas/tsar_cannon_lab_v14_hit_atlas.webp": {
+            "sha256": "4d58c7771a6ac2e70161612fc77690264c241abc87e15b5e74bae7eb910894b0",
+            "bytes": 1183782
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v14_death_atlas/atlas/tsar_cannon_lab_v14_death_atlas.webp": {
+            "sha256": "8b68d34257731e30fa817612d8f270baebe24d77de3a99a1d0ceea64737004fe",
+            "bytes": 1493778
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_bronze_v14_walk_atlas/atlas/tsar_cannon_bronze_v14_walk_atlas.webp": {
+            "sha256": "1423f11279b64692fe2cbd9801c9c4e671fbdd415361a50df239a23e1581483f",
+            "bytes": 7986546
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v15_death_atlas/atlas/tsar_cannon_lab_v15_death_atlas.webp": {
+            "sha256": "b6d1e18d884b52ef092fb8e3d2d63b6100a3ece366e12c0075d82317e949d694",
+            "bytes": 1432538
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v15_hit_atlas/atlas/tsar_cannon_lab_v15_hit_atlas.webp": {
+            "sha256": "42a12c0e7124e0a2f7c57d8b2caad5aa3901ac743135a270c96473c0c6640433",
+            "bytes": 1187698
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_idle_atlas/atlas/tsar_cannon_lab_idle_atlas.webp": {
+            "sha256": "72d19a8be0bc110d003065baec0e0056e88a81a28144dbc56daf4c8c7b8359d6",
+            "bytes": 5722100
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v18_hit_atlas/atlas/tsar_cannon_lab_v18_hit_atlas.webp": {
+            "sha256": "e5f6b351239367b70e573cc1e5aa5c81d1c4c8c2e511a8d8533e3a0cb8fff940",
+            "bytes": 1093698
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v18_attack_atlas/atlas/tsar_cannon_lab_v18_attack_atlas.webp": {
+            "sha256": "6e367ea04466d7f97d30512c2649b4078e72c844c454f9c50429ed3165986cc5",
+            "bytes": 3241118
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v20_death_atlas/atlas/tsar_cannon_lab_v20_death_atlas.webp": {
+            "sha256": "2d7f570eb4c576bd37d0295487e4f101b4eb9cae062a69cd5a79530d2be9c0e1",
+            "bytes": 1521200
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v18_attack_down_atlas/atlas/tsar_cannon_lab_v18_attack_down_atlas.webp": {
+            "sha256": "f2305ae7a7497baf3a07601b9464ea9c6990a04483f1ccd4b64480440320ca1b",
+            "bytes": 3288762
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v18_attack_up_atlas/atlas/tsar_cannon_lab_v18_attack_up_atlas.webp": {
+            "sha256": "e7d2f5c468290558624c4f3821e41cc6c8959b673384e507c4d6f9a28a7ec74f",
+            "bytes": 3223298
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v20_hit_atlas/atlas/tsar_cannon_lab_v20_hit_atlas.webp": {
+            "sha256": "4381bcfad8b5c63a5348e8a1335d2add3532f85e7531d09f97859060f02cb38e",
+            "bytes": 888428
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v21_hit_atlas/atlas/tsar_cannon_lab_v21_hit_atlas.webp": {
+            "sha256": "2855e8a79eb41c959eaa89e3163cf0e26ce53db4d233a5a6999453f95e387d8e",
+            "bytes": 905996
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v21_death_atlas/atlas/tsar_cannon_lab_v21_death_atlas.webp": {
+            "sha256": "b62cd112543244c1f4925455c7f8d7c3e33a925b5a2c8992f42f736f58f8ddea",
+            "bytes": 1482704
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v24_melee_attack_atlas/atlas/tsar_cannon_lab_v24_melee_attack_atlas.webp": {
+            "sha256": "1ae51f2d14e0ea669f87bb1809d1a98116a11c87bb4d8da1587430e164516d5c",
+            "bytes": 2994524
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v24_melee_attack_down_atlas/atlas/tsar_cannon_lab_v24_melee_attack_down_atlas.webp": {
+            "sha256": "988fd3eb6b83ada5ca21c9752b67149bdd863b17b4dc01df3839af0ec087ed9e",
+            "bytes": 3010584
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v24_melee_attack_up_atlas/atlas/tsar_cannon_lab_v24_melee_attack_up_atlas.webp": {
+            "sha256": "f76fd74ee0519fb5a5e6d9a5257e3d52c7cec92d50740dd7beadcfe702e3895c",
+            "bytes": 2982264
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v25_melee_attack_atlas/atlas/tsar_cannon_lab_v25_melee_attack_atlas.webp": {
+            "sha256": "4e6e414d49b96e563a9bd0ecbcf66f73b40ba4c4e24db0de3bb7d7651bb25b46",
+            "bytes": 2997582
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v25_melee_attack_down_atlas/atlas/tsar_cannon_lab_v25_melee_attack_down_atlas.webp": {
+            "sha256": "39c886ae82b51faa5276abcf73df67c1567e9a7883bf29a8b0b56c745e883309",
+            "bytes": 3025566
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v25_melee_attack_up_atlas/atlas/tsar_cannon_lab_v25_melee_attack_up_atlas.webp": {
+            "sha256": "fff1c98fbbfc844a8be86928f9ae514bd02da07620b50020c46495b20bbf26e1",
+            "bytes": 2952416
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v26_attack_atlas/atlas/tsar_cannon_lab_v26_attack_atlas.webp": {
+            "sha256": "1ae51f2d14e0ea669f87bb1809d1a98116a11c87bb4d8da1587430e164516d5c",
+            "bytes": 2994524
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v26_attack_down_atlas/atlas/tsar_cannon_lab_v26_attack_down_atlas.webp": {
+            "sha256": "988fd3eb6b83ada5ca21c9752b67149bdd863b17b4dc01df3839af0ec087ed9e",
+            "bytes": 3010584
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_walk_atlas_half/atlas/tsar_cannon_lab_walk_atlas_half.webp": {
+            "sha256": "e9635f6f9723529b2f4c5fd90a1fdbadc9243557f784d8440c06ae33e81bfe60",
+            "bytes": 193556
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_walk_atlas/atlas/tsar_cannon_lab_walk_atlas.webp": {
+            "sha256": "99529905152ab588f2387d70a555304fdd3827780e09c54d56e165fb2863ebab",
+            "bytes": 495340
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_walk_atlas_quarter/atlas/tsar_cannon_lab_walk_atlas_quarter.webp": {
+            "sha256": "a2f92d0219596a5e7b02d6680f945eeb7a557c033b5639ea0699261906b33a79",
+            "bytes": 68052
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_lab_v26_attack_up_atlas/atlas/tsar_cannon_lab_v26_attack_up_atlas.webp": {
+            "sha256": "f76fd74ee0519fb5a5e6d9a5257e3d52c7cec92d50740dd7beadcfe702e3895c",
+            "bytes": 2982264
+        },
+        "animations/output/q93_atlases_v1/unicorn_lab_death_atlas_quarter/atlas/unicorn_lab_death_atlas_quarter.webp": {
+            "sha256": "d82e2e7e5c475a15f1d46b0081534df39480b38237e98f76d9d2c1a789b5fb67",
+            "bytes": 70120
+        },
+        "animations/output/q93_atlases_v1/unicorn_lab_hit_atlas_quarter/atlas/unicorn_lab_hit_atlas_quarter.webp": {
+            "sha256": "535a35fcfb2aebec713caccb62a6e09ac824e4ad35debd0ed9247ab94b3a67df",
+            "bytes": 74288
+        },
+        "animations/output/q93_atlases_v1/unicorn_lab_melee_attack_atlas_quarter/atlas/unicorn_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "ccba362398fe7d2bc895fbdf13c4ef07894a56201dccd431fcabb859596de754",
+            "bytes": 92306
+        },
+        "animations/output/q93_atlases_v1/unicorn_lab_melee_attack_down_atlas_quarter/atlas/unicorn_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "39b8d07cfec9c1f728b893b1cdac6727430714e5ed470df61fd1c257f1d6c1b2",
+            "bytes": 89518
+        },
+        "animations/output/q93_atlases_v1/unicorn_lab_melee_attack_up_atlas_quarter/atlas/unicorn_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "a125502a676a8bbc54e2b79c67f792d77f982e07232835c6091d7c389601053e",
+            "bytes": 89800
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_original_wheels_walk_atlas/atlas/tsar_cannon_original_wheels_walk_atlas.webp": {
+            "sha256": "654ededef97cb4a9dab8813648e13ec22297c725632cfc2d37ef2589130c12d8",
+            "bytes": 6871912
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_cast_atlas_quarter/atlas/valkyrie_lab_current_cast_atlas_quarter.webp": {
+            "sha256": "9dff3747b8f6b770f1d071371b4cc96b96edf42a8e8fb3b7c76668c56bd97454",
+            "bytes": 55248
+        },
+        "animations/output/q93_atlases_v1/unicorn_lab_walk_atlas_quarter/atlas/unicorn_lab_walk_atlas_quarter.webp": {
+            "sha256": "8b237fd27c574bda3e415adb3f3e066ad6bcf793b8a1efb17a574f3e8376715f",
+            "bytes": 92268
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_death_atlas_quarter/atlas/valkyrie_lab_current_death_atlas_quarter.webp": {
+            "sha256": "c04f1722c2774c90e035a0068b892e53b72627ce2ac72d5138e5373ac49fea5e",
+            "bytes": 44392
+        },
+        "animations/output/q93_atlases_v1/tsar_cannon_round_wheels_v12_walk_atlas/atlas/tsar_cannon_round_wheels_v12_walk_atlas.webp": {
+            "sha256": "8de7cbe3272b4b713db189b71b358d2908dfee688e524ed5b6aa12a8f4d2dbfc",
+            "bytes": 7291696
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_death_atlas/atlas/valkyrie_lab_current_death_atlas.webp": {
+            "sha256": "204f51a0302a8000267bc17e17ce0a95ae7ed742bde3ad6af696054aee0872d6",
+            "bytes": 372910
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_melee_attack_atlas_quarter/atlas/valkyrie_lab_current_melee_attack_atlas_quarter.webp": {
+            "sha256": "6928d67224a802292f2d1cd164dc913d41c2e64721f68480ad43c2547855b456",
+            "bytes": 57612
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_melee_attack_down_atlas_quarter/atlas/valkyrie_lab_current_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "113d1370142f4836b06d2ac02f26cf475b350449a008edcdacb18fdc3efd6a3d",
+            "bytes": 55454
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_hit_atlas_quarter/atlas/valkyrie_lab_current_hit_atlas_quarter.webp": {
+            "sha256": "78656a9fe7cfb49f08e54061178f534c56a6a1409914da98eabe13a5f7bda5a4",
+            "bytes": 52178
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_hit_atlas/atlas/valkyrie_lab_current_hit_atlas.webp": {
+            "sha256": "c50d8fd50e66816a4905f46c55f9ef6c5ecc18b1c0fa2dcd79c35197e42ed6f6",
+            "bytes": 426488
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_melee_attack_up_atlas_quarter/atlas/valkyrie_lab_current_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "09e7e210fd1d7942e7fa6e1f5fe6a6f373114b4f3cdbfc07b07a7f5b515cf3ff",
+            "bytes": 56020
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_walk_atlas/atlas/valkyrie_lab_current_walk_atlas.webp": {
+            "sha256": "2292f2cd0cf756818079c62fa1492a69f476961dae7f521474395cd2641572a3",
+            "bytes": 747114
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_current_walk_atlas_quarter/atlas/valkyrie_lab_current_walk_atlas_quarter.webp": {
+            "sha256": "e4ce1c70cff2d799010ec3836315394db9641e151f8f2f1953f18aecd398659e",
+            "bytes": 102012
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_walk_atlas/atlas/valkyrie_lab_walk_atlas.webp": {
+            "sha256": "2292f2cd0cf756818079c62fa1492a69f476961dae7f521474395cd2641572a3",
+            "bytes": 747114
+        },
+        "animations/output/q93_atlases_v1/valkyrie_lab_walk_atlas_quarter/atlas/valkyrie_lab_walk_atlas_quarter.webp": {
+            "sha256": "e4ce1c70cff2d799010ec3836315394db9641e151f8f2f1953f18aecd398659e",
+            "bytes": 102012
+        },
+        "animations/output/q93_atlases_v1/vfx_abomination_hand_aura_atlas_quarter/atlas/vfx_abomination_hand_aura_atlas_quarter.webp": {
+            "sha256": "64b15f7a9caf13ea25c57cf87a1e999d3d2bf0508b6029457c966d44e412eb7b",
+            "bytes": 117476
+        },
+        "animations/output/q93_atlases_v1/vfx_abomination_hand_aura_atlas_half/atlas/vfx_abomination_hand_aura_atlas_half.webp": {
+            "sha256": "48919219d12a4739dc4dda2811271b937ca411236d176afb31528eba403b1759",
+            "bytes": 351544
+        },
+        "animations/output/q93_atlases_v1/vfx_ai_turn_brain_loop_atlas/atlas/vfx_ai_turn_brain_loop_atlas.webp": {
+            "sha256": "177250313c5d008e66d5dfc14ff9a7a7baedfd4c886e19e2453c27ed714a2012",
+            "bytes": 148266
+        },
+        "animations/output/q93_atlases_v1/vfx_abomination_hand_aura_atlas/atlas/vfx_abomination_hand_aura_atlas.webp": {
+            "sha256": "400d545d92fcfaa9569745766986c780ae16c8a4fa8c89120743c43c1adbbb7b",
+            "bytes": 995446
+        },
+        "animations/output/q93_atlases_v1/vfx_ai_turn_brain_loop_atlas_quarter/atlas/vfx_ai_turn_brain_loop_atlas_quarter.webp": {
+            "sha256": "87e155121b20054389b0c59ad0bd222095c2d4c504398801945447c8733f8e43",
+            "bytes": 28798
+        },
+        "animations/output/q93_atlases_v1/vfx_aggr_pop_atlas/atlas/vfx_aggr_pop_atlas.webp": {
+            "sha256": "3b29396c781ad0e267861281d5d0ff78f001f22112b453b16398cad87375667d",
+            "bytes": 820476
+        },
+        "animations/output/q93_atlases_v1/vfx_angel_resurrection_pop_atlas/atlas/vfx_angel_resurrection_pop_atlas.webp": {
+            "sha256": "15ac0d36afd2b938c52fa8304563f83cdb5d9f8271259afc28edf4b0ad8bab56",
+            "bytes": 464262
+        },
+        "animations/output/q93_atlases_v1/vfx_arachna_infest_hatch_atlas/atlas/vfx_arachna_infest_hatch_atlas.webp": {
+            "sha256": "60342f50ddbf9c82ab69d94e233fd932d2ae5048b5b683a76dbcde2edd64d202",
+            "bytes": 853620
+        },
+        "animations/output/q93_atlases_v1/vfx_arachna_infest_spider_hatch_atlas/atlas/vfx_arachna_infest_spider_hatch_atlas.webp": {
+            "sha256": "65a2aa69e27021c30b300d75ee71e093fab1f9ebb68ac9e4a47d0b8091261e7f",
+            "bytes": 1370338
+        },
+        "animations/output/q93_atlases_v1/vfx_arachna_infest_queen_hatch_atlas/atlas/vfx_arachna_infest_queen_hatch_atlas.webp": {
+            "sha256": "ea70b4860286fa65a37ff031cdf43e0e7be8ae45762b10009bae882b3bb8f39a",
+            "bytes": 1315972
+        },
+        "animations/output/q93_atlases_v1/vfx_battle_roar_long_atlas_quarter/atlas/vfx_battle_roar_long_atlas_quarter.webp": {
+            "sha256": "8d7a82807943252b332cdd439a2bfb19570e37a03b120e66dbfff0efeb11750b",
+            "bytes": 65246
+        },
+        "animations/output/q93_atlases_v1/vfx_battle_roar_short_atlas_quarter/atlas/vfx_battle_roar_short_atlas_quarter.webp": {
+            "sha256": "8d7a82807943252b332cdd439a2bfb19570e37a03b120e66dbfff0efeb11750b",
+            "bytes": 65246
+        },
+        "animations/output/q93_atlases_v1/vfx_battle_roar_long_atlas/atlas/vfx_battle_roar_long_atlas.webp": {
+            "sha256": "1cee335f14773e42dfd3e958bd829fba886d158d5bf0142238d5ab911d31d97a",
+            "bytes": 566710
+        },
+        "animations/output/q93_atlases_v1/vfx_battle_roar_short_atlas/atlas/vfx_battle_roar_short_atlas.webp": {
+            "sha256": "1cee335f14773e42dfd3e958bd829fba886d158d5bf0142238d5ab911d31d97a",
+            "bytes": 566710
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_quagmire_pop_atlas/atlas/vfx_beholder_quagmire_pop_atlas.webp": {
+            "sha256": "6f51e589c8c0a107caf0ade753fc5f25061b1162ff859f93bf36572cbc6a6ce7",
+            "bytes": 437226
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_cowardice_pop_atlas/atlas/vfx_beholder_cowardice_pop_atlas.webp": {
+            "sha256": "34513c02d3452bd137bd3e0fc6420c9e2e73abd0dbd6bd09134ea47fe376e512",
+            "bytes": 597610
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_curse_pop_atlas/atlas/vfx_beholder_curse_pop_atlas.webp": {
+            "sha256": "0b77ff9cca300d359bbc0226659c092b93c7b2521236b7f3ed6097dd3bfa040b",
+            "bytes": 553344
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_sadness_pop_atlas/atlas/vfx_beholder_sadness_pop_atlas.webp": {
+            "sha256": "733a7eab45020cd01a5121c91a55f025bef8a96acfa72d126becf902763d5de8",
+            "bytes": 357982
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_weakening_beam_pop_atlas/atlas/vfx_beholder_weakening_beam_pop_atlas.webp": {
+            "sha256": "d3899e3a55cdae070260216d5f907dd427ceb6befe8a5c51572943fba0d81fc1",
+            "bytes": 575628
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_rangebane_pop_atlas/atlas/vfx_beholder_rangebane_pop_atlas.webp": {
+            "sha256": "c7e3001c684aba2ec988d1e503af7dbcb8b82f2d1c33ff6ac28b12144e34d044",
+            "bytes": 640684
+        },
+        "animations/output/q93_atlases_v1/vfx_beholder_weakness_pop_atlas/atlas/vfx_beholder_weakness_pop_atlas.webp": {
+            "sha256": "8839d932442ecc38b081bd54f04e38c8480ddb4466918f5f2bdec31f67d2e32b",
+            "bytes": 377034
+        },
+        "animations/output/q93_atlases_v1/vfx_blacksmith_craft_pop_atlas/atlas/vfx_blacksmith_craft_pop_atlas.webp": {
+            "sha256": "a53ae57ed8d306ff5cce406ea37f499661707a15f6295872b47389142961a02f",
+            "bytes": 577328
+        },
+        "animations/output/q93_atlases_v1/vfx_blacksmith_double_punch_pop_atlas_quarter/atlas/vfx_blacksmith_double_punch_pop_atlas_quarter.webp": {
+            "sha256": "1cdccd566bb9314a12115b014d77d7bc91ee0c9498e3a1236be511af85a48330",
+            "bytes": 75118
+        },
+        "animations/output/q93_atlases_v1/vfx_blacksmith_double_punch_pop_atlas/atlas/vfx_blacksmith_double_punch_pop_atlas.webp": {
+            "sha256": "921eb386bdc5ca1ed8bdc535da8172e01153b627c9a02c7114a414d55ed4c61c",
+            "bytes": 653404
+        },
+        "animations/output/q93_atlases_v1/vfx_blacksmith_double_shot_pop_atlas/atlas/vfx_blacksmith_double_shot_pop_atlas.webp": {
+            "sha256": "9a925ab19b1cc96c64d2c8fdebbfc433d02bbd719c615315b47e5464fa2b4fa4",
+            "bytes": 741418
+        },
+        "animations/output/q93_atlases_v1/vfx_blacksmith_frozen_sword_pop_atlas/atlas/vfx_blacksmith_frozen_sword_pop_atlas.webp": {
+            "sha256": "9edf1bc7a512a08f473e247652e54f72766309fac2a2b0fead9186c37343611a",
+            "bytes": 603382
+        },
+        "animations/output/q93_atlases_v1/vfx_arachna_web_aura_atlas/atlas/vfx_arachna_web_aura_atlas.webp": {
+            "sha256": "7d25553dab8157aa6a24b34d3386fb4aa07e341d170891683504ddc5ff87f93e",
+            "bytes": 9457802
+        },
+        "animations/output/q93_atlases_v1/vfx_boar_saliva_short_atlas_quarter/atlas/vfx_boar_saliva_short_atlas_quarter.webp": {
+            "sha256": "14b461d2f4fb911b29004b569bf3bdbbf86f94e104a4bc757d6ce00b84e780f8",
+            "bytes": 59090
+        },
+        "animations/output/q93_atlases_v1/vfx_boar_saliva_short_atlas/atlas/vfx_boar_saliva_short_atlas.webp": {
+            "sha256": "915e2c29e5e47c2297c7cc108c0da631fd8b985bc9650e39970a53183838e3f9",
+            "bytes": 447828
+        },
+        "animations/output/q93_atlases_v1/vfx_blind_fury_pop_atlas/atlas/vfx_blind_fury_pop_atlas.webp": {
+            "sha256": "22785fbd72e1e7d228f58986072081e6f6bc0586ce212995f4a0b8dcb5c0362c",
+            "bytes": 893460
+        },
+        "animations/output/q93_atlases_v1/vfx_deep_wounds_level_1_atlas/atlas/vfx_deep_wounds_level_1_atlas.webp": {
+            "sha256": "317d42fd6daa7bb1f42774159c8d22902b4b7ba46a70535400c479eab8acd130",
+            "bytes": 166388
+        },
+        "animations/output/q93_atlases_v1/vfx_common_resist_pop_atlas/atlas/vfx_common_resist_pop_atlas.webp": {
+            "sha256": "32ab954d7d7c11d3b55b9d715e75368a6bbe88c2f7b608adb1236a36441e0945",
+            "bytes": 205670
+        },
+        "animations/output/q93_atlases_v1/vfx_dust_smoky_ash_atlas/atlas/vfx_dust_smoky_ash_atlas.webp": {
+            "sha256": "ae8e51f5408dbc5f6d3276634593ebd1fa25fe5451fbd9184a3377dc153bd1de",
+            "bytes": 87378
+        },
+        "animations/output/q93_atlases_v1/vfx_enchanted_skin_pop_atlas_quarter/atlas/vfx_enchanted_skin_pop_atlas_quarter.webp": {
+            "sha256": "2e5b32179a41f8eb0da45aed6dd644205de397a596cbb302ccdd2bb6ce98e328",
+            "bytes": 34634
+        },
+        "animations/output/q93_atlases_v1/vfx_enchanted_skin_pop_atlas/atlas/vfx_enchanted_skin_pop_atlas.webp": {
+            "sha256": "8fed48569200ded4ccc05e248f9331bfcc2886de58d5e7de4e101760710dc3dd",
+            "bytes": 240890
+        },
+        "animations/output/q93_atlases_v1/vfx_devour_essence_short_atlas/atlas/vfx_devour_essence_short_atlas.webp": {
+            "sha256": "120df3c6fa175f7928e93746f026b52b73ff515b2737e50ebdbc8a2a5f8c2db4",
+            "bytes": 717854
+        },
+        "animations/output/q93_atlases_v1/vfx_madness_pop_atlas_quarter/atlas/vfx_madness_pop_atlas_quarter.webp": {
+            "sha256": "84613a0791643762c93bef881c87d21cb55562ab52f278a592bcd16c96f6b3ed",
+            "bytes": 102534
+        },
+        "animations/output/q93_atlases_v1/vfx_magic_reflection_pop_atlas/atlas/vfx_magic_reflection_pop_atlas.webp": {
+            "sha256": "f24291a96eaff5aaa96306efac0b1ae56ae40389e3b396553df1be2768324997",
+            "bytes": 478986
+        },
+        "animations/output/q93_atlases_v1/vfx_madness_pop_atlas/atlas/vfx_madness_pop_atlas.webp": {
+            "sha256": "8dbc814305a6fd6f62b10c0f58554b6080f480acb798b534f34c3d43653dd409",
+            "bytes": 973204
+        },
+        "animations/output/q93_atlases_v1/vfx_ogre_magic_mirror_pop_atlas/atlas/vfx_ogre_magic_mirror_pop_atlas.webp": {
+            "sha256": "d335bbe099a7e7f56427dd1f887366d940e2e3874edd4f3e4bd510cc820026f9",
+            "bytes": 103528
+        },
+        "animations/output/q93_atlases_v1/vfx_ogre_magic_mirror_pop_atlas_quarter/atlas/vfx_ogre_magic_mirror_pop_atlas_quarter.webp": {
+            "sha256": "26ffd95b3081cc276a7178d0b62646e10804db915dd9eb088f4b6b076e3deaea",
+            "bytes": 14222
+        },
+        "animations/output/q93_atlases_v1/vfx_meteor_shower_impact_atlas/atlas/vfx_meteor_shower_impact_atlas.webp": {
+            "sha256": "820904e3e58fa7ba9583c3992351274851eabb94d87fa7fcc2ff6b9f1dd2aee1",
+            "bytes": 603588
+        },
+        "animations/output/q93_atlases_v1/vfx_miner_pop_atlas/atlas/vfx_miner_pop_atlas.webp": {
+            "sha256": "9fae58ecc504dd691d52d6c953841b7ff6b0991ff553e2b0dd37123daa3165e2",
+            "bytes": 636028
+        },
+        "animations/output/q93_atlases_v1/vfx_petrifying_gaze_pop_atlas/atlas/vfx_petrifying_gaze_pop_atlas.webp": {
+            "sha256": "dcf6eca29d3f2463b425b519a394aa60a5887511f52c56f089ab7b55a8f957c8",
+            "bytes": 561676
+        },
+        "animations/output/q93_atlases_v1/vfx_petrifying_gaze_pop_atlas_quarter/atlas/vfx_petrifying_gaze_pop_atlas_quarter.webp": {
+            "sha256": "d0a9e3ed3660ada55a7e64cc788f388373889512d19aaa322abe789eb2bcd268",
+            "bytes": 76928
+        },
+        "animations/output/q93_atlases_v1/vfx_multi_attack_pop_atlas/atlas/vfx_multi_attack_pop_atlas.webp": {
+            "sha256": "089d76cfb2175cbef55ed9a6db4f1d00d4609f8c948e83c77146be540fd27fcd",
+            "bytes": 1063460
+        },
+        "animations/output/q93_atlases_v1/vfx_penetrating_bite_pop_atlas/atlas/vfx_penetrating_bite_pop_atlas.webp": {
+            "sha256": "7ab50675d6a48e744a38e55fcf39c348f287cfc0afda6ed25122686750a3012e",
+            "bytes": 864900
+        },
+        "animations/output/q93_atlases_v1/vfx_ring_fire_hollow_burst_atlas/atlas/vfx_ring_fire_hollow_burst_atlas.webp": {
+            "sha256": "5b5371791b830a6b93b4fefdd068d5e9d193b282bb0e81e2c49a778996c070bb",
+            "bytes": 359932
+        },
+        "animations/output/q93_atlases_v1/vfx_ring_fire_burst_atlas/atlas/vfx_ring_fire_burst_atlas.webp": {
+            "sha256": "ba350c6302b8c9fef64df29b2c22e32ed98bd7c186c8c94ca961d1f2c12fce96",
+            "bytes": 610218
+        },
+        "animations/output/q93_atlases_v1/vfx_satyr_courage_pop_atlas/atlas/vfx_satyr_courage_pop_atlas.webp": {
+            "sha256": "ace45c0046f81a00f9d7ec1d663fc14deefecf2746a7d77d9ddf824ea52704c5",
+            "bytes": 709474
+        },
+        "animations/output/q93_atlases_v1/vfx_shadow_touch_pop_atlas/atlas/vfx_shadow_touch_pop_atlas.webp": {
+            "sha256": "7393d683d68dfb664e000d5694f5e2e3be2ff4e9f77ae2e7b61ac07f9a928921",
+            "bytes": 457572
+        },
+        "animations/output/q93_atlases_v1/vfx_shatter_armor_pop_atlas/atlas/vfx_shatter_armor_pop_atlas.webp": {
+            "sha256": "f5dd86fc9e322ce0d6191cc5ae0fd4b43571ba7ca7aad80311c2cbbc12c405ec",
+            "bytes": 339598
+        },
+        "animations/output/q93_atlases_v1/vfx_shadow_touch_pop_atlas_quarter/atlas/vfx_shadow_touch_pop_atlas_quarter.webp": {
+            "sha256": "e69f1d0d081bb3720f7f62338daf93818fbf47c51aa64d9eead9d3f5236a170b",
+            "bytes": 65128
+        },
+        "animations/output/q93_atlases_v1/vfx_small_specie_pop_atlas/atlas/vfx_small_specie_pop_atlas.webp": {
+            "sha256": "041d4cc46eb826b8d16f6b57a47660c96d4dce781cef2c4e9b2cf6261fbac054",
+            "bytes": 668402
+        },
+        "animations/output/q93_atlases_v1/vfx_single_heal_pop_atlas/atlas/vfx_single_heal_pop_atlas.webp": {
+            "sha256": "6da5d094a51795717af60e5df2107ca732c77377e5b4fb0d90bf3982d3a03c1f",
+            "bytes": 717568
+        },
+        "animations/output/q93_atlases_v1/vfx_thunderbird_chain_arc_atlas/atlas/vfx_thunderbird_chain_arc_atlas.webp": {
+            "sha256": "18c61c57ed17b654face4d3bdc8f8573d16563d8b1379506918dc3848bac92e8",
+            "bytes": 442058
+        },
+        "animations/output/q93_atlases_v1/vfx_tsar_cannon_flight_v21_atlas/atlas/vfx_tsar_cannon_flight_v21_atlas.webp": {
+            "sha256": "f01f60e582c9d2fbd7d3efc43875e9c5bac145cf56a064720ae414ba898338ea",
+            "bytes": 303214
+        },
+        "animations/output/q93_atlases_v1/vfx_unicorn_blindness_pop_atlas_quarter/atlas/vfx_unicorn_blindness_pop_atlas_quarter.webp": {
+            "sha256": "8793bf32ea86e461d91877b64a5186ef105295491aca8efdf10d95061d162993",
+            "bytes": 23332
+        },
+        "animations/output/q93_atlases_v1/vfx_unicorn_blindness_pop_atlas/atlas/vfx_unicorn_blindness_pop_atlas.webp": {
+            "sha256": "bda9990ad805623f38afe83a5febda2e44ce2c6401559dabbf84560d978cd0b7",
+            "bytes": 218242
+        },
+        "animations/output/q93_atlases_v1/vfx_unicorn_one_in_the_field_pop_atlas_quarter/atlas/vfx_unicorn_one_in_the_field_pop_atlas_quarter.webp": {
+            "sha256": "20863755244561a4126b4915ccdfcf42a77483a352721cd239beaa3c8e9edabf",
+            "bytes": 45378
+        },
+        "animations/output/q93_atlases_v1/vfx_tsar_cannon_impact_v19_atlas/atlas/vfx_tsar_cannon_impact_v19_atlas.webp": {
+            "sha256": "50f29137a359f3a9efc0578ffdbf4f0caa01d96f13b06858465214ffe888cf9e",
+            "bytes": 644174
+        },
+        "animations/output/q93_atlases_v1/vfx_unyielding_power_curl_long_atlas_quarter/atlas/vfx_unyielding_power_curl_long_atlas_quarter.webp": {
+            "sha256": "fe5d5523d7dbbd8cdc15ba5c23080a0373f88d9ff94243474d1e0770f51e1bc8",
+            "bytes": 52426
+        },
+        "animations/output/q93_atlases_v1/vfx_unyielding_power_curl_long_atlas/atlas/vfx_unyielding_power_curl_long_atlas.webp": {
+            "sha256": "2b8d5c2404e1e1e88682832f3b89ffc019554a212b34f368db1cd86f8bb3c6fc",
+            "bytes": 414826
+        },
+        "animations/output/q93_atlases_v1/vfx_unyielding_power_curl_short_atlas_quarter/atlas/vfx_unyielding_power_curl_short_atlas_quarter.webp": {
+            "sha256": "972d199ecab5bc9b8ecde7cf2b3495449f25cdb2b76143f18ecdee7326c645db",
+            "bytes": 52278
+        },
+        "animations/output/q93_atlases_v1/vfx_unyielding_power_long_atlas/atlas/vfx_unyielding_power_long_atlas.webp": {
+            "sha256": "29330f36d3d4f7a06c1e7036b2dda125295a09d342548e80b6e8c21006e36c0f",
+            "bytes": 414446
+        },
+        "animations/output/q93_atlases_v1/vfx_unyielding_power_curl_short_atlas/atlas/vfx_unyielding_power_curl_short_atlas.webp": {
+            "sha256": "53026ecde992317dac7cc8f70749bc6fc31de83dd65b0004faa54e464b136f58",
+            "bytes": 414754
+        },
+        "animations/output/q93_atlases_v1/vfx_unyielding_power_short_atlas/atlas/vfx_unyielding_power_short_atlas.webp": {
+            "sha256": "eb71b1f108501bda13adeb6d22712c1c6c673b54377ae5bc56f4795427e6a60a",
+            "bytes": 413040
+        },
+        "animations/output/q93_atlases_v1/vfx_wind_flow_pop_atlas_quarter/atlas/vfx_wind_flow_pop_atlas_quarter.webp": {
+            "sha256": "8cc9f8d8ea5051a7fa3f8e87d3f639e5383ecb376cd96e98e82382e80371af18",
+            "bytes": 53622
+        },
+        "animations/output/q93_atlases_v1/white_tiger_lab_death_atlas_quarter/atlas/white_tiger_lab_death_atlas_quarter.webp": {
+            "sha256": "a6e3dea3d0759997d6afacfdf062f2036c392b7904bca0f51189f793c91d758e",
+            "bytes": 72974
+        },
+        "animations/output/q93_atlases_v1/white_tiger_lab_hit_atlas_quarter/atlas/white_tiger_lab_hit_atlas_quarter.webp": {
+            "sha256": "66a5abf6720a1de59bf54055c9be6936ce25e16da3f9a49937547038d8c457c0",
+            "bytes": 65972
+        },
+        "animations/output/q93_atlases_v1/white_tiger_lab_melee_attack_atlas_quarter/atlas/white_tiger_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "b7abd650c98672d1f9cef609afe387522f6b002e2aef7ce3360c964b1652144d",
+            "bytes": 95370
+        },
+        "animations/output/q93_atlases_v1/vfx_wind_flow_pop_atlas/atlas/vfx_wind_flow_pop_atlas.webp": {
+            "sha256": "dbf3a97f1bfc34ceda9aeb86d5f727679923ab35d6bf5bbc3f5f9a04d36b6285",
+            "bytes": 522928
+        },
+        "animations/output/q93_atlases_v1/vfx_wild_regeneration_pop_atlas/atlas/vfx_wild_regeneration_pop_atlas.webp": {
+            "sha256": "d00b0c694709a75416be1db3e996ead5fef91be978f7a30f69ed6af6a1e05ff7",
+            "bytes": 811210
+        },
+        "animations/output/q93_atlases_v1/white_tiger_lab_melee_attack_down_atlas_quarter/atlas/white_tiger_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "22362e7a8bc67b30e94a7f7e51d3a6ac633c51acec46bb91168bfa23bf51d8ec",
+            "bytes": 94802
+        },
+        "animations/output/q93_atlases_v1/white_tiger_lab_walk_atlas_quarter/atlas/white_tiger_lab_walk_atlas_quarter.webp": {
+            "sha256": "f9f36ffe4505e3d7d0b792d85522a05e9e1e8d9331f381c59c5daf8158c29673",
+            "bytes": 81906
+        },
+        "animations/output/q93_atlases_v1/white_tiger_lab_melee_attack_up_atlas_quarter/atlas/white_tiger_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "caa7444ece6f31a7c8cbc315f4f337efc9816866fc8fb283f46af1a812d12366",
+            "bytes": 97622
+        },
+        "animations/output/q93_atlases_v1/wolf_attack_atlas_quarter/atlas/wolf_attack_atlas_quarter.webp": {
+            "sha256": "29f53682a705ae55609a7c1598e48a229e8ec274b88c2384fd4aaec65e2ddca3",
+            "bytes": 317020
+        },
+        "animations/output/q93_atlases_v1/wolf_attack_down_atlas_quarter/atlas/wolf_attack_down_atlas_quarter.webp": {
+            "sha256": "f97ef3a88be01ef7ea866db253e54389db2ad9d744d801ff4a7acbc90a0726e8",
+            "bytes": 314404
+        },
+        "animations/output/q93_atlases_v1/wolf_attack_up_atlas_quarter/atlas/wolf_attack_up_atlas_quarter.webp": {
+            "sha256": "ac6b6ef6489c0f900e86f91d283c8f1f310040c1f67e9f98d016fb80dcccfeda",
+            "bytes": 333954
+        },
+        "animations/output/q93_atlases_v1/wolf_death_atlas_half/atlas/wolf_death_atlas_half.webp": {
+            "sha256": "9a975e9d1608e812e144ad559bbabbb32bc151267d480dfe5aa148b431fad571",
+            "bytes": 681434
+        },
+        "animations/output/q93_atlases_v1/wolf_attack_atlas_half/atlas/wolf_attack_atlas_half.webp": {
+            "sha256": "a39d4778f18733ae2158f9b4c7f0b503c139bca3d456cc8556cebc47b43b27cc",
+            "bytes": 963888
+        },
+        "animations/output/q93_atlases_v1/wolf_death_atlas_quarter/atlas/wolf_death_atlas_quarter.webp": {
+            "sha256": "b6b19e6380a20fe7cb2af6ec87883d9343773e9dcea0f092a6f51f6d7fa78ba6",
+            "bytes": 217448
+        },
+        "animations/output/q93_atlases_v1/wolf_attack_down_atlas_half/atlas/wolf_attack_down_atlas_half.webp": {
+            "sha256": "23f481e75a2854d687df720a358a1978c6ad156fb1eb1bc14e1b34eb1dd49860",
+            "bytes": 964852
+        },
+        "animations/output/q93_atlases_v1/wolf_hit_atlas_quarter/atlas/wolf_hit_atlas_quarter.webp": {
+            "sha256": "653b0a71234b020ddb265f36eb09807e93461151b5a4385a5979f29324f895d3",
+            "bytes": 262660
+        },
+        "animations/output/q93_atlases_v1/wolf_attack_up_atlas_half/atlas/wolf_attack_up_atlas_half.webp": {
+            "sha256": "1c0e72cd59bd0b5973adf49798c656ea776f431749878f499760a202e0b9e548",
+            "bytes": 1045966
+        },
+        "animations/output/q93_atlases_v1/wolf_rider_attack_atlas_quarter/atlas/wolf_rider_attack_atlas_quarter.webp": {
+            "sha256": "95c88341e7c985e8910087c9c309ad35170376d09e37af97574d2989d138a872",
+            "bytes": 79278
+        },
+        "animations/output/q93_atlases_v1/wolf_rider_attack_down_atlas_quarter/atlas/wolf_rider_attack_down_atlas_quarter.webp": {
+            "sha256": "79c9727ae199494877e9f3493aa6647e237bd011fc2ad346d10a56ca2e87c84d",
+            "bytes": 79320
+        },
+        "animations/output/q93_atlases_v1/wolf_hit_atlas_half/atlas/wolf_hit_atlas_half.webp": {
+            "sha256": "a5e2fe724a239fb1b1098784b717be39c53f28ec55aa6e21fa527c1b761e22b9",
+            "bytes": 866014
+        },
+        "animations/output/q93_atlases_v1/wolf_rider_attack_up_atlas_quarter/atlas/wolf_rider_attack_up_atlas_quarter.webp": {
+            "sha256": "4d6df92a917c3e6975a5b5ae48bdddeec956094ff1779269ff0813ecb18e6679",
+            "bytes": 78722
+        },
+        "animations/output/q93_atlases_v1/wolf_rider_death_atlas_quarter/atlas/wolf_rider_death_atlas_quarter.webp": {
+            "sha256": "4762229e8bd74ddb3f49872dc08a273ee3fcd9320c5a2a97359b0d33e6ded98f",
+            "bytes": 64614
+        },
+        "animations/output/q93_atlases_v1/wolf_rider_hit_atlas_quarter/atlas/wolf_rider_hit_atlas_quarter.webp": {
+            "sha256": "c68af7dd345a07904ce4ad1251c6d81e6708d17833f553dd5488525adb45f3bb",
+            "bytes": 75928
+        },
+        "animations/output/q93_atlases_v1/wolf_idle_atlas_quarter/atlas/wolf_idle_atlas_quarter.webp": {
+            "sha256": "965ffe0ab9a038e667c9d7de23082028339cb2e06f6536fd02a36e6b6ed446d1",
+            "bytes": 1127220
+        },
+        "animations/output/q93_atlases_v1/wolf_rider_walk_atlas_quarter/atlas/wolf_rider_walk_atlas_quarter.webp": {
+            "sha256": "c671792dcf0d5c05ab91b5b8bc549153c5799f3d50af5d7c419e67e93c71507b",
+            "bytes": 79706
+        },
+        "animations/output/q93_atlases_v1/wolf_walk_atlas_quarter/atlas/wolf_walk_atlas_quarter.webp": {
+            "sha256": "fda7d7e365e7075c0b38f4df6a6c0f27288158ff59391b27fa2c50c256c116a1",
+            "bytes": 179616
+        },
+        "animations/output/q93_atlases_v1/wyvern_lab_death_atlas_quarter/atlas/wyvern_lab_death_atlas_quarter.webp": {
+            "sha256": "c0225a5d2aed6b662909c1b7b9fcfb544ed8e784deaaffe5f5e3025de71ac293",
+            "bytes": 70944
+        },
+        "animations/output/q93_atlases_v1/wolf_walk_atlas_half/atlas/wolf_walk_atlas_half.webp": {
+            "sha256": "7afaa46207277464debada95050ad5c7da73c988d4074a1f4e5a3a53c3796a2a",
+            "bytes": 494886
+        },
+        "animations/output/q93_atlases_v1/wyvern_lab_hit_atlas_quarter/atlas/wyvern_lab_hit_atlas_quarter.webp": {
+            "sha256": "d1b1c44d361119142ed459b3014f2c7deece0c3657d9a477b6c2c7736b382941",
+            "bytes": 68196
+        },
+        "animations/output/q93_atlases_v1/wyvern_lab_melee_attack_down_atlas_quarter/atlas/wyvern_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "e28a56cf87aa92f73e9868b985b335373ab52f8dc43bd0d746069ac5da85f167",
+            "bytes": 62932
+        },
+        "animations/output/q93_atlases_v1/wyvern_lab_melee_attack_up_atlas_quarter/atlas/wyvern_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "a9127509e9f4072dffa3b14eb17048e9c6b9436bbace2d911bb2d2287d438777",
+            "bytes": 64882
+        },
+        "animations/output/q93_atlases_v1/wyvern_lab_walk_atlas_quarter/atlas/wyvern_lab_walk_atlas_quarter.webp": {
+            "sha256": "4bd73690d27ad6d8c22e78444456de1569cb70a4b54fc520b07ef7f25711e7ea",
+            "bytes": 208512
+        },
+        "animations/output/q93_atlases_v1/wolf_idle_atlas_half/atlas/wolf_idle_atlas_half.webp": {
+            "sha256": "81a7e921484a076a066d85079a75f679c85bc8fb075af925747cc944ea8fb657",
+            "bytes": 2938388
+        },
+        "animations/output/q93_atlases_v1/zena_lab_attack_atlas_quarter/atlas/zena_lab_attack_atlas_quarter.webp": {
+            "sha256": "1bbfff01ecb9692722bdb549f00dd1841e50f954d7ddab49eebdb9a2f8d6e0d7",
+            "bytes": 243528
+        },
+        "animations/output/q93_atlases_v1/zena_lab_attack_down_atlas_quarter/atlas/zena_lab_attack_down_atlas_quarter.webp": {
+            "sha256": "8cb0b425fb1496d8a3e02b4380ffbc7df9e61f25625b67e4a84f36520bb43526",
+            "bytes": 218062
+        },
+        "animations/output/q93_atlases_v1/zena_lab_death_atlas_quarter/atlas/zena_lab_death_atlas_quarter.webp": {
+            "sha256": "08226f9eca988cd476502102634de5256486fb143b6b7fb238753c2f147da6b5",
+            "bytes": 61052
+        },
+        "animations/output/q93_atlases_v1/zena_lab_hit_atlas_quarter/atlas/zena_lab_hit_atlas_quarter.webp": {
+            "sha256": "351589f325d9875e8902ee6f5ad6a2865690380f0f4498aba8673b87aef85229",
+            "bytes": 81154
+        },
+        "animations/output/q93_atlases_v1/zena_lab_attack_up_atlas_quarter/atlas/zena_lab_attack_up_atlas_quarter.webp": {
+            "sha256": "39ff443ec7c4f88fbaac5cb4cf67359392d750614f16471dd155f0ea0bf33efb",
+            "bytes": 232450
+        },
+        "animations/output/q93_atlases_v1/zena_lab_melee_attack_atlas_quarter/atlas/zena_lab_melee_attack_atlas_quarter.webp": {
+            "sha256": "4c72f2913cfe8e1114dc57d18688bc26f794687d4c5475357449aa5dcf55c0b1",
+            "bytes": 346928
+        },
+        "animations/output/q93_atlases_v1/zena_lab_melee_attack_down_atlas_quarter/atlas/zena_lab_melee_attack_down_atlas_quarter.webp": {
+            "sha256": "fb9129c3ec69fd87a37c1bd2341f76f08493d3323c2fdeac76f6e981c8a6c554",
+            "bytes": 366482
+        },
+        "animations/output/q93_atlases_v1/zena_lab_melee_attack_up_atlas_quarter/atlas/zena_lab_melee_attack_up_atlas_quarter.webp": {
+            "sha256": "305827997dbe818fdb7907f0e441e5e9881a7ec30362bdf561f8196843b8fe2e",
+            "bytes": 337448
+        },
+        "animations/output/q93_atlases_v1/zena_lab_idle_atlas_quarter/atlas/zena_lab_idle_atlas_quarter.webp": {
+            "sha256": "01e2c94bfb2ffd2a93638d67c71070cc7b5fa3fe915660041fa3b3dec7cfd6e4",
+            "bytes": 456646
+        },
+        "animations/output/q93_atlases_v1/zena_lab_walk_atlas_quarter/atlas/zena_lab_walk_atlas_quarter.webp": {
+            "sha256": "28874067433ed4115053422b3c6b1c3b38a7820f138faf4d552812e078f9bada",
+            "bytes": 67952
         }
     },
     "sidebarPortraitPages": {

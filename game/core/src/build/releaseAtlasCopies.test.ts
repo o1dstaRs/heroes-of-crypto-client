@@ -30,6 +30,7 @@ const fixture = () => {
         path.join(root, "scripts/install_half_body_atlases.ts"),
     );
     writeFileSync(path.join(root, "src/pixi/halfBodyAtlases.json"), JSON.stringify({ atlases: {} }));
+    writeFileSync(path.join(root, "src/pixi/q93Atlases.json"), JSON.stringify({ atlases: {} }));
     const index = path.join(root, "src/generated/animation_atlases.ts");
     const approved = "export const animationAtlases = { Example: { attack: { frameCount: 8, fps: 10 } } };\n";
     writeFileSync(index, approved);
@@ -125,5 +126,5 @@ test("a pinned half-size release copy ships in place of its master, never under 
     catalog(pin(Buffer.from("a different revision")));
     const refused = f.run(["--copy-only"]);
     expect(refused.exitCode).not.toBe(0);
-    expect(refused.stderr.toString()).toContain("does not match the pinned half-size copy");
+    expect(refused.stderr.toString()).toContain("does not match its pinned release copy");
 });

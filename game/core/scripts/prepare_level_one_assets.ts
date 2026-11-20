@@ -1,8 +1,7 @@
 import path from "node:path";
 import { resolveAnimationsOutputLocation, resolveImagesLocation } from "../src/assetLocations";
 import { installApprovedAnimationAssets } from "../src/build/approvedAnimationAssets";
-import { installHalfBodyAtlases } from "./install_half_body_atlases";
-import halfBodyAtlases from "../src/pixi/halfBodyAtlases.json";
+import { installHalfBodyAtlases, releaseAtlasCopies } from "./install_half_body_atlases";
 import levelOneAssets from "../src/animations/levelOneAssets.json";
 import environmentAssets from "../src/animations/battlefieldEnvironmentAssets.json";
 import shotTrajectoryAssets from "../src/pixi/shotTrajectoryAssets.json";
@@ -23,15 +22,15 @@ export function prepareLevelOneAssets(
         destination,
         roots,
         reuseVerifiedInstalled,
-        (key) => (halfBodyAtlases.atlases as Record<string, { sha256: string } | undefined>)[key]?.sha256,
+        (key) => releaseAtlasCopies[key]?.sha256,
     );
-    // The package verifies and installs masters; ship the pinned half-size copy where the release has one.
+    // The package verifies and installs masters; ship the pinned release copy where the release has one.
     const half = installHalfBodyAtlases(destination, roots.animation, (key) =>
         assets.some((asset) => asset.key === key),
     );
     console.log(
         `Approved level-one animation package: ${assets.length} assets verified and installed` +
-            ` (${half.installed} as their half-size release copies).`,
+            ` (${half.installed} as their pinned release copies).`,
     );
 }
 if (import.meta.main) prepareLevelOneAssets();

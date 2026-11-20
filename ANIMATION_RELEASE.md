@@ -64,7 +64,8 @@ cold match still downloaded the lossless full-size sheets: about 300 MB, 195 MB 
 halved on arrival. The release now also carries a half-size copy of each, under
 `animations/output/half_body_atlases_v1/<key>/atlas/<key>.webp`, derived from the pinned master with
 Lanczos-3 and the sidebar pages' Q93 recipe (alpha exact). The owner approved the quality on
-2026-11-20. `game/core/src/pixi/halfBodyAtlases.json` pins each copy; the atlas copy step ships it in
+2026-11-20. The Wyvern lab walk and melee-attack sheets stay lossless: their palette shader tests source
+colour with a hard threshold. `game/core/src/pixi/halfBodyAtlases.json` pins each copy; the atlas copy step ships it in
 place of its master, and the runtime slices frames from the measured size. A sheet below 30 dB stays at
 full size and is halved in the browser, as before. Masters are unchanged.
 
@@ -78,6 +79,21 @@ bun game/core/scripts/build_half_body_atlases.ts --assets=/path/to/heroesofcrypt
 The command verifies every master against `animation-release.json`, reuses existing copies whose master
 and recipe are unchanged, refuses to overwrite a different file, and pins new copies in
 `animation-release.json` and `asset-release-archives.json` (restored from the shared Drive folder).
+
+## Full-size Q93 atlases — 2026-11-20
+
+The remaining lossless animation atlases (frames under 768 px, effect sheets, and the creatures whose
+helpers slice fixed pixel rectangles: Tsar Cannon, Troll, Leprechaun lab) ship a same-size copy encoded
+with the same owner-approved Q93 recipe, under `animations/output/q93_atlases_v1/<key>/atlas/<key>.webp`.
+Dimensions are unchanged. `game/core/src/pixi/q93Atlases.json` pins each copy; the shared installer ships
+it in place of its master. A copy below 30 dB, or no smaller than its master, is not made. Sheets read by
+a colour-threshold shader (`COLOUR_THRESHOLD_ATLAS_KEYS`), sidebar portrait masters, and names that occur
+twice in the release keep their lossless masters.
+
+```sh
+bun game/core/scripts/build_q93_atlases.ts --assets=/path/to/heroesofcrypto-assets \
+    --catalog=game/core/src/pixi/q93Atlases.json --release=game/core/animation-release.json
+```
 
 ## Portrait baseline — main retained
 
