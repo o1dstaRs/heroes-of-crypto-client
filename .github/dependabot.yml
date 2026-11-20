@@ -14,12 +14,17 @@ updates:
       # Majors that cannot land yet; revisit when a blocker moves.
       # - MUI 9: Material icons and components resolve @mui/joy's theme (Joy stays on 5.0.0-beta) and crash at
       #   render on the missing breakpoint shape. The 2026-08 attempt passed CI and broke production.
+      # - TypeScript 7: the native compiler no longer exports the compiler API from "typescript" (it moved to
+      #   typescript/unstable/*), and typescript-eslint 8.73 peers typescript <6.1. Retry when typescript-eslint
+      #   supports TS 7 (#229 failed lint, typecheck and the core/common/mcp suites).
       ignore:
           - dependency-name: "@mui/material"
             update-types: ["version-update:semver-major"]
           - dependency-name: "@mui/icons-material"
             update-types: ["version-update:semver-major"]
           - dependency-name: "@mui/system"
+            update-types: ["version-update:semver-major"]
+          - dependency-name: "typescript"
             update-types: ["version-update:semver-major"]
     - package-ecosystem: github-actions
       directory: /
