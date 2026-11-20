@@ -112,6 +112,19 @@ describe("fire damage burn targets", () => {
         expect(burns[0].unitId).toBe("victim");
     });
 
+    test("each blow of a double strike gets its own blade crescent on the same unit", () => {
+        const burns = fireBurnTargets(
+            damage({
+                secondary: [secondary("fireforged_sword", "victim"), secondary("fireforged_sword", "victim")],
+            }),
+        );
+
+        expect(burns.map((burn) => [burn.unitId, burn.source, burn.repeat])).toEqual([
+            ["victim", "fireforged_sword", undefined],
+            ["victim", "fireforged_sword", 1],
+        ]);
+    });
+
     test("burns a shield reflect and a blade victim together when they differ", () => {
         const burns = fireBurnTargets(
             damage({

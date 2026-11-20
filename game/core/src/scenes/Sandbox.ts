@@ -925,12 +925,15 @@ export const splitAreaThrowWaves = (splash: IVisibleDamage["splash"]): NonNullab
  */
 export const fireBurnTargets = (
     damage: IVisibleDamage | undefined,
-): { unitId: string; position: HoCMath.XY; scale: number; source: string }[] => {
+): { unitId: string; position: HoCMath.XY; scale: number; source: string; repeat?: number }[] => {
     if (!damage) {
         return [];
     }
-    const burns: { unitId: string; position: HoCMath.XY; scale: number; source: string }[] = [];
+    const burns: { unitId: string; position: HoCMath.XY; scale: number; source: string; repeat?: number }[] = [];
     const burned = new Set<string>();
+    // Each blow of a double strike carries its own blade burn. Those repeat on the same unit (a later
+    // `repeat` index) instead of collapsing into the first crescent; mixed fire on one unit still burns once.
+    const swordBurns = new Map<string, number>();
     for (const entry of damage.secondary ?? []) {
         if (entry.source !== "fire_shield" && entry.source !== "fire_breath" && entry.source !== "fireforged_sword") {
             continue;
@@ -938,10 +941,13 @@ export const fireBurnTargets = (
         if (entry.amount <= 0 && entry.unitsDied <= 0) {
             continue;
         }
-        if (burned.has(entry.unitId)) {
+        const previousSwords = swordBurns.get(entry.unitId) ?? 0;
+        const repeatedSword = entry.source === "fireforged_sword" && previousSwords > 0;
+        if (burned.has(entry.unitId) && !repeatedSword) {
             continue;
         }
         burned.add(entry.unitId);
+        if (entry.source === "fireforged_sword") swordBurns.set(entry.unitId, previousSwords + 1);
         // A reflect is a lick of flame off a shield; a dragon's breath is the full burn. The sword brings
         // its own shape entirely (see spawnFireforgedSwordBurn), so its scale is left at 1.
         burns.push({
@@ -949,6 +955,7 @@ export const fireBurnTargets = (
             position: entry.position,
             scale: entry.source === "fire_shield" ? 0.85 : 1,
             source: entry.source,
+            ...(repeatedSword ? { repeat: previousSwords } : {}),
         });
     }
     return burns;
@@ -4393,8 +4400,10 @@ export class Sandbox extends PixiScene {
                 }
                 this.combatVisuals?.spawnFireBurn(position, cellSize, burn.scale);
             };
-            if (delayMs > 0) {
-                this.scheduleSceneTimeout(spawn, delayMs);
+            // A second blow's crescent follows the first instead of drawing over it.
+            const delay = delayMs + (burn.repeat ?? 0) * FIREFORGED_SWORD_REPEAT_DELAY_MS;
+            if (delay > 0) {
+                this.scheduleSceneTimeout(spawn, delay);
             } else {
                 spawn();
             }
@@ -5775,6 +5784,9 @@ export class Sandbox extends PixiScene {
                         this.aiController?.noteActionPresentationProgress?.();
                         this.spawnLuckyStrikeVfx(event.damage, new Set([source.getId()]));
                         if (!melee && !strike.missed) this.flushBeholderEffectPops(strike.targetId);
+                        // Every other buff/debuff this strike applied lands with its contact too. Waiting for
+                        // the post-exchange flush held them through the response and recovery.
+                        if (!strike.missed) this.flushUnitEffectPops(strike.targetId);
                         absolvingProgress?.(1);
                         if (!strike.response && victim === target && repeatedAttack && !oneInTheFieldShown) {
                             oneInTheFieldShown = true;
@@ -11999,6 +12011,14 @@ export class Sandbox extends PixiScene {
                 ? [{ ...entry, debuffs: remaining, flash: remaining.length ? ("debuff" as const) : ("buff" as const) }]
                 : [];
         });
+        for (const entry of ready) this.playEffectPops(entry);
+    }
+    /** Release one unit's held buff/debuff pops at the contact that applied them. */
+    protected flushUnitEffectPops(unitId: string): void {
+        if (!this.pendingEffectPops?.length) return;
+        const ready = this.pendingEffectPops.filter((entry) => entry.unit.getId() === unitId);
+        if (!ready.length) return;
+        this.pendingEffectPops = this.pendingEffectPops.filter((entry) => entry.unit.getId() !== unitId);
         for (const entry of ready) this.playEffectPops(entry);
     }
     protected flushEffectPops(): void {
@@ -23773,6 +23793,8 @@ export class Sandbox extends PixiScene {
 registerScene("Heroes", "Sandbox", Sandbox);
 
 const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
+/** Gap between the blade crescents of one double strike on the same unit. */
+const FIREFORGED_SWORD_REPEAT_DELAY_MS = 260;
 /** Pause between a contact's response (or the unanswered blow) and its Fire Shield burn. */
 const FIRE_SHIELD_REFLECTION_DELAY_MS = 280;
 

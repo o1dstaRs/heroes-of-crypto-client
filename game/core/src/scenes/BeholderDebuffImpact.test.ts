@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 import { OneInTheFieldTriggers } from "./sandbox/OneInTheFieldTriggers";
 
-test("Spit Ball pops on the projectile victim at contact, before hit recovery, exactly once", async () => {
+test("Spit Ball and the other effects pop on the projectile victim at contact, before hit recovery, exactly once", async () => {
     const unit = (id: string) => ({
         getId: () => id,
         getName: () => "Orc",
@@ -67,20 +67,22 @@ test("Spit Ball pops on the projectile victim at contact, before hit recovery, e
     readyTextures();
     for (let i = 0; i < 20; i++) await Promise.resolve();
     contact();
-    expect(popped).toEqual(["B:Curse", "B:Weakness"]);
+    // Spit Ball motifs lead; every other effect this blow put on B lands with the same contact.
+    expect(popped.slice(0, 2)).toEqual(["B:Curse", "B:Weakness"]);
+    expect(popped).toContain("B:Stun");
+    expect(popped).toContain("B:Blessing");
+    const atContact = popped.length;
     contact();
-    expect(popped).toHaveLength(2);
-    expect(scene.pendingEffectPops.map((entry: { debuffs: string[] }) => entry.debuffs)).toEqual([
-        ["Stun"],
-        ["Sadness"],
-    ]);
+    expect(popped).toHaveLength(atContact);
+    // The attacker's own pop waits for a blow that lands on it.
+    expect(scene.pendingEffectPops.map((entry: { debuffs: string[] }) => entry.debuffs)).toEqual([["Sadness"]]);
     land();
     finish.splice(0).forEach((resolve) => resolve());
     await pending;
     scene.flushEffectPops();
     expect(popped.filter((name) => name === "B:Curse")).toHaveLength(1);
-    expect(popped).toContain("B:Stun");
-    expect(popped).toContain("B:Blessing");
+    expect(popped.filter((name) => name === "B:Stun")).toHaveLength(1);
+    expect(popped).toContain("A:Sadness");
 });
 
 test("the battle visual layer holds damage and every debuff at fixed positions", async () => {
