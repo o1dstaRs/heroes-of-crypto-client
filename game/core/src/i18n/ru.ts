@@ -157,6 +157,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Augments: "Усиления",
     Artifacts: "Артефакты",
     Synergies: "Синергии",
+    "No synergies": "Нет синергий",
     "Choose your augments": "Выберите усиления",
     Connecting: "Подключение",
     Connected: "Подключено",

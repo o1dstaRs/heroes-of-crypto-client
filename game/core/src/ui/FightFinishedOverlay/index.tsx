@@ -28,7 +28,7 @@ import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
-import { FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
+import { activeArmySynergies, FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
 import { canShowFightResults } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
@@ -1596,6 +1596,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 <FightArmySynergies
                                     team={team}
                                     army={stats.setup?.armies.find((army) => army.team === team)}
+                                    alignWithOther={
+                                        stats.setup?.armies.some(
+                                            (army) => army.team !== team && activeArmySynergies(army).length > 0,
+                                        ) ?? false
+                                    }
                                 />
                             )}
                         />

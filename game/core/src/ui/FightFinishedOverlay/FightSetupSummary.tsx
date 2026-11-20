@@ -141,22 +141,56 @@ const synergyColors: Record<string, string> = {
     Might: "#d3261f",
 };
 
-/** Each army keeps its recorded active levels, even when none of its faction stacks survived. */
-export const FightArmySynergies: React.FC<{ team: TeamType; army?: IFightResultArmySetup }> = ({ team, army }) => {
-    const active = SYNERGY_FACTION_ORDER.flatMap((faction) => {
+/** An army's recorded active synergy levels, in faction order. */
+export const activeArmySynergies = (army?: IFightResultArmySetup) =>
+    SYNERGY_FACTION_ORDER.flatMap((faction) => {
         const key = army?.synergies?.find((entry) => new RegExp(`^${faction}:[12]:[123]$`).test(entry));
         if (!key) return [];
         const [, variant, level] = key.split(":").map((value) => Number(value));
         return [{ key, faction, variant, level }];
     });
+
+/** One badge: a 28 px icon, a 4 px gap and its 4 px level dots. A placeholder row keeps exactly this height. */
+const SYNERGY_ROW_HEIGHT = 36;
+// Sits close under the DAMAGE DEALT plaque line; the bottom margin separates it from the first unit.
+const synergyRowSx = { display: "flex", justifyContent: "center", gap: 1.25, mt: -0.5, mb: 1.25 } as const;
+
+/**
+ * Each army keeps its recorded active levels, even when none of its faction stacks survived. When only the
+ * other army has a synergy row, `alignWithOther` reserves the same height here, so both armies' damage rows
+ * start level: "No synergies" when this army's levels were recorded, a blank row for an old recording.
+ */
+export const FightArmySynergies: React.FC<{
+    team: TeamType;
+    army?: IFightResultArmySetup;
+    alignWithOther?: boolean;
+}> = ({ team, army, alignWithOther = false }) => {
+    const active = activeArmySynergies(army);
     // Old recordings have no per-army levels. Never guess from the global variants or final survivors.
-    if (!active.length) return null;
+    if (!active.length) {
+        if (!alignWithOther) return null;
+        return (
+            <Box
+                component="section"
+                aria-label={`${teamName(team)} ${t("Synergies")}`}
+                data-result-army-synergies={team}
+                data-result-no-synergies
+                sx={{ ...synergyRowSx, height: SYNERGY_ROW_HEIGHT, alignItems: "center" }}
+            >
+                {army?.synergies && (
+                    <Typography sx={{ color: "#b6a080", opacity: 0.7, fontStyle: "italic", fontSize: "0.78rem" }}>
+                        {t("No synergies")}
+                    </Typography>
+                )}
+            </Box>
+        );
+    }
     return (
         <Box
             component="section"
             aria-label={`${teamName(team)} ${t("Synergies")}`}
             data-result-army-synergies={team}
-            sx={{ display: "flex", justifyContent: "center", gap: 1.25, mt: 0.25, mb: 1.25, textTransform: "none" }}
+            sx={{ ...synergyRowSx, minHeight: SYNERGY_ROW_HEIGHT, textTransform: "none" }}
         >
             {active.map(({ key, faction, variant, level }) => (
                 <Box

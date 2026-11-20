@@ -6,7 +6,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
 import type { IFightResultSetup } from "../../scenes/VisibleState";
-import { FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
+import { activeArmySynergies, FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 
 const setup: IFightResultSetup = {
@@ -88,6 +88,42 @@ test("each army shows only its recorded active synergies with one, two or three 
     expect(html).toContain('aria-label="Nature: Board units · Level 3"');
     expect(html).not.toContain("data-result-global-synergies");
     expect(html).not.toContain("Synergies:");
+});
+
+test("an army without synergies reserves the other army's row, so both damage lists start level", () => {
+    const rows = (armies: NonNullable<typeof setup>["armies"]) =>
+        renderToStaticMarkup(
+            <>
+                {[TeamVals.LEFT, TeamVals.RIGHT].map((team) => (
+                    <FightArmySynergies
+                        key={team}
+                        team={team}
+                        army={armies.find((army) => army.team === team)}
+                        alignWithOther={armies.some(
+                            (army) => army.team !== team && activeArmySynergies(army).length > 0,
+                        )}
+                    />
+                ))}
+            </>,
+        );
+    const recorded = rows([
+        { team: TeamVals.LEFT, synergies: [] },
+        { team: TeamVals.RIGHT, synergies: ["Might:1:1"] },
+    ]);
+    expect(recorded.match(/data-result-army-synergies=/g)).toHaveLength(2);
+    expect(recorded).toContain("data-result-no-synergies");
+    expect(recorded).toContain("No synergies");
+    // An old recording without per-army levels keeps the space but never claims there were none.
+    const unrecorded = rows([{ team: TeamVals.RIGHT, synergies: ["Might:1:1"] }]);
+    expect(unrecorded).toContain("data-result-no-synergies");
+    expect(unrecorded).not.toContain("No synergies");
+    // With neither army showing synergies, nothing is reserved.
+    expect(
+        rows([
+            { team: TeamVals.LEFT, synergies: [] },
+            { team: TeamVals.RIGHT, synergies: [] },
+        ]),
+    ).toBe("");
 });
 
 test("unrecorded, inactive and unrecognized synergy levels do not invent result badges", () => {
