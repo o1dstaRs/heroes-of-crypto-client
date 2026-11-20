@@ -1,5 +1,5 @@
 {
-    "version": "2026-11-18-canonical-icons",
+    "version": "2026-11-20-half-body-atlases",
     "files": {
         "animations/output/abomination_attack/atlas/abomination_attack_atlas.webp": {
             "sha256": "e1d60006c5d502a0b7f9a556acbca8cab0a1d0b37b5c33596606bf7ee79e24e8",
@@ -22016,6 +22016,2638 @@
         "images/arbalester_left_screen_redraw_v2_atlas.webp": {
             "sha256": "294e8b32cd1b846d19ac5ef809c04ad48ae433f2a5870cec8d76b07ecb6e1149",
             "bytes": 20740356
+        },
+        "animations/output/half_body_atlases_v1/abomination_attack_atlas/atlas/abomination_attack_atlas.webp": {
+            "sha256": "de09f71cf49b1f15d03cb4f8caabca83e24c22e799e3ef1773aee8ebb28dc9f4",
+            "bytes": 336896
+        },
+        "animations/output/half_body_atlases_v1/abomination_attack_down_atlas/atlas/abomination_attack_down_atlas.webp": {
+            "sha256": "3fa19978c49b827244bf79e8e3974b5fe0d298790eacfcbc5d2dba78b64fdfc7",
+            "bytes": 333318
+        },
+        "animations/output/half_body_atlases_v1/abomination_attack_up_atlas/atlas/abomination_attack_up_atlas.webp": {
+            "sha256": "daacd9557efa509309490fef312aff9a7fcfbf89871bc403a459b3b39dcbade8",
+            "bytes": 336028
+        },
+        "animations/output/half_body_atlases_v1/abomination_death_atlas/atlas/abomination_death_atlas.webp": {
+            "sha256": "a92441c0638b062f7d0e4b6f07d6392d74792213514479a1f37dd654c571b91b",
+            "bytes": 256982
+        },
+        "animations/output/half_body_atlases_v1/abomination_hit_atlas/atlas/abomination_hit_atlas.webp": {
+            "sha256": "d359d2e83f67506120aa3284cdb998f42b42c7b732dbc609cea5d32d197b3ebe",
+            "bytes": 325864
+        },
+        "animations/output/half_body_atlases_v1/abomination_idle_atlas/atlas/abomination_idle_atlas.webp": {
+            "sha256": "2da3638d1c174a42708f9041fe151f0eff03aa80c311132dba7f485631115feb",
+            "bytes": 320276
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_death_atlas/atlas/abomination_lab_death_atlas.webp": {
+            "sha256": "94c20893a5f02549d68944329db223d08ff766e8d56a1597f1ea966c0f0c42c3",
+            "bytes": 485850
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_hit_atlas/atlas/abomination_lab_hit_atlas.webp": {
+            "sha256": "97df379b29c70f539ebcc685f6c175554965ea7973993e52acec4c68ac4c2ed6",
+            "bytes": 215816
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_idle_atlas/atlas/abomination_lab_idle_atlas.webp": {
+            "sha256": "12019fb25a5b10639fbb7b7eb8bfba0fc72f4516d3937640f7a060eec7d409b6",
+            "bytes": 35822
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_melee_attack_atlas/atlas/abomination_lab_melee_attack_atlas.webp": {
+            "sha256": "2afd93056b3961fa894fd5cce755faa847b339c5d0381735726c3d17d78023b1",
+            "bytes": 519828
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_melee_attack_down_atlas/atlas/abomination_lab_melee_attack_down_atlas.webp": {
+            "sha256": "09999222dde503743bfd36be345b802b7a8de5bc4a994f7544737c6d9def9131",
+            "bytes": 510368
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_melee_attack_up_atlas/atlas/abomination_lab_melee_attack_up_atlas.webp": {
+            "sha256": "ee9c4ad0923ccfb01861b57eb07c5f7b4b1314446d7d6b2f6a39e7f6c3656418",
+            "bytes": 514866
+        },
+        "animations/output/half_body_atlases_v1/abomination_lab_walk_atlas/atlas/abomination_lab_walk_atlas.webp": {
+            "sha256": "cddc8c7bca9bb0e5fa6e8f1e46548f071702f2284695cad95ff418df570bbe41",
+            "bytes": 203300
+        },
+        "animations/output/half_body_atlases_v1/abomination_walk_atlas/atlas/abomination_walk_atlas.webp": {
+            "sha256": "ec6cb40dc17af2cdb968a8a656e3bbea4ea53dc9b284794e457a368d29a54a81",
+            "bytes": 368110
+        },
+        "animations/output/half_body_atlases_v1/angel_attack_atlas/atlas/angel_attack_atlas.webp": {
+            "sha256": "be2feb3b76f93aeffcaa7092ded899bbdadafaf4c9d1225e435dc6ce75685335",
+            "bytes": 337028
+        },
+        "animations/output/half_body_atlases_v1/angel_attack_down_atlas/atlas/angel_attack_down_atlas.webp": {
+            "sha256": "6cfb83fd7e47b18576c6e0051a845c29b681ea62495c5d992f66673ece6fa5c1",
+            "bytes": 334664
+        },
+        "animations/output/half_body_atlases_v1/angel_attack_up_atlas/atlas/angel_attack_up_atlas.webp": {
+            "sha256": "9e3668e31017875c1d9fbd6e9e9ca65e45d8af12ef33734cbe43a4236bad2b2d",
+            "bytes": 333072
+        },
+        "animations/output/half_body_atlases_v1/angel_death_atlas/atlas/angel_death_atlas.webp": {
+            "sha256": "ec337b3b7305a5699c497c1cdb44bcea6028aa4ce06c30c85b0db5822a009541",
+            "bytes": 255138
+        },
+        "animations/output/half_body_atlases_v1/angel_hit_atlas/atlas/angel_hit_atlas.webp": {
+            "sha256": "bf304276f8fde764be5897cdc577fe242d4a1bc33145738b6ec6cab73112ea69",
+            "bytes": 324698
+        },
+        "animations/output/half_body_atlases_v1/angel_idle_atlas/atlas/angel_idle_atlas.webp": {
+            "sha256": "064bdb2e7a8392b66e4e5ff150439572f284529134697740d73897c9896719f0",
+            "bytes": 311914
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_cast_atlas/atlas/angel_lab_cast_atlas.webp": {
+            "sha256": "ccbbd8f2140a24c0939a645b4b9706153bcc77ff534571d99f686efb361fc7fa",
+            "bytes": 874740
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_death_atlas/atlas/angel_lab_death_atlas.webp": {
+            "sha256": "ef6fe5ec9d6479263b42e9a822580dd8838711a37ffb4c1d5f61a4c64c185f2d",
+            "bytes": 276986
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_hit_atlas/atlas/angel_lab_hit_atlas.webp": {
+            "sha256": "11c6e52746c9b5a60e55065402ef38ae6f69731d3150e6f23fd1550c5fc65277",
+            "bytes": 215004
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_idle_atlas/atlas/angel_lab_idle_atlas.webp": {
+            "sha256": "7e508fc2899ec6b8d3115b0ce9d001576366751bffab80bd3934a484a54e632e",
+            "bytes": 1033136
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_melee_attack_atlas/atlas/angel_lab_melee_attack_atlas.webp": {
+            "sha256": "7ba3af8a23d77c5dd77e341ff3f1d087ccd7db4b5171eab614005a799ef0609e",
+            "bytes": 377254
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_melee_attack_down_atlas/atlas/angel_lab_melee_attack_down_atlas.webp": {
+            "sha256": "819d509b3b2f5e814c0a7cbab6defee9153326aecb819bbdfa9395d2a301830f",
+            "bytes": 368556
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_melee_attack_up_atlas/atlas/angel_lab_melee_attack_up_atlas.webp": {
+            "sha256": "0c115760e83e046a0174358b5454179d5b09e7148ae5c7f9544d09e9954a4ac4",
+            "bytes": 373372
+        },
+        "animations/output/half_body_atlases_v1/angel_lab_walk_atlas/atlas/angel_lab_walk_atlas.webp": {
+            "sha256": "886e8f3d394d1769be2bfb9d966b3a3c1c290bee23025331fc8340751526e145",
+            "bytes": 402422
+        },
+        "animations/output/half_body_atlases_v1/angel_walk_atlas/atlas/angel_walk_atlas.webp": {
+            "sha256": "1dc394146a687666bdbbb54cb96be954129cf1fe5aade42c1537d8c3a5dac6df",
+            "bytes": 364956
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_attack_atlas/atlas/arachna_queen_attack_atlas.webp": {
+            "sha256": "ea61cd139c1bd7c875f0040884ee390742361b64b2490a3a8f0bca2edc850a0c",
+            "bytes": 257824
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_attack_down_atlas/atlas/arachna_queen_attack_down_atlas.webp": {
+            "sha256": "91e7677b1c6c8d581ce90722a012c52a8b98598b35050d61e79d8f5107ed1fd7",
+            "bytes": 258120
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_attack_up_atlas/atlas/arachna_queen_attack_up_atlas.webp": {
+            "sha256": "67af6783da22a965121f3b4fcf2956cffb48c9bd3b9f8ae9a6918cd3d4b2d11f",
+            "bytes": 257946
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_death_atlas/atlas/arachna_queen_death_atlas.webp": {
+            "sha256": "5d5e8a9a96bacd32ad94809b64d1cf3fe08b7cf1d9bd9373b3bd45fbd9c238a8",
+            "bytes": 200572
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_hit_atlas/atlas/arachna_queen_hit_atlas.webp": {
+            "sha256": "0aa02dec8c67d3192b8362b03cfdd83c26355810457328201543cb53760a650c",
+            "bytes": 252416
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_idle_atlas/atlas/arachna_queen_idle_atlas.webp": {
+            "sha256": "c84a4bf405f85c9eb18166f46061364c6cefdd8a32d7835fcbb463e0bb3f8ebf",
+            "bytes": 240932
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_lab_death_atlas/atlas/arachna_queen_lab_death_atlas.webp": {
+            "sha256": "defb75124faf18eb7489a7e74f34d70651f2c9ea53f132c355075b0a30dbc53c",
+            "bytes": 231186
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_lab_melee_attack_atlas/atlas/arachna_queen_lab_melee_attack_atlas.webp": {
+            "sha256": "4a52372db138bd8430d0f38e0acb314f23326ae586b99fc464a713dffc4619c6",
+            "bytes": 162100
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_lab_melee_attack_down_atlas/atlas/arachna_queen_lab_melee_attack_down_atlas.webp": {
+            "sha256": "e6d7aba577640615c400c5cad1a0f86d9af032647c0903729e1524560195fc05",
+            "bytes": 166146
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_lab_melee_attack_up_atlas/atlas/arachna_queen_lab_melee_attack_up_atlas.webp": {
+            "sha256": "004859746563efb93f65cfac185c0b814a64a97f9f8bc702cf167e4484f910d0",
+            "bytes": 161004
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_lab_walk_atlas/atlas/arachna_queen_lab_walk_atlas.webp": {
+            "sha256": "327f6405b32fea2137cfe13a09ca4d454886a4aca6f3f4ab02e0e5a8cabac06d",
+            "bytes": 171326
+        },
+        "animations/output/half_body_atlases_v1/arachna_queen_walk_atlas/atlas/arachna_queen_walk_atlas.webp": {
+            "sha256": "f8bb5a8a0d98b8041ae3db5046376171f0919ce7f2c9eb133034b77c0249eadd",
+            "bytes": 281434
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_attack_atlas/atlas/arachna_spider_attack_atlas.webp": {
+            "sha256": "0c65145ff9ac1ae4515fe7ab1baf5bc018b0c38ad2b4b81ddfd5c6bddf15cce8",
+            "bytes": 238340
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_attack_down_atlas/atlas/arachna_spider_attack_down_atlas.webp": {
+            "sha256": "c7aa4dff391a33de47ef6582eec95127837fa2a06afe396ce52b56f05bd139f1",
+            "bytes": 238042
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_attack_up_atlas/atlas/arachna_spider_attack_up_atlas.webp": {
+            "sha256": "2b2b1336dfe579ff551305b2886e11ed99a5cd60b1d6a788c978bc11603a66df",
+            "bytes": 238754
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_death_atlas/atlas/arachna_spider_death_atlas.webp": {
+            "sha256": "21b7b72b82e34d78b818f177c7b85b988dbc7fb59d118c3f03f32df09176c60b",
+            "bytes": 196100
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_hit_atlas/atlas/arachna_spider_hit_atlas.webp": {
+            "sha256": "489ef4ce8bb7aabea5af5d57a68d030eb2227f59ff46da2de17baea8c276b082",
+            "bytes": 240796
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_idle_atlas/atlas/arachna_spider_idle_atlas.webp": {
+            "sha256": "15dbe45c444b7ec3203428ea7b75ee49a0b5fc5686800032dd51f809ad9d6ebf",
+            "bytes": 213842
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_lab_death_atlas/atlas/arachna_spider_lab_death_atlas.webp": {
+            "sha256": "e9c5144ff9936bc81a32648beda81439d6eca7c94e49f93e2e8f5913b2b9f190",
+            "bytes": 162546
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_lab_melee_attack_atlas/atlas/arachna_spider_lab_melee_attack_atlas.webp": {
+            "sha256": "9fd29d45ccba8d9d0d887a63f2ed628b7c0758ee0cb719994499b6ff4f217650",
+            "bytes": 164548
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_lab_melee_attack_down_atlas/atlas/arachna_spider_lab_melee_attack_down_atlas.webp": {
+            "sha256": "f04c5968f6e62d1c2e14abdb7aa20f4c6cc61823321806159509affba96f9e9b",
+            "bytes": 167350
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_lab_melee_attack_up_atlas/atlas/arachna_spider_lab_melee_attack_up_atlas.webp": {
+            "sha256": "bb1ab29ee9232dfc2b5bec04f780863eb625bf82e0a8dd5b3585aa9f1048f442",
+            "bytes": 164882
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_lab_walk_atlas/atlas/arachna_spider_lab_walk_atlas.webp": {
+            "sha256": "c094a0c895a95f53a839e6c3c7df853a056d65ef01f79ed211c024fed54992de",
+            "bytes": 225618
+        },
+        "animations/output/half_body_atlases_v1/arachna_spider_walk_atlas/atlas/arachna_spider_walk_atlas.webp": {
+            "sha256": "9d5c8fc4489b3eb727cd609e4e168312cac5f4c0448d741a11d56d7337e229da",
+            "bytes": 256980
+        },
+        "animations/output/half_body_atlases_v1/arbalester_walk_atlas/atlas/arbalester_walk_atlas.webp": {
+            "sha256": "2bdd8c9ed089655aaba94b99d5ee0e877d8b654a72703adb80e5e007fd5b14e3",
+            "bytes": 170840
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_attack_atlas/atlas/ash_moth_attack_atlas.webp": {
+            "sha256": "56f2d7e82a56e60f47d9c4764d8c61e0d92e712c9d45d270453ae0d9ea7d9746",
+            "bytes": 267024
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_attack_down_atlas/atlas/ash_moth_attack_down_atlas.webp": {
+            "sha256": "14f0bfc2d41dde516028815d0d723472ae10afa73b731e16293db41d45f8909d",
+            "bytes": 225020
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_attack_up_atlas/atlas/ash_moth_attack_up_atlas.webp": {
+            "sha256": "78a120637d92725ea7e93e28f76dd2303e13da9de281173424d966ff8b7b324f",
+            "bytes": 186180
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_cast_atlas/atlas/ash_moth_cast_atlas.webp": {
+            "sha256": "5ba5b962dc34ea3e9ddf9db46ce81423c7b2b0b777870bd0dd92babe0d8a9dab",
+            "bytes": 365076
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_death_atlas/atlas/ash_moth_death_atlas.webp": {
+            "sha256": "e3bb473e14868ad9cc6f0dd701a7b99ee64b63cb0b98dd4296ce8e40b19a2ca2",
+            "bytes": 457494
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_hit_atlas/atlas/ash_moth_hit_atlas.webp": {
+            "sha256": "e180db353445aaffebe1b14a9337ee38f77119bf32d8a7e60eed8ac219a2f338",
+            "bytes": 1213474
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_idle_atlas/atlas/ash_moth_idle_atlas.webp": {
+            "sha256": "ebed1e129ae66a6f016042bf14de7ae1b3ffb5b9202be8dd6755a130ea944fdc",
+            "bytes": 6061360
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_melee_attack_atlas/atlas/ash_moth_melee_attack_atlas.webp": {
+            "sha256": "355685bc4a5d9ca661a7ce0ecae0e5f706e44a515cfb2184e0761339c7d49558",
+            "bytes": 478644
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_melee_attack_down_atlas/atlas/ash_moth_melee_attack_down_atlas.webp": {
+            "sha256": "ff3c15cd920efadc40570991377099aeaecd67348a96881f63be36f0d63875e7",
+            "bytes": 456604
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_melee_attack_up_atlas/atlas/ash_moth_melee_attack_up_atlas.webp": {
+            "sha256": "42c3bdc5817a10dfda25dfbb6c58deacfb9c721ab1f574e5e86a91fbf4dce535",
+            "bytes": 476174
+        },
+        "animations/output/half_body_atlases_v1/ash_moth_walk_atlas/atlas/ash_moth_walk_atlas.webp": {
+            "sha256": "a6dad23fd80bab99f36373e29c9aa0df4add01cbb145b3b75c5e09157419028a",
+            "bytes": 287298
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_attack_atlas/atlas/battle_mage_attack_atlas.webp": {
+            "sha256": "d1bb0cacef0bedd91ddefaf8e89b1dd1c239c30d2101761f2fe2250be6227f3c",
+            "bytes": 348116
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_attack_down_atlas/atlas/battle_mage_attack_down_atlas.webp": {
+            "sha256": "a878aff3bf87bc5217297908c5797bc91506162ec93441e5f5ea8a4ef4c71dd8",
+            "bytes": 346458
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_attack_up_atlas/atlas/battle_mage_attack_up_atlas.webp": {
+            "sha256": "6a5121e4b277252d97591bcbbdbe179edaab88f5499a7b9b5c9ceb27c82d2c6a",
+            "bytes": 348540
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_death_atlas/atlas/battle_mage_death_atlas.webp": {
+            "sha256": "f9c00ee3c95340b0944255d0903db02e677e01a0bd0dea7d76674edfb6fde5bd",
+            "bytes": 272106
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_hit_atlas/atlas/battle_mage_hit_atlas.webp": {
+            "sha256": "0473eb2880459a60faf60703e56eefd654880c631031dfdab97e308c1368542e",
+            "bytes": 336428
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_idle_atlas/atlas/battle_mage_idle_atlas.webp": {
+            "sha256": "98da970a2db22bce07b3f1c857e89c324d5640491fea569c78aad12bfadc0492",
+            "bytes": 308862
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_cast_atlas/atlas/battle_mage_lab_cast_atlas.webp": {
+            "sha256": "2156e9c1d4e7e2809858d55bfb5da8da03ce132f107eed886a7757938be61574",
+            "bytes": 274096
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_death_atlas/atlas/battle_mage_lab_death_atlas.webp": {
+            "sha256": "8b1c9e0e2c898939b37a7681b288940860424d391e3163e370e1317c4dc96dac",
+            "bytes": 228702
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_hit_atlas/atlas/battle_mage_lab_hit_atlas.webp": {
+            "sha256": "0a47bf613d8842fd44ba1b0c730c9d31978eae364b4b6d62aa36ae6df37addec",
+            "bytes": 228816
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_melee_attack_atlas/atlas/battle_mage_lab_melee_attack_atlas.webp": {
+            "sha256": "5c08261a5f5c560a700503f7a7729b4407cd553f94ffeddfb0c4ad005c8d491e",
+            "bytes": 275764
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_melee_attack_down_atlas/atlas/battle_mage_lab_melee_attack_down_atlas.webp": {
+            "sha256": "3435f14d2de7da3728c5c795b2913aa05573c2103eb23bc81e02e3575a12d1f9",
+            "bytes": 271316
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_melee_attack_up_atlas/atlas/battle_mage_lab_melee_attack_up_atlas.webp": {
+            "sha256": "583765ddcc248d7290fa81c5ec03d625248c29a2c56aa2e5e6cef9ac81b9d747",
+            "bytes": 268478
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_lab_walk_atlas/atlas/battle_mage_lab_walk_atlas.webp": {
+            "sha256": "1ebd3d2d491d3d254b960484f1404758354d3bc223db30980377bedad1a8ece0",
+            "bytes": 172076
+        },
+        "animations/output/half_body_atlases_v1/battle_mage_walk_atlas/atlas/battle_mage_walk_atlas.webp": {
+            "sha256": "e9a3fbc3545a3ad7cca0610590b71810f90341e31cf8874ec5c5838f2bacb819",
+            "bytes": 371742
+        },
+        "animations/output/half_body_atlases_v1/behemoth_attack_atlas/atlas/behemoth_attack_atlas.webp": {
+            "sha256": "c2e88ff41cbd3f0f120ff55a6d456377aa089c47f2422f69eb641fe8e3a4b16d",
+            "bytes": 314622
+        },
+        "animations/output/half_body_atlases_v1/behemoth_attack_down_atlas/atlas/behemoth_attack_down_atlas.webp": {
+            "sha256": "af4f904665a7bd7a72475de96b61f76e8bbd5bd364f14f3316e05143b313e2d9",
+            "bytes": 313508
+        },
+        "animations/output/half_body_atlases_v1/behemoth_attack_up_atlas/atlas/behemoth_attack_up_atlas.webp": {
+            "sha256": "ab99363f3ec1800467c2fb1b2724f2de37466e53f4feb8f149af52fbde8f1223",
+            "bytes": 313978
+        },
+        "animations/output/half_body_atlases_v1/behemoth_death_atlas/atlas/behemoth_death_atlas.webp": {
+            "sha256": "16dd33a5e65301b96432522ee894bdbc9ede6f67c247bb7bfc5146541c33057e",
+            "bytes": 223260
+        },
+        "animations/output/half_body_atlases_v1/behemoth_hit_atlas/atlas/behemoth_hit_atlas.webp": {
+            "sha256": "fdf7338774a069a223a7346ee47e9dbacfee5e8e3adc14a38daadd9a9564e792",
+            "bytes": 305260
+        },
+        "animations/output/half_body_atlases_v1/behemoth_idle_atlas/atlas/behemoth_idle_atlas.webp": {
+            "sha256": "7b7c5fc8e0dfa84a54f3ee70a997ffc7ef8c8754871878f45e46f85c7ac50a25",
+            "bytes": 295826
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_cast_atlas/atlas/behemoth_lab_cast_atlas.webp": {
+            "sha256": "17fa8d2c189cdfd111da642ac1dcbc0c44c7aaee4c56133e8f2d399ad8b12a1c",
+            "bytes": 606796
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_death_atlas/atlas/behemoth_lab_death_atlas.webp": {
+            "sha256": "2322d3bebe19fcbea5edfd503f8e5064eff3fc1abe4b31da34bdf8913d30af58",
+            "bytes": 406750
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_hit_atlas/atlas/behemoth_lab_hit_atlas.webp": {
+            "sha256": "4216f208c37e777014329125ad588d9f47ff66168e8b5a1ad8286ce505c2dc41",
+            "bytes": 377944
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_idle_atlas/atlas/behemoth_lab_idle_atlas.webp": {
+            "sha256": "78057c8516f518a119a3ad3aabccc595e52234b286d2007c1de586e11d724035",
+            "bytes": 1062470
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_melee_attack_atlas/atlas/behemoth_lab_melee_attack_atlas.webp": {
+            "sha256": "25c300897ef371116300c05f2649b8205fb7d07e138437052c7ca31d41a17f6b",
+            "bytes": 370330
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_melee_attack_down_atlas/atlas/behemoth_lab_melee_attack_down_atlas.webp": {
+            "sha256": "ea548d66dabb4ef3c02a52387002346b9e04b0649cc0d3fba47202d995cdfe05",
+            "bytes": 342914
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_melee_attack_up_atlas/atlas/behemoth_lab_melee_attack_up_atlas.webp": {
+            "sha256": "5a158192e7a8b5542e4a18c5b885224d03ab6c538c2c9e8b131173608dfa4ba0",
+            "bytes": 343712
+        },
+        "animations/output/half_body_atlases_v1/behemoth_lab_walk_atlas/atlas/behemoth_lab_walk_atlas.webp": {
+            "sha256": "a1317b3b9243c3210c26f7671569de6ecf9c09eef93d0e74794f210a123fc0f8",
+            "bytes": 1357334
+        },
+        "animations/output/half_body_atlases_v1/behemoth_walk_atlas/atlas/behemoth_walk_atlas.webp": {
+            "sha256": "55324ef4ce4ccc28fb3ef5ddc25906ac2609d255c1c26665959e4be9269d15b4",
+            "bytes": 343486
+        },
+        "animations/output/half_body_atlases_v1/beholder_attack_atlas/atlas/beholder_attack_atlas.webp": {
+            "sha256": "707466f043f37f41f52ed8264c90d72adb945b7bf79e11713b098d6b0203beef",
+            "bytes": 299868
+        },
+        "animations/output/half_body_atlases_v1/beholder_attack_down_atlas/atlas/beholder_attack_down_atlas.webp": {
+            "sha256": "2ca61651196911834d03c69227cf70d6edf4a9608394712e05d8e82b0e937a06",
+            "bytes": 298248
+        },
+        "animations/output/half_body_atlases_v1/beholder_attack_up_atlas/atlas/beholder_attack_up_atlas.webp": {
+            "sha256": "35ab6050f8e10cdcb62530df041fb9cf1e11c80fe167e5e3534474b42ebad12a",
+            "bytes": 300116
+        },
+        "animations/output/half_body_atlases_v1/beholder_combat_melee_attack_atlas/atlas/beholder_combat_melee_attack_atlas.webp": {
+            "sha256": "96ea183f377723b069a291c40c06a040cd5169d6a400b9dc1a5e891ff135a90b",
+            "bytes": 256668
+        },
+        "animations/output/half_body_atlases_v1/beholder_combat_melee_attack_down_atlas/atlas/beholder_combat_melee_attack_down_atlas.webp": {
+            "sha256": "d8d20bf778e9cbebc48befb289dd719222648b0d27352721bbc13f70399a51bf",
+            "bytes": 231772
+        },
+        "animations/output/half_body_atlases_v1/beholder_combat_melee_attack_up_atlas/atlas/beholder_combat_melee_attack_up_atlas.webp": {
+            "sha256": "9124fe2ce30a414a9cc8185ffc23ccb566b91f7fc15c95012d79dffc17e78296",
+            "bytes": 243456
+        },
+        "animations/output/half_body_atlases_v1/beholder_death_atlas/atlas/beholder_death_atlas.webp": {
+            "sha256": "fa974a901f7b5cfa44b779ee2a9586f8712479eb30214db70befa1f3ab3ed686",
+            "bytes": 226222
+        },
+        "animations/output/half_body_atlases_v1/beholder_flight_walk_atlas/atlas/beholder_flight_walk_atlas.webp": {
+            "sha256": "c5c183ae0c67f2c1da3f4394dddaa285258ec0a24f47bdc06c17e7032dfbd0e6",
+            "bytes": 399740
+        },
+        "animations/output/half_body_atlases_v1/beholder_hit_atlas/atlas/beholder_hit_atlas.webp": {
+            "sha256": "df7fa71da6f74799a06efbf09055952e6503080a3174f2576d77b103a7b63b4f",
+            "bytes": 292846
+        },
+        "animations/output/half_body_atlases_v1/beholder_idle_atlas/atlas/beholder_idle_atlas.webp": {
+            "sha256": "2c477a0f13129113b9037b8288d1ca13fe5ce2fa80d02593604efd4ca21d20a9",
+            "bytes": 341316
+        },
+        "animations/output/half_body_atlases_v1/beholder_ranged_attack_atlas/atlas/beholder_ranged_attack_atlas.webp": {
+            "sha256": "fa78cb2f1e63b02c71864e0b3cfb133bb3fcdd27fc59e2e7c1ed45039346bd5b",
+            "bytes": 148288
+        },
+        "animations/output/half_body_atlases_v1/beholder_ranged_attack_down_atlas/atlas/beholder_ranged_attack_down_atlas.webp": {
+            "sha256": "0b7f604b5118037856cc2cb1de096282f4f0d637e01a5a82959d9bdb65bf45fb",
+            "bytes": 143620
+        },
+        "animations/output/half_body_atlases_v1/beholder_ranged_attack_up_atlas/atlas/beholder_ranged_attack_up_atlas.webp": {
+            "sha256": "ccea63def13b4f5ba85395de9f588d9ef1da6a29962b7461f2646281cf23f5f4",
+            "bytes": 147728
+        },
+        "animations/output/half_body_atlases_v1/beholder_reactions_death_atlas/atlas/beholder_reactions_death_atlas.webp": {
+            "sha256": "fb49d1828bca859ed9f5b18d325f8c8a6953d7f97ecc970b766ee713c716b5ba",
+            "bytes": 287324
+        },
+        "animations/output/half_body_atlases_v1/beholder_reactions_hit_atlas/atlas/beholder_reactions_hit_atlas.webp": {
+            "sha256": "c6de3c3201d920e6206d705aad666c42cf85979c2555c25eb7f86f4d9e1c59c0",
+            "bytes": 183640
+        },
+        "animations/output/half_body_atlases_v1/beholder_walk_atlas/atlas/beholder_walk_atlas.webp": {
+            "sha256": "e58f1f2a1c08a7c34f68fd0aae8b2f94a1070fadafe19d997e44e2ae95216741",
+            "bytes": 321078
+        },
+        "animations/output/half_body_atlases_v1/berserker_attack_atlas/atlas/berserker_attack_atlas.webp": {
+            "sha256": "6691134fd202613b90f32edcefcf9213b2f7f9c78842459924b91be1a46b6c5d",
+            "bytes": 281268
+        },
+        "animations/output/half_body_atlases_v1/berserker_attack_down_atlas/atlas/berserker_attack_down_atlas.webp": {
+            "sha256": "f92eae6fb2fab6713eff3d7c8d3b63a31619b615b717d8a4bf5e2dd9e8682c16",
+            "bytes": 279296
+        },
+        "animations/output/half_body_atlases_v1/berserker_attack_up_atlas/atlas/berserker_attack_up_atlas.webp": {
+            "sha256": "899110265c00ddb35d9b11abe7758da939215209199cd53a0d18cb64f3d4c9a3",
+            "bytes": 280724
+        },
+        "animations/output/half_body_atlases_v1/berserker_death_atlas/atlas/berserker_death_atlas.webp": {
+            "sha256": "2c9224477478412eaee7db24ce814eb2acadcf6896cfab6ba5a27df787c0c8b1",
+            "bytes": 188410
+        },
+        "animations/output/half_body_atlases_v1/berserker_hit_atlas/atlas/berserker_hit_atlas.webp": {
+            "sha256": "8d46f2bc9c422d6cfbe224ad2754a260be6c47a83d749812d76184d197391a65",
+            "bytes": 204962
+        },
+        "animations/output/half_body_atlases_v1/berserker_idle_atlas/atlas/berserker_idle_atlas.webp": {
+            "sha256": "1e662e249b192e986a744f86508cee8e4f43efa1004c1a8c0d3beafe18bfef08",
+            "bytes": 278394
+        },
+        "animations/output/half_body_atlases_v1/berserker_melee_attack_atlas/atlas/berserker_melee_attack_atlas.webp": {
+            "sha256": "c14661a40b77838b42a54cec665f082fa1b25ab01e7412008bc7bd76500a4d12",
+            "bytes": 213480
+        },
+        "animations/output/half_body_atlases_v1/berserker_melee_attack_down_atlas/atlas/berserker_melee_attack_down_atlas.webp": {
+            "sha256": "d8867d26acccb4715af1068d81563643f9d23e570a75aa665c005e610ba40377",
+            "bytes": 207356
+        },
+        "animations/output/half_body_atlases_v1/berserker_melee_attack_up_atlas/atlas/berserker_melee_attack_up_atlas.webp": {
+            "sha256": "496b05e7a88162eddd276633e53f789cd537b7cfe32e52a3f72af0f72632c604",
+            "bytes": 210770
+        },
+        "animations/output/half_body_atlases_v1/berserker_sword_idle_atlas/atlas/berserker_sword_idle_atlas.webp": {
+            "sha256": "be24e686e0772bb6522f928c02a428d5fcc0bab85e135dda5825dc243c31ffce",
+            "bytes": 473782
+        },
+        "animations/output/half_body_atlases_v1/berserker_walk_atlas/atlas/berserker_walk_atlas.webp": {
+            "sha256": "b133d3396a31797f546123c52aba3098603ba1d890a490c9d491206bff1f4ccd",
+            "bytes": 460942
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_attack_atlas/atlas/black_dragon_attack_atlas.webp": {
+            "sha256": "e40c5ad8b18c35332d84d421b55d9f0b2ffd398461bf5063f1e5519cf35fb318",
+            "bytes": 267336
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_attack_down_atlas/atlas/black_dragon_attack_down_atlas.webp": {
+            "sha256": "e14c3a0594890649ffcf4347277201e0019619d5df852599fdf4fd716e086aee",
+            "bytes": 269438
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_attack_up_atlas/atlas/black_dragon_attack_up_atlas.webp": {
+            "sha256": "66c14a212aba841fb2e8f0d8efc755d4b26384161ac3662c7cb52a4e6081f766",
+            "bytes": 266406
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_death_atlas/atlas/black_dragon_death_atlas.webp": {
+            "sha256": "bf652afa2960d90685bfe29275e5b92b51962d5c3ddf7047dfc9d22f67f0c138",
+            "bytes": 177770
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_hit_atlas/atlas/black_dragon_hit_atlas.webp": {
+            "sha256": "baaf4ec3d34f22ec049882ecef3f51c42d91c51c6549d8f131d277276a4a655d",
+            "bytes": 268996
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_idle_atlas/atlas/black_dragon_idle_atlas.webp": {
+            "sha256": "caf6296f500eef29aa16a917defa649c70dc8ffba4c83849b7bccbb550333293",
+            "bytes": 251194
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_attack_atlas/atlas/black_dragon_lab_attack_atlas.webp": {
+            "sha256": "754de6a6c77d902487b0078cb14fd2d3e8188e6ab493c6d60ef5c61b32aecca3",
+            "bytes": 893390
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_attack_down_atlas/atlas/black_dragon_lab_attack_down_atlas.webp": {
+            "sha256": "bbbd0c370141e0ddb1b2a34baf4c127ea029b3b91f5e9bbc4fcfdc6b7f388c20",
+            "bytes": 960304
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_attack_up_atlas/atlas/black_dragon_lab_attack_up_atlas.webp": {
+            "sha256": "1c40f09707f706d9d6a71da557684e89c1b642b924ead5825f7b2eb49e13604f",
+            "bytes": 904828
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_death_atlas/atlas/black_dragon_lab_death_atlas.webp": {
+            "sha256": "9657809ce80ce91f5848a1f22fcc7fab984fbb9bf8af8ca6d95fbd66eeca5e46",
+            "bytes": 688602
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_hit_atlas/atlas/black_dragon_lab_hit_atlas.webp": {
+            "sha256": "d15775fd17707fbf57ad7ffdde6e70082ba5314500e62276c6b8bbe5cd2ca3dc",
+            "bytes": 452774
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_idle_atlas/atlas/black_dragon_lab_idle_atlas.webp": {
+            "sha256": "123d66f7b7d3908a290eebc5d5e9b670db2857490086179b70fef18ceb7b56b2",
+            "bytes": 936490
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_lab_walk_atlas/atlas/black_dragon_lab_walk_atlas.webp": {
+            "sha256": "daf4469e354a999ddc300338ba64e78f017b03004fd87710c49ab480eeedbcb8",
+            "bytes": 464906
+        },
+        "animations/output/half_body_atlases_v1/black_dragon_walk_atlas/atlas/black_dragon_walk_atlas.webp": {
+            "sha256": "ea8b55bbfd944e9a7a4cc052d36de840adbdffbee70d1dcc3ac31443418d52e6",
+            "bytes": 294886
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_cast_atlas/atlas/blacksmith_cast_atlas.webp": {
+            "sha256": "a583f0a0bf21abc189eaf0b15e4ad2e827786a597c56b0c9eeb03a5cc35caeb2",
+            "bytes": 199130
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_death_atlas/atlas/blacksmith_death_atlas.webp": {
+            "sha256": "8cf5834b7a6e1f82ad7e48b9957627607254c47f038b32ec7a9889b4440262e7",
+            "bytes": 195212
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_hit_atlas/atlas/blacksmith_hit_atlas.webp": {
+            "sha256": "757bf7405b17d9e71ea3fb05d407d7a14c2c9bce064cdd84ed1627a61750ad3a",
+            "bytes": 144902
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_idle_atlas/atlas/blacksmith_idle_atlas.webp": {
+            "sha256": "4f8c2a115d1f205562383d3e9401f73897667c0c071d04907a3a5b9c0d0e8d8d",
+            "bytes": 187284
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_melee_attack_atlas/atlas/blacksmith_melee_attack_atlas.webp": {
+            "sha256": "ce4954c93e7d5a9a9205a08db6aaf8fb47d4295f57754ff9c2ed1721699415d4",
+            "bytes": 218662
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_melee_attack_down_atlas/atlas/blacksmith_melee_attack_down_atlas.webp": {
+            "sha256": "75468311c931cb89583428a9d44eb550e1959f2f9faca6b9df6c28ced27e1571",
+            "bytes": 203506
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_melee_attack_up_atlas/atlas/blacksmith_melee_attack_up_atlas.webp": {
+            "sha256": "ebf501b9ebd9e8a3319e037026c84a5a5a092a5693f7260c0f31182c2a10c789",
+            "bytes": 218460
+        },
+        "animations/output/half_body_atlases_v1/blacksmith_walk_atlas/atlas/blacksmith_walk_atlas.webp": {
+            "sha256": "c752b2789427bb736c42d0e6b219f99301a1d36665a27d481e31d763bff89c84",
+            "bytes": 143046
+        },
+        "animations/output/half_body_atlases_v1/centaur_attack_atlas/atlas/centaur_attack_atlas.webp": {
+            "sha256": "451a9651f361a7f8d0df338594587d9d86c2bbdeee1fffd6a7e7e86afa16f485",
+            "bytes": 302806
+        },
+        "animations/output/half_body_atlases_v1/centaur_attack_down_atlas/atlas/centaur_attack_down_atlas.webp": {
+            "sha256": "966e7a6c552ea9eeddad914ea8b51d47a07b161197242d096f0803710915079c",
+            "bytes": 299734
+        },
+        "animations/output/half_body_atlases_v1/centaur_attack_up_atlas/atlas/centaur_attack_up_atlas.webp": {
+            "sha256": "e38512fe6901ced4951892a765b5aba06c38115f8e76d0f290716f3750a81b90",
+            "bytes": 301510
+        },
+        "animations/output/half_body_atlases_v1/centaur_death_atlas/atlas/centaur_death_atlas.webp": {
+            "sha256": "4e6019851fc98e4cc84bc778e7b34333d392856da52159f5472ffff11d7b3d94",
+            "bytes": 222208
+        },
+        "animations/output/half_body_atlases_v1/centaur_hit_atlas/atlas/centaur_hit_atlas.webp": {
+            "sha256": "e930ab228e1ce5cc1dbb79c94e8b156e6a29b7b7ea731dbc5a9f76861ab272d5",
+            "bytes": 296388
+        },
+        "animations/output/half_body_atlases_v1/centaur_idle_atlas/atlas/centaur_idle_atlas.webp": {
+            "sha256": "c1a78d5b690d0ec6d6292832eb19b6f61e601151a7d5d590fe9ff1b1ed4562ed",
+            "bytes": 214828
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_attack_atlas/atlas/centaur_lab_attack_atlas.webp": {
+            "sha256": "0a59e3fa3422a24d51b6416fa52396919542868af314779bf74cb29726a50503",
+            "bytes": 257904
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_attack_down_atlas/atlas/centaur_lab_attack_down_atlas.webp": {
+            "sha256": "4c3cf433b508eed7fcb0fdf1e4fbd0f4e9744d9342e44ab481649491b74bc591",
+            "bytes": 242502
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_attack_up_atlas/atlas/centaur_lab_attack_up_atlas.webp": {
+            "sha256": "c12c622ee2ea4e7b11ece9023ba319b171484516b788ef8a2946eda0f57f8047",
+            "bytes": 252682
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_death_atlas/atlas/centaur_lab_death_atlas.webp": {
+            "sha256": "f208598cecac5b0d4c87cb0b2af0f92abd1d7094f156d2760e5886d046084518",
+            "bytes": 226760
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_hit_atlas/atlas/centaur_lab_hit_atlas.webp": {
+            "sha256": "284e44738026643974dbc3eb7d0d3ab8e794be5e8014e04f2c1060ff673b4d76",
+            "bytes": 228944
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_idle_atlas/atlas/centaur_lab_idle_atlas.webp": {
+            "sha256": "66eea0c512de723609369edbc47f0989f8518d78ce1c9f6ae7638bcb52c1b4fb",
+            "bytes": 248292
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_melee_attack_atlas/atlas/centaur_lab_melee_attack_atlas.webp": {
+            "sha256": "63081baf72204988374c8a0a4252c618d86368363db7409066d9af5f5751ad6b",
+            "bytes": 249250
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_melee_attack_down_atlas/atlas/centaur_lab_melee_attack_down_atlas.webp": {
+            "sha256": "d1def863345880326c5d8701149aa0835c51d968135281e60d58a0a87b96aca8",
+            "bytes": 245042
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_melee_attack_up_atlas/atlas/centaur_lab_melee_attack_up_atlas.webp": {
+            "sha256": "68e4fbba81a07277586492adf0f703e9b53ddd0d847ed2c82b4398ecd901544b",
+            "bytes": 243004
+        },
+        "animations/output/half_body_atlases_v1/centaur_lab_walk_atlas/atlas/centaur_lab_walk_atlas.webp": {
+            "sha256": "ab08d7ba73e6074f33be2dd0e13f53f66e998257846c5b25bb57a787e83dbf5d",
+            "bytes": 402654
+        },
+        "animations/output/half_body_atlases_v1/centaur_walk_atlas/atlas/centaur_walk_atlas.webp": {
+            "sha256": "c2a5098c5ccfbc910b7827c33e0c12f9b49628039a59987290e4403dca373cc2",
+            "bytes": 346464
+        },
+        "animations/output/half_body_atlases_v1/champion_attack_atlas/atlas/champion_attack_atlas.webp": {
+            "sha256": "c9c5cf1b0fbc23a502d606a776f83c49c099127f2843890cb733c9e4ea75a4c4",
+            "bytes": 371702
+        },
+        "animations/output/half_body_atlases_v1/champion_attack_down_atlas/atlas/champion_attack_down_atlas.webp": {
+            "sha256": "906592b5c6995be22d5110ae0014c3e33214c5d2983d47ce161e1fedf27674c1",
+            "bytes": 373416
+        },
+        "animations/output/half_body_atlases_v1/champion_attack_up_atlas/atlas/champion_attack_up_atlas.webp": {
+            "sha256": "3afac2940b47058aa1b00f7692f4013254202934efd23f9f48c2ad1b18bb6944",
+            "bytes": 373940
+        },
+        "animations/output/half_body_atlases_v1/champion_death_atlas/atlas/champion_death_atlas.webp": {
+            "sha256": "567e925a627d700fe47910b92c782d18c4d73dbde1576d4da6ce0a16d490fc8f",
+            "bytes": 272042
+        },
+        "animations/output/half_body_atlases_v1/champion_hit_atlas/atlas/champion_hit_atlas.webp": {
+            "sha256": "439946f7794dc66f1890a05d044024269fc7e2d99d471a3e0ae2ebaf86db5464",
+            "bytes": 362630
+        },
+        "animations/output/half_body_atlases_v1/champion_idle_atlas/atlas/champion_idle_atlas.webp": {
+            "sha256": "777fda93734b3a224b5174ded8590487ac8f54473f3edca2817a6ab8783eb6ff",
+            "bytes": 349006
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_death_atlas/atlas/champion_lab_death_atlas.webp": {
+            "sha256": "18f672413324f3ab1b5839d42c729f71d60c056aa4a72f642f3aafa9cc5ca38d",
+            "bytes": 334558
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_hit_atlas/atlas/champion_lab_hit_atlas.webp": {
+            "sha256": "71117080ee449cad40adc1c5b7c3610e5a24f5334451d0b26bd5037d83b13933",
+            "bytes": 257758
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_idle_atlas/atlas/champion_lab_idle_atlas.webp": {
+            "sha256": "b3198f28b94a1a658e4ea24c7825bd74234bcefffa92e9f403aedc8a7427b390",
+            "bytes": 615758
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_melee_attack_atlas/atlas/champion_lab_melee_attack_atlas.webp": {
+            "sha256": "f721dde716b34a738ee21ac4b249c0344cc66a0423e8e6e7b2656a161cc47214",
+            "bytes": 970972
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_melee_attack_down_atlas/atlas/champion_lab_melee_attack_down_atlas.webp": {
+            "sha256": "c18a3001ef71cf3ca8f3d37aa18b0769b7610219ac9284df93c6d52a5d96cdd8",
+            "bytes": 980522
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_melee_attack_up_atlas/atlas/champion_lab_melee_attack_up_atlas.webp": {
+            "sha256": "99912b09d649e6ad6ae1eba502612297132b1762eec59b428633c95d385114bd",
+            "bytes": 990942
+        },
+        "animations/output/half_body_atlases_v1/champion_lab_walk_atlas/atlas/champion_lab_walk_atlas.webp": {
+            "sha256": "e9f0f996077b15d58506dd7b9ee20a66d2d63073943e8577145086e4ff4a6b52",
+            "bytes": 259334
+        },
+        "animations/output/half_body_atlases_v1/champion_walk_atlas/atlas/champion_walk_atlas.webp": {
+            "sha256": "2d08d8e06e0c0eb2447303cb8221ebd952c43c4202cd2fc7bac9b5f1108bc554",
+            "bytes": 405948
+        },
+        "animations/output/half_body_atlases_v1/crusader_attack_atlas/atlas/crusader_attack_atlas.webp": {
+            "sha256": "02da424099153a59293e78663e4e3173993f2cd893da1e1bd4326b2f36fa4f0f",
+            "bytes": 314060
+        },
+        "animations/output/half_body_atlases_v1/crusader_attack_down_atlas/atlas/crusader_attack_down_atlas.webp": {
+            "sha256": "1888b679a4149fe0d24f83b2e778b4e95c9efb5a107afaf3339ae542aa183db6",
+            "bytes": 316380
+        },
+        "animations/output/half_body_atlases_v1/crusader_attack_up_atlas/atlas/crusader_attack_up_atlas.webp": {
+            "sha256": "1d9ed507cb6976721b0a0a392e97b73d0942d567c3c96f3b7757e1aafa2743cc",
+            "bytes": 311734
+        },
+        "animations/output/half_body_atlases_v1/crusader_death_atlas/atlas/crusader_death_atlas.webp": {
+            "sha256": "899c63d0f2fe97d545f32af85811597ab74f40170bad512297d2ebd13479d06f",
+            "bytes": 167448
+        },
+        "animations/output/half_body_atlases_v1/crusader_hit_atlas/atlas/crusader_hit_atlas.webp": {
+            "sha256": "8a6a492227b62be05a3ea2f4244197d4a61d68d669745e2d170ef96ff60a18b7",
+            "bytes": 195846
+        },
+        "animations/output/half_body_atlases_v1/crusader_idle_atlas/atlas/crusader_idle_atlas.webp": {
+            "sha256": "1ea51db45dd996170a67b0377da83ad00ceca81f41fed176de853cf4bb2111d1",
+            "bytes": 293672
+        },
+        "animations/output/half_body_atlases_v1/crusader_melee_attack_atlas/atlas/crusader_melee_attack_atlas.webp": {
+            "sha256": "d21bcca523c74e425c04ed83c5b3216d63f761929dfc2df729e7afa552ec4ddf",
+            "bytes": 312148
+        },
+        "animations/output/half_body_atlases_v1/crusader_melee_attack_down_atlas/atlas/crusader_melee_attack_down_atlas.webp": {
+            "sha256": "be34e2f28ec2be6a1e0f40773c8b682fdba156a12241f867b226acb86c9de04c",
+            "bytes": 219250
+        },
+        "animations/output/half_body_atlases_v1/crusader_melee_attack_up_atlas/atlas/crusader_melee_attack_up_atlas.webp": {
+            "sha256": "0df9a6ecf308c7e3d26ba1cae34b85e9328a7562988a00b46961f5a78c4e7fed",
+            "bytes": 225668
+        },
+        "animations/output/half_body_atlases_v1/crusader_walk_atlas/atlas/crusader_walk_atlas.webp": {
+            "sha256": "c57e71bf75fba0308b0a1ee42004bf30432db9f5953586a1a5a5e066a2cba01d",
+            "bytes": 216802
+        },
+        "animations/output/half_body_atlases_v1/cyclops_attack_atlas/atlas/cyclops_attack_atlas.webp": {
+            "sha256": "652d7f492901fc8fecb5a537a6732e90f436dabc937c960e4d0652b34bb2a720",
+            "bytes": 245616
+        },
+        "animations/output/half_body_atlases_v1/cyclops_attack_down_atlas/atlas/cyclops_attack_down_atlas.webp": {
+            "sha256": "a2130a320d86e00cc667127f771781e91444100755ac16b9499f11af1da064f6",
+            "bytes": 245276
+        },
+        "animations/output/half_body_atlases_v1/cyclops_attack_up_atlas/atlas/cyclops_attack_up_atlas.webp": {
+            "sha256": "b7b2c1c963c28f350d7cd9df08f54149812fb0bfa34b7d737d7d8b809e9afeac",
+            "bytes": 245656
+        },
+        "animations/output/half_body_atlases_v1/cyclops_death_atlas/atlas/cyclops_death_atlas.webp": {
+            "sha256": "c6df2a7c3bbc8653fe7f5a9dd7cfa24176ae7b2b0dc1e4ecbfef01e1d0e24c92",
+            "bytes": 179066
+        },
+        "animations/output/half_body_atlases_v1/cyclops_hit_atlas/atlas/cyclops_hit_atlas.webp": {
+            "sha256": "facea70e945c5ee520dcad83f710d16cf0ed56c7be43d9548944c97bad52f374",
+            "bytes": 237050
+        },
+        "animations/output/half_body_atlases_v1/cyclops_idle_atlas/atlas/cyclops_idle_atlas.webp": {
+            "sha256": "2541b2a2070c203b6d8498ae3f2a9a2374ebf9c458c500699b7fa7f2a4b68e3b",
+            "bytes": 231954
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_attack_atlas/atlas/cyclops_lab_attack_atlas.webp": {
+            "sha256": "541a536925edaf08a5d76a517588fcf63d9be7c391c54268a88633ee335ec574",
+            "bytes": 240718
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_attack_down_atlas/atlas/cyclops_lab_attack_down_atlas.webp": {
+            "sha256": "9b7f968120ad2d85ea38177d6a0b7ff918d424a69cadeea60f00be4492813ac3",
+            "bytes": 256280
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_attack_up_atlas/atlas/cyclops_lab_attack_up_atlas.webp": {
+            "sha256": "73bfa95890f734c134544f2ee494029221ce736f0655692d550e1c4b947faf66",
+            "bytes": 228152
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_death_atlas/atlas/cyclops_lab_death_atlas.webp": {
+            "sha256": "97a5fb97262242a25d1b14ca7c18ec1a55c577bd0aa69d5c3312ccfc46e2fbfa",
+            "bytes": 317388
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_hit_atlas/atlas/cyclops_lab_hit_atlas.webp": {
+            "sha256": "dabb9eb87e52a6d825c2aae62e1d2cfd9590448bd96cd1c887c407d7d3ddce11",
+            "bytes": 243928
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_melee_attack_atlas/atlas/cyclops_lab_melee_attack_atlas.webp": {
+            "sha256": "37fef64d864bf71326ea8f564149ad179f94df40159fd8b36004f62e941531fa",
+            "bytes": 238912
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_melee_attack_down_atlas/atlas/cyclops_lab_melee_attack_down_atlas.webp": {
+            "sha256": "c7002aad1313dd9ae4cdfebf68e6114f8da641562e434333a2540c16fb15f1e6",
+            "bytes": 235854
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_melee_attack_up_atlas/atlas/cyclops_lab_melee_attack_up_atlas.webp": {
+            "sha256": "49573585e7427c40555f7c762646de4a61f411dd96314b38d9880d4ca0cf0a1d",
+            "bytes": 244950
+        },
+        "animations/output/half_body_atlases_v1/cyclops_lab_walk_atlas/atlas/cyclops_lab_walk_atlas.webp": {
+            "sha256": "f24365c22c7e0c6b165143969d55c0c4b079ee320668218c6c794f6e215d0f83",
+            "bytes": 172302
+        },
+        "animations/output/half_body_atlases_v1/cyclops_walk_atlas/atlas/cyclops_walk_atlas.webp": {
+            "sha256": "6409bcd7e1296f98caecfcc4e01ead6396483e62e4fc3345ae5ecca1c6ccc2a6",
+            "bytes": 267362
+        },
+        "animations/output/half_body_atlases_v1/dryad_attack_atlas/atlas/dryad_attack_atlas.webp": {
+            "sha256": "410419219478980d3edcc59f9b1397e6182a57002f5f2173e31374d3d24913d0",
+            "bytes": 242996
+        },
+        "animations/output/half_body_atlases_v1/dryad_attack_down_atlas/atlas/dryad_attack_down_atlas.webp": {
+            "sha256": "b0dbc3cc8b0f58cf3182c40917a6051091477aab6b4ea44cfd65897dc333e2a9",
+            "bytes": 240112
+        },
+        "animations/output/half_body_atlases_v1/dryad_attack_up_atlas/atlas/dryad_attack_up_atlas.webp": {
+            "sha256": "f1d94472a2151d6b550fe29e4d6b4d46d6b30b0170b07e62615e85b6ce3aae45",
+            "bytes": 242862
+        },
+        "animations/output/half_body_atlases_v1/dryad_death_atlas/atlas/dryad_death_atlas.webp": {
+            "sha256": "4af1ef4f547167702985a0099f506bd048c19df5ca7e04ebf4db81a8c9ea891b",
+            "bytes": 173232
+        },
+        "animations/output/half_body_atlases_v1/dryad_hit_atlas/atlas/dryad_hit_atlas.webp": {
+            "sha256": "7c09e27ba82b0e68fec6b72a4eaa4f7d6782e64246b1d20f00d6ccdeb2bfce1e",
+            "bytes": 237686
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_attack_atlas/atlas/dryad_lab_attack_atlas.webp": {
+            "sha256": "beb7669936f4692b793b3868cd33982ba00956733ec8e8f8beb07eefdc3f86a3",
+            "bytes": 397560
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_attack_down_atlas/atlas/dryad_lab_attack_down_atlas.webp": {
+            "sha256": "10aa75540373b99689f732262b44c370fb1d3d55b8cef4bbed7d6083ff5508ee",
+            "bytes": 405498
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_attack_up_atlas/atlas/dryad_lab_attack_up_atlas.webp": {
+            "sha256": "b2b06ebd511547f45ff5ce260bde3adf12cc724de78021c91d0849f2c65ac67b",
+            "bytes": 403176
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_death_atlas/atlas/dryad_lab_death_atlas.webp": {
+            "sha256": "be4f8174242690f1f800b5a44dca2748ef49822d4ff9d058a7ee8ae535a03acf",
+            "bytes": 214200
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_hit_atlas/atlas/dryad_lab_hit_atlas.webp": {
+            "sha256": "9621b7fe9b2cd45eae872e2c327af8d26b7dbf8e5a05235b67d6b5f33faa0263",
+            "bytes": 312210
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_melee_attack_atlas/atlas/dryad_lab_melee_attack_atlas.webp": {
+            "sha256": "4fddc6b324c1b85ecfa3f696ecefe93ae00f5e2121b093010baf9f6285c2dfed",
+            "bytes": 228996
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_melee_attack_down_atlas/atlas/dryad_lab_melee_attack_down_atlas.webp": {
+            "sha256": "991006e9cb341445cab21d6d14a298a83629dafd2240dd3535b517156447eb25",
+            "bytes": 225200
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_melee_attack_up_atlas/atlas/dryad_lab_melee_attack_up_atlas.webp": {
+            "sha256": "03fafdd5a78a3b00c8a819be6a40626e95ac5c95e3c5f390c142fc2f93cfe062",
+            "bytes": 224186
+        },
+        "animations/output/half_body_atlases_v1/dryad_lab_walk_atlas/atlas/dryad_lab_walk_atlas.webp": {
+            "sha256": "cc1faa56f9460eed9f6a774162c082bb42747b940301e317a4fe29232e23364a",
+            "bytes": 334014
+        },
+        "animations/output/half_body_atlases_v1/dryad_walk_atlas/atlas/dryad_walk_atlas.webp": {
+            "sha256": "8ff8ac5debfd9172a64c7700d7c1465d5217c011139011e1e4c1f0a5d1ce06b3",
+            "bytes": 249190
+        },
+        "animations/output/half_body_atlases_v1/efreet_idle_atlas/atlas/efreet_idle_atlas.webp": {
+            "sha256": "30f950a7aef03455f06540909c1c70e902955d076b44bcfc5be36599728f2305",
+            "bytes": 332816
+        },
+        "animations/output/half_body_atlases_v1/efreet_lab_cast_atlas/atlas/efreet_lab_cast_atlas.webp": {
+            "sha256": "0dc00149e5a6accdab5d423cbb1883c9457ef3132346213156d463f3280c660c",
+            "bytes": 211264
+        },
+        "animations/output/half_body_atlases_v1/efreet_lab_hit_atlas/atlas/efreet_lab_hit_atlas.webp": {
+            "sha256": "2fc438b699dbf4729e46ce1b8ea0df50b705767c325695743508b822bb43d786",
+            "bytes": 175176
+        },
+        "animations/output/half_body_atlases_v1/efreet_lab_idle_atlas/atlas/efreet_lab_idle_atlas.webp": {
+            "sha256": "7482cf8ca1d1cc7391340cb2ad7e7ad83513ec4d6a5bbb4443eeb7264c4767b4",
+            "bytes": 871970
+        },
+        "animations/output/half_body_atlases_v1/efreet_lab_melee_attack_down_atlas/atlas/efreet_lab_melee_attack_down_atlas.webp": {
+            "sha256": "f9752d3922b6b2f02f57d6261e07aac031a35bff750875d775bd7bd5064158ba",
+            "bytes": 199592
+        },
+        "animations/output/half_body_atlases_v1/efreet_lab_melee_attack_up_atlas/atlas/efreet_lab_melee_attack_up_atlas.webp": {
+            "sha256": "8f2b84faad913be9cdc0fb869e24a9bb5edbbea02355870f4f6903effad314e6",
+            "bytes": 182660
+        },
+        "animations/output/half_body_atlases_v1/elf_attack_atlas/atlas/elf_attack_atlas.webp": {
+            "sha256": "2b13c9a3492faef138cacbc588737f8c159a075772a1a4f69ddad982cf1e034f",
+            "bytes": 295224
+        },
+        "animations/output/half_body_atlases_v1/elf_attack_down_atlas/atlas/elf_attack_down_atlas.webp": {
+            "sha256": "c7615cf4dc9583d0ad6fffd2d2df4f0c7db9bc48546ec6cac992db286ca83174",
+            "bytes": 292480
+        },
+        "animations/output/half_body_atlases_v1/elf_attack_up_atlas/atlas/elf_attack_up_atlas.webp": {
+            "sha256": "acc7b094e8bf2f5b888cfe3c10dbc003b350285ebfa344f58c847bc6a6ebbb6a",
+            "bytes": 295732
+        },
+        "animations/output/half_body_atlases_v1/elf_death_atlas/atlas/elf_death_atlas.webp": {
+            "sha256": "d63955a5c0077f2b5c57c672fdc0c9dc9f0e618e3a640bfc8e7785abeed3403b",
+            "bytes": 232306
+        },
+        "animations/output/half_body_atlases_v1/elf_hit_atlas/atlas/elf_hit_atlas.webp": {
+            "sha256": "e3a60b80d82bdc8a1b9113738ecb0b2a3eab10a9c752f9c8a5b0e34c874eb527",
+            "bytes": 287060
+        },
+        "animations/output/half_body_atlases_v1/elf_idle_atlas/atlas/elf_idle_atlas.webp": {
+            "sha256": "ffd4a89dc3b7df01cfb4d67e4fbc18bfda5cf6f43c1802358f187ccae1b538a9",
+            "bytes": 258008
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_attack_atlas/atlas/elf_lab_attack_atlas.webp": {
+            "sha256": "fa7b592d07c3a7bb4d4343fb033a33d99d8d2cab30c3eaae496301a9dac591eb",
+            "bytes": 428242
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_attack_down_atlas/atlas/elf_lab_attack_down_atlas.webp": {
+            "sha256": "7c7717a04df05db9eb98d38da8f8f6d64ae6b6ca056806ed002ee7481c03f2b6",
+            "bytes": 428102
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_attack_up_atlas/atlas/elf_lab_attack_up_atlas.webp": {
+            "sha256": "7606ff624ce2c4a46565dd350268a2988b3a7b3c557a3d8ce9a26daa4d2eb1d9",
+            "bytes": 413282
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_death_atlas/atlas/elf_lab_death_atlas.webp": {
+            "sha256": "e379ee2fad4e1fca885013f55a9bc7da1551e4b7efe270037e166e0cfe81ad44",
+            "bytes": 176468
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_hit_atlas/atlas/elf_lab_hit_atlas.webp": {
+            "sha256": "bb5d43eb987bef2f7888bd097e3b85595f1f37890b9a858b2298308f30e1f46d",
+            "bytes": 667238
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_idle_atlas/atlas/elf_lab_idle_atlas.webp": {
+            "sha256": "7838b0eb55f7fc20aced38b2c70038b921e1ee0090d62acf51f503c5f39d2a8b",
+            "bytes": 2193934
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_melee_attack_atlas/atlas/elf_lab_melee_attack_atlas.webp": {
+            "sha256": "809081f6e94fd9d939cfc398444e883e3e1dd602b21f67eca979e6ef1530b295",
+            "bytes": 214960
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_melee_attack_down_atlas/atlas/elf_lab_melee_attack_down_atlas.webp": {
+            "sha256": "14b8f400cd9fc8eff3a7d64cea315837b54bac5b04dc3f91e54fa6d34f1e555d",
+            "bytes": 232336
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_melee_attack_up_atlas/atlas/elf_lab_melee_attack_up_atlas.webp": {
+            "sha256": "02f8290dd84477893874974c967b10142539a0d97f705c8bc1122cb7653c373c",
+            "bytes": 212608
+        },
+        "animations/output/half_body_atlases_v1/elf_lab_walk_atlas/atlas/elf_lab_walk_atlas.webp": {
+            "sha256": "195565ba5d6a95c8cc7665375461d31409687caf9369e0ceb3fd715d8356c219",
+            "bytes": 230330
+        },
+        "animations/output/half_body_atlases_v1/elf_walk_atlas/atlas/elf_walk_atlas.webp": {
+            "sha256": "f29b1381f88de103aeb7b06bd99030aad98ae66693c30ab863c52f09917c48cb",
+            "bytes": 313464
+        },
+        "animations/output/half_body_atlases_v1/fairy_attack_atlas/atlas/fairy_attack_atlas.webp": {
+            "sha256": "437953aeeb11584834ed06923b0eb7bd0bf4a7317a2005fe0088f84ecbc85246",
+            "bytes": 178100
+        },
+        "animations/output/half_body_atlases_v1/fairy_attack_down_atlas/atlas/fairy_attack_down_atlas.webp": {
+            "sha256": "b21cf69a4b99449139803041b5cca7c0fdf1e4161f4f6997fc9a7fade060f545",
+            "bytes": 175532
+        },
+        "animations/output/half_body_atlases_v1/fairy_attack_up_atlas/atlas/fairy_attack_up_atlas.webp": {
+            "sha256": "87e4fe68877d88e3f18e8f26a553085af6ac2c9d962c2222a2f27c3883004268",
+            "bytes": 178200
+        },
+        "animations/output/half_body_atlases_v1/fairy_death_atlas/atlas/fairy_death_atlas.webp": {
+            "sha256": "8b4ca53c48a190185f054190a3b35c06c111ba3d927a60972501cedf47fce302",
+            "bytes": 134412
+        },
+        "animations/output/half_body_atlases_v1/fairy_hit_atlas/atlas/fairy_hit_atlas.webp": {
+            "sha256": "ebc366a971e68378a307472ae1c42e0556c7bb6015c5e6a9c3871a3931e8ccbc",
+            "bytes": 170210
+        },
+        "animations/output/half_body_atlases_v1/fairy_idle_atlas/atlas/fairy_idle_atlas.webp": {
+            "sha256": "b5c2ae7b3d23050abbb1ad5f8ed19f858b224b50e9e921a48ec8168c9d30e7d1",
+            "bytes": 152946
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_death_atlas/atlas/fairy_lab_death_atlas.webp": {
+            "sha256": "10f5b390755a7bbdbca58ecb669beccf688992facbce44463817099fe48bea2b",
+            "bytes": 151160
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_hit_atlas/atlas/fairy_lab_hit_atlas.webp": {
+            "sha256": "b737d376b88c1166cd269b1ab7a02cb996bc101fb543eabb049668ff3144bcfb",
+            "bytes": 138186
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_idle_atlas/atlas/fairy_lab_idle_atlas.webp": {
+            "sha256": "f64544f1ffda64a5e1ca7a69518c9de4e901f44605d86032e6df9ae623294211",
+            "bytes": 101940
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_melee_attack_atlas/atlas/fairy_lab_melee_attack_atlas.webp": {
+            "sha256": "9865974744eec37afb74242ea6a7ddaa2c201cedea6a3f6c9ab73a5e807cf804",
+            "bytes": 129300
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_melee_attack_down_atlas/atlas/fairy_lab_melee_attack_down_atlas.webp": {
+            "sha256": "da980d903513968214ea74f71b089accb0bec698b76f299723572c6ff9e50434",
+            "bytes": 129008
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_melee_attack_up_atlas/atlas/fairy_lab_melee_attack_up_atlas.webp": {
+            "sha256": "d48cc3b0c7c58d82e50adb361cb362f19b0c67c8edfd43d272da16c5b1c54b1c",
+            "bytes": 133366
+        },
+        "animations/output/half_body_atlases_v1/fairy_lab_walk_atlas/atlas/fairy_lab_walk_atlas.webp": {
+            "sha256": "150e8c042fa38d943704a23f73cb3184d01590caa0ac980e22169c2127752cee",
+            "bytes": 162530
+        },
+        "animations/output/half_body_atlases_v1/fairy_walk_atlas/atlas/fairy_walk_atlas.webp": {
+            "sha256": "637689b4680b5e98aa9ccc4bd42d9e31b54ef77e47038e784fffede2ba8aa9e2",
+            "bytes": 248538
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_attack_atlas/atlas/frenzied_boar_attack_atlas.webp": {
+            "sha256": "fcad32e6d5b1a2989a550d84579688a26723e66a7d3c6625fdffa36bd1a19b18",
+            "bytes": 264162
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_attack_down_atlas/atlas/frenzied_boar_attack_down_atlas.webp": {
+            "sha256": "f3b183f990dda7b632baffa1faad73065e0ead2805dec462d544377662b8ee28",
+            "bytes": 263680
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_attack_up_atlas/atlas/frenzied_boar_attack_up_atlas.webp": {
+            "sha256": "66b24a006ff15c62578e5d3ccea47c8bc9ed797e42ad46e7623a989ea0649b56",
+            "bytes": 263970
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_death_atlas/atlas/frenzied_boar_death_atlas.webp": {
+            "sha256": "3d1dd209bb0158147947628ca48aee1ab7c1ce7f7702d63e752c172745ec7e23",
+            "bytes": 198876
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_hit_atlas/atlas/frenzied_boar_hit_atlas.webp": {
+            "sha256": "454991e47341c03610d7b5ff63aa0d1d72193bcb19b9603e0b5e8088263136ea",
+            "bytes": 257964
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_idle_atlas/atlas/frenzied_boar_idle_atlas.webp": {
+            "sha256": "f5731c654f71130176daeb19098feebd8771b4df615a608e91236794ba4ca3dd",
+            "bytes": 247324
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_death_atlas/atlas/frenzied_boar_lab_death_atlas.webp": {
+            "sha256": "37552bc1f80434fb8c28172c96a1b3708adaaab58233f28f98f4894757879177",
+            "bytes": 303948
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_hit_atlas/atlas/frenzied_boar_lab_hit_atlas.webp": {
+            "sha256": "c5632d7503734cf13f60c19240b375acb08e2600ff6c30a61116f6d16ed56e16",
+            "bytes": 292862
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_idle_atlas/atlas/frenzied_boar_lab_idle_atlas.webp": {
+            "sha256": "ec8b43af935fef1f89c68d777c0784c586088e33972484112ed0b3c6c3768f8b",
+            "bytes": 1605162
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_melee_attack_atlas/atlas/frenzied_boar_lab_melee_attack_atlas.webp": {
+            "sha256": "f2bdfe2d545e2f5f010acebbf800668e841163021696c637d3253f510f113bff",
+            "bytes": 432580
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_melee_attack_down_atlas/atlas/frenzied_boar_lab_melee_attack_down_atlas.webp": {
+            "sha256": "83c29c7d06026b18b35f9ae0ca613314791d24f93626106bea6563e58dd29047",
+            "bytes": 430630
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_melee_attack_up_atlas/atlas/frenzied_boar_lab_melee_attack_up_atlas.webp": {
+            "sha256": "9bca2414f833d7d13120e22e40afb9112dc424e428ae4d63a717a8adc5341db7",
+            "bytes": 519242
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_lab_walk_atlas/atlas/frenzied_boar_lab_walk_atlas.webp": {
+            "sha256": "a2965f8d9e23696b2e5f1e6a907fabd56945b0cc13535c45ad24349b91d48c5e",
+            "bytes": 288632
+        },
+        "animations/output/half_body_atlases_v1/frenzied_boar_walk_atlas/atlas/frenzied_boar_walk_atlas.webp": {
+            "sha256": "7fd6e804f01dcef23306b5bc94c1ee89c77b6c6db5253237b417a9cf4e6caf1d",
+            "bytes": 178400
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_attack_atlas/atlas/gargantuan_attack_atlas.webp": {
+            "sha256": "a41361abad18736781840ee0c1600b5b2554ee27febfbb1242f61ebbf2d4f15f",
+            "bytes": 266892
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_attack_down_atlas/atlas/gargantuan_attack_down_atlas.webp": {
+            "sha256": "7f6cd3871f6000d21ea684599393d6e643c84810ada720199233bb6c3e9d5b16",
+            "bytes": 266300
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_attack_up_atlas/atlas/gargantuan_attack_up_atlas.webp": {
+            "sha256": "4e2de3d6ed5065c0ced953bdfa2be19703214f5e6f0fdc03997ac58833d32631",
+            "bytes": 266910
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_death_atlas/atlas/gargantuan_death_atlas.webp": {
+            "sha256": "c6005351abe30acdd38a10fbb17247e593e162b934077212451208f741b76212",
+            "bytes": 193760
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_hit_atlas/atlas/gargantuan_hit_atlas.webp": {
+            "sha256": "e71ac49aeffc4dd60d632a5bfeb0bde66176e2119304a5334d2b80ab54ca9bce",
+            "bytes": 258986
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_idle_atlas/atlas/gargantuan_idle_atlas.webp": {
+            "sha256": "901e7283d86e66173964eae5945296c6d923e86eebad2affa69e31f5abb7e492",
+            "bytes": 250992
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_attack_atlas/atlas/gargantuan_lab_attack_atlas.webp": {
+            "sha256": "e5103e3390ad66ec2f6d330bcb1f2a20f4607bbb47f5275624f7d8271a2e214e",
+            "bytes": 251498
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_attack_down_atlas/atlas/gargantuan_lab_attack_down_atlas.webp": {
+            "sha256": "6cc5541f47547e55f5fc9a9461586ff43b6d3ce713917c566501884a51f6abbe",
+            "bytes": 247268
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_attack_up_atlas/atlas/gargantuan_lab_attack_up_atlas.webp": {
+            "sha256": "65dd0e4a630eed468bf8fca2990e326fe54778fab569c4be8db633ed029c8224",
+            "bytes": 248986
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_death_atlas/atlas/gargantuan_lab_death_atlas.webp": {
+            "sha256": "ff49e97e8485f0a94229d4107c7948f623391a6a1bc1482a52b81396aae3176c",
+            "bytes": 344992
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_hit_atlas/atlas/gargantuan_lab_hit_atlas.webp": {
+            "sha256": "68fb584623e50b3a40c80532cd71a332e5686096b7caeaa1e2097ab995774452",
+            "bytes": 396148
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_idle_atlas/atlas/gargantuan_lab_idle_atlas.webp": {
+            "sha256": "c6cbf0fd144d5dbd834b0d959df58a282be09e7c8a4ea6a5d0c902c2bf816445",
+            "bytes": 503530
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_melee_attack_atlas/atlas/gargantuan_lab_melee_attack_atlas.webp": {
+            "sha256": "aae6c741fb8119bc7aac5aebde161713ac95aa6542b1a89c5aa54918ced4164f",
+            "bytes": 253088
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_melee_attack_down_atlas/atlas/gargantuan_lab_melee_attack_down_atlas.webp": {
+            "sha256": "7d9f55f1496eec231f3bd2e7bb6ad0e57f5b58e58397ff940821a6eea8904cb5",
+            "bytes": 247624
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_melee_attack_up_atlas/atlas/gargantuan_lab_melee_attack_up_atlas.webp": {
+            "sha256": "ade38b4a2cad6fbbf45b8bb3a21359c7c98f5aa535036eb454ecb23b25ad81a6",
+            "bytes": 250858
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_lab_walk_atlas/atlas/gargantuan_lab_walk_atlas.webp": {
+            "sha256": "032f86282e053040443dd31b17e52c1f2eda88222dfdde03dd786818ba53a954",
+            "bytes": 201146
+        },
+        "animations/output/half_body_atlases_v1/gargantuan_walk_atlas/atlas/gargantuan_walk_atlas.webp": {
+            "sha256": "0cfcc6a640fa6e64cc9a06d99a3dd7aeb446fa547840971f1dd76ebbbcb3c2cd",
+            "bytes": 290450
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_attack_atlas/atlas/goblin_knight_attack_atlas.webp": {
+            "sha256": "2d8b94e6dc7caf92bad1ad4a98a123e5c4cb96dd3b69e3f2442543b56aa5b099",
+            "bytes": 298870
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_attack_down_atlas/atlas/goblin_knight_attack_down_atlas.webp": {
+            "sha256": "1b974aea7b988268f66736b6685c320d7a59605ad55142da8c0263c301745564",
+            "bytes": 297582
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_attack_up_atlas/atlas/goblin_knight_attack_up_atlas.webp": {
+            "sha256": "5663328200e10221dbef0125674dfc085cdabb2205c3e8df4a62bba726472545",
+            "bytes": 302086
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_death_atlas/atlas/goblin_knight_death_atlas.webp": {
+            "sha256": "93ab5b5449ead60523bd2d0bc26fe9f93fb7bcd5e5f2f2a52d98643f503b47c7",
+            "bytes": 233836
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_hit_atlas/atlas/goblin_knight_hit_atlas.webp": {
+            "sha256": "e5aee335f821ae8210fcb9e504e189b74d6ddb2fa4200d41459b6ef4e52c0367",
+            "bytes": 290572
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_idle_atlas/atlas/goblin_knight_idle_atlas.webp": {
+            "sha256": "2eb436a8470f3a315f62cbfa8bfbd6d1ec94727d5f1833398b0ce8c91ff17aa6",
+            "bytes": 276354
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_lab_death_atlas/atlas/goblin_knight_lab_death_atlas.webp": {
+            "sha256": "1e8d69b498ba80a0bff27bba60cd8391d30f73e0d35f746f44845f0e76d206b0",
+            "bytes": 316322
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_lab_hit_atlas/atlas/goblin_knight_lab_hit_atlas.webp": {
+            "sha256": "86832c591186618dd334543cab543feac830f427980795d1c7e6ef860277251c",
+            "bytes": 279662
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_lab_melee_attack_atlas/atlas/goblin_knight_lab_melee_attack_atlas.webp": {
+            "sha256": "73ae40e24cb4cb83d7e3b91579faf04419209f7bf938aaed856df3d1470fabc8",
+            "bytes": 277190
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_lab_melee_attack_down_atlas/atlas/goblin_knight_lab_melee_attack_down_atlas.webp": {
+            "sha256": "fb09ded0ed700fcc498bbd0673022e5f992ad2c8f6b2c9f3262349023b7e9257",
+            "bytes": 276134
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_lab_melee_attack_up_atlas/atlas/goblin_knight_lab_melee_attack_up_atlas.webp": {
+            "sha256": "401dd04bb4e12e1be9e6edbd089ff51c5e2b5e3ccba5c9d56a4655326dff18ed",
+            "bytes": 263368
+        },
+        "animations/output/half_body_atlases_v1/goblin_knight_walk_atlas/atlas/goblin_knight_walk_atlas.webp": {
+            "sha256": "e98ef3cabc3656b8f69afcd9801374cd8fb90712a70269f0d2a57dd1c9c25621",
+            "bytes": 239258
+        },
+        "animations/output/half_body_atlases_v1/griffin_attack_atlas/atlas/griffin_attack_atlas.webp": {
+            "sha256": "cf0b9dfdb8f45f083c73098d379b63b44d7461cf4bfab351cf0af71e13fa2570",
+            "bytes": 365314
+        },
+        "animations/output/half_body_atlases_v1/griffin_attack_down_atlas/atlas/griffin_attack_down_atlas.webp": {
+            "sha256": "6e7caaa7f07edd19d41fe300830a8f888ddd3858ab5581aab9360de0471ab979",
+            "bytes": 369370
+        },
+        "animations/output/half_body_atlases_v1/griffin_attack_up_atlas/atlas/griffin_attack_up_atlas.webp": {
+            "sha256": "42f6b2250dfa77fac35127eaf7678be0f7b241a9f157daae7904fb7d362664a1",
+            "bytes": 363906
+        },
+        "animations/output/half_body_atlases_v1/griffin_death_atlas/atlas/griffin_death_atlas.webp": {
+            "sha256": "8bc66946a34dd7a1d701eed6eab21508fe660d1c3a8c644aaded7b120aaf0029",
+            "bytes": 239966
+        },
+        "animations/output/half_body_atlases_v1/griffin_flight_walk_atlas/atlas/griffin_flight_walk_atlas.webp": {
+            "sha256": "5f2a36e2b5224fa37673d3b8131f3c2a3430a2ad88a03eabdb7a2a4a665092ae",
+            "bytes": 729238
+        },
+        "animations/output/half_body_atlases_v1/griffin_hit_atlas/atlas/griffin_hit_atlas.webp": {
+            "sha256": "6ab09eab5ecfc6907932398f7e72242308d6091c0655243856625dc9db4fcf05",
+            "bytes": 361192
+        },
+        "animations/output/half_body_atlases_v1/griffin_idle_atlas/atlas/griffin_idle_atlas.webp": {
+            "sha256": "9ecb485d9ea24639b4e1bbad01c56da58428ba1cc6eebfb13001e20a86a341bd",
+            "bytes": 348148
+        },
+        "animations/output/half_body_atlases_v1/griffin_lab_death_atlas/atlas/griffin_lab_death_atlas.webp": {
+            "sha256": "91607f94948977b660f8da1ecdae163fa52c94272fcd895e956800965f2e5bfb",
+            "bytes": 457436
+        },
+        "animations/output/half_body_atlases_v1/griffin_lab_hit_atlas/atlas/griffin_lab_hit_atlas.webp": {
+            "sha256": "4e56f465456889c2227e98d86f7cbb0de1564f1f02bcd96f0386b94aa729b102",
+            "bytes": 460874
+        },
+        "animations/output/half_body_atlases_v1/griffin_lab_idle_atlas/atlas/griffin_lab_idle_atlas.webp": {
+            "sha256": "993a6e27496fa7031031120cc3ac19f6b3326238cee4cd4870862874e226b2a0",
+            "bytes": 5815952
+        },
+        "animations/output/half_body_atlases_v1/griffin_lab_melee_attack_atlas/atlas/griffin_lab_melee_attack_atlas.webp": {
+            "sha256": "9416ed5ee35d29d09a620fa991aa21568131104aa20ac0a5b76e9adc690f9de7",
+            "bytes": 714018
+        },
+        "animations/output/half_body_atlases_v1/griffin_lab_melee_attack_down_atlas/atlas/griffin_lab_melee_attack_down_atlas.webp": {
+            "sha256": "803cd9ebd91c436f3805268f66591d228440ce4ee01605a29badc8b8bd814ff7",
+            "bytes": 721198
+        },
+        "animations/output/half_body_atlases_v1/griffin_lab_melee_attack_up_atlas/atlas/griffin_lab_melee_attack_up_atlas.webp": {
+            "sha256": "a6da28fad3a405d5fd5022c808623a55ca3755049a6eaeba5681244d602345b7",
+            "bytes": 725894
+        },
+        "animations/output/half_body_atlases_v1/griffin_walk_atlas/atlas/griffin_walk_atlas.webp": {
+            "sha256": "04bcf19ee2d7baef02d0a12ced9c6ff75c8565a0a96343e334d8df5d99e9e4a9",
+            "bytes": 405166
+        },
+        "animations/output/half_body_atlases_v1/harpy_attack_atlas/atlas/harpy_attack_atlas.webp": {
+            "sha256": "acaafb7f408beb79dd9442b8eae928d5a39622866d97ead8e966f9f28533a0e3",
+            "bytes": 438508
+        },
+        "animations/output/half_body_atlases_v1/harpy_attack_down_atlas/atlas/harpy_attack_down_atlas.webp": {
+            "sha256": "6fe21eac7fa597cd463f0d48ba148aa36dd9c28d6a3b52d0c52be28cddbc77a5",
+            "bytes": 435542
+        },
+        "animations/output/half_body_atlases_v1/harpy_attack_up_atlas/atlas/harpy_attack_up_atlas.webp": {
+            "sha256": "3bcdf90eb168c25359849110eadf3591a4fc2ab4cab17fecc1aeab9df45eb0b8",
+            "bytes": 437666
+        },
+        "animations/output/half_body_atlases_v1/harpy_cast_atlas/atlas/harpy_cast_atlas.webp": {
+            "sha256": "7be733b2388c3a4f1c0873b420cd25857c34088d5323aef1d1a62c451073ed32",
+            "bytes": 344762
+        },
+        "animations/output/half_body_atlases_v1/harpy_death_atlas/atlas/harpy_death_atlas.webp": {
+            "sha256": "dd081b43e8db4ad0b409984fa1192efe32d8f6a0ef1c4817ae859864228acb00",
+            "bytes": 217080
+        },
+        "animations/output/half_body_atlases_v1/harpy_flight_walk_atlas/atlas/harpy_flight_walk_atlas.webp": {
+            "sha256": "f46113767a091bbe1a3065eb9c28edaa30687881af200dd6c1687f6c160fd6c1",
+            "bytes": 529728
+        },
+        "animations/output/half_body_atlases_v1/harpy_hit_atlas/atlas/harpy_hit_atlas.webp": {
+            "sha256": "4ef0aae9e11a1448142be777d5111fb4a4c4ed459fdce329184df5d7b8e48a9f",
+            "bytes": 173170
+        },
+        "animations/output/half_body_atlases_v1/harpy_idle_atlas/atlas/harpy_idle_atlas.webp": {
+            "sha256": "094b8ab8f121ecad0c1392cbf632c158111245eb0c324a5bacde7052ee26f3e0",
+            "bytes": 624896
+        },
+        "animations/output/half_body_atlases_v1/harpy_melee_attack_atlas/atlas/harpy_melee_attack_atlas.webp": {
+            "sha256": "c5c99145ed9e850a72c3ec8f778bea1c65674c103d7de4d7ddcb86d4a41689b0",
+            "bytes": 211798
+        },
+        "animations/output/half_body_atlases_v1/harpy_melee_attack_down_atlas/atlas/harpy_melee_attack_down_atlas.webp": {
+            "sha256": "d531a47ae6ae7d196305ab0330e2e5840062ae2bf93fbd9c88a5d26a94bcaa3f",
+            "bytes": 216340
+        },
+        "animations/output/half_body_atlases_v1/harpy_melee_attack_up_atlas/atlas/harpy_melee_attack_up_atlas.webp": {
+            "sha256": "7b7fe8e354815e03981461f90795127048076eca590881b85aa951c3b5490bad",
+            "bytes": 216684
+        },
+        "animations/output/half_body_atlases_v1/harpy_walk_atlas/atlas/harpy_walk_atlas.webp": {
+            "sha256": "00fdc8aae1dd2449763fe8e5ed161d1473358aab0ba6057cf9a0f273dabb1674",
+            "bytes": 463936
+        },
+        "animations/output/half_body_atlases_v1/healer_attack_atlas/atlas/healer_attack_atlas.webp": {
+            "sha256": "af11ac24c4c074b263740078f0775e5bb4e82b3d5066b549f9d562f77b5fb427",
+            "bytes": 224012
+        },
+        "animations/output/half_body_atlases_v1/healer_attack_down_atlas/atlas/healer_attack_down_atlas.webp": {
+            "sha256": "734c1074007ffdcc01dcb1028ff8de5803e9d6cd3b3dcb150177970952007ec7",
+            "bytes": 221796
+        },
+        "animations/output/half_body_atlases_v1/healer_attack_up_atlas/atlas/healer_attack_up_atlas.webp": {
+            "sha256": "00b36beb475e501ee6ce8191a9a561ed90cbe12b8d4ba381c41ae491f511ab44",
+            "bytes": 225220
+        },
+        "animations/output/half_body_atlases_v1/healer_death_atlas/atlas/healer_death_atlas.webp": {
+            "sha256": "7adb5cd226274ebd53d923f1afaf89a65c910c1d1b08ab9a680e493d331afc85",
+            "bytes": 175908
+        },
+        "animations/output/half_body_atlases_v1/healer_hit_atlas/atlas/healer_hit_atlas.webp": {
+            "sha256": "b2e5cfdd813b50ed84271d74f6d4293be988ecb0eedfce7b0a1e3c123ba89647",
+            "bytes": 216242
+        },
+        "animations/output/half_body_atlases_v1/healer_idle_atlas/atlas/healer_idle_atlas.webp": {
+            "sha256": "f94a974b8e859d467d9960a759d8b8aeaf4f5be9be73f9df86b6598975b73d93",
+            "bytes": 200846
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_attack_atlas/atlas/healer_lab_attack_atlas.webp": {
+            "sha256": "24bc9d1961af89e8560a021371d837aba518d46c70221e94543b54166404f270",
+            "bytes": 188450
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_attack_down_atlas/atlas/healer_lab_attack_down_atlas.webp": {
+            "sha256": "65c6d6a1271466185f35c54ca1b1f4a0fd4badf4618940a692ab64b8f92ff80e",
+            "bytes": 186476
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_attack_up_atlas/atlas/healer_lab_attack_up_atlas.webp": {
+            "sha256": "a363d2a152a641c454f5be4b9e680550c4470c2103d49d2b9f22e28d6da9d82c",
+            "bytes": 187208
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_cast_atlas/atlas/healer_lab_cast_atlas.webp": {
+            "sha256": "81e97c3122c6e11e1e1dff2f3633ac2943467432732eab1583c3e79d0e835489",
+            "bytes": 182924
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_death_atlas/atlas/healer_lab_death_atlas.webp": {
+            "sha256": "1d2225449b12edf087ad4c9c12bf499c05c8489229626d0fb614bbb4827352af",
+            "bytes": 167990
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_hit_atlas/atlas/healer_lab_hit_atlas.webp": {
+            "sha256": "8874860bd0227fe672a556e834fc271647a7e774d87a5e6902515be2dfe82546",
+            "bytes": 131970
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_idle_atlas/atlas/healer_lab_idle_atlas.webp": {
+            "sha256": "eb0e9053c93dcfa87227637ce7ba934557413b3bca208d1afa56c90e0509f89c",
+            "bytes": 208080
+        },
+        "animations/output/half_body_atlases_v1/healer_lab_walk_atlas/atlas/healer_lab_walk_atlas.webp": {
+            "sha256": "62844d064963be2eca67ad396ab1ad936e4b9e8f25a1e09f023ed253c09864e4",
+            "bytes": 134012
+        },
+        "animations/output/half_body_atlases_v1/healer_walk_atlas/atlas/healer_walk_atlas.webp": {
+            "sha256": "d912ff86063a06f466a1011ca4c274657a3ebcc2254de9a25dacf086cb92cf7a",
+            "bytes": 237730
+        },
+        "animations/output/half_body_atlases_v1/hydra_attack_atlas/atlas/hydra_attack_atlas.webp": {
+            "sha256": "4654618ae027ab983cd328ade16db81e46304b767577cc7d68db61a56428dfb2",
+            "bytes": 356672
+        },
+        "animations/output/half_body_atlases_v1/hydra_attack_down_atlas/atlas/hydra_attack_down_atlas.webp": {
+            "sha256": "812ec0b200d8c56d473502153ab65d486bce0fa43212846aa7dff5c11681b07b",
+            "bytes": 357856
+        },
+        "animations/output/half_body_atlases_v1/hydra_attack_up_atlas/atlas/hydra_attack_up_atlas.webp": {
+            "sha256": "bbd2f11ced29239666d107ca54b7fd90f105c3f53e751ec5da1e27e39421c2ef",
+            "bytes": 355258
+        },
+        "animations/output/half_body_atlases_v1/hydra_death_atlas/atlas/hydra_death_atlas.webp": {
+            "sha256": "1be57f5e09022901151e24428c45336af0ceb354ae10c3ef3c3640be61aa6cc6",
+            "bytes": 257186
+        },
+        "animations/output/half_body_atlases_v1/hydra_hit_atlas/atlas/hydra_hit_atlas.webp": {
+            "sha256": "c6a864de1cf8732fe600d130774fee6897929e5355026c43d86df7889d24cab5",
+            "bytes": 346370
+        },
+        "animations/output/half_body_atlases_v1/hydra_idle_atlas/atlas/hydra_idle_atlas.webp": {
+            "sha256": "240b8c4bced9b634c47a8f0aacbdbec97ffa94ed9a671e5d006c57fe0a5aa4e3",
+            "bytes": 333206
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_death_atlas/atlas/hydra_lab_death_atlas.webp": {
+            "sha256": "942b0f1aee549f90cb7505695017680904f4037402cf526a781d1df447101749",
+            "bytes": 1451580
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_hit_atlas/atlas/hydra_lab_hit_atlas.webp": {
+            "sha256": "bfcb9891d564f09f73451120dea8f84a6d73774fa048be728b375ab8debf799d",
+            "bytes": 569668
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_idle_atlas/atlas/hydra_lab_idle_atlas.webp": {
+            "sha256": "2cd787e92042a577e78cce6467c2093be7802b1208df3e8db839047283aef89e",
+            "bytes": 3106558
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_melee_attack_atlas/atlas/hydra_lab_melee_attack_atlas.webp": {
+            "sha256": "711ef0b5199a70265a056cca260eceb0d66ec59ce6f49f9afd3e25286bbf684b",
+            "bytes": 912452
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_melee_attack_down_atlas/atlas/hydra_lab_melee_attack_down_atlas.webp": {
+            "sha256": "e5f613d0bb7b4fa232e836db7926f960ab04a2ac642662c518ad3839b1ea29bd",
+            "bytes": 1467344
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_melee_attack_up_atlas/atlas/hydra_lab_melee_attack_up_atlas.webp": {
+            "sha256": "7df797015e55c9f82772248e959e11caedc2c8c1aa0cd14dacb2b63f21c6dffb",
+            "bytes": 1516624
+        },
+        "animations/output/half_body_atlases_v1/hydra_lab_walk_atlas/atlas/hydra_lab_walk_atlas.webp": {
+            "sha256": "9b518acb048027b4d56552f3a99ae885b4398eccdd73636d167a642ad1143e39",
+            "bytes": 238642
+        },
+        "animations/output/half_body_atlases_v1/hydra_walk_atlas/atlas/hydra_walk_atlas.webp": {
+            "sha256": "5eed61326eb79901b98ccc0fc7a84e63589cf8ffbe02d4988371d1fa030872b0",
+            "bytes": 389490
+        },
+        "animations/output/half_body_atlases_v1/hyena_attack_atlas/atlas/hyena_attack_atlas.webp": {
+            "sha256": "5dd3ffa1364fee77c0e7819d31647338310245d16e18740200df58a0b79fea52",
+            "bytes": 394022
+        },
+        "animations/output/half_body_atlases_v1/hyena_attack_down_atlas/atlas/hyena_attack_down_atlas.webp": {
+            "sha256": "45a749a62052d500268b9e35a224117b640fb5049b2003c7e350360ff709081d",
+            "bytes": 395158
+        },
+        "animations/output/half_body_atlases_v1/hyena_attack_up_atlas/atlas/hyena_attack_up_atlas.webp": {
+            "sha256": "3a56e058a73229966d5c6be287a52c6422a160582568007b23786b32b3974d9d",
+            "bytes": 396428
+        },
+        "animations/output/half_body_atlases_v1/hyena_death_atlas/atlas/hyena_death_atlas.webp": {
+            "sha256": "d388c6c4ed13183458b6feaad4f540de8fed5ba3c91cc7a4e0291e60e03ccab9",
+            "bytes": 267934
+        },
+        "animations/output/half_body_atlases_v1/hyena_hit_atlas/atlas/hyena_hit_atlas.webp": {
+            "sha256": "56133b2a30473f2e4291b92f9efd295674e336f2f32191980c9f5689566f2cb9",
+            "bytes": 304948
+        },
+        "animations/output/half_body_atlases_v1/hyena_idle_atlas/atlas/hyena_idle_atlas.webp": {
+            "sha256": "efe0bdfc326217d66689f381a5c51d1fcbffcd5b34e7a4a00dcd8dfb093b07b5",
+            "bytes": 364116
+        },
+        "animations/output/half_body_atlases_v1/hyena_melee_attack_atlas/atlas/hyena_melee_attack_atlas.webp": {
+            "sha256": "aaa9a7d6b463f43df6aac293712e7dedc3882136f12ab0cbb654bd025cae1001",
+            "bytes": 304908
+        },
+        "animations/output/half_body_atlases_v1/hyena_melee_attack_down_atlas/atlas/hyena_melee_attack_down_atlas.webp": {
+            "sha256": "8feacce75c7e48b6b658091dcf40b3eec49fb68e79f201d3403c7aae07ce32c7",
+            "bytes": 292836
+        },
+        "animations/output/half_body_atlases_v1/hyena_melee_attack_up_atlas/atlas/hyena_melee_attack_up_atlas.webp": {
+            "sha256": "4d5eeb6fcf70dea8aacc32a7436acd7ed48f1fc2a2ed0afa4ea15c37ec83b587",
+            "bytes": 302334
+        },
+        "animations/output/half_body_atlases_v1/hyena_walk_atlas/atlas/hyena_walk_atlas.webp": {
+            "sha256": "207b0a91c4b6ac2ab1ca323da302fb2ebbe4709c41a99f23555df322ef201674",
+            "bytes": 209086
+        },
+        "animations/output/half_body_atlases_v1/leprechaun_attack_atlas/atlas/leprechaun_attack_atlas.webp": {
+            "sha256": "64f3587c8fdf53b11e24352f994d2ac8d3496c912589d660c84cde0039919713",
+            "bytes": 224406
+        },
+        "animations/output/half_body_atlases_v1/leprechaun_attack_down_atlas/atlas/leprechaun_attack_down_atlas.webp": {
+            "sha256": "599f116a2ee808321cd785f4e0e7f8e5e22f59c668f37293e7a59a7239cc8dd2",
+            "bytes": 223476
+        },
+        "animations/output/half_body_atlases_v1/leprechaun_attack_up_atlas/atlas/leprechaun_attack_up_atlas.webp": {
+            "sha256": "a2ed9eb08df8b50bfb850bf29584cdfe0cef31ac3459950ac72b25dd215d0f15",
+            "bytes": 223674
+        },
+        "animations/output/half_body_atlases_v1/leprechaun_death_atlas/atlas/leprechaun_death_atlas.webp": {
+            "sha256": "5cdd4397929087be968ca8d73f255f1ae1cf59e24367573782c280fb5fa1a47a",
+            "bytes": 168548
+        },
+        "animations/output/half_body_atlases_v1/leprechaun_hit_atlas/atlas/leprechaun_hit_atlas.webp": {
+            "sha256": "7bee64328d7f65c0c0de7f8fe568f3620a8ae84a32b683aec556408291ea6543",
+            "bytes": 218260
+        },
+        "animations/output/half_body_atlases_v1/leprechaun_walk_atlas/atlas/leprechaun_walk_atlas.webp": {
+            "sha256": "d507b8ce28a5ac702bbdfffcb5f74b0e7792931479373f387994fd68e8613645",
+            "bytes": 128242
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_attack_atlas/atlas/magic_dragon_attack_atlas.webp": {
+            "sha256": "6b78f3d35875346c2827556e9ec7eb0e76c1faad4be47e90a90a5520e2a33321",
+            "bytes": 426390
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_attack_down_atlas/atlas/magic_dragon_attack_down_atlas.webp": {
+            "sha256": "4ff30644ab9d17497fbcacb60467a72c6772e65cef3f0ac1add6d4a571b4472f",
+            "bytes": 427772
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_attack_up_atlas/atlas/magic_dragon_attack_up_atlas.webp": {
+            "sha256": "19306bda325f4ff66d4c6797f5b404f8902cf77e014c20f2cb5bb6995f72b3ae",
+            "bytes": 425672
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_death_atlas/atlas/magic_dragon_death_atlas.webp": {
+            "sha256": "dffa0855f649a5c96728a02a68de596ee942e0c71b54e4e0426a2cf0a7557020",
+            "bytes": 311674
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_hit_atlas/atlas/magic_dragon_hit_atlas.webp": {
+            "sha256": "a7263c6c75a7d07ed5d7c2764343b616dce5476dcb058eec3a8cd12ad865600b",
+            "bytes": 419406
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_idle_atlas/atlas/magic_dragon_idle_atlas.webp": {
+            "sha256": "2902ab4f293eaba6452024028f2aa2f7c09214c6ee70307bbf7a1c95c7e7913e",
+            "bytes": 401694
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_cast_atlas/atlas/magic_dragon_lab_cast_atlas.webp": {
+            "sha256": "854c9cd8fa19f08ac36650e98f5bde2d9e4033c2218b6629feceed49f8246ed2",
+            "bytes": 1537104
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_death_atlas/atlas/magic_dragon_lab_death_atlas.webp": {
+            "sha256": "54467f4cf1e4b7b2cfbbbb8647db666e887904f8bc595ad5ddda3800fcc4ae17",
+            "bytes": 349910
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_hit_atlas/atlas/magic_dragon_lab_hit_atlas.webp": {
+            "sha256": "86c58ca935302c473805dccd2156ad99e93e5e5fba38790cdda98d090d74907b",
+            "bytes": 320640
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_idle_atlas/atlas/magic_dragon_lab_idle_atlas.webp": {
+            "sha256": "149c868212997138805d4b4045dbb7a36e82f70436466297014c1f3cf32e5db7",
+            "bytes": 2489360
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_melee_attack_atlas/atlas/magic_dragon_lab_melee_attack_atlas.webp": {
+            "sha256": "295201cee05817072811e9f7f10d730f45e8baebeeac4f00b84899360df4834f",
+            "bytes": 324824
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_melee_attack_down_atlas/atlas/magic_dragon_lab_melee_attack_down_atlas.webp": {
+            "sha256": "63012997d243005e90c6370f1db73a6abb4ae8febb02919c57120c173cb9e07b",
+            "bytes": 321076
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_melee_attack_up_atlas/atlas/magic_dragon_lab_melee_attack_up_atlas.webp": {
+            "sha256": "7d7c8d54d05e2e5227cb22cd062d54156e0ed0635e607aea9d29088ac9526bbf",
+            "bytes": 322660
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_lab_walk_atlas/atlas/magic_dragon_lab_walk_atlas.webp": {
+            "sha256": "f2a781241abd707930d6c161006e7e5380fdf4acc1e0f44e34f45a7a13621112",
+            "bytes": 673634
+        },
+        "animations/output/half_body_atlases_v1/magic_dragon_walk_atlas/atlas/magic_dragon_walk_atlas.webp": {
+            "sha256": "3f4b7e17bade55d6e50ac69b206c99ce024bed291a7211041c23020afc7e5a1a",
+            "bytes": 469568
+        },
+        "animations/output/half_body_atlases_v1/manticore_attack_atlas/atlas/manticore_attack_atlas.webp": {
+            "sha256": "b6e17c76bc9c8895fedce083bf01a469abacd4cce0761efffda89b0e076a3174",
+            "bytes": 355098
+        },
+        "animations/output/half_body_atlases_v1/manticore_attack_down_atlas/atlas/manticore_attack_down_atlas.webp": {
+            "sha256": "3c646b199497f1bbf7521393144a7ed5ed6d741de21fe07632adb786b4845a7b",
+            "bytes": 352540
+        },
+        "animations/output/half_body_atlases_v1/manticore_attack_up_atlas/atlas/manticore_attack_up_atlas.webp": {
+            "sha256": "fec166fa42e9e613d956b004671e308955f3ad069a3a02da546640da44fba24a",
+            "bytes": 358238
+        },
+        "animations/output/half_body_atlases_v1/manticore_death_atlas/atlas/manticore_death_atlas.webp": {
+            "sha256": "310099396a475dc6a3754490682091252c1ff5e310232a48feabf4cdec29487a",
+            "bytes": 278074
+        },
+        "animations/output/half_body_atlases_v1/manticore_hit_atlas/atlas/manticore_hit_atlas.webp": {
+            "sha256": "46cf2eee85233d3948ac4f307b8b52d963bbacce58b20925e8f6f8101d08e550",
+            "bytes": 346374
+        },
+        "animations/output/half_body_atlases_v1/manticore_idle_atlas/atlas/manticore_idle_atlas.webp": {
+            "sha256": "f1b718c1401fe1b9cf8b470507e391067689c9a68f9942f81dbda820c19fb3fd",
+            "bytes": 315196
+        },
+        "animations/output/half_body_atlases_v1/manticore_lab_death_atlas/atlas/manticore_lab_death_atlas.webp": {
+            "sha256": "d69dec906f7fa59b0ada1a38cc9982c2b67be4e8d43a171c13712927a47ed5cb",
+            "bytes": 263794
+        },
+        "animations/output/half_body_atlases_v1/manticore_lab_hit_atlas/atlas/manticore_lab_hit_atlas.webp": {
+            "sha256": "8cac3df641c32cfc6f826e7aab8b8fd9cbaaeddb1fb41b8b09ebe08c161e816f",
+            "bytes": 299914
+        },
+        "animations/output/half_body_atlases_v1/manticore_lab_melee_attack_atlas/atlas/manticore_lab_melee_attack_atlas.webp": {
+            "sha256": "349dec936708adda4d1ecc962d4b16be1e6b8fa3c3f44cd7b5c6ce189a75fc6e",
+            "bytes": 290734
+        },
+        "animations/output/half_body_atlases_v1/manticore_lab_melee_attack_down_atlas/atlas/manticore_lab_melee_attack_down_atlas.webp": {
+            "sha256": "bdf0fc53e753b4cdf2b41cfe40e3aa1cbc5836a053e164653428f1eb6b1ec904",
+            "bytes": 268482
+        },
+        "animations/output/half_body_atlases_v1/manticore_lab_melee_attack_up_atlas/atlas/manticore_lab_melee_attack_up_atlas.webp": {
+            "sha256": "87a527dccab9a4a5918fab6934542c266f112e285e529f8fdfdfad6987ec65f4",
+            "bytes": 257100
+        },
+        "animations/output/half_body_atlases_v1/manticore_lab_walk_atlas/atlas/manticore_lab_walk_atlas.webp": {
+            "sha256": "b8abaf664a896a61615421bf3b4c7e39f823bfe67eec49e87b21c67449c7773f",
+            "bytes": 638646
+        },
+        "animations/output/half_body_atlases_v1/manticore_walk_atlas/atlas/manticore_walk_atlas.webp": {
+            "sha256": "3395c532c9db7cca2dab19eb95808ee9b108f0d140796c77cb2b3696ebd4264e",
+            "bytes": 381844
+        },
+        "animations/output/half_body_atlases_v1/mantis_attack_atlas/atlas/mantis_attack_atlas.webp": {
+            "sha256": "4896ab66c2b00b649096e7c98834f05d8e2535017de148be9fb6f3f5db4c92b6",
+            "bytes": 330842
+        },
+        "animations/output/half_body_atlases_v1/mantis_attack_down_atlas/atlas/mantis_attack_down_atlas.webp": {
+            "sha256": "1bbb0368d0d437600d9a6c092c619393dbd65730741ae58373ce0cce0c793c52",
+            "bytes": 333410
+        },
+        "animations/output/half_body_atlases_v1/mantis_attack_up_atlas/atlas/mantis_attack_up_atlas.webp": {
+            "sha256": "05f0cf85bd2e5e4acaf294ea36347f725593ff9ffe7672ef924d9356a802e30c",
+            "bytes": 331206
+        },
+        "animations/output/half_body_atlases_v1/mantis_death_atlas/atlas/mantis_death_atlas.webp": {
+            "sha256": "89ab1f7daaf25ca3df8fca1a907c8758086e91c0735ba2295be04d0db0663246",
+            "bytes": 239044
+        },
+        "animations/output/half_body_atlases_v1/mantis_hit_atlas/atlas/mantis_hit_atlas.webp": {
+            "sha256": "a694df80c6d7fc39098938f2cf9aac9bfee05539ad4c9730989c5feb455492bd",
+            "bytes": 327674
+        },
+        "animations/output/half_body_atlases_v1/mantis_idle_atlas/atlas/mantis_idle_atlas.webp": {
+            "sha256": "1299695e2bcbe817a7bd1d89c2a234fbe85a4e12a29034490d78353793c3ac87",
+            "bytes": 309954
+        },
+        "animations/output/half_body_atlases_v1/mantis_lab_hit_atlas/atlas/mantis_lab_hit_atlas.webp": {
+            "sha256": "84750c25892bb83f217a03e43350394f12e90e99cb6fedac3d63d31966f8bd3b",
+            "bytes": 119120
+        },
+        "animations/output/half_body_atlases_v1/mantis_lab_melee_attack_atlas/atlas/mantis_lab_melee_attack_atlas.webp": {
+            "sha256": "7f92431a6fca2622da1ce2972e7c364dde052a75cc1802b18d5d7045e782b02c",
+            "bytes": 208788
+        },
+        "animations/output/half_body_atlases_v1/mantis_lab_melee_attack_down_atlas/atlas/mantis_lab_melee_attack_down_atlas.webp": {
+            "sha256": "0c5e3bd34277d37a7cd5513e9f3c4193a40ab4d127fe9e93799a33daf1482d09",
+            "bytes": 202812
+        },
+        "animations/output/half_body_atlases_v1/mantis_lab_melee_attack_up_atlas/atlas/mantis_lab_melee_attack_up_atlas.webp": {
+            "sha256": "db57012af683694fd2108685290500a2679154464c24c734307b88af12ea9ae3",
+            "bytes": 215092
+        },
+        "animations/output/half_body_atlases_v1/mantis_walk_atlas/atlas/mantis_walk_atlas.webp": {
+            "sha256": "99dcb323df5cb3acdd74572025966a3a5df3674d7a2ad15ffd2dc0903050a4c3",
+            "bytes": 364098
+        },
+        "animations/output/half_body_atlases_v1/medusa_attack_atlas/atlas/medusa_attack_atlas.webp": {
+            "sha256": "4b2fa9b87cd6d62f64e42404d7402e71ca90c5c1bc05672056ede82e8454c121",
+            "bytes": 315846
+        },
+        "animations/output/half_body_atlases_v1/medusa_attack_down_atlas/atlas/medusa_attack_down_atlas.webp": {
+            "sha256": "57a9b96bd60cf9321e3ccfda53139830c005597f51df75c8618d8b333047dd38",
+            "bytes": 313526
+        },
+        "animations/output/half_body_atlases_v1/medusa_attack_up_atlas/atlas/medusa_attack_up_atlas.webp": {
+            "sha256": "0a9873a90660ffa0f88fbd68ef7c98b96139c5107c4349795fadbf67d9df1642",
+            "bytes": 315236
+        },
+        "animations/output/half_body_atlases_v1/medusa_death_atlas/atlas/medusa_death_atlas.webp": {
+            "sha256": "6a446253452d9e18c6dbd8d0142f874ba2abd3619355de004d1ce8629d237ad9",
+            "bytes": 244902
+        },
+        "animations/output/half_body_atlases_v1/medusa_hit_atlas/atlas/medusa_hit_atlas.webp": {
+            "sha256": "51be532c7df89b7fd27b76b3355d9bc19a874d3f03c392ee4d47a5cafa95d9e6",
+            "bytes": 307884
+        },
+        "animations/output/half_body_atlases_v1/medusa_idle_atlas/atlas/medusa_idle_atlas.webp": {
+            "sha256": "f4cbc6cbc7fa177e7a3fec496a507bdecbf1a4ffb0846f446fa29b7f362847fb",
+            "bytes": 273634
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_attack_atlas/atlas/medusa_lab_attack_atlas.webp": {
+            "sha256": "4a60ad3d5f89ffa95a8e47a40a3d84572052985c61a2b91e513b0b034b303a7f",
+            "bytes": 258774
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_attack_down_atlas/atlas/medusa_lab_attack_down_atlas.webp": {
+            "sha256": "8e834ebaa0f2bd924566c7171c37172e79394f616143930d68a32bd1b1c91fc2",
+            "bytes": 261480
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_attack_up_atlas/atlas/medusa_lab_attack_up_atlas.webp": {
+            "sha256": "32432fe0814a141007a676320ab8a20805e87385f3ff04ebb57023ef5913aae4",
+            "bytes": 257194
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_death_atlas/atlas/medusa_lab_death_atlas.webp": {
+            "sha256": "a0ffe810b9c4f639c6185410bd0d952173640518f5b2aa4d841172085ab63c52",
+            "bytes": 287230
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_hit_atlas/atlas/medusa_lab_hit_atlas.webp": {
+            "sha256": "1fb0fbd882bf642d5748416a90154473db29f4ef49426c10ca2fdf05d1602280",
+            "bytes": 190268
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_idle_atlas/atlas/medusa_lab_idle_atlas.webp": {
+            "sha256": "60a96ccdc325759cb6e96dc805857927ef388bd4a722cb1298dea7e7711ba6b0",
+            "bytes": 735478
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_melee_attack_atlas/atlas/medusa_lab_melee_attack_atlas.webp": {
+            "sha256": "1e6109f46d68ed094938aa759a378f71cff0e03ff99e0e8104ec978e64d3dbef",
+            "bytes": 196966
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_melee_attack_down_atlas/atlas/medusa_lab_melee_attack_down_atlas.webp": {
+            "sha256": "13c38c744d7f90f18b4a2fbd5a51f6eef8f4798c5ac50af9df6464fcd41f632b",
+            "bytes": 195758
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_melee_attack_up_atlas/atlas/medusa_lab_melee_attack_up_atlas.webp": {
+            "sha256": "f8049c8f2acaeaf2547151af6266d7cc0b6dbec9f137632a1999c096802d57dd",
+            "bytes": 195164
+        },
+        "animations/output/half_body_atlases_v1/medusa_lab_walk_atlas/atlas/medusa_lab_walk_atlas.webp": {
+            "sha256": "53d370ab20cc20658705546db9723b88e1b0361486930f19e2019a895d083eef",
+            "bytes": 259370
+        },
+        "animations/output/half_body_atlases_v1/medusa_walk_atlas/atlas/medusa_walk_atlas.webp": {
+            "sha256": "39edd7aeb4c5704eeedce10361b26f7dd59837f2d5bc25724e438e4b0e45ab56",
+            "bytes": 334490
+        },
+        "animations/output/half_body_atlases_v1/mermaid_attack_atlas/atlas/mermaid_attack_atlas.webp": {
+            "sha256": "e303a07c37e2a1fa137ba5bb510e40f436060c67a10529beb5bd5626d77ffea0",
+            "bytes": 304474
+        },
+        "animations/output/half_body_atlases_v1/mermaid_attack_down_atlas/atlas/mermaid_attack_down_atlas.webp": {
+            "sha256": "e0e7f27bdce846f54f9187f9860340bbd9926131796261aeed3ff86b3f54c29d",
+            "bytes": 302552
+        },
+        "animations/output/half_body_atlases_v1/mermaid_attack_up_atlas/atlas/mermaid_attack_up_atlas.webp": {
+            "sha256": "348f8030bf8b973af058abc0c801c0d24acc7cce120e5c90fa25cde1e545a1a3",
+            "bytes": 303880
+        },
+        "animations/output/half_body_atlases_v1/mermaid_walk_atlas/atlas/mermaid_walk_atlas.webp": {
+            "sha256": "7bfcbb31e5a6fc939781c049a0f7296ed45ce1b445225eaf0866bc83b53928fe",
+            "bytes": 325972
+        },
+        "animations/output/half_body_atlases_v1/monk_attack_atlas/atlas/monk_attack_atlas.webp": {
+            "sha256": "11004168a7d3cebebed321c21e4f0a609ab89e565055a8168b9ffc9be8330706",
+            "bytes": 239714
+        },
+        "animations/output/half_body_atlases_v1/monk_attack_down_atlas/atlas/monk_attack_down_atlas.webp": {
+            "sha256": "b354f514a0bd416861226b07b70f3d2f8208b4706a91781b82e8e3f85ed13e69",
+            "bytes": 239848
+        },
+        "animations/output/half_body_atlases_v1/monk_attack_up_atlas/atlas/monk_attack_up_atlas.webp": {
+            "sha256": "419984f342ba87616b3121370374c5417ea86bbb648db566a7f0c0bd726ea866",
+            "bytes": 240084
+        },
+        "animations/output/half_body_atlases_v1/monk_death_atlas/atlas/monk_death_atlas.webp": {
+            "sha256": "4a47d54fd434c06a5884f83abfa5b52cd6d28ae6db560aa1f6a7218781906fde",
+            "bytes": 169410
+        },
+        "animations/output/half_body_atlases_v1/monk_hit_atlas/atlas/monk_hit_atlas.webp": {
+            "sha256": "ea834f53130023af1d5e0c9bd32de64240d32188613f3d45071502857c70fc50",
+            "bytes": 233456
+        },
+        "animations/output/half_body_atlases_v1/monk_idle_atlas/atlas/monk_idle_atlas.webp": {
+            "sha256": "f43e8af674adc32e9889cbd3d475f1d45ddf8d8eb686b44a79af35c3273fd853",
+            "bytes": 228146
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_attack_atlas/atlas/monk_lab_attack_atlas.webp": {
+            "sha256": "b5bce58629f217c68917575f5eb2506401e678013077cf0c7156b2f6d7803fea",
+            "bytes": 358704
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_attack_down_atlas/atlas/monk_lab_attack_down_atlas.webp": {
+            "sha256": "71dccc1f9d33d6bcef359c1b054b6a880e917dcfdfdf1fe42b345681b080910d",
+            "bytes": 356836
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_attack_up_atlas/atlas/monk_lab_attack_up_atlas.webp": {
+            "sha256": "1746f7b845e6492deac1495583cde61379843345192fb34512e77876911d98e3",
+            "bytes": 360236
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_death_atlas/atlas/monk_lab_death_atlas.webp": {
+            "sha256": "a7f3e24f1aba764c060075959b359322f5625338e00938067e18435ed59c721e",
+            "bytes": 548860
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_hit_atlas/atlas/monk_lab_hit_atlas.webp": {
+            "sha256": "25c675072e7d40b62ee1bfc18295c258be10556dfd721d1f3b25babfab00d3f6",
+            "bytes": 644956
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_idle_atlas/atlas/monk_lab_idle_atlas.webp": {
+            "sha256": "52495b1f4633b0e9566c12c75895bbde25939ec40f2282c02d848dd183414824",
+            "bytes": 505540
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_melee_attack_atlas/atlas/monk_lab_melee_attack_atlas.webp": {
+            "sha256": "faa72cb78aef65698410e20a3cc35496d43a489c56a9a3a350e978f3528e66a6",
+            "bytes": 367360
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_melee_attack_down_atlas/atlas/monk_lab_melee_attack_down_atlas.webp": {
+            "sha256": "9e7e540955c7f7240515e97f7857bf7f4273c01ecca5e174749e863ea22df795",
+            "bytes": 362338
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_melee_attack_up_atlas/atlas/monk_lab_melee_attack_up_atlas.webp": {
+            "sha256": "dea60489c73fa06750ee9dfe25976bbaba82cc08e9451faed9b6b3942a9d4460",
+            "bytes": 359922
+        },
+        "animations/output/half_body_atlases_v1/monk_lab_walk_atlas/atlas/monk_lab_walk_atlas.webp": {
+            "sha256": "8e07638101dc5a856c458821e61e26fe951496017c036d87a46a82dbd69f71e9",
+            "bytes": 149778
+        },
+        "animations/output/half_body_atlases_v1/monk_walk_atlas/atlas/monk_walk_atlas.webp": {
+            "sha256": "30caefa181d3cafe7c689835261f17927c32ece840d64fd3a92d54789a9a9d79",
+            "bytes": 261418
+        },
+        "animations/output/half_body_atlases_v1/nightmare_hit_atlas/atlas/nightmare_hit_atlas.webp": {
+            "sha256": "0e21ac172cd5fa54ff32a95fe61e2b7e063f8f3da981473625a7291d88779a2a",
+            "bytes": 436172
+        },
+        "animations/output/half_body_atlases_v1/nightmare_lab_cast_atlas/atlas/nightmare_lab_cast_atlas.webp": {
+            "sha256": "9f90ec87e7ee8859c2568643b01d8fb11bc2670af534c76b03979095aefb881f",
+            "bytes": 271928
+        },
+        "animations/output/half_body_atlases_v1/nightmare_lab_death_atlas/atlas/nightmare_lab_death_atlas.webp": {
+            "sha256": "384074099a8852e5b127a827b1dd220d49a857d817ed0aeb90b11b77452d6cef",
+            "bytes": 169602
+        },
+        "animations/output/half_body_atlases_v1/nightmare_lab_melee_attack_atlas/atlas/nightmare_lab_melee_attack_atlas.webp": {
+            "sha256": "8f08f5cc12b30ba2e6c0c879c21961a4a66d793555a6a3e110b7e97d36ab0c3c",
+            "bytes": 205164
+        },
+        "animations/output/half_body_atlases_v1/nightmare_lab_melee_attack_down_atlas/atlas/nightmare_lab_melee_attack_down_atlas.webp": {
+            "sha256": "0d838114311f1675d81b0971749cf6823af22e51818c3064fd62304ff4a78e36",
+            "bytes": 212450
+        },
+        "animations/output/half_body_atlases_v1/nightmare_lab_melee_attack_up_atlas/atlas/nightmare_lab_melee_attack_up_atlas.webp": {
+            "sha256": "c9d48c9faeadf8f4cdaf20fe15b0225305226d43ae2fa20cd6f774bf8953be47",
+            "bytes": 215156
+        },
+        "animations/output/half_body_atlases_v1/nightmare_lab_smoke_cast_atlas/atlas/nightmare_lab_smoke_cast_atlas.webp": {
+            "sha256": "c8a39c7a7f35cb40f994f49acda228c208e0fbbea5842a3787eb7a4e5f08dcae",
+            "bytes": 146516
+        },
+        "animations/output/half_body_atlases_v1/nightmare_walk_atlas/atlas/nightmare_walk_atlas.webp": {
+            "sha256": "907ee9adbdaabef8e243e013b1f13ddd0ee58197fafceb5678002a7cfefa8368",
+            "bytes": 170508
+        },
+        "animations/output/half_body_atlases_v1/nomad_attack_atlas/atlas/nomad_attack_atlas.webp": {
+            "sha256": "df029c12992130685b249de9515e7f194d651192c8a0e4b03f38d2f4dc58fa1a",
+            "bytes": 282636
+        },
+        "animations/output/half_body_atlases_v1/nomad_attack_down_atlas/atlas/nomad_attack_down_atlas.webp": {
+            "sha256": "10ea816d4b1ed9de724844a7b4722ca8413afa61884445f255316ed2515eca4f",
+            "bytes": 278782
+        },
+        "animations/output/half_body_atlases_v1/nomad_attack_up_atlas/atlas/nomad_attack_up_atlas.webp": {
+            "sha256": "1c6826d6690b6668734fe9f925e9930cb83a1c96cbf362effa0d79cc610ec38d",
+            "bytes": 282988
+        },
+        "animations/output/half_body_atlases_v1/nomad_death_atlas/atlas/nomad_death_atlas.webp": {
+            "sha256": "85f45a511f38f3ab82cd5fc59d054df93a121a63adff2d266e44d232e7aba94e",
+            "bytes": 276914
+        },
+        "animations/output/half_body_atlases_v1/nomad_hit_atlas/atlas/nomad_hit_atlas.webp": {
+            "sha256": "ba7fc4a24f68d6c1ed826accc7d346859754203ef667a6a31046cf4013c9ac24",
+            "bytes": 248832
+        },
+        "animations/output/half_body_atlases_v1/nomad_idle_atlas/atlas/nomad_idle_atlas.webp": {
+            "sha256": "f76c313e763db7c47c1709108409736c820adcc17dd9f8e0e8af283bae2206d7",
+            "bytes": 473514
+        },
+        "animations/output/half_body_atlases_v1/nomad_melee_attack_atlas/atlas/nomad_melee_attack_atlas.webp": {
+            "sha256": "1ac99cf6f3e182e2e118d008c54ca597025d13389ce7aa975501a90123c9d5ea",
+            "bytes": 258364
+        },
+        "animations/output/half_body_atlases_v1/nomad_melee_attack_down_atlas/atlas/nomad_melee_attack_down_atlas.webp": {
+            "sha256": "d299ccfa761bee4cafdb78d736142e91d4b7b5388e3e8b7c0769f7b6fdd807fe",
+            "bytes": 350408
+        },
+        "animations/output/half_body_atlases_v1/nomad_melee_attack_up_atlas/atlas/nomad_melee_attack_up_atlas.webp": {
+            "sha256": "4d80096282bfd5bbf83790666f721c523750664546ab806aadc535dc2670f549",
+            "bytes": 270014
+        },
+        "animations/output/half_body_atlases_v1/nomad_walk_atlas/atlas/nomad_walk_atlas.webp": {
+            "sha256": "d202c3bac7fdcbd8b924baeef0cdf1c917a0489953255fce0e4df6bb1b28098f",
+            "bytes": 251312
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_attack_atlas/atlas/ogre_mage_attack_atlas.webp": {
+            "sha256": "ca749335520a8e1e7c4902bd553f9f146f78215f1d283b78af2729f85d8deecc",
+            "bytes": 312242
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_attack_down_atlas/atlas/ogre_mage_attack_down_atlas.webp": {
+            "sha256": "d665c723581a5ccd64e4077897bc64369bbad2048b79422c2235318f20bf5f2c",
+            "bytes": 310646
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_attack_up_atlas/atlas/ogre_mage_attack_up_atlas.webp": {
+            "sha256": "35a8929b6ae5214162d742454062b96ce0f70befab770f19922517643aea6b55",
+            "bytes": 311658
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_cast_atlas/atlas/ogre_mage_cast_atlas.webp": {
+            "sha256": "6862de216d420fd34130b714d63e3af272fbd84b01094b1e9ff29d888ceec294",
+            "bytes": 213920
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_death_atlas/atlas/ogre_mage_death_atlas.webp": {
+            "sha256": "a17e1ca59ec2f30d3fc3a3408a9e33824e0a771c3642ab12ae81426ea9cc6f37",
+            "bytes": 195184
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_hit_atlas/atlas/ogre_mage_hit_atlas.webp": {
+            "sha256": "7bfd4ecf40342a3bee834d778d88596f971d01ebfdfe2c0f761e1af79d4a8ddd",
+            "bytes": 191380
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_idle_atlas/atlas/ogre_mage_idle_atlas.webp": {
+            "sha256": "c93dba3297fcd0fe2231c6efe9392f8d7ba477d6b26d83f1bd781668ff91a4c4",
+            "bytes": 316488
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_melee_attack_atlas/atlas/ogre_mage_melee_attack_atlas.webp": {
+            "sha256": "251d16bdf6b956a133841c779d9725be7a226a24e2e9dd2b3b456b4344889de8",
+            "bytes": 198078
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_melee_attack_down_atlas/atlas/ogre_mage_melee_attack_down_atlas.webp": {
+            "sha256": "718ac7ac377053def4fd3e7d0ada9147fb46ea08b165e4af76a3a9201791d8d0",
+            "bytes": 194406
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_melee_attack_up_atlas/atlas/ogre_mage_melee_attack_up_atlas.webp": {
+            "sha256": "c5a097226d61aaa3768137cf335f3a0dd9db4972ac0284fd26c0f2beaeb8a86e",
+            "bytes": 202624
+        },
+        "animations/output/half_body_atlases_v1/ogre_mage_walk_atlas/atlas/ogre_mage_walk_atlas.webp": {
+            "sha256": "db76e5131da769fe2b495ecc5e52921293238f62da4c215436f51bae217da2d9",
+            "bytes": 149864
+        },
+        "animations/output/half_body_atlases_v1/orc_attack_atlas/atlas/orc_attack_atlas.webp": {
+            "sha256": "fab89ade684b8dbefff119610d3982b112b06cc27dd5fe4e6938c1a4da5175ae",
+            "bytes": 268688
+        },
+        "animations/output/half_body_atlases_v1/orc_attack_down_atlas/atlas/orc_attack_down_atlas.webp": {
+            "sha256": "b4c370104676a7af6fb498c115d260a7288318c53a66803ff1bbd5f1e19136c5",
+            "bytes": 263328
+        },
+        "animations/output/half_body_atlases_v1/orc_attack_up_atlas/atlas/orc_attack_up_atlas.webp": {
+            "sha256": "6036e7d2405079c06283a0b21558398ef5abfe7d841bc606bbac74bef3a52fd5",
+            "bytes": 260854
+        },
+        "animations/output/half_body_atlases_v1/orc_cast_atlas/atlas/orc_cast_atlas.webp": {
+            "sha256": "76270f123e92bcc79a6da667921517231752ad553d69c82bc9fb06bdac76ae1d",
+            "bytes": 237962
+        },
+        "animations/output/half_body_atlases_v1/orc_death_atlas/atlas/orc_death_atlas.webp": {
+            "sha256": "4d84885a0fea98af9c2e6cd8fb70c43a7667e50d3e1c56009e3dc1916b631513",
+            "bytes": 238334
+        },
+        "animations/output/half_body_atlases_v1/orc_hit_atlas/atlas/orc_hit_atlas.webp": {
+            "sha256": "2af09ecc75ff639a37c26f66a50924b1e266753a9cb865bf4e2878990d7c9d76",
+            "bytes": 256536
+        },
+        "animations/output/half_body_atlases_v1/orc_idle_atlas/atlas/orc_idle_atlas.webp": {
+            "sha256": "cc6d69b9e9ca1a1987a08a0e3b78829daab6847223c2ef46bf783188ffbc720d",
+            "bytes": 767730
+        },
+        "animations/output/half_body_atlases_v1/orc_melee_attack_atlas/atlas/orc_melee_attack_atlas.webp": {
+            "sha256": "d676c7940617e3b708dc980c2a20e4dbf12af6a37c5ec4b71e8c6e9d44bcdbe1",
+            "bytes": 291582
+        },
+        "animations/output/half_body_atlases_v1/orc_melee_attack_down_atlas/atlas/orc_melee_attack_down_atlas.webp": {
+            "sha256": "483317886ede39765723dccf92447303e5fc7e8cd2e9d6974750ddfcb4d6a337",
+            "bytes": 295058
+        },
+        "animations/output/half_body_atlases_v1/orc_melee_attack_up_atlas/atlas/orc_melee_attack_up_atlas.webp": {
+            "sha256": "c203ef8b3ac3500c3d15832f9e31453de961f068a4c8cb9b4186c2069a678569",
+            "bytes": 286116
+        },
+        "animations/output/half_body_atlases_v1/orc_walk_atlas/atlas/orc_walk_atlas.webp": {
+            "sha256": "c3543149075685081d1f4fc41c2e7178f424bcacc83e604a95265925deb771c9",
+            "bytes": 257122
+        },
+        "animations/output/half_body_atlases_v1/peasant_attack_atlas/atlas/peasant_attack_atlas.webp": {
+            "sha256": "7d902c84fed3b4550c5bcd043e01ece0b632c256a6a24abcf3093b812812996c",
+            "bytes": 101266
+        },
+        "animations/output/half_body_atlases_v1/peasant_attack_down_atlas/atlas/peasant_attack_down_atlas.webp": {
+            "sha256": "b45b2c608c2c80c2ca077fc67ba1a94d21f32cf1e00e45f35bb9323aabc4a21d",
+            "bytes": 104490
+        },
+        "animations/output/half_body_atlases_v1/peasant_attack_up_atlas/atlas/peasant_attack_up_atlas.webp": {
+            "sha256": "990e4c6d5bdaa96068c271b14ac2fdcd7cadfe56c3c0bed2435bc70204bd410a",
+            "bytes": 102442
+        },
+        "animations/output/half_body_atlases_v1/peasant_death_atlas/atlas/peasant_death_atlas.webp": {
+            "sha256": "57cdb0de81afe0bff6c1a6a70c9e6da40d281d5731858d9737829205bf1693c7",
+            "bytes": 231662
+        },
+        "animations/output/half_body_atlases_v1/peasant_hit_atlas/atlas/peasant_hit_atlas.webp": {
+            "sha256": "12cf7773143962ae147a57221a7164efc1cd5e82167735e3a668ba840215197f",
+            "bytes": 194748
+        },
+        "animations/output/half_body_atlases_v1/peasant_idle_atlas/atlas/peasant_idle_atlas.webp": {
+            "sha256": "078cd881c707e33bad9fbbe4dced56148808e58140c95d68d4ca9873c56a2a77",
+            "bytes": 223466
+        },
+        "animations/output/half_body_atlases_v1/peasant_walk_atlas/atlas/peasant_walk_atlas.webp": {
+            "sha256": "2da5e0fd9eb6ad79f5ad0d1c1af0c5358520fa2cab46f4007171cb7ffdf46e78",
+            "bytes": 199578
+        },
+        "animations/output/half_body_atlases_v1/pegasus_attack_atlas/atlas/pegasus_attack_atlas.webp": {
+            "sha256": "50665cf979bc3676e9d909848b4897673a4c9524ede412d309e6516ef0da7aa7",
+            "bytes": 503164
+        },
+        "animations/output/half_body_atlases_v1/pegasus_attack_down_atlas/atlas/pegasus_attack_down_atlas.webp": {
+            "sha256": "e1ef5004b96340c11868742d7a1aafe8759dec3c1e4fe8d83d39711934455d2a",
+            "bytes": 413532
+        },
+        "animations/output/half_body_atlases_v1/pegasus_attack_up_atlas/atlas/pegasus_attack_up_atlas.webp": {
+            "sha256": "087199dc5751bd24f41777b8b43999d154e8079eaef5e527244dc6c2280c6c03",
+            "bytes": 413294
+        },
+        "animations/output/half_body_atlases_v1/pegasus_death_atlas/atlas/pegasus_death_atlas.webp": {
+            "sha256": "c811562009541ec8cf23b9065e01881f1ccb9558721330926914b0b83c36ddd8",
+            "bytes": 434228
+        },
+        "animations/output/half_body_atlases_v1/pegasus_flight_walk_atlas/atlas/pegasus_flight_walk_atlas.webp": {
+            "sha256": "4f25ba1004f281a38075ae4252da67fff472c81d677f8b83b1dbfe672ae4fe67",
+            "bytes": 677720
+        },
+        "animations/output/half_body_atlases_v1/pegasus_hit_atlas/atlas/pegasus_hit_atlas.webp": {
+            "sha256": "7a6411ba0de673c1c6bd7712b61b4d0fbfa830e2c0d34f966b7bbab73a13d760",
+            "bytes": 471674
+        },
+        "animations/output/half_body_atlases_v1/pegasus_idle_atlas/atlas/pegasus_idle_atlas.webp": {
+            "sha256": "5d1e11f987b4e10363f83a2e0f3ebb66ae82ebd0a702ad1e624ede45c4f20185",
+            "bytes": 1742624
+        },
+        "animations/output/half_body_atlases_v1/pegasus_walk_atlas/atlas/pegasus_walk_atlas.webp": {
+            "sha256": "e37e989f995558054f88cdfd209681f6d288f9e441998d898fc636ac4ca566ac",
+            "bytes": 432630
+        },
+        "animations/output/half_body_atlases_v1/pikeman_attack_atlas/atlas/pikeman_attack_atlas.webp": {
+            "sha256": "c285198960298015b6969c0a1a10ac3a42a12679fdc11221f293e78ecc74c928",
+            "bytes": 267938
+        },
+        "animations/output/half_body_atlases_v1/pikeman_attack_down_atlas/atlas/pikeman_attack_down_atlas.webp": {
+            "sha256": "705f57c6e4c5fd868763d226f348fa6ab570a706cd83b6fea31a6118ca549ef9",
+            "bytes": 264628
+        },
+        "animations/output/half_body_atlases_v1/pikeman_attack_up_atlas/atlas/pikeman_attack_up_atlas.webp": {
+            "sha256": "cee28cbfb612e4f110f79db976dc24825f4e1fa131dab8305e41cfd21243eb1b",
+            "bytes": 268240
+        },
+        "animations/output/half_body_atlases_v1/pikeman_death_atlas/atlas/pikeman_death_atlas.webp": {
+            "sha256": "687f997ca451815040a1485787de7556e7eb8b52d4c02194c07fab6912082bbc",
+            "bytes": 230046
+        },
+        "animations/output/half_body_atlases_v1/pikeman_hit_atlas/atlas/pikeman_hit_atlas.webp": {
+            "sha256": "cd03af6bd72d1dac367d1e8da17a3866dab76e05343b96454c6a6a80ad0d31d4",
+            "bytes": 260176
+        },
+        "animations/output/half_body_atlases_v1/pikeman_idle_atlas/atlas/pikeman_idle_atlas.webp": {
+            "sha256": "f45f30451b3e8f991161f1228869ac24a561810683a8c31469a281d8c48a9d64",
+            "bytes": 235748
+        },
+        "animations/output/half_body_atlases_v1/pikeman_lab_attack_atlas/atlas/pikeman_lab_attack_atlas.webp": {
+            "sha256": "e00a10aa935274e661eeef03a1d82eaad5d31cdf121aab7607b46f4b515e722f",
+            "bytes": 186002
+        },
+        "animations/output/half_body_atlases_v1/pikeman_lab_attack_down_atlas/atlas/pikeman_lab_attack_down_atlas.webp": {
+            "sha256": "8e3d0c64317179a78c6dc4c364fe38ad9501c58d2accbdbbee410166a41cceb5",
+            "bytes": 184368
+        },
+        "animations/output/half_body_atlases_v1/pikeman_lab_attack_up_atlas/atlas/pikeman_lab_attack_up_atlas.webp": {
+            "sha256": "a156af687bab7118d9d8fe4e46ca2c88de0f5edd85a88eeb676a8a4c1ceb268d",
+            "bytes": 186222
+        },
+        "animations/output/half_body_atlases_v1/pikeman_lab_death_atlas/atlas/pikeman_lab_death_atlas.webp": {
+            "sha256": "c41582838934ac7d32ece37f83f14520c3fde384bccc14b73c1e5616165f87e2",
+            "bytes": 188102
+        },
+        "animations/output/half_body_atlases_v1/pikeman_lab_hit_atlas/atlas/pikeman_lab_hit_atlas.webp": {
+            "sha256": "e8036e90b63246344a708ce66bb41047cfb3d3b04326ffc2280d71d74e090bf1",
+            "bytes": 334944
+        },
+        "animations/output/half_body_atlases_v1/pikeman_lab_idle_atlas/atlas/pikeman_lab_idle_atlas.webp": {
+            "sha256": "436a95452e007bc585b4d47f8b5840d2805b80db61706a99d383ef7dafbd9601",
+            "bytes": 1773676
+        },
+        "animations/output/half_body_atlases_v1/pikeman_walk_atlas/atlas/pikeman_walk_atlas.webp": {
+            "sha256": "2ecbc42953be426a27948afcaf82a6340fc005c3c5af1a8585e7f35d97c54d2c",
+            "bytes": 147214
+        },
+        "animations/output/half_body_atlases_v1/satyr_attack_atlas/atlas/satyr_attack_atlas.webp": {
+            "sha256": "74b8f625f3f6a4b4ac558e1f32d9e29e1350cfe9c84c92f53c4d7ff9494375a3",
+            "bytes": 319110
+        },
+        "animations/output/half_body_atlases_v1/satyr_attack_down_atlas/atlas/satyr_attack_down_atlas.webp": {
+            "sha256": "f8e7bfcb3ea3facb3c4e16524fab9b068e19d616e20e1dea734fd26d5c1aa65d",
+            "bytes": 317394
+        },
+        "animations/output/half_body_atlases_v1/satyr_attack_up_atlas/atlas/satyr_attack_up_atlas.webp": {
+            "sha256": "db17fd57ea45db5560f42fd96b95cd53a73c39641114c1ff9b9627d7d9d3a1fc",
+            "bytes": 319084
+        },
+        "animations/output/half_body_atlases_v1/satyr_cast_atlas/atlas/satyr_cast_atlas.webp": {
+            "sha256": "85d04f278c78035e84fd8886f27f7e3980a1179cd5bd0e33543b2f05c7c47724",
+            "bytes": 368330
+        },
+        "animations/output/half_body_atlases_v1/satyr_death_atlas/atlas/satyr_death_atlas.webp": {
+            "sha256": "638b898326445f6258d15b55b09d87c7eb97f93f0be872f9c9dacfe0a66c398f",
+            "bytes": 327934
+        },
+        "animations/output/half_body_atlases_v1/satyr_hit_atlas/atlas/satyr_hit_atlas.webp": {
+            "sha256": "ae9f0b17a26c586cee6a38c6f3efbc02bce53208035fd2221503d00e42bae0c4",
+            "bytes": 331616
+        },
+        "animations/output/half_body_atlases_v1/satyr_idle_atlas/atlas/satyr_idle_atlas.webp": {
+            "sha256": "f34626990a9a07e1bb517f51bf8e4fc1d327276126b42db3af163799db9bab14",
+            "bytes": 262872
+        },
+        "animations/output/half_body_atlases_v1/satyr_melee_attack_atlas/atlas/satyr_melee_attack_atlas.webp": {
+            "sha256": "d1894a68a6826657fbc87eab14565b59144e909214076d67e79e39c2fa2fb048",
+            "bytes": 339904
+        },
+        "animations/output/half_body_atlases_v1/satyr_melee_attack_down_atlas/atlas/satyr_melee_attack_down_atlas.webp": {
+            "sha256": "b2c822c14c4386fe9c5c5925a34354f05e45989d220269dfde01ccc83c36db9a",
+            "bytes": 341912
+        },
+        "animations/output/half_body_atlases_v1/satyr_melee_attack_up_atlas/atlas/satyr_melee_attack_up_atlas.webp": {
+            "sha256": "e3ac29359aecd0f1ae1f9a713805086a4f5ad4d49fc59c7e06b1dc4ffefa44c0",
+            "bytes": 331368
+        },
+        "animations/output/half_body_atlases_v1/satyr_walk_atlas/atlas/satyr_walk_atlas.webp": {
+            "sha256": "173a101d198157356f17149ac452dc18ac50f6509cbca2225f1ad280a74c1924",
+            "bytes": 252586
+        },
+        "animations/output/half_body_atlases_v1/scavenger_combat_attack_atlas/atlas/scavenger_combat_attack_atlas.webp": {
+            "sha256": "24a0688c3022f7d149aab7a76dd4dcc9ffc472827ebffb45be85e13a09be2103",
+            "bytes": 161788
+        },
+        "animations/output/half_body_atlases_v1/scavenger_combat_attack_down_atlas/atlas/scavenger_combat_attack_down_atlas.webp": {
+            "sha256": "df2781736ef8e735bb7692c8e3863eac1dca0995ebaffb7630f2f6741e2fee33",
+            "bytes": 155792
+        },
+        "animations/output/half_body_atlases_v1/scavenger_combat_attack_up_atlas/atlas/scavenger_combat_attack_up_atlas.webp": {
+            "sha256": "6e5622f7a839dbd90bf5730dd95cc122a64df33470fea0ab8b32f77b8a32900d",
+            "bytes": 151412
+        },
+        "animations/output/half_body_atlases_v1/scavenger_combat_death_atlas/atlas/scavenger_combat_death_atlas.webp": {
+            "sha256": "24c22102ce3f1df9ff14d012caa924f175a3dca7a4871c08d41aa0386901a57a",
+            "bytes": 117466
+        },
+        "animations/output/half_body_atlases_v1/scavenger_combat_hit_atlas/atlas/scavenger_combat_hit_atlas.webp": {
+            "sha256": "a3905530f2d99f22069923a8175c666398ea8abfe032fdd8cf65ff14b12e1305",
+            "bytes": 140394
+        },
+        "animations/output/half_body_atlases_v1/scavenger_death_atlas/atlas/scavenger_death_atlas.webp": {
+            "sha256": "cf056e2cf63ceb4fba4d95eb2739e4623373125cb3a8fc4e26b4cf8c47cc7551",
+            "bytes": 136438
+        },
+        "animations/output/half_body_atlases_v1/scavenger_hit_atlas/atlas/scavenger_hit_atlas.webp": {
+            "sha256": "52946fce7fe44e98accc5a454060079f8e2d6bc84e910de7d2c62a21f39a5558",
+            "bytes": 152550
+        },
+        "animations/output/half_body_atlases_v1/scavenger_homm_idle_atlas/atlas/scavenger_homm_idle_atlas.webp": {
+            "sha256": "8dd21694d133000885bd9d11b4f0a5f7ff8fb58a67a4bf9e26e3e68cf4601339",
+            "bytes": 216974
+        },
+        "animations/output/half_body_atlases_v1/scavenger_idle_atlas/atlas/scavenger_idle_atlas.webp": {
+            "sha256": "62b59e31cb4c3530404fdec31a98f179175f7b1b9f8c3d57a28c9118e30ff940",
+            "bytes": 148634
+        },
+        "animations/output/half_body_atlases_v1/squire_attack_atlas/atlas/squire_attack_atlas.webp": {
+            "sha256": "c68b5ee41621e62092bcdea40233bcbad8d45702c66f536661fbe5378a8a2f68",
+            "bytes": 259368
+        },
+        "animations/output/half_body_atlases_v1/squire_attack_down_atlas/atlas/squire_attack_down_atlas.webp": {
+            "sha256": "3b7bb002f36fdc7a0ea15f292f0f96e5e07a8a4dd59207c0a5677db68a3487a8",
+            "bytes": 263314
+        },
+        "animations/output/half_body_atlases_v1/squire_attack_up_atlas/atlas/squire_attack_up_atlas.webp": {
+            "sha256": "eebfc099a8b60fce62afc3c7e0ac311dfb35c2d218e7d0f418d32ec370feda5d",
+            "bytes": 260920
+        },
+        "animations/output/half_body_atlases_v1/squire_death_atlas/atlas/squire_death_atlas.webp": {
+            "sha256": "912af20f9dcc3566670fc808b4fc63542c8c102968ad90d8e3d32fb0ce428d78",
+            "bytes": 242922
+        },
+        "animations/output/half_body_atlases_v1/squire_hit_atlas/atlas/squire_hit_atlas.webp": {
+            "sha256": "4572b7ac31bfcebbb16ecc986211fdee09b3b55890b90ba63961d29297a307d7",
+            "bytes": 225476
+        },
+        "animations/output/half_body_atlases_v1/squire_idle_atlas/atlas/squire_idle_atlas.webp": {
+            "sha256": "7875fef65ecacb3b29ad22d63757f5ed1b16b9278e540cfb1a83a977320dd548",
+            "bytes": 444926
+        },
+        "animations/output/half_body_atlases_v1/squire_walk_atlas/atlas/squire_walk_atlas.webp": {
+            "sha256": "69b727f0a02907860164f44f14e9e81b3daba5774dfaef86cc2b93d6c911dda2",
+            "bytes": 256820
+        },
+        "animations/output/half_body_atlases_v1/thief_attack_atlas/atlas/thief_attack_atlas.webp": {
+            "sha256": "1498d78b041299f65fca718e3c3e3c4e528425e543d60cd37d7af1a5ac32cde6",
+            "bytes": 224976
+        },
+        "animations/output/half_body_atlases_v1/thief_attack_down_atlas/atlas/thief_attack_down_atlas.webp": {
+            "sha256": "ec0a16de1a7815e0b271b30fd64b3759d40f030c07c0d5d069ae423093e5a8de",
+            "bytes": 218944
+        },
+        "animations/output/half_body_atlases_v1/thief_attack_up_atlas/atlas/thief_attack_up_atlas.webp": {
+            "sha256": "979b8d99330a28768f0e6806eb10cddc3f6b8368a0afd754c0b61193ce0cb2aa",
+            "bytes": 177444
+        },
+        "animations/output/half_body_atlases_v1/thief_cast_atlas/atlas/thief_cast_atlas.webp": {
+            "sha256": "1fb5bb3da4fd7fb41dff925b8e61772adbc9d02d87946dc388c678343ea99448",
+            "bytes": 222814
+        },
+        "animations/output/half_body_atlases_v1/thief_death_atlas/atlas/thief_death_atlas.webp": {
+            "sha256": "c4876fc55047206194cc9de84bd48b1d85cce190a59f16d9c678c6b3cbf7a94b",
+            "bytes": 186098
+        },
+        "animations/output/half_body_atlases_v1/thief_hit_atlas/atlas/thief_hit_atlas.webp": {
+            "sha256": "fe18e417bf7bacbe4db7ced5558510a7bf0f1061349b69ceb54223c7f2331ff4",
+            "bytes": 225038
+        },
+        "animations/output/half_body_atlases_v1/thief_idle_atlas/atlas/thief_idle_atlas.webp": {
+            "sha256": "c270fe7867e5e547ba9096c4085e5ee9716079c55be320bbaa8e5f286b3b9746",
+            "bytes": 203194
+        },
+        "animations/output/half_body_atlases_v1/thief_walk_atlas/atlas/thief_walk_atlas.webp": {
+            "sha256": "a7e69b39d26d26906eddc3c90f25fb23eddd9f7a57c547cd5ebfb7f02d0f6765",
+            "bytes": 91534
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_attack_atlas/atlas/thunderbird_attack_atlas.webp": {
+            "sha256": "4d0de433b34971425d6977563686b3eae1fa656f3520f6017b181b5ef0688ae6",
+            "bytes": 299752
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_attack_down_atlas/atlas/thunderbird_attack_down_atlas.webp": {
+            "sha256": "c05f7edbb76bd43e5df2663888cd5c184795402f2cedee624d7018764abc8bbb",
+            "bytes": 301736
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_attack_up_atlas/atlas/thunderbird_attack_up_atlas.webp": {
+            "sha256": "1d6224a1a8824e82897d96307f5825c54aa4f0b8e67313fa5abff069225ddb66",
+            "bytes": 298412
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_death_atlas/atlas/thunderbird_death_atlas.webp": {
+            "sha256": "0a85e4f6ebd00a4ea5255889eae81e6fb1809a1181424d77ab95bc434eb26f80",
+            "bytes": 196848
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_flight_walk_atlas/atlas/thunderbird_flight_walk_atlas.webp": {
+            "sha256": "27259c603a2b8d296fadcb76e6d4889cebb98678932a16a223f14be4de465767",
+            "bytes": 511762
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_hit_atlas/atlas/thunderbird_hit_atlas.webp": {
+            "sha256": "d241ba040f25609912614a96d3714ed279bb2ff5a14d44b03546c4679f3c7b37",
+            "bytes": 298974
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_idle_atlas/atlas/thunderbird_idle_atlas.webp": {
+            "sha256": "1051171f689cf0554c4ac48675f425497c2a6cb492d222cb381f6c937f34ebb1",
+            "bytes": 283492
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_lab_death_atlas/atlas/thunderbird_lab_death_atlas.webp": {
+            "sha256": "a00e0b4e7a3761ecaba73b38ee2c7441b8405b0683f4560525548f8de556599f",
+            "bytes": 202324
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_lab_hit_atlas/atlas/thunderbird_lab_hit_atlas.webp": {
+            "sha256": "8e3b980c961995ff2b28a620d977ea05a543f90c06527fa5afcfe105c8eea784",
+            "bytes": 162398
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_lab_idle_atlas/atlas/thunderbird_lab_idle_atlas.webp": {
+            "sha256": "f18f7c255328a9b520ed3c10e9dac7685832316a4df47d3b8b9abb7e3bc12651",
+            "bytes": 1315630
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_lab_melee_attack_atlas/atlas/thunderbird_lab_melee_attack_atlas.webp": {
+            "sha256": "0a12b86542e37d73abe30d98039b7802e09b99bcf82e561a6a34feef6860cdec",
+            "bytes": 172256
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_lab_melee_attack_down_atlas/atlas/thunderbird_lab_melee_attack_down_atlas.webp": {
+            "sha256": "1f89e1eeedbd59e65031e6abeee5255ab10f8379fee5c7a7e7f03c4550c8d547",
+            "bytes": 162358
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_lab_melee_attack_up_atlas/atlas/thunderbird_lab_melee_attack_up_atlas.webp": {
+            "sha256": "66be3018419fca2907bd1162e1365b6fc2eb387562be890c789c46e21a6390f3",
+            "bytes": 176960
+        },
+        "animations/output/half_body_atlases_v1/thunderbird_walk_atlas/atlas/thunderbird_walk_atlas.webp": {
+            "sha256": "40f0e5e0935fd3d369bd78d5678eb152c1254cfd3d65d4199bc0b2b7a36abf63",
+            "bytes": 331476
+        },
+        "animations/output/half_body_atlases_v1/trent_attack_atlas/atlas/trent_attack_atlas.webp": {
+            "sha256": "4f9c5f9e855417835275f9d9eeec53ad20fdef7efe8e2bce96c1a8b3ce71cb4b",
+            "bytes": 298958
+        },
+        "animations/output/half_body_atlases_v1/trent_attack_down_atlas/atlas/trent_attack_down_atlas.webp": {
+            "sha256": "73031af3ffc12b6e50f20d1bfe1224fe7614633a239326d9f7492c09ec04b659",
+            "bytes": 305622
+        },
+        "animations/output/half_body_atlases_v1/trent_attack_up_atlas/atlas/trent_attack_up_atlas.webp": {
+            "sha256": "28b5afbb6406a2819311e8cd658dac6c40f56fdb1d1adac3f199c9cfcd23450e",
+            "bytes": 302572
+        },
+        "animations/output/half_body_atlases_v1/trent_cast_atlas/atlas/trent_cast_atlas.webp": {
+            "sha256": "237e53bd968482373503b415bac63574afd71adaf98d1ea04becbcb45ceddefe",
+            "bytes": 330186
+        },
+        "animations/output/half_body_atlases_v1/trent_death_atlas/atlas/trent_death_atlas.webp": {
+            "sha256": "e706dbca4b4c747ccc04c20c111850c7d5539dd443cc0f9574a04335c9e50ca3",
+            "bytes": 199716
+        },
+        "animations/output/half_body_atlases_v1/trent_hit_atlas/atlas/trent_hit_atlas.webp": {
+            "sha256": "d646c6be7f2be739a453e5326e6c6a2a2d6d38b94960e0b4483a6bcfdf754c94",
+            "bytes": 155406
+        },
+        "animations/output/half_body_atlases_v1/trent_idle_atlas/atlas/trent_idle_atlas.webp": {
+            "sha256": "20a6cef9beb0742fda76fe77817d247d903417334f4c4c1a1f54497763083860",
+            "bytes": 661404
+        },
+        "animations/output/half_body_atlases_v1/trent_walk_atlas/atlas/trent_walk_atlas.webp": {
+            "sha256": "b3f6452289a311e677ac4eab70bb83e0ec0de7b48009a7b0fa1de643c0d33d45",
+            "bytes": 255842
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_attack_atlas/atlas/troglodyte_attack_atlas.webp": {
+            "sha256": "d4804b157dcb8ea9599b4c65c02dc628f9e05785c9127570bf9cea83e4896ab0",
+            "bytes": 271552
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_attack_down_atlas/atlas/troglodyte_attack_down_atlas.webp": {
+            "sha256": "9ab1a9dd5ae3235d937fdba0b09f759252cb0fb2a52eb0d570487ebde16d2e6d",
+            "bytes": 269402
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_attack_up_atlas/atlas/troglodyte_attack_up_atlas.webp": {
+            "sha256": "f2750a5a3bb1a892a60d6edd5516b8364f010a7318c38ea93b5354c1dafb3636",
+            "bytes": 268088
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_death_atlas/atlas/troglodyte_death_atlas.webp": {
+            "sha256": "4eb85cddb732ec4b865f3c187f5a9e3908b7958492ebd1936b0fad55f7dff841",
+            "bytes": 206580
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_hit_atlas/atlas/troglodyte_hit_atlas.webp": {
+            "sha256": "6bd438f71a20ffa371c6d7a72f38cffdc94bb06220811a3cf336c34a1bba3b2a",
+            "bytes": 197258
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_idle_atlas/atlas/troglodyte_idle_atlas.webp": {
+            "sha256": "efb068431fc6e673d9b762705de80b017e43e5d97a650a7bc4af511cb920cd79",
+            "bytes": 860282
+        },
+        "animations/output/half_body_atlases_v1/troglodyte_walk_atlas/atlas/troglodyte_walk_atlas.webp": {
+            "sha256": "1fb4e154cf543b2b2205758b29fe7a29abf1b99aae38a72bf8173d626f7e2ff1",
+            "bytes": 202960
+        },
+        "animations/output/half_body_atlases_v1/unicorn_attack_atlas/atlas/unicorn_attack_atlas.webp": {
+            "sha256": "d3457e5c811fd1c2a6ea0fc97f6e109e93e82caa37f7cb08d71790c9a822bc83",
+            "bytes": 282582
+        },
+        "animations/output/half_body_atlases_v1/unicorn_attack_down_atlas/atlas/unicorn_attack_down_atlas.webp": {
+            "sha256": "a8ae03848370ecc3ecf61cca2af081d2d225061c8311bc7dd290da48cda149b7",
+            "bytes": 281304
+        },
+        "animations/output/half_body_atlases_v1/unicorn_attack_up_atlas/atlas/unicorn_attack_up_atlas.webp": {
+            "sha256": "9d3c0d2f36af3db5c91a24dde4ce7fac7cae4d0a85b31e5562c6daa82c7c5bf1",
+            "bytes": 281384
+        },
+        "animations/output/half_body_atlases_v1/unicorn_death_atlas/atlas/unicorn_death_atlas.webp": {
+            "sha256": "2261011e3dcc7b47ede85e16854818c300108c3704d58bef93c5d70fe93c97fd",
+            "bytes": 208800
+        },
+        "animations/output/half_body_atlases_v1/unicorn_hit_atlas/atlas/unicorn_hit_atlas.webp": {
+            "sha256": "67e9f5f522ae5c0b3d3dd16058e08dcaba3f12416a9122f2dd45ab46c526b252",
+            "bytes": 277322
+        },
+        "animations/output/half_body_atlases_v1/unicorn_idle_atlas/atlas/unicorn_idle_atlas.webp": {
+            "sha256": "3935c8a0fc8dd07ee59d87dfb267050cb1438218c3b5956ea9c19e0f15c97560",
+            "bytes": 261722
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_death_atlas/atlas/unicorn_lab_death_atlas.webp": {
+            "sha256": "cb2d9d60265d5b506f282cbfff5460ca135065b0485e22689e3f7cbe03fbbeb9",
+            "bytes": 197036
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_hit_atlas/atlas/unicorn_lab_hit_atlas.webp": {
+            "sha256": "ba40f00da379edbed8cdd75393f80fd71e034ebf95ff5de6893bbf1f939ad47c",
+            "bytes": 206852
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_idle_atlas/atlas/unicorn_lab_idle_atlas.webp": {
+            "sha256": "b3d88815e1db6246541b9d9169e0fd1c690b76b892fe2c934f64d6c4de36c6dd",
+            "bytes": 185884
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_melee_attack_atlas/atlas/unicorn_lab_melee_attack_atlas.webp": {
+            "sha256": "e6c7603e966d4bd01d44035797234e14701eb2c7ea4d421966559578cb37bdc4",
+            "bytes": 257350
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_melee_attack_down_atlas/atlas/unicorn_lab_melee_attack_down_atlas.webp": {
+            "sha256": "950f41d85b305d8e1f8da3f84fe7992ede70915e556d68ac29d91b238ac0a86b",
+            "bytes": 250734
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_melee_attack_up_atlas/atlas/unicorn_lab_melee_attack_up_atlas.webp": {
+            "sha256": "5fd11ebe43f0ee5f40209353da3002c1c7b275539134e14ed764b7458407c7ca",
+            "bytes": 249300
+        },
+        "animations/output/half_body_atlases_v1/unicorn_lab_walk_atlas/atlas/unicorn_lab_walk_atlas.webp": {
+            "sha256": "bb30c2f5be24b7a435ce3ae8af5e3e35c5c038bbcd60112b08d2683d6a4d8ec6",
+            "bytes": 170342
+        },
+        "animations/output/half_body_atlases_v1/unicorn_walk_atlas/atlas/unicorn_walk_atlas.webp": {
+            "sha256": "924169ba762a55048f15fcf69ffc0e2b4c598a7085959c5ef399f45fa6d19e49",
+            "bytes": 306578
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_attack_atlas/atlas/valkyrie_attack_atlas.webp": {
+            "sha256": "7c80c355f58470f1575452fd2da16bf1b7ddc2c40a69cb7d7992d6f93f01766d",
+            "bytes": 369594
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_attack_down_atlas/atlas/valkyrie_attack_down_atlas.webp": {
+            "sha256": "1972fe5b85c6751c3a6b16d02fe074ddc25e66d4beb5d19921a4a3d82efae798",
+            "bytes": 366738
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_attack_up_atlas/atlas/valkyrie_attack_up_atlas.webp": {
+            "sha256": "65a84945bbe1a42645de0c67b134bd8f771f316bdfc9795ba80a99b8cb469ebc",
+            "bytes": 369514
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_death_atlas/atlas/valkyrie_death_atlas.webp": {
+            "sha256": "2885e53063e0d2b734a10cb7bb58dcaa9d00a0b28a03f2c25d4ee31e92ff0041",
+            "bytes": 293984
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_hit_atlas/atlas/valkyrie_hit_atlas.webp": {
+            "sha256": "07ebc0b352611f8cc5fb37ec9594b35fe55dfd2deb1e1a7d8c86c56dd58543ca",
+            "bytes": 359386
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_idle_atlas/atlas/valkyrie_idle_atlas.webp": {
+            "sha256": "4b53d9acab22c72ebfcdcb7e4b29e12002c7a07d194c5e0bebfd6dc6e0ee5ccf",
+            "bytes": 323924
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_lab_current_cast_atlas/atlas/valkyrie_lab_current_cast_atlas.webp": {
+            "sha256": "6d506b50954884a7203586415b835b02d35dacc2eea00e89021f351fbad996cb",
+            "bytes": 135978
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_lab_current_melee_attack_atlas/atlas/valkyrie_lab_current_melee_attack_atlas.webp": {
+            "sha256": "e01d092ce95876bc73fbec964124c67c74f22b100a43064c259f3757869bb152",
+            "bytes": 131244
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_lab_current_melee_attack_down_atlas/atlas/valkyrie_lab_current_melee_attack_down_atlas.webp": {
+            "sha256": "796a6497c94acf3e6c967a115c9127d94cbec599bcfe756ee27be61343e160c7",
+            "bytes": 124678
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_lab_current_melee_attack_up_atlas/atlas/valkyrie_lab_current_melee_attack_up_atlas.webp": {
+            "sha256": "ad65b38b3c042b44760453f7480d1281128420e1be11731024a503aaf8be6684",
+            "bytes": 126788
+        },
+        "animations/output/half_body_atlases_v1/valkyrie_walk_atlas/atlas/valkyrie_walk_atlas.webp": {
+            "sha256": "79ac4d98a63e9de0c23a2a644394b33eb431f26bad77e0931590622f2d4f4471",
+            "bytes": 393460
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_attack_atlas/atlas/white_tiger_attack_atlas.webp": {
+            "sha256": "22f2ac7e1603fe19f2171325dd5d53cbfee07675310febf2e2ffa114dd542d20",
+            "bytes": 257462
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_attack_down_atlas/atlas/white_tiger_attack_down_atlas.webp": {
+            "sha256": "e849f068a1ba96f55b68ea0d7c0c8f1670657567d7e4ad9da024797fb492d295",
+            "bytes": 258372
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_attack_up_atlas/atlas/white_tiger_attack_up_atlas.webp": {
+            "sha256": "bf5d32add17a86c237f1d523ce58528dc6d0fdb7d02b2d62dcd3457b7ea2752e",
+            "bytes": 256632
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_death_atlas/atlas/white_tiger_death_atlas.webp": {
+            "sha256": "c3a1cd0742afa9fe028ddf6d1dd511e80e2bd4cf172b7c46cceb5b03f5224143",
+            "bytes": 189146
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_hit_atlas/atlas/white_tiger_hit_atlas.webp": {
+            "sha256": "5a460cb276f6fbef4473ee64b3bbfb1611a861056e31b2edbb1c695c4c37efca",
+            "bytes": 252090
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_idle_atlas/atlas/white_tiger_idle_atlas.webp": {
+            "sha256": "aa1d3c256384eab93eface7d7cb66bed579275225df64563f637a6291a72950e",
+            "bytes": 243854
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_death_atlas/atlas/white_tiger_lab_death_atlas.webp": {
+            "sha256": "e6491430aa17e4ff1d0193a55f2417aff97f44670343c967e4836513028bef6f",
+            "bytes": 174172
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_hit_atlas/atlas/white_tiger_lab_hit_atlas.webp": {
+            "sha256": "37740d880261d34dc8519b5f462baf0b5ee738db06bcb93ae400941be3a2e6a1",
+            "bytes": 166580
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_idle_atlas/atlas/white_tiger_lab_idle_atlas.webp": {
+            "sha256": "8768fa6ac19dc85547d558b35808c018a298a6745aa0a0d3c3083f1855dfe0c5",
+            "bytes": 461978
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_melee_attack_atlas/atlas/white_tiger_lab_melee_attack_atlas.webp": {
+            "sha256": "af9e8106079bad4186cb234592f7dd596036d4ae83ac4e8b235e2278872a8bb6",
+            "bytes": 233842
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_melee_attack_down_atlas/atlas/white_tiger_lab_melee_attack_down_atlas.webp": {
+            "sha256": "829ca4515d996e58aeaaf8a7494c71084c7f57d8b5f0e3500cb15ae12a00bc57",
+            "bytes": 233956
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_melee_attack_up_atlas/atlas/white_tiger_lab_melee_attack_up_atlas.webp": {
+            "sha256": "de39d7edf6fde8470a31f8e74de6c79b83638570eac891bfc3d71afb422d176a",
+            "bytes": 240402
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_lab_walk_atlas/atlas/white_tiger_lab_walk_atlas.webp": {
+            "sha256": "84c8a6478460d5d6a8920c24e0eed5057b62de3cf83c9685294e3c22d4e742a5",
+            "bytes": 162514
+        },
+        "animations/output/half_body_atlases_v1/white_tiger_walk_atlas/atlas/white_tiger_walk_atlas.webp": {
+            "sha256": "57ee0dc558451e6b5bbc5f9b5dd897851468093806038f305392ef1d24404979",
+            "bytes": 280866
+        },
+        "animations/output/half_body_atlases_v1/wolf_attack_atlas/atlas/wolf_attack_atlas.webp": {
+            "sha256": "95a80ebf2724390cfb316ba166c8b88ea29a02422e468f9f0d12643335fb2ffc",
+            "bytes": 963382
+        },
+        "animations/output/half_body_atlases_v1/wolf_attack_down_atlas/atlas/wolf_attack_down_atlas.webp": {
+            "sha256": "4d264d4b7f4912d1eef99c7ee78f64449d6248b2869184de9fc39f6443760a2f",
+            "bytes": 964076
+        },
+        "animations/output/half_body_atlases_v1/wolf_attack_up_atlas/atlas/wolf_attack_up_atlas.webp": {
+            "sha256": "de629100b480fe381ed67b7775acd63b5232e614b4101ac9f7ec60357cbeda8d",
+            "bytes": 1057508
+        },
+        "animations/output/half_body_atlases_v1/wolf_death_atlas/atlas/wolf_death_atlas.webp": {
+            "sha256": "da01f1fb4fd786f2a1308285d9ff9919dc2e19227f6fbbc5d8c0f9219a48a73c",
+            "bytes": 680012
+        },
+        "animations/output/half_body_atlases_v1/wolf_hit_atlas/atlas/wolf_hit_atlas.webp": {
+            "sha256": "072f0c1dbea7260432cdbf4eb50d874b9545ac40d75b2319afe00bb2381ba160",
+            "bytes": 855314
+        },
+        "animations/output/half_body_atlases_v1/wolf_idle_atlas/atlas/wolf_idle_atlas.webp": {
+            "sha256": "4c27f46dc222179f1b3a1255af6dc83b109c12c40acaeba8c1d52ba7a37e8dd0",
+            "bytes": 2939342
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_attack_atlas/atlas/wolf_rider_attack_atlas.webp": {
+            "sha256": "5ed19e6c718a2f5c6d1caf7d9f5e7bbd5866b7f5b37fd58c579067e4a42a31da",
+            "bytes": 225372
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_attack_down_atlas/atlas/wolf_rider_attack_down_atlas.webp": {
+            "sha256": "2add4c2cbd0874ec698ceaf1e5d068ad31d000409e53d6c2aec3cb87876c1b8b",
+            "bytes": 228636
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_attack_up_atlas/atlas/wolf_rider_attack_up_atlas.webp": {
+            "sha256": "081a7c74ef0bc056e8d7698a0774af399e53798583dcefb76ecf80f2e1bdb6e6",
+            "bytes": 214532
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_death_atlas/atlas/wolf_rider_death_atlas.webp": {
+            "sha256": "720ffeaf7b68fabf37119f7a4f3b4006b97405b7f21fd180d23bdb0cd1719f1c",
+            "bytes": 185762
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_hit_atlas/atlas/wolf_rider_hit_atlas.webp": {
+            "sha256": "61f9f3c7314ff064d2e94a6fba28ffc03b40fee97b4eb0a82500636d820f8b6c",
+            "bytes": 210294
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_idle_atlas/atlas/wolf_rider_idle_atlas.webp": {
+            "sha256": "31f5bd88f20824675cdf23db5ddba11ede11e5790194786efd79b8fac20caf60",
+            "bytes": 1898064
+        },
+        "animations/output/half_body_atlases_v1/wolf_rider_walk_atlas/atlas/wolf_rider_walk_atlas.webp": {
+            "sha256": "80891771aced4e57a7b55fc93adeabadcfc79e1e9ec843f2538ca2c29bee3496",
+            "bytes": 221704
+        },
+        "animations/output/half_body_atlases_v1/wolf_walk_atlas/atlas/wolf_walk_atlas.webp": {
+            "sha256": "c62a3a6af16a7e8d1aa14c728d1911ef72d50a29daf6c386f4d528346c634c26",
+            "bytes": 460230
+        },
+        "animations/output/half_body_atlases_v1/wyvern_attack_atlas/atlas/wyvern_attack_atlas.webp": {
+            "sha256": "07bb8c0a25fbe264e1d04d1f885de7b9d9365a2f32de97074fc6cdfb8e951085",
+            "bytes": 294090
+        },
+        "animations/output/half_body_atlases_v1/wyvern_attack_down_atlas/atlas/wyvern_attack_down_atlas.webp": {
+            "sha256": "3a616efa94f7d2031880fe7005c958a0f1549645f3f6f52cc9f6aa2b6eb1b89e",
+            "bytes": 294360
+        },
+        "animations/output/half_body_atlases_v1/wyvern_attack_up_atlas/atlas/wyvern_attack_up_atlas.webp": {
+            "sha256": "74e477532835c29d488ced5fed18be9c56607e07f061b244edd05f6627aa943c",
+            "bytes": 294644
+        },
+        "animations/output/half_body_atlases_v1/wyvern_death_atlas/atlas/wyvern_death_atlas.webp": {
+            "sha256": "e3fa4ddc41a50c490e667f8409eab891ff9c32f50f47eef34b2654b1849572c3",
+            "bytes": 230802
+        },
+        "animations/output/half_body_atlases_v1/wyvern_hit_atlas/atlas/wyvern_hit_atlas.webp": {
+            "sha256": "0f867cafc46847ac060b55bcefb8bb5c0ff186b2fa73a9dec784e183d7ef0572",
+            "bytes": 287892
+        },
+        "animations/output/half_body_atlases_v1/wyvern_idle_atlas/atlas/wyvern_idle_atlas.webp": {
+            "sha256": "b9437ec1b41ce734d166aa9e75bc5c529406e581ac7ef0bc7492e70f99452e84",
+            "bytes": 271798
+        },
+        "animations/output/half_body_atlases_v1/wyvern_lab_death_atlas/atlas/wyvern_lab_death_atlas.webp": {
+            "sha256": "ec376fb8b08a8d5f3ce2ba1d752fb9820ea8d6a6d8e464bea536ca584a8fb889",
+            "bytes": 199368
+        },
+        "animations/output/half_body_atlases_v1/wyvern_lab_hit_atlas/atlas/wyvern_lab_hit_atlas.webp": {
+            "sha256": "0bc7710e91c3c99e8876a8fe491e94afe91c066120afc3ad4144c1fcc2ba744e",
+            "bytes": 209588
+        },
+        "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_atlas/atlas/wyvern_lab_melee_attack_atlas.webp": {
+            "sha256": "2690e7e01a5147874f1d6ebf5f028205d6e33515b1b77cdae2f9e886563636f2",
+            "bytes": 177394
+        },
+        "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_down_atlas/atlas/wyvern_lab_melee_attack_down_atlas.webp": {
+            "sha256": "05094ae0acca65ac7dae1ebfb4da016d58d994c7e559df940fdbc3b87cd3c652",
+            "bytes": 185008
+        },
+        "animations/output/half_body_atlases_v1/wyvern_lab_melee_attack_up_atlas/atlas/wyvern_lab_melee_attack_up_atlas.webp": {
+            "sha256": "439464d32d464f4b1c68d38bc85bcab4b277aae922a61eb253d99fec1fe5adef",
+            "bytes": 191654
+        },
+        "animations/output/half_body_atlases_v1/wyvern_lab_walk_atlas/atlas/wyvern_lab_walk_atlas.webp": {
+            "sha256": "73586d3143d9adf0f2983e113339783f176c09df8254ae6b833ce8023c988fca",
+            "bytes": 631054
+        },
+        "animations/output/half_body_atlases_v1/wyvern_walk_atlas/atlas/wyvern_walk_atlas.webp": {
+            "sha256": "7e6b49780482634e88096051b79ace3169bffcb3d8484a0bfad85238fc634b1c",
+            "bytes": 322244
+        },
+        "animations/output/half_body_atlases_v1/zena_attack_atlas/atlas/zena_attack_atlas.webp": {
+            "sha256": "e5d5a1da5f2ee602aa22d6b75166ff25567e1feae1a5d135b2ab2db8eaf78fcd",
+            "bytes": 207668
+        },
+        "animations/output/half_body_atlases_v1/zena_attack_down_atlas/atlas/zena_attack_down_atlas.webp": {
+            "sha256": "e6c1146d4da4bd7cfce6665bca831a12037d0cd903f48f16b609e8b87acfab8f",
+            "bytes": 203042
+        },
+        "animations/output/half_body_atlases_v1/zena_attack_up_atlas/atlas/zena_attack_up_atlas.webp": {
+            "sha256": "df62bbd27a9d54cc6b97e430dea3590ebba2bad52a7a1e8097589093c631da91",
+            "bytes": 207950
+        },
+        "animations/output/half_body_atlases_v1/zena_death_atlas/atlas/zena_death_atlas.webp": {
+            "sha256": "cdcce0201c1e164ce1b66c04c16beb5efda9f2a1bd322b02ecdf7621f76e3af6",
+            "bytes": 157764
+        },
+        "animations/output/half_body_atlases_v1/zena_hit_atlas/atlas/zena_hit_atlas.webp": {
+            "sha256": "4aaeed24b99630242f57f19ec7e898b75e5fa90f6c770fce1a703b15e64d2575",
+            "bytes": 201810
+        },
+        "animations/output/half_body_atlases_v1/zena_idle_atlas/atlas/zena_idle_atlas.webp": {
+            "sha256": "f081b34fc4bcabb0ed0c3d8347bb58dc3c30846956e2519e6ad24d2384997788",
+            "bytes": 185598
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_attack_atlas/atlas/zena_lab_attack_atlas.webp": {
+            "sha256": "49201930a742453f00578d38dc30dfd8adb4ac5bb4ef5b3be0dad8af6cfd5ecc",
+            "bytes": 605344
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_attack_down_atlas/atlas/zena_lab_attack_down_atlas.webp": {
+            "sha256": "e8c6f2d866650ecdaec4c50470c45883562b0e92ab7070face743c2e1cd3b4f0",
+            "bytes": 548746
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_attack_up_atlas/atlas/zena_lab_attack_up_atlas.webp": {
+            "sha256": "ace58143b6e7513a38c143f23746612c3aeb61f3ae51f8b7471aa08e551b1485",
+            "bytes": 580704
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_death_atlas/atlas/zena_lab_death_atlas.webp": {
+            "sha256": "817b6bbb213a73e09e2adb548a92dca43ac6223df3f42d71ff5aed4f95ffab2c",
+            "bytes": 164678
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_hit_atlas/atlas/zena_lab_hit_atlas.webp": {
+            "sha256": "cb3e83a0519dddffd151a0e4a00d9f56a01495a0c0c9146aa91bacee02ea9c2e",
+            "bytes": 224644
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_idle_atlas/atlas/zena_lab_idle_atlas.webp": {
+            "sha256": "da88870ee63b3d93805204a1b105e1bcf89e1f40f5639b4e0799918800e0f088",
+            "bytes": 1292230
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_melee_attack_atlas/atlas/zena_lab_melee_attack_atlas.webp": {
+            "sha256": "b17fd11d15db8f3f382deeecbf2129af279da7ffa41ae4fca93419abf7d633b5",
+            "bytes": 838020
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_melee_attack_down_atlas/atlas/zena_lab_melee_attack_down_atlas.webp": {
+            "sha256": "a9cf13508b0461b939468966592f3120fb8b90a85d179a9cc6161fe669eaabdc",
+            "bytes": 885020
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_melee_attack_up_atlas/atlas/zena_lab_melee_attack_up_atlas.webp": {
+            "sha256": "5ed3746d12d856c3c66cad0e9b7928e9593bd645e45db5dcba66776a730d024e",
+            "bytes": 819846
+        },
+        "animations/output/half_body_atlases_v1/zena_lab_walk_atlas/atlas/zena_lab_walk_atlas.webp": {
+            "sha256": "9c8e22b4e00ff7469e9632564da449bdc5737dd775e9f1ee9ac896bff798ca1b",
+            "bytes": 169878
+        },
+        "animations/output/half_body_atlases_v1/zena_walk_atlas/atlas/zena_walk_atlas.webp": {
+            "sha256": "0e6fcdba8fe73e5215f384ff68fe3085f8d38bc48e5bc2c471be8e25d0b4a788",
+            "bytes": 221666
         }
     },
     "sidebarPortraitPages": {

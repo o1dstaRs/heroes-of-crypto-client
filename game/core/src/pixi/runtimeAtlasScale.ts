@@ -1,5 +1,6 @@
 import { animationAtlases } from "../generated/animation_atlases";
 import { images } from "../imageAssets";
+import halfBodyAtlases from "./halfBodyAtlases.json";
 
 /**
  * Creature animation atlases authored with large frames are decoded at half size before GPU upload.
@@ -34,8 +35,13 @@ const isBodyAtlasKey = (key: string): boolean =>
 
 const assetPath = (url: string): string => new URL(url, "https://scene.invalid").pathname;
 
+/** Atlases the release already ships at half size (scripts/build_half_body_atlases.ts). */
+const prebuiltHalfKeys = new Set(Object.keys(halfBodyAtlases.atlases));
+/** Every atlas eligible for half-size decoding, whichever side halves it. */
+const candidateKeys = new Set<string>();
 const halvedKeys = new Set<string>();
 const halvedPaths = new Set<string>();
+const decodedPaths = new Set<string>();
 for (const [unit, states] of Object.entries(animationAtlases as Record<string, Record<string, unknown>>)) {
     for (const [state, value] of Object.entries(states)) {
         const meta = value as { frameWidth?: number; frameHeight?: number } | undefined;
@@ -45,18 +51,30 @@ for (const [unit, states] of Object.entries(animationAtlases as Record<string, R
         if (!isBodyAtlasKey(key)) continue;
         const url = (images as Record<string, unknown>)[key];
         if (typeof url !== "string") continue;
+        candidateKeys.add(key);
+        decodedPaths.add(assetPath(url));
+        if (prebuiltHalfKeys.has(key)) continue;
         halvedKeys.add(key);
         halvedPaths.add(assetPath(url));
     }
 }
 
+/** Halved in the browser after download: the release still ships this atlas at full size. */
 export const isRuntimeHalvedAtlasKey = (key: string): boolean => halvedKeys.has(key);
 export const isRuntimeHalvedAtlasUrl = (url: string): boolean => halvedPaths.has(assetPath(url));
 export const runtimeHalvedAtlasKeys = (): ReadonlySet<string> => halvedKeys;
+/** Shipped already halved; decoded off the main thread like the others, never halved again. */
+export const isPrebuiltHalfAtlasKey = (key: string): boolean => prebuiltHalfKeys.has(key) && candidateKeys.has(key);
+/** Every large body atlas, halved by the release or by the browser. The build derives files for these. */
+export const halvedAtlasCandidateKeys = (): ReadonlySet<string> => candidateKeys;
+/** Decode these off the main thread (see decodedSceneTextures.ts). */
+export const isHalfSizeAtlasKey = (key: string): boolean => candidateKeys.has(key);
 
 /**
  * Divider between the authored frame size in the atlas metadata and the decoded texture. File suffixes
- * name pre-reduced variants; a runtime-halved atlas is measured, so a full-size fallback stays at 1.
+ * name pre-reduced variants. A large body atlas is measured: the release ships most of them already
+ * halved, the browser halves the rest, and a full-size fallback (an older art checkout, a browser that
+ * cannot resample) stays at 1.
  */
 export const runtimeAtlasDivider = (
     imageKey: string,
@@ -64,7 +82,7 @@ export const runtimeAtlasDivider = (
     decodedWidth: number | undefined,
 ): number => {
     const suffixDivider = imageKey.endsWith("_half") ? 2 : imageKey.endsWith("_quarter") ? 4 : 1;
-    if (!halvedKeys.has(imageKey) || !meta.atlasWidth || !decodedWidth) return suffixDivider;
+    if (!candidateKeys.has(imageKey) || !meta.atlasWidth || !decodedWidth) return suffixDivider;
     // Only an exact half is the loader's resample; any other size keeps the authored slicing.
     return Math.abs(meta.atlasWidth - decodedWidth * 2) <= 1 ? 2 : suffixDivider;
 };

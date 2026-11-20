@@ -57,6 +57,28 @@ with the current website. The catalog test now checks shared icons against the v
 pins even when CI has no private art directory. Website exports and shared artwork are unchanged;
 the existing animation and portrait pins remain intact.
 
+## Half-size body atlases — 2026-11-20
+
+Large creature body atlases (frames of 768 px and more) were decoded at half size in the browser, so a
+cold match still downloaded the lossless full-size sheets: about 300 MB, 195 MB of it in sheets that were
+halved on arrival. The release now also carries a half-size copy of each, under
+`animations/output/half_body_atlases_v1/<key>/atlas/<key>.webp`, derived from the pinned master with
+Lanczos-3 and the sidebar pages' Q93 recipe (alpha exact). The owner approved the quality on
+2026-11-20. `game/core/src/pixi/halfBodyAtlases.json` pins each copy; the atlas copy step ships it in
+place of its master, and the runtime slices frames from the measured size. A sheet below 30 dB stays at
+full size and is halved in the browser, as before. Masters are unchanged.
+
+Rebuild or extend the set with
+
+```sh
+bun game/core/scripts/build_half_body_atlases.ts --assets=/path/to/heroesofcrypto-assets \
+    --catalog=game/core/src/pixi/halfBodyAtlases.json --release=game/core/animation-release.json
+```
+
+The command verifies every master against `animation-release.json`, reuses existing copies whose master
+and recipe are unchanged, refuses to overwrite a different file, and pins new copies in
+`animation-release.json` and `asset-release-archives.json` (restored from the shared Drive folder).
+
 ## Portrait baseline — main retained
 
 PR #205 retains the portraits from client main `c8284894ac22e0049336a0e05de9ddc1b63a7995`. Roster and draft cards

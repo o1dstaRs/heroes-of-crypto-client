@@ -15,13 +15,18 @@ export function installApprovedAnimationAssets(
     destination: string,
     roots: Record<ApprovedAnimationAsset["kind"], string>,
     reuseVerifiedInstalled = false,
+    /** The pinned half-size release copy that may stand in for a master once installed. */
+    installedReleaseSha256: (key: string) => string | undefined = () => undefined,
 ): void {
     const sha256 = (file: string): string => createHash("sha256").update(readFileSync(file)).digest("hex");
     // Validate the entire package before copying anything, including when only part needs repairing.
     const sources = assets.map((asset) => {
         const installed = path.join(destination, `${asset.key}.webp`);
-        if (reuseVerifiedInstalled && existsSync(installed) && sha256(installed) === asset.sha256) {
-            return { source: installed, destination: installed };
+        if (reuseVerifiedInstalled && existsSync(installed)) {
+            const hash = sha256(installed);
+            if (hash === asset.sha256 || hash === installedReleaseSha256(asset.key)) {
+                return { source: installed, destination: installed };
+            }
         }
         const source = path.join(roots[asset.kind], asset.path);
         if (!existsSync(source)) throw new Error(`Missing approved animation asset: ${source}`);

@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -11,7 +12,7 @@ afterEach(() => {
 const fixture = () => {
     const root = mkdtempSync(path.join(tmpdir(), "hoc-release-atlas-"));
     directories.push(root);
-    for (const folder of ["scripts", "src/generated", "src/build", "src/ui", "art/output/example/atlas"]) {
+    for (const folder of ["scripts", "src/generated", "src/build", "src/ui", "src/pixi", "art/output/example/atlas"]) {
         mkdirSync(path.join(root, folder), { recursive: true });
     }
     copyFileSync(
@@ -24,6 +25,11 @@ const fixture = () => {
         path.join(root, "src/build/retiredImageAssets.json"),
     );
     writeFileSync(path.join(root, "src/ui/sidebarPortraitPages.json"), JSON.stringify({ animations: {} }));
+    copyFileSync(
+        new URL("../../scripts/install_half_body_atlases.ts", import.meta.url),
+        path.join(root, "scripts/install_half_body_atlases.ts"),
+    );
+    writeFileSync(path.join(root, "src/pixi/halfBodyAtlases.json"), JSON.stringify({ atlases: {} }));
     const index = path.join(root, "src/generated/animation_atlases.ts");
     const approved = "export const animationAtlases = { Example: { attack: { frameCount: 8, fps: 10 } } };\n";
     writeFileSync(index, approved);
@@ -91,4 +97,33 @@ test("a release cannot silently replace a missing published index with authoring
     expect(result.stderr.toString()).toContain("requires the versioned");
     expect(existsSync(f.index)).toBe(false);
     expect(existsSync(path.join(f.root, "images/example_attack_atlas.webp"))).toBe(false);
+});
+
+test("a pinned half-size release copy ships in place of its master, never under its own name", () => {
+    const f = fixture();
+    const half = Buffer.from("half-size release copy");
+    const releasePath = "animations/output/half_body_atlases_v1/example_attack_atlas/atlas/example_attack_atlas.webp";
+    const file = path.join(
+        f.root,
+        "art/output/half_body_atlases_v1/example_attack_atlas/atlas/example_attack_atlas.webp",
+    );
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, half);
+    const pin = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
+    const catalog = (sha256: string) =>
+        writeFileSync(
+            path.join(f.root, "src/pixi/halfBodyAtlases.json"),
+            JSON.stringify({ atlases: { example_attack_atlas: { releasePath, sha256 } } }),
+        );
+    catalog(pin(half));
+    const result = f.run(["--copy-only"]);
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    expect(readFileSync(path.join(f.root, "images/example_attack_atlas.webp"))).toEqual(half);
+    // The master is untouched and the derived file does not appear as an extra image.
+    expect(readFileSync(path.join(f.root, "art/output/example/atlas/example_attack_atlas.webp"))).toEqual(f.atlas);
+    // A derived file that no longer matches its pin is refused instead of shipped.
+    catalog(pin(Buffer.from("a different revision")));
+    const refused = f.run(["--copy-only"]);
+    expect(refused.exitCode).not.toBe(0);
+    expect(refused.stderr.toString()).toContain("does not match the pinned half-size copy");
 });

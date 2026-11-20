@@ -1,6 +1,6 @@
 import { Assets, Texture, extensions, loadTextures } from "pixi.js";
 import { createDecodedSceneTextureParser } from "./decodedSceneTextures";
-import { isRuntimeHalvedAtlasKey, isRuntimeHalvedAtlasUrl } from "./runtimeAtlasScale";
+import { isHalfSizeAtlasKey, isRuntimeHalvedAtlasUrl } from "./runtimeAtlasScale";
 import { images as rawImages } from "../imageAssets";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import {
@@ -65,11 +65,12 @@ extensions.add(
                     isDeferredUnitCardAssetKey(key) ||
                     key.startsWith("portrait_aaa_front_") ||
                     isLazyRosterAssetKey(key) ||
-                    isRuntimeHalvedAtlasKey(key),
+                    isHalfSizeAtlasKey(key),
             )
             .map(([, url]) => url),
         undefined,
-        // Large-frame creature atlases upload at half size; see runtimeAtlasScale.ts.
+        // Large-frame creature atlases upload at half size: most ship halved, the rest are halved
+        // here. See runtimeAtlasScale.ts.
         isRuntimeHalvedAtlasUrl,
     ),
 );
