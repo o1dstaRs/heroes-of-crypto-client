@@ -867,5 +867,49 @@
             },
             "source_id": "provided-e19669f187c887c5b798-0-1200"
         }
+    },
+    "behemoth/hurt": {
+        "source_id": "provided-bea26faade14358269e2-0-1080",
+        "path": "tmp/audio/raw/provided/bea26faade143582/excerpt-0-1080.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "monkey-growl-gfx-sounds-1-1-00-02.mp3",
+            "title": "Monkey growl",
+            "author": "GFX Sounds",
+            "sha256": "bea26faade14358269e2d95636e3051b9163f8ebc40004d75b3e874f02a854ac",
+            "label": "Behemoth hurt growl",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Behemoth hurt",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 0,
+                "end_ms": 1080,
+                "original_duration_ms": 2554,
+                "original_path": "tmp/audio/raw/provided/bea26faade143582/monkey-growl-gfx-sounds-1-1-00-02.mp3",
+                "sha256": "55e3a9d25319fc69b5b1c5c90184efafbf3b2ae4eb02320867d2d0692d92b3eb",
+                "speed": 1,
+                "pitch_shift_semitones": 0,
+                "selection": "Opening growl phrase, ending at the quiet point before the big roar"
+            },
+            "source_id": "provided-bea26faade14358269e2-0-1080"
+        }
+    },
+    "behemoth/idle": {
+        "source_id": "provided-53655615701a8c4e3d49",
+        "path": "tmp/audio/raw/provided/53655615701a8c4e/monkey-growling-aggressively-felix-blume-1-00-04.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-53655615701a8c4e3d49",
+            "filename": "monkey-growling-aggressively-felix-blume-1-00-04.mp3",
+            "title": "Monkey growling aggressively",
+            "author": "F\u00e9lix Blume",
+            "sha256": "53655615701a8c4e3d4934bce0f962084d17992da41ad9b6fa842901f30007d5",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Behemoth idle",
+            "selection": "Explicitly selected by the user for Behemoth idle",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 8000
+        }
     }
 }

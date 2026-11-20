@@ -8,7 +8,8 @@ test("idle loops exist only for the creatures given a selected idle recording", 
         Object.keys(manifest)
             .filter((name) => resolveCombatSound(name, "idle"))
             .sort(),
-    ).toEqual(["Black Dragon"]);
+    ).toEqual(["Behemoth", "Black Dragon"]);
+    expect(resolveCombatSound("Behemoth", "idle")?.webm).toContain("behemoth_idle.webm");
     expect(resolveCombatSound("Black Dragon", "idle")?.webm).toContain("black-dragon_idle.webm");
     expect(resolveCombatSound("Black Dragon", "idle")!.durationMs).toBeGreaterThan(4000);
     expect(resolveCombatSound("Peasant", "idle")).toBeUndefined();
