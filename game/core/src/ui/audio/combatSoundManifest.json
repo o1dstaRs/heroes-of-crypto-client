@@ -237,8 +237,8 @@
     "Trent": {
         "slug": "trent",
         "attack": {
-            "durationMs": 450,
-            "revision": "3952260a19"
+            "durationMs": 489,
+            "revision": "d8ca5b9d45"
         },
         "hurt": {
             "durationMs": 1224,

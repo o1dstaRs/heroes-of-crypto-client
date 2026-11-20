@@ -823,5 +823,22 @@
             },
             "source_id": "provided-1eb950f3ca508cd8d7b0-0-1300"
         }
+    },
+    "trent/attack": {
+        "source_id": "provided-67af7b99b637c7ba88ca",
+        "path": "tmp/audio/raw/provided/67af7b99b637c7ba/zombie-death-impact-gfx-sounds-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-67af7b99b637c7ba88ca",
+            "filename": "zombie-death-impact-gfx-sounds-1-00-00.mp3",
+            "title": "Zombie - death impact",
+            "author": "GFX Sounds",
+            "sha256": "67af7b99b637c7ba88ca36fc37f39484b58bddfe1c392682ff289338467fa97b",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Trent attack",
+            "selection": "Explicitly selected by the user for Trent attack",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
     }
 }
