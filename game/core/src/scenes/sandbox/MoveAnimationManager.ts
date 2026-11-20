@@ -108,7 +108,6 @@ export class MoveAnimationManager {
     private afterimages: IAfterimage[] = [];
     private rapidChargeDust?: NomadChargeDust;
     private lastTrackDropIndex: number = -1;
-    private isActiveUnitMoving = false;
     private readonly projectedMetricsScratch: MutableProjectedBattlefieldMetrics = {
         center: { x: 0, y: 0 },
         width: 0,
@@ -146,7 +145,6 @@ export class MoveAnimationManager {
             s.b.unit.setPosition(s.b.to.x, s.b.to.y);
             const onComplete = s.onComplete;
             this.swapAnimation = undefined;
-            this.isActiveUnitMoving = false;
             this.context.setMoveBlocked(false);
             this.context.requestVisibleStateUpdate();
             if (onComplete) onComplete();
@@ -180,7 +178,6 @@ export class MoveAnimationManager {
         this.lastTrackDropIndex = -1;
 
         if (move || swap) {
-            this.isActiveUnitMoving = false;
             this.context.setMoveBlocked(false);
         }
         move?.onCancel?.();
@@ -200,7 +197,6 @@ export class MoveAnimationManager {
         onCancel?: () => void,
     ) {
         this.moveAnimation?.stopMovementSound?.();
-        this.isActiveUnitMoving = true;
         this.moveTrackPath = moveTrackPath;
         this.moveTrackProgress = 0;
         this.context.setMoveBlocked(true);
@@ -271,7 +267,6 @@ export class MoveAnimationManager {
         // Castling-style position swap: glide both units to each other's old cell along mirrored
         // arcs (quadratic Bézier whose control point bows perpendicular to the path) so they curve
         // around each other instead of clipping through the midpoint.
-        this.isActiveUnitMoving = true;
         this.context.setMoveBlocked(true);
         // Snapshot every coordinate: Unit.getPosition() returns a live reference to its internal
         // position, and we call setPosition() during the animation — without copies, `to` would
@@ -363,7 +358,6 @@ export class MoveAnimationManager {
             s.b.unit.setPosition(s.b.to.x, s.b.to.y);
             const onComplete = s.onComplete;
             this.swapAnimation = undefined;
-            this.isActiveUnitMoving = false;
             this.context.setMoveBlocked(false);
             this.context.requestVisibleStateUpdate();
             if (onComplete) onComplete();
@@ -432,7 +426,6 @@ export class MoveAnimationManager {
             caster.syncVisual(root, gs);
             passenger.syncVisual(root, gs);
             this.swapAnimation = undefined;
-            this.isActiveUnitMoving = false;
             this.context.setMoveBlocked(false);
             this.context.requestVisibleStateUpdate();
             s.onComplete?.();
@@ -686,7 +679,6 @@ export class MoveAnimationManager {
         this.moveTrackPath = undefined;
         this.moveTrackProgress = 0;
         this.context.setMoveBlocked(false);
-        this.isActiveUnitMoving = false;
 
         this.context.getHoverManager().setSilhouetteLocked(false);
         this.context.getHoverManager().clearHoverSilhouette(true);

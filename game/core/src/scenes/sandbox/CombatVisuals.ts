@@ -344,22 +344,6 @@ interface IEnchant {
 }
 
 /**
- * Lightning Strike: the spell text is "calls lightning DOWN on an enemy", so the bolt has to arrive from
- * the sky rather than travel from the caster. One record drives the whole strike — the telegraph glow, the
- * descending bolt with its forks, and the ground burst — so they stay phase-locked as a single event.
- */
-interface ILightningStrike {
-    container: Container;
-    flash: Graphics; // sky telegraph above the target, before the bolt lands
-    bolt: Graphics; // the descending jagged column (+ forks)
-    burst: Graphics; // impact flare and expanding ring at the creature
-    target: HoCMath.XY;
-    cellSize: number;
-    age: number;
-    flicker: number; // accumulates dt; re-jags the bolt on STRIKE_FLICKER_S
-}
-
-/**
  * Magic Mirror rebound: a pane of cold light snaps up in front of the holder, catches the spell and throws
  * a shard of it back down the line at the caster. Two phases in one record — the pane flares and fades while
  * the shard travels — so the whole rebound reads as one motion instead of two unrelated pops.
@@ -867,8 +851,6 @@ export class CombatVisuals {
     private craftForgePrepared = false;
     private enchants: IEnchant[] = [];
     private abilitySteals: IAbilitySteal[] = [];
-    private debuffStyle?: TextStyle;
-    private buffStyle?: TextStyle;
     private missStyle?: TextStyle;
     private absorbedLabelStyle?: TextStyle;
     private stolenLabelStyle?: TextStyle;
@@ -914,42 +896,6 @@ export class CombatVisuals {
             });
         }
         return this.countStyle;
-    }
-    private getDebuffStyle(): TextStyle {
-        if (!this.debuffStyle) {
-            this.debuffStyle = new TextStyle({
-                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                fontSize: 34,
-                fontWeight: "900",
-                fill: "#c77dff", // violet reads clearly as a debuff
-                stroke: { color: "#2a0a3a", width: 5 },
-                dropShadow: {
-                    color: "#000000",
-                    blur: 4,
-                    angle: Math.PI / 6,
-                    distance: 2,
-                },
-            });
-        }
-        return this.debuffStyle;
-    }
-    private getBuffStyle(): TextStyle {
-        if (!this.buffStyle) {
-            this.buffStyle = new TextStyle({
-                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                fontSize: 34,
-                fontWeight: "900",
-                fill: "#7dffb0", // green reads clearly as a buff (vs the violet debuff)
-                stroke: { color: "#0a3a1c", width: 5 },
-                dropShadow: {
-                    color: "#000000",
-                    blur: 4,
-                    angle: Math.PI / 6,
-                    distance: 2,
-                },
-            });
-        }
-        return this.buffStyle;
     }
     private getMissStyle(): TextStyle {
         if (!this.missStyle) {
@@ -4846,7 +4792,6 @@ export class CombatVisuals {
         (container) => this.attachEffect(container, 4555),
         () => this.getFireTexture(),
     );
-    private lightningStrikes: ILightningStrike[] = [];
     private attachEffect(obj: Container, zIndex: number): number {
         this.context.attachToWorldRoot(obj, zIndex);
         return this.boardStretch();
@@ -5169,125 +5114,6 @@ export class CombatVisuals {
     public spawnGravechain(links: IGravechainWave["links"], cellSize: number, onBind: (unitId: string) => void): void {
         this.gravechains.spawn(links, cellSize, onBind);
     }
-    private drawLightningColumn(gfx: Graphics, target: HoCMath.XY, cellSize: number): void {
-        gfx.clear();
-        const height = cellSize * STRIKE_HEIGHT_CELLS;
-        const spread = cellSize * STRIKE_SPREAD_CELLS;
-        const segments = 13;
-        const pts: HoCMath.XY[] = [];
-        for (let i = 0; i <= segments; i++) {
-            const t = i / segments; // 0 at the sky, 1 at the creature
-            // Wander widest up in the sky and none at all at the impact point.
-            const wander = (Math.random() - 0.5) * 2 * spread * (1 - t);
-            pts.push({ x: target.x + wander, y: target.y + height * (1 - t) });
-        }
-        const trace = (path: HoCMath.XY[]) => {
-            gfx.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) {
-                gfx.lineTo(path[i].x, path[i].y);
-            }
-        };
-        // Short forks peeling off the column, so it reads as lightning rather than a drawn line.
-        const forks: HoCMath.XY[][] = [];
-        for (let f = 0; f < STRIKE_FORKS; f++) {
-            const start = 2 + Math.floor(Math.random() * (segments - 5));
-            const root = pts[start];
-            const dir = Math.random() < 0.5 ? -1 : 1;
-            const fork: HoCMath.XY[] = [root];
-            let fx = root.x;
-            let fy = root.y;
-            const steps = 2 + Math.floor(Math.random() * 2);
-            for (let k = 0; k < steps; k++) {
-                fx += dir * cellSize * (0.18 + Math.random() * 0.22);
-                fy -= cellSize * (0.3 + Math.random() * 0.35);
-                fork.push({ x: fx, y: fy });
-            }
-            forks.push(fork);
-        }
-        // Stacked strokes, widest and dimmest first: corona, body, then the hot core on top.
-        for (const [width, color, alpha] of [
-            [0.2, STRIKE_GLOW, 0.28],
-            [0.09, STRIKE_MID, 0.72],
-            [0.032, STRIKE_CORE, 1],
-        ] as const) {
-            trace(pts);
-            gfx.stroke({ width: cellSize * width, color, alpha, cap: "round", join: "round" });
-        }
-        for (const fork of forks) {
-            trace(fork);
-            gfx.stroke({ width: cellSize * 0.05, color: STRIKE_MID, alpha: 0.55, cap: "round", join: "round" });
-            trace(fork);
-            gfx.stroke({ width: cellSize * 0.018, color: STRIKE_CORE, alpha: 0.85, cap: "round", join: "round" });
-        }
-    }
-    private stepLightningStrikes(dt: number): void {
-        for (let i = this.lightningStrikes.length - 1; i >= 0; i--) {
-            const strike = this.lightningStrikes[i];
-            strike.age += dt;
-            const { cellSize, target } = strike;
-
-            // Phase 1 — the sky gathers. A soft blue glow high above the creature, fading as the bolt commits.
-            if (strike.age < STRIKE_TELEGRAPH_S) {
-                const t = strike.age / STRIKE_TELEGRAPH_S;
-                strike.flash.visible = true;
-                strike.flash.clear();
-                strike.flash
-                    .ellipse(
-                        target.x,
-                        target.y + cellSize * STRIKE_HEIGHT_CELLS * 0.8,
-                        cellSize * (0.7 + t * 0.9),
-                        cellSize * (0.25 + t * 0.3),
-                    )
-                    .fill({ color: STRIKE_MID, alpha: 0.06 + t * 0.16 });
-            } else if (strike.flash.visible) {
-                strike.flash.visible = false;
-                strike.flash.clear();
-            }
-
-            // Phase 2 — the column descends and crackles.
-            const boltAge = strike.age - STRIKE_TELEGRAPH_S;
-            if (boltAge >= 0 && boltAge < STRIKE_BOLT_LIFE) {
-                strike.bolt.visible = true;
-                strike.flicker += dt;
-                if (strike.flicker >= STRIKE_FLICKER_S) {
-                    strike.flicker = 0;
-                    this.drawLightningColumn(strike.bolt, target, cellSize);
-                }
-                // Full brightness on contact, then a fast decay with a little crackle in it.
-                const t = boltAge / STRIKE_BOLT_LIFE;
-                const envelope = t < 0.14 ? 1 : 1 - (t - 0.14) / 0.86;
-                strike.bolt.alpha = Math.max(0, envelope) * (0.72 + Math.random() * 0.28);
-            } else if (strike.bolt.visible) {
-                strike.bolt.visible = false;
-                strike.bolt.clear();
-            }
-
-            // Phase 3 — the ground answers: a flare on the creature and a ring thrown outward from it.
-            if (boltAge >= 0 && boltAge < STRIKE_BURST_LIFE) {
-                const t = boltAge / STRIKE_BURST_LIFE;
-                const fade = 1 - t;
-                strike.burst.visible = true;
-                strike.burst.clear();
-                strike.burst
-                    .circle(target.x, target.y, cellSize * (0.52 + t * 0.35))
-                    .fill({ color: STRIKE_CORE, alpha: 0.5 * fade * fade });
-                strike.burst
-                    .circle(target.x, target.y, cellSize * (0.34 + t * 0.9))
-                    .fill({ color: STRIKE_MID, alpha: 0.22 * fade });
-                strike.burst
-                    .ellipse(target.x, target.y, cellSize * (0.45 + t * 1.5), cellSize * (0.16 + t * 0.5))
-                    .stroke({ width: cellSize * 0.06 * fade, color: STRIKE_GLOW, alpha: 0.75 * fade });
-            } else if (strike.burst.visible) {
-                strike.burst.visible = false;
-                strike.burst.clear();
-            }
-
-            if (strike.age >= STRIKE_TOTAL_LIFE) {
-                strike.container.destroy({ children: true });
-                this.lightningStrikes.splice(i, 1);
-            }
-        }
-    }
     public showCleanse(pos: HoCMath.XY): void {
         const container = new Container();
         const label = new PixiText({
@@ -5324,25 +5150,3 @@ const ABLAZE_EMBER_LIFE = 0.55;
 const ABLAZE_SOOT_EVERY = 5;
 
 const ABLAZE_GLOW_ALPHA = 0.5;
-
-const STRIKE_TELEGRAPH_S = 0.09;
-
-const STRIKE_BOLT_LIFE = 0.26;
-
-const STRIKE_BURST_LIFE = 0.38;
-
-const STRIKE_TOTAL_LIFE = STRIKE_TELEGRAPH_S + STRIKE_BURST_LIFE;
-
-const STRIKE_FLICKER_S = 0.025;
-
-const STRIKE_HEIGHT_CELLS = 7.5;
-
-const STRIKE_SPREAD_CELLS = 0.42;
-
-const STRIKE_FORKS = 2;
-
-const STRIKE_GLOW = 0x2f6bff;
-
-const STRIKE_MID = 0x8fc4ff;
-
-const STRIKE_CORE = 0xffffff;

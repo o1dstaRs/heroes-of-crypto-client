@@ -40,7 +40,6 @@ interface Scene {
     getLogicalBattlefieldPoint(point: XY): XY;
     resolveRangeAimForTarget(attacker: RenderableUnit, target: Unit): GridMath.IClosestSideCenter | undefined;
     resolveRangeShotAim(attacker: RenderableUnit, target: Unit, from: XY): GridMath.IClosestSideCenter | undefined;
-    resolveFirstRangeHitUnit(target: Unit): Unit | undefined;
     rangeTargetEdgeVisuals(attacker: RenderableUnit, target: Unit): RangeTargetEdgeVisual[];
     highlightRangeAttackUnits(target: Unit, evaluation?: IRangeAttackEvaluation): boolean;
 }
@@ -244,7 +243,6 @@ describe("Cyclops hover outlines follow the arrow and authoritative shot", () =>
                             expect(f.rear.getCumulativeHp()).toBe(rearHp);
                             for (const predicted of predictions) expect(predicted).toContain(f.front.getId());
                             for (const predicted of predictions) expect(predicted).toEqual([f.front.getId()]);
-                            expect(f.scene.resolveFirstRangeHitUnit(f.rear)).toBe(f.front);
                         });
                     }
                 }

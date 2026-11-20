@@ -87,23 +87,3 @@ test("a following shot waits for the previous recovery and an incoming hit", asy
     expect(await scene.waitForProjectileHitReaction(unit)).toBe(true);
     expect(frame).toBe(4);
 });
-
-test.each(["Arbalester", "Dryad", "Centaur", "Orc"])(
-    "%s does not start a duplicate ranged clip before its projectile player",
-    async (name) => {
-        const events: string[] = [];
-        const scene = Object.assign(Object.create(Sandbox.prototype), {
-            prepareDirectionalAttackState: () => {
-                events.push("aim");
-                return "attack_up";
-            },
-            playReplayOneShot: async () => {
-                events.push("standalone");
-            },
-        });
-        await scene.playDirectionalAttackOneShot({ getName: () => name }, {}, 5000, false);
-        expect(events).toEqual(["aim"]);
-        await scene.playDirectionalAttackOneShot({ getName: () => name }, {}, 5000, true);
-        expect(events).toEqual(["aim", "aim", "standalone"]);
-    },
-);

@@ -84,7 +84,7 @@ import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import { clearPersonalArmyTint, personalArmyTintSeat, setPersonalArmyTint } from "./personalArmyTint";
-import { isGreenTeam, teamColor } from "./teamColors";
+import { isGreenTeam } from "./teamColors";
 import { setBoardMirror } from "../pixi/boardMirror";
 import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 import type { PremiumTurnPreview } from "../api/premium_client";
@@ -4871,13 +4871,6 @@ export class RankedPlayScene extends Sandbox {
             this.sc_sandboxSetupTransport?.({ kind: "artifact", team: teamType, tier, artifactId });
         }
         return applied;
-    }
-    protected override activeTurnAuraColor(): number {
-        const currentActiveUnit = this.getCurrentActiveUnit();
-        if (this.viewerTeam === undefined && currentActiveUnit) {
-            return teamColor(currentActiveUnit.getTeam());
-        }
-        return super.activeTurnAuraColor();
     }
     protected override shouldRecordSandboxReplay(): boolean {
         return false;

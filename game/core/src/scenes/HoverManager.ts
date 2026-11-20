@@ -558,7 +558,6 @@ export class HoverManager {
     public hoverAttackFromCell?: HoCMath.XY = undefined;
     public hoverSpellCell?: HoCMath.XY = undefined;
     public hoverAbilityCell?: HoCMath.XY = undefined;
-    private auraVisuals: Graphics[] = [];
     public hoverAttackTargetUnit?: Unit;
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
@@ -589,7 +588,6 @@ export class HoverManager {
     private hoverShotOrcFletchingTexture?: Texture;
     private hoverShotCasingTexture?: Texture;
     private hoverShotGoldCasingTexture?: Texture;
-    private hoverShotHammeredBronzeCasingTexture?: Texture;
     private magicAimDualHelixFrames: Texture[] = [];
     private magicAimDualHelix?: TilingSprite;
     private magicAimDualHelixElapsedMs = 0;
@@ -638,7 +636,6 @@ export class HoverManager {
         this.loadCursorTexture("shot_trajectory_hammered_bronze_casing_sprite_v4", (texture) => {
             // This is the original crisp in-game casing shown in the approved reference screenshot.
             this.hoverShotCasingTexture = texture;
-            this.hoverShotHammeredBronzeCasingTexture = texture;
         });
         this.loadCursorTexture("shot_trajectory_gold_casing_sprite_v6", (texture) => {
             texture.source.scaleMode = "linear";
@@ -700,7 +697,6 @@ export class HoverManager {
         this.phantomGrayscaleFilter = undefined;
         this.hoverAttackSwordTexture = undefined;
         this.hoverRangeTargetEdgeTexture = undefined;
-        this.hoverShotHammeredBronzeCasingTexture = undefined;
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;

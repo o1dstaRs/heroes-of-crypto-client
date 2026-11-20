@@ -222,21 +222,3 @@ export function resolveRangeProjectileImpactPlan(
         }),
     );
 }
-
-/**
- * Existing units land at their rendered center (important for 2x2 stacks). Removed units use the
- * pre-action rendered center when available, then their per-shot authoritative event fallback.
- */
-export function resolveRangeProjectilePlaybackPosition(
-    impact: IRangeProjectileImpact,
-    impactUnitExists: boolean,
-    capturedVisualCenter?: HoCMath.XY,
-): HoCMath.XY | undefined {
-    if (!impact.intercepted) {
-        return clonePosition(impact.targetPosition);
-    }
-    if (impactUnitExists) {
-        return undefined;
-    }
-    return clonePosition(capturedVisualCenter ?? impact.targetPosition);
-}

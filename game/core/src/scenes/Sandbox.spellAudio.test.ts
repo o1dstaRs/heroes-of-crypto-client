@@ -69,7 +69,6 @@ const fixture = (
         applyReplayEvents: () => undefined,
         applyTurnEngineEvents: () => undefined,
         onReplaySpellImpact: () => undefined,
-        getAreaSpellVisualCenter: () => ({ x: 200, y: 200 }),
         scheduleSceneTimeout: (callback: () => void) => callback(),
         delayReplay: () => Promise.resolve(),
     });
@@ -115,18 +114,6 @@ test.each([true, false])("recorded spell audio survives a local reapply complete
     expect(await f.scene.playReplayCastSpellAction(f.record)).toBe(true);
     expect(f.sound).toHaveBeenCalledTimes(1);
     expect(f.sound).toHaveBeenCalledWith(f.caster, "attack");
-});
-
-test.each([true, false])("directional attack playback owns its sound only for melee=%s", async (melee) => {
-    const f = fixture();
-    f.scene.prepareDirectionalAttackState = () => "attack";
-    await f.scene.playDirectionalAttackOneShot(f.caster, f.target, 360, melee);
-    if (melee) {
-        expect(f.sound).toHaveBeenCalledTimes(1);
-        expect(f.sound).toHaveBeenCalledWith(f.caster, "attack", true);
-    } else {
-        expect(f.sound).not.toHaveBeenCalled();
-    }
 });
 
 const blacksmithSpells = ["Craft", "Armor Rune", "Weapon Rune"];

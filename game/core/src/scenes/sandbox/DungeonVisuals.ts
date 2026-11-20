@@ -1,6 +1,5 @@
 import { publishWebFireLights } from "../ArachnaWebLighting";
 import {
-    BlurFilter,
     ColorMatrixFilter,
     Container,
     Filter,
@@ -737,7 +736,6 @@ export class DungeonVisuals {
     private context: IDungeonVisualsContext;
     private barrelShadowTuningListener?: EventListener;
     private destroyed = false;
-    private atmosphereAlpha = 0;
     private lightFilter?: Filter;
     private lightOverlay?: Graphics;
     private lightBuilt = false;
@@ -762,7 +760,6 @@ export class DungeonVisuals {
     private lavaFireLight?: Container;
     private lavaFireLightBase?: Graphics;
     private lavaFireLightGroups: Graphics[] = [];
-    private lavaFireLightTimeSec = 0;
     private lavaColorFilter?: ColorMatrixFilter;
     private lavaFireColorFilter?: ColorMatrixFilter;
     private lavaFire2ColorFilter?: ColorMatrixFilter;
@@ -842,8 +839,6 @@ export class DungeonVisuals {
     private scatteredMountainDangerOverlays: Sprite[] = [];
     private tombstoneRedFilter?: ColorMatrixFilter;
     private cemeteryEdgeDarkenFilter?: Filter;
-    private cemeteryShadowBlurFilter?: BlurFilter;
-    private scatteredMountainHitBars: Graphics[] = [];
     private lastScatteredMountainTextures?: Texture[];
     private scatteredMountainAppearanceDirty = true;
     private narrowingLayers = 0;
@@ -1538,21 +1533,6 @@ export class DungeonVisuals {
             .clear()
             .poly(projected.flatMap((point) => [point.x, point.y]))
             .fill({ color: 0xffffff });
-    }
-    private updateVideoFireBoundsMask(points: readonly { x: number; y: number }[]): void {
-        if (!this.lavaFireMask) {
-            this.lavaFireMask = new Graphics();
-            this.lavaFireMask.eventMode = "none";
-        }
-        if (this.lavaPitForegroundContainer && this.lavaFireMask.parent !== this.lavaPitForegroundContainer) {
-            this.lavaPitForegroundContainer.addChild(this.lavaFireMask);
-        }
-        this.lavaFireMask.zIndex = 0;
-        this.lavaFireMask
-            .clear()
-            .poly(points.flatMap((point) => [point.x, point.y]))
-            .fill({ color: 0xffffff });
-        this.lavaFireMask.visible = true;
     }
     private static mixColor(from: number, to: number, amount: number): number {
         const mix = (shift: number): number => {
@@ -3650,7 +3630,6 @@ export class DungeonVisuals {
         // Fire has a common body plus faster, slightly independent edge flicker. The source never blinks
         // out and no single clean sine dominates, so the pool feels hot rather than electrically pulsed.
         const tuning = resolveLavaAnimationTuning();
-        this.lavaFireLightTimeSec = nowSeconds * tuning.lightPulseSpeed;
         const envelope = lavaFireLightEnvelopeAtTime(tuning, nowSeconds, this.lavaFireLightGroups.length);
         root.alpha = envelope.rootAlpha;
         base.alpha = envelope.baseAlpha;
@@ -3876,7 +3855,6 @@ export class DungeonVisuals {
         this.scatteredMountainOutlines = [];
         this.barrelPlacementOutlines = [];
         this.scatteredMountainDangerOverlays = [];
-        this.scatteredMountainHitBars = [];
         this.lastScatteredMountainTextures = undefined;
         this.scatteredMountainAppearanceDirty = true;
         this.activeCollapses = [];

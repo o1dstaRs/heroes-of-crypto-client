@@ -32,28 +32,6 @@ describe("projectiles hit the visible body", () => {
         }
     });
 
-    test("replays retain actual interceptors and captured anchors after their removal", () => {
-        const victim = { getProjectileImpactPoint: () => ({ x: 300, y: 160 }) };
-        const units = new Map([["screen", victim]]);
-        const scene = Object.assign(Object.create(Sandbox.prototype), {
-            unitsHolder: { getAllUnits: () => units },
-            sc_sceneSettings: { getGridSettings: () => gs },
-        });
-        for (const intercepted of [false, true]) {
-            const impact = { targetUnitId: "screen", targetPosition: { x: 320, y: 80 }, intercepted };
-            const result = scene.resolveRangeProjectilePlaybackTarget(impact, {});
-            expect(result.target).toBe(victim);
-            expect(result.position).toEqual({ x: 300, y: 160 });
-        }
-        units.clear();
-        const result = scene.resolveRangeProjectilePlaybackTarget(
-            { targetUnitId: "screen", targetPosition: { x: 320, y: 80 }, intercepted: true },
-            {},
-            { x: 300, y: 160 },
-        );
-        expect(result.position).toEqual({ x: 300, y: 160 });
-    });
-
     test("outgoing and counter replay shots use each receiving figure's torso", async () => {
         const launches: unknown[] = [];
         const scene = Object.assign(Object.create(Sandbox.prototype), {

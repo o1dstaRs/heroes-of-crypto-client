@@ -278,7 +278,6 @@ export class UnitChip extends Container {
     private isTweening = false;
     private ticker?: Ticker;
     private animationFrames?: Texture[];
-    private animationFrameIndex = 0;
     private animationStepFn?: () => void;
     private tweenStepFn?: () => void;
     private readonly hitPoint = new Point();
@@ -528,7 +527,6 @@ export class UnitChip extends Container {
         }
 
         this.animationFrames = frames;
-        this.animationFrameIndex = 0;
         this.sprite.texture = frames[0];
 
         const frameCount = meta.frameCount ?? frames.length;
@@ -578,7 +576,6 @@ export class UnitChip extends Container {
                 nextStepAt = now + pauseMs;
             }
 
-            this.animationFrameIndex = index;
             const framesRef = this.animationFrames;
             if (framesRef && framesRef[index]) {
                 this.sprite.texture = framesRef[index];
@@ -688,7 +685,6 @@ export class UnitChip extends Container {
         }
         this.animationStepFn = undefined;
         this.animationFrames = undefined;
-        this.animationFrameIndex = 0;
 
         // Restore static idle texture when not selected
         if (!this.sprite.destroyed) {

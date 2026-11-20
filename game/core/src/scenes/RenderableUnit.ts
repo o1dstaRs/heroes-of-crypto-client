@@ -299,7 +299,6 @@ import {
 } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
-import { ACTIVE_TURN_GOLD_COLOR, updateActiveTurnGroundRing } from "./ActiveTurnGroundRing";
 import {
     BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY,
     getBattlefieldCreatureContourFilter,
@@ -2393,6 +2392,7 @@ function getAnimationStateConfig(
 // lifetime of the tab. WeakMap ephemeron semantics also allow the value's frame sources to disappear
 // once Pixi releases the parent texture after a scene teardown.
 const atlasFramesCache = new WeakMap<Texture, Map<string, Texture[]>>();
+const ACTIVE_TURN_GOLD_COLOR = 0xffc83d;
 const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
 const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
@@ -2972,14 +2972,6 @@ interface StackPowerDrawState {
     footprintHeightInCells: number;
     teamColor: number;
 }
-interface RosterCardDrawState {
-    x: number;
-    y: number;
-    cell: number;
-    footprintWidth: number;
-    footprintHeight: number;
-    projected: boolean;
-}
 
 /**
  * Cell-relative extent of a ground effect along ONE footprint axis.
@@ -3133,7 +3125,6 @@ export class RenderableUnit extends Unit {
     private shadow?: Graphics;
     private silhouetteShadow?: Sprite;
     private silhouetteShadowReferenceTexture?: Texture;
-    private silhouetteShadowReferenceAnchorY?: number;
     private silhouetteShadowSegments: Sprite[] = [];
     private silhouetteShadowSegmented = false;
     private battlefieldShadowProjection?: BattlefieldCreatureShadowProjection;
@@ -3168,7 +3159,6 @@ export class RenderableUnit extends Unit {
     private badgeFlagBottomY?: number[];
     private badgeFlagWaveFrame = -1;
     private stackPowerContainer?: Container;
-    private stackPowerPips: Graphics[] = [];
     private stackPowerDrawState?: StackPowerDrawState;
     private projectedStackPower?: number;
     private hourglassContainer?: Container;
@@ -3208,7 +3198,6 @@ export class RenderableUnit extends Unit {
     private selectionAnimFrameIndex = -1;
     private walkAnim?: LoopAnimState;
     private facingDirection: -1 | 1 = 1;
-    private stackForcedHidden = false;
     private isActiveTurn = false;
     private isDestroyed = false;
     private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
@@ -3217,7 +3206,6 @@ export class RenderableUnit extends Unit {
     private battlefieldAlphaHoleFillFilter?: ReturnType<typeof getBattlefieldAlphaHoleFillFilter>;
     private battlefieldContourFilter?: ReturnType<typeof getBattlefieldCreatureContourFilter>;
     private battlefieldStyleFilter?: ColorMatrixFilter;
-    private battlefieldStyleSignature = "";
     private depthSortBounds?: Bounds;
     private depthSortBoundsAreCurrent = false;
     private depthSortBoundsCacheState?: CreatureBoundsCacheState;
@@ -3240,20 +3228,11 @@ export class RenderableUnit extends Unit {
     private arbalesterRangedShot?: AbortController;
     private dryadRangedShot?: AbortController;
     private rosterCard?: Container;
-    private rosterCardPlate?: Graphics;
-    private rosterCardDrawState?: RosterCardDrawState;
     private visualScaleMultiplier = 1;
     private transportVisual?: { elevation: number; gripTarget?: RenderableUnit; gripBlend: number };
     private useBattlefieldVisualProjection = false;
-    private activeAura?: Container;
-    private activeAuraGlow?: Graphics;
-    private activeAuraMask?: Graphics;
-    private activeAuraGlowBlurFilter?: BlurFilter | null;
-    private isHoverTurnAura = false;
-    private activeAuraDrawState?: ContinuousEffectDrawState;
     private activeTurnFireSprite?: Sprite;
     private activeTurnFireFrameIndex = -1;
-    private activeAuraColor = 0xffffff;
     private waterShieldAura?: Graphics;
     private waterShieldVisual?: WaterShieldVisual;
     private waterShieldLabPreview = false;
@@ -3293,7 +3272,6 @@ export class RenderableUnit extends Unit {
         ru.immobilizedSprite = undefined;
         ru.unicornBlindnessFlash = undefined;
         ru.pixiSpells = [];
-        ru.stackPowerPips = [];
         ru.boardSelected = false;
         ru.selectionAnimFrames = undefined;
         ru.arbalesterIdlePager = undefined;
@@ -3327,7 +3305,6 @@ export class RenderableUnit extends Unit {
         // and faces right, red/RIGHT deploys on the right and faces left. Movement during the fight
         // re-aims facing from the walk direction as before.
         ru.facingDirection = placementFacingDirectionForTeam(ru.getTeam());
-        ru.stackForcedHidden = false;
         ru.isActiveTurn = false;
         ru.pendingRegenerationHp = 0;
         ru.isDestroyed = false;
@@ -3359,16 +3336,8 @@ export class RenderableUnit extends Unit {
         ru.wolfReactionRegistrationActive = false;
         ru.stackPowerDrawState = undefined;
         ru.projectedStackPower = undefined;
-        ru.rosterCardDrawState = undefined;
-        ru.activeAura = undefined;
-        ru.activeAuraGlow = undefined;
-        ru.activeAuraMask = undefined;
-        ru.activeAuraGlowBlurFilter = undefined;
-        ru.isHoverTurnAura = false;
-        ru.activeAuraDrawState = undefined;
         ru.activeTurnFireSprite = undefined;
         ru.activeTurnFireFrameIndex = -1;
-        ru.activeAuraColor = 0xffffff;
         ru.waterShieldAura = undefined;
         ru.waterShieldVisual = undefined;
         ru.waterShieldLabPreview = false;
@@ -3393,7 +3362,6 @@ export class RenderableUnit extends Unit {
         ru.dodgeBlurFilter = undefined;
         ru.silhouetteShadow = undefined;
         ru.silhouetteShadowReferenceTexture = undefined;
-        ru.silhouetteShadowReferenceAnchorY = undefined;
         ru.silhouetteShadowSegments = [];
         ru.silhouetteShadowSegmented = false;
         ru.battlefieldShadowProjection = undefined;
@@ -3403,7 +3371,6 @@ export class RenderableUnit extends Unit {
         ru.battlefieldAlphaHoleFillFilter = undefined;
         ru.battlefieldContourFilter = undefined;
         ru.battlefieldStyleFilter = undefined;
-        ru.battlefieldStyleSignature = "";
         ru.depthSortBounds = undefined;
         ru.depthSortBoundsAreCurrent = false;
         ru.depthSortBoundsCacheState = undefined;
@@ -3783,7 +3750,6 @@ export class RenderableUnit extends Unit {
         );
         if (this.useBattlefieldVisualProjection && !this.walkAnim && !this.oneShotAnim) {
             this.silhouetteShadowReferenceTexture = canonicalShadowReferenceTexture;
-            this.silhouetteShadowReferenceAnchorY = hasAuthoredIdle ? this.selectionAnimFootAnchorY : footAnchorY;
         }
         const shadowReferenceTexture = this.silhouetteShadowReferenceTexture ?? currentTexture;
         let shadowReferenceAnchorY = this.sprite.anchor.y;
@@ -4256,7 +4222,6 @@ export class RenderableUnit extends Unit {
         this.battlefieldAlphaHoleFillFilter = runtimeAlphaHoleFillFilter;
         this.battlefieldContourFilter = runtimeContourFilter;
         this.battlefieldStyleFilter = undefined;
-        this.battlefieldStyleSignature = "";
         if (desiredFilters) {
             this.sprite.filters = desiredFilters.length ? desiredFilters : null;
         }
@@ -4855,7 +4820,6 @@ export class RenderableUnit extends Unit {
         // intentionally preserve the reference across animations.
         if (enabled && !this.useBattlefieldVisualProjection) {
             this.silhouetteShadowReferenceTexture = undefined;
-            this.silhouetteShadowReferenceAnchorY = undefined;
         }
         this.useBattlefieldVisualProjection = enabled;
     }
@@ -5050,7 +5014,6 @@ export class RenderableUnit extends Unit {
             if (this.stunContainer) this.stunContainer.visible = false;
             if (this.immobilizedContainer) this.immobilizedContainer.visible = false;
             if (this.respondContainer) this.respondContainer.visible = false;
-            if (this.activeAura) this.activeAura.visible = false;
             if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
             if (this.whirlpoolAura) this.whirlpoolAura.visible = false;
             return;
@@ -5099,7 +5062,6 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        if (this.activeAura) this.activeAura.visible = false;
         if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
 
         // A resolved attack can consume this buff before its projectile flies. Follow the presented
@@ -5143,28 +5105,6 @@ export class RenderableUnit extends Unit {
         if (this.waterShieldBreakStartMs !== undefined) {
             this.updateWaterShieldBreak(worldRoot, gs, pos, now);
         }
-    }
-    private updateActiveAura(worldRoot: Container, gs: GridSettings, _pos: HoCMath.XY, nowMs: number): void {
-        if (!this.activeAura) {
-            this.activeAura = new Container();
-            this.activeAura.eventMode = "none";
-        }
-        if (this.activeAura.parent !== worldRoot) worldRoot.addChild(this.activeAura);
-        updateActiveTurnGroundRing(
-            this.activeAura,
-            gs,
-            this.getPosition(),
-            this.getFootprintWidth(),
-            this.getFootprintHeight(),
-            this.useBattlefieldVisualProjection,
-            this.texResolver(
-                this.getFootprintWidth() === 2 && this.getFootprintHeight() === 1
-                    ? "active_turn_ancient_runes_ring_oval_v1"
-                    : "active_turn_ancient_runes_ring_v3",
-            ),
-            nowMs,
-        );
-        if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
     }
     private updateActiveTurnFire(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         const frames = getActiveTurnFireFrames();
@@ -12201,7 +12141,6 @@ export class RenderableUnit extends Unit {
             this.silhouetteShadowBlurFilter = undefined;
         }
         this.silhouetteShadowReferenceTexture = undefined;
-        this.silhouetteShadowReferenceAnchorY = undefined;
         for (const segment of this.silhouetteShadowSegments) segment.destroy();
         this.silhouetteShadowSegments = [];
         this.silhouetteShadowSegmented = false;
@@ -12244,23 +12183,13 @@ export class RenderableUnit extends Unit {
         if (this.rosterCard) {
             this.rosterCard.destroy({ children: true });
             this.rosterCard = undefined;
-            this.rosterCardPlate = undefined;
-            this.rosterCardDrawState = undefined;
         }
         if (this.stackPowerContainer) {
             this.stackPowerContainer.destroy({ children: true });
             this.stackPowerContainer.removeFromParent();
             this.stackPowerContainer = undefined;
-            this.stackPowerPips = [];
             this.stackPowerDrawState = undefined;
         }
-        if (this.activeAura) {
-            this.activeAura.destroy({ children: true });
-            this.activeAura = undefined;
-        }
-        this.activeAuraGlow = undefined;
-        this.activeAuraMask = undefined;
-        this.activeAuraGlowBlurFilter = undefined;
         if (this.activeTurnFireSprite) {
             this.activeTurnFireSprite.destroy();
             this.activeTurnFireSprite = undefined;
@@ -13120,9 +13049,6 @@ export class RenderableUnit extends Unit {
         // The opening pose must appear on the same render pass that grants the creature its turn.
         this.stepSelectionAnimation();
     }
-    public setHoverTurnAura(hovered: boolean): void {
-        this.isHoverTurnAura = hovered;
-    }
     public captureHelpingHandReplayStatState(): HelpingHandReplayStatState | undefined {
         if (!this.getBuff("Helping Hand") && !this.getDebuff("Helping Hand")) return undefined;
         const initial = this.initialUnitProperties;
@@ -13188,9 +13114,6 @@ export class RenderableUnit extends Unit {
         if (!effect) return false;
         effect.getProperties().laps = authoritativeLaps;
         return this.applyEffect(effect);
-    }
-    public setActiveAuraColor(color: number): void {
-        this.activeAuraColor = color;
     }
     public applyRecoil(dx: number, dy: number): void {
         const props = this.getUnitProperties();
@@ -14545,7 +14468,6 @@ export class RenderableUnit extends Unit {
         }
     }
     public setStackVisibility(visible: boolean): void {
-        this.stackForcedHidden = !visible;
         if (this.stackPowerContainer) {
             this.stackPowerContainer.visible = visible && this.getStackPower() > 0;
             // Also force alpha update if we are toggling back on
@@ -14567,13 +14489,6 @@ export class RenderableUnit extends Unit {
             this.isPlayingForegroundAttackAnimation()
                 ? CREATURE_ATTACK_FOREGROUND_Z_INDEX
                 : this.getCreatureGroundDepth(),
-        );
-    }
-    private berserkerSwordIdleEnabled(): boolean {
-        return (
-            this.creatureAnimationLabPreviewEnabled &&
-            this.getName() === "Berserker" &&
-            "berserker_sword_idle_atlas" in images
         );
     }
     public getDisplayedAmount(): number {

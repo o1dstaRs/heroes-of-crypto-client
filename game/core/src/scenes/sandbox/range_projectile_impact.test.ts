@@ -3,11 +3,9 @@ import { describe, expect, it } from "bun:test";
 import type { GameEvent, HoCMath } from "@heroesofcrypto/common";
 
 import {
-    type IRangeProjectileImpact,
     findRangeResponseAnimation,
     resolveLiveRangeProjectileTracePosition,
     resolveRangeProjectileImpactPlan,
-    resolveRangeProjectilePlaybackPosition,
 } from "./range_projectile_impact";
 
 type UnitAttackedEvent = Extract<GameEvent, { type: "unit_attacked" }>;
@@ -300,24 +298,6 @@ describe("authoritative ranged projectile plan", () => {
                 intercepted: true,
             },
         ]);
-        expect(resolveRangeProjectilePlaybackPosition(plan[0], false)).toEqual({ x: 300, y: 300 });
-        expect(resolveRangeProjectilePlaybackPosition(plan[1], false)).toEqual({ x: 310, y: 310 });
-    });
-
-    it("uses rendered centers for existing and captured 2x2 victims before event-anchor fallback", () => {
-        const impact: IRangeProjectileImpact = {
-            targetUnitId: "large-interceptor",
-            targetPosition: { x: 320, y: 480 },
-            intercepted: true,
-        };
-        const capturedVisualCenter = { x: 370, y: 530 };
-
-        // Undefined tells the scene to use the existing RenderableUnit.getVisualCenter().
-        expect(resolveRangeProjectilePlaybackPosition(impact, true, capturedVisualCenter)).toBeUndefined();
-        expect(resolveRangeProjectilePlaybackPosition(impact, false, capturedVisualCenter)).toEqual(
-            capturedVisualCenter,
-        );
-        expect(resolveRangeProjectilePlaybackPosition(impact, false)).toEqual({ x: 320, y: 480 });
     });
 
     it("keeps a single Through Shot to exactly one aimed-edge projectile despite legacy extra animations", () => {

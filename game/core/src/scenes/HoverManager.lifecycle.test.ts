@@ -43,7 +43,6 @@ test("loads hover artwork through the scene lease and drops references on teardo
     const internals = hover as unknown as {
         hoverAttackSwordTexture?: Texture;
         hoverRangeTargetEdgeTexture?: Texture;
-        hoverShotHammeredBronzeCasingTexture?: Texture;
     };
 
     await Promise.resolve();
@@ -59,12 +58,10 @@ test("loads hover artwork through the scene lease and drops references on teardo
     ]);
     expect(internals.hoverAttackSwordTexture).toBe(Texture.WHITE);
     expect(internals.hoverRangeTargetEdgeTexture).toBe(Texture.WHITE);
-    expect(internals.hoverShotHammeredBronzeCasingTexture).toBe(Texture.WHITE);
 
     cursorChildren[0].destroy();
     expect(internals.hoverAttackSwordTexture).toBeUndefined();
     expect(internals.hoverRangeTargetEdgeTexture).toBeUndefined();
-    expect(internals.hoverShotHammeredBronzeCasingTexture).toBeUndefined();
 });
 
 test("ignores duplicate lifecycle teardown", () => {

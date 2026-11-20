@@ -4988,7 +4988,6 @@ describe("Wandering Mage board animation states", () => {
             holdLastFrame?: boolean;
         };
         facingDirection: -1 | 1;
-        stackPowerPips: Graphics[];
         stackPowerContainer?: Container;
     };
 
@@ -5058,7 +5057,6 @@ describe("Wandering Mage board animation states", () => {
                 expect(sprite.texture).toBe(internals.selectionAnimFrames![index % 120]);
             }
         }
-        expect(internals.stackPowerPips).toHaveLength(0);
         expect(internals.stackPowerContainer).toBeUndefined();
     });
 
@@ -7861,14 +7859,14 @@ describe("Scavenger thief visual replacement", () => {
     });
 });
 
-test("initializes the active-turn aura color when promoting a base unit", () => {
+test("draws an active promoted base unit without throwing", () => {
     const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
     const worldRoot = new Container();
     unit.setPosition(0, 1024);
     unit.setActiveTurn(true);
 
-    // fromBase() bypasses class-field initializers. An uninitialized activeAuraColor reaches Pixi's
-    // Graphics.fill as undefined and aborts every simulation frame as soon as a unit becomes active.
+    // fromBase() bypasses class-field initializers. An uninitialized active-turn field that reaches
+    // Pixi's Graphics.fill as undefined aborts every simulation frame as soon as a unit becomes active.
     expect(() => unit.syncVisual(worldRoot, gridSettings)).not.toThrow();
     expect(worldRoot.children.some((child) => child instanceof Graphics)).toBe(true);
 });
@@ -8184,9 +8182,6 @@ describe("RenderableUnit revealed roster card", () => {
 
 describe("RenderableUnit steady-state overlays", () => {
     type OverlayInternals = {
-        activeAura?: Container;
-        activeAuraGlow?: Graphics;
-        activeAuraMask?: Graphics;
         activeTurnFireSprite?: Sprite;
         badgeContainer?: Container;
         badgeHeader?: Graphics;
@@ -8204,7 +8199,6 @@ describe("RenderableUnit steady-state overlays", () => {
                 borderWidth: number;
             };
         };
-        stackPowerPips: Graphics[];
         stackPowerDrawState?: { power: number };
         hourglassContainer?: Container;
         hourglassSprite?: Sprite;
@@ -8427,7 +8421,6 @@ describe("RenderableUnit steady-state overlays", () => {
             .activeTurnPointer!.context.instructions.filter((instruction) => instruction.action === "stroke")
             .map((instruction) => (instruction.data.style as { color: number }).color);
 
-        expect(internals.activeAura?.visible ?? false).toBe(false);
         expect(internals.activeTurnFireSprite).toBeUndefined();
         expect(internals.badgeFlagGlow?.visible).toBe(true);
         expect(flagStrokeColors.at(-1)).toBe(0xb08a45);
@@ -8436,37 +8429,9 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(flagGlowStyles.every(({ color }) => color === 0xffd05a)).toBe(true);
         expect(flagGlowStyles.every(({ alpha }) => alpha > 0)).toBe(true);
 
-        // The turn pointer remains above the flag; no ground ring appears when movement ends.
-        unit.syncVisual(worldRoot, gridSettings, true);
-        expect(internals.activeAura?.visible ?? false).toBe(false);
-        unit.syncVisual(worldRoot, gridSettings, false);
-        expect(internals.activeAura?.visible ?? false).toBe(false);
-
-        // Placement hover no longer adds a separate effect beneath the creature.
         unit.setActiveTurn(false);
-        unit.setHoverTurnAura(true);
         unit.syncVisual(worldRoot, gridSettings);
-        expect(internals.activeAura?.visible ?? false).toBe(false);
         expect(internals.badgeFlagGlow?.visible).toBe(false);
-    });
-
-    test("does not draw a hover aura beneath a two-by-two creature", () => {
-        const unit = createRenderableUnit(
-            TeamVals.RIGHT,
-            "Chaos",
-            "Black Dragon",
-            "black_dragon_512",
-            () => Texture.WHITE,
-        );
-        unit.setPosition(0, 1024);
-        unit.setHoverTurnAura(true);
-        const worldRoot = new Container();
-
-        unit.syncVisual(worldRoot, gridSettings);
-        const internals = unit as unknown as OverlayInternals;
-        expect(unit.getCells()).toHaveLength(4);
-        expect(internals.activeAura?.visible ?? false).toBe(false);
-        expect(internals.activeTurnFireSprite?.visible ?? false).toBe(false);
     });
 
     test("keeps the compact amount ribbon hidden with the unit and leaves the old power rail disabled", () => {
@@ -8481,7 +8446,6 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(internals.badgeFlag).toBeInstanceOf(Graphics);
         expect(internals.badgeContainer?.visible).toBe(false);
         expect(internals.badgeFlagGlow?.filters ?? []).toHaveLength(0);
-        expect(internals.stackPowerPips).toHaveLength(0);
         expect(internals.hourglassContainer).toBeUndefined();
         expect(internals.stunContainer).toBeUndefined();
         expect(internals.respondContainer).toBeUndefined();
@@ -8491,7 +8455,6 @@ describe("RenderableUnit steady-state overlays", () => {
         unit.ensureVisual(worldRoot, gridSettings);
         expect(internals.badgeFlag).toBeInstanceOf(Graphics);
         expect(internals.badgeContainer?.visible).toBe(false);
-        expect(internals.stackPowerPips).toHaveLength(0);
     });
 
     test("attaches the hourglass left of the flag and crossed response swords behind it", () => {

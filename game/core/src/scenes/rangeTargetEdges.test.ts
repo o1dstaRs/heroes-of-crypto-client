@@ -336,20 +336,6 @@ describe("ranged target edge selection", () => {
         expect(fireStrikeAim).not.toContain("aimedEnd");
     });
 
-    test("keeps valid Fire Strike targets free of cell fills and target frames", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const fireStrikeAim = source.slice(
-            source.indexOf("private drawFireStrikeAim("),
-            source.indexOf("private drawVineThrowAim("),
-        );
-        const refusedMarker = fireStrikeAim.indexOf("if (refused) {", fireStrikeAim.indexOf("const refused"));
-        const cellMarker = fireStrikeAim.indexOf("tunedCellFillPolygon(impact.cell");
-
-        expect(refusedMarker).toBeGreaterThanOrEqual(0);
-        expect(cellMarker).toBeGreaterThan(refusedMarker);
-        expect(fireStrikeAim).toContain("creature targets intentionally receive no cell fill");
-    });
-
     test("centers the visible highlight on 70% of the edge", () => {
         const segment = centeredRangeTargetEdgeSegment({ x: 0, y: 10 }, { x: 100, y: 30 });
         expect(segment.from.x).toBeCloseTo(15);
