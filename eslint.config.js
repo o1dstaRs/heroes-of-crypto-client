@@ -77,6 +77,11 @@ module.exports = [
         rules: {
             ...typescriptPlugin.configs.recommended.rules,
             ...reactPlugin.configs.recommended.rules,
+            ...jsxA11yPlugin.configs.recommended.rules,
+            // Only these two react-hooks rules: the plugin's v7 "recommended" set also brings the React
+            // Compiler rules, which this codebase does not target.
+            "react-hooks/rules-of-hooks": "error",
+            "react-hooks/exhaustive-deps": "error",
             "selector-id-pattern": "off",
             "max-classes-per-file": "off",
             "no-useless-constructor": "off",

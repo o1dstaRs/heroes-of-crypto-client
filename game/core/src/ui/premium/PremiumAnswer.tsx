@@ -107,6 +107,7 @@ const blocks = (lines: string[], depth = 0): React.ReactNode[] => {
                     key={key}
                     role="region"
                     aria-label="Comparison"
+                    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users must be able to focus and scroll this overflowing table.
                     tabIndex={0}
                     style={{ overflowX: "auto", margin: "8px 0" }}
                 >

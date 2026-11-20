@@ -184,6 +184,7 @@ const AtlasAnimation: React.FC<{
             cycleMs: frameDurationMs * frameCount,
             frameForElapsed: (absMs: number) => Math.floor(absMs / frameDurationMs) % frameCount,
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on every meta field the timing reads, so a fresh meta object does not restart the rAF loop.
     }, [
         playback,
         meta.frameCount,

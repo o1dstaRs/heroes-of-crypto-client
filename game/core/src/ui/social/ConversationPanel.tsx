@@ -144,7 +144,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
             void loadLatest(initial);
             initial = false;
         }, 5_000);
-    }, [friend?.playerId, loadLatest, preview]);
+    }, [friend, loadLatest, preview]);
 
     const loadOlder = async (): Promise<void> => {
         if (!friend || !conversation?.messages.length || loadingOlder) {

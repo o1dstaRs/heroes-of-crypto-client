@@ -291,6 +291,7 @@ export const PremiumDraftPlanner: React.FC<{
             /* Use the left-centre default. */
         }
         // Geometry is restored once. Draft updates never reset a user's window position.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount; fit is a render-scoped helper.
     }, []);
     useEffect(() => {
         const resize = () => {
@@ -298,6 +299,7 @@ export const PremiumDraftPlanner: React.FC<{
         };
         window.addEventListener("resize", resize);
         return () => window.removeEventListener("resize", resize);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fit/geometry read `collapsed`; rect only when still unset.
     }, [collapsed]);
     const start = (event: React.PointerEvent<HTMLElement>, resize = false) => {
         if (event.button !== 0 || (!resize && (event.target as HTMLElement).closest("button"))) return;

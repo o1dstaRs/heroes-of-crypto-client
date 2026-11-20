@@ -345,10 +345,12 @@ export const ThemeMusic: React.FC = () => {
             {/* Never inside the portal: re-parenting an element would remount it and drop the track the moment a
                 sidebar appeared or went away. The second element stays silent until a song is about to end,
                 or until the match track takes over. */}
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- ambient theme music, not spoken content; there is nothing to caption. */}
             <audio ref={audioRef} preload="none">
                 <source ref={webmSourceRef} src={PLAYLIST[0].webm} type="audio/webm; codecs=opus" />
                 <source ref={mp3SourceRef} src={PLAYLIST[0].mp3} type="audio/mpeg" />
             </audio>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- ambient theme music, not spoken content; there is nothing to caption. */}
             <audio ref={nextAudioRef} preload="none">
                 <source ref={nextWebmRef} type="audio/webm; codecs=opus" />
                 <source ref={nextMp3Ref} type="audio/mpeg" />

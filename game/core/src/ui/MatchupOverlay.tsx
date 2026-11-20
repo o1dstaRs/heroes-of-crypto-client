@@ -862,7 +862,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
         return () => {
             cancelled = true;
         };
-        // `playerKey` intentionally captures the stable player identity rather than the freshly-created array.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- playerKey is the stable player identity; players is a fresh array and profiles is written here.
     }, [playerKey]);
 
     const [left, right] = useMemo(() => matchupScreenOrder(players, mirrored), [players, mirrored]);

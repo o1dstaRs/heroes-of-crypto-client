@@ -1175,7 +1175,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         return () => {
             cancelled = true;
         };
-        // profileKey represents the stable seat identities; profileCandidates itself is rebuilt while rendering.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- profileKey is the stable seat identity; profileCandidates is rebuilt every render.
     }, [mode, previewMode, profileKey, liveState.hasFinished, rankedMatch]);
 
     // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.

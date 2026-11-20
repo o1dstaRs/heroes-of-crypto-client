@@ -235,7 +235,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
         writeStoredLavaAnimationTuning(tuning);
         setVisualMode(writeStoredLavaPitVisualMode("burning"));
         return () => setLavaAnimationEditorActive(false);
-        // This mount-only normalization upgrades stale 9/24/48-frame editor ranges to the current 64 frames.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only normalization upgrades stale 9/24/48-frame editor ranges to the current 64 frames.
     }, []);
 
     useEffect(() => {

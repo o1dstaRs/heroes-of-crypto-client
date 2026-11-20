@@ -328,7 +328,9 @@ export function AuthProvider({ children }: Props) {
     }, []);
 
     useEffect(() => {
-        bootstrapGateRef.current.activate();
+        // The gate is created once with the ref and never replaced, so cleanup deactivates the same gate.
+        const bootstrapGate = bootstrapGateRef.current;
+        bootstrapGate.activate();
         const handleStorage = (event: StorageEvent) => {
             if (
                 (event.storageArea === null || event.storageArea === localStorage) &&
@@ -343,7 +345,7 @@ export function AuthProvider({ children }: Props) {
 
         return () => {
             window.removeEventListener("storage", handleStorage);
-            bootstrapGateRef.current.deactivate();
+            bootstrapGate.deactivate();
         };
     }, [initialize]);
 

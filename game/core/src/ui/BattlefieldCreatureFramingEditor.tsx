@@ -468,6 +468,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
     // cannot immediately repopulate the fresh namespace on the next slider movement.
     useEffect(() => {
         setOverrides(readStoredBattlefieldCreatureFraming());
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- the imported key only changes under Fast Refresh, which is exactly when drafts must reload.
     }, [BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY]);
 
     useEffect(() => {
@@ -492,6 +493,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
         return () => {
             footprintOverrideHolder.__hocFootprintOverrides = previousOverrides;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the string keys of visibleCreatureIds/footprintLayout; the arrays are rebuilt every render.
     }, [comparisonRowSizesKey, editorModeKey, footprintOverrideSource, visibleCreatureIdsKey]);
 
     useEffect(() => {
@@ -507,6 +509,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
         return () => {
             cancelled = true;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- idleAtlasUrls is rebuilt every render; editorModeKey is what changes the creature set to preload.
     }, [editorModeKey]);
 
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {

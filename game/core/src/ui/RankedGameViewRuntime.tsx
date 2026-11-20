@@ -1273,7 +1273,6 @@ export const RankedGameView: React.FC<Props> = ({
             effectiveLocalModelConfig.enabled,
             effectiveLocalModelConfig.modelTeam,
             playAuthoritativeRecord,
-            refreshSnapshot,
             reconcileLiveSnapshot,
             rememberAuthoritativeRecord,
             waitForAuthoritativePlayback,
@@ -2029,6 +2028,8 @@ export const RankedGameView: React.FC<Props> = ({
         effectiveLocalModelConfig.authorization,
         effectiveLocalModelConfig.enabled,
         effectiveLocalModelConfig.modelTeam,
+        gameId,
+        manager,
         snapshot,
         submitProtocolActionForTeam,
     ]);

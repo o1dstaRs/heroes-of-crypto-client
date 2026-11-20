@@ -255,7 +255,7 @@ export const LobbyView: React.FC = () => {
             // Stamp the origin: entering the game THROUGH a lobby room gives a "Back to lobby" exit.
             navigate(`/game/${lobby.game_id}`, { state: { from: "lobby", lobbyId } });
         }
-    }, [lobby, status, isMember, navigate]);
+    }, [lobby, lobbyId, status, isMember, navigate]);
 
     // Watch a running lobby game (any public game is observable). Reuses the game route's observer mode.
     const spectate = useCallback(() => {

@@ -381,6 +381,8 @@ interface NotificationsTrayProps {
 
 const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, onMessage, preview = false }) => {
     const social = useSocial();
+    // Stable (useCallback with no deps in SocialProvider), so it does not re-run the tray's load effect.
+    const { clearUnseen } = social;
     const navigate = useNavigate();
     const [items, setItems] = useState<SocialNotification[]>([]);
     const [loading, setLoading] = useState(false);
@@ -465,7 +467,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                 }
                 // Seen = the badge goes to 0; the entries stay on the server, readable under "Earlier".
                 await markNotificationsSeen();
-                social.clearUnseen();
+                clearUnseen();
             } catch {
                 /* tray shows the empty state; the next poll refreshes the badge */
             } finally {
@@ -477,7 +479,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         return () => {
             cancelled = true;
         };
-    }, [open, preview]);
+    }, [clearUnseen, open, preview]);
 
     const pendingIds = new Set(social.pendingIncoming.map((request) => request.requestId));
 

@@ -523,6 +523,7 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
             disposed = true;
             window.clearInterval(timer);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only poll; slotCreatureIds is read once as the seed pushed when the dev server has no state.
     }, []);
 
     useEffect(() => {

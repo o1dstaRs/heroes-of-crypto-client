@@ -809,7 +809,7 @@ export const MatchmakingRoute: React.FC = () => {
         } finally {
             aiStartInFlightRef.current = false;
         }
-    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream, updatePendingGameId]);
+    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream, t, updatePendingGameId]);
 
     // A /play?mode=vs-ai deep link starts the AI match on arrival (optionally at ?difficulty=<tier>).
     // Consume the params before starting so browser Back or a remount cannot unintentionally create

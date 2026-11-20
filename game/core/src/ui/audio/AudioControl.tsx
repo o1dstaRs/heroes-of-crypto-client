@@ -76,8 +76,10 @@ export const AudioControl: React.FC<{ docked: boolean; onSettingsChange: () => v
         onSettingsChange();
     };
     return (
+        // The wrapper only catches hover/focus/Escape bubbling from the button and volume popup inside it.
         <div
             ref={rootRef}
+            role="presentation"
             className="hoc-audio-control"
             data-touch-audio={touch || undefined}
             onMouseEnter={() => {

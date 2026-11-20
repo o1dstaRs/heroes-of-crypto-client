@@ -471,7 +471,7 @@ export const PlayerPortalPage: React.FC = () => {
         });
     };
 
-    const combos = data?.combos ?? [];
+    const combos = useMemo(() => data?.combos ?? [], [data?.combos]);
     const displayedCombos = useMemo(() => {
         const trios = combos.filter((combo) => new Set(combo.creature_ids ?? []).size === 3);
         return trios.length > 0 ? trios : combos.filter((combo) => new Set(combo.creature_ids ?? []).size > 3);
@@ -487,7 +487,7 @@ export const PlayerPortalPage: React.FC = () => {
     const mostPlayedCombos = useMemo(() => [...displayedCombos].slice(0, STRATEGY_LIST_LENGTH), [displayedCombos]);
     // Dense usage lists are ordered by sample size; win rate only breaks equal-game ties.
     const creatureStats = useMemo(() => playerPortalMostPlayedFirst(data?.creature_stats ?? []), [data]);
-    const matches = data?.recent_matches ?? [];
+    const matches = useMemo(() => data?.recent_matches ?? [], [data?.recent_matches]);
     // Shown as the total, available plus gold in play (see goldDisplay); the portal payload carries only available.
     const totalGold =
         displayedGold({ gold: Math.max(0, Number(data?.gold ?? 0)), totalGold: standing?.totalGold }) ?? 0;

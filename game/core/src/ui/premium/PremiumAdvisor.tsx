@@ -66,12 +66,14 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
         [authenticated, gameId, enabled, preview],
     );
     useLayoutEffect(() => {
-        requests.current.reset();
+        // The gate is created once with the ref and never replaced, so cleanup resets the same gate.
+        const gate = requests.current;
+        gate.reset();
         setAdvice(undefined);
         setStale(false);
         setError("");
         setBusy(false);
-        return () => requests.current.reset();
+        return () => gate.reset();
     }, [authenticated, accountKey, gameId, enabled]);
     // Same game and account, next step: drop in-flight reads and hide the old choices, keep the context.
     const firstRefreshKey = useRef(true);
