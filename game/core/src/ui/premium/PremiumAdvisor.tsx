@@ -34,6 +34,9 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     const { authenticated, user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
+    // A new draft step makes the advice stale, not absent. Its choices are withheld until the next read
+    // lands, but views that only need the match context (the draft planner) keep it and update in place.
+    const [stale, setStale] = useState(false);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     const requests = useRef(createPremiumRequestGate());
@@ -44,8 +47,10 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
             if (!request) return;
             try {
                 const next = await fetchPremium(gameId, signal);
-                if (requests.current.isCurrent(request) && !signal?.aborted)
+                if (requests.current.isCurrent(request) && !signal?.aborted) {
                     setAdvice(next.entitlement.active ? next : undefined);
+                    setStale(false);
+                }
             } catch (failure) {
                 if (
                     requests.current.isCurrent(request) &&
@@ -63,10 +68,23 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     useLayoutEffect(() => {
         requests.current.reset();
         setAdvice(undefined);
+        setStale(false);
         setError("");
         setBusy(false);
         return () => requests.current.reset();
-    }, [authenticated, accountKey, gameId, refreshKey, enabled]);
+    }, [authenticated, accountKey, gameId, enabled]);
+    // Same game and account, next step: drop in-flight reads and hide the old choices, keep the context.
+    const firstRefreshKey = useRef(true);
+    useLayoutEffect(() => {
+        if (firstRefreshKey.current) {
+            firstRefreshKey.current = false;
+            return;
+        }
+        requests.current.reset();
+        setStale(true);
+        setError("");
+        setBusy(false);
+    }, [refreshKey]);
     useEffect(() => {
         if (preview || !enabled || !authenticated) return;
         const controller = new AbortController();
@@ -84,7 +102,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated, preview]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
-            if (preview || !enabled || !gameId || !advice || busy) return;
+            if (preview || !enabled || !gameId || !advice || stale || busy) return;
             const request = requests.current.begin("apply");
             if (!request) return;
             let refreshAfterFailure = false;
@@ -120,9 +138,16 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
                 }
             }
         },
-        [gameId, advice, busy, refresh, enabled, preview],
+        [gameId, advice, stale, busy, refresh, enabled, preview],
     );
-    return { advice: enabled ? (preview ?? advice) : undefined, apply, busy, error };
+    return {
+        advice: enabled ? (preview ?? (stale ? undefined : advice)) : undefined,
+        /** The latest advice for this game and account, kept through a step change until its successor lands. */
+        retainedAdvice: enabled ? (preview ?? advice) : undefined,
+        apply,
+        busy,
+        error,
+    };
 };
 
 const ChoiceExplanation: React.FC<{ choice: PremiumChoice; rank?: number }> = ({ choice, rank }) => {
@@ -269,15 +294,20 @@ export const PremiumShield: React.FC<{ testOnly?: boolean; size?: number }> = ({
     );
 };
 
-export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: PremiumDraftState }> = ({
-    advice,
-    draft,
-}) => {
+export const PremiumDraftBanner: React.FC<{
+    advice?: PremiumAdvice;
+    /** Kept through a pick so the planner updates in place instead of unmounting while advice reloads. */
+    retainedAdvice?: PremiumAdvice;
+    draft: PremiumDraftState;
+}> = ({ advice, retainedAdvice, draft }) => {
+    const shown = advice?.entitlement.active ? advice : retainedAdvice?.entitlement.active ? retainedAdvice : undefined;
     const impression = usePremiumAdviceView(advice?.gameId, advice?.adviceId);
-    if (!advice?.entitlement.active) return null;
-    const recommendations = draft.isYourTurn ? premiumDraftChoices(advice.choices).slice(0, 3) : [];
+    if (!shown) return null;
+    // Choices only ever come from current advice; the retained copy carries the planner's context alone.
+    const recommendations =
+        draft.isYourTurn && advice?.entitlement.active ? premiumDraftChoices(advice.choices).slice(0, 3) : [];
     return (
-        <PremiumDraftPlanner advice={advice} draft={draft} impression={impression}>
+        <PremiumDraftPlanner advice={shown} draft={draft} impression={impression}>
             {recommendations.length > 0 && (
                 <Box component="ol" aria-label="Recommended draft choices" sx={{ m: 0, p: 0, listStyle: "none" }}>
                     {recommendations.map((choice, index) => (
@@ -305,16 +335,21 @@ export const PremiumSetupPanel: React.FC<{
     children?: React.ReactNode;
 }> = ({ gameId, stageKey, auto = false, setupView = false, draft, plannerContainer, children }) => {
     const enabled = usePremiumCapability("setup");
-    const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
+    const { advice: currentAdvice, retainedAdvice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
+    // Between steps keep the previous advice on screen: dropping it re-parents the board and the planner,
+    // which remounts them and flashes the whole view. Applying is refused until current advice lands.
+    const advice = currentAdvice ?? retainedAdvice;
     const impression = usePremiumAdviceView(gameId, advice?.adviceId);
     const askQuestion = useAskPremiumQuestion();
     const autoAttempt = useRef<string | undefined>(undefined);
     useEffect(() => {
-        if (!auto || advice?.stage !== "board" || !advice.canAutoArrange || advice.ready || busy) return;
+        // Only current advice may spend the one automatic attempt; a retained copy would be refused.
+        if (!auto || currentAdvice?.stage !== "board" || !currentAdvice.canAutoArrange || currentAdvice.ready || busy)
+            return;
         if (autoAttempt.current === gameId) return;
         autoAttempt.current = gameId;
         void apply("automatic");
-    }, [auto, advice, apply, busy, gameId]);
+    }, [auto, currentAdvice, apply, busy, gameId]);
     if (!advice || advice.stage === "fight") return <>{children}</>;
     return (
         <PremiumContext.Provider value={advice}>

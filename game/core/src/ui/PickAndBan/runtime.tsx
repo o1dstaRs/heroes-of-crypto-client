@@ -3620,6 +3620,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
                 <PremiumDraftBanner
                     advice={premium.advice}
+                    retainedAdvice={premium.retainedAdvice}
                     draft={{
                         gameId,
                         doctrine,

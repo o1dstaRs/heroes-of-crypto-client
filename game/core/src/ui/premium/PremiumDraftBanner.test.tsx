@@ -110,3 +110,33 @@ test.each([
     for (let i = 1; i <= shown; i++) expect(html).toContain(`Army fit for choice ${i}`);
     expect(html).not.toContain(`Army fit for choice ${shown + 1}`);
 });
+
+test("between picks the planner stays mounted from retained advice but never shows its old choices", () => {
+    const retained: PremiumAdvice = {
+        entitlement: { active: true, reason: "test" },
+        revision: "draft-previous",
+        choices: [{ kind: "creature", value: 1, label: "Stale choice", reasons: ["From the previous pick"] }],
+    };
+    const html = renderToStaticMarkup(
+        <CacheProvider value={createCache({ key: "premium-retained" })}>
+            <PremiumSearchPromptContext.Provider value={() => {}}>
+                <PremiumDraftBanner
+                    advice={undefined}
+                    retainedAdvice={retained}
+                    draft={{
+                        gameId: "draft-test",
+                        picked: [],
+                        opponentPicked: [],
+                        artifactTier1: 0,
+                        artifactTier2: 0,
+                        isYourTurn: true,
+                    }}
+                />
+            </PremiumSearchPromptContext.Provider>
+        </CacheProvider>,
+    );
+    expect(html).toContain("Draft planner");
+    expect(html).toContain("Live draft projected battlefield");
+    expect(html).not.toContain("Stale choice");
+    expect(html).not.toContain("Recommended draft choices");
+});
