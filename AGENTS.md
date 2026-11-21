@@ -219,6 +219,13 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
+**Pre-fight goals (owner, November 21, 2026).** The owner's standing goal covers everything a ranked AI seat does
+before the fight. It draws each doctrine a third of the time and uses its information (map, opponent units, bans).
+It plans synergies, picks counters and map-suited units, and chooses artifacts and upgrades for its strategy. It
+places, and splits, its units well. Read the server's
+[AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
+artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
+
 Current default is profile v22, revision suffix
 `tier2-striker-v1-keep-attack-v1-rejection-fixes-v1`. `a19-rejection-fixes-v1` was adopted on November 21,
 2026, at the owner's request ("Need to fix all rejection causes"). Read common's
