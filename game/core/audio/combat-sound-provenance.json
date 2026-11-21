@@ -4137,26 +4137,28 @@
                 "label": "Selected Wolf Rider idle",
                 "selection": "Explicitly selected by the user for Wolf Rider idle",
                 "license": "License receipt not included in the supplied file",
-                "duration_limit_ms": 8000
+                "duration_limit_ms": 8000,
+                "level_db": -4.44,
+                "level_selection": "User asked for this sound 40% less loud: 60% amplitude"
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.0,
-                    "true_peak_db": -6.2,
-                    "bytes": 44867,
+                    "lufs": -24.44,
+                    "true_peak_db": -10.68,
+                    "bytes": 44338,
                     "duration_ms": 5414,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 4,
-                    "rms_db": -20.03
+                    "rms_db": -24.47
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -6.73,
+                    "lufs": -24.88,
+                    "true_peak_db": -11.15,
                     "bytes": 65708,
                     "duration_ms": 5414,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 4,
-                    "rms_db": -20.48
+                    "rms_db": -24.91
                 }
             }
         },

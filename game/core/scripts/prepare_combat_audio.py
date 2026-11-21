@@ -321,8 +321,14 @@ def master(key, records, work, output, max_duration_ms=None):
     mastered = folder / "master.wav"
     duration_edit = metrics.get("duration_edit")
     write_wave(trimmed, fade_edges(samples[start:end], fade_out_ms=duration_edit["fade_out_ms"] if duration_edit else 20))
+    # A sound chosen to sit quieter than the rest (e.g. an idle loop that plays under the hits) is mastered to a
+    # lower loudness target: level_db is relative to TARGET_LUFS, never louder.
+    level_db = record.get("source", {}).get("level_db", 0)
+    if not isinstance(level_db, (int, float)) or not math.isfinite(level_db) or not -24 <= level_db <= 0:
+        raise ValueError(key + ": level_db must be between -24 and 0")
+    target_lufs = TARGET_LUFS + level_db
     measured = loudness(trimmed)
-    gain_db = TARGET_LUFS - measured["lufs"]
+    gain_db = target_lufs - measured["lufs"]
     limit_db = -4.0  # initial extra headroom for codec overshoot
     destination = output / key.replace("/", "_")
     output.mkdir(parents=True, exist_ok=True)
@@ -334,7 +340,7 @@ def master(key, records, work, output, max_duration_ms=None):
                f"volume={gain_db}dB,aresample=192000,alimiter=limit={limiter}:level=false:attack=2:release=60:latency=true,aresample=48000",
                "-t", duration, "-c:a", "pcm_f32le", mastered)
         measurement = loudness(mastered)
-        error = TARGET_LUFS - measurement["lufs"]
+        error = target_lufs - measurement["lufs"]
         # Gating can jump slightly on a very sharp, short impact. The final encoded
         # contract is 0.75 LUFS, so avoid oscillating around an unnecessarily tight
         # pre-encode threshold while the output already fits that contract.
@@ -359,9 +365,9 @@ def master(key, records, work, output, max_duration_ms=None):
         if over > 0:
             limit_db -= over + 0.3
             continue
-        if all(abs(m["lufs"] - TARGET_LUFS) <= 0.75 for m in encoded.values()):
+        if all(abs(m["lufs"] - target_lufs) <= 0.75 for m in encoded.values()):
             break
-        gain_db += TARGET_LUFS - sum(m["lufs"] for m in encoded.values()) / len(encoded)
+        gain_db += target_lufs - sum(m["lufs"] for m in encoded.values()) / len(encoded)
     else:
         raise ValueError(key + ": loudness/peak target could not be met: " + str({"master": measurement, "encoded": encoded}))
     keeps_edges = record.get("source", {}).get("keep_edges") is True

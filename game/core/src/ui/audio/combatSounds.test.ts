@@ -75,7 +75,10 @@ describe("combat sounds", () => {
                 expect(bytes.length).toBe(measured.bytes);
                 expect(bytes.length).toBeLessThanOrEqual(maxBytes);
                 expect(bytes.length).toBeGreaterThan(500);
-                expect(Math.abs(measured.lufs + 20)).toBeLessThanOrEqual(0.75);
+                // A sound chosen to sit quieter is mastered to -20 LUFS plus its recorded (negative) level_db.
+                const levelDb = (clip.source as { level_db?: number } | undefined)?.level_db ?? 0;
+                expect(levelDb).toBeLessThanOrEqual(0);
+                expect(Math.abs(measured.lufs - (-20 + levelDb))).toBeLessThanOrEqual(0.75);
                 expect(measured.true_peak_db).toBeLessThanOrEqual(-3);
                 expect(measured.duration_ms).toBeLessThanOrEqual(maxDurationMs);
             }

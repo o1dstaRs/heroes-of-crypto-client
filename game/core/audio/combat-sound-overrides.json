@@ -1011,7 +1011,9 @@
             "label": "Selected Wolf Rider idle",
             "selection": "Explicitly selected by the user for Wolf Rider idle",
             "license": "License receipt not included in the supplied file",
-            "duration_limit_ms": 8000
+            "duration_limit_ms": 8000,
+            "level_db": -4.44,
+            "level_selection": "User asked for this sound 40% less loud: 60% amplitude"
         }
     },
     "mermaid/move": {

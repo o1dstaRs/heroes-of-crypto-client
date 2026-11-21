@@ -114,6 +114,22 @@ class CombatMasteringTests(unittest.TestCase):
             trimmed = master("test/move", [plain], work / "plain", work / "plain-output")
             self.assertLess(trimmed["encoded"]["webm"]["duration_ms"], 1400)
 
+    def test_level_db_masters_a_chosen_sound_quieter_than_the_shared_target(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
+            work = Path(folder)
+            source = work / "howl.wav"
+            write_wave(source, array.array("f", self.tone(0.6)))
+            record = {"path": source, "unit": "test", "slug": "test", "role": "idle", "source_id": "howl",
+                      "source": {"kind": "user-provided", "duration_limit_ms": 8000, "level_db": -4.44}}
+            result = master("test/idle", [record], work, work / "output")
+            for encoded in result["encoded"].values():
+                self.assertLessEqual(abs(encoded["lufs"] + 24.44), 0.75)
+            self.assertEqual(result["source"]["level_db"], -4.44)
+            for level in (1, float("nan"), "loud"):
+                louder = {**record, "source": {**record["source"], "level_db": level}}
+                with self.assertRaisesRegex(ValueError, "level_db"):
+                    master("test/idle", [louder], work / "bad", work / "bad-output")
+
     def test_long_silence_padding_does_not_reject_a_short_complete_event(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / "tmp") as folder:
             work = Path(folder)
