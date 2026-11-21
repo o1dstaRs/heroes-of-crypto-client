@@ -367,6 +367,18 @@ const DAMAGE_PREDICTION_RANGE_ICON_SCALE = 1.45;
 // sibling makes the foreground guarantee structural: no depth-sorted barrel, unit or target silhouette can
 // cover the numbers or either icon.
 const DAMAGE_PREDICTION_OVERLAY_Z_INDEX = 100;
+/**
+ * Board layers of the ranged-aim pieces, back to front. An aim running on the ground behind its shooter keeps
+ * the same order just under the shooter's figure: above its ground shadow (depth − 0.5), below the figure.
+ */
+const RANGE_AIM_LAYERS = {
+    rail: { board: 2200, underFigure: -0.1 },
+    fletching: { board: 2201, underFigure: -0.09 },
+    casing: { board: 2202, underFigure: -0.08 },
+    arrowhead: { board: 5601, underFigure: -0.07 },
+    sparks: { board: 5602, underFigure: -0.06 },
+} as const;
+type RangeAimLayer = keyof typeof RANGE_AIM_LAYERS;
 
 export const damagePredictionVerticalScaleCompensation = (cameraScale: HoCMath.XY): number => {
     const zoomX = Math.abs(cameraScale.x) || 1;
@@ -505,6 +517,9 @@ export interface ISandboxHoverContext {
     texAny(name: string): Texture | undefined;
     waitForTexture?(name: string): Promise<Texture | undefined>;
     attachToWorldRoot(obj: Container, zIndex: number): void;
+    attachToUnitDepthRoot?(obj: Container, zIndex: number): void;
+    /** The shooter's figure depth when a ranged aim from `from` to `to` runs on the ground behind it. */
+    getRangeAimDepth?(from: HoCMath.XY, to: HoCMath.XY): number | undefined;
     attachToCursorOverlay(obj: Sprite | Text, zIndex?: number): void;
     getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined;
     // Wait, IPlacement IS imported in Sandbox.ts from common.
@@ -709,6 +724,31 @@ export class HoverManager {
             return false;
         }
     }
+    /**
+     * A ranged aim lies on the ground. Running into the back rows it passes behind its shooter, so it goes just
+     * under the shooter's figure, which then hides it instead of the aim being painted across its body.
+     */
+    private resolveRangeAimDepth(from: HoCMath.XY, to: HoCMath.XY): void {
+        this.rangeAimDepth = this.context.attachToUnitDepthRoot ? this.context.getRangeAimDepth?.(from, to) : undefined;
+    }
+    /** Re-parents only when the layer changes: re-sorting the world on every pointer move froze ranged hover. */
+    private placeRangeAimPiece(piece: Container, layer: RangeAimLayer): boolean {
+        const depth = this.rangeAimDepth;
+        const behind = depth !== undefined;
+        const zIndex = behind ? depth + RANGE_AIM_LAYERS[layer].underFigure : RANGE_AIM_LAYERS[layer].board;
+        const placed = this.rangeAimPlacements.get(piece);
+        if (placed && placed.behind === behind && placed.zIndex === zIndex && placed.parent === piece.parent)
+            return true;
+        try {
+            if (behind) this.context.attachToUnitDepthRoot!(piece, zIndex);
+            else this.context.attachToWorldRoot(piece, zIndex);
+        } catch {
+            return false;
+        }
+        piece.zIndex = zIndex;
+        this.rangeAimPlacements.set(piece, { parent: piece.parent, zIndex, behind });
+        return true;
+    }
     private getLiveUnitPreview(
         props: UnitProperties,
         logicalPosition: HoCMath.XY,
@@ -818,8 +858,9 @@ export class HoverManager {
         if (this.isGraphicsUsable(this.spellBeam)) this.safeAttachGraphics(this.spellBeam, 2199);
         if (this.magicAimDualHelix) this.context.attachToWorldRoot(this.magicAimDualHelix, 2199);
         if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
-            this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
-        if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
+            this.placeRangeAimPiece(this.hoverShotEmergenceSparks, "sparks");
+        if (this.isGraphicsUsable(this.hoverShotJointSparks))
+            this.placeRangeAimPiece(this.hoverShotJointSparks, "sparks");
         if (this.isGraphicsUsable(this.hoverAttackOrigin)) {
             this.safeAttachGraphics(this.hoverAttackOrigin, ATTACK_GEOMETRY_Z_INDEX);
         }
@@ -1253,6 +1294,12 @@ export class HoverManager {
     private hoverShotStartFletching?: Sprite;
     private hoverShotEmergenceSparks?: Graphics;
     private hoverShotJointSparks?: Graphics;
+    /** Figure depth of the shooter the current ranged aim runs behind, or undefined when it runs in front. */
+    private rangeAimDepth?: number;
+    private readonly rangeAimPlacements = new WeakMap<
+        Container,
+        { parent: Container | null; zIndex: number; behind: boolean }
+    >();
     private animatedRangeArrow?: {
         from: HoCMath.XY;
         to: HoCMath.XY;
@@ -1664,13 +1711,12 @@ export class HoverManager {
         if (!marker || marker.destroyed) {
             marker = new Sprite(texture);
             marker.eventMode = "none";
-            // Attaching sets zIndex on a sortable world container. Doing it on every pointer move
-            // dirtied Pixi's full child order and made ranged hover appear to freeze; attach once.
-            this.context.attachToWorldRoot(marker, 5601);
             this.hoverRangeTargetEdgeSprites[0] = marker;
         } else if (marker.texture !== texture) {
             marker.texture = texture;
         }
+        this.resolveRangeAimDepth(trajectoryFrom, markerCenter);
+        this.placeRangeAimPiece(marker, "arrowhead");
         // Keep the physical socket center — not the transparent canvas center — on the casing rail.
         marker.anchor.set(0.66, arrowheadAxisAnchorY);
         const transform = cameraCompensatedSpriteTransform(
@@ -1709,13 +1755,10 @@ export class HoverManager {
         }
         if (!this.isGraphicsUsable(sparks)) {
             sparks = new Graphics();
-            if (!this.safeAttachGraphics(sparks, 5602)) {
-                sparks.destroy();
-                return;
-            }
             if (kind === "emergence") this.hoverShotEmergenceSparks = sparks;
             else this.hoverShotJointSparks = sparks;
         }
+        if (!this.placeRangeAimPiece(sparks, "sparks")) return;
 
         sparks.clear();
         sparks.visible = true;
@@ -2091,13 +2134,15 @@ export class HoverManager {
         }
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
 
-        if (!this.isGraphicsUsable(this.hoverAttackArrow)) {
-            this.hoverAttackArrow = new Graphics();
-            if (!this.safeAttachGraphics(this.hoverAttackArrow, 2200)) {
-                this.hoverAttackArrow.destroy();
-                this.hoverAttackArrow = undefined;
-                return;
-            }
+        // Re-resolved every frame: the shooter's depth follows the creature depth sort.
+        this.resolveRangeAimDepth(from, to);
+        const arrowhead = this.hoverRangeTargetEdgeSprites[0];
+        if (arrowhead?.visible && !arrowhead.destroyed) this.placeRangeAimPiece(arrowhead, "arrowhead");
+        if (!this.isGraphicsUsable(this.hoverAttackArrow)) this.hoverAttackArrow = new Graphics();
+        if (!this.placeRangeAimPiece(this.hoverAttackArrow, "rail")) {
+            this.hoverAttackArrow.destroy();
+            this.hoverAttackArrow = undefined;
+            return;
         }
 
         const g = this.hoverAttackArrow;
@@ -2243,14 +2288,13 @@ export class HoverManager {
                     if (!fletching || fletching.destroyed) {
                         fletching = new Sprite(fletchingTexture);
                         fletching.eventMode = "none";
-                        // Keep the socket behind the emerging casing: once metal fills the hole, its dark
-                        // inner ellipse must be occluded instead of remaining painted over the projectile.
-                        this.context.attachToWorldRoot(fletching, 2201);
                         this.hoverShotStartFletching = fletching;
                     } else if (fletching.texture !== fletchingTexture) {
                         fletching.texture = fletchingTexture;
                     }
-                    fletching.zIndex = 2201;
+                    // Keep the socket behind the emerging casing: once metal fills the hole, its dark
+                    // inner ellipse must be occluded instead of remaining painted over the projectile.
+                    this.placeRangeAimPiece(fletching, "fletching");
                     fletching.anchor.set(0.5, fletchingAxisAnchorY);
                     const fletchingPosition = {
                         x: from.x + ux * fletchingOffsetAlong + nx * fletchingOffsetPerpendicular,
@@ -2369,14 +2413,13 @@ export class HoverManager {
                     if (!shaft || shaft.destroyed) {
                         shaft = new Sprite(renderTexture);
                         shaft.eventMode = "none";
-                        this.context.attachToWorldRoot(shaft, 2202);
                         this.hoverShotShaftSprites[shaftIndex] = shaft;
                     } else if (shaft.texture !== renderTexture) {
                         shaft.texture = renderTexture;
                     }
                     // Every progressively revealed slice stays in front of the fletching socket, so even
                     // the first partial pixel column naturally covers the hole it is emerging through.
-                    shaft.zIndex = 2202;
+                    this.placeRangeAimPiece(shaft, "casing");
                     shaft.anchor.set(0.5, shaftAxisAnchorY);
                     shaft.visible = true;
                     const pathProgress = Math.max(
@@ -2413,14 +2456,9 @@ export class HoverManager {
                     let jointSparks = this.hoverShotJointSparks;
                     if (!this.isGraphicsUsable(jointSparks)) {
                         jointSparks = new Graphics();
-                        if (!this.safeAttachGraphics(jointSparks, 5602)) {
-                            jointSparks.destroy();
-                            jointSparks = undefined;
-                        } else {
-                            this.hoverShotJointSparks = jointSparks;
-                        }
+                        this.hoverShotJointSparks = jointSparks;
                     }
-                    if (jointSparks) {
+                    if (this.placeRangeAimPiece(jointSparks, "sparks")) {
                         jointSparks.clear();
                         jointSparks.visible = true;
                         const arrowheadDisplayLength =

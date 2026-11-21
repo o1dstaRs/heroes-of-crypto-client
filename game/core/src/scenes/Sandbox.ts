@@ -396,6 +396,8 @@ export const restoreFightSetupAfterHydrationReset = (
 };
 
 const SILENT_SCENE_LOG: ISceneLog = { getLog: () => "", updateLog: () => undefined, hasBeenUpdated: () => false };
+/** How far from the shooter's centre, in cells per footprint cell, an aim still starts from the shooter's own cell. */
+const RANGE_AIM_FROM_OWN_CELL_REACH = 0.8;
 
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
 interface IUnitFightSnapshot {
@@ -1453,6 +1455,8 @@ export class Sandbox extends PixiScene {
             texAny: (name) => this.texAny(name),
             waitForTexture: (name) => this.waitForTexture(name),
             attachToWorldRoot: (obj, z) => this.attachToWorldRoot(obj, z),
+            attachToUnitDepthRoot: (obj, z) => this.attachToUnitDepthRoot(obj, z),
+            getRangeAimDepth: (from, to) => this.rangeAimFigureDepth(from, to),
             attachToCursorOverlay: (obj, zIndex = 0) => {
                 const cursorOverlayRoot = this.pixiApp.getCursorOverlayRoot();
                 if (obj.parent !== cursorOverlayRoot) {
@@ -20063,6 +20067,24 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
         this.sc_visibleStateUpdateNeeded = true;
         return true;
+    }
+    /**
+     * The active shooter's figure depth when its ranged aim leaves its own cell for the back rows: the aim then
+     * runs on the ground behind the figure and is drawn under it.
+     */
+    private rangeAimFigureDepth(from: HoCMath.XY, to: HoCMath.XY): number | undefined {
+        const shooter = this.currentActiveUnit;
+        // World y grows toward the back rows.
+        if (!shooter || to.y <= from.y) return undefined;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = projectBattlefieldPoint(shooter.getPosition(), gs);
+        // A move-then-shoot aim starts at the landing cell's silhouette, not at the figure standing here.
+        const reach =
+            gs.getCellSize() *
+            RANGE_AIM_FROM_OWN_CELL_REACH *
+            Math.max(shooter.getFootprintWidth(), shooter.getFootprintHeight());
+        if (Math.hypot(from.x - cell.x, from.y - cell.y) > reach) return undefined;
+        return shooter.getFigureDepth(this.drawer.getUnitsContainer());
     }
     /** Where a unit's projectile starts: its painted release, kept from flying backwards at a close target. */
     private projectileRelease(unit: RenderableUnit, target: HoCMath.XY, gs: GridSettings): HoCMath.XY {

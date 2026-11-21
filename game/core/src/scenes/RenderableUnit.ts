@@ -9596,6 +9596,11 @@ export class RenderableUnit extends Unit {
             (this.sprite ? Math.abs(this.sprite.scale.x) * 112 : gs.getCellSize() * 0.34) * CANNON_BALL_SIZE_MULTIPLIER
         );
     }
+    /** Depth of the standing figure among the creatures in `unitLayer`; undefined while hidden or lifted out of it. */
+    public getFigureDepth(unitLayer: Container): number | undefined {
+        const sprite = this.sprite;
+        return sprite?.visible && sprite.parent === unitLayer ? sprite.zIndex : undefined;
+    }
     /** The painted release, slid back toward the body when a close target would make the projectile fly backwards. */
     public aimProjectileRelease(release: HoCMath.XY, target: HoCMath.XY, gs: GridSettings): HoCMath.XY {
         // The figure stands centred on its cell; a sprite's anchor and canvas are not always centred on the body.
