@@ -86,6 +86,22 @@ const UNUSED_PRODUCTION_ASSETS = new Set([
     "vfx_griffin_question_bow_aura_v2",
     "vfx_griffin_question_bow_aura_v3",
     "zena_chakram_sparks_v15",
+    // Effect sizes nothing loads, also in the core bundle: 3.2 MB. The Abomination hand aura lost its
+    // renderer in 85980917; Battle Roar and Unyielding Power play only their short full-size atlas, and
+    // the other pops load only their full-size (Angel Resurrection: full) atlas.
+    "vfx_abomination_hand_aura_atlas",
+    "vfx_abomination_hand_aura_atlas_half",
+    "vfx_abomination_hand_aura_atlas_quarter",
+    "vfx_angel_resurrection_pop_atlas_half",
+    "vfx_angel_resurrection_pop_atlas_quarter",
+    "vfx_backstab_pop_atlas_quarter",
+    "vfx_battle_roar_long_atlas",
+    "vfx_battle_roar_long_atlas_quarter",
+    "vfx_battle_roar_short_atlas_quarter",
+    "vfx_magic_reflection_pop_atlas_quarter",
+    "vfx_petrifying_gaze_pop_atlas_quarter",
+    "vfx_unyielding_power_curl_long_atlas",
+    "vfx_unyielding_power_curl_long_atlas_quarter",
     "accept_text",
     "ambient_fire_right_brazier_atlas",
     "banner_green",

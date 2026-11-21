@@ -61,6 +61,31 @@ describe("production portrait preview policy", () => {
     });
 });
 
+describe("production effect size policy", () => {
+    test("omits effect sizes nothing loads and keeps the ones the pops play", () => {
+        for (const key of [
+            "vfx_abomination_hand_aura_atlas",
+            "vfx_battle_roar_long_atlas",
+            "vfx_battle_roar_short_atlas_quarter",
+            "vfx_unyielding_power_curl_long_atlas",
+            "vfx_angel_resurrection_pop_atlas_half",
+            "vfx_backstab_pop_atlas_quarter",
+        ]) {
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(true);
+        }
+        for (const key of [
+            "vfx_battle_roar_short_atlas",
+            "vfx_unyielding_power_curl_short_atlas",
+            "vfx_angel_resurrection_pop_atlas",
+            "vfx_backstab_pop_atlas",
+            "vfx_petrifying_gaze_pop_atlas",
+            "vfx_magic_reflection_pop_atlas",
+        ]) {
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);
+        }
+    });
+});
+
 describe("production environment image policy", () => {
     test("keeps every environment atlas used by the live dungeon", () => {
         for (const key of [
