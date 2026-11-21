@@ -70,7 +70,7 @@ import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
-import { BlacksmithSpells } from "./BlacksmithSpells";
+import { UnitSpells, unitSpellEntries } from "./UnitSpells";
 import { CreatureNameFlag } from "./CreatureNameFlag";
 
 interface IAbilityStackProps {
@@ -1984,9 +1984,14 @@ const UnitStatsLayout: React.FC<{
                 </IconScrollWell>
             </PanelSection>
 
-            {unitProperties.name === "Blacksmith" && (
+            {/* Every spellcaster's scrolls, not only the Blacksmith's. */}
+            {unitSpellEntries(unitProperties.name, unitProperties.spells).length > 0 && (
                 <PanelSection title="Magic" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
-                    <BlacksmithSpells spells={unitProperties.spells} size={abilityTileSize(metrics)} />
+                    <UnitSpells
+                        unitName={unitProperties.name}
+                        spells={unitProperties.spells}
+                        size={abilityTileSize(metrics)}
+                    />
                 </PanelSection>
             )}
 

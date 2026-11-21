@@ -27,6 +27,8 @@ export interface CreatureCatalogConfig {
     footprint_width?: number;
     footprint_height?: number;
     abilities?: string[];
+    /** Spell charges as "Faction:Spell", one entry per scroll. */
+    spells?: string[];
 }
 
 export interface CreatureCatalogEntry {
@@ -55,6 +57,10 @@ const creatureConfigByName: Map<string, CreatureCatalogEntry> = (() => {
     }
     return map;
 })();
+
+/** The catalogue entry for a creature name, or undefined for a name the client does not know. */
+export const creatureCatalogEntryByName = (name: string): CreatureCatalogEntry | undefined =>
+    creatureConfigByName.get(name.trim());
 
 /** The catalogue entry behind a creature id, or undefined for an id the client does not know. */
 export const creatureCatalogEntry = (creatureId: number): CreatureCatalogEntry | undefined => {
