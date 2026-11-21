@@ -260,29 +260,20 @@
         }
     },
     "thunderbird/hurt": {
-        "source_id": "provided-a137fc38a3ddb00c683c-0-1050",
-        "path": "tmp/audio/raw/provided/a137fc38a3ddb00c/excerpt-0-1050.wav",
+        "source_id": "provided-53750196e40b5a00e27f",
+        "path": "tmp/audio/raw/provided/53750196e40b5a00/hawk-scream-epic-stock-media-1-00-01.mp3",
         "source": {
             "kind": "user-provided",
-            "filename": "tropical-bird-squawk-ra-music-1-00-03.mp3",
-            "title": "Tropical bird squawk",
-            "author": "RA Music",
-            "sha256": "a137fc38a3ddb00c683c3d5cd721df62ed956a2d27010b833c2aa8430f6995b1",
-            "label": "Opening squawk",
-            "license": "License receipt not included in the supplied file",
-            "selection": "Explicitly selected by the user",
-            "duration_limit_ms": 1600,
+            "source_id": "provided-53750196e40b5a00e27f",
+            "filename": "hawk-scream-epic-stock-media-1-00-01.mp3",
+            "title": "Hawk scream",
+            "author": "Epic Stock Media",
+            "sha256": "53750196e40b5a00e27f69fb256767e1b5c63ce3463d19fae5eee658fc30bc48",
             "source_site": "https://uppbeat.io/",
-            "excerpt": {
-                "start_ms": 0,
-                "end_ms": 1050,
-                "original_duration_ms": 3000,
-                "original_path": "tmp/audio/raw/provided/a137fc38a3ddb00c/tropical-bird-squawk-ra-music-1-00-03.mp3",
-                "sha256": "838b84e6314f00ca9c2191571da72c34d341589da5749837d136762bbecb9f47",
-                "speed": 1,
-                "pitch_shift_semitones": 0
-            },
-            "source_id": "provided-a137fc38a3ddb00c683c-0-1050"
+            "label": "Selected Thunderbird hurt",
+            "selection": "Explicitly selected by the user for Thunderbird hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
         }
     },
     "unicorn/hurt": {
@@ -1250,6 +1241,34 @@
             "selection": "Explicitly selected by the user for Tsar Cannon hurt",
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
+        }
+    },
+    "thunderbird/attack": {
+        "source_id": "provided-f489bca9b17ea614c896-1640-2800",
+        "path": "tmp/audio/raw/provided/f489bca9b17ea614/excerpt-1640-2800.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "hawk-attack-gfx-sounds-1-00-07.mp3",
+            "title": "Hawk attack",
+            "author": "GFX Sounds",
+            "sha256": "f489bca9b17ea614c896ed3fa31b11537bcbb82d6b8db8353a87f9cad1cfe2b7",
+            "label": "Hawk attack",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Thunderbird attack",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "excerpt": {
+                "start_ms": 1640,
+                "end_ms": 2800,
+                "original_duration_ms": 7069,
+                "original_path": "tmp/audio/raw/provided/f489bca9b17ea614/hawk-attack-gfx-sounds-1-00-07.mp3",
+                "sha256": "74c223cd9ecd45de213166316580f8d37b86e9d03ab7777d7573b216e2f41c74",
+                "speed": 1.0,
+                "pitch_shift_semitones": 0,
+                "selection": "The hawk's scream, from its onset at 1.65 s (the wind before it left out) through its loudest part, faded over the last 300 ms",
+                "fade_out_ms": 300
+            },
+            "source_id": "provided-f489bca9b17ea614c896-1640-2800"
         }
     }
 }

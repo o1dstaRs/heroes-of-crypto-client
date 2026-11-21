@@ -682,12 +682,12 @@
     "Thunderbird": {
         "slug": "thunderbird",
         "attack": {
-            "durationMs": 785,
-            "revision": "8f0f09df49"
+            "durationMs": 1154,
+            "revision": "63c9ab08f6"
         },
         "hurt": {
-            "durationMs": 1039,
-            "revision": "8bedb7f8f5"
+            "durationMs": 1174,
+            "revision": "3d30c6d521"
         }
     },
     "Behemoth": {
