@@ -344,30 +344,34 @@
                 "bursts_to_review": 0,
                 "raw_duration_ms": 2093,
                 "leading_trim_ms": 0,
-                "trailing_trim_ms": 423,
+                "trailing_trim_ms": 693,
                 "raw_rms_db": -17.01,
-                "raw_peak_db": 3.51
+                "raw_peak_db": 3.51,
+                "end_cut": {
+                    "end_ms": 1400,
+                    "fade_out_ms": 400
+                }
             },
             "time_stretch_factor": 1.0,
             "max_duration_ms": 2500,
             "encoded": {
                 "webm": {
-                    "lufs": -20.25,
-                    "true_peak_db": -3.89,
-                    "bytes": 12496,
-                    "duration_ms": 1670,
+                    "lufs": -20.23,
+                    "true_peak_db": -4.14,
+                    "bytes": 9921,
+                    "duration_ms": 1240,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.08
+                    "rms_db": -21.4
                 },
                 "mp3": {
-                    "lufs": -20.6,
-                    "true_peak_db": -3.85,
-                    "bytes": 20780,
-                    "duration_ms": 1670,
+                    "lufs": -20.58,
+                    "true_peak_db": -4.12,
+                    "bytes": 15596,
+                    "duration_ms": 1240,
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.5
+                    "rms_db": -21.74
                 }
             }
         }

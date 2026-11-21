@@ -32,7 +32,7 @@
         "revision": "836aaf98a0"
     },
     "water_shield_dissolve": {
-        "durationMs": 1670,
-        "revision": "add0b070be"
+        "durationMs": 1240,
+        "revision": "73bcc579d0"
     }
 }

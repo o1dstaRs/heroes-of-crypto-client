@@ -94,6 +94,10 @@
             "source_filename": "object-hits-water-betacut-1-00-02.mp3",
             "target_duration_ms": 2450,
             "max_duration_ms": 2500,
+            "end_cut": {
+                "end_ms": 1400,
+                "fade_out_ms": 400
+            },
             "source_metadata": {
                 "title": "Object hits water",
                 "author": "betacut",

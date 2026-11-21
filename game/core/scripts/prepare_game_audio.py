@@ -11,7 +11,8 @@ import json
 from pathlib import Path
 import shutil
 
-from prepare_combat_audio import CORE, MAX_BYTES, PEAK_CEILING, RATE, TARGET_LUFS, ffmpeg, master, quality, write_wave
+from prepare_combat_audio import (CORE, MAX_BYTES, PEAK_CEILING, RATE, TARGET_LUFS, fade_edges, ffmpeg, master,
+                                 quality, write_wave)
 
 
 def tempo_filter(factor):
@@ -26,11 +27,17 @@ def tempo_filter(factor):
 
 def prepare(item, source, work, output):
     samples, start, end, original = quality(source)
+    cut = item.get("end_cut")
+    if cut:
+        # A chosen, shorter ending: stop at end_ms of the recording and fade its tail out.
+        end = min(end, round(RATE * cut["end_ms"] / 1000))
+        original = {**original, "trailing_trim_ms": round((len(samples) - end) / RATE * 1000), "end_cut": cut}
     folder = work / "event-masters" / item["id"]
     folder.mkdir(parents=True, exist_ok=True)
     trimmed = folder / "trimmed.wav"
     prepared = folder / "prepared.wav"
-    write_wave(trimmed, samples[start:end])
+    clip = samples[start:end]
+    write_wave(trimmed, fade_edges(clip, fade_in_ms=0, fade_out_ms=cut["fade_out_ms"]) if cut else clip)
     target_seconds = item["target_duration_ms"] / 1000
     factor = max(1.0, ((end - start) / RATE) / target_seconds)
     ffmpeg("-v", "error", "-y", "-i", trimmed, "-af", tempo_filter(factor),

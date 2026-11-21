@@ -296,8 +296,9 @@ attack cue. Both use the shared effects bus, mute/volume controls, and scene can
 
 The Mermaid's Water Shield dissolving (the burst when the shield absorbs a hit and breaks, and the
 animation lab's dissolve preview) plays betacut's `object-hits-water-betacut-1-00-02.mp3` once, as the
-`water_shield_dissolve` game sound (1.670 seconds; speed and pitch kept). Dying with the shield up is not a
-dissolve and stays quiet.
+`water_shield_dissolve` game sound (1.240 seconds; speed and pitch kept). Its watery tail is shortened:
+the recording stops at 1.4 seconds with a 400 ms fade (`end_cut` in `audio/game-sound-design.json`).
+Dying with the shield up is not a dissolve and stays quiet.
 
 All positive `unit_summoned` events use
 `magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3`, trimmed to 2.092 seconds.
