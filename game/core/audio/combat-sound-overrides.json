@@ -1234,5 +1234,22 @@
             "license": "License receipt not included in the supplied file",
             "duration_limit_ms": 1600
         }
+    },
+    "tsar-cannon/hurt": {
+        "source_id": "provided-97ceed1c4134e727bde6",
+        "path": "tmp/audio/raw/provided/97ceed1c4134e727/temple-lock-mechanism-engaging-gfx-sounds-temple-lock-puzzle-mechanism-2-0m01s.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-97ceed1c4134e727bde6",
+            "filename": "temple-lock-mechanism-engaging-gfx-sounds-temple-lock-puzzle-mechanism-2-0m01s.mp3",
+            "title": "Temple lock mechanism engaging",
+            "author": "GFX Sounds",
+            "sha256": "97ceed1c4134e727bde6e20af58f650db646d948a2e857a9e2e6c4bd26499eb0",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Tsar Cannon hurt",
+            "selection": "Explicitly selected by the user for Tsar Cannon hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
     }
 }
