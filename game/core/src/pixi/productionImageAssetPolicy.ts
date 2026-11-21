@@ -208,6 +208,10 @@ export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
 
 export function isProductionOmittedUnreferencedAssetKey(key: string): boolean {
     if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
+    // Front-facing portrait previews lost their only selector when the main portraits were restored
+    // (b96e927d). Left in the map they fell into the core bundle: every fight fetched all 112 (33 MB,
+    // 1140x1536 each) for no consumer. They stay on Drive with the rest of the authoring history.
+    if (key.startsWith("portrait_aaa_front_")) return true;
     return isRetiredCreatureThumbnail(key) || UNUSED_PRODUCTION_ASSETS.has(key);
 }
 

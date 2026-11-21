@@ -49,6 +49,18 @@ describe("Unyielding Power runtime effects", () => {
     });
 });
 
+describe("production portrait preview policy", () => {
+    test("omits the retired front-facing portrait previews", () => {
+        for (const key of [
+            "portrait_aaa_front_v1_orc",
+            "portrait_aaa_front_nature_cutout_v2_elf",
+            "portrait_aaa_front_bg_shade_v1_valkyrie",
+        ]) {
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(true);
+        }
+    });
+});
+
 describe("production environment image policy", () => {
     test("keeps every environment atlas used by the live dungeon", () => {
         for (const key of [
