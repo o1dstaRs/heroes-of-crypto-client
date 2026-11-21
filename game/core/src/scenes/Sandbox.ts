@@ -194,6 +194,7 @@ import {
     CASTLING_RANGE_BONUS_CELLS,
     type IAttackDamageProjection,
     type IAttackDamageProjectionInput,
+    type ISceneLog,
 } from "@heroesofcrypto/common";
 import { clearPersonalArmyTint, personalArmyPresetFor } from "./personalArmyTint";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -393,6 +394,8 @@ export const restoreFightSetupAfterHydrationReset = (
         fightProps.setSynergiesPerTeam(setup.team, setup.synergies);
     }
 };
+
+const SILENT_SCENE_LOG: ISceneLog = { getLog: () => "", updateLog: () => undefined, hasBeenUpdated: () => false };
 
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
 interface IUnitFightSnapshot {
@@ -3264,6 +3267,7 @@ export class Sandbox extends PixiScene {
                 unit.syncVisual(unitsContainer, gs);
             }
         }
+        this.pruneRebuiltEmberCovenant(snapshot);
 
         const mutableFightProps = fightProps as unknown as {
             currentLap: number;
@@ -7535,7 +7539,8 @@ export class Sandbox extends PixiScene {
     }
     private materializeReplaySummons(events: readonly GameEvent[], stateAfter: SandboxSceneState): void {
         const presentUnitIds = new Set(this.unitsHolder.getAllUnits().keys());
-        for (const { event, unitState } of getMissingReplaySummons(events, stateAfter, presentUnitIds)) {
+        const summons = getMissingReplaySummons(events, stateAfter, presentUnitIds);
+        for (const { event, unitState } of summons) {
             // Build from post-action truth so the id, creature properties, stolen abilities and remaining spells
             // all match the server. Mark it summoned just like the live common-engine factory does.
             const unit = this.createRenderableUnitFromSceneState(unitState, true);
@@ -7545,6 +7550,8 @@ export class Sandbox extends PixiScene {
             // emits unit_destroyed immediately before unit_summoned; occupying here would race that cleanup and
             // fail because the corpse still owns the cell during this pre-seeding pass.
         }
+        // addUnit hands a summon its army's covenant; keep that only if the server's army still has it.
+        if (summons.length) this.pruneRebuiltEmberCovenant(stateAfter);
     }
     protected applyReplayEvents(events: GameEvent[], stateAfter?: SandboxSceneState): void {
         const visibleEvents = events.filter((event) => event.type !== "fight_finished");
@@ -22111,6 +22118,29 @@ export class Sandbox extends PixiScene {
     }
     protected isMapStateKnown(): boolean {
         return true;
+    }
+    /**
+     * The engine remembers which armies still hold the Hydra's Ember Covenant and gives it to every stack added to
+     * one. A covenant broken on the server or in a replayed record never broke in this engine, so each board rebuild
+     * handed the whole army its rings back, and the next update dissolved them: dissolves on a covenant long gone.
+     */
+    private pruneRebuiltEmberCovenant(snapshot: SandboxSceneState): void {
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            if (!this.unitsHolder.hasEmberCovenant?.(team)) continue;
+            const held = snapshot.units.some(
+                ({ team: unitTeam, dead, properties }) =>
+                    unitTeam === team &&
+                    !dead &&
+                    (properties.applied_buffs ?? []).some(
+                        (name, index) =>
+                            name === EMBER_COVENANT_STATUS && (properties.applied_buffs_laps?.[index] ?? 0) > 0,
+                    ),
+            );
+            if (held) continue;
+            const member = [...this.unitsHolder.getAllUnits().values()].find((unit) => unit.getTeam() === team);
+            // Mirrors the break the snapshot already shows; the fight log has its line from the original hit.
+            if (member) this.unitsHolder.breakEmberCovenant(team, member, SILENT_SCENE_LOG);
+        }
     }
     private pruneRebuiltWaterShields(snapshot: SandboxSceneState): void {
         if (!snapshot.fightStarted) {
