@@ -4670,6 +4670,8 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         opts: IFireProjectileOptions,
         previewState?: string,
+        // False for a counter shot: only the initiating attack sounds.
+        releaseSound = true,
     ): Promise<void> {
         if (unit.hasAbilityActive?.("Hamstring")) this.combatVisuals?.prepareCommonFlagPop?.("hamstring");
         if (unit.hasAbilityActive?.("Lucky Strike")) this.combatVisuals?.prepareCommonFlagPop?.("lucky_strike");
@@ -4753,7 +4755,7 @@ export class Sandbox extends PixiScene {
                               y: origin.y + Math.tan(angle) * gs.getCellSize() * 4,
                           }
                         : opts.to;
-                this.playUnitCombatSound(unit, "attack");
+                if (releaseSound) this.playUnitCombatSound(unit, "attack");
                 await this.rangedProjectiles.fire({
                     ...opts,
                     from: origin,
@@ -4790,7 +4792,7 @@ export class Sandbox extends PixiScene {
                 !monkLabThrow) ||
             !unit.hasAnimationState("attack")
         ) {
-            this.playUnitCombatSound(unit, "attack");
+            if (releaseSound) this.playUnitCombatSound(unit, "attack");
             await this.rangedProjectiles.fire(opts);
             return;
         }
@@ -4806,11 +4808,11 @@ export class Sandbox extends PixiScene {
                   ? "attack_up"
                   : "attack_down");
         if ((opts.dryadArrow || opts.medusaArmSerpent || zenaLabThrow) && authoredShooter) {
-            await this.fireDryadLabProjectile(unit, opts, state);
+            await this.fireDryadLabProjectile(unit, opts, state, releaseSound);
             return;
         }
         if (opts.arbalesterBolt && authoredShooter) {
-            await this.fireArbalesterLabProjectile(unit, opts, state);
+            await this.fireArbalesterLabProjectile(unit, opts, state, releaseSound);
             return;
         }
         const beholderShot = !!opts.beholderEye && authoredShooter;
@@ -4876,7 +4878,7 @@ export class Sandbox extends PixiScene {
             };
         }
         try {
-            this.playUnitCombatSound(unit, "attack");
+            if (releaseSound) this.playUnitCombatSound(unit, "attack");
             await this.rangedProjectiles.fire({
                 ...opts,
                 from:
@@ -4915,6 +4917,7 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         opts: IFireProjectileOptions,
         state: string,
+        releaseSound = true,
     ): Promise<void> {
         const shot = unit.prepareDryadRangedShot();
         if (!shot) return;
@@ -4957,7 +4960,7 @@ export class Sandbox extends PixiScene {
                     ? (unit.getElfLabFreeShotTarget(origin, gs.getCellSize() * 4) ?? opts.to)
                     : opts.to;
             const returnChakram = unit.getName() === "Zena" && !opts.chakramDeferReturn;
-            this.playUnitCombatSound(unit, "attack");
+            if (releaseSound) this.playUnitCombatSound(unit, "attack");
             await this.rangedProjectiles.fire({
                 ...opts,
                 from: origin,
@@ -4991,6 +4994,7 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         opts: IFireProjectileOptions,
         state: string,
+        releaseSound = true,
     ): Promise<void> {
         const shot = unit.prepareArbalesterRangedShot();
         if (!shot) return;
@@ -5020,7 +5024,7 @@ export class Sandbox extends PixiScene {
                 }
             });
             if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
-            this.playUnitCombatSound(unit, "attack");
+            if (releaseSound) this.playUnitCombatSound(unit, "attack");
             await this.rangedProjectiles.fire({ ...opts, from: origin, signal: shot.signal });
         } finally {
             this.clearSceneTimeout(timeout);
@@ -5834,7 +5838,7 @@ export class Sandbox extends PixiScene {
                             this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "piercing_spear");
                         if (receivedDamage) {
                             this.onCombatImpact?.(source, victimTeam, strike.amount, event.attackType);
-                            if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
+                            if (renderedVictim && !strike.response) this.playUnitCombatSound(renderedVictim, "hurt");
                             this.combatVisuals.showFloatingDamage(
                                 this.offsetReplayDamagePosition(to, victim, direction),
                                 strike.amount,
@@ -5870,7 +5874,7 @@ export class Sandbox extends PixiScene {
                         }
                         // Primary and all rear stacks lose their displayed casualties and react on the
                         // same impact. Captured figures retain lethal victims already removed by local apply.
-                        this.showFireBreathDamageAtImpact(breath, from, units);
+                        this.showFireBreathDamageAtImpact(breath, from, units, !strike.response);
                         const breathReactions: Promise<void>[] = [];
                         for (const hit of breath) {
                             if (hit.amount <= 0 && hit.unitsDied <= 0) continue;
@@ -6069,6 +6073,7 @@ export class Sandbox extends PixiScene {
                                 },
                                 undefined,
                                 zenaCutTargets,
+                                !strike.response,
                             );
                         }
                         if (strike.lethal && (remaining === undefined || remaining === 0)) {
@@ -6128,7 +6133,8 @@ export class Sandbox extends PixiScene {
                             if (renderedVictim && source.hasAbilityActive?.("Penetrating Bite")) {
                                 this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "penetrating_bite");
                             }
-                            this.playUnitCombatSound(source, "attack", true);
+                            // Only the initiating attack sounds: a counterattack and its wounds stay silent.
+                            if (!strike.response) this.playUnitCombatSound(source, "attack", true);
                             const attack = this.playReplayOneShot(source, attackState, 5000, true);
                             // The primary's contact can mark this counterattacker dead before its
                             // callback starts the clip. Shorten only that dying actor's recovery.
@@ -6177,6 +6183,8 @@ export class Sandbox extends PixiScene {
                                 impact,
                                 isChakramFlight,
                                 absolvingProgress,
+                                undefined,
+                                !strike.response,
                             );
                             await Promise.all([attack, chakramFlight]);
                             // The exchange owns the ricochets and final return. Restore the held weapon
@@ -6390,7 +6398,8 @@ export class Sandbox extends PixiScene {
                 const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
                 const direction = { x: center.x - from.x, y: center.y - from.y };
                 if (unit) {
-                    this.playUnitCombatSound(unit, "hurt");
+                    // A counter throw's victims show their wounds silently.
+                    if (!context.response) this.playUnitCombatSound(unit, "hurt");
                     this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount, "range");
                 }
                 this.combatVisuals.showFloatingDamage(
@@ -6710,6 +6719,7 @@ export class Sandbox extends PixiScene {
         secondary: IVisibleDamage["secondary"],
         origin: HoCMath.XY,
         units: ReadonlyMap<string, Unit>,
+        hurtSound = true,
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const { fill, stroke } = this.getSecondaryDamageStyle("fire_breath");
@@ -6730,6 +6740,8 @@ export class Sandbox extends PixiScene {
                 unit,
                 undefined,
                 unit?.captureDamageCasualties(hit.unitsDied),
+                undefined,
+                hurtSound,
             );
         }
     }
@@ -6741,6 +6753,7 @@ export class Sandbox extends PixiScene {
         exchangeChakram?: boolean,
         onProgress?: (progress: number) => void,
         damage?: IVisibleDamage,
+        releaseSound = true,
     ): Promise<void> {
         await this.fireUnitProjectile(
             attacker,
@@ -6753,6 +6766,8 @@ export class Sandbox extends PixiScene {
                 onProgress,
                 damage,
             ),
+            undefined,
+            releaseSound,
         );
     }
     private getReplayProjectileOptions(
@@ -7114,6 +7129,7 @@ export class Sandbox extends PixiScene {
         this.showSecondaryDamageNumbers(
             fireShieldPresented ? damage.secondary?.filter((hit) => hit.source !== "fire_shield") : damage.secondary,
             attackerCenter,
+            attacker.getTeam?.(),
         );
 
         // Deep Wounds: rake an orange claw slash across the wounded unit for EVERY application recorded
@@ -10973,6 +10989,8 @@ export class Sandbox extends PixiScene {
         ) => void,
         initialThrow?: { from: HoCMath.XY; to: HoCMath.XY; onImpact?: () => void },
         cutTargets?: ReadonlyMap<string, BrutalityTarget>,
+        // False for a counter disc: its bounce victims show their wounds silently.
+        hurtSound = true,
     ): Promise<void> {
         if (
             !this.rangedProjectiles ||
@@ -11162,6 +11180,10 @@ export class Sandbox extends PixiScene {
                             undefined,
                             unit?.getDamagePredictionAnchor(gs) ?? captured?.flagAnchor,
                             unit,
+                            undefined,
+                            undefined,
+                            undefined,
+                            hurtSound,
                         );
                     }
                     // Fully absorbed impacts still catch and return the disc, without a wound or recoil.
@@ -11358,6 +11380,10 @@ export class Sandbox extends PixiScene {
                             undefined,
                             unit?.getDamagePredictionAnchor(gs) ?? captured?.flagAnchor,
                             unit,
+                            undefined,
+                            undefined,
+                            undefined,
+                            hurtSound,
                         );
                     }
                     if (dmg ? dmg.amount <= 0 : authoritativeFlight) continue;
@@ -14404,6 +14430,7 @@ export class Sandbox extends PixiScene {
                     damageTaken - attackerFireShield - (attackerFleshShield?.amount ?? 0) - (attackerGaze?.amount ?? 0),
                 );
                 if (pureDamage > 0 && !exchangeAnimated) {
+                    // The retaliation's wound on the attacker: shown, but silent like every counterattack.
                     this.combatVisuals.showFloatingDamage(
                         spawnPos,
                         pureDamage,
@@ -14413,6 +14440,10 @@ export class Sandbox extends PixiScene {
                         undefined,
                         attacker.getDamagePredictionAnchor(gs),
                         attacker,
+                        undefined,
+                        undefined,
+                        undefined,
+                        false,
                     );
                 }
                 if (attackerFireShield > 0 && !exchangeAnimated) {
@@ -22466,7 +22497,13 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private showSecondaryDamageNumbers(secondary: IVisibleDamage["secondary"], attackerCenter: HoCMath.XY): void {
+    private showSecondaryDamageNumbers(
+        secondary: IVisibleDamage["secondary"],
+        attackerCenter: HoCMath.XY,
+        // The initiating attacker's side. Lightning Spin strikes only enemies, so a spin entry on this side
+        // is the responder's counter-spin, whose victims show their wounds silently.
+        attackerTeam?: TeamType,
+    ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
@@ -22499,6 +22536,10 @@ export class Sandbox extends PixiScene {
                 const flagAnchor = sUnit?.getDamagePredictionAnchor(gs);
                 const style = this.getSecondaryDamageStyle(entry.source);
                 const presentCasualties = sUnit?.captureDamageCasualties(entry.unitsDied);
+                const counterSpin =
+                    attackerTeam !== undefined &&
+                    entry.source === "lightning_spin" &&
+                    sUnit?.getTeam() === attackerTeam;
                 this.scheduleSceneTimeout(
                     () => {
                         this.combatVisuals.showFloatingDamage(
@@ -22512,6 +22553,8 @@ export class Sandbox extends PixiScene {
                             sUnit,
                             undefined,
                             presentCasualties,
+                            undefined,
+                            !counterSpin,
                         );
                     },
                     220 + index * 180,

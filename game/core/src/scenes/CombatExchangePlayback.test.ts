@@ -571,6 +571,52 @@ test("each melee blow sounds once, with a hurt reaction on actual contact includ
     await pending;
 });
 
+test("a melee counterattack is silent: no responder attack, no hurt on the initiating attacker", async () => {
+    const { scene, a, b, finish } = setup();
+    const sounds: string[] = [];
+    scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        [strike(), strike(true), strike(false, 1)],
+        () => {},
+    );
+    for (let phase = 0; phase < 5; phase++) {
+        await flush();
+        finish.splice(0).forEach((fn) => fn());
+    }
+    await pending;
+    expect(sounds).toEqual(["A:attack", "B:hurt", "A:attack", "B:hurt"]);
+});
+
+test("a ranged counter shot is silent: no release sound, no hurt on the initiating shooter", async () => {
+    const { scene, a, b } = setup();
+    const sounds: string[] = [];
+    const releases: [string, boolean | undefined][] = [];
+    scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
+    scene.playReplayProjectile = (
+        unit: typeof a,
+        _target: unknown,
+        _position: unknown,
+        contact: () => void,
+        _chakram: unknown,
+        _progress: unknown,
+        _damage: unknown,
+        releaseSound?: boolean,
+    ) => {
+        releases.push([unit.getId(), releaseSound]);
+        contact();
+        return Promise.resolve();
+    };
+    await scene.playCombatExchange(a, b, { attackType: "range" }, [strike(), strike(true)], () => {});
+    expect(releases).toEqual([
+        ["A", true],
+        ["B", false],
+    ]);
+    expect(sounds).toEqual(["B:hurt"]);
+});
+
 test("a miss has an attack sound but no hurt reaction", async () => {
     const { scene, a, b, finish } = setup();
     scene.showAttackMissedVfx = () => {};
@@ -714,7 +760,9 @@ test.each([false, true])(
         expect(berserkerAttacks()).toHaveLength(2);
         expect(berserkerAttacks()[1].at).toBeGreaterThan(berserkerAttacks()[0].at);
         expect(loads.filter((key) => key.includes("/berserker_attack:"))).toHaveLength(1);
-        expect(audible.filter((sound) => sound.key.includes("/squire_attack:"))).toHaveLength(1);
+        // The Squire's counter is silent, and so is the Berserker's wound from it.
+        expect(audible.filter((sound) => sound.key.includes("/squire_attack:"))).toHaveLength(0);
+        expect(audible.filter((sound) => sound.key.includes("/berserker_hurt:"))).toHaveLength(0);
         expect(audible.filter((sound) => sound.key.includes("/squire_hurt:"))).toHaveLength(missed ? 1 : 2);
     },
 );

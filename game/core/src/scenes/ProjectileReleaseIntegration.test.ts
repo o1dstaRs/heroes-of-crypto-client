@@ -7,7 +7,12 @@ import type { IFireProjectileOptions } from "./sandbox/RangedProjectiles";
 import { RangedProjectiles } from "./sandbox/RangedProjectiles";
 
 type ProjectileScene = {
-    fireUnitProjectile(unit: RenderableUnit, options: IFireProjectileOptions): Promise<void>;
+    fireUnitProjectile(
+        unit: RenderableUnit,
+        options: IFireProjectileOptions,
+        previewState?: string,
+        releaseSound?: boolean,
+    ): Promise<void>;
 };
 
 const flush = async () => {
@@ -212,6 +217,21 @@ test("a non-authored projectile sounds once when it launches", async () => {
     const f = fixture("Trent");
     await f.scene.fireUnitProjectile(f.unit, options({ vine: true }));
     expect(f.events).toEqual(["attack", "projectile"]);
+});
+
+test("a counter shot launches without its release sound", async () => {
+    const f = fixture("Trent");
+    await f.scene.fireUnitProjectile(f.unit, options({ vine: true }), undefined, false);
+    expect(f.events).toEqual(["projectile"]);
+});
+
+test.each(authoredShots)("$name counter shot releases silently", async ({ name, flags, lab }) => {
+    const f = fixture(name, lab);
+    const pending = f.scene.fireUnitProjectile(f.unit, options(flags), undefined, false);
+    await flush();
+    f.release();
+    await pending;
+    expect(f.events).toEqual(["projectile"]);
 });
 
 test.each(authoredShots)("$name attack audio starts once at its authored release", async ({ name, flags, lab }) => {

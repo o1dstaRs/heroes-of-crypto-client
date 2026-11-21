@@ -4419,6 +4419,8 @@ export class CombatVisuals {
         zIndex?: number,
         presentCasualties?: () => void,
         effectUnit = audioUnit instanceof RenderableUnit ? audioUnit : undefined,
+        // A counterattack is silent: its victim (the attacker) shows the wound without a hurt sound.
+        hurtSound = true,
     ): void {
         if (presentCasualties) presentCasualties();
         else if (audioUnit instanceof RenderableUnit) {
@@ -4426,7 +4428,7 @@ export class CombatVisuals {
             else audioUnit.presentCombatBuffsAtImpact();
             audioUnit.presentDamageCasualties(unitsDied ?? 0);
         }
-        if (amount > 0 && audioUnit) {
+        if (hurtSound && amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
         }
