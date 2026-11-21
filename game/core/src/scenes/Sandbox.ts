@@ -16489,8 +16489,12 @@ export class Sandbox extends PixiScene {
         // fight is live). The read-only hover previews — a hovered unit's aura / range / movement — are
         // still shown to the viewer even on the opponent's turn; only the active unit's INTERACTIVE previews
         // (move silhouette, attack/spell targeting, the move-intent relay) are gated below.
+        // A replay is watched, never driven: between its records nothing animates, so the cursor used to
+        // draw the replayed unit's move silhouette until the next record cleared it (flickering projections).
         const canDriveActiveUnit =
-            !boardInputLockedByAI && (!fightProps.hasFightStarted() || this.canShowHoverForActiveUnit());
+            !boardInputLockedByAI &&
+            !this.replayPlaybackActive &&
+            (!fightProps.hasFightStarted() || this.canShowHoverForActiveUnit());
 
         // 0. Spellbook Interaction — the active unit's own book, so only when we can drive it.
         if (canDriveActiveUnit && this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
