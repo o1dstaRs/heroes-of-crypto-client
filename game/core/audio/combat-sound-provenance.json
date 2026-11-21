@@ -4448,6 +4448,56 @@
                     "rms_db": -22.15
                 }
             }
+        },
+        {
+            "unit": "Leprechaun",
+            "slug": "leprechaun",
+            "role": "move",
+            "source_id": "provided-f8fab907a3ab4705c4ea-636-2186",
+            "source": {
+                "kind": "user-provided",
+                "filename": "footsteps-walk-on-concrete-floor-vadi-sound-4-4-00-04.mp3",
+                "title": "Footsteps walk on concrete floor",
+                "author": "Vadi Sound",
+                "sha256": "f8fab907a3ab4705c4eaf64ac43240311b465150ea829fecd97d3696aa1330fa",
+                "label": "Footsteps walk on concrete floor",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Leprechaun move",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "excerpt": {
+                    "start_ms": 636,
+                    "end_ms": 2186,
+                    "original_duration_ms": 4167,
+                    "original_path": "tmp/audio/raw/provided/f8fab907a3ab4705/footsteps-walk-on-concrete-floor-vadi-sound-4-4-00-04.mp3",
+                    "sha256": "fce8e8ea7e702eee3443324f740b86bedc8c243aa282d9bf5dfb783fc68f4ccb",
+                    "speed": 1.0,
+                    "pitch_shift_semitones": 0,
+                    "selection": "Three concrete steps (0.646, 1.184, 1.674 s) cut one step period apart, ending just before the next step at 2.196 s, so the loop keeps its walking rhythm"
+                },
+                "source_id": "provided-f8fab907a3ab4705c4ea-636-2186",
+                "keep_edges": true
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -3.47,
+                    "bytes": 13539,
+                    "duration_ms": 1550,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.21
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -4.26,
+                    "bytes": 19340,
+                    "duration_ms": 1550,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.65
+                }
+            }
         }
     ]
 }

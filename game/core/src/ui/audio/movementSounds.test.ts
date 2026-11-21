@@ -14,6 +14,7 @@ test("movement recordings are limited to the creatures given a selected movement
         "Centaur",
         "Champion",
         "Healer",
+        "Leprechaun",
         "Magic Dragon",
         "Mantis",
         "Mermaid",
@@ -24,6 +25,7 @@ test("movement recordings are limited to the creatures given a selected movement
     ]);
     for (const name of ["Battle Mage", "Healer", "Wandering Mage"])
         expect(resolveCombatSound(name, "move")?.durationMs).toBe(1530);
+    expect(resolveCombatSound("Leprechaun", "move")?.durationMs).toBe(1550);
     expect(resolveCombatSound("Magic Dragon", "move")?.webm).toContain("magic-dragon_move.webm");
     expect(resolveCombatSound("Mantis", "move")?.webm).toContain("mantis_move.webm");
     expect(resolveCombatSound("Champion", "move", true)?.webm).toContain("champion_move.webm");

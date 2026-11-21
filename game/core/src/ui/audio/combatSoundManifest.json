@@ -211,6 +211,10 @@
         "hurt": {
             "durationMs": 329,
             "revision": "7bbe5bce9b"
+        },
+        "move": {
+            "durationMs": 1550,
+            "revision": "b6dcb91b43"
         }
     },
     "White Tiger": {
