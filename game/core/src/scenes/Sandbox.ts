@@ -20797,6 +20797,9 @@ export class Sandbox extends PixiScene {
             this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
             this.refreshUnits();
             this.sc_visibleStateUpdateNeeded = true;
+            // The next unit was already activated (and its toolbar computed) while the ghost still counted
+            // as alive: a dead Nightmare kept Time Denial on, so Wait stayed crossed out for that whole turn.
+            this.buttonManager?.refreshButtons(true);
         }
     }
     private destroyEventDeletedUnit(unitId: string, unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
