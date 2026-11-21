@@ -163,7 +163,8 @@ const knownImageKeys = (
 // Keep the real revision contract even when CI substitutes the private pixel data.
 const releaseRevisions = Object.fromEntries(
     Object.entries(require("../animation-release.json").files)
-        .filter(([file]) => file.endsWith(".webp"))
+        // Release copies (half-size, Q93) share their master's basename; the fixture stands for the master.
+        .filter(([file]) => file.endsWith(".webp") && !/\/(half_body_atlases|q93_atlases)_v\d+\//.test(file))
         .map(([file, meta]) => [path.basename(file, ".webp"), meta.sha256.slice(0, 16)]),
 );
 
