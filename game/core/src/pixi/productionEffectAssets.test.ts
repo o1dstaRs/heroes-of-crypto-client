@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { animationAtlases } from "../generated/animation_atlases";
 import imageKeys from "../generated/image_keys.json";
 import {
+    creatureEffectAssetKeys,
+    isCoreTextureAssetKey,
     isDeferredReactUiAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
@@ -49,6 +51,20 @@ describe("production spell targeting and combat effects", () => {
             expect(isLazyCombatEffectAssetKey(variant) || isLazyProjectileAssetKey(variant), variant).toBe(true);
         }
     });
+
+    test.each(["Black Dragon", "Zena", "Unicorn", "Tsar Cannon", "Cyclops", "Behemoth", "Medusa", "Angel"])(
+        "ships %s's own effects outside the bundle every page loads",
+        (name) => {
+            const keys = creatureEffectAssetKeys(name);
+            expect(keys.length).toBeGreaterThan(0);
+            for (const key of keys) {
+                expect(imageKeys, key).toContain(key);
+                expect(omitted(key), key).toBe(false);
+                expect(isLazyCombatEffectAssetKey(key), key).toBe(true);
+                expect(isCoreTextureAssetKey(key), key).toBe(false);
+            }
+        },
+    );
 
     test("keeps retired Unyielding Power sheets and the inactive Thunderbird sprite alternative out of production", () => {
         for (const key of [

@@ -2,6 +2,7 @@ import { PIKEMAN_SPEAR_TIPS, PIKEMAN_SPEAR_BUTTS, PIKEMAN_SPEAR_EXTENSION_RATIO 
 import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
+import { creatureEffectAssetKeys } from "@/pixi/imageAssetTiers";
 import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
 import { isAiSearchSimulating } from "./aiSearchGuard";
 import { initializeUnitPresentationFields } from "./unitPresentationFields";
@@ -3585,7 +3586,9 @@ export class RenderableUnit extends Unit {
         const name = this.getName();
         const width = this.getFootprintWidth();
         const height = this.getFootprintHeight();
-        const keys = approvedAnimationAssetKeysForUnit(name).filter((key) => /_(idle|default)_/.test(key));
+        const keys = [...approvedAnimationAssetKeysForUnit(name), ...creatureEffectAssetKeys(name)].filter((key) =>
+            /_(idle|default)_/.test(key),
+        );
         const resting = getDefaultAnimationConfig(name, width, height);
         if (resting) keys.push(resting.imageKey);
         // The native idle pager waits for this independently resident neutral pose before it starts.
@@ -3643,6 +3646,7 @@ export class RenderableUnit extends Unit {
         if (!this.animationAssetsRequested) {
             this.animationAssetsRequested = true;
             for (const key of approvedAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
+            for (const key of creatureEffectAssetKeys(props.name)) this.texResolver(key);
         }
         // --- sprite ---
         if (!this.sprite) {

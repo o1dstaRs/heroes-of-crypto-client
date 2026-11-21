@@ -685,9 +685,34 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
     "vfx_unyielding_power_curl_short_atlas_quarter",
 ]);
 
+/**
+ * Effects only one creature plays. They used to sit in the core bundle, so every page (the app front page
+ * included) fetched 8.7 MB of them. Each creature on the board now requests its own as soon as it is shown,
+ * with its animation sheets, so they are decoded during placement, before any of them can play.
+ */
+const CREATURE_EFFECT_ASSET_KEYS: Readonly<Record<string, readonly string[]>> = {
+    Angel: ["vfx_angel_resurrection_pop_atlas"],
+    Behemoth: ["vfx_battle_roar_short_atlas"],
+    "Black Dragon": ["black_dragon_fire_breath_v1", "black_dragon_breath_smoke_v4"],
+    Champion: ["champion_lab_plume"],
+    Cyclops: ["cyclops_lab_idle_fullbody_v4_atlas", "cyclops_lab_boulder"],
+    Medusa: ["vfx_petrifying_gaze_pop_atlas"],
+    Scavenger: ["vfx_backstab_pop_atlas"],
+    Trent: ["trent_vine_continuous"],
+    "Tsar Cannon": ["tsar_cannon_lab_bronze_base_v14", "tsar_cannon_lab_barrel_relief_v5"],
+    Unicorn: ["unicorn_mystic_horn_atlas", "unicorn_mystic_eye", "unicorn_lab_dust_atlas"],
+    Zena: ["zena_chakram_v14", "zena_chakram_sparks_v16", "zena_chakram_burst_v17"],
+};
+const CREATURE_EFFECT_ASSETS = new Set(Object.values(CREATURE_EFFECT_ASSET_KEYS).flat());
+
+/** The effects only this creature plays; its board unit requests them when it is first shown. */
+export function creatureEffectAssetKeys(unitName: string): readonly string[] {
+    return CREATURE_EFFECT_ASSET_KEYS[unitName] ?? [];
+}
+
 /** Large optional battle art loaded and released by its owning surface only when first needed. */
 export function isLazyCombatEffectAssetKey(key: string): boolean {
-    return LAZY_COMBAT_EFFECT_ASSETS.has(key);
+    return LAZY_COMBAT_EFFECT_ASSETS.has(key) || CREATURE_EFFECT_ASSETS.has(key);
 }
 
 const LAZY_ROSTER_TYPE_ASSETS = new Set([
