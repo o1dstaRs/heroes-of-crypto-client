@@ -219,8 +219,18 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
-Current default is profile v20, revision suffix
-`matchup-v1-rush-mixed-v1-one-shooter-v1-tier2-striker-v1`. `a19-tier2-striker-v1` was adopted on
+Current default is profile v21, revision suffix
+`one-shooter-v1-tier2-striker-v1-keep-attack-v1`. `a19-keep-attack-v1` was adopted on November 21,
+2026, at the owner's request: units sometimes moved up to an enemy and did not attack. A melee unit's
+search no longer lets a non-attacking challenger replace a native melee attack, and while any scored
+candidate attacks, a plain move that ends next to an enemy cannot win (`SEARCH_A19_KEEP_MELEE_ATTACK`,
+`SEARCH_A19_KEEP_CONTACT_ATTACK`, sealed on in common's search rules). Read common's
+`docs/keep_attack_adoption.md`. It was registered as a non-inferiority check on a fresh sealed bank
+and all six gates passed. Mirror +1.34 points (95% −0.39 to +3.05); owner-shaped guard +2.15; plain
+moves into contact 3,499 → 84. Do not report it as a strength gain. Rule 1 alone (confirmation J,
++0.33) failed its strength gate and stays recorded as failed.
+
+Profile v20, retained in v21: `a19-tier2-striker-v1` was adopted on
 November 21, 2026, under the same standing instruction: an army with fewer than two ranged stacks takes
 Crown of Command as its Tier-2 artifact when it is offered and the opponent's melee probability is below
 0.8, and otherwise prefers an established artifact to the five that artifact-fit-v8 scores with a
