@@ -14071,7 +14071,9 @@ export class Sandbox extends PixiScene {
             // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
             // wounder shows two). Shared helper — the ranked replay fires the same one in showReplayAttackDamage.
             this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds, attacker, target);
-            this.popDullingDefenseApplications(attackActionEvents, attacker.getId());
+            // A knight's answer dulls the attacker; the exchange already popped it at that blow, so this only
+            // covers an exchange that drew no strikes (and never pops the same unit twice).
+            this.popRecordedDullingDefense(attackActionEvents, new Set([attacker.getId()]));
             // IMPACT (live melee) — same contract as the replay path: pops land with the strike.
             this.flushEffectPops();
         }
@@ -15693,8 +15695,10 @@ export class Sandbox extends PixiScene {
             return { ok: true, message: "Кожаная броня: уязвимость к выстрелам над своим флагом" };
         }
         if (state === "dulling_defense") {
-            this.combatVisuals?.spawnCommonFlagPop(unit, "dulling_defense", "preview");
-            return { ok: true, message: `${unit.getName()}: Dulling Defense · 0,65 с над флагом` };
+            // The knight's blow dulls the unit it strikes: preview on the nearest enemy, like Hamstring.
+            const victim = this.penetratingBiteLabVictim(unit) ?? unit;
+            this.combatVisuals?.spawnCommonFlagPop(victim, "dulling_defense", "preview");
+            return { ok: true, message: `Dulling Defense → ${victim.getName()} · 0,65 с над флагом` };
         }
         if (state === "common_miss") {
             const gs = this.sc_sceneSettings.getGridSettings();
