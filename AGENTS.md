@@ -219,14 +219,25 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
-Current default is profile v19, revision suffix `matchup-v1-rush-mixed-v1-one-shooter-v1`.
-`a19-striker-rush-one-shooter-v1` was adopted on November 20, 2026, under the same standing
-instruction: an army with exactly four strikers is rushed from one shooter instead of two; casters
-do not count (`HOC_A19_STRIKER_RUSH_ONE_SHOOTER`). Read common's
+Current default is profile v20, revision suffix
+`matchup-v1-rush-mixed-v1-one-shooter-v1-tier2-striker-v1`. `a19-tier2-striker-v1` was adopted on
+November 21, 2026, under the same standing instruction: an army with fewer than two ranged stacks takes
+Crown of Command as its Tier-2 artifact when it is offered and the opponent's melee probability is below
+0.8, and otherwise prefers an established artifact to the five that artifact-fit-v8 scores with a
+forecast (`HOC_A19_TIER2_STRIKER`). Such armies used to read the v0.7 melee table, where Crown is the
+lowest entry. Read common's `docs/tier2_striker_adoption.md`. Preserve the registered +7.06-point
+estimate (95% +4.39 to +9.76; 1,693 changed games on a fresh sealed bank); its quality gate (G4: two
+candidate games against one with a declined scripted melee proposal) failed and stays recorded as
+failed: do not waive, re-run or relabel it. Premium's Tier-2 advice follows the same rule. New default
+comparisons use v20.
+
+Profile v19, retained in v20: `a19-striker-rush-one-shooter-v1` was adopted on November 20, 2026,
+under the same standing instruction: an army with exactly four strikers is rushed from one shooter
+instead of two; casters do not count (`HOC_A19_STRIKER_RUSH_ONE_SHOOTER`). Read common's
 `docs/striker_rush_one_shooter_adoption.md`. Preserve the registered +4.64-point estimate (95% +0.91
 to +8.40; 927 changed games on a fresh sealed bank); its quality gate (G4: two candidate games
 against one with a declined scripted melee proposal) failed and stays recorded as failed: do not
-waive, re-run or relabel it. New default comparisons use v19.
+waive, re-run or relabel it.
 
 Profile v18, retained in v19:
 `a19-striker-rush-mixed-v1` was adopted on November 20, 2026, under the user's standing instruction
