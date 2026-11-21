@@ -1217,5 +1217,22 @@
             "source_id": "provided-f8fab907a3ab4705c4ea-636-2186",
             "keep_edges": true
         }
+    },
+    "wolf/hurt": {
+        "source_id": "provided-6f2520a79ec8334731c9",
+        "path": "tmp/audio/raw/provided/6f2520a79ec83347/dog-growl-small-aggressive-doug-organ-dog-play-growl-05-1-0m01s.mp3",
+        "source": {
+            "kind": "user-provided",
+            "source_id": "provided-6f2520a79ec8334731c9",
+            "filename": "dog-growl-small-aggressive-doug-organ-dog-play-growl-05-1-0m01s.mp3",
+            "title": "Dog growl - small & aggressive",
+            "author": "Doug Organ",
+            "sha256": "6f2520a79ec8334731c9d78c38f8760cbcb67833344c5b3d3307462c3d529157",
+            "source_site": "https://uppbeat.io/",
+            "label": "Selected Wolf hurt",
+            "selection": "Explicitly selected by the user for Wolf hurt",
+            "license": "License receipt not included in the supplied file",
+            "duration_limit_ms": 1600
+        }
     }
 }
