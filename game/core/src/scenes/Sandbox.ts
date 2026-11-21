@@ -4743,7 +4743,7 @@ export class Sandbox extends PixiScene {
                     if (
                         !unit.playCannonLabRangedShot(
                             state,
-                            () => settle(unit.getRangedProjectileOrigin(opts.to, gs)),
+                            () => settle(this.projectileRelease(unit, opts.to, gs)),
                             () => settle(),
                         )
                     )
@@ -4845,7 +4845,8 @@ export class Sandbox extends PixiScene {
             );
             const release = (): void => {
                 if (centaurLabThrow || beholderShot || monkLabThrow || cyclopsLabThrow || gargantuanThrow)
-                    centaurReleaseOrigin = unit.getRangedProjectileOrigin(
+                    centaurReleaseOrigin = this.projectileRelease(
+                        unit,
                         opts.to,
                         this.sc_sceneSettings.getGridSettings(),
                     );
@@ -4887,7 +4888,7 @@ export class Sandbox extends PixiScene {
                 ...opts,
                 from:
                     centaurReleaseOrigin ??
-                    unit.getRangedProjectileOrigin(opts.to, this.sc_sceneSettings.getGridSettings()),
+                    this.projectileRelease(unit, opts.to, this.sc_sceneSettings.getGridSettings()),
                 gargantuanRockDiameter: gargantuanThrow ? unit.getGargantuanRockDiameter() : undefined,
                 gargantuanRockHeight: gargantuanThrow ? unit.getGargantuanRockHeight() : undefined,
                 to:
@@ -4950,7 +4951,7 @@ export class Sandbox extends PixiScene {
                 if (
                     !unit.playDryadRangedShot(state, shot, () => {
                         arrowLength = unit.getDryadArrowLength();
-                        settle(unit.getRangedProjectileOrigin(opts.to, gs));
+                        settle(this.projectileRelease(unit, opts.to, gs));
                     })
                 )
                     settle(undefined);
@@ -5020,9 +5021,7 @@ export class Sandbox extends PixiScene {
                 };
                 shot.signal.addEventListener("abort", cancel, { once: true });
                 if (
-                    !unit.playArbalesterRangedShot(state, shot, () =>
-                        settle(unit.getRangedProjectileOrigin(opts.to, gs)),
-                    )
+                    !unit.playArbalesterRangedShot(state, shot, () => settle(this.projectileRelease(unit, opts.to, gs)))
                 ) {
                     settle(undefined);
                 }
@@ -6794,7 +6793,7 @@ export class Sandbox extends PixiScene {
             ? lastCannonHit(attacker.getPosition(), target.getPosition(), [target, ...recordedVictims])
             : undefined;
         const targetPosition = last?.getProjectileImpactPoint(gs) ?? toPosition ?? target.getProjectileImpactPoint(gs);
-        const muzzle = attacker.getRangedProjectileOrigin(targetPosition, gs);
+        const muzzle = this.projectileRelease(attacker, targetPosition, gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
         // Ranked replays the shot from the authoritative record, so the chakram must be thrown here too —
         // otherwise Zena's disc only spins for the acting player and everyone else sees a plain bolt.
@@ -12260,7 +12259,7 @@ export class Sandbox extends PixiScene {
             await this.fireUnitProjectile(unit, {
                 // A real contact callback also distinguishes this targeted shot from a lab free shot.
                 onImpact: impact,
-                from: unit.getRangedProjectileOrigin(impactPositions[shotIndex], gsAnim),
+                from: this.projectileRelease(unit, impactPositions[shotIndex], gsAnim),
                 to: impactPositions[shotIndex],
                 big,
                 orcAxe: unitName === "orc",
@@ -13177,7 +13176,7 @@ export class Sandbox extends PixiScene {
             cellPosition;
 
         const visualImpact = projectBattlefieldPoint(effectivePosition, gs);
-        const muzzle = unit.getRangedProjectileOrigin(visualImpact, gs);
+        const muzzle = this.projectileRelease(unit, visualImpact, gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const areaThrowUnitName = unit.getName().trim().toLowerCase();
         const isDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
@@ -20065,6 +20064,14 @@ export class Sandbox extends PixiScene {
         this.sc_visibleStateUpdateNeeded = true;
         return true;
     }
+    /** Where a unit's projectile starts: its painted release, kept from flying backwards at a close target. */
+    private projectileRelease(unit: RenderableUnit, target: HoCMath.XY, gs: GridSettings): HoCMath.XY {
+        const painted = unit.getRangedProjectileOrigin(target, gs);
+        // Doubles that stub only the painted release keep it.
+        return typeof unit.aimProjectileRelease === "function"
+            ? unit.aimProjectileRelease(painted, target, gs)
+            : painted;
+    }
     private canLandRangeAttack(unit: Unit): boolean {
         return (
             this.attackHandler?.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId())) ?? false
@@ -20592,7 +20599,7 @@ export class Sandbox extends PixiScene {
                         const to = projectBattlefieldPoint(toLogical, gsVineShot);
                         const from =
                             caster instanceof RenderableUnit
-                                ? caster.getRangedProjectileOrigin(to, gsVineShot)
+                                ? this.projectileRelease(caster, to, gsVineShot)
                                 : projectBattlefieldPoint(fromLogical, gsVineShot);
                         this.vineLayer?.delayGrowth(event.cells, this.replayPlaybackActive ? 0 : 470, fromCell);
                         // Magic armor shrugged the snare off: the vine still painted the ground, so the save
@@ -22410,7 +22417,7 @@ export class Sandbox extends PixiScene {
         if (!entries?.length) return undefined;
         const gs = this.sc_sceneSettings.getGridSettings();
         const to = toPosition ?? victim.getProjectileImpactPoint(gs);
-        const from = source.getRangedProjectileOrigin(to, gs);
+        const from = this.projectileRelease(source, to, gs);
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const lengthSquared = dx * dx + dy * dy;

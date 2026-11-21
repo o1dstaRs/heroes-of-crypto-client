@@ -650,6 +650,29 @@ const RANGED_PROJECTILE_ORIGIN_BY_UNIT: Readonly<Record<string, RangedProjectile
 };
 const DEFAULT_RANGED_PROJECTILE_ORIGIN: RangedProjectileOriginProfile = { forward: 0.32, height: 0.41 };
 
+/** How far, in cells, a projectile may drift back past its release point before the release moves. */
+const PROJECTILE_RELEASE_BACKWARD_SLACK_CELLS = 0.1;
+
+/**
+ * A weapon held in front of the body (a raised crossbow tip, an Orc's throwing hand) can reach past a target standing
+ * close above or below the shooter: on the projected board a stack one column over and two rows down is barely to
+ * the side on screen. Released from the tip, the projectile flew backwards, over or through the shooter. Slide the
+ * release back along the body-to-weapon line just far enough that it cannot; any other shot keeps its painted point.
+ */
+export function keepProjectileReleaseBehindTarget(
+    release: HoCMath.XY,
+    body: HoCMath.XY,
+    target: HoCMath.XY,
+    slack: number,
+): HoCMath.XY {
+    const reach = Math.abs(release.x - body.x);
+    if (reach < 1e-3) return release;
+    const ahead = (target.x - body.x) * Math.sign(release.x - body.x);
+    if (ahead + slack >= reach) return release;
+    const share = Math.max(0, (ahead + slack) / reach);
+    return { x: body.x + (release.x - body.x) * share, y: body.y + (release.y - body.y) * share };
+}
+
 export function rangedProjectileOriginFromBounds(
     unitName: string,
     bounds: RangedProjectileOriginBounds,
@@ -9567,6 +9590,19 @@ export class RenderableUnit extends Unit {
         // The inner muzzle spans 112 native pixels; padded action canvases keep the native pixel scale.
         return (
             (this.sprite ? Math.abs(this.sprite.scale.x) * 112 : gs.getCellSize() * 0.34) * CANNON_BALL_SIZE_MULTIPLIER
+        );
+    }
+    /** The painted release, slid back toward the body when a close target would make the projectile fly backwards. */
+    public aimProjectileRelease(release: HoCMath.XY, target: HoCMath.XY, gs: GridSettings): HoCMath.XY {
+        // The figure stands centred on its cell; a sprite's anchor and canvas are not always centred on the body.
+        const cell = this.useBattlefieldVisualProjection
+            ? projectBattlefieldPoint(this.getPosition(), gs)
+            : this.getPosition();
+        return keepProjectileReleaseBehindTarget(
+            release,
+            { x: cell.x, y: this.getProjectileImpactPoint(gs).y },
+            target,
+            gs.getCellSize() * PROJECTILE_RELEASE_BACKWARD_SLACK_CELLS,
         );
     }
     public getRangedProjectileOrigin(target: HoCMath.XY, gs: GridSettings): HoCMath.XY {
