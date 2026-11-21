@@ -219,8 +219,17 @@ Read the server's [AI strategy status](../heroes-of-crypto-server/docs/ai_strate
 current serving profile, adopted improvements and research priorities. Versioned draft,
 combat and historical profile numbers are separate; avoid treating an old adoption as today's default.
 
-Current default is profile v21, revision suffix
-`one-shooter-v1-tier2-striker-v1-keep-attack-v1`. `a19-keep-attack-v1` was adopted on November 21,
+Current default is profile v22, revision suffix
+`tier2-striker-v1-keep-attack-v1-rejection-fixes-v1`. `a19-rejection-fixes-v1` was adopted on November 21,
+2026, at the owner's request ("Need to fix all rejection causes"). Read common's
+`docs/rejection_fixes_adoption.md`. In production code every refused AI action had one of three causes, and all
+three are fixed. In common: the native decision no longer moves and then strikes from the old cell
+(`a19CoherentMeleeApproach`), and a v0.1 move route, which mindless units follow, must end in the engine's
+zone-of-control-aware paths. In the server: the turn advance no longer gives up after a run of skipped turns.
+The registered non-inferiority confirmation passed all six gates. Mirror +0.06 points (95%
+−0.94 to +1.07); owner-shaped guard +0.10; entrant refusals 5 → 0.
+
+Profile v21, retained in v22: `a19-keep-attack-v1` was adopted on November 21,
 2026, at the owner's request: units sometimes moved up to an enemy and did not attack. A melee unit's
 search no longer lets a non-attacking challenger replace a native melee attack, and while any scored
 candidate attacks, a plain move that ends next to an enemy cannot win (`SEARCH_A19_KEEP_MELEE_ATTACK`,
