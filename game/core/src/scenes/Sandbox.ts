@@ -22820,7 +22820,7 @@ export class Sandbox extends PixiScene {
             this.applyTurnEngineEvents(result.events, this.snapshotRenderableUnits());
         }
     }
-    private syncArtifactBarrelVisuals(): void {
+    protected syncArtifactBarrelVisuals(): void {
         const previous = this.dungeonVisuals?.getScatteredMountains() ?? [];
         const variants = new Map(previous.map((barrel) => [`${barrel.x}:${barrel.y}`, barrel.variant]));
         const barrels = this.grid

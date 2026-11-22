@@ -76,6 +76,7 @@ import {
     OPTIMISTIC_PLACEMENT_HOLD_MS,
     placementContextKey,
     placementSnapshotWouldRewind,
+    sameArtifactBarrels,
     shouldHoldOptimisticPlacement,
     viewerPlacementAlreadyShown,
     type PlacementUnitView,
@@ -1588,6 +1589,8 @@ export class RankedPlayScene extends Sandbox {
     private lastPlacementUnitIdsKey = "";
     /** Ignore a stale placement snapshot until this time so a newer local drop is not rewound. */
     private optimisticPlacementHoldUntil = 0;
+    /** The same hold for a Barrel Barricade drop, which moves terrain rather than a stack. */
+    private optimisticBarrelHoldUntil = 0;
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
     private authoritativePlaybackGameId = "";
@@ -2393,6 +2396,7 @@ export class RankedPlayScene extends Sandbox {
                 wouldRewind: placementSnapshotWouldRewind(this.viewerTeam, livePlacement, snapshot.units),
             })
         ) {
+            this.reconcilePlacementBarrels(snapshot);
             return;
         }
         const ownPlacementShown =
@@ -2410,6 +2414,7 @@ export class RankedPlayScene extends Sandbox {
         this.lastPlacementUnitIdsKey = placementUnitIdsKey;
         this.rememberPlacementStates(snapshot);
         if (canSkipPreFightHydrate) {
+            this.reconcilePlacementBarrels(snapshot);
             return;
         }
 
@@ -2500,7 +2505,9 @@ export class RankedPlayScene extends Sandbox {
         }
         this.applyRankedFightStats(snapshot, state.units);
         if (!snapshot.fightStarted && !snapshot.fightFinished) {
-            if (placementSelection.hasActiveSelection) {
+            // A picked-up barrel is not an active unit selection, but it is the player's pick all the same:
+            // dropping it on every rebuild made the next board click land on nothing.
+            if (placementSelection.hasActiveSelection || placementSelection.barrelPlacement) {
                 this.restorePlacementSelection(placementSelection);
             } else if (selectedUnitId) {
                 this.selectSceneUnitForPlacement(selectedUnitId);
@@ -4275,12 +4282,19 @@ export class RankedPlayScene extends Sandbox {
                     this.awaitingTurnHandoff = true;
                 }
                 let events: GameEvent[] = [];
-                if (result.completed && (action.type === "place_unit" || action.type === "select_attack_type")) {
+                // Barrel drops land locally too. Sent alone, the barrel stayed on its old cell until a full
+                // rebuild (game 9208870e), so the next drop aimed at a cell the server already held.
+                const barrelDrop = action.type === "place_barrel" || action.type === "unplace_barrel";
+                if (
+                    result.completed &&
+                    (action.type === "place_unit" || action.type === "select_attack_type" || barrelDrop)
+                ) {
                     const localResult = super.createActionEngine().apply(action);
                     if (!localResult.completed) {
                         return localResult;
                     }
                     if (action.type === "place_unit") this.noteOptimisticPlacement();
+                    if (barrelDrop) this.noteOptimisticBarrelPlacement();
                     events = localResult.events;
                 }
                 return {
@@ -4293,6 +4307,20 @@ export class RankedPlayScene extends Sandbox {
     }
     private noteOptimisticPlacement(): void {
         this.optimisticPlacementHoldUntil = performance.now() + OPTIMISTIC_PLACEMENT_HOLD_MS;
+    }
+    private noteOptimisticBarrelPlacement(): void {
+        this.optimisticBarrelHoldUntil = performance.now() + OPTIMISTIC_PLACEMENT_HOLD_MS;
+    }
+    /**
+     * The placement skips above compare stacks only, and a barrel move changes none. Bring the board's barrels
+     * to the snapshot's, except while a newer local drop is still on its way to the server.
+     */
+    private reconcilePlacementBarrels(snapshot: AuthoritativeGameSnapshot): void {
+        if (snapshot.artifactBarrelsCount === undefined) return;
+        if (sameArtifactBarrels(this.grid.getArtifactBarrels(), snapshot.artifactBarrels ?? [])) return;
+        if (performance.now() < this.optimisticBarrelHoldUntil) return;
+        this.applyScatteredMountainsFromSnapshot(snapshot);
+        this.syncArtifactBarrelVisuals();
     }
     private viewerPlacementLive(): PlacementUnitView[] {
         const live: PlacementUnitView[] = [];

@@ -85,6 +85,7 @@ const fixture = (map: GridType, team: TeamType) => {
             possibleCellHashes: () => new Set([0, 1, 2].map((y) => ((team === TeamVals.LEFT ? 1 : 14) << 4) | y)),
         }),
         dungeonVisuals: {
+            getScatteredMountains: () => [...artwork.values()].map((cell) => ({ ...cell, variant: 0 })),
             setScatteredMountains: (cells: HoCMath.XY[]) => {
                 artwork.clear();
                 for (const cell of cells) artwork.set(`${cell.x}:${cell.y}`, { x: cell.x, y: cell.y });
@@ -147,7 +148,9 @@ const fixture = (map: GridType, team: TeamType) => {
         ...fields,
     });
     const expectBoard = (owned: Barrel[]) => {
-        expect(grid.getArtifactBarrels()).toEqual(owned);
+        // Ownership, not insertion order: a moved barrel is re-keyed at the end of the grid's map.
+        expect(grid.getArtifactBarrels()).toEqual(expect.arrayContaining(owned));
+        expect(grid.getArtifactBarrels()).toHaveLength(owned.length);
         const standing = [...neutral, ...owned.map((barrel) => barrel.cell)];
         expect(grid.getScatteredMountainsStanding()).toEqual(expect.arrayContaining(standing));
         expect(grid.getScatteredMountainsStanding()).toHaveLength(standing.length);
@@ -199,10 +202,11 @@ describe("ranked Barrel Barricade scene routing", () => {
             reconnected.expectBoard([]);
         });
 
-        test(`map ${map}, team ${team}: actual placement callers submit both slots without committing locally`, () => {
+        test(`map ${map}, team ${team}: actual placement callers submit both slots and draw them at once`, () => {
             const { scene, grid, barrels, snapshot, expectBoard, submitted, setAccepted } = fixture(map, team);
-            scene.applyScatteredMountainsFromSnapshot(snapshot(barrels));
             for (const barrelIndex of [0, 1]) {
+                scene.applyScatteredMountainsFromSnapshot(snapshot(barrels));
+                expectBoard(barrels);
                 expect(scene.beginBarrelPlacement(team, barrelIndex)).toBe(true);
                 const cell = { x: barrels[0].cell.x, y: 0 };
                 scene.sc_mouseWorld = GridMath.getPositionForCell(
@@ -213,8 +217,12 @@ describe("ranked Barrel Barricade scene routing", () => {
                 );
                 scene.commitBarrelPlacement();
                 expect(scene.getBarrelPlacementIndex(team)).toBeUndefined();
+                // An accepted drop is on the board before the server answers (game 9208870e: it stayed on its
+                // old cell, and the next drop aimed at a cell the server already held).
+                const moved = barrels.map((barrel) => (barrel.index === barrelIndex ? { ...barrel, cell } : barrel));
+                expectBoard(moved);
                 expect(scene.removePlacedBarrel(team, barrelIndex)).toBe(true);
-                expectBoard(barrels);
+                expectBoard(moved.filter((barrel) => barrel.index !== barrelIndex));
                 const [placed, removed] = submitted.slice(-2);
                 expect(placed.action).toEqual({ type: "place_barrel", team, barrelIndex, cell });
                 expect(placed.wire).toMatchObject({
@@ -234,6 +242,8 @@ describe("ranked Barrel Barricade scene routing", () => {
                     expect(createGameActionFromPlayAction(entry.wire)).toEqual(entry.action);
                 }
             }
+            // A refused submission draws nothing and keeps the barrel picked up.
+            scene.applyScatteredMountainsFromSnapshot(snapshot(barrels));
             setAccepted(false);
             const before = grid.getArtifactBarrels();
             expect(scene.beginBarrelPlacement(team, 0)).toBe(true);

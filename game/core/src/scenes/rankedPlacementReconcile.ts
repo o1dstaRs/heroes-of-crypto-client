@@ -84,3 +84,21 @@ export const shouldHoldOptimisticPlacement = (input: {
     forceRebuild: boolean;
     wouldRewind: boolean;
 }): boolean => !input.forceRebuild && input.wouldRewind && input.now < input.holdUntil;
+
+export interface PlacementBarrelView {
+    team: number;
+    index: number;
+    cell: { x: number; y: number };
+}
+
+const barrelsKey = (barrels: readonly PlacementBarrelView[]): string =>
+    barrels
+        .map((barrel) => `${barrel.team}:${barrel.index}:${barrel.cell.x}:${barrel.cell.y}`)
+        .sort()
+        .join("|");
+
+/** True when the board already stands every barrel where the snapshot does, in any order. */
+export const sameArtifactBarrels = (
+    live: readonly PlacementBarrelView[],
+    snapshot: readonly PlacementBarrelView[],
+): boolean => barrelsKey(live) === barrelsKey(snapshot);

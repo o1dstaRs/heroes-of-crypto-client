@@ -76,11 +76,24 @@ const snapshot = (
 const occupy = (cells: { x: number; y: number }[], id: string): Map<string, string> =>
     new Map(cells.map((cell) => [`${cell.x}:${cell.y}`, id]));
 
+type Barrel = NonNullable<AuthoritativeGameSnapshot["artifactBarrels"]>[number];
+
+const barrelsSnapshot = (barrels: Barrel[]): Partial<AuthoritativeGameSnapshot> => ({
+    artifactBarrels: barrels,
+    artifactBarrelsCount: barrels.length,
+});
+
 const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
     const state: LivePlacement = { cells, amountAlive: 10 };
     const occupants = occupy(cells, "a");
     let hydrates = 0;
     let occupancyRepairs = 0;
+    // The board's barrels. A full hydrate and the terrain sync both install the snapshot's list.
+    let liveBarrels: Barrel[] = [];
+    let barrelSyncs = 0;
+    const installBarrels = (snapshot: AuthoritativeGameSnapshot) => {
+        if (snapshot.artifactBarrelsCount !== undefined) liveBarrels = [...(snapshot.artifactBarrels ?? [])];
+    };
     const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
         fullReplayPlaybackActive: false,
         lastAuthoritativeSequence: -1,
@@ -96,6 +109,7 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         },
         grid: {
             getOccupantUnitId: (cell: { x: number; y: number }) => occupants.get(`${cell.x}:${cell.y}`),
+            getArtifactBarrels: () => liveBarrels.map((barrel) => ({ ...barrel, cell: { ...barrel.cell } })),
         },
         rememberStatusSnapshot() {},
         processDebuffPops() {},
@@ -114,7 +128,12 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         hydrateSceneState() {
             hydrates += 1;
         },
-        applyScatteredMountainsFromSnapshot() {},
+        applyScatteredMountainsFromSnapshot(snapshot: AuthoritativeGameSnapshot) {
+            installBarrels(snapshot);
+        },
+        syncArtifactBarrelVisuals() {
+            barrelSyncs += 1;
+        },
         refreshUnits() {},
         syncRankedUnitMechanicalEffects: () => false,
         healRankedGridOccupancy() {
@@ -132,6 +151,7 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         optimisticPlacementHoldUntil: number;
         lastPlacementStateByUnitId: Map<string, string>;
         noteOptimisticPlacement: () => void;
+        noteOptimisticBarrelPlacement: () => void;
     };
 
     const moveTo = (next: { x: number; y: number }[]) => {
@@ -146,6 +166,12 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         moveTo,
         hydrates: () => hydrates,
         occupancyRepairs: () => occupancyRepairs,
+        barrels: () => liveBarrels,
+        barrelSyncs: () => barrelSyncs,
+        /** A local barrel drop, drawn before the server answers. */
+        moveBarrelLocally: (barrel: Barrel) => {
+            liveBarrels = [...liveBarrels.filter((entry) => entry.index !== barrel.index), barrel];
+        },
     };
 };
 
@@ -336,6 +362,115 @@ describe("ranked placement snapshots", () => {
             localAccepts = false;
             expect(apply("place_unit").completed).toBe(false);
             expect(holds).toBe(1);
+        } finally {
+            local.mockRestore();
+        }
+    });
+});
+
+/**
+ * Barrel Barricade during ranked placement (live game 9208870e): a barrel move changes no stack, so the
+ * stacks-only skip above swallowed the confirming snapshot and the barrel never moved on the board, while the
+ * server had it at its new cell. The next drop then aimed at a cell the server held, and was refused.
+ */
+describe("ranked placement barrels", () => {
+    const at = (index: number, y: number): Barrel => ({ team: TeamVals.LEFT, index, cell: { x: 2, y } });
+    const stacks = () => [unit("a", [{ x: 1, y: 1 }])];
+
+    test("a barrel the server moved reaches the board while every stack already matches", () => {
+        const { scene, hydrates, barrels, barrelSyncs } = boot();
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 1, barrelsSnapshot([at(0, 0), at(1, 1)])));
+        expect(barrels()).toEqual([at(0, 0), at(1, 1)]);
+
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 2, barrelsSnapshot([at(0, 3), at(1, 1)])));
+        expect(barrels()).toEqual([at(0, 3), at(1, 1)]);
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 3, barrelsSnapshot([at(1, 1)])));
+        expect(barrels()).toEqual([at(1, 1)]);
+        expect(barrelSyncs()).toBe(2);
+        // Terrain only: the stacks stand where they stood, so nothing is torn down.
+        expect(hydrates()).toBe(1);
+    });
+
+    test("a unit drop's hold still lets a server barrel change through", () => {
+        const clock = spyOn(performance, "now").mockReturnValue(10_000);
+        try {
+            const { scene, moveTo, hydrates, barrels } = boot();
+            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 1, barrelsSnapshot([at(0, 0)])));
+            moveTo([{ x: 4, y: 4 }]);
+            scene.noteOptimisticPlacement();
+
+            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 2, barrelsSnapshot([at(0, 3)])));
+            expect(hydrates()).toBe(1);
+            expect(barrels()).toEqual([at(0, 3)]);
+        } finally {
+            clock.mockRestore();
+        }
+    });
+
+    test("an earlier snapshot cannot pull back a newer barrel drop, and the confirmation is silent", () => {
+        const clock = spyOn(performance, "now").mockReturnValue(10_000);
+        try {
+            const { scene, hydrates, barrels, barrelSyncs, moveBarrelLocally } = boot();
+            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 1, barrelsSnapshot([at(0, 0), at(1, 1)])));
+
+            moveBarrelLocally(at(0, 3));
+            scene.noteOptimisticBarrelPlacement();
+            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 2, barrelsSnapshot([at(0, 0), at(1, 1)])));
+            expect(barrels()).toEqual([at(1, 1), at(0, 3)]);
+
+            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 3, barrelsSnapshot([at(0, 3), at(1, 1)])));
+            expect(barrels()).toEqual([at(1, 1), at(0, 3)]);
+            expect(barrelSyncs()).toBe(0);
+            expect(hydrates()).toBe(1);
+        } finally {
+            clock.mockRestore();
+        }
+    });
+
+    test("an unconfirmed barrel drop goes back to the server's cell once its hold expires", () => {
+        const { scene, barrels, moveBarrelLocally } = boot();
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 1, barrelsSnapshot([at(0, 0)])));
+
+        // A drop whose hold never armed, or ran out: the server's word is final.
+        moveBarrelLocally(at(0, 3));
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 2, barrelsSnapshot([at(0, 0)])));
+        expect(barrels()).toEqual([at(0, 0)]);
+    });
+
+    test("a landed barrel drop or removal is drawn locally and arms only the barrel hold", () => {
+        let serverAccepts = true;
+        const applied: string[] = [];
+        const local = spyOn(Sandbox.prototype as unknown as { createActionEngine(): unknown }, "createActionEngine");
+        local.mockImplementation(() => ({
+            apply: (action: { type: string }) => {
+                applied.push(action.type);
+                return { completed: true, events: [{ type: "barrel_placed" }] };
+            },
+        }));
+        let unitHolds = 0;
+        let barrelHolds = 0;
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            isPlayingAuthoritativeReplay: () => false,
+            dispatchExternalGameAction: () => ({ handled: true, completed: serverAccepts }),
+            noteOptimisticPlacement: () => unitHolds++,
+            noteOptimisticBarrelPlacement: () => barrelHolds++,
+        }) as {
+            createActionEngine(): { apply(action: { type: string }): { completed: boolean; events: unknown[] } };
+        };
+        try {
+            const apply = (type: string) => scene.createActionEngine().apply({ type });
+            const placed = apply("place_barrel");
+            expect(placed.completed).toBe(true);
+            expect(placed.events).toEqual([{ type: "barrel_placed" }]);
+            expect(apply("unplace_barrel").completed).toBe(true);
+            expect(applied).toEqual(["place_barrel", "unplace_barrel"]);
+            expect(barrelHolds).toBe(2);
+            expect(unitHolds).toBe(0);
+
+            serverAccepts = false;
+            expect(apply("place_barrel").completed).toBe(false);
+            expect(applied).toHaveLength(2);
+            expect(barrelHolds).toBe(2);
         } finally {
             local.mockRestore();
         }

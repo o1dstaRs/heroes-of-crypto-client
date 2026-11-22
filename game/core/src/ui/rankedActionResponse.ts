@@ -21,7 +21,9 @@ export const placementActionSkipsSubmitSpinner = (type: PlayActionTypeValue): bo
     type === PlayActionType.PLACE_UNIT ||
     type === PlayActionType.SPLIT_UNIT ||
     type === PlayActionType.DELETE_UNIT ||
-    type === PlayActionType.UNPLACE_UNIT;
+    type === PlayActionType.UNPLACE_UNIT ||
+    type === PlayActionType.PLACE_BARREL ||
+    type === PlayActionType.UNPLACE_BARREL;
 
 // Placement mutations are already applied optimistically by the scene. Replaying their journal record
 // through the combat animation queue adds no visual value and can deadlock that queue while a placement

@@ -56,6 +56,8 @@ describe("ranked action response snapshots", () => {
         expect(placementActionSkipsSubmitSpinner(PlayActionType.SPLIT_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.DELETE_UNIT)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.UNPLACE_UNIT)).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.PLACE_BARREL)).toBe(true);
+        expect(placementActionSkipsSubmitSpinner(PlayActionType.UNPLACE_BARREL)).toBe(true);
         expect(placementActionSkipsSubmitSpinner(PlayActionType.MOVE_UNIT)).toBe(false);
     });
 
