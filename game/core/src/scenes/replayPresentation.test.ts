@@ -94,14 +94,14 @@ describe("replay presentation", () => {
 
         expect(await scene.playSandboxReplay(replay)).toBe(true);
         expect(timeline).toEqual([
-            "hydrate 0",
-            // A checkpoint (placement-era) record is hydrated and presented, so its log lines are not lost.
+            // The placement-era checkpoints open the replay as ONE board, the one the fight began on, and the
+            // last of them is presented so its log lines are not lost. Rebuilding the board for each of them
+            // flashed every placement drop at the start of a replay.
             "hydrate 1",
             "present 1",
-            // An action plays on the board it started from; settling runs while that board still stands
-            // (a death with no event of its own has no other moment to be seen), presenting once the new
-            // state is in.
-            "hydrate 1",
+            // An action plays on the board it started from, which here is the opening board already standing;
+            // settling runs while that board still stands (a death with no event of its own has no other
+            // moment to be seen), presenting once the new state is in.
             "play 2",
             "settle 2",
             "hydrate 2",

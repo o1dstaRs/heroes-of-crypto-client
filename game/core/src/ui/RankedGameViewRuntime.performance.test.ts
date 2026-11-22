@@ -12,7 +12,7 @@ describe("ranked background work", () => {
             source.indexOf("const loadAndPlayReplay ="),
         );
         const opening = play.indexOf("getRankedReplayInitialSnapshot(replay)");
-        const animated = play.indexOf("await manager.PlaySandboxReplay(sandboxReplay)");
+        const animated = play.indexOf("await manager.PlaySandboxReplay(sandboxReplay,");
         const fallback = play.indexOf("collectRankedReplaySnapshots(replay)");
         expect(opening).toBeGreaterThan(-1);
         expect(play).toContain("shareSnapshots: true");

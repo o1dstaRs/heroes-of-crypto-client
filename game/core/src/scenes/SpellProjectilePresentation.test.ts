@@ -714,6 +714,8 @@ for (const spell of ["Fire Strike", "Fireball"])
                 onReplayRecordSettling: () => timeline.push("settle"),
                 finishFight: () => timeline.push("finish"),
                 onReplayCompleted: () => timeline.push("results"),
+                // The opening hold and action gaps are wall-clock waits; this test drives the flight clock.
+                delayReplay: async () => undefined,
             });
             const finalRecord = {
                 ...f.record,

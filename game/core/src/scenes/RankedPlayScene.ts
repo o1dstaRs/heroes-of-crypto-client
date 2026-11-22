@@ -45,7 +45,7 @@ import type {
     SceneGameActionTransport,
 } from "../game_action_transport";
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
-import type { SandboxReplay, SandboxReplayActionRecord } from "../replay/sandbox_replay";
+import type { SandboxReplay, SandboxReplayActionRecord, SandboxReplayPlaybackOptions } from "../replay/sandbox_replay";
 import { buildFightDamageEntries } from "./FightStatsTracker";
 import { fightResultSetupFromSnapshot } from "./fightResultSetup";
 import type {
@@ -2634,7 +2634,11 @@ export class RankedPlayScene extends Sandbox {
     public override canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
-    public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
+    public override async playSandboxReplay(
+        replay: SandboxReplay,
+        throughSequence?: number,
+        options?: SandboxReplayPlaybackOptions,
+    ): Promise<boolean> {
         this.fullReplayPlaybackActive = true;
         clearPersonalArmyTint();
         // A replay shows the match as it was dealt: green on the left, red on the right.
@@ -2651,8 +2655,8 @@ export class RankedPlayScene extends Sandbox {
         }
         try {
             return await (throughSequence === undefined
-                ? super.playSandboxReplay(replay)
-                : super.playSandboxReplay(replay, throughSequence));
+                ? super.playSandboxReplay(replay, undefined, options)
+                : super.playSandboxReplay(replay, throughSequence, options));
         } finally {
             this.fullReplayPlaybackActive = false;
             this.replayViewingActive = false;

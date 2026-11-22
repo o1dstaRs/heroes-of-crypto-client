@@ -119,3 +119,69 @@ test("a texture failure does not start a partially loaded replay and releases pl
     expect(scene.setReplayPlaybackActive).toHaveBeenLastCalledWith(false);
     expect(scene.replayRecordingSuspended).toBe(false);
 });
+
+test("a replay opens on the fight-start board built once, then holds it before the first move", async () => {
+    const { scene, replay, textures, pending } = fixture();
+    const placementStates = Array.from({ length: 40 }, (_, index) => ({ units: [], currentLap: 0, step: index }));
+    const fightStart = { units: [], currentLap: 1, fightStarted: true };
+    const afterMove = { units: [], currentLap: 1, fightStarted: true, moved: true };
+    replay.actions = [
+        // Game 9208870e opened with about forty placement records: unit drops, barrel moves and augments.
+        ...placementStates.map((stateAfter, index) => ({
+            sequence: index + 1,
+            clientTimeMs: index,
+            action:
+                index % 2
+                    ? { type: "place_barrel", team: 1, barrelIndex: 0, cell: { x: 1, y: index % 3 } }
+                    : { type: "place_unit", unitId: "a", team: 1, cells: [{ x: 1, y: 1 }] },
+            events: [],
+            stateAfter,
+        })),
+        { sequence: 41, clientTimeMs: 41, action: { type: "start_fight" }, events: [], stateAfter: fightStart },
+        {
+            sequence: 42,
+            clientTimeMs: 42,
+            action: { type: "move_unit", unitId: "a", path: [{ x: 2, y: 1 }] },
+            events: [],
+            stateAfter: afterMove,
+        },
+    ] as unknown as SandboxReplay["actions"];
+    const hold = deferred();
+    let delays = 0;
+    scene.delayReplay = mock(() => (delays++ === 0 ? hold.promise : Promise.resolve()));
+    scene.onReplayRecordSettling = mock(() => {});
+    scene.onReplayRecordPresented = mock(() => {});
+    scene.onReplayCompleted = mock(() => {});
+    scene.playSandboxReplayRecord = mock(async () => true);
+    const opened = deferred();
+    const onOpeningShown = mock(() => opened.resolve());
+
+    const playback = scene.playSandboxReplay(replay, undefined, { onOpeningShown });
+    textures.resolve();
+    await textures.promise;
+    await Promise.resolve();
+    // The board is built, but its map art is still loading: the cover stays up.
+    expect(scene.hydrateSceneState).toHaveBeenCalledTimes(1);
+    expect(onOpeningShown).not.toHaveBeenCalled();
+    pending.resolve();
+    await opened.promise;
+
+    // One build, of the board the fight began on; none of the forty placement boards is ever drawn.
+    expect(scene.hydrateSceneState).toHaveBeenCalledTimes(1);
+    expect(scene.hydrateSceneState.mock.calls[0][0]).toEqual(fightStart);
+    expect(scene.preloadTextureKeys.mock.calls[0][1]).toEqual({ priority: "visible" });
+    expect(scene.onReplayRecordPresented).toHaveBeenCalledTimes(1);
+    expect(scene.onReplayRecordPresented.mock.calls[0][0]).toBe(replay.actions[40]);
+    expect(scene.playSandboxReplayRecord).not.toHaveBeenCalled();
+
+    hold.resolve();
+    expect(await playback).toBe(true);
+    // The first move plays on the opening board as it stands, without another rebuild.
+    expect(scene.playSandboxReplayRecord).toHaveBeenCalledTimes(1);
+    expect(scene.playSandboxReplayRecord.mock.calls[0][0]).toBe(replay.actions[41]);
+    expect(scene.hydrateSceneState.mock.calls.map(([state]: [unknown]) => state)).toEqual([
+        fightStart,
+        afterMove,
+        afterMove,
+    ]);
+});

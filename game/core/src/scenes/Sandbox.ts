@@ -329,6 +329,7 @@ import {
     SandboxReplayRecorder,
     type SandboxReplay,
     type SandboxReplayActionRecord,
+    type SandboxReplayPlaybackOptions,
 } from "../replay/sandbox_replay";
 import {
     optimalRangeTargetEdge,
@@ -987,6 +988,8 @@ const hasShieldAbsorb = (damage: IVisibleDamage | undefined, unitId?: string): b
 export class Sandbox extends PixiScene {
     private static readonly MOVE_SPEED_FACTOR = 16;
     private static readonly REPLAY_ACTION_GAP_MS = 80;
+    /** How long a replay's opening board stands before the first move. */
+    private static readonly REPLAY_OPENING_HOLD_MS = 600;
     private static readonly REPLAY_CONTROL_HOLD_MS = 120;
     private static readonly REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS = 300;
     private static readonly REPLAY_ATTACK_AFTER_APPLY_HOLD_MS = 160;
@@ -3470,6 +3473,7 @@ export class Sandbox extends PixiScene {
     public override async playSandboxReplay(
         replay: SandboxReplay,
         throughSequence = replay.actions.length,
+        options?: SandboxReplayPlaybackOptions,
     ): Promise<boolean> {
         if (this.isSceneDestroyed()) {
             return false;
@@ -3488,6 +3492,20 @@ export class Sandbox extends PixiScene {
                 undefined,
             );
 
+        const records = replay.actions.slice(0, sequence);
+        const startFightIndex = records.findIndex((record) => record.action.type === "start_fight");
+        // The setup before the first played action is a run of checkpoints: every unit drop, barrel move and
+        // augment of the placement. Rebuilding the board for each one flashed some forty boards in the first
+        // second of a replay. Open on the board as it stood when the fight began, built once.
+        let opening = 0;
+        while (
+            opening < records.length &&
+            this.shouldApplyReplayRecordAsCheckpoint(records[opening], opening, startFightIndex)
+        ) {
+            opening += 1;
+        }
+        const openingState = opening > 0 ? records[opening - 1].stateAfter : replay.initialState;
+
         this.setReplayPlaybackActive(true);
         this.replayRecordingSuspended = true;
         this.pendingReplayRecords = [];
@@ -3495,25 +3513,29 @@ export class Sandbox extends PixiScene {
             // A replay shows the match as it WAS: green against red. Whatever personal tint the person
             // watching prefers is dropped for the duration.
             clearPersonalArmyTint();
-            await this.preloadTextureKeys(replayStateTextureKeys(replay.initialState), { priority: "visible" });
+            await this.preloadTextureKeys(replayStateTextureKeys(openingState), { priority: "visible" });
             if (this.isSceneDestroyed()) return false;
             this.replayDebuffsShown = new WeakSet();
             this.resetStatusApplicationOrder();
-            this.hydrateSceneState(cloneReplayData(replay.initialState));
+            for (const record of records.slice(0, opening)) this.rememberStatusApplications(record.events);
+            this.hydrateSceneState(cloneReplayData(openingState));
             // Hydration also warms every creature's later combat sheets. Only the visible map belongs
             // on the startup path; each exchange prepares its participants before it is animated.
             await this.prepareMapTextures();
             if (this.isSceneDestroyed()) return false;
             this.onSupplementaryTexturesLoaded();
             this.sc_sceneLog.clear();
+            if (opening > 0) this.onReplayRecordPresented(records[opening - 1]);
+            options?.onOpeningShown?.();
             if (sequence <= 0) {
                 return true;
             }
 
-            const records = replay.actions.slice(0, sequence);
-            const startFightIndex = records.findIndex((record) => record.action.type === "start_fight");
-
-            for (let index = 0; index < records.length; index += 1) {
+            // Let the opening board settle before the first move instead of animating on the frame it appears.
+            // The hold runs while the first exchange's sheets load.
+            let openingHold: Promise<void> | undefined =
+                opening < records.length ? this.delayReplay(Sandbox.REPLAY_OPENING_HOLD_MS) : undefined;
+            for (let index = opening; index < records.length; index += 1) {
                 if (this.isSceneDestroyed()) {
                     return false;
                 }
@@ -3534,7 +3556,9 @@ export class Sandbox extends PixiScene {
                         priority: "visible",
                     });
                     if (this.isSceneDestroyed()) return false;
-                    this.hydrateSceneState(cloneReplayData(previousState));
+                    // The opening board already stands as this state. Rebuilding it again would restart
+                    // every idle animation on the frame the first move begins.
+                    if (index !== opening) this.hydrateSceneState(cloneReplayData(previousState));
                 }
 
                 const next = records[index + 1];
@@ -3543,6 +3567,11 @@ export class Sandbox extends PixiScene {
                     void this.preloadTextureKeys(replayActionTextureKeys(record.stateAfter, next)).catch(
                         () => undefined,
                     );
+                }
+                if (openingHold) {
+                    await openingHold;
+                    openingHold = undefined;
+                    if (this.isSceneDestroyed()) return false;
                 }
                 const played = await this.playSandboxReplayRecord(record);
                 if (this.isSceneDestroyed()) {

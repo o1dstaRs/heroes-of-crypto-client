@@ -62,7 +62,7 @@ import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./sceneRegistry";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import type { PremiumTurnPreview } from "../api/premium_client";
-import type { SandboxReplay } from "../replay/sandbox_replay";
+import type { SandboxReplay, SandboxReplayPlaybackOptions } from "../replay/sandbox_replay";
 
 // Every fight this client hosts — sandbox, vs-AI, previews, ranked hydration — plays the
 // SIDE-oriented board (owner call 2026-08-25: everything fights left-to-right now). Set as the
@@ -1140,8 +1140,12 @@ export class PixiGameManager {
             ? structuredClone(this.m_scene.sc_visibleState as IVisibleState)
             : ({} as IVisibleState);
     }
-    public async PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
-        const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence)) ?? false;
+    public async PlaySandboxReplay(
+        replay: SandboxReplay,
+        throughSequence?: number,
+        options?: SandboxReplayPlaybackOptions,
+    ): Promise<boolean> {
+        const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence, options)) ?? false;
         if (applied) {
             const sequence = throughSequence ?? replay.actions.length;
             const state =

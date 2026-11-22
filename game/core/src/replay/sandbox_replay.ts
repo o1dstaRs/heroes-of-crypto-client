@@ -40,6 +40,11 @@ export interface SandboxReplay {
     actions: SandboxReplayActionRecord[];
 }
 
+export interface SandboxReplayPlaybackOptions {
+    /** The opening board is built and its art is loaded: a loading cover can come down. */
+    onOpeningShown?: () => void;
+}
+
 export const cloneReplayData = <T>(value: T): T => {
     if (typeof structuredClone === "function") {
         return structuredClone(value);

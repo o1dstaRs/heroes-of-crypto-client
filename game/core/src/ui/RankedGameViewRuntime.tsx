@@ -128,6 +128,7 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
+import { ReplayLoadingCover } from "./ReplayLoadingCover";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
@@ -356,6 +357,8 @@ export const RankedGameView: React.FC<Props> = ({
     // and only while playback is running, so a finished replay does not pin the fight chrome on afterwards.
     const [replayFightVisible, setReplayFightVisible] = useState(false);
     const [busy, setBusy] = useState(false);
+    // Up from the moment a replay is asked for until its opening board stands with its art loaded.
+    const [replayCoverVisible, setReplayCoverVisible] = useState(!!replayOnly);
     const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
     // The game no longer exists on the server (cleaned up on restart, or a DB lookup failed → the API
@@ -1541,7 +1544,8 @@ export const RankedGameView: React.FC<Props> = ({
     const playLoadedRankedReplay = useCallback(
         async (replay: RankedReplay) => {
             clearReplayTimers();
-            setBusy(true);
+            // No busy flag: it labelled the whole replay "Submitting". Nothing is submitted while one plays.
+            setReplayCoverVisible(true);
             setStatus("Preparing replay");
             setError("");
 
@@ -1565,7 +1569,9 @@ export const RankedGameView: React.FC<Props> = ({
 
                 setStatus("Replaying");
                 if (sandboxReplay) {
-                    const replayed = await manager.PlaySandboxReplay(sandboxReplay);
+                    const replayed = await manager.PlaySandboxReplay(sandboxReplay, undefined, {
+                        onOpeningShown: () => setReplayCoverVisible(false),
+                    });
                     if (replayed) {
                         setStatus("Replay complete");
                         return;
@@ -1578,6 +1584,7 @@ export const RankedGameView: React.FC<Props> = ({
                 }
 
                 const stepDelayMs = 550;
+                setReplayCoverVisible(false);
                 for (let index = 0; index < replaySnapshots.length; index += 1) {
                     if (index > 0) {
                         await new Promise<void>((resolve) => {
@@ -1601,18 +1608,21 @@ export const RankedGameView: React.FC<Props> = ({
                 if (replay.currentSnapshot) {
                     applySnapshot(replay.currentSnapshot, { forceBoardRebuild: true });
                 }
-                setBusy(false);
+                setReplayCoverVisible(false);
             }
         },
         [applySnapshot, clearReplayTimers, manager, toSceneSnapshot],
     );
 
     const replayRankedFight = useCallback(async () => {
+        // The results screen dismisses itself on the click: cover the finished board during the download too.
+        setReplayCoverVisible(true);
         setStatus("Loading replay");
         setError("");
         try {
             await playLoadedRankedReplay(await fetchRankedPlayReplay(gameId));
         } catch (err: unknown) {
+            setReplayCoverVisible(false);
             setStatus("Replay failed");
             setError((err as Error).message || "Unable to load replay");
         }
@@ -1627,6 +1637,7 @@ export const RankedGameView: React.FC<Props> = ({
         replayAutoplayStartedRef.current = false;
         storedReplayRef.current = undefined;
         setGameUnavailable(false);
+        setReplayCoverVisible(true);
         setStatus("Loading replay");
         setError("");
 
@@ -1642,6 +1653,7 @@ export const RankedGameView: React.FC<Props> = ({
             })
             .catch((err: unknown) => {
                 if (!cancelled) {
+                    setReplayCoverVisible(false);
                     setStatus("Replay unavailable");
                     setError((err as Error).message || "This match does not have a stored replay");
                     setGameUnavailable(true);
@@ -2151,6 +2163,7 @@ export const RankedGameView: React.FC<Props> = ({
                 <>
                     <CssBaseline />
                     {!pixiReady && <LoadingFullscreenToggle />}
+                    <ReplayLoadingCover visible={replayCoverVisible} />
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
                         the sandbox and on the pick screen, so a ranked fight — which builds its own layout
                         around the same two sidebars — never drew it and the board simply ran into the

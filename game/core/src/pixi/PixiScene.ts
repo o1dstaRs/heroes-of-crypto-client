@@ -34,7 +34,7 @@ import type {
     SceneGameActionTransportResult,
 } from "../game_action_transport";
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
-import type { SandboxReplay } from "../replay/sandbox_replay";
+import type { SandboxReplay, SandboxReplayPlaybackOptions } from "../replay/sandbox_replay";
 
 import {
     ISpellEffectSummary,
@@ -699,7 +699,11 @@ export abstract class PixiScene {
     public canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
-    public playSandboxReplay(_replay: SandboxReplay, _throughSequence?: number): boolean | Promise<boolean> {
+    public playSandboxReplay(
+        _replay: SandboxReplay,
+        _throughSequence?: number,
+        _options?: SandboxReplayPlaybackOptions,
+    ): boolean | Promise<boolean> {
         return false;
     }
     public startScene(): boolean {
