@@ -226,7 +226,16 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v22, revision suffix
+Current default is profile v23, revision suffix
+`keep-attack-v1-rejection-fixes-v1-deep-fit-v1`. `a19-deep-fit-v1` was adopted on November 22, 2026, under the
+standing instruction at the owner-approved think budget ("4s is fine"). A bot seat runs the deep A19 search (8
+rollouts, shortlist 10, max melee 16) after the stock search whenever both fit 2,800 rollout turns (about 4 s).
+Premium advice keeps the stock search. Read common's `docs/deep_fit_adoption.md`. Registered confirmation M: mirror
++5.35 points (95% +2.72 to +8.06), owner-shaped guard +3.67. Its quality gate failed (10 candidate games against
+6, all refusal causes that v22 fixes) and stays recorded as failed. Confirmation K, the same rule at 1,400 turns,
+failed its strength gate.
+
+Profile v22, retained in v23: current default was profile v22, revision suffix
 `tier2-striker-v1-keep-attack-v1-rejection-fixes-v1`. `a19-rejection-fixes-v1` was adopted on November 21,
 2026, at the owner's request ("Need to fix all rejection causes"). Read common's
 `docs/rejection_fixes_adoption.md`. In production code every refused AI action had one of three causes, and all
