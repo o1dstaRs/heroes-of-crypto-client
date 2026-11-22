@@ -226,7 +226,15 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v24, revision suffix
+Current default is profile v25, revision suffix `deep-fit-v1-wild-regen-v1-decoy-aware-v1`. `a19-decoy-aware-v1` was
+adopted on November 22, 2026, under the standing instruction ("always lock in wins please"). The owner beat the brutal
+AI with a checkerboard wall of one-creature Fairy splits in front of a two-shooter corner fort (game 9a1003ec). A melee
+unit no longer strikes a one-model decoy (a one-creature stack whose creature has a bigger living stack) while it can
+strike a real stack. Read common's `docs/decoy_aware_adoption.md`. Registered confirmation Y on a fresh sealed bank:
+against the checkerboard decoy-fort layout +6.33 points (95% +2.59 to +10.05); the ring-fort (+8.33), mirror (+1.62)
+and owner-shaped (+0.75) guards passed. The estimate is against AI-played armies, not a win rate against people.
+
+Profile v24, retained in v25: revision suffix
 `rejection-fixes-v1-deep-fit-v1-wild-regen-v1`. `a19-wild-regen-gift-v1` was adopted on November 22, 2026, by the
 owner's explicit decision: the Troll's one-way Wild Regeneration gift goes only to an ally whose creatures have more max
 HP than the caster's (the owner saw a Troll give it to a one-creature Fairy split instead of the Griffin). Read common's
