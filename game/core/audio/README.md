@@ -317,7 +317,9 @@ Fireball casts use
 `magic-fire-spell-fiery-impactful-epic-stock-media-questgamemagicfirespellflamecasthit3-1-0m03s.mp3`
 (2.430 seconds). Fire Strike casts (Battle Mage is its only caster) separately use GFX Sounds'
 `fire-torch-whoosh-movement-gfx-sounds-1-00-01.mp3` (0.694 seconds after trimming its quiet tail).
-Both trim quiet edges without speed or pitch changes, use the 2.5-second spell budget,
+Meteor Shower casts use Gamemaster Audio's `lightning-strike-with-sparks-gamemaster-audio-4-4-00-02.mp3`
+(2.074 seconds after trimming its quiet tail); Meteorite, Battle Mage's version, has no sound of its own.
+All three trim quiet edges without speed or pitch changes, use the 2.5-second spell budget,
 and play once for an accepted cast in manual, AI/Premium, and authoritative replay paths.
 Listen to these in their spell rows on `tmp/audio/review.html`, alongside the shared summon effect.
 

@@ -79,6 +79,46 @@
                 }
             },
             "path": "tmp/audio/raw/provided/0f02482eb1b4d9ca/fire-torch-whoosh-movement-gfx-sounds-1-00-01.mp3"
+        },
+        {
+            "unit": "Meteor Shower",
+            "slug": "spell-meteor-shower",
+            "role": "cast",
+            "source_id": "provided-84e1d09dcc857122da35",
+            "source": {
+                "kind": "user-provided",
+                "filename": "lightning-strike-with-sparks-gamemaster-audio-4-4-00-02.mp3",
+                "title": "Lightning strike with sparks",
+                "author": "Gamemaster Audio",
+                "sha256": "84e1d09dcc857122da35e51d99bd4d04c172a566a5ab949a151d38ce8272fb8d",
+                "label": "Selected Meteor Shower cast",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Meteor Shower spell cast",
+                "duration_limit_ms": 2500,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-84e1d09dcc857122da35"
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -6.58,
+                    "bytes": 16765,
+                    "duration_ms": 2074,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.21
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -5.72,
+                    "bytes": 25676,
+                    "duration_ms": 2074,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.64
+                }
+            },
+            "path": "tmp/audio/raw/provided/84e1d09dcc857122/lightning-strike-with-sparks-gamemaster-audio-4-4-00-02.mp3"
         }
     ]
 }

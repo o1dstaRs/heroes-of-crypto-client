@@ -8,5 +8,10 @@
         "slug": "spell-fire-strike",
         "durationMs": 694,
         "revision": "2dd031bf56"
+    },
+    "Meteor Shower": {
+        "slug": "spell-meteor-shower",
+        "durationMs": 2074,
+        "revision": "2a5fad9cce"
     }
 }
