@@ -61,9 +61,36 @@ const synergyLabels: Record<string, readonly string[]> = {
     Might: ["Aura range", "Ability power"],
 };
 
+export interface DraftUpgrade {
+    kind: string;
+    value: number;
+}
+/** Where the board's upgrades come from: the player's own Setup choices, or Premium's plan for the army. */
+export type DraftUpgradeSource = "selected" | "planned";
+const PLACEMENT_BASE_DEPTH = 3;
+const PLACEMENT_MAX_LEVEL = 3;
+const cellPoint = (hash: number): Point => ({ x: hash >> 4, y: hash & 15 });
+
 /** Detached public-information projection. Never reads a fight, predicts enemy positions as fact,
- * applies a loadout, or supplies actions/placements to the match or the shipped AI. */
-export function projectPremiumDraft(draft: PremiumDraftState) {
+ * applies a loadout, or supplies actions/placements to the match or the shipped AI.
+ *
+ * `plannedUpgrades` is Premium's upgrade plan for this army. Until the player spends a Setup point the board is
+ * drawn as that plan would leave it (a planned Placement upgrade widens the zone and the formation uses it);
+ * once they spend one, their own choices replace the plan. */
+export function projectPremiumDraft(draft: PremiumDraftState, plannedUpgrades: readonly DraftUpgrade[] = []) {
+    const selectedUpgrades = (draft.setup?.augments ?? []).filter((augment) => augment.value > 0);
+    const upgrades = selectedUpgrades.length
+        ? selectedUpgrades
+        : plannedUpgrades.filter((augment) => augment.value > 0).map(({ kind, value }) => ({ kind, value }));
+    const upgradeSource: DraftUpgradeSource | undefined = selectedUpgrades.length
+        ? "selected"
+        : upgrades.length
+          ? "planned"
+          : undefined;
+    const placementLevel = Math.max(
+        0,
+        Math.min(PLACEMENT_MAX_LEVEL, upgrades.find((augment) => augment.kind === "Placement")?.value ?? 0),
+    );
     const own = distinctUnits(draft.picked),
         enemy = distinctUnits(draft.opponentPicked);
     const variants = draft.gameId ? synergyVariantsForSeed(draft.gameId) : undefined;
@@ -93,17 +120,28 @@ export function projectPremiumDraft(draft: PremiumDraftState) {
     const map = [GridVals.NORMAL, GridVals.LAVA_CENTER, GridVals.BLOCK_CENTER].includes(revealedMap ?? 0)
         ? revealedMap
         : undefined;
-    const formation = (units: typeof own, opposing: typeof enemy, left: boolean): DraftProjectedStack[] => {
-        if (!units.length) return [];
-        const { GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA } = GridConstants;
-        const settings = new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA);
-        const depth = left && draft.setup ? 3 + Math.max(0, Math.min(3, draft.setup.placement)) : 3;
-        const zone = new RectanglePlacement(
+    const { GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA } = GridConstants;
+    const settings = new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA);
+    // The enemy's upgrades are private, so its zone is always drawn at the base depth.
+    const placementZone = (left: boolean, depth: number) =>
+        new RectanglePlacement(
             settings,
             left ? PlacementPositionType.LEFT_BOTTOM : PlacementPositionType.RIGHT_TOP,
             depth,
             true,
         );
+    const ownDepth = PLACEMENT_BASE_DEPTH + placementLevel;
+    const zoneCells = (left: boolean, depth: number) =>
+        [...placementZone(left, depth).possibleCellHashes()].sort((a, b) => a - b).map(cellPoint);
+    const zones = {
+        own: zoneCells(true, ownDepth),
+        ownBase: zoneCells(true, PLACEMENT_BASE_DEPTH),
+        enemy: zoneCells(false, PLACEMENT_BASE_DEPTH),
+    };
+    const formation = (units: typeof own, opposing: typeof enemy, left: boolean): DraftProjectedStack[] => {
+        if (!units.length) return [];
+        const depth = left ? ownDepth : PLACEMENT_BASE_DEPTH;
+        const zone = placementZone(left, depth);
         const life = synergies.find((item) => item.faction === "Life")!;
         const supplyLevel = left ? life.level : life.enemyLevel;
         const supply = life.variant === 1 && supplyLevel ? (SynergyKeysToPower[`Life:1:${supplyLevel}`]?.[0] ?? 0) : 0;
@@ -137,7 +175,7 @@ export function projectPremiumDraft(draft: PremiumDraftState) {
             map: map ?? GridVals.NORMAL,
             artifacts: left ? [draft.artifactTier1, draft.artifactTier2] : [],
             doctrine: left ? (draft.doctrine ?? 0) : 0,
-            augments: left ? (draft.setup?.augments ?? []) : [],
+            augments: left ? upgrades : [],
             left,
             legal: [...zone.possibleCellHashes()],
         };
@@ -148,7 +186,7 @@ export function projectPremiumDraft(draft: PremiumDraftState) {
             .sort((a, b) => b.body.width * b.body.height - a.body.width * a.body.height || a.index - b.index);
         for (const { body, index } of ordered) {
             const back = body.ranged || (body.caster && !units[index].melee);
-            const targetX = back ? body.width : left && draft.setup ? 3 + draft.setup.placement : 3;
+            const targetX = back ? body.width : depth;
             const targetY = 3 + (index % 3) * 4;
             const anchors = zone
                 .possibleCellPositions(true, body.width, body.height)
@@ -260,6 +298,10 @@ export function projectPremiumDraft(draft: PremiumDraftState) {
         steps,
         arrows,
         artifacts,
+        zones,
+        placementLevel,
+        upgrades,
+        upgradeSource,
         setup: !!draft.setup,
         formationUnavailable: own.length > 0 && ownStacks.length === 0,
         hiddenEnemy: Math.max(0, 6 - enemy.length),

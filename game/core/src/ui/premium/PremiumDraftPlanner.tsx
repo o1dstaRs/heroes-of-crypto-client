@@ -12,6 +12,7 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { PremiumIcon } from "../PremiumIcon";
+import { DraftBuildStrip } from "./DraftBuildStrip";
 import { PremiumDraftRoutes } from "./PremiumDraftRoutes";
 import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
 import {
@@ -21,22 +22,46 @@ import {
     type DraftProjectedStack,
 } from "./premiumDraftProjection";
 
-const storageKey = "hoc-premium-draft-panel-v1";
+// v2: the board now fills the window's width, so a window sized for the old capped board starts over once.
+const storageKey = "hoc-premium-draft-panel-v2";
+// The board is square and fills the window's width. By default the window is made tall enough to show all of it
+// with its title, build row, side labels and overlay toggle; on a short screen it narrows to keep that true.
+// Chrome around the board, measured: header 41, padding 11, title 25, build row 34, side labels 21, then the
+// overlay toggle 26, its legend 16 and padding 11 below it, plus a few px of slack.
+const PLANNER_BOARD_CHROME = 192;
+// Horizontal room the board does not get: 11px padding each side, a thin scrollbar and the window border.
+const PLANNER_BOARD_GUTTER = 36;
+const PLANNER_DEFAULT_WIDTH = 640;
+const PLANNER_MIN_WIDTH = 300;
+/** Default window size: the widest board up to 640px whose whole square fits the viewport's height. */
+export const defaultDraftPlannerSize = (viewport: { width: number; height: number }) => {
+    const height = Math.max(140, viewport.height - 24);
+    const width = Math.max(
+        PLANNER_MIN_WIDTH,
+        Math.min(PLANNER_DEFAULT_WIDTH, viewport.width - 24, height - PLANNER_BOARD_CHROME + PLANNER_BOARD_GUTTER),
+    );
+    return { width, height: Math.min(height, width - PLANNER_BOARD_GUTTER + PLANNER_BOARD_CHROME) };
+};
 const muted = "#bfa78f",
     ink = "#f3dec4",
     accent = "#ffb477";
 type Projection = ReturnType<typeof projectPremiumDraft>;
+
+const zoneCell = (cell: { x: number; y: number }) => ({ x: cell.x * 10, y: (15 - cell.y) * 10 });
 
 export const DraftPlannerBoard: React.FC<{
     plan: Projection;
     showPlan: boolean;
     selected?: string;
     onSelect?: (key: string) => void;
-    /** Largest board side, in px, that fits the planner window without scrolling. */
-    maxSize?: number;
-}> = ({ plan, showPlan, selected, onSelect, maxSize }) => {
+}> = ({ plan, showPlan, selected, onSelect }) => {
     const { t } = useTranslation();
     const marker = useId().replaceAll(":", "");
+    // Cells a Placement upgrade adds to the base zone: hatched while only planned, solid once chosen.
+    const baseZone = new Set((plan.zones?.ownBase ?? []).map((cell) => `${cell.x}:${cell.y}`));
+    const ownZone = plan.zones?.own ?? [];
+    const addedZone = ownZone.filter((cell) => !baseZone.has(`${cell.x}:${cell.y}`));
+    const plannedZone = plan.upgradeSource === "planned";
     const token = (unit: DraftProjectedStack, enemy: boolean) => {
         // A split creature has several stacks on the board, so the stack id (not the creature) is the key.
         const key = `${enemy ? "enemy" : "own"}:${unit.id}`;
@@ -112,7 +137,7 @@ export const DraftPlannerBoard: React.FC<{
         );
     };
     return (
-        <Box sx={{ width: "100%", maxWidth: maxSize === undefined ? undefined : `${maxSize}px`, mx: "auto" }}>
+        <Box sx={{ width: "100%" }}>
             <Box
                 data-board-sides
                 sx={{
@@ -128,6 +153,15 @@ export const DraftPlannerBoard: React.FC<{
                 <Box component="span" data-board-side="own" sx={{ color: "#b3cf9f" }}>
                     <span aria-hidden="true">← </span>
                     {t("Your side")}
+                    {plan.placementLevel > 0 && (
+                        <Box
+                            component="span"
+                            data-board-zone-upgrade={plannedZone ? "planned" : "selected"}
+                            sx={{ ml: 0.8, fontWeight: 500, color: plannedZone ? "#cfe3a6" : "#b3cf9f" }}
+                        >
+                            · {plannedZone ? "planned " : ""}Placement {plan.placementLevel}
+                        </Box>
+                    )}
                 </Box>
                 <Box component="span" data-board-side="enemy" sx={{ color: "#e0a18f", textAlign: "right" }}>
                     {t("Enemy side")}
@@ -166,6 +200,16 @@ export const DraftPlannerBoard: React.FC<{
                         >
                             <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#bcd47d" strokeWidth="2" />
                         </marker>
+                        <pattern
+                            id={`${marker}-planned-zone`}
+                            width="2.4"
+                            height="2.4"
+                            patternUnits="userSpaceOnUse"
+                            patternTransform="rotate(45)"
+                        >
+                            <rect width="2.4" height="2.4" fill="#9fd38a" opacity=".1" />
+                            <line x1="0" y1="0" x2="0" y2="2.4" stroke="#b9e59f" strokeWidth=".7" opacity=".35" />
+                        </pattern>
                         <marker
                             id={`${marker}-support`}
                             viewBox="0 0 10 10"
@@ -178,8 +222,37 @@ export const DraftPlannerBoard: React.FC<{
                             <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#88cbe0" strokeWidth="2" />
                         </marker>
                     </defs>
-                    <rect x="10" y="10" width="30" height="140" fill="#77a66c" opacity=".14" />
-                    <rect x="120" y="10" width="30" height="140" fill="#b66f5b" opacity=".12" />
+                    {(plan.zones?.ownBase ?? []).map((cell) => (
+                        <rect
+                            key={`own:${cell.x}:${cell.y}`}
+                            {...zoneCell(cell)}
+                            width="10"
+                            height="10"
+                            fill="#77a66c"
+                            opacity=".14"
+                        />
+                    ))}
+                    {addedZone.map((cell) => (
+                        <rect
+                            key={`added:${cell.x}:${cell.y}`}
+                            data-zone-cell={plannedZone ? "planned" : "selected"}
+                            {...zoneCell(cell)}
+                            width="10"
+                            height="10"
+                            fill={plannedZone ? `url(#${marker}-planned-zone)` : "#77a66c"}
+                            opacity={plannedZone ? 1 : 0.14}
+                        />
+                    ))}
+                    {(plan.zones?.enemy ?? []).map((cell) => (
+                        <rect
+                            key={`enemy:${cell.x}:${cell.y}`}
+                            {...zoneCell(cell)}
+                            width="10"
+                            height="10"
+                            fill="#b66f5b"
+                            opacity=".12"
+                        />
+                    ))}
                     {Array.from({ length: 17 }, (_, i) => (
                         <path
                             key={i}
@@ -254,6 +327,14 @@ export const PremiumDraftPlanner: React.FC<{
     // Pick timers rerender the shell every second. Re-plan only when the public draft changes.
     const sourceKey = JSON.stringify({ ...draft, scouting: advice.scouting ?? draft.scouting });
     const source = useMemo(() => JSON.parse(sourceKey) as PremiumDraftState, [sourceKey]);
+    // Premium's upgrade plan for this army: the board is drawn as it would leave it until the player spends a point.
+    const plannedKey = JSON.stringify(advice.augments ?? []);
+    const plannedUpgrades = useMemo(
+        () => JSON.parse(plannedKey) as NonNullable<PremiumAdvice["augments"]>,
+        [plannedKey],
+    );
+    // While this player chooses a Tier-2 artifact, Premium's first choice is shown on the build row as projected.
+    const projectedTier2 = advice.choices?.find((choice) => choice.kind === "artifact")?.value;
     const [showPlan, setShowPlan] = useState(true),
         [collapsed, setCollapsed] = useState(false);
     const [selected, setSelected] = useState<string>();
@@ -262,7 +343,7 @@ export const PremiumDraftPlanner: React.FC<{
     const gesture = useRef<
         { pointer: number; x: number; y: number; rect: DraftPanelRect; resize: boolean } | undefined
     >(undefined);
-    const plan = useMemo(() => projectPremiumDraft(source), [source]);
+    const plan = useMemo(() => projectPremiumDraft(source, plannedUpgrades), [source, plannedUpgrades]);
     const assessment = useMemo(() => premiumDraftAssessment(source), [source]);
     // Picks out of six count creatures; a split adds a stack, never a pick.
     const ownCreatures = new Set(plan.own.map((unit) => unit.creature)).size;
@@ -284,7 +365,7 @@ export const PremiumDraftPlanner: React.FC<{
     };
     const geometry = (): DraftPanelRect => {
         const b = panel.current!.getBoundingClientRect();
-        return { x: b.x, y: b.y, width: b.width, height: collapsed ? (rect?.height ?? 600) : b.height };
+        return { x: b.x, y: b.y, width: b.width, height: collapsed ? (rect?.height ?? defaultSize.height) : b.height };
     };
     useEffect(() => {
         try {
@@ -344,11 +425,12 @@ export const PremiumDraftPlanner: React.FC<{
         setRect(next);
         remember(next);
     };
-    // The whole board, its title, side labels and the overlay toggle fit the window without scrolling.
-    // Chrome above and below the board: header 40, padding 22, title 24, side labels 21, toggle row 26.
-    const panelHeight = rect?.height ?? (typeof window === "undefined" ? 640 : Math.min(640, window.innerHeight - 100));
-    const boardMax = Math.max(160, panelHeight - 140);
-    const wide = (rect?.width ?? (typeof window === "undefined" ? 640 : Math.min(640, window.innerWidth - 24))) >= 560;
+    const defaultSize = defaultDraftPlannerSize(
+        typeof window === "undefined"
+            ? { width: 1280, height: 900 }
+            : { width: window.innerWidth, height: window.innerHeight },
+    );
+    const wide = (rect?.width ?? defaultSize.width) >= 560;
     const content = (
         <Box
             ref={panel}
@@ -366,8 +448,8 @@ export const PremiumDraftPlanner: React.FC<{
                 left: rect ? rect.x : 18,
                 top: rect ? rect.y : "50%",
                 transform: rect ? undefined : "translateY(-50%)",
-                width: rect?.width ?? "min(640px, calc(100vw - 24px))",
-                height: collapsed ? 42 : (rect?.height ?? "min(640px, calc(100dvh - 100px))"),
+                width: rect?.width ?? defaultSize.width,
+                height: collapsed ? 42 : (rect?.height ?? defaultSize.height),
                 maxWidth: "calc(100vw - 24px)",
                 maxHeight: "calc(100dvh - 24px)",
                 boxSizing: "border-box",
@@ -482,13 +564,8 @@ export const PremiumDraftPlanner: React.FC<{
                                 AI-recommended formation
                             </Typography>
                         </Box>
-                        <DraftPlannerBoard
-                            plan={plan}
-                            showPlan={showPlan}
-                            selected={selected}
-                            onSelect={setSelected}
-                            maxSize={boardMax}
-                        />
+                        <DraftBuildStrip plan={plan} doctrine={source.doctrine} projectedTier2={projectedTier2} />
+                        <DraftPlannerBoard plan={plan} showPlan={showPlan} selected={selected} onSelect={setSelected} />
                         <Box
                             sx={{
                                 display: "flex",
@@ -497,8 +574,6 @@ export const PremiumDraftPlanner: React.FC<{
                                 color: muted,
                                 fontSize: 10,
                                 mt: 0.6,
-                                maxWidth: `${boardMax}px`,
-                                mx: "auto",
                             }}
                         >
                             <Box

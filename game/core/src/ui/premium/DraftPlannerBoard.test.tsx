@@ -4,7 +4,8 @@ import { expect, test } from "bun:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
 
-import { DraftPlannerBoard } from "./PremiumDraftPlanner";
+import { DraftPlannerBoard, defaultDraftPlannerSize } from "./PremiumDraftPlanner";
+import { projectPremiumDraft } from "./premiumDraftProjection";
 
 const stack = (creature: number, width: number, height: number, x: number, y: number, id = String(creature)) => ({
     id,
@@ -39,7 +40,7 @@ test("rectangular bodies show one square portrait per cell; square bodies show o
     ]);
 });
 
-test("the board never grows past the size that fits the planner window", () => {
+test("the board takes the window's full width instead of leaving empty columns beside it", () => {
     const plan = {
         own: [],
         enemy: [],
@@ -50,10 +51,49 @@ test("the board never grows past the size that fits the planner window", () => {
     } as unknown as React.ComponentProps<typeof DraftPlannerBoard>["plan"];
     const html = renderToStaticMarkup(
         <CacheProvider value={createCache({ key: "planner-fit" })}>
-            <DraftPlannerBoard plan={plan} showPlan={false} maxSize={420} />
+            <DraftPlannerBoard plan={plan} showPlan={false} />
         </CacheProvider>,
     );
-    expect(html).toContain("max-width:420px");
+    expect(html).not.toContain("max-width");
+    expect(html).toContain("aspect-ratio:1");
+});
+
+test("the default planner window is tall enough for its full-width board, and narrows on a short screen", () => {
+    const gutter = 36,
+        chrome = 192;
+    const roomy = defaultDraftPlannerSize({ width: 1920, height: 1080 });
+    expect(roomy.width).toBe(640);
+    expect(roomy.height).toBe(640 - gutter + chrome);
+    const short = defaultDraftPlannerSize({ width: 1440, height: 700 });
+    // The square board (width minus gutter) plus its chrome still fits the 676px the viewport leaves.
+    expect(short.height).toBe(676);
+    expect(short.width - gutter + chrome).toBeLessThanOrEqual(short.height);
+    expect(short.width).toBe(676 - chrome + gutter);
+    const phone = defaultDraftPlannerSize({ width: 360, height: 800 });
+    expect(phone.width).toBe(336);
+});
+
+test("a planned Placement upgrade draws the extra zone cells hatched and names it beside your side", () => {
+    const plan = projectPremiumDraft(
+        {
+            gameId: "planned-zone",
+            picked: [],
+            opponentPicked: [],
+            artifactTier1: 0,
+            artifactTier2: 0,
+            isYourTurn: true,
+        },
+        [{ kind: "Placement", value: 2 }],
+    );
+    const html = renderToStaticMarkup(
+        <CacheProvider value={createCache({ key: "planner-zone" })}>
+            <DraftPlannerBoard plan={plan} showPlan={false} />
+        </CacheProvider>,
+    );
+    expect(html).toContain('data-board-zone-upgrade="planned"');
+    expect(html).toContain("planned Placement 2");
+    // Depth 5 holds 80 cells; the base depth-3 zone holds 42.
+    expect(html.match(/data-zone-cell="planned"/g)).toHaveLength(80 - 42);
 });
 
 test("a split creature renders one board token per stack, each with its own amount", () => {

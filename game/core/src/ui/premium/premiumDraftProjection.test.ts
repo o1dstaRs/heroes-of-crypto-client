@@ -119,6 +119,60 @@ test("only revealed terrain and selected artifacts enter the projection", () => 
     expect(plan.arrows.filter((a) => a.kind === "advance").every((a) => a.to.y < 6 || a.to.y > 10)).toBe(true);
 });
 
+test("Premium's planned Placement upgrade widens your zone, and the formation is placed in the wider zone", () => {
+    const melee = [CreatureVals.PEASANT, CreatureVals.ORC, CreatureVals.HARPY];
+    const base = projectPremiumDraft(state({ picked: melee }));
+    const planned = projectPremiumDraft(state({ picked: melee }), [
+        { kind: "Placement", value: 2 },
+        { kind: "Movement", value: 2 },
+        { kind: "Armor", value: 0 },
+    ]);
+    expect(base.placementLevel).toBe(0);
+    expect(base.upgradeSource).toBeUndefined();
+    expect(planned.placementLevel).toBe(2);
+    expect(planned.upgradeSource).toBe("planned");
+    // A zero level is not an upgrade.
+    expect(planned.upgrades).toEqual([
+        { kind: "Placement", value: 2 },
+        { kind: "Movement", value: 2 },
+    ]);
+    expect(Math.max(...base.zones.own.map((c) => c.x))).toBe(3);
+    expect(Math.max(...planned.zones.own.map((c) => c.x))).toBe(5);
+    expect(planned.zones.ownBase).toEqual(base.zones.own);
+    // The enemy's upgrades are private: its zone stays at the base depth.
+    expect(planned.zones.enemy).toEqual(base.zones.enemy);
+    const legal = new Set(planned.zones.own.map((c) => `${c.x}:${c.y}`));
+    for (const body of planned.own)
+        for (const p of cells(body, body.position)) expect(legal.has(`${p.x}:${p.y}`)).toBe(true);
+    // Front-line stacks step forward into the columns the upgrade adds.
+    expect(Math.max(...planned.own.flatMap((body) => cells(body, body.position).map((p) => p.x)))).toBeGreaterThan(3);
+});
+
+test("once the player spends a Setup point, their own upgrades replace Premium's plan on the board", () => {
+    const zero = ["Placement", "Armor", "Might", "Empower", "Sniper", "Movement"].map((kind) => ({ kind, value: 0 }));
+    const plan = [{ kind: "Placement", value: 3 }];
+    const untouched = projectPremiumDraft(
+        state({ picked: own, setup: { placement: 0, augments: zero, amounts: {} } }),
+        plan,
+    );
+    expect(untouched.upgradeSource).toBe("planned");
+    expect(untouched.placementLevel).toBe(3);
+    const chosen = projectPremiumDraft(
+        state({
+            picked: own,
+            setup: {
+                placement: 1,
+                augments: zero.map((a) => (a.kind === "Placement" ? { ...a, value: 1 } : a)),
+                amounts: {},
+            },
+        }),
+        plan,
+    );
+    expect(chosen.upgradeSource).toBe("selected");
+    expect(chosen.placementLevel).toBe(1);
+    expect(chosen.upgrades).toEqual([{ kind: "Placement", value: 1 }]);
+});
+
 test.each([
     { width: 1440, height: 900 },
     { width: 390, height: 740 },
