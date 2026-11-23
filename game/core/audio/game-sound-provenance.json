@@ -416,6 +416,52 @@
                     "rms_db": -19.32
                 }
             }
+        },
+        {
+            "id": "ember_covenant_dissolve",
+            "source": {
+                "title": "Swoosh - flame sizzle",
+                "author": "Gregor Quendel",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for the Hydra's Ember Covenant shield dissolving: the first part, the swoosh and its sizzle before the second burst at 2.0 s",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "swoosh-flame-sizzle-gregor-quendel-1-00-02.mp3",
+                "sha256": "110fa2e3168798ed2377a2f60bca3bf73a24fcdc4941d642244fad9dc0b82247",
+                "score": -0.0081,
+                "bursts_to_review": 2,
+                "raw_duration_ms": 2619,
+                "leading_trim_ms": 26,
+                "trailing_trim_ms": 669,
+                "raw_rms_db": -20.99,
+                "raw_peak_db": -3.03,
+                "end_cut": {
+                    "end_ms": 1950,
+                    "fade_out_ms": 400
+                }
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.27,
+                    "true_peak_db": -3.77,
+                    "bytes": 15645,
+                    "duration_ms": 1800,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.24
+                },
+                "mp3": {
+                    "lufs": -20.61,
+                    "true_peak_db": -4.39,
+                    "bytes": 22220,
+                    "duration_ms": 1800,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.6
+                }
+            }
         }
     ]
 }

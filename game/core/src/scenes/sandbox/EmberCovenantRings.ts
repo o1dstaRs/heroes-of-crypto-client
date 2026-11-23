@@ -46,6 +46,8 @@ interface RingContext {
     getUnits(): ReadonlyMap<string, EmberCovenantUnit> | undefined;
     getTexture(): Texture | undefined;
     attachToWorldRoot(container: Container, zIndex: number): void;
+    /** Once per break of the army's covenant; a carrier dying with its ring up is not a break. */
+    onBreak?(): void;
 }
 
 interface AbsorbImpact {
@@ -86,13 +88,16 @@ export class EmberCovenantRings {
             if (team !== undefined && ally.getTeam?.() === team) ally.presentCombatBuffsAtImpact?.(NAME);
         }
         if ((unit && !carriesCovenant(unit)) || (!unit && recipientRing)) {
+            let broke = false;
             for (const [ringId, ring] of this.rings) {
                 const ally = units?.get(ringId);
                 if ((ally?.getTeam?.() ?? ring.team) === team && (!ally || !carriesCovenant(ally))) {
+                    broke ||= ring.breakAge === undefined;
                     ring.breakAge ??= 0;
                     this.paint(ring, this.context.getTexture());
                 }
             }
+            if (broke) this.context.onBreak?.();
         }
         const frame =
             unit?.getBlessingHaloFrame?.() ??
@@ -163,10 +168,14 @@ export class EmberCovenantRings {
         }
         let texture: Texture | undefined;
         if (this.rings.size) texture = this.context.getTexture();
+        let broke = false;
         for (const [id, ring] of this.rings) {
             const unit = units.get(id);
-            if ((!unit || !carriesCovenant(unit) || unit.isDead()) && !this.context.isImpactPending?.())
+            if ((!unit || !carriesCovenant(unit) || unit.isDead()) && !this.context.isImpactPending?.()) {
+                // Only a living carrier losing the buff is a break; a death or a removed stack is not.
+                broke ||= ring.breakAge === undefined && !!unit && !unit.isDead();
                 ring.breakAge ??= 0;
+            }
             if (ring.breakAge !== undefined) {
                 ring.breakAge += step;
                 if (ring.breakAge >= BREAK_SECONDS) {
@@ -177,6 +186,7 @@ export class EmberCovenantRings {
             ring.age += step;
             this.paint(ring, texture);
         }
+        if (broke) this.context.onBreak?.();
         for (const [id, impact] of this.impacts) {
             impact.age += step;
             if (

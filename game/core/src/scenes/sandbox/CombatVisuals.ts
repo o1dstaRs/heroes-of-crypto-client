@@ -19,6 +19,7 @@ import { BeholderDebuffPops, isBeholderDebuff } from "./BeholderDebuffPops";
 import { TerrifyingGazePops } from "./TerrifyingGazePops";
 import { borrowedGraceFlagKind } from "./borrowedGraceTransfers";
 import { playCombatSound } from "../../ui/audio/combatSounds";
+import { playGameSound } from "../../ui/audio/gameSounds";
 import { GravechainVfx } from "./GravechainVfx";
 import { LastFuseVfx } from "./LastFuseVfx";
 import { BorrowedGracePops } from "./BorrowedGracePops";
@@ -762,6 +763,10 @@ export class CombatVisuals {
             return this.emberCovenantTexture;
         },
         attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
+        onBreak: () => {
+            const epoch = this.audioEpoch;
+            playGameSound("ember_covenant_dissolve", () => epoch === this.audioEpoch);
+        },
     });
     private audioEpoch = 0;
     private spellImpactGeneration = 0;

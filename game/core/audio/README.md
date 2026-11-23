@@ -270,7 +270,7 @@ a missed first blow and a simultaneous counterattack. Ranked playback inherits t
 ## Provided game effects
 
 `game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement, split,
-heal, Blacksmith casting, summoning, and miss recordings to event names and duration budgets. Import local files once:
+heal, Blacksmith casting, summoning, miss, Water Shield and Ember Covenant recordings to event names and duration budgets. Import local files once:
 
 ```sh
 python3 game/core/scripts/prepare_game_audio.py --source-dir "$HOME/Downloads"
@@ -310,6 +310,14 @@ animation lab's dissolve preview) plays betacut's `object-hits-water-betacut-1-0
 `water_shield_dissolve` game sound (1.240 seconds; speed and pitch kept). Its watery tail is shortened:
 the recording stops at 1.4 seconds with a 400 ms fade (`end_cut` in `audio/game-sound-design.json`).
 Dying with the shield up is not a dissolve and stays quiet.
+
+The Hydra's Ember Covenant breaking (its army's rings dissolving, from an absorbed hit or the
+blessing running out) plays the first part of Gregor Quendel's
+`swoosh-flame-sizzle-gregor-quendel-1-00-02.mp3` once for the whole army, as the
+`ember_covenant_dissolve` game sound: the swoosh and its sizzle, cut at 1.95 seconds with a 400 ms
+fade before the recording's second burst (1.800 seconds; speed and pitch kept). It is triggered by
+`EmberCovenantRings` in sandbox and ranked alike. A carrier dying or leaving the board with its ring
+up stays quiet.
 
 All positive `unit_summoned` events use
 `magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3`, trimmed to 2.092 seconds.

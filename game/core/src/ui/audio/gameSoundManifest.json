@@ -38,5 +38,9 @@
     "split": {
         "durationMs": 230,
         "revision": "4e08bcc931"
+    },
+    "ember_covenant_dissolve": {
+        "durationMs": 1800,
+        "revision": "7a516f212d"
     }
 }

@@ -38,6 +38,7 @@ function setup(isImpactPending = () => false) {
         ["two", two],
     ]);
     let texture: Texture | undefined = Texture.WHITE;
+    let breaks = 0;
     const layer = new EmberCovenantRings({
         isImpactPending,
         getUnits: () => units,
@@ -46,8 +47,12 @@ function setup(isImpactPending = () => false) {
             node.zIndex = zIndex;
             root.addChild(node);
         },
+        onBreak: () => {
+            breaks += 1;
+        },
     });
     return {
+        breaks: () => breaks,
         root,
         one,
         two,
@@ -228,6 +233,50 @@ describe("Ember Covenant rings", () => {
             if (reason === "removed") f.units.delete("one");
             f.layer.update(0.9);
             expect(f.root.children).toHaveLength(1);
+        }
+    });
+
+    test("the army's break is heard once, when its rings start to dissolve", () => {
+        const f = setup();
+        f.layer.update(0.3);
+        expect(f.breaks()).toBe(0);
+        f.one.properties.applied_buffs.length = 0;
+        f.two.properties.applied_buffs.length = 0;
+        f.layer.update(0.2);
+        expect(f.breaks()).toBe(1);
+        f.layer.update(0.3);
+        f.layer.update(0.9);
+        expect(f.breaks()).toBe(1);
+    });
+
+    test("an absorbed hit that breaks the covenant is heard once, at contact", () => {
+        let pending = true;
+        const f = setup(() => pending);
+        f.layer.update(0.3);
+        f.one.properties.applied_buffs.length = 0;
+        f.two.properties.applied_buffs.length = 0;
+        f.layer.update(0.4);
+        expect(f.breaks()).toBe(0);
+        f.layer.absorb("one");
+        expect(f.breaks()).toBe(1);
+        pending = false;
+        f.layer.update(0.2);
+        expect(f.breaks()).toBe(1);
+    });
+
+    test("an expired blessing is a break, but a carrier dying or leaving the board is not", () => {
+        for (const [reason, heard] of [
+            ["expired", 1],
+            ["dead", 0],
+            ["removed", 0],
+        ] as const) {
+            const f = setup();
+            f.layer.update(0.3);
+            if (reason === "expired") f.one.properties.applied_buffs_laps[0] = 0;
+            if (reason === "dead") f.one.dead = true;
+            if (reason === "removed") f.units.delete("one");
+            f.layer.update(0.2);
+            expect(f.breaks()).toBe(heard);
         }
     });
 

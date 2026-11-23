@@ -119,6 +119,24 @@
                 "selection": "Explicitly selected by the user for a stack split that lands on the board",
                 "license": "License receipt not included in the supplied file"
             }
+        },
+        {
+            "id": "ember_covenant_dissolve",
+            "label": "Hydra Ember Covenant dissolve",
+            "source_filename": "swoosh-flame-sizzle-gregor-quendel-1-00-02.mp3",
+            "target_duration_ms": 2000,
+            "max_duration_ms": 2500,
+            "end_cut": {
+                "end_ms": 1950,
+                "fade_out_ms": 400
+            },
+            "source_metadata": {
+                "title": "Swoosh - flame sizzle",
+                "author": "Gregor Quendel",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for the Hydra's Ember Covenant shield dissolving: the first part, the swoosh and its sizzle before the second burst at 2.0 s",
+                "license": "License receipt not included in the supplied file"
+            }
         }
     ]
 }
