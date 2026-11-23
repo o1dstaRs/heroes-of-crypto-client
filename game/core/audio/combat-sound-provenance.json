@@ -2226,7 +2226,7 @@
             "unit": "Monk",
             "slug": "monk",
             "role": "attack",
-            "source_id": "provided-5c9fc5a704190baed9f8-740-2200",
+            "source_id": "provided-5c9fc5a704190baed9f8-740-1800",
             "source": {
                 "kind": "user-provided",
                 "filename": "whoosh-magic-shimmer-roy-s-noise-2-2-00-09.mp3",
@@ -2240,36 +2240,36 @@
                 "source_site": "https://uppbeat.io/",
                 "excerpt": {
                     "start_ms": 740,
-                    "end_ms": 2200,
+                    "end_ms": 1800,
                     "original_duration_ms": 9875,
                     "original_path": "tmp/audio/raw/provided/5c9fc5a704190bae/whoosh-magic-shimmer-roy-s-noise-2-2-00-09.mp3",
-                    "sha256": "204c348fdb76742bee5cabe5e2f514e0f62baaa25ecd69c77c16efdf0a283def",
+                    "sha256": "4273cce30530c19eb28e6eb823bba6792d09f47b84fd55c59ebafb7f2c233ca7",
                     "speed": 1,
                     "pitch_shift_semitones": 0,
-                    "selection": "The whoosh from its last swell through the peak (1.0-1.3 s) into the shimmer tail, faded over the last 450 ms",
-                    "fade_out_ms": 450,
+                    "selection": "The whoosh from its last swell through the peak (1.0-1.3 s) into a shorter shimmer tail, faded over the last 350 ms (the owner asked for a little more cut at the end than 2.2 s)",
+                    "fade_out_ms": 350,
                     "fade_in_ms": 60
                 },
-                "source_id": "provided-5c9fc5a704190baed9f8-740-2200"
+                "source_id": "provided-5c9fc5a704190baed9f8-740-1800"
             },
             "encoded": {
                 "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -5.94,
-                    "bytes": 13244,
-                    "duration_ms": 1384,
+                    "lufs": -19.97,
+                    "true_peak_db": -6.57,
+                    "bytes": 10333,
+                    "duration_ms": 1019,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.52
+                    "rms_db": -22.14
                 },
                 "mp3": {
                     "lufs": -20.41,
-                    "true_peak_db": -6.35,
-                    "bytes": 17324,
-                    "duration_ms": 1384,
+                    "true_peak_db": -7.05,
+                    "bytes": 13004,
+                    "duration_ms": 1019,
                     "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -22.93
+                    "rms_db": -22.58
                 }
             }
         },
