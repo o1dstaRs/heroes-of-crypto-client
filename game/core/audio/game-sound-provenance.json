@@ -374,6 +374,48 @@
                     "rms_db": -21.74
                 }
             }
+        },
+        {
+            "id": "split",
+            "source": {
+                "title": "Igniting gas fire (Large)",
+                "author": "Gamemaster Audio",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for a stack split that lands on the board",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "igniting-gas-fire-large-gamemaster-audio-faster-1-00-00.mp3",
+                "sha256": "368d540fc6f982a1066b445fdc6f13d775c20a6da2d837ededd632c244fcc258",
+                "score": 0.4167,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 413,
+                "leading_trim_ms": 1,
+                "trailing_trim_ms": 173,
+                "raw_rms_db": -13.31,
+                "raw_peak_db": 3.24
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 1000,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.33,
+                    "true_peak_db": -4.05,
+                    "bytes": 2820,
+                    "duration_ms": 230,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.99
+                },
+                "mp3": {
+                    "lufs": -20.66,
+                    "true_peak_db": -4.44,
+                    "bytes": 3500,
+                    "duration_ms": 230,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.32
+                }
+            }
         }
     ]
 }

@@ -8830,7 +8830,8 @@ export class Sandbox extends PixiScene {
                 };
                 const placementResult = this.createActionEngine().apply(placementAction);
                 if (placementResult.completed) {
-                    this.playSceneGameSound("place_unit");
+                    // SPLIT passes the amount peeled off; CLONE copies the whole stack.
+                    this.playSceneGameSound(newAmount === undefined ? "place_unit" : "split");
                     this.layoutVersion++;
                     this.gridMatrix = this.grid.getMatrix();
                     this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -18785,7 +18786,7 @@ export class Sandbox extends PixiScene {
 
         source.shareResourcesWithSplit(newUnit, amount);
         source.setAmountAlive(alive - amount);
-        this.playSceneGameSound("place_unit");
+        this.playSceneGameSound("split");
         if (source instanceof RenderableUnit) source.clearBadgeEmphasis();
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();

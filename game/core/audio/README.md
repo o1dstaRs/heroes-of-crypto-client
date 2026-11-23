@@ -269,7 +269,7 @@ a missed first blow and a simultaneous counterattack. Ranked playback inherits t
 
 ## Provided game effects
 
-`game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement,
+`game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement, split,
 heal, Blacksmith casting, summoning, and miss recordings to event names and duration budgets. Import local files once:
 
 ```sh
@@ -287,8 +287,12 @@ Final files live in `public/audio/events` and revisions in `src/ui/audio/gameSou
 The main `tmp/audio/review.html` includes shared effects under the **Game effects** filter;
 `tmp/audio/game-sound-review.html` also remains available. Originals are playable when cached locally.
 Playback uses the same Web Audio effects bus as creature sounds. The spellbook fires only on
-an actual open/close transition, including Escape, outside click, and picking a spell. Valid
-placement and split gestures play the placement effect. Positive healing plays once per group;
+an actual open/close transition, including Escape, outside click, and picking a spell. A valid
+placement or Clone plays the placement effect. A split plays Gamemaster Audio's
+`igniting-gas-fire-large-gamemaster-audio-faster-1-00-00.mp3` (`split`, 0.230 seconds) only once the new
+stack is on the board: in the sandbox after the engine accepts it (dragging or the SPLIT button), and
+in ranked or co-op after the server accepts it and the board updates, never when the request is sent or
+rejected. Positive healing plays once per group;
 fully resisted healing stays quiet. Both an Angel's resurrection cast and passive self-resurrection
 use the shared resurrection VFX trigger in sandbox and ranked replay.
 

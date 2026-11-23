@@ -14,6 +14,7 @@ test("provided effects ship both measured codecs with matching cache revisions",
         "resurrection",
         "spellbook_close",
         "spellbook_open",
+        "split",
         "summon",
         "water_shield_dissolve",
     ]);

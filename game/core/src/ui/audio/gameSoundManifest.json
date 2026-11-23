@@ -34,5 +34,9 @@
     "water_shield_dissolve": {
         "durationMs": 1240,
         "revision": "73bcc579d0"
+    },
+    "split": {
+        "durationMs": 230,
+        "revision": "4e08bcc931"
     }
 }

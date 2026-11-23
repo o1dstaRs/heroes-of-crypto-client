@@ -4,6 +4,7 @@ import { TeamVals } from "@heroesofcrypto/common";
 import { PlayActionType, PlayPhase, type PlaySnapshot } from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 import {
+    acceptedActionSound,
     hasOffGridSubmitCell,
     isPlacementMutationAction,
     placementActionSkipsSubmitSpinner,
@@ -212,6 +213,19 @@ describe("ranked action response snapshots", () => {
             resolveEffectiveLocalModelOpponentConfig({ ...config, playerId: undefined }, snapshot({ players })).enabled,
         ).toBe(false);
         expect(resolveEffectiveLocalModelOpponentConfig(config, null).enabled).toBe(false);
+    });
+});
+
+describe("acceptedActionSound", () => {
+    test("a split is heard once the server accepts it, and never on a rejection", () => {
+        expect(acceptedActionSound(PlayActionType.SPLIT_UNIT, true)).toBe("split");
+        expect(acceptedActionSound(PlayActionType.SPLIT_UNIT, false)).toBeUndefined();
+    });
+
+    test("other accepted actions keep their own sounds in the scene", () => {
+        for (const type of [PlayActionType.PLACE_UNIT, PlayActionType.DELETE_UNIT, PlayActionType.MOVE_UNIT]) {
+            expect(acceptedActionSound(type, true)).toBeUndefined();
+        }
     });
 });
 

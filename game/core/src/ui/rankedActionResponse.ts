@@ -10,9 +10,14 @@ import {
     type PlaySnapshot,
 } from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
+import type { GameSoundName } from "./audio/gameSounds";
 
 export const isPlacementMutationAction = (action: Pick<GameAction, "type">): boolean =>
     action.type === "place_unit" || action.type === "delete_unit" || action.type === "split_unit";
+
+/** A ranked split changes the board only when the server accepts it; that is when it is heard. */
+export const acceptedActionSound = (type: PlayActionTypeValue, accepted: boolean): GameSoundName | undefined =>
+    accepted && type === PlayActionType.SPLIT_UNIT ? "split" : undefined;
 
 // These already land on the board before the HTTP round trip. The "Submitting" spinner disabled the
 // next click and re-rendered the whole ranked HUD for every drag, which is the lag players feel

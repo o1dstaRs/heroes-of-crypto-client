@@ -167,6 +167,7 @@ import {
     hocSpinnerSx,
 } from "./hocTheme";
 import {
+    acceptedActionSound,
     hasOffGridSubmitCell,
     placementActionSkipsSubmitSpinner,
     playerFacingRejection,
@@ -176,6 +177,7 @@ import {
     shouldPlayAuthoritativeAction,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
+import { playGameSound } from "./audio/gameSounds";
 import {
     isRankedBoardPlacementStage,
     observerPlacementRosterIds,
@@ -1153,6 +1155,9 @@ export const RankedGameView: React.FC<Props> = ({
                         await reconcileLiveSnapshot(fresh, { forceBoardRebuild: rejected });
                     }
                 }
+                // After the board shows the accepted change, so the sound lands with the new stack.
+                const acceptedSound = acceptedActionSound(payload.type, result.accepted);
+                if (acceptedSound) playGameSound(acceptedSound);
                 if (
                     rejected &&
                     isRecoveredRankedReadinessRejection(readinessIntent, result.rejectionReason, snapshotRef.current)

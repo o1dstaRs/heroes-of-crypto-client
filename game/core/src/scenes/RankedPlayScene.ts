@@ -2871,8 +2871,8 @@ export class RankedPlayScene extends Sandbox {
             return false;
         }
 
+        // The split is heard once the server accepts it and the new stack lands (RankedGameViewRuntime).
         transport({ type: "split_unit", unitId: source.getId(), amount, cells: targetCells });
-        this.playSceneGameSound("place_unit");
         return true;
     }
     protected override selectArmedSpellAttackType(caster: RenderableUnit): boolean {

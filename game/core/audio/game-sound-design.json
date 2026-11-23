@@ -105,6 +105,20 @@
                 "selection": "Explicitly selected by the user for the Mermaid's Water Shield dissolving",
                 "license": "License receipt not included in the supplied file"
             }
+        },
+        {
+            "id": "split",
+            "label": "Stack split on the board",
+            "source_filename": "igniting-gas-fire-large-gamemaster-audio-faster-1-00-00.mp3",
+            "target_duration_ms": 950,
+            "max_duration_ms": 1000,
+            "source_metadata": {
+                "title": "Igniting gas fire (Large)",
+                "author": "Gamemaster Audio",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for a stack split that lands on the board",
+                "license": "License receipt not included in the supplied file"
+            }
         }
     ]
 }
