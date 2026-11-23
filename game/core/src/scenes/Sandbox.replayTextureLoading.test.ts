@@ -185,3 +185,49 @@ test("a replay opens on the fight-start board built once, then holds it before t
         afterMove,
     ]);
 });
+
+test("the cover lifts only once the first exchange's sheets are loaded, so the board never stands frozen", async () => {
+    const { scene, replay, textures, pending } = fixture();
+    const units = ["Wolf", "Orc"].map((name) => ({ properties: { id: name, name } }));
+    const fightStart = { units, currentLap: 1, fightStarted: true };
+    replay.initialState.units = units as typeof replay.initialState.units;
+    replay.actions = [
+        { sequence: 1, clientTimeMs: 1, action: { type: "start_fight" }, events: [], stateAfter: fightStart },
+        {
+            sequence: 2,
+            clientTimeMs: 2,
+            action: { type: "move_unit", unitId: "Wolf", path: [{ x: 2, y: 1 }] },
+            events: [],
+            stateAfter: fightStart,
+        },
+    ] as unknown as SandboxReplay["actions"];
+    const wolfWalk = approvedAnimationAssetKeysForUnit("Wolf").find((key) => key.includes("_walk_"))!;
+    const firstExchange = deferred();
+    scene.preloadTextureKeys = mock((keys: string[]) =>
+        keys.includes(wolfWalk) ? firstExchange.promise : textures.promise,
+    );
+    scene.delayReplay = mock(() => Promise.resolve());
+    scene.onReplayRecordSettling = mock(() => {});
+    scene.onReplayRecordPresented = mock(() => {});
+    scene.onReplayCompleted = mock(() => {});
+    scene.playSandboxReplayRecord = mock(async () => true);
+    const onOpeningShown = mock(() => {});
+
+    const playback = scene.playSandboxReplay(replay, undefined, { onOpeningShown });
+    textures.resolve();
+    pending.resolve();
+    await new Promise((done) => setTimeout(done, 0));
+    // Board and map are ready, but the first move's sheets are not: still covered, and the battle log is empty
+    // (a log with entries shows "Copy battle log", which the deploy smoke check takes as "playback started").
+    expect(scene.hydrateSceneState).toHaveBeenCalledTimes(1);
+    expect(scene.preloadTextureKeys.mock.calls[1][1]).toEqual({ priority: "visible" });
+    expect(onOpeningShown).not.toHaveBeenCalled();
+    expect(scene.onReplayRecordPresented).not.toHaveBeenCalled();
+    expect(scene.sc_sceneLog.clear).not.toHaveBeenCalled();
+
+    firstExchange.resolve();
+    expect(await playback).toBe(true);
+    expect(onOpeningShown).toHaveBeenCalledTimes(1);
+    expect(scene.onReplayRecordPresented.mock.calls[0][0]).toBe(replay.actions[0]);
+    expect(scene.playSandboxReplayRecord.mock.calls[0][0]).toBe(replay.actions[1]);
+});

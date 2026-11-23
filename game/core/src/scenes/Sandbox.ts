@@ -3524,6 +3524,15 @@ export class Sandbox extends PixiScene {
             await this.prepareMapTextures();
             if (this.isSceneDestroyed()) return false;
             this.onSupplementaryTexturesLoaded();
+            // The first exchange's sheets load under the cover too. Lifted before them, the cover showed a board
+            // that then stood still while they decoded: about 15 s on a busy machine, and the prod smoke check's
+            // 25 s in headless Chrome, which saw no move and rolled the deploy back.
+            if (opening < records.length) {
+                await this.preloadTextureKeys(replayActionTextureKeys(openingState, records[opening]), {
+                    priority: "visible",
+                });
+                if (this.isSceneDestroyed()) return false;
+            }
             this.sc_sceneLog.clear();
             if (opening > 0) this.onReplayRecordPresented(records[opening - 1]);
             options?.onOpeningShown?.();
@@ -3532,7 +3541,6 @@ export class Sandbox extends PixiScene {
             }
 
             // Let the opening board settle before the first move instead of animating on the frame it appears.
-            // The hold runs while the first exchange's sheets load.
             let openingHold: Promise<void> | undefined =
                 opening < records.length ? this.delayReplay(Sandbox.REPLAY_OPENING_HOLD_MS) : undefined;
             for (let index = opening; index < records.length; index += 1) {
