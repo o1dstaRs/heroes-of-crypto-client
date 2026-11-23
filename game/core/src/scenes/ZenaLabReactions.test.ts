@@ -1,4 +1,4 @@
-import { beforeAll, expect, test } from "bun:test";
+import { beforeAll, expect, spyOn, test } from "bun:test";
 import {
     AbilityFactory,
     EffectFactory,
@@ -12,7 +12,7 @@ import {
 import { BufferImageSource, Container, Texture } from "pixi.js";
 import { shouldPreloadUnitAnimationAtlas } from "../pixi/creatureAnimationSettings";
 import { isRedundantFullResolutionUnitAtlasKey } from "../pixi/imageAssetTiers";
-import { RenderableUnit } from "./RenderableUnit";
+import { CREATURE_ATTACK_FOREGROUND_Z_INDEX, RenderableUnit, ZENA_CHAKRAM_HOLD_LIMIT_MS } from "./RenderableUnit";
 
 beforeAll(() => {
     if (typeof document === "undefined") {
@@ -24,7 +24,7 @@ beforeAll(() => {
     }
 });
 
-test("Zena lab reactions preserve authored timing, idle return and corpse hold", () => {
+const zenaOnBoard = () => {
     const grid = new GridSettings(
         GridConstants.GRID_SIZE,
         GridConstants.MAX_Y,
@@ -54,6 +54,11 @@ test("Zena lab reactions preserve authored timing, idle return and corpse hold",
     unit.setBattlefieldVisualProjection(true);
     unit.setPosition(0, 1024);
     unit.ensureVisual(world, grid);
+    return { unit, world, grid };
+};
+
+test("Zena lab reactions preserve authored timing, idle return and corpse hold", () => {
+    const { unit, world, grid } = zenaOnBoard();
     unit.setCreatureAnimationLabPreviewEnabled(true);
     const state = unit as unknown as {
         oneShotAnim?: {
@@ -158,4 +163,48 @@ test("Zena lab reactions preserve authored timing, idle return and corpse hold",
     expect(unit.getAnimationTextureKey("hit")).toBe("zena_lab_hit_atlas");
     unit.destroyVisuals();
     world.destroy({ children: true });
+});
+
+test("a chakram that never comes back cannot leave Zena frozen in front of her neighbours", () => {
+    // Game 53fc3c23: two minutes after a throw the owner did not watch, Zena still stood on the empty-handed
+    // release cel at the attack-foreground depth, over the Wandering Mage below her and his badge.
+    const { unit, world, grid } = zenaOnBoard();
+    unit.setCreatureAnimationLabPreviewEnabled(true);
+    const state = unit as unknown as {
+        oneShotAnim?: { frameDurationsMs: number[]; externallyDriven?: boolean; zenaCatching?: boolean };
+        sprite: { zIndex: number };
+    };
+    let now = 1_000;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    try {
+        const shot = unit.prepareDryadRangedShot()!;
+        let released = 0;
+        expect(unit.playDryadRangedShot("attack", shot, () => released++)).toBe(true);
+        const anim = state.oneShotAnim!;
+        for (let i = 0; i < 13; i++) unit.stepOneShotAnimation(anim.frameDurationsMs[i]);
+        expect(released).toBe(1);
+        expect(anim.externallyDriven).toBe(true);
+        unit.syncVisual(world, grid);
+        expect(state.sprite.zIndex).toBe(CREATURE_ATTACK_FOREGROUND_Z_INDEX);
+
+        // A real flight is far shorter; until the limit the hand stays empty, waiting for the disc.
+        now += ZENA_CHAKRAM_HOLD_LIMIT_MS - 1;
+        unit.stepOneShotAnimation(16);
+        expect(anim.externallyDriven).toBe(true);
+
+        // The disc never returns (its flight was dropped). Zena catches anyway and winds back to idle.
+        now += 2;
+        unit.stepOneShotAnimation(16);
+        expect(anim.externallyDriven).toBe(false);
+        expect(anim.zenaCatching).toBe(true);
+        for (const ms of [...anim.frameDurationsMs]) unit.stepOneShotAnimation(ms);
+        unit.finishDryadRangedShot(shot);
+        expect(state.oneShotAnim).toBeUndefined();
+        unit.syncVisual(world, grid);
+        expect(state.sprite.zIndex).toBeLessThan(CREATURE_ATTACK_FOREGROUND_Z_INDEX);
+    } finally {
+        clock.mockRestore();
+        unit.destroyVisuals();
+        world.destroy({ children: true });
+    }
 });

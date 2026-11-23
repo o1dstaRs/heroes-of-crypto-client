@@ -1178,6 +1178,8 @@ const PEASANT_ATTACK_SUPPORT_FOOT_X: Readonly<Record<string, readonly number[]>>
 // Attacking figures must remain above every normally depth-sorted battlefield creature. Ground shadows
 // deliberately retain their natural board depth so only the acting figure moves to the foreground.
 export const CREATURE_ATTACK_FOREGROUND_Z_INDEX = 8000;
+/** Longest Zena holds her empty-handed throw for the returning chakram: the ranged shot's own abort timeout. */
+export const ZENA_CHAKRAM_HOLD_LIMIT_MS = 10_000;
 // Centaur keeps normal board interpolation while its authored gait uses the accumulated boosts:
 // 25%, then 20%, then 7% (1.25 * 1.2 * 1.07 = 1.605).
 const CENTAUR_WALK_FPS_MULTIPLIER = 1.605;
@@ -2776,6 +2778,8 @@ interface OneShotAnimState {
     lethalMeleeRecoveryHastened?: boolean;
     externallyDriven?: boolean;
     zenaCatching?: boolean;
+    /** When Zena let go of the chakram and froze on the empty-handed cel (performance.now()). */
+    zenaHeldSinceMs?: number;
     stateName: string;
     /** Keep Blacksmith's resting overlap geometry while its arms/tools move. */
     depthSortBounds?: Readonly<{ x: number; y: number; width: number; height: number }>;
@@ -9317,6 +9321,7 @@ export class RenderableUnit extends Unit {
                 // This released cel has an empty hand. Keep it until the returning disc arrives.
                 throwing.externallyDriven = true;
                 throwing.elapsed = 0;
+                throwing.zenaHeldSinceMs = performance.now();
             }
             onRelease();
         };
@@ -9333,6 +9338,7 @@ export class RenderableUnit extends Unit {
         anim.frameIndex = 0;
         anim.elapsed = 0;
         anim.externallyDriven = false;
+        anim.zenaHeldSinceMs = undefined;
         anim.projectileReleaseFrame = undefined;
         anim.projectileRelease = undefined;
         this.applyOneShotFrame(anim);
@@ -11998,7 +12004,18 @@ export class RenderableUnit extends Unit {
         if (!this.oneShotAnim || !this.sprite) return;
 
         const anim = this.oneShotAnim;
-        if (anim.externallyDriven) return;
+        if (anim.externallyDriven) {
+            // A disc that never came back must not keep Zena throwing. Only its catch ends the held cel, and
+            // while she holds it she is drawn at the attack-foreground depth. In game 53fc3c23, two minutes
+            // after a throw the owner did not watch (the tab was in the background), she still stood frozen
+            // empty-handed in front of the Wandering Mage below her, his stack badge included.
+            if (
+                anim.zenaHeldSinceMs !== undefined &&
+                performance.now() - anim.zenaHeldSinceMs > ZENA_CHAKRAM_HOLD_LIMIT_MS
+            )
+                this.catchZenaChakram();
+            return;
+        }
         anim.elapsed += dtMs;
 
         if (anim.elapsed >= (anim.frameDurationsMs?.[anim.frameIndex] ?? anim.durationPerFrame)) {
