@@ -226,7 +226,15 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v25, revision suffix `deep-fit-v1-wild-regen-v1-decoy-aware-v1`. `a19-decoy-aware-v1` was
+Current default is profile v26, revision suffix `decoy-aware-v1-counter-draft-v1`. `a19-counter-draft-v1` was adopted on
+November 22, 2026, under the standing instruction, for the owner's goal of a draft that reads the opponent and counters
+from what is available. Once a default seat sees two opposing creatures that read melee, it drafts with a matchup model
+of creature counters fitted on 40,040 production games; against shooter armies the striker draft keeps the rush. Read
+common's `docs/counter_draft_adoption.md`. Registered confirmation Z on a fresh sealed bank: against the default AI
++5.30 points (95% +1.19 to +9.35); the owner-rush (−0.31), decoy-fort (+0.62), Queen-fort (+1.75) and caster (+2.01)
+guards passed. Not a win rate against people.
+
+Profile v25, retained in v26: revision suffix `deep-fit-v1-wild-regen-v1-decoy-aware-v1`. `a19-decoy-aware-v1` was
 adopted on November 22, 2026, under the standing instruction ("always lock in wins please"). The owner beat the brutal
 AI with a checkerboard wall of one-creature Fairy splits in front of a two-shooter corner fort (game 9a1003ec). A melee
 unit no longer strikes a one-model decoy (a one-creature stack whose creature has a bigger living stack) while it can
