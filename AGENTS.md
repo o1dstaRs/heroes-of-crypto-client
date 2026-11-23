@@ -226,7 +226,14 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v26, revision suffix `decoy-aware-v1-counter-draft-v1`. `a19-counter-draft-v1` was adopted on
+Current default is profile v27, revision suffix `counter-draft-v1-lava-map-v1`. `a19-lava-map-artifact-v1` was adopted
+on November 22, 2026, under the standing instruction, after the owner saw the AI suggest Lava Striders on a map without
+lava. With the map public at the Tier-2 pick, Lava Striders is never taken without lava while a usable artifact is
+offered. Read common's `docs/lava_map_artifact_adoption.md`. Registered confirmation V on a fresh sealed bank: without
+lava +0.48 points per task (95% +0.24 to +0.73); the owner-rush guard passed. Its lava-map rule (a striker army takes
+Lava Striders) failed its strength gate (+0.09, 95% −0.32 to +0.51) and is not adopted. Not a win rate against people.
+
+Profile v26, retained in v27: revision suffix `decoy-aware-v1-counter-draft-v1`. `a19-counter-draft-v1` was adopted on
 November 22, 2026, under the standing instruction, for the owner's goal of a draft that reads the opponent and counters
 from what is available. Once a default seat sees two opposing creatures that read melee, it drafts with a matchup model
 of creature counters fitted on 40,040 production games; against shooter armies the striker draft keeps the rush. Read
