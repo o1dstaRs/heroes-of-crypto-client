@@ -226,7 +226,14 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v27, revision suffix `counter-draft-v1-lava-map-v1`. `a19-lava-map-artifact-v1` was adopted
+Current default is profile v28, revision suffix `lava-map-v1-valkyrie-striker-v1`. `a19-valkyrie-striker-v1` was adopted
+on November 23, 2026, under the standing instruction, after the owner saw a rushing AI leave its Valkyries at the back
+(game b02a58ce). The striker-rush formation now moves Valkyrie with the strikers. Read common's
+`docs/valkyrie_striker_adoption.md`. Registered confirmation S on fresh sealed families: on rush armies with a Valkyrie
++7.36 points per task (95% +4.72 to +10.02). Confirmation P, which also put flyers in the middle rows, failed and is not
+adopted. Not a win rate against people.
+
+Profile v27, retained in v28: revision suffix `counter-draft-v1-lava-map-v1`. `a19-lava-map-artifact-v1` was adopted
 on November 22, 2026, under the standing instruction, after the owner saw the AI suggest Lava Striders on a map without
 lava. With the map public at the Tier-2 pick, Lava Striders is never taken without lava while a usable artifact is
 offered. Read common's `docs/lava_map_artifact_adoption.md`. Registered confirmation V on a fresh sealed bank: without
