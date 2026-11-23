@@ -1335,5 +1335,22 @@
             "source_site": "https://uppbeat.io/",
             "source_id": "provided-29c82aaaa03f8f4dbc70"
         }
+    },
+    "goblin-knight/attack": {
+        "source_id": "provided-e30c8736e2b799e261ac",
+        "path": "tmp/audio/raw/provided/e30c8736e2b799e2/sword-swing-clash-joshua-chivers-1-00-01.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "sword-swing-clash-joshua-chivers-1-00-01.mp3",
+            "title": "Sword swing clash",
+            "author": "Joshua Chivers",
+            "sha256": "e30c8736e2b799e261aca093ee745c2531e718706bfec1aad46414e32bc50570",
+            "label": "Goblin Knight attack sword clash",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Goblin Knight attack",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-e30c8736e2b799e261ac"
+        }
     }
 }

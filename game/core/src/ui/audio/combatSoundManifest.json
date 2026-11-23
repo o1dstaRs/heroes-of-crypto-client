@@ -449,8 +449,8 @@
     "Goblin Knight": {
         "slug": "goblin-knight",
         "attack": {
-            "durationMs": 575,
-            "revision": "c1a87b6f95"
+            "durationMs": 734,
+            "revision": "5e1a7d54ec"
         },
         "hurt": {
             "durationMs": 650,

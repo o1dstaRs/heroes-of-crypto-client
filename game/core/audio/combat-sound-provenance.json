@@ -1465,25 +1465,38 @@
             "unit": "Goblin Knight",
             "slug": "goblin-knight",
             "role": "attack",
-            "generation_id": "sFr0S9j5kqRkthonQquY",
+            "source_id": "provided-e30c8736e2b799e261ac",
+            "source": {
+                "kind": "user-provided",
+                "filename": "sword-swing-clash-joshua-chivers-1-00-01.mp3",
+                "title": "Sword swing clash",
+                "author": "Joshua Chivers",
+                "sha256": "e30c8736e2b799e261aca093ee745c2531e718706bfec1aad46414e32bc50570",
+                "label": "Goblin Knight attack sword clash",
+                "license": "License receipt not included in the supplied file",
+                "selection": "Explicitly selected by the user for Goblin Knight attack",
+                "duration_limit_ms": 1600,
+                "source_site": "https://uppbeat.io/",
+                "source_id": "provided-e30c8736e2b799e261ac"
+            },
             "encoded": {
                 "webm": {
                     "lufs": -20.0,
-                    "true_peak_db": -8.36,
-                    "bytes": 6461,
-                    "duration_ms": 575,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -22.9
+                    "true_peak_db": -8.2,
+                    "bytes": 8692,
+                    "duration_ms": 734,
+                    "leading_quiet_ms": 6,
+                    "trailing_quiet_ms": 19,
+                    "rms_db": -23.78
                 },
                 "mp3": {
-                    "lufs": -20.37,
-                    "true_peak_db": -9.05,
-                    "bytes": 7532,
-                    "duration_ms": 575,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 25,
-                    "rms_db": -23.27
+                    "lufs": -20.43,
+                    "true_peak_db": -8.75,
+                    "bytes": 9548,
+                    "duration_ms": 734,
+                    "leading_quiet_ms": 6,
+                    "trailing_quiet_ms": 19,
+                    "rms_db": -24.2
                 }
             }
         },
