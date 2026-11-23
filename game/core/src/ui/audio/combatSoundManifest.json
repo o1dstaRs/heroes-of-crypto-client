@@ -68,8 +68,8 @@
     "Healer": {
         "slug": "healer",
         "attack": {
-            "durationMs": 685,
-            "revision": "bf4025e21f"
+            "durationMs": 214,
+            "revision": "d55eb09a3c"
         },
         "hurt": {
             "durationMs": 514,
@@ -631,8 +631,8 @@
             "revision": "b6a0c4d06e"
         },
         "hurt": {
-            "durationMs": 769,
-            "revision": "785d58fec0"
+            "durationMs": 979,
+            "revision": "345ed30f5e"
         }
     },
     "Wyvern": {
