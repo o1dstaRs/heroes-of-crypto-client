@@ -270,7 +270,7 @@ a missed first blow and a simultaneous counterattack. Ranked playback inherits t
 ## Provided game effects
 
 `game-sound-design.json` maps the supplied spellbook open/close, resurrection, unit placement, split,
-heal, Blacksmith casting, summoning, miss, Water Shield and Ember Covenant recordings to event names and duration budgets. Import local files once:
+heal, Blacksmith casting, summoning, miss, Water Shield, Ember Covenant and Last Fuse recordings to event names and duration budgets. Import local files once:
 
 ```sh
 python3 game/core/scripts/prepare_game_audio.py --source-dir "$HOME/Downloads"
@@ -318,6 +318,12 @@ blessing running out) plays the first part of Gregor Quendel's
 fade before the recording's second burst (1.800 seconds; speed and pitch kept). It is triggered by
 `EmberCovenantRings` in sandbox and ranked alike. A carrier dying or leaving the board with its ring
 up stays quiet.
+
+Each Last Fuse explosion plays GFX Sounds' `muddy-explosion-gfx-sounds-wet-mud-explosion-4-4-0m06s.mp3`
+as the `last_fuse_explosion` game sound: the blast from its onset and its wet splatter, cut at 2.3 seconds
+of the recording with a 500 ms fade (1.724 seconds; speed and pitch kept). `LastFuseVfx` triggers it when a
+blast actually starts, so chained explosions are heard one after another at their 0.18-second delays,
+simultaneous ones once, and the hits on neighbouring stacks add no sound of their own.
 
 All positive `unit_summoned` events use
 `magic-whoosh-ethereal-harp-swirl-bosnow-harp-magic-whoosh-1-0m03s.mp3`, trimmed to 2.092 seconds.

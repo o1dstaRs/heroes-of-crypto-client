@@ -137,6 +137,24 @@
                 "selection": "Explicitly selected by the user for the Hydra's Ember Covenant shield dissolving: the first part, the swoosh and its sizzle before the second burst at 2.0 s",
                 "license": "License receipt not included in the supplied file"
             }
+        },
+        {
+            "id": "last_fuse_explosion",
+            "label": "Last Fuse explosion",
+            "source_filename": "muddy-explosion-gfx-sounds-wet-mud-explosion-4-4-0m06s.mp3",
+            "target_duration_ms": 2000,
+            "max_duration_ms": 2500,
+            "end_cut": {
+                "end_ms": 2300,
+                "fade_out_ms": 500
+            },
+            "source_metadata": {
+                "title": "Muddy explosion",
+                "author": "GFX Sounds",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for the Last Fuse explosion: the blast from its onset at 0.48 s and its wet splatter, cut at 2.3 s",
+                "license": "License receipt not included in the supplied file"
+            }
         }
     ]
 }

@@ -462,6 +462,52 @@
                     "rms_db": -20.6
                 }
             }
+        },
+        {
+            "id": "last_fuse_explosion",
+            "source": {
+                "title": "Muddy explosion",
+                "author": "GFX Sounds",
+                "source_site": "https://uppbeat.io/",
+                "selection": "Explicitly selected by the user for the Last Fuse explosion: the blast from its onset at 0.48 s and its wet splatter, cut at 2.3 s",
+                "license": "License receipt not included in the supplied file",
+                "kind": "user-provided",
+                "filename": "muddy-explosion-gfx-sounds-wet-mud-explosion-4-4-0m06s.mp3",
+                "sha256": "163654ae9a3abe6fcf622eaa3a41fd46167abc64d34f0bf225bbed11a6d93f10",
+                "score": -0.1125,
+                "bursts_to_review": 2,
+                "raw_duration_ms": 6000,
+                "leading_trim_ms": 496,
+                "trailing_trim_ms": 3700,
+                "raw_rms_db": -26.28,
+                "raw_peak_db": -5.91,
+                "end_cut": {
+                    "end_ms": 2300,
+                    "fade_out_ms": 500
+                }
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.28,
+                    "true_peak_db": -3.89,
+                    "bytes": 15111,
+                    "duration_ms": 1724,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.61
+                },
+                "mp3": {
+                    "lufs": -20.75,
+                    "true_peak_db": -3.96,
+                    "bytes": 21356,
+                    "duration_ms": 1724,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.06
+                }
+            }
         }
     ]
 }

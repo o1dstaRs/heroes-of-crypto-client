@@ -56,6 +56,8 @@ export class LastFuseVfx {
     public constructor(
         private readonly attach: (container: Container) => number,
         private readonly texture: () => Texture,
+        /** When an exploding stack's blast starts (after its chain delay); the hits on its neighbours are silent. */
+        private readonly onExplode?: () => void,
     ) {}
     public get active(): boolean {
         return this.bursts.length > 0;
@@ -85,7 +87,10 @@ export class LastFuseVfx {
                 burst.started = true;
                 burst.removeBody?.();
                 burst.removeBody = undefined;
-                if (burst.age < burst.life) burst.onImpact?.();
+                if (burst.age < burst.life) {
+                    burst.onImpact?.();
+                    if (!burst.impact) this.onExplode?.();
+                }
                 burst.onImpact = undefined;
             }
             if (burst.age >= burst.life) {

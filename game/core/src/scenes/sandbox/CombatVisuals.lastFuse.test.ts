@@ -1,9 +1,10 @@
 import { expect, mock, test } from "bun:test";
 import { GridSettings, type UnitsHolder, type GameEvent } from "@heroesofcrypto/common";
-import { Container, Graphics, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { Sandbox } from "../Sandbox";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 import { CombatVisuals } from "./CombatVisuals";
+import { LastFuseVfx } from "./LastFuseVfx";
 
 function fixture() {
     const attached: Container[] = [];
@@ -37,6 +38,36 @@ test("a Last Fuse body disappears on the first visible explosion frame", () => {
     visuals.update(0.1);
     expect(removeBody).toHaveBeenCalledTimes(1);
     visuals.clear();
+});
+
+test("each explosion is heard when its blast starts, chained ones in turn; the neighbours' hits are silent", () => {
+    const root = new Container();
+    const onExplode = mock();
+    const vfx = new LastFuseVfx(
+        (container) => {
+            root.addChild(container);
+            return 1;
+        },
+        () => Texture.WHITE,
+        onExplode,
+    );
+    vfx.spawn({ x: 0, y: 0 }, 64, 0);
+    vfx.spawn({ x: 64, y: 0 }, 64, 0.18);
+    vfx.hit({ x: 128, y: 0 }, { x: 0, y: 0 }, 64, 0, () => undefined);
+    vfx.update(0.01);
+    expect(onExplode).toHaveBeenCalledTimes(1);
+    vfx.update(0.1);
+    expect(onExplode).toHaveBeenCalledTimes(1);
+    vfx.update(0.1);
+    expect(onExplode).toHaveBeenCalledTimes(2);
+    vfx.update(2);
+    expect(onExplode).toHaveBeenCalledTimes(2);
+    // A blast whose whole life passed in one skipped frame is not heard late.
+    vfx.spawn({ x: 0, y: 0 }, 64, 0.18);
+    vfx.update(5);
+    expect(onExplode).toHaveBeenCalledTimes(2);
+    vfx.clear();
+    root.destroy({ children: true });
 });
 
 test("a skipped explosion frame or reset still cleans up the replaced body", () => {

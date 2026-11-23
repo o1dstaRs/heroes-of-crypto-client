@@ -4805,6 +4805,10 @@ export class CombatVisuals {
     private lastFuse = new LastFuseVfx(
         (container) => this.attachEffect(container, 4555),
         () => this.getFireTexture(),
+        () => {
+            const epoch = this.audioEpoch;
+            playGameSound("last_fuse_explosion", () => epoch === this.audioEpoch);
+        },
     );
     private attachEffect(obj: Container, zIndex: number): number {
         this.context.attachToWorldRoot(obj, zIndex);

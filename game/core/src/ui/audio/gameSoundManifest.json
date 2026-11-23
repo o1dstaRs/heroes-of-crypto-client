@@ -42,5 +42,9 @@
     "ember_covenant_dissolve": {
         "durationMs": 1800,
         "revision": "7a516f212d"
+    },
+    "last_fuse_explosion": {
+        "durationMs": 1724,
+        "revision": "58b49fc681"
     }
 }
