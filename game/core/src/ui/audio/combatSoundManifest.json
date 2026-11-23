@@ -534,8 +534,8 @@
     "Nightmare": {
         "slug": "nightmare",
         "attack": {
-            "durationMs": 635,
-            "revision": "2ff46e0069"
+            "durationMs": 699,
+            "revision": "72fef724c3"
         },
         "hurt": {
             "durationMs": 940,

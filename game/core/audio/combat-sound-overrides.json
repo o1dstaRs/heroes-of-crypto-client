@@ -1318,5 +1318,22 @@
             },
             "source_id": "provided-5c9fc5a704190baed9f8-740-2200"
         }
+    },
+    "nightmare/attack": {
+        "source_id": "provided-29c82aaaa03f8f4dbc70",
+        "path": "tmp/audio/raw/provided/29c82aaaa03f8f4d/horse-snorting-epic-stock-media-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "horse-snorting-epic-stock-media-1-00-00.mp3",
+            "title": "Horse snorting",
+            "author": "Epic Stock Media",
+            "sha256": "29c82aaaa03f8f4dbc70d8db8279e223e0d728338f272ca3a560749ecff42579",
+            "label": "Nightmare attack snort",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Nightmare attack",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-29c82aaaa03f8f4dbc70"
+        }
     }
 }
