@@ -3,6 +3,7 @@ import { BufferImageSource, Container, Sprite, Texture } from "pixi.js";
 import { blackDragonFireFrame, blackDragonFireState, syncBlackDragonFireBreath } from "./BlackDragonFireBreath";
 import { BlackDragonFireFlowFilter } from "./BlackDragonFireFlowFilter";
 import { BLACK_DRAGON_FIRE_MOUTHS } from "./BlackDragonFireAnchors";
+import { recordAtlasFrameDivider } from "./authoredFramePixels";
 import { BLACK_DRAGON_FIRE_START_MS, BLACK_DRAGON_FIRE_END_MS, BLACK_DRAGON_FIRE_SPEED } from "./BlackDragonFireTiming";
 
 beforeAll(() => {
@@ -66,6 +67,34 @@ test("flame follows the mouth and facing without changing creature bounds, then 
     body.destroy();
     expect(flame.destroyed).toBe(true);
     root.destroy();
+    fire.destroy(true);
+});
+
+test("a body atlas loaded at half size breathes from the same mouth", () => {
+    const fire = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 1280, height: 1280 }),
+    });
+    const flameAt = (size: number, scale: number) => {
+        const root = new Container();
+        const texture = new Texture({
+            source: new BufferImageSource({ resource: new Uint8Array(4), width: size, height: size }),
+        });
+        recordAtlasFrameDivider(texture, 1024 / size);
+        const body = new Sprite(texture);
+        body.anchor.set(0.5, 858 / 1024);
+        body.scale.set(scale, -scale);
+        root.addChild(body);
+        syncBlackDragonFireBreath(body, "attack", 12, 0, 100, fire);
+        const flame = root.children[1] as Sprite;
+        const at = { x: flame.x, y: flame.y, rotation: flame.rotation };
+        root.destroy({ children: true });
+        return at;
+    };
+    const full = flameAt(1024, 0.3);
+    const half = flameAt(512, 0.6);
+    expect(half.x).toBeCloseTo(full.x, 5);
+    expect(half.y).toBeCloseTo(full.y, 5);
+    expect(half.rotation).toBeCloseTo(full.rotation, 5);
     fire.destroy(true);
 });
 

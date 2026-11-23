@@ -171,6 +171,7 @@ import { ANGEL_LAB_FLIGHT_CANVAS_SCALE, ANGEL_LAB_FLIGHT_ANCHOR_X, angelLabFligh
 import { syncAngelSwordGlow } from "./AngelSwordGlow";
 import { calibratedAngelActionCanvas } from "./AngelActionRegistration";
 import { runtimeAtlasDivider } from "../pixi/runtimeAtlasScale";
+import { authoredFramePoint, authoredPixelsPerTexel, recordAtlasFrameDivider } from "./authoredFramePixels";
 import { syncAngelActionPalette } from "./AngelActionPalette";
 import { syncWyvernLabWalkPalette } from "./WyvernLabWalkPalette";
 import {
@@ -2708,6 +2709,7 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
                       )
                     : {}),
             });
+            recordAtlasFrameDivider(tex, divider);
             frames.push(tex);
             index++;
         }
@@ -9365,7 +9367,9 @@ export class RenderableUnit extends Unit {
                     : "Dryad Lab";
         const meta = animationAtlases[unitKey]?.[this.oneShotAnim.stateName];
         return typeof meta?.projectileLength === "number"
-            ? (meta.projectileLength * Math.abs(this.sprite.scale.x)) / this.zenaSideWidthScale()
+            ? (meta.projectileLength * Math.abs(this.sprite.scale.x)) /
+                  authoredPixelsPerTexel(this.sprite.texture) /
+                  this.zenaSideWidthScale()
             : undefined;
     }
     public getElfLabFreeShotTarget(origin: HoCMath.XY, distance: number): HoCMath.XY | undefined {
@@ -9462,7 +9466,10 @@ export class RenderableUnit extends Unit {
                 x: (0.5 - sprite.anchor.x) * sprite.texture.width,
                 // Orc actions add transparent canvas above the same idle-sized body. Measuring up
                 // from its authored soles keeps hits at the waist in idle and all attack directions.
-                y: this.getName() === ORC_UNIT_NAME ? -330 : (0.45 - sprite.anchor.y) * sprite.texture.height,
+                y:
+                    this.getName() === ORC_UNIT_NAME
+                        ? -330 / authoredPixelsPerTexel(sprite.texture)
+                        : (0.45 - sprite.anchor.y) * sprite.texture.height,
             }),
         );
     }
@@ -9470,7 +9477,7 @@ export class RenderableUnit extends Unit {
         return this.getName() === "Monk";
     }
     public getMonkOrbRadius(): number {
-        return Math.abs(this.sprite?.scale.x ?? 1) * 34;
+        return (Math.abs(this.sprite?.scale.x ?? 1) * 34) / authoredPixelsPerTexel(this.sprite?.texture);
     }
     public playMonkLabRangedThrow(state: string, release: () => void, cancel: () => void): boolean {
         if (!this.hasMonkLabRanged() || !(state in MONK_RANGED_FRAMES)) return false;
@@ -9569,7 +9576,7 @@ export class RenderableUnit extends Unit {
         // Each authored direction has its own perspective; keep this scale fixed throughout flight.
         const sourceLength = state === "attack_up" ? 336.69 : state === "attack_down" ? 254.72 : 301.75;
         return {
-            length: Math.abs(this.sprite.scale.y) * sourceLength,
+            length: (Math.abs(this.sprite.scale.y) * sourceLength) / authoredPixelsPerTexel(this.sprite.texture),
             rotation: -angle * this.facingDirection,
             facing: this.facingDirection,
         };
@@ -9590,7 +9597,7 @@ export class RenderableUnit extends Unit {
     public getGargantuanRockDiameter(): number {
         const meta = this.oneShotAnim ? this.gargantuanLabActionConfig(this.oneShotAnim.stateName)?.meta : undefined;
         const diameter = typeof meta?.projectileDiameter === "number" ? meta.projectileDiameter : 112;
-        return Math.abs(this.sprite?.scale.x ?? 1) * diameter;
+        return (Math.abs(this.sprite?.scale.x ?? 1) * diameter) / authoredPixelsPerTexel(this.sprite?.texture);
     }
     public getGargantuanRockHeight(): number {
         const diameter = this.getGargantuanRockDiameter();
@@ -9599,7 +9606,9 @@ export class RenderableUnit extends Unit {
     public getCannonballDiameter(gs: GridSettings): number {
         // The inner muzzle spans 112 native pixels; padded action canvases keep the native pixel scale.
         return (
-            (this.sprite ? Math.abs(this.sprite.scale.x) * 112 : gs.getCellSize() * 0.34) * CANNON_BALL_SIZE_MULTIPLIER
+            (this.sprite
+                ? (Math.abs(this.sprite.scale.x) * 112) / authoredPixelsPerTexel(this.sprite.texture)
+                : gs.getCellSize() * 0.34) * CANNON_BALL_SIZE_MULTIPLIER
         );
     }
     /** Depth of the standing figure among the creatures in `unitLayer`; undefined while hidden or lifted out of it. */
@@ -9630,24 +9639,13 @@ export class RenderableUnit extends Unit {
             isCannonAttack(this.oneShotAnim?.stateName)
         ) {
             const muzzle = cannonShotOrigin(this.oneShotAnim.stateName);
-            return parent.toLocal(
-                sprite.toGlobal({
-                    x: muzzle.x - sprite.anchor.x * sprite.texture.width,
-                    y: muzzle.y - sprite.anchor.y * sprite.texture.height,
-                }),
-            );
+            return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, muzzle)));
         }
 
         if (this.getName() === "Gargantuan" && this.oneShotAnim) {
             const origin = this.gargantuanLabActionConfig(this.oneShotAnim.stateName)?.meta.projectileOrigin as
                 HoCMath.XY | undefined;
-            if (origin)
-                return parent.toLocal(
-                    sprite.toGlobal({
-                        x: origin.x - sprite.anchor.x * sprite.texture.width,
-                        y: origin.y - sprite.anchor.y * sprite.texture.height,
-                    }),
-                );
+            if (origin) return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, origin)));
         }
         if (
             this.getName() === "Cyclops" &&
@@ -9656,33 +9654,17 @@ export class RenderableUnit extends Unit {
         ) {
             const hand = animationAtlases["Cyclops Lab"]?.[this.oneShotAnim.stateName]?.projectileOrigin as
                 HoCMath.XY | undefined;
-            if (hand)
-                return parent.toLocal(
-                    sprite.toGlobal({
-                        x: hand.x - sprite.anchor.x * sprite.texture.width,
-                        y: hand.y - sprite.anchor.y * sprite.texture.height,
-                    }),
-                );
+            if (hand) return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, hand)));
         }
         if (this.hasMonkLabRanged() && (this.oneShotAnim?.stateName ?? "") in MONK_RANGED_FRAMES) {
             const state = this.oneShotAnim!.stateName as keyof typeof MONK_RANGED_FRAMES;
             const [x, y] = MONK_RANGED_FRAMES[state][MONK_ORB_RELEASE_FRAME - 1].orb;
-            return parent.toLocal(
-                sprite.toGlobal({
-                    x: x - sprite.anchor.x * sprite.texture.width,
-                    y: y - sprite.anchor.y * sprite.texture.height,
-                }),
-            );
+            return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, { x, y })));
         }
         if (isBeholderRanged(this.getName(), this.oneShotAnim?.stateName ?? "")) {
             const state = this.oneShotAnim!.stateName as "attack" | "attack_up" | "attack_down";
             const eye = animationAtlases["Beholder Ranged"][state].projectileOrigin as HoCMath.XY;
-            return parent.toLocal(
-                sprite.toGlobal({
-                    x: eye.x - sprite.anchor.x * sprite.texture.width,
-                    y: eye.y - sprite.anchor.y * sprite.texture.height,
-                }),
-            );
+            return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, eye)));
         }
 
         if (
@@ -9699,26 +9681,14 @@ export class RenderableUnit extends Unit {
                         ? "Elf Lab"
                         : "Dryad Lab"
             ]?.[this.oneShotAnim.stateName]?.projectileOrigin as HoCMath.XY | undefined;
-            if (origin)
-                return parent.toLocal(
-                    sprite.toGlobal({
-                        x: origin.x - sprite.anchor.x * sprite.texture.width,
-                        y: origin.y - sprite.anchor.y * sprite.texture.height,
-                    }),
-                );
+            if (origin) return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, origin)));
         }
 
         if (this.creatureAnimationLabPreviewEnabled && this.getName() === CENTAUR_UNIT_NAME && this.oneShotAnim) {
             const state = this.oneShotAnim.stateName;
             if (["attack", "attack_up", "attack_down"].includes(state)) {
                 const hand = animationAtlases["Centaur Lab"]?.[state]?.projectileOrigin as HoCMath.XY | undefined;
-                if (hand)
-                    return parent.toLocal(
-                        sprite.toGlobal({
-                            x: hand.x - sprite.anchor.x * sprite.texture.width,
-                            y: hand.y - sprite.anchor.y * sprite.texture.height,
-                        }),
-                    );
+                if (hand) return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, hand)));
             }
         }
 
@@ -9737,12 +9707,7 @@ export class RenderableUnit extends Unit {
                     : stateName === "attack_up"
                       ? { x: 400, y: 105 } // Raised crossbow rail at release, in the native 512px frame.
                       : { x: 425, y: stateName === "attack_down" ? 295 : 230 };
-            return parent.toLocal(
-                sprite.toGlobal({
-                    x: muzzle.x - sprite.anchor.x * sprite.texture.width,
-                    y: muzzle.y - sprite.anchor.y * sprite.texture.height,
-                }),
-            );
+            return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, muzzle)));
         }
 
         if (this.getName() === ORC_UNIT_NAME && isOrcRangedAttack(this.oneShotAnim?.stateName)) {
@@ -9752,12 +9717,7 @@ export class RenderableUnit extends Unit {
                     : this.oneShotAnim?.stateName === "attack_down"
                       ? { x: 1008, y: 510 }
                       : { x: 1008, y: 415 };
-            return parent.toLocal(
-                sprite.toGlobal({
-                    x: hand.x - sprite.anchor.x * sprite.texture.width,
-                    y: hand.y - sprite.anchor.y * sprite.texture.height,
-                }),
-            );
+            return parent.toLocal(sprite.toGlobal(authoredFramePoint(sprite, hand)));
         }
         const bounds = sprite.getBounds();
         if (bounds.width <= 1 || bounds.height <= 1) return this.getVisualCenter(gs);

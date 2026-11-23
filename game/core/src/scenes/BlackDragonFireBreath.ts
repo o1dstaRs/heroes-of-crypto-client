@@ -1,6 +1,7 @@
 import { Rectangle, Sprite, Texture } from "pixi.js";
 import { BlackDragonFireFlowFilter } from "./BlackDragonFireFlowFilter";
 import { BLACK_DRAGON_FIRE_MOUTHS } from "./BlackDragonFireAnchors";
+import { authoredPixelsPerTexel } from "./authoredFramePixels";
 import {
     blackDragonAttackElapsedMs,
     BLACK_DRAGON_FIRE_START_MS,
@@ -83,7 +84,9 @@ export function syncBlackDragonFireBreath(
     }
     if (effect.parent !== body.parent) body.parent.addChild(effect);
     const [x, y, angle] = BLACK_DRAGON_FIRE_MOUTHS[canonical!][Math.min(31, Math.max(0, bodyFrame))];
-    const local = { x: x - body.anchor.x * 1024, y: y - body.anchor.y * 1024 };
+    // Mouths are authored in the 1024 px frame; a body atlas shipped or decoded at half size has 512 px frames.
+    const divider = authoredPixelsPerTexel(body.texture);
+    const local = { x: (x - body.anchor.x * 1024) / divider, y: (y - body.anchor.y * 1024) / divider };
     const mouth = body.parent.toLocal(body.toGlobal(local));
     const ahead = body.parent.toLocal(
         body.toGlobal({ x: local.x + Math.cos(angle) * 100, y: local.y + Math.sin(angle) * 100 }),
