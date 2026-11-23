@@ -1352,5 +1352,22 @@
             "source_site": "https://uppbeat.io/",
             "source_id": "provided-e30c8736e2b799e261ac"
         }
+    },
+    "peasant/hurt": {
+        "source_id": "provided-68531f99a740ac84b926",
+        "path": "tmp/audio/raw/provided/68531f99a740ac84/male-yell-angry-joshua-chivers-1-00-00.mp3",
+        "source": {
+            "kind": "user-provided",
+            "filename": "male-yell-angry-joshua-chivers-1-00-00.mp3",
+            "title": "Male yell - angry",
+            "author": "Joshua Chivers",
+            "sha256": "68531f99a740ac84b926dae4b8e444d0a6a4d49f431fd123d388006924da2315",
+            "label": "Peasant hurt yell",
+            "license": "License receipt not included in the supplied file",
+            "selection": "Explicitly selected by the user for Peasant hurt",
+            "duration_limit_ms": 1600,
+            "source_site": "https://uppbeat.io/",
+            "source_id": "provided-68531f99a740ac84b926"
+        }
     }
 }
