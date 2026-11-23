@@ -1517,25 +1517,25 @@
             "unit": "Griffin",
             "slug": "griffin",
             "role": "attack",
-            "generation_id": "TP2HjRVDCFD1DQQy6Do6",
+            "generation_id": "pPa8h8wSR18nr4YNoAM0",
             "encoded": {
                 "webm": {
                     "lufs": -20.01,
-                    "true_peak_db": -14.57,
-                    "bytes": 7601,
-                    "duration_ms": 800,
+                    "true_peak_db": -10.51,
+                    "bytes": 10671,
+                    "duration_ms": 1185,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 30,
-                    "rms_db": -22.65
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -22.77
                 },
                 "mp3": {
                     "lufs": -20.45,
-                    "true_peak_db": -15.38,
-                    "bytes": 10412,
-                    "duration_ms": 800,
+                    "true_peak_db": -11.59,
+                    "bytes": 15020,
+                    "duration_ms": 1185,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 30,
-                    "rms_db": -23.07
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.21
                 }
             }
         },
@@ -2621,58 +2621,6 @@
                     "leading_quiet_ms": 0,
                     "trailing_quiet_ms": 10,
                     "rms_db": -22.2
-                }
-            }
-        },
-        {
-            "unit": "Phoenix",
-            "slug": "phoenix",
-            "role": "attack",
-            "generation_id": "pPa8h8wSR18nr4YNoAM0",
-            "encoded": {
-                "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -10.51,
-                    "bytes": 10671,
-                    "duration_ms": 1185,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -22.77
-                },
-                "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -11.59,
-                    "bytes": 15020,
-                    "duration_ms": 1185,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 15,
-                    "rms_db": -23.21
-                }
-            }
-        },
-        {
-            "unit": "Phoenix",
-            "slug": "phoenix",
-            "role": "hurt",
-            "generation_id": "nFi3IBjzwqi6uakkXyY6",
-            "encoded": {
-                "webm": {
-                    "lufs": -19.99,
-                    "true_peak_db": -12.15,
-                    "bytes": 6562,
-                    "duration_ms": 620,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -22.64
-                },
-                "mp3": {
-                    "lufs": -20.39,
-                    "true_peak_db": -12.75,
-                    "bytes": 8108,
-                    "duration_ms": 620,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 5,
-                    "rms_db": -23.04
                 }
             }
         },

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { CreatureVals } from "@heroesofcrypto/common";
 import creatures from "../../../../heroes-of-crypto-common/src/configuration/creatures.json";
 import { createCombatSoundPlayer, resolveCombatSound, type CombatSoundRole } from "./combatSounds";
 import manifest from "./combatSoundManifest.json";
@@ -23,11 +24,16 @@ const setup = () => {
 };
 
 describe("combat sounds", () => {
-    test("covers the full engine roster with both sound roles and safe asset names", () => {
-        const names = Object.values(creatures).flatMap((faction) =>
-            typeof faction === "object" ? Object.keys(faction) : [],
-        );
+    test("covers every creature in the game with both sound roles and safe asset names", () => {
+        // creatures.json also lists creatures that are not in the game yet: only those with a creature id play.
+        const ids = CreatureVals as unknown as Record<string, number>;
+        const inGame = (name: string) => (ids[name.toUpperCase().replace(/ /g, "_")] ?? 0) > 0;
+        const names = Object.values(creatures)
+            .flatMap((faction) => (typeof faction === "object" ? Object.keys(faction) : []))
+            .filter(inGame);
         expect(names.length).toBeGreaterThan(50);
+        expect(inGame("Phoenix")).toBe(false);
+        expect(resolveCombatSound("Phoenix", "attack")).toBeUndefined();
         for (const name of names) {
             for (const role of ["attack", "hurt"] as const) {
                 const source = resolveCombatSound(name, role);

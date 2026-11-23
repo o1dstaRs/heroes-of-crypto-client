@@ -109,8 +109,8 @@
     "Griffin": {
         "slug": "griffin",
         "attack": {
-            "durationMs": 800,
-            "revision": "85bac4175e"
+            "durationMs": 1185,
+            "revision": "72f5ceaa43"
         },
         "hurt": {
             "durationMs": 620,
@@ -300,17 +300,6 @@
         "hurt": {
             "durationMs": 925,
             "revision": "6570844bef"
-        }
-    },
-    "Phoenix": {
-        "slug": "phoenix",
-        "attack": {
-            "durationMs": 1185,
-            "revision": "72f5ceaa43"
-        },
-        "hurt": {
-            "durationMs": 620,
-            "revision": "b00e215e10"
         }
     },
     "Faerie Dragon": {

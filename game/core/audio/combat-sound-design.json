@@ -121,8 +121,8 @@
             "name": "Griffin",
             "slug": "griffin",
             "attack": {
-                "prompt": "One griffin's sharp predatory eagle screech, short and coarse, close and dry, immediate onset, no background.",
-                "duration_seconds": 1
+                "prompt": "One fiery bird's sharp flaring screech, hot raspy burst, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
             },
             "hurt": {
                 "prompt": "One griffin's brief hurt eagle squawk, rough and breathy, close and dry, immediate onset, no words or background.",
@@ -313,18 +313,6 @@
             "hurt": {
                 "prompt": "One winged horse's brief strained equine whinny, close and dry, immediate onset, no words or background.",
                 "duration_seconds": 1
-            }
-        },
-        {
-            "name": "Phoenix",
-            "slug": "phoenix",
-            "attack": {
-                "prompt": "One fiery bird's sharp flaring screech, hot raspy burst, close and dry, immediate onset, no background.",
-                "duration_seconds": 1.4
-            },
-            "hurt": {
-                "prompt": "One fiery bird's short strained crackling squawk, close and dry, immediate onset, no words or background.",
-                "duration_seconds": 0.8
             }
         },
         {

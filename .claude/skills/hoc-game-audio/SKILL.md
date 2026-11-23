@@ -25,7 +25,8 @@ script or playback system. Follow the repository's shared-main and local-storage
 
 Derive unit names from `game/heroes-of-crypto-common/src/configuration/creatures.json`, including
 summoned and hidden creatures. Match their exact names in
-`game/core/audio/combat-sound-design.json`; each needs `attack` and `hurt` entries.
+`game/core/audio/combat-sound-design.json`; each needs `attack` and `hurt` entries. A creature
+without a `CreatureVals` id is not in the game yet (the Phoenix, for example) and needs no sounds.
 Treat the current roster count as data, not a fixed requirement.
 
 ## Sound direction and mastering

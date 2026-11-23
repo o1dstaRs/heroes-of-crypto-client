@@ -12,6 +12,11 @@ The retired Death roster (Skeleton, Imp, Zombie, and Dark Champion) has no creat
 combat audio entries. Both report generation and cached-report recovery filter against the current
 sound roster, so older local audition data cannot bring those rows back.
 
+A creature listed in `creatures.json` without a `CreatureVals` id is not in the game yet and needs no
+sounds. The Phoenix is one: its sounds were removed, and its generated attack screech
+(`pPa8h8wSR18nr4YNoAM0`) became the Griffin's attack at the owner's request. The design now gives that
+prompt to the Griffin, so a full run selects the same take for it.
+
 Inspect the creature's complete portrait and current battlefield figure before authoring a
 prompt. Resolve their canonical keys in `src/pixi/creaturePortraitAssetKeys.ts` and
 `src/pixi/battlefieldTextureKeys.ts`; record the inspected keys and physical attack basis in
