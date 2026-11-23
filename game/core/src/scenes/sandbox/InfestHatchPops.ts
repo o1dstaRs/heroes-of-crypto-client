@@ -23,6 +23,10 @@ export function isInfestHatchSummon(event: { sourceAbility?: string; unitName: s
         (event.unitName === "Arachna Spider" || event.unitName === "Arachna Queen")
     );
 }
+const hatchKindOf = (unitName: string): HatchKind => (unitName === "Arachna Queen" ? "queen" : "spider");
+// Just in front of the hatching body in its own depth slot, so creatures standing nearer the viewer still
+// cover the cels. On the world root at 4100 they drew over the whole units layer (which sits at 1000).
+const HATCH_DEPTH_OFFSET = 0.5;
 const leases: Record<HatchKind, number> = { spider: 0, queen: 0 };
 export function infestHatchFrame(ageMs: number): number | undefined {
     return ageMs >= INFEST_HATCH_DURATION_MS ? undefined : Math.floor((Math.max(0, ageMs) * INFEST_HATCH_SPEED) / 150);
@@ -89,12 +93,19 @@ export class InfestHatchPops {
         this.loads.set(kind, load);
         return load;
     }
+    /**
+     * Start downloading a hatch's cels before its summon is shown. The body stays hidden from spawn until the cels
+     * stand in for it, so cels fetched only at spawn left a fresh spider invisible for the whole 3 MB download.
+     */
+    public prepare(unitName: string): Promise<Texture[] | undefined> {
+        return this.loadFrames(hatchKindOf(unitName));
+    }
     public spawn(id: string, resolve: () => RenderableUnit | undefined, corpseFinished: () => boolean): void {
         if (this.pops.some((p) => p.id === id)) return;
         const unit = resolve();
         if (!unit || unit.isDead()) return;
         unit.setVisualVisible(false);
-        const kind: HatchKind = unit.getName() === "Arachna Queen" ? "queen" : "spider";
+        const kind = hatchKindOf(unit.getName());
         this.pops.push({
             id,
             kind,
@@ -129,10 +140,9 @@ export class InfestHatchPops {
                 // Custom death cels finish first; generic shatter gets a short corpse beat.
                 if (now - p.queuedAt < 550 || (!p.corpseFinished() && now - p.queuedAt < 6000)) continue;
                 p.started = now;
-                p.sprite = new Sprite(frames[0]);
-                p.sprite.anchor.set(0.5);
-                this.attach(p.sprite, 4100);
             }
+            // A cel torn down with the board (scene replacement destroys the units layer's children) is redrawn.
+            if (p.sprite?.destroyed) p.sprite = undefined;
             const frame = infestHatchFrame(now - p.started);
             if (frame === undefined) {
                 unit.setVisualVisible(true);
@@ -158,7 +168,16 @@ export class InfestHatchPops {
                     scaleY: (info.scaleY * info.texture.height) / INFEST_REFERENCE_CANVAS,
                 };
             }
-            if (!p.sprite) continue;
+            // Created only once it has a registration: a cel attached before one existed stood at the world
+            // origin at full atlas scale, a 1024 px frame at the bottom centre of the board.
+            const depth = unit.getVisualDepth?.();
+            if (!p.sprite) {
+                p.sprite = new Sprite(frames[frame]);
+                p.sprite.anchor.set(0.5);
+                if (depth) depth.container.addChild(p.sprite);
+                else this.attach(p.sprite, 4100);
+            }
+            if (depth && p.sprite.parent === depth.container) p.sprite.zIndex = depth.zIndex + HATCH_DEPTH_OFFSET;
             const registration = p.registration;
             p.sprite.texture = frames[frame];
             p.sprite.position.set(registration.x, registration.y);

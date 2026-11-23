@@ -1,7 +1,8 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 
-import { TeamVals, type GameEvent, type UnitProperties } from "@heroesofcrypto/common";
+import { Grid, GridSettings, GridVals, TeamVals, type GameEvent, type UnitProperties } from "@heroesofcrypto/common";
 
+import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { Sandbox, getMissingReplaySummons, type SandboxSceneUnitState } from "./Sandbox";
 
 type SummonEvent = Extract<GameEvent, { type: "unit_summoned" }>;
@@ -154,5 +155,148 @@ describe("authoritative summon replay", () => {
         scene.syncSummonedUnit({ ...event, merged: true });
         expect(body.startSpawnAnimation).toHaveBeenCalledTimes(1);
         expect(body.syncVisual).toHaveBeenCalledTimes(1);
+    });
+
+    test("an Infest spider takes the cell its corpse just left, so it is on the board as it hatches", () => {
+        // Game 0cf25203, seq 112: the Queen's counter killed a Leprechaun at (2, 3) and Infest hatched a spider
+        // there. The corpse still held the cell, so the client refused the spider and logged it as Critical.
+        const settings = new GridSettings(16, 2048, 0, 1024, -1024, 5, 0.06);
+        const grid = new Grid(settings, GridVals.NORMAL);
+        const cell = { x: 2, y: 3 };
+        grid.occupyCells([cell], "leprechaun", TeamVals.LEFT, 1, false, false);
+        const corpse = {
+            getId: () => "leprechaun",
+            getAttackRange: () => 1,
+            isSmallSize: () => true,
+            getShatterInfo: () => null,
+            hasStatusEffect: () => false,
+            destroyVisuals: mock(() => {}),
+        };
+        const spider = {
+            getId: () => "server-spider",
+            getName: () => "Arachna Spider",
+            setPosition: () => {},
+            getCells: () => [cell],
+            ensureVisual: () => 1,
+            startSpawnAnimation: mock(() => {}),
+            syncVisual: () => {},
+            getAttackRange: () => 1,
+            isSmallSize: () => true,
+            getTeam: () => TeamVals.RIGHT,
+            getSpellsCount: () => 0,
+        };
+        const units = new Map<string, unknown>([
+            ["leprechaun", corpse],
+            ["server-spider", spider],
+        ]);
+        const spawnInfestHatch = mock(() => {});
+        const scene = Object.assign(Object.create(Sandbox.prototype), {
+            grid,
+            unitsHolder: { getAllUnits: () => units },
+            playCustomDeathAnimation: () => false,
+            combatVisuals: { spawnDeathVfx: () => {}, spawnInfestHatch },
+            dispelSmokeUnderRegisteredUnit: () => {},
+            drawer: { getUnitsContainer: () => undefined },
+            sc_sceneSettings: { getGridSettings: () => settings },
+            refreshUnits: () => {},
+        });
+        const hatch: SummonEvent = {
+            ...summonEvent("server-spider"),
+            team: TeamVals.RIGHT,
+            unitName: "Arachna Spider",
+            amount: 1,
+            position: { x: -704, y: 448 },
+            cells: [cell],
+            sourceAbility: "Infest",
+        };
+        const error = spyOn(console, "error").mockImplementation(() => {});
+        try {
+            // applyTurnEngineEvents order: the corpse's unit_destroyed, then the summon.
+            scene.destroyEventDeletedUnit("leprechaun", new Map(units));
+            scene.syncSummonedUnit(hatch, corpse);
+
+            expect(grid.getOccupantUnitId(cell)).toBe("server-spider");
+            expect(grid.getOccupiedCells("leprechaun")).toEqual([]);
+            expect(error).not.toHaveBeenCalled();
+            expect(spawnInfestHatch).toHaveBeenCalledWith(spider, corpse);
+        } finally {
+            error.mockRestore();
+        }
+    });
+
+    describe("summoned figures are loaded before the record that summons them plays", () => {
+        const spiderFigure = unitToTextureName("Arachna Spider", TextureType.SMALL);
+        const hatchRecord = {
+            sequence: 112,
+            clientTimeMs: 0,
+            action: { type: "melee_attack", attackerId: "leprechaun", targetId: "queen" },
+            events: [
+                { type: "unit_destroyed", unitId: "leprechaun", reason: "dead_cleanup" },
+                { ...summonEvent("server-spider"), unitName: "Arachna Spider", amount: 1, sourceAbility: "Infest" },
+            ],
+            stateAfter: { units: [] },
+        };
+        const sceneWith = (figure: Promise<void>, cels: Promise<unknown>) => {
+            const timers: (() => void)[] = [];
+            return Object.assign(Object.create(Sandbox.prototype), {
+                isSceneDestroyed: () => false,
+                preloadTextureKeys: mock(() => figure),
+                combatVisuals: { prepareInfestHatch: mock(() => cels) },
+                playReplayActionRecord: mock(async () => true),
+                scheduleSceneTimeout: mock((callback: () => void) => {
+                    timers.push(callback);
+                    return 1;
+                }),
+                clearSceneTimeout: mock(() => {}),
+                timers,
+            });
+        };
+        const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+        test("live play holds an Infest hatch until the spider's figure and its hatch cels are in", async () => {
+            let figureLoaded!: () => void;
+            let celsLoaded!: () => void;
+            const scene = sceneWith(
+                new Promise<void>((resolve) => (figureLoaded = resolve)),
+                new Promise((resolve) => (celsLoaded = () => resolve([]))),
+            );
+
+            const playback = scene.playSandboxReplayRecord(hatchRecord);
+            await settle();
+            // Live ranked had loaded no figure for a creature that only enters by summon: the board drew a team
+            // token in its place and skipped the hatch and spawn animation.
+            expect(scene.preloadTextureKeys).toHaveBeenCalledWith([spiderFigure], { priority: "visible" });
+            expect(scene.combatVisuals.prepareInfestHatch).toHaveBeenCalledWith("Arachna Spider");
+            expect(scene.playReplayActionRecord).not.toHaveBeenCalled();
+            figureLoaded();
+            await settle();
+            expect(scene.playReplayActionRecord).not.toHaveBeenCalled();
+            celsLoaded();
+
+            expect(await playback).toBe(true);
+            expect(scene.playReplayActionRecord).toHaveBeenCalledTimes(1);
+            expect(scene.clearSceneTimeout).toHaveBeenCalledTimes(1);
+        });
+
+        test("a download that never finishes holds the record only until the wait runs out", async () => {
+            const scene = sceneWith(new Promise<void>(() => {}), new Promise(() => {}));
+
+            const playback = scene.playSandboxReplayRecord(hatchRecord);
+            await settle();
+            expect(scene.playReplayActionRecord).not.toHaveBeenCalled();
+            expect(scene.scheduleSceneTimeout.mock.calls[0]?.[1]).toBe(1500);
+            scene.timers[0]();
+
+            expect(await playback).toBe(true);
+            expect(scene.playReplayActionRecord).toHaveBeenCalledTimes(1);
+        });
+
+        test("records without a summon start at once", async () => {
+            const scene = sceneWith(new Promise<void>(() => {}), new Promise(() => {}));
+
+            expect(await scene.playSandboxReplayRecord({ ...hatchRecord, events: [hatchRecord.events[0]] })).toBe(true);
+            expect(scene.preloadTextureKeys).not.toHaveBeenCalled();
+            expect(scene.scheduleSceneTimeout).not.toHaveBeenCalled();
+        });
     });
 });

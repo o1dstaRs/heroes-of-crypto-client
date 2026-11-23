@@ -1576,10 +1576,16 @@ export class CombatVisuals {
             onArrival,
         );
     }
+    private getInfestHatchPops(): InfestHatchPops {
+        return (this.infestHatchPops ??= new InfestHatchPops((sprite, z) => this.context.attachToWorldRoot(sprite, z)));
+    }
+    /** Fetch the hatch cels a summon is about to need, so its hidden body is not left waiting on the download. */
+    public prepareInfestHatch(unitName: string): Promise<unknown> {
+        return this.getInfestHatchPops().prepare(unitName);
+    }
     public spawnInfestHatch(unit: RenderableUnit, corpse?: RenderableUnit): void {
         const id = unit.getId();
-        this.infestHatchPops ??= new InfestHatchPops((sprite, z) => this.context.attachToWorldRoot(sprite, z));
-        this.infestHatchPops.spawn(
+        this.getInfestHatchPops().spawn(
             id,
             () => this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined,
             () => !corpse?.isPlayingOneShotAnimation("death"),

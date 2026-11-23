@@ -251,3 +251,58 @@ test("each species loads its own complete poses while preserving body scale and 
         world.destroy();
     }
 });
+
+test("the hatch stands in the spider's own depth slot, covered by creatures in front of it", async () => {
+    // Game 0cf25203: the cels went on the world root at 4100, above the whole units layer (1000), so a hatch
+    // drew over every creature and count badge standing nearer the viewer. The body's slot was 3426.8.
+    const atlas = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
+    const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
+    const unload = spyOn(Assets, "unload").mockResolvedValue();
+    const units = new Container();
+    units.sortableChildren = true;
+    const nearer = new Sprite(Texture.WHITE);
+    nearer.zIndex = 3500;
+    units.addChild(nearer);
+    let now = 0;
+    let registered = false;
+    const unit = {
+        ...body(),
+        getVisualDepth: () => ({ container: units, zIndex: 3426.8 }),
+        getShatterInfo: () =>
+            registered ? { texture: { width: 768, height: 768 }, x: 35, y: 75, scaleX: -0.4, scaleY: -0.4 } : null,
+    };
+    const effect = new InfestHatchPops(
+        () => {
+            throw new Error("the hatch belongs in the units layer, not on the world root");
+        },
+        () => now,
+    );
+    try {
+        expect(await effect.prepare("Arachna Spider")).toHaveLength(15);
+        expect(load).toHaveBeenCalledTimes(1);
+        effect.spawn(
+            "server-spider",
+            () => unit as unknown as RenderableUnit,
+            () => true,
+        );
+        expect(load).toHaveBeenCalledTimes(1);
+        now = 600;
+        effect.update(0);
+        // No registration yet: no cel, rather than one standing at the world origin at full atlas scale.
+        expect(units.children).toHaveLength(1);
+        registered = true;
+        effect.update(0);
+        expect(units.children).toHaveLength(2);
+        const cel = units.children[1] as Sprite;
+        expect(cel.zIndex).toBeCloseTo(3427.3);
+        expect(cel.zIndex).toBeLessThan(nearer.zIndex);
+        expect(cel.position.x).toBe(35);
+        expect(cel.position.y).toBe(75);
+    } finally {
+        effect.clear();
+        await Promise.resolve();
+        load.mockRestore();
+        unload.mockRestore();
+        units.destroy({ children: true });
+    }
+});

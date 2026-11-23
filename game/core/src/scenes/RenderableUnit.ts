@@ -13610,6 +13610,16 @@ export class RenderableUnit extends Unit {
         );
         return buffsCollapsed || debuffsCollapsed;
     }
+    /**
+     * Where this unit's figure sits in the depth-sorted units layer, for an effect that stands in for the body
+     * (the Infest hatch) and must be covered by the creatures in front of it, as the body would be.
+     */
+    public getVisualDepth(): { container: Container; zIndex: number } | undefined {
+        const sprite = this.sprite;
+        return sprite && !sprite.destroyed && sprite.parent
+            ? { container: sprite.parent, zIndex: sprite.zIndex }
+            : undefined;
+    }
     public getShatterInfo(): {
         texture: Texture;
         x: number;

@@ -51,7 +51,7 @@ import { playSpellSound, resolveSpellSound } from "../ui/audio/spellSounds";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { glyphScaleX } from "../pixi/boardMirror";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
-import { replayActionTextureKeys, replayStateTextureKeys } from "../replay/replayTextureKeys";
+import { replayActionTextureKeys, replayStateTextureKeys, summonTextureKeys } from "../replay/replayTextureKeys";
 import { dullingDefenseRecipientIds } from "./effect_pops";
 import { teamColor } from "./teamColors";
 import {
@@ -995,6 +995,8 @@ export class Sandbox extends PixiScene {
     private static readonly REPLAY_ATTACK_AFTER_APPLY_HOLD_MS = 160;
     private static readonly REPLAY_SPELL_HOLD_MS = 150;
     private static readonly REPLAY_HANG_WATCHDOG_MS = 5000;
+    /** Longest a record waits for a summoned creature's figure and hatch cels (see prepareSummonPresentation). */
+    private static readonly SUMMON_ART_WAIT_MS = 1500;
     private static readonly NARROWING_HOLD_MS = 650;
     private static readonly NARROWING_EFFECT_LIMIT_MS = 3000;
     private static readonly DRAW_TEAM_PLACEMENT_ZONES = true;
@@ -3733,6 +3735,10 @@ export class Sandbox extends PixiScene {
         );
     }
     protected async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        if (record.events.some((event) => event.type === "unit_summoned")) {
+            await this.prepareSummonPresentation(record.events);
+            if (this.isSceneDestroyed()) return false;
+        }
         const narrowingIndex = record.events.findIndex((event) => event.type === "narrowing_applied");
         if (narrowingIndex < 0) return this.playReplayActionRecord(record);
 
@@ -3748,6 +3754,34 @@ export class Sandbox extends PixiScene {
         this.applyReplayEvents(record.events.slice(splitAt), record.stateAfter);
         await this.narrowingPresentation;
         return !this.isSceneDestroyed() && (this.narrowingPlaybackEpoch ?? 0) === epoch;
+    }
+    /**
+     * Live ranked loads figures only for the armies on the board, so the first spider an Infest hatched had no art:
+     * the board drew a team token, skipped the hatch and spawn animation, and the figure then popped in. The hatch
+     * cels were fetched only at spawn too, with the new body hidden until they arrived. Warm both before the record
+     * plays; a slow download holds it at most SUMMON_ART_WAIT_MS, after which it plays as before.
+     */
+    private async prepareSummonPresentation(events: readonly GameEvent[]): Promise<void> {
+        const keys = summonTextureKeys(events);
+        if (!keys.length) return;
+        const hatches = events
+            .filter(
+                (event): event is Extract<GameEvent, { type: "unit_summoned" }> =>
+                    event.type === "unit_summoned" && isInfestHatchSummon(event),
+            )
+            .map((event) => this.combatVisuals?.prepareInfestHatch(event.unitName));
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const cap = new Promise<void>((resolve) => {
+            timer = this.scheduleSceneTimeout(resolve, Sandbox.SUMMON_ART_WAIT_MS, resolve);
+        });
+        try {
+            await Promise.race([
+                Promise.allSettled([this.preloadTextureKeys(keys, { priority: "visible" }), ...hatches]),
+                cap,
+            ]);
+        } finally {
+            if (timer !== undefined) this.clearSceneTimeout(timer);
+        }
     }
     private async playReplayActionRecord(
         record: SandboxReplay["actions"][number],
@@ -20816,9 +20850,9 @@ export class Sandbox extends PixiScene {
         }
 
         unit.setPosition(event.position.x, event.position.y);
-        // Commit occupancy when this event is reached, after any preceding unit_destroyed event has freed the
-        // corpse cells (Infest). A live sandbox summon is already registered; cleanup + authoritative re-stamp
-        // is idempotent and also repairs a ranked replay that arrived on a stale local grid.
+        // Commit occupancy when this event is reached, after the preceding unit_destroyed event has freed the
+        // corpse cells (Infest; see destroyEventDeletedUnit). A live sandbox summon is already registered; cleanup
+        // + authoritative re-stamp is idempotent and also repairs a ranked replay that arrived on a stale grid.
         if (event.cells.length) {
             this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
             // A refused occupy leaves the summon VISIBLE but absent from the grid: unhoverable,
@@ -20889,6 +20923,15 @@ export class Sandbox extends PixiScene {
         if (!unit) {
             return;
         }
+
+        // The engine frees a dead stack's cells in the step that emits this event, but a ranked or replayed
+        // record never runs that step: the corpse held its cells until the next snapshot. Infest hatches its
+        // spider on exactly those cells, so every hatch was refused and stood off the board ("summoned Arachna
+        // Spider could not occupy its 1-cell footprint"), with hover and previews still finding the corpse.
+        // Freeing an already freed stack is a no-op, so the live sandbox path is unchanged.
+        this.grid.cleanupAll(unitId, unit.getAttackRange(), unit.isSmallSize());
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
 
         const customDeathPlaying = this.playCustomDeathAnimation(unit);
         if (!customDeathPlaying) {

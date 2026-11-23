@@ -1,7 +1,7 @@
 import { approvedAnimationAssetKeysForUnit } from "../pixi/creatureAnimationSettings";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import type { SandboxReplayActionRecord } from "./sandbox_replay";
-import { GridVals } from "@heroesofcrypto/common";
+import { GridVals, type GameEvent } from "@heroesofcrypto/common";
 import type { SandboxSceneState } from "../scenes/Sandbox";
 import { lavaPitTextureKeys } from "../scenes/sandbox/lavaPitAssets";
 
@@ -13,6 +13,19 @@ export function replayStateTextureKeys(state: SandboxSceneState): string[] {
     }
     for (const name of new Set(state.units.filter((unit) => !unit.dead).map((unit) => unit.properties.name))) {
         keys.add(unitToTextureName(name, TextureType.SMALL));
+    }
+    return [...keys];
+}
+
+/**
+ * Board figures of the creatures a record summons. Live play loads figures for the armies on the board, and a
+ * creature that only enters by summon (an Infest spider) is in neither.
+ */
+export function summonTextureKeys(events: readonly GameEvent[]): string[] {
+    const keys = new Set<string>();
+    for (const event of events) {
+        if (event.type === "unit_summoned" && !event.merged)
+            keys.add(unitToTextureName(event.unitName, TextureType.SMALL));
     }
     return [...keys];
 }
