@@ -120,8 +120,8 @@
     "Monk": {
         "slug": "monk",
         "attack": {
-            "durationMs": 715,
-            "revision": "f309019c50"
+            "durationMs": 1384,
+            "revision": "03db4d5f7f"
         },
         "hurt": {
             "durationMs": 620,
