@@ -226,7 +226,14 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v30, revision suffix `deep-fit-4000-v1-stock-deadline-v1`. `a19-stock-deadline-v1` was adopted
+Current default is profile v31, revision suffix `stock-deadline-v1-wait-clock-v1`. `a19-wait-clock-v1` was adopted on
+November 24, 2026, at the owner's request ("Keep v29, confirm cap"): a bot seat's stock and deep searches run their WAIT
+comparisons under the same deadline as every other comparison, so no move outruns the owner's 4 s. Read common's
+`docs/wait_clock_adoption.md`. Registered non-inferiority confirmation WC, a real-time clash at production speed: 49.05%
+head to head against v30 (95% 47.89 to 50.19; 1,080 fresh tasks from both seats); longest move 4.09 s and none over 4.5 s,
+against 7.22% over 4.5 s and a longest 11.0 s for v30. Not a strength gain, and not a win rate against people.
+
+Profile v30, retained in v31: revision suffix `deep-fit-4000-v1-stock-deadline-v1`. `a19-stock-deadline-v1` was adopted
 on November 24, 2026, under the standing instruction ("53.2 is strong, we need to lock in those wins"): a bot seat's stock
 search gets a 2,500 ms live deadline instead of 1,000 ms, which on the production host cut it on about one decision in
 eight. Read common's `docs/stock_deadline_adoption.md`. Registered confirmation SD, a real-time clash at production speed:
