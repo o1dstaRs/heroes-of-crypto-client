@@ -10749,6 +10749,10 @@ export class RenderableUnit extends Unit {
         this.unicornBlindnessFlash = { onComplete };
         return true;
     }
+    /** The image the body is drawn from; changes when an animation switches atlases (or back to the rest pose). */
+    public getBodyTextureSource(): Texture["source"] | undefined {
+        return this.sprite?.texture?.source;
+    }
     public hasAnimationState(stateName: string): boolean {
         if (this.angelLabReactionConfig(stateName)) return true;
         if (this.creatureAnimationLabPreviewEnabled && this.getName() === "Angel" && stateName === "idle")

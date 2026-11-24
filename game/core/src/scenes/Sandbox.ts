@@ -16520,6 +16520,20 @@ export class Sandbox extends PixiScene {
             this.hasForegroundCombatAnimation()
         );
     }
+    /**
+     * Advance one unit's animation and keep its scale in step with the image it now shows. syncVisual derives the
+     * scale from the current texture and runs before this step, so an animation that switches images here (a
+     * half-size release atlas drawn at twice the scale, and the full-size rest pose or idle) would otherwise be
+     * drawn at the previous image's scale for one frame: the Wyvern landing or the Abomination ending its hit
+     * flashed at double size.
+     */
+    private stepUnitAnimation(unit: RenderableUnit, timeStep: number, moving: boolean): void {
+        const before = unit.getBodyTextureSource();
+        unit.stepSpawnAnimation(timeStep);
+        if (unit.getBodyTextureSource() !== before) {
+            unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings(), moving);
+        }
+    }
     private hasForegroundCombatAnimation(): boolean {
         return [...this.unitsHolder.getAllUnits().values(), ...(this.dyingVisualUnits ?? [])].some((unit) => {
             const renderable = unit as RenderableUnit;
@@ -19456,16 +19470,13 @@ export class Sandbox extends PixiScene {
             }
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
             // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
-            rUnit.syncVisual(
-                this.drawer.getUnitsContainer(),
-                this.sc_sceneSettings.getGridSettings(),
-                this.moveAnimManager.isUnitMoving(rUnit),
-            );
+            const moving = this.moveAnimManager.isUnitMoving(rUnit);
+            rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings(), moving);
             depthSortableUnits.push(rUnit);
             // Animation atlases must keep ticking while the unit moves. Previously the moving branch
             // skipped this call and only applied the generic bob/tilt, leaving Wandering Mage's authored
             // walking atlas frozen forever on frame zero in a live battle.
-            rUnit.stepSpawnAnimation(timeStep);
+            this.stepUnitAnimation(rUnit, timeStep, moving);
             if (this.isActiveUnitMoving && this.moveAnimManager.getMovingUnit() === rUnit) {
                 rUnit.applyMoveEffect(this.spawnPulsePhase);
             }
@@ -19477,7 +19488,7 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             dyingUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-            dyingUnit.stepSpawnAnimation(timeStep);
+            this.stepUnitAnimation(dyingUnit, timeStep, false);
             depthSortableUnits.push(dyingUnit);
         }
 
