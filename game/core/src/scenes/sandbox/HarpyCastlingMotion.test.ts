@@ -5,6 +5,11 @@ import type { RenderableUnit } from "../RenderableUnit";
 
 const origin = { x: 100, y: 200 };
 const target = { x: 500, y: 400 };
+test("a three-cell castling takes about half a second, twice as fast as before", () => {
+    const total = harpyCastlingDurations(3).reduce((sum, phase) => sum + phase, 0);
+    expect(total).toBeCloseTo(0.535, 2);
+});
+
 test("Castling leaves the target still until pickup, carries it home, then sends Harpy to the vacated cell", () => {
     const durations = harpyCastlingDurations(4.5);
     let time = 0;

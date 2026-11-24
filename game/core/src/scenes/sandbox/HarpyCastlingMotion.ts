@@ -19,11 +19,14 @@ const mix = (a: HoCMath.XY, b: HoCMath.XY, t: number): HoCMath.XY => ({
     y: a.y + (b.y - a.y) * t,
 });
 
+/** Owner tuning: the base flight sped up 1.4 × 1.2 × 1.3, then castling twice as fast again. */
+export const HARPY_CASTLING_SPEEDUP = 1.4 * 1.2 * 1.3 * 2;
+
 /** Ground travel and elevation are separate: lifting a passenger must not change its perspective row. */
 export function harpyCastlingDurations(distanceCells: number): number[] {
     const travel = Math.max(0, distanceCells);
     return [0.16, 0.2 + travel * 0.06, 0.06, 0.1, 0.32 + travel * 0.1, 0.2, 0.12, 0.28 + travel * 0.075, 0.2].map(
-        (duration) => duration / (1.4 * 1.2 * 1.3),
+        (duration) => duration / HARPY_CASTLING_SPEEDUP,
     );
 }
 

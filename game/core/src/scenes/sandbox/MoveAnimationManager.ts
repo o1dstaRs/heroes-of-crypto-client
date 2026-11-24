@@ -308,7 +308,7 @@ export class MoveAnimationManager {
             a: { unit: unitA, from: fA, to: tA, ctrl: arcCtrl(fA, tA, 1) },
             b: { unit: unitB, from: fB, to: tB, ctrl: arcCtrl(fB, tB, -1) },
             elapsed: 0,
-            duration: harpy ? harpy.durations.reduce((sum, duration) => sum + duration, 0) : 0.45,
+            duration: harpy ? harpy.durations.reduce((sum, duration) => sum + duration, 0) : 0.225,
             onComplete,
             onCancel,
         };
