@@ -226,7 +226,13 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v29, revision suffix `valkyrie-striker-v1-deep-fit-4000-v1`. `a19-deep-fit-4000-v1` was adopted
+Current default is profile v30, revision suffix `deep-fit-4000-v1-stock-deadline-v1`. `a19-stock-deadline-v1` was adopted
+on November 24, 2026, under the standing instruction ("53.2 is strong, we need to lock in those wins"): a bot seat's stock
+search gets a 2,500 ms live deadline instead of 1,000 ms, which on the production host cut it on about one decision in
+eight. Read common's `docs/stock_deadline_adoption.md`. Registered confirmation SD, a real-time clash at production speed:
+53.12% head to head against v29 (95% 51.56 to 54.76; 720 fresh tasks from both seats). Not a win rate against people.
+
+Profile v29, retained in v30: revision suffix `valkyrie-striker-v1-deep-fit-4000-v1`. `a19-deep-fit-4000-v1` was adopted
 on November 23, 2026, under the standing instruction: a bot seat's deep search now fits 4,000 rollout turns instead of
 2,800, with the same 4,000 ms think deadline. Read common's `docs/deep_fit_4000_adoption.md`. Registered confirmation U on
 fresh sealed drafts: +2.48 points per task (95% +1.67 to +3.28; 7,950 tasks; owner-shaped rush +0.98). It is a
