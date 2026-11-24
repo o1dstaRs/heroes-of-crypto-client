@@ -2819,7 +2819,9 @@ export const OpponentDraftBar: React.FC<{
 };
 
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({
-    banPlacement = import.meta.env.MODE === "test" ? "right" : "inline",
+    // Bans dock in a rail beside the board and fall back to the inline strip when the window has no room.
+    // This used to be "right" only in "test" mode, so the staging build (built in that mode) differed from prod.
+    banPlacement = "right",
     userTeam,
     gameId,
     opponentLabel = t("Opponent"),
