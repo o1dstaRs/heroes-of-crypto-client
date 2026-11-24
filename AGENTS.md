@@ -226,7 +226,23 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v31, revision suffix `stock-deadline-v1-wait-clock-v1`. `a19-wait-clock-v1` was adopted on
+Current default is profile v33, revision suffix `carrier-cohesion-v2-queen-counter-v1`. `a19-queen-counter-v1` was
+adopted on November 24, 2026, at the owner's request ("They never pick tsar cannon, magic dragon, zena or anything to
+counterbalance me"): at a level-4 pick, once the opposing Arachna Queen is visible to the seat (doctrine reveals and
+hidden-pick collisions only), it takes Magic Dragon when Magic Dragon is offered; the server's draft decider applies it
+after every other layer, and Premium draft advice follows it. Read common's `docs/queen_counter_adoption.md`. Registered
+confirmation QV on the owner's exact Queen setups: +58.98 points (95% +49.61 to +68.36; held-out game b2016809 18.8% →
+71.9%); AI-vs-AI drafts where the opponent takes the Queen +1.00 (95% −1.33 to +3.33). Not a win rate against people.
+
+Profile v32, retained in v33: revision suffix `wait-clock-v1-carrier-cohesion-v2`. `a19-carrier-cohesion-v2` was adopted
+on November 24, 2026, at the owner's request after test game e94392e8, where the AI's Crusader walked away from its army
+in lap 2 and died with its blessing: in laps 1–3 a principal blessing carrier that walks does not move from at most 3
+cells of its nearest ally to at least 4 cells (the move becomes a wait, else a defend); flying carriers and striker-rush
+seats are exempt. Read common's `docs/carrier_cohesion_adoption.md`. A non-inferiority result, not a strength gain:
+registered confirmation CF on v30 +0.41 points (95% −0.33 to +1.24). The first version, which held flying carriers too,
+failed confirmation CC and is not adopted.
+
+Profile v31, retained in v32: revision suffix `stock-deadline-v1-wait-clock-v1`. `a19-wait-clock-v1` was adopted on
 November 24, 2026, at the owner's request ("Keep v29, confirm cap"): a bot seat's stock and deep searches run their WAIT
 comparisons under the same deadline as every other comparison, so no move outruns the owner's 4 s. Read common's
 `docs/wait_clock_adoption.md`. Registered non-inferiority confirmation WC, a real-time clash at production speed: 49.05%
