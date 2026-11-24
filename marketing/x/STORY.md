@@ -73,7 +73,7 @@ Open: is "grew up on" true for the team? The whitepaper says "from our earliest 
 ### 2. Thu 15 Oct: the queue (TACTICS, calendar)
 POST: If the unit you want to hit acts before the unit you are sending, the plan is already late. Read the queue before you commit.
 REPLY: Why that glance matters more once the map starts shrinking: https://heroesofcrypto.io/news/2026-06-22-how-to-read-the-board/
-IMAGE: yes, `site/public/assets/images/preview_game.webp` (real still).
+IMAGE: yes, `site/public/assets/images/social_preview_20261123.jpg` (real still).
 
 ### 3. Fri 16 Oct: origin (STORY)
 POST:
@@ -87,7 +87,7 @@ IMAGE: no (text-only), unless Stepan has a 2024 screenshot, in which case this b
 ### 4. Sat 17 Oct: the edge (TACTICS, calendar)
 POST: Standing on the edge can be the right cell. Staying there is how a shrinking map writes your next turn for you.
 REPLY: Five positioning habits, including the edge: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
-IMAGE: yes, `preview_game.webp`.
+IMAGE: yes, `social_preview_20261123.jpg`.
 
 ### 5. Sun 18 Oct: why PvP and a shrinking board (STORY, replaces the calendar question)
 POST:
@@ -106,7 +106,7 @@ POST:
 > Same 16x16 board. Since then we moved rendering to Pixi.js, rebuilt the sandbox, and spent this summer on the part players actually touch.
 
 REPLY: [one line on the biggest thing that changed, from Stepan]
-IMAGE: yes. A side-by-side of REAL screenshots only. "Then": [ask Stepan for a 2024 build screenshot; `site/public/assets/images/background_dark_old.webp` may be old art, so check it]. "Now": `preview_game.webp`. No AI-generated "then".
+IMAGE: yes. A side-by-side of REAL screenshots only. "Then": [ask Stepan for a 2024 build screenshot; `site/public/assets/images/background_dark_old.webp` may be old art, so check it]. "Now": `social_preview_20261123.jpg`. No AI-generated "then".
 
 ### 7. Tue 20 Oct: dev diary, a real fix (STORY)
 POST:

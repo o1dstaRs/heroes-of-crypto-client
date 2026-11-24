@@ -1,4 +1,5 @@
 ---
+import { SOCIAL_PREVIEW_IMAGE } from "../../lib/hero-media";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getCollection, render } from "astro:content";
 
@@ -22,7 +23,7 @@ const { post, newer, older } = Astro.props;
 const { Content } = await render(post);
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
-const previewImage = new URL("/assets/images/preview_game.webp", siteOrigin);
+const previewImage = new URL(SOCIAL_PREVIEW_IMAGE, siteOrigin);
 const publishedTime = post.data.date.toISOString();
 const blogPostStructuredData = {
     "@type": "BlogPosting",

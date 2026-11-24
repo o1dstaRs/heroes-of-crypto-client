@@ -3,6 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import SandboxLink from "../components/SandboxLink.astro";
 import { content, links } from "../lib/site-data";
 import { playAccountFirstPaintScript } from "../lib/play-account-view";
+import { PAGE_BACKDROP_IMAGE } from "../lib/hero-media";
 
 const lang = "en";
 const copy = content[lang];
@@ -14,7 +15,7 @@ const copy = content[lang];
     description={copy.play.modeBody}
 >
     <section class="mode-select-page">
-        <img class="mode-select-bg" src="/assets/images/preview_game.webp" alt="" width="1200" height="630" />
+        <img class="mode-select-bg" src={PAGE_BACKDROP_IMAGE} alt="" width="2060" height="763" />
         <div class="mode-select-shade"></div>
         <div class="page-shell mode-select-layout">
             <div class="mode-select-copy">

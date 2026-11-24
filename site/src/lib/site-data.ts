@@ -75,8 +75,7 @@ export const content = {
             copyright: "Old Stars Gaming. Heroes of Crypto AI.",
         },
         nav: {
-            game: "Game",
-            top: "Top",
+            players: "Players",
             knowledgeBase: "Knowledge Base",
             rules: "Rules",
             news: "News",
@@ -1124,8 +1123,7 @@ export const content = {
             copyright: "Old Stars Gaming. Heroes of Crypto AI.",
         },
         nav: {
-            game: "Игра",
-            top: "Top",
+            players: "Игроки",
             knowledgeBase: "База знаний",
             rules: "Правила",
             news: "Новости",

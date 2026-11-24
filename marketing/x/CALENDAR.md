@@ -18,7 +18,7 @@ https://heroesofcrypto.io
 
 REPLY: none.
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Thu 15 Oct — the queue
 
@@ -30,7 +30,7 @@ REPLY:
 
 Why that glance matters more once the map starts shrinking: https://heroesofcrypto.io/news/2026-06-22-how-to-read-the-board/
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Fri 16 Oct — Chaos
 
@@ -54,7 +54,7 @@ REPLY:
 
 Five positioning habits, including the edge: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Sun 18 Oct — a question
 
@@ -90,7 +90,7 @@ REPLY:
 
 Give the ranged line and the healer different cells: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Wed 21 Oct — Might
 
@@ -150,7 +150,7 @@ REPLY:
 
 Health says whether it can take a hit. The queue says whether that hit arrives before you can move it.
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Mon 26 Oct — the first turn
 
@@ -162,7 +162,7 @@ REPLY:
 
 What the opening is allowed to be: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Tue 27 Oct — the second attacker
 
@@ -174,7 +174,7 @@ REPLY:
 
 Luck stays in the fight. It should not be the only way you win: https://heroesofcrypto.io/news/2026-06-22-how-to-read-the-board/
 
-ATTACH: `site/public/assets/images/preview_game.webp`
+ATTACH: `site/public/assets/images/social_preview_20261123.jpg`
 
 ## Wed 28 Oct — No Melee
 

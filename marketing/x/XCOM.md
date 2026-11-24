@@ -40,7 +40,7 @@ Tell the human the account bio is still the Bitcoin treasury bio, and wait. They
 
 Turn-based tactics in the browser. One fight, then the map shrinks. No install. No wallet to start.
 
-The pin image is `site/public/assets/images/preview_game.webp`. Image paths below are relative to the repository root.
+The pin image is `site/public/assets/images/social_preview_20261123.jpg`. Image paths below are relative to the repository root.
 
 Timezone for any routine: America/Los_Angeles. Do not create a routine until the human has liked one draft of that job. The posting and reply routines publish under the Posting permission rules at the end; every other routine drafts only. If a source is missing, say so. Do not reuse yesterday.
 
@@ -58,13 +58,13 @@ Turn-based tactics in the browser. No install. No wallet to start.
 https://heroesofcrypto.io
 
 REPLY: none.
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Thu 15 Oct — the queue
 
 POST: If the unit you want to hit acts before the unit you are sending, the plan is already late. Read the queue before you commit.
 REPLY: Why that glance matters more once the map starts shrinking: https://heroesofcrypto.io/news/2026-06-22-how-to-read-the-board/
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Fri 16 Oct — Chaos
 
@@ -76,7 +76,7 @@ ATTACH: site/public/assets/images/units/factions/chaos_512.webp
 
 POST: Standing on the edge can be the right cell. Staying there is how a shrinking map writes your next turn for you.
 REPLY: Five positioning habits, including the edge: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Sun 18 Oct — a question
 
@@ -94,7 +94,7 @@ ATTACH: site/public/assets/images/units/factions/life_512.webp
 
 POST: Packing the army into one knot feels loyal. The first area hit is why it was not.
 REPLY: Give the ranged line and the healer different cells: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Wed 21 Oct — Might
 
@@ -124,19 +124,19 @@ ATTACH: site/public/assets/images/units/portraits/tsar_cannon_portrait_full.cdb5
 
 POST: Before you move a wounded stack: do you check who acts next, or do you check how much health it has left?
 REPLY: Health says whether it can take a hit. The queue says whether that hit arrives before you can move it.
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Mon 26 Oct — the first turn
 
 POST: The first move is a handshake. A step that does not claim a cell, a lane, or an aura range told the other player nothing.
 REPLY: What the opening is allowed to be: https://heroesofcrypto.io/news/2026-06-21-five-positioning-mistakes/
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Tue 27 Oct — the second attacker
 
 POST: A plan that needs the high roll is not a plan. Leave another unit able to act if the first hit comes up short.
 REPLY: Luck stays in the fight. It should not be the only way you win: https://heroesofcrypto.io/news/2026-06-22-how-to-read-the-board/
-ATTACH: site/public/assets/images/preview_game.webp
+ATTACH: site/public/assets/images/social_preview_20261123.jpg
 
 ### Wed 28 Oct — No Melee
 

@@ -2110,7 +2110,7 @@ code {
     padding: 82px 0 62px;
     background:
         linear-gradient(90deg, rgba(7, 8, 8, 0.95), rgba(7, 8, 8, 0.72)),
-        center / cover no-repeat url("/assets/images/preview_game.webp"),
+        center / cover no-repeat url("/assets/images/home/features/tavern_lower_floor_20261024.webp"),
         #111;
 }
 
@@ -2428,7 +2428,7 @@ html.reveal-on .patches-section {
     background:
         linear-gradient(90deg, rgba(7, 8, 8, 0.96), rgba(7, 8, 8, 0.68)),
         linear-gradient(180deg, rgba(7, 8, 8, 0.1), #070808),
-        center / cover no-repeat url("/assets/images/preview_game.webp"),
+        center / cover no-repeat url("/assets/images/home/features/tavern_lower_floor_20261024.webp"),
         #111;
 }
 

@@ -17,9 +17,9 @@ const profileHref = lang === "ru" ? "/ru/profile/" : "/profile/";
 const knowledgeBaseHref = localPath(lang, "knowledge-base");
 const searchLabel = lang === "ru" ? "Поиск" : "Search";
 const languageMenuLabel = lang === "ru" ? "Выбрать язык" : "Choose language";
+// No "Game" item: the logo is the link to the game page.
 const navItems = [
-    { label: copy.nav.game, href: localPath(lang, "game") },
-    { label: copy.nav.top, href: localPath(lang, "top") },
+    { label: copy.nav.players, href: localPath(lang, "top") },
     { label: copy.nav.seasons, href: `${localPath(lang, "home")}seasons/` },
     { label: "Premium", href: `${localPath(lang, "home")}premium/` },
     { label: copy.nav.news, href: `${localPath(lang, "home")}news/` },
@@ -54,8 +54,7 @@ const legacyKnowledgePaths = new Set(
                 const itemPath = item.href.endsWith("/") && item.href !== "/" ? item.href.slice(0, -1) : item.href;
                 const isActive =
                     normalizedPath === itemPath ||
-                    (item.href === knowledgeBaseHref && legacyKnowledgePaths.has(normalizedPath)) ||
-                    (item.href === localPath(lang, "game") && (normalizedPath === "" || normalizedPath === "/ru"));
+                    (item.href === knowledgeBaseHref && legacyKnowledgePaths.has(normalizedPath));
 
                 return (
                     <a class:list={["nav-link", { active: isActive, "nav-premium": item.label === "Premium" }]} href={item.href}>

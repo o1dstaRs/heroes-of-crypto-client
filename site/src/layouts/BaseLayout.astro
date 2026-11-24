@@ -3,7 +3,7 @@ import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import { content, languageSwitchPath, type Language } from "../lib/site-data";
 import { abilityCount, unitCount } from "../lib/units-data";
-import { HOME_HERO_IMAGE } from "../lib/hero-media";
+import { HOME_HERO_IMAGE, SOCIAL_PREVIEW_IMAGE } from "../lib/hero-media";
 import {
     homeHeroImages, HERO_IMAGE_SIZES, NARROW_HERO_IMAGE_SIZES,
     NARROW_HERO_MEDIA, WIDE_HERO_MEDIA,
@@ -33,7 +33,7 @@ const isHomePage = /^\/(?:ru\/)?(?:game\/?)?$/.test(Astro.url.pathname);
 const heroImages = isHomePage ? await homeHeroImages() : undefined;
 const buttonImage = await siteButtonImage();
 const gameURL = new URL(lang === "ru" ? "/ru/" : "/", siteOrigin);
-const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
+const ogImage = new URL(SOCIAL_PREVIEW_IMAGE, siteOrigin);
 // hreflang alternates: every page mirrors EN <-> RU, so map this URL to both and let search
 // engines serve the right language (x-default falls back to English).
 const enAlternateURL = new URL(languageSwitchPath(Astro.url.pathname, "en"), siteOrigin);
@@ -49,7 +49,7 @@ const schemaCopy =
               gamePlatform: ["Браузер"],
               applicationCategory: "Игра",
               operatingSystem: "Любая ОС с браузером",
-              ogImageAlt: "Поле боя Heroes of Crypto",
+              ogImageAlt: "Герои Heroes of Crypto в таверне",
           }
         : {
               videoGameDescription:
@@ -58,7 +58,7 @@ const schemaCopy =
               gamePlatform: ["Web Browser"],
               applicationCategory: "Game",
               operatingSystem: "Any (Web)",
-              ogImageAlt: "Heroes of Crypto battlefield",
+              ogImageAlt: "Heroes of Crypto heroes in the tavern",
           };
 const extraStructuredData = structuredData
     ? Array.isArray(structuredData)
