@@ -226,7 +226,13 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v28, revision suffix `lava-map-v1-valkyrie-striker-v1`. `a19-valkyrie-striker-v1` was adopted
+Current default is profile v29, revision suffix `valkyrie-striker-v1-deep-fit-4000-v1`. `a19-deep-fit-4000-v1` was adopted
+on November 23, 2026, under the standing instruction: a bot seat's deep search now fits 4,000 rollout turns instead of
+2,800, with the same 4,000 ms think deadline. Read common's `docs/deep_fit_4000_adoption.md`. Registered confirmation U on
+fresh sealed drafts: +2.48 points per task (95% +1.67 to +3.28; 7,950 tasks; owner-shaped rush +0.98). It is a
+turn-budget estimate: the slow production host cuts many deep searches at the deadline. Not a win rate against people.
+
+Profile v28, retained in v29: revision suffix `lava-map-v1-valkyrie-striker-v1`. `a19-valkyrie-striker-v1` was adopted
 on November 23, 2026, under the standing instruction, after the owner saw a rushing AI leave its Valkyries at the back
 (game b02a58ce). The striker-rush formation now moves Valkyrie with the strikers. Read common's
 `docs/valkyrie_striker_adoption.md`. Registered confirmation S on fresh sealed families: on rush armies with a Valkyrie
