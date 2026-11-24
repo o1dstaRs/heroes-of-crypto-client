@@ -226,7 +226,17 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v33, revision suffix `carrier-cohesion-v2-queen-counter-v1`. `a19-queen-counter-v1` was
+Current default is profile v34, revision suffix `queen-counter-v1-closing-pick-synergy-v1`.
+`a19-closing-pick-synergy-v1` (closing pick v2) was adopted on November 24, 2026, under the owner's standing
+instruction, for the owner's request for "a stronger AI that is able to catch and close picks": at the level-4 pick,
+while the counter draft's gate is shut but the seat sees an opposing creature, the matchup model's best offer (with a
+synergy bonus) replaces the earlier layers' choice when it is at least 0.05 better; the server's draft decider applies
+it before the Queen counter, and Premium draft advice follows it. Read common's `docs/closing_pick_adoption.md`.
+Registered confirmation CPC on the six human setups where it changes v33's pick: +5.99 points (95% +0.52 to +11.33; two
+of the six lose, so the gain is an average); AI vs AI +7.23 points per changed draft (95% +0.59 to +14.01). Not a win
+rate against people.
+
+Profile v33, retained in v34: revision suffix `carrier-cohesion-v2-queen-counter-v1`. `a19-queen-counter-v1` was
 adopted on November 24, 2026, at the owner's request ("They never pick tsar cannon, magic dragon, zena or anything to
 counterbalance me"): at a level-4 pick, once the opposing Arachna Queen is visible to the seat (doctrine reveals and
 hidden-pick collisions only), it takes Magic Dragon when Magic Dragon is offered; the server's draft decider applies it
