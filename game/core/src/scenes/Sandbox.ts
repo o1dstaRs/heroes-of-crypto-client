@@ -6791,6 +6791,7 @@ export class Sandbox extends PixiScene {
                 unit?.getDamagePredictionAnchor(gs),
                 unit,
             );
+            this.reactToSecondaryDamage(unit, hit.amount, origin);
         }
     }
     private showFireBreathDamageAtImpact(
@@ -7452,7 +7453,7 @@ export class Sandbox extends PixiScene {
      * blow, a caster mid-cast, a death) keeps it. Without a source point, such as a strike from the sky, the
      * creature recoils straight down.
      */
-    private reactToSecondaryDamage(unit: Unit | undefined, amount: number, from?: HoCMath.XY): void {
+    protected reactToSecondaryDamage(unit: Unit | undefined, amount: number, from?: HoCMath.XY): void {
         if (
             !(unit instanceof RenderableUnit) ||
             !(amount > 0) ||
@@ -11297,6 +11298,12 @@ export class Sandbox extends PixiScene {
                     if (dmg ? dmg.amount <= 0 : authoritativeFlight) continue;
                     this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir, "chakram");
                     this.combatVisuals?.spawnSlash(center, cellSize, lastDir, "chakram");
+                    // The bounce victim plays its hit clip; the disc's own push below then replaces the recoil.
+                    if (dmg)
+                        this.reactToSecondaryDamage?.(unit, dmg.amount, {
+                            x: center.x - lastDir.x * cellSize,
+                            y: center.y - lastDir.y * cellSize,
+                        });
                     unit?.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
                     if (dmg) onBounceImpact?.(unitId, dmg, lastDir);
                 }
@@ -11495,6 +11502,11 @@ export class Sandbox extends PixiScene {
                     if (dmg ? dmg.amount <= 0 : authoritativeFlight) continue;
                     this.combatVisuals?.spawnBloodSpray(center, cellSize, direction, "chakram");
                     this.combatVisuals?.spawnSlash(center, cellSize, direction, "chakram");
+                    if (dmg)
+                        this.reactToSecondaryDamage?.(unit, dmg.amount, {
+                            x: center.x - direction.x * cellSize,
+                            y: center.y - direction.y * cellSize,
+                        });
                     unit?.applyRecoil(direction.x * cellSize * 0.16, direction.y * cellSize * 0.16);
                     if (dmg) onBounceImpact?.(unitId, dmg, direction);
                 }
@@ -20341,6 +20353,7 @@ export class Sandbox extends PixiScene {
             unit,
         );
         this.combatVisuals?.spawnPoisonCloud(pos, gs.getCellSize());
+        this.reactToSecondaryDamage(unit, damage);
     }
     private angelResurrectionEvents = new WeakSet<object>();
     protected renderAngelResurrectionEvent(event: GameEvent): void {
@@ -20415,6 +20428,11 @@ export class Sandbox extends PixiScene {
                 unit,
                 4560,
             );
+            if (unit) {
+                const react = (): void => this.reactToSecondaryDamage(unit, hit.amount, origin);
+                if (delaySec > 0) this.scheduleSceneTimeout(react, delaySec * 1000);
+                else react();
+            }
         }
         if (delaySec === 0) {
             this.triggerScreenShake(11, 0.4);
@@ -20568,6 +20586,8 @@ export class Sandbox extends PixiScene {
                                 unit.getDamagePredictionAnchor(this.sc_sceneSettings.getGridSettings()),
                                 unit,
                             );
+                            // Fire from the sky: no source point, so the creature recoils straight down.
+                            this.reactToSecondaryDamage(unit, event.damage);
                         }
                         if (!armageddonWaves.has(event.wave)) {
                             armageddonWaves.add(event.wave);

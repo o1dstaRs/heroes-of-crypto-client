@@ -123,3 +123,72 @@ test("Chain Lightning arcs flinch in a replay; sweep victims are left to the exc
     expect(arc.applyHitReaction).toHaveBeenCalledTimes(1);
     expect(spun.applyHitReaction).not.toHaveBeenCalled();
 });
+
+test("a poison tick plays the poisoned creature's hit reaction", () => {
+    const poisoned = creature("poisoned", { x: 400, y: 400 });
+    const s = scene(new Map<string, RenderableUnit>([["poisoned", poisoned.unit]]));
+    s.combatVisuals.spawnPoisonCloud = mock(() => undefined);
+    s.renderPoisonTickVfx(poisoned.unit, 12, 0);
+    expect(poisoned.applyHitReaction).toHaveBeenCalledTimes(1);
+});
+
+test("a Fire Shield burn makes the burned striker react", () => {
+    const striker = creature("striker", { x: 420, y: 300 });
+    const s = scene(new Map<string, RenderableUnit>([["striker", striker.unit]]));
+    s.combatVisuals.spawnFireBurn = mock(() => undefined);
+    s.showFireShieldDamageAtImpact(
+        [{ source: "fire_shield", unitId: "striker", position: { x: 420, y: 300 }, amount: 31, unitsDied: 0 }],
+        { x: 300, y: 300 },
+        new Map([["striker", striker.unit]]),
+    );
+    expect(striker.applyHitReaction).toHaveBeenCalledTimes(1);
+    // Pushed away from the shield owner, along +x.
+    expect(striker.applyHitReaction.mock.calls[0][0]).toBeGreaterThan(0);
+});
+
+test("Last Fuse victims react when their delayed number lands", () => {
+    const victim = creature("victim", { x: 500, y: 500 });
+    const s = scene(new Map<string, RenderableUnit>([["victim", victim.unit]]));
+    const scheduled: number[] = [];
+    s.scheduleSceneTimeout = (callback: () => void, ms: number) => {
+        scheduled.push(ms);
+        callback();
+    };
+    s.triggerScreenShake = () => undefined;
+    Object.assign(s.combatVisuals, {
+        spawnPyreExplosion: mock(() => undefined),
+        spawnPyreHit: mock(() => undefined),
+        showFloatingDamageDelayed: mock(() => undefined),
+    });
+    s.renderPyreExplosion(
+        {
+            type: "pyre_exploded",
+            unitId: "dead",
+            position: { x: 450, y: 450 },
+            hits: [{ unitId: "victim", position: { x: 500, y: 500 }, amount: 25, unitsDied: 0 }],
+        },
+        0.36,
+    );
+    expect(scheduled).toEqual([360]);
+    expect(victim.applyHitReaction).toHaveBeenCalledTimes(1);
+});
+
+test("ranked Armageddon waves make every struck creature react", async () => {
+    const { RankedPlayScene } = await import("./RankedPlayScene");
+    const burned = creature("burned", { x: 600, y: 600 });
+    const units = new Map<string, RenderableUnit>([["burned", burned.unit]]);
+    const visuals = { showFloatingDamage: mock(() => undefined) };
+    const ranked = Object.assign(Object.create(RankedPlayScene.prototype), {
+        unitsHolder: { getAllUnits: () => units },
+        sc_sceneSettings: { getGridSettings: () => gs },
+        combatVisuals: visuals,
+        armageddonVfxGameId: "game",
+        armageddonVfxSequence: 1,
+        parseJournalEvents: () => [{ type: "armageddon_applied", unitId: "burned", damage: 40, unitsDied: 0, wave: 1 }],
+        triggerScreenShake: () => undefined,
+        isSceneDestroyed: () => false,
+    });
+    ranked.renderNewlyAppliedArmageddon({ gameId: "game", journalTail: [{ sequence: 2 }] });
+    expect(visuals.showFloatingDamage).toHaveBeenCalledTimes(1);
+    expect(burned.applyHitReaction).toHaveBeenCalledTimes(1);
+});

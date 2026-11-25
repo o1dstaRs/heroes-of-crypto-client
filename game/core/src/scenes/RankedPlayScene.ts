@@ -3751,6 +3751,8 @@ export class RankedPlayScene extends Sandbox {
                         unit?.getDamagePredictionAnchor(gs),
                         unit,
                     );
+                    // Fire from the sky: no source point, so the creature recoils straight down.
+                    this.reactToSecondaryDamage(unit, event.damage);
                 }
                 if (!shakenWaves.has(event.wave)) {
                     shakenWaves.add(event.wave);
