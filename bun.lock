@@ -35,7 +35,7 @@
     },
     "game/core": {
       "name": "@heroesofcrypto/core",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
@@ -68,7 +68,7 @@
     },
     "game/heroes-of-crypto-common": {
       "name": "@heroesofcrypto/common",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "@types/bun": "^1.4.1",
         "@types/google-protobuf": "^3.15.12",
@@ -95,7 +95,7 @@
     },
     "game/mcp": {
       "name": "@heroesofcrypto/mcp",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "@heroesofcrypto/common": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.32.1",
@@ -109,7 +109,7 @@
     },
     "site": {
       "name": "@heroesofcrypto/site",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "@astrojs/sitemap": "^3.7.4",
         "@heroesofcrypto/common": "workspace:*",
