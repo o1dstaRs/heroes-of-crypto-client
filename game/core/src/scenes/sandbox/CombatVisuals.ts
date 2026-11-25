@@ -19,6 +19,7 @@ import { BeholderDebuffPops, isBeholderDebuff } from "./BeholderDebuffPops";
 import { TerrifyingGazePops } from "./TerrifyingGazePops";
 import { borrowedGraceFlagKind } from "./borrowedGraceTransfers";
 import { playCombatSound } from "../../ui/audio/combatSounds";
+import { formatSidebarStat } from "../../ui/LeftSideBar/sidebarMetrics";
 import { playGameSound } from "../../ui/audio/gameSounds";
 import { GravechainVfx } from "./GravechainVfx";
 import { LastFuseVfx } from "./LastFuseVfx";
@@ -979,7 +980,12 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        const healText = new PixiText({ text: `+${amount} HP`, style: this.getDamageStyle("#4dff9e", "#0b4d26") });
+        // The engine keeps fractional health (a 0.5 multiplier, Mass Heal's 2.5 per creature), so the pop shows it
+        // the way the sidebar shows health: to hundredths, trailing zeroes dropped, never a raw float tail.
+        const healText = new PixiText({
+            text: `+${formatSidebarStat(amount)} HP`,
+            style: this.getDamageStyle("#4dff9e", "#0b4d26"),
+        });
         healText.anchor.set(0.5);
         container.addChild(healText);
         this.enqueueFloatingContainer(
@@ -4448,7 +4454,9 @@ export class CombatVisuals {
         // 1. Damage Text (style is cached + prewarmed; see getDamageStyle/prewarm)
         const textStyle = this.getDamageStyle(fill, stroke);
 
-        const damageText = new PixiText({ text: `-${amount}`, style: textStyle });
+        // Hundredths at most, like the sidebar's health: engine damage can be fractional (159.5, 213.25), and a
+        // client-side sum must never print a raw float tail such as 90.23182481481284.
+        const damageText = new PixiText({ text: `-${formatSidebarStat(amount)}`, style: textStyle });
         damageText.anchor.set(0.5);
         container.addChild(damageText);
 
@@ -4498,7 +4506,10 @@ export class CombatVisuals {
             else this.spawnCommonFlagPop(unit, kind, presentation);
         }
         const container = new Container();
-        const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#66ff99", "#0b3d1e") });
+        const healText = new PixiText({
+            text: `+${formatSidebarStat(amount)}`,
+            style: this.getDamageStyle("#66ff99", "#0b3d1e"),
+        });
         healText.anchor.set(0.5);
         container.addChild(healText);
         this.enqueueFloatingContainer(
