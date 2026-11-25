@@ -1106,3 +1106,71 @@ Official originals in window (PT, views / likes / replies at read ~11:42 AM PST)
 Thread open vs peak (this run only): Tuesday US-morning posts opened on or near the hour (9 and 11 AM PT), plus Wartales at 7:56 AM (EU afternoon). Mid-size tactics threads got their first outside replies 40–90 minutes after posting and were still at 2–3 replies by 11:40 AM, so a reply landing 9:30 AM–1 PM PT stays near the top. #TrailerTuesday drove the 9 AM indie trailer slot.
 
 Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+
+## Tue 17 Nov 2026, 3:40 PM PT run (new posts checked since 11:30 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~3:45 PM PST): @PlayHearthstone 11:30 AM: 12,100 / 74 / 6; 12:30 PM: 10,688 / 49 / 6. @TheVowGame 11:41 AM: 365 / 16 / 6 (giveaway). @TFT 12:10 PM: 20,193 / 215 / 13. @MARVELSNAP 1:16 PM: 10,866 / 112 / 6; 1:30 PM: 6,382 / 45 / 2.
+
+Thread open vs peak (this run only): Tuesday afternoon PT was quiet: only big card/auto-battler accounts posted, on the hour or half hour between 11:30 AM and 1:30 PM PT, and nothing from any listed account after 1:30 PM PT. No indie tactics account posted after noon PT.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT; weekday afternoons after 1:30 PM PT add little. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+## Tue 17 Nov 2026, 7:46 PM PT run (new posts checked since 3:30 PM PT)
+
+Official originals in window (PT, views / likes / replies at read ~7:48 PM PST): @FE_Heroes_EN 6:30 PM: 8,454 / 356 / 11.
+
+Thread open vs peak (this run only): Tuesday evening PT matched Monday: from 3:30 to 7:46 PM PT the only listed-account post was FEH's 6:30 PM PT manga notice (Japan-morning slot). No indie tactics account posted after noon PT.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT; weekday afternoons and evenings PT add little. Weekend: 7–9 AM PT for overnight EU posts and 9 AM–noon PT for Sunday-morning studio posts.
+## Wed 18 Nov 2026, 7:41 AM PT run (new posts checked since 7:30 PM PT Tue)
+
+Official originals in window (PT, views / likes / replies at read ~7:45 AM PST): @SynthWave6666 11:39 PM Tue: 2,376 / 238 / 3. @HOI_Game 1:01 AM: 2,618 / 29 / 1; 2:01 AM: 87,549 / 242 / 4; 6:18 AM: 3,371 / 63 / 4. @Epic7_Global 2:00 AM: 6,033 / 218 / 2; 2:30 AM: 3,364 / 64 / 2. @WishseekerGame 2:43 AM: 634 / 20 / 3. @AOE_Mobile 3:00 AM: 771 / 9 / 0. @TFT 4:00 AM: 56,118 / 1,878 / 12. @quasimorph 4:00 AM: 497 / 22 / 1. @OwlcatGames 4:21 AM: 4,480 / 170 / 5; 7:15 AM: 1,739 / 67 / 2. @Lavapotion 5:05 AM: 462 / 8 / 1. @Mantis_GamesBE 5:52 AM: 58 / 2 / 0. @Rainbow6Game 6:00 AM: 32,351 / 265 / 16. @totalwar 6:20 AM: 7,548 / 172 / 1. @OfBladesNTails 6:51 AM: 55 / 5 / 0.
+
+Thread open vs peak (this run only): overnight Tue–Wed PT followed the usual pattern: EU/Asia studios opened threads 1–7 AM PT (#WishlistWednesday drops at 4 AM PT). Wishseeker's question got all 3 replies within 35 minutes of posting (2:48–3:17 AM PT); SynthWave's replies came 12:14 AM–6:38 AM PT; Owlcat's 4:28–7:29 AM PT. Overnight questions collect replies in the first hour, then go quiet until the US morning.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT for US studio posts; overnight EU threads are best answered 7–9 AM PT while they still show in "latest". Weekend: 7–9 AM PT and 9 AM–noon PT.
+
+## Wed 18 Nov 2026, 11:44 AM PT run (new posts checked since 7:30 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~11:46 AM PST): @gr8_rebellion 7:42 AM: 1,315 / 111 / 8. @Rainbow6Game 9:00 AM: 22,589 / 69 / 4. @CompanyOfHeroes 9:13 AM: 677 / 18 / 0; 10:05 AM: 787 / 16 / 1. @PlayHearthstone 10:00 AM: 6,148 / 46 / 17. @StudioDaimon 10:07 AM: 1,901 / 139 / 6. @RisingSpire 11:12 AM: 19 / 1 / 1.
+
+Thread open vs peak (this run only): US-morning studio posts clustered 9–10 AM PT. Hearthstone's 17 replies came 10:02–11:43 AM PT, with the account answering at 10:27–10:28 AM; FOOD DEVILS' replies came 10:20–10:58 AM PT with the studio answering each one within minutes; gr8_rebellion's 7:42 AM post drew 7 of its replies by 8:05 AM. Threads open on the hour and peak in the first 30–60 minutes.
+
+Recommendation: unchanged and reinforced. Weekdays 9:30 AM–1 PM PT, ideally a reply within 30–60 minutes of a 9–10 AM PT post while the studio is still answering. Weekend: 7–9 AM PT and 9 AM–noon PT.
+## Wed 18 Nov 2026, 3:38 PM PT run (new posts checked since 11:40 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~3:42 PM PST): @DeathAndTactics 3:09 PM: 29 / 1 / 0 (under floor). No other target-list originals; studio replies only (e.g. @PlayHearthstone answering 10:27–10:28 AM, @TFT reply at 3:37 PM).
+
+Thread open vs peak (this run only): weekday afternoon 11:40 AM–3:40 PM PT produced no new official threads on GTA VI launch day; consistent with earlier runs where afternoon PT is the quietest block for studio originals.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT, reply within 30–60 minutes of a 9–10 AM PT post. Overnight EU threads 7–9 AM PT. Weekend 7–9 AM PT and 9 AM–noon PT. Afternoon PT scans rarely yield targets.
+## Wed 18 Nov 2026, 7:40 PM PT run (new posts checked since 3:35 PM PT)
+
+Official originals in window (PT, views / likes / replies at read ~7:44 PM PST): @CasselGames 5:12 PM: 300 / 8 / 1. @Epic7_Global 7:00 PM: 1,483 / 32 / 0.
+
+Thread open vs peak (this run only): same as Mon 16 Nov: Cassel posts its unit reveals around 5:10 PM PT and answers fans within minutes (fan reply 5:21 PM, studio 5:23 PM). Epic7 posts its Asia-morning notices at 7 PM PT. Otherwise evening PT is quiet.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT, reply within 30–60 minutes of a 9–10 AM PT post. Overnight EU threads 7–9 AM PT. Weekend 7–9 AM PT and 9 AM–noon PT. Exception: Cassel's ~5:10 PM PT unit reveals are best answered by about 6 PM PT.
+
+## Thu 19 Nov 2026, 7:45 AM PT run (new posts checked since 7:35 PM PT Wed)
+
+Official originals in window (PT, views / likes / replies at read ~7:46 AM PST): @FE_Heroes_EN 11:00 PM Wed: 7,050 / 31 / 0. @Epic7_Global 12:00 AM: 2,552 / 121 / 1. @gr8_rebellion 12:41 AM: 1,197 / 101 / 8. @HOI_Game 2:01 AM: 5,488 / 204 / 9; 6:12 AM: 5,256 / 197 / 7. @StellarisGame 4:00 AM: 3,132 / 49 / 1. @AOE_Mobile 4:16 AM: 610 / 6 / 0; 5:00 AM: 579 / 3 / 0. @TheVowGame 4:22 AM: 120 / 4 / 0. @SynthWave6666 6:34 AM: 639 / 57 / 0. @totalwar 7:25 AM: 2,684 / 81 / 2. @LostPilgrims 7:42 AM: 9 / 0 / 0. #TurnBasedThursday (host @TimYoung_Dev 2:51 AM: 853 / 39 / 29): studio replies @CookieByteEnt 3:38 AM 113 / 11 / 1, @quasimorph 3:49 AM 95 / 16 / 1, @WishseekerGame 3:51 AM 111 / 15 / 2, @OfBladesNTails 5:30 AM 33 / 9 / 0, @WickedNightGame 5:39 AM 138 / 19 / 1.
+
+Thread open vs peak (this run only): TBT opened at 2:51 AM PT and drew 29 replies by 7:45 AM PT, studio entries 3:38–7:36 AM PT. @totalwar's 7:25 AM post had 2 fan replies within 6 minutes (7:30, 7:31 AM). Overnight Paradox posts (2 AM, 6 AM) collected replies in the EU morning.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT, reply within 30–60 minutes of a 9–10 AM PT post. Overnight EU threads and TBT entries 7–9 AM PT. Weekend 7–9 AM PT and 9 AM–noon PT.
+## Thu 19 Nov 2026, 11:45 AM PT run (new posts checked since 7:35 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~11:47 AM PST): @LostPilgrims 7:42 AM: 147 / 2 / 0. @Mount_and_Blade 7:51 AM: 3,715 / 118 / 8. @CivGame 8:58 AM: 3,788 / 29 / 2. @Rainbow6Game 9:00 AM: 36,177 / 340 / 13. @TFT 9:00 AM: 18,299 / 443 / 18; 10:00 AM: 18,334 / 488 / 5. @PlayHearthstone 10:00 AM: 4,836 / 27 / 9. @MARVELSNAP 11:05 AM: 4,949 / 78 / 5. TBT entries from earlier kept growing: @WickedNightGame 5:39 AM now 201 / 23 / 2 (was 138 / 19 / 1 at 7:46 AM), @WishseekerGame 3:51 AM 159 / 19 / 3.
+
+Thread open vs peak (this run only): US studio originals again landed on the hour, 9:00 and 10:00 AM PT; the 9 AM question post (TFT) gathered more replies (18) than the 10 AM patch post (5) in the same window. TBT entries still added views and likes 4–6 hours after posting, so they stay replyable through late morning PT.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT, reply within 30–60 minutes of a 9–10 AM PT post. Thursday TBT entries 7–11 AM PT. Weekend 7–9 AM PT and 9 AM–noon PT.
+
+## Thu 19 Nov 2026, 3:43 PM PT run (new posts checked since 11:35 AM PT)
+
+Official originals in window (PT, views / likes / replies at read ~3:45 PM PST): @CompanyOfHeroes 12:30 PM: 575 / 14 / 0 (Zero to Hero coaching stream VOD); 3:06 PM: 486 / 6 / 0 (3.0 Update creator video). @vivaladev 2:26 PM: 46 / 2 / 2 ("how many trees is too many?"). No other listed account posted an original in the window; the big accounts (@TFT, @PlayHearthstone) only replied to fans 12:12–1:52 PM PT.
+
+Thread open vs peak (this run only): @vivaladev's 2:26 PM question got its first outside replies at 2:38 and 2:40 PM PT (12–14 min) and the dev answered at 2:54 and 2:57 PM PT. The afternoon was the thinnest window today: 3 originals across 70 accounts vs 8+ in the 7:35–11:35 AM window.
+
+Recommendation: unchanged. Weekdays 9:30 AM–1 PM PT, reply within 30–60 minutes of a 9–10 AM PT post. Thursday TBT entries 7–11 AM PT. Afternoon indie dev questions are replyable within ~1 hour of posting, but volume after noon PT is low. Weekend 7–9 AM PT and 9 AM–noon PT.
+
