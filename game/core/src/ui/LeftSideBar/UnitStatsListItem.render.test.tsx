@@ -148,6 +148,31 @@ test("new temporary statuses render before older effects, permanent bonuses and 
     expect(icons).toEqual(["Spiritual Armor", "Riot", "Water Shield", "synergy", "Quagmire", "Weakness"]);
 });
 
+test("an effect tooltip keeps its whole description: a rune reads +2 attack, not +2 attac", async () => {
+    const unit = shooter(6);
+    unit.applied_buffs = ["Weapon Rune", "Armor Rune", "Riot"];
+    unit.applied_buffs_laps = [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 5];
+    unit.applied_buffs_descriptions = ["+{} attack;2;", "+{} armor;1;", "Old attack buff.;"];
+    unit.applied_debuffs = [];
+    unit.applied_debuffs_laps = [];
+    unit.applied_debuffs_descriptions = [];
+    const impact = (Object.create(PixiScene.prototype) as PixiScene).getUnitVisibleImpact(unit);
+    const titles: string[] = [];
+    await new HTMLRewriter()
+        .on("[title]", {
+            element(element) {
+                const title = element.getAttribute("title")!;
+                if (/Rune|Riot/.test(title)) titles.push(title);
+            },
+        })
+        .transform(new Response(renderedUnit(unit, impact)))
+        .text();
+    expect(titles).toContain("Weapon Rune: +2 attack");
+    expect(titles).toContain("Armor Rune: +1 armor");
+    // A description that ends with a period still loses it before the remaining laps.
+    expect(titles.find((title) => title.startsWith("Riot: "))).toMatch(/^Riot: Old attack buff \(remaining /);
+});
+
 test.each(["Disguise", "Disguise Aura"])(
     "White Tiger shows active %s without duplicate Hidden/Visible markers",
     async (auraName) => {

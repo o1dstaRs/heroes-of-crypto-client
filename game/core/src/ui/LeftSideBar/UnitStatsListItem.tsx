@@ -739,6 +739,12 @@ const isDisguise = (name: string): boolean => name === "Disguise" || name === "D
 const STAT_ROW_GAP = 8;
 
 // Slim bronze scrollbar, shared with the Up-next strip.
+/**
+ * Effect tooltips append "(remaining …)" after the description, so its own closing period goes. Only a
+ * period: "+1 attack" (Weapon Rune) has none, and dropping its last character read "+1 attac".
+ */
+const withoutFinalPeriod = (description: string): string => description.replace(/\.\s*$/, "");
+
 export const hocScrollSx = {
     "&::-webkit-scrollbar": { width: "6px", height: "6px" },
     "&::-webkit-scrollbar-track": { background: "rgba(0,0,0,0.35)", borderRadius: "3px" },
@@ -1125,7 +1131,7 @@ const EffectTiles: React.FC<{
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
-                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
+                        title={`${effect.name}: ${withoutFinalPeriod(effect.description)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
                         describeChild
                         sx={commonTooltipSx}
                     >
