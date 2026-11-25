@@ -26,8 +26,10 @@ const render = (debuffs: string[]) => {
     );
 };
 
-// The movement cell's icon, read from the rendered <img src> rather than the preload links.
-const movementIcon = (html: string) => html.match(/src="[^"]*\/(stat_(?:fly|walk)_gold_v2)\.webp"/)?.[1];
+// The movement cell's icon, read from the rendered <img src> rather than the preload links. CI's stub
+// image URLs carry a "#ci-stub" suffix after the file name, local builds a "?v=" revision.
+const movementIcon = (html: string) =>
+    html.match(/src="[^"]*\/(stat_(?:fly|walk)_gold_v2)\.webp(?:[?#][^"]*)?"/)?.[1];
 
 test("a Griffin flies in the sidebar until Gravebound or Hamstrung grounds it", () => {
     expect(movementIcon(render([]))).toBe("stat_fly_gold_v2");
