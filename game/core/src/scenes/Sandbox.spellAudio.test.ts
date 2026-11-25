@@ -85,11 +85,18 @@ const fixture = (
     return { scene, caster, target, apply, submit, sound, gameSound, spellSound, record };
 };
 
-test.each([true, false])("an accepted targeted cast plays its caster sound with animation=%s", (animated) => {
+// Owner ruling 2026-11-25: a cast plays only its spell's own sound, never the caster's attack sound.
+test.each([true, false])("a cast without its own sound plays no caster attack sound, animation=%s", (animated) => {
     const f = fixture(true, false, animated);
     expect(f.scene.castSpellOnTarget(f.target)).toBe(true);
-    expect(f.sound).toHaveBeenCalledTimes(1);
-    expect(f.sound).toHaveBeenCalledWith(f.caster, "attack");
+    expect(f.sound).not.toHaveBeenCalled();
+    expect(f.spellSound).not.toHaveBeenCalled();
+});
+
+test("a Healer's Heal plays no attack sound", () => {
+    const f = fixture(true, false, true, { casterName: "Healer", spellName: "Heal" });
+    expect(f.scene.castSpellOnTarget(f.target)).toBe(true);
+    expect(f.sound).not.toHaveBeenCalled();
 });
 
 test("a rejected targeted cast stays silent", () => {
@@ -98,35 +105,34 @@ test("a rejected targeted cast stays silent", () => {
     expect(f.sound).not.toHaveBeenCalled();
 });
 
-test("an authoritative targeted cast waits for its replay before playing its sound", async () => {
+test("an authoritative cast without its own sound stays silent through its replay", async () => {
     const f = fixture(false, true);
     expect(f.scene.castSpellOnTarget(f.target)).toBe(true);
     expect(f.submit).toHaveBeenCalledTimes(1);
     expect(f.apply).not.toHaveBeenCalled();
-    expect(f.sound).not.toHaveBeenCalled();
     expect(await f.scene.playReplayCastSpellAction(f.record)).toBe(true);
-    expect(f.sound).toHaveBeenCalledTimes(1);
-    expect(f.sound).toHaveBeenCalledWith(f.caster, "attack");
+    expect(f.sound).not.toHaveBeenCalled();
+    expect(f.spellSound).not.toHaveBeenCalled();
 });
 
 test.each([true, false])("recorded spell audio survives a local reapply completed=%s", async (completed) => {
-    const f = fixture(completed);
+    const f = fixture(completed, false, true, { casterName: "Wandering Mage", spellName: "Fireball" });
     expect(await f.scene.playReplayCastSpellAction(f.record)).toBe(true);
-    expect(f.sound).toHaveBeenCalledTimes(1);
-    expect(f.sound).toHaveBeenCalledWith(f.caster, "attack");
+    expect(f.spellSound).toHaveBeenCalledTimes(1);
+    expect(f.spellSound).toHaveBeenCalledWith(f.caster, "Fireball");
+    expect(f.sound).not.toHaveBeenCalled();
 });
 
 const blacksmithSpells = ["Craft", "Armor Rune", "Weapon Rune"];
-// Craft plays the crafting recording; the runes fall back to the Blacksmith's own strike sound.
+// Craft plays the crafting recording. The runes have no cast recording, so they are silent: a cast never
+// borrows the Blacksmith's strike sound.
 const expectBlacksmithCue = (f: ReturnType<typeof fixture>, spellName: string, times = 1) => {
+    expect(f.sound).not.toHaveBeenCalled();
     if (spellName === "Craft") {
         expect(f.gameSound).toHaveBeenCalledTimes(times);
         if (times) expect(f.gameSound).toHaveBeenCalledWith("blacksmith_cast");
-        expect(f.sound).not.toHaveBeenCalled();
     } else {
         expect(f.gameSound).not.toHaveBeenCalled();
-        expect(f.sound).toHaveBeenCalledTimes(times);
-        if (times) expect(f.sound).toHaveBeenCalledWith(f.caster, "attack");
     }
 };
 const castBlacksmithSpell = (f: ReturnType<typeof fixture>) =>

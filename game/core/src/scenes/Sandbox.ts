@@ -5235,7 +5235,9 @@ export class Sandbox extends PixiScene {
         spellName: string,
         castEvents: readonly GameEvent[],
     ): void {
-        // The crafting recording is the Craft cast; the Blacksmith's runes use his own strike sound.
+        // Only a spell's own cast sound plays. Owner ruling 2026-11-25: a cast never borrows the caster's attack
+        // sound (a Healer's Heal played her strike before the heal chime). A spell without its own recording is
+        // silent at the cast; its effect may still sound (Heal's chime when health is restored).
         if (caster.getName() === "Blacksmith" && spellName === "Craft") {
             this.playSceneGameSound("blacksmith_cast");
         } else if (castEvents.some((event) => event.type === "unit_summoned")) {
@@ -5243,8 +5245,6 @@ export class Sandbox extends PixiScene {
             return;
         } else if (resolveSpellSound(spellName)) {
             this.playSceneSpellSound(caster, spellName);
-        } else {
-            this.playUnitCombatSound(caster, "attack");
         }
     }
     /** Shared by every creature and attack source; never await or retime a strike for this overlay. */
