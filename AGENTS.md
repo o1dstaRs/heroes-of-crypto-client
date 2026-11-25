@@ -226,15 +226,38 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v34, revision suffix `queen-counter-v1-closing-pick-synergy-v1`.
-`a19-closing-pick-synergy-v1` (closing pick v2) was adopted on November 24, 2026, under the owner's standing
-instruction, for the owner's request for "a stronger AI that is able to catch and close picks": at the level-4 pick,
-while the counter draft's gate is shut but the seat sees an opposing creature, the matchup model's best offer (with a
-synergy bonus) replaces the earlier layers' choice when it is at least 0.05 better; the server's draft decider applies
-it before the Queen counter, and Premium draft advice follows it. Read common's `docs/closing_pick_adoption.md`.
-Registered confirmation CPC on the six human setups where it changes v33's pick: +5.99 points (95% +0.52 to +11.33; two
-of the six lose, so the gain is an average); AI vs AI +7.23 points per changed draft (95% +0.59 to +14.01). Not a win
-rate against people.
+Current default is profile v35, revision suffix `closing-pick-synergy-v1-split-screen-v1`. The owner asked for three
+behaviour fixes on November 24, 2026. Each had measured flat in development, so the owner chose to check each one first.
+One registered non-inferiority confirmation, OA, checked all three against one production control: the 95% lower bound
+may not fall below −2 points per game. The rules that passed were adopted on November 25, 2026. Read common's
+`docs/owner_asks_adoption.md`.
+
+- **v35, `a19-split-screen-v1`** ("wolf is much better to split to cover, as it is 1x2 unit"; owner decision "AI seats +
+  Premium, after a check"): the split plan reserves no shooter cover split, lets 1x2/2x1 stacks split, and spends every
+  slot left after the aura, support and shield splits on one-model screen splits of the cheapest body (common
+  `src/ai/split_screen.ts`, common `src/ai/tactical_split_placement.ts`); the server's split plan uses it on the default
+  v0.8 planner (production bot seats and Premium "Arrange army") and the client's Premium projection follows (switch
+  `A19_SPLIT_SCREEN_<LEFT|RIGHT>`, on unless `0`). OA: +0.87 points (95% −0.15 to +1.88; mirror +1.54, owner-shaped
+  +0.20, the owner's 10 games +0.94).
+- **Not adopted: `a19-flyer-dive-guard-v1`** (the flyer-dive guard) failed OA gate FD1 (lower bound): −0.91 points (95%
+  −2.00 to +0.15; mirror −1.22, owner-shaped −0.92, the owner's 10 games +0.31). It stays recorded as failed.
+- **Not adopted: `a19-troll-gift-split-v1`** (the Troll gift split) failed OA gate TG2 (populations): +0.99 points (95%
+  −0.11 to +2.11; mirror +0.21, owner-shaped −2.58, the owner's 10 games −1.04, Troll bank mirror +2.53, Troll bank
+  owner-shaped +1.44). It stays recorded as failed.
+
+These are non-inferiority results, not strength gains, and not a win rate against people. The owner population is a
+floor: the AI plays the owner's seat, and it punishes lone arrivals less than the owner does.
+
+Profile v34, retained in v35: revision suffix `queen-counter-v1-closing-pick-synergy-v1`. `a19-closing-pick-synergy-v1`
+(closing pick v2) was adopted on November 24, 2026, under the owner's standing instruction, for the owner's request for
+"a stronger AI that is able to catch and close picks": at the level-4 pick, while the counter draft's gate is shut but
+the seat sees an opposing creature, the matchup model's best offer (with a synergy bonus) replaces the earlier layers'
+choice when it is at least 0.05 better; the server's draft decider applies it before the Queen counter, and Premium
+draft advice follows it. Read common's `docs/closing_pick_adoption.md`. Registered confirmation CPC on the six human
+setups where it changes v33's pick: +5.99 points (95% +0.52 to +11.33; two of the six lose, so the gain is an average);
+AI vs AI +7.23 points per changed draft (95% +0.59 to +14.01). Replicated on the real games' terrain (registered CPC-R;
+CPC's replay adapter had used sim stones on the two Block boards): +15.36 (95% +9.64 to +20.96). Not a win rate against
+people.
 
 Profile v33, retained in v34: revision suffix `carrier-cohesion-v2-queen-counter-v1`. `a19-queen-counter-v1` was
 adopted on November 24, 2026, at the owner's request ("They never pick tsar cannon, magic dragon, zena or anything to

@@ -36,6 +36,7 @@ import {
     type PublicInput,
 } from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import { chooseA19TerrainPlacement } from "../../../../heroes-of-crypto-common/src/ai/placement/terrain_reflection";
+import { a19SplitScreenEnabled } from "../../../../heroes-of-crypto-common/src/ai/split_screen";
 
 export interface PremiumDraftFormation {
     /** Every input body in input order (amounts reduced by any split), followed by the split-off stacks. */
@@ -137,10 +138,12 @@ export function recommendPremiumDraftFormation(
         if (withSplits) {
             // The planner the server picks for a Premium (human, non-persistent) seat on the default v0.8 AI,
             // over this army's own detached stacks and the same stack capacity rule.
-            const plans = planA19SupportSplits(
-                own.map(tacticalSplitUnitFromUnit),
-                fight.getNumberOfUnitsAvailableForPlacement(team),
-            );
+            const splitUnits = own.map(tacticalSplitUnitFromUnit);
+            const maximumStacks = fight.getNumberOfUnitsAvailableForPlacement(team);
+            // a19-split-screen-v1 (profile v35): one-model screen splits, as the server's split plan.
+            const plans = a19SplitScreenEnabled(team)
+                ? planA19SupportSplits(splitUnits, maximumStacks, { screen: true })
+                : planA19SupportSplits(splitUnits, maximumStacks);
             const children: Body[] = [];
             const childStarts: Point[] = [];
             for (const plan of plans) {
