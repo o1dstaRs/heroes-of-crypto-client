@@ -226,8 +226,15 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v35, revision suffix `closing-pick-synergy-v1-split-screen-v1`. The owner asked for three
-behaviour fixes on November 24, 2026. Each had measured flat in development, so the owner chose to check each one first.
+Current default is profile v36, revision suffix `closing-pick-synergy-v1-split-screen-v1-shield-screen-v1`.
+`a19-shield-screen-v1` refines v35's split screen at the owner's request ("it is always better to split mermaid if we
+have it, because it takes two shots to kill her"): in screen mode a splittable Water Shield stack (Mermaid) is the screen
+body before any other, so every spare slot becomes a one-model Mermaid that takes two attacks to kill (switch
+`A19_SHIELD_SCREEN_<LEFT|RIGHT>`, on unless `0`; the server's split plan and the Premium projection read it). The owner
+chose "Both now" (AI seats and Premium at once); a registered non-inferiority check follows and the rule is rolled back if
+it fails, so it is not a measured strength gain. Read common's `docs/shield_screen_adoption.md`.
+
+Profile v35, retained in v36: the owner asked for three behaviour fixes on November 24, 2026. Each had measured flat in development, so the owner chose to check each one first.
 One registered non-inferiority confirmation, OA, checked all three against one production control: the 95% lower bound
 may not fall below −2 points per game. The rules that passed were adopted on November 25, 2026. Read common's
 `docs/owner_asks_adoption.md`.

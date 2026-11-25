@@ -36,7 +36,7 @@ import {
     type PublicInput,
 } from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import { chooseA19TerrainPlacement } from "../../../../heroes-of-crypto-common/src/ai/placement/terrain_reflection";
-import { a19SplitScreenEnabled } from "../../../../heroes-of-crypto-common/src/ai/split_screen";
+import { a19ShieldScreenEnabled, a19SplitScreenEnabled } from "../../../../heroes-of-crypto-common/src/ai/split_screen";
 
 export interface PremiumDraftFormation {
     /** Every input body in input order (amounts reduced by any split), followed by the split-off stacks. */
@@ -142,7 +142,10 @@ export function recommendPremiumDraftFormation(
             const maximumStacks = fight.getNumberOfUnitsAvailableForPlacement(team);
             // a19-split-screen-v1 (profile v35): one-model screen splits, as the server's split plan.
             const plans = a19SplitScreenEnabled(team)
-                ? planA19SupportSplits(splitUnits, maximumStacks, { screen: true })
+                ? planA19SupportSplits(splitUnits, maximumStacks, {
+                      screen: true,
+                      shieldScreen: a19ShieldScreenEnabled(team),
+                  })
                 : planA19SupportSplits(splitUnits, maximumStacks);
             const children: Body[] = [];
             const childStarts: Point[] = [];
