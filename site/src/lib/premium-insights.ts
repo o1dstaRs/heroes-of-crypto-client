@@ -19,8 +19,8 @@ const signal = (row: PremiumRow, view: PremiumView) =>
         : row.interval[1] < 0.5
           ? text(view)("Below 50% in this population", "Ниже 50% в этой выборке")
           : text(view)("Advantage unresolved", "Преимущество не установлено");
-const reading = (name: string, row: PremiumRow, view: PremiumView) =>
-    `<li><div><strong>${name}</strong><small>${e(support(row, view))}</small><small>${e(signal(row, view))}</small></div><b>${pct(row.score)}</b></li>`;
+const reading = (name: string, row: PremiumRow, view: PremiumView, portrait = "") =>
+    `<li>${portrait}<div><strong>${name}</strong><small>${e(support(row, view))}</small><small>${e(signal(row, view))}</small></div><b>${pct(row.score)}</b></li>`;
 
 export { premiumInsightRows, renderPremiumMeta as renderPremiumInsights } from "./premium-meta";
 
@@ -83,6 +83,7 @@ export function renderPremiumMatchups(library: PremiumLibrary, catalog: PremiumC
                               enemy ? `<a href="${kb(e(enemy.anchor), view)}">${e(enemy.name)}</a>` : `#${row.ids[1]}`,
                               row,
                               view,
+                              enemy ? portraitMarkup(enemy.slug, enemy.name, { className: "premium-portrait" }) : "",
                           );
                       })
                       .join("")}</ul>`

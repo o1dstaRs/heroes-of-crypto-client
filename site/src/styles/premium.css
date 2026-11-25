@@ -1806,7 +1806,13 @@ body:has(.premium-page) .site-header {
     font-size: 13px;
 }
 .premium-insight-card li > div {
+    flex: 1;
     min-width: 0;
+}
+/* Opponent portraits in the unit matchup lists. */
+.premium-insight-card li > .portrait.premium-portrait {
+    width: 40px;
+    align-self: flex-start;
 }
 .premium-insight-card strong {
     overflow-wrap: anywhere;

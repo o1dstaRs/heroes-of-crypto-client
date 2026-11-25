@@ -90,6 +90,10 @@ test("matchup groups retain own/opponent direction, support and unresolved inter
     expect(result.unresolved.map((row) => row.ids)).toEqual([[3, 4]]);
     const html = renderPremiumMatchups(data, catalog, view);
     expect(html).toContain("Griffin");
+    // One portrait per listed opponent the catalog knows (favorable, difficult and unresolved).
+    expect(html.match(/<li><span class="portrait premium-portrait">/g)).toHaveLength(
+        [1, 2, 4].filter((id) => catalog.units[id]).length,
+    );
     expect(html).toContain("65.0%");
     expect(html).toContain("35.0%");
     expect(html).toContain("full armies that contained the two units on opposite sides");
