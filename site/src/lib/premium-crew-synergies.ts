@@ -149,6 +149,12 @@ export function crewSynergyEvidenceNote(row?: PremiumRow) {
         : "";
 }
 
+/** Three dots, one per synergy level; the filled ones are the level reached. */
+function crewSynergyLevelDots(level: number, label: string) {
+    const dots = [1, 2, 3].map((step) => `<i${step <= level ? ' class="on"' : ""}></i>`).join("");
+    return `<span class="premium-crew-synergy-dots" role="img" aria-label="${e(label)}" title="${e(label)}">${dots}</span>`;
+}
+
 export function renderCrewSynergyChoices(own: CrewResolvedSynergies, enemy: CrewResolvedSynergies, lang: "en" | "ru") {
     const t = (en: string, ru: string) => (lang === "ru" ? ru : en);
     const names = {
@@ -163,7 +169,7 @@ export function renderCrewSynergyChoices(own: CrewResolvedSynergies, enemy: Crew
             .map((item) => {
                 const opponent = enemy.find((other) => other.faction === item.faction)!;
                 const next = Math.min(6, (item.level + 1) * 2);
-                return `<section class="premium-crew-synergy-choice"><header><img src="/assets/images/units/factions/${item.faction.toLowerCase()}_128.webp" width="30" height="30" alt=""/><strong>${names[item.faction]}</strong><small>${t("You", "Вы")}: ${item.level ? `L${item.level}` : "—"} · ${t("Enemy", "Враг")}: ${opponent.level ? `L${opponent.level}` : "—"}</small></header><div role="group" aria-label="${e(names[item.faction])}">${(
+                return `<section class="premium-crew-synergy-choice"><header><div class="premium-crew-synergy-title"><strong>${names[item.faction]}</strong>${crewSynergyLevelDots(item.level, t(`Your ${names[item.faction]} level: ${item.level} of 3`, `Ваш уровень (${names[item.faction]}): ${item.level} из 3`))}</div><div class="premium-crew-synergy-enemy"><small>${t("Enemy", "Враг")}</small>${crewSynergyLevelDots(opponent.level, t(`Enemy ${names[item.faction]} level: ${opponent.level} of 3`, `Уровень врага (${names[item.faction]}): ${opponent.level} из 3`))}</div></header><div role="group" aria-label="${e(names[item.faction])}">${(
                     [1, 2] as const
                 )
                     .map((variant) => {
