@@ -5,6 +5,7 @@ import {
     normalizeCrewSynergyVariants,
     type CrewSynergyVariants,
 } from "./premium-crew-synergies";
+import { CREW_UPGRADE_KINDS, normalizeCrewUpgrades, type CrewUpgrade } from "./premium-crew-upgrades";
 
 export const PREMIUM_CREW_STORAGE_KEY = "hoc.premium.crew.v1";
 export type CrewBattlefield = "all" | "1" | "3" | "4";
@@ -17,6 +18,9 @@ export interface PremiumCrewDraft {
     artifactIds?: [number, number];
     synergyVariants?: CrewSynergyVariants;
     synergiesAutomatic?: boolean;
+    /** The player's own upgrade plan; absent while the page follows the AI's plan. */
+    upgrades?: CrewUpgrade[];
+    upgradesAutomatic?: boolean;
 }
 
 /** Saved drafts and shared URLs must obey today's roster and draft limits. */
@@ -51,6 +55,7 @@ export function normalizePremiumCrewDraft(value: unknown, catalog: PremiumCatalo
         return Number.isSafeInteger(id) && catalog.artifacts[`${tier + 1}:${id}`] ? id! : 0;
     }) as [number, number];
     const synergyVariants = normalizeCrewSynergyVariants(raw.synergyVariants);
+    const upgrades = normalizeCrewUpgrades(raw.upgrades);
     return {
         version: 1,
         ids: premiumCrewSlots(ids, catalog).filter((id): id is number => id !== undefined),
@@ -62,6 +67,8 @@ export function normalizePremiumCrewDraft(value: unknown, catalog: PremiumCatalo
         ...(artifactIds.some(Boolean) ? { artifactIds } : {}),
         ...(Object.keys(synergyVariants).length ? { synergyVariants } : {}),
         ...(typeof raw.synergiesAutomatic === "boolean" ? { synergiesAutomatic: raw.synergiesAutomatic } : {}),
+        ...(upgrades ? { upgrades } : {}),
+        ...(typeof raw.upgradesAutomatic === "boolean" ? { upgradesAutomatic: raw.upgradesAutomatic } : {}),
     };
 }
 
@@ -72,6 +79,7 @@ export function readPremiumCrewDraft(url: URL, stored: string | null, catalog: P
         const artifacts = url.searchParams.get("artifacts") ?? "";
         const synergies = url.searchParams.get("synergies") ?? "";
         const variants = synergies.length <= 16 ? synergies.split(",").map(Number) : [];
+        const levels = (url.searchParams.get("upgrades") ?? "").slice(0, 32).split(",").map(Number);
         return normalizePremiumCrewDraft(
             {
                 version: 1,
@@ -84,6 +92,10 @@ export function readPremiumCrewDraft(url: URL, stored: string | null, catalog: P
                 synergiesAutomatic: url.searchParams.has("auto-synergies")
                     ? url.searchParams.get("auto-synergies") === "1"
                     : undefined,
+                upgrades: url.searchParams.has("upgrades")
+                    ? CREW_UPGRADE_KINDS.map((kind, index) => ({ kind, value: levels[index] ?? 0 }))
+                    : undefined,
+                upgradesAutomatic: url.searchParams.has("upgrades") ? false : undefined,
                 battlefield: url.searchParams.get("battlefield"),
             },
             catalog,
@@ -109,6 +121,13 @@ export function premiumCrewShareUrl(current: URL, draft: PremiumCrewDraft): stri
         );
     if (draft.synergiesAutomatic !== undefined)
         url.searchParams.set("auto-synergies", draft.synergiesAutomatic ? "1" : "0");
+    if (draft.upgrades && !draft.upgradesAutomatic)
+        url.searchParams.set(
+            "upgrades",
+            CREW_UPGRADE_KINDS.map((kind) => draft.upgrades?.find((choice) => choice.kind === kind)?.value ?? 0).join(
+                ",",
+            ),
+        );
     url.hash = "premium-crew";
     return url.href;
 }

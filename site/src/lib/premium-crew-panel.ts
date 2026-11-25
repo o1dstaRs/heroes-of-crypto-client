@@ -17,6 +17,18 @@ import {
 import { premiumCrewFactionSlot } from "./premium-crew-picks";
 import { renderPremiumCrewRoster } from "./premium-crew-roster";
 import { validCrewHistory, type PremiumCrewHistory } from "./premium-crew-history";
+import {
+    CREW_UPGRADE_BUDGET,
+    CREW_UPGRADE_DOCTRINE,
+    CREW_UPGRADE_KINDS,
+    DEFAULT_CREW_UPGRADES,
+    normalizeCrewUpgrades,
+    renderCrewUpgrades,
+    setCrewUpgradeLevel,
+    type CrewUpgrade,
+    type CrewUpgradeKind,
+    type CrewUpgradeStatus,
+} from "./premium-crew-upgrades";
 import { premiumPercent as pct, type PremiumCatalog, type PremiumLibraryResponse } from "./premium-library";
 import {
     CREW_LEVELS,
@@ -61,6 +73,15 @@ export function initPremiumCrew(
     let artifactIds: [number, number] = saved.artifactIds ?? [0, 0];
     let synergyVariants: CrewSynergyVariants = saved.synergyVariants ?? {};
     let synergiesAutomatic = saved.synergiesAutomatic ?? !new URL(location.href).searchParams.has("synergies");
+    // Upgrades follow the ranked AI's plan for this crew until the player changes a level.
+    let upgradesAutomatic = saved.upgradesAutomatic ?? !saved.upgrades;
+    let upgrades: CrewUpgrade[] = saved.upgrades ?? [...DEFAULT_CREW_UPGRADES];
+    let aiUpgrades: CrewUpgrade[] | undefined;
+    let upgradesStatus: CrewUpgradeStatus = "loading";
+    let upgradesController: AbortController | undefined;
+    let upgradesKey = "";
+    let upgradesPending = "";
+    const upgradesCache = new Map<string, CrewUpgrade[]>();
     let equipped: readonly number[] = [];
     let recommendationCategory: CrewRecommendationCategory = "units";
     let planner: PremiumCrewPlanner | undefined;
@@ -100,6 +121,8 @@ export function initPremiumCrew(
         ...(artifactIds.some(Boolean) ? { artifactIds: [...artifactIds] as [number, number] } : {}),
         ...(Object.keys(synergyVariants).length ? { synergyVariants: { ...synergyVariants } } : {}),
         synergiesAutomatic,
+        ...(upgradesAutomatic ? {} : { upgrades: upgrades.map((choice) => ({ ...choice })) }),
+        upgradesAutomatic,
     });
     const persist = () => {
         try {
@@ -289,6 +312,64 @@ export function initPremiumCrew(
             /* Unit-level SQLite library results remain visible when co-play history is unavailable. */
         }
     };
+    /** Ask the server for the ranked AI's plan for this crew (the same plan in-game Premium shows). */
+    const checkUpgrades = async (map: number, artifacts: readonly number[]) => {
+        const token = getAuthToken();
+        if (!ids.length || !token) {
+            upgradesController?.abort();
+            upgradesKey = "";
+            aiUpgrades = undefined;
+            upgradesStatus = "unavailable";
+            return;
+        }
+        const params = new URLSearchParams({
+            units: ids.join(","),
+            enemy: enemyIds.join(","),
+            map: String(map),
+            doctrine: String(CREW_UPGRADE_DOCTRINE),
+            artifacts: artifacts.join(","),
+            synergies: CREW_SYNERGY_FACTIONS.map((item) => synergyVariants[item] ?? 1).join(","),
+        });
+        const key = token + ":" + params;
+        if (key === upgradesKey || key === upgradesPending) return;
+        const apply = (plan: CrewUpgrade[]) => {
+            upgradesKey = key;
+            aiUpgrades = plan;
+            upgradesStatus = "ready";
+            if (upgradesAutomatic) upgrades = plan.map((choice) => ({ ...choice }));
+            refresh(false);
+        };
+        const cached = upgradesCache.get(key);
+        if (cached) return apply(cached);
+        upgradesController?.abort();
+        const current = new AbortController();
+        upgradesController = current;
+        upgradesPending = key;
+        try {
+            const response = await fetch(`${evidenceUrl()}/upgrades?${params}`, {
+                headers: { Authorization: token, Accept: "application/json" },
+                cache: "no-store",
+                signal: AbortSignal.any([current.signal, AbortSignal.timeout(8000)]),
+            });
+            if (!response.ok) throw new Error("Crew upgrades unavailable");
+            const body = (await response.json()) as { ownUnits?: unknown; augments?: unknown };
+            const plan = normalizeCrewUpgrades(body.augments);
+            if (current.signal.aborted) return;
+            if (!plan || JSON.stringify(body.ownUnits) !== JSON.stringify(ids))
+                throw new Error("Invalid crew upgrades");
+            if (upgradesCache.size >= 32) upgradesCache.delete(upgradesCache.keys().next().value!);
+            upgradesCache.set(key, plan);
+            apply(plan);
+        } catch {
+            if (current.signal.aborted) return;
+            upgradesKey = key;
+            aiUpgrades = undefined;
+            upgradesStatus = "unavailable";
+            refresh(false);
+        } finally {
+            if (upgradesPending === key) upgradesPending = "";
+        }
+    };
     const refresh = (loadHistory = true) => {
         const target = root.querySelector<HTMLElement>("[data-crew-content]");
         if (!target) return;
@@ -303,6 +384,9 @@ export function initPremiumCrew(
             "data-crew-synergy",
             "data-crew-synergy-variant",
             "data-crew-synergies-recommended",
+            "data-crew-upgrade",
+            "data-crew-upgrade-level",
+            "data-crew-upgrades-ai",
         ];
         const focused = target.querySelector<HTMLButtonElement>(
             [
@@ -340,6 +424,7 @@ export function initPremiumCrew(
             history,
             artifactIds,
             synergyVariants,
+            upgrades,
         );
         equipped = plan.own.input.artifacts;
         target.innerHTML = renderPremiumCrew(
@@ -354,6 +439,7 @@ export function initPremiumCrew(
             enemyIds,
             planner,
             plan,
+            ids.length ? renderCrewUpgrades(upgrades, aiUpgrades, upgradesAutomatic, upgradesStatus, lang) : "",
         );
         const automaticSynergies = target.querySelector<HTMLButtonElement>("[data-crew-synergies-recommended]");
         if (automaticSynergies) {
@@ -396,6 +482,7 @@ export function initPremiumCrew(
                 : undefined,
         );
         void checkEvidence();
+        void checkUpgrades(battlefield === "all" ? 1 : Number(battlefield), equipped);
         if (loadHistory) void checkHistory();
         if (scrollToCrew) target.closest("#premium-crew")?.scrollIntoView({ block: "start" });
     };
@@ -417,6 +504,28 @@ export function initPremiumCrew(
             root.querySelector<HTMLButtonElement>(
                 `[data-crew-synergy="${faction}"][data-crew-synergy-variant="${variant}"]`,
             )?.focus({ preventScroll: true });
+        }
+        if (button.hasAttribute("data-crew-upgrade")) {
+            const kind = button.dataset.crewUpgrade as CrewUpgradeKind;
+            const level = Number(button.dataset.crewUpgradeLevel);
+            if (!CREW_UPGRADE_KINDS.includes(kind) || !Number.isInteger(level)) return;
+            const next = setCrewUpgradeLevel(upgrades, kind, level);
+            if (!next)
+                return announce(
+                    t(
+                        `Not enough points: Battle Trance has ${CREW_UPGRADE_BUDGET}. Lower another upgrade first.`,
+                        `Не хватает очков: у Боевого транса их ${CREW_UPGRADE_BUDGET}. Сначала уменьшите другое усиление.`,
+                    ),
+                );
+            upgrades = next;
+            upgradesAutomatic = false;
+            refresh(false);
+            announce(t("Upgrades changed · formation recalculated", "Усиления изменены · расстановка пересчитана"));
+        }
+        if (button.hasAttribute("data-crew-upgrades-ai")) {
+            upgradesAutomatic = true;
+            if (aiUpgrades) upgrades = aiUpgrades.map((choice) => ({ ...choice }));
+            refresh(false);
         }
         if (button.hasAttribute("data-crew-synergies-recommended")) {
             synergiesAutomatic = true;
@@ -615,6 +724,9 @@ export function initPremiumCrew(
             controller?.abort();
             historyController?.abort();
             history = undefined;
+            upgradesController?.abort();
+            upgradesKey = "";
+            upgradesPending = "";
         },
     };
 }

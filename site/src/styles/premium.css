@@ -2835,8 +2835,78 @@ body:has(.premium-page) .site-header {
     font-size: 9px;
     font-style: normal;
 }
-.premium-crew-synergy-choice + .premium-crew-strategy {
+.premium-crew-synergy-choice + .premium-crew-strategy,
+.premium-crew-upgrades + .premium-crew-strategy {
     margin-top: 26px;
+}
+.premium-crew-upgrades {
+    margin-top: 8px;
+}
+.premium-crew-upgrades > p {
+    margin: 4px 0 10px;
+}
+.premium-crew-upgrade {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 0;
+    color: #efd5b0;
+    font-size: 11px;
+}
+.premium-crew-upgrade img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: contain;
+    transition:
+        opacity 0.15s,
+        filter 0.15s;
+}
+.premium-crew-upgrade-off {
+    color: #a8927d;
+}
+.premium-crew-upgrade-off img {
+    opacity: 0.45;
+    filter: saturate(0.5);
+}
+.premium-crew-upgrade-dots {
+    display: inline-flex;
+    /* Three dots wide, so two-level rows start in the same column as three-level ones. */
+    width: 66px;
+}
+/* Each dot sits in a 22px button so it is easy to hit; clicking the top filled dot lowers the level by one. */
+.premium-crew-upgrades .premium-crew-upgrade-dots button {
+    position: relative;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+.premium-crew-upgrade-dots button::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px #8c6a4699;
+    transition:
+        background 0.15s,
+        box-shadow 0.15s;
+}
+.premium-crew-upgrade-dots button:hover::before {
+    box-shadow: inset 0 0 0 1px #d9a865;
+}
+.premium-crew-upgrade-dots button.on::before {
+    background: #d9a865;
+    box-shadow: 0 0 6px #d9a86566;
+}
+.premium-crew-upgrade-dots button.ai::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px #b7c694;
 }
 /* Two classes: `.premium-page button { font: inherit }` outranks one and blew the link up to body size. */
 .premium-crew-synergy-choice .premium-crew-faction-pick {
