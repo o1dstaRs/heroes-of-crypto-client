@@ -104,6 +104,33 @@ const browserPlatform: DecodePlatform = {
 
 const assetPath = (url: string): string => new URL(url, "https://scene.invalid").pathname;
 
+/** Pixel width from a WebP header (lossy, lossless or extended), or undefined for anything else. */
+export function webpWidthFromHeader(header: Uint8Array): number | undefined {
+    if (header.length < 30) return undefined;
+    const tag = (offset: number) => String.fromCharCode(...header.subarray(offset, offset + 4));
+    if (tag(0) !== "RIFF" || tag(8) !== "WEBP") return undefined;
+    switch (tag(12)) {
+        case "VP8X":
+            return 1 + (header[24] | (header[25] << 8) | (header[26] << 16));
+        case "VP8L":
+            return header[20] === 0x2f ? 1 + ((header[21] | (header[22] << 8)) & 0x3fff) : undefined;
+        case "VP8 ":
+            return header[23] === 0x9d && header[24] === 0x01 && header[25] === 0x2a
+                ? (header[26] | (header[27] << 8)) & 0x3fff
+                : undefined;
+        default:
+            return undefined;
+    }
+}
+
+const webpWidth = async (blob: Blob): Promise<number | undefined> => {
+    try {
+        return webpWidthFromHeader(new Uint8Array(await blob.slice(0, 30).arrayBuffer()));
+    } catch {
+        return undefined;
+    }
+};
+
 /** Decode before publishing to Pixi's cache, so the first draw does not synchronously decode a WebP. */
 export function createDecodedSceneTextureParser(
     urls: readonly string[],
@@ -112,9 +139,10 @@ export function createDecodedSceneTextureParser(
     halve: (url: string) => boolean = () => false,
     /**
      * Atlases the release ships halved although their code slices fixed full-size pixels: restore the
-     * authored size before upload, so only the download shrinks.
+     * authored size before upload, so only the download shrinks. Asked with the downloaded file's width
+     * (from its WebP header, when readable) so an authored full-size file is never doubled.
      */
-    restoreFullSize: (url: string) => boolean = () => false,
+    restoreFullSize: (url: string, shippedWidth?: number) => boolean = () => false,
 ): LoaderParser<Texture> {
     const paths = new Set(urls.map(assetPath));
     let decodeTail = Promise.resolve();
@@ -135,9 +163,10 @@ export function createDecodedSceneTextureParser(
                 const decodeOptions: ImageBitmapOptions = {
                     premultiplyAlpha: asset.data?.alphaMode === "premultiplied-alpha" ? "none" : "premultiply",
                 };
+                const restore = !halve(url) && restoreFullSize(url) && restoreFullSize(url, await webpWidth(blob));
                 bitmap = await previous
                     .then(async () => {
-                        const factor = halve(url) ? 0.5 : restoreFullSize(url) ? 2 : 1;
+                        const factor = halve(url) ? 0.5 : restore ? 2 : 1;
                         if (factor !== 1 && platform.decodeScaled) {
                             try {
                                 return await platform.decodeScaled(blob, decodeOptions, factor);

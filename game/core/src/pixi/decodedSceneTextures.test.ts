@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { Loader, Texture } from "pixi.js";
-import { createDecodedSceneTextureParser } from "./decodedSceneTextures";
+import { createDecodedSceneTextureParser, webpWidthFromHeader } from "./decodedSceneTextures";
 
 const tick = async () => {
     for (let i = 0; i < 12; i++) await Promise.resolve();
@@ -191,6 +191,64 @@ test("an atlas shipped halved for transport is restored to its authored size bef
     expect(platform.resize.mock.calls[0].slice(1)).toEqual([3072, 1536]);
     expect(shipped.close).toHaveBeenCalledTimes(1);
     expect(texture.source.resource).toBe(restored);
+    expect([texture.width, texture.height]).toEqual([3072, 1536]);
+});
+
+/** The first 30 bytes of an extended (VP8X) WebP of the given size. */
+const vp8xHeader = (width: number, height: number): Uint8Array => {
+    const header = new Uint8Array(30);
+    header.set(new TextEncoder().encode("RIFF"), 0);
+    header.set(new TextEncoder().encode("WEBPVP8X"), 8);
+    header.set([(width - 1) & 0xff, ((width - 1) >> 8) & 0xff, (width - 1) >> 16], 24);
+    header.set([(height - 1) & 0xff, ((height - 1) >> 8) & 0xff, (height - 1) >> 16], 27);
+    return header;
+};
+
+test("WebP headers give the file's width in all three formats", () => {
+    expect(webpWidthFromHeader(vp8xHeader(3072, 1536))).toBe(3072);
+    const lossless = new Uint8Array(30);
+    lossless.set(new TextEncoder().encode("RIFF"), 0);
+    lossless.set(new TextEncoder().encode("WEBPVP8L"), 8);
+    lossless.set([0x2f, (1536 - 1) & 0xff, ((1536 - 1) >> 8) & 0x3f], 20);
+    expect(webpWidthFromHeader(lossless)).toBe(1536);
+    const lossy = new Uint8Array(30);
+    lossy.set(new TextEncoder().encode("RIFF"), 0);
+    lossy.set(new TextEncoder().encode("WEBPVP8 "), 8);
+    lossy.set([0x9d, 0x01, 0x2a, 2048 & 0xff, 2048 >> 8], 23);
+    expect(webpWidthFromHeader(lossy)).toBe(2048);
+    expect(webpWidthFromHeader(new TextEncoder().encode("atlas"))).toBeUndefined();
+});
+
+test("an authored full-size file under a restored URL is uploaded as it is, never doubled", async () => {
+    // A development checkout serves Troll's 3072 px master where the release serves its 1536 px half.
+    const authored = { width: 3072, height: 1536, close: mock(() => undefined) };
+    const platform = {
+        fetchBlob: mock(async () => new Blob([vp8xHeader(3072, 1536).slice().buffer as ArrayBuffer])),
+        decode: mock(async () => authored as unknown as ImageBitmap),
+        resize: mock(async () => {
+            throw new Error("must not resample");
+        }),
+        decodeScaled: mock(async () => {
+            throw new Error("must not resample");
+        }),
+        supported: () => true,
+        fallback: mock(async () => Texture.WHITE),
+    };
+    const restoreWidths: (number | undefined)[] = [];
+    const parser = createDecodedSceneTextureParser(
+        ["/assets/troll.webp"],
+        platform,
+        () => false,
+        (_url, shippedWidth) => {
+            restoreWidths.push(shippedWidth);
+            return shippedWidth === undefined || shippedWidth === 1536;
+        },
+    );
+    const texture = (await parser.load!("/assets/troll.webp", { src: "/assets/troll.webp" }, new Loader())) as Texture;
+    expect(restoreWidths).toEqual([undefined, 3072]);
+    expect(platform.decodeScaled).not.toHaveBeenCalled();
+    expect(platform.resize).not.toHaveBeenCalled();
+    expect(texture.source.resource).toBe(authored);
     expect([texture.width, texture.height]).toEqual([3072, 1536]);
 });
 

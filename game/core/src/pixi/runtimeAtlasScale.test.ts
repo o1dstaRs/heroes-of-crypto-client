@@ -71,3 +71,23 @@ test("fixed-pixel creatures are shipped halved for transport only", async () => 
         expect(scale.isRuntimeHalvedAtlasKey(key), key).toBe(false);
     }
 });
+
+test("only the release's halved file is restored; an authored master under the same URL is not doubled", async () => {
+    const scale = await import("./runtimeAtlasScale");
+    const { images } = await import("../imageAssets");
+    const catalog = (await import("./halfBodyAtlases.json")).default as {
+        atlases: Record<string, { width: number }>;
+    };
+    let checked = 0;
+    for (const key of scale.halfTransportCandidateKeys()) {
+        const url = (images as Record<string, unknown>)[key];
+        if (typeof url !== "string" || !catalog.atlases[key]) continue;
+        const half = catalog.atlases[key].width;
+        expect(scale.isRestoredHalfAtlasUrl(url), key).toBe(true);
+        expect(scale.isRestoredHalfAtlasUrl(url, half), key).toBe(true);
+        // A development checkout serves the authored master here (Troll 3072 px wide, its half 1536).
+        expect(scale.isRestoredHalfAtlasUrl(url, half * 2), key).toBe(false);
+        checked++;
+    }
+    expect(checked).toBe([...scale.halfTransportCandidateKeys()].filter((key) => scale.isHalfSizeAtlasKey(key)).length);
+});

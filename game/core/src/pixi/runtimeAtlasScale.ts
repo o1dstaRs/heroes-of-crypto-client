@@ -47,7 +47,10 @@ const ruleKeys = new Set<string>();
  * only the download shrinks (measured 2026-11-20: 37 MB of a match's images, 28 MB of it saved).
  */
 const transportRuleKeys = new Set<string>();
-const restoredPaths = new Set<string>();
+/** Served path -> width of the halved file the release ships for it. */
+const restoredWidths = new Map<string, number>();
+const catalogWidth = (key: string): number | undefined =>
+    (halfBodyAtlases.atlases as Record<string, { width?: number }>)[key]?.width;
 /** The rule set as loaded by this build: halved by the release or by the browser. */
 const candidateKeys = new Set<string>();
 const halvedKeys = new Set<string>();
@@ -64,7 +67,7 @@ for (const [unit, states] of Object.entries(animationAtlases as Record<string, R
             const url = (images as Record<string, unknown>)[key];
             if (typeof url === "string" && prebuiltHalfKeys.has(key)) {
                 candidateKeys.add(key);
-                restoredPaths.add(assetPath(url));
+                restoredWidths.set(assetPath(url), catalogWidth(key) ?? 0);
             }
             continue;
         }
@@ -89,7 +92,16 @@ export const isPrebuiltHalfAtlasKey = (key: string): boolean =>
 export const halvedAtlasCandidateKeys = (): ReadonlySet<string> => ruleKeys;
 /** Large body atlases of fixed-pixel creatures: shipped halved, restored to full size on decode. */
 export const halfTransportCandidateKeys = (): ReadonlySet<string> => transportRuleKeys;
-export const isRestoredHalfAtlasUrl = (url: string): boolean => restoredPaths.has(assetPath(url));
+/**
+ * Restore this atlas to its authored size? Only the release's halved copy is restored. A development
+ * checkout serves the authored master under the same URL, and doubling that would draw a zoomed quarter
+ * of every frame (seen locally on Troll and Leprechaun, 2026-11-25). Pass the downloaded file's width when
+ * it is known; without it the URL decides.
+ */
+export const isRestoredHalfAtlasUrl = (url: string, shippedWidth?: number): boolean => {
+    const halfWidth = restoredWidths.get(assetPath(url));
+    return halfWidth !== undefined && (shippedWidth === undefined || shippedWidth === halfWidth);
+};
 /** Decode these off the main thread (see decodedSceneTextures.ts). */
 export const isHalfSizeAtlasKey = (key: string): boolean => candidateKeys.has(key);
 
