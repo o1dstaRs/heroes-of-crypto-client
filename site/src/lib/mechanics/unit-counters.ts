@@ -165,8 +165,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                 ? "; Hamstring и Wind Flow на него не действуют (100% сопротивления магии)"
                 : "; Hamstring and Wind Flow can't touch it (100% magic resistance)"
             : isRu
-              ? `; Hamstring (Dryad) может отнять 30% движения на 3 круга; Wind Flow (Valkyrie, сила стека ${windFlowGate}+) даёт всем летающим +4 к броне и −4 к движению на 3 круга`
-              : `; Hamstring (Dryad) can take 30% of its movement for 3 laps; Wind Flow (Valkyrie, stack power ${windFlowGate}+) gives every flyer +4 armor and −4 movement for 3 laps`;
+              ? `; Hamstring (Dryad) может на 3 круга прижать его к земле (он ходит) и отнять 30% движения; Wind Flow (Valkyrie, сила стека ${windFlowGate}+) даёт всем летающим +4 к броне и −4 к движению на 3 круга`
+              : `; Hamstring (Dryad) can ground it for 3 laps (it walks) and take 30% of its movement; Wind Flow (Valkyrie, stack power ${windFlowGate}+) gives every flyer +4 armor and −4 movement for 3 laps`;
         lines.push(
             isRu
                 ? `Летающий: Web Aura (Arachna Queen) не даёт ему двигаться, если ход начинается в радиусе 2 клеток от неё${slows}. Помогает синергия Природы «Броня летающих»: ${unit.faction === "Nature" ? "+15/24/35% брони" : "+15/24% брони в любой армии (35% требует шести разных существ Природы кроме него — шестое может дать только призыв Природы)"}.`

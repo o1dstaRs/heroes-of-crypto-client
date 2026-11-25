@@ -154,9 +154,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Hamstrung: {
         en: ({ p, n }) =>
-            `−${n(p)}% movement for 3 laps. The Dryad's Hamstring gives it only to flyers, though Magic Mirror can copy it back onto the Dryad itself; magic resistance can resist it, and it multiplies with Quagmire (×${n(1 - p / 100)} × 0.75).`,
+            `For 3 laps a flyer cannot fly: it walks around units and obstacles instead of flying over them, with −${n(p)}% movement. The Dryad's Hamstring gives it only to flyers, a flyer Gravebound already grounded included, though Magic Mirror can copy it back onto the Dryad itself, where it only slows; magic resistance can resist it, and it multiplies with Quagmire (×${n(1 - p / 100)} × 0.75).`,
         ru: ({ p, n }) =>
-            `−${n(p)}% движения на 3 круга. Hamstring у Dryad накладывает его только на летающих, но Magic Mirror может скопировать его обратно на саму Dryad; сопротивление магии может защитить, а с Quagmire замедления перемножаются (×${n(1 - p / 100)} × 0,75).`,
+            `На 3 круга летающий не может летать: он ходит, обходя юнитов и препятствия вместо полёта над ними, с −${n(p)}% движения. Hamstring у Dryad накладывает его только на летающих, в том числе уже прижатых к земле Могильными узами, но Magic Mirror может скопировать его обратно на саму Dryad, где он лишь замедляет; сопротивление магии может защитить, а с Quagmire замедления перемножаются (×${n(1 - p / 100)} × 0,75).`,
     },
     Quagmire: {
         en: ({ p, n }) =>
@@ -166,9 +166,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Gravebound: {
         en: ({ p, n }) =>
-            `−${n(p)}% movement for 3 laps, applied by the cursed Tier 2 artifact Gravechain, not a castable scroll. Each connected enemy gets an independent roll; failed rolls and immune enemies still relay the chain. 100% magic resistance blocks the debuff; partial magic and status resistance do not reduce its chance. It does not stack with or refresh itself; it multiplies with Quagmire and Hamstrung. With Quagmire, movement is ${n((1 - p / 100) * 75)}% of normal. Gravechain's separate army-wide curse costs its owner 1 movement step even when Gravebound is resisted.`,
+            `−${n(p)}% movement for 3 laps, and a flyer cannot fly: it walks around units and obstacles until the debuff ends. Applied by the cursed Tier 2 artifact Gravechain, not a castable scroll. Each connected enemy gets an independent roll; failed rolls and immune enemies still relay the chain. 100% magic resistance blocks the debuff; partial magic and status resistance do not reduce its chance. It does not stack with or refresh itself; it multiplies with Quagmire and Hamstrung. With Quagmire, movement is ${n((1 - p / 100) * 75)}% of normal. Gravechain's separate army-wide curse costs its owner 1 movement step even when Gravebound is resisted.`,
         ru: ({ p, n }) =>
-            `−${n(p)}% перемещения на 3 круга от проклятого артефакта 2 уровня «Могильная цепь», а не от свитка. Каждый связанный враг бросает отдельно; неудачные броски и невосприимчивые враги продолжают цепь. 100% сопротивления магии блокирует дебафф, а частичное сопротивление магии и статусам не снижает его шанс. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями. Вместе с Трясиной остаётся ${n((1 - p / 100) * 75)}% обычного перемещения. Отдельное проклятие Могильной цепи отнимает у всей армии владельца 1 шаг даже при невосприимчивости цели к Могильным узам.`,
+            `−${n(p)}% перемещения на 3 круга, а летающий не может летать: он ходит, обходя юнитов и препятствия, пока дебафф не спадёт. Дебафф даёт проклятый артефакт 2 уровня «Могильная цепь», а не свиток. Каждый связанный враг бросает отдельно; неудачные броски и невосприимчивые враги продолжают цепь. 100% сопротивления магии блокирует дебафф, а частичное сопротивление магии и статусам не снижает его шанс. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями. Вместе с Трясиной остаётся ${n((1 - p / 100) * 75)}% обычного перемещения. Отдельное проклятие Могильной цепи отнимает у всей армии владельца 1 шаг даже при невосприимчивости цели к Могильным узам.`,
     },
     "Weakening Beam": {
         en: ({ p, n }) => `−${n(p)}% base armor for 3 laps; applied by the Beholder's Spit Ball.`,

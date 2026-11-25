@@ -19,6 +19,7 @@ import {
     TeamType,
     ToFactionName,
     SynergyKeysToPower,
+    isGroundedByDebuffNames,
 } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box } from "@mui/joy";
@@ -1560,6 +1561,11 @@ const UnitStatsLayout: React.FC<{
     const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
     const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
     const rangedStats = getSidebarRangedStats(unitProperties);
+    // Gravebound or Hamstrung grounds a flyer: it walks, so the movement cell shows a walker. Read from the
+    // debuff names, which a ranked snapshot carries as well as the sandbox.
+    const grounded =
+        unitProperties.movement_type === MovementVals.FLY && isGroundedByDebuffNames(unitProperties.applied_debuffs);
+    const fliesNow = unitProperties.movement_type === MovementVals.FLY && !grounded;
 
     // Order matters: the seven stats every creature has come first, in a fixed sequence, and the handful
     // that only some carry are appended after them. Otherwise a conditional cell in the middle re-seats
@@ -1616,18 +1622,18 @@ const UnitStatsLayout: React.FC<{
             {/* Movement range and initiative share a cell: both answer "how does this stack move through
                 the turn", and pairing them keeps the plate at seven fixed slots. */}
             <StatItem
-                icon={
-                    unitProperties.movement_type === MovementVals.FLY
-                        ? images.stat_fly_gold_v2
-                        : images.stat_walk_gold_v2
-                }
+                icon={fliesNow ? images.stat_fly_gold_v2 : images.stat_walk_gold_v2}
                 // OWNER call: show the exact fractional stat (Elf's 2.93), with insignificant trailing
                 // zeroes dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
                 // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0), so the display and
                 // the board can no longer disagree.
                 value={formatSidebarStat(unitProperties.steps + stepsMod)}
-                tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
-                color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
+                tooltip={
+                    grounded
+                        ? "Grounded: walks until Gravebound or Hamstrung wears off. Movement budget in cells: straight costs 1, diagonal ~1.41"
+                        : "Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
+                }
+                color={fliesNow ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
                 secondIcon={images.stat_initiative_gold_v2}
                 secondValue={formatSidebarStat(unitProperties.initiative)}
