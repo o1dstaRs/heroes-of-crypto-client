@@ -7445,6 +7445,30 @@ export class Sandbox extends PixiScene {
         const magnitude = gs.getCellSize() * magnitudeScale;
         unit.applyHitReaction((dx / len) * magnitude, (dy / len) * magnitude);
     }
+    /**
+     * Damage that arrives outside the blow itself (a spell, Chain Lightning, a reflection or a burn) plays the
+     * creature's hit reaction too. The live sandbox's HP-diff pass always did this; replays (ranked, vs AI) and
+     * spells only drew the number (owner report 2026-11-25). A unit still busy with a clip (the hit of this very
+     * blow, a caster mid-cast, a death) keeps it. Without a source point, such as a strike from the sky, the
+     * creature recoils straight down.
+     */
+    private reactToSecondaryDamage(unit: Unit | undefined, amount: number, from?: HoCMath.XY): void {
+        if (
+            !(unit instanceof RenderableUnit) ||
+            !(amount > 0) ||
+            this.isSceneDestroyed() ||
+            unit.isDead() ||
+            unit.hasUnfinishedCombatAnimation()
+        )
+            return;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const center = unit.getVisualCenter(gs);
+        const source =
+            from && Math.hypot(center.x - from.x, center.y - from.y) > 1
+                ? from
+                : { x: center.x, y: center.y + gs.getCellSize() };
+        this.applyHitReactionFromPoint(unit, source, amount, 0.2);
+    }
     /** Knock `unit` back along the vector pointing away from `source` — a brief defensive hit reaction. */
     private applyReplayHitKnockback(unit: RenderableUnit, source: RenderableUnit, damageReceived: number): void {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -11862,6 +11886,7 @@ export class Sandbox extends PixiScene {
                             undefined,
                             deliveredCasualties?.get(hit),
                         );
+                        this.reactToSecondaryDamage(hitUnit, hit.amount, holderPosition);
                     } else deliveredCasualties?.get(hit)?.();
                     continue;
                 }
@@ -11889,7 +11914,7 @@ export class Sandbox extends PixiScene {
                 } else if (hasImpactDamage && !isRing && !isMeteor && !isFireball && !isWhirlpool && !isFireStrike) {
                     this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
                 }
-                if (hit.amount > 0)
+                if (hit.amount > 0) {
                     this.combatVisuals.showFloatingDamage(
                         hitPosition,
                         hit.amount,
@@ -11902,6 +11927,13 @@ export class Sandbox extends PixiScene {
                         undefined,
                         presentCasualties,
                     );
+                    // Lightning Strike falls from the sky: no caster point, so the helper pushes straight down.
+                    this.reactToSecondaryDamage(
+                        hitUnit,
+                        hit.amount,
+                        event.spellName === "Lightning Strike" ? undefined : (flightOrigin ?? visualCasterPosition),
+                    );
+                }
             }
         }
     }
@@ -22718,6 +22750,13 @@ export class Sandbox extends PixiScene {
                             undefined,
                             !counterSpin,
                         );
+                        // Sweeps and breaths flinch at contact in the exchange; everything else flinches here.
+                        if (
+                            entry.source !== "lightning_spin" &&
+                            entry.source !== "skewer_strike" &&
+                            entry.source !== "fire_breath"
+                        )
+                            this.reactToSecondaryDamage(sUnit, entry.amount, attackerCenter);
                     },
                     220 + index * 180,
                 );
