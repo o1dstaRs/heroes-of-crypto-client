@@ -95,6 +95,102 @@ const releaseCandidateRoster: PatchNote["roster"] = [
 export const patchNotes = {
     en: [
         {
+            version: "v0.1.8",
+            date: "11/25/2026",
+            commit: "f42c7343",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/f42c7343",
+            commits: [
+                {
+                    label: "client",
+                    commit: "f42c7343",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/f42c7343",
+                },
+                {
+                    label: "common",
+                    commit: "b60b2ab6",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/b60b2ab6c9516b1eaa5c8f286522dac4e4f797d4",
+                },
+            ],
+            title: "Army blessings, a sharper AI, and flyers brought down to earth",
+            impact: "Five creature auras now bless the whole army, the strongest AI reads your draft and plays against it, a flyer can be forced to walk, and a match downloads about a quarter of the art it used to.",
+            stats: [
+                { value: "57", label: "creatures" },
+                { value: "109", label: "abilities" },
+                { value: "60", label: "spells" },
+                { value: "28", label: "artifacts" },
+            ],
+            sections: [
+                {
+                    title: "Blessings for the whole army",
+                    items: [
+                        "Five auras that reached allies within 2 cells now bless the whole army while their creature is alive, and only the strongest source of each counts. Crusader's Sharpened Weapons gives every allied melee and magic unit +18% base attack. Leprechaun's Luck gives every ally +2 to +10 luck by stack power, up to 10, while the Leprechaun is not Broken.",
+                        "Satyr's Sylvan Focus adds 3% to 15% magic damage to every ally by stack power instead of a flat 15%. Wolf Rider's Wolf Trail gives every ally 0.2 to 1 movement. Champion's Tie up the Horses gives non-flying allies 0.42 to 2.1 movement by stack power, raised by the Champion's luck, instead of a flat 2 to allies nearby.",
+                        "Hydra brings Ember Covenant: at the start of the battle every allied stack gets a shared ring of fire. Fire damage passes without breaking it. The first other hit is absorbed, and then every ring dissolves. Water attacks and water magic go straight through and break the rings. A summoned ally joins a ring that is still whole.",
+                    ],
+                },
+                {
+                    title: "Flyers, fire, and the rules",
+                    items: [
+                        "Gravebound, from the Gravechain artifact, and Hamstrung, from the Dryad's Hamstring, now ground a flying unit as well as slowing it by 25% and 30%. Until the debuff ends it cannot fly: it walks around units and obstacles, and the sidebar shows it as a walking unit. Quagmire still only slows.",
+                        "Fireball blasts the 3×3 square centred on the cell it strikes, and a thrown fire spell stops at the first target in its path. Fire Wall burns a ground unit that cuts diagonally across its corner. Counter-shots from Cyclops and Gargantuan break the barrels caught in the blast.",
+                        "When a Hydra's Lightning Spin hits a unit with Fire Shield, the burn it takes back is shown, with a number, a flame, and a death if it kills. The damage was always applied.",
+                        "Rallying Volley no longer goes to units that cannot shoot. Thunderbird's Chain Lightning still arcs after a shield absorbs its blow. A Chakram stops at a unit under Arrows Wingshield. Dead stacks no longer block later arrows. A freely aimed Through Shot into empty ground is a legal shot, and Harpy's Castling reaches one cell past its movement, as the rules say.",
+                    ],
+                },
+                {
+                    title: "The same armies, tuned",
+                    items: [
+                        "Crusader: armor 26, damage 15–20. Arbalester: attack 8. Hydra: 180 health, armor 32, damage 40–60. Abomination: 525 health, armor 47. Cyclops: 75 health, armor 20, damage 19–23. Thunderbird: 140 health.",
+                        "Battle Mage: 11 health, armor 8, damage 2–4. Blacksmith: armor 12. Healer: 14 health, armor 13. Mermaid: 12 health. Zena: attack 23. Satyr experience is 26.79, so 1,000 experience buys 38 creatures. Wandering Mage experience is 7.2, so it buys 139.",
+                        "Aegis of the Arcane's separate magic-defense roll is 20%. Pendant of Vitality gives +22% health for −11% attack. Quiver of Echoes gives a 35% chance of an extra attack, plus luck.",
+                    ],
+                },
+                {
+                    title: "A stronger AI opponent",
+                    items: [
+                        "The Brutal AI takes each doctrine a third of the time and uses what that doctrine, the bans and the map let it see. Once your army reads melee it drafts counters, it plans its last level-4 pick as one, and it takes Magic Dragon against an Arachna Queen it can see.",
+                        "It picks artifacts for the army it has, Crown of Command when it has fewer than two shooters, and never Lava Striders on a map without lava. An army without shooters spends its Sniper point on Movement. Against an army that isn't melee it rushes: Placement 2 and Movement 2, strikers on the front edge, and Valkyries with them.",
+                        "In the fight it searches deeper, with each move capped at about 4 seconds. It no longer walks up to an enemy without attacking, ignores one-creature decoy stacks while a real stack is in reach, gives Wild Regeneration only to stronger creatures, and keeps its blessing carriers with the army early on.",
+                    ],
+                },
+                {
+                    title: "Draft, ranked, and Premium",
+                    items: [
+                        "Bans dock in a rail beside the board for Scout and Spymaster, with portraits 50% larger. Spymaster sees the map with the starting bundle choice; the other doctrines still see it at the first level-3 pick.",
+                        "The results screen shows each army's doctrine, artifacts, and synergy levels, and after a game against the AI you can choose the doctrine for the next one. The player portal searches your match history by creature, artifact, or opponent.",
+                        "A unit no longer loses its turn after a run of stun or blind skips, accepted matches reach the draft reliably, the game moves straight on past poison deaths, and public replays stay available after the session ends. Replays open on a still board and start sooner. A lobby that expires unfilled after 24 hours refunds its opening fee in gold.",
+                        'Premium shows a movable draft planner board with the formation, upgrade plan, and stack splits, marks top picks with gold, silver, and bronze medals, and follows the current AI. "What should I do this turn?" returns one legal best turn, and shot advice accounts for barrels.',
+                    ],
+                },
+                {
+                    title: "What you see and hear",
+                    items: [
+                        "Dryad, Valkyrie, White Tiger, Wyvern, Griffin, and Pegasus have new aura art on the floor, and the Arachna Queen's web is rebuilt. About 35 abilities have their own effect art over the unit. Stun and Blindness show orbiting stars, Paralysis is an electric field under the unit, and \"Resist\" pops when an attack's debuff is resisted.",
+                        "Damage numbers and effect icons sit in one row over the unit. Units and their portraits keep facing the way they last moved or attacked. Fireball visibly flies, Fireforged Sword leaves a hot slash, Harpy's Castling plays twice as fast, and close-range shots no longer fly backwards.",
+                        "14 creatures have movement sounds, and Black Dragon, Behemoth, and Wolf Rider have a loop while their turn waits. Fireball, Fire Strike, Meteor Shower, Craft, misses, summons, splits, and shield breaks have sounds, and about 30 creatures have new attack and hurt recordings. Counterattacks are quiet. Music plays only in the Ranked Arena and in matches, 50% louder.",
+                    ],
+                },
+                {
+                    title: "Phones, accounts, and loading",
+                    items: [
+                        "Phones and tablets play in landscape with a touch top bar and action bar. In portrait the game turns itself, and a combat action is confirmed in a bubble where you tapped.",
+                        "Crypto-wallet sign-in is gone: sign in with email and password or with Google. Season prizes go to verified email accounts that finished calibration.",
+                        "A match downloads about 77 MB of art instead of 301 MB, creature textures take about half the memory, and a ranked match loads 2.1 MB of JavaScript instead of 5.2 MB for players without Premium. The loading bar finishes and fades into a ready board.",
+                    ],
+                },
+                {
+                    title: "The site",
+                    items: [
+                        "The top bar is Players, Seasons, Premium, News, and Knowledge Base, and the logo takes you to the game. Players is the former Top page. The homepage has a tavern hero with one Play Now button and a game modes section, and link previews use new art.",
+                        "The rules page walks through your first match in six steps. The Knowledge Base adds battlefield footprints, Ember Covenant, and the new blessings. The Premium page has a crew planner: pick six units against an enemy crew for artifacts, synergies, a formation, and recorded battle history.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Version 0.1.8 keeps the same four factions and 57 creatures, turns five auras into army blessings, and makes the strongest AI draft, set up, and fight against what you bring.",
+        },
+        {
             version: "v0.1.7",
             date: "10/20/2026",
             commit: "fcabde35",
@@ -490,6 +586,102 @@ export const patchNotes = {
         },
     ] satisfies PatchNote[],
     ru: [
+        {
+            version: "v0.1.8",
+            date: "25.11.2026",
+            commit: "f42c7343",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/f42c7343",
+            commits: [
+                {
+                    label: "клиент",
+                    commit: "f42c7343",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/f42c7343",
+                },
+                {
+                    label: "common",
+                    commit: "b60b2ab6",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/b60b2ab6c9516b1eaa5c8f286522dac4e4f797d4",
+                },
+            ],
+            title: "Благословения для всей армии, более сильный ИИ и летающие на земле",
+            impact: "Пять аур существ теперь благословляют всю армию, сильнейший ИИ читает ваш драфт и играет против него, летающего можно заставить ходить пешком, а матч скачивает примерно четверть прежнего объёма графики.",
+            stats: [
+                { value: "57", label: "существ" },
+                { value: "109", label: "способностей" },
+                { value: "60", label: "заклинаний" },
+                { value: "28", label: "артефактов" },
+            ],
+            sections: [
+                {
+                    title: "Благословения для всей армии",
+                    items: [
+                        "Пять аур, которые действовали на союзников в радиусе 2 клеток, теперь благословляют всю армию, пока жив их владелец, и из одинаковых благословений действует только самое сильное. Sharpened Weapons у Crusader дает каждому союзнику ближнего боя и магу +18% к базовой атаке. Luck у Leprechaun дает каждому союзнику от +2 до +10 удачи по силе стека, не больше 10, пока на Leprechaun нет Break.",
+                        "Sylvan Focus у Satyr добавляет каждому союзнику от 3% до 15% магического урона по силе стека вместо постоянных 15%. Wolf Trail у Wolf Rider дает каждому союзнику от 0.2 до 1 движения. Tie up the Horses у Champion дает нелетающим союзникам от 0.42 до 2.1 движения по силе стека с поправкой на удачу Champion вместо постоянных 2 для союзников рядом.",
+                        "Hydra приносит Ember Covenant: в начале боя каждый союзный стек получает общее огненное кольцо. Огненный урон проходит, не разрушая его. Первый другой удар поглощается, после чего все кольца исчезают. Водные атаки и магия воды проходят насквозь и разрушают кольца. Призванный союзник присоединяется к кольцу, пока оно цело.",
+                    ],
+                },
+                {
+                    title: "Летающие, огонь и правила",
+                    items: [
+                        "Gravebound от артефакта Gravechain и Hamstrung от Hamstring у Dryad теперь не только замедляют летающего на 25% и 30%, но и прижимают его к земле. Пока дебафф действует, он не может летать: он ходит, обходя юнитов и препятствия, а боковая панель показывает его как пешего. Quagmire по-прежнему только замедляет.",
+                        "Fireball бьет по квадрату 3×3 с центром в клетке попадания, а брошенное огненное заклинание останавливается на первой цели на пути. Fire Wall обжигает наземного юнита, который срезает ее угол по диагонали. Ответные выстрелы Cyclops и Gargantuan разбивают бочки, попавшие под взрыв.",
+                        "Когда Lightning Spin у Hydra задевает юнита с Fire Shield, ответный ожог теперь виден: число, пламя и смерть, если он убивает. Урон наносился и раньше.",
+                        "Rallying Volley больше не достается юнитам, которые не могут стрелять. Chain Lightning у Thunderbird бьет по цепочке, даже если щит поглотил удар. Chakram останавливается на юните под Arrows Wingshield. Мертвые стеки больше не задерживают следующие стрелы. Свободно нацеленный Through Shot в пустую землю считается допустимым выстрелом, а Castling у Harpy достает на клетку дальше ее движения, как сказано в правилах.",
+                    ],
+                },
+                {
+                    title: "Те же армии, другие числа",
+                    items: [
+                        "Crusader: броня 26, урон 15–20. Arbalester: атака 8. Hydra: 180 здоровья, броня 32, урон 40–60. Abomination: 525 здоровья, броня 47. Cyclops: 75 здоровья, броня 20, урон 19–23. Thunderbird: 140 здоровья.",
+                        "Battle Mage: 11 здоровья, броня 8, урон 2–4. Blacksmith: броня 12. Healer: 14 здоровья, броня 13. Mermaid: 12 здоровья. Zena: атака 23. Опыт Satyr равен 26.79, поэтому 1000 опыта дают 38 существ. Опыт Wandering Mage равен 7.2, и он дает 139.",
+                        "Отдельный бросок магической защиты Aegis of the Arcane равен 20%. Pendant of Vitality дает +22% здоровья за −11% атаки. Quiver of Echoes дает 35% шанс на дополнительную атаку плюс удача.",
+                    ],
+                },
+                {
+                    title: "Более сильный ИИ",
+                    items: [
+                        "ИИ уровня Brutal выбирает каждую доктрину в трети игр и использует все, что ему позволяют увидеть доктрина, баны и карта. Когда ваша армия выглядит армией ближнего боя, он набирает контрпики, планирует последний выбор 4-го уровня как контрпик и берет Magic Dragon против Arachna Queen, которую видит.",
+                        "Он выбирает артефакты под свою армию: Crown of Command, если у него меньше двух стрелков, и никогда Lava Striders на карте без лавы. Армия без стрелков тратит очко Sniper на Movement. Против армии не ближнего боя он идет в атаку: Placement 2 и Movement 2, бойцы на переднем краю, Valkyrie вместе с ними.",
+                        "В бою он считает глубже, и каждый ход занимает не больше примерно 4 секунд. Он больше не подходит к врагу без атаки, не отвлекается на стеки-приманки из одного существа, пока рядом есть настоящий стек, отдает Wild Regeneration только более сильным существам и в начале боя держит носителей благословений рядом с армией.",
+                    ],
+                },
+                {
+                    title: "Драфт, рейтинг и Premium",
+                    items: [
+                        "Для доктрин Разведчик и Мастер шпионажа баны стоят в колонке рядом с полем, а портреты на 50% крупнее. Мастер шпионажа видит карту уже при выборе стартового набора; остальные доктрины по-прежнему видят ее при первом выборе 3-го уровня.",
+                        "Экран результатов показывает доктрину, артефакты и уровни синергий каждой армии, а после игры против ИИ можно выбрать доктрину на следующую. В кабинете игрока история матчей ищется по существу, артефакту или сопернику.",
+                        "Юнит больше не теряет ход после серии пропусков из-за оглушения или ослепления, принятые матчи надежно доходят до драфта, игра сразу идет дальше после смертей от яда, а публичные повторы остаются доступны после конца сессии. Повторы открываются на неподвижном поле и начинаются быстрее. Лобби, которое не заполнилось за 24 часа, возвращает плату за открытие золотом.",
+                        "Premium показывает подвижную доску планирования драфта с расстановкой, планом апгрейдов и разделением стеков, отмечает лучшие выборы золотой, серебряной и бронзовой медалью и следует нынешнему ИИ. «Что мне делать в этот ход?» возвращает один допустимый лучший ход, а советы по выстрелам учитывают бочки.",
+                    ],
+                },
+                {
+                    title: "Что видно и слышно",
+                    items: [
+                        "У Dryad, Valkyrie, White Tiger, Wyvern, Griffin и Pegasus новые ауры на земле, а паутина Arachna Queen сделана заново. Около 35 способностей получили собственную картинку эффекта над юнитом. Stun и Blindness показывают кружащиеся звезды, Paralysis — электрическое поле под юнитом, а если дебафф атаки отражен, всплывает «Resist».",
+                        "Числа урона и значки эффектов стоят в один ряд над юнитом. Юниты и их портреты смотрят туда, куда последний раз шли или били. Fireball теперь видно в полете, Fireforged Sword оставляет раскаленный след, Castling у Harpy играет вдвое быстрее, а выстрелы с близкой дистанции больше не летят назад.",
+                        "У 14 существ появились звуки движения, а у Black Dragon, Behemoth и Wolf Rider — звук ожидания, пока их ход ждет. Свои звуки получили Fireball, Fire Strike, Meteor Shower, Craft, промахи, призывы, разделение стека и разрушение щитов, а около 30 существ получили новые звуки атаки и ранения. Ответные удары звучат тихо. Музыка играет только на Рейтинговой арене и в матчах и стала на 50% громче.",
+                    ],
+                },
+                {
+                    title: "Телефоны, аккаунты и загрузка",
+                    items: [
+                        "На телефонах и планшетах игра идет в альбомной ориентации с сенсорной верхней панелью и панелью действий. В портретной ориентации игра сама поворачивается, а действие в бою подтверждается в пузыре там, где вы коснулись.",
+                        "Вход через криптокошелек убран: входите по почте и паролю или через Google. Призы сезона получают подтвержденные почтовые аккаунты, прошедшие калибровку.",
+                        "Матч скачивает около 77 МБ графики вместо 301 МБ, текстуры существ занимают примерно вдвое меньше памяти, а рейтинговый матч без Premium загружает 2.1 МБ JavaScript вместо 5.2 МБ. Полоса загрузки доходит до конца и плавно открывает готовое поле.",
+                    ],
+                },
+                {
+                    title: "Сайт",
+                    items: [
+                        "В верхней панели теперь Игроки, Сезоны, Premium, Новости и База знаний, а логотип ведет в игру. Игроки — это бывшая страница Top. На главной — таверна с одной кнопкой «Играть» и раздел режимов игры, а превью ссылок используют новую картинку.",
+                        "Страница правил ведет через первый матч за шесть шагов. В Базе знаний появились размеры юнитов на поле, Ember Covenant и новые благословения. На странице Premium есть планировщик отряда: выберите шесть юнитов против отряда врага и получите артефакты, синергии, расстановку и записанную историю боев.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Версия 0.1.8 сохраняет те же четыре фракции и 57 существ, превращает пять аур в благословения армии и заставляет сильнейший ИИ набирать армию, расставляться и сражаться против того, что принесли вы.",
+        },
         {
             version: "v0.1.7",
             date: "20.10.2026",
