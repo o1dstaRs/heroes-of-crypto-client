@@ -36,6 +36,7 @@ import {
     type TeamType,
     type Unit,
     type UnitProperties,
+    type FightProperties,
 } from "@heroesofcrypto/common";
 
 import type {
@@ -90,6 +91,26 @@ import { setBoardMirror } from "../pixi/boardMirror";
 import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 import type { PremiumTurnPreview } from "../api/premium_client";
 import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
+
+/**
+ * Rebuild "already made a turn this lap" from the server, on every snapshot. The ranked client never runs the
+ * turn engine's flipLap(), and its local re-applies only ever add to the set, so a unit that acted in lap 1 kept
+ * reading as done in lap 2 and its Wait button stayed disabled (owner, game d6d7ee8b, 2026-11-26: the
+ * Gargantuan's lap-2 turn). Every living unit that is neither the active one, nor queued in upNext, nor waiting
+ * on the hourglass has made its turn this lap.
+ */
+export const syncRankedAlreadyMadeTurn = (
+    fightProperties: Pick<FightProperties, "restoreAlreadyMadeTurn">,
+    snapshot: Pick<AuthoritativeGameSnapshot, "fightStarted" | "currentUnitId" | "upNext" | "units">,
+): void => {
+    if (!snapshot.fightStarted) return;
+    const pending = new Set([snapshot.currentUnitId, ...(snapshot.upNext ?? [])]);
+    fightProperties.restoreAlreadyMadeTurn(
+        snapshot.units
+            .filter((unit) => !unit.dead && !unit.onHourglass && !pending.has(unit.id))
+            .map((unit) => ({ unitId: unit.id, team: unit.team as TeamType })),
+    );
+};
 
 export const canMoveRankedArtifactBarrel = (snapshot: AuthoritativeGameSnapshot, team: TeamType): boolean =>
     snapshot.viewerTeam === team &&
@@ -4476,6 +4497,7 @@ export class RankedPlayScene extends Sandbox {
         FightStateManager.getInstance()
             .getFightProperties()
             .restoreAlreadyHourglass(snapshot.units.filter((u) => u.hasHourglassed && !u.dead).map((u) => u.id));
+        syncRankedAlreadyMadeTurn(FightStateManager.getInstance().getFightProperties(), snapshot);
         this.applyAuthoritativeAuraState();
     }
     private applyAuthoritativeAuraState(): void {
