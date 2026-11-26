@@ -79,6 +79,11 @@ import { CHAMPION_ARROW_ATLAS_KEY, resetChampionArrowAuras } from "./ChampionArr
 import { hamstringRecipients } from "./hamstringFlagEffects";
 import { resetDryadWindAuras } from "./DryadWindAura";
 import { resetWhiteTigerPawAuras } from "./WhiteTigerPawAura";
+import {
+    ANGEL_WINGSHIELD_ABILITY,
+    ANGEL_WINGSHIELD_TEXTURE_KEY,
+    resetAngelWingshieldAuras,
+} from "./AngelWingshieldAura";
 import { resetLeprechaunCloverAuras } from "./LeprechaunCloverAura";
 import { resetValkyrieBloodAuras } from "./ValkyrieBloodAura";
 import { FLOOR_AURA_Z_INDEX } from "../pixi/floorAuraLayer";
@@ -19565,6 +19570,7 @@ export class Sandbox extends PixiScene {
         this.auraFloorGraphics?.clear();
         resetWhiteTigerPawAuras(this.arachnaWebAuraContainer);
         resetArachnaQueenWebAuras(this.arachnaWebAuraContainer);
+        resetAngelWingshieldAuras(this.arachnaWebAuraContainer);
         resetChampionArrowAuras(this.arachnaWebAuraContainer);
         resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
         resetDryadWindAuras(this.arachnaWebAuraContainer);
@@ -19725,6 +19731,8 @@ export class Sandbox extends PixiScene {
             getGriffinQuestionBowAuraTexture: () => this.texAny(GRIFFIN_QUESTION_BOW_AURA_KEY),
             getPegasusWingedSwordAuraTexture: () => this.texAny(PEGASUS_WINGED_SWORD_AURA_KEY),
             getCrusaderSixSwordsAuraTexture: () => this.texAny(CRUSADER_SIX_SWORDS_AURA_KEY),
+            angelWingshieldOwnerId: this.angelWingshieldOwner()?.getId(),
+            getAngelWingshieldTexture: () => this.texAny(ANGEL_WINGSHIELD_TEXTURE_KEY),
             getWhiteTigerAuraRevealed: (ownerId, range) => {
                 const unit = this.unitsHolder.getAllUnits().get(ownerId);
                 // Use the same enemy/body-cell membership oracle as Disguise Aura itself.
@@ -19805,8 +19813,27 @@ export class Sandbox extends PixiScene {
             draw(this.sc_hoveredMoveRange, this.sc_hoveredMoveRangeCanTraverseLava, ALLY_MOVEMENT_INSPECTION_COLOR);
         }
     }
+    /** The living Angel with Arrows Wingshield Blessing that is active, hovered or selected, if any. */
+    private angelWingshieldOwner(): Unit | undefined {
+        const hoveredId = this.hoverManager.hoveredUnitId;
+        const candidates = [
+            this.currentActiveUnit,
+            hoveredId ? this.unitsHolder.getAllUnits().get(hoveredId) : undefined,
+            this.selectedBoardUnit,
+        ];
+        for (const unit of candidates) {
+            if (!unit || unit.getName() !== "Angel" || unit.isDead() || !unit.getAbility(ANGEL_WINGSHIELD_ABILITY))
+                continue;
+            // A hidden enemy Angel must not reveal itself through its blessing.
+            const viewerTeam = this.getViewerTeam();
+            if (viewerTeam !== undefined && unit.getTeam() !== viewerTeam && unit.hasBuffActive("Hidden")) continue;
+            return unit;
+        }
+        return undefined;
+    }
     private hasGameplayVisuals(): boolean {
         if (isMovementAreaEditorActive()) return true;
+        if (this.angelWingshieldOwner()) return true;
         if (this.sc_placementMoveRange?.length || this.sc_hoveredMoveRange?.length) return true;
         if (this.sc_hoveredShotRange || this.sc_hoveredAuraRanges || this.sc_currentActiveShotRange) return true;
         if (this.hoverManager.hoverBattlefieldFootprintCells?.length) return true;
@@ -21729,6 +21756,7 @@ export class Sandbox extends PixiScene {
 
         resetWhiteTigerPawAuras(this.arachnaWebAuraContainer);
         resetArachnaQueenWebAuras(this.arachnaWebAuraContainer);
+        resetAngelWingshieldAuras(this.arachnaWebAuraContainer);
         resetChampionArrowAuras(this.arachnaWebAuraContainer);
         resetValkyrieBloodAuras(this.arachnaWebAuraContainer);
         resetDryadWindAuras(this.arachnaWebAuraContainer);

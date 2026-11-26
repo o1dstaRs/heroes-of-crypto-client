@@ -10,6 +10,7 @@ import { drawGriffinQuestionBowAura, resetGriffinQuestionBowAuras } from "./Grif
 import { drawPegasusWingedSwordAura, resetPegasusWingedSwordAuras } from "./PegasusWingedSwordAura";
 import { drawChampionArrowAura, resetChampionArrowAuras } from "./ChampionArrowAura";
 import { drawArachnaQueenWebAura, resetArachnaQueenWebAuras } from "./ArachnaQueenWebAura";
+import { drawAngelWingshieldAura, resetAngelWingshieldAuras } from "./AngelWingshieldAura";
 import {
     type AbominationSandForeground,
     drawAbominationSandAura,
@@ -337,6 +338,9 @@ export interface IGameplayDrawContext {
     getGriffinQuestionBowAuraTexture?: () => Texture | undefined;
     getPegasusWingedSwordAuraTexture?: () => Texture | undefined;
     getCrusaderSixSwordsAuraTexture?: () => Texture | undefined;
+    /** The Angel whose Arrows Wingshield Blessing is previewed over the board (active, hovered or selected). */
+    angelWingshieldOwnerId?: string;
+    getAngelWingshieldTexture?: () => Texture | undefined;
     getWhiteTigerAuraRevealed?: (ownerId: string, range: number) => boolean;
     getAuraOwnerFacing?: (ownerId: string) => -1 | 1;
     /** Includes walks, melee approaches and both participants in a position swap. */
@@ -466,6 +470,7 @@ export class SandboxDrawer {
             shotRangeCornerEnemyTexture,
         } = ctx;
         resetArachnaQueenWebAuras(ctx.arachnaWebAuraContainer);
+        resetAngelWingshieldAuras(ctx.arachnaWebAuraContainer);
         resetChampionArrowAuras(ctx.arachnaWebAuraContainer);
         resetWhiteTigerPawAuras(ctx.arachnaWebAuraContainer);
         resetValkyrieBloodAuras(ctx.arachnaWebAuraContainer);
@@ -572,6 +577,19 @@ export class SandboxDrawer {
                     ctx,
                 );
             }
+        }
+
+        // 0.7 The Angel's Arrows Wingshield Blessing covers the whole board, so it has no aura radius to draw:
+        // its shield and breaking arrows show over the floor while that Angel is active, hovered or selected.
+        if (ctx.angelWingshieldOwnerId) {
+            drawAngelWingshieldAura(
+                ctx.arachnaWebAuraContainer,
+                ctx.getAngelWingshieldTexture?.(),
+                gs,
+                ctx.angelWingshieldOwnerId,
+                0.7,
+                narrowingLayers,
+            );
         }
 
         // 1. Shift Selected Shot Range (Same style as Active)

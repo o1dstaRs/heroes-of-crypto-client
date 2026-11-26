@@ -691,7 +691,7 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
  * with its animation sheets, so they are decoded during placement, before any of them can play.
  */
 const CREATURE_EFFECT_ASSET_KEYS: Readonly<Record<string, readonly string[]>> = {
-    Angel: ["vfx_angel_resurrection_pop_atlas"],
+    Angel: ["vfx_angel_resurrection_pop_atlas", "vfx_angel_wingshield_floor_v1"],
     Behemoth: ["vfx_battle_roar_short_atlas"],
     "Black Dragon": ["black_dragon_fire_breath_v1", "black_dragon_breath_smoke_v4"],
     Champion: ["champion_lab_plume"],
