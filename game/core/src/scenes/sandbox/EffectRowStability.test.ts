@@ -36,6 +36,11 @@ test.each(["buff", "debuff"] as const)(
                 child.children.some((nested) => nested.label === "effect-caption"),
             )!;
             expect(pop).toBeDefined();
+            // A buff shows its icon, which joins the damage row as it fades in; it is placed there before its
+            // first visible frame. Height is held from the moment the player can see it.
+            now = 1050;
+            visuals.update(0);
+            expect(pop.alpha).toBeGreaterThan(0);
             const y = pop.y;
             // Additional impacts share horizontal result lanes instead of pushing this cue higher.
             visuals.showFloatingDamage(anchor, 30, undefined, 0, undefined, undefined, anchor);

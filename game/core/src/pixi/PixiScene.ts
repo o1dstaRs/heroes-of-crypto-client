@@ -238,7 +238,11 @@ const ARTIFACT_BUFF_TEXTURE: Record<string, string> = (() => {
     return map;
 })();
 
-const buffDebuffTextureName = (name: string): string =>
+/**
+ * The icon of an applied buff or debuff, wherever it is drawn (left sidebar tiles and the pop over the unit),
+ * so both find the same art: artifacts by their artifact key, renamed blessings by their original aura art.
+ */
+export const buffDebuffTextureName = (name: string): string =>
     ARTIFACT_BUFF_TEXTURE[name] ?? AbilityHelper.abilityToTextureName(name);
 
 /**

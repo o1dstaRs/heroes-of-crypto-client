@@ -133,7 +133,7 @@ test.each(["luck", "resist", "heal", "absorb"])(
     },
 );
 
-test("live combat names confirmed effects without static tiles or duplicate lucky/resist captions", () => {
+test("live combat names confirmed effects, shows buff icons only, and adds no duplicate lucky/resist captions", () => {
     const f = fixture(false);
     const pop = spyOn(f.visuals, "spawnCommonFlagPop").mockImplementation(() => undefined);
     try {
@@ -147,10 +147,12 @@ test("live combat names confirmed effects without static tiles or duplicate luck
         f.visuals.showResistLabel({ x: 120, y: 300 }, undefined, f.unit);
         expect(pop.mock.calls.map((call) => call[1])).toEqual(["lucky", "resist"]);
         expect(f.root.children).toHaveLength(3);
-        for (const container of f.root.children) {
-            expect(container.children).toHaveLength(1);
-            expect(container.children[0].label).toBe("effect-caption");
-        }
+        // A debuff procced by an attack stays a caption; a buff shows its icon above its name (owner, 2026-11-26).
+        expect(f.root.children.map((container) => container.children.map((child) => child.label))).toEqual([
+            ["effect-caption"],
+            ["effect-icon:Courage", "effect-caption"],
+            ["effect-icon:Double Punch", "effect-caption"],
+        ]);
         // Loss presentation and healing numbers remain independent of the retired icon renderer.
         f.visuals.showFloatingHeal({ x: 120, y: 300 }, 10, f.unit);
         expect(f.root.children).toHaveLength(4);

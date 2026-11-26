@@ -478,6 +478,7 @@ const DP_START_SCALE = 0.25; // scale the pop springs in from
 const DP_FADE_IN = (DP_LIFE * (0.16 / 1.8)) / STATUS_EFFECT_APPEARANCE_SPEED; // opening fade only; readable hold is unchanged
 const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
 const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
+/** Debuffs that still show their icon; every buff does (see spawnDebuffPop). */
 const ICON_STATUS_EFFECTS: ReadonlySet<string> = new Set(["Spiritual Armor", "Morale", "Dismorale"]);
 
 // Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
@@ -1496,9 +1497,10 @@ export class CombatVisuals {
         const container = new Container();
 
         const iconSize = cell * 0.72;
-        // These confirmed spell/lap effects have no dedicated atlas. Retain their visible motif
-        // without bringing archived passive tiles back over ordinary attacks.
-        if (this.context.legacyEffectsEnabled || ICON_STATUS_EFFECTS.has(name)) {
+        // These confirmed effects have no dedicated atlas. A buff always shows its icon under its name (the
+        // owner saw Blessing land as a bare caption, 2026-11-26); debuffs keep only the listed lap/spell icons,
+        // so archived passive tiles do not come back over ordinary attacks.
+        if (this.context.legacyEffectsEnabled || kind === "buff" || ICON_STATUS_EFFECTS.has(name)) {
             const icon = new Sprite(iconTexture);
             icon.label = `effect-icon:${name}`;
             icon.anchor.set(0.5);

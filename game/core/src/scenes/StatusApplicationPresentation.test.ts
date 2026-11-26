@@ -113,6 +113,50 @@ test.each([
     },
 );
 
+test.each([
+    { label: "local", Scene: Sandbox },
+    { label: "ranked/replay", Scene: RankedPlayScene },
+])("$label shows every buff's icon under its name, and attack-proc debuffs stay captions", async ({ Scene }) => {
+    const f = fixture();
+    const textures: string[] = [];
+    const scene = Object.assign(Object.create(Scene.prototype), {
+        unitsHolder: f.holder,
+        sc_sceneSettings: { getGridSettings: () => f.grid },
+        isSceneDestroyed: () => false,
+        combatVisuals: f.visuals,
+        waitForTexture: async (name: string) => {
+            textures.push(name);
+            return Texture.WHITE;
+        },
+    });
+    try {
+        // Blessing has no authored pop: it used to land as a bare caption (owner report, 2026-11-26).
+        for (const [name, kind] of [
+            ["Blessing", "buff"],
+            ["Arrows Wingshield Blessing", "buff"],
+            ["Wild Regeneration", "buff"],
+            ["Poison", "debuff"],
+        ] as const) {
+            scene.popEffectOnUnit(f.unit, name, 0, kind);
+            await flush();
+            const pop = f.root.children.at(-1)!;
+            expect(pop.children.find((child) => child.label === "effect-caption")?.children[0].label).toBe(
+                `effect-name:${name}`,
+            );
+            const icon = pop.children.find((child) => child.label === `effect-icon:${name}`) as Sprite | undefined;
+            if (kind === "buff") {
+                expect(icon?.texture).toBe(Texture.WHITE);
+                expect(icon!.width).toBeGreaterThan(0);
+            } else expect(icon).toBeUndefined();
+        }
+        // The pop finds the same art as the sidebar: the Angel's renamed blessing keeps its aura icon.
+        expect(textures).toEqual(["blessing_256", "arrows_wingshield_aura_256", "wild_regeneration_256", "poison_256"]);
+    } finally {
+        f.visuals.clear();
+        f.root.destroy({ children: true });
+    }
+});
+
 test("mass spell captions remain distinct from the shared single-target artwork and match its faction", async () => {
     const meta = animationAtlases["Vfx Ogre Riot"].pop;
     const atlas = new Texture({ source: new TextureSource({ width: meta.atlasWidth, height: meta.atlasHeight }) });

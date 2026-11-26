@@ -207,6 +207,7 @@ import { captureFightResultSetup } from "./fightResultSetup";
 import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
 import {
+    buffDebuffTextureName,
     PixiScene,
     PixiSceneContext,
     registerScene,
@@ -4540,7 +4541,7 @@ export class Sandbox extends PixiScene {
             visuals.spawnBorrowedGrace(victim, thief, buffName);
             return;
         }
-        void this.waitForTexture(SpellHelper.spellToTextureName(buffName)).then((icon) => {
+        void this.waitForTexture(buffDebuffTextureName(buffName)).then((icon) => {
             if (!icon || this.isSceneDestroyed() || this.combatVisuals !== visuals) return;
             const current = this.unitsHolder.getAllUnits().get(thief.getId()) as RenderableUnit | undefined;
             if (current && !current.isDead()) visuals.spawnBorrowedGrace(victim, current, buffName, icon);
@@ -12088,9 +12089,11 @@ export class Sandbox extends PixiScene {
         // (when the name first appears) and can't tell a double-punch's two applications apart, so the claw
         // is driven per-application off `damage.deepWounds` via spawnDeepWoundsClaws() on both the live and
         // replay attack paths. Only the effect ICON still pops here.
+        // The sidebar's lookup: the Angel's renamed blessings keep their aura art, which the spell-name
+        // mapping cannot find, so their pop never appeared at all.
         const iconTextureName =
             (kind === "debuff" ? beholderDebuffTextureName(effectName) : undefined) ??
-            SpellHelper.spellToTextureName(effectName);
+            buffDebuffTextureName(effectName);
         const visuals = this.combatVisuals;
         const id = unit.getId();
         void this.waitForTexture(iconTextureName).then((iconTexture) => {
