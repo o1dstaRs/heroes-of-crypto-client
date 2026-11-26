@@ -52,3 +52,15 @@ export function selectUpNextVisibleState(state: UpNextVisibleState, previous?: U
               })),
     };
 }
+
+export const NO_UNITS: readonly IVisibleUnit[] = Object.freeze([]);
+
+/** The queue to show after a new selection: keep the last order through an empty mid-fight snapshot. */
+export function nextStableQueue(
+    current: readonly IVisibleUnit[],
+    selected: UpNextVisibleState,
+): readonly IVisibleUnit[] {
+    const next = selected.upNext ?? [];
+    if (next.length > 0) return next;
+    return selected.hasFinished || !selected.lapNumber ? NO_UNITS : current;
+}

@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { TeamVals } from "@heroesofcrypto/common";
 
 import type { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
-import { selectUpNextVisibleState } from "./upNextVisibleState";
+import { nextStableQueue, NO_UNITS, selectUpNextVisibleState } from "./upNextVisibleState";
 
 const unit = (overrides: Partial<IVisibleUnit> = {}): IVisibleUnit => ({
     id: "first",
@@ -112,4 +112,16 @@ test("empty live handoffs, lap zero and finished state each reach the queue life
     const reset = selectUpNextVisibleState({} as IVisibleState);
     expect(reset.upNext).toEqual([]);
     expect(selectUpNextVisibleState({} as IVisibleState, reset)).toBe(reset);
+});
+
+test("the queue keeps its last order through an empty mid-fight snapshot and clears before or after the fight", () => {
+    const shown = [unit(), unit({ id: "second" })];
+    const fresh = [unit({ id: "third" })];
+    expect(nextStableQueue(NO_UNITS, { upNext: shown, hasFinished: false, lapNumber: 1 })).toBe(shown);
+    // Between laps the engine publishes no queue for a moment: the cards stay instead of flashing away.
+    expect(nextStableQueue(shown, { upNext: [], hasFinished: false, lapNumber: 2 })).toBe(shown);
+    expect(nextStableQueue(shown, { upNext: undefined, hasFinished: false, lapNumber: 2 } as never)).toBe(shown);
+    expect(nextStableQueue(shown, { upNext: fresh, hasFinished: false, lapNumber: 2 })).toBe(fresh);
+    expect(nextStableQueue(shown, { upNext: [], hasFinished: true, lapNumber: 3 })).toBe(NO_UNITS);
+    expect(nextStableQueue(shown, { upNext: [], hasFinished: false, lapNumber: 0 })).toBe(NO_UNITS);
 });

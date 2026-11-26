@@ -18,7 +18,7 @@ import { clearLeftSidebarPortraitPrefetch, enqueueLeftSidebarPortraits } from ".
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
 import { useSidebarMetrics } from "./sidebarMetrics";
-import { selectUpNextVisibleState, type UpNextVisibleState } from "./upNextVisibleState";
+import { nextStableQueue, NO_UNITS, selectUpNextVisibleState, type UpNextVisibleState } from "./upNextVisibleState";
 
 import { commonTooltipSx } from "./tooltipStyles";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
@@ -88,6 +88,132 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
+interface IQueueCardProps {
+    id: string;
+    name?: string;
+    smallTextureName: string;
+    amount: number;
+    teamType: TeamType;
+    stackPower: number;
+    isSkipping: boolean;
+    isOnHourglass: boolean;
+    active: boolean;
+    avatarPx: number;
+    portraitHeightPx: number;
+    markerPx: number;
+    /** personalArmyPaintKey(): team flag colours are read from the army paint, so a repaint must re-render. */
+    paintKey: string;
+    pulseRef?: React.Ref<HTMLDivElement>;
+}
+
+/**
+ * One queue portrait. Memoized on its own fields: a turn switch re-renders the queue several times (the new
+ * order, its enter/exit animation, the active pulse), and only the old and new active cards actually change.
+ * Rendering every card's portrait layers, pips and flag each time cost ~60 ms per switch in dev (2026-11-26).
+ */
+const QueueCard = React.memo(function QueueCard({
+    id,
+    name,
+    smallTextureName,
+    amount,
+    teamType,
+    stackPower,
+    isSkipping,
+    isOnHourglass,
+    active,
+    avatarPx,
+    portraitHeightPx,
+    markerPx,
+    pulseRef,
+}: IQueueCardProps) {
+    const creatureId = name ? UNIT_NAME_TO_ID[name.trim()] : undefined;
+    return (
+        <Box
+            ref={active ? pulseRef : undefined}
+            aria-current={active ? "true" : undefined}
+            data-active-turn-portrait={active ? "true" : undefined}
+            sx={{
+                position: "relative",
+                display: "inline-block",
+                lineHeight: 0,
+                transformOrigin: "50% 50%",
+                willChange: active ? "transform, opacity, box-shadow" : "auto",
+                zIndex: active ? 1 : "auto",
+                outline: active ? "1px solid rgba(232, 194, 112, 0.9)" : "none",
+                outlineOffset: "-1px",
+                boxShadow: active
+                    ? "inset 0 0 12px rgba(225, 173, 74, 0.28), 0 0 10px rgba(225, 173, 74, 0.48)"
+                    : "none",
+            }}
+        >
+            {creatureId !== undefined ? (
+                <CreaturePortraitImage
+                    creatureId={creatureId}
+                    unitId={id}
+                    unitTeam={teamType}
+                    alt={name}
+                    sx={{
+                        width: `${avatarPx}px`,
+                        height: `${portraitHeightPx}px`,
+                        flexShrink: 0,
+                        borderRadius: 0,
+                        transform: "translateZ(0)",
+                        transition: "width 160ms ease-out, height 160ms ease-out, opacity 160ms ease-out",
+                    }}
+                />
+            ) : (
+                <Avatar
+                    // @ts-ignore: src params
+                    src={resolveUnitImage(smallTextureName, name)}
+                    variant="plain"
+                    sx={{
+                        // Sized off the bar so a 1024x768 screen still shows a
+                        // couple of queued units instead of one clipped avatar.
+                        width: `${avatarPx}px`,
+                        height: `${portraitHeightPx}px`,
+                        flexShrink: 0,
+                        borderRadius: 0,
+                        imageRendering: "auto",
+                        transform: "translateZ(0)",
+                        transition: "width 160ms ease-out, height 160ms ease-out, opacity 160ms ease-out",
+                    }}
+                />
+            )}
+            <StackPowerOverlay stackPower={stackPower} teamType={teamType} isAura={false} />
+            {isSkipping ? (
+                <img
+                    src={stopImg}
+                    alt="Skipping"
+                    style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0, // Top Left
+                        width: `${markerPx}px`,
+                        height: `${markerPx}px`,
+                        zIndex: 2,
+                        transition: "opacity 140ms ease-out",
+                    }}
+                />
+            ) : isOnHourglass ? (
+                <img
+                    src={hourglassImg}
+                    alt="On Hourglass"
+                    style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0, // Top Left
+                        width: `${markerPx}px`,
+                        height: `${markerPx}px`,
+                        zIndex: 2,
+                        transition: "opacity 140ms ease-out",
+                    }}
+                />
+            ) : null}
+            <TeamAmountFlag amount={amount} teamType={teamType} right="0" scale={Math.min(1, avatarPx / 48)} />
+        </Box>
+    );
+});
+
 interface IUpNextProps {
     /**
      * personalArmyPaintKey() as of the parent's render. Not read here: the queue is memoized, and a
@@ -101,13 +227,8 @@ interface IUpNextProps {
  * its popLayout AnimatePresence a fresh presence context, which re-rendered every portrait card (measured
  * 2026-11-20). The queue's own data arrives through its visible-state subscription.
  */
-const UpNextView: React.FC<IUpNextProps> = () => {
-    const [visibleState, setVisibleState] = useState<UpNextVisibleState>({
-        upNext: [],
-        hasFinished: false,
-        lapNumber: 0,
-    });
-    const [stableVisibleUnits, setStableVisibleUnits] = useState<IVisibleUnit[]>([]);
+const UpNextView: React.FC<IUpNextProps> = ({ paintKey }) => {
+    const [stableVisibleUnits, setStableVisibleUnits] = useState<readonly IVisibleUnit[]>(NO_UNITS);
     const [queueScroll, setQueueScroll] = useState({ visible: false, progress: 0, thumbFraction: 1 });
     const queueScrollRef = useRef<HTMLDivElement | null>(null);
     const portraitPrefetchOwner = useRef({});
@@ -121,24 +242,14 @@ const UpNextView: React.FC<IUpNextProps> = () => {
             const selected = selectUpNextVisibleState(state, previous);
             if (selected === previous) return;
             previous = selected;
-            setVisibleState(selected);
+            // One state update per queue change. An empty queue mid-fight (between laps) keeps the last
+            // order on screen; it clears only before the fight starts or once it has finished.
+            setStableVisibleUnits((current) => nextStableQueue(current, selected));
         });
         return () => {
             connection.disconnect();
         };
     }, [manager]);
-
-    useEffect(() => {
-        const nextVisibleUnits = visibleState.upNext ?? [];
-        if (nextVisibleUnits.length > 0) {
-            setStableVisibleUnits(nextVisibleUnits);
-            return;
-        }
-
-        if (visibleState.hasFinished || !visibleState.lapNumber) {
-            setStableVisibleUnits([]);
-        }
-    }, [visibleState.hasFinished, visibleState.lapNumber, visibleState.upNext]);
 
     const displayedUnits = useMemo(() => [...stableVisibleUnits].reverse(), [stableVisibleUnits]);
     // handleNextUnitActivation appends the acting unit before the queue is reversed for display, so the
@@ -335,107 +446,22 @@ const UpNextView: React.FC<IUpNextProps> = () => {
                                             willChange: "transform, opacity, filter",
                                         }}
                                     >
-                                        <Box
-                                            ref={unit.id === activeUnitId ? activeTurnPulseRef : undefined}
-                                            aria-current={unit.id === activeUnitId ? "true" : undefined}
-                                            data-active-turn-portrait={unit.id === activeUnitId ? "true" : undefined}
-                                            sx={{
-                                                position: "relative",
-                                                display: "inline-block",
-                                                lineHeight: 0,
-                                                transformOrigin: "50% 50%",
-                                                willChange:
-                                                    unit.id === activeUnitId
-                                                        ? "transform, opacity, box-shadow"
-                                                        : "auto",
-                                                zIndex: unit.id === activeUnitId ? 1 : "auto",
-                                                outline:
-                                                    unit.id === activeUnitId
-                                                        ? "1px solid rgba(232, 194, 112, 0.9)"
-                                                        : "none",
-                                                outlineOffset: "-1px",
-                                                boxShadow:
-                                                    unit.id === activeUnitId
-                                                        ? "inset 0 0 12px rgba(225, 173, 74, 0.28), 0 0 10px rgba(225, 173, 74, 0.48)"
-                                                        : "none",
-                                            }}
-                                        >
-                                            {unit.name && UNIT_NAME_TO_ID[unit.name.trim()] !== undefined ? (
-                                                <CreaturePortraitImage
-                                                    creatureId={UNIT_NAME_TO_ID[unit.name.trim()]}
-                                                    unitId={unit.id}
-                                                    unitTeam={unit.teamType}
-                                                    alt={unit.name}
-                                                    sx={{
-                                                        width: `${metrics.avatarPx}px`,
-                                                        height: `${portraitHeight(metrics.avatarPx)}px`,
-                                                        flexShrink: 0,
-                                                        borderRadius: 0,
-                                                        transform: "translateZ(0)",
-                                                        transition:
-                                                            "width 160ms ease-out, height 160ms ease-out, opacity 160ms ease-out",
-                                                    }}
-                                                />
-                                            ) : (
-                                                <Avatar
-                                                    // @ts-ignore: src params
-                                                    src={resolveUnitImage(unit.smallTextureName, unit.name)}
-                                                    variant="plain"
-                                                    sx={{
-                                                        // Sized off the bar so a 1024x768 screen still shows a
-                                                        // couple of queued units instead of one clipped avatar.
-                                                        width: `${metrics.avatarPx}px`,
-                                                        height: `${portraitHeight(metrics.avatarPx)}px`,
-                                                        flexShrink: 0,
-                                                        borderRadius: 0,
-                                                        imageRendering: "auto",
-                                                        transform: "translateZ(0)",
-                                                        transition:
-                                                            "width 160ms ease-out, height 160ms ease-out, opacity 160ms ease-out",
-                                                    }}
-                                                />
-                                            )}
-                                            <StackPowerOverlay
-                                                stackPower={unit.isStackPowered ? unit.stackPower : 0}
-                                                teamType={unit.teamType}
-                                                isAura={false}
-                                            />
-                                            {unit.isSkipping ? (
-                                                <img
-                                                    src={stopImg}
-                                                    alt="Skipping"
-                                                    style={{
-                                                        position: "absolute",
-                                                        top: 0,
-                                                        left: 0, // Top Left
-                                                        width: `${markerPx}px`,
-                                                        height: `${markerPx}px`,
-                                                        zIndex: 2,
-                                                        transition: "opacity 140ms ease-out",
-                                                    }}
-                                                />
-                                            ) : unit.isOnHourglass ? (
-                                                <img
-                                                    src={hourglassImg}
-                                                    alt="On Hourglass"
-                                                    style={{
-                                                        position: "absolute",
-                                                        top: 0,
-                                                        left: 0, // Top Left
-                                                        width: `${markerPx}px`,
-                                                        height: `${markerPx}px`,
-                                                        zIndex: 2,
-                                                        transition: "opacity 140ms ease-out",
-                                                    }}
-                                                />
-                                            ) : null}
-                                            <TeamAmountFlag
-                                                amount={unit.amount}
-                                                teamType={unit.teamType}
-                                                right="0"
-                                                scale={Math.min(1, metrics.avatarPx / 48)}
-                                            />
-                                        </Box>
+                                        <QueueCard
+                                            id={unit.id}
+                                            name={unit.name}
+                                            smallTextureName={unit.smallTextureName}
+                                            amount={unit.amount}
+                                            teamType={unit.teamType}
+                                            stackPower={unit.isStackPowered ? unit.stackPower : 0}
+                                            isSkipping={unit.isSkipping}
+                                            isOnHourglass={unit.isOnHourglass}
+                                            active={unit.id === activeUnitId}
+                                            avatarPx={metrics.avatarPx}
+                                            portraitHeightPx={portraitHeight(metrics.avatarPx)}
+                                            markerPx={markerPx}
+                                            paintKey={paintKey}
+                                            pulseRef={unit.id === activeUnitId ? activeTurnPulseRef : undefined}
+                                        />
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
