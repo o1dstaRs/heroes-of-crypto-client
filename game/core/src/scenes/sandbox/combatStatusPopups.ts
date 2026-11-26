@@ -61,5 +61,7 @@ const STATUS_POP_KINDS: ReadonlySet<FlagPopKind> = new Set([
 
 export function shouldShowStatusFlagPop(kind: FlagPopKind, presentation: FlagPopPresentation): boolean {
     // Craft is an explicit cast cue. Other passive/attack badges still require a confirmed status.
-    return presentation === "preview" || kind === "blacksmith_craft" || STATUS_POP_KINDS.has(kind);
+    // A recorded miss is shown too: a dodged counter plays inside the simultaneous exchange, where the dodger
+    // is mid-swing and skips its dodge, so a brief text was all there was (owner, game 00889997, 2026-11-26).
+    return presentation === "preview" || kind === "blacksmith_craft" || kind === "miss" || STATUS_POP_KINDS.has(kind);
 }

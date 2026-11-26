@@ -132,6 +132,7 @@ test.each<AuthoredExchangeCase>([
                     getMissStyle: () => ({}),
                     flagOverlayAnchor: () => ({ x: 0, y: 0 }),
                     enqueueFloatingContainer: (container: Container) => container.destroy({ children: true }),
+                    spawnCommonFlagPop: () => {},
                 });
                 let prepareCount = 0;
                 let loadCounterProjectile!: () => void;

@@ -3283,6 +3283,15 @@ export class RankedPlayScene extends Sandbox {
                     const flag = actorId ? this.logTeamFlag(actorId) : "";
                     lines.push(flag ? `${flag} ${line}` : line);
                 }
+                // A counterattack that missed (the attacker's Dodge, Small Specie...): the engine logs
+                // "X misses ⚔️ resp on Y", but ranked rebuilds its log from events and dropped it, so a
+                // missed answer left no trace at all (owner, game 00889997, 2026-11-26).
+                if (event.type === "unit_attacked" && event.damage?.missedResponse) {
+                    const responder = event.targetId;
+                    const missText = `${unitNames.get(responder) ?? "Unit"} misses ${this.attackIcon(event.attackType, event.damage)} resp on ${unitNames.get(event.damage.missedResponse.unitId) ?? "Unit"}`;
+                    const flag = this.logTeamFlag(responder);
+                    lines.push(flag ? `${flag} ${missText}` : missText);
+                }
                 // The engine's per-unit "spawned at (x, y)" deployment lines are sandbox-only text, not
                 // journal events — so ranked never saw them. Reconstruct them right after "Fight started!"
                 // from the fight-start snapshot's units (baseCell is still their placement cell then).

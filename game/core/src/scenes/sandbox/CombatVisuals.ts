@@ -1080,6 +1080,12 @@ export class CombatVisuals {
     }
     public showMissLabel(pos: HoCMath.XY, _direction?: HoCMath.XY, unit?: RenderableUnit): void {
         if (unit?.hasAnimationState?.("dodge")) unit.playDodgeAnimation(0, 0);
+        // The authored miss cue over the dodger's flag, captioned "Miss"; the plain text stays for the lab and
+        // for a miss without a unit to anchor it.
+        if (unit) {
+            this.spawnCommonFlagPop(unit, "miss");
+            if (!this.context.legacyEffectsEnabled) return;
+        }
         const container = new Container();
         const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
         label.anchor.set(0.5);

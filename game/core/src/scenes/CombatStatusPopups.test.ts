@@ -41,7 +41,6 @@ test.each([
     "enchanted_skin",
     "madness",
     "lucky",
-    "miss",
     "resist",
     "heal",
     "absorb",
@@ -54,6 +53,14 @@ test.each([
     f.visuals.prepareCommonFlagPop(kind, "preview");
     f.visuals.spawnCommonFlagPop(f.unit, kind, "preview");
     expect(f.calls).toEqual([`preload:${kind}`, `spawn:${kind}`]);
+});
+
+test("a recorded miss shows its badge in combat, where a dodged counter has no other trace", () => {
+    // Owner, game 00889997 (2026-11-26): the Nomad's counter missed the Scavenger and nothing said so.
+    const f = fixture();
+    f.visuals.prepareCommonFlagPop("miss");
+    f.visuals.spawnCommonFlagPop(f.unit, "miss");
+    expect(f.calls).toEqual(["preload:miss", "spawn:miss"]);
 });
 
 test("the explicit Craft cast cue is retained in combat", () => {
