@@ -508,8 +508,8 @@ export interface PlayActionResponse {
 export interface DevCreatePlayGameRequest {
     leftPlayerId?: string;
     rightPlayerId?: string;
-    lowerCreatureIds?: number[];
-    upperCreatureIds?: number[];
+    leftCreatureIds?: number[];
+    rightCreatureIds?: number[];
     unitAmount?: number;
     placementSeconds?: number;
     gridType?: number;

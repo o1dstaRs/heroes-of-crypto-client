@@ -3,7 +3,7 @@ import { axiosMMInstance, endpoints } from "./axios";
 export interface PublicRankedMatchPlayer {
     playerId: string;
     username: string;
-    side: "lower" | "upper";
+    side: "left" | "right";
     /** "none": an unscored or voided match, where neither player won or lost. */
     result: "win" | "loss" | "draw" | "none";
     calibration: boolean;

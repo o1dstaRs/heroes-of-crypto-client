@@ -86,7 +86,7 @@ export const AugmentStepPreview: React.FC = () => {
     const budgetPoints = Number.isFinite(requestedPoints)
         ? Math.max(0, Math.min(HoCConstants.MAX_AUGMENT_POINTS, requestedPoints))
         : Doctrine.getUpgradePoints(doctrineId);
-    const userTeam = (params.get("team")?.toLowerCase() === "upper" ? TeamVals.RIGHT : TeamVals.LEFT) as TeamType;
+    const userTeam = (params.get("team")?.toLowerCase() === "right" ? TeamVals.RIGHT : TeamVals.LEFT) as TeamType;
     const mapType = PREVIEW_MAP_TYPES[params.get("map")?.toLowerCase() ?? ""] ?? GridVals.NORMAL;
 
     const draftScale = useDraftScale();

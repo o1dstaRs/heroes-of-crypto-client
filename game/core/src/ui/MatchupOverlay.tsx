@@ -14,7 +14,7 @@ import { readPlayerArmyColorId } from "../settings/playerArmyColor";
 import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { hocDisplayFontFamily } from "./hocTheme";
-import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
+import { MATCHUP_LEFT_TEAM, MATCHUP_RIGHT_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
 import type { OpponentConnectionLabel } from "./opponentConnection";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
 import { PlayerRankedRecord, rankedRecordText } from "./PlayerRankedRecord";
@@ -65,7 +65,7 @@ type MatchupProfile = Readonly<{
 }>;
 
 const fallbackProfile = (player: MatchupPlayer): MatchupProfile => ({
-    username: player.label || (player.isAi ? "AI" : player.team === MATCHUP_LOWER_TEAM ? "Green" : "Red"),
+    username: player.label || (player.isAi ? "AI" : player.team === MATCHUP_LEFT_TEAM ? "Green" : "Red"),
     rank: player.isAi ? "AI" : "Ranked",
     ...rankedRecordText(),
 });
@@ -145,7 +145,7 @@ const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone; size?: number }> 
                     background: tone.face,
                 },
                 "&::after": {
-                    content: team === MATCHUP_LOWER_TEAM ? '\"✦\"' : '\"☾\"',
+                    content: team === MATCHUP_LEFT_TEAM ? '\"✦\"' : '\"☾\"',
                     gridArea: "1 / 1",
                     color: "#fff2cb",
                     fontFamily: "Georgia, serif",
@@ -801,12 +801,12 @@ export const matchupScreenOrder = (
     players: readonly MatchupPlayer[],
     mirrored = false,
 ): readonly [MatchupPlayer, MatchupPlayer] => {
-    const lower = players.find((player) => player.team === MATCHUP_LOWER_TEAM) ?? {
-        team: MATCHUP_LOWER_TEAM,
+    const lower = players.find((player) => player.team === MATCHUP_LEFT_TEAM) ?? {
+        team: MATCHUP_LEFT_TEAM,
         label: "Green",
     };
-    const upper = players.find((player) => player.team === MATCHUP_UPPER_TEAM) ?? {
-        team: MATCHUP_UPPER_TEAM,
+    const upper = players.find((player) => player.team === MATCHUP_RIGHT_TEAM) ?? {
+        team: MATCHUP_RIGHT_TEAM,
         label: "Red",
     };
     return mirrored ? [upper, lower] : [lower, upper];
@@ -1028,7 +1028,7 @@ export const PickMatchupOverlay: React.FC<{
     // Older preview callers currently pass TeamVals.LEFT, which becomes undefined while their local common
     // checkout exposes only LOWER/UPPER. A participant draft can only be one of the two real seats; default
     // an unknown preview value to lower so the mock still shows one player on each side.
-    const normalizedUserTeam = userTeam === MATCHUP_UPPER_TEAM ? MATCHUP_UPPER_TEAM : MATCHUP_LOWER_TEAM;
+    const normalizedUserTeam = userTeam === MATCHUP_RIGHT_TEAM ? MATCHUP_RIGHT_TEAM : MATCHUP_LEFT_TEAM;
     const fallbackPlayers = useMemo<readonly MatchupPlayer[]>(
         () => [
             {
@@ -1050,7 +1050,7 @@ export const PickMatchupOverlay: React.FC<{
                     : undefined,
             },
             {
-                team: normalizedUserTeam === MATCHUP_LOWER_TEAM ? MATCHUP_UPPER_TEAM : MATCHUP_LOWER_TEAM,
+                team: normalizedUserTeam === MATCHUP_LEFT_TEAM ? MATCHUP_RIGHT_TEAM : MATCHUP_LEFT_TEAM,
                 label: isBackendFreePreview ? "Dreadwolf" : opponentLabel,
                 isAi: !isBackendFreePreview && /^AI(?:\s|$)/i.test(opponentLabel),
                 previewProfile: isBackendFreePreview
@@ -1086,7 +1086,7 @@ export const PickMatchupOverlay: React.FC<{
                 }
                 setPlayers(
                     snapshot.teams.map((team) => ({
-                        team: team.team === "lower" ? MATCHUP_LOWER_TEAM : MATCHUP_UPPER_TEAM,
+                        team: team.team === "left" ? MATCHUP_LEFT_TEAM : MATCHUP_RIGHT_TEAM,
                         playerId: team.playerId,
                         label: team.username || (team.isBot ? "AI" : undefined),
                         isAi: team.isBot,

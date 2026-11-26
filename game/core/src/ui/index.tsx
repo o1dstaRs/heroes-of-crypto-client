@@ -696,8 +696,8 @@ const LocalPlayableDraft: React.FC = () => {
                 reason: (transition as { reason?: string }).reason,
                 phaseBefore: current.phaseSequence,
                 phaseAfter: settled.phaseSequence,
-                lowerCreatures: settled.left.creatures,
-                upperCreatures: settled.right.creatures,
+                leftCreatures: settled.left.creatures,
+                rightCreatures: settled.right.creatures,
                 state: settled,
             };
             return settled;

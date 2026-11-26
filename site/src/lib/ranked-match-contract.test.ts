@@ -30,8 +30,8 @@ const WIRE_PAYLOAD = {
     gameId: "22cfd8c1-b22b-4a9d-87c4-6dc3c8908cb2",
     finishedTime: 1787511664431,
     durationMs: 392301,
-    lowerCreatureIds: [21, 2, 6, 53, 8, 9],
-    upperCreatureIds: [33, 22, 24, 55, 30, 57],
+    leftCreatureIds: [21, 2, 6, 53, 8, 9],
+    rightCreatureIds: [33, 22, 24, 55, 30, 57],
     outcome: "win",
     reason: "concede",
     winnerPlayerId: "d1bb3dd1-037e-4b0c-91aa-dca47d4f30bb",
@@ -46,7 +46,7 @@ const WIRE_PAYLOAD = {
             delta: 12,
             goldEarned: 12,
             username: "lower_player",
-            side: "lower",
+            side: "left",
         },
         {
             playerId: "1a1669fb-1b15-4f94-b72d-cc9c983bb1fd",
@@ -57,22 +57,22 @@ const WIRE_PAYLOAD = {
             delta: -12,
             goldEarned: 0,
             username: "upper_player",
-            side: "upper",
+            side: "right",
         },
     ],
     stats: {
         totalLaps: 1,
         gridType: 3,
-        lowerDamage: 952,
-        upperDamage: 1070,
-        lowerCreatureIds: [21, 2, 6, 53, 8, 9],
-        upperCreatureIds: [33, 22, 24, 55, 30, 57],
-        lowerPerformers: [
+        leftDamage: 952,
+        rightDamage: 1070,
+        leftCreatureIds: [21, 2, 6, 53, 8, 9],
+        rightCreatureIds: [33, 22, 24, 55, 30, 57],
+        leftPerformers: [
             { creatureId: 21, damageDealt: 350 },
             { creatureId: 8, damageDealt: 348 },
         ],
-        upperPerformers: [{ creatureId: 33, damageDealt: 500 }],
-        lowerSetup: {
+        rightPerformers: [{ creatureId: 33, damageDealt: 500 }],
+        leftSetup: {
             artifactTier1: 5,
             artifactTier2: 13,
             doctrine: 3,
@@ -84,7 +84,7 @@ const WIRE_PAYLOAD = {
             augmentMovement: 2,
             synergies: ["Chaos:1:2"],
         },
-        upperSetup: {
+        rightSetup: {
             artifactTier1: 1,
             artifactTier2: 4,
             doctrine: 2,
@@ -109,7 +109,7 @@ const WIRE_PAYLOAD = {
     },
 };
 
-const SIDES: RankedMatchSide[] = ["lower", "upper"];
+const SIDES: RankedMatchSide[] = ["left", "right"];
 
 /** Components whose script blocks read the parsed match. Unchecked by tsc — hence the scan. */
 const CONSUMERS = ["ProfilePage.astro", "MatchPage.astro"] as const;
@@ -120,13 +120,13 @@ describe("ranked match producer contract", () => {
         expect(stats).not.toBeNull();
 
         // Values, not just shape: a key-name drift zeroes these while every structural assertion still passes.
-        expect(stats?.lowerDamage).toBe(952);
-        expect(stats?.upperDamage).toBe(1070);
-        expect(stats?.lowerPerformers.length).toBe(2);
-        expect(stats?.upperPerformers).toEqual([{ creatureId: 33, damageDealt: 500 }]);
-        expect(stats?.lowerSetup.artifactTier1).toBe(5);
-        expect(stats?.lowerSetup.synergies).toEqual(["Chaos:1:2"]);
-        expect(stats?.upperSetup.augmentSniper).toBe(1);
+        expect(stats?.leftDamage).toBe(952);
+        expect(stats?.rightDamage).toBe(1070);
+        expect(stats?.leftPerformers.length).toBe(2);
+        expect(stats?.rightPerformers).toEqual([{ creatureId: 33, damageDealt: 500 }]);
+        expect(stats?.leftSetup.artifactTier1).toBe(5);
+        expect(stats?.leftSetup.synergies).toEqual(["Chaos:1:2"]);
+        expect(stats?.rightSetup.augmentSniper).toBe(1);
         expect(stats?.totalLaps).toBe(1);
     });
 
@@ -146,7 +146,7 @@ describe("ranked match producer contract", () => {
     test("the seat names and the stats key prefixes stay in agreement", () => {
         const stats = normalizePublicRankedMatch(WIRE_PAYLOAD)?.stats;
         expect(stats).toBeTruthy();
-        // The outage was exactly this invariant breaking: RankedMatchSide stayed "lower"/"upper" while the
+        // The outage was exactly this invariant breaking: RankedMatchSide stayed "left"/"right" while the
         // stats keys became left*/right*, so `${side}Setup` resolved to undefined at every call site.
         for (const side of SIDES) {
             expect(Object.keys(stats!)).toContain(`${side}Damage`);

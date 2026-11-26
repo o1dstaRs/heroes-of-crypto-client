@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import { matchupScreenOrder, type MatchupPlayer } from "./MatchupOverlay";
-import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM } from "./matchupOverlayTone";
+import { MATCHUP_LEFT_TEAM, MATCHUP_RIGHT_TEAM } from "./matchupOverlayTone";
 
-const green: MatchupPlayer = { team: MATCHUP_LOWER_TEAM, playerId: "green-player" };
-const red: MatchupPlayer = { team: MATCHUP_UPPER_TEAM, playerId: "red-player" };
+const green: MatchupPlayer = { team: MATCHUP_LEFT_TEAM, playerId: "green-player" };
+const red: MatchupPlayer = { team: MATCHUP_RIGHT_TEAM, playerId: "red-player" };
 
 describe("the matchup strip lines up with the board under it", () => {
     test("as dealt, the left seat sits left of the VS whatever order the players arrive in", () => {
@@ -19,6 +19,6 @@ describe("the matchup strip lines up with the board under it", () => {
     test("a seat that has not arrived yet keeps its honest placeholder on its own side", () => {
         const [left, right] = matchupScreenOrder([red], true);
         expect(left).toBe(red);
-        expect(right).toEqual({ team: MATCHUP_LOWER_TEAM, label: "Green" });
+        expect(right).toEqual({ team: MATCHUP_LEFT_TEAM, label: "Green" });
     });
 });

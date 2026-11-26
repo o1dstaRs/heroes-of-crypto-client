@@ -45,8 +45,8 @@ const copy = isRu
           noSetup: "Подготовка этой армии не была сохранена в старом отчёте.",
           noStats: "Для этого старого матча подробная боевая статистика ещё не сохранялась.",
           replay: "Повтор боя",
-          lower: "Нижняя армия",
-          upper: "Верхняя армия",
+          left: "Левая армия",
+          right: "Правая армия",
           normal: "Бой завершён",
           concede: "Сдача",
           disconnect: "Отключение",
@@ -105,8 +105,8 @@ const copy = isRu
           noSetup: "This army's setup was not recorded for the older report.",
           noStats: "Detailed battle statistics were not recorded for this older match.",
           replay: "Watch replay",
-          lower: "Lower army",
-          upper: "Upper army",
+          left: "Left army",
+          right: "Right army",
           normal: "Battle completed",
           concede: "Concede",
           disconnect: "Disconnect",
@@ -254,14 +254,14 @@ const copy = isRu
     const sideLabel = (side: RankedMatchSide): string => text(side);
 
     const damageFor = (match: PublicRankedMatch, side: RankedMatchSide): number =>
-        side === "lower" ? (match.stats?.lowerDamage ?? 0) : (match.stats?.upperDamage ?? 0);
+        side === "left" ? (match.stats?.leftDamage ?? 0) : (match.stats?.rightDamage ?? 0);
 
     const performanceFor = (match: PublicRankedMatch, side: RankedMatchSide): RankedMatchUnitPerformance[] =>
-        side === "lower" ? (match.stats?.lowerPerformers ?? []) : (match.stats?.upperPerformers ?? []);
+        side === "left" ? (match.stats?.leftPerformers ?? []) : (match.stats?.rightPerformers ?? []);
 
     const setupFor = (match: PublicRankedMatch, side: RankedMatchSide): RankedMatchTeamSetup | null => {
         if (!match.stats?.setupRecorded) return null;
-        return side === "lower" ? match.stats.lowerSetup : match.stats.upperSetup;
+        return side === "left" ? match.stats.leftSetup : match.stats.rightSetup;
     };
 
     const artifactFor = (tier: 1 | 2, id: number): ArtifactProperties | undefined =>
@@ -433,7 +433,7 @@ const copy = isRu
                   ? resultLabel(viewer.result)
                   : `${orderedPlayers[0].username} ${text("defeated")} ${orderedPlayers[1].username}`;
         const tone = match.outcome !== "win" ? "draw" : viewer?.result === "none" ? "draw" : viewer?.result ?? "win";
-        const totalDamage = (match.stats?.lowerDamage ?? 0) + (match.stats?.upperDamage ?? 0);
+        const totalDamage = (match.stats?.leftDamage ?? 0) + (match.stats?.rightDamage ?? 0);
         const finished = match.finishedTime ? dateFormatter.format(new Date(match.finishedTime)) : "—";
         // Exit rules: how an early ending was resolved, e.g. "Abandoned at 31% casualties". An exit settled before the
         // rules applied keeps its old reason and adds how the same exit counts under them.

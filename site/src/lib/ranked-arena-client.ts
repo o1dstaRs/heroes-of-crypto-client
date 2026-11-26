@@ -710,7 +710,7 @@ const renderPredictionPanel = (
     append(bar, leftFill, rightFill);
 
     const legend = el("div", "ranked-arena__market-legend");
-    const legendSide = (player: LiveGame["players"][number], share: number, side: "lower" | "upper"): HTMLElement => {
+    const legendSide = (player: LiveGame["players"][number], share: number, side: "left" | "right"): HTMLElement => {
         const item = el("span", `ranked-arena__market-legend-item ranked-arena__market-legend-item--${side}`);
         const amount = el("span", "ranked-arena__market-legend-value");
         append(
@@ -721,7 +721,7 @@ const renderPredictionPanel = (
         append(item, el("strong", "", player.username), amount);
         return item;
     };
-    append(legend, legendSide(left, leftShare, "lower"), legendSide(right, 1 - leftShare, "upper"));
+    append(legend, legendSide(left, leftShare, "left"), legendSide(right, 1 - leftShare, "right"));
     append(panel, header, bar, legend);
 
     // ---- the viewer's own position, or the way in ----

@@ -344,8 +344,8 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({
         return Math.max(0, Math.floor((snapshot.phaseEndsAt - (now + driftRef.current)) / 1000));
     }, [snapshot, now]);
 
-    const left = snapshot?.teams?.find((team) => team.team === "lower");
-    const right = snapshot?.teams?.find((team) => team.team === "upper");
+    const left = snapshot?.teams?.find((team) => team.team === "left");
+    const right = snapshot?.teams?.find((team) => team.team === "right");
     const bans = snapshot?.bans ?? [];
 
     return (

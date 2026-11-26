@@ -4,8 +4,8 @@ import { readPlayerArmyColorId, resolvePlayerArmyColor } from "../settings/playe
 
 // LEFT/RIGHT are being renamed to LOWER/UPPER in common without changing their wire values.
 const teamValues = TeamVals as unknown as Record<string, number>;
-export const MATCHUP_LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
-export const MATCHUP_UPPER_TEAM = (teamValues.RIGHT ?? teamValues.UPPER ?? 1) as TeamType;
+export const MATCHUP_LEFT_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
+export const MATCHUP_RIGHT_TEAM = (teamValues.RIGHT ?? teamValues.UPPER ?? 1) as TeamType;
 
 export type MatchupTeamTone = Readonly<{
     bright: string;
@@ -51,5 +51,5 @@ export const matchupTeamTone = (
         };
     }
 
-    return team === MATCHUP_LOWER_TEAM ? AUTHORED_LOWER_TONE : AUTHORED_UPPER_TONE;
+    return team === MATCHUP_LEFT_TEAM ? AUTHORED_LOWER_TONE : AUTHORED_UPPER_TONE;
 };

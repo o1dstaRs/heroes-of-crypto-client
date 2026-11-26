@@ -390,35 +390,35 @@ export const RankedGameView: React.FC<Props> = ({
             return;
         }
         const fp = FightStateManager.getInstance().getFightProperties();
-        const syncTeam = (team: TeamType, side: "lower" | "upper"): void => {
+        const syncTeam = (team: TeamType, side: "left" | "right"): void => {
             const s = snapshot;
             fp.setDoctrinePerTeam(
                 team,
-                ((side === "lower" ? s.leftDoctrine : s.rightDoctrine) ||
+                ((side === "left" ? s.leftDoctrine : s.rightDoctrine) ||
                     Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine,
             );
             fp.setArtifactPerTeam(
                 team,
                 Artifact.ArtifactTier.TIER_1,
-                (side === "lower" ? s.leftArtifactTier1 : s.rightArtifactTier1) ?? 0,
+                (side === "left" ? s.leftArtifactTier1 : s.rightArtifactTier1) ?? 0,
             );
             fp.setArtifactPerTeam(
                 team,
                 Artifact.ArtifactTier.TIER_2,
-                (side === "lower" ? s.leftArtifactTier2 : s.rightArtifactTier2) ?? 0,
+                (side === "left" ? s.leftArtifactTier2 : s.rightArtifactTier2) ?? 0,
             );
             const aug = (kind: Augment.AugmentType["type"], v: number | undefined): void => {
                 fp.setAugmentPerTeam(team, { type: kind, value: v ?? 0 } as Augment.AugmentType);
             };
-            aug("Placement", side === "lower" ? s.leftAugmentPlacement : s.rightAugmentPlacement);
-            aug("Armor", side === "lower" ? s.leftAugmentArmor : s.rightAugmentArmor);
-            aug("Might", side === "lower" ? s.leftAugmentMight : s.rightAugmentMight);
-            aug("Empower", side === "lower" ? s.leftAugmentEmpower : s.rightAugmentEmpower);
-            aug("Sniper", side === "lower" ? s.leftAugmentSniper : s.rightAugmentSniper);
-            aug("Movement", side === "lower" ? s.leftAugmentMovement : s.rightAugmentMovement);
+            aug("Placement", side === "left" ? s.leftAugmentPlacement : s.rightAugmentPlacement);
+            aug("Armor", side === "left" ? s.leftAugmentArmor : s.rightAugmentArmor);
+            aug("Might", side === "left" ? s.leftAugmentMight : s.rightAugmentMight);
+            aug("Empower", side === "left" ? s.leftAugmentEmpower : s.rightAugmentEmpower);
+            aug("Sniper", side === "left" ? s.leftAugmentSniper : s.rightAugmentSniper);
+            aug("Movement", side === "left" ? s.leftAugmentMovement : s.rightAugmentMovement);
         };
-        syncTeam(TeamVals.LEFT, "lower");
-        syncTeam(TeamVals.RIGHT, "upper");
+        syncTeam(TeamVals.LEFT, "left");
+        syncTeam(TeamVals.RIGHT, "right");
         synergyGameIdRef.current = syncRankedSnapshotSynergies(fp, snapshot, synergyGameIdRef.current);
     }, [snapshot]);
 
@@ -2752,30 +2752,30 @@ const ObserverTeamSetup: React.FC<{
     label: string;
     identityLine?: string;
     snapshot: PlaySnapshot;
-    side: "lower" | "upper";
+    side: "left" | "right";
 }> = ({ label, identityLine, snapshot, side }) => {
-    const doctrineId = side === "lower" ? snapshot.leftDoctrine : snapshot.rightDoctrine;
-    const tier1 = (side === "lower" ? snapshot.leftArtifactTier1 : snapshot.rightArtifactTier1) ?? 0;
-    const tier2 = (side === "lower" ? snapshot.leftArtifactTier2 : snapshot.rightArtifactTier2) ?? 0;
-    const synergies = (side === "lower" ? snapshot.leftSynergies : snapshot.rightSynergies) ?? [];
+    const doctrineId = side === "left" ? snapshot.leftDoctrine : snapshot.rightDoctrine;
+    const tier1 = (side === "left" ? snapshot.leftArtifactTier1 : snapshot.rightArtifactTier1) ?? 0;
+    const tier2 = (side === "left" ? snapshot.leftArtifactTier2 : snapshot.rightArtifactTier2) ?? 0;
+    const synergies = (side === "left" ? snapshot.leftSynergies : snapshot.rightSynergies) ?? [];
     const augments: Array<{ category: string; level: number }> = [
         {
             category: "Placement",
-            level: (side === "lower" ? snapshot.leftAugmentPlacement : snapshot.rightAugmentPlacement) ?? 0,
+            level: (side === "left" ? snapshot.leftAugmentPlacement : snapshot.rightAugmentPlacement) ?? 0,
         },
-        { category: "Armor", level: (side === "lower" ? snapshot.leftAugmentArmor : snapshot.rightAugmentArmor) ?? 0 },
-        { category: "Might", level: (side === "lower" ? snapshot.leftAugmentMight : snapshot.rightAugmentMight) ?? 0 },
+        { category: "Armor", level: (side === "left" ? snapshot.leftAugmentArmor : snapshot.rightAugmentArmor) ?? 0 },
+        { category: "Might", level: (side === "left" ? snapshot.leftAugmentMight : snapshot.rightAugmentMight) ?? 0 },
         {
             category: "Empower",
-            level: (side === "lower" ? snapshot.leftAugmentEmpower : snapshot.rightAugmentEmpower) ?? 0,
+            level: (side === "left" ? snapshot.leftAugmentEmpower : snapshot.rightAugmentEmpower) ?? 0,
         },
         {
             category: "Sniper",
-            level: (side === "lower" ? snapshot.leftAugmentSniper : snapshot.rightAugmentSniper) ?? 0,
+            level: (side === "left" ? snapshot.leftAugmentSniper : snapshot.rightAugmentSniper) ?? 0,
         },
         {
             category: "Movement",
-            level: (side === "lower" ? snapshot.leftAugmentMovement : snapshot.rightAugmentMovement) ?? 0,
+            level: (side === "left" ? snapshot.leftAugmentMovement : snapshot.rightAugmentMovement) ?? 0,
         },
     ].filter((entry) => entry.level > 0);
 
@@ -2783,7 +2783,7 @@ const ObserverTeamSetup: React.FC<{
     // side's doctrine, artifacts and augments until the fight starts, so those blanks must not read as "None";
     // the army itself appears once board placement has exposed it to both seats.
     const beforeFight = snapshot.phase === PlayPhase.PLACEMENT && !snapshot.fightStarted;
-    const exposedRoster = observerPlacementRosterIds(snapshot, side === "lower" ? TeamVals.LEFT : TeamVals.RIGHT);
+    const exposedRoster = observerPlacementRosterIds(snapshot, side === "left" ? TeamVals.LEFT : TeamVals.RIGHT);
 
     return (
         <Stack spacing={0.5} sx={{ minWidth: 130 }}>
@@ -2938,13 +2938,13 @@ const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) 
                     label={teamLabel(TeamVals.LEFT)}
                     identityLine={identityLineFor(TeamVals.LEFT)}
                     snapshot={snapshot}
-                    side="lower"
+                    side="left"
                 />
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.RIGHT)}
                     identityLine={identityLineFor(TeamVals.RIGHT)}
                     snapshot={snapshot}
-                    side="upper"
+                    side="right"
                 />
             </Stack>
         </Stack>

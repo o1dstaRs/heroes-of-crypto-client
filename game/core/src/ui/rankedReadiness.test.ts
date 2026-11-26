@@ -19,8 +19,8 @@ const snapshot = (overrides: Partial<Snapshot> = {}): Snapshot => ({
     placementSplit: true,
     placementStage: 0,
     players: [
-        { playerId: "lower", team: TeamVals.LEFT, connected: true, aiControlled: false, lastSeenMs: 0 },
-        { playerId: "upper", team: TeamVals.RIGHT, connected: true, aiControlled: false, lastSeenMs: 0 },
+        { playerId: "left", team: TeamVals.LEFT, connected: true, aiControlled: false, lastSeenMs: 0 },
+        { playerId: "right", team: TeamVals.RIGHT, connected: true, aiControlled: false, lastSeenMs: 0 },
     ],
     readyPlayerIds: [],
     ...overrides,
@@ -63,7 +63,7 @@ describe("ranked readiness intent", () => {
             snapshot({ phase: PlayPhase.ABANDONED }),
             snapshot({ fightStarted: true }),
             snapshot({ fightFinished: true }),
-            snapshot({ readyPlayerIds: ["lower"] }),
+            snapshot({ readyPlayerIds: ["left"] }),
         ])
             expect(captureRankedReadinessIntent(state, TeamVals.LEFT, PlayActionType.START_FIGHT)).toBeUndefined();
         expect(captureRankedReadinessIntent(null, TeamVals.LEFT, PlayActionType.START_FIGHT)).toBeUndefined();
@@ -86,12 +86,12 @@ describe("readiness rejection recovery", () => {
         expect(isRecoveredRankedReadinessRejection(setup, "sequence_mismatch", board)).toBe(true);
         expect(isRecoveredRankedReadinessRejection(setup, "setup_not_available", board)).toBe(true);
         expect(board.readyPlayerIds).toEqual([]);
-        expect(
-            isRecoveredRankedReadinessRejection(setup, "setup_locked", snapshot({ readyPlayerIds: ["lower"] })),
-        ).toBe(true);
+        expect(isRecoveredRankedReadinessRejection(setup, "setup_locked", snapshot({ readyPlayerIds: ["left"] }))).toBe(
+            true,
+        );
         expect(isRecoveredRankedReadinessRejection(setup, "sequence_mismatch", snapshot())).toBe(false);
         expect(
-            isRecoveredRankedReadinessRejection(setup, "setup_locked", snapshot({ readyPlayerIds: ["upper"] })),
+            isRecoveredRankedReadinessRejection(setup, "setup_locked", snapshot({ readyPlayerIds: ["right"] })),
         ).toBe(false);
     });
 
@@ -104,7 +104,7 @@ describe("readiness rejection recovery", () => {
             isRecoveredRankedReadinessRejection(ready, "sequence_mismatch", snapshot({ phase: PlayPhase.FINISHED })),
         ).toBe(true);
         expect(
-            isRecoveredRankedReadinessRejection(ready, "placement_locked", snapshot({ readyPlayerIds: ["lower"] })),
+            isRecoveredRankedReadinessRejection(ready, "placement_locked", snapshot({ readyPlayerIds: ["left"] })),
         ).toBe(false);
     });
 
@@ -161,7 +161,7 @@ describe("queued readiness", () => {
         let sends = 0;
         const send = async () => {
             sends++;
-            current = snapshot({ readyPlayerIds: ["lower"] });
+            current = snapshot({ readyPlayerIds: ["left"] });
         };
         const clicks = Array.from({ length: 20 }, () => gate.submit(intent(), () => current, enqueue, send));
         expect(sends).toBe(0);
@@ -238,7 +238,7 @@ describe("bounded readiness retry", () => {
             { type: "start_fight" },
             {
                 gameId: "match",
-                playerId: "lower",
+                playerId: "left",
                 team: TeamVals.LEFT,
                 expectedSequence: 15,
                 actionId: "original",
@@ -268,7 +268,7 @@ describe("bounded readiness retry", () => {
             expectedSequence: 16,
             inputSource: PlayInputSource.CLIENT_RETRY,
             type: PlayActionType.START_FIGHT,
-            playerId: "lower",
+            playerId: "left",
             team: TeamVals.LEFT,
         });
     });
@@ -295,7 +295,7 @@ describe("bounded readiness retry", () => {
             snapshot({ phase: PlayPhase.PLAY }),
             snapshot({ gameId: "other" }),
             snapshot({ players: [] }),
-            snapshot({ readyPlayerIds: ["lower"] }),
+            snapshot({ readyPlayerIds: ["left"] }),
         ]) {
             let sends = 0;
             await sendRankedReadinessWithRetry(action(), intent(), {
@@ -357,7 +357,7 @@ test("a readiness retry cannot relabel automated input as a human client retry",
             { type: "start_fight" },
             {
                 gameId: "match",
-                playerId: "lower",
+                playerId: "left",
                 team: TeamVals.LEFT,
                 expectedSequence: 15,
                 actionId: "automated",

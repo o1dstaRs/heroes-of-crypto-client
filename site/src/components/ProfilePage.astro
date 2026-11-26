@@ -532,19 +532,19 @@ const reputationHref = reputationRulesPath(lang);
     interface RichPublicMatchStats {
         durationMs?: number;
         duration_ms?: number;
-        lowerCreatureIds?: number[];
-        lower_creature_ids?: number[];
-        upperCreatureIds?: number[];
-        upper_creature_ids?: number[];
+        leftCreatureIds?: number[];
+        left_creature_ids?: number[];
+        rightCreatureIds?: number[];
+        right_creature_ids?: number[];
     }
 
     interface RichPublicMatch {
         durationMs?: number;
         duration_ms?: number;
-        lowerCreatureIds?: number[];
-        lower_creature_ids?: number[];
-        upperCreatureIds?: number[];
-        upper_creature_ids?: number[];
+        leftCreatureIds?: number[];
+        left_creature_ids?: number[];
+        rightCreatureIds?: number[];
+        right_creature_ids?: number[];
     }
 
     const dateFormatter = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" });
@@ -1051,15 +1051,15 @@ const reputationHref = reputationRulesPath(lang);
         const richMatch = match as PublicRankedMatch & RichPublicMatch;
         const richStats = match.stats as (PublicRankedMatch["stats"] & RichPublicMatchStats) | null;
         const value =
-            side === "lower"
-                ? richStats?.lowerCreatureIds ??
-                  richStats?.lower_creature_ids ??
-                  richMatch.lowerCreatureIds ??
-                  richMatch.lower_creature_ids
-                : richStats?.upperCreatureIds ??
-                  richStats?.upper_creature_ids ??
-                  richMatch.upperCreatureIds ??
-                  richMatch.upper_creature_ids;
+            side === "left"
+                ? richStats?.leftCreatureIds ??
+                  richStats?.left_creature_ids ??
+                  richMatch.leftCreatureIds ??
+                  richMatch.left_creature_ids
+                : richStats?.rightCreatureIds ??
+                  richStats?.right_creature_ids ??
+                  richMatch.rightCreatureIds ??
+                  richMatch.right_creature_ids;
         return Array.isArray(value) ? value.map(num).filter((id) => id > 0) : [];
     }
 
@@ -1082,16 +1082,16 @@ const reputationHref = reputationRulesPath(lang);
         const opponent = match.players.find((player) => player.playerId !== viewer.playerId) ?? match.players[1];
         const stats = match.stats;
         const side = viewer.side;
-        const opponentSide: RankedMatchSide = side === "lower" ? "upper" : "lower";
+        const opponentSide: RankedMatchSide = side === "left" ? "right" : "left";
         const duration = formatDuration(publicDurationMs(match));
         const laps = stats?.totalLaps ?? 0;
-        const playerDamage = side === "lower" ? (stats?.lowerDamage ?? 0) : (stats?.upperDamage ?? 0);
-        const opponentDamage = side === "lower" ? (stats?.upperDamage ?? 0) : (stats?.lowerDamage ?? 0);
+        const playerDamage = side === "left" ? (stats?.leftDamage ?? 0) : (stats?.rightDamage ?? 0);
+        const opponentDamage = side === "left" ? (stats?.rightDamage ?? 0) : (stats?.leftDamage ?? 0);
         const playerPerformances = publicPerformances(
-            side === "lower" ? (stats?.lowerPerformers ?? []) : (stats?.upperPerformers ?? []),
+            side === "left" ? (stats?.leftPerformers ?? []) : (stats?.rightPerformers ?? []),
         );
         const opponentPerformances = publicPerformances(
-            side === "lower" ? (stats?.upperPerformers ?? []) : (stats?.lowerPerformers ?? []),
+            side === "left" ? (stats?.rightPerformers ?? []) : (stats?.leftPerformers ?? []),
         );
         const signedDelta = `${viewer.delta > 0 ? "+" : ""}${numberFormatter.format(viewer.delta)}`;
         // Calibration rows state that the rating did not move rather than printing the provisional delta.
@@ -1099,10 +1099,10 @@ const reputationHref = reputationRulesPath(lang);
             ? escapeHtml(copy.matchMmrCalibration)
             : `${numberFormatter.format(viewer.mmrBefore)} → ${numberFormatter.format(viewer.mmrAfter)} <span class="${viewer.delta > 0 ? "positive" : viewer.delta < 0 ? "negative" : ""}">(${signedDelta})</span>`;
         const playerSetup = stats
-            ? publicSetup(side === "lower" ? stats.lowerSetup : stats.upperSetup, stats.setupRecorded)
+            ? publicSetup(side === "left" ? stats.leftSetup : stats.rightSetup, stats.setupRecorded)
             : null;
         const opponentSetup = stats
-            ? publicSetup(opponentSide === "lower" ? stats.lowerSetup : stats.upperSetup, stats.setupRecorded)
+            ? publicSetup(opponentSide === "left" ? stats.leftSetup : stats.rightSetup, stats.setupRecorded)
             : null;
         return `
             <dl class="match-detail-metrics">

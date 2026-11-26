@@ -186,7 +186,7 @@ const RESULTS_PREVIEW_MATCH: PublicRankedMatch = {
         {
             playerId: "preview-lower",
             username: "RuneWarden",
-            side: "lower",
+            side: "left",
             result: "loss",
             calibration: false,
             mmrBefore: 1838,
@@ -197,7 +197,7 @@ const RESULTS_PREVIEW_MATCH: PublicRankedMatch = {
         {
             playerId: "preview-upper",
             username: "VoidSeraph",
-            side: "upper",
+            side: "right",
             result: "win",
             calibration: false,
             mmrBefore: 1818,
@@ -1205,7 +1205,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
     const resultParticipants = ([LEFT_TEAM, RIGHT_TEAM] as TeamType[]).map((team): ResultParticipant => {
-        const side = team === LEFT_TEAM ? "lower" : "upper";
+        const side = team === LEFT_TEAM ? "left" : "right";
         const settlement = activeMatch?.players.find((player) => player.side === side);
         const seat = players.find(
             (player) => player.team === team || (!!settlement?.playerId && player.playerId === settlement.playerId),

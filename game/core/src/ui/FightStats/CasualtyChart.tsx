@@ -24,12 +24,11 @@ export const GOLD = "#dcb158";
 export const PARCHMENT = "#efe4cc";
 export const WOOD_DARK = "#1c0d03";
 
-const teamValues = TeamVals as unknown as Record<string, number>;
-const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
+const LEFT_TEAM = TeamVals.LEFT as TeamType;
 
 export { creatureImgSrc, imgSrc };
-export const teamColor = (team: TeamType): string => (team === LOWER_TEAM ? GREEN : RED);
-export const teamName = (team: TeamType): string => t(team === LOWER_TEAM ? "Green" : "Red");
+export const teamColor = (team: TeamType): string => (team === LEFT_TEAM ? GREEN : RED);
+export const teamName = (team: TeamType): string => t(team === LEFT_TEAM ? "Green" : "Red");
 
 const DEFAULT_CHART_W = 600;
 const DEFAULT_CHART_H = 264;
@@ -105,7 +104,7 @@ export const CasualtyChart: React.FC<{
 
     const finalGreen = accGreen(pts[n - 1]);
     const finalRed = accRed(pts[n - 1]);
-    const timedSeries = withUnmarkedEliminations(pts, deaths, LOWER_TEAM);
+    const timedSeries = withUnmarkedEliminations(pts, deaths, LEFT_TEAM);
     const markerRadius = ELIMINATION_MARKER_RADIUS;
     const markerExtent = eliminationMarkerExtent(markerRadius);
     const markerInner = markerRadius - 2;
@@ -115,7 +114,7 @@ export const CasualtyChart: React.FC<{
     const eliminationMarkers = layoutEliminationMarkers(
         timedSeries.flatMap((sample, sampleIndex) =>
             (sample.eliminations ?? []).map((elimination, eliminationIndex) => {
-                const casualtyPct = elimination.team === LOWER_TEAM ? accGreen(sample) : accRed(sample);
+                const casualtyPct = elimination.team === LEFT_TEAM ? accGreen(sample) : accRed(sample);
                 return {
                     elimination,
                     pointX: xFor(sampleIndex),

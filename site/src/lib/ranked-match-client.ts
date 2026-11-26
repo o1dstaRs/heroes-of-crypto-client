@@ -9,7 +9,7 @@ import {
 import { isPublicRankedPlayerId } from "./ranked-profile-client";
 import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
 
-export type RankedMatchSide = "lower" | "upper";
+export type RankedMatchSide = "left" | "right";
 
 export interface PublicRankedMatchPlayer {
     playerId: string;
@@ -47,14 +47,14 @@ export interface PublicRankedMatchStats {
     // These mirror the ranked-match wire payload verbatim. The seats are called LEFT/RIGHT in prose and UI,
     // but the API keys stay lower/upper — the server kept every stored key through that rename, so renaming
     // them here would both read nothing off the response and hand consumers fields they do not ask for.
-    lowerDamage: number;
-    upperDamage: number;
-    lowerCreatureIds: number[];
-    upperCreatureIds: number[];
-    lowerPerformers: RankedMatchUnitPerformance[];
-    upperPerformers: RankedMatchUnitPerformance[];
-    lowerSetup: RankedMatchTeamSetup;
-    upperSetup: RankedMatchTeamSetup;
+    leftDamage: number;
+    rightDamage: number;
+    leftCreatureIds: number[];
+    rightCreatureIds: number[];
+    leftPerformers: RankedMatchUnitPerformance[];
+    rightPerformers: RankedMatchUnitPerformance[];
+    leftSetup: RankedMatchTeamSetup;
+    rightSetup: RankedMatchTeamSetup;
     setupRecorded: boolean;
     replayAvailable: boolean;
 }
@@ -71,8 +71,8 @@ export interface PublicRankedMatch {
     gameId: string;
     finishedTime: number;
     durationMs: number;
-    lowerCreatureIds: number[];
-    upperCreatureIds: number[];
+    leftCreatureIds: number[];
+    rightCreatureIds: number[];
     // "none": unscored or voided (exit rules), with no winner and no rating change.
     outcome: "win" | "draw" | "none";
     reason: RankedMatchReason;
@@ -103,7 +103,7 @@ const normalizeReason = normalizeRankedMatchReason;
 const normalizeResult: (value: unknown) => RankedMatchResult = normalizeRankedMatchResult;
 
 const normalizeSide = (value: unknown): RankedMatchSide | null =>
-    value === "lower" || value === "upper" ? value : null;
+    value === "left" || value === "right" ? value : null;
 
 const normalizePlayer = (value: unknown): PublicRankedMatchPlayer | null => {
     const row = asRecord(value);
@@ -168,14 +168,14 @@ const normalizeStats = (value: unknown): PublicRankedMatchStats | null => {
     return {
         totalLaps: nonNegativeInteger(row.totalLaps),
         gridType: nonNegativeInteger(row.gridType),
-        lowerDamage: nonNegativeInteger(row.lowerDamage),
-        upperDamage: nonNegativeInteger(row.upperDamage),
-        lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
-        upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
-        lowerPerformers: performances(row.lowerPerformers),
-        upperPerformers: performances(row.upperPerformers),
-        lowerSetup: normalizeSetup(row.lowerSetup),
-        upperSetup: normalizeSetup(row.upperSetup),
+        leftDamage: nonNegativeInteger(row.leftDamage),
+        rightDamage: nonNegativeInteger(row.rightDamage),
+        leftCreatureIds: normalizeCreatureIds(row.leftCreatureIds),
+        rightCreatureIds: normalizeCreatureIds(row.rightCreatureIds),
+        leftPerformers: performances(row.leftPerformers),
+        rightPerformers: performances(row.rightPerformers),
+        leftSetup: normalizeSetup(row.leftSetup),
+        rightSetup: normalizeSetup(row.rightSetup),
         setupRecorded: row.setupRecorded === true,
         replayAvailable: row.replayAvailable === true,
     };
@@ -206,16 +206,16 @@ export function normalizePublicRankedMatch(value: unknown): PublicRankedMatch | 
     const players = (Array.isArray(row.players) ? row.players : [])
         .map(normalizePlayer)
         .filter((player): player is PublicRankedMatchPlayer => player !== null)
-        .sort((left, right) => (left.side === right.side ? 0 : left.side === "lower" ? -1 : 1));
-    if (players.length !== 2 || players[0]?.side !== "lower" || players[1]?.side !== "upper") return null;
+        .sort((left, right) => (left.side === right.side ? 0 : left.side === "left" ? -1 : 1));
+    if (players.length !== 2 || players[0]?.side !== "left" || players[1]?.side !== "right") return null;
     const winnerPlayerId = asString(row.winnerPlayerId);
     const season = normalizeSeason(row.season);
     return {
         gameId,
         finishedTime: nonNegativeInteger(row.finishedTime),
         durationMs: nonNegativeInteger(row.durationMs),
-        lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
-        upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
+        leftCreatureIds: normalizeCreatureIds(row.leftCreatureIds),
+        rightCreatureIds: normalizeCreatureIds(row.rightCreatureIds),
         outcome: row.outcome === "win" ? "win" : row.outcome === "none" ? "none" : "draw",
         reason: normalizeReason(row.reason),
         exit: normalizeRankedMatchExit(row.exit),

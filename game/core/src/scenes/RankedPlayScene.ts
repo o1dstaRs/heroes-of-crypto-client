@@ -1199,7 +1199,7 @@ const getUnitPropertiesFromAuthoritativeState = (
 };
 
 // Derives just {name, smallTextureName} for a creature type purely from its id — used to render the
-// server's fight-start roster (lowerStartRosterCreatureIds/Amounts etc.), which covers creature types
+// server's fight-start roster (leftStartRosterCreatureIds/Amounts etc.), which covers creature types
 // that may already be fully wiped (and so absent from `units`) by the time this client sees ANY
 // snapshot, e.g. a finished ranked game loaded cold. Mirrors getUnitPropertiesFromAuthoritativeState's
 // name/texture derivation without needing a live unit to hang the lookup off of.

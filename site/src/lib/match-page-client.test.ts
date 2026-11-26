@@ -66,16 +66,16 @@ test.each(["en", "ru"] as const)("the shipped match page renders portraits and e
             reason: "abandon",
             exit: { kind: "abandon", phase: "fight", scored: true, boardBp: 3100, enforced: true },
             players: [
-                { playerId: "22222222-2222-4222-8222-222222222222", username: "Alice", side: "lower", result: "win" },
-                { playerId: "33333333-3333-4333-8333-333333333333", username: "Bob", side: "upper", result: "loss" },
+                { playerId: "22222222-2222-4222-8222-222222222222", username: "Alice", side: "left", result: "win" },
+                { playerId: "33333333-3333-4333-8333-333333333333", username: "Bob", side: "right", result: "loss" },
             ],
             stats: {
                 totalLaps: 1,
                 gridType: 1,
-                lowerDamage: 12,
-                upperDamage: 4,
-                lowerPerformers: [{ creatureId: 31, damageDealt: 12 }],
-                upperPerformers: [],
+                leftDamage: 12,
+                rightDamage: 4,
+                leftPerformers: [{ creatureId: 31, damageDealt: 12 }],
+                rightPerformers: [],
             },
         };
         let requested = "";

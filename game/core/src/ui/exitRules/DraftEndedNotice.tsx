@@ -93,7 +93,7 @@ export const DraftEndedNotice: React.FC<{ gameId: string; userTeam: TeamType }> 
     if (!isAbandoned) {
         return null;
     }
-    const side = userTeam === TeamVals.LEFT ? "lower" : "upper";
+    const side = userTeam === TeamVals.LEFT ? "left" : "right";
     const viewerPlayerId = match?.players.find((player) => player.side === side)?.playerId;
     return (
         <Modal open>

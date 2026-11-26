@@ -17,7 +17,7 @@ const payload = {
     players: playerIds.map((playerId, index) => ({
         playerId,
         username: index ? "Opponent" : "Viewer",
-        side: index ? "upper" : "lower",
+        side: index ? "right" : "left",
         result: index ? "win" : "loss",
         mmrBefore: 1000,
         mmrAfter: index ? 1010 : 990,
@@ -28,13 +28,13 @@ const payload = {
     stats: {
         totalLaps: 6,
         gridType: 4,
-        lowerDamage: 4112,
-        upperDamage: 3409,
-        lowerPerformers: [{ creatureId: 5, damageDealt: 1147 }],
-        upperPerformers: [{ creatureId: 55, damageDealt: 1008 }],
+        leftDamage: 4112,
+        rightDamage: 3409,
+        leftPerformers: [{ creatureId: 5, damageDealt: 1147 }],
+        rightPerformers: [{ creatureId: 55, damageDealt: 1008 }],
         setupRecorded: true,
-        lowerSetup: { artifactTier1: 7, artifactTier2: 15, doctrine: 3, augmentArmor: 3, augmentSniper: 3 },
-        upperSetup: { artifactTier1: 4, artifactTier2: 14, doctrine: 1, augmentEmpower: 3 },
+        leftSetup: { artifactTier1: 7, artifactTier2: 15, doctrine: 3, augmentArmor: 3, augmentSniper: 3 },
+        rightSetup: { artifactTier1: 4, artifactTier2: 14, doctrine: 1, augmentEmpower: 3 },
         replayAvailable: true,
     },
 };

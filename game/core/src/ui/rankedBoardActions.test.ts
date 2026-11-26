@@ -13,8 +13,8 @@ const snapshot = (overrides: Partial<Snapshot> = {}): Snapshot => ({
     placementSplit: true,
     placementStage: 1,
     players: [
-        { playerId: "lower", team: TeamVals.LEFT, connected: true, aiControlled: false, lastSeenMs: 0 },
-        { playerId: "upper", team: TeamVals.RIGHT, connected: true, aiControlled: false, lastSeenMs: 0 },
+        { playerId: "left", team: TeamVals.LEFT, connected: true, aiControlled: false, lastSeenMs: 0 },
+        { playerId: "right", team: TeamVals.RIGHT, connected: true, aiControlled: false, lastSeenMs: 0 },
     ],
     readyPlayerIds: [],
     ...overrides,
@@ -30,7 +30,7 @@ const actions = [
 
 describe("queued ranked board actions", () => {
     for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
-        const playerId = team === TeamVals.LEFT ? "lower" : "upper";
+        const playerId = team === TeamVals.LEFT ? "left" : "right";
         for (const type of actions) {
             test(`team ${team}, action ${type}: a queued edit expires at Ready, combat, or a changed match`, async () => {
                 const action = { gameId: "match", playerId, team, type };
@@ -72,10 +72,10 @@ describe("queued ranked board actions", () => {
 
     test("an opponent's readiness does not lock the player's army", () => {
         expect(
-            canSubmitRankedBoardAction(snapshot({ readyPlayerIds: ["upper"] }), {
+            canSubmitRankedBoardAction(snapshot({ readyPlayerIds: ["right"] }), {
                 type: PlayActionType.PLACE_UNIT,
                 gameId: "match",
-                playerId: "lower",
+                playerId: "left",
                 team: TeamVals.LEFT,
             }),
         ).toBe(true);

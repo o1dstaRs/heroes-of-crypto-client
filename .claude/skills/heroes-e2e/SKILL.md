@@ -130,5 +130,5 @@ Each `match` run creates a fresh game + fresh players; re-run for a new match.
 
 ## Tuning
 
-Edit `simple_client/create_pick_match.ts`: starting creatures (`lowerCreatureIds` /
-`upperCreatureIds` are applied later in the play phase), password, emails.
+Edit `simple_client/create_pick_match.ts`: starting creatures (`leftCreatureIds` /
+`rightCreatureIds` are applied later in the play phase), password, emails.

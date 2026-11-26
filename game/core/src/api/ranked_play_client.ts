@@ -148,7 +148,7 @@ export const fetchRankedPlaySnapshot = async (
 // --- Draft (pick-phase) spectating -----------------------------------------------------------------
 
 export interface PickObserveTeam {
-    team: "lower" | "upper";
+    team: "left" | "right";
     playerId: string;
     username: string;
     isBot: boolean;

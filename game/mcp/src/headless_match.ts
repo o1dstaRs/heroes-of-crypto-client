@@ -124,10 +124,10 @@ export class HeadlessMatch {
         return match;
     }
     public static createFromDraft(
-        options: CreateHeadlessMatchOptions & { lowerCreatures: number[]; upperCreatures: number[] },
+        options: CreateHeadlessMatchOptions & { leftCreatures: number[]; rightCreatures: number[] },
     ): HeadlessMatch {
         const match = new HeadlessMatch(options);
-        match.seedDraftArmies(options.lowerCreatures, options.upperCreatures);
+        match.seedDraftArmies(options.leftCreatures, options.rightCreatures);
         match.startFight();
         return match;
     }
@@ -499,9 +499,9 @@ export class HeadlessMatch {
             { x: 8, y: 3 },
         );
     }
-    private seedDraftArmies(lowerCreatures: number[], upperCreatures: number[]): void {
-        this.placeDraftArmy(TeamVals.LEFT, lowerCreatures);
-        this.placeDraftArmy(TeamVals.RIGHT, upperCreatures);
+    private seedDraftArmies(leftCreatures: number[], rightCreatures: number[]): void {
+        this.placeDraftArmy(TeamVals.LEFT, leftCreatures);
+        this.placeDraftArmy(TeamVals.RIGHT, rightCreatures);
     }
     private placeDraftArmy(team: TeamType, creatureIds: number[]): void {
         for (const creatureId of creatureIds) {
