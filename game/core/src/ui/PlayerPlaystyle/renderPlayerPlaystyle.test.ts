@@ -14,6 +14,10 @@ describe("player playstyle presentation", () => {
     });
     test("shows independent army axes and excludes automation from decision shares", () => {
         const markup = renderPlayerPlaystyle(buildMockPlayerMetrics());
+        const scores = markup.indexOf('class="hoc-playstyle__scores"');
+        expect(scores).toBeGreaterThan(-1);
+        expect(scores).toBeLessThan(markup.indexOf('class="hoc-playstyle__layout"'));
+        expect(markup).toContain("Versatility");
         expect(markup).toContain("Army preferences");
         expect(markup).toContain("Roles overlap");
         expect(markup).toContain("400 human decisions");

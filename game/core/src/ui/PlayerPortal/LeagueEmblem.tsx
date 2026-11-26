@@ -79,8 +79,7 @@ export const leagueEmblemGlow = (league: number): string => {
 export interface LeagueEmblemProps {
     label: string;
     league: number;
-    /** A plain px size, or the breakpoint map the avatar slots on the profile surfaces use. */
-    size?: number | Record<string, number>;
+    size?: number | string | Record<string, number>;
     /** Tighter shadows keep the 512px portrait crisp when it is reduced to a small HUD avatar. */
     variant?: "default" | "compact";
     wealth?: number;

@@ -1,35 +1,35 @@
-import { renderProfileStat } from "./renderProfileStat";
-import "./profilePresentation.css";
+import {
+    PROFILE_MATCH_HISTORY_ID,
+    PROFILE_MATCH_PAGE_SIZE,
+    profileWinRateTone,
+    renderProfileForm,
+    renderProfileStanding,
+    renderProfileSummaryStats,
+} from "./profilePresentation";
 import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
-import { Box, Button, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
+import { Box, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { displayedGold } from "../../api/goldDisplay";
-import { t, tf, useTranslation } from "../../i18n/i18n";
+import { tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
 import { useAuthContext } from "../auth/context/auth_context";
 import { setSession } from "../auth/context/auth_utils";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
-import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
+import { hocColors, hocPanelSx } from "../hocTheme";
 import { LeagueTransitionReveal } from "../LeagueTransitionReveal";
 import { ExitNavIcon, RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
 import { PlayerSettingsPanel } from "../PlayerSettingsPanel";
 import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
-import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
-import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct } from "./portalFormat";
-import { CalibrationProgress } from "./CalibrationProgress";
+import { matchReplayPath, matchResultPresentation, normalizeMatchSetup } from "./matchHistoryModel";
+import { CreatureIcon, creatureName, timeAgo, winRatePct } from "./portalFormat";
+import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
 import { PortalAvatar } from "./PortalAvatar";
-import {
-    PlayerPortalContentSkeleton,
-    PlayerPortalFrame,
-    portalHeaderSx,
-    portalRevealSx,
-    portalScrollSx,
-} from "./PlayerPortalLoading";
+import { PlayerPortalContentSkeleton, PlayerPortalFrame, portalRevealSx, portalScrollSx } from "./PlayerPortalLoading";
 import { usePlayerPortal } from "./usePlayerPortal";
 import { useRankedStanding } from "./useRankedStanding";
 import { ReputationCard } from "../Reputation/ReputationCard";
@@ -44,108 +44,25 @@ const nestedPortalScrollSx = {
     },
 } as const;
 
-const Section: React.FC<{ title: string; subtitle?: string; featured?: boolean; children: React.ReactNode }> = ({
-    title,
-    subtitle,
-    featured = false,
-    children,
-}) => (
-    <Sheet
-        variant="outlined"
-        sx={{
-            p: featured ? { xs: 2, sm: 3.5 } : { xs: "24px 0", sm: "32px 0" },
-            minWidth: 0,
-            border: "none",
-            borderRadius: featured ? "var(--hoc-profile-feature-radius)" : 0,
-            boxShadow: "none",
-            bgcolor: featured ? "var(--hoc-profile-feature-background)" : "transparent",
-        }}
+const Section: React.FC<{
+    title: string;
+    id?: string;
+    featured?: boolean;
+    children: React.ReactNode;
+    headingAction?: React.ReactNode;
+}> = ({ title, id, featured = false, children, headingAction }) => (
+    <section
+        className={featured ? "hoc-profile-section hoc-profile-section--featured" : "hoc-profile-section"}
+        id={id}
+        tabIndex={id ? -1 : undefined}
     >
-        <Box sx={{ mb: 2.5 }}>
-            <Typography
-                level="title-md"
-                sx={{ color: hocColors.parchment, fontFamily: "inherit", fontSize: 18, fontWeight: 500 }}
-            >
-                {title}
-            </Typography>
-            {subtitle && (
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    {subtitle}
-                </Typography>
-            )}
-        </Box>
+        <header className="hoc-profile-section-heading">
+            <h2 className="hoc-profile-section-title">{title}</h2>
+            {headingAction}
+        </header>
         {children}
-    </Sheet>
+    </section>
 );
-
-const StatCard: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
-    <Box
-        component="dl"
-        className="hoc-profile-stats"
-        sx={{ m: 0 }}
-        dangerouslySetInnerHTML={{ __html: renderProfileStat(label, value, color) }}
-    />
-);
-
-type RecentFormMatch = { draw?: boolean; won?: boolean };
-type RecentFormResult = "draw" | "empty" | "loss" | "win";
-
-const RecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ matches }) => {
-    const results: RecentFormResult[] = matches
-        .slice(0, 10)
-        .map((match) => (match.draw ? "draw" : match.won ? "win" : "loss"))
-        .reverse();
-    const padded: RecentFormResult[] = [
-        ...Array<RecentFormResult>(Math.max(0, 10 - results.length)).fill("empty"),
-        ...results,
-    ];
-    const wins = results.filter((result) => result === "win").length;
-    const draws = results.filter((result) => result === "draw").length;
-    const losses = results.filter((result) => result === "loss").length;
-    const labels: Record<RecentFormResult, string> = {
-        draw: t("Draw"),
-        empty: t("No result"),
-        loss: t("Defeat"),
-        win: t("Victory"),
-    };
-    const colors: Record<RecentFormResult, { background: string; border: string; shadow?: string }> = {
-        draw: { background: "#8f99a4", border: "rgba(174,181,190,0.72)" },
-        empty: { background: "rgba(239,228,204,0.08)", border: "rgba(239,228,204,0.2)" },
-        loss: { background: "#ff5a5a", border: "rgba(255,90,90,0.8)", shadow: "0 0 7px rgba(255,90,90,0.24)" },
-        win: { background: "#46d160", border: "rgba(70,209,96,0.78)", shadow: "0 0 7px rgba(70,209,96,0.28)" },
-    };
-
-    return (
-        <Stack
-            component="span"
-            role="img"
-            aria-label={`${t("Recent form")}: ${wins} ${t("Wins")}, ${draws} ${t("Draw")}, ${losses} ${t("Losses")}`}
-            direction="row"
-            spacing={0.65}
-            alignItems="center"
-            sx={{ minHeight: 22, mt: 0.7, minWidth: 0 }}
-        >
-            {padded.map((result, index) => (
-                <Box
-                    component="i"
-                    key={`${index}:${result}`}
-                    title={labels[result]}
-                    aria-hidden="true"
-                    sx={{
-                        display: "block",
-                        width: 12,
-                        height: 12,
-                        flexShrink: 0,
-                        border: `1px solid ${colors[result].border}`,
-                        borderRadius: "50%",
-                        bgcolor: colors[result].background,
-                        boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
-                    }}
-                />
-            ))}
-        </Stack>
-    );
-};
 
 /** Tier-aware artifact lookup for the stats row: name + codex icon, straight from the shared catalog. */
 export const playerPortalArtifactInfo = (tier: 1 | 2, artifactId: number): Artifact.ArtifactProperties | undefined =>
@@ -176,212 +93,49 @@ const compactArtworkSx = {
     objectFit: "cover",
 } as const;
 
-const StrategyStatCard: React.FC<{
+const ProfileRecordRow: React.FC<{
     artwork: React.ReactNode;
     badge?: string;
     games: number;
     label: string;
     wins: number;
-}> = ({ artwork, badge, games, label, wins }) => {
+    wideArtwork?: boolean;
+}> = ({ artwork, badge, games, label, wins, wideArtwork }) => {
     const pct = winRatePct(wins, games);
     const gamesLabel = games === 1 ? tf("{count} game", { count: games }) : tf("{count} games", { count: games });
 
     return (
-        <Sheet
-            component="article"
-            variant="soft"
-            aria-label={`${label}: ${gamesLabel}, ${pct}%`}
-            sx={{
-                display: "grid",
-                gridTemplateColumns: "auto minmax(0, 1fr) auto",
-                alignItems: "center",
-                gap: 1.4,
-                minHeight: 68,
-                py: 0.85,
-                pr: 1.4,
-                pl: 1,
-                overflow: "hidden",
-                border: "none",
-                borderBottom: "1px solid rgba(239,228,204,0.07)",
-                borderRadius: 0,
-                bgcolor: "transparent",
-                boxShadow: "none",
-            }}
-        >
-            <Box sx={{ display: "flex", alignItems: "center", minWidth: 54 }}>{artwork}</Box>
-            <Box sx={{ display: "grid", gap: 0.15, minWidth: 0 }}>
-                {badge && (
-                    <Typography
-                        level="body-xs"
-                        sx={{ color: hocColors.gold, fontSize: "0.63rem", letterSpacing: "0.07em" }}
-                    >
-                        {badge}
-                    </Typography>
-                )}
-                <Typography
-                    level="body-sm"
-                    title={label}
-                    noWrap
-                    sx={{ color: "rgba(251,244,232,0.9)", fontWeight: 600, lineHeight: 1.25 }}
-                >
-                    {label}
-                </Typography>
-                <Typography level="body-xs" sx={{ color: "rgba(251,244,232,0.42)" }}>
-                    {gamesLabel}
-                </Typography>
-            </Box>
-            <Typography
-                level="body-sm"
-                sx={{ color: winRateColor(pct), fontWeight: 700, whiteSpace: "nowrap", textAlign: "right" }}
-            >
+        <article className="hoc-profile-record" data-wide-art={wideArtwork || undefined}>
+            <div className="hoc-profile-record-art">{artwork}</div>
+            <div className="hoc-profile-record-copy">
+                <strong className="hoc-profile-record-name">{label}</strong>
+                <span className="hoc-profile-record-sample">{badge ? `${badge} · ${gamesLabel}` : gamesLabel}</span>
+            </div>
+            <strong className="hoc-profile-record-rate" data-tone={profileWinRateTone(pct)}>
                 {pct}%
-            </Typography>
-        </Sheet>
+            </strong>
+        </article>
     );
 };
 
-const CompactStatRow: React.FC<{
-    artwork: React.ReactNode;
-    badge?: string;
-    games: number;
-    label: string;
-    wins: number;
-}> = ({ artwork, badge, games, label, wins }) => {
-    const pct = winRatePct(wins, games);
-    const gamesLabel = games === 1 ? tf("{count} game", { count: games }) : tf("{count} games", { count: games });
-    const color = winRateColor(pct);
-
-    return (
-        <Sheet
-            component="article"
-            variant="plain"
-            aria-label={`${label}: ${gamesLabel}, ${pct}%`}
-            sx={{
-                display: "grid",
-                gridTemplateColumns: "36px max-content minmax(0, 1fr)",
-                alignItems: "center",
-                gap: 1,
-                minHeight: 44,
-                py: 0.4,
-                px: 0.35,
-                borderBottom: "1px solid rgba(239,228,204,0.055)",
-                bgcolor: "transparent",
-                transition: "background-color 120ms ease",
-                "&:hover": { bgcolor: "rgba(220,177,88,0.045)" },
-            }}
-        >
-            <Box sx={{ display: "flex", alignItems: "center", minWidth: 36 }}>{artwork}</Box>
-            <Typography level="body-sm" title={label} noWrap sx={{ color: "rgba(251,244,232,0.82)", fontWeight: 500 }}>
-                {label}
-            </Typography>
-            <Stack
-                direction="row"
-                spacing={{ xs: 0.75, sm: 1 }}
-                alignItems="center"
-                sx={{ whiteSpace: "nowrap", minWidth: 0 }}
-            >
-                {badge && (
-                    <Typography
-                        level="body-xs"
-                        sx={{ minWidth: 20, color: hocColors.gold, fontSize: "0.65rem", textAlign: "center" }}
-                    >
-                        {badge}
-                    </Typography>
-                )}
-                <Typography level="body-xs" sx={{ minWidth: 50, color: hocColors.muted, textAlign: "right" }}>
-                    {gamesLabel}
-                </Typography>
-                <Box
-                    aria-hidden="true"
-                    sx={{
-                        display: { xs: "none", sm: "block" },
-                        // Absorbs the surplus width instead of leaving a gap between the name and the
-                        // figures: the bar becomes the row's comparison rather than a 62px token of one.
-                        width: "100%",
-                        minWidth: 62,
-                        height: 7,
-                        overflow: "hidden",
-                        borderRadius: "999px",
-                        bgcolor: "rgba(239,228,204,0.1)",
-                    }}
-                >
-                    <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: "inherit", bgcolor: color }} />
-                </Box>
-                <Typography level="body-xs" sx={{ minWidth: 36, color, fontWeight: 700, textAlign: "right" }}>
-                    {pct}%
-                </Typography>
-            </Stack>
-        </Sheet>
-    );
-};
-
-/** Portrait tile edge, per breakpoint. */
-export const PLAYER_PORTAL_STRATEGY_TILE_SIZE = { xs: 46, sm: 54 } as const;
-
-/**
- * How far each portrait slides under the one after it.
- *
- * The tiles overlap so a trio reads as one line-up instead of three loose icons, but the overlap has to
- * stay small. Each tile is painted over by the next, so every portrait except the last is reduced to its
- * left-hand strip — and a creature portrait is framed centrally, so a narrow left strip is mostly
- * backdrop. At the original 24-of-54px the middle creature was unrecognisable (owner report 2026-08-28:
- * "cant see second unit behind third"): the first tile still read because it keeps its left edge, the
- * last because nothing covers it, and the one in between showed neither face nor silhouette.
- */
-export const PLAYER_PORTAL_STRATEGY_TILE_OVERLAP = { xs: 9, sm: 10 } as const;
-
-const CreatureStrategyArtwork: React.FC<{ creatureIds: readonly number[] }> = ({ creatureIds }) => {
-    const uniqueIds = [...new Set(creatureIds)];
-    return (
-        <Box
-            sx={{
-                display: "flex",
-                alignItems: "center",
-                minWidth: PLAYER_PORTAL_STRATEGY_TILE_SIZE,
-                "& .MuiAvatar-root": {
-                    width: PLAYER_PORTAL_STRATEGY_TILE_SIZE,
-                    height: PLAYER_PORTAL_STRATEGY_TILE_SIZE,
-                },
-            }}
-        >
-            {uniqueIds.map((id, index) => (
-                <Box
-                    key={id}
-                    sx={{
-                        ml:
-                            index === 0
-                                ? 0
-                                : {
-                                      xs: `-${PLAYER_PORTAL_STRATEGY_TILE_OVERLAP.xs}px`,
-                                      sm: `-${PLAYER_PORTAL_STRATEGY_TILE_OVERLAP.sm}px`,
-                                  },
-                        filter: index === 0 ? "none" : "drop-shadow(-4px 0 5px rgba(0,0,0,0.58))",
-                    }}
-                >
-                    <CreatureIcon creatureId={id} size={PLAYER_PORTAL_STRATEGY_TILE_SIZE.sm} />
-                </Box>
-            ))}
-        </Box>
-    );
-};
+const CreatureStrategyArtwork: React.FC<{ creatureIds: readonly number[] }> = ({ creatureIds }) => (
+    <div className="hoc-profile-lineup">
+        {creatureIds.map((id) => (
+            <CreatureIcon key={id} creatureId={id} size="var(--hoc-profile-lineup-tile)" />
+        ))}
+    </div>
+);
 
 const StrategyGroup: React.FC<{ title: string; subtitle: string; children: React.ReactNode }> = ({
     title,
     subtitle,
     children,
 }) => (
-    <Box component="section" sx={{ minWidth: 0 }}>
-        <Typography
-            level="body-xs"
-            sx={{ color: hocColors.mutedStrong, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}
-        >
-            {title}
-        </Typography>
-        <Typography level="body-xs" textColor={hocColors.muted} sx={{ minHeight: "1.4em", mb: 1 }}>
-            {subtitle}
-        </Typography>
-        <Stack spacing={0.75}>{children}</Stack>
-    </Box>
+    <section>
+        <h3 className="hoc-profile-group-title">{title}</h3>
+        <p className="hoc-profile-group-description">{subtitle}</p>
+        {children}
+    </section>
 );
 
 const ArtifactStatRow: React.FC<{ tier: 1 | 2; artifactId: number; games: number; wins: number }> = ({
@@ -399,17 +153,18 @@ const ArtifactStatRow: React.FC<{ tier: 1 | 2; artifactId: number; games: number
     ) : (
         <Box sx={{ ...compactArtworkSx, display: "grid", placeItems: "center", color: hocColors.gold }}>T{tier}</Box>
     );
-    return <CompactStatRow artwork={artwork} badge={`T${tier}`} games={games} label={label} wins={wins} />;
+    return <ProfileRecordRow artwork={artwork} badge={`T${tier}`} games={games} label={label} wins={wins} />;
 };
 
 const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }> = ({ creatureIds, games, wins }) => {
-    const label = playerPortalCreatureLineupLabel(creatureIds);
+    const units = [...new Set(creatureIds)];
     return (
-        <StrategyStatCard
-            artwork={<CreatureStrategyArtwork creatureIds={creatureIds} />}
+        <ProfileRecordRow
+            artwork={<CreatureStrategyArtwork creatureIds={units} />}
             games={games}
-            label={label}
+            label={playerPortalCreatureLineupLabel(units)}
             wins={wins}
+            wideArtwork={units.length > 3}
         />
     );
 };
@@ -553,376 +308,282 @@ export const PlayerPortalPage: React.FC = () => {
         }
         return playerPortalMostPlayedFirst([...byArtifact.values()]);
     }, [matches]);
-    const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
+    const games = data?.total_games_played ?? 0;
+    const wins = data?.wins ?? 0;
+    const overallPct = winRatePct(wins, games);
+    const numbers = new Intl.NumberFormat(language);
+    const form = renderProfileForm(
+        matches.map((match) => {
+            const result = matchResultPresentation(match);
+            return result.label === "Unscored" || result.label === "Voided" ? "none" : result.tone;
+        }),
+        {
+            title: t("Last 10 matches"),
+            win: t("Victory"),
+            loss: t("Defeat"),
+            draw: t("Draw"),
+            empty: t("No result"),
+        },
+    );
 
     return (
         <PlayerPortalFrame busy={loading && !data}>
             {import.meta.env.DEV && (
                 <LeagueTransitionReveal active={false} enabled={false} gameId="portal-league-reveal-preview" />
             )}
-            <Box
-                className="hoc-player-profile"
-                sx={{ maxWidth: 1180, mx: "auto", fontFamily: '"Inter", "Segoe UI", sans-serif' }}
-            >
-                <Sheet component="header" className="hoc-profile-header" variant="outlined" sx={portalHeaderSx}>
-                    <Stack
-                        direction={{ xs: "column", lg: "row" }}
-                        alignItems={{ xs: "stretch", sm: "center" }}
-                        justifyContent="space-between"
-                        spacing={1.5}
-                        sx={{ minWidth: 0 }}
-                    >
-                        <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0 }}>
-                            <PortalAvatar standing={standing} />
-                            <Box sx={{ minWidth: 0 }}>
-                                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
-                                    <Typography
-                                        level="h2"
-                                        sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
-                                    >
-                                        {data?.username || user?.username || t("Player Profile")}
-                                    </Typography>
-                                    {data ? (
-                                        <Sheet
-                                            variant="soft"
-                                            aria-label={`${t(currency.name)}: ${totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}`}
-                                            title={`${t(currency.name)} (${currency.symbol})`}
-                                            sx={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 0.45,
-                                                px: 0.8,
-                                                py: 0.3,
-                                                border: "1px solid rgba(220,177,88,0.28)",
-                                                borderRadius: "999px",
-                                                bgcolor: "rgba(220,177,88,0.08)",
-                                                color: hocColors.gold,
-                                            }}
-                                        >
-                                            <CurrencyIcon iconSvg={currency.iconSvg} size={17} />
-                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
-                                                {totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}{" "}
-                                                {currency.symbol}
-                                            </Typography>
-                                        </Sheet>
-                                    ) : (
-                                        <Skeleton
-                                            variant="rectangular"
-                                            width={75}
-                                            height={25}
-                                            animation={false}
-                                            sx={{ borderRadius: "999px" }}
-                                        />
-                                    )}
-                                </Stack>
-                                {/* Ladder standing under the name: while calibrating, "3 / 5 placement
-                                    matches" is the headline number — the lifetime totals further down
-                                    are not the ranked story yet. */}
-                                {standing ? (
-                                    <CalibrationProgress standing={standing} />
-                                ) : (
-                                    <Skeleton
-                                        variant="rectangular"
-                                        width={160}
-                                        height={16}
-                                        animation={false}
-                                        sx={{ mt: 0.3 }}
-                                    />
-                                )}
-                                {data?.last_login ? (
-                                    <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
-                                        {tf("last seen {when}", { when: timeAgo(data.last_login) })}
-                                    </Typography>
-                                ) : null}
-                                <RecentForm matches={matches} />
-                                {data && (
-                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", mt: 1 }}>
-                                        <StatCard label={t("Wins")} value={data.wins ?? 0} color="#46d160" />
-                                        <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
-                                        <StatCard
-                                            label={t("Win rate")}
-                                            value={`${overallPct}%`}
-                                            color={winRateColor(overallPct)}
-                                        />
-                                        <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
-                                    </Box>
-                                )}
-                            </Box>
-                        </Stack>
-                        <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={1}
-                            sx={{ alignSelf: { xs: "stretch", sm: "center" } }}
-                        >
-                            <Button
-                                fullWidth
-                                variant="soft"
-                                startDecorator={<RefreshNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{
-                                    ...hocSoftButtonSx,
-                                    minWidth: { sm: 96 },
-                                    whiteSpace: "nowrap",
-                                    bgcolor: "transparent",
-                                    border: "none",
-                                    boxShadow: "none",
-                                    color: hocColors.muted,
-                                    "&:hover": {
-                                        bgcolor: "rgba(239,228,204,0.06)",
-                                        color: hocColors.parchment,
-                                        border: "none",
-                                    },
-                                }}
-                                onClick={reload}
-                                disabled={loading}
-                            >
-                                {t("Refresh")}
-                            </Button>
-                            {/* Opens a popup instead of navigating, so it keeps the soft treatment the
-                                other in-place actions use rather than the arena's solid call to action. */}
-                            <Button
-                                fullWidth
-                                aria-haspopup="dialog"
-                                aria-expanded={settingsOpen}
-                                variant="soft"
-                                startDecorator={<SettingsNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{
-                                    ...hocSoftButtonSx,
-                                    minWidth: { sm: 96 },
-                                    whiteSpace: "nowrap",
-                                    bgcolor: "transparent",
-                                    border: "none",
-                                    boxShadow: "none",
-                                    color: hocColors.muted,
-                                    "&:hover": {
-                                        bgcolor: "rgba(239,228,204,0.06)",
-                                        color: hocColors.parchment,
-                                        border: "none",
-                                    },
-                                }}
-                                onClick={() => setSettingsOpen(true)}
-                            >
-                                {t("Settings")}
-                            </Button>
-                            {/* Sign out lives beside the other in-place actions: the portal is the only
-                                screen that names the logged-in player, so it is where leaving the account
-                                is looked for. */}
-                            <Button
-                                fullWidth
-                                variant="soft"
-                                startDecorator={<ExitNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{
-                                    ...hocSoftButtonSx,
-                                    minWidth: { sm: 96 },
-                                    whiteSpace: "nowrap",
-                                    bgcolor: "transparent",
-                                    border: "none",
-                                    boxShadow: "none",
-                                    color: hocColors.muted,
-                                    "&:hover": {
-                                        bgcolor: "rgba(239,228,204,0.06)",
-                                        color: hocColors.parchment,
-                                        border: "none",
-                                    },
-                                }}
-                                onClick={exitAccount}
-                                disabled={exiting}
-                            >
-                                {exiting ? t("Signing out…") : t("Exit account")}
-                            </Button>
-                            <Button
-                                fullWidth
-                                variant="solid"
-                                startDecorator={<RankedNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{
-                                    ...hocPrimaryButtonSx,
-                                    minWidth: { sm: 140 },
-                                    whiteSpace: "nowrap",
-                                    bgcolor: "#d7b77e",
-                                    color: "#17130d",
-                                    border: "none",
-                                    boxShadow: "none",
-                                    borderRadius: "10px",
-                                    "&:hover": { bgcolor: "#e5c78f", boxShadow: "none" },
-                                }}
-                                onClick={() => navigate("/play")}
-                            >
-                                {t("Ranked arena")}
-                            </Button>
-                        </Stack>
-                    </Stack>
-                </Sheet>
-
-                <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
-                {loading && !data && <PlayerPortalContentSkeleton />}
-                {!loading && error && (
-                    <Sheet variant="outlined" sx={{ p: 2, mb: 2, ...hocPanelSx }}>
-                        <Typography textColor={hocColors.danger}>{error}</Typography>
-                    </Sheet>
-                )}
-
-                {data && (
-                    <Stack spacing={2} sx={portalRevealSx}>
-                        <PlayerPlaystyle
-                            playerId={standing?.playerId}
-                            reloadKey={reloadKey}
-                            language={language}
-                            wrap={(body) => (
-                                <Section featured title={language === "ru" ? "Стиль игры" : "Playstyle"}>
-                                    {body}
-                                </Section>
+            <header className="hoc-profile-header">
+                <div className="hoc-profile-identity">
+                    <div className="hoc-profile-emblem">
+                        <PortalAvatar standing={standing} size="100%" />
+                    </div>
+                    <div>
+                        <div className="hoc-profile-heading">
+                            <h1 className="hoc-profile-name">
+                                {data?.username || user?.username || t("Player Profile")}
+                            </h1>
+                            {data ? (
+                                <span className="hoc-profile-balance" title={t(currency.name)}>
+                                    <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
+                                    {numbers.format(totalGold)} {currency.symbol}
+                                </span>
+                            ) : (
+                                <Skeleton variant="rectangular" width={72} height={18} animation={false} />
                             )}
-                        />
-
-                        <ReputationCard reloadKey={reloadKey} />
-
-                        {/* The public profile's strategy-card language, consolidated into one panel so
-                            line-ups, winning trios and duos read as one family rather than three widgets. */}
-                        <Section title={t("Winning strategies")}>
-                            <Box
-                                sx={{
-                                    display: "grid",
-                                    gap: 2,
-                                    gridTemplateColumns: {
-                                        xs: "1fr",
-                                        md: "repeat(2, minmax(0, 1fr))",
-                                        lg: "repeat(3, minmax(0, 1fr))",
-                                    },
+                        </div>
+                        {standing?.state === "placed" ? (
+                            <p
+                                className="hoc-profile-standing"
+                                dangerouslySetInnerHTML={{
+                                    __html: renderProfileStanding(standingEmblem(standing).label, [
+                                        `${numbers.format(standing.mmr)} ${t("MMR")}`,
+                                        standing.leaderboardRank > 0
+                                            ? `#${numbers.format(standing.leaderboardRank)}`
+                                            : "",
+                                    ]),
                                 }}
-                            >
-                                <StrategyGroup
-                                    title={t("Favourite combos")}
-                                    subtitle={t("Your most-played creature line-ups")}
-                                >
-                                    {mostPlayedCombos.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("Play a few matches to build up combo stats.")}
-                                        </Typography>
-                                    )}
-                                    {mostPlayedCombos.map((c, i) => (
-                                        <ComboRow
-                                            key={`mp_${i}`}
-                                            creatureIds={c.creature_ids ?? []}
-                                            games={c.games ?? 0}
-                                            wins={c.wins ?? 0}
-                                        />
-                                    ))}
-                                </StrategyGroup>
-
-                                <StrategyGroup
-                                    title={t("Best winning strategies")}
-                                    subtitle={t("Highest win rate (2+ games)")}
-                                >
-                                    {bestCombos.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("Not enough repeated line-ups yet.")}
-                                        </Typography>
-                                    )}
-                                    {bestCombos.map((c, i) => (
-                                        <ComboRow
-                                            key={`bc_${i}`}
-                                            creatureIds={c.creature_ids ?? []}
-                                            games={c.games ?? 0}
-                                            wins={c.wins ?? 0}
-                                        />
-                                    ))}
-                                </StrategyGroup>
-
-                                <StrategyGroup
-                                    title={t("Strongest pairs")}
-                                    subtitle={t("Creature duos that win together (3+ games)")}
-                                >
-                                    {strongestPairs.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("Field the same duo a few times to reveal your best pairings.")}
-                                        </Typography>
-                                    )}
-                                    {strongestPairs.map((pair) => (
-                                        <ComboRow
-                                            key={`pair_${pair.a}_${pair.b}`}
-                                            creatureIds={[pair.a, pair.b]}
-                                            games={pair.games}
-                                            wins={pair.wins}
-                                        />
-                                    ))}
-                                </StrategyGroup>
-                            </Box>
-                        </Section>
-
-                        {/* Usage-heavy records stay compact so games played, win rate and ranking scan quickly. */}
-                        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
-                            <Section
-                                title={t("Artifacts")}
-                                subtitle={t("Most played first · win rate across recent matches")}
-                            >
-                                <Stack
-                                    spacing={0.5}
-                                    role="region"
-                                    aria-label={t("Artifact statistics")}
-                                    tabIndex={0}
-                                    sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
-                                >
-                                    {artifactStats.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("Pick artifacts in ranked drafts to build up artifact stats.")}
-                                        </Typography>
-                                    )}
-                                    {artifactStats.map((stat) => (
-                                        <ArtifactStatRow
-                                            key={`art_${stat.tier}_${stat.artifactId}`}
-                                            tier={stat.tier}
-                                            artifactId={stat.artifactId}
-                                            games={stat.games}
-                                            wins={stat.wins}
-                                        />
-                                    ))}
-                                </Stack>
-                            </Section>
-
-                            <Section title={t("Creatures")} subtitle={t("Most played first · win rate by creature")}>
-                                <Stack
-                                    spacing={0.5}
-                                    role="region"
-                                    aria-label={t("Creature statistics")}
-                                    tabIndex={0}
-                                    sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
-                                >
-                                    {creatureStats.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("No creature stats yet.")}
-                                        </Typography>
-                                    )}
-                                    {creatureStats.map((stat) => {
-                                        const creatureId = stat.creature_id ?? 0;
-                                        return (
-                                            <CompactStatRow
-                                                key={creatureId}
-                                                artwork={<CreatureIcon creatureId={creatureId} size={36} />}
-                                                games={stat.games ?? 0}
-                                                label={creatureName(creatureId)}
-                                                wins={stat.wins ?? 0}
-                                            />
-                                        );
-                                    })}
-                                </Stack>
-                            </Section>
-                        </Box>
-
-                        {/* Match history */}
-                        <Section
-                            title={t("Match history")}
-                            subtitle={t("Find past matches by artifacts, creatures or opponents.")}
-                        >
-                            <MatchHistory
-                                filterable
-                                matches={matches}
-                                onReplay={(match) => navigate(matchReplayPath(match))}
-                                seasons={seasons}
                             />
-                        </Section>
-                    </Stack>
+                        ) : standing ? (
+                            <CalibrationProgress standing={standing} dense />
+                        ) : (
+                            <Skeleton
+                                variant="rectangular"
+                                width={156}
+                                height={16}
+                                animation={false}
+                                sx={{ mt: 0.5 }}
+                            />
+                        )}
+                        {!!data?.last_login && (
+                            <p className="hoc-profile-meta">
+                                {tf("last seen {when}", { when: timeAgo(data.last_login) })}
+                            </p>
+                        )}
+                    </div>
+                </div>
+                <div className="hoc-profile-actions" data-account-actions>
+                    <button
+                        type="button"
+                        className="hoc-profile-action hoc-profile-action--primary"
+                        onClick={() => navigate("/play")}
+                    >
+                        <RankedNavIcon sx={{ fontSize: 16, color: "inherit" }} />
+                        {t("Ranked arena")}
+                    </button>
+                    <button type="button" className="hoc-profile-action" onClick={reload} disabled={loading}>
+                        <RefreshNavIcon sx={{ fontSize: 16 }} />
+                        {t("Refresh")}
+                    </button>
+                    <button
+                        type="button"
+                        className="hoc-profile-action"
+                        aria-haspopup="dialog"
+                        aria-expanded={settingsOpen}
+                        onClick={() => setSettingsOpen(true)}
+                    >
+                        <SettingsNavIcon sx={{ fontSize: 16 }} />
+                        {t("Settings")}
+                    </button>
+                    <button type="button" className="hoc-profile-action" onClick={exitAccount} disabled={exiting}>
+                        <ExitNavIcon sx={{ fontSize: 16 }} />
+                        {exiting ? t("Signing out…") : t("Exit account")}
+                    </button>
+                </div>
+                {data && (
+                    <div className="hoc-profile-summary">
+                        <dl
+                            className="hoc-profile-stats"
+                            dangerouslySetInnerHTML={{
+                                __html: renderProfileSummaryStats(
+                                    { games, wins, losses: data.losses ?? 0, winRate: overallPct },
+                                    { games: t("Games"), wins: t("Wins"), losses: t("Losses"), winRate: t("Win rate") },
+                                    language,
+                                ),
+                            }}
+                        />
+                        {form && <div dangerouslySetInnerHTML={{ __html: form }} />}
+                    </div>
                 )}
-            </Box>
+            </header>
+
+            <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+            {loading && !data && <PlayerPortalContentSkeleton />}
+            {!loading && error && (
+                <Sheet variant="outlined" sx={{ p: 2, mb: 2, ...hocPanelSx }}>
+                    <Typography textColor={hocColors.danger}>{error}</Typography>
+                </Sheet>
+            )}
+
+            {data && (
+                <Box className="hoc-profile-body" sx={portalRevealSx}>
+                    <PlayerPlaystyle
+                        playerId={standing?.playerId}
+                        reloadKey={reloadKey}
+                        language={language}
+                        wrap={(body) => (
+                            <Section
+                                featured
+                                title={language === "ru" ? "Стиль игры" : "Playstyle"}
+                                headingAction={
+                                    <a className="hoc-profile-section-link" href={`#${PROFILE_MATCH_HISTORY_ID}`}>
+                                        {t("Match history")}
+                                    </a>
+                                }
+                            >
+                                {body}
+                            </Section>
+                        )}
+                    />
+
+                    <Section title={t("Match history")} id={PROFILE_MATCH_HISTORY_ID}>
+                        <MatchHistory
+                            filterable
+                            matches={matches}
+                            pageSize={PROFILE_MATCH_PAGE_SIZE}
+                            onReplay={(match) => navigate(matchReplayPath(match))}
+                            seasons={seasons}
+                        />
+                    </Section>
+
+                    <Section title={t("Winning strategies")}>
+                        <div className="hoc-profile-columns">
+                            <StrategyGroup
+                                title={t("Favourite combos")}
+                                subtitle={t("Your most-played creature line-ups")}
+                            >
+                                {mostPlayedCombos.length === 0 && (
+                                    <Typography level="body-sm" textColor={hocColors.muted}>
+                                        {t("Play a few matches to build up combo stats.")}
+                                    </Typography>
+                                )}
+                                {mostPlayedCombos.map((c, i) => (
+                                    <ComboRow
+                                        key={`mp_${i}`}
+                                        creatureIds={c.creature_ids ?? []}
+                                        games={c.games ?? 0}
+                                        wins={c.wins ?? 0}
+                                    />
+                                ))}
+                            </StrategyGroup>
+
+                            <StrategyGroup
+                                title={t("Best winning strategies")}
+                                subtitle={t("Highest win rate (2+ games)")}
+                            >
+                                {bestCombos.length === 0 && (
+                                    <Typography level="body-sm" textColor={hocColors.muted}>
+                                        {t("Not enough repeated line-ups yet.")}
+                                    </Typography>
+                                )}
+                                {bestCombos.map((c, i) => (
+                                    <ComboRow
+                                        key={`bc_${i}`}
+                                        creatureIds={c.creature_ids ?? []}
+                                        games={c.games ?? 0}
+                                        wins={c.wins ?? 0}
+                                    />
+                                ))}
+                            </StrategyGroup>
+
+                            <StrategyGroup
+                                title={t("Strongest pairs")}
+                                subtitle={t("Creature duos that win together (3+ games)")}
+                            >
+                                {strongestPairs.length === 0 && (
+                                    <Typography level="body-sm" textColor={hocColors.muted}>
+                                        {t("Field the same duo a few times to reveal your best pairings.")}
+                                    </Typography>
+                                )}
+                                {strongestPairs.map((pair) => (
+                                    <ComboRow
+                                        key={`pair_${pair.a}_${pair.b}`}
+                                        creatureIds={[pair.a, pair.b]}
+                                        games={pair.games}
+                                        wins={pair.wins}
+                                    />
+                                ))}
+                            </StrategyGroup>
+                        </div>
+                    </Section>
+
+                    <div className="hoc-profile-columns">
+                        <Section title={t("Artifacts")}>
+                            <Stack
+                                spacing={0.5}
+                                role="region"
+                                aria-label={t("Artifact statistics")}
+                                tabIndex={0}
+                                sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
+                            >
+                                {artifactStats.length === 0 && (
+                                    <Typography level="body-sm" textColor={hocColors.muted}>
+                                        {t("Pick artifacts in ranked drafts to build up artifact stats.")}
+                                    </Typography>
+                                )}
+                                {artifactStats.map((stat) => (
+                                    <ArtifactStatRow
+                                        key={`art_${stat.tier}_${stat.artifactId}`}
+                                        tier={stat.tier}
+                                        artifactId={stat.artifactId}
+                                        games={stat.games}
+                                        wins={stat.wins}
+                                    />
+                                ))}
+                            </Stack>
+                        </Section>
+
+                        <Section title={t("Creatures")}>
+                            <Stack
+                                spacing={0.5}
+                                role="region"
+                                aria-label={t("Creature statistics")}
+                                tabIndex={0}
+                                sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
+                            >
+                                {creatureStats.length === 0 && (
+                                    <Typography level="body-sm" textColor={hocColors.muted}>
+                                        {t("No creature stats yet.")}
+                                    </Typography>
+                                )}
+                                {creatureStats.map((stat) => {
+                                    const creatureId = stat.creature_id ?? 0;
+                                    return (
+                                        <ProfileRecordRow
+                                            key={creatureId}
+                                            artwork={<CreatureIcon creatureId={creatureId} size={36} />}
+                                            games={stat.games ?? 0}
+                                            label={creatureName(creatureId)}
+                                            wins={stat.wins ?? 0}
+                                        />
+                                    );
+                                })}
+                            </Stack>
+                        </Section>
+                    </div>
+
+                    <ReputationCard reloadKey={reloadKey} />
+                </Box>
+            )}
         </PlayerPortalFrame>
     );
 };

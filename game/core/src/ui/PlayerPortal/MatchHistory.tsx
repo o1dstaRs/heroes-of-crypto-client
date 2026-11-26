@@ -7,7 +7,7 @@ import LoopRoundedIcon from "@mui/icons-material/LoopRounded";
 import MilitaryTechRoundedIcon from "@mui/icons-material/MilitaryTechRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import { Alert, Box, Button, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Alert, Box, Button, IconButton, Stack, Tooltip, Typography } from "@mui/joy";
 import React, { useId, useState } from "react";
 
 import type { MatchHistoryScope } from "../../api/player_portal_client";
@@ -18,6 +18,7 @@ import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
 import { getDoctrineIconImage } from "../doctrineCopy";
+import { SynergyLevelDots } from "../SynergyLevelDots";
 import {
     formatMatchDamage,
     formatMatchDuration,
@@ -29,33 +30,16 @@ import {
     normalizePerformances,
     type MatchAugmentChoice,
     type MatchHistoryFilter,
-    type MatchKindTone,
-    type MatchResultTone,
     type MatchTeamSetup,
     type PortalMatchData,
     type PortalUnitPerformanceData,
 } from "./matchHistoryModel";
+import { profileRatingTone } from "./profilePresentation";
 import { augmentEffectSummary } from "./augmentEffect";
 import { CreatureIcon, creatureName, InfoCard, timeAgo } from "./portalFormat";
 import { MatchHistorySearchControls } from "./MatchHistorySearchControls";
 import { useMatchHistorySearch } from "./useMatchHistorySearch";
-
-const RESULT_COLORS: Record<MatchResultTone, string> = {
-    draw: hocColors.gold,
-    loss: hocColors.danger,
-    win: "#46d160",
-};
-
-const MATCH_KIND_STYLES: Record<MatchKindTone, { background: string; border: string; color: string }> = {
-    calibration: { background: "rgba(170,156,255,0.07)", border: "rgba(170,156,255,0.34)", color: "#aa9cff" },
-    lobby: { background: "rgba(114,207,194,0.07)", border: "rgba(114,207,194,0.34)", color: "#72cfc2" },
-    ranked: { background: "rgba(220,177,88,0.07)", border: "rgba(220,177,88,0.34)", color: hocColors.gold },
-    unknown: {
-        background: "rgba(239,228,204,0.05)",
-        border: "rgba(239,228,204,0.2)",
-        color: hocColors.mutedStrong,
-    },
-};
+import "./profilePresentation.css";
 
 // Which side the player fought as, coloured to match the board: team LEFT is green (always the bottom),
 // team RIGHT is red (always the top). Team-fixed, never viewer-relative — see scenes/teamColors.ts.
@@ -122,6 +106,7 @@ const artifactsForSetup = (setup: MatchTeamSetup): Artifact.ArtifactProperties[]
 interface MatchHistoryProps {
     compact?: boolean;
     filterable?: boolean;
+    pageSize?: number;
     matches: readonly PortalMatchData[];
     onReplay: (match: PortalMatchData) => void;
     seasons: RankedSeasonCatalog;
@@ -168,65 +153,22 @@ const MetadataItem: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
     </Stack>
 );
 
-const MatchKindBadge: React.FC<{ label: string; tone: MatchKindTone }> = ({ label, tone }) => (
-    <Box
-        component="span"
-        sx={{
-            display: "inline-flex",
-            alignItems: "center",
-            minHeight: 20,
-            px: 0.75,
-            border: `1px solid ${MATCH_KIND_STYLES[tone].border}`,
-            borderRadius: "999px",
-            bgcolor: MATCH_KIND_STYLES[tone].background,
-            color: MATCH_KIND_STYLES[tone].color,
-            fontSize: "0.66rem",
-            fontWeight: 800,
-            lineHeight: 1,
-            letterSpacing: "0.025em",
-            whiteSpace: "nowrap",
-        }}
-    >
-        {label}
-    </Box>
-);
-
-const RewardBadge: React.FC<{ icon?: React.ReactNode; label: string; tone: "gold" | "rating" }> = ({
-    icon,
-    label,
-    tone,
-}) => (
-    <Box
-        component="span"
-        sx={{
-            display: "inline-flex",
-            alignItems: "center",
-            minHeight: 22,
-            px: 0.75,
-            borderRadius: "6px",
-            bgcolor: tone === "gold" ? "rgba(220,177,88,0.12)" : "rgba(170,156,255,0.1)",
-            color: tone === "gold" ? hocColors.gold : "#c7bfff",
-            fontSize: "0.69rem",
-            fontWeight: 800,
-            lineHeight: 1,
-            whiteSpace: "nowrap",
-            gap: 0.35,
-        }}
-    >
+const RewardBadge: React.FC<{
+    icon?: React.ReactNode;
+    label: string;
+    tone: "gold" | ReturnType<typeof profileRatingTone>;
+}> = ({ icon, label, tone }) => (
+    <span className="hoc-profile-match-reward" data-tone={tone}>
         {icon}
         {label}
-    </Box>
+    </span>
 );
 
 const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <Box sx={{ minWidth: 0 }}>
-        <Typography level="body-xs" textColor={hocColors.muted}>
-            {label}
-        </Typography>
-        <Typography level="title-sm" textColor={hocColors.parchment} sx={{ mt: 0.1 }}>
-            {value}
-        </Typography>
-    </Box>
+    <div className="hoc-profile-stat">
+        <dt>{label}</dt>
+        <dd>{value}</dd>
+    </div>
 );
 
 /**
@@ -300,6 +242,7 @@ const PerformanceList: React.FC<{
 const SetupChoice: React.FC<{
     alt?: string;
     badge?: string;
+    belowIcon?: React.ReactNode;
     /** Plain-text summary for assistive tech; the hover card is `tooltip` when given. */
     detail: string;
     fallback?: React.ReactNode;
@@ -307,70 +250,32 @@ const SetupChoice: React.FC<{
     name: string;
     roundImage?: boolean;
     tooltip?: React.ReactNode;
-}> = ({ alt = "", badge, detail, fallback, image, name, roundImage = false, tooltip }) => (
+}> = ({ alt = "", badge, belowIcon, detail, fallback, image, name, roundImage = false, tooltip }) => (
     <Tooltip title={tooltip ?? detail} placement="top" size="sm" variant="soft">
-        <Stack
-            direction="row"
-            spacing={0.65}
-            alignItems="center"
-            sx={{
-                minWidth: 0,
-                maxWidth: "100%",
-                py: 0.25,
-                pr: 0.6,
-                borderRadius: "6px",
-                bgcolor: "rgba(255,255,255,0.035)",
-            }}
-        >
-            <Box
-                sx={{
-                    width: 30,
-                    height: 30,
-                    flex: "0 0 30px",
-                    display: "grid",
-                    placeItems: "center",
-                    overflow: "hidden",
-                    borderRadius: roundImage ? "50%" : "6px",
-                    bgcolor: "rgba(0,0,0,0.28)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: hocColors.gold,
-                    "& svg": { fontSize: 18 },
-                }}
-            >
+        <span className="hoc-profile-choice">
+            <span className="hoc-profile-choice-art">
                 {image ? (
-                    <Box
-                        component="img"
+                    <img
                         src={image}
                         alt={alt}
-                        sx={{
-                            width: roundImage ? "100%" : 26,
-                            height: roundImage ? "100%" : 26,
-                            borderRadius: roundImage ? "50%" : 0,
-                            objectFit: roundImage ? "cover" : "contain",
-                        }}
+                        width={30}
+                        height={30}
+                        className={roundImage ? "hoc-profile-choice-round" : undefined}
                     />
                 ) : (
                     fallback
                 )}
-            </Box>
-            <Typography level="body-xs" textColor={hocColors.mutedStrong} noWrap sx={{ minWidth: 0, maxWidth: 128 }}>
-                {name}
-            </Typography>
-            {badge && (
-                <Typography
-                    level="body-xs"
-                    sx={{ color: hocColors.gold, fontWeight: 700, whiteSpace: "nowrap", ml: "auto" }}
-                >
-                    {badge}
-                </Typography>
-            )}
-        </Stack>
+                {belowIcon}
+            </span>
+            <span>{name}</span>
+            {badge && <strong className="hoc-profile-choice-badge">{badge}</strong>}
+        </span>
     </Tooltip>
 );
 
 const SetupSummaryIcon: React.FC<{
     alt?: string;
-    badge: string;
+    badge?: string;
     compact: boolean;
     /** Plain-text summary for assistive tech; the hover card is `tooltip` when given. */
     detail: string;
@@ -414,28 +319,30 @@ const SetupSummaryIcon: React.FC<{
                 ) : (
                     fallback
                 )}
-                <Box
-                    component="span"
-                    sx={{
-                        position: "absolute",
-                        right: -3,
-                        bottom: -3,
-                        minWidth: compact ? 13 : 15,
-                        height: compact ? 11 : 12,
-                        px: 0.2,
-                        display: "grid",
-                        placeItems: "center",
-                        borderRadius: "3px",
-                        bgcolor: "#3a2204",
-                        border: `1px solid ${hocColors.orangeBorder}`,
-                        color: hocColors.gold,
-                        fontSize: compact ? "0.44rem" : "0.5rem",
-                        fontWeight: 800,
-                        lineHeight: 1,
-                    }}
-                >
-                    {badge}
-                </Box>
+                {badge && (
+                    <Box
+                        component="span"
+                        sx={{
+                            position: "absolute",
+                            right: -3,
+                            bottom: -3,
+                            minWidth: compact ? 13 : 15,
+                            height: compact ? 11 : 12,
+                            px: 0.2,
+                            display: "grid",
+                            placeItems: "center",
+                            borderRadius: "3px",
+                            bgcolor: "#3a2204",
+                            border: `1px solid ${hocColors.orangeBorder}`,
+                            color: hocColors.gold,
+                            fontSize: compact ? "0.44rem" : "0.5rem",
+                            fontWeight: 800,
+                            lineHeight: 1,
+                        }}
+                    >
+                        {badge}
+                    </Box>
+                )}
             </Box>
         </Tooltip>
     );
@@ -474,6 +381,7 @@ const SetupSummary: React.FC<{
     }
 
     const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
+    const doctrineName = t(doctrine.name);
     const artifacts = artifactsForSetup(setup);
     return (
         <Box sx={{ mt: inline ? 0 : compact ? 0.65 : 0.8, minWidth: 0 }}>
@@ -486,15 +394,16 @@ const SetupSummary: React.FC<{
             <Box sx={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: compact ? 0.7 : 0.9 }}>
                 <SetupSummaryGroup compact={compact} label={t("Doctrine")}>
                     <SetupSummaryIcon
+                        alt={doctrineName}
                         badge={`${doctrine.upgradePoints}`}
                         compact={compact}
-                        detail={`${doctrine.name}: ${doctrine.description}`}
+                        detail={`${doctrineName}: ${t(doctrine.description)}`}
                         fallback={<ExploreRoundedIcon />}
-                        image={getDoctrineIconImage(setup.doctrine)}
+                        image={getDoctrineIconImage(doctrine.id)}
                         roundImage
                         tooltip={
                             <InfoCard
-                                title={doctrine.name}
+                                title={doctrineName}
                                 subtitle={tf("{count} pts", { count: doctrine.upgradePoints })}
                                 lines={[doctrine.description]}
                             />
@@ -555,26 +464,27 @@ const SetupSummary: React.FC<{
                             const name = synergyName(synergy);
                             const level = synergyLevel(synergy);
                             return (
-                                <SetupSummaryIcon
-                                    key={synergy}
-                                    alt={name}
-                                    badge={`L${level}`}
-                                    compact={compact}
-                                    detail={tf("{name}, level {level}: {description}", {
-                                        name,
-                                        level,
-                                        description: synergyDescription(synergy),
-                                    })}
-                                    fallback={<AutoAwesomeRoundedIcon />}
-                                    image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
-                                    tooltip={
-                                        <InfoCard
-                                            title={name}
-                                            subtitle={tf("Level {level}", { level })}
-                                            lines={[synergyDescription(synergy)]}
-                                        />
-                                    }
-                                />
+                                <Box key={synergy}>
+                                    <SetupSummaryIcon
+                                        alt={name}
+                                        compact={compact}
+                                        detail={tf("{name}, level {level}: {description}", {
+                                            name,
+                                            level,
+                                            description: synergyDescription(synergy),
+                                        })}
+                                        fallback={<AutoAwesomeRoundedIcon />}
+                                        image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
+                                        tooltip={
+                                            <InfoCard
+                                                title={name}
+                                                subtitle={tf("Level {level}", { level })}
+                                                lines={[synergyDescription(synergy)]}
+                                            />
+                                        }
+                                    />
+                                    <SynergyLevelDots faction={synergy.split(":", 1)[0]} level={level} />
+                                </Box>
                             );
                         })}
                     </SetupSummaryGroup>
@@ -591,9 +501,7 @@ const SetupSummary: React.FC<{
 
 const SetupRow: React.FC<{ children: React.ReactNode; label: string }> = ({ children, label }) => (
     <Box sx={{ minWidth: 0 }}>
-        <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.45 }}>
-            {label}
-        </Typography>
+        <p className="hoc-profile-build-label">{label}</p>
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.55, minWidth: 0 }}>{children}</Box>
     </Box>
 );
@@ -601,14 +509,11 @@ const SetupRow: React.FC<{ children: React.ReactNode; label: string }> = ({ chil
 const TeamBuildChoices: React.FC<{
     label: string;
     setup: MatchTeamSetup;
-    tone: "opponent" | "player";
-}> = ({ label, setup, tone }) => {
+}> = ({ label, setup }) => {
     if (!setup.available) {
         return (
             <Box sx={{ minWidth: 0 }}>
-                <Typography level="title-sm" sx={{ color: tone === "player" ? "#46d160" : "#ff7272", mb: 0.65 }}>
-                    {label}
-                </Typography>
+                <h4 className="hoc-profile-build-title">{label}</h4>
                 <Typography level="body-xs" textColor={hocColors.muted}>
                     {t("Build choices were not recorded for this match.")}
                 </Typography>
@@ -617,25 +522,24 @@ const TeamBuildChoices: React.FC<{
     }
 
     const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
+    const doctrineName = t(doctrine.name);
     const artifacts = artifactsForSetup(setup);
 
     return (
         <Stack spacing={1.05} sx={{ minWidth: 0 }}>
-            <Typography level="title-sm" sx={{ color: tone === "player" ? "#46d160" : "#ff7272" }}>
-                {label}
-            </Typography>
+            <h4 className="hoc-profile-build-title">{label}</h4>
 
             <SetupRow label={t("Doctrine")}>
                 <SetupChoice
-                    detail={doctrine.description}
+                    detail={t(doctrine.description)}
                     fallback={<ExploreRoundedIcon />}
-                    image={getDoctrineIconImage(setup.doctrine)}
-                    name={doctrine.name}
+                    image={getDoctrineIconImage(doctrine.id)}
+                    name={doctrineName}
                     badge={tf("{count} pts", { count: doctrine.upgradePoints })}
                     roundImage
                     tooltip={
                         <InfoCard
-                            title={doctrine.name}
+                            title={doctrineName}
                             subtitle={tf("{count} pts", { count: doctrine.upgradePoints })}
                             lines={[doctrine.description]}
                         />
@@ -703,14 +607,13 @@ const TeamBuildChoices: React.FC<{
                             return (
                                 <SetupChoice
                                     key={synergy}
-                                    alt={name}
+                                    belowIcon={<SynergyLevelDots faction={synergy.split(":", 1)[0]} level={level} />}
                                     detail={tf("Level {level}: {description}", {
                                         level,
                                         description: synergyDescription(synergy),
                                     })}
                                     image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                     name={name}
-                                    badge={`L${level}`}
                                     tooltip={
                                         <InfoCard
                                             title={name}
@@ -750,37 +653,10 @@ const BuildChoices: React.FC<{
     const opponentSetup = normalizeMatchSetup(match.opponent_setup);
 
     return (
-        <Box sx={{ mt: 1.6, pt: 1.35, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-            <Stack direction="row" spacing={0.65} alignItems="center" sx={{ mb: 1.15 }}>
-                <AutoAwesomeRoundedIcon sx={{ color: hocColors.gold, fontSize: 17 }} />
-                <Typography level="title-sm" textColor={hocColors.parchment}>
-                    {t("Build choices")}
-                </Typography>
-            </Stack>
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateColumns: compact ? "1fr" : { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-                    gap: compact ? 1.4 : { xs: 1.4, sm: 0 },
-                    "& > *:nth-of-type(2)": compact
-                        ? { borderTop: "1px solid rgba(255,255,255,0.08)", pt: 1.35 }
-                        : {
-                              borderTop: { xs: "1px solid rgba(255,255,255,0.08)", sm: "none" },
-                              borderLeft: { xs: "none", sm: "1px solid rgba(255,255,255,0.08)" },
-                              pt: { xs: 1.35, sm: 0 },
-                              pl: { xs: 0, sm: 1.5 },
-                          },
-                    "& > *:first-of-type": compact ? undefined : { pr: { xs: 0, sm: 1.5 } },
-                }}
-            >
-                <TeamBuildChoices label={t("Your build")} setup={playerSetup} tone="player" />
-                <TeamBuildChoices
-                    label={tf("{opponent}'s build", { opponent })}
-                    setup={opponentSetup}
-                    tone="opponent"
-                />
-            </Box>
-        </Box>
+        <div className={compact ? "hoc-profile-builds hoc-profile-builds--compact" : "hoc-profile-builds"}>
+            <TeamBuildChoices label={t("Your build")} setup={playerSetup} />
+            <TeamBuildChoices label={tf("{opponent}'s build", { opponent })} setup={opponentSetup} />
+        </div>
     );
 };
 
@@ -824,7 +700,6 @@ const MatchCard: React.FC<{
     const { language } = useTranslation();
     const result = matchResultPresentation(match);
     const kind = matchKindPresentation(match);
-    const resultColor = RESULT_COLORS[result.tone];
     const side = matchSide(match.team);
     const playerPerformances = normalizePerformances(match.player_top_units);
     const opponentPerformances = normalizePerformances(match.opponent_top_units);
@@ -846,30 +721,17 @@ const MatchCard: React.FC<{
     const mmrBefore = Number.isFinite(match.mmr_before) ? Math.round(Number(match.mmr_before)) : 0;
     const mmrAfter = Number.isFinite(match.mmr_after) ? Math.round(Number(match.mmr_after)) : 0;
     const mmrDelta = formatSignedMatchValue(match.mmr_delta);
+    const ratingTone = profileRatingTone(match.mmr_delta ?? 0);
     const goldEarned = Number.isFinite(match.gold_earned) ? Math.max(0, Math.round(Number(match.gold_earned))) : 0;
     const rewardCurrency = rankedSeasonCurrencyAt(seasons, match.finished_time);
 
     return (
-        <Sheet
+        <article
+            className="hoc-profile-match-card"
             aria-labelledby={headingId}
-            component="article"
             data-game-id={match.game_id}
-            variant="soft"
-            sx={{
-                position: "relative",
-                overflow: "hidden",
-                boxSizing: "border-box",
-                width: "100%",
-                maxWidth: "100%",
-                minWidth: 0,
-                border: `1px solid ${expanded ? hocColors.orangeBorder : "rgba(255,255,255,0.08)"}`,
-                borderRadius: "8px",
-                bgcolor: expanded ? "rgba(25,15,8,0.84)" : "rgba(0,0,0,0.27)",
-                transition: "border-color 150ms ease, background-color 150ms ease",
-                flexShrink: 0,
-            }}
+            data-result={result.tone}
         >
-            <Box sx={{ position: "absolute", inset: "0 auto 0 0", width: 3, bgcolor: resultColor }} />
             <Box
                 sx={{
                     position: "relative",
@@ -881,6 +743,7 @@ const MatchCard: React.FC<{
                     component="button"
                     type="button"
                     aria-controls={detailsId}
+                    data-profile-match-toggle
                     aria-expanded={expanded}
                     aria-label={contextualDetailsLabel}
                     onClick={onExpand}
@@ -898,7 +761,7 @@ const MatchCard: React.FC<{
                         cursor: "pointer",
                         WebkitTapHighlightColor: "transparent",
                         transition: "background-color 150ms ease, box-shadow 150ms ease",
-                        "&:hover": { bgcolor: hocColors.orangeSoft },
+                        "&:hover": { bgcolor: "rgba(255,255,255,0.025)" },
                         "&:focus-visible": {
                             outline: `2px solid ${hocColors.gold}`,
                             outlineOffset: -3,
@@ -909,17 +772,8 @@ const MatchCard: React.FC<{
                 <Box sx={{ position: "relative", zIndex: 2, pointerEvents: "none" }}>
                     <Stack direction="row" spacing={0.75} alignItems="center">
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography
-                                id={headingId}
-                                component="h3"
-                                level={compact ? "body-xs" : "body-sm"}
-                                noWrap
-                                sx={{ color: hocColors.parchment }}
-                            >
-                                <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
-                                    {t(result.label)}
-                                </Box>{" "}
-                                {t("vs")}{" "}
+                            <h3 id={headingId} className="hoc-profile-match-heading">
+                                <strong className="hoc-profile-match-result">{t(result.label)}</strong> {t("vs")}{" "}
                                 {opponentProfileHref ? (
                                     <Box
                                         component="a"
@@ -949,7 +803,7 @@ const MatchCard: React.FC<{
                                 ) : (
                                     opponent
                                 )}
-                            </Typography>
+                            </h3>
                             <Stack
                                 direction="row"
                                 spacing={0.75}
@@ -962,7 +816,9 @@ const MatchCard: React.FC<{
                                     size="sm"
                                     variant="soft"
                                 >
-                                    <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
+                                    <span className="hoc-profile-match-mode" data-mode={kind.tone}>
+                                        {t(kind.label)}
+                                    </span>
                                 </Tooltip>
                                 {side && (
                                     <Stack
@@ -977,7 +833,6 @@ const MatchCard: React.FC<{
                                                 height: 7,
                                                 borderRadius: "50%",
                                                 bgcolor: SIDE_PRESENTATION[side].color,
-                                                boxShadow: `0 0 4px ${SIDE_PRESENTATION[side].color}`,
                                             }}
                                         />
                                         <Typography
@@ -992,7 +847,7 @@ const MatchCard: React.FC<{
                                     {timeAgo(match.finished_time ?? 0)}
                                 </Typography>
                                 {result.detail && (
-                                    <Typography level="body-xs" sx={{ color: resultColor, whiteSpace: "nowrap" }}>
+                                    <Typography level="body-xs" sx={{ color: "var(--hoc-profile-result)" }}>
                                         {tf(result.detail, result.detailParams ?? {})}
                                     </Typography>
                                 )}
@@ -1025,12 +880,12 @@ const MatchCard: React.FC<{
                                 </Stack>
                             )}
                             {kind.showsMmr && mmrDelta && (
-                                <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
+                                <RewardBadge label={`${mmrDelta} ${t("MMR")}`} tone={ratingTone} />
                             )}
                             {kind.showsGold && goldEarned > 0 && (
                                 <RewardBadge
                                     icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
-                                    label={`${rewardCurrency.symbol} +${goldEarned}`}
+                                    label={`+${goldEarned.toLocaleString(language)}`}
                                     tone="gold"
                                 />
                             )}
@@ -1090,12 +945,12 @@ const MatchCard: React.FC<{
                             </Stack>
                         )}
                         {kind.showsMmr && mmrDelta && (
-                            <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
+                            <RewardBadge label={`${mmrDelta} ${t("MMR")}`} tone={ratingTone} />
                         )}
                         {kind.showsGold && goldEarned > 0 && (
                             <RewardBadge
                                 icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
-                                label={`${rewardCurrency.symbol} +${goldEarned}`}
+                                label={`+${goldEarned.toLocaleString(language)}`}
                                 tone="gold"
                             />
                         )}
@@ -1142,30 +997,8 @@ const MatchCard: React.FC<{
             </Box>
 
             {expanded && (
-                <Box
-                    id={detailsId}
-                    aria-labelledby={headingId}
-                    role="region"
-                    sx={{
-                        borderTop: "1px solid rgba(255,255,255,0.08)",
-                        px: compact ? 1.25 : 1.5,
-                        py: 1.25,
-                    }}
-                >
-                    {/* auto-fit with a 1fr track gave each of the six metrics an equal slice of the full
-                        1480px, so a two-character value like "3" sat alone in a 240px cell. Sizing the
-                        tracks to their content packs them into one readable stat line. */}
-                    <Box
-                        sx={{
-                            display: "grid",
-                            gridTemplateColumns: compact
-                                ? "repeat(2, minmax(0, 1fr))"
-                                : "repeat(auto-fit, minmax(0, max-content))",
-                            justifyContent: compact ? "stretch" : "start",
-                            columnGap: compact ? 1.25 : 3.5,
-                            rowGap: 1.25,
-                        }}
-                    >
+                <div className="hoc-profile-match-detail" id={detailsId} aria-labelledby={headingId} role="region">
+                    <dl className="hoc-profile-match-metrics">
                         <Metric label={t("Battle duration")} value={duration || t("Unknown")} />
                         <Metric label={t("Laps")} value={laps > 0 ? String(laps) : t("Unknown")} />
                         {kind.showsMmr && (
@@ -1182,7 +1015,7 @@ const MatchCard: React.FC<{
                         )}
                         <Metric label={t("Your damage")} value={formatMatchDamage(match.player_damage)} />
                         <Metric label={t("Opponent damage")} value={formatMatchDamage(match.opponent_damage)} />
-                    </Box>
+                    </dl>
 
                     <Box
                         sx={{
@@ -1229,19 +1062,21 @@ const MatchCard: React.FC<{
                             {replayAvailable ? t("Replay match") : t("Replay unavailable")}
                         </Button>
                     </Stack>
-                </Box>
+                </div>
             )}
-        </Sheet>
+        </article>
     );
 };
 
 export const MatchHistory: React.FC<MatchHistoryProps> = ({
     compact = false,
     filterable = false,
+    pageSize,
     matches,
     onReplay,
     seasons,
 }) => {
+    const [visibleCount, setVisibleCount] = useState(pageSize ?? Number.POSITIVE_INFINITY);
     const [filter, setFilter] = useState<MatchHistoryFilter>("all");
     const [query, setQuery] = useState("");
     const [scope, setScope] = useState<MatchHistoryScope>("either");
@@ -1249,12 +1084,19 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     useTranslation();
     const history = useMatchHistorySearch(matches, query, scope, filter, filterable);
-    const filteredMatches = history.matches;
+    const visibleMatches = history.matches.slice(0, visibleCount);
+    const hasLocalMore = visibleMatches.length < history.matches.length;
+    const resetVisibleCount = () => setVisibleCount(pageSize ?? Number.POSITIVE_INFINITY);
+    const showMore = () => {
+        if (pageSize !== undefined) setVisibleCount(visibleCount + pageSize);
+        if (!hasLocalMore) history.loadMore();
+    };
     const clearFilters = () => {
         setQuery("");
         setScope("either");
         setFilter("all");
         setExpandedGameId(undefined);
+        resetVisibleCount();
     };
 
     return (
@@ -1264,19 +1106,22 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                     query={query}
                     scope={scope}
                     filter={filter}
-                    count={filteredMatches.length}
+                    count={visibleMatches.length}
                     loading={history.loading}
                     onQueryChange={(value) => {
                         setQuery(value);
                         setExpandedGameId(undefined);
+                        resetVisibleCount();
                     }}
                     onScopeChange={(value) => {
                         setScope(value);
                         setExpandedGameId(undefined);
+                        resetVisibleCount();
                     }}
                     onFilterChange={(value) => {
                         setFilter(value);
                         setExpandedGameId(undefined);
+                        resetVisibleCount();
                     }}
                 />
             )}
@@ -1295,7 +1140,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                 </Alert>
             )}
 
-            {filteredMatches.length === 0 && !history.loading && !history.error && (
+            {visibleMatches.length === 0 && !history.loading && !history.error && (
                 <Stack
                     spacing={1}
                     alignItems={filterable ? "center" : "flex-start"}
@@ -1320,7 +1165,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                 </Stack>
             )}
 
-            {filteredMatches.map((match) => {
+            {visibleMatches.map((match) => {
                 const gameId = match.game_id ?? "";
                 const expanded = expandedGameId === gameId;
                 return (
@@ -1336,19 +1181,14 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                 );
             })}
 
-            {filterable && history.hasMore && !history.loading && (
+            {filterable && (hasLocalMore || history.hasMore) && !history.loading && (
                 <Button
                     variant="soft"
                     size="sm"
                     loading={history.loadingMore}
-                    onClick={history.loadMore}
-                    sx={{
-                        alignSelf: "center",
-                        mt: 1,
-                        color: hocColors.parchment,
-                        bgcolor: hocColors.orangeSoft,
-                        border: `1px solid ${hocColors.orangeBorder}`,
-                    }}
+                    onClick={showMore}
+                    className="hoc-profile-action"
+                    sx={{ alignSelf: "center", mt: 1, color: hocColors.parchment, bgcolor: "transparent" }}
                 >
                     {t("Load more matches")}
                 </Button>

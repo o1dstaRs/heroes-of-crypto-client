@@ -38,7 +38,7 @@ const controlSx = {
     minHeight: 42,
     color: hocColors.parchment,
     bgcolor: "rgba(239,228,204,0.025)",
-    borderColor: "rgba(220,177,88,0.25)",
+    borderColor: "var(--hoc-profile-border, #38322d)",
     borderRadius: "8px",
     "--Input-focusedHighlight": hocColors.gold,
     "--Autocomplete-focusedHighlight": hocColors.gold,
@@ -47,7 +47,7 @@ const controlSx = {
         "--Input-focusedHighlight": hocColors.gold,
         "--Select-focusedHighlight": hocColors.gold,
     },
-    "&:hover": { borderColor: "rgba(220,177,88,0.5)", bgcolor: "rgba(239,228,204,0.045)" },
+    "&:hover": { borderColor: "#776a5b", bgcolor: "rgba(239,228,204,0.045)" },
 } as const;
 
 const optionSx = {
@@ -228,34 +228,41 @@ export const MatchHistorySearchControls: React.FC<MatchHistorySearchControlsProp
                 </Option>
             </Select>
         </Box>
-        <Stack direction="row" spacing={0.7} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
-            <Typography level="body-xs" textColor={hocColors.muted}>
-                {t("Try:")}
-            </Typography>
-            {["Dual Strike Charm", "Berserker", "Wolf"].map((example) => (
-                <Button
-                    key={example}
-                    size="sm"
-                    variant="plain"
-                    onClick={() => onQueryChange(example)}
-                    sx={{
-                        minHeight: 24,
-                        py: 0.25,
-                        px: 0.8,
-                        borderRadius: "5px",
-                        color: hocColors.mutedStrong,
-                        fontSize: "0.7rem",
-                        bgcolor: "rgba(239,228,204,0.04)",
-                        "&:hover": { color: hocColors.gold, bgcolor: "rgba(220,177,88,0.1)" },
-                    }}
-                >
-                    {example}
-                </Button>
-            ))}
-            <Typography level="body-xs" textColor={hocColors.muted} sx={{ fontSize: "0.69rem" }}>
-                {t("Combine names to narrow your search.")}
-            </Typography>
-        </Stack>
+        {!query && (
+            <Stack
+                direction="row"
+                spacing={0.7}
+                alignItems="center"
+                sx={{ display: { xs: "none", sm: "flex" }, flexWrap: "wrap", rowGap: 0.5 }}
+            >
+                <Typography level="body-xs" textColor={hocColors.muted}>
+                    {t("Try:")}
+                </Typography>
+                {["Dual Strike Charm", "Berserker", "Wolf"].map((example) => (
+                    <Button
+                        key={example}
+                        size="sm"
+                        variant="plain"
+                        onClick={() => onQueryChange(example)}
+                        sx={{
+                            minHeight: 24,
+                            py: 0.25,
+                            px: 0.8,
+                            borderRadius: "5px",
+                            color: hocColors.mutedStrong,
+                            fontSize: "0.7rem",
+                            bgcolor: "rgba(239,228,204,0.04)",
+                            "&:hover": { color: hocColors.gold, bgcolor: "rgba(220,177,88,0.1)" },
+                        }}
+                    >
+                        {example}
+                    </Button>
+                ))}
+                <Typography level="body-xs" textColor={hocColors.muted} sx={{ fontSize: "0.69rem" }}>
+                    {t("Combine names to narrow your search.")}
+                </Typography>
+            </Stack>
+        )}
         <Stack
             direction="row"
             justifyContent="space-between"
@@ -277,9 +284,8 @@ export const MatchHistorySearchControls: React.FC<MatchHistorySearchControlsProp
                         px: 1.25,
                         minHeight: 32,
                         color: hocColors.mutedStrong,
-                        borderColor: hocColors.orangeBorder,
-                        borderRadius: "7px",
-                        "&[aria-pressed='true']": { bgcolor: hocColors.orangeSoft, color: hocColors.parchment },
+                        borderColor: "var(--hoc-profile-border, #38322d)",
+                        "&[aria-pressed='true']": { bgcolor: "rgba(239,228,204,0.1)", color: hocColors.parchment },
                     },
                 }}
             >

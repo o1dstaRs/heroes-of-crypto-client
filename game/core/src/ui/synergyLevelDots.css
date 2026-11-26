@@ -1,0 +1,34 @@
+.hoc-synergy-level-dots {
+    --hoc-synergy-dot-color: #a29b92;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    height: 4px;
+    margin-top: 4px;
+}
+
+.hoc-synergy-level-dots[data-faction="Life"] {
+    --hoc-synergy-dot-color: #d5a74a;
+}
+
+.hoc-synergy-level-dots[data-faction="Nature"] {
+    --hoc-synergy-dot-color: #51b660;
+}
+
+.hoc-synergy-level-dots[data-faction="Chaos"] {
+    --hoc-synergy-dot-color: #d85c28;
+}
+
+.hoc-synergy-level-dots[data-faction="Might"] {
+    --hoc-synergy-dot-color: #d3261f;
+}
+
+.hoc-synergy-level-dots [data-synergy-level-dot] {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--hoc-synergy-dot-color);
+    box-shadow:
+        0 0 2px var(--hoc-synergy-dot-color),
+        0 0 0 1px rgba(255, 235, 190, 0.25);
+}

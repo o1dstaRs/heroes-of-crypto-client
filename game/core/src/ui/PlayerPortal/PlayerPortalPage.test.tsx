@@ -2,13 +2,52 @@ import { describe, expect, test } from "bun:test";
 import { CreatureVals } from "@heroesofcrypto/common";
 
 import {
-    PLAYER_PORTAL_STRATEGY_TILE_OVERLAP,
-    PLAYER_PORTAL_STRATEGY_TILE_SIZE,
     playerPortalArtifactInfo,
     playerPortalCreatureLineupLabel,
     playerPortalExitAccount,
     playerPortalMostPlayedFirst,
 } from "./PlayerPortalPage";
+import { renderProfileForm, renderProfileSummaryStats } from "./profilePresentation";
+
+describe("shared profile presentation", () => {
+    test("puts the most recent scored result at the end of the ten-match strip", () => {
+        const markup = renderProfileForm(["win", "none", "loss", "draw"], {
+            title: "Last 10 matches",
+            win: "Win",
+            loss: "Loss",
+            draw: "Draw",
+            empty: "No match",
+        });
+        expect([...markup.matchAll(/data-result="([^"]+)"/g)].map(([, result]) => result)).toEqual([
+            "empty",
+            "empty",
+            "empty",
+            "empty",
+            "empty",
+            "empty",
+            "empty",
+            "draw",
+            "loss",
+            "win",
+        ]);
+        expect(markup).toContain('aria-label="Last 10 matches, 1 Win, 1 Draw, 1 Loss"');
+    });
+
+    test("shares the summary label order and leaves an empty record's win rate unavailable", () => {
+        const markup = renderProfileSummaryStats(
+            { games: 0, wins: 0, losses: 0, winRate: 0 },
+            { games: "Games", wins: "Wins", losses: "Losses", winRate: "Win rate" },
+            "en",
+        );
+        expect([...markup.matchAll(/<dt>([^<]+)<\/dt>/g)].map(([, label]) => label)).toEqual([
+            "Games",
+            "Wins",
+            "Losses",
+            "Win rate",
+        ]);
+        expect(markup).toContain("<dt>Win rate</dt><dd>—</dd>");
+    });
+});
 
 describe("player portal exit account", () => {
     const spies = () => {
@@ -81,21 +120,6 @@ describe("player portal artifact history", () => {
 
     test("does not invent metadata for an unknown historical id", () => {
         expect(playerPortalArtifactInfo(2, 999)).toBeUndefined();
-    });
-});
-
-describe("player portal combo portraits", () => {
-    test("the overlap is real, so a trio still reads as one line-up", () => {
-        for (const breakpoint of ["xs", "sm"] as const) {
-            expect(PLAYER_PORTAL_STRATEGY_TILE_OVERLAP[breakpoint]).toBeGreaterThan(0);
-            expect(PLAYER_PORTAL_STRATEGY_TILE_OVERLAP[breakpoint]).toBeLessThan(
-                PLAYER_PORTAL_STRATEGY_TILE_SIZE[breakpoint],
-            );
-        }
-    });
-
-    test("the mobile tile stays smaller than the desktop one", () => {
-        expect(PLAYER_PORTAL_STRATEGY_TILE_SIZE.xs).toBeLessThan(PLAYER_PORTAL_STRATEGY_TILE_SIZE.sm);
     });
 });
 

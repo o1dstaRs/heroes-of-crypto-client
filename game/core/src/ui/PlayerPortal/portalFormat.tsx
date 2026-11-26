@@ -190,7 +190,7 @@ export const CreatureInfoCard: React.FC<{ creatureId: number }> = ({ creatureId 
 };
 
 /** A small creature portrait; hovering it opens the creature's full card. */
-export const CreatureIcon: React.FC<{ creatureId: number; size?: number }> = ({ creatureId, size = 32 }) => (
+export const CreatureIcon: React.FC<{ creatureId: number; size?: number | string }> = ({ creatureId, size = 32 }) => (
     <Tooltip title={<CreatureInfoCard creatureId={creatureId} />} size="sm" variant="soft" placement="top">
         <CreaturePortraitImage
             creatureId={creatureId}

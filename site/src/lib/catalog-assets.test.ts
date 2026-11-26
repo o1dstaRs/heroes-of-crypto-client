@@ -3,11 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { artifacts } from "./artifacts-data";
 import { catalogIconUrl } from "./catalog-icon";
+import { doctrineIconUrl } from "./doctrine-icons";
 import { spells } from "./spells-data";
 import { synergyIcons } from "./synergy-icons";
 import { abilities, allUnits, factionUnits } from "./units-data";
 import runtimeArt from "../../../game/core/animation-release.json";
 import { TIER1_ARTIFACT_LIST, TIER2_ARTIFACT_LIST } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+import { DOCTRINE_LIST } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
 interface AssetReference {
     owner: string;
@@ -25,6 +27,7 @@ const assetReferences = (): AssetReference[] => [
         url: catalogIconUrl(`/assets/images/units/abilities/${augment}_augment_256.webp`),
     })),
     ...artifacts.map((artifact) => ({ owner: `${artifact.name} artifact`, url: artifact.icon })),
+    ...DOCTRINE_LIST.map((doctrine) => ({ owner: `${doctrine.name} doctrine`, url: doctrineIconUrl(doctrine) })),
     ...factionUnits.map((faction) => ({
         owner: `${faction.faction} faction`,
         url: faction.icon,
@@ -72,7 +75,8 @@ describe("public codex assets", () => {
                 artifactSources.get(filename) ??
                 (filename === "rallying_volley_blessing_256.webp" ? "rallying_volley_aura_256.webp" : filename);
             const pin = pins[`images/${sourceName}`];
-            if (reference.url.includes("/artifacts/")) expect(pin, sourceName).toBeDefined();
+            if (reference.url.includes("/artifacts/") || reference.url.includes("/doctrines/"))
+                expect(pin, sourceName).toBeDefined();
             if (!pin || checked.has(reference.url)) continue;
             checked.add(reference.url);
             const bytes = await Bun.file(publicAssetPath(reference.url)).arrayBuffer();
@@ -86,7 +90,7 @@ describe("public codex assets", () => {
         expect(mismatches).toEqual([]);
     });
 
-    test("has a non-empty image for every game-derived faction, unit, ability, spell, artifact, and synergy", async () => {
+    test("has a non-empty image for every game-derived faction, unit, ability, spell, artifact, doctrine, and synergy", async () => {
         const missing: string[] = [];
 
         for (const reference of assetReferences()) {

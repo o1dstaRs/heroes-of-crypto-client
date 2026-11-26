@@ -240,6 +240,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Win rate": "Процент побед",
     Games: "Партии",
     "Recent form": "Последние результаты",
+    "Last 10 matches": "Последние 10 матчей",
     "No result": "Нет результата",
     "Current rank": "Текущий ранг",
     "Loading rank…": "Загрузка ранга…",
@@ -444,6 +445,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Level {level}: {description}": "Уровень {level}: {description}",
     // Portal hover cards: what a creature, an augment, an artifact or a synergy in a recorded build does.
     "Level {level}": "Уровень {level}",
+    "Synergy level {level}": "Уровень синергии {level}",
     "Stack of {count}": "Отряд из {count}",
     "Tier {tier} artifact": "Артефакт уровня {tier}",
     Melee: "Ближний бой",
@@ -615,6 +617,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Scout: "Разведчик",
     Spymaster: "Мастер шпионажа",
     "Blind Fury": "Слепая ярость",
+    "Battle Trance": "Боевой транс",
     "Reveal the opponent's picks in 3 random slots and see all draft bans in advance. Grants 6 upgrade points.":
         "Открывает выборы противника в 3 случайных слотах и заранее показывает все баны драфта. Даёт 6 очков усилений.",
     "See all of the opponent's picks during the draft and all draft bans in advance. Know the map from the starting bundle choice. Grants 5 upgrade points.":

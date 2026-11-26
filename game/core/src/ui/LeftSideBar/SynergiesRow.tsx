@@ -4,6 +4,7 @@ import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
 import React, { useMemo } from "react";
 
+import { SynergyLevelDots } from "../SynergyLevelDots";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
@@ -69,20 +70,8 @@ const SynergiesRow = ({
             }}
         >
             {sortedSynergies.map((synergyKey) => {
-                const level = synergyKey.split(":").length < 3 ? 0 : parseInt(synergyKey.split(":")[2]);
-                let dotColor: string;
-
-                if (synergyKey.startsWith("Nature:")) {
-                    dotColor = "#51b660";
-                } else if (synergyKey.startsWith("Life:")) {
-                    dotColor = "rgb(213, 167, 74)";
-                } else if (synergyKey.startsWith("Chaos:")) {
-                    dotColor = "rgb(216, 92, 40)";
-                } else if (synergyKey.startsWith("Might:")) {
-                    dotColor = "rgb(211, 38, 31)";
-                } else {
-                    dotColor = "gray";
-                }
+                const [faction, , rawLevel = "0"] = synergyKey.split(":");
+                const level = parseInt(rawLevel);
 
                 return (
                     <Box
@@ -123,30 +112,7 @@ const SynergiesRow = ({
                                 }}
                             />
                         </Tooltip>
-                        <Box
-                            aria-label={`Synergy level ${level}`}
-                            sx={{
-                                display: "flex",
-                                justifyContent: "center",
-                                height: "4px",
-                                mt: "4px",
-                            }}
-                        >
-                            {Array.from({ length: level }, (_, dotIndex) => (
-                                <Box
-                                    key={dotIndex}
-                                    data-synergy-level-dot
-                                    sx={{
-                                        width: "4px",
-                                        height: "4px",
-                                        backgroundColor: dotColor,
-                                        boxShadow: `0 0 2px ${dotColor}, 0 0 0 1px rgba(255,235,190,.25)`,
-                                        borderRadius: "50%",
-                                        margin: "0 2px",
-                                    }}
-                                />
-                            ))}
-                        </Box>
+                        <SynergyLevelDots faction={faction} level={level} />
                     </Box>
                 );
             })}
