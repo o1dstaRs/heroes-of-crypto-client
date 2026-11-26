@@ -34,8 +34,8 @@ export const LavaPitEffectsEditor: React.FC<{ windowSize: IWindowSize }> = ({ wi
             startPreviewPlaySession({
                 userTeam: TeamVals.LEFT,
                 gridType: GridVals.LAVA_CENTER,
-                lowerArmy: [],
-                upperArmy: [],
+                leftArmy: [],
+                rightArmy: [],
             }),
         [],
     );

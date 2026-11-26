@@ -3,7 +3,7 @@
 #
 # Brings up the full local stack, then either:
 #   match  — a real human-vs-human pick/ban match between two seeded players, printing two browser
-#            join links (GREEN = LOWER, RED = UPPER); or
+#            join links (GREEN = LEFT, RED = RIGHT); or
 #   vs-ai  — a single-human "Play vs AI" match, printing one link that opens in the pick phase against
 #            an AI opponent that drives its own picks/placement/fight server-side.
 # Each link uses the dev e2e auto-login (?e2eEmail=&e2ePassword=) so the browser is authenticated and

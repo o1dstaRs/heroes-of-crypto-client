@@ -31,11 +31,8 @@ import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
 import { activeArmySynergies, FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
 import { canShowFightResults, nextFinishedResultsView, type FinishedResultsView } from "./resultsVisibility";
 
-// Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
-// Keep the results preview and live overlay compatible with either checked-out common revision.
-const teamValues = TeamVals as unknown as Record<string, number>;
-const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
-const UPPER_TEAM = (teamValues.RIGHT ?? teamValues.UPPER ?? 1) as TeamType;
+const LEFT_TEAM = TeamVals.LEFT as TeamType;
+const RIGHT_TEAM = TeamVals.RIGHT as TeamType;
 
 const RESULTS_PREVIEW_STATE: IVisibleState = {
     canBeStarted: false,
@@ -49,20 +46,20 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     canRequestAdditionalTime: false,
     upNext: [],
     lapsNarrowed: 0,
-    teamWin: UPPER_TEAM,
+    teamWin: RIGHT_TEAM,
     fightStats: {
-        winner: UPPER_TEAM,
+        winner: RIGHT_TEAM,
         setup: {
             armies: [
                 {
-                    team: LOWER_TEAM,
+                    team: LEFT_TEAM,
                     doctrine: Doctrine.Doctrine.SEE_ALL,
                     artifactTier1: Artifact.Tier1Artifact.WINGED_BOOTS,
                     artifactTier2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
                     synergies: ["Life:2:1", "Nature:2:3", "Might:2:2"],
                 },
                 {
-                    team: UPPER_TEAM,
+                    team: RIGHT_TEAM,
                     doctrine: Doctrine.Doctrine.SEE_NONE,
                     artifactTier1: Artifact.Tier1Artifact.BARREL_BARRICADE,
                     artifactTier2: Artifact.Tier2Artifact.PENDANT_OF_VITALITY,
@@ -84,13 +81,13 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
                         creatureKey: "preview-lower-peasant",
                         name: "Peasant",
                         smallTextureName: "peasant_512",
-                        team: LOWER_TEAM,
+                        team: LEFT_TEAM,
                     },
                     {
                         creatureKey: "preview-upper-peasant",
                         name: "Peasant",
                         smallTextureName: "peasant_512",
-                        team: UPPER_TEAM,
+                        team: RIGHT_TEAM,
                     },
                 ],
             },
@@ -105,13 +102,13 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
                         creatureKey: "preview-lower-squire",
                         name: "Squire",
                         smallTextureName: "squire_512",
-                        team: LOWER_TEAM,
+                        team: LEFT_TEAM,
                     },
                     {
                         creatureKey: "preview-upper-squire",
                         name: "Squire",
                         smallTextureName: "squire_512",
-                        team: UPPER_TEAM,
+                        team: RIGHT_TEAM,
                     },
                 ],
             },
@@ -126,13 +123,13 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
                         creatureKey: "preview-lower-arbalester",
                         name: "Arbalester",
                         smallTextureName: "arbalester_512",
-                        team: LOWER_TEAM,
+                        team: LEFT_TEAM,
                     },
                     {
                         creatureKey: "preview-upper-arbalester",
                         name: "Arbalester",
                         smallTextureName: "arbalester_512",
-                        team: UPPER_TEAM,
+                        team: RIGHT_TEAM,
                     },
                 ],
             },
@@ -147,32 +144,32 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
                         creatureKey: "preview-lower-blacksmith",
                         name: "Blacksmith",
                         smallTextureName: "blacksmith_512",
-                        team: LOWER_TEAM,
+                        team: LEFT_TEAM,
                     },
                 ],
             },
         ],
         leftDeaths: [
-            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: LOWER_TEAM },
-            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: LOWER_TEAM },
-            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: LOWER_TEAM },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: LEFT_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: LEFT_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: LEFT_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 50, start: 50, team: LEFT_TEAM },
         ],
         rightDeaths: [
-            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: UPPER_TEAM },
-            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: UPPER_TEAM },
-            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: UPPER_TEAM },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 21, start: 50, team: UPPER_TEAM },
+            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: RIGHT_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: RIGHT_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: RIGHT_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 21, start: 50, team: RIGHT_TEAM },
         ],
         damageByUnit: [
-            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: UPPER_TEAM },
-            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: UPPER_TEAM },
-            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: UPPER_TEAM },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: UPPER_TEAM },
-            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: LOWER_TEAM },
-            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: LOWER_TEAM },
-            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: LOWER_TEAM },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: LOWER_TEAM },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: RIGHT_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: RIGHT_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: RIGHT_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: RIGHT_TEAM },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: LEFT_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: LEFT_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: LEFT_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: LEFT_TEAM },
         ],
         leftStartTotal: 200,
         rightStartTotal: 200,
@@ -305,7 +302,7 @@ const CasualtyColumn: React.FC<{
             <Box
                 sx={{
                     display: "flex",
-                    flexDirection: team === UPPER_TEAM ? "row-reverse" : "row",
+                    flexDirection: team === RIGHT_TEAM ? "row-reverse" : "row",
                     alignItems: "center",
                     gap: 0.75,
                 }}
@@ -1207,22 +1204,22 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
-    const resultParticipants = ([LOWER_TEAM, UPPER_TEAM] as TeamType[]).map((team): ResultParticipant => {
-        const side = team === LOWER_TEAM ? "lower" : "upper";
+    const resultParticipants = ([LEFT_TEAM, RIGHT_TEAM] as TeamType[]).map((team): ResultParticipant => {
+        const side = team === LEFT_TEAM ? "lower" : "upper";
         const settlement = activeMatch?.players.find((player) => player.side === side);
         const seat = players.find(
             (player) => player.team === team || (!!settlement?.playerId && player.playerId === settlement.playerId),
         );
         const playerId = settlement?.playerId ?? seat?.playerId;
-        const isAi = previewAi ? team === UPPER_TEAM : !!seat?.isAi;
+        const isAi = previewAi ? team === RIGHT_TEAM : !!seat?.isAi;
         const profile = !isAi && playerId ? profiles[playerId] : undefined;
         const fallbackResult = isDraw ? "draw" : stats.winner === team ? "win" : "loss";
-        const fallbackName = seat?.label || (team === LOWER_TEAM ? "Green Player" : "Red Player");
+        const fallbackName = seat?.label || (team === LEFT_TEAM ? "Green Player" : "Red Player");
         return {
             team,
             playerId,
             username:
-                previewAi && team === UPPER_TEAM
+                previewAi && team === RIGHT_TEAM
                     ? "AI (V0.8)"
                     : settlement?.username || profile?.username || fallbackName,
             isAi,
@@ -1605,7 +1602,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     <Box sx={{ flexShrink: 0 }}>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={3} sx={{ px: 1, pt: 2 }}>
                             <CasualtyColumn
-                                team={LOWER_TEAM}
+                                team={LEFT_TEAM}
                                 setup={stats.setup}
                                 deaths={stats.leftDeaths}
                                 killedTotal={stats.leftKilledTotal}
@@ -1613,7 +1610,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
                             />
                             <CasualtyColumn
-                                team={UPPER_TEAM}
+                                team={RIGHT_TEAM}
                                 setup={stats.setup}
                                 deaths={stats.rightDeaths}
                                 killedTotal={stats.rightKilledTotal}

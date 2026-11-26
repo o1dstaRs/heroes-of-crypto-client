@@ -1,6 +1,6 @@
 ---
 name: heroes-e2e
-description: Start a local end-to-end Heroes of Crypto match and generate browser join links. Supports human-vs-human multiplayer (real pick/ban through play, two links GREEN/LOWER + RED/UPPER) and single-human "Play vs AI" (one link, AI opponent drives picks/placement/fight). Use when the user asks to start an e2e game, test multiplayer, or play/test against the AI.
+description: Start a local end-to-end Heroes of Crypto match and generate browser join links. Supports human-vs-human multiplayer (real pick/ban through play, two links GREEN/LEFT + RED/RIGHT) and single-human "Play vs AI" (one link, AI opponent drives picks/placement/fight). Use when the user asks to start an e2e game, test multiplayer, or play/test against the AI.
 ---
 
 # Heroes of Crypto — Local E2E Multiplayer (pick-phase)
@@ -26,7 +26,7 @@ ArangoDB + Redis (Docker)  ->  server :3001  ->  game client :5174
 
 `simple_client/create_pick_match.ts`:
 1. Seeds two **active** players directly in the DB (bcrypt password via the server's
-   `hashPassword`) — Green=LOWER, Red=UPPER — each with `inGameId` set.
+   `hashPassword`) — Green=LEFT (team 2), Red=RIGHT (team 1) — each with `inGameId` set.
 2. Inserts a `CONFIRMING` game linking them.
 3. Logs both in over HTTP and POSTs `/v1/game/confirm/<gameId>` for each. Final confirmation
    promotes the game to `PICK` (GameStatus.PICK=2) and creates its Pick document. The ranked
@@ -126,7 +126,7 @@ Each `match` run creates a fresh game + fresh players; re-run for a new match.
 - A working Docker-compatible CLI and runtime, such as Docker Desktop, with host port forwarding
   for ArangoDB (:8529) and Redis (:6379).
 - `timeout` is not installed on macOS by default — don't rely on it in probes.
-- Team colors: **LOWER = Green (team 2)**, **UPPER = Red (team 1)**.
+- Team colors: **LEFT = Green (team 2)**, **RIGHT = Red (team 1)**.
 
 ## Tuning
 

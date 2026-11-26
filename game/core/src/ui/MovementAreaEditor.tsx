@@ -64,8 +64,8 @@ export const MovementAreaEditor: React.FC<{ windowSize: IWindowSize }> = ({ wind
             startPreviewPlaySession({
                 userTeam: TeamVals.LEFT,
                 gridType: GridVals.NORMAL,
-                lowerArmy: [],
-                upperArmy: [],
+                leftArmy: [],
+                rightArmy: [],
             }),
         [],
     );

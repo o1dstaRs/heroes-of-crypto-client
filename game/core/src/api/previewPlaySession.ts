@@ -76,13 +76,8 @@ export interface PreviewPlacementOptions {
     /** Optional dev-fixture rosters; the regular placement preview keeps its canonical six stacks. */
     leftArmy?: readonly number[];
     rightArmy?: readonly number[];
-    /** Lower/upper aliases used by side-neutral dev editors while left/right callers are migrated. */
-    lowerArmy?: readonly number[];
-    upperArmy?: readonly number[];
     /** Dev comparison views can align a large left roster along the board's bottom edge. */
     spreadLeftArmyAcrossBoard?: boolean;
-    /** Lower-team alias for spreadLeftArmyAcrossBoard. */
-    spreadLowerArmyAcrossBoard?: boolean;
     /** Consecutive group sizes for horizontal rows (the framing editor uses one row per level). */
     comparisonRowSizes?: readonly number[];
     /** Optional exact ground row for each comparison row; shadow tuning pins its selected unit at the top. */
@@ -91,7 +86,7 @@ export interface PreviewPlacementOptions {
     comparisonAlignToTopPlayableRow?: boolean;
     /** When set, comparison units are packed left-to-right with this many empty cells between footprints. */
     comparisonHorizontalGapCells?: number;
-    /** Preserve this many fixed horizontal slots, including empty lowerArmy entries such as 0. */
+    /** Preserve this many fixed horizontal slots, including empty leftArmy entries such as 0. */
     comparisonFixedSlotCount?: number;
 }
 
@@ -333,8 +328,8 @@ const deployComparisonTeam = (
 
 const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
     const now = Date.now();
-    const leftArmy = options.lowerArmy ?? options.leftArmy ?? LEFT_ARMY;
-    const rightArmy = options.upperArmy ?? options.rightArmy ?? RIGHT_ARMY;
+    const leftArmy = options.leftArmy ?? LEFT_ARMY;
+    const rightArmy = options.rightArmy ?? RIGHT_ARMY;
     const units = [
         ...leftArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.LEFT, index)),
         ...rightArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.RIGHT, index)),
@@ -347,7 +342,7 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
     // client decides the zone is. Deploying into the augmented zone instead put the army one column outside
     // the drawn zone whenever the client had not yet folded the augment in.
     const leftUnits = units.filter((unit) => unit.team === TeamVals.LEFT);
-    const usesComparisonLayout = options.spreadLowerArmyAcrossBoard ?? options.spreadLeftArmyAcrossBoard;
+    const usesComparisonLayout = options.spreadLeftArmyAcrossBoard;
     if (usesComparisonLayout) {
         // Framing/shadow comparison surfaces only need the creature body. Mark the empty spell list as
         // authoritative so RankedPlayScene does not reconstruct a creature's live spellbook while hydrating

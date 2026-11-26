@@ -59,8 +59,8 @@ export const LavaFireVideoEditor: React.FC<{ windowSize: IWindowSize }> = ({ win
             startPreviewPlaySession({
                 userTeam: TeamVals.LEFT,
                 gridType: GridVals.LAVA_CENTER,
-                lowerArmy: [],
-                upperArmy: [],
+                leftArmy: [],
+                rightArmy: [],
             }),
         [],
     );
