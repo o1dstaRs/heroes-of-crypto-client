@@ -40,16 +40,16 @@ const FOOTPRINT_GEOMETRY_RESTRICTIONS = [
 
 module.exports = [
     {
-        files: ["game/**/src/**/*.{ts,tsx}", "scripts/**/*.ts", "site/scripts/astro_build.ts"],
         ignores: [
-            "game/engine/**/*.ts",
-            "docs/**/*.js",
-            "game/heroes-of-crypto-common/**/*.{ts,js}",
+            "game/engine/**",
+            "game/heroes-of-crypto-common/**",
             "game/**/dist/**",
             "game/**/tmp/**",
             "game/core/src/generated/**",
-            "node_modules/**", // Added to ignore node_modules contents
         ],
+    },
+    {
+        files: ["game/**/src/**/*.{ts,tsx}", "scripts/**/*.ts", "site/scripts/astro_build.ts"],
         plugins: {
             react: reactPlugin,
             "react-hooks": reactHooksPlugin,

@@ -46,7 +46,7 @@
         "deploy:prod": "bun scripts/deploy.ts prod",
         "deploy:test": "bun scripts/deploy.ts test",
         "lint": "bun run lint:es && bun run lint:scss && bun run lint:package && bun run lint:style",
-        "lint:es": "cross-env NODE_OPTIONS=--max-old-space-size=8192 bunx eslint \"game/**/src/**/*.{ts,tsx}\" \"scripts/**/*.ts\" site/scripts/astro_build.ts --ignore-pattern .prettierignore",
+        "lint:es": "cross-env NODE_OPTIONS=--max-old-space-size=8192 bunx eslint --config eslint.config.js \"game/**/src/**/*.{ts,tsx}\" \"scripts/**/*.ts\" site/scripts/astro_build.ts",
         "lint:es:fix": "bun run lint:es -- --fix",
         "lint:fix": "bun run lint:es:fix && bun run lint:scss:fix && bun run lint:package:fix && bun run lint:style:fix",
         "lint:package": "bun run lint:package:fix -- --check",
