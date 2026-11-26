@@ -231,8 +231,10 @@ Current default is profile v36, revision suffix `closing-pick-synergy-v1-split-s
 have it, because it takes two shots to kill her"): in screen mode a splittable Water Shield stack (Mermaid) is the screen
 body before any other, so every spare slot becomes a one-model Mermaid that takes two attacks to kill (switch
 `A19_SHIELD_SCREEN_<LEFT|RIGHT>`, on unless `0`; the server's split plan and the Premium projection read it). The owner
-chose "Both now" (AI seats and Premium at once); a registered non-inferiority check follows and the rule is rolled back if
-it fails, so it is not a measured strength gain. Read common's `docs/shield_screen_adoption.md`.
+chose "Both now" (AI seats and Premium at once), ahead of its registered non-inferiority check. That check, SH1, passed
+on November 26, 2026: +1.20 points per game (95% −0.19 to +2.63; mirror +0.76, owner-shaped +1.64), all five gates. The
+profile now records `non-inferiority-confirmed` (common `9faeeb92`). It is not a measured strength gain. Read common's
+`docs/shield_screen_adoption.md`.
 
 Profile v35, retained in v36: the owner asked for three behaviour fixes on November 24, 2026. Each had measured flat in development, so the owner chose to check each one first.
 One registered non-inferiority confirmation, OA, checked all three against one production control: the 95% lower bound
