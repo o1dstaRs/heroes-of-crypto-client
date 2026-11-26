@@ -350,6 +350,8 @@ export abstract class PixiScene {
         _options?: AuthoritativeSnapshotOptions,
     ): void {}
     public applyAuthoritativeVfx(_events: GameEvent[]): void {}
+    /** Recompute `sc_visibleState.resultsHeld`; the manager calls this right before publishing the state. */
+    public updateResultsHold(): void {}
     public setTeamAiControlled(_team: TeamType, _enabled: boolean): void {}
     public isTeamAiControlled(_team: TeamType): boolean {
         return false;

@@ -16,7 +16,7 @@ import { PlayerRankedRecord } from "../PlayerRankedRecord";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IFightDeathEntry, IFightResultSetup, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
+import { IFightDeathEntry, IFightResultSetup, IVisibleState } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { MatchupPlayerTooltip, type MatchupPlayer } from "../MatchupOverlay";
 import { matchupTeamTone } from "../matchupOverlayTone";
@@ -29,7 +29,7 @@ import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
 import { t } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
 import { activeArmySynergies, FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
-import { canShowFightResults } from "./resultsVisibility";
+import { canShowFightResults, nextFinishedResultsView, type FinishedResultsView } from "./resultsVisibility";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
 // Keep the results preview and live overlay compatible with either checked-out common revision.
@@ -1081,7 +1081,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     // The last results frame whose winner agreed with the finished team. A later sample can disagree for
     // a moment (the tracker rebuilds with no winner while stacks are cleaned up). Dropping the panel for
     // that moment and mounting it again is the up, then down, then up the player sees after the fight.
-    const finishedView = useRef<{ state: IVisibleState; stats: IFightStatsReport } | null>(null);
+    const finishedView = useRef<FinishedResultsView | null>(null);
 
     useEffect(() => {
         setVisibleState(manager.GetCurrentVisibleState());
@@ -1105,7 +1105,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     }, [manager]);
 
     const liveState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
-    const liveStats: IFightStatsReport | undefined = liveState.fightStats;
 
     useEffect(() => {
         if (previewMode || mode !== "ranked" || !gameId || !liveState.hasFinished) {
@@ -1187,11 +1186,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     // on that would silently swallow the results overlay. The percentage math (percent() / CasualtyRoster)
     // already guards against a 0 total, so a missing start total just degrades that team's casualty
     // figures rather than hiding the whole overlay.
-    if (!liveState.hasFinished) {
-        finishedView.current = null;
-    } else if (liveStats && liveState.teamWin !== undefined && liveStats.winner === liveState.teamWin) {
-        finishedView.current = { state: liveState, stats: liveStats };
-    }
+    finishedView.current = nextFinishedResultsView(liveState, finishedView.current);
     const finished = liveState.hasFinished ? finishedView.current : null;
     if (!finished || !canShowFightResults(liveState, dismissed)) {
         return null;

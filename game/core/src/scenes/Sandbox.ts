@@ -21663,6 +21663,40 @@ export class Sandbox extends PixiScene {
         };
         this.sc_visibleStateUpdateNeeded = true;
     }
+    /** A beat after the last animation, so the final frame registers before the results cover it. */
+    private static readonly RESULTS_HOLD_GRACE_MS = 400;
+    /** The results never wait longer than this, whatever is still animating. */
+    private static readonly RESULTS_HOLD_MAX_MS = 8000;
+    private resultsHoldSince?: number;
+    private resultsHoldLastBusyAt?: number;
+    /**
+     * Owner (2026-11-25): "before final screen loads, wait for the final death animation to finish (or
+     * armageddon)". The finish is still published as soon as it is known (ranked publishes it even while the
+     * killing blow animates, so the overlay can never be lost); this only holds the overlay back while the
+     * board plays out the last blow, death clips (dying units included), projectiles and narrowing.
+     */
+    public override updateResultsHold(): void {
+        const state = this.sc_visibleState;
+        if (!state) return;
+        if (!state.hasFinished) {
+            this.resultsHoldSince = undefined;
+            if (state.resultsHeld) {
+                state.resultsHeld = false;
+                this.sc_visibleStateUpdateNeeded = true;
+            }
+            return;
+        }
+        const now = performance.now();
+        this.resultsHoldSince ??= now;
+        if (this.hasPendingCombatPresentation()) this.resultsHoldLastBusyAt = now;
+        const held =
+            now - this.resultsHoldSince < Sandbox.RESULTS_HOLD_MAX_MS &&
+            now - (this.resultsHoldLastBusyAt ?? Number.NEGATIVE_INFINITY) < Sandbox.RESULTS_HOLD_GRACE_MS;
+        if (!!state.resultsHeld !== held) {
+            state.resultsHeld = held;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
     protected finishFight(teamWin: TeamType, opts: { mechanicsAlreadyApplied?: boolean } = {}): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // Guard re-entry: the win-condition check runs every frame while there is no active unit,

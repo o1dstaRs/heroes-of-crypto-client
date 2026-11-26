@@ -1532,7 +1532,8 @@ export class PixiGameManager {
             this.m_scene.sc_possibleSynergiesUpdateNeeded = false;
         }
 
-        // Visible state
+        // Visible state. The results hold is refreshed first, so a finish never reaches React without it.
+        this.m_scene?.updateResultsHold();
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
             if (this.m_scene.sc_visibleState) {
                 const cloned = structuredClone(this.m_scene.sc_visibleState as IVisibleState);

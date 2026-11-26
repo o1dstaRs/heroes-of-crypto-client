@@ -173,6 +173,11 @@ export interface IVisibleState {
     /** Full-fight replay playback for the "Exit Replay" button; excludes live action animations. */
     replayPlaybackActive?: boolean;
     /**
+     * The fight is over but the board is still playing it out: the final blow, the last death clips or an
+     * Armageddon wave. The results wait for them (owner 2026-11-25), never longer than the scene's cap.
+     */
+    resultsHeld?: boolean;
+    /**
      * The replay's React snapshot stays on the opening board for the whole playback. This is set once that
      * playback is actually showing the fight, so the battle log can mount without applying those snapshots
      * again (doing so rewinds the board).
