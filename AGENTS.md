@@ -236,6 +236,7 @@ creature sure, before game. Same way how it works for humans"):
 - Registered confirmation BN2, against owner-shaped opponents: +8.59 points per changed draft (95% +4.30 to +12.95; guard
   +5.58), all four gates. It is a gain against owner-shaped drafts, not a win rate against people. Read the server's
   `docs/ai_strategy_status.md`.
+
 Profile v37 (`a19-counter-model-v2`, server `38b2bfa`, common `8d0e7a67`) refits the counter draft's matchup model.
 
 Profile v36, retained in v38: `a19-shield-screen-v1` refines v35's split screen at the owner's request ("it is always better to split mermaid if we
