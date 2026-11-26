@@ -7,11 +7,8 @@ import {
 import { SkewerSpears, type SkewerSpearPose } from "./SkewerSpear";
 import { WindSpears } from "./WindSpear";
 import { bitterExperienceTriggered } from "../bitterExperienceFlagEffects";
-import {
-    OVERHEAD_EFFECT_DURATION_MS,
-    FLOATING_RESULT_DURATION_MS,
-    RESURRECTION_BURST_DURATION_MS,
-} from "../../settings/statusEffectTiming";
+import { OVERHEAD_EFFECT_DURATION_MS, FLOATING_RESULT_DURATION_MS } from "../../settings/statusEffectTiming";
+import { ResurrectionVfx } from "./ResurrectionVfx";
 import { WildRegenerationEngine } from "./WildRegenerationEngine";
 import { HealCrossPops } from "./HealCrossPops";
 import { PetrifyingGazePops } from "./PetrifyingGazePops";
@@ -673,22 +670,6 @@ interface IHealBurst {
     moteColor: number;
     motes: { angle: number; radius: number; speed: number }[];
 }
-// Resurrection rises promptly on a real-time clock, independent of the slower battle simulation.
-const RESURRECT_BURST_Z = 2160;
-const RESURRECT_BURST_LIFE = RESURRECTION_BURST_DURATION_MS / 1000;
-const RESURRECT_GOLD = 0xffd76a;
-const RESURRECT_PALE = 0xfff3c4;
-
-interface IResurrectBurst {
-    graphics: Graphics;
-    pos: HoCMath.XY;
-    age: number;
-    startedAtMs: number;
-    life: number;
-    /** Height of the light column, in world units — scaled off the cell size at spawn. */
-    columnHeight: number;
-    motes: { angle: number; radius: number; speed: number; rise: number; size: number }[];
-}
 const ICE_BREAK_BURST_S = 0.085;
 const ICE_BREAK_COLORS = [0x91d8ff, 0xbdeaff, 0x6fc5f2, 0xd9f6ff] as const;
 const CRAFT_TEXTURE_URLS = [images.craft_anvil, images.craft_hammer] as const;
@@ -709,6 +690,8 @@ export class CombatVisuals {
     private zenaKills = new Map<string, { direction: HoCMath.XY; target?: BrutalityTarget }>();
     private zenaDeathBodies = new WeakSet<RenderableUnit>();
     private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
+    // Resurrection rises promptly on a real-time clock, independent of the slower battle simulation.
+    private resurrections = new ResurrectionVfx((container, zIndex) => this.attachEffect(container, zIndex));
     private helpingHandLinks = new HelpingHandLinks({
         getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
         getGridSettings: () => this.context.getGridSettings(),
@@ -783,7 +766,6 @@ export class CombatVisuals {
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private areaImpacts: IAreaImpact[] = [];
-    private resurrectBursts: IResurrectBurst[] = [];
     private lightningProcedural?: ThunderbirdLightningProcedural;
     private whirlpoolSprites?: WhirlpoolSprites;
     private spellAtmosphere?: SpellAtmosphere;
@@ -2113,10 +2095,7 @@ export class CombatVisuals {
             this.cyclopsGore.clear();
             this.cyclopsKills.clear();
             this.cyclopsDeathBodies = new WeakSet();
-            for (const burst of this.resurrectBursts) {
-                burst.graphics.destroy();
-            }
-            this.resurrectBursts.length = 0;
+            this.resurrections.clear();
             for (const rebound of this.mirrorRebounds) {
                 rebound.container.destroy({ children: true });
             }
@@ -2223,7 +2202,7 @@ export class CombatVisuals {
             !this.lastFuse.active &&
             !this.zenaBrutality.active &&
             !this.cyclopsGore.active &&
-            this.resurrectBursts.length === 0 &&
+            !this.resurrections.active &&
             !this.lightningProcedural?.active &&
             !this.whirlpoolSprites?.active &&
             !this.spellFireSprites?.active &&
@@ -2324,7 +2303,7 @@ export class CombatVisuals {
         this.lastFuse.update(dt);
         this.zenaBrutality.update(dt);
         this.cyclopsGore.update(dt);
-        this.stepResurrectBursts(dt);
+        this.resurrections.update();
         this.spellAtmosphere?.begin();
         this.lightningProcedural?.update();
         this.whirlpoolSprites?.update();
@@ -4537,77 +4516,12 @@ export class CombatVisuals {
             })),
         });
     }
-    public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
-        const graphics = new Graphics();
-        this.attachEffect(graphics, RESURRECT_BURST_Z);
-        this.resurrectBursts.push({
-            graphics,
-            pos: { x: pos.x, y: pos.y },
-            age: 0,
-            startedAtMs: performance.now(),
-            life: RESURRECT_BURST_LIFE,
-            columnHeight: cellSize * 2.6,
-            motes: Array.from({ length: 16 }, (_, i) => ({
-                angle: (i / 16) * Math.PI * 2 + (i % 2) * 0.2,
-                radius: cellSize * (0.1 + (i % 3) * 0.07),
-                speed: cellSize * (0.35 + (i % 4) * 0.12),
-                rise: cellSize * (1.1 + (i % 5) * 0.28),
-                size: 3 + (i % 3),
-            })),
-        });
-    }
-    private stepResurrectBursts(_dt: number): void {
-        for (let i = this.resurrectBursts.length - 1; i >= 0; i--) {
-            const burst = this.resurrectBursts[i];
-            burst.age = Math.max(0, performance.now() - burst.startedAtMs) / 1000;
-            if (burst.age >= burst.life) {
-                burst.graphics.destroy();
-                this.resurrectBursts.splice(i, 1);
-                continue;
-            }
-            const t = burst.age / burst.life;
-            const eased = 1 - (1 - t) * (1 - t);
-            const fade = 1 - t;
-            const g = burst.graphics;
-            g.clear();
-
-            // The column: brightest at the ground and tapering as it climbs, so the light reads as coming
-            // UP out of the board. worldRoot is y-up, so a positive y offset rises.
-            const columnAlpha = (t < 0.25 ? t / 0.25 : fade) * 0.5;
-            const columnWidth = burst.columnHeight * 0.22 * (1 - 0.35 * eased);
-            for (let segment = 0; segment < 4; segment += 1) {
-                const bottom = (segment / 4) * burst.columnHeight * eased;
-                const height = (burst.columnHeight * eased) / 4;
-                g.rect(burst.pos.x - columnWidth / 2, burst.pos.y + bottom, columnWidth, height).fill({
-                    color: segment < 2 ? RESURRECT_PALE : RESURRECT_GOLD,
-                    alpha: columnAlpha * (1 - segment / 5),
-                });
-            }
-
-            // Two ground rings, the second trailing the first, so the raise pulses rather than blinks.
-            g.circle(burst.pos.x, burst.pos.y, burst.columnHeight * (0.12 + eased * 0.4)).stroke({
-                width: 5,
-                color: RESURRECT_GOLD,
-                alpha: 0.7 * fade,
-            });
-            const trailing = Math.max(0, eased - 0.25);
-            g.circle(burst.pos.x, burst.pos.y, burst.columnHeight * (0.12 + trailing * 0.4)).stroke({
-                width: 3,
-                color: RESURRECT_PALE,
-                alpha: 0.45 * fade,
-            });
-
-            // Motes spiralling up out of the ring.
-            for (const mote of burst.motes) {
-                const r = mote.radius + eased * mote.speed;
-                const angle = mote.angle + eased * 1.1;
-                g.circle(
-                    burst.pos.x + Math.cos(angle) * r,
-                    burst.pos.y + Math.sin(angle) * r * 0.45 + eased * mote.rise,
-                    mote.size,
-                ).fill({ color: RESURRECT_PALE, alpha: 0.9 * fade });
-            }
-        }
+    /**
+     * A pillar of light, a flash as the stack stands, god rays, rising sparks and a sigil on the floor.
+     * @param position the raised stack's board position, before the battlefield projection.
+     */
+    public spawnResurrectionBurst(position: HoCMath.XY, large = false): void {
+        this.resurrections.spawn(position, this.context.getGridSettings(), large);
     }
     public spawnAreaImpact(pos: HoCMath.XY, cellSize: number, radius = cellSize * 1.6): void {
         if (!this.context.legacyEffectsEnabled) return;

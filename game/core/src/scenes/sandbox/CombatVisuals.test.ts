@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
-import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
+import { GridConstants, GridSettings, type UnitsHolder } from "@heroesofcrypto/common";
 
 import { images } from "../../generated/image_imports";
 import { CombatVisuals } from "./CombatVisuals";
@@ -9,11 +9,11 @@ import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "../../p
 
 // spawnDeathVfx / the death animations only touch attachToWorldRoot; the rest of the context is
 // never reached by these paths.
-const makeVisuals = (): { visuals: CombatVisuals; attached: Container[] } => {
+const makeVisuals = (gs?: GridSettings): { visuals: CombatVisuals; attached: Container[] } => {
     const attached: Container[] = [];
     const visuals = new CombatVisuals({
         legacyEffectsEnabled: true,
-        getGridSettings: () => undefined as unknown as GridSettings,
+        getGridSettings: () => gs as GridSettings,
         attachToWorldRoot: (obj: Container) => {
             attached.push(obj);
         },
@@ -24,6 +24,17 @@ const makeVisuals = (): { visuals: CombatVisuals; attached: Container[] } => {
     });
     return { visuals, attached };
 };
+
+const boardGrid = () =>
+    new GridSettings(
+        GridConstants.GRID_SIZE,
+        GridConstants.MAX_Y,
+        GridConstants.MIN_Y,
+        GridConstants.MAX_X,
+        GridConstants.MIN_X,
+        GridConstants.MOVEMENT_DELTA,
+        GridConstants.UNIT_SIZE_DELTA,
+    );
 
 // A real (headless) texture big enough to slice — the death effects bail on frames <= 1px.
 const makeInfo = () => ({
@@ -79,7 +90,7 @@ type VisualsInternals = {
         }[];
     }[];
     areaImpacts: { graphics: Container }[];
-    resurrectBursts: { graphics: Container }[];
+    resurrections: { active: boolean; containers: Container[] };
     mirrorRebounds: { container: Container }[];
     skewerSpears?: { active: boolean };
     slashes: { container: Container }[];
@@ -397,11 +408,11 @@ describe("spawnDeathVfx kill-specific death animations", () => {
     });
 
     test("a full clear tears down every detached combat overlay and its owned textures", () => {
-        const { visuals } = makeVisuals();
+        const { visuals } = makeVisuals(boardGrid());
         visuals.spawnMagicMirrorRebound({ x: 0, y: 0 }, { x: 100, y: 0 }, 80);
         visuals.spawnSlash({ x: 50, y: 50 }, 80);
         visuals.spawnBloodSpray({ x: 50, y: 50 }, 80, { x: 1, y: 0 });
-        visuals.spawnResurrectionBurst({ x: 50, y: 50 }, 80);
+        visuals.spawnResurrectionBurst({ x: 50, y: 50 });
         visuals.spawnAreaImpact({ x: 50, y: 50 }, 80);
 
         const ownedTextures = [
@@ -413,7 +424,7 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         [state.fireTexture, state.poisonTexture, state.lightTexture] = ownedTextures;
         const overlays = [
             ...state.areaImpacts.map((effect) => effect.graphics),
-            ...state.resurrectBursts.map((effect) => effect.graphics),
+            ...state.resurrections.containers,
             ...state.mirrorRebounds.map((effect) => effect.container),
             ...state.slashes.map((effect) => effect.container),
             ...state.bloodSprays.map((effect) => effect.container),
@@ -422,7 +433,7 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         visuals.clear();
 
         expect(state.areaImpacts).toHaveLength(0);
-        expect(state.resurrectBursts).toHaveLength(0);
+        expect(state.resurrections.active).toBe(false);
         expect(state.mirrorRebounds).toHaveLength(0);
         expect(state.skewerSpears?.active ?? false).toBe(false);
         expect(state.slashes).toHaveLength(0);
@@ -435,9 +446,9 @@ describe("spawnDeathVfx kill-specific death animations", () => {
     });
 
     test("a ranked hydrate keeps detached overlays and reusable textures alive", () => {
-        const { visuals } = makeVisuals();
+        const { visuals } = makeVisuals(boardGrid());
         visuals.spawnMagicMirrorRebound({ x: 0, y: 0 }, { x: 100, y: 0 }, 80);
-        visuals.spawnResurrectionBurst({ x: 50, y: 50 }, 80);
+        visuals.spawnResurrectionBurst({ x: 50, y: 50 });
         const fireTexture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
         const state = internals(visuals);
         state.fireTexture = fireTexture;
@@ -445,7 +456,7 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         visuals.clear({ keepDetachedOverlays: true });
 
         expect(state.mirrorRebounds).toHaveLength(1);
-        expect(state.resurrectBursts).toHaveLength(1);
+        expect(state.resurrections.containers).toHaveLength(1);
         expect(state.fireTexture).toBe(fireTexture);
         expect(fireTexture.destroyed).toBe(false);
         visuals.clear();

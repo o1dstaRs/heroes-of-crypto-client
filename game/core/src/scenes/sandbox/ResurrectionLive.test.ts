@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { Container, Graphics } from "pixi.js";
+import { Container, Mesh } from "pixi.js";
 import { GridConstants, GridSettings, type GameEvent, type UnitsHolder } from "@heroesofcrypto/common";
 import { Sandbox } from "../Sandbox";
 import { CombatVisuals } from "./CombatVisuals";
@@ -19,7 +19,8 @@ function fixture(ranked = false) {
     const unitsHolder = { getAllUnits: () => new Map() } as unknown as UnitsHolder;
     const visuals = new CombatVisuals({
         getGridSettings: () => gs,
-        attachToWorldRoot: (container) => {
+        attachToWorldRoot: (container, zIndex) => {
+            container.zIndex = zIndex ?? 0;
             root.addChild(container);
         },
         getUnitsHolder: () => unitsHolder,
@@ -42,6 +43,13 @@ function fixture(ranked = false) {
         playSceneGameSound: (name: string) => sounds.push(name),
     });
     return { root, visuals, scene, sounds };
+}
+
+/** The pillar (over the figures) and the floor sigil, in attach order. */
+function layers(root: Container) {
+    const [pillar, sigil] = root.children as Container[];
+    const light = pillar.children[0] as Mesh;
+    return { pillar, sigil, progress: () => light.shader!.resources.resurrection.uniforms.uProgress as number };
 }
 
 function cast(amount: number, hp: number): GameEvent {
@@ -67,18 +75,23 @@ for (const ranked of [false, true]) {
             f.scene.applyTurnEngineEvents([cast(0, 17)], new Map());
             expect(f.sounds).toEqual(["resurrection"]);
             expect(count).not.toHaveBeenCalled();
-            expect(f.root.children).toHaveLength(1);
-            const burst = f.root.children[0] as Graphics;
+            // A pillar of light over the figures and a sigil on the floor under them.
+            expect(f.root.children).toHaveLength(2);
+            const { pillar, sigil, progress } = layers(f.root);
+            expect(pillar.zIndex).toBeGreaterThan(sigil.zIndex);
+            expect(sigil.children[0]).toBeInstanceOf(Mesh);
+            now = RESURRECTION_BURST_DURATION_MS / 4;
             f.visuals.update(0.1);
-            expect(burst.context.instructions.length).toBeGreaterThan(0);
+            expect(progress()).toBeCloseTo(0.25);
             f.visuals.clear({ keepDetachedOverlays: true });
-            expect(burst.destroyed).toBe(false);
+            expect(pillar.destroyed).toBe(false);
             now = RESURRECTION_BURST_DURATION_MS - 1;
             f.visuals.update(1.39);
-            expect(burst.destroyed).toBe(false);
+            expect(pillar.destroyed).toBe(false);
             now = RESURRECTION_BURST_DURATION_MS;
             f.visuals.update(0);
-            expect(burst.destroyed).toBe(true);
+            expect(pillar.destroyed).toBe(true);
+            expect(sigil.destroyed).toBe(true);
             expect(f.root.children).toHaveLength(0);
         } finally {
             count.mockRestore();
@@ -95,8 +108,8 @@ test("a successful resurrection with raised creatures keeps the recipient burst 
         f.scene.applyTurnEngineEvents([cast(3, 25)], new Map());
         expect(count).toHaveBeenCalledTimes(1);
         expect(count.mock.calls[0][1]).toBe(3);
-        expect(f.root.children).toHaveLength(2);
-        expect(f.root.children[0]).toBeInstanceOf(Graphics);
+        expect(f.root.children).toHaveLength(3);
+        expect(layers(f.root).pillar.label).toBe("resurrection");
         expect(f.sounds).toEqual(["resurrection"]);
     } finally {
         count.mockRestore();
@@ -121,11 +134,12 @@ test("clearing a scene removes an unfinished recipient resurrection burst", () =
     const f = fixture();
     try {
         f.scene.applyTurnEngineEvents([cast(0, 17)], new Map());
-        const burst = f.root.children[0];
+        const { pillar, sigil } = layers(f.root);
         f.visuals.update(0.1);
         f.visuals.clear();
         f.visuals.update(2);
-        expect(burst.destroyed).toBe(true);
+        expect(pillar.destroyed).toBe(true);
+        expect(sigil.destroyed).toBe(true);
         expect(f.root.children).toHaveLength(0);
     } finally {
         f.visuals.clear();

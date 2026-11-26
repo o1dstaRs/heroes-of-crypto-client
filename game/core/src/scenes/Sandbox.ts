@@ -1724,7 +1724,7 @@ export class Sandbox extends PixiScene {
                 const position =
                     units[0]?.getPosition() ??
                     GridMath.getPositionForCell({ x: 8, y: 8 }, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                this.renderResurrectionVfx(position, amount ?? 3);
+                this.renderResurrectionVfx(position, amount ?? 3, !!units[0] && !units[0].isSmallSize());
                 return true;
             };
             // Enchant (rune) pop, for label QA: "+N armor/attack" clipping is only visible rendered.
@@ -20364,16 +20364,16 @@ export class Sandbox extends PixiScene {
         this.angelResurrectionEvents.add(event);
         this.combatVisuals?.spawnAngelResurrectionPop(unit);
     }
-    protected renderResurrectionVfx(position: HoCMath.XY, raisedCount?: number): void {
+    protected renderResurrectionVfx(position: HoCMath.XY, raisedCount?: number, large = false): void {
         this.playSceneGameSound("resurrection");
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
         const visualPosition = projectBattlefieldPoint(position, gs);
-        this.combatVisuals?.spawnResurrectionBurst(visualPosition, cell);
+        this.combatVisuals?.spawnResurrectionBurst(position, large);
         // A cast can restore HP without raising a whole unit (amount 0) — the burst alone covers that;
         // the head-count label only appears when stacks actually came back.
         if (raisedCount && raisedCount > 0) {
-            // Above the ground rings (world +y is up) so the count rides the light column, not the unit.
+            // Above the floor sigil (world +y is up) so the count rides the light pillar, not the unit.
             this.combatVisuals?.showResurrectedCount(
                 { x: visualPosition.x, y: visualPosition.y + cell * 1.4 },
                 raisedCount,
@@ -20714,7 +20714,12 @@ export class Sandbox extends PixiScene {
                     this.renderAngelResurrectionEvent(event);
                     // A RESURRECT cast reports what it raised; play the burst over each stack it brought back.
                     for (const raised of event.resurrected ?? []) {
-                        this.renderResurrectionVfx(raised.position, raised.amount);
+                        const recipient = this.unitsHolder.getAllUnits().get(raised.unitId);
+                        this.renderResurrectionVfx(
+                            raised.position,
+                            raised.amount,
+                            !!recipient && !recipient.isSmallSize(),
+                        );
                     }
                     this.syncAbilityTransferUi(event, unitSnapshot);
                     shouldRefreshVisibleState = true;
@@ -21066,7 +21071,7 @@ export class Sandbox extends PixiScene {
                         unit.setVisualGhost(false);
                         unit.startSpawnAnimation(scale);
                         // Light, sound and raised count belong to the rise, after the death pose.
-                        this.renderResurrectionVfx(position, raisedCount);
+                        this.renderResurrectionVfx(position, raisedCount, !unit.isSmallSize());
                     } finally {
                         pending.delete(token);
                     }

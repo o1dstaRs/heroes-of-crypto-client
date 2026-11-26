@@ -128,6 +128,7 @@ test("passive resurrection restores the unit and plays the same sound as the Ang
         setVisualGhost: () => {},
         getCurrentVisualScale: () => ({ x: 1, y: 1 }),
         startSpawnAnimation: () => {},
+        isSmallSize: () => true,
     };
     const rises: (() => void)[] = [];
     const scene = Object.assign(Object.create(Sandbox.prototype), {

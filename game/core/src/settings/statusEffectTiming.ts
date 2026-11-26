@@ -5,7 +5,11 @@ export const OVERHEAD_EFFECT_DURATION_MS = 650 / OVERHEAD_EFFECT_PLAYBACK_SPEED;
 export const FLOATING_RESULT_DURATION_MS = 650;
 /** Revival has a brief pause after death, then a real-time burst rather than a multi-second ghost. */
 export const RESURRECTION_RISE_DELAY_MS = 150;
-export const RESURRECTION_BURST_DURATION_MS = 750;
+/**
+ * The light over a raised stack: the pillar strikes and flashes as the body stands (first ~0.2 s), the rays,
+ * sparks and floor sigil carry on over the living unit. The stack can act meanwhile; nothing waits on it.
+ */
+export const RESURRECTION_BURST_DURATION_MS = 1600;
 
 /** Normalize authored atlases onto the shared overhead playback clock. */
 export const overheadEffectElapsedMs = (elapsedMs: number, authoredDurationMs: number): number =>
