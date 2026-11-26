@@ -64,7 +64,6 @@ import { InfestHatchPops } from "./InfestHatchPops";
 import { PredatoryAssimilationPops } from "./PredatoryAssimilationPops";
 import { DeepWoundsPops } from "./DeepWoundsPops";
 import { ParalysisPops } from "./ParalysisPops";
-import { ParalysisStatusVfx } from "./ParalysisStatusVfx";
 import { BoarSalivaPops } from "./BoarSalivaPops";
 import { DevourEssencePops } from "./DevourEssencePops";
 import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
@@ -698,25 +697,6 @@ export class CombatVisuals {
         getGridSettings: () => this.context.getGridSettings(),
         attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
     });
-    private paralysisStatus = new ParalysisStatusVfx({
-        getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
-        isImpactPending: () => this.context.isCombatImpactPending?.() ?? false,
-        getFrame: (unit) => {
-            const renderable = unit as RenderableUnit;
-            if (!renderable.getVisualCenter) return undefined;
-            const settings = this.context.getGridSettings();
-            const center = renderable.getVisualCenter(settings);
-            const cell = settings.getCellSize();
-            return {
-                ...center,
-                width: cell * Math.max(1, renderable.getFootprintWidth?.() ?? 1),
-                height: cell * 1.25,
-                // A floor field: above the unit's own shadow (-0.5), beneath its sprite.
-                zIndex: 4000 - (renderable.getPosition?.().y ?? center.y) - 0.4,
-            };
-        },
-        attach: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
-    });
     private emberCovenantTexture?: Texture;
     private emberCovenantTextureLoading = false;
     private emberCovenantTextureRetryAt = 0;
@@ -1245,7 +1225,6 @@ export class CombatVisuals {
         if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.paralysisStatus.present(id);
         this.paralysisPops ??= new ParalysisPops(this.namedFlagAttach("Paralysis"));
         this.paralysisPops.spawn(id, gs.getCellSize(), () => {
             const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
@@ -2011,7 +1990,6 @@ export class CombatVisuals {
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
         this.helpingHandLinks.clear();
         if (!options?.keepDetachedOverlays) this.emberCovenantRings.clear();
-        if (!options?.keepDetachedOverlays) this.paralysisStatus.clear();
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
@@ -2172,7 +2150,6 @@ export class CombatVisuals {
     public update(dt: number) {
         this.helpingHandLinks.update(dt);
         this.emberCovenantRings.update(dt);
-        this.paralysisStatus.update(dt);
         this.gravechains.update(dt);
         this.terrifyingGazePops?.update();
         this.petrifyingGazePops?.update();

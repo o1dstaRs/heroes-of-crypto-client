@@ -15,7 +15,6 @@ import {
 import { RenderableUnit } from "./RenderableUnit";
 import { Sandbox } from "./Sandbox";
 import { EmberCovenantRings } from "./sandbox/EmberCovenantRings";
-import { ParalysisStatusVfx } from "./sandbox/ParalysisStatusVfx";
 import { EMBER_COVENANT_STATUS } from "./sandbox/combatStatusPresentation";
 import type { CombatExchangeStrike } from "./sandbox/combat_exchange";
 
@@ -250,31 +249,17 @@ test("a replay presents its recorded disable at impact without applying it to th
     await pending;
 });
 
-test("Paralysis's persistent electric field appears at contact while the projectile is still returning", async () => {
+test("Paralysis's white wash appears at contact while the projectile is still returning", async () => {
     const f = fixture((unit) => unit.applyEffect(new EffectFactory().makeEffect("Paralysis")!));
-    const root = new Container();
-    roots.push(root);
-    const layer = new ParalysisStatusVfx({
-        getUnits: () => f.units,
-        getFrame: () => ({ x: 0, y: 0, width: 64, height: 80, zIndex: 4000 }),
-        isImpactPending: () => true,
-        attach: (node) => {
-            root.addChild(node);
-        },
-    });
     f.resolve();
-    layer.update(0.1);
-    expect(root.children).toHaveLength(0);
+    expect(f.victim.isParalysisWashShown()).toBe(false);
     const pending = f.play();
     await flush();
-    layer.update(0.1);
-    expect(root.children).toHaveLength(0);
+    expect(f.victim.isParalysisWashShown()).toBe(false);
     f.contact();
-    layer.update(0.1);
-    expect(root.children).toHaveLength(1);
+    expect(f.victim.isParalysisWashShown()).toBe(true);
     f.land();
     await pending;
-    layer.clear();
 });
 
 test("Hydra's shared shield waits for the absorb contact even if the animation lock drops", async () => {

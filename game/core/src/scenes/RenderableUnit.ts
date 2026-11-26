@@ -308,6 +308,7 @@ import {
     getBattlefieldCreatureContourFilter,
     shouldApplyRuntimeBattlefieldContour,
 } from "./BattlefieldCreatureContourFilter";
+import { existingParalysisWashFilter, getParalysisWashFilter } from "./ParalysisWashFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import {
     BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
@@ -4253,15 +4254,17 @@ export class RenderableUnit extends Unit {
                   )
                 : undefined;
         const installedFilters = this.sprite.filters ?? EMPTY_FILTERS;
+        // Paralysis lifts the creature a little toward white (it replaced an electric ring on the floor).
+        const paralysisWashed = this.isParalysisWashShown();
         const desiredFilters = reconcileManagedSpriteFilters<Filter>(
             installedFilters,
             retiredBattlefieldStyleFilter,
             retiredBattlefieldAlphaHoleFillFilter,
             retiredBattlefieldContourFilter,
-            undefined,
+            paralysisWashed ? getParalysisWashFilter() : existingParalysisWashFilter(),
             runtimeAlphaHoleFillFilter,
             runtimeContourFilter,
-            false,
+            paralysisWashed,
         );
         this.battlefieldAlphaHoleFillFilter = runtimeAlphaHoleFillFilter;
         this.battlefieldContourFilter = runtimeContourFilter;
@@ -13054,6 +13057,10 @@ export class RenderableUnit extends Unit {
     }
     private isSkippingForDisplay(): boolean {
         return this.presentedCombatStatus()?.skipping ?? (this.skippingThisTurnSynced || this.isSkippingThisTurn());
+    }
+    /** A living, shown creature under Paralysis (as presented: it appears at the hit's contact, not earlier). */
+    public isParalysisWashShown(): boolean {
+        return !this.isDead() && this.getDisplayedAmount() > 0 && this.hasPresentedStatus("Paralysis");
     }
     private shouldShowImmobilizedIndicator(): boolean {
         // Share the engine predicate: paralysis, whirlpool, and the authoritative Web movement lock.
