@@ -226,8 +226,19 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v36, revision suffix `closing-pick-synergy-v1-split-screen-v1-shield-screen-v1`.
-`a19-shield-screen-v1` refines v35's split screen at the owner's request ("it is always better to split mermaid if we
+Current default is profile v38, revision suffix `shield-screen-v1-counter-model-v2-bot-ban-queen-v1`.
+`a19-bot-ban-queen-v1` (server `da49bb3`, November 26, 2026; the owner approved AI bans on November 25: "AI can ban 1
+creature sure, before game. Same way how it works for humans"):
+- The production v0.8 seats (default and brutal vs-AI seats, ranked bots) store the Arachna Queen as their pre-game ban
+  against a human. The server's `resolveExtraRankedBan` settles it like a player's ban: 50/50 by game id against a
+  different human ban.
+- The older tiers and AI-against-AI games ban nothing. Switch `HOC_BOT_RANKED_BAN`, on unless `0`.
+- Registered confirmation BN2, against owner-shaped opponents: +8.59 points per changed draft (95% +4.30 to +12.95; guard
+  +5.58), all four gates. It is a gain against owner-shaped drafts, not a win rate against people. Read the server's
+  `docs/ai_strategy_status.md`.
+Profile v37 (`a19-counter-model-v2`, server `38b2bfa`, common `8d0e7a67`) refits the counter draft's matchup model.
+
+Profile v36, retained in v38: `a19-shield-screen-v1` refines v35's split screen at the owner's request ("it is always better to split mermaid if we
 have it, because it takes two shots to kill her"): in screen mode a splittable Water Shield stack (Mermaid) is the screen
 body before any other, so every spare slot becomes a one-model Mermaid that takes two attacks to kill (switch
 `A19_SHIELD_SCREEN_<LEFT|RIGHT>`, on unless `0`; the server's split plan and the Premium projection read it). The owner
