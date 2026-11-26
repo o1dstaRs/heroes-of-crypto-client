@@ -226,9 +226,22 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v38, revision suffix `shield-screen-v1-counter-model-v2-bot-ban-queen-v1`.
-`a19-bot-ban-queen-v1` (server `da49bb3`, November 26, 2026; the owner approved AI bans on November 25: "AI can ban 1
-creature sure, before game. Same way how it works for humans"):
+Current default is profile v39, revision suffix `counter-model-v2-bot-ban-queen-v1-close-screen-v1`.
+`a19-close-screen-v1` (common `de73f4eb`, server `984b4d7`, November 26, 2026) is the owner's request after their vs-AI
+game d6d7ee8b: "split fairy into 1 units splits instead of wolfs in this specific situation to have a chance to close
+ranges quickly. Wolf split because of larger size generally better in defense".
+
+- In the split planner's screen mode, an army that holds no shooter facing a public opponent shooter screens with its
+  fastest cheap body: the lowest level, a flyer first, then the most steps. One enemy next to a shooter stops it firing.
+- Every other army keeps the v36 screen, so Wolves still screen in defence.
+- AI seats and Premium "Arrange army" change together; the client's Premium projection follows. Switch
+  `A19_CLOSE_SCREEN_<LEFT|RIGHT>`, on unless `0`.
+- The owner chose "Adopt now, check after". Its registered non-inferiority check follows; a failure rolls it back as the
+  next profile. Read common's `docs/close_screen_adoption.md`.
+
+Profile v38, retained in v39: `a19-bot-ban-queen-v1` (server `da49bb3`, November 26, 2026; the owner approved AI bans on
+November 25: "AI can ban 1 creature sure, before game. Same way how it works for humans"):
+
 - The production v0.8 seats (default and brutal vs-AI seats, ranked bots) store the Arachna Queen as their pre-game ban
   against a human. The server's `resolveExtraRankedBan` settles it like a player's ban: 50/50 by game id against a
   different human ban.

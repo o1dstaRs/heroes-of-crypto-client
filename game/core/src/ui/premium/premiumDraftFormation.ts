@@ -36,7 +36,11 @@ import {
     type PublicInput,
 } from "../../../../heroes-of-crypto-common/src/ai/placement/layout";
 import { chooseA19TerrainPlacement } from "../../../../heroes-of-crypto-common/src/ai/placement/terrain_reflection";
-import { a19ShieldScreenEnabled, a19SplitScreenEnabled } from "../../../../heroes-of-crypto-common/src/ai/split_screen";
+import {
+    a19CloseScreenEnabled,
+    a19ShieldScreenEnabled,
+    a19SplitScreenEnabled,
+} from "../../../../heroes-of-crypto-common/src/ai/split_screen";
 
 export interface PremiumDraftFormation {
     /** Every input body in input order (amounts reduced by any split), followed by the split-off stacks. */
@@ -140,11 +144,14 @@ export function recommendPremiumDraftFormation(
             // over this army's own detached stacks and the same stack capacity rule.
             const splitUnits = own.map(tacticalSplitUnitFromUnit);
             const maximumStacks = fight.getNumberOfUnitsAvailableForPlacement(team);
-            // a19-split-screen-v1 (profile v35): one-model screen splits, as the server's split plan.
+            // a19-split-screen-v1 (profile v35): one-model screen splits, as the server's split plan. a19-close-screen-v1
+            // (profile v39): an army without a shooter that faces a revealed shooter screens with its fastest cheap body.
             const plans = a19SplitScreenEnabled(team)
                 ? planA19SupportSplits(splitUnits, maximumStacks, {
                       screen: true,
                       shieldScreen: a19ShieldScreenEnabled(team),
+                      closeScreen: a19CloseScreenEnabled(team),
+                      opponentCreatureIds: input.enemyIds,
                   })
                 : planA19SupportSplits(splitUnits, maximumStacks);
             const children: Body[] = [];
