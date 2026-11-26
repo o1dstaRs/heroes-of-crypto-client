@@ -277,8 +277,6 @@ function createSlot(
             greenVersion: DEFAULT_AI_VERSION,
             redVersion: DEFAULT_AI_VERSION,
         },
-        undefined,
-        { neuralCorrection: !independentStrategies },
     );
     return {
         driver,

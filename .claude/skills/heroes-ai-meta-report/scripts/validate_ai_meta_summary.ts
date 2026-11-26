@@ -32,7 +32,15 @@ const EXPECTED_SYNERGY_KEYS = [
     ["Nature", 1],
     ["Nature", 2],
 ].flatMap(([faction, synergy]) => [1, 2, 3].map((level) => `${faction}:${synergy}:${level}`));
-const FIGHT_PROFILE_IDS = ["a13", "a19", "a19-work", "v09-draft-a19-work", "ranked-current-a19-work"] as const;
+// v09-draft-a19-work stays here for historical summaries only: the profile was removed on 2026-11-26.
+const FIGHT_PROFILE_IDS = [
+    "a13",
+    "a19",
+    "a19-work",
+    "a19-bot-seat",
+    "v09-draft-a19-work",
+    "ranked-current-a19-work",
+] as const;
 type FightProfileId = (typeof FIGHT_PROFILE_IDS)[number];
 
 interface CliOptions {
@@ -532,6 +540,12 @@ async function validateSummary(options: CliOptions, commonRoot: string): Promise
             fightProfile.name === "v0.8+a19-work" &&
             fightProfile.candidateId === "a19" &&
             fightProfile.searchBudget === "offline-deterministic-work";
+        const isBotSeat =
+            fightProfile.name === "v0.8+a19-bot-seat" &&
+            fightProfile.candidateId === "a19" &&
+            fightProfile.searchBudget === "offline-deterministic-work" &&
+            isRecord(fightProfile.searchDriver) &&
+            fightProfile.searchDriver.id === "a19-bot-seat-deep-fit-v1";
         const isHybrid =
             fightProfile.name === "v0.9-draft+v0.8-a19-work" &&
             fightProfile.candidateId === "a19" &&
@@ -547,12 +561,13 @@ async function validateSummary(options: CliOptions, commonRoot: string): Promise
             a13: isA13,
             a19: isA19,
             "a19-work": isA19Work,
+            "a19-bot-seat": isBotSeat,
             "v09-draft-a19-work": isHybrid,
             "ranked-current-a19-work": isCurrent,
         };
         audit.check(
             Object.values(profileMatches).some(Boolean),
-            "current runs require an explicit a13, a19, a19-work, or v09-draft-a19-work fight profile",
+            "current runs require an explicit a13, a19, a19-work, a19-bot-seat, or v09-draft-a19-work fight profile",
         );
         if (options.expectedFightProfile) {
             audit.check(

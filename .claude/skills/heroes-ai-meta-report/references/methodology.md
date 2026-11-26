@@ -3,8 +3,10 @@
 ## Research contract
 
 As of 2026-11-16, new CLI/wrapper runs default to `premium-ranked-v4` and require automatic,
-audited SQLite output. Choose `v09-draft-a19-work` for locked V3 draft plus A19 combat;
-`a19-work` retains original A19 drafting. Select `--legacy-oracle` explicitly to reproduce the
+audited SQLite output. `a19-bot-seat` (the common CLI default when no profile is named) plays the
+production bot seat's deep-fit search; `a19-work` retains original A19 drafting and the stock A19 driver (its outputs
+before 2026-11-26 played the A19 neural correction). `v09-draft-a19-work` and `v09-native` were removed on
+2026-11-26 with the v0.9 AI and the neural correction. Select `--legacy-oracle` explicitly to reproduce the
 older outcome-only policy described below. Never relabel historical results or change a running
 registered campaign to the new defaults.
 

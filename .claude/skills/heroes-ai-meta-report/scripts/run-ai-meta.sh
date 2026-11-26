@@ -31,7 +31,7 @@ Run/smoke options:
   --workers N            Total fight workers (default: 12)
   --parallel N           Cohorts run concurrently (default: 1; keeps all 12 workers on v0.8+a13)
   --cohorts CSV          Ordered cohort subset (default: all seven)
-  --fight-profile ID     Required: ranked-current-a19-work (native current setup), or historical a19-work/v09-draft-a19-work
+  --fight-profile ID     Required: ranked-current-a19-work (native current setup), a19-bot-seat (production bot seat), or a19-work
                          (a19-work = a19 with finite search budgets instead of wall-clock move deadlines)
   --legacy-oracle        Explicit outcome-only study; no Premium snapshot (also permits a13/a19)
   --skip-tests           Skip the focused cohort/reaggregation/report test files
@@ -304,8 +304,8 @@ run_operation() {
     ((parallel <= cohort_total)) || die "--parallel cannot exceed selected cohort count ($cohort_total)"
     ((parallel <= workers)) || die "--parallel cannot exceed --workers"
     case "$fight_profile" in
-        a13|a19|a19-work|v09-draft-a19-work|ranked-current-a19-work) ;;
-        "") die "--fight-profile is required; choose a19-work or v09-draft-a19-work" ;;
+        a13|a19|a19-work|a19-bot-seat|ranked-current-a19-work) ;;
+        "") die "--fight-profile is required; choose a19-bot-seat or a19-work" ;;
         *) die "unsupported --fight-profile" ;;
     esac
 
@@ -459,8 +459,8 @@ sharded_operation() {
         ((processes * workers_per_process <= AI_META_MAX_WORKERS)) || die "total workers exceed AI_META_MAX_WORKERS=$AI_META_MAX_WORKERS"
     fi
     case "$fight_profile" in
-        a13|a19|a19-work|v09-draft-a19-work|ranked-current-a19-work) ;;
-        "") die "--fight-profile is required; choose a19-work or v09-draft-a19-work" ;;
+        a13|a19|a19-work|a19-bot-seat|ranked-current-a19-work) ;;
+        "") die "--fight-profile is required; choose a19-bot-seat or a19-work" ;;
         *) die "unsupported --fight-profile" ;;
     esac
     if [[ -n "$bun_dir" ]]; then
@@ -491,7 +491,7 @@ sharded_operation() {
 
     note "run-sharded: $(cohort_count "$cohorts") cohorts x $games fights, seed $seed, $processes processes x $workers_per_process workers, window $window pairs, profile $fight_profile"
     note "shards at $shard_dir; merged run at $output"
-    if [[ "$fight_profile" != "a19-work" && "$fight_profile" != "v09-draft-a19-work" && "$fight_profile" != "ranked-current-a19-work" ]]; then
+    if [[ "$fight_profile" != "a19-work" && "$fight_profile" != "a19-bot-seat" && "$fight_profile" != "ranked-current-a19-work" ]]; then
         note "note: $fight_profile is wall-clock bounded; keep --processes and the host fixed for the whole study"
     fi
 

@@ -491,8 +491,14 @@ qualification evidence. New experiments compare against the adopted default; alr
 studies keep their registered comparator. That adoption's revision ended in `barrel-v1-nightmare-v1`;
 the current v18 revision ends in `shooterless-v1-matchup-v1-rush-mixed-v1`.
 
-For v0.9 draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
-`src/simulation/v0_9/checkpoints/`. Its exact weights and original evidence are preserved; fresh overall
+The v0.9 AI (combat, training, teacher, seats) and the A19 neural primary-tie correction were removed from common on
+2026-11-26 by owner decision ("yeah lets do it so it is all clean"; "Remove it" for the correction's one live use, the
+browser sandbox, which now plays the native choice). Bot seats and Premium never ran the correction; their decisions
+are unchanged. The locked doctrine draft below stayed: its model and evidence moved byte for byte to common's
+`src/ai/setup/doctrine_draft/doctrine_draft_v3_20261104/` (loader `src/simulation/doctrine_draft/`).
+
+For draft iteration, retain the user-locked `doctrine-draft-v3-20261104` benchmark in common's
+`src/ai/setup/doctrine_draft/doctrine_draft_v3_20261104/`. Its exact weights and original evidence are preserved; fresh overall
 confirmation measured **+3.34 match-score points (95% interval +2.20 to +4.49)** on the ranked A19
 profile. V4 failed to improve over it. Read common's `AGENTS.md` and `docs/v0_9_doctrine_training.md`
 before changing this model. The user subsequently activated it as the **default draft for v0.9 seats**.

@@ -11,8 +11,11 @@ New batches also **require a validated Premium SQLite snapshot**.
 
 For current ranked decisions use `ranked-current-a19-work` / `premium-ranked-current-v1`. This imports the sibling server (or `HOC_SERVER_LOC`) against the same common source, persists all three draft override budgets, and uses native public Setup and final Board formations/barrels. Freeze both source trees and dependency manifests. Its deterministic policy observations and per-fight purchases are distinct from historical V4 exploratory data; never merge populations. Only ranked-draft exercises picking; prescribed cohorts still use synthetic armies/artifacts. Native opening parity is not a whole live deadline or ranked-server combat qualification. Doctrine W/D/L and all nine matchups are in the canonical report; `army_fight` and `setup_payoff` retain actual per-seat purchases and observed practical use. The canonical CLI defaults to
 `premium-ranked-v4` learning capture (explicit historical v1/v2/v3 remain supported) and builds `premium.sqlite`, `premium-readiness.json`, and
-`ai-meta.outputs.json` before publishing a complete summary. Use `v09-draft-a19-work` for the
-user-selected locked V3 draft + A19 combat, or explicitly choose `a19-work` for original A19 drafting.
+`ai-meta.outputs.json` before publishing a complete summary. A common CLI run that names no profile plays
+`a19-bot-seat` (the production bot seat's deep-fit search, offline deterministic work); explicitly choose `a19-work`
+for the stock A19 driver at the 1,000 / 1,500 ms budget (its outputs before 2026-11-26 played the A19 neural
+correction). `v09-draft-a19-work` and `v09-native` were removed on 2026-11-26 with the v0.9 AI and the neural
+correction (owner decision); their historical summaries still validate.
 Snapshots are development artifacts, never automatically published or promoted. Outcome-only oracle
 research requires `--legacy-oracle`; do not omit capture merely because a run is small or sharded.
 V4 explores legal hybrid draft alternatives and four formation reflections, preserving decision-time observations and full marginal probabilities in `learning_decision`. It remains headless setup, explicitly not authoritative-server qualified; no split/ban exploration or automatic learned policy.
