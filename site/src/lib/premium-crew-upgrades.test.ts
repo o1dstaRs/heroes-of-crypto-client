@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { valid } from "@heroesofcrypto/common/src/ai/placement/layout";
 import { premiumCatalog } from "./premium-catalog";
-import { premiumCrewFormation, renderPremiumCrew, samplePremiumCrew } from "./premium-crew";
+import { premiumCrewFormation, premiumCrewZoneDepth, renderPremiumCrew, samplePremiumCrew } from "./premium-crew";
 import { normalizePremiumCrewDraft, premiumCrewShareUrl, readPremiumCrewDraft } from "./premium-crew-state";
 import {
     CREW_UPGRADE_BUDGET,
@@ -62,9 +62,24 @@ test("a planned Placement upgrade deepens the crew's zone and the board draws it
     const deep = premiumCrewFormation(ids, catalog, "auto", 1, [], true, undefined, [1, 1], [], rush);
     expect(deep.input.augments).toEqual(rush);
     expect(deep.input.legal.length).toBeGreaterThan(base.input.legal.length);
-    expect(Math.max(...deep.input.legal.map((key) => key >> 4))).toBe(
-        Math.max(...base.input.legal.map((key) => key >> 4)) + 2,
+    const columns = (legal: readonly number[]) => [...new Set(legal.map((key) => key >> 4))].sort((a, b) => a - b);
+    // The game's depths: 3 columns (B-D), 4 with Placement 1 (B-E), 6 with Placement 2, which opens the edge column A.
+    expect(columns(base.input.legal)).toEqual([1, 2, 3]);
+    expect(columns(deep.input.legal)).toEqual([0, 1, 2, 3, 4, 5]);
+    const one = premiumCrewFormation(
+        ids,
+        catalog,
+        "auto",
+        1,
+        [],
+        true,
+        undefined,
+        [1, 1],
+        [],
+        [{ kind: "Placement", value: 1 }],
     );
+    expect(columns(one.input.legal)).toEqual([1, 2, 3, 4]);
+    expect([0, 1, 2].map(premiumCrewZoneDepth)).toEqual([3, 4, 6]);
     expect(valid(deep.input, deep.positions)).toBe(true);
     const zone = (html: string) => html.match(/class="crew-zone"/g)?.length ?? 0;
     expect(zone(renderPremiumCrew(ids, catalog, "en", "auto", 1, false))).toBe(base.input.legal.length);

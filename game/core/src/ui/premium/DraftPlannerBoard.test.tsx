@@ -92,8 +92,8 @@ test("a planned Placement upgrade draws the extra zone cells hatched and names i
     );
     expect(html).toContain('data-board-zone-upgrade="planned"');
     expect(html).toContain("planned Placement 2");
-    // Depth 5 holds 80 cells; the base depth-3 zone holds 42.
-    expect(html.match(/data-zone-cell="planned"/g)).toHaveLength(80 - 42);
+    // Placement 2 opens six full-height columns, edge column A included (96 cells); the base 3-column zone holds 42.
+    expect(html.match(/data-zone-cell="planned"/g)).toHaveLength(96 - 42);
 });
 
 test("a split creature renders one board token per stack, each with its own amount", () => {

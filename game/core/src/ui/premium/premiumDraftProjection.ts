@@ -1,9 +1,11 @@
 import {
     Artifact,
+    Augment,
     GridConstants,
     GridSettings,
     GridVals,
     PlacementPositionType,
+    PlacementType,
     RectanglePlacement,
     SynergyKeysToPower,
     ToFactionName,
@@ -68,7 +70,14 @@ export interface DraftUpgrade {
 /** Where the board's upgrades come from: the player's own Setup choices, or Premium's plan for the army. */
 export type DraftUpgradeSource = "selected" | "planned";
 const PLACEMENT_BASE_DEPTH = 3;
-const PLACEMENT_MAX_LEVEL = 3;
+const PLACEMENT_MAX_LEVEL = Augment.PlacementAugment.LEVEL_3;
+/** The zone's depth for a Placement level, from the game's own table: 3, 4, then 6 with the board's edge column. */
+const placementDepth = (level: number): number =>
+    Augment.getPlacementSizes(
+        PlacementType.RECTANGLE,
+        Math.trunc(level) || 0,
+        Augment.DefaultPlacementLevel1.THREE_BY_THREE,
+    )[0];
 const cellPoint = (hash: number): Point => ({ x: hash >> 4, y: hash & 15 });
 
 /** Detached public-information projection. Never reads a fight, predicts enemy positions as fact,
@@ -130,7 +139,7 @@ export function projectPremiumDraft(draft: PremiumDraftState, plannedUpgrades: r
             depth,
             true,
         );
-    const ownDepth = PLACEMENT_BASE_DEPTH + placementLevel;
+    const ownDepth = placementDepth(placementLevel);
     const zoneCells = (left: boolean, depth: number) =>
         [...placementZone(left, depth).possibleCellHashes()].sort((a, b) => a - b).map(cellPoint);
     const zones = {

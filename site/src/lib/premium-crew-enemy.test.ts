@@ -105,6 +105,36 @@ test("the shipped AI accepts the preview setup and changes our formation for a d
     );
 });
 
+test("with Placement 2 the shipped AI plans inside the game's six-column zone, edge column A included", () => {
+    const placement2 = [
+        { kind: "Placement" as const, value: 2 },
+        { kind: "Armor" as const, value: 2 },
+        { kind: "Sniper" as const, value: 1 },
+        { kind: "Movement" as const, value: 2 },
+    ];
+    for (const roll of [0, 0.2, 0.6]) {
+        const enemy = randomPremiumEnemy(own, catalog, () => roll);
+        const result = premiumCrewFormation(
+            own,
+            catalog,
+            "auto",
+            1,
+            enemy,
+            true,
+            finalizeA19Placement,
+            [1, 1],
+            [],
+            placement2,
+        );
+        expect(result.planned).toBe(true);
+        expect(new Set(result.input.legal.map((key) => key >> 4))).toEqual(new Set([0, 1, 2, 3, 4, 5]));
+        expect(valid(result.input, result.positions)).toBe(true);
+        const legal = new Set(result.input.legal);
+        for (const [i, body] of result.input.bodies.entries())
+            for (const cell of cells(body, result.positions[i])) expect(legal.has((cell.x << 4) | cell.y)).toBe(true);
+    }
+});
+
 test("old manual styles cannot change the automatically selected AI formation", () => {
     const enemy = randomPremiumEnemy(own, catalog, () => 0.2);
     for (const map of [1, 3, 4]) {

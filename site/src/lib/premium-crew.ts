@@ -13,7 +13,12 @@ import { creatureInfo } from "@heroesofcrypto/common/src/ai/setup/creature_score
 import { dualStrikeRelativeDamageGain } from "@heroesofcrypto/common/src/ai/setup/dual_strike_fit";
 import { DOUBLE_SHOT_ABILITY_NAMES } from "@heroesofcrypto/common/src/abilities/double_shot_names";
 import { RectanglePlacement } from "@heroesofcrypto/common/src/grid/rectangle_placement";
-import { PlacementPositionType } from "@heroesofcrypto/common/src/grid/placement_properties";
+import { PlacementPositionType, PlacementType } from "@heroesofcrypto/common/src/grid/placement_properties";
+import {
+    DefaultPlacementLevel1,
+    getPlacementSizes,
+    PlacementAugment,
+} from "@heroesofcrypto/common/src/augments/augment_properties";
 import { GridSettings } from "@heroesofcrypto/common/src/grid/grid_settings";
 import {
     GRID_SIZE,
@@ -41,6 +46,14 @@ export type CrewLayout = "auto" | "screen" | "spread";
 export const CREW_SIZE = 6;
 export const CREW_LEVELS = [1, 1, 2, 2, 3, 4] as const;
 export type PremiumCrewPlanner = typeof finalizeA19Placement;
+
+/** The deployment zone's depth for a Placement level (0-2), from the game's own table: 3, 4, then 6. */
+export const premiumCrewZoneDepth = (level: number): number =>
+    getPlacementSizes(
+        PlacementType.RECTANGLE,
+        Math.max(PlacementAugment.LEVEL_1, Math.min(PlacementAugment.LEVEL_3, Math.trunc(level) || 0)),
+        DefaultPlacementLevel1.THREE_BY_THREE,
+    )[0];
 
 /** Draw without replacement, preserving any enemy picks that are still available. */
 export function randomPremiumEnemy(
@@ -158,8 +171,8 @@ export function premiumCrewFormation(
     const zone = new RectanglePlacement(
         new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
         left ? PlacementPositionType.LEFT_BOTTOM : PlacementPositionType.RIGHT_TOP,
-        // The Placement upgrade deepens the zone one row per level, as in the game.
-        3 + crewUpgradeLevel(augments, "Placement"),
+        // The game's zone per Placement level: 3 or 4 columns, then 6 with the board's edge column.
+        premiumCrewZoneDepth(crewUpgradeLevel(augments, "Placement")),
         true,
     );
     const input: PublicInput = {

@@ -136,8 +136,12 @@ test("Premium's planned Placement upgrade widens your zone, and the formation is
         { kind: "Placement", value: 2 },
         { kind: "Movement", value: 2 },
     ]);
-    expect(Math.max(...base.zones.own.map((c) => c.x))).toBe(3);
-    expect(Math.max(...planned.zones.own.map((c) => c.x))).toBe(5);
+    const columns = (zone: readonly { x: number }[]) => [...new Set(zone.map((c) => c.x))].sort((a, b) => a - b);
+    // The game's depths: 3 columns (B-D), 4 with Placement 1 (B-E), 6 with Placement 2, which opens the edge column A.
+    expect(columns(base.zones.own)).toEqual([1, 2, 3]);
+    expect(columns(planned.zones.own)).toEqual([0, 1, 2, 3, 4, 5]);
+    const one = projectPremiumDraft(state({ picked: melee }), [{ kind: "Placement", value: 1 }]);
+    expect(columns(one.zones.own)).toEqual([1, 2, 3, 4]);
     expect(planned.zones.ownBase).toEqual(base.zones.own);
     // The enemy's upgrades are private: its zone stays at the base depth.
     expect(planned.zones.enemy).toEqual(base.zones.enemy);
@@ -150,13 +154,13 @@ test("Premium's planned Placement upgrade widens your zone, and the formation is
 
 test("once the player spends a Setup point, their own upgrades replace Premium's plan on the board", () => {
     const zero = ["Placement", "Armor", "Might", "Empower", "Sniper", "Movement"].map((kind) => ({ kind, value: 0 }));
-    const plan = [{ kind: "Placement", value: 3 }];
+    const plan = [{ kind: "Placement", value: 2 }];
     const untouched = projectPremiumDraft(
         state({ picked: own, setup: { placement: 0, augments: zero, amounts: {} } }),
         plan,
     );
     expect(untouched.upgradeSource).toBe("planned");
-    expect(untouched.placementLevel).toBe(3);
+    expect(untouched.placementLevel).toBe(2);
     const chosen = projectPremiumDraft(
         state({
             picked: own,
