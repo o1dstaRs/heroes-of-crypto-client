@@ -24,18 +24,37 @@ import { useLayoutEffect, useRef, useState } from "react";
  * card keeps that size and the sidebar's own scroll container takes over — the "really tiny screen"
  * escape hatch.
  */
+export interface FitState {
+    scale: number;
+    scrollable: boolean;
+    naturalHeight: number;
+}
+
+/**
+ * Whether a new measurement changes anything a caller draws. The natural height matters only to a scrolling
+ * block; while the content fits, a new unit with more or fewer rows must not re-render the whole sidebar a
+ * second time on every turn switch (measured 2026-11-26: ~20 ms per switch in dev).
+ */
+export function sameFit(current: FitState, next: FitState): boolean {
+    return (
+        current.scrollable === next.scrollable &&
+        Math.abs(current.scale - next.scale) < 0.011 &&
+        (!next.scrollable || Math.abs(current.naturalHeight - next.naturalHeight) < 2)
+    );
+}
+
 export function useFitScale(minScale = 0.6): {
     setViewport: (node: HTMLElement | null) => void;
     setContent: (node: HTMLElement | null) => void;
     scale: number;
     /** True once even `minScale` cannot fit the content: the block scrolls the remainder. */
     scrollable: boolean;
-    /** Untransformed content height, so a scrolling caller can correct for the scale (see below). */
+    /** Untransformed content height while `scrollable`, so a scrolling caller can correct for the scale. */
     naturalHeight: number;
 } {
     const [viewport, setViewport] = useState<HTMLElement | null>(null);
     const [content, setContent] = useState<HTMLElement | null>(null);
-    const [fit, setFit] = useState({ scale: 1, scrollable: false, naturalHeight: 0 });
+    const [fit, setFit] = useState<FitState>({ scale: 1, scrollable: false, naturalHeight: 0 });
     const frame = useRef<number | undefined>(undefined);
 
     useLayoutEffect(() => {
@@ -62,13 +81,7 @@ export function useFitScale(minScale = 0.6): {
                         // widening) does not trigger a visible re-scale every frame.
                         { scale: Math.round(needed * 100) / 100, scrollable: false, naturalHeight: natural };
 
-            setFit((current) =>
-                current.scrollable === next.scrollable &&
-                Math.abs(current.scale - next.scale) < 0.011 &&
-                Math.abs(current.naturalHeight - next.naturalHeight) < 2
-                    ? current
-                    : next,
-            );
+            setFit((current) => (sameFit(current, next) ? current : next));
         };
 
         const schedule = () => {

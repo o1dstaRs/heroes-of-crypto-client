@@ -1523,6 +1523,10 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
     return sidebarPortrait ?? <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />;
 });
 
+/** Whether the effects box, `available` px tall down to the footer, has room for a second row of buffs. */
+export const fitsTwoBuffRows = (available: number, effectRowStep: number, buffRowStep: number, gapPx: number) =>
+    available >= buffRowStep * 2 + effectRowStep + gapPx * 8;
+
 const UnitStatsLayout: React.FC<{
     unitProperties: UnitProperties;
     damageRange: string;
@@ -1717,7 +1721,10 @@ const UnitStatsLayout: React.FC<{
     // The Debuffs well sits below its lowered plaque; the offset matches the visible gap under Buffs.
     const debuffWellOffsetY = Math.round(metrics.gapPx * 0.5) + 2;
     const effectsRef = React.useRef<HTMLDivElement>(null);
-    const [effectsHeight, setEffectsHeight] = React.useState<number>();
+    // The room left down to the footer bounds the effects box (it scrolls past that). It is written straight
+    // onto the element: a new unit almost always changes it, and as React state it re-rendered every stat row
+    // a frame after each turn switch (2026-11-26). Only the two-row decision below is state.
+    const [roomForTwoBuffRows, setRoomForTwoBuffRows] = React.useState<boolean>();
     const [effectsWidth, setEffectsWidth] = React.useState<number>();
     React.useLayoutEffect(() => {
         const effects = effectsRef.current;
@@ -1731,7 +1738,9 @@ const UnitStatsLayout: React.FC<{
             const scale = rect.width / effects.offsetWidth;
             if (!(scale > 0)) return;
             const next = Math.max(0, Math.floor((footer.getBoundingClientRect().top - rect.top) / scale) - 2);
-            setEffectsHeight((current) => (current === next ? current : next));
+            effects.style.maxHeight = `${next}px`;
+            const twoRows = fitsTwoBuffRows(next, effectRowStep, buffRowStep, metrics.gapPx);
+            setRoomForTwoBuffRows((current) => (current === twoRows ? current : twoRows));
             setEffectsWidth((current) => (current === effects.offsetWidth ? current : effects.offsetWidth));
         };
         const observer = new ResizeObserver(measure);
@@ -1757,12 +1766,7 @@ const UnitStatsLayout: React.FC<{
             ? 4
             : Math.max(1, Math.floor((effectsWidth - 20 + metrics.gapPx * 0.6) / effectRowStep));
     const buffWellHeight =
-        buffCount === 0
-            ? 0
-            : buffCount > buffsPerRow &&
-                (effectsHeight ?? Infinity) >= buffRowStep * 2 + effectRowStep + metrics.gapPx * 8
-              ? buffRowStep * 2
-              : buffRowStep;
+        buffCount === 0 ? 0 : buffCount > buffsPerRow && (roomForTwoBuffRows ?? true) ? buffRowStep * 2 : buffRowStep;
     React.useLayoutEffect(() => {
         // Start at the Buffs plaque instead of scrolling it underneath the ability row.
         if (effectsRef.current) effectsRef.current.scrollTop = 0;
@@ -2017,7 +2021,6 @@ const UnitStatsLayout: React.FC<{
                     flexDirection: "column",
                     flexShrink: 0,
                     "& > *": { flexShrink: 0 },
-                    maxHeight: effectsHeight === undefined ? undefined : `${effectsHeight}px`,
                     overflowY: "auto",
                     ...hocScrollSx,
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
