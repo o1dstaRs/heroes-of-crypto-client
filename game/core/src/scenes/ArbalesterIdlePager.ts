@@ -1,6 +1,6 @@
 import { Rectangle, Texture } from "pixi.js";
 import { images } from "../imageAssets";
-import { pagedAtlasTextureLoader } from "../pixi/pagedAtlasTexture";
+import { pagedAtlasTextureLoader, type PagedAtlasTextureLoader } from "../pixi/pagedAtlasTexture";
 
 export interface ArbalesterIdlePage {
     imageKey: string;
@@ -136,25 +136,31 @@ export class ArbalesterIdlePagePool {
     }
 }
 
-const sharedPagePool = new ArbalesterIdlePagePool(async (page, format) => {
+/**
+ * Load one native page as frame textures. The page is cut into one strip per frame row, so the GPU receives a
+ * row (8 frames, 4.7 MB) when its first frame is drawn instead of the whole 36 MB page at the page change.
+ */
+export async function loadIdlePageResource(
+    page: ArbalesterIdlePage,
+    format: ArbalesterIdlePages,
+    loader: Pick<PagedAtlasTextureLoader, "loadStrips"> = pagedAtlasTextureLoader,
+): Promise<ArbalesterPageResource> {
     const url = (images as Record<string, string>)[page.imageKey];
     if (!url) throw new Error(`Missing native animation page: ${page.imageKey}`);
-    const resource = await pagedAtlasTextureLoader.load(url, page.width, page.height);
-    const parent = resource.texture;
-    parent.source.scaleMode = "linear";
-    const frames = Array.from(
-        { length: page.frameCount },
-        (_, index) =>
-            new Texture({
-                source: parent.source,
-                frame: new Rectangle(
-                    (index % page.cols) * format.frameWidth,
-                    Math.floor(index / page.cols) * format.frameHeight,
-                    format.frameWidth,
-                    format.frameHeight,
-                ),
-            }),
-    );
+    const resource = await loader.loadStrips(url, page.width, page.height, format.frameHeight);
+    for (const strip of resource.strips) strip.source.scaleMode = "linear";
+    const frames = Array.from({ length: page.frameCount }, (_, index) => {
+        const strip = resource.strips[Math.floor(index / page.cols)];
+        return new Texture({
+            source: strip.source,
+            frame: new Rectangle(
+                (index % page.cols) * format.frameWidth,
+                strip.frame.y,
+                format.frameWidth,
+                format.frameHeight,
+            ),
+        });
+    });
     return {
         frames,
         async unload() {
@@ -162,7 +168,9 @@ const sharedPagePool = new ArbalesterIdlePagePool(async (page, format) => {
             await resource.unload();
         },
     };
-});
+}
+
+const sharedPagePool = new ArbalesterIdlePagePool((page, format) => loadIdlePageResource(page, format));
 
 /** Keeps current/next pages; a late decode holds the last valid pose rather than flashing a placeholder. */
 export class ArbalesterIdlePager {

@@ -95,3 +95,73 @@ test("mismatched decoded pixels close before fallback, and malformed cached page
     expect(wrong.close).toHaveBeenCalledTimes(1);
     expect(f.platform.unloadFallback).toHaveBeenCalledWith("stale-page");
 });
+
+const stripFixture = (
+    crop?: (bitmap: ImageBitmap, x: number, y: number, w: number, h: number) => Promise<ImageBitmap>,
+) => {
+    const page = bitmap();
+    const f = fixture(async () => page as unknown as ImageBitmap);
+    (f.platform as { crop?: typeof crop }).crop = crop;
+    return { ...f, page };
+};
+
+test("a page is cut into one strip per frame row, each with its own pixels, and the page bitmap is released", async () => {
+    const cuts: Array<{ y: number; strip: ReturnType<typeof bitmap> }> = [];
+    const f = stripFixture(async (_page, x, y, w, h) => {
+        expect([x, w, h]).toEqual([0, 3072, 384]);
+        const strip = bitmap(3072, 384);
+        cuts.push({ y, strip });
+        return strip as unknown as ImageBitmap;
+    });
+    const page = await f.loader.loadStrips("page-url", 3072, 3072, 384);
+    expect(cuts.map((cut) => cut.y)).toEqual([0, 384, 768, 1152, 1536, 1920, 2304, 2688]);
+    expect(page.strips).toHaveLength(8);
+    page.strips.forEach((strip, row) => {
+        expect(strip.source.resource).toBe(cuts[row].strip);
+        expect(strip.frame.y).toBe(0);
+        expect([strip.width, strip.height]).toEqual([3072, 384]);
+        expect(strip.source.alphaMode).toBe("premultiply-alpha-on-upload");
+    });
+    // The whole page's pixels go as soon as the strips exist; each strip keeps its own for context recovery.
+    expect(f.page.close).toHaveBeenCalledTimes(1);
+    expect(cuts.every((cut) => cut.strip.close.mock.calls.length === 0)).toBe(true);
+    await page.unload();
+    await page.unload();
+    expect(cuts.every((cut) => cut.strip.close.mock.calls.length === 1)).toBe(true);
+    expect(page.strips.every((strip) => strip.destroyed)).toBe(true);
+    expect(f.platform.loadFallback).not.toHaveBeenCalled();
+});
+
+test("a failed cut closes the pieces and falls back to regions of the whole page", async () => {
+    const pieces: Array<ReturnType<typeof bitmap>> = [];
+    let calls = 0;
+    const f = stripFixture(async () => {
+        calls++;
+        if (calls === 3) throw new Error("crop failed");
+        const piece = bitmap(3072, 384);
+        pieces.push(piece);
+        return piece as unknown as ImageBitmap;
+    });
+    const page = await f.loader.loadStrips("page-url", 3072, 3072, 384);
+    expect(pieces.every((piece) => piece.close.mock.calls.length === 1)).toBe(true);
+    expect(page.strips).toHaveLength(8);
+    const source = page.strips[0].source;
+    page.strips.forEach((strip, row) => {
+        expect(strip.source).toBe(source);
+        expect(strip.frame.y).toBe(row * 384);
+        expect(strip.frame.height).toBe(384);
+    });
+    await page.unload();
+    await page.unload();
+    expect(source.destroyed).toBe(true);
+});
+
+test("without a cropper the strips are regions of the existing whole-page texture", async () => {
+    const f = stripFixture(undefined);
+    const page = await f.loader.loadStrips("page-url", 3072, 3072, 384);
+    expect(new Set(page.strips.map((strip) => strip.source)).size).toBe(1);
+    expect(page.strips[0].source.resource).toBe(f.page);
+    expect(page.strips.map((strip) => strip.frame.y)).toEqual([0, 384, 768, 1152, 1536, 1920, 2304, 2688]);
+    await page.unload();
+    expect(f.page.close).toHaveBeenCalledTimes(1);
+});

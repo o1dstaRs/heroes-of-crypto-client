@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { BufferImageSource, Texture } from "pixi.js";
+import { BufferImageSource, Rectangle, Texture } from "pixi.js";
 import {
     ArbalesterIdlePager,
     ArbalesterIdlePagePool,
     arbalesterIdlePages,
+    loadIdlePageResource,
     type ArbalesterIdlePage,
     type ArbalesterIdlePages,
     type ArbalesterPageResource,
@@ -277,4 +278,58 @@ describe("native Arbalester idle pages", () => {
         finishUnload();
         await flush();
     });
+});
+
+describe("native idle page loading", () => {
+    const stripsFor = (page: ArbalesterIdlePage, shared: boolean) => {
+        const rows = page.height / 384;
+        const whole = new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: page.height });
+        return Array.from(
+            { length: rows },
+            (_, row) =>
+                new Texture({
+                    source: shared
+                        ? whole
+                        : new BufferImageSource({ resource: new Uint8Array(4), width: 3072, height: 384 }),
+                    frame: new Rectangle(0, shared ? row * 384 : 0, 3072, 384),
+                }),
+        );
+    };
+    for (const shared of [false, true]) {
+        test(`each frame samples its own row strip (${shared ? "whole-page fallback" : "cut strips"})`, async () => {
+            for (const page of [format.pages[0], format.pages[21]]) {
+                const strips = stripsFor(page, shared);
+                let unloaded = 0;
+                const requests: unknown[][] = [];
+                const loaded = await loadIdlePageResource(page, format, {
+                    loadStrips: async (...args) => {
+                        requests.push(args);
+                        return {
+                            strips,
+                            async unload() {
+                                unloaded++;
+                            },
+                        };
+                    },
+                });
+                expect(requests).toHaveLength(1);
+                expect(requests[0].slice(1)).toEqual([3072, page.height, 384]);
+                expect(loaded.frames).toHaveLength(page.frameCount);
+                loaded.frames.forEach((frame, index) => {
+                    const row = Math.floor(index / page.cols);
+                    expect(frame.source).toBe(strips[row].source);
+                    expect([frame.frame.x, frame.frame.y, frame.frame.width, frame.frame.height]).toEqual([
+                        (index % page.cols) * 384,
+                        shared ? row * 384 : 0,
+                        384,
+                        384,
+                    ]);
+                });
+                expect(strips.every((strip) => strip.source.scaleMode === "linear")).toBe(true);
+                await loaded.unload();
+                expect(unloaded).toBe(1);
+                expect(loaded.frames.every((frame) => frame.destroyed)).toBe(true);
+            }
+        });
+    }
 });
