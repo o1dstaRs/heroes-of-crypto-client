@@ -99,7 +99,7 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         lastAuthoritativeSequence: -1,
         lastBoardSignature: "not-a-board",
         lastPlacementUnitIdsKey: "",
-        optimisticPlacementHoldUntil: 0,
+        pendingPlacementSaves: 0,
         lastPlacementStateByUnitId: new Map<string, string>(),
         viewerTeam: TeamVals.LEFT,
         sandboxCoop: false,
@@ -148,9 +148,8 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         applyAuthoritativeSnapshot: RankedPlayScene["applyAuthoritativeSnapshot"];
         lastPlacementUnitIdsKey: string;
         lastAuthoritativeSequence: number;
-        optimisticPlacementHoldUntil: number;
         lastPlacementStateByUnitId: Map<string, string>;
-        noteOptimisticPlacement: () => void;
+        noteOptimisticPlacement: (submission: Promise<void>) => void;
         noteOptimisticBarrelPlacement: () => void;
     };
 
@@ -164,6 +163,11 @@ const boot = (cells: { x: number; y: number }[] = [{ x: 1, y: 1 }]) => {
         scene,
         state,
         moveTo,
+        beginSave: () => {
+            const submission = Promise.withResolvers<void>();
+            scene.noteOptimisticPlacement(submission.promise);
+            return submission;
+        },
         hydrates: () => hydrates,
         occupancyRepairs: () => occupancyRepairs,
         barrels: () => liveBarrels,
@@ -179,23 +183,18 @@ describe("ranked placement snapshots", () => {
     test.each([false, true])(
         "a duplicate server board cannot repair away a newer optimistic drop (skip rebuild: %s)",
         (skipBoardRebuild) => {
-            const clock = spyOn(performance, "now").mockReturnValue(10_000);
-            try {
-                const { scene, moveTo, hydrates, occupancyRepairs } = boot();
-                scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
+            const { scene, moveTo, beginSave, hydrates, occupancyRepairs } = boot();
+            scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
 
-                moveTo([{ x: 4, y: 4 }]);
-                scene.noteOptimisticPlacement();
-                scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2), {
-                    skipBoardRebuild,
-                });
+            moveTo([{ x: 4, y: 4 }]);
+            beginSave();
+            scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2), {
+                skipBoardRebuild,
+            });
 
-                expect(hydrates()).toBe(1);
-                expect(occupancyRepairs()).toBe(0);
-                expect(scene.lastAuthoritativeSequence).toBe(2);
-            } finally {
-                clock.mockRestore();
-            }
+            expect(hydrates()).toBe(1);
+            expect(occupancyRepairs()).toBe(0);
+            expect(scene.lastAuthoritativeSequence).toBe(2);
         },
     );
 
@@ -210,28 +209,37 @@ describe("ranked placement snapshots", () => {
         expect(scene.lastAuthoritativeSequence).toBe(1);
     });
 
-    test("an unchanged server board still repairs an unconfirmed drop after its hold expires", () => {
-        const { scene, moveTo, hydrates, occupancyRepairs } = boot();
-        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
+    test("an unchanged server board repairs a drop after its submission fails", async () => {
+        const { scene, moveTo, beginSave, hydrates, occupancyRepairs } = boot();
+        const opening = snapshot([unit("a", [{ x: 1, y: 1 }])], 1);
+        scene.applyAuthoritativeSnapshot(opening);
 
         moveTo([{ x: 4, y: 4 }]);
-        scene.optimisticPlacementHoldUntil = 0;
-        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2));
+        const save = beginSave();
+        scene.applyAuthoritativeSnapshot(opening);
+        expect(hydrates()).toBe(1);
+
+        save.reject(new Error("connection lost"));
+        await expect(save.promise).rejects.toThrow("connection lost");
+        scene.applyAuthoritativeSnapshot(opening);
 
         expect(hydrates()).toBe(2);
         expect(occupancyRepairs()).toBe(0);
     });
 
-    test("a confirming drop does not rebuild, and an older drop of the same stack waits", () => {
-        const { scene, moveTo, hydrates } = boot();
+    test("an acknowledgement preserves a newer pending drop of the same stack", async () => {
+        const { scene, moveTo, beginSave, hydrates } = boot();
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
 
         moveTo([{ x: 4, y: 4 }]);
+        const firstSave = beginSave();
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 4, y: 4 }])], 2));
         expect(hydrates()).toBe(1);
 
         moveTo([{ x: 6, y: 6 }]);
-        scene.noteOptimisticPlacement();
+        const secondSave = beginSave();
+        firstSave.resolve();
+        await firstSave.promise;
         const remembered = scene.lastPlacementUnitIdsKey;
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 4, y: 4 }])], 3));
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 4));
@@ -240,32 +248,40 @@ describe("ranked placement snapshots", () => {
         expect(scene.lastPlacementUnitIdsKey).toBe(remembered);
         expect(scene.lastAuthoritativeSequence).toBe(4);
 
+        secondSave.resolve();
+        await secondSave.promise;
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 6, y: 6 }])], 5));
         expect(hydrates()).toBe(1);
         expect(scene.lastPlacementUnitIdsKey).not.toBe(remembered);
     });
 
-    test("a rejected drop still rebuilds, and so does a stale drop once the hold expires", () => {
-        const { scene, moveTo, hydrates } = boot();
+    test("a forced resync repairs a rejected drop while its response is being handled", () => {
+        const { scene, moveTo, beginSave, hydrates } = boot();
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 1));
         moveTo([{ x: 4, y: 4 }]);
-        scene.noteOptimisticPlacement();
+        beginSave();
 
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 2), {
             forceBoardRebuild: true,
         });
         expect(hydrates()).toBe(2);
+    });
 
-        moveTo([{ x: 6, y: 6 }]);
-        scene.optimisticPlacementHoldUntil = 0;
-        scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 4, y: 4 }])], 3));
-        expect(hydrates()).toBe(3);
+    test("a locked board reconciles to the server even while a placement save is pending", () => {
+        const { scene, moveTo, beginSave, hydrates } = boot();
+        const units = [unit("a", [{ x: 1, y: 1 }])];
+        scene.applyAuthoritativeSnapshot(snapshot(units, 1));
+        moveTo([{ x: 4, y: 4 }]);
+        beginSave();
+
+        scene.applyAuthoritativeSnapshot(snapshot(units, 2, { viewerPlacementReady: true }));
+        expect(hydrates()).toBe(2);
     });
 
     test("a server-created split is not held, and a lower sequence never rewinds the board", () => {
-        const { scene, hydrates } = boot();
+        const { scene, beginSave, hydrates } = boot();
         scene.applyAuthoritativeSnapshot(snapshot([unit("a", [{ x: 1, y: 1 }])], 5));
-        scene.noteOptimisticPlacement();
+        beginSave();
 
         scene.applyAuthoritativeSnapshot(
             snapshot(
@@ -325,7 +341,7 @@ describe("ranked placement snapshots", () => {
     });
 
     test("a held snapshot does not record the opponent move it ignored", () => {
-        const { scene, moveTo, hydrates } = boot();
+        const { scene, moveTo, beginSave, hydrates } = boot();
         const mine = (cells: { x: number; y: number }[]) => unit("a", cells);
         const scout = (y: number) =>
             unit("scout", [{ x: 10, y }], { team: TeamVals.RIGHT, name: "Scout", creatureId: 1 });
@@ -333,7 +349,7 @@ describe("ranked placement snapshots", () => {
         const rememberedScout = scene.lastPlacementStateByUnitId.get("scout");
 
         moveTo([{ x: 4, y: 4 }]);
-        scene.noteOptimisticPlacement();
+        beginSave();
         scene.applyAuthoritativeSnapshot(snapshot([mine([{ x: 1, y: 1 }]), scout(6)], 2));
 
         expect(hydrates()).toBe(1);
@@ -345,23 +361,23 @@ describe("ranked placement snapshots", () => {
         let localAccepts = true;
         const local = spyOn(Sandbox.prototype as unknown as { createActionEngine(): unknown }, "createActionEngine");
         local.mockImplementation(() => ({ apply: () => ({ completed: localAccepts, events: [] }) }));
-        let holds = 0;
+        const submission = Promise.withResolvers<void>().promise;
+        const pending: Promise<void>[] = [];
         const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
             isPlayingAuthoritativeReplay: () => false,
-            dispatchExternalGameAction: () => ({ handled: true, completed: serverAccepts }),
-            noteOptimisticPlacement: () => holds++,
+            dispatchExternalGameAction: () => ({ handled: true, completed: serverAccepts, submission }),
+            noteOptimisticPlacement: (save: Promise<void>) => pending.push(save),
         }) as { createActionEngine(): { apply(action: { type: string }): { completed: boolean } } };
         try {
             const apply = (type: string) => scene.createActionEngine().apply({ type });
             expect(apply("place_unit").completed).toBe(true);
-            expect(holds).toBe(1);
             expect(apply("select_attack_type").completed).toBe(true);
             serverAccepts = false;
             expect(apply("place_unit").completed).toBe(false);
             serverAccepts = true;
             localAccepts = false;
             expect(apply("place_unit").completed).toBe(false);
-            expect(holds).toBe(1);
+            expect(pending).toEqual([submission]);
         } finally {
             local.mockRestore();
         }
@@ -391,20 +407,15 @@ describe("ranked placement barrels", () => {
         expect(hydrates()).toBe(1);
     });
 
-    test("a unit drop's hold still lets a server barrel change through", () => {
-        const clock = spyOn(performance, "now").mockReturnValue(10_000);
-        try {
-            const { scene, moveTo, hydrates, barrels } = boot();
-            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 1, barrelsSnapshot([at(0, 0)])));
-            moveTo([{ x: 4, y: 4 }]);
-            scene.noteOptimisticPlacement();
+    test("a server barrel change is shown during a pending unit drop", () => {
+        const { scene, moveTo, beginSave, hydrates, barrels } = boot();
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 1, barrelsSnapshot([at(0, 0)])));
+        moveTo([{ x: 4, y: 4 }]);
+        beginSave();
 
-            scene.applyAuthoritativeSnapshot(snapshot(stacks(), 2, barrelsSnapshot([at(0, 3)])));
-            expect(hydrates()).toBe(1);
-            expect(barrels()).toEqual([at(0, 3)]);
-        } finally {
-            clock.mockRestore();
-        }
+        scene.applyAuthoritativeSnapshot(snapshot(stacks(), 2, barrelsSnapshot([at(0, 3)])));
+        expect(hydrates()).toBe(1);
+        expect(barrels()).toEqual([at(0, 3)]);
     });
 
     test("an earlier snapshot cannot pull back a newer barrel drop, and the confirmation is silent", () => {

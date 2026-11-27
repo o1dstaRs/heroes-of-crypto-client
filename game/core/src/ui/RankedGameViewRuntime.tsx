@@ -670,13 +670,7 @@ export const RankedGameView: React.FC<Props> = ({
         if (!snapshot || !pixiReady) {
             return;
         }
-        // Replay page, mid-playback: the sandbox replay engine owns the scene. This effect's `snapshot`
-        // is still the PRE-FIGHT one it was seeded with, and playback changes the selected unit on every
-        // action — each selection re-ran this effect and re-applied that stale placement snapshot over the
-        // running playback. The two pipelines interleaved re-created the opponent's placement roster again
-        // and again: the prod replay "wall of duplicated units on one side" (game b3f81f5c). Playback's own
-        // finally-clause applies the final snapshot after setReplayPlaybackActive(false), so skipping here
-        // still leaves the board settled on the end state.
+        // While the replay engine owns the scene, this snapshot may still describe the opening board.
         if (replayOnly && replayPlaybackActive) {
             return;
         }
@@ -689,14 +683,13 @@ export const RankedGameView: React.FC<Props> = ({
             }
             const forceBoardRebuild = forceBoardRebuildRef.current;
             forceBoardRebuildRef.current = false;
+            // The scene restores placement selection, including its drag origin, if it rebuilds.
+            // Re-selecting from the sidebar after every poll restarted a drag under the cursor.
             manager.ApplyAuthoritativeSnapshot(toSceneSnapshot(snapshot), {
                 // A forced resync (post-rejection desync heal) must win over skipBoardRebuild.
                 skipBoardRebuild: !forceBoardRebuild && (skipBoardRebuildRef.current || playedPendingRecords),
                 forceBoardRebuild,
             });
-            if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
-                manager.SelectAuthoritativeUnit(selectedUnitId);
-            }
         })();
         return () => {
             cancelled = true;
@@ -707,7 +700,6 @@ export const RankedGameView: React.FC<Props> = ({
         pixiReady,
         replayOnly,
         replayPlaybackActive,
-        selectedUnitId,
         snapshot,
         toSceneSnapshot,
         waitForAuthoritativePlayback,
@@ -1532,8 +1524,12 @@ export const RankedGameView: React.FC<Props> = ({
             // gate ("your units, your zone, no cross-team ordering dependency"). Stale optimistic state is
             // repaired by reconciling from the authoritative snapshot — see shouldPlayAuthoritativeAction —
             // not by throwing the player's input away.
-            void submitGameAction(action, transportOptions, autoPlayedInputSource(action));
-            return { handled: true, completed: true };
+            const submission = submitGameAction(action, transportOptions, autoPlayedInputSource(action));
+            return {
+                handled: true,
+                completed: true,
+                ...(action.type === "place_unit" ? { submission } : {}),
+            };
         },
         [
             isObserver,
@@ -3333,26 +3329,35 @@ export const RankedReadyPlacementButton: React.FC<{
 }> = ({ canSubmit, ready, snapshot, submitProtocolAction, coop }) => {
     const manager = usePixiManager();
     const [nowMs, setNowMs] = useState(Date.now());
+    const [submitting, setSubmitting] = useState(false);
     useEffect(() => {
         return startVisibleInterval(() => setNowMs(Date.now()), 1000);
     }, []);
     const secondsLeft =
         snapshot.placementDeadlineMs > 0 ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000)) : -1;
-    const disabled = coop ? !canSubmit || (!ready && !coop.hasPlacedUnits) : !canSubmit || ready;
-    const label = coop ? (ready ? t("Cancel ready") : "READY PLACEMENT") : ready ? "READY" : "READY PLACEMENT";
+    const disabled = !canSubmit || submitting || (coop ? !ready && !coop.hasPlacedUnits : ready);
+    const readyLabel = ready ? (coop ? t("Cancel ready") : "READY") : "READY PLACEMENT";
+    const label = submitting && (!ready || coop) ? t(coop ? "Submitting" : "Locking in…") : readyLabel;
+    const submit = async () => {
+        setSubmitting(true);
+        try {
+            await submitProtocolAction({
+                type: PlayActionType.READY_PLACEMENT,
+                ...(coop && ready ? { reason: SANDBOX_UNREADY_REASON } : {}),
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     return (
         <Button
             variant="plain"
             disabled={disabled}
+            aria-busy={submitting}
             title={coop && !ready && !coop.hasPlacedUnits ? t("Place at least one unit first") : undefined}
             onClick={() => {
-                const run = () => {
-                    void submitProtocolAction({
-                        type: PlayActionType.READY_PLACEMENT,
-                        ...(coop && ready ? { reason: SANDBOX_UNREADY_REASON } : {}),
-                    });
-                };
+                const run = () => void submit();
                 if (readGameViewport().touch && !ready) manager.RequestTouchConfirmation("Ready placement?", run);
                 else run();
             }}

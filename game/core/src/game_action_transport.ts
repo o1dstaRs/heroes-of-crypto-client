@@ -212,6 +212,8 @@ export type SceneGameActionTransportResult =
           handled: true;
           completed: boolean;
           message?: string;
+          /** Settles after an optimistic placement submission and its response handling. */
+          submission?: Promise<void>;
       }
     | {
           handled: false;

@@ -74,11 +74,9 @@ import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { rankedTerrainCellsWithoutOccupiedSmoke, syncRankedTransientTerrain } from "./rankedTransientTerrain";
 import {
-    OPTIMISTIC_PLACEMENT_HOLD_MS,
     placementContextKey,
     placementSnapshotWouldRewind,
     sameArtifactBarrels,
-    shouldHoldOptimisticPlacement,
     viewerPlacementAlreadyShown,
     type PlacementUnitView,
 } from "./rankedPlacementReconcile";
@@ -1601,6 +1599,8 @@ export const shouldPublishRankedFinish = (
     return !finishAlreadyPublished;
 };
 
+const OPTIMISTIC_BARREL_HOLD_MS = 1500;
+
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
@@ -1608,9 +1608,8 @@ export class RankedPlayScene extends Sandbox {
     private currentReplayImpactRecord?: SandboxReplayActionRecord;
     private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
-    /** Ignore a stale placement snapshot until this time so a newer local drop is not rewound. */
-    private optimisticPlacementHoldUntil = 0;
-    /** The same hold for a Barrel Barricade drop, which moves terrain rather than a stack. */
+    private pendingPlacementSaves = 0;
+    /** Hold a Barrel Barricade drop while its terrain update is in flight. */
     private optimisticBarrelHoldUntil = 0;
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
@@ -2409,13 +2408,11 @@ export class RankedPlayScene extends Sandbox {
             placementContextKey(placementUnitIdsKey) === placementContextKey(this.lastPlacementUnitIdsKey);
         if (
             samePlacementContext &&
+            !forceRebuild &&
+            !snapshot.viewerPlacementReady &&
+            this.pendingPlacementSaves > 0 &&
             this.viewerTeam !== undefined &&
-            shouldHoldOptimisticPlacement({
-                now: performance.now(),
-                holdUntil: this.optimisticPlacementHoldUntil,
-                forceRebuild,
-                wouldRewind: placementSnapshotWouldRewind(this.viewerTeam, livePlacement, snapshot.units),
-            })
+            placementSnapshotWouldRewind(this.viewerTeam, livePlacement, snapshot.units)
         ) {
             this.reconcilePlacementBarrels(snapshot);
             return;
@@ -4329,7 +4326,9 @@ export class RankedPlayScene extends Sandbox {
                     if (!localResult.completed) {
                         return localResult;
                     }
-                    if (action.type === "place_unit") this.noteOptimisticPlacement();
+                    if (action.type === "place_unit" && result.submission) {
+                        this.noteOptimisticPlacement(result.submission);
+                    }
                     if (barrelDrop) this.noteOptimisticBarrelPlacement();
                     events = localResult.events;
                 }
@@ -4341,11 +4340,15 @@ export class RankedPlayScene extends Sandbox {
             },
         };
     }
-    private noteOptimisticPlacement(): void {
-        this.optimisticPlacementHoldUntil = performance.now() + OPTIMISTIC_PLACEMENT_HOLD_MS;
+    private noteOptimisticPlacement(submission: Promise<void>): void {
+        this.pendingPlacementSaves++;
+        const settle = () => {
+            this.pendingPlacementSaves--;
+        };
+        void submission.then(settle, settle);
     }
     private noteOptimisticBarrelPlacement(): void {
-        this.optimisticBarrelHoldUntil = performance.now() + OPTIMISTIC_PLACEMENT_HOLD_MS;
+        this.optimisticBarrelHoldUntil = performance.now() + OPTIMISTIC_BARREL_HOLD_MS;
     }
     /**
      * The placement skips above compare stacks only, and a barrel move changes none. Bring the board's barrels

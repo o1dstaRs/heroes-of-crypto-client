@@ -3,10 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { TeamVals } from "@heroesofcrypto/common";
 
 import {
-    OPTIMISTIC_PLACEMENT_HOLD_MS,
     placementContextKey,
     placementSnapshotWouldRewind,
-    shouldHoldOptimisticPlacement,
     viewerPlacementAlreadyShown,
     type PlacementUnitView,
 } from "./rankedPlacementReconcile";
@@ -60,30 +58,6 @@ describe("ranked placement reconcile", () => {
         expect(placementSnapshotWouldRewind(TeamVals.LEFT, live, earlier)).toBe(true);
         expect(placementSnapshotWouldRewind(TeamVals.LEFT, live, live)).toBe(false);
         expect(placementSnapshotWouldRewind(TeamVals.LEFT, live, split)).toBe(false);
-        expect(
-            shouldHoldOptimisticPlacement({
-                now: 2_000,
-                holdUntil: 2_000 + OPTIMISTIC_PLACEMENT_HOLD_MS,
-                forceRebuild: false,
-                wouldRewind: true,
-            }),
-        ).toBe(true);
-        expect(
-            shouldHoldOptimisticPlacement({
-                now: 2_000,
-                holdUntil: 2_000 + OPTIMISTIC_PLACEMENT_HOLD_MS,
-                forceRebuild: true,
-                wouldRewind: true,
-            }),
-        ).toBe(false);
-        expect(
-            shouldHoldOptimisticPlacement({
-                now: 4_000,
-                holdUntil: 2_000,
-                forceRebuild: false,
-                wouldRewind: true,
-            }),
-        ).toBe(false);
     });
 
     test("the stage and the map stay in the key even when the unit list changes", () => {

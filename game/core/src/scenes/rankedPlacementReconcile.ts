@@ -4,8 +4,6 @@
  * drop must not rewind a newer one that is still in flight.
  */
 
-export const OPTIMISTIC_PLACEMENT_HOLD_MS = 1500;
-
 export interface PlacementUnitView {
     id: string;
     team: number;
@@ -77,13 +75,6 @@ export const placementSnapshotWouldRewind = (
     }
     return differs;
 };
-
-export const shouldHoldOptimisticPlacement = (input: {
-    now: number;
-    holdUntil: number;
-    forceRebuild: boolean;
-    wouldRewind: boolean;
-}): boolean => !input.forceRebuild && input.wouldRewind && input.now < input.holdUntil;
 
 export interface PlacementBarrelView {
     team: number;
