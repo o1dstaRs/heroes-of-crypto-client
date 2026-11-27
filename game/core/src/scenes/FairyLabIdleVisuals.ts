@@ -1,7 +1,7 @@
 import { Filter, GlProgram, Matrix, type Sprite } from "pixi.js";
 import { fairyLabIdleFrame, fairyLabIdleRestPhase } from "./FairyLabIdle";
 
-const gestureHairGains = [
+export const FAIRY_IDLE_GESTURE_HAIR_GAINS = [
     [1, 1, 1],
     [1.025, 1.025, 1.035],
     [1.025, 1.025, 1.035],
@@ -119,7 +119,7 @@ class FairyIdleFilter extends Filter {
         this.resources.idle.uniforms.uMotion.set(fairyIdleMotion(elapsedMs));
         const frame = fairyLabIdleFrame(elapsedMs);
         this.resources.idle.uniforms.uPoseCorrection[0] = frame > 0 ? 1 : 0;
-        this.resources.idle.uniforms.uHairGain.set(gestureHairGains[frame]);
+        this.resources.idle.uniforms.uHairGain.set(FAIRY_IDLE_GESTURE_HAIR_GAINS[frame]);
     }
     public override apply(...args: Parameters<Filter["apply"]>): void {
         const uniforms = this.resources.idle.uniforms;

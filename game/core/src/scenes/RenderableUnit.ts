@@ -74,6 +74,11 @@ import { syncMantisLabEyeGlow } from "./MantisLabIdleVisuals";
 import { syncBlackDragonBreathSmoke } from "./BlackDragonBreathSmoke";
 import { blackDragonFireState, syncBlackDragonFireBreath } from "./BlackDragonFireBreath";
 import { MONK_RANGED_FRAMES, MONK_ORB_RELEASE_FRAME } from "./MonkRangedAnimationFrames";
+import {
+    BEHOLDER_SHOT_RELEASE_FRAME,
+    CENTAUR_SPEAR_RELEASE_FRAME,
+    ORC_AXE_RELEASE_FRAME,
+} from "./sandbox/rangedProjectileAssets";
 import { zenaLabIdleFrame } from "./ZenaLabIdle";
 import { TROLL_LAB_WALK_SCALE_X, TROLL_LAB_WALK_SCALE_Y } from "./TrollLabWalkVisuals";
 import { renderedCastlingGripPoint } from "./CastlingGripPoint";
@@ -1025,10 +1030,10 @@ const EFREET_FIRE_IDLE_FRAME_DURATION_MS = 90;
 const EFREET_FIRE_IDLE_IMAGE_KEY = "efreet_idle_atlas_quarter" as const;
 // Match the neutral lab frame's opaque silhouette (386x416) to the canonical figure (529x703).
 // Both canvases are 768px high; transparent padding must not count as creature height.
-const EFREET_LAB_IDLE_SCALE_X = 529 / 386;
-const EFREET_LAB_IDLE_SCALE_Y = 703 / 416;
-const EFREET_FIGURE_SCALE = 0.9;
-const EFREET_LAB_LOWER_FIRE_BASE_Y = 642;
+export const EFREET_LAB_IDLE_SCALE_X = 529 / 386;
+export const EFREET_LAB_IDLE_SCALE_Y = 703 / 416;
+export const EFREET_FIGURE_SCALE = 0.9;
+export const EFREET_LAB_LOWER_FIRE_BASE_Y = 642;
 const EFREET_LAB_DEATH_PLAYBACK_SPEED = 1.25 * 1.15;
 const THIEF_IDLE_BREATH_PERIOD_MS = 2800;
 // Scavenger shares the Orc's stronger full-body breath: a visible rise plus a small chest expansion.
@@ -2889,7 +2894,7 @@ const FLAG_WAVE_AMPLITUDE = 0.14;
 /** How many wave crests fit across the banner. Just over one reads as cloth rather than a wobbling plank. */
 const FLAG_WAVE_CYCLES = 1.15;
 /** Radians per second the wave travels — a lazy flag in still dungeon air, not a gale. */
-const FLAG_WAVE_SPEED = 2.6;
+export const FLAG_WAVE_SPEED = 2.6;
 /** Heroes-IV-style count ribbon stays horizontal above the creature. */
 const BATTLEFIELD_FLAG_ROTATION = 0;
 /** Active-turn arrow enlarged by another 50%, independent of its animated breath. */
@@ -7723,6 +7728,36 @@ export class RenderableUnit extends Unit {
             this.battlefieldAlphaHoleFillFilter = undefined;
         }
     }
+    private walkCadence(
+        unitName: string,
+        gaitFrameCount: number,
+    ): { frameDistance: number; cadenceFrameCount: number } {
+        // Medusa's 0.9 multiplier is the user's explicit 10% cadence reduction;
+        // board travel speed and the shared cadence for other creatures stay unchanged.
+        const cadenceSpeed =
+            unitName === "Harpy"
+                ? HARPY_FLIGHT_CADENCE_SPEED
+                : this.creatureAnimationLabPreviewEnabled
+                  ? unitName === "Fairy" || unitName === "Angel"
+                      ? FAIRY_LAB_WALK_SPEED
+                      : unitName === "Valkyrie"
+                        ? VALKYRIE_LAB_FLIGHT_SPEED
+                        : unitName === "Medusa"
+                          ? 0.9
+                          : unitName === "Frenzied Boar"
+                            ? 1.15
+                            : 1
+                  : 1;
+        // Behemoth's original 40 cels combine five gaits with three mouth cycles.
+        const cadenceFrameCount =
+            unitName === "Behemoth" && this.creatureAnimationLabPreviewEnabled
+                ? BEHEMOTH_LAB_WALK_BODY_FRAME_COUNT
+                : gaitFrameCount;
+        return {
+            frameDistance: CREATURE_WALK_CYCLE_DISTANCE_CELLS / cadenceSpeed / cadenceFrameCount,
+            cadenceFrameCount,
+        };
+    }
     public setBoardWalkDistanceCells(distanceCells: number): void {
         const anim = this.walkAnim;
         if (!anim || !this.sprite || this.oneShotAnim) return;
@@ -7749,28 +7784,7 @@ export class RenderableUnit extends Unit {
         const gaitFrameCount = anim.loopEndFrame - anim.loopStartFrame + 1;
         if (gaitFrameCount <= 0) return;
         const unitName = this.getUnitProperties().name;
-        // Medusa's 0.9 multiplier is the user's explicit 10% cadence reduction;
-        // board travel speed and the shared cadence for other creatures stay unchanged.
-        const cadenceSpeed =
-            unitName === "Harpy"
-                ? HARPY_FLIGHT_CADENCE_SPEED
-                : this.creatureAnimationLabPreviewEnabled
-                  ? unitName === "Fairy" || unitName === "Angel"
-                      ? FAIRY_LAB_WALK_SPEED
-                      : unitName === "Valkyrie"
-                        ? VALKYRIE_LAB_FLIGHT_SPEED
-                        : unitName === "Medusa"
-                          ? 0.9
-                          : unitName === "Frenzied Boar"
-                            ? 1.15
-                            : 1
-                  : 1;
-        // Behemoth's original 40 cels combine five gaits with three mouth cycles.
-        const cadenceFrameCount =
-            unitName === "Behemoth" && this.creatureAnimationLabPreviewEnabled
-                ? BEHEMOTH_LAB_WALK_BODY_FRAME_COUNT
-                : gaitFrameCount;
-        const frameDistance = CREATURE_WALK_CYCLE_DISTANCE_CELLS / cadenceSpeed / cadenceFrameCount;
+        const { frameDistance, cadenceFrameCount } = this.walkCadence(unitName, gaitFrameCount);
         const gaitDistance = Math.max(0, safeDistance - anim.gaitStartDistanceCells);
         anim.gaitDistanceCells = gaitDistance;
         const absoluteGaitFrame = Math.floor(gaitDistance / frameDistance + 1e-9);
@@ -9083,6 +9097,20 @@ export class RenderableUnit extends Unit {
         if (texture) this.sprite.texture = texture;
         if (this.getName() === "Manticore" || this.getName() === "Wyvern") this.syncCreaturePalette();
     }
+    private oneShotTickScale(): number {
+        const name = this.getName();
+        const state = this.oneShotAnim?.stateName;
+        return this.oneShotAnim?.authoredRealTime ||
+            (name === WANDERING_MAGE_UNIT_NAME && isWanderingMageAuthoredAction(state)) ||
+            (name === BLACKSMITH_UNIT_NAME && isBlacksmithAuthoredAction(state)) ||
+            (name === ORC_UNIT_NAME && isOrcAuthoredAction(state)) ||
+            (this.scavengerLabAnimationsEnabled && SCAVENGER_LAB_ACTIONS.includes(state ?? "")) ||
+            (state === "hit" && (name === PEASANT_UNIT_NAME || name === SQUIRE_UNIT_NAME)) ||
+            (name === SQUIRE_UNIT_NAME && isSquireSpriteAttack(state)) ||
+            (name === TROGLODYTE_UNIT_NAME && isTroglodyteSpriteAttack(state))
+            ? 4
+            : 1;
+    }
     public stepSpawnAnimation(dt: number): void {
         const mayChangeSpriteBounds = !!this.spawnAnim || !!this.walkAnim || !!this.oneShotAnim;
         // --- Spawn animation ---
@@ -9158,23 +9186,7 @@ export class RenderableUnit extends Unit {
         // so dt*1000 represents only one quarter of real elapsed milliseconds. Most older one-shots
         // were tuned around that legacy clock. Approved reactions and authored attacks use real milliseconds
         // and compensate here so their on-screen cadence matches the authored previews.
-        const oneShotRealTimeScale =
-            this.oneShotAnim?.authoredRealTime ||
-            (this.getUnitProperties().name === WANDERING_MAGE_UNIT_NAME &&
-                isWanderingMageAuthoredAction(this.oneShotAnim?.stateName)) ||
-            (this.getUnitProperties().name === BLACKSMITH_UNIT_NAME &&
-                isBlacksmithAuthoredAction(this.oneShotAnim?.stateName)) ||
-            (this.getUnitProperties().name === ORC_UNIT_NAME && isOrcAuthoredAction(this.oneShotAnim?.stateName)) ||
-            (this.scavengerLabAnimationsEnabled && SCAVENGER_LAB_ACTIONS.includes(this.oneShotAnim?.stateName ?? "")) ||
-            (this.oneShotAnim?.stateName === "hit" &&
-                (this.getUnitProperties().name === PEASANT_UNIT_NAME ||
-                    this.getUnitProperties().name === SQUIRE_UNIT_NAME)) ||
-            (this.getUnitProperties().name === SQUIRE_UNIT_NAME && isSquireSpriteAttack(this.oneShotAnim?.stateName)) ||
-            (this.getUnitProperties().name === TROGLODYTE_UNIT_NAME &&
-                isTroglodyteSpriteAttack(this.oneShotAnim?.stateName))
-                ? 4
-                : 1;
-        this.stepOneShotAnimation(dt * 1000 * oneShotRealTimeScale);
+        this.stepOneShotAnimation(dt * 1000 * this.oneShotTickScale());
         if (
             this.creatureAnimationLabPreviewEnabled &&
             (this.getName() === "Fairy" || this.getName() === "Valkyrie" || this.getName() === "Manticore")
@@ -9504,7 +9516,7 @@ export class RenderableUnit extends Unit {
             return false;
         if (!this.playOneShotAnimation(stateName, undefined, true) || !this.oneShotAnim) return false;
         const action = this.oneShotAnim;
-        action.projectileReleaseFrame = 3;
+        action.projectileReleaseFrame = CENTAUR_SPEAR_RELEASE_FRAME;
         action.orcCancel = onCancel;
         action.projectileRelease = () => {
             action.orcCancel = undefined;
@@ -9551,7 +9563,7 @@ export class RenderableUnit extends Unit {
         if (!isBeholderRanged(this.getName(), stateName)) return false;
         if (!this.playOneShotAnimation(stateName, undefined, true) || !this.oneShotAnim) return false;
         const action = this.oneShotAnim;
-        action.projectileReleaseFrame = 2;
+        action.projectileReleaseFrame = BEHOLDER_SHOT_RELEASE_FRAME;
         action.orcCancel = onCancel;
         action.projectileRelease = () => {
             action.orcCancel = undefined;
@@ -10756,6 +10768,50 @@ export class RenderableUnit extends Unit {
     /** The image the body is drawn from; changes when an animation switches atlases (or back to the rest pose). */
     public getBodyTextureSource(): Texture["source"] | undefined {
         return this.sprite?.texture?.source;
+    }
+    /** The board's current source frames and real-time holds, for packaging the native client. */
+    public getAnimationAtlasPlayback(kind: "idle" | "walk" | "action"):
+        | {
+              frames: readonly Texture[];
+              holdsMs: readonly number[];
+              footAnchorY: number;
+              walk?: { first: number; last: number; frameDistance: number; introDistance?: number };
+          }
+        | undefined {
+        if (kind === "action") {
+            const action = this.oneShotAnim;
+            if (!action) return undefined;
+            const scale = 4 / this.oneShotTickScale();
+            return {
+                frames: action.frames,
+                holdsMs: action.frames.map((_, i) => (action.frameDurationsMs?.[i] ?? action.durationPerFrame) * scale),
+                footAnchorY: action.footAnchorY,
+            };
+        }
+        if (kind === "walk") {
+            const walk = this.walkAnim;
+            if (!walk) return undefined;
+            const first = walk.loopStartFrame;
+            const last = walk.loopEndFrame;
+            return {
+                frames: walk.frames,
+                holdsMs: walk.frames.map((_, i) => walk.frameDurationsMs?.[i] ?? walk.durationPerFrameMs),
+                footAnchorY: walk.footAnchorY,
+                walk: {
+                    first,
+                    last,
+                    frameDistance: this.walkCadence(this.getName(), last - first + 1).frameDistance,
+                    introDistance: walk.introDistanceCells,
+                },
+            };
+        }
+        const frames = this.selectionAnimFrames;
+        if (!frames?.length) return undefined;
+        return {
+            frames,
+            holdsMs: frames.map((_, i) => this.selectionAnimFrameDurationsMs?.[i] ?? this.selectionAnimFrameDurationMs),
+            footAnchorY: this.selectionAnimFootAnchorY,
+        };
     }
     public hasAnimationState(stateName: string): boolean {
         if (this.angelLabReactionConfig(stateName)) return true;
@@ -12006,7 +12062,7 @@ export class RenderableUnit extends Unit {
                     release();
                     if (this.oneShotAnim !== anim || anim.externallyDriven) return;
                 }
-                if (anim.frameIndex === 4 && anim.orcRelease) {
+                if (anim.frameIndex === ORC_AXE_RELEASE_FRAME && anim.orcRelease) {
                     this.applyOneShotFrame(anim);
                     const release = anim.orcRelease;
                     anim.orcRelease = undefined;

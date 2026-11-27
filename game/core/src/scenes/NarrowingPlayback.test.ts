@@ -57,6 +57,7 @@ function fixture(terrainDuration = 0) {
             return true;
         },
         applyReplayEvents: (events: GameEvent[]) => {
+            if (!events.some((event) => event.type === "narrowing_applied")) return;
             mapEvents.push(events);
             scene.renderNarrowingLayers(1, { animate: true });
         },
@@ -149,6 +150,37 @@ test("ordinary records retain their completion timing", async () => {
     await f.advance(100);
     expect(await pending).toBe(true);
     expect(f.mapEvents).toEqual([]);
+    expect(f.scene.isAnimating()).toBe(false);
+});
+
+test("unplayable live actions keep the narrowing events behind outstanding combat", async () => {
+    const f = fixture();
+    const action = record("range_attack");
+    f.scene.replayPlaybackActive = false;
+    f.scene.playReplayActionRecord = async () => false;
+    f.scene.scheduleSceneTimeout = () => undefined;
+    f.setProjectileUntil(900);
+    const applyEvents = f.scene.applyReplayEvents;
+    const applied: GameEvent[][] = [];
+    f.scene.applyReplayEvents = (events: GameEvent[]) => {
+        applied.push(events);
+        if (events[0]?.type === "turn_completed") f.setForegroundUntil(f.now() + 300);
+        applyEvents(events);
+    };
+
+    const pending = f.scene.playAuthoritativeActionRecord(action.action, action.events, action.stateAfter);
+    await f.advance(899);
+    expect(applied).toEqual([]);
+    await f.advance(30);
+    expect(applied).toEqual([[action.events[0]]]);
+    await f.advance(260);
+    expect(f.mapEvents).toEqual([]);
+    await f.advance(100);
+    expect(f.mapEvents).toEqual([action.events.slice(1)]);
+    expect(f.scene.isAnimating()).toBe(true);
+    await f.advance(700);
+    expect(await pending).toBe(false);
+    expect(applied).toEqual([[action.events[0]], action.events.slice(1)]);
     expect(f.scene.isAnimating()).toBe(false);
 });
 

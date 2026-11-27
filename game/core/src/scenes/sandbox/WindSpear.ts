@@ -16,7 +16,7 @@ interface Spear {
     started: number;
 }
 
-/** Main's travelling cyan pierce for other legal owners. Cosmetic only: no damage or action delay. */
+/** The traveling white light that follows a Skewer Strike through its recorded contacts. */
 export class WindSpears {
     private spears: Spear[] = [];
     public constructor(

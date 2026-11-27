@@ -208,6 +208,7 @@ export const endpoints = {
         googleLink: IS_PROD ? "/v1/google-link" : "/v1/auth/google-link",
         googleUnlink: IS_PROD ? "/v1/google-unlink" : "/v1/auth/google-unlink",
         googleStatus: IS_PROD ? "/v1/google-status" : "/v1/auth/google-status",
+        desktopGrant: IS_PROD ? "/v1/desktop-auth-grant" : "/v1/auth/desktop-auth-grant",
     },
     mm: {
         queue: IS_PROD ? "/v1/queue" : "/v1/mm/queue",

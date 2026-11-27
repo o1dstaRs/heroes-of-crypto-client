@@ -605,19 +605,27 @@ export const RankedGameView: React.FC<Props> = ({
     );
 
     const reconcileLiveSnapshot = useCallback(
-        async (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
-            // Polls, reconnect snapshots and HTTP responses can beat the action delivery channel.
-            // Present missing journal entries before hydration makes their sequence look already played.
+        async (
+            nextSnapshot: PlaySnapshot,
+            options?: { journalEntry?: PlaySnapshot["journalTail"][number]; forceBoardRebuild?: boolean },
+        ) => {
+            // An attached action can arrive ahead of its predecessors. Queue it with the missing
+            // journal entries so a lap transition cannot run before the action that ended the lap.
             await waitForAuthoritativePlayback();
+            if (isOlderRankedSnapshot(nextSnapshot, snapshotRef.current)) return;
             const presented = await playMissingRankedSnapshotRecords(
                 nextSnapshot,
                 snapshotRef.current,
                 playAuthoritativeRecord,
+                options?.journalEntry,
             );
+            if (!presented && options?.journalEntry?.sequence === nextSnapshot.latestSequence) {
+                rememberAuthoritativeRecord(options.journalEntry, { stateAfterSnapshot: nextSnapshot });
+            }
             await waitForAuthoritativePlayback();
-            applySnapshot(nextSnapshot, { ...options, skipBoardRebuild: !!options?.skipBoardRebuild || presented });
+            applySnapshot(nextSnapshot, { forceBoardRebuild: options?.forceBoardRebuild, skipBoardRebuild: presented });
         },
-        [applySnapshot, playAuthoritativeRecord, waitForAuthoritativePlayback],
+        [applySnapshot, playAuthoritativeRecord, rememberAuthoritativeRecord, waitForAuthoritativePlayback],
     );
     const refreshSnapshot = useCallback(async () => {
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
@@ -831,15 +839,15 @@ export const RankedGameView: React.FC<Props> = ({
                         playbackQueue = playbackQueue
                             .then(async () => {
                                 if (closed) return;
-                                const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
-                                if (!played)
-                                    rememberAuthoritativeRecord(event.journalEntry, {
-                                        stateAfterSnapshot: event.snapshot,
-                                    });
                                 if (event.snapshot) {
                                     await waitForAuthoritativePlayback();
-                                    if (!closed)
-                                        await reconcileLiveSnapshot(event.snapshot, { skipBoardRebuild: played });
+                                    if (!closed) {
+                                        await reconcileLiveSnapshot(event.snapshot, {
+                                            journalEntry: event.journalEntry,
+                                        });
+                                    }
+                                } else if (!(await playAuthoritativeRecord(event.journalEntry))) {
+                                    rememberAuthoritativeRecord(event.journalEntry);
                                 }
                                 const sseError = rejectionErrorFromPlayEvent(event);
                                 if (sseError && !closed) setError(sseError);
@@ -871,7 +879,6 @@ export const RankedGameView: React.FC<Props> = ({
             abortRef.current?.abort();
         };
     }, [
-        applySnapshot,
         gameId,
         manager,
         playAuthoritativeRecord,
@@ -1123,22 +1130,20 @@ export const RankedGameView: React.FC<Props> = ({
                 // short-circuiting on an unchanged signature — which otherwise leaves the client (and
                 // an autobattle AI) resubmitting the same illegal action forever.
                 const rejected = !result.accepted;
-                const played = await playAuthoritativeRecord(result.event?.journalEntry, responseSnapshot);
-                if (!played) {
-                    rememberAuthoritativeRecord(result.event?.journalEntry, {
-                        stateAfterSnapshot: responseSnapshot,
-                    });
-                }
                 if (
                     responseSnapshot &&
                     shouldApplyActionResponseSnapshotToViewer(responseSnapshot, { isModelSubmission })
                 ) {
-                    await waitForAuthoritativePlayback();
                     await reconcileLiveSnapshot(responseSnapshot, {
-                        skipBoardRebuild: played,
+                        journalEntry: result.event?.journalEntry,
                         forceBoardRebuild: rejected,
                     });
                 } else {
+                    if (!(await playAuthoritativeRecord(result.event?.journalEntry, responseSnapshot))) {
+                        rememberAuthoritativeRecord(result.event?.journalEntry, {
+                            stateAfterSnapshot: responseSnapshot,
+                        });
+                    }
                     await waitForAuthoritativePlayback();
                     const fresh = await fetchRankedPlaySnapshot(gameId);
                     // A fight in progress always has a snapshot; undefined would mean the game left PLAY
@@ -1196,8 +1201,10 @@ export const RankedGameView: React.FC<Props> = ({
                                 options,
                             ).catch(() => undefined);
                             if (recovery?.event?.snapshot) {
-                                await waitForAuthoritativePlayback();
-                                applySnapshot(recovery.event.snapshot, { forceBoardRebuild: true });
+                                await reconcileLiveSnapshot(recovery.event.snapshot, {
+                                    journalEntry: recovery.event.journalEntry,
+                                    forceBoardRebuild: true,
+                                });
                             }
                         }
                         return false;
@@ -1241,8 +1248,10 @@ export const RankedGameView: React.FC<Props> = ({
                             options,
                         ).catch(() => undefined);
                         if (escape?.event?.snapshot) {
-                            await waitForAuthoritativePlayback();
-                            applySnapshot(escape.event.snapshot, { forceBoardRebuild: true });
+                            await reconcileLiveSnapshot(escape.event.snapshot, {
+                                journalEntry: escape.event.journalEntry,
+                                forceBoardRebuild: true,
+                            });
                         }
                     }
                     return false;
@@ -1265,7 +1274,6 @@ export const RankedGameView: React.FC<Props> = ({
             }
         },
         [
-            applySnapshot,
             gameId,
             isObserver,
             effectiveLocalModelConfig.enabled,

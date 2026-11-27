@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { isOlderRankedSnapshot, playMissingRankedSnapshotRecords, waitForRankedPlayback } from "./rankedSnapshotSync";
-import type { PlaySnapshot } from "../api/play_protocol";
+import { PlayActionType, type PlayJournalEntry, type PlaySnapshot } from "../api/play_protocol";
 
 const snapshot = (latestSequence: number, serverTimeMs = 1000, gameId = "game-1") => ({
     gameId,
@@ -40,7 +40,7 @@ describe("ranked snapshot ordering", () => {
     });
 });
 
-describe("ranked poll reconciliation during combat", () => {
+describe("ranked snapshot reconciliation during combat", () => {
     test("a poll winning the Fire Arrow race presents the journal before its narrowed snapshot", async () => {
         const delivery = deferred();
         const next = { ...snapshot(42), journalTail: [{ sequence: 42 }] } as PlaySnapshot;
@@ -77,6 +77,51 @@ describe("ranked poll reconciliation during combat", () => {
         ).toBe(true);
         expect(played).toEqual([42, 43, 44]);
     });
+
+    test.each([false, true])(
+        "an attached narrowing record waits for the preceding attack, in journal=%p",
+        async (inTail) => {
+            const attack = deferred();
+            const narrowing: PlayJournalEntry = {
+                sequence: 43,
+                actionId: "end-turn",
+                playerId: "system",
+                team: 0,
+                actionType: PlayActionType.END_TURN,
+                actionJson: '{"type":"end_turn","unitId":"attacker"}',
+                eventsJson: '[{"type":"narrowing_applied","layers":1}]',
+                acceptedAtMs: 1000,
+            };
+            const next = {
+                ...snapshot(43),
+                journalTail: inTail ? [narrowing, { sequence: 42 }] : [{ sequence: 42 }],
+            } as PlaySnapshot;
+            const timeline: string[] = [];
+            const present = playMissingRankedSnapshotRecords(
+                next,
+                snapshot(41),
+                async (entry, stateAfter) => {
+                    if (entry.sequence === 42) {
+                        expect(stateAfter).toBeUndefined();
+                        timeline.push("attack started");
+                        await attack.promise;
+                        timeline.push("attack finished");
+                    } else {
+                        expect(entry).toBe(narrowing);
+                        expect(stateAfter).toBe(next);
+                        timeline.push("map narrowed");
+                    }
+                    return true;
+                },
+                narrowing,
+            );
+            await flush();
+            expect(timeline).toEqual(["attack started"]);
+            attack.resolve();
+            expect(await present).toBe(true);
+            expect(timeline).toEqual(["attack started", "attack finished", "map narrowed"]);
+        },
+    );
 
     test("initial loads, reconnect history and a different game do not replay old turns", async () => {
         const next = { ...snapshot(44), journalTail: [{ sequence: 44 }] } as PlaySnapshot;

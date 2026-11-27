@@ -299,6 +299,10 @@ export default defineConfig(({ mode }) => {
             // uncomment if you serve from a subpath or file://
             // base: "./",
             rollupOptions: {
+                input: [
+                    path.resolve(__dirname, "src/ui/index.html"),
+                    path.resolve(__dirname, "src/ui/desktop-sign-in.html"),
+                ],
                 onLog(level, log, handler) {
                     if (level === "warn" && isKnownDependencyWarning(log)) {
                         return;

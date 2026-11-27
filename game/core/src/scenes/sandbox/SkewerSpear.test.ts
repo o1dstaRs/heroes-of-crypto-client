@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { GridSettings } from "@heroesofcrypto/common";
 import { Container, DOMAdapter, Sprite, Texture, TextureSource } from "pixi.js";
 import { SkewerSpears, skewerSpearEnvelope, type SkewerSpearPose } from "./SkewerSpear";
 import { RenderableUnit } from "../RenderableUnit";
@@ -84,6 +85,8 @@ test("retarget, cancellation and repeated teardown release owned geometry and sh
 test("combat uses recorded pierced positions, rejects the response's opposite side and ordinary hits", () => {
     const calls: unknown[] = [];
     const scene = Object.assign(Object.create(Sandbox.prototype), {
+        sc_sceneSettings: { getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32) },
+        unitsHolder: { getAllUnits: () => new Map() },
         spawnPikemanSpearToCell: (_a: unknown, p: unknown) => calls.push(p),
     });
     const source = {

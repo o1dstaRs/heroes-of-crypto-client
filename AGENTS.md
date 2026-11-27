@@ -226,7 +226,12 @@ places, and splits, its units well. Read the server's
 [AI pre-fight goals and scorecard](../heroes-of-crypto-server/docs/ai_prefight_scorecard.md). Every draft, ban,
 artifact, upgrade or placement change names the goals it advances and reports the scorecard metric before and after.
 
-Current default is profile v39, revision suffix `counter-model-v2-bot-ban-queen-v1-close-screen-v1`.
+Current default is profile v40, revision suffix `close-screen-v1-barrel-engagement-advance-v1`. When comparing
+a neutral barrel strike, a walking melee unit can use the capped move to approach the main fight. The owner
+adopted the change after Hydra's detour in staging match 48e40715. The 108-fight development screen estimated
++0.69 match-score points (95% −6.25 to +7.64).
+
+Profile v39 introduced the revision suffix `counter-model-v2-bot-ban-queen-v1-close-screen-v1`.
 `a19-close-screen-v1` (common `de73f4eb`, server `984b4d7`, November 26, 2026) is the owner's request after their vs-AI
 game d6d7ee8b: "split fairy into 1 units splits instead of wolfs in this specific situation to have a chance to close
 ranges quickly. Wolf split because of larger size generally better in defense".

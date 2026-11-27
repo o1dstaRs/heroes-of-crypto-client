@@ -6,19 +6,30 @@ type RankedSnapshotOrder = {
     serverTimeMs: number;
 };
 
-/** A poll can win the race against both SSE and the submit response. Present its new journal
- * before hydration advances the scene's sequence and makes the delayed record look redundant. */
+/** Present the journal in order, including the entry delivered alongside an SSE or action response. */
 export async function playMissingRankedSnapshotRecords(
     next: PlaySnapshot,
     current: RankedSnapshotOrder | null,
     play: (entry: PlaySnapshot["journalTail"][number], stateAfter?: PlaySnapshot) => Promise<boolean>,
+    deliveredEntry?: PlaySnapshot["journalTail"][number],
 ): Promise<boolean> {
-    if (!current || next.gameId !== current.gameId || next.latestSequence <= current.latestSequence) return false;
-    const entries = [...new Map(next.journalTail.map((entry) => [entry.sequence, entry])).values()]
-        .filter((entry) => entry.sequence > current.latestSequence && entry.sequence <= next.latestSequence)
-        .sort((a, b) => a.sequence - b.sequence);
+    const currentSequence = current?.gameId === next.gameId ? current.latestSequence : undefined;
+    const entries = new Map<number, PlaySnapshot["journalTail"][number]>();
+    if (currentSequence !== undefined && next.latestSequence > currentSequence) {
+        for (const entry of next.journalTail) {
+            if (entry.sequence > currentSequence && entry.sequence <= next.latestSequence)
+                entries.set(entry.sequence, entry);
+        }
+    }
+    if (
+        deliveredEntry &&
+        deliveredEntry.sequence <= next.latestSequence &&
+        (currentSequence === undefined || deliveredEntry.sequence >= currentSequence)
+    ) {
+        entries.set(deliveredEntry.sequence, deliveredEntry);
+    }
     let terminalPresented = false;
-    for (const entry of entries) {
+    for (const entry of [...entries.values()].sort((a, b) => a.sequence - b.sequence)) {
         // Intermediate actions must not inherit the final snapshot's sequence or post-action stats.
         const terminal = entry.sequence === next.latestSequence;
         const played = await play(entry, terminal ? next : undefined);

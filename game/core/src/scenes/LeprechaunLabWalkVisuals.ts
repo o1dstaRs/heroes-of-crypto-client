@@ -64,7 +64,7 @@ export const LEPRECHAUN_CLOTH_TARGET = {
     value: 0.23904902,
 } as const;
 export const LEPRECHAUN_IDLE_CLOTH_GRADE = [84.000107, 0.319153, 1.6475] as const;
-const IDLE_HUE_TAILS = [78.461632, 100.000069] as const;
+export const LEPRECHAUN_IDLE_HUE_TAILS = [78.461632, 100.000069] as const;
 // Source median hue (degrees), saturation exponent and value gain per pose.
 export const LEPRECHAUN_CLOTH_GRADES = [
     [128.823517, 0.97066, 0.923598],
@@ -76,7 +76,7 @@ export const LEPRECHAUN_CLOTH_GRADES = [
     [131.666656, 1.296107, 0.883442],
     [126.976738, 0.633405, 0.983185],
 ] as const;
-const CLOTH_HUE_TAILS = [
+export const LEPRECHAUN_WALK_HUE_TAILS = [
     [97.391315, 135.27272],
     [85.714355, 123.829788],
     [86.40004, 127.447348],
@@ -337,7 +337,7 @@ class LeprechaunLabWalkFilter extends Filter {
             ]);
             u[`u${part}Neck`].set(LEPRECHAUN_NECK_ANCHORS[walking ? index : 0]);
             u[`u${part}Grade`].set(walking ? LEPRECHAUN_CLOTH_GRADES[index] : LEPRECHAUN_IDLE_CLOTH_GRADE);
-            u[`u${part}Hue`].set(walking ? CLOTH_HUE_TAILS[index] : IDLE_HUE_TAILS);
+            u[`u${part}Hue`].set(walking ? LEPRECHAUN_WALK_HUE_TAILS[index] : LEPRECHAUN_IDLE_HUE_TAILS);
         }
         this.resources.uAtlas = frames[0].source;
     }

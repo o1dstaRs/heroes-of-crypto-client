@@ -1,5 +1,6 @@
 import { CyclopsStoneFracture } from "./CyclopsStoneFracture";
 import { readCyclopsImpactMode, type CyclopsImpactMode } from "./CyclopsFracturePhysics";
+import { RANGED_PROJECTILE_TEXTURE_KEYS as ART } from "./rangedProjectileAssets";
 import { Assets, Container, Graphics, Matrix, Rectangle, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 import { images } from "../../generated/image_imports";
@@ -270,7 +271,7 @@ export class RangedProjectiles {
     }
     private async ensureProjectileTexture(opts: IFireProjectileOptions): Promise<void> {
         if (opts.chakram && !this.zenaChakramSparkFrames && !this.zenaChakramTexture) {
-            const url = images.zena_chakram_sparks_v16;
+            const url = images[ART.zena];
             try {
                 const atlas = await Assets.load<Texture>(url);
                 if (this.destroyed) {
@@ -295,7 +296,7 @@ export class RangedProjectiles {
         }
         if (opts.medusaArmSerpent) {
             if (this.medusaArmSerpentFrames) return;
-            const url = images.medusa_lab_projectile_atlas;
+            const url = images[ART.medusa];
             try {
                 const atlas = await Assets.load<Texture>(url);
                 if (this.destroyed) {
@@ -334,25 +335,25 @@ export class RangedProjectiles {
             : opts.dryadArrow
               ? {
                     current: this.dryadArrowTexture,
-                    url: images.dryad_lab_arrow,
+                    url: images[ART.dryadArrow],
                     assign: (texture: Texture) => (this.dryadArrowTexture = texture),
                 }
               : opts.orcAxe
                 ? {
                       current: this.orcThrowingAxeTexture,
-                      url: images.orc_throwing_axe,
+                      url: images[ART.orc],
                       assign: (texture: Texture) => (this.orcThrowingAxeTexture = texture),
                   }
                 : opts.arbalesterBolt
                   ? {
                         current: this.arbalesterCyanBoltTexture,
-                        url: images.arbalester_cyan_bolt,
+                        url: images[ART.arbalester],
                         assign: (texture: Texture) => (this.arbalesterCyanBoltTexture = texture),
                     }
                   : opts.centaurSpear
                     ? {
                           current: this.centaurSpearTexture,
-                          url: images.centaur_spear_variant_4,
+                          url: images[ART.centaur],
                           assign: (texture: Texture) => (this.centaurSpearTexture = texture),
                       }
                     : opts.dryadDart
@@ -364,7 +365,7 @@ export class RangedProjectiles {
                       : opts.beholderEye
                         ? {
                               current: this.beholderPurpleEyeTexture,
-                              url: images.beholder_purple_eye_orb,
+                              url: images[ART.beholder],
                               assign: (texture: Texture) => (this.beholderPurpleEyeTexture = texture),
                           }
                         : opts.elfArrow
@@ -382,13 +383,13 @@ export class RangedProjectiles {
                             : opts.cyclopsRock
                               ? {
                                     current: this.cyclopsHeavyBoulderTexture,
-                                    url: images.cyclops_lab_boulder,
+                                    url: images[ART.cyclops],
                                     assign: (texture: Texture) => (this.cyclopsHeavyBoulderTexture = texture),
                                 }
                               : opts.monkOrb
                                 ? {
                                       current: this.monkSolarOrbTexture,
-                                      url: images.monk_solar_orb,
+                                      url: images[ART.monk],
                                       assign: (texture: Texture) => (this.monkSolarOrbTexture = texture),
                                   }
                                 : opts.tsarCannonball
@@ -397,7 +398,7 @@ export class RangedProjectiles {
                                             ? this.tsarCannonIronBallTexture
                                             : this.tsarCannonMoltenBallTexture,
                                         url: opts.labIronCannonball
-                                            ? images.vfx_tsar_cannon_flight_v21_atlas
+                                            ? images[ART.tsarCannon]
                                             : images.tsar_cannon_molten_ball,
                                         assign: (texture: Texture) => {
                                             if (opts.labIronCannonball) this.tsarCannonIronBallTexture = texture;
@@ -407,13 +408,13 @@ export class RangedProjectiles {
                                   : opts.gargantuanRock
                                     ? {
                                           current: this.gargantuanHeldStoneTexture,
-                                          url: images.gargantuan_held_stone_v4,
+                                          url: images[ART.gargantuan],
                                           assign: (texture: Texture) => (this.gargantuanHeldStoneTexture = texture),
                                       }
                                     : !opts.big && !opts.chakram && !opts.vine
                                       ? {
                                             current: this.armorPiercingBoltTexture,
-                                            url: images.armor_piercing_bolt,
+                                            url: images[ART.bolt],
                                             assign: (texture: Texture) => (this.armorPiercingBoltTexture = texture),
                                         }
                                       : undefined;

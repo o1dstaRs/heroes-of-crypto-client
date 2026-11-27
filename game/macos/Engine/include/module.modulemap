@@ -1,0 +1,4 @@
+module HOCEngine {
+  header "HOCEngine.h"
+  export *
+}

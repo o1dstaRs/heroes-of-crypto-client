@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Heroes of Crypto</string>
+    <key>CFBundleExecutable</key>
+    <string>HeroesOfCrypto</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.heroesofcrypto.skirmish</string>
+    <key>CFBundleName</key>
+    <string>Heroes of Crypto</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.4.0</string>
+    <key>CFBundleVersion</key>
+    <string>4</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>WKAppBoundDomains</key>
+    <array>
+        <string>app.heroesofcrypto.io</string>
+        <string>heroesofcrypto.io</string>
+    </array>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>io.heroesofcrypto.skirmish.desktop-sign-in</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>io.heroesofcrypto.skirmish</string>
+            </array>
+        </dict>
+    </array>
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>io.heroesofcrypto.skirmish.roster-creature</string>
+            <key>UTTypeDescription</key>
+            <string>Heroes of Crypto roster creature</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

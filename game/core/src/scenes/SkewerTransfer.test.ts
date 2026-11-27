@@ -16,7 +16,7 @@ import { CombatVisuals, type ICombatVisualsContext } from "./sandbox/CombatVisua
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import { WIND_SPEAR_TRAVEL_MS, WIND_SPEAR_FADE_MS } from "./sandbox/WindSpear";
 
-const gs = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+const gs = new GridSettings(16, 1024, 0, 512, -512, 64, 32);
 function fixture() {
     const make = (name: string, faction: string, x: number) => {
         const effects = new EffectFactory();
@@ -55,10 +55,10 @@ function fixture() {
         amount: 30,
         unitsDied: 1,
     };
-    return { scene, thief, donor, rear, units, hits, authored, hit };
+    return { scene, thief, donor, rear, units, hits, authored, hit, make };
 }
 
-test("a real transferred Skewer card uses a generic pierce while Pikeman keeps his authored extension", () => {
+test("a real transferred Skewer card and Pikeman both show the traveling light", () => {
     const f = fixture();
     expect(f.thief.hasAbilityActive("Skewer Strike")).toBe(true);
     expect(f.donor.hasAbilityActive("Skewer Strike")).toBe(false);
@@ -73,10 +73,31 @@ test("a real transferred Skewer card uses a generic pierce while Pikeman keeps h
     expect(f.authored).toEqual([]);
     // The recorded outcome remains visible even if the card is disabled later in the same exchange.
     f.scene.spawnSkewerWindSpearVfx(f.donor, f.rear, {
-        secondary: [{ ...f.hit, position: { x: 288, y: 96 } }],
+        secondary: [{ ...f.hit, unitId: "removed", position: { x: 288, y: 96 } }],
     });
     expect(f.authored).toEqual([{ x: 288, y: 96 }]);
+    expect(f.hits[1]).toEqual([
+        f.donor.getVisualCenter(gs),
+        f.rear.getVisualCenter(gs),
+        projectBattlefieldPoint({ x: 288, y: 96 }, gs),
+    ]);
+});
+
+test("Pikeman's streak reaches a fallen large victim even when its center is off the spear line", () => {
+    const f = fixture();
+    const hydra = f.make("Hydra", "Chaos", 320);
+    hydra.setPosition(320, 128);
+    const captured = new Map(f.units).set(hydra.getId(), hydra);
+    f.scene.spawnSkewerWindSpearVfx(
+        f.donor,
+        f.rear,
+        { secondary: [{ ...f.hit, unitId: hydra.getId(), position: hydra.getPosition() }] },
+        [],
+        false,
+        captured,
+    );
     expect(f.hits).toHaveLength(1);
+    expect(f.hits[0]).toEqual([f.donor.getVisualCenter(gs), f.rear.getVisualCenter(gs), hydra.getVisualCenter(gs)]);
 });
 
 test("stolen pierce rejects the counter's opposite ray, unrelated riders and unrecorded attacks", () => {

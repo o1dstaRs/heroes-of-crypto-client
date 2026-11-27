@@ -17,7 +17,7 @@
 
 For a detailed overview of the game mechanics, roadmap, and the vision behind Heroes of Crypto, please check out our [Whitepaper](https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai).
 This repository contains the PixiJS 8 and React game client in `game/core`, the Astro marketing site in
-`site`, and the headless model/MCP adapter in `game/mcp`.
+`site`, the headless model/MCP adapter in `game/mcp`, and a [native macOS skirmish](game/macos/README.md).
 
 **Depends on** the shared libraries in `game/heroes-of-crypto-common`. This package provides code shared between the client and server — protobuf definitions and generated code, shared TypeScript types, networking helpers, serialization utilities, and the game constants and rules. See the common repo at https://github.com/o1dstaRs/heroes-of-crypto-common
 

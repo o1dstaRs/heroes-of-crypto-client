@@ -3638,6 +3638,7 @@ export class Sandbox extends PixiScene {
 
         const priorPlaybackActive = this.replayPlaybackActive;
         this.replayPlaybackActive = true;
+        const hasNarrowing = events.some((event) => event.type === "narrowing_applied");
         // Safety valve against a hung replay. If any await inside the replay never resolves (a move
         // whose completion callback never fires, a projectile/animation that stalls, etc.),
         // replayPlaybackActive + isPlayingActionAnimation stay true forever — the AI never re-triggers
@@ -3684,9 +3685,7 @@ export class Sandbox extends PixiScene {
                 Sandbox.REPLAY_HANG_WATCHDOG_MS +
                     gazeBudget +
                     blockerBudget +
-                    (events.some((event) => event.type === "narrowing_applied")
-                        ? 2 * Sandbox.NARROWING_EFFECT_LIMIT_MS
-                        : 0),
+                    (hasNarrowing ? 2 * Sandbox.NARROWING_EFFECT_LIMIT_MS : 0),
                 () => resolve(false),
             );
         });
@@ -3695,7 +3694,7 @@ export class Sandbox extends PixiScene {
             if (this.isSceneDestroyed()) {
                 return false;
             }
-            if (!timedOut && !played) {
+            if (!timedOut && !played && !hasNarrowing) {
                 this.applyReplayEvents(record.events, record.stateAfter);
             }
             return played;
@@ -3750,13 +3749,21 @@ export class Sandbox extends PixiScene {
         const lapIndex = record.events.findIndex((event) => event.type === "lap_flipped");
         const splitAt = lapIndex >= 0 && lapIndex < narrowingIndex ? lapIndex : narrowingIndex;
         const epoch = this.narrowingPlaybackEpoch ?? 0;
-        const played = await this.playReplayActionRecord({ ...record, events: record.events.slice(0, splitAt) }, true);
-        if (!played || this.isSceneDestroyed()) return played;
+        const isCurrent = () => !this.isSceneDestroyed() && (this.narrowingPlaybackEpoch ?? 0) === epoch;
+        const actionEvents = record.events.slice(0, splitAt);
+        const played = await this.playReplayActionRecord({ ...record, events: actionEvents }, true);
         await this.waitForNarrowingPredecessors(epoch);
-        if (this.isSceneDestroyed() || (this.narrowingPlaybackEpoch ?? 0) !== epoch) return false;
+        if (!isCurrent()) return false;
+        if (!played && actionEvents.length) {
+            // The live board may be missing an actor or its animation. Apply its events first and
+            // let any resulting reactions finish before the lap and narrowing events are applied.
+            this.applyReplayEvents(actionEvents, record.stateAfter);
+            await this.waitForNarrowingPredecessors(epoch);
+            if (!isCurrent()) return false;
+        }
         this.applyReplayEvents(record.events.slice(splitAt), record.stateAfter);
         await this.narrowingPresentation;
-        return !this.isSceneDestroyed() && (this.narrowingPlaybackEpoch ?? 0) === epoch;
+        return played && isCurrent();
     }
     /**
      * Live ranked loads figures only for the armies on the board, so the first spider an Infest hatched had no art:
@@ -4286,6 +4293,7 @@ export class Sandbox extends PixiScene {
         damage?: IVisibleDamage,
         events: readonly GameEvent[] = [],
         obstaclePrimary = false,
+        capturedUnits?: ReadonlyMap<string, Unit>,
     ): void {
         const skewerHits = (damage?.secondary ?? []).filter((hit) => hit.source === "skewer_strike");
         const untaggedPierce = obstaclePrimary && attacker.hasAbilityActive?.("Skewer Strike");
@@ -4307,8 +4315,25 @@ export class Sandbox extends PixiScene {
         const beyond = (position: HoCMath.XY): boolean =>
             (position.x - from.x) * dx + (position.y - from.y) * dy > primaryDistance ** 2 + 1 &&
             Math.abs((position.x - from.x) * dy - (position.y - from.y) * dx) < 1;
-        // A shield-absorbed skewer is still a real contact (amount can be zero).
-        const hits = skewerHits.filter((entry) => beyond(entry.position));
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const units = capturedUnits ?? this.unitsHolder.getAllUnits();
+        // Large victims can straddle the ray with their center off it, including a victim killed by this strike.
+        // A shield-absorbed skewer is still a contact.
+        const hits = skewerHits.filter((entry) => {
+            if (beyond(entry.position)) return true;
+            const victim = units.get(entry.unitId);
+            return (
+                victim !== undefined &&
+                GridMath.getFootprintCellsForPosition(
+                    gs,
+                    entry.position,
+                    victim.getFootprintWidth(),
+                    victim.getFootprintHeight(),
+                ).some((cell) =>
+                    beyond(GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep())),
+                )
+            );
+        });
         // Barrels are recorded separately, not in unit damage. A pierce past an aimed barrel
         // uses untagged obstacle events; ownership and the forward ray exclude other blows.
         const obstacles = skewerObstacles.filter((entry) => beyond(entry.targetPosition));
@@ -4317,16 +4342,13 @@ export class Sandbox extends PixiScene {
         // The recording proves this ability fired. A later Break/theft must not erase its visual.
         if (attacker.getName() === "Pikeman") {
             this.spawnPikemanSpearToCell(attacker, position);
-            return;
         }
-        const gs = this.sc_sceneSettings.getGridSettings();
         const pierced = [
             ...hits.map((hit) => ({
                 logical: hit.position,
                 visual:
-                    (this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined)?.getVisualCenter?.(
-                        gs,
-                    ) ?? projectBattlefieldPoint(hit.position, gs),
+                    (units.get(hit.unitId) as RenderableUnit | undefined)?.getVisualCenter?.(gs) ??
+                    projectBattlefieldPoint(hit.position, gs),
             })),
             ...obstacles.map((entry) => ({
                 logical: entry.targetPosition,
@@ -6220,8 +6242,8 @@ export class Sandbox extends PixiScene {
                             // The primary's contact can mark this counterattacker dead before its
                             // callback starts the clip. Shorten only that dying actor's recovery.
                             if (pendingDeaths.has(source.getId())) source.hastenLethalMeleeRecovery?.();
-                            if (!strike.missed)
-                                this.spawnSkewerWindSpearVfx(source, victim, event.damage, dullingEvents);
+                            if (strike.hitIndex === 0)
+                                this.spawnSkewerWindSpearVfx(source, victim, event.damage, dullingEvents, false, units);
                             if (
                                 renderedVictim &&
                                 !strike.missed &&

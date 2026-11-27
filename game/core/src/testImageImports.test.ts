@@ -35,7 +35,14 @@ test("core test setup preserves CI image stubs without requiring private art", (
 test("CI image stubs preserve fallback behavior while excluding retired assets from old catalogs", () => {
     const directory = mkdtempSync(path.join(tmpdir(), "hoc-ci-images-"));
     try {
-        for (const folder of ["scripts", "src/generated", "src/animations", "src/pixi", "src/build"]) {
+        for (const folder of [
+            "scripts",
+            "src/generated",
+            "src/animations",
+            "src/pixi",
+            "src/build",
+            "src/scenes/sandbox",
+        ]) {
             mkdirSync(path.join(directory, folder), { recursive: true });
         }
         const script = path.join(directory, "scripts/generate_ci_stubs.js");
@@ -43,6 +50,10 @@ test("CI image stubs preserve fallback behavior while excluding retired assets f
         copyFileSync(
             new URL("./build/retiredImageAssets.json", import.meta.url),
             path.join(directory, "src/build/retiredImageAssets.json"),
+        );
+        copyFileSync(
+            new URL("./scenes/sandbox/rangedProjectileAssets.ts", import.meta.url),
+            path.join(directory, "src/scenes/sandbox/rangedProjectileAssets.ts"),
         );
         for (const file of [
             "src/animations/battlefieldEnvironmentAssets.json",
@@ -81,7 +92,7 @@ const legacy = images.dryad_idle_atlas_quarter;
 delete images.dryad_idle_atlas_quarter;
 const removed = { value: typeof images.dryad_idle_atlas_quarter, present: "dryad_idle_atlas_quarter" in images, listed: Object.keys(images).includes("dryad_idle_atlas_quarter") };
 images.dryad_idle_atlas_quarter = legacy;
-console.log(JSON.stringify({ missing: typeof images.nonexistent_fixture_asset, retired: typeof images.artifact_t1_runed_staff_256, removed, restored: images.dryad_idle_atlas_quarter === legacy, approved: images.dryad_painted_idle_atlas }));`,
+console.log(JSON.stringify({ missing: typeof images.nonexistent_fixture_asset, retired: typeof images.artifact_t1_runed_staff_256, removed, restored: images.dryad_idle_atlas_quarter === legacy, approved: images.dryad_painted_idle_atlas, projectile: images.orc_throwing_axe }));`,
         );
         const result = Bun.spawnSync({ cmd: [process.execPath, probe], stdout: "pipe", stderr: "pipe" });
         expect(result.exitCode, result.stderr.toString()).toBe(0);
@@ -94,6 +105,7 @@ console.log(JSON.stringify({ missing: typeof images.nonexistent_fixture_asset, r
         expect(path.basename(approved.pathname)).toBe("dryad_painted_idle_atlas.webp");
         expect(approved.searchParams.get("v")).toBe("a".repeat(16));
         expect(approved.hash).toBe("#ci-stub");
+        expect(path.basename(new URL(report.projectile).pathname)).toBe("orc_throwing_axe.webp");
     } finally {
         rmSync(directory, { recursive: true, force: true });
     }
