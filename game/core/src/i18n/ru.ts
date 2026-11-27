@@ -630,6 +630,9 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "Не показывает выборы противника. Баны открываются по мере появления выбора каждого уровня существ. Даёт 7 очков усилений.",
     "{count} upgrade points": "очков усилений: {count}",
     "{count} upgrade pts": "очков усилений: {count}",
+    "See 3 picks": "Видны 3 выбора",
+    "See all picks": "Видны все выборы",
+    "Picks hidden": "Выборы скрыты",
     "Half their army, spread across every tier": "Половина армии — по всем уровням",
     "The whole enemy draft, live": "Весь драфт противника в реальном времени",
     "Draft blind, field the strongest army": "Драфт вслепую, зато сильнейшая армия",
@@ -659,6 +662,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Lvl {level}": "Ур. {level}",
 
     // ~~~ Draft, ban, and map reveal ~~~
+    "Draft ban": "Бан в драфте",
     "Ban a unit from your drafts:": "Исключить существо из ваших драфтов:",
     "Ban one unit": "Забанить одно существо",
     "It will never be offered in your ranked drafts. If your opponent bans a different unit, one of the two is chosen 50/50 — only one extra ban applies per game.":

@@ -23,7 +23,7 @@ export const FullscreenToggle: React.FC = () => {
     const fullscreenLabel = isFullscreen ? t("Exit fullscreen") : t("Fullscreen");
 
     return (
-        <Tooltip title={fullscreenLabel} placement="top" size="sm" variant="soft">
+        <Tooltip title={fullscreenLabel} placement="top" size="sm" variant="soft" disableTouchListener>
             <Box
                 component="button"
                 type="button"
@@ -44,7 +44,10 @@ export const FullscreenToggle: React.FC = () => {
                     backgroundRepeat: "no-repeat",
                     backgroundSize: "contain",
                     transition: "filter 140ms ease, transform 140ms ease",
-                    "&:hover": { filter: "brightness(1.12)", transform: "scale(1.06)" },
+                    "@media (hover: hover) and (pointer: fine)": {
+                        "&:hover": { filter: "brightness(1.12)", transform: "scale(1.06)" },
+                    },
+                    "&:active": { filter: "brightness(1.2)" },
                 }}
             />
         </Tooltip>

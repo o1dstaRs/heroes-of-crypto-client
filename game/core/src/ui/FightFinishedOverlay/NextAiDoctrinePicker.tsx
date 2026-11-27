@@ -6,13 +6,16 @@ import { t } from "../../i18n/i18n";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../../utils/preGameDoctrine";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { getDoctrineCopy } from "../doctrineCopy";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 
 const choices = [...Doctrine.DOCTRINE_LIST].sort((a, b) => a.upgradePoints - b.upgradePoints);
+const POINTER_HOVER = "(hover: hover) and (pointer: fine)";
 
 /** The next draft reads this same saved choice when its doctrine phase opens. */
 export const NextAiDoctrinePicker: React.FC<{ disabled?: boolean }> = ({ disabled = false }) => {
     const [selected, setSelected] = useState(getPreGameDoctrine);
+    const canHover = useMediaQuery(POINTER_HOVER);
     const buttons = useRef<(HTMLButtonElement | null)[]>([]);
     const select = (id: Doctrine.Doctrine) => {
         if (disabled) return;
@@ -35,7 +38,9 @@ export const NextAiDoctrinePicker: React.FC<{ disabled?: boolean }> = ({ disable
                             placement="top"
                             arrow
                             enterDelay={100}
-                            enterTouchDelay={0}
+                            disableTouchListener
+                            disableHoverListener={!canHover}
+                            disableFocusListener={!canHover}
                             sx={{ maxWidth: 320, bgcolor: "#17130ff5", color: "#f0d7bd" }}
                             title={
                                 <Box sx={{ display: "grid", gap: 0.75, p: 0.5 }}>
@@ -96,12 +101,16 @@ export const NextAiDoctrinePicker: React.FC<{ disabled?: boolean }> = ({ disable
                                     opacity: disabled ? 0.55 : 1,
                                     fontFamily: HOC_GAME_FONT_FAMILY,
                                     fontSize: 12,
-                                    "&:hover": { borderColor: "#ffd889" },
+                                    maxWidth: 94,
+                                    touchAction: "manipulation",
+                                    WebkitTapHighlightColor: "transparent",
+                                    "&:active": { borderColor: "#ffd889" },
+                                    [`@media ${POINTER_HOVER}`]: { "&:hover": { borderColor: "#ffd889" } },
                                     "&:focus-visible": { outline: "2px solid #ffad45", outlineOffset: 3 },
                                 }}
                             >
                                 <DoctrineIcon doctrineId={choice.id} size={44} />
-                                <span>{letter}</span>
+                                <span>{canHover ? letter : t(choice.name)}</span>
                             </Box>
                         </Tooltip>
                     );

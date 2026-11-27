@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getFactionOf, getLevelOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
+import { useTranslation } from "../i18n/i18n";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { CREATURE_PORTRAIT_ASPECT } from "./creaturePortraitVisual";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
@@ -52,6 +53,7 @@ const FACTION_COLOR: Record<string, string> = {
 };
 
 export const RankedBanPicker: React.FC = () => {
+    const { t } = useTranslation();
     const [creatureId, setCreatureId] = useState(0);
     const [creatureName, setCreatureName] = useState("");
     const [open, setOpen] = useState(false);
@@ -102,18 +104,24 @@ export const RankedBanPicker: React.FC = () => {
     return (
         <>
             <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={{ xs: 0.75, sm: 1.5 }}
-                alignItems={{ xs: "stretch", sm: "center" }}
+                direction="row"
+                alignItems="center"
                 justifyContent="space-between"
                 // border-box, stated: /play renders outside any <CssBaseline />, so the document keeps the
                 // browser's content-box default. Without this, `width: 100%` measures the panel's full inner
                 // width and then ADDS the 24px of px, so the row runs 23px past the panel and the enclosing
                 // Sheet's overflow:hidden shears the right edge off the Choose button.
-                sx={{ boxSizing: "border-box", width: "100%", px: { xs: 1.25, sm: 1.5 }, py: { xs: 1.1, sm: 1.25 } }}
+                sx={{
+                    boxSizing: "border-box",
+                    width: "100%",
+                    flexWrap: "wrap",
+                    gap: 0.75,
+                    px: { xs: 1, sm: 1.5 },
+                    py: 0.6,
+                }}
             >
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    Ban a unit from your drafts:
+                    {t("Draft ban")}
                 </Typography>
                 <Stack
                     direction="row"
@@ -153,55 +161,79 @@ export const RankedBanPicker: React.FC = () => {
                                 level="body-sm"
                                 sx={{ overflow: "hidden", color: hocColors.parchment, textOverflow: "ellipsis" }}
                             >
-                                {creatureName}
+                                {t(creatureName)}
                             </Typography>
                         </Sheet>
                     ) : (
                         <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
-                            none
+                            {t("None")}
                         </Typography>
                     )}
-                    <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>
-                        {creatureId > 0 ? "Change" : "Choose"}
+                    <Button
+                        size="sm"
+                        variant="outlined"
+                        sx={{ ...hocSoftButtonSx, minHeight: 44 }}
+                        onClick={() => setOpen(true)}
+                    >
+                        {creatureId > 0 ? t("Change") : t("Choose")}
                     </Button>
                     {creatureId > 0 ? (
                         <Button
                             size="sm"
                             variant="plain"
-                            sx={{ color: hocColors.muted }}
+                            sx={{ color: hocColors.muted, minHeight: 44 }}
                             disabled={busy}
                             onClick={() => void choose(0)}
                         >
-                            Clear
+                            {t("Clear")}
                         </Button>
                     ) : null}
                 </Stack>
             </Stack>
 
             <Modal open={open} onClose={() => setOpen(false)}>
-                <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 880, maxWidth: "96vw" }}>
-                    <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                        Ban one unit
+                <ModalDialog
+                    variant="outlined"
+                    aria-labelledby="ranked-ban-title"
+                    sx={{
+                        ...hocPanelSx,
+                        width: "min(880px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))",
+                        maxHeight:
+                            "calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+                        boxSizing: "border-box",
+                        p: { xs: 1.5, sm: 2 },
+                        overflow: "hidden",
+                    }}
+                >
+                    <Typography id="ranked-ban-title" level="title-lg" sx={{ color: hocColors.gold }}>
+                        {t("Ban one unit")}
                     </Typography>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        It will never be offered in your ranked drafts. If your opponent bans a different unit, one of
-                        the two is chosen 50/50 — only one extra ban applies per game.
+                        {t(
+                            "It will never be offered in your ranked drafts. If your opponent bans a different unit, one of the two is chosen 50/50 — only one extra ban applies per game.",
+                        )}
                     </Typography>
                     <Input
                         size="sm"
-                        placeholder="Search units…"
+                        placeholder={t("Search units…")}
+                        slotProps={{ input: { "aria-label": t("Search units…") } }}
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
-                        sx={{ ...hocInputSx, mt: 0.5 }}
+                        sx={{ ...hocInputSx, mt: 0.5, minHeight: 44, fontSize: "1rem", flexShrink: 0 }}
                     />
                     <Box
                         sx={{
                             display: "grid",
-                            gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(0, 1fr))`,
+                            gridTemplateColumns: {
+                                xs: `repeat(${Math.min(2, Math.max(1, columns.length))}, minmax(0, 1fr))`,
+                                sm: `repeat(${Math.max(1, columns.length)}, minmax(0, 1fr))`,
+                            },
                             alignItems: "start",
                             gap: 1,
-                            maxHeight: "52vh",
+                            minHeight: 0,
+                            maxHeight: "52dvh",
                             overflowY: "auto",
+                            overscrollBehavior: "contain",
                             mt: 0.5,
                             pr: 0.5,
                         }}
@@ -225,11 +257,15 @@ export const RankedBanPicker: React.FC = () => {
                                         zIndex: 1,
                                     }}
                                 >
-                                    {faction}
+                                    {t(faction)}
                                 </Typography>
                                 {creatures.map((creature) => (
                                     <Sheet
                                         key={creature.id}
+                                        component="button"
+                                        type="button"
+                                        disabled={busy}
+                                        aria-pressed={creature.id === creatureId}
                                         variant="outlined"
                                         onClick={() => void choose(creature.id)}
                                         sx={{
@@ -240,13 +276,21 @@ export const RankedBanPicker: React.FC = () => {
                                             flexDirection: "column",
                                             alignItems: "center",
                                             gap: 0.5,
+                                            minHeight: 44,
+                                            touchAction: "manipulation",
                                             borderColor:
                                                 creature.id === creatureId ? hocColors.danger : "rgba(255,143,0,0.25)",
                                             bgcolor:
                                                 creature.id === creatureId ? "rgba(255,90,63,0.15)" : "rgba(0,0,0,0.3)",
-                                            "&:hover": {
-                                                borderColor: hocColors.danger,
-                                                bgcolor: "rgba(255,90,63,0.12)",
+                                            "@media (hover: hover) and (pointer: fine)": {
+                                                "&:hover": {
+                                                    borderColor: hocColors.danger,
+                                                    bgcolor: "rgba(255,90,63,0.12)",
+                                                },
+                                            },
+                                            "&:focus-visible": {
+                                                outline: `2px solid ${hocColors.gold}`,
+                                                outlineOffset: -2,
                                             },
                                         }}
                                     >
@@ -263,7 +307,7 @@ export const RankedBanPicker: React.FC = () => {
                                             level="body-xs"
                                             sx={{ color: hocColors.parchment, textAlign: "center" }}
                                         >
-                                            {creature.name}
+                                            {t(creature.name)}
                                         </Typography>
                                     </Sheet>
                                 ))}
@@ -271,17 +315,21 @@ export const RankedBanPicker: React.FC = () => {
                         ))}
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                        <Button variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(false)}>
-                            Close
+                        <Button
+                            variant="outlined"
+                            sx={{ ...hocSoftButtonSx, minHeight: 44 }}
+                            onClick={() => setOpen(false)}
+                        >
+                            {t("Close")}
                         </Button>
                         {creatureId > 0 ? (
                             <Button
                                 variant="solid"
-                                sx={hocPrimaryButtonSx}
+                                sx={{ ...hocPrimaryButtonSx, minHeight: 44 }}
                                 disabled={busy}
                                 onClick={() => void choose(0)}
                             >
-                                Remove my ban
+                                {t("Remove my ban")}
                             </Button>
                         ) : null}
                     </Stack>

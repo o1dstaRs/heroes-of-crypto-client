@@ -30,6 +30,7 @@ import { images } from "../../generated/image_imports";
 import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 import {
+    ARENA_TOUCH_CONTROL_SIZE_PX,
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     GAME_SYSTEM_CONTROLS_SIDE_INSET,
     GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX,
@@ -1372,7 +1373,6 @@ export const SocialDock: React.FC = () => {
               inviteToast.type === "sandbox_invite" ? "into their sandbox" : "to a lobby"
           }`
         : "";
-
     const dockControls = (
         <Stack
             direction="row"
@@ -1394,6 +1394,36 @@ export const SocialDock: React.FC = () => {
                 opacity: inGame ? 0.82 : 1,
                 transition: "opacity 150ms ease",
                 "&:hover": { opacity: 1 },
+                ...(!fightDockSlot && {
+                    'body:has(> [data-fullscreen-corner="right"]) &': {
+                        bottom: `calc(${GAME_SYSTEM_CONTROLS_BOTTOM_INSET} + env(safe-area-inset-bottom, 0px))`,
+                        right: `calc(${GAME_SYSTEM_CONTROLS_SIDE_INSET} + ${SYSTEM_DOCK_STEP_PX}px + env(safe-area-inset-right, 0px))`,
+                        "@media (max-width: 480px)": {
+                            "& [data-premium-search-dock-slot]": { width: SYSTEM_DOCK_BUTTON_SIZE_PX },
+                            "& .premium-guide-label": { display: "none" },
+                        },
+                        "@media (any-pointer: coarse)": {
+                            right: `calc(${GAME_SYSTEM_CONTROLS_SIDE_INSET} + ${ARENA_TOUCH_CONTROL_SIZE_PX + 6}px + env(safe-area-inset-right, 0px))`,
+                            "& > div:has(> .MuiIconButton-root), & > [data-volume-control]": {
+                                width: ARENA_TOUCH_CONTROL_SIZE_PX,
+                                height: ARENA_TOUCH_CONTROL_SIZE_PX,
+                                flex: `0 0 ${ARENA_TOUCH_CONTROL_SIZE_PX}px`,
+                            },
+                            "& .MuiIconButton-root": {
+                                width: ARENA_TOUCH_CONTROL_SIZE_PX,
+                                height: ARENA_TOUCH_CONTROL_SIZE_PX,
+                                minWidth: ARENA_TOUCH_CONTROL_SIZE_PX,
+                                minHeight: ARENA_TOUCH_CONTROL_SIZE_PX,
+                                backgroundSize: "32px",
+                            },
+                            "& .hoc-audio-control, & .hoc-audio-control > button": {
+                                width: `${ARENA_TOUCH_CONTROL_SIZE_PX}px !important`,
+                                height: `${ARENA_TOUCH_CONTROL_SIZE_PX}px !important`,
+                            },
+                            "& .hoc-audio-control > button": { backgroundSize: "32px !important" },
+                        },
+                    },
+                }),
             }}
         >
             {!fightDockSlot && <PremiumSearchDockSlot compact={inGame} />}
@@ -1493,8 +1523,7 @@ export const SocialDock: React.FC = () => {
                     </Box>
                 ) : null}
             </Box>
-            {/* Keep sound at the screen edge. The right-anchored row then grows leftward, so the three
-                social controls cannot be squeezed underneath the volume control on narrower servers. */}
+            {/* The right-anchored row grows leftward as controls are added. */}
             <Box
                 ref={floatingVolumeSlotRef}
                 data-volume-control="social-dock"

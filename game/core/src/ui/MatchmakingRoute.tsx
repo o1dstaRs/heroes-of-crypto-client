@@ -4,7 +4,7 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
-import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Alert, Box, Button, Modal, ModalClose, ModalDialog, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -23,7 +23,7 @@ import { RankedLockPanel } from "./exitRules/RankedLockPanel";
 import { RankedRulesCard } from "./exitRules/RankedRulesCard";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
-import { FULLSCREEN_CORNER_CLEARANCE, FullscreenCorner } from "./GameSystemControls";
+import { FullscreenCorner } from "./GameSystemControls";
 import { ArenaChatPanel } from "./ArenaChatPanel";
 import {
     clearMatchReadyAlert,
@@ -47,12 +47,12 @@ import {
     hocReadoutChipSx,
     hocSoftButtonSx,
 } from "./hocTheme";
-import { DoctrineIcon } from "./DoctrineIcon";
+import { RankedDoctrinePicker } from "./RankedDoctrinePicker";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { ArenaNavBar } from "./ArenaNavBar";
 import { ArenaArtReadout } from "./ArenaArtReadout";
 import { ARENA_IDLE_WASH, arenaBackgroundUrl } from "./arenaBackdrop";
 import { startBackgroundAssetPrefetch } from "./assetPrefetch";
-import { getDoctrineCopy } from "./doctrineCopy";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { GameErrorBoundary } from "./GameErrorBoundary";
 import { useRankedSeason } from "./useRankedSeason";
@@ -120,102 +120,29 @@ const formatQueueDuration = (totalSeconds: number): string => {
     return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${paddedSeconds}`;
 };
 
-/** Joy's decorator→label gap on this button, held as a constant so the fit test never depends on it. */
-const PRACTICE_LABEL_GAP = 8;
-
-/**
- * "Practice vs AI" lives in the narrow third of the action row, where its own wording is the widest thing
- * that has to fit. One breakpoint cannot serve both shipped languages: measured at this button's font, the
- * English label needs ~112px of room and the Russian ("Тренировка против ИИ") ~183px, so anywhere between a
- * 640px and a 900px viewport the English label still fits while the Russian one does not. So the button
- * measures rather than guesses, and falls back to the bare icon exactly when the label would not fit —
- * below `sm` the row stacks to one column and the label always fits again.
- *
- * The measuring copy is absolutely positioned, so hiding the real label never changes what is measured.
- * Measuring the live label instead is what would oscillate: hide it, the button fits, show it, it does not.
- */
 const PracticeVsAiButton: React.FC<{ loading: boolean; onClick: () => void }> = ({ loading, onClick }) => {
-    const { t, language } = useTranslation();
-    const label = t("Practice vs AI");
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const probeRef = useRef<HTMLSpanElement>(null);
-    const [labelFits, setLabelFits] = useState(true);
-
-    useEffect(() => {
-        const button = buttonRef.current;
-        const probe = probeRef.current;
-        if (!button || !probe) {
-            return undefined;
-        }
-        const measure = (): void => {
-            const style = getComputedStyle(button);
-            const decorator = button.querySelector(".MuiButton-startDecorator");
-            const room =
-                button.clientWidth -
-                parseFloat(style.paddingLeft) -
-                parseFloat(style.paddingRight) -
-                (decorator?.getBoundingClientRect().width ?? 0) -
-                PRACTICE_LABEL_GAP;
-            setLabelFits(probe.getBoundingClientRect().width <= room);
-        };
-        measure();
-        const observer = new ResizeObserver(measure);
-        observer.observe(button);
-        // The display face is preloaded but still resolves after first paint; until it does the probe is
-        // measuring the fallback serif and can drop a label that the real face would have fitted.
-        document.fonts?.ready.then(measure).catch(() => undefined);
-        return () => observer.disconnect();
-    }, [label, language]);
-
+    const { t } = useTranslation();
     return (
-        <Tooltip title={labelFits ? "" : label} variant="soft" placement="top">
-            <Button
-                ref={buttonRef}
-                fullWidth
-                variant="soft"
-                aria-label={label}
-                loading={loading}
-                disabled={loading}
-                onClick={onClick}
-                startDecorator={<PracticeAiIcon sx={{ fontSize: 24 }} />}
-                sx={{
-                    ...hocActionSoftButtonSx,
-                    minHeight: 58,
-                    fontFamily: hocDisplayFontFamily,
-                    fontSize: "0.92rem",
-                    // Collapsed with the label so the lone icon sits centred rather than off to one side.
-                    "--Button-gap": labelFits ? `${PRACTICE_LABEL_GAP}px` : "0px",
-                }}
-            >
-                <Box
-                    component="span"
-                    sx={{
-                        position: "relative",
-                        whiteSpace: "nowrap",
-                        // Only once the label is gone: the probe still measures at its natural width (an
-                        // absolutely positioned box is clipped, not resized), but it stops widening the
-                        // button's scrollable overflow, which is what turns an invisible probe into a
-                        // phantom scrollbar the first time an ancestor is given overflow: auto.
-                        ...(labelFits ? {} : { width: 0, overflow: "hidden" }),
-                    }}
-                >
-                    <Box
-                        component="span"
-                        ref={probeRef}
-                        aria-hidden
-                        sx={{ position: "absolute", visibility: "hidden", whiteSpace: "nowrap" }}
-                    >
-                        {label}
-                    </Box>
-                    {labelFits ? label : null}
-                </Box>
-            </Button>
-        </Tooltip>
+        <Button
+            fullWidth
+            variant="soft"
+            loading={loading}
+            disabled={loading}
+            onClick={onClick}
+            startDecorator={<PracticeAiIcon sx={{ fontSize: 22 }} />}
+            sx={{
+                ...hocActionSoftButtonSx,
+                minHeight: { xs: 48, sm: 54, lg: 58 },
+                fontFamily: hocDisplayFontFamily,
+                fontSize: { xs: "0.85rem", lg: "0.92rem" },
+                lineHeight: 1.2,
+                whiteSpace: "normal",
+            }}
+        >
+            {t("Practice vs AI")}
+        </Button>
     );
 };
-
-/** How far the room's label steps right to clear the fullscreen button pinned in the corner beneath it. */
-const ARENA_CHAT_HEADER_INSET = FULLSCREEN_CORNER_CLEARANCE;
 
 const PlayerPortalSidebar = React.lazy(() =>
     import("./PlayerPortal/PlayerPortalSidebar").then((m) => ({ default: m.PlayerPortalSidebar })),
@@ -244,9 +171,11 @@ export const MatchmakingRoute: React.FC = () => {
     const [state, setState] = useState<MatchmakingState>(
         mockMatchPreview ? (mockMatchAccepted ? "accepted" : "confirming") : "idle",
     );
-    // The backend-free preview should land on the thing it exists to demonstrate. Live players keep
-    // the compact arena default and opt into this panel with the stats toggle as before.
-    const [profileSummaryOpen, setProfileSummaryOpen] = useState(() => isMockPortalEnabled());
+    const inlineProfile = useMediaQuery("(min-width: 1200px)");
+    const [profileSummaryOpen, setProfileSummaryOpen] = useState(() => inlineProfile && isMockPortalEnabled());
+    useEffect(() => {
+        if (!inlineProfile && state === "confirming") setProfileSummaryOpen(false);
+    }, [inlineProfile, state]);
     // Players currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<ArenaPopulation>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
@@ -919,6 +848,16 @@ export const MatchmakingRoute: React.FC = () => {
 
     const navigationLocked =
         state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
+    const showProfileSummary = profileSummaryOpen && (inlineProfile || state !== "confirming");
+    const expandedArena = inlineProfile && showProfileSummary;
+    const arenaWidth = `min(${expandedArena ? "1480px" : "1040px"}, calc(100% - clamp(20px, 4vw, 32px)))`;
+    const profileContent = showProfileSummary && (
+        <GameErrorBoundary context="ranked player stats">
+            <React.Suspense fallback={<Typography role="status">{t("Loading your profile…")}</Typography>}>
+                <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+            </React.Suspense>
+        </GameErrorBoundary>
+    );
     const shortGameId =
         pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
     const showStatusPresentation =
@@ -1043,6 +982,10 @@ export const MatchmakingRoute: React.FC = () => {
                     position: "fixed",
                     inset: 0,
                     overflowY: "auto",
+                    overscrollBehaviorY: "contain",
+                    paddingTop: "env(safe-area-inset-top, 0px)",
+                    paddingLeft: "env(safe-area-inset-left, 0px)",
+                    paddingRight: "env(safe-area-inset-right, 0px)",
                     bgcolor: "#050504",
                     color: hocColors.parchment,
                     backgroundImage: `url(${arenaBackgroundUrl})`,
@@ -1086,33 +1029,27 @@ export const MatchmakingRoute: React.FC = () => {
                     }}
                 />
 
-                <ArenaNavBar
-                    current="ranked"
-                    locked={navigationLocked}
-                    width={profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))"}
-                />
+                <ArenaNavBar current="ranked" locked={navigationLocked} width={arenaWidth} />
 
                 <Box
                     role="main"
                     sx={{
                         position: "relative",
                         zIndex: 1,
-                        width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
+                        width: arenaWidth,
                         mx: "auto",
-                        py: { xs: 2, md: 3 },
-                        // Clearance for the fixed fullscreen button in the bottom-left corner: without it the
-                        // page's last row (the arena chat header) comes to rest underneath the button and the
-                        // two overlap. The arena scrolls, unlike the pick and fight screens this control comes
-                        // from, so the corner has to be kept clear rather than assumed empty.
-                        pb: { xs: 8, md: 9 },
+                        pt: { xs: 1.25, sm: 1.75, lg: 3 },
+                        // Keep the bottom of the chat room above the fixed corner controls when scrolled to the end.
+                        pb: "calc(4.75rem + env(safe-area-inset-bottom, 0px))",
                         display: "grid",
                         gridTemplateColumns: {
                             xs: "minmax(0, 1fr)",
-                            lg: profileSummaryOpen ? "minmax(560px, 1fr) minmax(370px, 420px)" : "minmax(0, 1fr)",
+                            lg: expandedArena ? "minmax(560px, 1fr) minmax(370px, 420px)" : "minmax(0, 1fr)",
                         },
-                        gap: { xs: 2, md: 3 },
+                        gap: { xs: 1.5, sm: 2, lg: 3 },
                         alignItems: "start",
                         transition: "width 220ms ease",
+                        "@media (max-height: 480px)": { pt: 0.75 },
                     }}
                 >
                     <Sheet
@@ -1122,7 +1059,7 @@ export const MatchmakingRoute: React.FC = () => {
                         sx={{
                             position: "relative",
                             minWidth: 0,
-                            minHeight: profileSummaryOpen ? { lg: 724 } : undefined,
+                            minHeight: expandedArena ? 724 : undefined,
                             display: "flex",
                             flexDirection: "column",
                             overflow: "hidden",
@@ -1158,15 +1095,16 @@ export const MatchmakingRoute: React.FC = () => {
                                 "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                             },
                             "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-                            backdropFilter: "blur(16px)",
+                            backdropFilter: { xs: "none", lg: "blur(16px)" },
                         }}
                     >
                         <Box
                             sx={{
                                 position: "relative",
                                 overflow: "hidden",
-                                px: { xs: 2.25, sm: 4, md: 5 },
-                                py: { xs: 2.5, md: 3 },
+                                px: { xs: 1.5, sm: 2.5, lg: 5 },
+                                py: { xs: 1.35, sm: 1.75, lg: 3 },
+                                "@media (max-height: 480px)": { py: 1 },
                                 borderBottom: "1px solid rgba(239,228,204,0.09)",
                                 background:
                                     state === "confirming"
@@ -1186,7 +1124,7 @@ export const MatchmakingRoute: React.FC = () => {
                                     fontSize: { xs: "0.68rem", sm: "0.75rem" },
                                     lineHeight: 1.5,
                                     letterSpacing: { xs: "0.09em", sm: "0.13em" },
-                                    mb: 1.1,
+                                    mb: { xs: 0.6, lg: 1.1 },
                                 }}
                             >
                                 {activeSeason ? (
@@ -1218,9 +1156,10 @@ export const MatchmakingRoute: React.FC = () => {
                                 ) : null}
                             </Typography>
                             <Stack
-                                direction={{ xs: "column", sm: "row" }}
-                                spacing={{ xs: 1.5, sm: 1 }}
-                                alignItems={{ xs: "flex-start", sm: "center" }}
+                                direction="row"
+                                gap={{ xs: 0.8, sm: 1.25 }}
+                                flexWrap="wrap"
+                                alignItems="center"
                                 justifyContent="space-between"
                             >
                                 <Typography
@@ -1229,7 +1168,7 @@ export const MatchmakingRoute: React.FC = () => {
                                     sx={{
                                         maxWidth: 700,
                                         color: hocColors.parchment,
-                                        fontSize: { xs: "2rem", sm: "2.45rem", md: "2.75rem" },
+                                        fontSize: { xs: "clamp(1.5rem, 6vw, 2rem)", sm: "2.15rem", lg: "2.75rem" },
                                         lineHeight: 1.02,
                                         letterSpacing: "-0.035em",
                                     }}
@@ -1247,6 +1186,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             })}
                                             size="sm"
                                             variant="soft"
+                                            disableTouchListener
                                         >
                                             <Stack
                                                 component="span"
@@ -1290,31 +1230,35 @@ export const MatchmakingRoute: React.FC = () => {
                                         </Tooltip>
                                     )}
                                     <Tooltip
-                                        title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
+                                        title={showProfileSummary ? t("Hide player stats") : t("Show player stats")}
                                         size="sm"
                                         variant="soft"
+                                        disableTouchListener
                                     >
                                         <Button
                                             size="sm"
                                             variant="soft"
                                             aria-label={
-                                                profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
+                                                showProfileSummary ? t("Hide player stats") : t("Show player stats")
                                             }
-                                            aria-expanded={profileSummaryOpen}
+                                            aria-expanded={showProfileSummary}
+                                            aria-haspopup={inlineProfile ? undefined : "dialog"}
                                             aria-controls="ranked-profile-summary"
+                                            disabled={!inlineProfile && state === "confirming"}
                                             onClick={() => setProfileSummaryOpen((open) => !open)}
                                             startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
                                             // The app's own button treatment, next to the deliberately flat readouts:
                                             // the orange fill and border say this one is pressable without relying on
                                             // a hover a touch screen never delivers.
                                             sx={{
-                                                minHeight: 38,
+                                                minHeight: 44,
+                                                minWidth: 44,
                                                 px: 1.15,
                                                 borderRadius: "10px",
                                                 fontSize: "0.72rem",
                                                 fontWeight: 750,
                                                 ...hocSoftButtonSx,
-                                                ...(profileSummaryOpen
+                                                ...(showProfileSummary
                                                     ? {
                                                           color: hocColors.gold,
                                                           bgcolor: "rgba(255, 143, 0, 0.3)",
@@ -1323,9 +1267,7 @@ export const MatchmakingRoute: React.FC = () => {
                                                     : {}),
                                             }}
                                         >
-                                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                                {profileSummaryOpen ? t("Hide stats") : t("Show stats")}
-                                            </Box>
+                                            {showProfileSummary ? t("Hide stats") : t("Show stats")}
                                         </Button>
                                     </Tooltip>
                                 </Stack>
@@ -1340,8 +1282,9 @@ export const MatchmakingRoute: React.FC = () => {
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                px: { xs: 2.25, sm: 3.5 },
-                                py: { xs: 3, md: showStatusPresentation ? 4 : 3 },
+                                px: { xs: 1.5, sm: 2.5, lg: 3.5 },
+                                py: { xs: 1.5, sm: 2, lg: showStatusPresentation ? 4 : 3 },
+                                "@media (max-height: 480px)": { py: 1.25 },
                                 textAlign: "center",
                                 background:
                                     state === "confirming"
@@ -1354,199 +1297,207 @@ export const MatchmakingRoute: React.FC = () => {
                         >
                             <Box
                                 sx={{
-                                    position: "relative",
-                                    width: 126,
-                                    height: 126,
-                                    display: showStatusPresentation ? "grid" : "none",
-                                    placeItems: "center",
-                                    mb: 2.25,
+                                    display: showStatusPresentation ? "flex" : "none",
+                                    alignItems: "center",
+                                    flexDirection: "column",
+                                    "@media (max-height: 480px)": {
+                                        flexDirection: "row",
+                                        gap: 1.75,
+                                        textAlign: "left",
+                                    },
                                 }}
                             >
-                                {(state === "searching" || state === "starting-ai" || state === "confirming") && (
-                                    <>
-                                        <Box
-                                            sx={{
-                                                position: "absolute",
-                                                inset: 3,
-                                                borderRadius: "50%",
-                                                border: `1px solid ${presentation.accent}`,
-                                                animation:
-                                                    state === "confirming"
-                                                        ? "arenaPulse 1.35s ease-out infinite"
-                                                        : "arenaPulse 2.1s ease-out infinite",
-                                                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                                            }}
-                                        />
-                                        <Box
-                                            sx={{
-                                                position: "absolute",
-                                                inset: 3,
-                                                borderRadius: "50%",
-                                                border: `1px solid ${presentation.accent}`,
-                                                animation:
-                                                    state === "confirming"
-                                                        ? "arenaPulse 1.35s 0.45s ease-out infinite"
-                                                        : "arenaPulse 2.1s 0.7s ease-out infinite",
-                                                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                                            }}
-                                        />
-                                    </>
-                                )}
                                 <Box
-                                    title={queueElapsedLabel ? `Searching for ${queueElapsedLabel}` : undefined}
                                     sx={{
                                         position: "relative",
-                                        zIndex: 1,
-                                        width: 98,
-                                        height: 98,
-                                        borderRadius: "50%",
-                                        display: "grid",
+                                        flexShrink: 0,
+                                        width: { xs: 78, sm: 96, lg: 126 },
+                                        height: { xs: 78, sm: 96, lg: 126 },
+                                        display: showStatusPresentation ? "grid" : "none",
                                         placeItems: "center",
-                                        color: presentation.accent,
-                                        bgcolor: "rgba(0,0,0,0.42)",
-                                        border: `1px solid ${presentation.accent}99`,
-                                        boxShadow: `0 0 0 8px ${presentation.accent}12, 0 0 38px ${presentation.accent}24`,
-                                        "& svg": { fontSize: 40 },
+                                        mb: { xs: 1.1, lg: 2.25 },
+                                        "@media (max-height: 480px)": { width: 74, height: 74, mb: 0 },
                                     }}
                                 >
-                                    {state === "confirming" ? (
-                                        <Stack spacing={0} alignItems="center">
-                                            <Typography
-                                                level="h2"
+                                    {(state === "searching" || state === "starting-ai" || state === "confirming") && (
+                                        <>
+                                            <Box
                                                 sx={{
-                                                    color: presentation.accent,
-                                                    lineHeight: 0.95,
-                                                    fontVariantNumeric: "tabular-nums",
+                                                    position: "absolute",
+                                                    inset: 3,
+                                                    borderRadius: "50%",
+                                                    border: `1px solid ${presentation.accent}`,
+                                                    animation:
+                                                        state === "confirming"
+                                                            ? "arenaPulse 1.35s ease-out infinite"
+                                                            : "arenaPulse 2.1s ease-out infinite",
+                                                    "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                                                 }}
-                                            >
-                                                {secondsRemaining && secondsRemaining > 0 ? secondsRemaining : "!"}
-                                            </Typography>
-                                            <Typography
-                                                level="body-xs"
+                                            />
+                                            <Box
                                                 sx={{
-                                                    color: hocColors.muted,
-                                                    fontSize: "0.62rem",
-                                                    letterSpacing: "0.1em",
+                                                    position: "absolute",
+                                                    inset: 3,
+                                                    borderRadius: "50%",
+                                                    border: `1px solid ${presentation.accent}`,
+                                                    animation:
+                                                        state === "confirming"
+                                                            ? "arenaPulse 1.35s 0.45s ease-out infinite"
+                                                            : "arenaPulse 2.1s 0.7s ease-out infinite",
+                                                    "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                                                 }}
-                                            >
-                                                {t("SECONDS")}
-                                            </Typography>
-                                        </Stack>
-                                    ) : state === "accepted" ? (
-                                        <CheckCircleRoundedIcon />
-                                    ) : state === "starting-ai" ? (
-                                        <PracticeAiIcon />
-                                    ) : queueElapsedLabel ? (
-                                        // Ticking text is hidden from the aria-live region above so screen
-                                        // readers get the status line instead of a reading every second.
-                                        <Stack spacing={0} alignItems="center" aria-hidden="true">
-                                            <Typography
-                                                level="h3"
-                                                sx={{
-                                                    color: presentation.accent,
-                                                    lineHeight: 0.95,
-                                                    fontVariantNumeric: "tabular-nums",
-                                                }}
-                                            >
-                                                {queueElapsedLabel}
-                                            </Typography>
-                                            <Typography
-                                                level="body-xs"
-                                                sx={{
-                                                    color: hocColors.muted,
-                                                    fontSize: "0.62rem",
-                                                    letterSpacing: "0.1em",
-                                                }}
-                                            >
-                                                {t("IN QUEUE")}
-                                            </Typography>
-                                        </Stack>
-                                    ) : penalized || abandonCooling ? (
-                                        <TimerRoundedIcon />
-                                    ) : needsActivation || state === "error" ? (
-                                        <ShieldRoundedIcon />
-                                    ) : (
-                                        <RankedSearchIcon />
+                                            />
+                                        </>
                                     )}
+                                    <Box
+                                        title={queueElapsedLabel ? `Searching for ${queueElapsedLabel}` : undefined}
+                                        sx={{
+                                            position: "relative",
+                                            zIndex: 1,
+                                            width: { xs: 64, sm: 80, lg: 98 },
+                                            height: { xs: 64, sm: 80, lg: 98 },
+                                            borderRadius: "50%",
+                                            display: "grid",
+                                            placeItems: "center",
+                                            color: presentation.accent,
+                                            bgcolor: "rgba(0,0,0,0.42)",
+                                            border: `1px solid ${presentation.accent}99`,
+                                            boxShadow: `0 0 0 8px ${presentation.accent}12, 0 0 38px ${presentation.accent}24`,
+                                            "& svg": { fontSize: { xs: 29, sm: 34, lg: 40 } },
+                                            "@media (max-height: 480px)": { width: 62, height: 62 },
+                                        }}
+                                    >
+                                        {state === "confirming" ? (
+                                            <Stack spacing={0} alignItems="center">
+                                                <Typography
+                                                    level="h2"
+                                                    sx={{
+                                                        color: presentation.accent,
+                                                        lineHeight: 0.95,
+                                                        fontVariantNumeric: "tabular-nums",
+                                                    }}
+                                                >
+                                                    {secondsRemaining && secondsRemaining > 0 ? secondsRemaining : "!"}
+                                                </Typography>
+                                                <Typography
+                                                    level="body-xs"
+                                                    sx={{
+                                                        color: hocColors.muted,
+                                                        fontSize: "0.62rem",
+                                                        letterSpacing: "0.1em",
+                                                    }}
+                                                >
+                                                    {t("SECONDS")}
+                                                </Typography>
+                                            </Stack>
+                                        ) : state === "accepted" ? (
+                                            <CheckCircleRoundedIcon />
+                                        ) : state === "starting-ai" ? (
+                                            <PracticeAiIcon />
+                                        ) : queueElapsedLabel ? (
+                                            // Ticking text is hidden from the aria-live region above so screen
+                                            // readers get the status line instead of a reading every second.
+                                            <Stack spacing={0} alignItems="center" aria-hidden="true">
+                                                <Typography
+                                                    level="h3"
+                                                    sx={{
+                                                        color: presentation.accent,
+                                                        lineHeight: 0.95,
+                                                        fontVariantNumeric: "tabular-nums",
+                                                    }}
+                                                >
+                                                    {queueElapsedLabel}
+                                                </Typography>
+                                                <Typography
+                                                    level="body-xs"
+                                                    sx={{
+                                                        color: hocColors.muted,
+                                                        fontSize: "0.62rem",
+                                                        letterSpacing: "0.1em",
+                                                    }}
+                                                >
+                                                    {t("IN QUEUE")}
+                                                </Typography>
+                                            </Stack>
+                                        ) : penalized || abandonCooling ? (
+                                            <TimerRoundedIcon />
+                                        ) : needsActivation || state === "error" ? (
+                                            <ShieldRoundedIcon />
+                                        ) : (
+                                            <RankedSearchIcon />
+                                        )}
+                                    </Box>
+                                </Box>
+
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography
+                                        level="body-xs"
+                                        sx={{
+                                            display: showStatusPresentation ? "block" : "none",
+                                            color: presentation.accent,
+                                            fontWeight: 800,
+                                            letterSpacing: "0.18em",
+                                        }}
+                                    >
+                                        {presentation.eyebrow}
+                                    </Typography>
+                                    <Typography
+                                        level="h2"
+                                        sx={{
+                                            display: showStatusPresentation ? "block" : "none",
+                                            color: hocColors.parchment,
+                                            mt: 0.75,
+                                            fontSize: { xs: "1.55rem", sm: "2rem" },
+                                        }}
+                                    >
+                                        {presentation.headline}
+                                    </Typography>
+                                    {presentation.description ? (
+                                        <Typography
+                                            level="body-sm"
+                                            sx={{
+                                                display: showStatusPresentation ? "block" : "none",
+                                                color: hocColors.muted,
+                                                maxWidth: 540,
+                                                mt: 0.8,
+                                                // Leave room for wrapped hints without moving the Leave button.
+                                                ...(isSearching
+                                                    ? { minHeight: { xs: "4.5em", sm: "3em" }, lineHeight: 1.5 }
+                                                    : {}),
+                                            }}
+                                        >
+                                            {presentation.description}
+                                        </Typography>
+                                    ) : null}
+                                    {statusText && state !== "confirming" ? (
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{
+                                                display: showStatusPresentation ? "block" : "none",
+                                                color: hocColors.muted,
+                                                mt: 1.25,
+                                                px: 1.2,
+                                                py: 0.55,
+                                                borderRadius: "999px",
+                                                bgcolor: "rgba(255,255,255,0.035)",
+                                                border: "1px solid rgba(255,255,255,0.07)",
+                                            }}
+                                        >
+                                            {statusText}
+                                        </Typography>
+                                    ) : null}
                                 </Box>
                             </Box>
 
-                            <Typography
-                                level="body-xs"
-                                sx={{
-                                    display: showStatusPresentation ? "block" : "none",
-                                    color: presentation.accent,
-                                    fontWeight: 800,
-                                    letterSpacing: "0.18em",
-                                }}
-                            >
-                                {presentation.eyebrow}
-                            </Typography>
-                            <Typography
-                                level="h2"
-                                sx={{
-                                    display: showStatusPresentation ? "block" : "none",
-                                    color: hocColors.parchment,
-                                    mt: 0.75,
-                                    fontSize: { xs: "1.55rem", sm: "2rem" },
-                                }}
-                            >
-                                {presentation.headline}
-                            </Typography>
-                            {presentation.description ? (
-                                <Typography
-                                    level="body-sm"
-                                    sx={{
-                                        display: showStatusPresentation ? "block" : "none",
-                                        color: hocColors.muted,
-                                        maxWidth: 540,
-                                        mt: 0.8,
-                                        // Leave room for wrapped hints without moving the Leave button.
-                                        ...(isSearching
-                                            ? { minHeight: { xs: "4.5em", sm: "3em" }, lineHeight: 1.5 }
-                                            : {}),
-                                    }}
-                                >
-                                    {presentation.description}
-                                </Typography>
-                            ) : null}
-                            {statusText ? (
-                                <Typography
-                                    level="body-xs"
-                                    sx={{
-                                        display: showStatusPresentation ? "block" : "none",
-                                        color: hocColors.muted,
-                                        mt: 1.25,
-                                        px: 1.2,
-                                        py: 0.55,
-                                        borderRadius: "999px",
-                                        bgcolor: "rgba(255,255,255,0.035)",
-                                        border: "1px solid rgba(255,255,255,0.07)",
-                                    }}
-                                >
-                                    {statusText}
-                                </Typography>
-                            ) : null}
-
-                            {(state === "confirming" || state === "accepted") && pendingGameId ? (
-                                <MatchFoundOpponentPreview
-                                    accepted={state === "accepted"}
-                                    currency={currency}
-                                    language={language}
-                                    loading={opponentStatsLoading}
-                                    stats={opponentStats}
-                                />
-                            ) : null}
-
                             <Stack
-                                spacing={{ xs: 1.25, md: profileSummaryOpen && !showStatusPresentation ? 0 : 1.25 }}
+                                spacing={1.25}
                                 sx={{
                                     width: "100%",
                                     maxWidth: 860,
-                                    mt: showStatusPresentation ? 2.75 : 0,
-                                    flex: profileSummaryOpen && !showStatusPresentation ? 1 : undefined,
+                                    mt: showStatusPresentation ? { xs: 1.5, lg: 2.75 } : 0,
+                                    flex: expandedArena && !showStatusPresentation ? 1 : undefined,
                                     justifyContent:
-                                        profileSummaryOpen && !showStatusPresentation ? "space-evenly" : "flex-start",
+                                        expandedArena && !showStatusPresentation ? "space-evenly" : "flex-start",
                                 }}
                             >
                                 {needsActivation && (
@@ -1582,225 +1533,13 @@ export const MatchmakingRoute: React.FC = () => {
 
                                 {!needsActivation &&
                                     (state === "idle" || state === "error" || state === "starting-ai") && (
-                                        <Box
-                                            sx={{
-                                                alignSelf: "stretch",
-                                                mt: showStatusPresentation || !profileSummaryOpen ? 2.5 : 0,
-                                                // The doctrine tiles are already outlined, so wrapping them in
-                                                // a second outlined, shadowed, gradient-filled card put three
-                                                // borders between the page and a radio button. The heading and
-                                                // the spacing group them; the frame was redundant.
-                                                px: 0,
-                                                py: { xs: 0.25, sm: 0.5 },
+                                        <RankedDoctrinePicker
+                                            selected={preGameDoctrine}
+                                            onSelect={(doctrine) => {
+                                                setPreGameDoctrineState(doctrine);
+                                                setPreGameDoctrine(doctrine);
                                             }}
-                                        >
-                                            <Typography
-                                                level="title-sm"
-                                                sx={{
-                                                    mb: 1.25,
-                                                    color: hocColors.sidebarTitle,
-                                                    fontFamily: hocDisplayFontFamily,
-                                                    fontWeight: 400,
-                                                    letterSpacing: "0.1em",
-                                                    textAlign: "left",
-                                                    textTransform: "uppercase",
-                                                }}
-                                            >
-                                                {t("Choose your doctrine")}
-                                            </Typography>
-                                            <Box
-                                                role="radiogroup"
-                                                aria-label={t("Choose your doctrine")}
-                                                sx={{
-                                                    display: "grid",
-                                                    gridTemplateColumns: {
-                                                        xs: "minmax(0, 1fr)",
-                                                        sm: "repeat(3, minmax(0, 1fr))",
-                                                    },
-                                                    gap: { xs: 1, sm: 1.25 },
-                                                }}
-                                            >
-                                                {[...Doctrine.DOCTRINE_LIST]
-                                                    .sort((a, b) => a.upgradePoints - b.upgradePoints)
-                                                    .map((p) => {
-                                                        const isSelected = preGameDoctrine === p.id;
-                                                        const copy = getDoctrineCopy(p.id);
-                                                        // The doctrine is locked in before the draft and quietly sets the
-                                                        // augment budget spent much later at placement, so the full
-                                                        // what/costs/why lives on hover rather than only in the card.
-                                                        const hover = copy ? (
-                                                            <Box
-                                                                sx={{
-                                                                    maxWidth: 320,
-                                                                    p: 0.5,
-                                                                    display: "grid",
-                                                                    gap: 0.75,
-                                                                }}
-                                                            >
-                                                                <Box
-                                                                    sx={{
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        gap: 1,
-                                                                    }}
-                                                                >
-                                                                    <DoctrineIcon doctrineId={p.id} size={38} />
-                                                                    <Typography
-                                                                        level="title-sm"
-                                                                        sx={{ color: "common.white" }}
-                                                                    >
-                                                                        {t(p.name)}
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Typography
-                                                                    level="body-xs"
-                                                                    sx={{ color: "common.white" }}
-                                                                >
-                                                                    {t(copy.detail)}
-                                                                </Typography>
-                                                                <Typography
-                                                                    level="body-xs"
-                                                                    sx={{ color: hocColors.gold }}
-                                                                >
-                                                                    {t(copy.budget)}
-                                                                </Typography>
-                                                                <Typography
-                                                                    level="body-xs"
-                                                                    sx={{ color: "common.white", opacity: 0.85 }}
-                                                                >
-                                                                    {t(copy.why)}
-                                                                </Typography>
-                                                            </Box>
-                                                        ) : (
-                                                            t(p.description)
-                                                        );
-                                                        const selectDoctrine = (): void => {
-                                                            setPreGameDoctrineState(p.id);
-                                                            setPreGameDoctrine(p.id);
-                                                        };
-                                                        return (
-                                                            <Tooltip
-                                                                key={p.id}
-                                                                title={hover}
-                                                                variant="soft"
-                                                                placement="top"
-                                                                arrow
-                                                                enterDelay={150}
-                                                                enterTouchDelay={0}
-                                                                sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
-                                                            >
-                                                                <Sheet
-                                                                    role="radio"
-                                                                    aria-checked={isSelected}
-                                                                    tabIndex={0}
-                                                                    variant="outlined"
-                                                                    onClick={selectDoctrine}
-                                                                    onKeyDown={(event) => {
-                                                                        if (
-                                                                            event.key === "Enter" ||
-                                                                            event.key === " "
-                                                                        ) {
-                                                                            event.preventDefault();
-                                                                            selectDoctrine();
-                                                                        }
-                                                                    }}
-                                                                    sx={{
-                                                                        minWidth: 0,
-                                                                        cursor: "pointer",
-                                                                        position: "relative",
-                                                                        borderColor: isSelected
-                                                                            ? hocColors.gold
-                                                                            : "rgba(112,75,42,0.68)",
-                                                                        background: isSelected
-                                                                            ? "linear-gradient(180deg, rgba(122,68,5,0.96), rgba(47,25,4,0.98))"
-                                                                            : "linear-gradient(180deg, rgba(15,15,14,0.98), rgba(3,3,3,0.98))",
-                                                                        boxShadow: isSelected
-                                                                            ? "0 0 0 1px rgba(220,177,88,0.34), 0 8px 22px rgba(0,0,0,0.56), inset 0 1px 0 rgba(255,227,166,0.12)"
-                                                                            : "0 7px 16px rgba(0,0,0,0.45), inset 0 0 14px rgba(0,0,0,0.5)",
-                                                                        transition:
-                                                                            "border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease",
-                                                                        borderRadius: "3px",
-                                                                        p: { xs: 1.25, sm: 1.5 },
-                                                                        minHeight: { xs: 132, sm: 160 },
-                                                                        display: "flex",
-                                                                        flexDirection: "column",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        gap: 0.55,
-                                                                        textAlign: "center",
-                                                                        "&:hover": {
-                                                                            borderColor: hocColors.gold,
-                                                                            transform: "translateY(-2px)",
-                                                                            boxShadow:
-                                                                                "0 10px 24px rgba(0,0,0,0.58), 0 0 16px rgba(220,177,88,0.12)",
-                                                                        },
-                                                                        "&:focus-visible": {
-                                                                            outline: `2px solid ${hocColors.orange}`,
-                                                                            outlineOffset: "2px",
-                                                                        },
-                                                                    }}
-                                                                >
-                                                                    {isSelected && (
-                                                                        <CheckCircleRoundedIcon
-                                                                            sx={{
-                                                                                position: "absolute",
-                                                                                top: 8,
-                                                                                right: 8,
-                                                                                fontSize: 19,
-                                                                                color: hocColors.gold,
-                                                                                filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.8))",
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                    <Box
-                                                                        sx={{
-                                                                            width: 62,
-                                                                            height: 62,
-                                                                            borderRadius: "50%",
-                                                                            overflow: "hidden",
-                                                                            boxShadow: isSelected
-                                                                                ? "0 0 0 2px rgba(220,177,88,.68), 0 4px 14px rgba(0,0,0,.62)"
-                                                                                : "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
-                                                                        }}
-                                                                    >
-                                                                        <DoctrineIcon doctrineId={p.id} />
-                                                                    </Box>
-                                                                    <Typography
-                                                                        level="title-md"
-                                                                        sx={{
-                                                                            color: hocColors.parchment,
-                                                                            fontFamily: hocDisplayFontFamily,
-                                                                            fontWeight: 400,
-                                                                            letterSpacing: "0.035em",
-                                                                        }}
-                                                                    >
-                                                                        {t(p.name)}
-                                                                    </Typography>
-                                                                    <Typography
-                                                                        level="body-xs"
-                                                                        sx={{ color: hocColors.gold, fontWeight: 700 }}
-                                                                    >
-                                                                        {tf("{count} upgrade pts", {
-                                                                            count: p.upgradePoints,
-                                                                        })}
-                                                                    </Typography>
-                                                                    {copy && (
-                                                                        <Typography
-                                                                            level="body-xs"
-                                                                            sx={{
-                                                                                color: hocColors.mutedStrong,
-                                                                                lineHeight: 1.3,
-                                                                            }}
-                                                                        >
-                                                                            {t(copy.tagline)}
-                                                                        </Typography>
-                                                                    )}
-                                                                </Sheet>
-                                                            </Tooltip>
-                                                        );
-                                                    })}
-                                            </Box>
-                                        </Box>
+                                        />
                                     )}
 
                                 {!needsActivation &&
@@ -1837,7 +1576,10 @@ export const MatchmakingRoute: React.FC = () => {
                                             // Two thirds to the ranked queue, one third to practice. Equal halves
                                             // read as equal offers; this screen exists for the ranked match, and
                                             // the sizes should say which button is the point of it.
-                                            gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr" },
+                                            gridTemplateColumns: {
+                                                xs: "minmax(0, 1fr)",
+                                                sm: "minmax(0, 1.65fr) minmax(0, 1fr)",
+                                            },
                                             gap: 1.15,
                                         }}
                                     >
@@ -1860,9 +1602,11 @@ export const MatchmakingRoute: React.FC = () => {
                                             }
                                             sx={{
                                                 ...hocActionPrimaryButtonSx,
-                                                minHeight: 58,
+                                                minHeight: { xs: 50, sm: 54, lg: 58 },
                                                 fontFamily: hocDisplayFontFamily,
-                                                fontSize: "0.92rem",
+                                                fontSize: { xs: "0.85rem", lg: "0.92rem" },
+                                                lineHeight: 1.2,
+                                                whiteSpace: "normal",
                                             }}
                                         >
                                             {rankedSuspended
@@ -2027,18 +1771,22 @@ export const MatchmakingRoute: React.FC = () => {
                                     </Typography>
                                 )}
                             </Stack>
+
+                            {(state === "confirming" || state === "accepted") && pendingGameId ? (
+                                <MatchFoundOpponentPreview
+                                    accepted={state === "accepted"}
+                                    currency={currency}
+                                    language={language}
+                                    loading={opponentStatsLoading}
+                                    stats={opponentStats}
+                                />
+                            ) : null}
                         </Box>
                     </Sheet>
 
-                    {profileSummaryOpen && (
+                    {expandedArena && (
                         <Box id="ranked-profile-summary" sx={{ minWidth: 0 }}>
-                            <GameErrorBoundary context="ranked player stats">
-                                <React.Suspense
-                                    fallback={<Typography role="status">{t("Loading your profile…")}</Typography>}
-                                >
-                                    <PlayerPortalSidebar navigationDisabled={navigationLocked} />
-                                </React.Suspense>
-                            </GameErrorBoundary>
+                            {profileContent}
                         </Box>
                     )}
 
@@ -2050,18 +1798,37 @@ export const MatchmakingRoute: React.FC = () => {
                     press Find reads as a bug (it once did, via a state gate that hid it mid-search). */}
                     {!needsActivation ? (
                         <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
-                            {/* The room reaches the screen's left edge whenever the stats sidebar widens the
-                            page, which is exactly where the fullscreen button sits. Step the label clear of
-                            it rather than moving either one: the button belongs in that corner and the room
-                            belongs at full width. */}
-                            <ArenaChatPanel selfUsername={user?.username} headerStartInset={ARENA_CHAT_HEADER_INSET} />
+                            <ArenaChatPanel selfUsername={user?.username} />
                         </Box>
                     ) : null}
                 </Box>
-                {/* Same button, same corner, same insets as the pick and fight screens — a player who went
-                fullscreen for a match should not have to leave the arena to get back out of it, or hunt
-                for the control in a different place. The social dock owns the opposite corner here. */}
-                <FullscreenCorner />
+                {showProfileSummary && !inlineProfile && (
+                    <Modal open onClose={() => setProfileSummaryOpen(false)}>
+                        <ModalDialog
+                            id="ranked-profile-summary"
+                            aria-label={t("Player profile summary")}
+                            sx={{
+                                ...hocPanelSx,
+                                width: "min(560px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))",
+                                maxHeight:
+                                    "calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+                                boxSizing: "border-box",
+                                p: 1.25,
+                                pt: 6,
+                                overflow: "hidden",
+                            }}
+                        >
+                            <ModalClose
+                                aria-label={t("Close")}
+                                sx={{ minWidth: 44, minHeight: 44, top: 2, right: 2 }}
+                            />
+                            <Box sx={{ minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}>
+                                {profileContent}
+                            </Box>
+                        </ModalDialog>
+                    </Modal>
+                )}
+                <FullscreenCorner side="right" />
             </Box>
         </CssVarsProvider>
     );

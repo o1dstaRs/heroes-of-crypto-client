@@ -32,6 +32,29 @@ export interface ArenaNavBarProps {
     width?: string;
 }
 
+const navButtonSx = {
+    flex: { xs: 1, sm: "0 0 auto" },
+    flexDirection: { xs: "column", sm: "row" },
+    gap: { xs: 0.3, sm: "var(--Button-gap)" },
+    minWidth: 0,
+    minHeight: { xs: 48, sm: 44 },
+    px: { xs: 0.45, sm: 1.25 },
+    fontSize: { xs: "0.66rem", sm: "0.8rem" },
+    lineHeight: 1.15,
+    touchAction: "manipulation",
+    "& .MuiButton-startDecorator": { m: 0 },
+    "& .MuiButton-startDecorator svg": { fontSize: { xs: 21, sm: 24 } },
+    "@media (hover: hover) and (pointer: fine)": { "&:hover": { bgcolor: hocColors.orangeSoft } },
+} as const;
+
+const navLabelSx = {
+    display: "block",
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+} as const;
+
 /**
  * The bar that sits above every out-of-fight screen: Ranked, Lobby, Sandbox, Profile, Settings.
  *
@@ -66,7 +89,7 @@ export const ArenaNavBar: React.FC<ArenaNavBarProps> = ({
                 zIndex: 1,
                 width,
                 mx: "auto",
-                pt: { xs: 2, md: 2.5 },
+                pt: { xs: 1, sm: 1.5, lg: 2.5 },
             }}
         >
             <Stack
@@ -74,8 +97,8 @@ export const ArenaNavBar: React.FC<ArenaNavBarProps> = ({
                 alignItems="center"
                 justifyContent="flex-end"
                 sx={{
-                    px: { xs: 1.25, md: 1.75 },
-                    py: 1.1,
+                    px: { xs: 0.55, md: 1.75 },
+                    py: { xs: 0.55, sm: 0.75 },
                     borderRadius: "16px",
                     bgcolor: "rgba(9,6,4,0.78)",
                     border: "1px solid rgba(239,228,204,0.1)",
@@ -88,7 +111,7 @@ export const ArenaNavBar: React.FC<ArenaNavBarProps> = ({
                     aria-label={t("Game navigation")}
                     direction="row"
                     spacing={0.5}
-                    sx={{ width: { xs: "100%", sm: "auto" }, pb: { xs: 0.25, sm: 0 } }}
+                    sx={{ width: { xs: "100%", sm: "auto" } }}
                 >
                     {places.map(({ id, to, label, name, Icon }) => {
                         const here = id === current;
@@ -102,20 +125,14 @@ export const ArenaNavBar: React.FC<ArenaNavBarProps> = ({
                                 disabled={here ? false : locked}
                                 onClick={here ? undefined : () => navigate(to)}
                                 title={!here && locked ? t("Leave matchmaking before navigating away") : undefined}
-                                startDecorator={<Icon sx={{ fontSize: 24 }} />}
+                                startDecorator={<Icon />}
                                 sx={{
                                     ...(here ? hocSoftButtonSx : {}),
+                                    ...navButtonSx,
                                     color: here ? hocColors.gold : hocColors.mutedStrong,
-                                    flex: { xs: 1, sm: "0 0 auto" },
-                                    minWidth: 0,
-                                    px: { xs: 0.75, sm: 1.25 },
-                                    ...(here ? {} : { "&:hover": { bgcolor: hocColors.orangeSoft } }),
-                                    "& .MuiButton-startDecorator": {
-                                        mr: { xs: 0, sm: "var(--Button-gap)" },
-                                    },
                                 }}
                             >
-                                <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                <Box component="span" sx={navLabelSx}>
                                     {label}
                                 </Box>
                             </Button>
@@ -131,19 +148,13 @@ export const ArenaNavBar: React.FC<ArenaNavBarProps> = ({
                         size="sm"
                         variant="plain"
                         onClick={() => setSettingsOpen(true)}
-                        startDecorator={<SettingsNavIcon sx={{ fontSize: 24 }} />}
+                        startDecorator={<SettingsNavIcon />}
                         sx={{
+                            ...navButtonSx,
                             color: settingsOpen ? hocColors.gold : hocColors.mutedStrong,
-                            flex: { xs: 1, sm: "0 0 auto" },
-                            minWidth: 0,
-                            px: { xs: 0.75, sm: 1.25 },
-                            "&:hover": { bgcolor: hocColors.orangeSoft },
-                            "& .MuiButton-startDecorator": {
-                                mr: { xs: 0, sm: "var(--Button-gap)" },
-                            },
                         }}
                     >
-                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                        <Box component="span" sx={navLabelSx}>
                             {t("Settings")}
                         </Box>
                     </Button>

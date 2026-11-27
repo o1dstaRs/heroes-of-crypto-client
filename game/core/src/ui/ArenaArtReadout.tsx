@@ -41,6 +41,7 @@ export const ArenaArtReadout = (): React.ReactElement | null => {
             }
             size="sm"
             variant="soft"
+            disableTouchListener
         >
             <Stack
                 component="span"

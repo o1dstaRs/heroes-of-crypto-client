@@ -29,6 +29,8 @@ import { images } from "../generated/image_imports";
 export interface DoctrineCopy {
     /** Round doctrine medallion shared by every chooser, summary rail, and match-history view. */
     readonly iconImage: string;
+    /** Pick visibility shown directly alongside the upgrade budget on compact cards. */
+    readonly revealSummary: string;
     /** Three or four words under the name on the card. */
     readonly tagline: string;
     /** Exactly what the doctrine reveals, in board terms. */
@@ -49,6 +51,7 @@ export interface DoctrineCopy {
 export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
     [Doctrine.Doctrine.THREE_REVEALS]: {
         iconImage: images.doctrine_scout,
+        revealSummary: "See 3 picks",
         tagline: "Half their army, spread across every tier",
         detail:
             "Opens three of the opponent's six army slots — one per tier block, not three at random: " +
@@ -64,6 +67,7 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
     },
     [Doctrine.Doctrine.SEE_ALL]: {
         iconImage: images.doctrine_spymaster,
+        revealSummary: "See all picks",
         tagline: "The whole enemy draft, live",
         detail:
             "Every one of the opponent's six picks is visible for the entire draft, each revealed as they " +
@@ -77,6 +81,7 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
     },
     [Doctrine.Doctrine.SEE_NONE]: {
         iconImage: images.doctrine_blind_fury,
+        revealSummary: "Picks hidden",
         tagline: "Draft blind, field the strongest army",
         detail:
             "You see none of the opponent's picks in advance. You draft entirely on your own plan, " +

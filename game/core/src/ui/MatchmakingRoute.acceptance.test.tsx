@@ -13,11 +13,13 @@ mock.module("./useRankedSeason", () => ({ useRankedSeason: () => ({ currency: {}
 mock.module("./PlayerPortal/useRankedStanding", () => ({
     useRankedStandingState: () => ({ data: null, loading: false, error: "" }),
 }));
-mock.module("./GameSystemControls", () => ({ FULLSCREEN_CORNER_CLEARANCE: "3.5rem", FullscreenCorner: () => null }));
+mock.module("./GameSystemControls", () => ({ FullscreenCorner: () => null }));
 mock.module("./PlayerPortal/PlayerPortalSidebar", () => ({ PlayerPortalSidebar: () => null }));
 mock.module("./ArenaChatPanel", () => ({ ArenaChatPanel: () => null }));
 mock.module("./ArenaNavBar", () => ({ ArenaNavBar: () => null }));
-mock.module("./MatchFoundOpponentPreview", () => ({ MatchFoundOpponentPreview: () => null }));
+mock.module("./MatchFoundOpponentPreview", () => ({
+    MatchFoundOpponentPreview: () => <div data-testid="ranked-opponent-preview" />,
+}));
 const { MatchmakingRoute } = await import("./MatchmakingRoute");
 
 test("an accepted match fills the route with the draft waiting window instead of the arena", () => {
@@ -36,5 +38,7 @@ test("an unaccepted found match still presents its accept action", () => {
     const html = renderToStaticMarkup(<MatchmakingRoute />);
     expect(html).toContain("Accept ranked match");
     expect(html).toContain("Your rival is ready");
+    expect(html).toContain('data-testid="ranked-opponent-preview"');
+    expect(html.indexOf("Accept ranked match")).toBeLessThan(html.indexOf('data-testid="ranked-opponent-preview"'));
     expect(html).not.toContain('data-testid="draft-acceptance-window"');
 });
