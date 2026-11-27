@@ -122,6 +122,6 @@ describe("Wandering Mage spell buff cels", () => {
     }
     test("missing events and generic snapshot refreshes cannot replay Wandering Mage cues", () => {
         expect(mageSpellFlagApplications(undefined)).toEqual([]);
-        expect(animatableEffectNames(["Misfortune", "Fireforged Sword", "Blessing"])).toEqual(new Set(["Blessing"]));
+        expect(animatableEffectNames(["Misfortune", "Fireforged Sword", "Hidden"])).toEqual(new Set(["Hidden"]));
     });
 });

@@ -42,8 +42,21 @@ const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Pegasus Might Blessing",
     "Wolf Trail Blessing",
 ]);
+
+export const LIFE_BUFF_FLAG_EFFECTS = {
+    Blessing: "life_blessing",
+    "Spiritual Armor": "life_spiritual_armor",
+} as const;
+export type LifeBuffFlagKind = (typeof LIFE_BUFF_FLAG_EFFECTS)[keyof typeof LIFE_BUFF_FLAG_EFFECTS];
+
+export function lifeBuffFlagKind(name: string): LifeBuffFlagKind | undefined {
+    return Object.hasOwn(LIFE_BUFF_FLAG_EFFECTS, name)
+        ? LIFE_BUFF_FLAG_EFFECTS[name as keyof typeof LIFE_BUFF_FLAG_EFFECTS]
+        : undefined;
+}
+
 const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([
-    "Spiritual Armor",
+    ...Object.keys(LIFE_BUFF_FLAG_EFFECTS),
     "Misfortune",
     "Fireforged Sword",
     "Wind Flow",
@@ -58,23 +71,22 @@ const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set([
     "Terrifying Gaze",
 ]);
 
-/** Explicit casts also animate refreshes. Borrowed Grace owns its separate transfer presentation. */
-export function spiritualArmorAppliedUnitIds(events: readonly GameEvent[] | undefined): string[] {
-    const ids = new Set<string>();
+/** Confirmed casts also animate refreshes. Borrowed Grace presents transferred buffs. */
+export function lifeBuffFlagApplications(events: readonly GameEvent[] | undefined): {
+    unitId: string;
+    kind: LifeBuffFlagKind;
+}[] {
+    const recipients = new Map<string, { unitId: string; kind: LifeBuffFlagKind }>();
     for (const event of events ?? []) {
         if (event.type !== "effects_applied") continue;
         for (const application of event.applications) {
-            if (
-                application.name === "Spiritual Armor" &&
-                application.kind === "buff" &&
-                !application.resisted &&
-                !application.sourceUnitId &&
-                application.unitId
-            )
-                ids.add(application.unitId);
+            if (application.kind !== "buff" || application.resisted || application.sourceUnitId || !application.unitId)
+                continue;
+            const kind = lifeBuffFlagKind(application.name);
+            if (kind) recipients.set(`${application.unitId}:${kind}`, { unitId: application.unitId, kind });
         }
     }
-    return [...ids];
+    return [...recipients.values()];
 }
 
 /** Successful recipients, including refreshed buffs; snapshots alone cannot describe a recast. */

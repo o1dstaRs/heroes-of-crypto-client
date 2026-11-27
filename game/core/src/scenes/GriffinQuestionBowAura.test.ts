@@ -152,7 +152,7 @@ test("turning mirrors the eye toward the front legs and updates the existing sto
         expect([...mesh.geometry.positions]).toEqual([
             ...griffinTornadoGeometry(center, footprint, 2, gs, front, -1).positions,
         ]);
-        expect(mesh.shader!.resources.storm.uniforms.uTime).toBe(1);
+        expect(mesh.shader!.resources.storm.uniforms.uTime).toBe(0.8);
     });
     floor.destroy({ children: true });
 });
@@ -216,7 +216,7 @@ test("hover and selection share one storm; front air renders among units and is 
     const sprites = [...back.children, ...front.children].filter((c) => c instanceof Sprite) as Sprite[];
     expect(sprites).toHaveLength(0);
     const shell = front.children.find((c) => c instanceof Mesh) as Mesh;
-    expect(shell.shader!.resources.storm.uniforms.uTime).toBe(1);
+    expect(shell.shader!.resources.storm.uniforms.uTime).toBe(0.8);
     resetGriffinQuestionBowAuras(floor, 7000);
     expect(floor.children).toHaveLength(0);
     expect(units.children).toHaveLength(0);

@@ -12114,8 +12114,8 @@
             "bytes": 524436
         },
         "images/book_of_chaos_256.webp": {
-            "sha256": "1d51fb2ce59786f5207abb9b15c9598942a784d8eb40c60d86329a5b9edd88ea",
-            "bytes": 70480
+            "sha256": "efc95ea3bc1202b2e15b1942f605b6228b4eee46e935822b591dc4cdbaf703a8",
+            "bytes": 19388
         },
         "images/book_of_healing_256.webp": {
             "sha256": "8b07e5cdd5e61d58c50b4fd385ff0c785efe6a53becffe456eef6d5189fa9d54",
@@ -14658,8 +14658,8 @@
             "bytes": 27758
         },
         "images/range_null_field_aura_256.webp": {
-            "sha256": "a562e4701e33740751fe5f0e480edebd3ed7b832dd97772b3eec9a79ff5fa43c",
-            "bytes": 21802
+            "sha256": "c57d9cd5f59dd370b6fc8bf85b79b6956eca3ba561cdad432881e4f3930aaf5d",
+            "bytes": 31040
         },
         "images/range_target_arrow_v7_gold_wide_crisp.webp": {
             "sha256": "15c6acb5f000c3b1574627490eed7243a6ef02efeb787c336fe9a9a07e61cbd5",
@@ -16744,6 +16744,22 @@
         "animations/output/vfx_leather_armor_pop/atlas/vfx_leather_armor_pop_meta.json": {
             "sha256": "c48fcf9050b98c263f818df2930374aa0005b3aa9d60ae754fa51813068c8c0c",
             "bytes": 3223
+        },
+        "animations/output/vfx_life_blessing_pop/atlas/vfx_life_blessing_pop_atlas.webp": {
+            "sha256": "e89a1924492411e4546ee89ecf7a51d0f59ba823798c9daecd2fd039182b16d3",
+            "bytes": 427690
+        },
+        "animations/output/vfx_life_blessing_pop/atlas/vfx_life_blessing_pop_meta.json": {
+            "sha256": "0bf321d358f4ebd700542e9be3c8a8924079aa67f572216fa37d244c5c29d659",
+            "bytes": 579
+        },
+        "animations/output/vfx_life_spiritual_armor_pop/atlas/vfx_life_spiritual_armor_pop_atlas.webp": {
+            "sha256": "582b0dc33709e56a44584a753e48c9c0c1f51440f40f3f4834d49e8b490b868d",
+            "bytes": 755302
+        },
+        "animations/output/vfx_life_spiritual_armor_pop/atlas/vfx_life_spiritual_armor_pop_meta.json": {
+            "sha256": "8ebf6865851bd9d625870f47bfa8726b7674a27b05db3cb6fcbfe9033ec562b8",
+            "bytes": 857
         },
         "animations/output/vfx_lucky_strike_pop/atlas/vfx_lucky_strike_pop_atlas.webp": {
             "sha256": "1a9ae0650040321896b87e26cb11b5f761d805b1fcb2a553c307f318e4f6c39a",

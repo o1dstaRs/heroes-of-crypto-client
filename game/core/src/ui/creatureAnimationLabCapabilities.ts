@@ -57,6 +57,8 @@ const spellsForEffect: Partial<Record<CreatureAnimationLabState, readonly string
     blacksmith_weapon: ["Weapon Rune"],
     mage_misfortune: ["Misfortune"],
     mage_fireforged: ["Fireforged Sword"],
+    life_blessing: ["Blessing"],
+    life_spiritual_armor: ["Spiritual Armor"],
     single_heal: ["Heal"],
     empower: ["Empower"],
     satyr_courage: ["Courage"],

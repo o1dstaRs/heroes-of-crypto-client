@@ -115,6 +115,6 @@ describe("Satyr spell buff cels", () => {
     }
     test("missing events and generic snapshot refreshes cannot replay Satyr cues", () => {
         expect(satyrSpellFlagApplications(undefined)).toEqual([]);
-        expect(animatableEffectNames(["Courage", "Helping Hand", "Blessing"])).toEqual(new Set(["Blessing"]));
+        expect(animatableEffectNames(["Courage", "Helping Hand", "Hidden"])).toEqual(new Set(["Hidden"]));
     });
 });

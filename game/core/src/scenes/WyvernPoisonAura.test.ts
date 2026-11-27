@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
-import { Container, DOMAdapter, Mesh } from "pixi.js";
+import { Container, DOMAdapter, Graphics, Mesh } from "pixi.js";
 import { drawWyvernPoisonAura, resetWyvernPoisonAuras } from "./WyvernPoisonAura";
 import { arachnaWebBounds, arachnaWebProjection } from "./ArachnaQueenWebAura";
 
@@ -29,6 +29,9 @@ test("selected poison reuses GPU resources and releases both depth-sorted halves
     draw(100);
     const layer = floor.children[0] as Container;
     const mesh = layer.children.find((c) => c.label === "wyvern-poison-floor") as Mesh;
+    const graphics = layer.children.filter((child) => child instanceof Graphics);
+    expect(graphics).toHaveLength(1);
+    expect(mesh.mask).toBe(graphics[0]);
     const geometry = mesh.geometry,
         shader = mesh.shader;
     const releaseShader = spyOn(shader!, "destroy");
@@ -67,7 +70,7 @@ test("selected poison reuses GPU resources and releases both depth-sorted halves
     units.destroy();
 });
 
-test("clipping crops the approved artwork without recentering it or changing factual reach", () => {
+test("board clipping preserves the center of the mist and its feathered edge", () => {
     const cell = gs.getCellSize();
     const edge = { x: gs.getMinX() + cell * 2, y: center.y };
     const bounds = arachnaWebBounds(edge, footprint, 2, gs, 1)!;

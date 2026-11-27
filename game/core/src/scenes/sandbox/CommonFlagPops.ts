@@ -13,6 +13,7 @@ import {
 } from "../../settings/statusEffectTiming";
 
 import type { MageSpellFlagKind } from "../mageSpellFlagEffects";
+import type { LifeBuffFlagKind } from "../effect_pops";
 import type { TroglodyteFlagKind } from "../troglodyteFlagEffects";
 import { InterpolatedFlagCel } from "./InterpolatedFlagCel";
 import type { BlacksmithFlagKind } from "../blacksmithFlagEffects";
@@ -34,6 +35,7 @@ export type FlagPopKind =
     | OgreSpellFlagKind
     | SatyrSpellFlagKind
     | MageSpellFlagKind
+    | LifeBuffFlagKind
     | TroglodyteFlagKind
     | "aggr"
     | "stun"
@@ -100,6 +102,11 @@ const definitions = {
     madness: { url: images.vfx_madness_pop_atlas, meta: animationAtlases["Vfx Madness"].pop },
     mage_misfortune: { url: images.vfx_mage_misfortune_pop_atlas, meta: animationAtlases["Vfx Mage Misfortune"].pop },
     mage_fireforged: { url: images.vfx_mage_fireforged_pop_atlas, meta: animationAtlases["Vfx Mage Fireforged"].pop },
+    life_blessing: { url: images.vfx_life_blessing_pop_atlas, meta: animationAtlases["Vfx Life Blessing"].pop },
+    life_spiritual_armor: {
+        url: images.vfx_life_spiritual_armor_pop_atlas,
+        meta: animationAtlases["Vfx Life Spiritual Armor"].pop,
+    },
     piercing_spear: { url: images.vfx_piercing_spear_pop_atlas, meta: animationAtlases["Vfx Piercing Spear"].pop },
     wind_flow: { url: images.vfx_wind_flow_pop_atlas, meta: animationAtlases["Vfx Wind Flow"].pop },
     aggr: { url: images.vfx_aggr_pop_atlas, meta: animationAtlases["Vfx Aggr"].pop },
@@ -249,23 +256,24 @@ export class CommonFlagPops {
         cellSize: number,
         follow?: () => Anchor | undefined,
     ): Promise<void> {
+        const restartable =
+            this.kind === "small_specie" ||
+            this.kind === "multi_attack" ||
+            this.kind === "penetrating_bite" ||
+            this.kind === "backstab" ||
+            this.kind === "piercing_spear" ||
+            this.kind === "blind_fury" ||
+            this.kind === "leather_armor" ||
+            this.kind === "miner" ||
+            this.kind === "madness" ||
+            this.kind === "bitter_experience" ||
+            this.kind === "lucky_strike" ||
+            this.kind.startsWith("blacksmith_") ||
+            this.kind.startsWith("life_");
         const existing = this.pops.find((pop) => pop.unitId === unitId);
         if (existing) {
-            // A third/further strike must be visible even while the preceding pop is dissolving.
-            if (
-                this.kind === "small_specie" ||
-                this.kind === "multi_attack" ||
-                this.kind === "penetrating_bite" ||
-                this.kind === "backstab" ||
-                this.kind === "piercing_spear" ||
-                this.kind === "blind_fury" ||
-                this.kind === "leather_armor" ||
-                this.kind === "miner" ||
-                this.kind === "madness" ||
-                this.kind === "bitter_experience" ||
-                this.kind === "lucky_strike" ||
-                this.kind.startsWith("blacksmith_")
-            ) {
+            // Another strike or buff refresh can land while the preceding pop is dissolving.
+            if (restartable) {
                 existing.startedAtMs = this.now();
                 existing.follow = follow;
                 existing.container.position.set(anchor.x, anchor.y + existing.offsetY);
@@ -274,21 +282,7 @@ export class CommonFlagPops {
             return;
         }
         if (this.pendingUnits.has(unitId)) {
-            if (
-                this.kind === "small_specie" ||
-                this.kind === "multi_attack" ||
-                this.kind === "penetrating_bite" ||
-                this.kind === "backstab" ||
-                this.kind === "piercing_spear" ||
-                this.kind === "blind_fury" ||
-                this.kind === "leather_armor" ||
-                this.kind === "miner" ||
-                this.kind === "madness" ||
-                this.kind === "bitter_experience" ||
-                this.kind === "lucky_strike" ||
-                this.kind.startsWith("blacksmith_")
-            )
-                this.pendingUnits.set(unitId, this.now());
+            if (restartable) this.pendingUnits.set(unitId, this.now());
             return;
         }
         this.pendingUnits.set(unitId, this.now());
@@ -298,21 +292,7 @@ export class CommonFlagPops {
             if (!frames || generation !== this.generation) return;
             // A cold download must not play a stale attack cue after the strike has finished.
             const startedAtMs =
-                this.kind === "small_specie" ||
-                this.kind === "multi_attack" ||
-                this.kind === "shadow_touch" ||
-                this.kind === "hamstring" ||
-                this.kind === "stun" ||
-                this.kind === "penetrating_bite" ||
-                this.kind === "backstab" ||
-                this.kind === "piercing_spear" ||
-                this.kind === "blind_fury" ||
-                this.kind === "leather_armor" ||
-                this.kind === "miner" ||
-                this.kind === "madness" ||
-                this.kind === "bitter_experience" ||
-                this.kind === "lucky_strike" ||
-                this.kind.startsWith("blacksmith_")
+                restartable || this.kind === "shadow_touch" || this.kind === "hamstring" || this.kind === "stun"
                     ? this.pendingUnits.get(unitId)!
                     : this.now();
             if (this.now() - startedAtMs >= OVERHEAD_EFFECT_DURATION_MS) return;
@@ -372,7 +352,8 @@ export class CommonFlagPops {
                 this.kind === "madness" ||
                 this.kind === "bitter_experience" ||
                 this.kind === "lucky_strike" ||
-                this.kind.startsWith("blacksmith_")
+                this.kind.startsWith("blacksmith_") ||
+                this.kind.startsWith("life_")
             ) {
                 const phase = ageMs / OVERHEAD_EFFECT_DURATION_MS;
                 pop.sprite.alpha = Math.max(

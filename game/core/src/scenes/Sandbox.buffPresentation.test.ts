@@ -28,7 +28,7 @@ const gridSettings = new GridSettings(
 
 for (const [school, name, generic] of [
     ["Life", "Spiritual Armor", false],
-    ["Life", "Blessing", true],
+    ["Life", "Blessing", false],
     ["Life", "Helping Hand", false],
     ["Life", "Courage", false],
     ["Chaos", "Fireforged Sword", false],

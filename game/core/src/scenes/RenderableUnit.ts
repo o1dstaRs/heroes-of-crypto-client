@@ -1210,6 +1210,7 @@ const PEASANT_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.35 * 1.1 * 1.16 * 1.15;
 const SCAVENGER_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.12;
 // Preserve the previously approved +20%/+15%, then apply the requested additional +10% on top.
 const PEASANT_ATTACK_ADDITIONAL_SPEED_MULTIPLIER = 1.2 * 1.15 * 1.1;
+const ELF_RANGED_ATTACK_PLAYBACK_RATE = 1.15;
 // Five fixed 240 Hz simulation steps per pose. This removes the alternating 5/6-step dwell that
 // made the horizontal strike look like individual frames were flashing, without materially changing speed.
 export const PEASANT_SIDE_ATTACK_FRAME_DURATION_MS = 1000 / 48;
@@ -11461,6 +11462,12 @@ export class RenderableUnit extends Unit {
             const scale = 720 / duration;
             this.oneShotAnim.durationPerFrame *= scale;
             this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map((ms) => ms * scale);
+        }
+        if (props.name === "Elf" && /^attack(?:_up|_down)?$/.test(stateName)) {
+            this.oneShotAnim.durationPerFrame /= ELF_RANGED_ATTACK_PLAYBACK_RATE;
+            this.oneShotAnim.frameDurationsMs = this.oneShotAnim.frameDurationsMs?.map(
+                (ms) => ms / ELF_RANGED_ATTACK_PLAYBACK_RATE,
+            );
         }
         if (stateName === "hit") {
             // Apply after all creature-specific timing, including authored uneven frame durations.

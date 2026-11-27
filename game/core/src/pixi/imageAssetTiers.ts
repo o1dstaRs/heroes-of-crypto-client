@@ -534,6 +534,8 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
     "vfx_mage_misfortune_pop_atlas_quarter",
     "vfx_mage_fireforged_pop_atlas",
     "vfx_mage_fireforged_pop_atlas_quarter",
+    "vfx_life_blessing_pop_atlas",
+    "vfx_life_spiritual_armor_pop_atlas",
     "vfx_ring_fire_hollow_burst_atlas",
     "vfx_ring_fire_hollow_burst_atlas_quarter",
     "vfx_single_heal_pop_atlas",

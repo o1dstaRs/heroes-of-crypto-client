@@ -199,12 +199,12 @@ describe("diffUnitEffects", () => {
 
     test("an aura gained as a unit moves into range does NOT pop (filtered before diff)", () => {
         // Raw buff lists as the scene would read them, using the REAL applied effect names (short, no
-        // " Aura" suffix): the unit moves into a Luck aura, but also gets a real cast buff (Blessing).
-        // Only Blessing should animate — the aura effect is filtered out.
+        // " Aura" suffix): the unit moves into a Luck aura and gains the Hidden buff.
+        // The generic pop draws Hidden.
         const prevBuffs = animatableEffectNames(["War Anger"]); // already standing in an aura
-        const currentBuffs = animatableEffectNames(["War Anger", "Luck", "Blessing"]);
+        const currentBuffs = animatableEffectNames(["War Anger", "Luck", "Hidden"]);
         const diff = diffUnitEffects(set(), prevBuffs, set(), currentBuffs);
-        expect(diff.newBuffs).toEqual(["Blessing"]);
+        expect(diff.newBuffs).toEqual(["Hidden"]);
         expect(diff.flash).toBe("buff");
     });
 });

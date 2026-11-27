@@ -12,6 +12,7 @@ export type GriffinTornadoForeground = { container: Container; depth: number };
 const SEGMENTS = 40;
 const ROWS = 20;
 const TAU = Math.PI * 2;
+const TORNADO_PLAYBACK_RATE = 0.8;
 type Footprint = { width: number; height: number };
 
 export function griffinTornadoShape(footprint: Footprint, range: number, cell: number, facing: -1 | 1 = 1) {
@@ -226,6 +227,7 @@ export function drawGriffinTornadoAura(
     );
     const layout = [center.x, center.y, footprint.width, footprint.height, range, cell, facing, ...bounds].join(":");
     const age = Math.max(0, now - storm.started);
+    const time = (age / 1000) * TORNADO_PLAYBACK_RATE;
     const opacity = Math.min(1, Math.max(0.85, alpha)) * Math.min(1, age / 600);
     storm.back.visible = storm.front.visible = true;
     storm.back.alpha = storm.front.alpha = opacity;
@@ -250,7 +252,7 @@ export function drawGriffinTornadoAura(
             mesh.geometry.getBuffer("aPosition").update();
         }
         const uniforms = mesh.shader!.resources.storm;
-        uniforms.uniforms.uTime = age / 1000;
+        uniforms.uniforms.uTime = time;
         uniforms.update();
     });
     storm.layout = layout;

@@ -14,7 +14,6 @@ type Aura = {
     back: Container;
     front: Container;
     ground: PoisonMesh;
-    boundary: Graphics;
     masks: Graphics[];
     plumes: PoisonMesh[];
     wake: Wake[];
@@ -26,11 +25,11 @@ type Aura = {
     layout: string;
 };
 const owners = new WeakMap<Container, Map<string, Aura>>();
-const PLUMES = 12;
+const PLUMES = 8;
 const VENTS = 4;
 const WAKE_CAPACITY = 6;
 
-/** Only the paint gets extra room. The range outline continues to use the real footprint. */
+/** Give the mist room to feather out past its footprint. */
 export function wyvernPoisonProjection(
     center: Point,
     footprint: Footprint,
@@ -45,7 +44,7 @@ export function wyvernPoisonProjection(
     };
     const projection = arachnaWebProjection(center, artworkFootprint, range, gs, narrowing);
     if (!projection) return undefined;
-    // Keep UVs in factual-range coordinates so the ring stays in place while wisps escape its edge.
+    // Keep UVs centered on the aura even when the board crops the mist.
     for (let i = 0; i < projection.uvs.length; i++) projection.uvs[i] = (projection.uvs[i] - 0.5) * padding + 0.5;
     return projection;
 }
@@ -70,7 +69,7 @@ function quad(): MeshGeometry {
     });
 }
 
-/** Keep the twelve low plumes on the expanded outer poison band. */
+/** Scatter low wisps across the aura, with a denser patch at Wyvern's feet. */
 export function wyvernPoisonPlumePositions(
     center: Point,
     footprint: Footprint,
@@ -81,7 +80,7 @@ export function wyvernPoisonPlumePositions(
 ) {
     const cell = gs.getCellSize();
     const a = (i / PLUMES) * Math.PI * 2 + 0.24;
-    const r = 0.86 + 0.26 * Math.sin(2 * a) ** 2 + 0.02 * Math.sin(i * 2);
+    const r = 0.68 + 0.13 * Math.sin(i * 2.3);
     const vent = i >= PLUMES;
     const source = i - PLUMES;
     const base = projectBattlefieldPoint(
@@ -96,8 +95,8 @@ export function wyvernPoisonPlumePositions(
               },
         gs,
     );
-    const span = cell * (vent ? 0.94 : 1.1),
-        height = cell * (vent ? 0.6 : 0.27 * 2.2);
+    const span = cell * (vent ? 1.1 : 1.42) * (1 + 0.16 * Math.sin(i * 2.7));
+    const height = cell * (vent ? 0.48 : 0.39) * (1 + 0.15 * Math.cos(i * 1.8));
     return new Float32Array([
         base.x - span / 2,
         base.y,
@@ -130,7 +129,7 @@ export function resetWyvernPoisonAuras(container?: Container, now = performance.
     }
 }
 
-/** Selected Ouroboros artwork only. Reach, buffs, damage and movement stay in the engine. */
+/** Draw Wyvern's poison mist when its aura is shown. */
 export function drawWyvernPoisonAura(
     container: Container | undefined,
     center: Point,
@@ -145,8 +144,7 @@ export function drawWyvernPoisonAura(
     facing: -1 | 1 = 1,
 ): void {
     if (!container || container.destroyed || !(alpha > 0)) return;
-    const bounds = arachnaWebBounds(center, footprint, range, gs, narrowing);
-    if (!bounds) return;
+    if (!arachnaWebBounds(center, footprint, range, gs, narrowing)) return;
     let entries = owners.get(container);
     if (!entries) owners.set(container, (entries = new Map()));
     const key = `${ownerId}:${range}`;
@@ -175,13 +173,10 @@ export function drawWyvernPoisonAura(
         );
         ground.mask = masks[0];
         floor.addChild(ground);
-        const boundary = new Graphics();
-        boundary.label = "wyvern-gameplay-range";
-        floor.addChild(boundary);
         const plumes = Array.from({ length: PLUMES + VENTS }, (_, i) => {
             const mesh = makeMesh("air", quad(), i * 3.71 + 4.3);
             const vent = i >= PLUMES;
-            mesh.alpha = vent ? (i >= PLUMES + 2 ? 0.59 : 0.74) : 0.64;
+            mesh.alpha = vent ? 0.48 : 0.53;
             mesh.shader!.resources.poison.uniforms.uVent = vent ? 1 : 0;
             if (vent) mesh.label = "wyvern-poison-vent";
             const isFront = vent ? i >= PLUMES + 2 : Math.sin((i / PLUMES) * Math.PI * 2 + 0.24) < -0.24;
@@ -201,7 +196,6 @@ export function drawWyvernPoisonAura(
             back,
             front,
             ground,
-            boundary,
             masks,
             plumes,
             wake,
@@ -250,11 +244,6 @@ export function drawWyvernPoisonAura(
         aura.ground.geometry.uvs.set(projection.uvs);
         aura.ground.geometry.getBuffer("aPosition").update();
         aura.ground.geometry.getBuffer("aUV").update();
-        // Factual range is independent of shader radius, lighting, smoke and trails.
-        aura.boundary
-            .clear()
-            .poly(projectedRectPoints(bounds.left, bounds.bottom, bounds.right, bounds.top, gs))
-            .stroke({ color: 0x9da886, width: 1.5, alpha: 0.43 });
         const inset = Math.max(0, narrowing) * cell;
         const board = projectedRectPoints(
             gs.getMinX() + inset,
@@ -263,7 +252,6 @@ export function drawWyvernPoisonAura(
             gs.getMaxY() - inset,
             gs,
         );
-        // Only the board clips the paint. Poison now fills the entire footprint, including the feet.
         for (const mask of aura.masks) mask.clear().poly(board).fill(0xffffff);
         const source = aura.ground.shader!.resources.poison.uniforms.uSource as Float32Array;
         source[0] = (facing * 0.3) / (range + footprint.width / 2);
@@ -302,7 +290,6 @@ export function drawWyvernPoisonAura(
         aura.lastWakeTime = now;
     }
     aura.seen = now;
-    // Start at the chosen reference phase; selection strength must not wash out the approved artwork.
     const time = 6.4 + Math.max(0, now - aura.started) / 1000;
     const opacity = Math.min(1, alpha / 0.5);
     aura.floor.visible = aura.back.visible = aura.front.visible = true;

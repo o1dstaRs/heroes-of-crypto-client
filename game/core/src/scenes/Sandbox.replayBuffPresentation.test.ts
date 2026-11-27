@@ -19,6 +19,7 @@ for (const ranked of [false, true]) {
                 getPosition: () => ({ x: 200, y: 200 }),
                 getBaseCell: () => ({ x: 2, y: 2 }),
                 isDead: () => false,
+                hasStatusBuff: () => false,
                 flashBuffApplied: mock(() => undefined),
                 flashDebuffDarken: mock(() => undefined),
             };
@@ -27,6 +28,7 @@ for (const ranked of [false, true]) {
                 ["target", target],
             ]);
             const popEffectOnUnit = mock(() => undefined);
+            const spawnCommonFlagPop = mock(() => undefined);
             const scene = Object.assign(Object.create(ranked ? RankedPlayScene.prototype : Sandbox.prototype), {
                 replayPlaybackActive: true,
                 unitsHolder: { getAllUnits: () => units },
@@ -42,6 +44,7 @@ for (const ranked of [false, true]) {
                 applyReplayEvents: mock(() => undefined),
                 delayReplay: () => Promise.resolve(),
                 popEffectOnUnit,
+                combatVisuals: { spawnCommonFlagPop },
             });
             const record = {
                 action: { type: "cast_spell", casterId: "caster", targetId: "target", spellName: "Blessing" },
@@ -61,15 +64,21 @@ for (const ranked of [false, true]) {
                 stateAfter: { units: [] },
             };
             expect(await scene.playReplayCastSpellAction(record)).toBe(true);
-            if (ranked) {
-                expect(popEffectOnUnit).not.toHaveBeenCalled();
-                expect(target.flashBuffApplied).not.toHaveBeenCalled();
-            } else {
-                expect(popEffectOnUnit).toHaveBeenCalledTimes(2);
-                expect(popEffectOnUnit).toHaveBeenCalledWith(target, "Blessing", 0, "buff");
-                expect(popEffectOnUnit).toHaveBeenCalledWith(target, "Weakness", 0, "debuff");
-                expect(target.flashBuffApplied).toHaveBeenCalledTimes(1);
-            }
+            expect(spawnCommonFlagPop).toHaveBeenCalledTimes(1);
+            expect(spawnCommonFlagPop).toHaveBeenCalledWith(target, "life_blessing");
+            expect(target.flashBuffApplied).toHaveBeenCalledTimes(1);
+            expect(popEffectOnUnit).toHaveBeenCalledTimes(ranked ? 0 : 1);
+            if (!ranked) expect(popEffectOnUnit).toHaveBeenCalledWith(target, "Weakness", 0, "debuff");
+
+            // Older journals can still confirm a newly acquired Blessing through the target's recorded state.
+            const legacy = {
+                ...record,
+                events: [],
+                stateAfter: { units: [{ properties: { id: "target", applied_buffs: ["Blessing"] } }] },
+            };
+            expect(await scene.playReplayCastSpellAction(legacy)).toBe(true);
+            expect(spawnCommonFlagPop).toHaveBeenCalledTimes(2);
+            expect(spawnCommonFlagPop).toHaveBeenLastCalledWith(target, "life_blessing");
         });
     }
 }

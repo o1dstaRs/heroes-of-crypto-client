@@ -126,6 +126,6 @@ describe("Wind Flow flag cels", () => {
     }
     test("missing events and snapshot refreshes cannot replay Wind Flow", () => {
         expect(windFlowRecipients(undefined)).toEqual([]);
-        expect(animatableEffectNames(["Wind Flow", "Blessing"])).toEqual(new Set(["Blessing"]));
+        expect(animatableEffectNames(["Wind Flow", "Hidden"])).toEqual(new Set(["Hidden"]));
     });
 });

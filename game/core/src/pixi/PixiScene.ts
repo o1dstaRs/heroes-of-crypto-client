@@ -198,6 +198,8 @@ export type CreatureAnimationLabState =
     | "blacksmith_weapon"
     | "mage_misfortune"
     | "mage_fireforged"
+    | "life_blessing"
+    | "life_spiritual_armor"
     | "satyr_courage"
     | "wind_flow"
     | "satyr_helping_hand"

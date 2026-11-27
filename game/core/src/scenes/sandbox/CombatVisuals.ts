@@ -478,7 +478,7 @@ const DP_FADE_IN = (DP_LIFE * (0.16 / 1.8)) / STATUS_EFFECT_APPEARANCE_SPEED; //
 const DP_FADE_OUT_FROM = 0.7; // hold at full opacity before the final fade
 const DP_Z = 5520; // Shared flag overlay layer, above creatures and damage numbers.
 /** Debuffs that still show their icon; every buff does (see spawnDebuffPop). */
-const ICON_STATUS_EFFECTS: ReadonlySet<string> = new Set(["Spiritual Armor", "Morale", "Dismorale"]);
+const ICON_STATUS_EFFECTS: ReadonlySet<string> = new Set(["Morale", "Dismorale"]);
 
 // Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
 // of the victim and carry it into Arachna Queen. The palette deliberately matches the permanent
@@ -1482,9 +1482,7 @@ export class CombatVisuals {
         const container = new Container();
 
         const iconSize = cell * 0.72;
-        // These confirmed effects have no dedicated atlas. A buff always shows its icon under its name (the
-        // owner saw Blessing land as a bare caption, 2026-11-26); debuffs keep only the listed lap/spell icons,
-        // so archived passive tiles do not come back over ordinary attacks.
+        // Generic buffs show their sidebar icon below the caption. Debuffs use icons for the listed lap effects.
         if (this.context.legacyEffectsEnabled || kind === "buff" || ICON_STATUS_EFFECTS.has(name)) {
             const icon = new Sprite(iconTexture);
             icon.label = `effect-icon:${name}`;

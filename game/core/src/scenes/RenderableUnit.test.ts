@@ -9734,8 +9734,8 @@ assetTest("Elf full archery keeps scale and support through every phase and rele
         expect(view.oneShotAnim?.authoredRealTime).toBe(true);
         const durations = view.oneShotAnim!.frameDurationsMs.slice();
         expect(durations).toHaveLength(14);
-        expect(durations.reduce((a, b) => a + b, 0)).toBe(1323);
-        expect(durations.slice(0, 10).reduce((a, b) => a + b, 0)).toBe(993);
+        expect(durations.reduce((a, b) => a + b, 0)).toBeCloseTo(1323 / 1.15, 8);
+        expect(durations.slice(0, 10).reduce((a, b) => a + b, 0)).toBeCloseTo(993 / 1.15, 8);
         for (const [frame, ms] of durations.entries()) {
             unit.ensureVisual(world, gridSettings);
             expect(view.oneShotAnim?.frameIndex).toBe(frame);
@@ -9763,9 +9763,9 @@ assetTest("Elf full archery keeps scale and support through every phase and rele
         expect(unit.getElfLabFreeShotTarget(origin, 400)!.x).toBeLessThan(origin.x);
         mirroredRelease = true;
     });
-    unit.stepOneShotAnimation(992);
+    unit.stepOneShotAnimation(993 / 1.15 - 1);
     expect(mirroredRelease).toBe(false);
-    unit.stepOneShotAnimation(1);
+    unit.stepOneShotAnimation(1.01);
     expect(mirroredRelease).toBe(true);
     unit.returnToIdleAnimation();
     for (const cancel of [

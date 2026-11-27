@@ -24621,6 +24621,104 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 0
     }
   },
+  "Vfx Life Blessing": {
+    "pop": {
+      "frameWidth": 320,
+      "frameHeight": 320,
+      "atlasWidth": 1280,
+      "atlasHeight": 1600,
+      "frameCount": 20,
+      "fps": 30.76923076923077,
+      "frameDurationSec": 0.0325,
+      "totalDurationSec": 0.65,
+      "layout": {
+        "cols": 4,
+        "rows": 5
+      },
+      "footAnchorY": 1,
+      "frameDurationsMs": [
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5,
+        32.5
+      ],
+      "loopDurationMs": 585,
+      "pauseMs": 234
+    }
+  },
+  "Vfx Life Spiritual Armor": {
+    "pop": {
+      "frameWidth": 320,
+      "frameHeight": 320,
+      "atlasWidth": 1920,
+      "atlasHeight": 1920,
+      "frameCount": 36,
+      "fps": 55.38461538461539,
+      "frameDurationSec": 0.018055555555555557,
+      "totalDurationSec": 0.65,
+      "layout": {
+        "cols": 6,
+        "rows": 6
+      },
+      "footAnchorY": 1,
+      "frameDurationsMs": [
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056,
+        18.055,
+        18.056
+      ],
+      "loopDurationMs": 585,
+      "pauseMs": 234
+    }
+  },
   "Vfx Lucky Strike": {
     "pop": {
       "frameWidth": 384,

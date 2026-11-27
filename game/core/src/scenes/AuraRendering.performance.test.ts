@@ -195,7 +195,7 @@ test("procedural Griffin tornado animates its shader without re-uploading statio
         for (const mesh of shells) uploads.push(spyOn(mesh.geometry.getBuffer("aPosition"), "update"));
         for (let i = 1; i <= 60; i++) tick(1000 + (i * 1000) / 60);
         for (const upload of uploads) expect(upload).not.toHaveBeenCalled();
-        expect(shells[0].shader!.resources.storm.uniforms.uTime).toBe(1);
+        expect(shells[0].shader!.resources.storm.uniforms.uTime).toBe(0.8);
         resetGriffinQuestionBowAuras(root, 8000);
         expect(root.children).toHaveLength(0);
         expect(shells.every((mesh) => mesh.destroyed)).toBe(true);

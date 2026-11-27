@@ -360,6 +360,8 @@ const effectButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: st
     },
     { state: "mage_misfortune", label: "MISFORTUNE", hint: "Раскол подковы над флагом получателя" },
     { state: "mage_fireforged", label: "FIREFORGED SWORD", hint: "Огненный клинок над флагом получателя" },
+    { state: "life_blessing", label: "BLESSING", hint: "Золотая чаша над флагом получателя" },
+    { state: "life_spiritual_armor", label: "SPIRITUAL ARMOR", hint: "Сияющие доспехи над флагом получателя" },
     {
         state: "satyr_courage",
         label: "COURAGE · 0,65 С",

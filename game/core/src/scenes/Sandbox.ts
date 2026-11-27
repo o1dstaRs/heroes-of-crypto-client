@@ -224,7 +224,9 @@ import {
     diffUnitEffects,
     dullingDefenseApplicationCount,
     battleRoarAppliedUnitIds,
-    spiritualArmorAppliedUnitIds,
+    lifeBuffFlagApplications,
+    lifeBuffFlagKind,
+    LIFE_BUFF_FLAG_EFFECTS,
     type EffectFlash,
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
@@ -7782,6 +7784,8 @@ export class Sandbox extends PixiScene {
             caster.faceBoardTarget(facingTarget);
         }
         this.playUnitCastSound(caster, action.spellName, record.events);
+        const lifeBuffFlag = lifeBuffFlagKind(action.spellName);
+        if (lifeBuffFlag) this.combatVisuals?.prepareCommonFlagPop?.(lifeBuffFlag);
         const isCraftCast = action.spellName === "Craft";
         if (isCraftCast) {
             // A recorded cast is already accepted. Start its forge with the cast/sound, even if
@@ -7838,6 +7842,21 @@ export class Sandbox extends PixiScene {
         const afterById = new Map(record.stateAfter.units.map((u) => [u.properties.id, u]));
         const casterAfter = afterById.get(caster.getId());
         const targetAfter = target ? afterById.get(target.getId()) : undefined;
+        // Older casts can confirm a new buff through the recorded target's before/after state.
+        const castOutcomeEvents: readonly GameEvent[] =
+            lifeBuffFlag &&
+            target &&
+            !record.events.some((event) => event.type === "effects_applied") &&
+            targetAfter?.properties.applied_buffs?.includes(action.spellName) &&
+            !target.hasStatusBuff(action.spellName)
+                ? [
+                      ...record.events,
+                      {
+                          type: "effects_applied",
+                          applications: [{ unitId: target.getId(), name: action.spellName, kind: "buff" }],
+                      },
+                  ]
+                : record.events;
         // baseCell is the anchor, and a multi-cell body hangs down-left of it (see hydrateSceneState), so a
         // swapped unit has to land on its footprint's centre rather than on the anchor cell's centre — the
         // difference is half a cell diagonally for a 2x2.
@@ -7952,7 +7971,9 @@ export class Sandbox extends PixiScene {
         const [delivered] = await Promise.all([this.waitForSpellDamageDelivery(), castCompletion]);
         if (!delivered) return false;
         // The record is authoritative even if the local re-apply was rejected after turn handover.
-        const castSequenceMs = isCraftCast ? 0 : this.renderSpellCastSequence(caster, action.spellName, record.events);
+        const castSequenceMs = isCraftCast
+            ? 0
+            : this.renderSpellCastSequence(caster, action.spellName, castOutcomeEvents);
         if (isCraftCast) this.renderCastOutcomes(record.events);
         this.onReplaySpellImpact(record);
         this.renderReplayBuffApplications(record.events);
@@ -10264,6 +10285,8 @@ export class Sandbox extends PixiScene {
 
         // Arm the spell; the next board click on a valid unit casts it.
         this.prepareBlacksmithCast(hovered.getName());
+        const lifeBuffFlag = lifeBuffFlagKind(hovered.getName());
+        if (lifeBuffFlag) this.combatVisuals?.prepareCommonFlagPop?.(lifeBuffFlag);
         this.currentActiveSpell = hovered;
         this.closeSpellBook();
         this.sc_sceneLog.updateLog(`${caster.getName()} prepares ${hovered.getName()} - pick a target`);
@@ -10473,11 +10496,11 @@ export class Sandbox extends PixiScene {
             recipient.flashBuffApplied();
             this.combatVisuals?.spawnCommonFlagPop(recipient, "empower");
         }
-        for (const unitId of spiritualArmorAppliedUnitIds(events)) {
-            const recipient = this.renderableForEffectPop(unitId);
+        for (const { unitId, kind } of lifeBuffFlagApplications(events)) {
+            const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
             if (!recipient || recipient.isDead()) continue;
             recipient.flashBuffApplied();
-            this.popEffectOnUnit(recipient, "Spiritual Armor", 0, "buff");
+            this.combatVisuals?.spawnCommonFlagPop(recipient, kind);
         }
         for (const { unitId, kind, name } of ogreSpellFlagApplications(events)) {
             const recipient = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
@@ -15765,6 +15788,12 @@ export class Sandbox extends PixiScene {
         if (Object.values(MAGE_SPELL_FLAG_EFFECTS).includes(state as MageSpellFlagKind)) {
             this.combatVisuals?.spawnCommonFlagPop(unit, state as MageSpellFlagKind, "preview");
             return { ok: true, message: `${unit.getName()}: ${state} · 0,65 с над флагом получателя` };
+        }
+        const lifeBuff = Object.entries(LIFE_BUFF_FLAG_EFFECTS).find(([, kind]) => kind === state);
+        if (lifeBuff) {
+            const [name, kind] = lifeBuff;
+            this.combatVisuals?.spawnCommonFlagPop(unit, kind, "preview");
+            return { ok: true, message: `${unit.getName()}: ${name} над флагом получателя` };
         }
         if (Object.values(SATYR_SPELL_FLAG_EFFECTS).includes(state as SatyrSpellFlagKind)) {
             this.combatVisuals?.spawnCommonFlagPop(unit, state as SatyrSpellFlagKind, "preview");

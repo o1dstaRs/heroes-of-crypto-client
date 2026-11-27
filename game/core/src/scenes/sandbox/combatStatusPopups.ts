@@ -16,6 +16,8 @@ const STATUS_NAMES: Partial<Record<FlagPopKind, string>> = {
     satyr_helping_hand: "Helping Hand",
     mage_misfortune: "Misfortune",
     mage_fireforged: "Fireforged Sword",
+    life_blessing: "Blessing",
+    life_spiritual_armor: "Spiritual Armor",
     hamstring: "Hamstrung",
     unicorn_blindness: "Blindness",
 };
@@ -45,6 +47,8 @@ const STATUS_POP_KINDS: ReadonlySet<FlagPopKind> = new Set([
     "satyr_helping_hand",
     "mage_misfortune",
     "mage_fireforged",
+    "life_blessing",
+    "life_spiritual_armor",
     "aggr",
     "miner",
     "stun",
