@@ -36,7 +36,7 @@ void main(){
     vec3 waves=waterWaves(p,uTime);
     float surface=length(p)-waves.x;
     float aa=max(fwidth(surface),.002);
-    float mask=(1.-smoothstep(1.-aa,1.+aa,surface))*waterRemaining(p,uBurst);
+    float mask=(1.-smoothstep(1.-aa,1.+aa,surface))*waterRemaining(p,uBurst)*uAlpha;
     float z=sqrt(max(0.,1.-min(surface*surface,1.)));
     // Refraction vanishes at the boundary, so pixels outside the bubble never swim.
     float gate=1.-smoothstep(.80,1.,surface);
@@ -55,10 +55,12 @@ void main(){
     vec2 displacedPoint=waterPoint(vLocal+localOffset,uRadiusX);
     float displacedSurface=length(displacedPoint)-waterWaves(displacedPoint,uTime).x;
     offset*=1.-smoothstep(.97,1.,displacedSurface);
+    vec4 film=texture(uTexture,vTextureCoord);
+    // Leave the backdrop unchanged outside the film and refraction, including the filter padding.
+    if(mask==0. && film.a==0.)discard;
     vec4 unchanged=texture(uBackTexture,clamp(vTextureCoord,uInputClamp.xy,uInputClamp.zw));
     vec4 bent=texture(uBackTexture,clamp(vTextureCoord+offset,uInputClamp.xy,uInputClamp.zw));
-    vec4 scene=mix(unchanged,bent,mask*uAlpha);
-    vec4 film=texture(uTexture,vTextureCoord);
+    vec4 scene=mix(unchanged,bent,mask);
     finalColor=film+scene*(1.-film.a);
 }`;
 
@@ -68,6 +70,8 @@ export class WaterShieldRefractionFilter extends Filter {
         super({
             glProgram: GlProgram.from({ name: "water-shield-refraction", vertex, fragment }),
             blendRequired: true,
+            // The shader already composites the film over the captured backdrop.
+            blendMode: "none",
             resolution: "inherit",
             antialias: "off",
             padding: 5,

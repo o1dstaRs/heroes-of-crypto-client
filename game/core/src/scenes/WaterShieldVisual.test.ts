@@ -151,6 +151,7 @@ describe("Water Shield liquid ownership and projection", () => {
         root.alpha = 0.5;
         shield.update(sprite, 1234, 2);
         const filter = shield.front.filters![0] as WaterShieldRefractionFilter;
+        expect(filter.blendMode).toBe("none");
         let applied = 0;
         const manager = {
             calculateSpriteMatrix(matrix: Matrix, mappedSprite: Sprite) {
