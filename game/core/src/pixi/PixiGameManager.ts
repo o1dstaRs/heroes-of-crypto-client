@@ -829,8 +829,7 @@ export class PixiGameManager {
             zoomAnchor: () => {
                 const width = wrapper.clientWidth;
                 const height = wrapper.clientHeight;
-                // The wall and the two docks are outside the playing field. Zoom toward the cells,
-                // rather than the canvas centre, so repeated + presses keep the battlefield centred.
+                // Centre button zoom on the playable floor below the painted wall.
                 return { x: width / 2, y: height - boardBottomInset() - boardFitHeight(width, height) / 2 };
             },
             toPoint: ({ x, y }) =>

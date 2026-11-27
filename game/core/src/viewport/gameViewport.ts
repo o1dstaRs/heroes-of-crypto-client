@@ -7,11 +7,14 @@ export interface GameViewport {
     rotated: boolean;
 }
 
-// Shared by CSS and the camera: touch controls occupy real space, never playable floor.
-export const TOUCH_TOPBAR_HEIGHT = 56;
-export const TOUCH_ACTIONBAR_HEIGHT = 78;
-export const TOUCH_BOARD_GAP = 8;
+// Overlay dimensions shared by the HUD and touch confirmation placement.
+export const TOUCH_TOPBAR_HEIGHT = 52;
+export const TOUCH_ACTIONBAR_HEIGHT = 52;
+export const TOUCH_SIDE_DOCK_WIDTH = 72;
 export const GAME_VIEWPORT_CHANGED = "hoc-game-viewport-changed";
+
+/** Wide landscape views have room for the viewing tools beside the painted battlefield. */
+export const hasTouchSideDock = (width: number, height: number): boolean => width >= 500 && width >= height * 1.24;
 
 let touchGameActive = false;
 let touchInsets = { top: 0, bottom: 0, left: 0, right: 0 };

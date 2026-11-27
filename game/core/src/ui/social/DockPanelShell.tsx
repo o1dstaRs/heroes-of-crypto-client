@@ -121,6 +121,7 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({
             {open ? (
                 <Box
                     component={motion.div}
+                    data-social-dock-panel
                     ref={panelRef}
                     // Grows out of the dock buttons it was opened from, and shrinks back into them when
                     // dismissed, so the panel reads as belonging to the button rather than arriving from

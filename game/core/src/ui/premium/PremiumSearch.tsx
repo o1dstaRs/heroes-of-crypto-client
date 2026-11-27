@@ -120,6 +120,7 @@ export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boole
     return (
         <Box
             ref={ref}
+            data-premium-search-dock-slot
             sx={{
                 position: inline ? "relative" : "absolute",
                 right: inline ? undefined : "calc(100% + 10px)",

@@ -54,6 +54,19 @@
     }
 }
 
+@mixin touch-overlay-surface {
+    box-sizing: border-box;
+    border: 1px solid #775032;
+    border-radius: 10px;
+    background:
+        linear-gradient(rgb(17 11 7 / 80%), rgb(10 7 5 / 92%)),
+        var(--hoc-touch-stone) center / 210px;
+    color: #e4cca8;
+    box-shadow:
+        inset 0 1px rgb(244 188 114 / 12%),
+        0 3px 12px rgb(0 0 0 / 55%);
+}
+
 html[data-hoc-touch-game="true"] {
     overflow: hidden;
     font-family: "HoC Forge", Georgia, "Times New Roman", serif;
@@ -64,12 +77,46 @@ body[data-hoc-touch-game="true"] {
     --hoc-safe-right: env(safe-area-inset-right, 0px);
     --hoc-safe-bottom: env(safe-area-inset-bottom, 0px);
     --hoc-safe-left: env(safe-area-inset-left, 0px);
+    --hoc-touch-top-clearance: var(--hoc-touch-topbar-height);
+    --hoc-touch-side-clearance: 0px;
+    --hoc-touch-top-actions-clearance: var(--hoc-touch-actionbar-height);
+    --hoc-touch-corner-clearance: 112px;
 
     position: fixed;
     inset: 0 auto auto 0;
     width: var(--hoc-game-width);
     height: var(--hoc-game-height);
     overflow: hidden;
+
+    &[data-hoc-touch-side-dock="true"] {
+        --hoc-touch-top-clearance: 0px;
+        --hoc-touch-side-clearance: var(--hoc-touch-side-dock-width);
+
+        .hoc-touch-nav {
+            right: auto;
+            width: var(--hoc-touch-side-dock-width);
+            height: auto;
+            max-height: calc(var(--hoc-game-height) - 12px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
+            flex-direction: column;
+            align-items: stretch;
+            padding: 3px;
+            overflow: hidden auto;
+        }
+
+        .hoc-touch-turn {
+            flex: 0 0 auto;
+            padding: 6px 2px;
+            text-align: center;
+
+            strong {
+                display: -webkit-box;
+                overflow-wrap: anywhere;
+                white-space: normal;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+            }
+        }
+    }
 
     &[data-hoc-game-rotated="true"] {
         --hoc-safe-top: env(safe-area-inset-right, 0px);
@@ -117,11 +164,10 @@ body[data-hoc-touch-game="true"] {
 
     [data-touch-panel] {
         z-index: 30 !important;
-        top: calc(60px + var(--hoc-safe-top)) !important;
-        bottom: calc(84px + var(--hoc-safe-bottom)) !important;
+        top: calc(8px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance)) !important;
+        bottom: calc(6px + var(--hoc-safe-bottom) + var(--hoc-touch-actionbar-height)) !important;
         width: min(340px, calc(var(--hoc-game-width) * 0.44)) !important;
         height: auto !important;
-        max-height: calc(var(--hoc-game-height) - 144px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
         overflow: hidden auto !important;
         overscroll-behavior: contain;
         box-shadow: 0 8px 36px rgb(0 0 0 / 65%);
@@ -148,15 +194,17 @@ body[data-hoc-touch-game="true"] {
     }
 
     [data-touch-panel="unit"] {
-        left: calc(8px + var(--hoc-safe-left)) !important;
+        top: calc(
+            8px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance) + var(--hoc-touch-top-actions-clearance)
+        ) !important;
+        left: calc(8px + var(--hoc-safe-left) + var(--hoc-touch-side-clearance)) !important;
     }
 
     [data-touch-panel="army"] {
         // Exit / start-over keep their own 44px row; no roster tab or scrolled placement control may
         // slide behind them. The drawer remains scrollable on the shorter landscape phone surface.
-        top: calc(112px + var(--hoc-safe-top)) !important;
+        top: calc(56px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance)) !important;
         right: calc(8px + var(--hoc-safe-right)) !important;
-        max-height: calc(var(--hoc-game-height) - 196px - var(--hoc-safe-top) - var(--hoc-safe-bottom));
     }
 
     [data-desktop-turn-overlay],
@@ -166,68 +214,115 @@ body[data-hoc-touch-game="true"] {
         display: none !important;
     }
 
-    .hoc-touch-topbar,
-    .hoc-touch-actionbar {
-        @include touch-frame;
-
+    .hoc-touch-nav,
+    .hoc-touch-actionbar,
+    .hoc-touch-tools {
         position: fixed;
         z-index: 40;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 6px;
+        box-sizing: border-box;
 
-        button {
-            @include touch-plate;
-
+        :is(.hoc-touch-tool-row, .hoc-touch-confirm) > button,
+        > button {
             display: inline-flex;
-            flex: 0 0 auto;
             align-items: center;
             justify-content: center;
-            gap: 3px;
-            padding: 3px 10px;
-        }
+            box-sizing: border-box;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0 5px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: #e4cca8;
+            font: inherit;
+            font-size: 12px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
 
-        .hoc-touch-primary {
-            color: #efc490;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            box-shadow: inset 0 0 18px rgb(172 75 21 / 20%);
-        }
-
-        // Finished medallions carry their own face and frame, just like the desktop combat toolbar.
-        .hoc-touch-medallion,
-        .hoc-touch-combat-action,
-        .hoc-touch-icon-action,
-        .hoc-audio-control > button {
-            padding: 0;
-            border: 0;
-            background-color: transparent;
-            box-shadow: none;
-
-            img {
-                width: 44px;
-                height: 44px;
-                object-fit: contain;
-                pointer-events: none;
+            &:active:not(:disabled),
+            &[aria-pressed="true"],
+            &[aria-expanded="true"] {
+                border-color: #9d713e;
+                background: #3b2618;
+                color: #ffe2b4;
             }
+
+            &:disabled {
+                opacity: 0.55;
+                filter: grayscale(0.7);
+            }
+
+            &:focus-visible {
+                outline: 2px solid #dcb158;
+                outline-offset: -2px;
+            }
+        }
+
+        > .hoc-touch-primary,
+        .hoc-touch-confirm > .hoc-touch-primary,
+        > [data-action="Next"] {
+            padding-inline: 10px;
+            border-color: #bc8451;
+            background: linear-gradient(#57391f, #2e1c11);
+            color: #ffe2ad;
+            font-weight: 800;
+        }
+
+        :is(.hoc-touch-medallion, .hoc-touch-combat-action, .hoc-touch-icon-action) img {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            pointer-events: none;
         }
     }
 
-    .hoc-touch-topbar {
-        top: var(--hoc-safe-top);
-        left: var(--hoc-safe-left);
-        right: var(--hoc-safe-right);
-        height: var(--hoc-touch-topbar-height);
+    .hoc-touch-nav,
+    .hoc-touch-actionbar {
+        // Keep the battlefield interactive between the floating controls.
+        pointer-events: none;
+
+        > button,
+        .hoc-touch-confirm > button,
+        .hoc-touch-primary-content :is(button, a, [role="button"]) {
+            pointer-events: auto;
+        }
+
+        > button:where(:not(.hoc-touch-primary, [data-action="Next"])) {
+            border-color: rgb(195 137 81 / 50%);
+            background: rgb(26 16 10 / 88%);
+            box-shadow: 0 2px 5px rgb(0 0 0 / 45%);
+        }
+    }
+
+    .hoc-touch-nav {
+        top: calc(4px + var(--hoc-safe-top));
+        left: calc(4px + var(--hoc-safe-left));
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        width: max-content;
+        max-width: calc(var(--hoc-game-width) - 8px - var(--hoc-safe-left) - var(--hoc-safe-right));
+        height: calc(var(--hoc-touch-topbar-height) - 4px);
+        padding-inline: 3px;
+        overflow: auto hidden;
+        scrollbar-width: none;
+
+        > button {
+            flex: 0 0 auto;
+            font-size: 14px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
     }
 
     .hoc-touch-turn {
+        @include touch-overlay-surface;
+
         display: flex;
         flex: 1 1 auto;
         flex-direction: column;
         min-width: 0;
-        padding-inline: 8px;
+        padding: 6px;
 
         strong,
         span {
@@ -238,29 +333,43 @@ body[data-hoc-touch-game="true"] {
 
         strong {
             font-size: 13px;
+            line-height: 1.2;
         }
 
         span {
-            color: #b5a17e;
+            color: #d4b385;
             font-size: 11px;
+
+            &:empty {
+                display: none;
+            }
         }
     }
 
     .hoc-touch-actionbar {
-        bottom: var(--hoc-safe-bottom);
-        left: var(--hoc-safe-left);
-        right: var(--hoc-safe-right);
-        height: var(--hoc-touch-actionbar-height);
-        padding-block: 2px;
-        justify-content: center;
+        top: calc(4px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance));
+        right: calc(var(--hoc-touch-corner-clearance) + var(--hoc-safe-right));
+        display: flex;
+        align-items: center;
+        justify-content: safe center;
+        gap: 2px;
+        width: max-content;
+        max-width: calc(
+            var(--hoc-game-width) -
+                8px - var(--hoc-safe-left) - var(--hoc-safe-right) - var(--hoc-touch-side-clearance) - var(
+                    --hoc-touch-corner-clearance
+                )
+        );
+        height: calc(var(--hoc-touch-actionbar-height) - 4px);
         overflow: auto hidden;
+        scrollbar-width: none;
 
         .hoc-touch-primary-slot {
-            flex: 0 1 240px;
-            min-width: 140px;
+            flex: 0 0 auto;
 
             &:empty,
-            &[hidden] {
+            &[hidden],
+            &:has(> .hoc-touch-primary-content:empty) {
                 display: none;
             }
         }
@@ -268,38 +377,112 @@ body[data-hoc-touch-game="true"] {
         .hoc-touch-primary-content {
             display: flex;
             align-items: center;
-
-            > button {
-                width: 100%;
-            }
+            gap: 4px;
         }
 
-        > button:not(.hoc-touch-primary) {
-            flex: 0 0 64px;
-            max-width: 72px;
+        > :is(.hoc-touch-combat-action, .hoc-touch-icon-action):not([data-action="Next"]) {
+            flex: 0 1 56px;
             flex-direction: column;
-            padding-inline: 4px;
-        }
-
-        &:has(.hoc-touch-primary-slot:not(:empty)) .hoc-touch-hint {
-            display: none;
-        }
-
-        .hoc-touch-combat-action,
-        .hoc-touch-icon-action {
-            min-width: 64px;
-            min-height: 62px;
-            padding: 0 4px;
+            width: 56px;
 
             span {
-                color: #d8c29c;
-                font-size: 11px;
-                letter-spacing: 0;
+                max-width: 100%;
+                overflow: hidden;
+                font-size: 10px;
+                line-height: 12px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
-            &[aria-pressed="true"] img {
-                filter: brightness(1.15) drop-shadow(0 0 4px rgb(230 161 62 / 35%));
+            b {
+                font-size: 24px;
+                line-height: 30px;
             }
+        }
+
+        > [data-action="Next"] {
+            flex: 0 0 auto;
+            gap: 3px;
+            white-space: nowrap;
+        }
+    }
+
+    &:is([data-hoc-touch-action-columns="1"], [data-hoc-touch-action-columns="2"]):has(
+            .hoc-touch-actionbar[data-combat="true"]
+        ) {
+        --hoc-touch-top-actions-clearance: 0px;
+
+        .hoc-touch-actionbar[data-combat="true"] {
+            top: auto;
+            right: calc(4px + var(--hoc-safe-right));
+            bottom: calc(4px + var(--hoc-safe-bottom));
+
+            &:not(:has(.hoc-touch-confirm)) {
+                display: grid;
+                grid-template-columns: repeat(var(--hoc-touch-action-columns), minmax(44px, 1fr));
+                width: var(--hoc-touch-action-width);
+                max-width: none;
+                height: auto;
+                overflow: visible;
+
+                > button {
+                    width: 100%;
+                    padding-inline: 2px;
+                }
+
+                > [data-action="Next"] {
+                    grid-column: 1 / -1;
+                    line-height: 1.1;
+                    white-space: normal;
+
+                    img {
+                        display: none;
+                    }
+                }
+            }
+        }
+
+        [data-battle-system-dock="menu"] {
+            top: calc(56px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance));
+            bottom: auto !important;
+        }
+
+        [data-battle-system-dock="guide"] {
+            top: calc(38px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance));
+            bottom: auto !important;
+        }
+    }
+
+    .hoc-touch-tools {
+        @include touch-overlay-surface;
+
+        z-index: 45;
+        top: calc(4px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance));
+        left: calc(8px + var(--hoc-safe-left) + var(--hoc-touch-side-clearance));
+        width: max-content;
+        max-width: calc(
+            var(--hoc-game-width) -
+                16px - var(--hoc-safe-left) - var(--hoc-safe-right) - var(--hoc-touch-side-clearance)
+        );
+        padding: 4px;
+
+        &[hidden] {
+            display: none;
+        }
+    }
+
+    .hoc-touch-tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+
+        > button {
+            gap: 3px;
+        }
+
+        > .hoc-touch-zoom {
+            font-size: 19px;
         }
     }
 
@@ -312,10 +495,13 @@ body[data-hoc-touch-game="true"] {
         button {
             min-width: 44px;
             min-height: 44px;
+            -webkit-tap-highlight-color: transparent;
         }
     }
 
     #hoc-touch-audio-slot .hoc-audio-control {
+        // Place the volume popover against the tools tray so it can fit inward from the edge.
+        position: static !important;
         width: 44px !important;
         height: 44px !important;
     }
@@ -382,8 +568,24 @@ body[data-hoc-touch-game="true"] {
     }
 
     #hoc-touch-audio-slot .hoc-audio-popup {
-        top: calc(100% + 10px);
+        top: calc(100% + 4px);
+        right: auto !important;
         bottom: auto !important;
+        left: 0;
+        width: 280px;
+        min-width: 0 !important;
+        max-width: calc(
+            var(--hoc-game-width) -
+                16px - var(--hoc-safe-left) - var(--hoc-safe-right) - var(--hoc-touch-side-clearance)
+        );
+        max-height: calc(
+            var(--hoc-game-height) - var(--hoc-safe-top) - var(--hoc-safe-bottom) - var(
+                    --hoc-touch-top-clearance
+                ) - var(--hoc-touch-actionbar-height) -
+                68px
+        );
+        overflow: auto;
+        overscroll-behavior: contain;
     }
 
     .hoc-touch-volume-row {
@@ -451,7 +653,7 @@ body[data-hoc-touch-game="true"] {
 
         position: fixed;
         z-index: 60;
-        top: calc(62px + var(--hoc-safe-top));
+        top: calc(8px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance) + var(--hoc-touch-top-actions-clearance));
         left: 50%;
         display: flex;
         align-items: center;
@@ -482,22 +684,106 @@ body[data-hoc-touch-game="true"] {
         right: calc(8px + var(--hoc-safe-right)) !important;
     }
 
+    &:has(.hoc-touch-nav) [data-game-corner-slot] {
+        top: calc(4px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance)) !important;
+    }
+
+    &:has(.hoc-touch-nav) {
+        // The floating system menu also appears during battles. Keep it and its panels above the turn actions.
+        [data-battle-system-dock="menu"] {
+            right: calc(8px + var(--hoc-safe-right)) !important;
+            bottom: calc(8px + var(--hoc-safe-bottom) + var(--hoc-touch-actionbar-height)) !important;
+        }
+
+        [data-battle-system-dock="guide"] {
+            right: calc(48px + var(--hoc-safe-right)) !important;
+            bottom: calc(24px + var(--hoc-safe-bottom) + var(--hoc-touch-actionbar-height)) !important;
+
+            [data-premium-search-dock-slot] {
+                width: 36px;
+            }
+
+            .premium-guide-label {
+                display: none;
+            }
+        }
+
+        [data-social-dock-panel] {
+            right: calc(8px + var(--hoc-safe-right)) !important;
+            bottom: calc(52px + var(--hoc-safe-bottom) + var(--hoc-touch-actionbar-height)) !important;
+            max-height: calc(
+                var(--hoc-game-height) - var(--hoc-safe-top) - var(--hoc-safe-bottom) - var(
+                        --hoc-touch-top-clearance
+                    ) - var(--hoc-touch-actionbar-height) -
+                    60px
+            ) !important;
+        }
+    }
+
+    [data-next-lap-hazard] {
+        z-index: 25 !important;
+        top: calc(4px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance) + var(--hoc-touch-top-actions-clearance));
+        bottom: auto !important;
+        max-width: calc(var(--hoc-game-width) - 2 * max(104px + var(--hoc-safe-left), 104px + var(--hoc-safe-right)));
+        padding: 4px 8px !important;
+        font-size: 12px !important;
+        white-space: normal !important;
+
+        img,
+        svg {
+            flex: none;
+        }
+    }
+
+    [data-ai-control-notice] {
+        z-index: 25 !important;
+        top: calc(52px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance));
+        right: calc(8px + var(--hoc-safe-right));
+        bottom: auto !important;
+        left: auto !important;
+        max-width: min(280px, 48%) !important;
+        padding: 6px 8px !important;
+        font-size: 12px !important;
+    }
+
+    &:has([data-next-lap-hazard]) .hoc-touch-inspect-hint {
+        top: calc(46px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance) + var(--hoc-touch-top-actions-clearance));
+    }
+
     .hoc-touch-hint {
         max-width: 260px;
-        padding-inline: 8px;
+        margin: 4px 6px;
         color: #c4b79c;
         font-size: 12px;
     }
 
+    .hoc-touch-tools:has(.hoc-audio-popup[aria-hidden="false"]) .hoc-touch-hint {
+        display: none;
+    }
+
+    .hoc-touch-inspect-hint {
+        @include touch-overlay-surface;
+
+        position: fixed;
+        z-index: 40;
+        top: calc(8px + var(--hoc-safe-top) + var(--hoc-touch-top-clearance) + var(--hoc-touch-top-actions-clearance));
+        left: 50%;
+        margin: 0;
+        padding: 6px 10px;
+        font-size: 12px;
+        transform: translateX(-50%);
+        pointer-events: none;
+    }
+
     .hoc-touch-confirm {
-        // Toolbar confirmations use the reserved dock; battlefield actions have their own anchored bubble.
+        @include touch-overlay-surface;
+
         display: flex;
         flex: 1 1 auto;
         align-items: center;
         justify-content: flex-end;
-        gap: 8px;
+        gap: 4px;
         min-width: 0;
-        max-width: 640px;
 
         > span {
             flex: 1 1 auto;

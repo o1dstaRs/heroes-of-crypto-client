@@ -1543,6 +1543,7 @@ export const SocialDock: React.FC = () => {
     const systemDockControls = (
         <>
             <Box
+                data-battle-system-dock="guide"
                 sx={{
                     position: "fixed",
                     bottom: `calc(${GAME_SYSTEM_CONTROLS_BOTTOM_INSET} + ${SYSTEM_DOCK_BUTTON_SIZE_PX / 2}px)`,
@@ -1575,6 +1576,7 @@ export const SocialDock: React.FC = () => {
             />
             <Box
                 data-social-dock-button="true"
+                data-battle-system-dock="menu"
                 onMouseEnter={showSystemMenu}
                 onMouseLeave={scheduleSystemMenuClose}
                 onFocus={showSystemMenu}

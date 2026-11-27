@@ -28,6 +28,7 @@ export const AiControlBadge: React.FC<{ left?: number; label?: string; hint?: st
     const pulsing = tone === "ai";
     return (
         <div
+            data-ai-control-notice
             className={pulsing ? "hoc-ai-badge" : undefined}
             style={{
                 position: "absolute",

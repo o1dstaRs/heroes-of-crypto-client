@@ -67,6 +67,7 @@ export default function TouchBattleHud() {
     const [started, setStarted] = useState(manager.hasStarted);
     const [pending, setPending] = useState(manager.GetTouchActionPreview());
     const [inspect, setInspect] = useState(false);
+    const [toolsOpen, setToolsOpen] = useState(false);
     const fullscreen = useFullscreenActive(true);
     const [fullscreenNotice, setFullscreenNotice] = useState(false);
     const [visible, setVisible] = useState<IVisibleState | undefined>(manager.m_scene?.sc_visibleState);
@@ -80,10 +81,17 @@ export default function TouchBattleHud() {
                 setPending(manager.GetTouchActionPreview());
                 if (label) {
                     setInspect(false);
+                    setToolsOpen(false);
                     setPanel(null);
                 }
             }),
-            manager.onTouchInspection.connect(() => setPanel("unit")),
+            manager.onTouchInspection.connect(() => {
+                if (!manager.m_scene?.sc_selectedUnitProperties) return;
+                manager.SetTouchInspectMode(false);
+                setInspect(false);
+                setToolsOpen(false);
+                setPanel("unit");
+            }),
         ];
         return () => {
             connections.forEach((connection) => connection.disconnect());
@@ -91,19 +99,76 @@ export default function TouchBattleHud() {
         };
     }, [manager, setPanel]);
 
+    useEffect(() => {
+        if (!toolsOpen) return;
+        const dismiss = (event: PointerEvent) => {
+            if (event.target instanceof Element && !event.target.closest(".hoc-touch-nav, #hoc-touch-tools")) {
+                setToolsOpen(false);
+            }
+        };
+        document.addEventListener("pointerdown", dismiss, true);
+        return () => document.removeEventListener("pointerdown", dismiss, true);
+    }, [toolsOpen]);
+
     if (loading) return null;
+    const changeInspect = (enabled: boolean) => {
+        setInspect(enabled);
+        manager.SetTouchInspectMode(enabled);
+    };
     const togglePanel = (next: "unit" | "army") => {
-        setInspect(false);
-        manager.SetTouchInspectMode(false);
+        changeInspect(false);
+        setToolsOpen(false);
         setPanel(panel === next ? null : next);
     };
-    const seconds = visible?.secondsRemaining;
-    const active = visible?.upNext?.[0]?.name;
+    const seconds = started ? visible?.secondsRemaining : undefined;
+    const lap = started ? visible?.lapNumber : undefined;
+    const turnName = started ? (visible?.upNext?.[0]?.name ?? t("Battle")) : t("Placement");
     const dockedConfirmation = pending && !pending.anchor ? pending : null;
+    const visibleButtons = started ? buttons.filter((button) => button.isVisible) : [];
+    const autoButton = visibleButtons.find((button) => button.name === "AI");
+    const endTurn = visibleButtons.find((button) => button.name === "Next");
+    const canStart = !started && visible?.canBeStarted && manager.GetTouchCreatureChoices().length > 0;
+    const canRotate = visibleButtons.some(
+        (button) => button.name === "Spellbook" && button.text === "Selected spell: Fire Wall",
+    );
+    const renderCombatButton = (button: IVisibleButton) => {
+        const label = t(buttonLabel(button));
+        const image = buttonImage(button);
+        return (
+            <button
+                key={button.name}
+                className="hoc-touch-combat-action"
+                data-action={button.name}
+                disabled={button.isDisabled}
+                aria-pressed={button.name === "AI" ? button.state === VisibleButtonState.SECOND : undefined}
+                aria-label={label}
+                title={t(button.text)}
+                onClick={() => {
+                    changeInspect(false);
+                    propagateClick(button.name, button.state);
+                }}
+            >
+                {image && <img src={image} alt="" draggable={false} />}
+                <span>{label}</span>
+            </button>
+        );
+    };
 
     return (
         <>
-            <nav className="hoc-touch-topbar" aria-label={t("Battle controls")}>
+            <nav className="hoc-touch-nav" aria-label={t("Battle controls")}>
+                <div className="hoc-touch-turn" role="status">
+                    <strong>{turnName}</strong>
+                    <span>
+                        {lap ? `${t("Lap")} ${lap}` : null}
+                        {typeof seconds === "number" && seconds > 0 && (
+                            <>
+                                {lap ? " · " : null}
+                                {Math.ceil(seconds)}s
+                            </>
+                        )}
+                    </span>
+                </div>
                 <button aria-expanded={panel === "unit"} onClick={() => togglePanel("unit")}>
                     {t("Unit")}
                 </button>
@@ -114,47 +179,77 @@ export default function TouchBattleHud() {
                 >
                     {t("Army")}
                 </button>
-                <div className="hoc-touch-turn" role="status">
-                    <strong>{active ?? t("Placement")}</strong>
-                    <span>
-                        {visible?.lapNumber ? `${t("Lap")} ${visible.lapNumber}` : t("Prepare your army")}
-                        {typeof seconds === "number" && seconds > 0 ? ` · ${Math.ceil(seconds)}s` : ""}
-                    </span>
-                </div>
                 <button
                     aria-pressed={inspect}
                     onClick={() => {
-                        const next = !inspect;
-                        setInspect(next);
-                        manager.SetTouchInspectMode(next);
-                        if (next) setPanel("unit");
+                        changeInspect(!inspect);
+                        setPanel(null);
+                        setToolsOpen(false);
                     }}
                 >
                     {t("Inspect")}
                 </button>
-                <button aria-label={t("Zoom out")} onClick={() => manager.ZoomTouchBoard(1 / 1.25)}>
-                    −
-                </button>
                 <button aria-label={t("Fit battlefield")} onClick={() => manager.HomeCamera()}>
                     {t("Fit")}
                 </button>
-                <button aria-label={t("Zoom in")} onClick={() => manager.ZoomTouchBoard(1.25)}>
-                    +
-                </button>
-                <div id="hoc-touch-audio-slot" />
                 <button
-                    className="hoc-touch-medallion"
-                    aria-label={t(fullscreen ? "Exit fullscreen" : "Fullscreen")}
-                    aria-pressed={fullscreen}
+                    aria-controls="hoc-touch-tools"
+                    aria-expanded={toolsOpen}
                     onClick={() => {
-                        void toggleFullscreen({ landscape: true }).then((result) =>
-                            setFullscreenNotice(result === "unavailable" || result === "denied"),
-                        );
+                        changeInspect(false);
+                        setPanel(null);
+                        setToolsOpen(!toolsOpen);
                     }}
                 >
-                    <img src={images.ui_control_fullscreen_forged_bronze_v1} alt="" draggable={false} />
+                    {t("More")}
                 </button>
             </nav>
+            <div
+                id="hoc-touch-tools"
+                className="hoc-touch-tools"
+                role="group"
+                aria-label={t("More")}
+                hidden={!toolsOpen}
+            >
+                <div className="hoc-touch-tool-row">
+                    <button
+                        className="hoc-touch-zoom"
+                        aria-label={t("Zoom out")}
+                        onClick={() => manager.ZoomTouchBoard(1 / 1.25)}
+                    >
+                        −
+                    </button>
+                    <button
+                        className="hoc-touch-zoom"
+                        aria-label={t("Zoom in")}
+                        onClick={() => manager.ZoomTouchBoard(1.25)}
+                    >
+                        +
+                    </button>
+                    <div id="hoc-touch-audio-slot" />
+                    <button
+                        className="hoc-touch-medallion"
+                        aria-label={t(fullscreen ? "Exit fullscreen" : "Fullscreen")}
+                        aria-pressed={fullscreen}
+                        onClick={() => {
+                            void toggleFullscreen({ landscape: true }).then((result) => {
+                                const unavailable = result === "unavailable" || result === "denied";
+                                setFullscreenNotice(unavailable);
+                                if (unavailable) setToolsOpen(false);
+                            });
+                        }}
+                    >
+                        <img src={images.ui_control_fullscreen_forged_bronze_v1} alt="" draggable={false} />
+                    </button>
+                    {autoButton && renderCombatButton(autoButton)}
+                </div>
+                {!started && <p className="hoc-touch-hint">{t("Tap a stack, then its destination. Pinch to zoom.")}</p>}
+            </div>
+            {inspect && (
+                <p className="hoc-touch-inspect-hint" role="status">
+                    {t("Tap a unit to inspect")}
+                </p>
+            )}
             {fullscreenNotice && (
                 <div className="hoc-touch-notice" role="status">
                     <span>{t("Fullscreen is unavailable here. Use Add to Home Screen for an app view.")}</span>
@@ -175,7 +270,12 @@ export default function TouchBattleHud() {
                     cancel={() => manager.CancelTouchAction()}
                 />
             )}
-            <div className="hoc-touch-actionbar" role="toolbar" aria-label={t("Turn actions")}>
+            <div
+                className="hoc-touch-actionbar"
+                data-combat={started ? "true" : undefined}
+                role="toolbar"
+                aria-label={t("Turn actions")}
+            >
                 {/* Keep this portal target mounted while confirming, so ranked ready/search controls
                     return to the same live dock when the player cancels or finishes an action. */}
                 <div
@@ -193,72 +293,35 @@ export default function TouchBattleHud() {
                     </div>
                 ) : (
                     <>
-                        {started && buttons.some((button) => button.isVisible) ? (
-                            buttons
-                                .filter((button) => button.isVisible)
-                                .map((button) => (
-                                    <button
-                                        key={button.name}
-                                        className="hoc-touch-combat-action"
-                                        disabled={button.isDisabled}
-                                        aria-pressed={
-                                            button.name === "AI"
-                                                ? button.state === VisibleButtonState.SECOND
-                                                : undefined
-                                        }
-                                        aria-label={t(buttonLabel(button))}
-                                        title={t(button.text)}
-                                        onClick={() => {
-                                            setInspect(false);
-                                            manager.SetTouchInspectMode(false);
-                                            propagateClick(button.name, button.state);
-                                        }}
-                                    >
-                                        {buttonImage(button) && (
-                                            <img src={buttonImage(button)} alt="" draggable={false} />
-                                        )}
-                                        <span>{t(buttonLabel(button))}</span>
-                                    </button>
-                                ))
-                        ) : (
-                            <>
-                                <button className="hoc-touch-primary" onClick={() => togglePanel("army")}>
-                                    {t("Army & placement")}
-                                </button>
-                                {visible?.canBeStarted && manager.GetTouchCreatureChoices().length > 0 && (
-                                    <button className="hoc-touch-primary" onClick={() => manager.StartGame()}>
-                                        {t("Start battle")}
-                                    </button>
-                                )}
-                                <span className="hoc-touch-hint">
-                                    {t("Tap a stack, then its destination. Pinch to zoom.")}
-                                </span>
-                            </>
+                        {visibleButtons
+                            .filter((button) => button !== autoButton && button !== endTurn)
+                            .map(renderCombatButton)}
+                        {canStart && (
+                            <button className="hoc-touch-primary" onClick={() => manager.StartGame()}>
+                                {t("Start battle")}
+                            </button>
                         )}
-                        {buttons.some(
-                            (button) => button.name === "Spellbook" && button.text === "Selected spell: Fire Wall",
-                        ) && (
+                        {canRotate && (
                             <button
-                                onClick={() => {
-                                    manager.RotateTouchSpell();
-                                }}
+                                className="hoc-touch-icon-action"
+                                onClick={() => manager.RotateTouchSpell()}
                                 aria-label={t("Rotate spell")}
                             >
-                                ↻<span>{t("Rotate")}</span>
+                                <b aria-hidden="true">↻</b>
+                                <span>{t("Rotate")}</span>
                             </button>
                         )}
                         <button
                             className="hoc-touch-icon-action"
                             onClick={() => {
-                                manager.CancelTouchAction();
                                 manager.HandleEscapeKey(true);
-                                setInspect(false);
-                                manager.SetTouchInspectMode(false);
+                                changeInspect(false);
                             }}
                         >
                             <img src={images.ui_control_close_oxblood_bronze_v2} alt="" draggable={false} />
                             <span>{t("Deselect")}</span>
                         </button>
+                        {endTurn && renderCombatButton(endTurn)}
                     </>
                 )}
             </div>

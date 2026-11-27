@@ -37,6 +37,7 @@ export const NextLapHazardBadge: React.FC = () => {
 
     return (
         <div
+            data-next-lap-hazard
             title={t(hazard.detail)}
             style={{
                 position: "absolute",
