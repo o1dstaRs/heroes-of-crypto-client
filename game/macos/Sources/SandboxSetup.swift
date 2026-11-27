@@ -165,7 +165,10 @@ struct SandboxSetup {
         var result = sampleArmies
         for index in order {
             let stack = sampleArmies[index], footprint = footprints[index]
-            let choices = availableAnchors(for: footprint, team: stack.team, excluding: occupied, zone: deployment[stack.team]?.cells)
+            guard let zone = deployment[stack.team] else {
+                throw EngineError(message: "The \(stack.team.title) deployment zone is missing.")
+            }
+            let choices = availableAnchors(for: footprint, team: stack.team, excluding: occupied, zone: zone.cells)
             func distance(_ cell: Cell) -> Int32 { abs(cell.x - stack.x) + abs(cell.y - stack.y) }
             guard let anchor = choices.min(by: { distance($0) < distance($1) }) else {
                 throw EngineError(message: "The sample army does not fit in the \(stack.team.title) deployment zone.")

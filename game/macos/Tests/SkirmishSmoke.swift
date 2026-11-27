@@ -438,7 +438,8 @@ struct SkirmishSmoke {
 
     @MainActor
     private static func checkSampleArmies(_ setup: SandboxSetup, using configurator: SandboxLoadoutEngine) throws {
-        let full = SandboxLoadout(augments: ["Armor": 3, "Might": 3, "Empower": 1], synergies: ["Life": 2], tier1: 11)
+        let full = SandboxLoadout(augments: ["Armor": 3, "Might": 3, "Empower": 1], synergies: ["Life": 2],
+                                  tier1: configurator.options.barrelBarricade)
         let barricade = SandboxLoadout(augments: ["Placement": 1, "Armor": 2], tier1: configurator.options.barrelBarricade,
                                        barrels: [SandboxPlacedBarrel(index: 0, cell: Cell(x: 13, y: 10))])
 
@@ -451,8 +452,13 @@ struct SkirmishSmoke {
             let (empty, originalDeployment) = try configurator.prepare(map: map, stacks: [], catalogue: setup.creatures,
                                                                           loadouts: loadouts, automated: [], boardSeed: seed)
             let planned = try setup.arrangeSampleArmies(on: empty.view(), deployment: originalDeployment)
+            // The model keeps the deployed barricade cells after the initial board is created.
+            var existing = loadouts
+            for (team, preview) in originalDeployment where existing[team]?.tier1 == configurator.options.barrelBarricade {
+                existing[team]?.barrels = preview.barrels
+            }
             let (battle, previews) = try configurator.prepare(map: map, stacks: planned, catalogue: setup.creatures,
-                                                               loadouts: loadouts, automated: [], boardSeed: seed)
+                                                               loadouts: existing, automated: [], boardSeed: seed)
             let view = try battle.view()
             let occupied = view.stacks.flatMap(\.cells)
             try require(Set(occupied).count == occupied.count && Set(occupied).isDisjoint(with: view.stones),
