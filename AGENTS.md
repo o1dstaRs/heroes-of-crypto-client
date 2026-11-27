@@ -236,8 +236,9 @@ ranges quickly. Wolf split because of larger size generally better in defense".
 - Every other army keeps the v36 screen, so Wolves still screen in defence.
 - AI seats and Premium "Arrange army" change together; the client's Premium projection follows. Switch
   `A19_CLOSE_SCREEN_<LEFT|RIGHT>`, on unless `0`.
-- The owner chose "Adopt now, check after". Its registered non-inferiority check follows; a failure rolls it back as the
-  next profile. Read common's `docs/close_screen_adoption.md`.
+- The owner chose "Adopt now, check after". CS1 passed on November 27 with +0.37 points (95% −0.28 to +1.03), all seven
+  gates, and fewer early ranged actions on changed openings. The default records non-inferiority. Read common's
+  `docs/close_screen_adoption.md`.
 
 Profile v38, retained in v39: `a19-bot-ban-queen-v1` (server `da49bb3`, November 26, 2026; the owner approved AI bans on
 November 25: "AI can ban 1 creature sure, before game. Same way how it works for humans"):
