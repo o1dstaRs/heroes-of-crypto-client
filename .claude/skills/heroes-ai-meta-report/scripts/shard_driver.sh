@@ -6,6 +6,7 @@
 #
 # Environment: ROOT (heroes-of-crypto-common root), RUN (fresh shard directory), GAMES, SEED, PROFILE,
 # PROCS, WINDOW (pairs per process), COHORTS (CSV), BUN_DIR (optional bun directory to prepend to PATH).
+# AI_META_PAIR_START / AI_META_PAIR_END optionally register a subset of the same fixed pair bank.
 set -uo pipefail
 if [ -n "${BUN_DIR:-}" ]; then
   export PATH=$BUN_DIR:$PATH
@@ -20,6 +21,15 @@ WORKERS=${WORKERS:-1}
 WINDOW=${WINDOW:-12}
 COHORTS=${COHORTS:-ranked-draft,uniform-mixed,ranged-heavy,ground-melee,flyer-heavy,caster-support,cross-archetype}
 LOG=$RUN/driver.log
+PAIRS=$((GAMES / 2))
+PAIR_START=${AI_META_PAIR_START:-0}
+PAIR_END=${AI_META_PAIR_END:-$PAIRS}
+if ! [[ $PAIR_START =~ ^(0|[1-9][0-9]*)$ && $PAIR_END =~ ^[1-9][0-9]*$ ]] ||
+   ! ((PAIR_START < PAIR_END && PAIR_END <= PAIRS && PAIR_START % WINDOW == 0 &&
+       (PAIR_END == PAIRS || PAIR_END % WINDOW == 0))); then
+  echo "invalid pair range [$PAIR_START, $PAIR_END) for $PAIRS pairs and window $WINDOW" >&2
+  exit 2
+fi
 
 if [ -e "$RUN" ] && [ -n "$(ls -A "$RUN" 2>/dev/null)" ] && [ "${AI_META_RESUME:-0}" != 1 ]; then
   echo "refusing non-empty shard directory $RUN" >&2
@@ -53,16 +63,15 @@ PYUNLOCK
 cd "$ROOT" || exit 2
 # Register the whole tiled job before starting any windows; never mix a new source on resume.
 export RUN GAMES SEED PROFILE PROCS WORKERS WINDOW COHORTS
-bun -e 'import {readFileSync,existsSync,writeFileSync} from "node:fs"; import {captureAiMetaSourceIdentity,resolveAiMetaFightProfile} from "./src/simulation/measure_ai_meta_cohorts"; const keys=["GAMES","SEED","PROFILE","PROCS","WORKERS","WINDOW","COHORTS"];const path=process.env.RUN+"/driver-registration.json";const identity={schema:"ai-meta-driver-v1",arguments:Object.fromEntries(keys.map(k=>[k,process.env[k]])),source:captureAiMetaSourceIdentity(),profile:resolveAiMetaFightProfile(process.env.PROFILE)};const text=JSON.stringify(identity);if(existsSync(path)){if(readFileSync(path,"utf8")!==text)throw new Error("Shard driver source or fixed cases changed");}else writeFileSync(path,text,{flag:"wx"});' || exit 2
+bun -e 'import {readFileSync,existsSync,writeFileSync} from "node:fs"; import {captureAiMetaSourceIdentity,resolveAiMetaFightProfile} from "./src/simulation/measure_ai_meta_cohorts"; const keys=["GAMES","SEED","PROFILE","PROCS","WORKERS","WINDOW","COHORTS","AI_META_PAIR_START","AI_META_PAIR_END"];const path=process.env.RUN+"/driver-registration.json";const identity={schema:"ai-meta-driver-v1",arguments:Object.fromEntries(keys.map(k=>[k,process.env[k]])),source:captureAiMetaSourceIdentity(),profile:resolveAiMetaFightProfile(process.env.PROFILE)};const text=JSON.stringify(identity);if(existsSync(path)){if(readFileSync(path,"utf8")!==text)throw new Error("Shard driver source or fixed cases changed");}else writeFileSync(path,text,{flag:"wx"});' || exit 2
 echo "START $(date -u +%FT%TZ) root=$ROOT commit=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["commonCommit"])' "$RUN/driver-registration.json") dirty=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["commonDirty"])' "$RUN/driver-registration.json") bun=$(bun --version) games=$GAMES seed=$SEED profile=$PROFILE procs=$PROCS workers=$WORKERS window=$WINDOW gc_markers=${BUN_JSC_numberOfGCMarkers:-default} cohorts=$COHORTS" >> "$LOG"
 
 START_MONOTONIC=$(python3 -c 'import time; print(time.monotonic())')
 START_UTC=$(date -u +%FT%TZ)
 export START_MONOTONIC START_UTC
-PAIRS=$((GAMES / 2))
 : > "$RUN/jobs.txt"
-for ((s = 0; s < PAIRS; s += WINDOW)); do
-  n=$((PAIRS - s < WINDOW ? PAIRS - s : WINDOW))
+for ((s = PAIR_START; s < PAIR_END; s += WINDOW)); do
+  n=$((PAIR_END - s < WINDOW ? PAIR_END - s : WINDOW))
   for c in ${COHORTS//,/ }; do echo "$c $s $n" >> "$RUN/jobs.txt"; done
 done
 

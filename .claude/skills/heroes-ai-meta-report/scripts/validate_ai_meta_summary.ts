@@ -40,6 +40,7 @@ const FIGHT_PROFILE_IDS = [
     "a19-bot-seat",
     "v09-draft-a19-work",
     "ranked-current-a19-work",
+    "ranked-current-zig-work",
 ] as const;
 type FightProfileId = (typeof FIGHT_PROFILE_IDS)[number];
 
@@ -557,6 +558,12 @@ async function validateSummary(options: CliOptions, commonRoot: string): Promise
             fightProfile.searchBudget === "offline-deterministic-work" &&
             isRecord(fightProfile.authoritativeSource) &&
             fightProfile.studyProfile === "premium-ranked-current-v1";
+        const isCurrentZig =
+            fightProfile.name === "ranked-current+v0.8-zig-work" &&
+            fightProfile.searchBudget === "offline-deterministic-work" &&
+            fightProfile.searchBackend === "verified-zig-deepening" &&
+            isRecord(fightProfile.authoritativeSource) &&
+            fightProfile.studyProfile === "premium-ranked-current-v1";
         const profileMatches: Record<FightProfileId, boolean> = {
             a13: isA13,
             a19: isA19,
@@ -564,6 +571,7 @@ async function validateSummary(options: CliOptions, commonRoot: string): Promise
             "a19-bot-seat": isBotSeat,
             "v09-draft-a19-work": isHybrid,
             "ranked-current-a19-work": isCurrent,
+            "ranked-current-zig-work": isCurrentZig,
         };
         audit.check(
             Object.values(profileMatches).some(Boolean),

@@ -12,13 +12,16 @@ import {
     writeFileSync,
 } from "node:fs";
 import { once } from "node:events";
+import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { createGunzip, createGzip } from "node:zlib";
 
-const [runArg, outArg, rootArg] = process.argv.slice(2);
+const [runArg, outArg, rootArg, portabilityArg] = process.argv.slice(2);
 if (!runArg || !outArg || !rootArg) {
-    throw new Error("Usage: bun merge_ai_meta_shards.ts <sharded-run-dir> <fresh-output-dir> <common-root>");
+    throw new Error(
+        "Usage: bun merge_ai_meta_shards.ts <sharded-run-dir> <fresh-output-dir> <common-root> [portability-receipt.json]",
+    );
 }
 const runDir = resolve(runArg);
 const outDir = resolve(outArg);
@@ -67,7 +70,14 @@ for (const name of readdirSync(shardRoot).sort()) {
     if (!window || summary.cohorts.length !== 1 || !quality || quality.pairs !== window.count) continue;
     shards.push({
         dir,
-        summary,
+        // The merger rebuilds rankings from raw pairs. Retaining the large per-window rankings
+        // and interactions would keep every deserialized report in memory through finalization.
+        summary: {
+            schemaVersion: summary.schemaVersion,
+            provenance: summary.provenance,
+            generatedAt: summary.generatedAt,
+            cohorts: [quality],
+        },
         cohort: quality.cohort,
         start: window.start,
         count: window.count,
@@ -76,6 +86,82 @@ for (const name of readdirSync(shardRoot).sort()) {
 if (!shards.length) throw new Error(`no completed shards under ${shardRoot}`);
 
 const reference = shards[0].summary;
+interface IReplayedPair {
+    cohort: string;
+    map: number;
+    pair: number;
+    sha256: string;
+}
+interface ICalibratedHost {
+    name: string;
+    baseSeed: number;
+    commonCommit: string;
+    sourceSha256: string;
+    dependencySha256: string;
+    runtime: string;
+    executionHost: Record<string, unknown>;
+    authoritativeSource: Record<string, unknown>;
+    searchBackend: string;
+    nativeLibrarySha256: string;
+    records: IReplayedPair[];
+}
+function calibratedHosts(path: string) {
+    const raw = readFileSync(path, "utf8");
+    const receipt = JSON.parse(raw) as { schema: string; workers: ICalibratedHost[] };
+    const profile = reference.provenance.fightProfile;
+    if (
+        receipt.schema !== "ai-meta-portability-v1" ||
+        profile?.name !== "ranked-current+v0.8-zig-work" ||
+        profile.searchBudget !== "offline-deterministic-work" ||
+        profile.searchBackend !== "verified-zig-deepening" ||
+        !Array.isArray(receipt.workers) ||
+        receipt.workers.length < 2
+    )
+        throw new Error("Portable sharding requires calibrated hosts and deterministic ranked Zig work");
+
+    const hosts = new Map<string, ICalibratedHost>();
+    const first = receipt.workers[0];
+    const expected = core.AI_META_COHORTS.flatMap((cohort: string) =>
+        core.AI_META_MAPS.map((map: number) => `${cohort}:${map}`),
+    ).sort();
+    const rows = first.records;
+    if (
+        !Array.isArray(rows) ||
+        JSON.stringify(rows.map(({ cohort, map }) => `${cohort}:${map}`).sort()) !== JSON.stringify(expected) ||
+        !rows.every(({ pair, sha256 }) => Number.isInteger(pair) && pair >= 0 && /^[a-f0-9]{64}$/.test(sha256))
+    )
+        throw new Error("Portability replay must cover every cohort and live map");
+
+    for (const worker of receipt.workers) {
+        const p = reference.provenance;
+        const key = JSON.stringify(worker.executionHost);
+        if (
+            !worker.name ||
+            !key ||
+            hosts.has(key) ||
+            worker.baseSeed !== p.baseSeed ||
+            worker.commonCommit !== p.commonCommit ||
+            worker.sourceSha256 !== p.sourceSha256 ||
+            worker.dependencySha256 !== p.dependencySha256 ||
+            worker.runtime !== p.runtime ||
+            worker.searchBackend !== p.fightProfile.searchBackend ||
+            JSON.stringify(worker.authoritativeSource) !== JSON.stringify(p.fightProfile.authoritativeSource) ||
+            worker.nativeLibrarySha256 !== first.nativeLibrarySha256 ||
+            !/^[a-f0-9]{64}$/.test(worker.nativeLibrarySha256) ||
+            JSON.stringify(worker.records) !== JSON.stringify(rows)
+        )
+            throw new Error(`Portability replay disagrees with the registered run: ${worker.name}`);
+        hosts.set(key, worker);
+    }
+    return {
+        hosts,
+        rawSha256: createHash("sha256").update(raw).digest("hex"),
+        replays: new Map(rows.map(({ cohort, pair, sha256 }) => [`${cohort}:${pair}`, sha256])),
+    };
+}
+const calibration = portabilityArg ? calibratedHosts(portabilityArg) : undefined;
+const verifiedReplays = new Set<string>();
+const windowsByHost = new Map<string, number>();
 const identity = (summary: any): string => {
     const p = summary.provenance;
     return JSON.stringify([
@@ -83,6 +169,7 @@ const identity = (summary: any): string => {
         p.commonCommit,
         p.commonDirty,
         p.sourceSha256,
+        p.dependencySha256,
         p.runtime,
         p.baseSeed,
         p.gamesPerCohort,
@@ -90,14 +177,18 @@ const identity = (summary: any): string => {
         p.outputContract,
         p.selectionPolicy,
         p.explorationRate,
-        p.executionHost?.cpuModel,
-        p.executionHost?.logicalCpus,
-        p.executionHost?.osRelease,
+        ...(calibration ? [] : [p.executionHost?.cpuModel, p.executionHost?.logicalCpus, p.executionHost?.osRelease]),
     ]);
 };
 const referenceIdentity = identity(reference);
 for (const shard of shards) {
     if (identity(shard.summary) !== referenceIdentity) throw new Error(`${shard.dir} has a different run identity`);
+    if (calibration) {
+        const key = JSON.stringify(shard.summary.provenance.executionHost);
+        const worker = calibration.hosts.get(key);
+        if (!worker) throw new Error(`${shard.dir} comes from a host outside the portability replay`);
+        windowsByHost.set(worker.name, (windowsByHost.get(worker.name) ?? 0) + 1);
+    }
 }
 if (reference.provenance.commonDirty !== false) {
     const origin = reference.provenance.frozenSource;
@@ -191,6 +282,14 @@ for (const cohort of cohorts) {
             if (record.pair < window.start || record.pair >= window.start + window.count || seen.has(record.pair)) {
                 throw new Error(`${window.dir}: duplicate or out-of-window pair ${record.pair}`);
             }
+            const replayKey = `${cohort}:${record.pair}`;
+            const replayHash = calibration?.replays.get(replayKey);
+            if (replayHash) {
+                if (createHash("sha256").update(line.trim()).digest("hex") !== replayHash) {
+                    throw new Error(`${window.dir}: collected record disagrees with portability replay ${replayKey}`);
+                }
+                verifiedReplays.add(replayKey);
+            }
             seen.add(record.pair);
             count += 1;
             accumulator.add(record);
@@ -246,6 +345,9 @@ for (const cohort of cohorts) {
             `${quality.distinctRosterViolations + quality.overlappingCreatureViolations}`,
     );
 }
+if (calibration && verifiedReplays.size !== calibration.replays.size) {
+    throw new Error("The merged archive is missing records from its portability replay");
+}
 
 const driverStart = existsSync(join(runDir, "driver.log"))
     ? (readFileSync(join(runDir, "driver.log"), "utf8")
@@ -299,6 +401,18 @@ const summary = {
             attemptDirectories: attemptDirs,
             shardsFinishedAt: finishedAt,
             sourceRun: runDir,
+            ...(calibration && {
+                portability: {
+                    receiptSha256: calibration.rawSha256,
+                    replayedPairs: verifiedReplays.size,
+                    workers: [...calibration.hosts.values()].map(({ name, executionHost, nativeLibrarySha256 }) => ({
+                        name,
+                        executionHost,
+                        nativeLibrarySha256,
+                        completedWindows: windowsByHost.get(name) ?? 0,
+                    })),
+                },
+            }),
             reason:
                 "Uses the adopted CPU process layout. Pair seeds are global, so windows tile the pooled run. " +
                 "The timing fields measure this run directly; historical layout benchmarks used a separate fight workload.",
